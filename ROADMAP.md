@@ -6,7 +6,7 @@ priority. Items marked **[DONE]** are already implemented.
 
 ---
 
-## Current State (v0.1.0)
+## Current State (v0.1.3)
 
 ### What is built and working
 
