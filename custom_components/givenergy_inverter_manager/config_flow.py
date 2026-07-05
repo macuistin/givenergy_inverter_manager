@@ -403,11 +403,36 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 errors["rate_periods_text"] = str(err)
 
         _LOGGER.error("GIVENERGY_DEBUG: building tariff schema")
+        try:
+            schema = self.create_tarrif_schema()
+        except BaseException as exc:  # noqa: BLE001
+            _LOGGER.error(
+                "GIVENERGY_DEBUG: TARIFF SCHEMA FAILED: %s: %s",
+                type(exc).__name__,
+                str(exc),
+                exc_info=True,
+            )
+            raise
+        scheduling_status, scheduling_detail = _build_charge_scheduling_summary(self._data)
+        _LOGGER.error("GIVENERGY_DEBUG: tariff schema built OK, calling async_show_form")
+        result = self.async_show_form(
+            step_id="tariff",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "scheduling_status": scheduling_status,
+                "scheduling_detail": scheduling_detail,
+            },
+        )
+        _LOGGER.error("GIVENERGY_DEBUG: async_show_form returned, type=%s", result.get("type"))
+        return result
+
+    def create_tarrif_schema(self):
         schema = vol.Schema(
             {
                 vol.Required(CONF_BASE_RATE, default=DEFAULT_BASE_RATE): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=5, step=0.0001, unit_of_measurement="€/kWh"
+                        min=0, max=5, step=0.0001, unit_of_measurement="EUR/kWh"
                     )
                 ),
                 vol.Optional(
@@ -420,19 +445,19 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                     CONF_EXPORT_RATE, default=DEFAULT_EXPORT_RATE
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=1, step=0.0001, unit_of_measurement="€/kWh"
+                        min=0, max=1, step=0.0001, unit_of_measurement="EUR/kWh"
                     )
                 ),
                 vol.Required(
                     CONF_STANDING_CHARGE, default=DEFAULT_STANDING_CHARGE
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=5, step=0.0001, unit_of_measurement="€/day"
+                        min=0, max=5, step=0.0001, unit_of_measurement="EUR/day"
                     )
                 ),
                 vol.Required(CONF_PSO_LEVY, default=DEFAULT_PSO_LEVY): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=20, step=0.01, unit_of_measurement="€/month"
+                        min=0, max=20, step=0.01, unit_of_measurement="EUR/month"
                     )
                 ),
                 vol.Required(CONF_VAT_RATE, default=DEFAULT_VAT_RATE): selector.NumberSelector(
@@ -456,21 +481,8 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 ),
             }
         )
-        scheduling_status, scheduling_detail = _build_charge_scheduling_summary(self._data)
-        _LOGGER.error("GIVENERGY_DEBUG: tariff schema built, calling async_show_form")
-        result = self.async_show_form(
-            step_id="tariff",
-            data_schema=schema,
-            errors=errors,
-            description_placeholders={
-                "scheduling_status": scheduling_status,
-                "scheduling_detail": scheduling_detail,
-            },
-        )
-        _LOGGER.error(
-            "GIVENERGY_DEBUG: async_show_form returned OK, result type=%s", result.get("type")
-        )
-        return result
+
+        return schema
 
     async def async_step_forecast(self, user_input=None):
         """Step 3: Solar forecast integration (optional)."""
@@ -661,7 +673,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     CONF_BASE_RATE, default=float(self._get(CONF_BASE_RATE, DEFAULT_BASE_RATE))
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=5, step=0.0001, unit_of_measurement="€/kWh"
+                        min=0, max=5, step=0.0001, unit_of_measurement="EUR/kWh"
                     )
                 ),
                 vol.Optional(
@@ -675,7 +687,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     CONF_EXPORT_RATE, default=self._get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE)
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=1, step=0.0001, unit_of_measurement="€/kWh"
+                        min=0, max=1, step=0.0001, unit_of_measurement="EUR/kWh"
                     )
                 ),
                 vol.Required(
@@ -683,14 +695,14 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     default=self._get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE),
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=5, step=0.0001, unit_of_measurement="€/day"
+                        min=0, max=5, step=0.0001, unit_of_measurement="EUR/day"
                     )
                 ),
                 vol.Required(
                     CONF_PSO_LEVY, default=self._get(CONF_PSO_LEVY, DEFAULT_PSO_LEVY)
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=20, step=0.01, unit_of_measurement="€/month"
+                        min=0, max=20, step=0.01, unit_of_measurement="EUR/month"
                     )
                 ),
                 vol.Required(
