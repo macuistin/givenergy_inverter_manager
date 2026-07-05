@@ -727,7 +727,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
     async def async_step_thresholds(self, user_input=None):
         if user_input is not None:
             self._options.update(user_input)
-            return self.async_create_entry(title="", data=self._options)
+            return await self.async_step_forecast()
         schema = vol.Schema(
             {
                 vol.Optional(
@@ -755,3 +755,33 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             }
         )
         return self.async_show_form(step_id="thresholds", data_schema=schema)
+
+    async def async_step_forecast(self, user_input=None):
+        """Step 3 (options): Solar forecast provider and entity."""
+        if user_input is not None:
+            self._options.update(user_input)
+            return self.async_create_entry(title="", data=self._options)
+        schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_FORECAST_PROVIDER,
+                    default=self._get(CONF_FORECAST_PROVIDER, ""),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            selector.SelectOptionDict(
+                                value=FORECAST_PROVIDER_FORECAST_SOLAR, label="Forecast.Solar"
+                            ),
+                            selector.SelectOptionDict(
+                                value=FORECAST_PROVIDER_SOLCAST, label="Solcast"
+                            ),
+                        ]
+                    )
+                ),
+                vol.Optional(
+                    CONF_FORECAST_ENTITY,
+                    default=self._get(CONF_FORECAST_ENTITY, ""),
+                ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            }
+        )
+        return self.async_show_form(step_id="forecast", data_schema=schema)

@@ -49,6 +49,7 @@ _const.PERCENTAGE = "%"
 _const.UnitOfPower = MagicMock()
 _const.UnitOfEnergy = MagicMock()
 _const.UnitOfTemperature = MagicMock()
+_const.EntityCategory = MagicMock()
 
 # --- homeassistant.config_entries ---
 _ce = sys.modules["homeassistant.config_entries"]
@@ -133,6 +134,9 @@ for _cls in [
     "NumberSelectorConfig",
     "SelectSelector",
     "SelectSelectorConfig",
+    "SelectOptionDict",
+    "TextSelector",
+    "TextSelectorConfig",
 ]:
     setattr(_sel, _cls, MagicMock)
 
