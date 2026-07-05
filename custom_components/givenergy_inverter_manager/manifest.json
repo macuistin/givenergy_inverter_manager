@@ -6,10 +6,10 @@
   ],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/macuistin/givenergy-inverter-manager",
+  "documentation": "https://github.com/macuistin/givenergy_inverter_manager",
   "integration_type": "device",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/macuistin/givenergy-inverter-manager/issues",
+  "issue_tracker": "https://github.com/macuistin/givenergy_inverter_manager/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.1.3"
 }
