@@ -402,6 +402,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             except ValueError as err:
                 errors["rate_periods_text"] = str(err)
 
+        _LOGGER.error("GIVENERGY_DEBUG: building tariff schema")
         schema = vol.Schema(
             {
                 vol.Required(CONF_BASE_RATE, default=DEFAULT_BASE_RATE): selector.NumberSelector(
@@ -456,7 +457,8 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             }
         )
         scheduling_status, scheduling_detail = _build_charge_scheduling_summary(self._data)
-        return self.async_show_form(
+        _LOGGER.error("GIVENERGY_DEBUG: tariff schema built, calling async_show_form")
+        result = self.async_show_form(
             step_id="tariff",
             data_schema=schema,
             errors=errors,
@@ -465,6 +467,10 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 "scheduling_detail": scheduling_detail,
             },
         )
+        _LOGGER.error(
+            "GIVENERGY_DEBUG: async_show_form returned OK, result type=%s", result.get("type")
+        )
+        return result
 
     async def async_step_forecast(self, user_input=None):
         """Step 3: Solar forecast integration (optional)."""
