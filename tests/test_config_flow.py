@@ -17,7 +17,6 @@ is the dedicated contract test for selector-level constraints.
 
 import importlib
 import sys
-import types
 
 import pytest
 
@@ -80,9 +79,8 @@ def real_vol(real_ha_selector):
 def _get_flow_class(real_ha_selector, real_vol):
     """Import GivEnergyInverterManagerConfigFlow using real HA + voluptuous."""
     # Patch in real modules before importing config_flow
-    import voluptuous
-
     import homeassistant.helpers.selector  # noqa: F401
+    import voluptuous
 
     sys.modules["homeassistant.helpers.selector"] = importlib.import_module(
         "homeassistant.helpers.selector"
@@ -129,6 +127,9 @@ class TestTariffSchemaConstruction:
 
     def test_tariff_schema_accepts_valid_defaults(self, real_ha_selector, real_vol):
         """Schema must accept a dict of all default values without raising."""
+        from custom_components.givenergy_inverter_manager.config_flow import (
+            _rate_periods_to_text,
+        )
         from custom_components.givenergy_inverter_manager.const import (
             DEFAULT_BASE_RATE,
             DEFAULT_BASE_RATE_NAME,
@@ -140,9 +141,6 @@ class TestTariffSchemaConstruction:
             DEFAULT_RATE_PERIODS,
             DEFAULT_STANDING_CHARGE,
             DEFAULT_VAT_RATE,
-        )
-        from custom_components.givenergy_inverter_manager.config_flow import (
-            _rate_periods_to_text,
         )
 
         FlowClass = _get_flow_class(real_ha_selector, real_vol)
@@ -177,9 +175,7 @@ class TestNumberSelectorStepConstraint:
         else:
             kwargs["step"] = "any"
         # Must not raise
-        sel = real_ha_selector.NumberSelector(
-            real_ha_selector.NumberSelectorConfig(**kwargs)
-        )
+        sel = real_ha_selector.NumberSelector(real_ha_selector.NumberSelectorConfig(**kwargs))
         assert sel is not None
 
     @pytest.mark.parametrize("step", [0.0001, 0.00001, 0.0009])
