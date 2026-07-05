@@ -693,16 +693,12 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                             ),
                             vol.Optional(
                                 CONF_BASE_RATE_NAME,
-                                default=str(
-                                    self._get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
-                                ),
+                                default=str(self._get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)),
                             ): selector.TextSelector(),
                             vol.Required(
                                 "rate_periods_text",
                                 default=_rate_periods_to_text(current_periods),
-                            ): selector.TextSelector(
-                                selector.TextSelectorConfig(multiline=True)
-                            ),
+                            ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
                             vol.Required(
                                 CONF_EXPORT_RATE,
                                 default=self._get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE),
