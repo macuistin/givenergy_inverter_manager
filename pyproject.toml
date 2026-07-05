@@ -38,4 +38,4 @@ ignore = ["N818"]
 # HA voluptuous schema definitions are inherently verbose and cannot be
 # split without losing readability — the dict key IS the schema declaration
 "custom_components/*/config_flow.py" = ["E501"]
-"tests/*" = ["E501"]
+"tests/*" = ["E501", "C901"]
