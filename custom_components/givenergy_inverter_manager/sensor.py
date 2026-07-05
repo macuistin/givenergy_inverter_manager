@@ -254,7 +254,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Accrued Bill This Period",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
-        state_class=SensorStateClass.MEASUREMENT,
+        state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.accrued_bill, 2),
     ),
     GivEnergyManagerSensorDescription(
@@ -263,7 +263,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Projected Bill This Period",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
-        state_class=SensorStateClass.MEASUREMENT,
+        state_class=None,
         value_fn=lambda d: round(d.projected_bill, 2),
     ),
     GivEnergyManagerSensorDescription(
@@ -324,7 +324,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Estimated Overnight Charge Cost",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
-        state_class=SensorStateClass.MEASUREMENT,
+        state_class=None,
         value_fn=lambda d: (
             round(d.charge_decision.cost_to_charge, 3) if d.charge_decision else None
         ),
@@ -521,7 +521,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Solar forecast today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.MEASUREMENT,
+        state_class=SensorStateClass.TOTAL,
         icon="mdi:weather-sunny-alert",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.solar_forecast_kwh_today, 3),

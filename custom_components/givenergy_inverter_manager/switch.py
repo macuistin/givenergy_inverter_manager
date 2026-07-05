@@ -26,7 +26,7 @@ from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -141,12 +141,15 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
             )
         await self.coordinator.async_request_refresh()
 
-    async def _handle_coordinator_update(self) -> None:
+    @callback
+    def _handle_coordinator_update(self) -> None:
         """Apply immersion decision to the real switch when coordinator updates."""
         if self.coordinator.data is None:
+            self.async_write_ha_state()
             return
         immersion_switch = self.coordinator.entry.data.get(CONF_IMMERSION_SWITCH)
         if not immersion_switch:
+            self.async_write_ha_state()
             return
 
         should_be_on = self.coordinator.data.should_divert_immersion
@@ -169,8 +172,10 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
                     service,
                     self.coordinator.data.divert_reason,
                 )
-                await self.coordinator._call_service(
-                    "switch", service, {"entity_id": immersion_switch}, blocking=False
+                self.hass.async_create_task(
+                    self.coordinator._call_service(
+                        "switch", service, {"entity_id": immersion_switch}, blocking=False
+                    )
                 )
 
         self.async_write_ha_state()
