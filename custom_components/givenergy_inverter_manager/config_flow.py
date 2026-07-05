@@ -149,6 +149,7 @@ def _parse_rate_periods(raw: str) -> list[dict]:
 def _rate_periods_to_text(periods: list[dict]) -> str:
     return "\n".join(f"{p['name']}, {p['rate']}, {p['start']}, {p['end']}" for p in periods)
 
+
 def _build_charge_scheduling_summary(data: dict) -> tuple[str, str]:
     """Return (status, detail) strings for the charge scheduling step."""
     detected = sum(1 for k in _CHARGE_SCHEDULING_CONF_KEYS if data.get(k))
