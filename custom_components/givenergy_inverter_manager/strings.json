@@ -1,0 +1,374 @@
+{
+  "config": {
+    "step": {
+      "inverter": {
+        "title": "GivEnergy Inverter",
+        "description": "Select your GivTCP inverter.\n\n{status}",
+        "data": {
+          "discovered_inverter": "Detected inverter",
+          "solar_power_entity": "Solar power sensor",
+          "battery_soc_entity": "Battery SoC sensor",
+          "battery_power_entity": "Battery power sensor",
+          "grid_power_entity": "Grid power sensor",
+          "house_load_entity": "House load sensor",
+          "battery_capacity_kwh": "Battery capacity (kWh)",
+          "target_soc_entity": "Charge target control entity (optional)",
+          "inverter_max_output_kw": "Inverter max output (kW)",
+          "enable_charge_target_entity": "Enable charge target switch (optional)",
+          "enable_charge_schedule_entity": "Enable charge schedule switch (optional)",
+          "charge_start_time_entity": "Charge start time slot 1 (optional)",
+          "charge_end_time_entity": "Charge end time slot 1 (optional)"
+        }
+      },
+      "tariff": {
+        "title": "Electricity Tariff",
+        "description": "Enter your electricity tariff.\n\n**Base Rate** is your standard daytime rate — it applies whenever no timed override is active.\n\n**Timed overrides** apply only during their window and take priority over the base rate. The cheapest active override wins (so Nightboost automatically overrides Night during 02:00–04:00).\n\nExample overrides (one per line):\n  Night, 0.1644, 23:00, 08:00\n  Nightboost, 0.0965, 02:00, 04:00",
+        "data": {
+          "rate_periods_text": "Timed overrides (one per line: Name, rate, HH:MM, HH:MM)",
+          "export_rate": "Export / CEG rate",
+          "standing_charge_per_day": "Standing charge per day",
+          "pso_levy_per_month": "PSO levy per month",
+          "vat_rate": "VAT rate (%)",
+          "discount_rate": "Supplier discount (%)",
+          "bill_start_day": "Bill start day of month",
+          "currency": "Currency",
+          "base_rate": "Base rate (daytime / standard)",
+          "base_rate_name": "Base rate name (e.g. Day)"
+        }
+      },
+      "forecast": {
+        "title": "Solar Forecast (optional)",
+        "description": "Connect a solar forecast integration to enable smart overnight charging decisions. Without this, a seasonal estimate is used.",
+        "data": {
+          "forecast_provider": "Forecast provider",
+          "forecast_entity": "Tomorrow's forecast sensor"
+        }
+      },
+      "immersion": {
+        "title": "Immersion Heater (optional)",
+        "description": "Configure your immersion heater to absorb solar surplus automatically.",
+        "data": {
+          "immersion_switch_entity": "Immersion switch",
+          "immersion_wattage_w": "Element wattage (W)",
+          "immersion_temp_sensor_entity": "Water temperature sensor (optional)",
+          "immersion_target_temp_c": "Target temperature (°C)",
+          "immersion_min_temp_c": "Minimum temperature (°C)"
+        }
+      },
+      "ev": {
+        "title": "EV Charger (optional)",
+        "description": "Supports Zappi, Wallbox, OCPP, Ohme, and Easee. Select a detected charger or enter entities manually.",
+        "data": {
+          "discovered_charger": "Detected charger",
+          "zappi_power_entity": "Charger power sensor",
+          "zappi_status_entity": "Charger status sensor",
+          "car_efficiency_kwh_per_100km": "Car efficiency (kWh/100km)"
+        }
+      },
+      "battery": {
+        "title": "Battery Management",
+        "description": "Configure overnight charging behaviour, battery protection, and immersion divert thresholds.",
+        "data": {
+          "battery_min_soc_pct": "Minimum battery SoC (%)",
+          "overnight_charge_target_pct": "Default overnight charge target (%)",
+          "skip_charge_soc_threshold_pct": "Skip charge if SoC above (%) with good forecast",
+          "ev_battery_protect_soc_pct": "Pause EV charger if battery below (%)",
+          "verbose_logging": "Verbose logging (per-cycle diagnostics)",
+          "surplus_divert_soc_pct": "Immersion divert: minimum battery SoC (%)",
+          "surplus_divert_min_power_w": "Immersion divert: minimum solar surplus (W)"
+        },
+        "data_description": {
+          "verbose_logging": "When enabled, logs detailed sensor readings, decisions, and GivTCP write results on every cycle. Useful for initial testing. Disable for normal operation."
+        }
+      },
+      "charge_scheduling": {
+        "title": "Charge Scheduling",
+        "description": "{status}\n\n{detail}\n\nSubmit to continue. You can adjust these entities later via Settings → Integrations → GivEnergy Inverter Manager → Configure.",
+        "data": {}
+      }
+    },
+    "error": {
+      "missing_entities": "One or more required inverter entities are missing. Please check your GivTCP installation.",
+      "rate_periods_text": "{message}"
+    }
+  },
+  "options": {
+    "step": {
+      "tariff": {
+        "title": "Update Tariff Rates",
+        "description": "Update your electricity tariff rates. Changes take effect immediately.",
+        "data": {
+          "rate_periods_text": "Timed overrides (one per line: Name, rate, HH:MM, HH:MM)",
+          "export_rate": "Export / CEG rate",
+          "standing_charge_per_day": "Standing charge per day",
+          "pso_levy_per_month": "PSO levy per month",
+          "vat_rate": "VAT rate (%)",
+          "discount_rate": "Supplier discount (%)",
+          "bill_start_day": "Bill start day of month",
+          "currency": "Currency",
+          "base_rate": "Base rate (daytime / standard)",
+          "base_rate_name": "Base rate name (e.g. Day)"
+        }
+      },
+      "thresholds": {
+        "title": "Battery Thresholds",
+        "data": {
+          "battery_min_soc_pct": "Minimum battery SoC (%)",
+          "overnight_charge_target_pct": "Default overnight charge target (%)",
+          "skip_charge_soc_threshold_pct": "Skip charge threshold (%)",
+          "ev_battery_protect_soc_pct": "EV battery protection threshold (%)",
+          "dry_run": "Dry run mode (simulate only — no changes sent to inverter)",
+          "verbose_logging": "Verbose logging (per-cycle diagnostics)"
+        },
+        "data_description": {
+          "dry_run": "When enabled, the integration calculates all decisions and updates sensors normally, but does not send any commands to GivTCP. The 'Last Skipped Action' sensor shows what would have been done. Useful for verifying behaviour before first live use.",
+          "verbose_logging": "When enabled, logs detailed sensor readings, decisions, and GivTCP write results on every cycle. Useful for initial testing. Disable for normal operation."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "solar_power": {
+        "name": "Solar Power"
+      },
+      "battery_soc": {
+        "name": "Battery State of Charge"
+      },
+      "grid_power": {
+        "name": "Grid Power"
+      },
+      "house_load": {
+        "name": "House Load"
+      },
+      "rest_of_house_load": {
+        "name": "Rest of House Load"
+      },
+      "current_rate": {
+        "name": "Current Rate"
+      },
+      "current_rate_period": {
+        "name": "Current Rate Period"
+      },
+      "solar_today": {
+        "name": "Solar Generation Today"
+      },
+      "import_today": {
+        "name": "Grid Import Today"
+      },
+      "export_today": {
+        "name": "Grid Export Today"
+      },
+      "zappi_today": {
+        "name": "EV Charging Today"
+      },
+      "immersion_today": {
+        "name": "Immersion Heater Today"
+      },
+      "import_cost_today": {
+        "name": "Import Cost Today"
+      },
+      "export_earnings_today": {
+        "name": "Export Earnings Today"
+      },
+      "zappi_cost_today": {
+        "name": "EV Charging Cost Today"
+      },
+      "house_cost_today": {
+        "name": "House Cost Today"
+      },
+      "self_sufficiency": {
+        "name": "Self Sufficiency"
+      },
+      "self_consumption": {
+        "name": "Self Consumption"
+      },
+      "accrued_bill": {
+        "name": "Accrued Bill This Period"
+      },
+      "projected_bill": {
+        "name": "Projected Bill This Period"
+      },
+      "days_remaining_in_period": {
+        "name": "Days Remaining in Bill Period"
+      },
+      "battery_cycles": {
+        "name": "Battery Total Cycles"
+      },
+      "battery_remaining_life": {
+        "name": "Battery Remaining Life"
+      },
+      "days_since_full_charge": {
+        "name": "Days Since Full Charge"
+      },
+      "overnight_charge_target": {
+        "name": "Recommended Overnight Charge Target"
+      },
+      "overnight_charge_reason": {
+        "name": "Overnight Charge Reason"
+      },
+      "overnight_charge_cost": {
+        "name": "Estimated Overnight Charge Cost"
+      },
+      "immersion_divert_reason": {
+        "name": "Immersion Divert Reason"
+      },
+      "estimated_soc_at_sunrise": {
+        "name": "Estimated SoC at Sunrise"
+      },
+      "night_survival_reason": {
+        "name": "Battery Night Survival Status"
+      },
+      "is_clipping": {
+        "name": "Inverter Clipping"
+      },
+      "ev_charger_state": {
+        "name": "EV Charger State"
+      },
+      "ev_power": {
+        "name": "EV Charging Power"
+      },
+      "ev_session_energy": {
+        "name": "EV Session Energy"
+      },
+      "ev_draining_battery": {
+        "name": "EV Draining Battery"
+      },
+      "ev_protection_reason": {
+        "name": "EV Battery Protection Status"
+      },
+      "immersion_cost_today": {
+        "name": "Immersion Cost Today"
+      },
+      "dry_run_active": {
+        "name": "Dry Run Mode Active"
+      },
+      "dry_run_last_skipped": {
+        "name": "Last Skipped Action (Dry Run)"
+      },
+      "import_kwh_cheap_today": {
+        "name": "Import at cheap rate"
+      },
+      "import_kwh_peak_today": {
+        "name": "Import at peak rate"
+      },
+      "import_cost_cheap_today": {
+        "name": "Import cost at cheap rate"
+      },
+      "import_cost_peak_today": {
+        "name": "Import cost at peak rate"
+      },
+      "peak_import_fraction_today": {
+        "name": "Peak rate import fraction"
+      },
+      "immersion_savings_today": {
+        "name": "Immersion solar savings"
+      },
+      "immersion_solar_kwh_today": {
+        "name": "Immersion solar diverted"
+      },
+      "battery_throughput_kwh_today": {
+        "name": "Battery throughput"
+      },
+      "solar_yesterday": {
+        "name": "Solar generated yesterday"
+      },
+      "import_yesterday": {
+        "name": "Grid import yesterday"
+      },
+      "export_yesterday": {
+        "name": "Grid export yesterday"
+      },
+      "import_cost_yesterday": {
+        "name": "Import cost yesterday"
+      },
+      "import_kwh_cheap_yesterday": {
+        "name": "Import at cheap rate yesterday"
+      },
+      "import_kwh_peak_yesterday": {
+        "name": "Import at peak rate yesterday"
+      },
+      "immersion_savings_yesterday": {
+        "name": "Immersion savings yesterday"
+      },
+      "self_sufficiency_yesterday": {
+        "name": "Self-sufficiency yesterday"
+      },
+      "solar_this_week": {
+        "name": "Solar generated this week"
+      },
+      "import_this_week": {
+        "name": "Grid import this week"
+      },
+      "export_this_week": {
+        "name": "Grid export this week"
+      },
+      "import_cost_this_week": {
+        "name": "Import cost this week"
+      },
+      "export_earnings_this_week": {
+        "name": "Export earnings this week"
+      },
+      "import_kwh_cheap_this_week": {
+        "name": "Import at cheap rate this week"
+      },
+      "import_kwh_peak_this_week": {
+        "name": "Import at peak rate this week"
+      },
+      "immersion_savings_this_week": {
+        "name": "Immersion savings this week"
+      },
+      "self_sufficiency_this_week": {
+        "name": "Self-sufficiency this week"
+      },
+      "solar_this_month": {
+        "name": "Solar generated this month"
+      },
+      "import_this_month": {
+        "name": "Grid import this month"
+      },
+      "export_this_month": {
+        "name": "Grid export this month"
+      },
+      "import_cost_this_month": {
+        "name": "Import cost this month"
+      },
+      "export_earnings_this_month": {
+        "name": "Export earnings this month"
+      },
+      "import_kwh_cheap_this_month": {
+        "name": "Import at cheap rate this month"
+      },
+      "import_kwh_peak_this_month": {
+        "name": "Import at peak rate this month"
+      },
+      "immersion_savings_this_month": {
+        "name": "Immersion savings this month"
+      },
+      "self_sufficiency_this_month": {
+        "name": "Self-sufficiency this month"
+      },
+      "solar_forecast_kwh_today": {
+        "name": "Solar forecast today"
+      },
+      "solar_actual_vs_forecast_pct": {
+        "name": "Solar actual vs forecast"
+      },
+      "yesterday_forecast_accuracy_pct": {
+        "name": "Forecast accuracy yesterday"
+      },
+      "forecast_accuracy_7day_avg_pct": {
+        "name": "Forecast accuracy 7-day average"
+      },
+      "today_summary": {
+        "name": "Today's energy summary"
+      },
+      "charge_plan": {
+        "name": "Tonight's charge plan"
+      },
+      "week_summary": {
+        "name": "This week's energy summary"
+      }
+    }
+  }
+}

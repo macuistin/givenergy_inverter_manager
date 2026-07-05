@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="40%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0a0f1e"/>
+    </radialGradient>
+    <radialGradient id="sunglow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffe566"/>
+      <stop offset="60%" stop-color="#ffb800"/>
+      <stop offset="100%" stop-color="#ff8c00" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="batfill" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00e676"/>
+      <stop offset="100%" stop-color="#00c853"/>
+    </linearGradient>
+    <linearGradient id="cell" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1565c0"/>
+      <stop offset="100%" stop-color="#0d47a1"/>
+    </linearGradient>
+    <linearGradient id="housefill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a2e4a"/>
+      <stop offset="100%" stop-color="#0f1e30"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="256" cy="256" r="256" fill="url(#bg)"/>
+
+  <!-- Sun glow halo -->
+  <circle cx="256" cy="108" r="80" fill="url(#sunglow)" opacity="0.35"/>
+
+  <!-- Sun rays -->
+  <g stroke="#ffcc02" stroke-width="6" stroke-linecap="round" opacity="0.9">
+    <line x1="256" y1="28" x2="256" y2="52"/>
+    <line x1="310" y1="45" x2="298" y2="65"/>
+    <line x1="348" y1="82" x2="330" y2="96"/>
+    <line x1="202" y1="45" x2="214" y2="65"/>
+    <line x1="164" y1="82" x2="182" y2="96"/>
+    <line x1="364" y1="128" x2="344" y2="132"/>
+    <line x1="148" y1="128" x2="168" y2="132"/>
+  </g>
+
+  <!-- Sun disc -->
+  <circle cx="256" cy="108" r="44" fill="#ffcc02"/>
+  <circle cx="256" cy="108" r="34" fill="#ffe566"/>
+
+  <!-- Roof -->
+  <polygon points="112,274 256,164 400,274"
+           fill="#162a3f" stroke="#4a9ede" stroke-width="5" stroke-linejoin="round"/>
+  <polygon points="125,274 256,172 387,274" fill="#0a1929"/>
+
+  <!-- Solar panel array on roof (3 col x 2 row) -->
+  <g transform="translate(186,200) rotate(-28, 70, 42)">
+    <rect x="0" y="0" width="144" height="72" rx="4" fill="#1565c0" stroke="#42a5f5" stroke-width="2"/>
+    <line x1="48" y1="0" x2="48" y2="72" stroke="#90caf9" stroke-width="1.5" opacity="0.5"/>
+    <line x1="96" y1="0" x2="96" y2="72" stroke="#90caf9" stroke-width="1.5" opacity="0.5"/>
+    <line x1="0" y1="36" x2="144" y2="36" stroke="#90caf9" stroke-width="1.5" opacity="0.5"/>
+    <rect x="2" y="2" width="44" height="32" rx="2" fill="url(#cell)" opacity="0.75"/>
+    <rect x="50" y="2" width="44" height="32" rx="2" fill="url(#cell)" opacity="0.75"/>
+    <rect x="98" y="2" width="44" height="32" rx="2" fill="url(#cell)" opacity="0.75"/>
+    <rect x="2" y="38" width="44" height="32" rx="2" fill="url(#cell)" opacity="0.75"/>
+    <rect x="50" y="38" width="44" height="32" rx="2" fill="url(#cell)" opacity="0.75"/>
+    <rect x="98" y="38" width="44" height="32" rx="2" fill="url(#cell)" opacity="0.75"/>
+    <circle cx="14" cy="14" r="5" fill="#90caf9" opacity="0.45"/>
+    <circle cx="62" cy="14" r="5" fill="#90caf9" opacity="0.45"/>
+    <circle cx="110" cy="14" r="5" fill="#90caf9" opacity="0.45"/>
+  </g>
+
+  <!-- House body -->
+  <rect x="146" y="272" width="220" height="176" rx="4"
+        fill="url(#housefill)" stroke="#4a9ede" stroke-width="4"/>
+
+  <!-- Door -->
+  <rect x="222" y="368" width="68" height="80" rx="6"
+        fill="#071523" stroke="#4a9ede" stroke-width="2.5"/>
+  <circle cx="278" cy="408" r="5" fill="#4a9ede"/>
+
+  <!-- Battery block -->
+  <rect x="268" y="286" width="82" height="54" rx="6"
+        fill="#071523" stroke="#00e676" stroke-width="3"/>
+  <rect x="350" y="299" width="9" height="28" rx="3" fill="#00e676"/>
+  <rect x="271" y="289" width="60" height="48" rx="4" fill="url(#batfill)"/>
+  <polygon points="320,297 305,316 315,316 300,332 318,311 307,311 322,295"
+           fill="white" opacity="0.9"/>
+
+  <!-- Energy flow dot-dash: sun to battery -->
+  <path d="M 256 152 Q 318 218 318 280"
+        fill="none" stroke="#ffcc02" stroke-width="2.5"
+        stroke-dasharray="6,4" opacity="0.45" stroke-linecap="round"/>
+
+  <!-- Small window left side of house -->
+  <rect x="163" y="295" width="52" height="44" rx="5"
+        fill="#071523" stroke="#4a9ede" stroke-width="2"/>
+  <line x1="189" y1="295" x2="189" y2="339" stroke="#4a9ede" stroke-width="1.5" opacity="0.6"/>
+  <line x1="163" y1="317" x2="215" y2="317" stroke="#4a9ede" stroke-width="1.5" opacity="0.6"/>
+
+  <!-- Outer ring -->
+  <circle cx="256" cy="256" r="249" fill="none" stroke="#4a9ede" stroke-width="3" opacity="0.35"/>
+</svg>

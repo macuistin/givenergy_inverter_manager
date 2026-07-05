@@ -1,0 +1,40 @@
+---
+title: GivEnergy Inverter Manager — 30-Second Update Cycle
+---
+sequenceDiagram
+    participant HA as Home Assistant
+    participant CO as coordinator.py
+    participant EN as engine.py
+    participant RU as rules.py
+    participant GTC as GivTCP (MQTT)
+
+    HA->>CO: async_update_data() every 30s
+    CO->>HA: hass.states.get(entity_id) × 10
+    Note over CO: Build RawSensorValues<br/>Pass solar_fractions (lat-derived, computed at init)
+
+    CO->>EN: build_coordinator_data(raw, cfg, solar_fractions)
+
+    EN->>RU: calculate_overnight_charge_target(…, solar_fractions)
+    RU-->>EN: ChargeDecision {target_soc, skip, reason, cost}
+
+    EN->>RU: should_divert_to_immersion(…, soc_threshold, min_surplus_w)
+    RU-->>EN: (bool, reason)
+
+    EN->>RU: decide_ev_charger_action(charger, battery_soc, surplus_w)
+    RU-->>EN: (target_mode, reason)
+
+    EN-->>CO: CoordinatorData + ev_target_mode
+
+    CO->>HA: async_write_ha_state() on 39 sensors
+
+    alt ev_target_mode set
+        CO->>HA: select.select_option (EV charger mode)
+    end
+
+    Note over CO,GTC: Nightly (1 min before cheapest rate)
+    CO->>GTC: switch.turn_on (enable_charge_schedule)
+    CO->>GTC: select.select_option (charge_start_time)
+    CO->>GTC: select.select_option (charge_end_time)
+    CO->>GTC: number.set_value (target_soc)
+    CO->>GTC: switch.turn_on/off (enable_charge_target)
+    GTC-->>CO: read-back verification (1s delay)

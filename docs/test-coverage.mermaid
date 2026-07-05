@@ -1,0 +1,25 @@
+---
+title: Test Coverage by Module (372 tests)
+---
+graph LR
+    subgraph FULL["✅ Fully tested — Pure logic"]
+        R["rules.py\n(test_rules.py + test_optimizer.py)\ncalculate_overnight_charge_target\nshould_divert_to_immersion\nsuggest_appliance_run\ndecide_ev_charger_action\nmonthly_solar_fractions"]
+        T["tariff.py\n(test_tariff.py)\nRatePeriod · TariffConfig\nbuild_tariff() · EnergyAccumulator"]
+        B["battery.py\n(test_battery.py)\nBatteryStats · night survival"]
+        EV["discovery/ev_charger.py\n(test_ev_charger.py)\nDiscover · normalise · update_state"]
+        ENG["engine.py\n(test_engine.py)\nbuild_coordinator_data\naccumulate_energy\nestimate_avg_daily_kwh"]
+    end
+
+    subgraph COORD["🔄 Coordinator — HA-proxied"]
+        CO["coordinator.py\n(test_coordinator.py)\nFakeCoordinator overrides\n3 HA proxy methods"]
+    end
+
+    subgraph SCEN["🧪 Integration scenarios"]
+        SC["test_scenarios.py\nEnd-to-end flows:\ndry run · night survival\nEV battery protection\nenergy accumulation"]
+    end
+
+    subgraph UI["🖥️ HA UI layer"]
+        CF["config_flow.py\n(test_config_flow.py)\nstep sequence · validation\nrate period parsing"]
+        DA["dashboard.py\n(test_dashboard.py)\nYAML generation"]
+        VB["logging.py\n(test_verbose.py)\nverbose flag gating"]
+    end

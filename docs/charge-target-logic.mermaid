@@ -1,0 +1,39 @@
+---
+title: Overnight Charge Target Logic (calculate_overnight_charge_target in rules.py)
+---
+flowchart TD
+    START([Called every 30s\nfrom build_coordinator_data]) --> FORE{forecast_kwh\nprovided?}
+
+    FORE -- No --> SEAS["Seasonal fallback:\nfrequency = solar_fractions[month]\nforecast = inverter_max_kw\n× CHARGE_PEAK_SOLAR_HOURS\n× seasonal_fraction\n\nsolar_fractions computed at startup\nfrom hass.config.latitude\nvia monthly_solar_fractions()"]
+    FORE -- Yes --> CALC
+    SEAS --> CALC
+
+    CALC["Calculate:\n morning_load = daily_avg × CHARGE_MORNING_LOAD_FRACTION\n expected_fill = min(forecast × CHARGE_SOLAR_USABLE_FRACTION, usable_cap)\n gap_soc = max(0, morning_load - current_kwh) / capacity × 100"]
+
+    CALC --> SKIP{current_soc\n≥ skip_threshold\nAND EV not plugged in?}
+    SKIP -- Yes --> SKIPEQ{forecast\n> fill × CHARGE_SKIP_HEADROOM?}
+    SKIPEQ -- Yes --> SKIPOUT(["Skip overnight charge\ntarget = min_soc + CHARGE_STRONG_BUFFER\nreason: good solar expected"])
+    SKIPEQ -- No --> TIER
+
+    SKIP -- No --> TIER
+
+    TIER{forecast ≥\nbattery_cap × ?}
+    TIER -- "≥ CHARGE_STRONG_FRACTION (0.8)" --> STRONG["target = max(\nmin_soc + gap + CHARGE_STRONG_BUFFER,\nCHARGE_STRONG_BASE_SOC\n)"]
+    TIER -- "≥ CHARGE_MODERATE_FRACTION (0.5)" --> MOD["target = max(\nmin_soc + gap + CHARGE_MODERATE_BUFFER,\nCHARGE_MODERATE_BASE_SOC\n)"]
+    TIER -- below moderate --> POOR["target = CHARGE_POOR_TARGET_SOC (90%)"]
+
+    STRONG --> EV
+    MOD --> EV
+    POOR --> EV
+
+    EV{EV plugged in?}
+    EV -- Yes --> EVBUF["target += CHARGE_EV_SOC_BONUS\nrequired_morning += CHARGE_EV_BUFFER_KWH"]
+    EV -- No --> CAP
+    EVBUF --> CAP
+
+    CAP["target = clamp(target, min_soc+5, 100)\ncost = (target - current_soc) / 100 × capacity × cheapest_rate"]
+    CAP --> OUT(["ChargeDecision\n{ target_soc, skip_charge, reason,\n  forecast_kwh, cost_to_charge }"])
+
+    style SKIPOUT fill:#e8f5e9,stroke:#4CAF50
+    style OUT fill:#e8f5e9,stroke:#4CAF50
+    style SEAS fill:#fff9c4,stroke:#f57f17

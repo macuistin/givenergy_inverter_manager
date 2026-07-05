@@ -1,0 +1,79 @@
+# Integration Quality Scale — GivEnergy Inverter Manager
+# https://developers.home-assistant.io/docs/core/integration-quality-scale/
+
+rules:
+  # ── Bronze ──────────────────────────────────────────────────────────────────
+  action-setup: done           # get_dashboard_yaml registered in async_setup_entry
+  appropriate-polling: done    # 30s UPDATE_INTERVAL_SECONDS, fits the use case
+  brands: done                 # icon.png and logo.png in images/
+  common-modules: done         # coordinator.py, const.py, rules.py
+  config-flow-test-coverage: todo  # test_config_flow.py exists; full coverage planned
+  config-flow: done            # 7-step wizard with GivTCP auto-discovery
+  dependency-transparency: done  # requirements: [] — relies only on HA built-ins
+  docs-actions: done           # README documents get_dashboard_yaml
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  entity-event-setup: done     # time listeners registered in async_on_unload
+  entity-unique-id: done       # all entities have unique_id via entry.entry_id + key
+  has-entity-name: done        # _attr_has_entity_name = True on all entities
+  runtime-data: done           # entry.runtime_data = coordinator
+  test-before-configure:
+    status: exempt
+    comment: No network connection to test — integration reads GivTCP HA entities, not a remote device
+  test-before-setup: done      # async_config_entry_first_refresh raises ConfigEntryNotReady
+  unique-config-entry: done    # async_set_unique_id(inverter.serial) in config flow
+
+  # ── Silver ───────────────────────────────────────────────────────────────────
+  action-exceptions: todo      # get_dashboard_yaml does not yet raise typed exceptions
+  config-entry-unloading: done # async_unload_entry implemented
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable: todo     # sensors could mark unavailable when GivTCP is offline
+  integration-owner: done      # @macuistin in manifest.json
+  log-when-unavailable: todo   # GivTCP offline not specifically handled
+  parallel-updates: done       # PARALLEL_UPDATES = 0 on all platforms
+  reauthentication-flow:
+    status: exempt
+    comment: No authentication required — local integration via GivTCP
+  test-coverage: todo          # below 95%; full coverage is planned for v0.2.0
+
+  # ── Gold ─────────────────────────────────────────────────────────────────────
+  devices: done                # device_info with identifiers on all entities
+  diagnostics: done            # diagnostics.py provides Download Diagnostics
+  discovery:
+    status: exempt
+    comment: GivTCP inverter entities are discovered at setup time only (not runtime)
+  discovery-update-info:
+    status: exempt
+    comment: No network address to update; GivTCP entities are fixed at setup
+  docs-data-update: done       # README and update-cycle.mermaid document the 30s cycle
+  docs-examples: todo          # automation examples planned for v0.2.0
+  docs-known-limitations: done # REQUIREMENTS.md documents known limitations
+  docs-supported-devices: done # README lists supported EV charger brands and GivTCP
+  docs-supported-functions: done  # REQUIREMENTS.md sensor/switch/number table
+  docs-troubleshooting: todo   # troubleshooting section planned
+  docs-use-cases: done         # README describes solar surplus diversion, charge optimisation
+  dynamic-devices:
+    status: exempt
+    comment: Devices are fixed at integration setup; no dynamic device addition
+  entity-category: done        # EntityCategory.DIAGNOSTIC on operational sensors
+  entity-device-class: done    # SensorDeviceClass used where appropriate
+  entity-disabled-by-default: done  # yesterday/week/month/forecast/HTML report sensors disabled by default
+  entity-translations: done    # strings.json and translations/en.json cover all entities
+  exception-translations: todo # exceptions not yet translatable
+  icon-translations: todo      # icons.json not yet added
+  reconfiguration-flow: todo   # async_step_reconfigure planned for v0.2.0
+  repair-issues: todo          # no repair flows yet
+  stale-devices:
+    status: exempt
+    comment: Single logical device per config entry; no stale device scenario
+
+  # ── Platinum ─────────────────────────────────────────────────────────────────
+  async-dependency:
+    status: exempt
+    comment: No external library dependencies
+  inject-websession:
+    status: exempt
+    comment: No HTTP requests made
+  strict-typing: todo          # type annotations present but not mypy strict-checked

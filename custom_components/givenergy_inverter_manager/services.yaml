@@ -1,0 +1,39 @@
+get_dashboard_yaml:
+  name: Get dashboard YAML
+  description: >
+    Generates a ready-to-use Lovelace dashboard YAML pre-filled with your actual
+    entity IDs, delivered as a persistent notification. Paste it into a new blank
+    dashboard via Raw configuration editor.
+
+    The dashboard has four views: Power Flow, Today, Battery, and Controls.
+    View 1 requires power-flow-card-plus from HACS.
+  fields: {}
+
+suggest_appliance_run:
+  name: Suggest appliance run time
+  description: >
+    Checks whether now is a good time to run a high-load appliance (washing
+    machine, dishwasher, etc.) based on current solar surplus, battery state,
+    and the active tariff rate.
+
+    Returns a recommendation and reason, and fires a persistent notification.
+    Use the service response in automations via response_variable.
+  fields:
+    appliance_name:
+      name: Appliance name
+      description: Name of the appliance (used in the response message)
+      required: true
+      example: Washing machine
+      selector:
+        text:
+    appliance_power_w:
+      name: Appliance power (W)
+      description: Rated power consumption of the appliance in watts
+      required: true
+      example: 2000
+      selector:
+        number:
+          min: 100
+          max: 10000
+          step: 100
+          unit_of_measurement: W
