@@ -19,6 +19,7 @@ INTEGRATION_VERSION = "0.1.0"  # keep in sync with manifest.json
 NAME = "GivEnergy Inverter Manager"
 
 # ── GivTCP inverter entities ────────────────────────────────────────────────
+CONF_INVERTER_SERIAL     = "inverter_serial"       # persisted serial — used as unique_id
 CONF_SOLAR_POWER         = "solar_power_entity"
 CONF_BATTERY_SOC         = "battery_soc_entity"
 CONF_BATTERY_POWER       = "battery_power_entity"

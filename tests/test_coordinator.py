@@ -12,7 +12,7 @@ and records what the coordinator asked it to do.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -71,6 +71,9 @@ class FakeCoordinator(GivEnergyCoordinator):
 
         hass = MagicMock()
         hass.states.get = lambda eid: self._states.get(eid)
+        # async_create_task receives a coroutine — close it immediately so it
+        # doesn't linger and trigger an "unawaited coroutine" warning at GC time.
+        hass.async_create_task = lambda coro, **_kw: coro.close()
 
         # Bypass DataUpdateCoordinator.__init__ — we don't need its scheduler
         # Call object.__init__ to set up the instance, then manually set attrs
@@ -336,7 +339,7 @@ class TestUpdateCycle:
         coord.set_state("sensor.solar", "3000")
 
         await coord.run_cycle()                        # sets _last_update
-        coord._last_update = datetime.now() - timedelta(minutes=30)
+        coord._last_update = datetime.now(timezone.utc) - timedelta(minutes=30)
         await coord.run_cycle()
 
         assert coord._acc.today.solar_kwh == pytest.approx(1.5, rel=0.05)
@@ -366,20 +369,20 @@ class TestMidnightReset:
         coord = FakeCoordinator(cfg=_cfg())
         coord._acc.today.solar_kwh = 12.0
         coord._acc.today.import_kwh = 3.0
-        coord._midnight_reset(datetime.now())
+        coord._midnight_reset(datetime.now(timezone.utc))
         assert coord._acc.today.solar_kwh == 0.0
         assert coord._acc.today.import_kwh == 0.0
 
     def test_clears_last_update(self):
         coord = FakeCoordinator(cfg=_cfg())
-        coord._last_update = datetime.now()
-        coord._midnight_reset(datetime.now())
+        coord._last_update = datetime.now(timezone.utc)
+        coord._midnight_reset(datetime.now(timezone.utc))
         assert coord._last_update is None
 
     def test_accumulator_is_fresh_instance(self):
         coord = FakeCoordinator(cfg=_cfg())
         old_acc = coord._acc.today
-        coord._midnight_reset(datetime.now())
+        coord._midnight_reset(datetime.now(timezone.utc))
         assert coord._acc.today is not old_acc
 
 
@@ -411,7 +414,7 @@ class TestWriteChargeTarget:
     @pytest.mark.asyncio
     async def test_five_step_sequence_issued(self):
         coord = self._coord_with_decision(target_soc=80)
-        coord._write_charge_target_to_inverter(datetime.now())
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
         # _create_task was called with the coroutine — run it
         assert len(coord.tasks_created) == 1
         await coord.tasks_created[0]
@@ -423,7 +426,7 @@ class TestWriteChargeTarget:
     @pytest.mark.asyncio
     async def test_target_soc_written_correctly(self):
         coord = self._coord_with_decision(target_soc=75)
-        coord._write_charge_target_to_inverter(datetime.now())
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
         await coord.tasks_created[0]
         number_calls = coord.service_calls_for("number", "set_value")
         assert len(number_calls) == 1
@@ -432,7 +435,7 @@ class TestWriteChargeTarget:
     @pytest.mark.asyncio
     async def test_enable_charge_target_on_below_100(self):
         coord = self._coord_with_decision(target_soc=85)
-        coord._write_charge_target_to_inverter(datetime.now())
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
         await coord.tasks_created[0]
         # Step 5: enable_charge_target must be ON when target < 100
         switch_on = coord.service_calls_for("switch", "turn_on")
@@ -443,7 +446,7 @@ class TestWriteChargeTarget:
     async def test_enable_charge_target_off_at_100(self):
         """At 100% target, enable_charge_target must be OFF to avoid bounce bug."""
         coord = self._coord_with_decision(target_soc=100)
-        coord._write_charge_target_to_inverter(datetime.now())
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
         await coord.tasks_created[0]
         switch_off = coord.service_calls_for("switch", "turn_off")
         eids = [c["entity_id"] for c in switch_off]
@@ -451,7 +454,7 @@ class TestWriteChargeTarget:
 
     def test_skip_charge_suppresses_write(self):
         coord = self._coord_with_decision(skip=True)
-        coord._write_charge_target_to_inverter(datetime.now())
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
         assert len(coord.tasks_created) == 0
         assert len(coord.service_calls) == 0
 
@@ -459,13 +462,13 @@ class TestWriteChargeTarget:
         cfg = _cfg()
         cfg.pop(CONF_TARGET_SOC_ENTITY, None)
         coord = FakeCoordinator(cfg=cfg)
-        coord._write_charge_target_to_inverter(datetime.now())
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
         assert len(coord.tasks_created) == 0
 
     def test_no_write_when_no_data(self):
         coord = FakeCoordinator(cfg=_cfg())
         coord.data = None
-        coord._write_charge_target_to_inverter(datetime.now())
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
         assert len(coord.tasks_created) == 0
 
     @pytest.mark.asyncio
@@ -482,7 +485,7 @@ class TestWriteChargeTarget:
         data = MagicMock()
         data.charge_decision = decision
         coord.data = data
-        coord._write_charge_target_to_inverter(datetime.now())
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
         # In dry run mode, no task should be created
         assert len(coord.tasks_created) == 0
         assert len(coord.service_calls) == 0

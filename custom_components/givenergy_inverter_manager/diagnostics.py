@@ -33,6 +33,7 @@ async def async_get_config_entry_diagnostics(
             "solar_fractions": coordinator.solar_fractions,
             "has_ev_charger": coordinator.ev_charger_brand is not None,
             "ev_charger_brand": coordinator.ev_charger_brand,
+            "inverter_serial": entry.data.get("inverter_serial"),
         },
     }
 

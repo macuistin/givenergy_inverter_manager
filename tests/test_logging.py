@@ -8,7 +8,7 @@ Verifies:
   - All verbose functions are true no-ops when verbose is off
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 _ROOT = "custom_components.givenergy_inverter_manager"
@@ -216,7 +216,7 @@ class TestLogCycle:
         _disable_verbose()
         log = _make_log()
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
-            log_cycle(log, 1, _make_raw(), _make_data(), datetime.now())
+            log_cycle(log, 1, _make_raw(), _make_data(), datetime.now(timezone.utc))
         assert not caplog.records
 
     def test_cycle_number_in_output(self, caplog):

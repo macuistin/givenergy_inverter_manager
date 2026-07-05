@@ -51,6 +51,7 @@ from .const import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
+    CONF_INVERTER_SERIAL,
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
@@ -203,6 +204,10 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                     self._data[CONF_INVERTER_MAX_OUTPUT] = float(
                         user_input.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)
                     )
+                    # Persist serial and enforce single-instance
+                    self._data[CONF_INVERTER_SERIAL] = inverter.serial
+                    await self.async_set_unique_id(inverter.serial)
+                    self._abort_if_unique_id_configured()
                     return await self.async_step_charge_scheduling()
                 if inverter:
                     # Partially configured — fill what we can, check required manually
@@ -217,7 +222,9 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 errors["base"] = "missing_entities"
             else:
                 self._data.update(user_input)
-                await self.async_set_unique_id(user_input.get("discovered_inverter", "manual"))
+                serial = user_input.get("discovered_inverter", "manual")
+                self._data[CONF_INVERTER_SERIAL] = serial
+                await self.async_set_unique_id(serial)
                 self._abort_if_unique_id_configured()
                 return await self.async_step_charge_scheduling()
 
