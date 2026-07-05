@@ -2,16 +2,15 @@
 config_flow.py — Setup and options flow for GivEnergy Inverter Manager.
 
 Setup wizard steps:
-  1. inverter         — auto-discovers GivTCP entities. When fully detected,
-                        shows only battery capacity and max output to confirm.
-                        Falls back to manual entity entry if discovery fails.
-  2. charge_scheduling — optional overnight charge scheduling (target SOC,
-                         schedule switches, time slots). Auto-filled if found.
-  3. tariff            — rate periods, export rate, standing charge, etc.
-  4. forecast          — optional Forecast.Solar or Solcast integration.
-  5. immersion         — optional immersion heater.
-  6. ev                — optional EV charger.
-  7. battery           — overnight charge thresholds.
+  1. inverter   — auto-discovers GivTCP entities. When fully detected,
+                  shows only battery capacity and max output to confirm.
+                  Falls back to manual entity entry if discovery fails.
+  2. tariff     — rate periods, export rate, standing charge, etc.
+                  Also shows a summary of discovered scheduling entities.
+  3. forecast   — optional Forecast.Solar or Solcast integration.
+  4. immersion  — optional immersion heater.
+  5. ev         — optional EV charger.
+  6. battery    — overnight charge thresholds.
 
 Options flow: edit tariff and thresholds without reinstalling.
 """
@@ -219,7 +218,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         self._data[CONF_INVERTER_SERIAL] = inverter.serial
         await self.async_set_unique_id(inverter.serial)
         self._abort_if_unique_id_configured()
-        return await self.async_step_charge_scheduling()
+        return await self.async_step_tariff()
 
     def _handle_partial_inverter(self, inverter, user_input):
         """Fill partial inverter discovery results."""
@@ -244,7 +243,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         await self.async_set_unique_id(serial)
         self._abort_if_unique_id_configured()
 
-        return await self.async_step_charge_scheduling()
+        return await self.async_step_tariff()
 
     def _build_auto_detected_schema(self, best_inverter, inverter_options):
         """Build schema for auto-detected inverter."""
@@ -363,19 +362,8 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             description_placeholders={"discovered_count": str(len(self._discovered_inverters))},
         )
 
-    async def async_step_charge_scheduling(self, user_input=None):
-        if user_input is not None:
-            return await self.async_step_tariff()
-
-        status, detail = _build_charge_scheduling_summary(self._data)
-        return self.async_show_form(
-            step_id="charge_scheduling",
-            data_schema=vol.Schema({}),
-            description_placeholders={"status": status, "detail": detail},
-        )
-
     async def async_step_tariff(self, user_input=None):
-        """Step 3: Tariff configuration."""
+        """Step 2: Tariff configuration, with scheduling discovery summary."""
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
@@ -452,10 +440,19 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 ),
             }
         )
-        return self.async_show_form(step_id="tariff", data_schema=schema, errors=errors)
+        scheduling_status, scheduling_detail = _build_charge_scheduling_summary(self._data)
+        return self.async_show_form(
+            step_id="tariff",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "scheduling_status": scheduling_status,
+                "scheduling_detail": scheduling_detail,
+            },
+        )
 
     async def async_step_forecast(self, user_input=None):
-        """Step 4: Solar forecast integration (optional)."""
+        """Step 3: Solar forecast integration (optional)."""
         if user_input is not None:
             self._data.update(user_input)
             return await self.async_step_immersion()
