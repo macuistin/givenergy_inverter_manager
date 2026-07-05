@@ -28,7 +28,7 @@ Separation of concerns:
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from .battery import BatteryStats, calculate_cycle_increment, estimate_will_survive_night
 from ..const import (
@@ -381,7 +381,7 @@ def build_coordinator_data(
         a HA service call.
     """
     if now is None:
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
 
     data = CoordinatorData()
     data.last_reset_time = last_reset_time

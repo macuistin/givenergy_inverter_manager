@@ -36,7 +36,7 @@ current charge decision, and calls number.set_value on the GivTCP entity.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from datetime import time as dtime
 
 from homeassistant.config_entries import ConfigEntry
@@ -566,7 +566,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
         # 4. Run the pure logic engine
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         data, ev_target_mode = build_coordinator_data(
             raw=raw,
             cfg=cfg,

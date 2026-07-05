@@ -101,7 +101,7 @@ class TestAccumulateEnergy:
         raw = _raw()
         acc = EnergyAccumulator()
         tariff = build_tariff(_nightboost_cfg())
-        accumulate_energy(acc, raw, tariff, "Day", datetime.now(), None)
+        accumulate_energy(acc, raw, tariff, "Day", datetime.now(timezone.utc), None)
         assert acc.import_kwh == 0.0
         assert acc.solar_kwh == 0.0
 
@@ -450,7 +450,7 @@ class TestBuildCoordinatorData:
 class TestBuildCoordinatorDataNowDefault:
 
     def test_now_defaults_to_current_time(self):
-        """When now=None, engine uses datetime.now() without crashing."""
+        """When now=None, engine uses datetime.now(timezone.utc) without crashing."""
         raw = _raw()
         data, _ = build_coordinator_data(
             raw=raw,
@@ -459,7 +459,7 @@ class TestBuildCoordinatorDataNowDefault:
             battery_stats=BatteryStats(),
             last_soc=None,
             last_update_time=None,
-            now=None,   # explicitly None — triggers datetime.now() fallback
+            now=None,   # explicitly None — triggers datetime.now(timezone.utc) fallback
         )
         assert isinstance(data, CoordinatorData)
         assert data.current_rate > 0

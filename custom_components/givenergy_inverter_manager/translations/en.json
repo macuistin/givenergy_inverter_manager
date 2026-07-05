@@ -129,6 +129,123 @@
   },
   "entity": {
     "sensor": {
+      "solar_power": {
+        "name": "Solar Power"
+      },
+      "battery_soc": {
+        "name": "Battery State of Charge"
+      },
+      "grid_power": {
+        "name": "Grid Power"
+      },
+      "house_load": {
+        "name": "House Load"
+      },
+      "rest_of_house_load": {
+        "name": "Rest of House Load"
+      },
+      "current_rate": {
+        "name": "Current Rate"
+      },
+      "current_rate_period": {
+        "name": "Current Rate Period"
+      },
+      "solar_today": {
+        "name": "Solar Generation Today"
+      },
+      "import_today": {
+        "name": "Grid Import Today"
+      },
+      "export_today": {
+        "name": "Grid Export Today"
+      },
+      "zappi_today": {
+        "name": "EV Charging Today"
+      },
+      "immersion_today": {
+        "name": "Immersion Heater Today"
+      },
+      "import_cost_today": {
+        "name": "Import Cost Today"
+      },
+      "export_earnings_today": {
+        "name": "Export Earnings Today"
+      },
+      "zappi_cost_today": {
+        "name": "EV Charging Cost Today"
+      },
+      "house_cost_today": {
+        "name": "House Cost Today"
+      },
+      "self_sufficiency": {
+        "name": "Self Sufficiency"
+      },
+      "self_consumption": {
+        "name": "Self Consumption"
+      },
+      "accrued_bill": {
+        "name": "Accrued Bill This Period"
+      },
+      "projected_bill": {
+        "name": "Projected Bill This Period"
+      },
+      "days_remaining_in_period": {
+        "name": "Days Remaining in Bill Period"
+      },
+      "battery_cycles": {
+        "name": "Battery Total Cycles"
+      },
+      "battery_remaining_life": {
+        "name": "Battery Remaining Life"
+      },
+      "days_since_full_charge": {
+        "name": "Days Since Full Charge"
+      },
+      "overnight_charge_target": {
+        "name": "Recommended Overnight Charge Target"
+      },
+      "overnight_charge_reason": {
+        "name": "Overnight Charge Reason"
+      },
+      "overnight_charge_cost": {
+        "name": "Estimated Overnight Charge Cost"
+      },
+      "immersion_divert_reason": {
+        "name": "Immersion Divert Reason"
+      },
+      "estimated_soc_at_sunrise": {
+        "name": "Estimated SoC at Sunrise"
+      },
+      "night_survival_reason": {
+        "name": "Battery Night Survival Status"
+      },
+      "is_clipping": {
+        "name": "Inverter Clipping"
+      },
+      "ev_charger_state": {
+        "name": "EV Charger State"
+      },
+      "ev_power": {
+        "name": "EV Charging Power"
+      },
+      "ev_session_energy": {
+        "name": "EV Session Energy"
+      },
+      "ev_draining_battery": {
+        "name": "EV Draining Battery"
+      },
+      "ev_protection_reason": {
+        "name": "EV Battery Protection Status"
+      },
+      "immersion_cost_today": {
+        "name": "Immersion Cost Today"
+      },
+      "dry_run_active": {
+        "name": "Dry Run Mode Active"
+      },
+      "dry_run_last_skipped": {
+        "name": "Last Skipped Action (Dry Run)"
+      },
       "import_kwh_cheap_today": {
         "name": "Import at cheap rate"
       },

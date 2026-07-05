@@ -59,7 +59,7 @@ rules:
     comment: Devices are fixed at integration setup; no dynamic device addition
   entity-category: done        # EntityCategory.DIAGNOSTIC on operational sensors
   entity-device-class: done    # SensorDeviceClass used where appropriate
-  entity-disabled-by-default: todo  # low-use sensors could be disabled by default
+  entity-disabled-by-default: done  # yesterday/week/month/forecast/HTML report sensors disabled by default
   entity-translations: done    # strings.json and translations/en.json cover all entities
   exception-translations: todo # exceptions not yet translatable
   icon-translations: todo      # icons.json not yet added
