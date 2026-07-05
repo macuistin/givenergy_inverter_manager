@@ -226,8 +226,8 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         self._data[CONF_INVERTER_SERIAL] = serial
         await self.async_set_unique_id(serial)
         self._abort_if_unique_id_configured()
-        await self.async_step_charge_scheduling()
-        return None
+
+        return await self.async_step_charge_scheduling()
 
     def _build_auto_detected_schema(self, best_inverter, inverter_options):
         """Build schema for auto-detected inverter."""
