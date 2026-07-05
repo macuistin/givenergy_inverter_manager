@@ -1,0 +1,39 @@
+---
+title: Tariff Rate Precedence (get_current_rate)
+---
+flowchart TD
+    START([get_current_rate called\nwith current datetime]) --> TIMED
+
+    TIMED["Collect all timed periods\nwhere is_active(dt) = True\nNight · Nightboost · any others"]
+
+    TIMED --> ANYTIMED{Any timed\nperiods active?}
+
+    ANYTIMED -->|Yes| CHEAPEST["Return cheapest active\ntimed period\nmin(active, key=rate)"]
+
+    ANYTIMED -->|No| BASE["Return base_rate period\n(Day / Standard — the catch-all)"]
+
+    CHEAPEST --> EXAMPLE1{{"Example: 02:30\nNight active (0.1644)\nNightboost active (0.0965)\n→ Nightboost wins (cheaper)"}}
+    BASE --> EXAMPLE2{{"Example: 14:00\nNo timed period active\n→ Day base rate (0.3334)"}}
+
+    style CHEAPEST fill:#d0e8ff,stroke:#1565C0,color:#000
+    style BASE fill:#fff9c4,stroke:#f57f17,color:#000
+    style EXAMPLE1 fill:#e8f5e9,stroke:#2e7d32,color:#000
+    style EXAMPLE2 fill:#e8f5e9,stroke:#2e7d32,color:#000
+
+    subgraph CONFIG["Config structure"]
+        direction LR
+        C1["base_rate: 0.3334\nbase_rate_name: 'Day'\n\nSingle field — no times needed.\nActive whenever nothing else is."]
+        C2["rate_periods:\n  Night, 0.1644, 23:00, 08:00\n  Nightboost, 0.0965, 02:00, 04:00\n\nEach has explicit start/end.\nOvernights span midnight."]
+    end
+
+    subgraph COVERAGE["24-hour coverage (Irish Nightboost tariff)"]
+        direction LR
+        H1["00:00 – 02:00  Night    €0.1644"]
+        H2["02:00 – 04:00  Nightboost €0.0965 ← cheapest active wins"]
+        H3["04:00 – 08:00  Night    €0.1644"]
+        H4["08:00 – 23:00  Day      €0.3334 ← base rate"]
+        H5["23:00 – 24:00  Night    €0.1644"]
+    end
+
+    style CONFIG fill:#f3e5f5,stroke:#7b1fa2,color:#000
+    style COVERAGE fill:#e0f7fa,stroke:#006064,color:#000

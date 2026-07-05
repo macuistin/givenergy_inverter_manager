@@ -1,0 +1,30 @@
+---
+title: EV Charger Decision Logic (decide_ev_charger_action in rules.py)
+---
+flowchart TD
+    START([Called from engine.py\neach 30s update cycle]) --> PLUGGED{EV plugged in?}
+    PLUGGED -- No --> NONE1(["No action\n(not connected)"])
+
+    PLUGGED -- Yes --> PROTECT{battery_soc\n< protection_threshold\n(from config)}
+
+    PROTECT -- Yes, Zappi --> STOPPED{already\nstopped?}
+    STOPPED -- No --> STOP(["Set mode → Stopped\n(battery protection)"])
+    STOPPED -- Yes --> NONE2(["No action\n(already stopped)"])
+
+    PROTECT -- Yes, other brand --> WARN(["No action — manual\nstop required"])
+
+    PROTECT -- No --> SURPLUS{solar_surplus_w\n> EV_SURPLUS_DIVERT_W\n(const.py) AND Zappi?}
+
+    SURPLUS -- Yes --> ECO{already\nin Eco+?}
+    ECO -- No --> ECOPLUS(["Set mode → Eco+\n(absorb solar surplus)"])
+    ECO -- Yes --> NONE3(["No action\n(already in Eco+)"])
+
+    SURPLUS -- No --> NONE4(["No action\n(normal operation)"])
+
+    style STOP fill:#ffcdd2,stroke:#b71c1c
+    style ECOPLUS fill:#e8f5e9,stroke:#4CAF50
+    style NONE1 fill:#f5f5f5,stroke:#9e9e9e
+    style NONE2 fill:#f5f5f5,stroke:#9e9e9e
+    style NONE3 fill:#f5f5f5,stroke:#9e9e9e
+    style NONE4 fill:#f5f5f5,stroke:#9e9e9e
+    style WARN fill:#fff9c4,stroke:#f57f17

@@ -1,0 +1,61 @@
+---
+title: GivEnergy Inverter Manager — Module Architecture
+---
+graph TD
+    subgraph HA["Home Assistant Layer  (HA-dependent)"]
+        direction TB
+        INIT["__init__.py\nSetup · Unload\nService registration"]
+        COORD["coordinator.py\nHA proxy\n· reads hass.states → RawSensorValues\n· computes solar_fractions from hass.config.latitude\n· calls build_coordinator_data()\n· applies HA service calls\n· registers time listeners"]
+        SENSOR["sensor.py\n39 read-only sensors\nvalue_fn lambdas on CoordinatorData"]
+        SWITCH["switch.py\nAuto immersion toggle\nImmersion managed switch\nSkip-charge override"]
+        NUMBER["number.py\nOvernight charge\ntarget slider"]
+        DASH["dashboard.py\nget_dashboard_yaml service\nGenerates pre-filled\nLovelace YAML"]
+        CF["config_flow.py\n7-step setup wizard\nOptions flow\nRate period parser"]
+    end
+
+    subgraph ENGINE["Pure Logic Layer  (no HA imports — 100% testable)"]
+        direction TB
+        ENG["engine.py\nbuild_coordinator_data()\naccumulate_energy()\nestimate_avg_daily_kwh()\nupdate_battery_stats()"]
+        RULES["rules.py  ← all decisions\nmonthly_solar_fractions(latitude)\ncalculate_overnight_charge_target()\nshould_divert_to_immersion()\nsuggest_appliance_run()\ndecide_ev_charger_action()\nshould_protect_battery_from_charger()"]
+        TARIFF["tariff.py\nRatePeriod  ·  TariffConfig\n  base_rate scalar (e.g. Day)\n  rate_periods list (Night, Nightboost…)\nEnergyAccumulator\nbuild_tariff()  ← factory"]
+        BAT["battery.py\nBatteryStats\ncalculate_cycle_increment()\nestimate_will_survive_night()"]
+        DISC_EV["discovery/ev_charger.py\nEVCharger · EVChargerBrand\ndiscover_ev_chargers()\nupdate_charger_state()"]
+        DISC_GTC["discovery/givtcp.py\nGivTCPInverter\ndiscover_givtcp_inverters()\nget_suggested_entities()"]
+        CONST["const.py\nConfig keys · Defaults\nAlgorithm parameters (CHARGE_*, SOLAR_*, BATTERY_*)\nCurrencies · Thresholds"]
+        OPT["optimizer.py\n(backward-compat shim\n→ re-exports from rules.py)"]
+    end
+
+    %% Coordinator ↔ Engine
+    COORD -->|"RawSensorValues\ncfg dict · overrides\nsolar_fractions"| ENG
+    ENG -->|"CoordinatorData\nev_target_mode"| COORD
+
+    %% Engine internal deps
+    ENG --> TARIFF
+    ENG --> RULES
+    ENG --> BAT
+    ENG --> DISC_EV
+    ENG --> CONST
+    RULES --> CONST
+    RULES --> DISC_EV
+    TARIFF --> CONST
+    BAT --> CONST
+
+    %% HA entities read coordinator data
+    COORD -->|"CoordinatorData"| SENSOR
+    COORD -->|"CoordinatorData\noverride_*"| SWITCH
+    COORD -->|"CoordinatorData\noverride_charge_target"| NUMBER
+
+    %% Config flow uses discovery at setup time only
+    CF --> DISC_GTC
+    CF --> DISC_EV
+
+    %% Init wires it all together
+    INIT --> COORD
+    INIT --> DASH
+
+    style HA fill:#e8f4fd,stroke:#2196F3,color:#000
+    style ENGINE fill:#e8f5e9,stroke:#4CAF50,color:#000
+    style ENG fill:#c8e6c9,stroke:#388E3C,color:#000
+    style COORD fill:#bbdefb,stroke:#1976D2,color:#000
+    style RULES fill:#f3e5f5,stroke:#7B1FA2,color:#000
+    style OPT fill:#fafafa,stroke:#bbb,color:#999
