@@ -5,7 +5,7 @@ rules:
   # ── Bronze ──────────────────────────────────────────────────────────────────
   action-setup: done           # get_dashboard_yaml registered in async_setup_entry
   appropriate-polling: done    # 30s UPDATE_INTERVAL_SECONDS, fits the use case
-  brands: done                 # icon.png and logo.png in images/
+  brands: done                 # icon.png and logo.png in brand/
   common-modules: done         # coordinator.py, const.py, rules.py
   config-flow-test-coverage: todo  # test_config_flow.py exists; full coverage planned
   config-flow: done            # 7-step wizard with GivTCP auto-discovery

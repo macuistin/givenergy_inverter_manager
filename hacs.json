@@ -1,9 +1,5 @@
 {
   "name": "GivEnergy Inverter Manager",
-  "category": "integration",
-  "iot_class": "local_push",
   "homeassistant": "2024.1.0",
-  "hacs": "1.32.0",
-  "zip_release": false,
-  "hide_default_branch": false
+  "hacs": "1.32.0"
 }

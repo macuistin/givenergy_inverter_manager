@@ -1,15 +1,15 @@
 {
   "domain": "givenergy_inverter_manager",
   "name": "GivEnergy Inverter Manager",
-  "version": "0.1.0",
-  "documentation": "https://github.com/macuistin/givenergy-inverter-manager",
-  "issue_tracker": "https://github.com/macuistin/givenergy-inverter-manager/issues",
-  "dependencies": [],
   "codeowners": [
     "@macuistin"
   ],
-  "requirements": [],
-  "iot_class": "local_push",
   "config_flow": true,
-  "integration_type": "device"
+  "dependencies": [],
+  "documentation": "https://github.com/macuistin/givenergy-inverter-manager",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/macuistin/givenergy-inverter-manager/issues",
+  "requirements": [],
+  "version": "0.1.0"
 }
