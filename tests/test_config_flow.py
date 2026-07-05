@@ -9,6 +9,7 @@ without requiring a running Home Assistant instance.
 import pytest
 
 from custom_components.givenergy_inverter_manager.config_flow import (
+    _build_charge_scheduling_summary,
     _parse_rate_periods,
     _rate_periods_to_text,
 )
@@ -268,3 +269,52 @@ class TestDiscoverGivTCPInverters:
         )
         result = discover_givtcp_inverters(all_states)
         assert result[0].serial < result[1].serial
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class TestBuildChargeSchedulingSummary:
+    """Tests for _build_charge_scheduling_summary."""
+
+    def test_all_five_detected(self):
+        data = {
+            "target_soc_entity": "number.givtcp_x_target_soc",
+            "enable_charge_target_entity": "switch.givtcp_x_enable_charge_target",
+            "enable_charge_schedule_entity": "switch.givtcp_x_enable_charge_schedule",
+            "charge_start_time_entity": "select.givtcp_x_charge_start_time_slot_1",
+            "charge_end_time_entity": "select.givtcp_x_charge_end_time_slot_1",
+        }
+        status, detail = _build_charge_scheduling_summary(data)
+        assert "All 5" in status
+        assert "✓" in status
+        assert all(v in detail for v in data.values())
+
+    def test_none_detected(self):
+        status, detail = _build_charge_scheduling_summary({})
+        assert "No scheduling entities" in status
+        assert "✗" in status
+        assert "not found" in detail
+
+    def test_partial_detected(self):
+        data = {
+            "target_soc_entity": "number.givtcp_x_target_soc",
+            "enable_charge_target_entity": "switch.givtcp_x_enable_charge_target",
+        }
+        status, detail = _build_charge_scheduling_summary(data)
+        assert "2/5" in status
+        assert "⚠" in status
+
+    def test_detail_contains_all_keys(self):
+        status, detail = _build_charge_scheduling_summary({})
+        from custom_components.givenergy_inverter_manager.config_flow import (
+            _CHARGE_SCHEDULING_CONF_KEYS,
+        )
+
+        for k in _CHARGE_SCHEDULING_CONF_KEYS:
+            assert k in detail
+
+    def test_both_values_returned(self):
+        status, detail = _build_charge_scheduling_summary({})
+        assert isinstance(status, str) and len(status) > 0
+        assert isinstance(detail, str) and len(detail) > 0

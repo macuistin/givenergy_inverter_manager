@@ -150,6 +150,23 @@ def _parse_rate_periods(raw: str) -> list[dict]:
 def _rate_periods_to_text(periods: list[dict]) -> str:
     return "\n".join(f"{p['name']}, {p['rate']}, {p['start']}, {p['end']}" for p in periods)
 
+def _build_charge_scheduling_summary(data: dict) -> tuple[str, str]:
+    """Return (status, detail) strings for the charge scheduling step."""
+    detected = sum(1 for k in _CHARGE_SCHEDULING_CONF_KEYS if data.get(k))
+
+    if detected == 5:
+        status = "✓ All 5 scheduling entities detected — automatic overnight charging enabled"
+    elif detected > 0:
+        status = f"⚠ {detected}/5 scheduling entities detected — partial scheduling"
+    else:
+        status = "✗ No scheduling entities detected — manual charging only"
+
+    detail_lines = [
+        f"{'✓' if data.get(k) else '✗'} {k}: {data.get(k) or 'not found'}"
+        for k in _CHARGE_SCHEDULING_CONF_KEYS
+    ]
+    return status, "\n".join(detail_lines)
+
 
 class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Multi-step config flow for GivEnergy Inverter Manager."""
@@ -347,31 +364,14 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         )
 
     async def async_step_charge_scheduling(self, user_input=None):
-        """
-        Step 2: Charge scheduling confirmation (read-only summary, no entity selectors).
-
-        The 5 GivTCP scheduling entities are already in self._data from discovery.
-        This step just shows what was found — entity selector fields in config flow
-        submissions cause HA to silently return 'unknown error' during schema
-        validation regardless of approach, so we avoid them here entirely.
-        The user can adjust entities post-setup via Settings > Integrations > Configure.
-        """
         if user_input is not None:
             return await self.async_step_tariff()
 
-        detected = sum(1 for k in _CHARGE_SCHEDULING_CONF_KEYS if self._data.get(k))
-
-        if detected == 5:
-            status = "All 5 scheduling entities detected — automatic overnight charging enabled"
-        elif detected > 0:
-            status = f"{detected}/5 scheduling entities detected — partial scheduling"
-        else:
-            status = "No scheduling entities detected — manual charging only"
-
+        status, detail = _build_charge_scheduling_summary(self._data)
         return self.async_show_form(
             step_id="charge_scheduling",
             data_schema=vol.Schema({}),
-            description_placeholders={"status": status},
+            description_placeholders={"status": status, "detail": detail},
         )
 
     async def async_step_tariff(self, user_input=None):
