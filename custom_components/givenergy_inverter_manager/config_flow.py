@@ -289,6 +289,24 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             }
         )
 
+    @staticmethod
+    def _build_charge_scheduling_summary(data: dict) -> tuple[str, str]:
+        """Return (status, detail) strings for the charge scheduling step."""
+        detected = sum(1 for k in _CHARGE_SCHEDULING_CONF_KEYS if data.get(k))
+
+        if detected == 5:
+            status = "✓ All 5 scheduling entities detected — automatic overnight charging enabled"
+        elif detected > 0:
+            status = f"⚠ {detected}/5 scheduling entities detected — partial scheduling"
+        else:
+            status = "✗ No scheduling entities detected — manual charging only"
+
+        detail_lines = [
+            f"{'✓' if data.get(k) else '✗'} {k}: {data.get(k) or 'not found'}"
+            for k in _CHARGE_SCHEDULING_CONF_KEYS
+        ]
+        return status, "\n".join(detail_lines)
+
     async def async_step_inverter(self, user_input=None):
         """
         Step 1: Inverter selection.
@@ -350,21 +368,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         if user_input is not None:
             return await self.async_step_tariff()
 
-        detected = sum(1 for k in _CHARGE_SCHEDULING_CONF_KEYS if self._data.get(k))
-
-        if detected == 5:
-            status = "✓ All 5 scheduling entities detected — automatic overnight charging enabled"
-        elif detected > 0:
-            status = f"⚠ {detected}/5 scheduling entities detected — partial scheduling"
-        else:
-            status = "✗ No scheduling entities detected — manual charging only"
-
-        detail_lines = []
-        for k in _CHARGE_SCHEDULING_CONF_KEYS:
-            val = self._data.get(k)
-            detail_lines.append(f"{'✓' if val else '✗'} {k}: {val or 'not found'}")
-        detail = "\n".join(detail_lines)
-
+        status, detail = self._build_charge_scheduling_summary(self._data)
         return self.async_show_form(
             step_id="charge_scheduling",
             data_schema=vol.Schema({}),
