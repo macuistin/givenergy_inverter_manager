@@ -7,6 +7,7 @@ Verifies:
   - log_cycle, log_givtcp_write, log_startup produce correct output when verbose on
   - All verbose functions are true no-ops when verbose is off
 """
+
 import logging
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
@@ -16,25 +17,29 @@ _ROOT = "custom_components.givenergy_inverter_manager"
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
+
 def _enable_verbose():
     from custom_components.givenergy_inverter_manager.logging import GivLogger
+
     GivLogger.register(lambda: {"verbose_logging": True})
 
 
 def _disable_verbose():
     from custom_components.givenergy_inverter_manager.logging import GivLogger
+
     GivLogger.register(lambda: {"verbose_logging": False})
 
 
 def _make_log():
     from custom_components.givenergy_inverter_manager.logging import get_logger
+
     return get_logger(f"{_ROOT}.test_verbose_helper")
 
 
 def _make_data(**overrides):
     from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
-    from custom_components.givenergy_inverter_manager.discovery.ev_charger import EVChargerState
     from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+    from custom_components.givenergy_inverter_manager.discovery.ev_charger import EVChargerState
 
     cd = MagicMock()
     cd.target_soc = 80
@@ -43,11 +48,17 @@ def _make_data(**overrides):
     cd.cost_to_charge = 1.23
 
     acc = EnergyAccumulator(
-        solar_kwh=5.0, import_kwh=2.0, export_kwh=1.0,
-        zappi_kwh=3.0, immersion_kwh=0.5, house_kwh=8.0,
+        solar_kwh=5.0,
+        import_kwh=2.0,
+        export_kwh=1.0,
+        zappi_kwh=3.0,
+        immersion_kwh=0.5,
+        house_kwh=8.0,
         import_cost_by_period={"Day": 0.80},
-        export_earnings=0.195, zappi_cost=0.30,
-        immersion_cost=0.05, house_cost=0.45,
+        export_earnings=0.195,
+        zappi_cost=0.30,
+        immersion_cost=0.05,
+        house_cost=0.45,
         battery_discharge_kwh=1.5,
     )
 
@@ -89,11 +100,19 @@ def _make_data(**overrides):
 
 def _make_raw(**overrides):
     from custom_components.givenergy_inverter_manager.core.engine import RawSensorValues
+
     raw = RawSensorValues(
-        solar_power_w=3000.0, battery_soc=75.0, battery_power_w=-500.0,
-        grid_power_w=200.0, house_load_w=1200.0, immersion_on=False,
-        immersion_wattage_w=3000.0, immersion_temp=None,
-        forecast_kwh_tomorrow=None, ev_power_w=0.0, ev_plugged_in=False,
+        solar_power_w=3000.0,
+        battery_soc=75.0,
+        battery_power_w=-500.0,
+        grid_power_w=200.0,
+        house_load_w=1200.0,
+        immersion_on=False,
+        immersion_wattage_w=3000.0,
+        immersion_temp=None,
+        forecast_kwh_tomorrow=None,
+        ev_power_w=0.0,
+        ev_plugged_in=False,
     )
     for k, v in overrides.items():
         setattr(raw, k, v)
@@ -102,15 +121,17 @@ def _make_raw(**overrides):
 
 # ── TestGivLogger ─────────────────────────────────────────────────────────────
 
-class TestGivLogger:
 
+class TestGivLogger:
     def test_get_logger_returns_givlogger(self):
         from custom_components.givenergy_inverter_manager.logging import GivLogger, get_logger
+
         log = get_logger(__name__)
         assert isinstance(log, GivLogger)
 
     def test_name_matches_module(self):
         from custom_components.givenergy_inverter_manager.logging import get_logger
+
         log = get_logger(f"{_ROOT}.mymodule")
         assert "mymodule" in log.name
 
@@ -135,8 +156,8 @@ class TestGivLogger:
 
 # ── TestVerboseGuard ──────────────────────────────────────────────────────────
 
-class TestVerboseGuard:
 
+class TestVerboseGuard:
     def test_verbose_emits_when_enabled(self, caplog):
         _enable_verbose()
         log = _make_log()
@@ -153,6 +174,7 @@ class TestVerboseGuard:
 
     def test_verbose_silent_with_no_config(self, caplog):
         from custom_components.givenergy_inverter_manager.logging import GivLogger
+
         GivLogger._cfg_fn = None
         log = _make_log()
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
@@ -179,6 +201,7 @@ class TestVerboseGuard:
     def test_verbose_reads_live_config(self, caplog):
         """Toggling the config flag mid-test affects the next call immediately."""
         from custom_components.givenergy_inverter_manager.logging import GivLogger
+
         flag = {"verbose_logging": False}
         GivLogger.register(lambda: flag)
         log = _make_log()
@@ -198,10 +221,11 @@ class TestVerboseGuard:
 
 # ── TestLogCycle ──────────────────────────────────────────────────────────────
 
-class TestLogCycle:
 
+class TestLogCycle:
     def _run(self, raw=None, data=None, cycle=1, caplog=None):
         from custom_components.givenergy_inverter_manager.logging import log_cycle
+
         _enable_verbose()
         log = _make_log()
         raw = raw or _make_raw()
@@ -213,6 +237,7 @@ class TestLogCycle:
 
     def test_no_output_when_verbose_off(self, caplog):
         from custom_components.givenergy_inverter_manager.logging import log_cycle
+
         _disable_verbose()
         log = _make_log()
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
@@ -248,6 +273,7 @@ class TestLogCycle:
 
     def test_ev_section_when_available(self, caplog):
         from custom_components.givenergy_inverter_manager.discovery.ev_charger import EVChargerState
+
         data = _make_data()
         data.ev_available = True
         data.ev_charger_name = "Zappi"
@@ -280,10 +306,11 @@ class TestLogCycle:
 
 # ── TestLogGivtcpWrite ────────────────────────────────────────────────────────
 
-class TestLogGivtcpWrite:
 
+class TestLogGivtcpWrite:
     def test_accepted_write_logged(self, caplog):
         from custom_components.givenergy_inverter_manager.logging import log_givtcp_write
+
         _enable_verbose()
         log = _make_log()
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
@@ -295,6 +322,7 @@ class TestLogGivtcpWrite:
 
     def test_mismatch_logged(self, caplog):
         from custom_components.givenergy_inverter_manager.logging import log_givtcp_write
+
         _enable_verbose()
         log = _make_log()
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
@@ -303,6 +331,7 @@ class TestLogGivtcpWrite:
 
     def test_silent_when_verbose_off(self, caplog):
         from custom_components.givenergy_inverter_manager.logging import log_givtcp_write
+
         _disable_verbose()
         log = _make_log()
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
@@ -312,10 +341,11 @@ class TestLogGivtcpWrite:
 
 # ── TestLogStartup ────────────────────────────────────────────────────────────
 
-class TestLogStartup:
 
+class TestLogStartup:
     def test_entity_ids_logged(self, caplog):
         from custom_components.givenergy_inverter_manager.logging import log_startup
+
         _enable_verbose()
         log = _make_log()
         cfg = {"solar_power_entity": "sensor.givtcp_SA123_pv_power"}
@@ -325,6 +355,7 @@ class TestLogStartup:
 
     def test_missing_entity_noted(self, caplog):
         from custom_components.givenergy_inverter_manager.logging import log_startup
+
         _enable_verbose()
         log = _make_log()
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
@@ -333,6 +364,7 @@ class TestLogStartup:
 
     def test_base_rate_logged(self, caplog):
         from custom_components.givenergy_inverter_manager.logging import log_startup
+
         _enable_verbose()
         log = _make_log()
         cfg = {"base_rate": 0.3334, "base_rate_name": "Day", "rate_periods": []}
@@ -344,11 +376,14 @@ class TestLogStartup:
 
     def test_timed_periods_logged(self, caplog):
         from custom_components.givenergy_inverter_manager.logging import log_startup
+
         _enable_verbose()
         log = _make_log()
-        cfg = {"rate_periods": [
-            {"name": "Night", "rate": 0.1644, "start": "23:00", "end": "08:00"},
-        ]}
+        cfg = {
+            "rate_periods": [
+                {"name": "Night", "rate": 0.1644, "start": "23:00", "end": "08:00"},
+            ]
+        }
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
             log_startup(log, cfg)
         output = "\n".join(r.message for r in caplog.records)
@@ -357,6 +392,7 @@ class TestLogStartup:
 
     def test_silent_when_verbose_off(self, caplog):
         from custom_components.givenergy_inverter_manager.logging import log_startup
+
         _disable_verbose()
         log = _make_log()
         with caplog.at_level(logging.DEBUG, logger=_ROOT):

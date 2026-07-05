@@ -16,5 +16,10 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements-test.txt
+      - name: Lint
+        run: ruff check custom_components/givenergy_inverter_manager/ tests/
+      - name: Security scan
+        run: bandit -r custom_components/givenergy_inverter_manager/ -c .bandit.yaml
       - name: Run tests
         run: python -m pytest tests/ -q
+        

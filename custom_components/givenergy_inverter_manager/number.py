@@ -13,6 +13,7 @@ Provides one number entity:
     charge target and using it as a mode flag is confusing. The switch
     carries the mode; the number carries only the value.
 """
+
 from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity, NumberMode

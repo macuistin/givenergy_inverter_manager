@@ -4,6 +4,7 @@ diagnostics.py — Download diagnostics for GivEnergy Inverter Manager.
 Exposes a "Download Diagnostics" button in Settings → Devices & Services.
 Provides the config entry data in redacted form for filing bug reports.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -47,7 +48,8 @@ async def async_get_config_entry_diagnostics(
             "dry_run": coordinator.data.dry_run,
             "charge_target": (
                 coordinator.data.charge_decision.target_soc
-                if coordinator.data.charge_decision else None
+                if coordinator.data.charge_decision
+                else None
             ),
         }
 

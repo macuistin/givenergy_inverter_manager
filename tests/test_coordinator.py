@@ -10,6 +10,7 @@ FakeCoordinator overrides these three methods.  No hass mock, no MagicMock
 patching, no asyncio magic — just a subclass that controls the HA surface
 and records what the coordinator asked it to do.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from custom_components.givenergy_inverter_manager.accumulation import AccumulationState
 from custom_components.givenergy_inverter_manager.const import (
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
@@ -32,21 +34,23 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_TARGET_SOC_ENTITY,
 )
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
-from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
-from custom_components.givenergy_inverter_manager.accumulation import AccumulationState
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from tests.conftest import _nightboost_cfg
 
 # ── Minimal HA state stub ─────────────────────────────────────────────────────
 
+
 class FakeState:
     """Minimal stub for an HA state object."""
+
     def __init__(self, state: str):
         self.state = state
 
 
 # ── FakeCoordinator ───────────────────────────────────────────────────────────
+
 
 class FakeCoordinator(GivEnergyCoordinator):
     """
@@ -67,7 +71,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         entry = MagicMock()
         entry.data = cfg or _nightboost_cfg()
         entry.options = {}
-        entry.async_on_unload = lambda fn: fn   # returns the cancel fn itself
+        entry.async_on_unload = lambda fn: fn  # returns the cancel fn itself
 
         hass = MagicMock()
         hass.states.get = lambda eid: self._states.get(eid)
@@ -91,48 +95,68 @@ class FakeCoordinator(GivEnergyCoordinator):
 
         # Coordinator state
         from custom_components.givenergy_inverter_manager.logging import GivLogger
+
         self._battery_stats = BatteryStats()
-        self._solar_fractions = {m: 0.5 for m in range(1, 13)}  # flat for tests
+        self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""
 
         class _FakeAccStore:
             """Minimal AccumulationStore stub for testing — no HA Storage."""
+
             def __init__(self):
                 self.state = AccumulationState()
+
             @property
-            def today(self): return self.state.today
+            def today(self):
+                return self.state.today
+
             @property
-            def week(self): return self.state.week
+            def week(self):
+                return self.state.week
+
             @property
-            def month(self): return self.state.month
+            def month(self):
+                return self.state.month
+
             @property
-            def yesterday(self): return self.state.yesterday
+            def yesterday(self):
+                return self.state.yesterday
+
             @property
-            def today_forecast_kwh(self): return self.state.today_forecast_kwh
+            def today_forecast_kwh(self):
+                return self.state.today_forecast_kwh
+
             @property
-            def yesterday_forecast_accuracy_pct(self): return self.state.yesterday_forecast_accuracy_pct
+            def yesterday_forecast_accuracy_pct(self):
+                return self.state.yesterday_forecast_accuracy_pct
+
             @property
             def forecast_accuracy_7day_avg_pct(self):
                 h = self.state.forecast_accuracy_history
-                return round(sum(h)/len(h),1) if h else 0.0
+                return round(sum(h) / len(h), 1) if h else 0.0
+
             def on_midnight(self, now):
                 self.state.yesterday = self.state.today
-                from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
                 self.state.today = EnergyAccumulator()
+
             def on_charge_decision(self, kwh):
                 if self.state.today_forecast_kwh == 0.0 and kwh > 0:
                     self.state.today_forecast_kwh = kwh
-            async def async_save(self): pass  # no-op in tests
-            async def async_load(self): pass
+
+            async def async_save(self):
+                pass  # no-op in tests
+
+            async def async_load(self):
+                pass
 
         self._acc = _FakeAccStore()
-        self._last_soc:     float | None    = None
-        self._last_update:  datetime | None = None
+        self._last_soc: float | None = None
+        self._last_update: datetime | None = None
         self._update_cycle: int = 0
-        self._ev_charger    = None
+        self._ev_charger = None
         self.override_charge_target = None
-        self.override_immersion     = None
-        self.override_skip_charge   = False
+        self.override_immersion = None
+        self.override_skip_charge = False
 
         GivLogger.register(self._effective_cfg)
 
@@ -184,36 +208,40 @@ class FakeCoordinator(GivEnergyCoordinator):
 
 # ── Shared cfg fixture ────────────────────────────────────────────────────────
 
+
 def _cfg(**overrides) -> dict:
     """Return a nightboost config with GivTCP entity IDs set."""
     base = _nightboost_cfg()
-    base.update({
-        CONF_SOLAR_POWER:              "sensor.solar",
-        CONF_BATTERY_SOC:             "sensor.battery_soc",
-        CONF_BATTERY_POWER:           "sensor.battery_power",
-        CONF_GRID_POWER:              "sensor.grid",
-        CONF_HOUSE_LOAD:              "sensor.house",
-        CONF_TARGET_SOC_ENTITY:       "number.target_soc",
-        CONF_ENABLE_CHARGE_TARGET:    "switch.enable_charge_target",
-        CONF_ENABLE_CHARGE_SCHEDULE:  "switch.enable_charge_schedule",
-        CONF_CHARGE_START_TIME_ENTITY:"select.charge_start",
-        CONF_CHARGE_END_TIME_ENTITY:  "select.charge_end",
-    })
+    base.update(
+        {
+            CONF_SOLAR_POWER: "sensor.solar",
+            CONF_BATTERY_SOC: "sensor.battery_soc",
+            CONF_BATTERY_POWER: "sensor.battery_power",
+            CONF_GRID_POWER: "sensor.grid",
+            CONF_HOUSE_LOAD: "sensor.house",
+            CONF_TARGET_SOC_ENTITY: "number.target_soc",
+            CONF_ENABLE_CHARGE_TARGET: "switch.enable_charge_target",
+            CONF_ENABLE_CHARGE_SCHEDULE: "switch.enable_charge_schedule",
+            CONF_CHARGE_START_TIME_ENTITY: "select.charge_start",
+            CONF_CHARGE_END_TIME_ENTITY: "select.charge_end",
+        }
+    )
     base.update(overrides)
     return base
 
 
 def _default_states() -> dict[str, str]:
     return {
-        "sensor.solar":        "3000",
-        "sensor.battery_soc":  "60",
+        "sensor.solar": "3000",
+        "sensor.battery_soc": "60",
         "sensor.battery_power": "-500",
-        "sensor.grid":         "0",
-        "sensor.house":        "1500",
+        "sensor.grid": "0",
+        "sensor.house": "1500",
     }
 
 
 # ── TestCollectRaw ────────────────────────────────────────────────────────────
+
 
 class TestCollectRaw:
     """_collect_raw reads entity states and returns correct RawSensorValues."""
@@ -290,6 +318,7 @@ class TestCollectRaw:
 
 # ── TestUpdateCycle ───────────────────────────────────────────────────────────
 
+
 class TestUpdateCycle:
     """_async_update_data reads states, runs engine, returns CoordinatorData."""
 
@@ -338,7 +367,7 @@ class TestUpdateCycle:
         coord.set_states(_default_states())
         coord.set_state("sensor.solar", "3000")
 
-        await coord.run_cycle()                        # sets _last_update
+        await coord.run_cycle()  # sets _last_update
         coord._last_update = datetime.now(timezone.utc) - timedelta(minutes=30)
         await coord.run_cycle()
 
@@ -363,8 +392,8 @@ class TestUpdateCycle:
 
 # ── TestMidnightReset ─────────────────────────────────────────────────────────
 
-class TestMidnightReset:
 
+class TestMidnightReset:
     def test_clears_accumulator(self):
         coord = FakeCoordinator(cfg=_cfg())
         coord._acc.today.solar_kwh = 12.0
@@ -388,6 +417,7 @@ class TestMidnightReset:
 
 # ── TestWriteChargeTarget ─────────────────────────────────────────────────────
 
+
 class TestWriteChargeTarget:
     """_write_charge_target_to_inverter issues the correct 5-step sequence."""
 
@@ -396,6 +426,7 @@ class TestWriteChargeTarget:
         coord.set_states(_default_states())
         # Inject a charge decision directly
         from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
+
         decision = ChargeDecision(
             target_soc=target_soc,
             skip_charge=skip,
@@ -419,9 +450,9 @@ class TestWriteChargeTarget:
         assert len(coord.tasks_created) == 1
         await coord.tasks_created[0]
         domains = [(d, s) for d, s, _ in coord.service_calls]
-        assert ("switch", "turn_on")   in domains   # step 1: enable_charge_schedule
+        assert ("switch", "turn_on") in domains  # step 1: enable_charge_schedule
         assert ("select", "select_option") in domains  # steps 2 & 3
-        assert ("number", "set_value") in domains   # step 4: target_soc
+        assert ("number", "set_value") in domains  # step 4: target_soc
 
     @pytest.mark.asyncio
     async def test_target_soc_written_correctly(self):
@@ -477,10 +508,16 @@ class TestWriteChargeTarget:
         coord = FakeCoordinator(cfg=cfg)
         coord.set_states(_default_states())
         from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
+
         decision = ChargeDecision(
-            target_soc=80, skip_charge=False, reason="test",
-            forecast_kwh=10.0, current_soc=60.0, battery_capacity=19.0,
-            car_plugged_in=False, cost_to_charge=1.0,
+            target_soc=80,
+            skip_charge=False,
+            reason="test",
+            forecast_kwh=10.0,
+            current_soc=60.0,
+            battery_capacity=19.0,
+            car_plugged_in=False,
+            cost_to_charge=1.0,
         )
         data = MagicMock()
         data.charge_decision = decision
@@ -493,8 +530,8 @@ class TestWriteChargeTarget:
 
 # ── TestEffectiveCfg ──────────────────────────────────────────────────────────
 
-class TestEffectiveCfg:
 
+class TestEffectiveCfg:
     def test_options_override_data(self):
         coord = FakeCoordinator(cfg={"base_rate": 0.30, "export_rate": 0.15})
         coord.entry.options = {"export_rate": 0.20}
@@ -511,16 +548,19 @@ class TestEffectiveCfg:
 
 # ── TestApplyEvAction ─────────────────────────────────────────────────────────
 
-class TestApplyEvAction:
 
+class TestApplyEvAction:
     def _charger(self, mode="Fast"):
         from custom_components.givenergy_inverter_manager.discovery import (
             EVCharger,
             EVChargerBrand,
             EVChargerState,
         )
+
         ch = EVCharger(
-            brand=EVChargerBrand.ZAPPI, name="Zappi", serial="12345",
+            brand=EVChargerBrand.ZAPPI,
+            name="Zappi",
+            serial="12345",
             display_name="Zappi 12345",
             state=EVChargerState.CHARGING,
             charge_mode=mode,
@@ -562,6 +602,7 @@ class TestApplyEvAction:
         coord._ev_charger = self._charger(mode="Fast")
         # Use a simple namespace so attribute assignment is directly visible
         from types import SimpleNamespace
+
         coord.data = SimpleNamespace(dry_run_last_skipped="")
         coord._apply_ev_action("Stopped")
         assert len(coord.tasks_created) == 0
@@ -569,6 +610,7 @@ class TestApplyEvAction:
 
 
 # ── TestGivtcpWriteHelpers ────────────────────────────────────────────────────
+
 
 class TestGivtcpWriteHelpers:
     """The three _givtcp_set_* methods issue service calls and read back state."""
@@ -595,15 +637,21 @@ class TestGivtcpWriteHelpers:
     async def test_set_select_issues_select_option(self):
         coord = FakeCoordinator(cfg=_cfg())
         await coord._givtcp_set_select("select.target", "02:00:00", "test")
-        assert ("select", "select_option",
-                {"entity_id": "select.target", "option": "02:00:00"}) in coord.service_calls
+        assert (
+            "select",
+            "select_option",
+            {"entity_id": "select.target", "option": "02:00:00"},
+        ) in coord.service_calls
 
     @pytest.mark.asyncio
     async def test_set_number_issues_set_value(self):
         coord = FakeCoordinator(cfg=_cfg())
         await coord._givtcp_set_number("number.target", 80, "test")
-        assert ("number", "set_value",
-                {"entity_id": "number.target", "value": 80}) in coord.service_calls
+        assert (
+            "number",
+            "set_value",
+            {"entity_id": "number.target", "value": 80},
+        ) in coord.service_calls
 
     @pytest.mark.asyncio
     async def test_set_number_skips_when_no_entity(self):
@@ -614,6 +662,7 @@ class TestGivtcpWriteHelpers:
     @pytest.mark.asyncio
     async def test_write_mismatch_logs_warning(self, caplog):
         import logging
+
         coord = FakeCoordinator(cfg=_cfg())
         # Set state to a different value than what we'll write — simulates GivTCP rejection
         coord.set_state("number.target", "50")  # pre-existing state
@@ -631,13 +680,14 @@ class TestGivtcpWriteHelpers:
 
 # ── TestFlatRateTariff ────────────────────────────────────────────────────────
 
+
 class TestFlatRateTariff:
     """Coordinator behaves correctly when no timed rate periods are configured."""
 
     @pytest.mark.asyncio
     async def test_cycle_runs_without_error(self):
         cfg = _cfg()
-        cfg["rate_periods"] = []   # flat rate
+        cfg["rate_periods"] = []  # flat rate
         coord = FakeCoordinator(cfg=cfg)
         coord.set_states(_default_states())
         data = await coord.run_cycle()
@@ -651,10 +701,16 @@ class TestFlatRateTariff:
         # entry.async_on_unload is called for midnight reset only, not for charge listener
         # We can verify no write-back fires by triggering it directly
         from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
+
         decision = ChargeDecision(
-            target_soc=80, skip_charge=False, reason="test",
-            forecast_kwh=10.0, current_soc=60.0, battery_capacity=19.0,
-            car_plugged_in=False, cost_to_charge=1.0,
+            target_soc=80,
+            skip_charge=False,
+            reason="test",
+            forecast_kwh=10.0,
+            current_soc=60.0,
+            battery_capacity=19.0,
+            car_plugged_in=False,
+            cost_to_charge=1.0,
         )
         data = MagicMock()
         data.charge_decision = decision
@@ -663,4 +719,4 @@ class TestFlatRateTariff:
         # means get_cheapest_rate_start would raise — but _register_charge_target_listener
         # already returned early so the listener was never registered.
         # Confirm _register_charge_target_listener ran without error:
-        coord._register_charge_target_listener()   # should not raise
+        coord._register_charge_target_listener()  # should not raise

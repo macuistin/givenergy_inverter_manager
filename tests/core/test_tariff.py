@@ -7,6 +7,7 @@ from config_flow.
 
 Helpers (_nightboost_cfg, _raw, _run) are in conftest.py.
 """
+
 from datetime import datetime, time
 
 import pytest
@@ -19,8 +20,8 @@ from custom_components.givenergy_inverter_manager.core.tariff import (
 
 # ── TariffConfig.get_cheapest_rate_start ──────────────────────────────────────
 
-class TestGetCheapestRateStart:
 
+class TestGetCheapestRateStart:
     def test_returns_cheapest_timed_period_start(self):
         """get_cheapest_rate_start returns the start of the cheapest timed period."""
         tariff = build_tariff({})
@@ -30,9 +31,15 @@ class TestGetCheapestRateStart:
     def test_raises_on_flat_rate_tariff(self):
         """Must raise ValueError when there are no timed periods."""
         tariff = TariffConfig(
-            rate_periods=[], base_rate=0.3334, base_rate_name="Standard",
-            export_rate=0.195, standing_charge=0.82, pso_levy=1.46,
-            vat_rate=9.0, discount_rate=5.5, bill_start_day=16,
+            rate_periods=[],
+            base_rate=0.3334,
+            base_rate_name="Standard",
+            export_rate=0.195,
+            standing_charge=0.82,
+            pso_levy=1.46,
+            vat_rate=9.0,
+            discount_rate=5.5,
+            bill_start_day=16,
         )
         with pytest.raises(ValueError, match="flat-rate"):
             tariff.get_cheapest_rate_start()
@@ -40,12 +47,17 @@ class TestGetCheapestRateStart:
     def test_base_rate_not_considered_for_start(self):
         """Base rate is excluded even when its rate value is lower than timed periods."""
         from custom_components.givenergy_inverter_manager.core.tariff import RatePeriod
+
         tariff = TariffConfig(
             rate_periods=[RatePeriod("Night", 0.1644, time(23, 0), time(8, 0))],
             base_rate=0.05,  # cheaper than Night — but has no real time window
             base_rate_name="FakeCheap",
-            export_rate=0.195, standing_charge=0.82, pso_levy=1.46,
-            vat_rate=9.0, discount_rate=5.5, bill_start_day=16,
+            export_rate=0.195,
+            standing_charge=0.82,
+            pso_levy=1.46,
+            vat_rate=9.0,
+            discount_rate=5.5,
+            bill_start_day=16,
         )
         # Must return Night's 23:00, not time(0,0) from the base rate
         assert tariff.get_cheapest_rate_start() == time(23, 0)
@@ -53,21 +65,21 @@ class TestGetCheapestRateStart:
 
 # ── Rate period precedence ────────────────────────────────────────────────────
 
-class TestRatePeriodIsActive:
 
+class TestRatePeriodIsActive:
     def _dt(self, h, m=0):
         return datetime(2024, 6, 15, h, m)
 
     def test_normal_period_active_inside_window(self):
         p = RatePeriod("Day", 0.33, time(8, 0), time(23, 0))
         assert p.is_active(self._dt(12)) is True
-        assert p.is_active(self._dt(8)) is True    # inclusive start
+        assert p.is_active(self._dt(8)) is True  # inclusive start
         assert p.is_active(self._dt(22, 59)) is True
 
     def test_normal_period_inactive_outside_window(self):
         p = RatePeriod("Day", 0.33, time(8, 0), time(23, 0))
         assert p.is_active(self._dt(7, 59)) is False
-        assert p.is_active(self._dt(23)) is False   # exclusive end
+        assert p.is_active(self._dt(23)) is False  # exclusive end
 
     def test_overnight_period_active_after_start(self):
         p = RatePeriod("Night", 0.16, time(23, 0), time(8, 0))
@@ -103,8 +115,8 @@ class TestGetCurrentRatePrecedence:
     def _nightboost_tariff(self):
         return TariffConfig(
             rate_periods=[
-                RatePeriod("Night",      0.1644, time(23, 0), time(8, 0)),
-                RatePeriod("Nightboost", 0.0965, time(2, 0),  time(4, 0)),
+                RatePeriod("Night", 0.1644, time(23, 0), time(8, 0)),
+                RatePeriod("Nightboost", 0.0965, time(2, 0), time(4, 0)),
             ],
             base_rate=0.3334,
             base_rate_name="Day",
@@ -201,7 +213,7 @@ class TestGetCurrentRatePrecedence:
         t = self._nightboost_tariff()
         r = t.get_current_rate(self._dt(23))
         assert r.name == "Night"
-        assert r.rate < 0.3334   # cheaper than day
+        assert r.rate < 0.3334  # cheaper than day
 
     def test_base_rate_wins_over_empty_on_no_active_timed(self):
         """When no timed period is active, base rate is returned."""
@@ -209,8 +221,12 @@ class TestGetCurrentRatePrecedence:
             rate_periods=[RatePeriod("Night", 0.15, time(23, 0), time(6, 0))],
             base_rate=0.30,
             base_rate_name="Standard",
-            export_rate=0.195, standing_charge=0.82, pso_levy=1.46,
-            vat_rate=9.0, discount_rate=0.0, bill_start_day=1,
+            export_rate=0.195,
+            standing_charge=0.82,
+            pso_levy=1.46,
+            vat_rate=9.0,
+            discount_rate=0.0,
+            bill_start_day=1,
         )
         r = tariff.get_current_rate(datetime(2024, 6, 15, 12, 0))
         assert r.name == "Standard"
@@ -221,8 +237,12 @@ class TestGetCurrentRatePrecedence:
             rate_periods=[RatePeriod("Night", 0.15, time(23, 0), time(6, 0))],
             base_rate=0.30,
             base_rate_name="Standard",
-            export_rate=0.195, standing_charge=0.82, pso_levy=1.46,
-            vat_rate=9.0, discount_rate=0.0, bill_start_day=1,
+            export_rate=0.195,
+            standing_charge=0.82,
+            pso_levy=1.46,
+            vat_rate=9.0,
+            discount_rate=0.0,
+            bill_start_day=1,
         )
         r = tariff.get_current_rate(datetime(2024, 6, 15, 12, 0))
         assert r.name == "Standard"
@@ -233,12 +253,16 @@ class TestGetCurrentRatePrecedence:
         tariff = TariffConfig(
             rate_periods=[
                 RatePeriod("Evening", 0.40, time(17, 0), time(21, 0)),
-                RatePeriod("Night",   0.15, time(23, 0), time(6, 0)),
+                RatePeriod("Night", 0.15, time(23, 0), time(6, 0)),
             ],
             base_rate=0.30,
             base_rate_name="Standard",
-            export_rate=0.195, standing_charge=0.82, pso_levy=1.46,
-            vat_rate=9.0, discount_rate=0.0, bill_start_day=1,
+            export_rate=0.195,
+            standing_charge=0.82,
+            pso_levy=1.46,
+            vat_rate=9.0,
+            discount_rate=0.0,
+            bill_start_day=1,
         )
         # 22:00 is a gap: neither Evening nor Night is active
         r = tariff.get_current_rate(datetime(2024, 6, 15, 22, 0))
@@ -250,8 +274,9 @@ class TestGetCurrentRatePrecedence:
         t = self._nightboost_tariff()
         for h in range(24):
             r = t.get_current_rate(datetime(2024, 6, 15, h, 0))
-            assert r.name in ("Day", "Night", "Nightboost"), \
+            assert r.name in ("Day", "Night", "Nightboost"), (
                 f"Unexpected rate at {h:02d}:00 — got {r.name!r}"
+            )
 
     def test_rate_ordering_across_24_hours(self):
         """Verify the correct rate is returned for every hour of the day."""
@@ -265,6 +290,3 @@ class TestGetCurrentRatePrecedence:
         for h, name in expected.items():
             r = t.get_current_rate(datetime(2024, 6, 15, h, 0))
             assert r.name == name, f"At {h:02d}:00: expected {name!r}, got {r.name!r}"
-
-
-

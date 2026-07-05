@@ -14,10 +14,13 @@ Provides:
 All financial calculations apply the discount before VAT, matching how Irish suppliers
 (e.g. Electric Ireland) structure their bills.
 """
+
 from __future__ import annotations
 
 import calendar
 import logging
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, time
 from datetime import time as dtime
 
 from ..const import (
@@ -43,9 +46,6 @@ from ..const import (
 
 _LOG = logging.getLogger(__name__)
 
-from dataclasses import dataclass, field
-from datetime import UTC, datetime, time
-
 
 @dataclass
 class RatePeriod:
@@ -59,8 +59,9 @@ class RatePeriod:
     on TariffConfig (base_rate / base_rate_name). This keeps RatePeriod simple
     and the config form clear: one field for the default rate, a list for overrides.
     """
+
     name: str
-    rate: float     # €/kWh
+    rate: float  # €/kWh
     start: time
     end: time
 
@@ -84,15 +85,16 @@ class TariffConfig:
     base_rate     — the default rate that applies whenever no timed period is active.
     base_rate_name — display name for the base rate (e.g. "Day").
     """
+
     rate_periods: list[RatePeriod]
-    base_rate: float            # €/kWh — standard daytime / catch-all rate
-    base_rate_name: str         # display name for the base rate
-    export_rate: float          # €/kWh CEG rate
-    standing_charge: float      # €/day
-    pso_levy: float             # €/month
-    vat_rate: float             # % e.g. 9.0
-    discount_rate: float        # % e.g. 5.5
-    bill_start_day: int         # day of month billing period starts
+    base_rate: float  # €/kWh — standard daytime / catch-all rate
+    base_rate_name: str  # display name for the base rate
+    export_rate: float  # €/kWh CEG rate
+    standing_charge: float  # €/day
+    pso_levy: float  # €/month
+    vat_rate: float  # % e.g. 9.0
+    discount_rate: float  # % e.g. 5.5
+    bill_start_day: int  # day of month billing period starts
 
     @property
     def _base_rate_period(self) -> RatePeriod:
@@ -198,6 +200,7 @@ class EnergyAccumulator:
       Savings          — value delivered by the integration
       Battery health   — throughput for cycle and depreciation tracking
     """
+
     # ── Basic energy flows ────────────────────────────────────────────────────
     import_kwh: float = 0.0
     export_kwh: float = 0.0
@@ -211,17 +214,17 @@ class EnergyAccumulator:
     # ── Rate-tier import breakdown ────────────────────────────────────────────
     # "cheap" = any timed rate period active (Night, Nightboost, etc.)
     # "peak"  = base/day rate (no timed period active)
-    import_kwh_cheap: float = 0.0   # kWh imported at timed cheap rate
-    import_kwh_peak: float = 0.0    # kWh imported at base/peak rate
+    import_kwh_cheap: float = 0.0  # kWh imported at timed cheap rate
+    import_kwh_peak: float = 0.0  # kWh imported at base/peak rate
     import_cost_cheap: float = 0.0  # cost at cheap rate
-    import_cost_peak: float = 0.0   # cost at peak rate
+    import_cost_peak: float = 0.0  # cost at peak rate
 
     # ── Cost attribution per rate period and load ─────────────────────────────
     import_cost_by_period: dict = field(default_factory=dict)
     export_earnings: float = 0.0
     zappi_cost: float = 0.0
-    immersion_cost: float = 0.0   # import cost attributable to immersion heater
-    house_cost: float = 0.0       # import cost attributable to rest-of-house load
+    immersion_cost: float = 0.0  # import cost attributable to immersion heater
+    house_cost: float = 0.0  # import cost attributable to rest-of-house load
 
     # ── Integration savings ───────────────────────────────────────────────────
     # immersion_solar_kwh: solar kWh diverted to immersion that would otherwise
@@ -281,6 +284,7 @@ class EnergyAccumulator:
 
 # ── Config factory ────────────────────────────────────────────────────────────
 
+
 def build_tariff(cfg: dict) -> TariffConfig:
     """Build a TariffConfig from a merged config dict."""
     periods: list[RatePeriod] = []
@@ -288,12 +292,14 @@ def build_tariff(cfg: dict) -> TariffConfig:
         try:
             s = p["start"].split(":")
             e = p["end"].split(":")
-            periods.append(RatePeriod(
-                name=p["name"],
-                rate=float(p["rate"]),
-                start=dtime(int(s[0]), int(s[1])),
-                end=dtime(int(e[0]), int(e[1])),
-            ))
+            periods.append(
+                RatePeriod(
+                    name=p["name"],
+                    rate=float(p["rate"]),
+                    start=dtime(int(s[0]), int(s[1])),
+                    end=dtime(int(e[0]), int(e[1])),
+                )
+            )
         except (KeyError, ValueError, IndexError) as err:
             _LOG.warning("Skipping malformed rate period %s: %s", p, err)
 

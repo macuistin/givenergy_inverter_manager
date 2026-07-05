@@ -31,6 +31,7 @@ The coordinator registers the config accessor once on startup:
 After that, every GivLogger instance created anywhere in the integration
 reads the flag from the same live config.
 """
+
 from __future__ import annotations
 
 import logging
@@ -127,7 +128,7 @@ class GivLogger:
     def name(self) -> str:
         return self._logger.name
 
-    def isEnabledFor(self, level: int) -> bool:
+    def is_enabled_for(self, level: int) -> bool:
         return self._logger.isEnabledFor(level)
 
 
@@ -147,6 +148,7 @@ def get_logger(name: str) -> GivLogger:
 # ── Verbose log helpers ───────────────────────────────────────────────────────
 # These are module-level functions rather than methods so they can be imported
 # individually and called without a logger instance.
+
 
 def log_startup(log: GivLogger, cfg: dict) -> None:
     """
@@ -179,30 +181,28 @@ def log_startup(log: GivLogger, cfg: dict) -> None:
     lines = ["── Startup entity configuration ────────────────────────────────"]
     lines.append("  SENSOR ENTITIES (reads)")
     for label, key in [
-        ("solar_power",   CONF_SOLAR_POWER),
-        ("battery_soc",   CONF_BATTERY_SOC),
+        ("solar_power", CONF_SOLAR_POWER),
+        ("battery_soc", CONF_BATTERY_SOC),
         ("battery_power", CONF_BATTERY_POWER),
-        ("grid_power",    CONF_GRID_POWER),
-        ("house_load",    CONF_HOUSE_LOAD),
-        ("immersion_sw",  CONF_IMMERSION_SWITCH),
+        ("grid_power", CONF_GRID_POWER),
+        ("house_load", CONF_HOUSE_LOAD),
+        ("immersion_sw", CONF_IMMERSION_SWITCH),
         ("immersion_tmp", CONF_IMMERSION_TEMP_SENSOR),
-        ("forecast",      CONF_FORECAST_ENTITY),
+        ("forecast", CONF_FORECAST_ENTITY),
     ]:
         val = cfg.get(key)
         lines.append(f"    {label:<14} {val or '(not configured)'}")
 
     lines.append("  GIVTCP CONTROL ENTITIES (writes)")
     for label, key in [
-        ("target_soc",    CONF_TARGET_SOC_ENTITY),
-        ("enable_tgt",    CONF_ENABLE_CHARGE_TARGET),
-        ("enable_sched",  CONF_ENABLE_CHARGE_SCHEDULE),
-        ("charge_start",  CONF_CHARGE_START_TIME_ENTITY),
-        ("charge_end",    CONF_CHARGE_END_TIME_ENTITY),
+        ("target_soc", CONF_TARGET_SOC_ENTITY),
+        ("enable_tgt", CONF_ENABLE_CHARGE_TARGET),
+        ("enable_sched", CONF_ENABLE_CHARGE_SCHEDULE),
+        ("charge_start", CONF_CHARGE_START_TIME_ENTITY),
+        ("charge_end", CONF_CHARGE_END_TIME_ENTITY),
     ]:
         val = cfg.get(key)
-        lines.append(
-            f"    {label:<14} {val or '(not configured — write-back disabled)'}"
-        )
+        lines.append(f"    {label:<14} {val or '(not configured — write-back disabled)'}")
 
     lines.append("  TARIFF")
     base_rate = cfg.get(CONF_BASE_RATE, DEFAULT_BASE_RATE)
@@ -239,9 +239,7 @@ def log_cycle(log: GivLogger, cycle: int, raw: object, data: object, now: object
     ]
 
     if raw.ev_power_w > 0 or raw.ev_plugged_in:
-        lines.append(
-            f"  EV RAW        plugged={raw.ev_plugged_in}  power={raw.ev_power_w:.0f}W"
-        )
+        lines.append(f"  EV RAW        plugged={raw.ev_plugged_in}  power={raw.ev_power_w:.0f}W")
     if raw.immersion_on or raw.immersion_temp is not None:
         temp_str = f"{raw.immersion_temp:.1f}°C" if raw.immersion_temp is not None else "unknown"
         lines.append(
@@ -264,9 +262,7 @@ def log_cycle(log: GivLogger, cycle: int, raw: object, data: object, now: object
 
     if cd is not None:
         lines.append(
-            f"  CHARGE        target={cd.target_soc}%"
-            f"  skip={cd.skip_charge}"
-            f"  reason={cd.reason!r}"
+            f"  CHARGE        target={cd.target_soc}%  skip={cd.skip_charge}  reason={cd.reason!r}"
         )
         if cd.cost_to_charge > 0:
             lines.append(
@@ -276,8 +272,7 @@ def log_cycle(log: GivLogger, cycle: int, raw: object, data: object, now: object
         lines.append("  CHARGE        no decision yet")
 
     lines.append(
-        f"  IMMERSION     divert={data.should_divert_immersion}"
-        f"  reason={data.divert_reason!r}"
+        f"  IMMERSION     divert={data.should_divert_immersion}  reason={data.divert_reason!r}"
     )
 
     if data.ev_available:
@@ -347,5 +342,9 @@ def log_givtcp_write(
     status = "✓ accepted" if accepted else "✗ MISMATCH — wrote but read back different value"
     log.verbose(
         "  GIVTCP WRITE  step=%d  entity=%s  wrote=%r  read_back=%r  %s",
-        step, entity_id, value, read_back, status,
+        step,
+        entity_id,
+        value,
+        read_back,
+        status,
     )

@@ -1,0 +1,4 @@
+skips:
+  - B101  # assert statements — valid in tests, excluded below
+exclude_dirs:
+  - tests

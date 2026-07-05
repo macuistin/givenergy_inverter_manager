@@ -13,7 +13,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "--tb=short"
-asyncio_mode = "strict"
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["custom_components/givenergy_inverter_manager"]
@@ -38,4 +38,4 @@ ignore = ["N818"]
 # HA voluptuous schema definitions are inherently verbose and cannot be
 # split without losing readability — the dict key IS the schema declaration
 "custom_components/*/config_flow.py" = ["E501"]
-"tests/*" = ["E501"]
+"tests/*" = ["E501", "C901"]

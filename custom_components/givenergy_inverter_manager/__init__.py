@@ -12,6 +12,7 @@ Also handles:
   async_reload_entry  — called by the options listener on config change.
   async_migrate_entry — version migration hook for future schema changes.
 """
+
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
@@ -19,7 +20,6 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .const import DOMAIN
 from .coordinator import GivEnergyCoordinator
 from .dashboard import async_register_services, async_unregister_services
 from .logging import get_logger, log_startup
@@ -38,9 +38,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await coordinator.async_config_entry_first_refresh()
     except Exception as err:
-        raise ConfigEntryNotReady(
-            f"First data fetch failed for {entry.title}: {err}"
-        ) from err
+        raise ConfigEntryNotReady(f"First data fetch failed for {entry.title}: {err}") from err
 
     entry.runtime_data = coordinator
 

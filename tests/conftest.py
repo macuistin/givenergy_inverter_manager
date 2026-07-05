@@ -10,6 +10,7 @@ module is collected, preventing ImportError without a real HA install.
 We also stub voluptuous (used by config_flow) and make DataUpdateCoordinator
 a proper Generic so coordinator.py's type annotation compiles cleanly.
 """
+
 import os
 import sys
 import types
@@ -53,13 +54,17 @@ _const.UnitOfTemperature = MagicMock()
 _ce = sys.modules["homeassistant.config_entries"]
 _ce.ConfigEntry = MagicMock
 
+
 class _ConfigFlow:
     """Stub that accepts domain= keyword in subclass definition."""
+
     def __init_subclass__(cls, domain=None, **kwargs):
         super().__init_subclass__(**kwargs)
 
+
 class _OptionsFlow:
     pass
+
 
 _ce.ConfigFlow = _ConfigFlow
 _ce.OptionsFlow = _OptionsFlow
@@ -79,17 +84,23 @@ _exc.HomeAssistantError = Exception
 #     DataUpdateCoordinator[CoordinatorData] annotation works ---
 _T = TypeVar("_T")
 
+
 class _DataUpdateCoordinator(Generic[_T]):
     """Minimal stub that supports generic subscript syntax."""
+
     def __init__(self, *args, **kwargs):
         pass
 
+
 class _CoordinatorEntity(Generic[_T]):
     """Minimal stub for CoordinatorEntity."""
+
     def __init__(self, coordinator, *args, **kwargs):
         self.coordinator = coordinator
+
     def async_write_ha_state(self):
         pass
+
 
 _coord = sys.modules["homeassistant.helpers.update_coordinator"]
 _coord.DataUpdateCoordinator = _DataUpdateCoordinator
@@ -115,8 +126,14 @@ _number.NumberMode = MagicMock()
 
 # --- helpers ---
 _sel = sys.modules["homeassistant.helpers.selector"]
-for _cls in ["EntitySelector","EntitySelectorConfig","NumberSelector",
-             "NumberSelectorConfig","SelectSelector","SelectSelectorConfig"]:
+for _cls in [
+    "EntitySelector",
+    "EntitySelectorConfig",
+    "NumberSelector",
+    "NumberSelectorConfig",
+    "SelectSelector",
+    "SelectSelectorConfig",
+]:
     setattr(_sel, _cls, MagicMock)
 
 _cv = sys.modules["homeassistant.helpers.config_validation"]
@@ -128,7 +145,7 @@ _ep.AddEntitiesCallback = MagicMock
 # homeassistant.helpers.event (used by coordinator for time tracking)
 if "homeassistant.helpers.event" not in sys.modules:
     sys.modules["homeassistant.helpers.event"] = types.ModuleType("homeassistant.helpers.event")
-sys.modules["homeassistant.helpers.event"].async_track_time_change = lambda *a, **kw: (lambda: None)
+sys.modules["homeassistant.helpers.event"].async_track_time_change = lambda *a, **kw: lambda: None
 
 
 # homeassistant.core needs ServiceCall for dashboard.py
@@ -158,8 +175,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # ---------------------------------------------------------------------------
 from datetime import datetime
 
-from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.const import DEFAULT_RATE_PERIODS
+from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.engine import (
     RawSensorValues,
     build_coordinator_data,
@@ -204,8 +221,16 @@ def _raw(**overrides) -> RawSensorValues:
     return base
 
 
-def _run(raw=None, cfg=None, now=None, acc=None, last_soc=None,
-         last_update_time=None, battery_stats=None, **kwargs):
+def _run(
+    raw=None,
+    cfg=None,
+    now=None,
+    acc=None,
+    last_soc=None,
+    last_update_time=None,
+    battery_stats=None,
+    **kwargs,
+):
     """Run one engine cycle and return (CoordinatorData, ev_target_mode)."""
     if raw is None:
         raw = _raw()

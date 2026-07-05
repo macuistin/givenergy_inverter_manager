@@ -6,6 +6,7 @@ This module re-exports the public API so existing imports keep working.
 
 For new code, import directly from rules.py.
 """
+
 from .rules import (  # noqa: F401
     ChargeDecision,
     calculate_overnight_charge_target,

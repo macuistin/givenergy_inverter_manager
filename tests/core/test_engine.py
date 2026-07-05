@@ -13,18 +13,12 @@ Coverage targets:
   - build_coordinator_data(): end-to-end snapshot correctness, overrides,
     clipping, immersion divert, bill prediction, EV action, night survival
 """
+
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
-from custom_components.givenergy_inverter_manager.discovery import (
-    ZAPPI_ECO_PLUS_MODE,
-    ZAPPI_STOPPED_MODE,
-    EVCharger,
-    EVChargerBrand,
-    EVChargerState,
-)
 from custom_components.givenergy_inverter_manager.core.engine import (
     CoordinatorData,
     accumulate_energy,
@@ -34,13 +28,19 @@ from custom_components.givenergy_inverter_manager.core.engine import (
     update_battery_stats,
 )
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+from custom_components.givenergy_inverter_manager.discovery import (
+    ZAPPI_ECO_PLUS_MODE,
+    ZAPPI_STOPPED_MODE,
+    EVCharger,
+    EVChargerBrand,
+    EVChargerState,
+)
 from tests.conftest import _nightboost_cfg, _raw, _run
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
 class TestBuildTariff:
-
     def test_builds_from_valid_cfg(self):
         tariff = build_tariff(_nightboost_cfg())
         assert len(tariff.rate_periods) == 2  # Night + Nightboost; Day is base_rate scalar
@@ -56,6 +56,7 @@ class TestBuildTariff:
         assert len(tariff.rate_periods) == 0
         # get_current_rate should still work (returns base rate)
         from datetime import datetime
+
         r = tariff.get_current_rate(datetime(2024, 6, 15, 12, 0))
         assert r.name == "Day"
 
@@ -63,7 +64,7 @@ class TestBuildTariff:
         cfg = _nightboost_cfg()
         cfg["rate_periods"] = [
             {"name": "Good", "rate": 0.30, "start": "08:00", "end": "23:00"},
-            {"name": "Bad",  "rate": "notanumber", "start": "23:00", "end": "08:00"},
+            {"name": "Bad", "rate": "notanumber", "start": "23:00", "end": "08:00"},
         ]
         tariff = build_tariff(cfg)
         assert len(tariff.rate_periods) == 1
@@ -72,7 +73,7 @@ class TestBuildTariff:
     def test_options_override_data(self):
         """Rate from options should win over rate in data."""
         cfg = _nightboost_cfg()
-        cfg["export_rate"] = 0.21   # options value
+        cfg["export_rate"] = 0.21  # options value
         tariff = build_tariff(cfg)
         assert tariff.export_rate == pytest.approx(0.21)
 
@@ -84,8 +85,8 @@ class TestBuildTariff:
 
 # ── accumulate_energy ─────────────────────────────────────────────────────────
 
-class TestAccumulateEnergy:
 
+class TestAccumulateEnergy:
     def _acc_after(self, raw_kwargs, elapsed_minutes=30):
         """Run one accumulation step and return the accumulator."""
         raw = _raw(**raw_kwargs)
@@ -129,22 +130,26 @@ class TestAccumulateEnergy:
 
     def test_ev_cost_fraction(self):
         """When EV and grid both drawing, EV cost is proportional fraction."""
-        acc = self._acc_after({
-            "ev_power_w": 3000.0,
-            "grid_power_w": 4000.0,   # 75% of import going to car
-        })
+        acc = self._acc_after(
+            {
+                "ev_power_w": 3000.0,
+                "grid_power_w": 4000.0,  # 75% of import going to car
+            }
+        )
         assert acc.zappi_kwh > 0
         assert acc.zappi_cost > 0
 
     def test_no_ev_cost_when_no_grid_import(self):
         """EV charging from solar only — no grid cost attributed."""
-        acc = self._acc_after({
-            "ev_power_w": 3000.0,
-            "grid_power_w": 0.0,      # no grid import
-            "solar_power_w": 5000.0,
-        })
+        acc = self._acc_after(
+            {
+                "ev_power_w": 3000.0,
+                "grid_power_w": 0.0,  # no grid import
+                "solar_power_w": 5000.0,
+            }
+        )
         assert acc.zappi_kwh > 0
-        assert acc.zappi_cost == 0.0   # no grid fraction
+        assert acc.zappi_cost == 0.0  # no grid fraction
 
     def test_elapsed_time_scales_energy(self):
         """Longer elapsed time produces more accumulated energy."""
@@ -155,8 +160,8 @@ class TestAccumulateEnergy:
 
 # ── estimate_avg_daily_kwh ────────────────────────────────────────────────────
 
-class TestEstimateAvgDailyKwh:
 
+class TestEstimateAvgDailyKwh:
     def test_uses_fallback_early_morning(self):
         """Before min_minutes have elapsed, return fallback."""
         result = estimate_avg_daily_kwh(
@@ -195,8 +200,8 @@ class TestEstimateAvgDailyKwh:
 
 # ── update_battery_stats ──────────────────────────────────────────────────────
 
-class TestUpdateBatteryStats:
 
+class TestUpdateBatteryStats:
     def test_no_change_on_first_call(self):
         """No cycle increment when last_soc is None (first update)."""
         stats = BatteryStats()
@@ -210,6 +215,7 @@ class TestUpdateBatteryStats:
 
     def test_full_charge_date_set_at_99_pct(self):
         from datetime import date
+
         stats = BatteryStats()
         update_battery_stats(stats, 99.5, 90.0)
         assert stats.last_full_charge_date == date.today()
@@ -227,8 +233,8 @@ class TestUpdateBatteryStats:
 
 # ── build_coordinator_data (end-to-end) ───────────────────────────────────────
 
-class TestBuildCoordinatorData:
 
+class TestBuildCoordinatorData:
     def test_returns_coordinator_data(self):
         data, _ = _run()
         assert isinstance(data, CoordinatorData)
@@ -267,8 +273,9 @@ class TestBuildCoordinatorData:
         assert data.immersion_load_w == 0.0
 
     def test_immersion_load_set_when_on(self):
-        raw = _raw(immersion_on=True,
-)
+        raw = _raw(
+            immersion_on=True,
+        )
         data, _ = _run(raw=raw)
         assert data.immersion_load_w == pytest.approx(3000.0)
 
@@ -325,7 +332,7 @@ class TestBuildCoordinatorData:
         acc.import_cost_by_period["Day"] = 5.0
         data, _ = _run(
             acc=acc,
-            now=datetime(2024, 5, 20, 14, 0),   # 4 days into billing period
+            now=datetime(2024, 5, 20, 14, 0),  # 4 days into billing period
         )
         assert data.accrued_bill > 0
         assert data.projected_bill > 0
@@ -353,7 +360,9 @@ class TestBuildCoordinatorData:
 
     def test_ev_available_when_charger_present(self):
         ch = EVCharger(
-            brand=EVChargerBrand.ZAPPI, name="Zappi", serial="123",
+            brand=EVChargerBrand.ZAPPI,
+            name="Zappi",
+            serial="123",
             display_name="Zappi (123)",
             state=EVChargerState.CONNECTED,
             charge_mode="Eco+",
@@ -365,7 +374,9 @@ class TestBuildCoordinatorData:
     def test_ev_stops_when_battery_low(self):
         """When battery is below protection threshold, engine requests Stopped."""
         ch = EVCharger(
-            brand=EVChargerBrand.ZAPPI, name="Zappi", serial="123",
+            brand=EVChargerBrand.ZAPPI,
+            name="Zappi",
+            serial="123",
             display_name="Zappi (123)",
             state=EVChargerState.CHARGING,
             charge_mode="Fast",
@@ -381,7 +392,9 @@ class TestBuildCoordinatorData:
     def test_ev_eco_plus_when_battery_ok_and_surplus(self):
         """When battery high and solar surplus available, engine requests Eco+."""
         ch = EVCharger(
-            brand=EVChargerBrand.ZAPPI, name="Zappi", serial="123",
+            brand=EVChargerBrand.ZAPPI,
+            name="Zappi",
+            serial="123",
             display_name="Zappi (123)",
             state=EVChargerState.CONNECTED,
             charge_mode="Stopped",
@@ -398,7 +411,9 @@ class TestBuildCoordinatorData:
 
     def test_ev_no_action_when_disconnected(self):
         ch = EVCharger(
-            brand=EVChargerBrand.ZAPPI, name="Zappi", serial="123",
+            brand=EVChargerBrand.ZAPPI,
+            name="Zappi",
+            serial="123",
             display_name="Zappi (123)",
             state=EVChargerState.DISCONNECTED,
             charge_mode="Eco+",
@@ -408,21 +423,23 @@ class TestBuildCoordinatorData:
 
     def test_rate_name_populated(self):
         """Current rate name should be set from tariff."""
-        data, _ = _run(now=datetime(2024, 6, 15, 3, 0))   # 3am = Nightboost
+        data, _ = _run(now=datetime(2024, 6, 15, 3, 0))  # 3am = Nightboost
         assert data.current_rate_name == "Nightboost"
         assert data.current_rate == pytest.approx(0.0965)
 
     def test_no_ev_target_for_non_zappi(self):
         """Non-Zappi chargers don't get mode-switched."""
         ch = EVCharger(
-            brand=EVChargerBrand.WALLBOX, name="wb", serial="x",
+            brand=EVChargerBrand.WALLBOX,
+            name="wb",
+            serial="x",
             display_name="wb",
             state=EVChargerState.CHARGING,
         )
         ch.is_draining_battery = True
         raw = _raw(battery_soc=5.0, battery_power_w=-2000.0)
         _, ev_target = _run(raw=raw, ev_charger=ch)
-        assert ev_target is None   # Wallbox has no mode_entity
+        assert ev_target is None  # Wallbox has no mode_entity
 
     def test_energy_accumulation_happens(self):
         """When last_update_time is set, energy should be accumulated."""
@@ -442,13 +459,12 @@ class TestBuildCoordinatorData:
         data, _ = _run(
             raw=_raw(battery_soc=60.0),
             battery_stats=stats,
-            last_soc=80.0,   # 20% drop
+            last_soc=80.0,  # 20% drop
         )
         assert data.battery_stats.total_cycles == pytest.approx(0.20)
 
 
 class TestBuildCoordinatorDataNowDefault:
-
     def test_now_defaults_to_current_time(self):
         """When now=None, engine uses datetime.now(timezone.utc) without crashing."""
         raw = _raw()
@@ -459,14 +475,13 @@ class TestBuildCoordinatorDataNowDefault:
             battery_stats=BatteryStats(),
             last_soc=None,
             last_update_time=None,
-            now=None,   # explicitly None — triggers datetime.now(timezone.utc) fallback
+            now=None,  # explicitly None — triggers datetime.now(timezone.utc) fallback
         )
         assert isinstance(data, CoordinatorData)
         assert data.current_rate > 0
 
 
 class TestSkipChargeOverride:
-
     def test_override_skip_charge_sets_flag(self):
         data, _ = _run(override_skip_charge=True)
         assert data.charge_decision.skip_charge is True
@@ -489,13 +504,14 @@ class TestAccumulateEnergyLoadApportionment:
     """Tests for per-load cost apportionment added in the cleanup fix."""
 
     def _acc_after(self, raw_kwargs, elapsed_minutes=30):
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         from custom_components.givenergy_inverter_manager.core.engine import (
             accumulate_energy,
             build_tariff,
         )
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
         raw = _raw(**raw_kwargs)
         acc = EnergyAccumulator()
         tariff = build_tariff(_nightboost_cfg())
@@ -506,11 +522,13 @@ class TestAccumulateEnergyLoadApportionment:
 
     def test_house_cost_populated_from_grid_import(self):
         """When only house load draws from grid, all import cost goes to house_cost."""
-        acc = self._acc_after({
-            "grid_power_w": 1000.0,
-            "house_load_w": 1000.0,
-            "ev_power_w": 0.0,
-        })
+        acc = self._acc_after(
+            {
+                "grid_power_w": 1000.0,
+                "house_load_w": 1000.0,
+                "ev_power_w": 0.0,
+            }
+        )
         assert acc.house_cost > 0
         # zappi and immersion should be zero
         assert acc.zappi_cost == pytest.approx(0.0)
@@ -518,11 +536,13 @@ class TestAccumulateEnergyLoadApportionment:
 
     def test_zappi_cost_apportioned_by_load_fraction(self):
         """EV drawing 50% of house load gets 50% of import cost."""
-        acc = self._acc_after({
-            "grid_power_w": 2000.0,
-            "house_load_w": 2000.0,
-            "ev_power_w": 1000.0,   # 50% of house load
-        })
+        acc = self._acc_after(
+            {
+                "grid_power_w": 2000.0,
+                "house_load_w": 2000.0,
+                "ev_power_w": 1000.0,  # 50% of house load
+            }
+        )
         assert acc.zappi_cost > 0
         # zappi should be ~50% of total import cost
         total = acc.total_import_cost
@@ -530,57 +550,70 @@ class TestAccumulateEnergyLoadApportionment:
 
     def test_immersion_cost_apportioned(self):
         """Immersion drawing 30% of load gets ~30% of import cost."""
-        acc = self._acc_after({
-            "grid_power_w": 1000.0,
-            "house_load_w": 1000.0,
-            "immersion_on": True,
-            "immersion_wattage_w": 300.0,   # 30% of house load
-        })
+        acc = self._acc_after(
+            {
+                "grid_power_w": 1000.0,
+                "house_load_w": 1000.0,
+                "immersion_on": True,
+                "immersion_wattage_w": 300.0,  # 30% of house load
+            }
+        )
         total = acc.total_import_cost
         assert acc.immersion_cost == pytest.approx(total * 0.3, rel=0.05)
 
     def test_house_cost_is_remainder(self):
         """house_cost + zappi_cost + immersion_cost should equal total import cost."""
-        acc = self._acc_after({
-            "grid_power_w": 3000.0,
-            "house_load_w": 3000.0,
-            "ev_power_w": 1200.0,
-            "immersion_on": True,
-            "immersion_wattage_w": 600.0,
-        })
+        acc = self._acc_after(
+            {
+                "grid_power_w": 3000.0,
+                "house_load_w": 3000.0,
+                "ev_power_w": 1200.0,
+                "immersion_on": True,
+                "immersion_wattage_w": 600.0,
+            }
+        )
         total = acc.total_import_cost
-        assert (acc.house_cost + acc.zappi_cost + acc.immersion_cost) == pytest.approx(total, rel=0.01)
+        assert (acc.house_cost + acc.zappi_cost + acc.immersion_cost) == pytest.approx(
+            total, rel=0.01
+        )
 
     def test_no_cost_on_pure_solar(self):
         """When grid_power_w is zero (solar covers all), no costs are accumulated."""
-        acc = self._acc_after({
-            "grid_power_w": 0.0,
-            "solar_power_w": 5000.0,
-            "house_load_w": 3000.0,
-            "ev_power_w": 1000.0,
-        })
+        acc = self._acc_after(
+            {
+                "grid_power_w": 0.0,
+                "solar_power_w": 5000.0,
+                "house_load_w": 3000.0,
+                "ev_power_w": 1000.0,
+            }
+        )
         assert acc.house_cost == pytest.approx(0.0)
         assert acc.zappi_cost == pytest.approx(0.0)
         assert acc.immersion_cost == pytest.approx(0.0)
 
     def test_battery_discharge_kwh_accumulated(self):
         """Battery discharging (negative battery_power_w) increments battery_discharge_kwh."""
-        acc = self._acc_after({
-            "battery_power_w": -2000.0,   # discharging at 2kW
-        })
+        acc = self._acc_after(
+            {
+                "battery_power_w": -2000.0,  # discharging at 2kW
+            }
+        )
         # 30 min at 2kW = 1 kWh
         assert acc.battery_discharge_kwh == pytest.approx(1.0, rel=0.01)
 
     def test_battery_charge_does_not_increment_discharge(self):
         """Battery charging (positive battery_power_w) must not add to battery_discharge_kwh."""
-        acc = self._acc_after({
-            "battery_power_w": 2000.0,   # charging
-        })
+        acc = self._acc_after(
+            {
+                "battery_power_w": 2000.0,  # charging
+            }
+        )
         assert acc.battery_discharge_kwh == pytest.approx(0.0)
 
     def test_self_sufficiency_with_battery_discharge(self):
         """Self-sufficiency should count battery discharge as local generation."""
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
         acc = EnergyAccumulator(
             house_kwh=20.0,
             solar_kwh=12.0,
@@ -592,6 +625,7 @@ class TestAccumulateEnergyLoadApportionment:
 
 
 # ── Regression: cost apportionment overallocation ─────────────────────────────
+
 
 class TestCostApportionmentNormalisation:
     """When EV + immersion loads exceed house_load_w, fractions must not exceed 1.0."""
@@ -642,7 +676,7 @@ class TestCostApportionmentNormalisation:
             grid_power_w=3000.0,
             house_load_w=3000.0,
         )
-        raw.ev_power_w = 3000.0          # EV = 100% of house load
+        raw.ev_power_w = 3000.0  # EV = 100% of house load
         raw.immersion_on = True
         raw.immersion_wattage_w = 3000.0  # immersion = 100% of house load
 
@@ -660,15 +694,22 @@ class TestCostApportionmentNormalisation:
 
 # ── Regression: days_in_current_bill_period on start day ─────────────────────
 
-class TestBillPeriodEdgeCases:
 
+class TestBillPeriodEdgeCases:
     def test_days_in_never_zero_on_billing_start_day(self):
         """On the billing start day, days_in must be 1, not 0."""
         from custom_components.givenergy_inverter_manager.core.tariff import TariffConfig
+
         tariff = TariffConfig(
-            rate_periods=[], base_rate=0.3334, base_rate_name="Day",
-            export_rate=0.195, standing_charge=0.82, pso_levy=1.46,
-            vat_rate=9.0, discount_rate=5.5, bill_start_day=16,
+            rate_periods=[],
+            base_rate=0.3334,
+            base_rate_name="Day",
+            export_rate=0.195,
+            standing_charge=0.82,
+            pso_levy=1.46,
+            vat_rate=9.0,
+            discount_rate=5.5,
+            bill_start_day=16,
         )
         # 16th is billing start day
         days = tariff.days_in_current_bill_period(datetime(2024, 6, 16, 14, 0))
@@ -687,20 +728,21 @@ class TestBillPeriodEdgeCases:
 
 # ── Regression: immersion min temp enforced ───────────────────────────────────
 
-class TestImmersionMinTemp:
 
+class TestImmersionMinTemp:
     def test_always_diverts_when_below_min_temp(self):
         """Should divert regardless of surplus when water is below minimum safe temp."""
         from custom_components.givenergy_inverter_manager.core.rules import (
             should_divert_to_immersion,
         )
+
         should, reason = should_divert_to_immersion(
-            solar_power_w=0.0,        # no surplus at all
+            solar_power_w=0.0,  # no surplus at all
             house_load_w=2000.0,
-            battery_soc=20.0,         # battery too low for normal divert
+            battery_soc=20.0,  # battery too low for normal divert
             battery_power_w=0.0,
             inverter_max_w=5000.0,
-            immersion_temp=25.0,       # dangerously cold
+            immersion_temp=25.0,  # dangerously cold
             immersion_target_temp=55.0,
             immersion_min_temp=45.0,
             soc_threshold=80,
@@ -713,13 +755,14 @@ class TestImmersionMinTemp:
         from custom_components.givenergy_inverter_manager.core.rules import (
             should_divert_to_immersion,
         )
+
         should, reason = should_divert_to_immersion(
             solar_power_w=0.0,
             house_load_w=2000.0,
             battery_soc=20.0,
             battery_power_w=0.0,
             inverter_max_w=5000.0,
-            immersion_temp=48.0,       # above min_temp of 45°C
+            immersion_temp=48.0,  # above min_temp of 45°C
             immersion_target_temp=55.0,
             immersion_min_temp=45.0,
             soc_threshold=80,
@@ -731,16 +774,18 @@ class TestImmersionMinTemp:
 
 # ── New cost intelligence tracking ────────────────────────────────────────────
 
+
 class TestImportRateBreakdown:
     """Import is split into cheap (timed period) vs peak (base rate) buckets."""
 
     def _run_import(self, rate_name: str, grid_w: float = 1000.0) -> EnergyAccumulator:
         from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
         acc = EnergyAccumulator()
         raw = _raw(grid_power_w=grid_w, solar_power_w=0.0)
         tariff = build_tariff(_nightboost_cfg())
-        now = datetime(2024, 2, 15, 2, 30, tzinfo=timezone.utc)   # Nightboost window
+        now = datetime(2024, 2, 15, 2, 30, tzinfo=timezone.utc)  # Nightboost window
         last = datetime(2024, 2, 15, 2, 0, tzinfo=timezone.utc)
         accumulate_energy(acc, raw, tariff, rate_name, now, last)
         return acc
@@ -770,6 +815,7 @@ class TestImmersionSavings:
     def test_saves_when_solar_surplus_covers_immersion(self):
         from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
         acc = EnergyAccumulator()
         # Solar 5kW, house load 1kW, battery idle → 4kW surplus
         # Immersion 3kW running — all of it from solar
@@ -792,6 +838,7 @@ class TestImmersionSavings:
     def test_no_savings_when_immersion_importing(self):
         from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
         acc = EnergyAccumulator()
         # No solar — immersion purely importing
         raw = _raw(
@@ -817,6 +864,7 @@ class TestBatteryThroughput:
     def test_throughput_on_discharge(self):
         from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
         acc = EnergyAccumulator()
         raw = _raw(battery_power_w=-2000.0)  # discharging
         tariff = build_tariff(_nightboost_cfg())
@@ -829,6 +877,7 @@ class TestBatteryThroughput:
     def test_throughput_on_charge(self):
         from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
         acc = EnergyAccumulator()
         raw = _raw(battery_power_w=2000.0)  # charging
         tariff = build_tariff(_nightboost_cfg())
@@ -841,12 +890,13 @@ class TestBatteryThroughput:
 
 # ── HTML report generators ────────────────────────────────────────────────────
 
+
 class TestReportGenerators:
     """reporting.py functions produce valid HTML from CoordinatorData."""
 
     def _data(self) -> CoordinatorData:
-        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
         from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
+
         data, _ = _run()
         # Populate today accumulator with realistic values
         data.today.solar_kwh = 12.5
@@ -866,58 +916,82 @@ class TestReportGenerators:
         data.solar_forecast_kwh_today = 14.0
         data.battery_soc = 72.0
         data.charge_decision = ChargeDecision(
-            target_soc=75, skip_charge=False,
+            target_soc=75,
+            skip_charge=False,
             reason="Moderate forecast — charging to 75%.",
-            forecast_kwh=14.0, current_soc=45.0,
-            battery_capacity=19.0, car_plugged_in=False,
+            forecast_kwh=14.0,
+            current_soc=45.0,
+            battery_capacity=19.0,
+            car_plugged_in=False,
             cost_to_charge=0.83,
         )
         return data
 
     def test_today_summary_html_contains_key_values(self):
-        from custom_components.givenergy_inverter_manager.core.reporting import build_today_summary_html
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_today_summary_html,
+        )
+
         html = build_today_summary_html(self._data())
-        assert "12.5" in html    # solar
-        assert "3.2" in html     # import
-        assert "€" in html       # currency
+        assert "12.5" in html  # solar
+        assert "3.2" in html  # import
+        assert "€" in html  # currency
         assert "<table" in html
 
     def test_today_summary_state_is_short(self):
-        from custom_components.givenergy_inverter_manager.core.reporting import build_today_summary_state
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_today_summary_state,
+        )
+
         state = build_today_summary_state(self._data())
         assert len(state) <= 255
         assert "Solar" in state
 
     def test_charge_plan_html_shows_target_soc(self):
-        from custom_components.givenergy_inverter_manager.core.reporting import build_charge_plan_html
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_charge_plan_html,
+        )
+
         html = build_charge_plan_html(self._data())
-        assert "75" in html        # target SoC
-        assert "14.0" in html      # forecast
+        assert "75" in html  # target SoC
+        assert "14.0" in html  # forecast
         assert "Moderate" in html  # reason
 
     def test_charge_plan_html_skip_case(self):
-        from custom_components.givenergy_inverter_manager.core.reporting import build_charge_plan_html
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_charge_plan_html,
+        )
         from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
+
         data = self._data()
         data.charge_decision = ChargeDecision(
-            target_soc=25, skip_charge=True,
+            target_soc=25,
+            skip_charge=True,
             reason="Battery at 85%, good solar forecast.",
-            forecast_kwh=18.0, current_soc=85.0,
-            battery_capacity=19.0, car_plugged_in=False,
+            forecast_kwh=18.0,
+            current_soc=85.0,
+            battery_capacity=19.0,
+            car_plugged_in=False,
             cost_to_charge=0.0,
         )
         html = build_charge_plan_html(data)
         assert "Skip" in html
 
     def test_charge_plan_html_no_decision(self):
-        from custom_components.givenergy_inverter_manager.core.reporting import build_charge_plan_html
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_charge_plan_html,
+        )
+
         data = self._data()
         data.charge_decision = None
         html = build_charge_plan_html(data)
         assert "No charge decision" in html
 
     def test_week_summary_html_contains_week_data(self):
-        from custom_components.givenergy_inverter_manager.core.reporting import build_week_summary_html
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_week_summary_html,
+        )
+
         data = self._data()
         data.week.solar_kwh = 65.3
         data.week.import_kwh_cheap = 14.2
@@ -927,14 +1001,20 @@ class TestReportGenerators:
         assert "This Week" in html
 
     def test_forecast_accuracy_shown_in_week_summary(self):
-        from custom_components.givenergy_inverter_manager.core.reporting import build_week_summary_html
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_week_summary_html,
+        )
+
         data = self._data()
         data.yesterday_forecast_accuracy_pct = 92.5
         html = build_week_summary_html(data)
         assert "92" in html
 
     def test_html_contains_css_class(self):
-        from custom_components.givenergy_inverter_manager.core.reporting import build_today_summary_html
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_today_summary_html,
+        )
+
         html = build_today_summary_html(self._data())
         assert "ge-card" not in html  # class-based CSS removed; uses inline styles now
         assert "<style>" not in html  # removed — uses inline styles for HA Markdown card compat
