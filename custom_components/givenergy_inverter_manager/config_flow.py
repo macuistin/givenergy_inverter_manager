@@ -158,14 +158,14 @@ def _build_charge_scheduling_summary(data: dict) -> tuple[str, str]:
     detected = sum(1 for k in _CHARGE_SCHEDULING_CONF_KEYS if data.get(k))
 
     if detected == 5:
-        status = "✓ All 5 scheduling entities detected — automatic overnight charging enabled"
+        status = "[OK] All 5 scheduling entities detected - automatic overnight charging enabled"
     elif detected > 0:
-        status = f"⚠ {detected}/5 scheduling entities detected — partial scheduling"
+        status = f"[!!] {detected}/5 scheduling entities detected - partial scheduling"
     else:
-        status = "✗ No scheduling entities detected — manual charging only"
+        status = "[--] No scheduling entities detected - manual charging only"
 
     detail_lines = [
-        f"{'✓' if data.get(k) else '✗'} {k}: {data.get(k) or 'not found'}"
+        f"{'OK' if data.get(k) else '--'} {k}: {data.get(k) or 'not found'}"
         for k in _CHARGE_SCHEDULING_CONF_KEYS
     ]
     return status, "\n".join(detail_lines)
@@ -358,7 +358,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 data_schema=schema,
                 errors=errors,
                 description_placeholders={
-                    "status": f"✓ All sensors detected for {best_inverter.display_name}",
+                    "status": f"All sensors detected for {best_inverter.display_name}",
                     "discovered_count": str(len(self._discovered_inverters)),
                 },
             )
@@ -404,7 +404,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
 
         _LOGGER.error("GIVENERGY_DEBUG: building tariff schema")
         try:
-            schema = self.create_tarrif_schema()
+            schema = self._build_tariff_schema()
         except BaseException as exc:  # noqa: BLE001
             _LOGGER.error(
                 "GIVENERGY_DEBUG: TARIFF SCHEMA FAILED: %s: %s",
@@ -427,12 +427,13 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         _LOGGER.error("GIVENERGY_DEBUG: async_show_form returned, type=%s", result.get("type"))
         return result
 
-    def create_tarrif_schema(self):
+    @staticmethod
+    def _build_tariff_schema():
         schema = vol.Schema(
             {
                 vol.Required(CONF_BASE_RATE, default=DEFAULT_BASE_RATE): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=5, step=0.0001, unit_of_measurement="EUR/kWh"
+                        min=0, max=5, step=0.001, unit_of_measurement="EUR/kWh"
                     )
                 ),
                 vol.Optional(
@@ -445,14 +446,14 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                     CONF_EXPORT_RATE, default=DEFAULT_EXPORT_RATE
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=1, step=0.0001, unit_of_measurement="EUR/kWh"
+                        min=0, max=1, step=0.001, unit_of_measurement="EUR/kWh"
                     )
                 ),
                 vol.Required(
                     CONF_STANDING_CHARGE, default=DEFAULT_STANDING_CHARGE
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=5, step=0.0001, unit_of_measurement="EUR/day"
+                        min=0, max=5, step=0.001, unit_of_measurement="EUR/day"
                     )
                 ),
                 vol.Required(CONF_PSO_LEVY, default=DEFAULT_PSO_LEVY): selector.NumberSelector(
@@ -673,7 +674,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     CONF_BASE_RATE, default=float(self._get(CONF_BASE_RATE, DEFAULT_BASE_RATE))
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=5, step=0.0001, unit_of_measurement="EUR/kWh"
+                        min=0, max=5, step=0.001, unit_of_measurement="EUR/kWh"
                     )
                 ),
                 vol.Optional(
@@ -687,7 +688,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     CONF_EXPORT_RATE, default=self._get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE)
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=1, step=0.0001, unit_of_measurement="EUR/kWh"
+                        min=0, max=1, step=0.001, unit_of_measurement="EUR/kWh"
                     )
                 ),
                 vol.Required(
@@ -695,7 +696,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     default=self._get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE),
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=5, step=0.0001, unit_of_measurement="EUR/day"
+                        min=0, max=5, step=0.001, unit_of_measurement="EUR/day"
                     )
                 ),
                 vol.Required(
