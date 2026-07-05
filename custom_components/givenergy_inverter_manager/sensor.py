@@ -523,7 +523,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:weather-sunny-alert",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.solar_forecast_kwh_today, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -533,7 +533,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:weather-sunny-alert",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: (
             round(d.today.solar_kwh / d.solar_forecast_kwh_today * 100, 1)
             if d.solar_forecast_kwh_today > 0
@@ -569,7 +569,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:solar-power",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.solar_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -580,7 +580,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:transmission-tower-import",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.import_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -591,7 +591,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:transmission-tower-export",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.export_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -601,7 +601,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:cash-minus",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.total_import_cost, 4),
     ),
     GivEnergyManagerSensorDescription(
@@ -612,7 +612,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:lightning-bolt-circle",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.import_kwh_cheap, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -623,7 +623,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:lightning-bolt",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.import_kwh_peak, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -633,7 +633,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:water-boiler",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.immersion_savings, 4),
     ),
     GivEnergyManagerSensorDescription(
@@ -643,7 +643,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:home-battery",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.self_sufficiency_pct, 1),
     ),
     # ── Weekly accumulations (disabled by default) ────────────────────────────
@@ -655,7 +655,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:solar-power",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.solar_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -666,7 +666,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:transmission-tower-import",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.import_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -677,7 +677,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:transmission-tower-export",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.export_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -687,7 +687,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:cash-minus",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.total_import_cost, 4),
     ),
     GivEnergyManagerSensorDescription(
@@ -697,7 +697,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:cash-plus",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.export_earnings, 4),
     ),
     GivEnergyManagerSensorDescription(
@@ -708,7 +708,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:lightning-bolt-circle",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.import_kwh_cheap, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -719,7 +719,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:lightning-bolt",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.import_kwh_peak, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -729,7 +729,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:water-boiler",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.immersion_savings, 4),
     ),
     GivEnergyManagerSensorDescription(
@@ -739,7 +739,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:home-battery",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.self_sufficiency_pct, 1),
     ),
     # ── Monthly accumulations (disabled by default) ───────────────────────────
@@ -751,7 +751,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:solar-power",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.solar_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -762,7 +762,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:transmission-tower-import",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.import_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -773,7 +773,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:transmission-tower-export",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.export_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -783,7 +783,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:cash-minus",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.total_import_cost, 4),
     ),
     GivEnergyManagerSensorDescription(
@@ -793,7 +793,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:cash-plus",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.export_earnings, 4),
     ),
     GivEnergyManagerSensorDescription(
@@ -804,7 +804,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:lightning-bolt-circle",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.import_kwh_cheap, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -815,7 +815,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:lightning-bolt",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.import_kwh_peak, 3),
     ),
     GivEnergyManagerSensorDescription(
@@ -825,7 +825,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:water-boiler",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.immersion_savings, 4),
     ),
     GivEnergyManagerSensorDescription(
@@ -835,7 +835,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:home-battery",
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.self_sufficiency_pct, 1),
     ),
     # ── HTML report sensors (disabled by default) ─────────────────────────────

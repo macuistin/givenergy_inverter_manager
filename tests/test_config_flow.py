@@ -185,3 +185,192 @@ class TestNumberSelectorStepConstraint:
             real_ha_selector.NumberSelector(
                 real_ha_selector.NumberSelectorConfig(min=0, max=10, step=step)
             )
+
+
+# ── Sensor default-enabled tests ──────────────────────────────────────────────
+# These tests parse sensor.py via AST rather than importing it, avoiding the
+# need to stub SensorEntityDescription subclassing.
+
+
+def _parse_sensor_enabled_state():
+    """Return {name: enabled_default} by parsing sensor.py with ast."""
+    import ast
+    from pathlib import Path
+
+    src = (
+        Path(__file__).parent.parent / "custom_components/givenergy_inverter_manager/sensor.py"
+    ).read_text()
+    tree = ast.parse(src)
+
+    results = {}
+    # Walk all Call nodes looking for GivEnergyManagerSensorDescription(...)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name_val = None
+        enabled_val = True  # default per dataclass default
+        for kw in node.keywords:
+            if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+                name_val = kw.value.value
+            if kw.arg == "entity_registry_enabled_default" and isinstance(kw.value, ast.Constant):
+                enabled_val = bool(kw.value.value)
+        if name_val is not None:
+            results[name_val] = enabled_val
+    return results
+
+
+class TestSensorDefaultEnabled:
+    """Document exactly which sensors are disabled by default."""
+
+    EXPECTED_DISABLED = {
+        "Today's energy summary",
+        "Tonight's charge plan",
+        "This week's energy summary",
+        "Forecast accuracy yesterday",
+        "Forecast accuracy 7-day average",
+    }
+
+    def test_exactly_five_sensors_disabled(self):
+        """Exactly 5 sensors should be disabled by default."""
+        state = _parse_sensor_enabled_state()
+        disabled = [n for n, enabled in state.items() if not enabled]
+        assert len(disabled) == 5, f"Expected 5 disabled sensors, got {len(disabled)}: {disabled}"
+
+    def test_disabled_sensors_are_the_expected_ones(self):
+        """The disabled sensors must be the HTML reports and forecast accuracy."""
+        state = _parse_sensor_enabled_state()
+        disabled_names = {n for n, enabled in state.items() if not enabled}
+        assert disabled_names == self.EXPECTED_DISABLED, (
+            f"Unexpected disabled set.\n"
+            f"  Extra disabled: {disabled_names - self.EXPECTED_DISABLED}\n"
+            f"  Missing disabled: {self.EXPECTED_DISABLED - disabled_names}"
+        )
+
+    def test_accumulation_sensors_enabled_by_default(self):
+        """Yesterday/week/month sensors must be enabled - they are core value.
+
+        Excludes forecast accuracy sensors which are deliberately kept disabled.
+        """
+        state = _parse_sensor_enabled_state()
+        keywords = ("yesterday", "this week", "this month")
+        accumulation = {
+            n: e
+            for n, e in state.items()
+            if any(k in n.lower() for k in keywords)
+            and n not in TestSensorDefaultEnabled.EXPECTED_DISABLED
+        }
+        assert len(accumulation) > 0, "No accumulation sensors found"
+        for name, enabled in accumulation.items():
+            assert enabled, f"Accumulation sensor '{name}' should be enabled by default"
+
+
+# ── Options flow forecast step tests ─────────────────────────────────────────
+
+
+class TestOptionsFlowForecastStep:
+    """Options flow must chain tariff -> thresholds -> forecast -> create_entry."""
+
+    def _make_flow(self):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.config_flow import (
+            GivEnergyOptionsFlow,
+        )
+        from custom_components.givenergy_inverter_manager.const import (
+            DEFAULT_BATTERY_MIN_SOC,
+            DEFAULT_OVERNIGHT_CHARGE_TARGET,
+            DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
+        )
+
+        entry = MagicMock()
+        entry.options = {}
+        entry.data = {
+            "battery_min_soc_pct": DEFAULT_BATTERY_MIN_SOC,
+            "overnight_charge_target_pct": DEFAULT_OVERNIGHT_CHARGE_TARGET,
+            "skip_charge_soc_threshold_pct": DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
+        }
+
+        flow = GivEnergyOptionsFlow(entry)
+        # Inject HA base-class methods that the stub doesn't provide
+        flow.async_show_form = MagicMock(return_value={"type": "form"})
+        flow.async_create_entry = MagicMock(return_value={"type": "create_entry"})
+        return flow
+
+    def test_thresholds_with_input_proceeds_to_forecast(self):
+        """Submitting thresholds should advance to the forecast step, not create entry."""
+        import asyncio
+
+        flow = self._make_flow()
+        # Patch async_step_forecast to avoid schema construction with stub selectors
+        forecast_sentinel = {"type": "form", "step_id": "forecast"}
+
+        async def _mock_forecast(user_input=None):
+            return forecast_sentinel
+
+        flow.async_step_forecast = _mock_forecast
+
+        thresholds_input = {
+            "battery_min_soc_pct": 10,
+            "overnight_charge_target_pct": 80,
+            "skip_charge_soc_threshold_pct": 70,
+        }
+        result = asyncio.run(flow.async_step_thresholds(thresholds_input))
+
+        # Must NOT have called create_entry
+        flow.async_create_entry.assert_not_called()
+        # Must have routed to forecast
+        assert result is forecast_sentinel
+
+    def test_forecast_with_input_calls_create_entry(self):
+        """Submitting forecast step should call create_entry with forecast data."""
+        import asyncio
+
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_FORECAST_ENTITY,
+            CONF_FORECAST_PROVIDER,
+            FORECAST_PROVIDER_FORECAST_SOLAR,
+        )
+
+        flow = self._make_flow()
+        forecast_input = {
+            CONF_FORECAST_PROVIDER: FORECAST_PROVIDER_FORECAST_SOLAR,
+            CONF_FORECAST_ENTITY: "sensor.forecast_solar_today",
+        }
+        asyncio.run(flow.async_step_forecast(forecast_input))
+
+        flow.async_create_entry.assert_called_once()
+        # call_args.kwargs["data"] is the same dict object as flow._options
+        saved_data = flow.async_create_entry.call_args.kwargs.get("data") or {}
+        assert saved_data.get(CONF_FORECAST_PROVIDER) == FORECAST_PROVIDER_FORECAST_SOLAR
+        assert saved_data.get(CONF_FORECAST_ENTITY) == "sensor.forecast_solar_today"
+
+    def test_forecast_without_input_shows_form(self):
+        """Visiting forecast step with no input should show the forecast form.
+
+        Patches both vol and selector to avoid MagicMock-as-spec error
+        when stub selectors are passed as positional args to other stub selectors.
+        """
+        import asyncio
+        from unittest.mock import MagicMock, patch
+
+        flow = self._make_flow()
+        with (
+            patch("custom_components.givenergy_inverter_manager.config_flow.vol") as mock_vol,
+            patch("custom_components.givenergy_inverter_manager.config_flow.selector") as mock_sel,
+        ):
+            mock_vol.Schema.return_value = MagicMock()
+            mock_vol.Optional.return_value = MagicMock()
+            mock_sel.SelectSelector.return_value = MagicMock()
+            mock_sel.SelectSelectorConfig.return_value = MagicMock()
+            mock_sel.SelectOptionDict.return_value = MagicMock()
+            mock_sel.EntitySelector.return_value = MagicMock()
+            mock_sel.EntitySelectorConfig.return_value = MagicMock()
+            asyncio.run(flow.async_step_forecast(None))
+
+        flow.async_show_form.assert_called_once()
+        call_kwargs = flow.async_show_form.call_args
+        step = call_kwargs.kwargs.get("step_id") or (
+            call_kwargs.args[0] if call_kwargs.args else None
+        )
+        assert step == "forecast"
+        flow.async_create_entry.assert_not_called()
