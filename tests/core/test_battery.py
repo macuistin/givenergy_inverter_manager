@@ -1,4 +1,5 @@
 """Unit tests for the battery module."""
+
 from datetime import date
 
 import pytest
@@ -12,7 +13,6 @@ from custom_components.givenergy_inverter_manager.core.battery import (
 
 
 class TestBatteryStats:
-
     def test_remaining_life_new_battery(self):
         """New battery should show close to 100% remaining life."""
         stats = BatteryStats(total_cycles=0.0)
@@ -68,7 +68,6 @@ class TestBatteryStats:
 
 
 class TestWillSurviveNight:
-
     def test_survives_with_plenty(self):
         """Battery survives night with plenty of charge."""
         survives, soc_at_sunrise, reason = estimate_will_survive_night(

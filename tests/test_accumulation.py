@@ -5,6 +5,7 @@ All tests are pure Python — AccumulationStore is not instantiated (it requires
 Storage), but AccumulationState, the serialisation helpers, and on_midnight logic
 are all testable without HA.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -18,8 +19,8 @@ from custom_components.givenergy_inverter_manager.accumulation import (
 )
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _monday() -> datetime:
     """Monday midnight UTC — triggers weekly reset."""
@@ -63,8 +64,8 @@ def _midnight_reset(state: AccumulationState, now: datetime, bill_start_day: int
 
 # ── Midnight reset ────────────────────────────────────────────────────────────
 
-class TestMidnightReset:
 
+class TestMidnightReset:
     def test_today_data_moves_to_yesterday(self):
         state = AccumulationState()
         state.today.solar_kwh = 12.5
@@ -119,8 +120,8 @@ class TestMidnightReset:
 
 # ── Forecast accuracy ─────────────────────────────────────────────────────────
 
-class TestForecastAccuracy:
 
+class TestForecastAccuracy:
     def test_accuracy_calculated_at_midnight(self):
         state = AccumulationState()
         state.today_forecast_kwh = 10.0
@@ -138,7 +139,7 @@ class TestForecastAccuracy:
     def test_accuracy_capped_at_200_pct(self):
         state = AccumulationState()
         state.today_forecast_kwh = 5.0
-        state.today.solar_kwh = 20.0   # way above forecast
+        state.today.solar_kwh = 20.0  # way above forecast
         _midnight_reset(state, _tuesday())
         assert state.yesterday_forecast_accuracy_pct == 200.0
 
@@ -174,8 +175,8 @@ class TestForecastAccuracy:
 
 # ── Serialisation / deserialisation ──────────────────────────────────────────
 
-class TestSerialisationRoundtrip:
 
+class TestSerialisationRoundtrip:
     def test_empty_state_roundtrip(self):
         state = AccumulationState()
         restored = _deserialize(_serialize(state))
@@ -218,6 +219,6 @@ class TestSerialisationRoundtrip:
         }
         restored = _deserialize(minimal_data)
         assert restored.today.solar_kwh == pytest.approx(5.0)
-        assert restored.today.import_kwh_cheap == 0.0   # new field, defaults to 0
+        assert restored.today.import_kwh_cheap == 0.0  # new field, defaults to 0
         assert restored.today_forecast_kwh == 0.0
         assert restored.forecast_accuracy_history == []

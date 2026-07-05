@@ -1,4 +1,5 @@
 """Unit tests for the optimizer module."""
+
 from datetime import datetime
 
 from custom_components.givenergy_inverter_manager.core.optimizer import (
@@ -10,8 +11,8 @@ from custom_components.givenergy_inverter_manager.core.optimizer import (
 
 # --- Overnight charge target tests ---
 
-class TestCalculateOvernightChargeTarget:
 
+class TestCalculateOvernightChargeTarget:
     def _base_kwargs(self, **overrides):
         defaults = {
             "current_soc": 50.0,
@@ -147,8 +148,8 @@ class TestCalculateOvernightChargeTarget:
 
 # --- Immersion divert tests ---
 
-class TestShouldDivertToImmersion:
 
+class TestShouldDivertToImmersion:
     def _base_kwargs(self, **overrides):
         defaults = {
             "solar_power_w": 4000.0,
@@ -172,17 +173,13 @@ class TestShouldDivertToImmersion:
 
     def test_no_divert_water_hot(self):
         """Should not divert when water is already at target temp."""
-        should, reason = should_divert_to_immersion(
-            **self._base_kwargs(immersion_temp=56.0)
-        )
+        should, reason = should_divert_to_immersion(**self._base_kwargs(immersion_temp=56.0))
         assert should is False
         assert "already" in reason.lower()
 
     def test_no_divert_battery_low(self):
         """Should not divert when battery SoC is below threshold."""
-        should, reason = should_divert_to_immersion(
-            **self._base_kwargs(battery_soc=60.0)
-        )
+        should, reason = should_divert_to_immersion(**self._base_kwargs(battery_soc=60.0))
         assert should is False
         assert "threshold" in reason.lower()
 
@@ -209,16 +206,14 @@ class TestShouldDivertToImmersion:
 
     def test_no_divert_no_temp_sensor_at_target(self):
         """Should still divert when no temp sensor (immersion_temp=None)."""
-        should, reason = should_divert_to_immersion(
-            **self._base_kwargs(immersion_temp=None)
-        )
+        should, reason = should_divert_to_immersion(**self._base_kwargs(immersion_temp=None))
         assert should is True  # Can't know it's hot, so divert
 
 
 # --- Appliance suggestion tests ---
 
-class TestSuggestApplianceRun:
 
+class TestSuggestApplianceRun:
     def test_good_time_solar_surplus(self):
         """Good time to run appliance when solar surplus covers it."""
         is_good, reason = suggest_appliance_run(
@@ -269,8 +264,8 @@ class TestSuggestApplianceRun:
 
 # ── Additional optimizer coverage ────────────────────────────────────────────
 
-class TestImmersionDivertClippingPath:
 
+class TestImmersionDivertClippingPath:
     def test_diverts_clipping_even_with_marginal_surplus(self):
         """
         When inverter is clipping (at 95%+ of max output) and battery is above
@@ -280,13 +275,14 @@ class TestImmersionDivertClippingPath:
         from custom_components.givenergy_inverter_manager.core.optimizer import (
             should_divert_to_immersion,
         )
+
         # Solar at 97% of inverter max — definite clipping
         # But house load is high so net_surplus_w < min_surplus_w
         should, reason = should_divert_to_immersion(
-            solar_power_w=4850.0,    # 97% of 5kW
-            house_load_w=4400.0,     # high house load — surplus < 500W threshold
+            solar_power_w=4850.0,  # 97% of 5kW
+            house_load_w=4400.0,  # high house load — surplus < 500W threshold
             battery_soc=85.0,
-            battery_power_w=50.0,    # barely charging
+            battery_power_w=50.0,  # barely charging
             inverter_max_w=5000.0,
             immersion_temp=40.0,
             immersion_target_temp=55.0,
@@ -295,19 +291,25 @@ class TestImmersionDivertClippingPath:
             min_surplus_w=500,
         )
         assert should is True
-        assert "capacity" in reason.lower() or "clipping" in reason.lower() or "inverter" in reason.lower()
+        assert (
+            "capacity" in reason.lower()
+            or "clipping" in reason.lower()
+            or "inverter" in reason.lower()
+        )
 
 
 class TestSuggestApplianceRunDayRatePath:
-
     def test_day_rate_no_surplus_returns_false_with_cost_in_reason(self):
         """
         At peak day rate with no solar surplus, suggestion should be False
         and the reason should include cost information.
         """
-        from custom_components.givenergy_inverter_manager.core.optimizer import suggest_appliance_run
+        from custom_components.givenergy_inverter_manager.core.optimizer import (
+            suggest_appliance_run,
+        )
+
         is_good, reason = suggest_appliance_run(
-            solar_power_w=100.0,    # negligible solar
+            solar_power_w=100.0,  # negligible solar
             house_load_w=800.0,
             battery_soc=30.0,
             battery_power_w=0.0,
@@ -326,7 +328,10 @@ class TestSuggestApplianceRunDayRatePath:
         Battery is medium SoC and rate is moderate — no strong case either way.
         Should return False with a neutral reason.
         """
-        from custom_components.givenergy_inverter_manager.core.optimizer import suggest_appliance_run
+        from custom_components.givenergy_inverter_manager.core.optimizer import (
+            suggest_appliance_run,
+        )
+
         is_good, reason = suggest_appliance_run(
             solar_power_w=1000.0,
             house_load_w=800.0,
@@ -335,7 +340,7 @@ class TestSuggestApplianceRunDayRatePath:
             appliance_power_w=2000.0,
             appliance_name="Washing Machine",
             rate_period_name="Night",
-            rate=0.1644,    # cheap-ish but not surplus
+            rate=0.1644,  # cheap-ish but not surplus
             export_rate=0.195,
         )
         # Net surplus = 1000 - 800 = 200W, not enough for 2000W appliance
@@ -344,7 +349,6 @@ class TestSuggestApplianceRunDayRatePath:
 
 
 class TestOvernightChargeEdgeCases:
-
     def _base(self, **overrides):
         defaults = {
             "current_soc": 50.0,
@@ -366,8 +370,13 @@ class TestOvernightChargeEdgeCases:
         from custom_components.givenergy_inverter_manager.core.optimizer import (
             calculate_overnight_charge_target,
         )
-        without_car = calculate_overnight_charge_target(**self._base(car_plugged_in=False, forecast_kwh=8.0))
-        with_car = calculate_overnight_charge_target(**self._base(car_plugged_in=True, forecast_kwh=8.0))
+
+        without_car = calculate_overnight_charge_target(
+            **self._base(car_plugged_in=False, forecast_kwh=8.0)
+        )
+        with_car = calculate_overnight_charge_target(
+            **self._base(car_plugged_in=True, forecast_kwh=8.0)
+        )
         assert with_car.target_soc >= without_car.target_soc
 
     def test_zero_forecast_gives_high_target(self):
@@ -375,10 +384,13 @@ class TestOvernightChargeEdgeCases:
         from custom_components.givenergy_inverter_manager.core.optimizer import (
             calculate_overnight_charge_target,
         )
-        decision = calculate_overnight_charge_target(**self._base(
-            forecast_kwh=0.0,
-            current_soc=20.0,
-        ))
+
+        decision = calculate_overnight_charge_target(
+            **self._base(
+                forecast_kwh=0.0,
+                current_soc=20.0,
+            )
+        )
         assert decision.target_soc >= 85
 
     def test_full_battery_excellent_forecast_skips(self):
@@ -388,9 +400,12 @@ class TestOvernightChargeEdgeCases:
         from custom_components.givenergy_inverter_manager.core.optimizer import (
             calculate_overnight_charge_target,
         )
-        decision = calculate_overnight_charge_target(**self._base(
-            current_soc=82.0,
-            forecast_kwh=18.0,   # can fill 19kWh battery
-            dt=datetime(2024, 6, 15, 22, 0),
-        ))
+
+        decision = calculate_overnight_charge_target(
+            **self._base(
+                current_soc=82.0,
+                forecast_kwh=18.0,  # can fill 19kWh battery
+                dt=datetime(2024, 6, 15, 22, 0),
+            )
+        )
         assert decision.skip_charge is True

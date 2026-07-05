@@ -10,6 +10,7 @@ What is tested:
   - The output is stable (same config → same YAML)
   - Dry run sensor entities are included in the Controls view
 """
+
 from unittest.mock import MagicMock
 
 import yaml
@@ -22,6 +23,7 @@ def _mock_hass_with_registry(entry_id: str) -> MagicMock:
     reg = MagicMock()
     reg.async_get_entity_id = MagicMock(return_value=None)
     import sys
+
     er_mod = sys.modules.get("homeassistant.helpers.entity_registry")
     if er_mod:
         er_mod.async_get.return_value = reg
@@ -30,12 +32,12 @@ def _mock_hass_with_registry(entry_id: str) -> MagicMock:
 
 def _build(entry_id: str = "test_entry_123") -> str:
     from custom_components.givenergy_inverter_manager.dashboard import _build_dashboard_yaml
+
     hass = _mock_hass_with_registry(entry_id)
     return _build_dashboard_yaml(hass, entry_id)
 
 
 class TestBuildDashboardYaml:
-
     def test_returns_string(self):
         result = _build()
         assert isinstance(result, str)
@@ -80,15 +82,26 @@ class TestBuildDashboardYaml:
         """Key sensor suffixes must appear in the output."""
         result = _build()
         required = [
-            "solar_power", "battery_soc", "grid_power", "house_load",
-            "import_cost_today", "export_earnings_today",
-            "zappi_cost_today", "immersion_cost_today", "house_cost_today",
-            "overnight_charge_target", "overnight_charge_reason",
-            "battery_cycles", "battery_remaining_life",
-            "dry_run_active", "dry_run_last_skipped",
+            "solar_power",
+            "battery_soc",
+            "grid_power",
+            "house_load",
+            "import_cost_today",
+            "export_earnings_today",
+            "zappi_cost_today",
+            "immersion_cost_today",
+            "house_cost_today",
+            "overnight_charge_target",
+            "overnight_charge_reason",
+            "battery_cycles",
+            "battery_remaining_life",
+            "dry_run_active",
+            "dry_run_last_skipped",
         ]
         for suffix in required:
-            assert suffix in result, f"Expected sensor suffix {suffix!r} not found in dashboard YAML"
+            assert suffix in result, (
+                f"Expected sensor suffix {suffix!r} not found in dashboard YAML"
+            )
 
     def test_dry_run_sensors_in_controls(self):
         """Controls view must include both dry run sensor references."""
@@ -131,8 +144,9 @@ class TestBuildDashboardYaml:
         # YAML anchors use & and *, not {}. A remaining {} means a missing f-string var.
         # We allow {{ and }} which are escaped braces in some templating but we don't use those.
         import re
+
         # Find any {word} that doesn't look like it was intentionally left
-        unresolved = re.findall(r'\{[a-z_]+\}', result)
+        unresolved = re.findall(r"\{[a-z_]+\}", result)
         assert not unresolved, f"Unresolved placeholders in dashboard YAML: {unresolved}"
 
 
@@ -159,9 +173,12 @@ class TestDryRunEngine:
         }
         raw = RawSensorValues(solar_power_w=1000.0, battery_soc=70.0)
         data, _ = build_coordinator_data(
-            raw=raw, cfg=cfg, acc=EnergyAccumulator(),
+            raw=raw,
+            cfg=cfg,
+            acc=EnergyAccumulator(),
             battery_stats=BatteryStats(),
-            last_soc=None, last_update_time=None,
+            last_soc=None,
+            last_update_time=None,
             now=datetime(2024, 6, 15, 14, 0),
         )
         return data

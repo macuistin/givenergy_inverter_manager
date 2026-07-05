@@ -13,7 +13,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "--tb=short"
-asyncio_mode = "strict"
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["custom_components/givenergy_inverter_manager"]

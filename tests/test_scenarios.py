@@ -18,6 +18,7 @@ Scenarios covered:
 These use the shared _run/_raw/_nightboost_cfg helpers from conftest.py.
 They do NOT test the coordinator (HA wiring) — only the engine.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -29,6 +30,7 @@ from tests.conftest import _nightboost_cfg, _raw, _run
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _step(acc, raw_kwargs, now, last_update, cfg=None):
     """Run one 30-second engine cycle, return (data, updated_acc)."""
     raw = _raw(**raw_kwargs)
@@ -37,6 +39,7 @@ def _step(acc, raw_kwargs, now, last_update, cfg=None):
 
 
 # ── Scenario: Energy accumulates correctly over a solar day ───────────────────
+
 
 class TestSolarDayAccumulation:
     """Simulate a summer day from 06:00 to 20:00 in 30-minute steps."""
@@ -50,8 +53,12 @@ class TestSolarDayAccumulation:
             last = now
             now = now + timedelta(minutes=30)
             # Pass acc explicitly so it mutates in place across cycles
-            _run(raw=_raw(solar_power_w=3000.0, grid_power_w=0.0, house_load_w=500.0),
-                 now=now, acc=acc, last_update_time=last)
+            _run(
+                raw=_raw(solar_power_w=3000.0, grid_power_w=0.0, house_load_w=500.0),
+                now=now,
+                acc=acc,
+                last_update_time=last,
+            )
 
         # 12 × 30 min at 3 kW = 6 hours × 3 kW = 18 kWh
         assert acc.solar_kwh == pytest.approx(18.0, rel=0.01)
@@ -64,8 +71,12 @@ class TestSolarDayAccumulation:
         for _ in range(6):
             last = now
             now = now + timedelta(minutes=30)
-            _run(raw=_raw(solar_power_w=0.0, grid_power_w=500.0, house_load_w=500.0),
-                 now=now, acc=acc, last_update_time=last)
+            _run(
+                raw=_raw(solar_power_w=0.0, grid_power_w=500.0, house_load_w=500.0),
+                now=now,
+                acc=acc,
+                last_update_time=last,
+            )
 
         assert acc.import_kwh == pytest.approx(1.5, rel=0.01)
 
@@ -77,8 +88,12 @@ class TestSolarDayAccumulation:
         for _ in range(4):
             last = now
             now = now + timedelta(minutes=30)
-            _run(raw=_raw(solar_power_w=5000.0, grid_power_w=-1000.0, house_load_w=500.0),
-                 now=now, acc=acc, last_update_time=last)
+            _run(
+                raw=_raw(solar_power_w=5000.0, grid_power_w=-1000.0, house_load_w=500.0),
+                now=now,
+                acc=acc,
+                last_update_time=last,
+            )
 
         assert acc.export_kwh == pytest.approx(2.0, rel=0.01)
 
@@ -90,8 +105,12 @@ class TestSolarDayAccumulation:
         for _ in range(8):  # 4 hours of good solar
             last = now
             now = now + timedelta(minutes=30)
-            _run(raw=_raw(solar_power_w=4000.0, grid_power_w=-500.0, house_load_w=500.0),
-                 now=now, acc=acc, last_update_time=last)
+            _run(
+                raw=_raw(solar_power_w=4000.0, grid_power_w=-500.0, house_load_w=500.0),
+                now=now,
+                acc=acc,
+                last_update_time=last,
+            )
 
         assert acc.self_sufficiency_pct > 80.0
 
@@ -99,13 +118,19 @@ class TestSolarDayAccumulation:
         """First cycle with no last_update_time must not accumulate anything."""
         acc = EnergyAccumulator()
         now = datetime(2024, 6, 15, 14, 0)
-        _run(raw=_raw(solar_power_w=3000.0, grid_power_w=500.0), now=now, acc=acc, last_update_time=None)
+        _run(
+            raw=_raw(solar_power_w=3000.0, grid_power_w=500.0),
+            now=now,
+            acc=acc,
+            last_update_time=None,
+        )
 
         assert acc.solar_kwh == 0.0
         assert acc.import_kwh == 0.0
 
 
 # ── Scenario: Midnight reset ──────────────────────────────────────────────────
+
 
 class TestMidnightReset:
     """Accumulator clears at midnight; energy from the new day accumulates fresh."""
@@ -141,6 +166,7 @@ class TestMidnightReset:
 
 # ── Scenario: Charge decision over an evening ─────────────────────────────────
 
+
 class TestChargeDecisionEvolution:
     """Charge target should reflect rising/falling SoC correctly."""
 
@@ -165,11 +191,13 @@ class TestChargeDecisionEvolution:
         # 10kWh battery; remove the configured cap so algorithm output is visible.
         # 8kWh = 80% capacity → "excellent" tier (lower target ~50%)
         # 2kWh = 20% capacity → "poor" tier (target = 90%)
-        cfg = {**_nightboost_cfg(), "battery_capacity_kwh": 10.0, "overnight_charge_target_pct": 100}
-        data_good, _ = _run(raw=_raw(battery_soc=20.0,
-                                      forecast_kwh_tomorrow=8.0), cfg=cfg)
-        data_poor, _ = _run(raw=_raw(battery_soc=20.0,
-                                      forecast_kwh_tomorrow=2.0), cfg=cfg)
+        cfg = {
+            **_nightboost_cfg(),
+            "battery_capacity_kwh": 10.0,
+            "overnight_charge_target_pct": 100,
+        }
+        data_good, _ = _run(raw=_raw(battery_soc=20.0, forecast_kwh_tomorrow=8.0), cfg=cfg)
+        data_poor, _ = _run(raw=_raw(battery_soc=20.0, forecast_kwh_tomorrow=2.0), cfg=cfg)
 
         assert data_poor.charge_decision.target_soc > data_good.charge_decision.target_soc
 
@@ -185,6 +213,7 @@ class TestChargeDecisionEvolution:
 
 # ── Scenario: EV battery protection across a charge session ──────────────────
 
+
 class TestEVProtectionLifecycle:
     """EV protection should engage when battery drops and release when it recovers."""
 
@@ -194,8 +223,11 @@ class TestEVProtectionLifecycle:
             EVChargerBrand,
             EVChargerState,
         )
+
         ch = EVCharger(
-            brand=EVChargerBrand.ZAPPI, name="Zappi", serial="12345",
+            brand=EVChargerBrand.ZAPPI,
+            name="Zappi",
+            serial="12345",
             display_name="Zappi 12345",
             state=EVChargerState.CHARGING,
             charge_mode="Fast",
@@ -224,6 +256,7 @@ class TestEVProtectionLifecycle:
     def test_eco_plus_when_surplus_and_healthy(self):
         """With surplus solar and healthy battery, Zappi should switch to Eco+."""
         from custom_components.givenergy_inverter_manager.discovery import ZAPPI_ECO_PLUS_MODE
+
         cfg = _nightboost_cfg()
         cfg["ev_battery_protect_soc_pct"] = 20
         charger = self._zappi()
@@ -249,6 +282,7 @@ class TestEVProtectionLifecycle:
 
 
 # ── Scenario: Immersion divert lifecycle ─────────────────────────────────────
+
 
 class TestImmersionDivertLifecycle:
     """Immersion divert should activate and deactivate as surplus changes."""
@@ -296,6 +330,7 @@ class TestImmersionDivertLifecycle:
 
 # ── Scenario: Bill prediction across rate periods ────────────────────────────
 
+
 class TestBillAccumulation:
     """Bill prediction should reflect imports at the right rates."""
 
@@ -304,16 +339,23 @@ class TestBillAccumulation:
         acc_night = EnergyAccumulator()
         acc_day = EnergyAccumulator()
 
-        now_night = datetime(2024, 6, 15, 3, 0)   # 03:00 = Nightboost
-        now_day   = datetime(2024, 6, 15, 14, 0)  # 14:00 = Day rate
+        now_night = datetime(2024, 6, 15, 3, 0)  # 03:00 = Nightboost
+        now_day = datetime(2024, 6, 15, 14, 0)  # 14:00 = Day rate
         last = now_night - timedelta(minutes=30)
 
         # Same import power, different times
-        _run(raw=_raw(solar_power_w=0.0, grid_power_w=1000.0),
-             now=now_night, acc=acc_night, last_update_time=last)
-        _run(raw=_raw(solar_power_w=0.0, grid_power_w=1000.0),
-             now=now_day, acc=acc_day,
-             last_update_time=now_day - timedelta(minutes=30))
+        _run(
+            raw=_raw(solar_power_w=0.0, grid_power_w=1000.0),
+            now=now_night,
+            acc=acc_night,
+            last_update_time=last,
+        )
+        _run(
+            raw=_raw(solar_power_w=0.0, grid_power_w=1000.0),
+            now=now_day,
+            acc=acc_day,
+            last_update_time=now_day - timedelta(minutes=30),
+        )
 
         # Both accumulated the same kWh
         assert acc_night.import_kwh == pytest.approx(acc_day.import_kwh, rel=0.01)
@@ -323,15 +365,23 @@ class TestBillAccumulation:
     def test_export_earnings_independent_of_rate_period(self):
         """Export rate is flat — time of day should not change earnings per kWh."""
         acc_night = EnergyAccumulator()
-        acc_day   = EnergyAccumulator()
+        acc_day = EnergyAccumulator()
 
         now_n = datetime(2024, 6, 15, 3, 0)
         now_d = datetime(2024, 6, 15, 14, 0)
 
-        _run(raw=_raw(solar_power_w=5000.0, grid_power_w=-1000.0, house_load_w=500.0),
-             now=now_n, acc=acc_night, last_update_time=now_n - timedelta(minutes=30))
-        _run(raw=_raw(solar_power_w=5000.0, grid_power_w=-1000.0, house_load_w=500.0),
-             now=now_d, acc=acc_day,   last_update_time=now_d - timedelta(minutes=30))
+        _run(
+            raw=_raw(solar_power_w=5000.0, grid_power_w=-1000.0, house_load_w=500.0),
+            now=now_n,
+            acc=acc_night,
+            last_update_time=now_n - timedelta(minutes=30),
+        )
+        _run(
+            raw=_raw(solar_power_w=5000.0, grid_power_w=-1000.0, house_load_w=500.0),
+            now=now_d,
+            acc=acc_day,
+            last_update_time=now_d - timedelta(minutes=30),
+        )
 
         assert acc_night.export_kwh == pytest.approx(acc_day.export_kwh, rel=0.01)
         assert acc_night.export_earnings == pytest.approx(acc_day.export_earnings, rel=0.01)
@@ -346,6 +396,7 @@ class TestBillAccumulation:
 
 
 # ── Scenario: Dry run mode ────────────────────────────────────────────────────
+
 
 class TestDryRunBehaviour:
     """Dry run should not affect sensor values but should surface skipped actions."""
@@ -378,8 +429,8 @@ class TestDryRunBehaviour:
 
 # ── Scenario: Night survival prediction ──────────────────────────────────────
 
-class TestNightSurvivalPrediction:
 
+class TestNightSurvivalPrediction:
     def test_survives_with_full_battery(self):
         """A full battery should always predict night survival."""
         raw = _raw(battery_soc=95.0, battery_power_w=0.0)

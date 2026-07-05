@@ -21,8 +21,8 @@ from custom_components.givenergy_inverter_manager.discovery.givtcp import SERIAL
 
 # ── Rate period parsing ───────────────────────────────────────────────────────
 
-class TestParseRatePeriods:
 
+class TestParseRatePeriods:
     def test_single_period(self):
         result = _parse_rate_periods("Day, 0.3334, 08:00, 23:00")
         assert len(result) == 1
@@ -90,10 +90,7 @@ class TestParseRatePeriods:
 
     def test_many_periods(self):
         """Supports any number of rate periods, not just 3."""
-        lines = "\n".join(
-            f"Rate{i}, 0.{i:04d}, 0{i}:00, 0{i+1}:00"
-            for i in range(5)
-        )
+        lines = "\n".join(f"Rate{i}, 0.{i:04d}, 0{i}:00, 0{i + 1}:00" for i in range(5))
         result = _parse_rate_periods(lines)
         assert len(result) == 5
 
@@ -105,7 +102,6 @@ class TestParseRatePeriods:
 
 
 class TestRatePeriodsToText:
-
     def test_roundtrip(self):
         """parse → text → parse should give the same result."""
         original = [
@@ -137,8 +133,8 @@ class TestRatePeriodsToText:
 
 # ── GivTCP discovery ──────────────────────────────────────────────────────────
 
-class TestGivTCPInverter:
 
+class TestGivTCPInverter:
     def _make_inverter(self, serial="SA2221G123", entities=None):
         inv = GivTCPInverter(
             serial=serial,
@@ -150,35 +146,41 @@ class TestGivTCPInverter:
         return inv
 
     def test_fully_configured_all_present(self):
-        inv = self._make_inverter(entities={
-            "solar_power": "sensor.givtcp_SA2221G123_pv_power",
-            "battery_soc": "sensor.givtcp_SA2221G123_battery_soc",
-            "battery_power": "sensor.givtcp_SA2221G123_battery_power",
-            "grid_power": "sensor.givtcp_SA2221G123_grid_power",
-            "house_load": "sensor.givtcp_SA2221G123_load_power",
-        })
+        inv = self._make_inverter(
+            entities={
+                "solar_power": "sensor.givtcp_SA2221G123_pv_power",
+                "battery_soc": "sensor.givtcp_SA2221G123_battery_soc",
+                "battery_power": "sensor.givtcp_SA2221G123_battery_power",
+                "grid_power": "sensor.givtcp_SA2221G123_grid_power",
+                "house_load": "sensor.givtcp_SA2221G123_load_power",
+            }
+        )
         assert inv.is_fully_configured is True
 
     def test_not_fully_configured_missing_one(self):
-        inv = self._make_inverter(entities={
-            "solar_power": "sensor.givtcp_SA2221G123_pv_power",
-            "battery_soc": "sensor.givtcp_SA2221G123_battery_soc",
-            "battery_power": "sensor.givtcp_SA2221G123_battery_power",
-            "grid_power": "sensor.givtcp_SA2221G123_grid_power",
-            # house_load missing
-        })
+        inv = self._make_inverter(
+            entities={
+                "solar_power": "sensor.givtcp_SA2221G123_pv_power",
+                "battery_soc": "sensor.givtcp_SA2221G123_battery_soc",
+                "battery_power": "sensor.givtcp_SA2221G123_battery_power",
+                "grid_power": "sensor.givtcp_SA2221G123_grid_power",
+                # house_load missing
+            }
+        )
         assert inv.is_fully_configured is False
 
     def test_get_suggested_includes_all_entities(self):
-        inv = self._make_inverter(entities={
-            "solar_power": "sensor.givtcp_X_pv_power",
-            "battery_soc": "sensor.givtcp_X_battery_soc",
-            "battery_power": "sensor.givtcp_X_battery_power",
-            "grid_power": "sensor.givtcp_X_grid_power",
-            "house_load": "sensor.givtcp_X_load_power",
-            "target_soc": "number.givtcp_X_target_soc",
-            "enable_charge_target": "switch.givtcp_X_enable_charge_target",
-        })
+        inv = self._make_inverter(
+            entities={
+                "solar_power": "sensor.givtcp_X_pv_power",
+                "battery_soc": "sensor.givtcp_X_battery_soc",
+                "battery_power": "sensor.givtcp_X_battery_power",
+                "grid_power": "sensor.givtcp_X_grid_power",
+                "house_load": "sensor.givtcp_X_load_power",
+                "target_soc": "number.givtcp_X_target_soc",
+                "enable_charge_target": "switch.givtcp_X_enable_charge_target",
+            }
+        )
         suggested = get_suggested_entities(inv)
         # Control entities are now included so they pre-fill the config form
         assert "target_soc" in suggested
@@ -191,7 +193,6 @@ class TestGivTCPInverter:
 
 
 class TestDiscoverGivTCPInverters:
-
     class _FakeState:
         def __init__(self, entity_id: str, state: str):
             self.entity_id = entity_id
@@ -202,7 +203,9 @@ class TestDiscoverGivTCPInverters:
         result = {}
         for eid in entity_ids:
             if eid.endswith(SERIAL_SENSOR_SUFFIX):
-                serial = eid.split(".", 1)[1].replace(SERIAL_SENSOR_SUFFIX, "").replace("givtcp_", "")
+                serial = (
+                    eid.split(".", 1)[1].replace(SERIAL_SENSOR_SUFFIX, "").replace("givtcp_", "")
+                )
                 state = serial.upper()
             else:
                 state = "100"
@@ -212,15 +215,17 @@ class TestDiscoverGivTCPInverters:
     def test_discovers_single_inverter(self):
         serial = "SA2221G123"
         prefix = f"givtcp_{serial.lower()}"
-        all_states = self._all_states([
-            f"sensor.{prefix}_invertor_serial_number",
-            f"sensor.{prefix}_pv_power",
-            f"sensor.{prefix}_battery_soc",
-            f"sensor.{prefix}_battery_power",
-            f"sensor.{prefix}_grid_power",
-            f"sensor.{prefix}_load_power",
-            f"number.{prefix}_target_soc",
-        ])
+        all_states = self._all_states(
+            [
+                f"sensor.{prefix}_invertor_serial_number",
+                f"sensor.{prefix}_pv_power",
+                f"sensor.{prefix}_battery_soc",
+                f"sensor.{prefix}_battery_power",
+                f"sensor.{prefix}_grid_power",
+                f"sensor.{prefix}_load_power",
+                f"number.{prefix}_target_soc",
+            ]
+        )
         result = discover_givtcp_inverters(all_states)
         assert len(result) == 1
         assert result[0].is_fully_configured
@@ -232,28 +237,34 @@ class TestDiscoverGivTCPInverters:
 
     def test_notes_missing_entities(self):
         prefix = "givtcp_sa2221g123"
-        all_states = self._all_states([
-            f"sensor.{prefix}_invertor_serial_number",
-            f"sensor.{prefix}_pv_power",
-            # battery_soc, battery_power, grid_power, load_power missing
-        ])
+        all_states = self._all_states(
+            [
+                f"sensor.{prefix}_invertor_serial_number",
+                f"sensor.{prefix}_pv_power",
+                # battery_soc, battery_power, grid_power, load_power missing
+            ]
+        )
         result = discover_givtcp_inverters(all_states)
         assert len(result) == 1
         assert not result[0].is_fully_configured
         assert len(result[0].missing_entities) > 0
 
     def test_discovers_multiple_inverters(self):
-        all_states = self._all_states([
-            "sensor.givtcp_inv1_invertor_serial_number",
-            "sensor.givtcp_inv2_invertor_serial_number",
-        ])
+        all_states = self._all_states(
+            [
+                "sensor.givtcp_inv1_invertor_serial_number",
+                "sensor.givtcp_inv2_invertor_serial_number",
+            ]
+        )
         result = discover_givtcp_inverters(all_states)
         assert len(result) == 2
 
     def test_sorted_by_serial(self):
-        all_states = self._all_states([
-            "sensor.givtcp_zzz_invertor_serial_number",
-            "sensor.givtcp_aaa_invertor_serial_number",
-        ])
+        all_states = self._all_states(
+            [
+                "sensor.givtcp_zzz_invertor_serial_number",
+                "sensor.givtcp_aaa_invertor_serial_number",
+            ]
+        )
         result = discover_givtcp_inverters(all_states)
         assert result[0].serial < result[1].serial
