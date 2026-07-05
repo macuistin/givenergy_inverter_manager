@@ -89,35 +89,53 @@
   },
   "options": {
     "step": {
-      "tariff": {
-        "title": "Update Tariff Rates",
-        "description": "Update your electricity tariff rates. Changes take effect immediately.",
-        "data": {
-          "rate_periods_text": "Timed overrides (one per line: Name, rate, HH:MM, HH:MM)",
-          "export_rate": "Export / CEG rate",
-          "standing_charge_per_day": "Standing charge per day",
-          "pso_levy_per_month": "PSO levy per month",
-          "vat_rate": "VAT rate (%)",
-          "discount_rate": "Supplier discount (%)",
-          "bill_start_day": "Bill start day of month",
-          "currency": "Currency",
-          "base_rate": "Base rate (daytime / standard)",
-          "base_rate_name": "Base rate name (e.g. Day)"
-        }
-      },
-      "thresholds": {
-        "title": "Battery Thresholds",
-        "data": {
-          "battery_min_soc_pct": "Minimum battery SoC (%)",
-          "overnight_charge_target_pct": "Default overnight charge target (%)",
-          "skip_charge_soc_threshold_pct": "Skip charge threshold (%)",
-          "ev_battery_protect_soc_pct": "EV battery protection threshold (%)",
-          "dry_run": "Dry run mode (simulate only — no changes sent to inverter)",
-          "verbose_logging": "Verbose logging (per-cycle diagnostics)"
-        },
-        "data_description": {
-          "dry_run": "When enabled, the integration calculates all decisions and updates sensors normally, but does not send any commands to GivTCP. The 'Last Skipped Action' sensor shows what would have been done. Useful for verifying behaviour before first live use.",
-          "verbose_logging": "When enabled, logs detailed sensor readings, decisions, and GivTCP write results on every cycle. Useful for initial testing. Disable for normal operation."
+      "init": {
+        "title": "GivEnergy Inverter Manager Settings",
+        "description": "Update your integration settings. Tariff changes take effect on the next 30-second cycle.",
+        "sections": {
+          "tariff_settings": {
+            "name": "Tariff",
+            "description": "Electricity rates and billing configuration.",
+            "data": {
+              "base_rate": "Base rate",
+              "base_rate_name": "Base rate name",
+              "rate_periods_text": "Timed rate overrides",
+              "export_rate": "Export / CEG rate",
+              "standing_charge_per_day": "Standing charge (per day)",
+              "pso_levy_per_month": "PSO levy (per month)",
+              "vat_rate": "VAT rate",
+              "discount_rate": "Supplier discount",
+              "bill_start_day": "Bill start day of month",
+              "currency": "Currency"
+            },
+            "data_description": {
+              "rate_periods_text": "One timed rate per line: Name, rate, HH:MM, HH:MM. Example: Nightboost, 0.1, 02:00, 04:00"
+            }
+          },
+          "threshold_settings": {
+            "name": "Battery & charging thresholds",
+            "description": "Charging behaviour, battery protection, and advanced options.",
+            "data": {
+              "battery_min_soc_pct": "Minimum battery SoC",
+              "overnight_charge_target_pct": "Default overnight charge target",
+              "skip_charge_soc_threshold_pct": "Skip charge if SoC above",
+              "ev_battery_protect_soc_pct": "EV battery protection threshold",
+              "dry_run": "Dry run mode",
+              "verbose_logging": "Verbose logging"
+            },
+            "data_description": {
+              "dry_run": "Calculates decisions and updates sensors but sends no commands to GivTCP. The Last Skipped Action sensor shows what would have run.",
+              "verbose_logging": "Logs detailed sensor readings and decisions on every cycle. Disable for normal operation."
+            }
+          },
+          "forecast_settings": {
+            "name": "Solar forecast",
+            "description": "Connect a forecast integration for smarter overnight charging. Without this, a seasonal estimate is used.",
+            "data": {
+              "forecast_provider": "Forecast provider",
+              "forecast_entity": "Tomorrow's forecast sensor"
+            }
+          }
         }
       }
     }
