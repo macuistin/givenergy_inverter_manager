@@ -33,6 +33,7 @@ once at the start of the cheap rate window. We register a time listener
 at __init__ that fires at the cheapest-rate-period start time, reads the
 current charge decision, and calls number.set_value on the GivTCP entity.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,7 +45,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .core.battery import BatteryStats
+from .accumulation import AccumulationStore
 from .const import (
     CONF_BATTERY_CAPACITY,
     CONF_BATTERY_POWER,
@@ -70,23 +71,24 @@ from .const import (
     DOMAIN,
     UPDATE_INTERVAL_SECONDS,
 )
-from .discovery import (
-    EVCharger,
-    discover_ev_chargers,
-    update_charger_state,
-)
+from .core.battery import BatteryStats
 from .core.engine import (
     CoordinatorData,
     RawSensorValues,
     build_coordinator_data,
 )
-from .logging import GivLogger, get_logger, log_cycle, log_givtcp_write
 from .core.rules import monthly_solar_fractions
 from .core.tariff import EnergyAccumulator, build_tariff
+from .discovery import (
+    EVCharger,
+    discover_ev_chargers,
+    update_charger_state,
+)
+from .logging import GivLogger, get_logger, log_cycle, log_givtcp_write
 
 _LOG = get_logger(__name__)
 
-_REDISCOVER_EVERY_N_CYCLES = 10   # 10 × 30s ≈ 5 minutes
+_REDISCOVER_EVERY_N_CYCLES = 10  # 10 × 30s ≈ 5 minutes
 
 
 class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
@@ -105,7 +107,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         super().__init__(
-            hass, _LOG._logger, name=DOMAIN,
+            hass,
+            _LOG._logger,
+            name=DOMAIN,
             update_interval=timedelta(seconds=UPDATE_INTERVAL_SECONDS),
         )
         self.entry = entry
@@ -116,29 +120,28 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         # Mutable state threaded across update cycles
         self._solar_fractions: dict[int, float] = monthly_solar_fractions(
-            getattr(hass.config, 'latitude', 51.5)  # 51.5N = reasonable mid-Europe fallback
+            getattr(hass.config, "latitude", 51.5)  # 51.5N = reasonable mid-Europe fallback
         )
         self._last_reset_time: str = ""
         from .const import CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY
+
         _bill_start = int(entry.data.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY))
         self._acc = AccumulationStore(hass, _bill_start)
         self._battery_stats = BatteryStats()
-        self._acc.today     = EnergyAccumulator()
-        self._last_soc:     float | None    = None
-        self._last_update:  datetime | None = None
+        self._acc.today = EnergyAccumulator()
+        self._last_soc: float | None = None
+        self._last_update: datetime | None = None
         self._update_cycle: int = 0
-        self._ev_charger:   EVCharger | None = None
+        self._ev_charger: EVCharger | None = None
 
         # Manual overrides set by switch/number entities
-        self.override_charge_target: int | None  = None
-        self.override_immersion:     bool | None = None
-        self.override_skip_charge:   bool           = False
+        self.override_charge_target: int | None = None
+        self.override_immersion: bool | None = None
+        self.override_skip_charge: bool = False
 
         # Register midnight accumulator reset
         entry.async_on_unload(
-            async_track_time_change(
-                hass, self._midnight_reset, hour=0, minute=0, second=0
-            )
+            async_track_time_change(hass, self._midnight_reset, hour=0, minute=0, second=0)
         )
 
         # Register cheap-rate start listener (writes charge target to GivTCP).
@@ -211,7 +214,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             _LOG.warning("Entity %s has non-numeric state %r", entity_id, state.state)
             return default
 
-
     def _read_optional_float(self, entity_id: str | None) -> float | None:
         """Read a float state, returning None if entity missing, unavailable, or unknown."""
         if not entity_id:
@@ -252,12 +254,20 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         actual = self._get_state(entity_id)
         actual_on = actual is not None and actual.state == "on"
         accepted = actual_on == state
-        log_givtcp_write(_LOG, step, entity_id, "on" if state else "off",
-                         actual.state if actual else "unknown", accepted)
+        log_givtcp_write(
+            _LOG,
+            step,
+            entity_id,
+            "on" if state else "off",
+            actual.state if actual else "unknown",
+            accepted,
+        )
         if not accepted:
             _LOG.warning(
                 "%s: wrote %s but read back %s — GivTCP may not have accepted the write",
-                name, "on" if state else "off", actual.state if actual else "unknown",
+                name,
+                "on" if state else "off",
+                actual.state if actual else "unknown",
             )
 
     async def _givtcp_set_select(
@@ -296,9 +306,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Set a GivTCP number entity, verify the write, and log both."""
         if not entity_id:
             return
-        await self._call_service(
-            "number", "set_value", {"entity_id": entity_id, "value": value}
-        )
+        await self._call_service("number", "set_value", {"entity_id": entity_id, "value": value})
         await asyncio.sleep(1)
         actual = self._get_state(entity_id)
         try:
@@ -306,12 +314,15 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         except (ValueError, TypeError):
             actual_val = None
         accepted = actual_val == value
-        log_givtcp_write(_LOG, step, entity_id, value,
-                         actual.state if actual else "unknown", accepted)
+        log_givtcp_write(
+            _LOG, step, entity_id, value, actual.state if actual else "unknown", accepted
+        )
         if not accepted:
             _LOG.warning(
                 "%s: wrote %d but read back %s",
-                name, value, actual.state if actual else "unknown",
+                name,
+                value,
+                actual.state if actual else "unknown",
             )
 
     # ── Listener registration ─────────────────────────────────────────────────
@@ -334,12 +345,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             cheap_start: dtime = tariff.get_cheapest_rate_start()
             trigger_minute = (cheap_start.minute - 1) % 60
             trigger_hour = (
-                cheap_start.hour if cheap_start.minute > 0
-                else (cheap_start.hour - 1) % 24
+                cheap_start.hour if cheap_start.minute > 0 else (cheap_start.hour - 1) % 24
             )
             _LOG.debug(
                 "Registering charge target write-back at %02d:%02d (cheap rate starts %s)",
-                trigger_hour, trigger_minute, cheap_start.strftime("%H:%M"),
+                trigger_hour,
+                trigger_minute,
+                cheap_start.strftime("%H:%M"),
             )
             self.entry.async_on_unload(
                 async_track_time_change(
@@ -438,26 +450,44 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         Each write is followed by a brief read-back to verify acceptance.
         """
         await self._givtcp_set_switch(
-            cfg.get(CONF_ENABLE_CHARGE_SCHEDULE), True, "enable_charge_schedule", step=1,
+            cfg.get(CONF_ENABLE_CHARGE_SCHEDULE),
+            True,
+            "enable_charge_schedule",
+            step=1,
         )
         start_str = cheap_period.start.strftime("%H:%M:%S")
-        end_str   = cheap_period.end.strftime("%H:%M:%S")
+        end_str = cheap_period.end.strftime("%H:%M:%S")
         await self._givtcp_set_select(
-            cfg.get(CONF_CHARGE_START_TIME_ENTITY), start_str, "charge_start_time", step=2,
+            cfg.get(CONF_CHARGE_START_TIME_ENTITY),
+            start_str,
+            "charge_start_time",
+            step=2,
         )
         await self._givtcp_set_select(
-            cfg.get(CONF_CHARGE_END_TIME_ENTITY), end_str, "charge_end_time", step=3,
+            cfg.get(CONF_CHARGE_END_TIME_ENTITY),
+            end_str,
+            "charge_end_time",
+            step=3,
         )
         await self._givtcp_set_number(
-            cfg.get(CONF_TARGET_SOC_ENTITY), target_soc, "target_soc", step=4,
+            cfg.get(CONF_TARGET_SOC_ENTITY),
+            target_soc,
+            "target_soc",
+            step=4,
         )
         enable_target = target_soc < 100
         await self._givtcp_set_switch(
-            cfg.get(CONF_ENABLE_CHARGE_TARGET), enable_target, "enable_charge_target", step=5,
+            cfg.get(CONF_ENABLE_CHARGE_TARGET),
+            enable_target,
+            "enable_charge_target",
+            step=5,
         )
         _LOG.info(
             "Charge target write-back complete: %d%% window %s–%s enable_target=%s",
-            target_soc, start_str, end_str, enable_target,
+            target_soc,
+            start_str,
+            end_str,
+            enable_target,
         )
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -471,18 +501,16 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     def _collect_raw(self, cfg: dict) -> RawSensorValues:
         """Read all sensor entity states and return as a plain-Python struct."""
         raw = RawSensorValues()
-        raw.solar_power_w    = self._read_float(cfg.get(CONF_SOLAR_POWER))
-        raw.battery_soc      = self._read_float(cfg.get(CONF_BATTERY_SOC))
-        raw.battery_power_w  = self._read_float(cfg.get(CONF_BATTERY_POWER))
-        raw.grid_power_w     = self._read_float(cfg.get(CONF_GRID_POWER))
-        raw.house_load_w     = self._read_float(cfg.get(CONF_HOUSE_LOAD))
-        raw.inverter_max_w   = (
-            cfg.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT) * 1000
-        )
+        raw.solar_power_w = self._read_float(cfg.get(CONF_SOLAR_POWER))
+        raw.battery_soc = self._read_float(cfg.get(CONF_BATTERY_SOC))
+        raw.battery_power_w = self._read_float(cfg.get(CONF_BATTERY_POWER))
+        raw.grid_power_w = self._read_float(cfg.get(CONF_GRID_POWER))
+        raw.house_load_w = self._read_float(cfg.get(CONF_HOUSE_LOAD))
+        raw.inverter_max_w = cfg.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT) * 1000
         raw.battery_capacity_kwh = float(cfg.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY))
 
         raw.immersion_wattage_w = float(cfg.get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE))
-        raw.immersion_on        = self._read_bool(cfg.get(CONF_IMMERSION_SWITCH))
+        raw.immersion_on = self._read_bool(cfg.get(CONF_IMMERSION_SWITCH))
 
         temp_eid = cfg.get(CONF_IMMERSION_TEMP_SENSOR)
         if temp_eid:
@@ -494,7 +522,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.forecast_kwh_tomorrow = v if v is not None and v >= 0 else None
 
         if self._ev_charger is not None:
-            raw.ev_power_w    = self._ev_charger.power_w
+            raw.ev_power_w = self._ev_charger.power_w
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
         return raw
@@ -511,7 +539,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     def _apply_ev_action(self, target_mode: str | None) -> None:
         """Apply an EV charger mode change via HA service call."""
-        if target_mode is None or self._ev_charger is None or not self._ev_charger.charge_mode_entity:
+        if (
+            target_mode is None
+            or self._ev_charger is None
+            or not self._ev_charger.charge_mode_entity
+        ):
             return
         current = (self._ev_charger.charge_mode or "").strip()
         if current == target_mode:
@@ -519,8 +551,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         cfg = self._effective_cfg()
         action = (
-            f"Would set {self._ev_charger.display_name} → {target_mode}"
-            f" (currently {current!r})"
+            f"Would set {self._ev_charger.display_name} → {target_mode} (currently {current!r})"
         )
         if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
             _LOG.info("DRY RUN: %s", action)
@@ -530,11 +561,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         _LOG.info(
             "EV charger action: %s → %s",
-            self._ev_charger.display_name, target_mode,
+            self._ev_charger.display_name,
+            target_mode,
         )
         self._create_task(
             self._call_service(
-                "select", "select_option",
+                "select",
+                "select_option",
                 {"entity_id": self._ev_charger.charge_mode_entity, "option": target_mode},
                 blocking=False,
             )
@@ -562,7 +595,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # 3. Update EV charger state now we have battery_power_w
         if self._ev_charger is not None:
             update_charger_state(self._get_state, self._ev_charger, raw.battery_power_w)
-            raw.ev_power_w    = self._ev_charger.power_w
+            raw.ev_power_w = self._ev_charger.power_w
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
         # 4. Run the pure logic engine
@@ -593,7 +626,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         log_cycle(_LOG, self._update_cycle, raw, data, now)
 
         # 6. Update coordinator state for next cycle
-        self._last_soc    = raw.battery_soc
+        self._last_soc = raw.battery_soc
         self._last_update = now
 
         # 7. Apply HA side-effects requested by the engine

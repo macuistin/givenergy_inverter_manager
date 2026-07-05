@@ -25,6 +25,7 @@ Power flow view requires power-flow-card-plus from HACS:
 
 All other views use only built-in HA Lovelace cards — no other dependencies.
 """
+
 from __future__ import annotations
 
 import textwrap
@@ -33,8 +34,8 @@ from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
-from .logging import get_logger
 from .core.rules import suggest_appliance_run
+from .logging import get_logger
 
 _LOG = get_logger(__name__)
 
@@ -46,9 +47,11 @@ def _entity_id(hass: HomeAssistant, entry_id: str, unique_id_suffix: str) -> str
     """Look up the current entity_id for one of our entities by its unique_id suffix."""
     reg = er.async_get(hass)
     uid = f"{entry_id}_{unique_id_suffix}"
-    entry = reg.async_get_entity_id("sensor", DOMAIN, uid) or \
-            reg.async_get_entity_id("switch", DOMAIN, uid) or \
-            reg.async_get_entity_id("number", DOMAIN, uid)
+    entry = (
+        reg.async_get_entity_id("sensor", DOMAIN, uid)
+        or reg.async_get_entity_id("switch", DOMAIN, uid)
+        or reg.async_get_entity_id("number", DOMAIN, uid)
+    )
     # Fall back to a predictable name if not registered yet
     return entry or f"sensor.givenergy_inverter_manager_{unique_id_suffix}"
 
@@ -65,52 +68,52 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
         return _entity_id(hass, entry_id, suffix)
 
     # ── sensor entity IDs ────────────────────────────────────────────────────
-    solar_power          = e("solar_power")
-    battery_soc          = e("battery_soc")
-    grid_power           = e("grid_power")
-    house_load           = e("house_load")
-    rest_of_house        = e("rest_of_house_load")
-    current_rate         = e("current_rate")
-    current_rate_period  = e("current_rate_period")
-    solar_today          = e("solar_today")
-    import_today         = e("import_today")
-    export_today         = e("export_today")
-    zappi_today          = e("zappi_today")
-    immersion_today      = e("immersion_today")
-    import_cost_today    = e("import_cost_today")
-    export_earnings      = e("export_earnings_today")
-    zappi_cost_today     = e("zappi_cost_today")
+    solar_power = e("solar_power")
+    battery_soc = e("battery_soc")
+    grid_power = e("grid_power")
+    house_load = e("house_load")
+    rest_of_house = e("rest_of_house_load")
+    current_rate = e("current_rate")
+    current_rate_period = e("current_rate_period")
+    solar_today = e("solar_today")
+    import_today = e("import_today")
+    export_today = e("export_today")
+    zappi_today = e("zappi_today")
+    immersion_today = e("immersion_today")
+    import_cost_today = e("import_cost_today")
+    export_earnings = e("export_earnings_today")
+    zappi_cost_today = e("zappi_cost_today")
     immersion_cost_today = e("immersion_cost_today")
-    house_cost_today     = e("house_cost_today")
-    self_sufficiency     = e("self_sufficiency")
-    self_consumption     = e("self_consumption")
-    accrued_bill         = e("accrued_bill")
-    projected_bill       = e("projected_bill")
-    days_remaining       = e("days_remaining_in_period")
-    battery_cycles       = e("battery_cycles")
-    battery_life         = e("battery_remaining_life")
-    days_since_full      = e("days_since_full_charge")
-    charge_target        = e("overnight_charge_target")
-    charge_reason        = e("overnight_charge_reason")
-    charge_cost          = e("overnight_charge_cost")
-    immersion_reason     = e("immersion_divert_reason")
-    soc_at_sunrise       = e("estimated_soc_at_sunrise")
-    survival_reason      = e("night_survival_reason")
-    is_clipping          = e("is_clipping")
-    ev_state             = e("ev_charger_state")
-    ev_power             = e("ev_power")
-    ev_session           = e("ev_session_energy")
-    ev_draining          = e("ev_draining_battery")
+    house_cost_today = e("house_cost_today")
+    self_sufficiency = e("self_sufficiency")
+    self_consumption = e("self_consumption")
+    accrued_bill = e("accrued_bill")
+    projected_bill = e("projected_bill")
+    days_remaining = e("days_remaining_in_period")
+    battery_cycles = e("battery_cycles")
+    battery_life = e("battery_remaining_life")
+    days_since_full = e("days_since_full_charge")
+    charge_target = e("overnight_charge_target")
+    charge_reason = e("overnight_charge_reason")
+    charge_cost = e("overnight_charge_cost")
+    immersion_reason = e("immersion_divert_reason")
+    soc_at_sunrise = e("estimated_soc_at_sunrise")
+    survival_reason = e("night_survival_reason")
+    is_clipping = e("is_clipping")
+    ev_state = e("ev_charger_state")
+    ev_power = e("ev_power")
+    ev_session = e("ev_session_energy")
+    ev_draining = e("ev_draining_battery")
     ev_protection_reason = e("ev_protection_reason")
 
     # ── dry run sensor IDs ───────────────────────────────────────────────────────
-    dry_run_active  = e("dry_run_active")
+    dry_run_active = e("dry_run_active")
     dry_run_skipped = e("dry_run_last_skipped")
 
     # ── switch / number entity IDs ────────────────────────────────────────────
     sw_auto_immersion = e("auto_immersion")
-    sw_immersion_mgd  = e("immersion_managed")
-    sw_skip_charge    = e("skip_charge_override")
+    sw_immersion_mgd = e("immersion_managed")
+    sw_skip_charge = e("skip_charge_override")
     num_charge_target = e("charge_target_override")
 
     return textwrap.dedent(f"""\

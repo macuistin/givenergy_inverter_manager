@@ -22,6 +22,7 @@ All sensors use the CoordinatorEntity mixin so they update automatically
 whenever the coordinator refreshes, and become unavailable if the coordinator
 fails (e.g. GivTCP goes offline).
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -60,15 +61,19 @@ from .core.reporting import (
 # Sentinel for monetary sensors — actual symbol (€, £, $) resolved at runtime.
 _CURRENCY_UNIT = "DYNAMIC_CURRENCY"
 
+
 @dataclass(frozen=True, kw_only=True)
 class GivEnergyManagerSensorDescription(SensorEntityDescription):
     """Describes a GivEnergy Manager sensor."""
+
     value_fn: Callable[[CoordinatorData], Any] = lambda d: None
     available_fn: Callable[[CoordinatorData], bool] = lambda d: True
     entity_category: EntityCategory | None = None
     is_daily_total: bool = False
     entity_registry_enabled_default: bool = True
-    html_fn: object = None  # Callable[[CoordinatorData], str] | None  # True → expose last_reset_time for HA LTS
+    html_fn: object = (
+        None  # Callable[[CoordinatorData], str] | None  # True → expose last_reset_time for HA LTS
+    )
 
 
 SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
@@ -425,7 +430,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:skip-next-circle-outline",
         value_fn=lambda d: d.dry_run_last_skipped or "No actions skipped yet",
     ),
-
     # ── Today — rate-tier breakdown and savings ───────────────────────────────
     GivEnergyManagerSensorDescription(
         key="import_kwh_cheap_today",
@@ -510,7 +514,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         is_daily_total=True,
         value_fn=lambda d: round(d.today.battery_throughput_kwh, 3),
     ),
-
     # ── Solar forecast and accuracy ───────────────────────────────────────────
     GivEnergyManagerSensorDescription(
         key="solar_forecast_kwh_today",
@@ -533,7 +536,8 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda d: (
             round(d.today.solar_kwh / d.solar_forecast_kwh_today * 100, 1)
-            if d.solar_forecast_kwh_today > 0 else None
+            if d.solar_forecast_kwh_today > 0
+            else None
         ),
     ),
     GivEnergyManagerSensorDescription(
@@ -556,7 +560,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.forecast_accuracy_7day_avg_pct, 1),
     ),
-
     # ── Yesterday comparisons (disabled by default) ───────────────────────────
     GivEnergyManagerSensorDescription(
         key="solar_yesterday",
@@ -643,7 +646,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.yesterday.self_sufficiency_pct, 1),
     ),
-
     # ── Weekly accumulations (disabled by default) ────────────────────────────
     GivEnergyManagerSensorDescription(
         key="solar_this_week",
@@ -740,7 +742,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.week.self_sufficiency_pct, 1),
     ),
-
     # ── Monthly accumulations (disabled by default) ───────────────────────────
     GivEnergyManagerSensorDescription(
         key="solar_this_month",
@@ -837,7 +838,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.month.self_sufficiency_pct, 1),
     ),
-
     # ── HTML report sensors (disabled by default) ─────────────────────────────
     GivEnergyManagerSensorDescription(
         key="today_summary",
@@ -872,6 +872,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
 # Coordinator-driven — no parallel updates needed
 PARALLEL_UPDATES = 0
 
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -880,8 +881,7 @@ async def async_setup_entry(
     """Set up GivEnergy Manager sensors."""
     coordinator: GivEnergyCoordinator = entry.runtime_data
     async_add_entities(
-        GivEnergyManagerSensor(coordinator, description)
-        for description in SENSOR_DESCRIPTIONS
+        GivEnergyManagerSensor(coordinator, description) for description in SENSOR_DESCRIPTIONS
     )
 
 
@@ -935,6 +935,7 @@ class GivEnergyManagerSensor(CoordinatorEntity[GivEnergyCoordinator], SensorEnti
         coordinator = self.coordinator
         if coordinator.data and coordinator.data.last_reset_time:
             from datetime import datetime, timezone
+
             try:
                 return datetime.fromisoformat(coordinator.data.last_reset_time).replace(
                     tzinfo=timezone.utc

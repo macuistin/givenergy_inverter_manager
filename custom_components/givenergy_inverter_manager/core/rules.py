@@ -14,6 +14,7 @@ Sections:
   decide_ev_charger_action()          — what mode the EV charger should be in
   should_protect_battery_from_charger() — is the EV drawing from the battery?
 """
+
 from __future__ import annotations
 
 import math
@@ -49,6 +50,7 @@ from ..discovery.ev_charger import (
 
 # ── Seasonal solar fractions ──────────────────────────────────────────────────
 
+
 def monthly_solar_fractions(latitude_deg: float) -> dict[int, float]:
     """
     Calculate relative monthly solar generation potential from latitude.
@@ -76,8 +78,7 @@ def monthly_solar_fractions(latitude_deg: float) -> dict[int, float]:
         ws = math.acos(cos_ws)
         h0 = max(
             0.0,
-            ws * math.sin(lat) * math.sin(decl)
-            + math.cos(lat) * math.cos(decl) * math.sin(ws),
+            ws * math.sin(lat) * math.sin(decl) + math.cos(lat) * math.cos(decl) * math.sin(ws),
         )
         raw[month] = h0
 
@@ -87,9 +88,11 @@ def monthly_solar_fractions(latitude_deg: float) -> dict[int, float]:
 
 # ── Overnight charge decision ─────────────────────────────────────────────────
 
+
 @dataclass
 class ChargeDecision:
     """Result of the overnight charge calculation."""
+
     target_soc: int
     skip_charge: bool
     reason: str
@@ -208,6 +211,7 @@ def calculate_overnight_charge_target(
 
 # ── Immersion divert decision ─────────────────────────────────────────────────
 
+
 def should_divert_to_immersion(
     solar_power_w: float,
     house_load_w: float,
@@ -265,6 +269,7 @@ def should_divert_to_immersion(
 
 # ── Appliance timing suggestion ───────────────────────────────────────────────
 
+
 def suggest_appliance_run(
     solar_power_w: float,
     house_load_w: float,
@@ -286,8 +291,8 @@ def suggest_appliance_run(
       - Battery is at SOLAR_APPLIANCE_MIN_BATTERY_SOC and rate is near export rate
     Does not recommend if the current rate is more than 1.5× the export rate.
     """
-    _MIN_BATTERY_SOC = 80   # % — sufficient charge to run appliance from battery
-    _RATE_THRESHOLD  = 1.5  # × export rate — above this it's not worth running
+    min_battery_soc = 80  # % — sufficient charge to run appliance from battery
+    rate_threshold = 1.5  # × export rate — above this it's not worth running
 
     battery_charging_w = max(0, battery_power_w)
     net_surplus_w = solar_power_w - house_load_w - battery_charging_w
@@ -299,13 +304,13 @@ def suggest_appliance_run(
             f"Running now saves ~€{saving:.3f} vs grid rate."
         )
 
-    if battery_soc >= _MIN_BATTERY_SOC and rate <= export_rate * _RATE_THRESHOLD:
+    if battery_soc >= min_battery_soc and rate <= export_rate * rate_threshold:
         return True, (
             f"Acceptable time to run {appliance_name}: battery at {battery_soc:.0f}%, "
             f"currently on {rate_period_name} rate (€{rate:.4f}/kWh)."
         )
 
-    if rate > export_rate * _RATE_THRESHOLD:
+    if rate > export_rate * rate_threshold:
         return False, (
             f"Not recommended: {appliance_name} would cost "
             f"~€{(appliance_power_w / 1000) * rate:.3f} "
@@ -316,6 +321,7 @@ def suggest_appliance_run(
 
 
 # ── EV charger decisions ──────────────────────────────────────────────────────
+
 
 def decide_ev_charger_action(
     charger: EVCharger,

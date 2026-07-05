@@ -5,6 +5,7 @@ givtcp.py — GivTCP inverter auto-discovery for GivEnergy Inverter Manager.
 Supports both GivTCP v2 (battery_soc suffix) and v3 (soc suffix).
 Also auto-reads battery capacity from the inverter's capacity sensor.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -14,37 +15,38 @@ SERIAL_SENSOR_SUFFIX = "_invertor_serial_number"
 GIVTCP_PREFIX = "givtcp_"
 
 ENTITY_SUFFIXES: dict[str, str] = {
-    "solar_power":            "_pv_power",
+    "solar_power": "_pv_power",
     # battery_soc handled specially: GivTCP v3 uses _soc, v2 uses _battery_soc
-    "battery_power":          "_battery_power",
-    "grid_power":             "_grid_power",
-    "house_load":             "_load_power",
-    "target_soc":             "_target_soc",
-    "enable_charge_target":   "_enable_charge_target",
+    "battery_power": "_battery_power",
+    "grid_power": "_grid_power",
+    "house_load": "_load_power",
+    "target_soc": "_target_soc",
+    "enable_charge_target": "_enable_charge_target",
     "enable_charge_schedule": "_enable_charge_schedule",
-    "charge_start_time":      "_charge_start_time_slot_1",
-    "charge_end_time":        "_charge_end_time_slot_1",
-    "battery_capacity_kwh":   "_battery_capacity_kwh",
+    "charge_start_time": "_charge_start_time_slot_1",
+    "charge_end_time": "_charge_end_time_slot_1",
+    "battery_capacity_kwh": "_battery_capacity_kwh",
 }
 
 ENTITY_DOMAINS: dict[str, str] = {
-    "solar_power":            "sensor",
-    "battery_soc":            "sensor",
-    "battery_power":          "sensor",
-    "grid_power":             "sensor",
-    "house_load":             "sensor",
-    "target_soc":             "number",
-    "enable_charge_target":   "switch",
+    "solar_power": "sensor",
+    "battery_soc": "sensor",
+    "battery_power": "sensor",
+    "grid_power": "sensor",
+    "house_load": "sensor",
+    "target_soc": "number",
+    "enable_charge_target": "switch",
     "enable_charge_schedule": "switch",
-    "charge_start_time":      "select",
-    "charge_end_time":        "select",
-    "battery_capacity_kwh":   "sensor",
+    "charge_start_time": "select",
+    "charge_end_time": "select",
+    "battery_capacity_kwh": "sensor",
 }
 
 
 @dataclass
 class GivTCPInverter:
     """Represents a discovered GivTCP inverter and its associated entities."""
+
     serial: str
     prefix: str
     display_name: str
@@ -62,8 +64,11 @@ class GivTCPInverter:
     def has_charge_scheduling(self) -> bool:
         """True if all five charge scheduling entities are present."""
         scheduling = {
-            "target_soc", "enable_charge_target", "enable_charge_schedule",
-            "charge_start_time", "charge_end_time",
+            "target_soc",
+            "enable_charge_target",
+            "enable_charge_schedule",
+            "charge_start_time",
+            "charge_end_time",
         }
         return scheduling.issubset(self.entities.keys())
 

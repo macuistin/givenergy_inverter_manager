@@ -15,18 +15,18 @@ Resets:
   month   — bill_start_day midnight (from config)
   yesterday — snapshot of today taken at midnight before reset
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from .core.tariff import EnergyAccumulator
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
-    from homeassistant.helpers.storage import Store
 
 _LOG = logging.getLogger(__name__)
 _STORAGE_KEY = "givenergy_inverter_manager.energy"
@@ -36,28 +36,29 @@ _FORECAST_HISTORY_DAYS = 7
 
 # ── Serialisation helpers ─────────────────────────────────────────────────────
 
+
 def _acc_to_dict(acc: EnergyAccumulator) -> dict:
     """Serialise an EnergyAccumulator to a JSON-safe dict."""
     return {
-        "import_kwh":           acc.import_kwh,
-        "export_kwh":           acc.export_kwh,
-        "solar_kwh":            acc.solar_kwh,
+        "import_kwh": acc.import_kwh,
+        "export_kwh": acc.export_kwh,
+        "solar_kwh": acc.solar_kwh,
         "battery_discharge_kwh": acc.battery_discharge_kwh,
-        "battery_charge_kwh":   acc.battery_charge_kwh,
-        "zappi_kwh":            acc.zappi_kwh,
-        "immersion_kwh":        acc.immersion_kwh,
-        "house_kwh":            acc.house_kwh,
-        "import_kwh_cheap":     acc.import_kwh_cheap,
-        "import_kwh_peak":      acc.import_kwh_peak,
-        "import_cost_cheap":    acc.import_cost_cheap,
-        "import_cost_peak":     acc.import_cost_peak,
+        "battery_charge_kwh": acc.battery_charge_kwh,
+        "zappi_kwh": acc.zappi_kwh,
+        "immersion_kwh": acc.immersion_kwh,
+        "house_kwh": acc.house_kwh,
+        "import_kwh_cheap": acc.import_kwh_cheap,
+        "import_kwh_peak": acc.import_kwh_peak,
+        "import_cost_cheap": acc.import_cost_cheap,
+        "import_cost_peak": acc.import_cost_peak,
         "import_cost_by_period": dict(acc.import_cost_by_period),
-        "export_earnings":      acc.export_earnings,
-        "zappi_cost":           acc.zappi_cost,
-        "immersion_cost":       acc.immersion_cost,
-        "house_cost":           acc.house_cost,
-        "immersion_solar_kwh":  acc.immersion_solar_kwh,
-        "immersion_savings":    acc.immersion_savings,
+        "export_earnings": acc.export_earnings,
+        "zappi_cost": acc.zappi_cost,
+        "immersion_cost": acc.immersion_cost,
+        "house_cost": acc.house_cost,
+        "immersion_solar_kwh": acc.immersion_solar_kwh,
+        "immersion_savings": acc.immersion_savings,
         "battery_throughput_kwh": acc.battery_throughput_kwh,
     }
 
@@ -73,26 +74,29 @@ def _dict_to_acc(d: dict) -> EnergyAccumulator:
 
 # ── Public state dataclass ────────────────────────────────────────────────────
 
+
 @dataclass
 class AccumulationState:
     """All accumulated energy state across time periods."""
-    today:     EnergyAccumulator = field(default_factory=EnergyAccumulator)
-    week:      EnergyAccumulator = field(default_factory=EnergyAccumulator)
-    month:     EnergyAccumulator = field(default_factory=EnergyAccumulator)
+
+    today: EnergyAccumulator = field(default_factory=EnergyAccumulator)
+    week: EnergyAccumulator = field(default_factory=EnergyAccumulator)
+    month: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     yesterday: EnergyAccumulator = field(default_factory=EnergyAccumulator)
 
     # Forecast accuracy — recorded at midnight from the previous charge decision
-    today_forecast_kwh:              float = 0.0
+    today_forecast_kwh: float = 0.0
     yesterday_forecast_accuracy_pct: float = 0.0
-    forecast_accuracy_history:       list  = field(default_factory=list)  # last 7 days
+    forecast_accuracy_history: list = field(default_factory=list)  # last 7 days
 
     # Reset timestamps (ISO strings for JSON serialisation)
-    week_start_iso:  str = ""
+    week_start_iso: str = ""
     month_start_iso: str = ""
-    last_reset_iso:  str = ""
+    last_reset_iso: str = ""
 
 
 # ── Main store class ──────────────────────────────────────────────────────────
+
 
 class AccumulationStore:
     """
@@ -114,6 +118,7 @@ class AccumulationStore:
 
     def __init__(self, hass: HomeAssistant, bill_start_day: int) -> None:
         from homeassistant.helpers.storage import Store  # lazy — not available in test env
+
         self._store = Store(hass, _STORAGE_VERSION, _STORAGE_KEY)
         self._bill_start_day = bill_start_day
         self.state = AccumulationState()
@@ -200,12 +205,14 @@ class AccumulationStore:
             actual = self.state.today.solar_kwh
             accuracy = min(200.0, round(actual / self.state.today_forecast_kwh * 100, 1))
             self.state.yesterday_forecast_accuracy_pct = accuracy
-            history = self.state.forecast_accuracy_history[-(_FORECAST_HISTORY_DAYS - 1):]
+            history = self.state.forecast_accuracy_history[-(_FORECAST_HISTORY_DAYS - 1) :]
             history.append(accuracy)
             self.state.forecast_accuracy_history = history
             _LOG.debug(
                 "Forecast accuracy for completed day: %.1f%% (forecast %.1fkWh, actual %.1fkWh)",
-                accuracy, self.state.today_forecast_kwh, actual,
+                accuracy,
+                self.state.today_forecast_kwh,
+                actual,
             )
 
         # 3. Reset today
@@ -244,34 +251,33 @@ class AccumulationStore:
 
 # ── Serialisation (module-level for testability) ──────────────────────────────
 
+
 def _serialize(state: AccumulationState) -> dict:
     return {
-        "version":                       _STORAGE_VERSION,
-        "today":                         _acc_to_dict(state.today),
-        "week":                          _acc_to_dict(state.week),
-        "month":                         _acc_to_dict(state.month),
-        "yesterday":                     _acc_to_dict(state.yesterday),
-        "today_forecast_kwh":            state.today_forecast_kwh,
+        "version": _STORAGE_VERSION,
+        "today": _acc_to_dict(state.today),
+        "week": _acc_to_dict(state.week),
+        "month": _acc_to_dict(state.month),
+        "yesterday": _acc_to_dict(state.yesterday),
+        "today_forecast_kwh": state.today_forecast_kwh,
         "yesterday_forecast_accuracy_pct": state.yesterday_forecast_accuracy_pct,
-        "forecast_accuracy_history":     list(state.forecast_accuracy_history),
-        "week_start_iso":                state.week_start_iso,
-        "month_start_iso":               state.month_start_iso,
-        "last_reset_iso":                state.last_reset_iso,
+        "forecast_accuracy_history": list(state.forecast_accuracy_history),
+        "week_start_iso": state.week_start_iso,
+        "month_start_iso": state.month_start_iso,
+        "last_reset_iso": state.last_reset_iso,
     }
 
 
 def _deserialize(data: dict) -> AccumulationState:
     state = AccumulationState()
-    state.today     = _dict_to_acc(data.get("today",     {}))
-    state.week      = _dict_to_acc(data.get("week",      {}))
-    state.month     = _dict_to_acc(data.get("month",     {}))
+    state.today = _dict_to_acc(data.get("today", {}))
+    state.week = _dict_to_acc(data.get("week", {}))
+    state.month = _dict_to_acc(data.get("month", {}))
     state.yesterday = _dict_to_acc(data.get("yesterday", {}))
     state.today_forecast_kwh = float(data.get("today_forecast_kwh", 0.0))
     state.yesterday_forecast_accuracy_pct = float(data.get("yesterday_forecast_accuracy_pct", 0.0))
-    state.forecast_accuracy_history = [
-        float(x) for x in data.get("forecast_accuracy_history", [])
-    ]
-    state.week_start_iso  = data.get("week_start_iso",  "")
+    state.forecast_accuracy_history = [float(x) for x in data.get("forecast_accuracy_history", [])]
+    state.week_start_iso = data.get("week_start_iso", "")
     state.month_start_iso = data.get("month_start_iso", "")
-    state.last_reset_iso  = data.get("last_reset_iso",  "")
+    state.last_reset_iso = data.get("last_reset_iso", "")
     return state

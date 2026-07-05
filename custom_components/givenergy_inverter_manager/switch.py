@@ -19,6 +19,7 @@ Provides three switches:
     regardless of what the forecast says. Useful for manually preventing
     a charge on a night when the battery is already adequate.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -38,6 +39,7 @@ _LOG = get_logger(__name__)
 
 # Coordinator-driven — no parallel updates needed
 PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -68,7 +70,7 @@ class GivEnergyAutoImmersionSwitch(CoordinatorEntity[GivEnergyCoordinator], Swit
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
-        self._auto_immersion_enabled: bool = True   # instance variable — not shared across entities
+        self._auto_immersion_enabled: bool = True  # instance variable — not shared across entities
         self._attr_unique_id = f"{coordinator.entry.entry_id}_auto_immersion"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
