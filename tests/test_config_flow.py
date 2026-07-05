@@ -2,8 +2,9 @@
 test_config_flow.py — Unit tests for config flow rate period parsing and GivTCP discovery.
 
 Tests the pure Python logic in config_flow.py (_parse_rate_periods,
-_rate_periods_to_text) and discovery/givtcp.py (entity derivation logic)
-without requiring a running Home Assistant instance.
+_rate_periods_to_text, _build_charge_scheduling_summary) and
+discovery/givtcp.py (entity derivation logic) without requiring a
+running Home Assistant instance.
 """
 
 import pytest
@@ -275,7 +276,11 @@ class TestDiscoverGivTCPInverters:
 
 
 class TestBuildChargeSchedulingSummary:
-    """Tests for _build_charge_scheduling_summary."""
+    """Tests for _build_charge_scheduling_summary.
+
+    This function now provides the scheduling summary shown in the tariff
+    step description rather than a separate charge_scheduling step.
+    """
 
     def test_all_five_detected(self):
         data = {

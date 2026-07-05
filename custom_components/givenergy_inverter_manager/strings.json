@@ -22,7 +22,7 @@
       },
       "tariff": {
         "title": "Electricity Tariff",
-        "description": "Enter your electricity tariff.\n\n**Base Rate** is your standard daytime rate — it applies whenever no timed override is active.\n\n**Timed overrides** apply only during their window and take priority over the base rate. The cheapest active override wins (so Nightboost automatically overrides Night during 02:00–04:00).\n\nExample overrides (one per line):\n  Night, 0.1644, 23:00, 08:00\n  Nightboost, 0.0965, 02:00, 04:00",
+        "description": "{scheduling_status}\n\n{scheduling_detail}\n\n**Base Rate** is your standard daytime rate — it applies whenever no timed override is active.\n\n**Timed overrides** apply only during their window and take priority over the base rate. The cheapest active override wins (so Nightboost automatically overrides Night during 02:00–04:00).\n\nExample overrides (one per line):\n  Night, 0.1644, 23:00, 08:00\n  Nightboost, 0.0965, 02:00, 04:00",
         "data": {
           "rate_periods_text": "Timed overrides (one per line: Name, rate, HH:MM, HH:MM)",
           "export_rate": "Export / CEG rate",
@@ -80,11 +80,6 @@
         "data_description": {
           "verbose_logging": "When enabled, logs detailed sensor readings, decisions, and GivTCP write results on every cycle. Useful for initial testing. Disable for normal operation."
         }
-      },
-      "charge_scheduling": {
-        "title": "Charge Scheduling",
-        "description": "{status}\n\n{detail}\n\nSubmit to continue. You can adjust these entities later via Settings → Integrations → GivEnergy Inverter Manager → Configure.",
-        "data": {}
       }
     },
     "error": {
