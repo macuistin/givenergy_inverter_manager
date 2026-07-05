@@ -24,6 +24,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 
 from .const import (
@@ -38,6 +39,7 @@ from .const import (
     CONF_CHARGE_START_TIME_ENTITY,
     CONF_CURRENCY,
     CONF_DISCOUNT_RATE,
+    CONF_DRY_RUN,
     CONF_ENABLE_CHARGE_SCHEDULE,
     CONF_ENABLE_CHARGE_TARGET,
     CONF_EV_BATTERY_PROTECT_SOC,
@@ -63,6 +65,7 @@ from .const import (
     CONF_SURPLUS_DIVERT_SOC,
     CONF_TARGET_SOC_ENTITY,
     CONF_VAT_RATE,
+    CONF_VERBOSE_LOGGING,
     CURRENCIES,
     DEFAULT_BASE_RATE,
     DEFAULT_BASE_RATE_NAME,
@@ -71,6 +74,7 @@ from .const import (
     DEFAULT_BILL_START_DAY,
     DEFAULT_CURRENCY,
     DEFAULT_DISCOUNT_RATE,
+    DEFAULT_DRY_RUN,
     DEFAULT_EV_BATTERY_PROTECT_SOC,
     DEFAULT_EXPORT_RATE,
     DEFAULT_IMMERSION_MIN_TEMP,
@@ -83,6 +87,7 @@ from .const import (
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
     DEFAULT_STANDING_CHARGE,
     DEFAULT_VAT_RATE,
+    DEFAULT_VERBOSE_LOGGING,
     DOMAIN,
     FORECAST_PROVIDER_FORECAST_SOLAR,
     FORECAST_PROVIDER_SOLCAST,
@@ -631,7 +636,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
 
 
 class GivEnergyOptionsFlow(config_entries.OptionsFlow):
-    """Options flow — edit tariff and thresholds after initial setup."""
+    """Options flow — all settings on one page with collapsible sections."""
 
     def __init__(self, config_entry) -> None:
         self._config_entry = config_entry
@@ -641,15 +646,15 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         return self._config_entry.options.get(key) or self._config_entry.data.get(key) or default
 
     async def async_step_init(self, user_input=None):
-        return await self.async_step_tariff(user_input)
-
-    async def async_step_tariff(self, user_input=None):
+        """Single-page options — tariff (expanded), thresholds & forecast (collapsed)."""
         errors: dict[str, str] = {}
-        current_periods = self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS)
 
         if user_input is not None:
+            tariff = user_input.get("tariff_settings", {})
+            thresholds = user_input.get("threshold_settings", {})
+            forecast = user_input.get("forecast_settings", {})
             try:
-                periods = _parse_rate_periods(user_input.get("rate_periods_text", ""))
+                periods = _parse_rate_periods(tariff.get("rate_periods_text", ""))
                 self._options[CONF_RATE_PERIODS] = periods
                 for key in [
                     CONF_EXPORT_RATE,
@@ -658,130 +663,194 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     CONF_VAT_RATE,
                     CONF_DISCOUNT_RATE,
                 ]:
-                    self._options[key] = float(user_input[key])
-                self._options[CONF_BILL_START_DAY] = int(user_input[CONF_BILL_START_DAY])
-                self._options[CONF_BASE_RATE] = float(user_input[CONF_BASE_RATE])
+                    self._options[key] = float(tariff[key])
+                self._options[CONF_BILL_START_DAY] = int(tariff[CONF_BILL_START_DAY])
+                self._options[CONF_BASE_RATE] = float(tariff[CONF_BASE_RATE])
                 self._options[CONF_BASE_RATE_NAME] = str(
-                    user_input.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
+                    tariff.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
                 )
-                return await self.async_step_thresholds()
+                self._options[CONF_CURRENCY] = tariff.get(CONF_CURRENCY, DEFAULT_CURRENCY)
+                self._options.update(thresholds)
+                self._options.update({k: v for k, v in forecast.items() if v})
+                return self.async_create_entry(title="", data=self._options)
             except ValueError as err:
-                errors["rate_periods_text"] = str(err)
+                errors["tariff_settings"] = str(err)
+
+        current_periods = self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS)
 
         schema = vol.Schema(
             {
-                vol.Required(
-                    CONF_BASE_RATE, default=float(self._get(CONF_BASE_RATE, DEFAULT_BASE_RATE))
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0, max=5, step=0.001, unit_of_measurement="EUR/kWh"
-                    )
-                ),
-                vol.Optional(
-                    CONF_BASE_RATE_NAME,
-                    default=str(self._get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)),
-                ): selector.TextSelector(),
-                vol.Required(
-                    "rate_periods_text", default=_rate_periods_to_text(current_periods)
-                ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
-                vol.Required(
-                    CONF_EXPORT_RATE, default=self._get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE)
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0, max=1, step=0.001, unit_of_measurement="EUR/kWh"
-                    )
-                ),
-                vol.Required(
-                    CONF_STANDING_CHARGE,
-                    default=self._get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0, max=5, step=0.001, unit_of_measurement="EUR/day"
-                    )
-                ),
-                vol.Required(
-                    CONF_PSO_LEVY, default=self._get(CONF_PSO_LEVY, DEFAULT_PSO_LEVY)
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0, max=20, step=0.01, unit_of_measurement="EUR/month"
-                    )
-                ),
-                vol.Required(
-                    CONF_VAT_RATE, default=self._get(CONF_VAT_RATE, DEFAULT_VAT_RATE)
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=0, max=30, step=0.1, unit_of_measurement="%")
-                ),
-                vol.Required(
-                    CONF_DISCOUNT_RATE, default=self._get(CONF_DISCOUNT_RATE, DEFAULT_DISCOUNT_RATE)
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=0, max=20, step=0.1, unit_of_measurement="%")
-                ),
-                vol.Required(
-                    CONF_BILL_START_DAY,
-                    default=self._get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY),
-                ): selector.NumberSelector(selector.NumberSelectorConfig(min=1, max=28, step=1)),
-            }
-        )
-        return self.async_show_form(step_id="tariff", data_schema=schema, errors=errors)
-
-    async def async_step_thresholds(self, user_input=None):
-        if user_input is not None:
-            self._options.update(user_input)
-            return await self.async_step_forecast()
-        schema = vol.Schema(
-            {
-                vol.Optional(
-                    CONF_BATTERY_MIN_SOC,
-                    default=self._get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=5, max=30, step=1, unit_of_measurement="%")
-                ),
-                vol.Optional(
-                    CONF_OVERNIGHT_CHARGE_TARGET,
-                    default=self._get(
-                        CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET
-                    ),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=20, max=100, step=1, unit_of_measurement="%")
-                ),
-                vol.Optional(
-                    CONF_SKIP_CHARGE_SOC_THRESHOLD,
-                    default=self._get(
-                        CONF_SKIP_CHARGE_SOC_THRESHOLD, DEFAULT_SKIP_CHARGE_SOC_THRESHOLD
-                    ),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=20, max=100, step=1, unit_of_measurement="%")
-                ),
-            }
-        )
-        return self.async_show_form(step_id="thresholds", data_schema=schema)
-
-    async def async_step_forecast(self, user_input=None):
-        """Step 3 (options): Solar forecast provider and entity."""
-        if user_input is not None:
-            self._options.update(user_input)
-            return self.async_create_entry(title="", data=self._options)
-        schema = vol.Schema(
-            {
-                vol.Optional(
-                    CONF_FORECAST_PROVIDER,
-                    default=self._get(CONF_FORECAST_PROVIDER, ""),
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[
-                            selector.SelectOptionDict(
-                                value=FORECAST_PROVIDER_FORECAST_SOLAR, label="Forecast.Solar"
+                vol.Required("tariff_settings"): section(
+                    vol.Schema(
+                        {
+                            vol.Required(
+                                CONF_BASE_RATE,
+                                default=float(self._get(CONF_BASE_RATE, DEFAULT_BASE_RATE)),
+                            ): selector.NumberSelector(
+                                selector.NumberSelectorConfig(
+                                    min=0, max=5, step=0.001, unit_of_measurement="EUR/kWh"
+                                )
                             ),
-                            selector.SelectOptionDict(
-                                value=FORECAST_PROVIDER_SOLCAST, label="Solcast"
+                            vol.Optional(
+                                CONF_BASE_RATE_NAME,
+                                default=str(
+                                    self._get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
+                                ),
+                            ): selector.TextSelector(),
+                            vol.Required(
+                                "rate_periods_text",
+                                default=_rate_periods_to_text(current_periods),
+                            ): selector.TextSelector(
+                                selector.TextSelectorConfig(multiline=True)
                             ),
-                        ]
-                    )
+                            vol.Required(
+                                CONF_EXPORT_RATE,
+                                default=self._get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE),
+                            ): selector.NumberSelector(
+                                selector.NumberSelectorConfig(
+                                    min=0, max=1, step=0.001, unit_of_measurement="EUR/kWh"
+                                )
+                            ),
+                            vol.Required(
+                                CONF_STANDING_CHARGE,
+                                default=self._get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE),
+                            ): selector.NumberSelector(
+                                selector.NumberSelectorConfig(
+                                    min=0, max=5, step=0.001, unit_of_measurement="EUR/day"
+                                )
+                            ),
+                            vol.Required(
+                                CONF_PSO_LEVY,
+                                default=self._get(CONF_PSO_LEVY, DEFAULT_PSO_LEVY),
+                            ): selector.NumberSelector(
+                                selector.NumberSelectorConfig(
+                                    min=0, max=20, step=0.01, unit_of_measurement="EUR/month"
+                                )
+                            ),
+                            vol.Required(
+                                CONF_VAT_RATE,
+                                default=self._get(CONF_VAT_RATE, DEFAULT_VAT_RATE),
+                            ): selector.NumberSelector(
+                                selector.NumberSelectorConfig(
+                                    min=0, max=30, step=0.1, unit_of_measurement="%"
+                                )
+                            ),
+                            vol.Required(
+                                CONF_DISCOUNT_RATE,
+                                default=self._get(CONF_DISCOUNT_RATE, DEFAULT_DISCOUNT_RATE),
+                            ): selector.NumberSelector(
+                                selector.NumberSelectorConfig(
+                                    min=0, max=20, step=0.1, unit_of_measurement="%"
+                                )
+                            ),
+                            vol.Required(
+                                CONF_BILL_START_DAY,
+                                default=self._get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY),
+                            ): selector.NumberSelector(
+                                selector.NumberSelectorConfig(min=1, max=28, step=1)
+                            ),
+                            vol.Required(
+                                CONF_CURRENCY,
+                                default=self._get(CONF_CURRENCY, DEFAULT_CURRENCY),
+                            ): selector.SelectSelector(
+                                selector.SelectSelectorConfig(
+                                    options=[
+                                        selector.SelectOptionDict(
+                                            value=code, label=f"{code} ({symbol})"
+                                        )
+                                        for code, symbol in CURRENCIES.items()
+                                    ]
+                                )
+                            ),
+                        }
+                    ),
+                    {"collapsed": False},
                 ),
-                vol.Optional(
-                    CONF_FORECAST_ENTITY,
-                    default=self._get(CONF_FORECAST_ENTITY, ""),
-                ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+                vol.Required("threshold_settings"): section(
+                    vol.Schema(
+                        {
+                            vol.Optional(
+                                CONF_BATTERY_MIN_SOC,
+                                default=self._get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC),
+                            ): selector.NumberSelector(
+                                selector.NumberSelectorConfig(
+                                    min=5, max=30, step=1, unit_of_measurement="%"
+                                )
+                            ),
+                            vol.Optional(
+                                CONF_OVERNIGHT_CHARGE_TARGET,
+                                default=self._get(
+                                    CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET
+                                ),
+                            ): selector.NumberSelector(
+                                selector.NumberSelectorConfig(
+                                    min=20, max=100, step=1, unit_of_measurement="%"
+                                )
+                            ),
+                            vol.Optional(
+                                CONF_SKIP_CHARGE_SOC_THRESHOLD,
+                                default=self._get(
+                                    CONF_SKIP_CHARGE_SOC_THRESHOLD,
+                                    DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
+                                ),
+                            ): selector.NumberSelector(
+                                selector.NumberSelectorConfig(
+                                    min=20, max=100, step=1, unit_of_measurement="%"
+                                )
+                            ),
+                            vol.Optional(
+                                CONF_EV_BATTERY_PROTECT_SOC,
+                                default=self._get(
+                                    CONF_EV_BATTERY_PROTECT_SOC, DEFAULT_EV_BATTERY_PROTECT_SOC
+                                ),
+                            ): selector.NumberSelector(
+                                selector.NumberSelectorConfig(
+                                    min=5, max=50, step=5, unit_of_measurement="%"
+                                )
+                            ),
+                            vol.Optional(
+                                CONF_DRY_RUN,
+                                default=bool(self._get(CONF_DRY_RUN, DEFAULT_DRY_RUN)),
+                            ): selector.BooleanSelector(),
+                            vol.Optional(
+                                CONF_VERBOSE_LOGGING,
+                                default=bool(
+                                    self._get(CONF_VERBOSE_LOGGING, DEFAULT_VERBOSE_LOGGING)
+                                ),
+                            ): selector.BooleanSelector(),
+                        }
+                    ),
+                    {"collapsed": True},
+                ),
+                vol.Required("forecast_settings"): section(
+                    vol.Schema(
+                        {
+                            vol.Optional(
+                                CONF_FORECAST_PROVIDER,
+                                default=self._get(CONF_FORECAST_PROVIDER, ""),
+                            ): selector.SelectSelector(
+                                selector.SelectSelectorConfig(
+                                    options=[
+                                        selector.SelectOptionDict(
+                                            value=FORECAST_PROVIDER_FORECAST_SOLAR,
+                                            label="Forecast.Solar",
+                                        ),
+                                        selector.SelectOptionDict(
+                                            value=FORECAST_PROVIDER_SOLCAST, label="Solcast"
+                                        ),
+                                    ]
+                                )
+                            ),
+                            vol.Optional(
+                                CONF_FORECAST_ENTITY,
+                                default=self._get(CONF_FORECAST_ENTITY, ""),
+                            ): selector.EntitySelector(
+                                selector.EntitySelectorConfig(domain="sensor")
+                            ),
+                        }
+                    ),
+                    {"collapsed": True},
+                ),
             }
         )
-        return self.async_show_form(step_id="forecast", data_schema=schema)
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

@@ -267,8 +267,8 @@ class TestSensorDefaultEnabled:
 # ── Options flow forecast step tests ─────────────────────────────────────────
 
 
-class TestOptionsFlowForecastStep:
-    """Options flow must chain tariff -> thresholds -> forecast -> create_entry."""
+class TestOptionsFlowSections:
+    """Options flow must use a single init step with collapsible sections."""
 
     def _make_flow(self):
         from unittest.mock import MagicMock
@@ -277,6 +277,7 @@ class TestOptionsFlowForecastStep:
             GivEnergyOptionsFlow,
         )
         from custom_components.givenergy_inverter_manager.const import (
+            DEFAULT_BASE_RATE,
             DEFAULT_BATTERY_MIN_SOC,
             DEFAULT_OVERNIGHT_CHARGE_TARGET,
             DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
@@ -288,68 +289,16 @@ class TestOptionsFlowForecastStep:
             "battery_min_soc_pct": DEFAULT_BATTERY_MIN_SOC,
             "overnight_charge_target_pct": DEFAULT_OVERNIGHT_CHARGE_TARGET,
             "skip_charge_soc_threshold_pct": DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
+            "base_rate": DEFAULT_BASE_RATE,
         }
 
         flow = GivEnergyOptionsFlow(entry)
-        # Inject HA base-class methods that the stub doesn't provide
         flow.async_show_form = MagicMock(return_value={"type": "form"})
         flow.async_create_entry = MagicMock(return_value={"type": "create_entry"})
         return flow
 
-    def test_thresholds_with_input_proceeds_to_forecast(self):
-        """Submitting thresholds should advance to the forecast step, not create entry."""
-        import asyncio
-
-        flow = self._make_flow()
-        # Patch async_step_forecast to avoid schema construction with stub selectors
-        forecast_sentinel = {"type": "form", "step_id": "forecast"}
-
-        async def _mock_forecast(user_input=None):
-            return forecast_sentinel
-
-        flow.async_step_forecast = _mock_forecast
-
-        thresholds_input = {
-            "battery_min_soc_pct": 10,
-            "overnight_charge_target_pct": 80,
-            "skip_charge_soc_threshold_pct": 70,
-        }
-        result = asyncio.run(flow.async_step_thresholds(thresholds_input))
-
-        # Must NOT have called create_entry
-        flow.async_create_entry.assert_not_called()
-        # Must have routed to forecast
-        assert result is forecast_sentinel
-
-    def test_forecast_with_input_calls_create_entry(self):
-        """Submitting forecast step should call create_entry with forecast data."""
-        import asyncio
-
-        from custom_components.givenergy_inverter_manager.const import (
-            CONF_FORECAST_ENTITY,
-            CONF_FORECAST_PROVIDER,
-            FORECAST_PROVIDER_FORECAST_SOLAR,
-        )
-
-        flow = self._make_flow()
-        forecast_input = {
-            CONF_FORECAST_PROVIDER: FORECAST_PROVIDER_FORECAST_SOLAR,
-            CONF_FORECAST_ENTITY: "sensor.forecast_solar_today",
-        }
-        asyncio.run(flow.async_step_forecast(forecast_input))
-
-        flow.async_create_entry.assert_called_once()
-        # call_args.kwargs["data"] is the same dict object as flow._options
-        saved_data = flow.async_create_entry.call_args.kwargs.get("data") or {}
-        assert saved_data.get(CONF_FORECAST_PROVIDER) == FORECAST_PROVIDER_FORECAST_SOLAR
-        assert saved_data.get(CONF_FORECAST_ENTITY) == "sensor.forecast_solar_today"
-
-    def test_forecast_without_input_shows_form(self):
-        """Visiting forecast step with no input should show the forecast form.
-
-        Patches both vol and selector to avoid MagicMock-as-spec error
-        when stub selectors are passed as positional args to other stub selectors.
-        """
+    def test_init_without_input_shows_form(self):
+        """Visiting init step with no input shows the options form."""
         import asyncio
         from unittest.mock import MagicMock, patch
 
@@ -357,20 +306,94 @@ class TestOptionsFlowForecastStep:
         with (
             patch("custom_components.givenergy_inverter_manager.config_flow.vol") as mock_vol,
             patch("custom_components.givenergy_inverter_manager.config_flow.selector") as mock_sel,
+            patch(
+                "custom_components.givenergy_inverter_manager.config_flow.section"
+            ) as mock_section,
         ):
             mock_vol.Schema.return_value = MagicMock()
+            mock_vol.Required.return_value = MagicMock()
             mock_vol.Optional.return_value = MagicMock()
+            mock_section.return_value = MagicMock()
+            mock_sel.NumberSelector.return_value = MagicMock()
+            mock_sel.TextSelector.return_value = MagicMock()
             mock_sel.SelectSelector.return_value = MagicMock()
-            mock_sel.SelectSelectorConfig.return_value = MagicMock()
-            mock_sel.SelectOptionDict.return_value = MagicMock()
             mock_sel.EntitySelector.return_value = MagicMock()
-            mock_sel.EntitySelectorConfig.return_value = MagicMock()
-            asyncio.run(flow.async_step_forecast(None))
+            mock_sel.BooleanSelector.return_value = MagicMock()
+            asyncio.run(flow.async_step_init(None))
 
         flow.async_show_form.assert_called_once()
         call_kwargs = flow.async_show_form.call_args
         step = call_kwargs.kwargs.get("step_id") or (
             call_kwargs.args[0] if call_kwargs.args else None
         )
-        assert step == "forecast"
+        assert step == "init"
         flow.async_create_entry.assert_not_called()
+
+    def test_init_with_nested_input_calls_create_entry(self):
+        """Submitting the sections form should save all nested data and create entry."""
+        import asyncio
+
+        from custom_components.givenergy_inverter_manager.config_flow import (
+            _rate_periods_to_text,
+        )
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_BASE_RATE,
+            CONF_BATTERY_MIN_SOC,
+            CONF_FORECAST_PROVIDER,
+            DEFAULT_BASE_RATE_NAME,
+            DEFAULT_BILL_START_DAY,
+            DEFAULT_CURRENCY,
+            DEFAULT_DISCOUNT_RATE,
+            DEFAULT_EXPORT_RATE,
+            DEFAULT_OVERNIGHT_CHARGE_TARGET,
+            DEFAULT_PSO_LEVY,
+            DEFAULT_RATE_PERIODS,
+            DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
+            DEFAULT_STANDING_CHARGE,
+            DEFAULT_VAT_RATE,
+            FORECAST_PROVIDER_FORECAST_SOLAR,
+        )
+
+        flow = self._make_flow()
+        nested_input = {
+            "tariff_settings": {
+                CONF_BASE_RATE: 0.35,
+                "base_rate_name": DEFAULT_BASE_RATE_NAME,
+                "rate_periods_text": _rate_periods_to_text(DEFAULT_RATE_PERIODS),
+                "export_rate": DEFAULT_EXPORT_RATE,
+                "standing_charge_per_day": DEFAULT_STANDING_CHARGE,
+                "pso_levy_per_month": DEFAULT_PSO_LEVY,
+                "vat_rate": DEFAULT_VAT_RATE,
+                "discount_rate": DEFAULT_DISCOUNT_RATE,
+                "bill_start_day": DEFAULT_BILL_START_DAY,
+                "currency": DEFAULT_CURRENCY,
+            },
+            "threshold_settings": {
+                CONF_BATTERY_MIN_SOC: 10,
+                "overnight_charge_target_pct": DEFAULT_OVERNIGHT_CHARGE_TARGET,
+                "skip_charge_soc_threshold_pct": DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
+                "ev_battery_protect_soc_pct": 20,
+                "dry_run": False,
+                "verbose_logging": False,
+            },
+            "forecast_settings": {
+                CONF_FORECAST_PROVIDER: FORECAST_PROVIDER_FORECAST_SOLAR,
+                "forecast_entity": "sensor.forecast_solar_today",
+            },
+        }
+        asyncio.run(flow.async_step_init(nested_input))
+
+        flow.async_create_entry.assert_called_once()
+        data = flow.async_create_entry.call_args.kwargs.get("data") or {}
+        assert data.get(CONF_BASE_RATE) == 0.35
+        assert data.get(CONF_BATTERY_MIN_SOC) == 10
+        assert data.get(CONF_FORECAST_PROVIDER) == FORECAST_PROVIDER_FORECAST_SOLAR
+
+    def test_no_separate_tariff_thresholds_forecast_steps(self):
+        """The old multi-step methods must not exist on the options flow."""
+        from custom_components.givenergy_inverter_manager.config_flow import GivEnergyOptionsFlow
+
+        for old_step in ("async_step_tariff", "async_step_thresholds", "async_step_forecast"):
+            assert not hasattr(GivEnergyOptionsFlow, old_step), (
+                f"Options flow still has {old_step} — should use single async_step_init"
+            )
