@@ -78,7 +78,7 @@ from .core.engine import (
     build_coordinator_data,
 )
 from .core.rules import monthly_solar_fractions
-from .core.tariff import EnergyAccumulator, build_tariff
+from .core.tariff import build_tariff
 from .discovery import (
     EVCharger,
     discover_ev_chargers,
@@ -128,7 +128,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         _bill_start = int(entry.data.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY))
         self._acc = AccumulationStore(hass, _bill_start)
         self._battery_stats = BatteryStats()
-        self._acc.today = EnergyAccumulator()
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
