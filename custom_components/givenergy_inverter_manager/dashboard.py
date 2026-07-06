@@ -70,6 +70,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     # ── sensor entity IDs ────────────────────────────────────────────────────
     solar_power = e("solar_power")
     battery_soc = e("battery_soc")
+    battery_power = e("battery_power")
     grid_power = e("grid_power")
     house_load = e("house_load")
     rest_of_house = e("rest_of_house_load")
@@ -111,7 +112,6 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     dry_run_skipped = e("dry_run_last_skipped")
 
     # ── switch / number entity IDs ────────────────────────────────────────────
-    sw_enable_charge_target = e("charge_target_override_enabled")
     sw_auto_immersion = e("auto_immersion")
     sw_immersion_mgd = e("immersion_managed")
     sw_skip_charge = e("skip_charge_override")
@@ -141,7 +141,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   solar:
                     entity: {solar_power}
                   battery:
-                    entity: {battery_soc}
+                    entity: {battery_power}
                     state_of_charge: {battery_soc}
                   grid:
                     entity: {grid_power}
@@ -189,25 +189,45 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 square: false
                 columns: 2
                 cards:
-                  - type: entity
+                  - type: statistic
                     entity: {solar_today}
                     name: Solar Generated
+                    period:
+                      calendar:
+                        period: day
+                    stat_type: change
                     icon: mdi:solar-power
-                  - type: entity
+                  - type: statistic
                     entity: {import_today}
                     name: Grid Import
+                    period:
+                      calendar:
+                        period: day
+                    stat_type: change
                     icon: mdi:transmission-tower-import
-                  - type: entity
+                  - type: statistic
                     entity: {export_today}
                     name: Grid Export
+                    period:
+                      calendar:
+                        period: day
+                    stat_type: change
                     icon: mdi:transmission-tower-export
-                  - type: entity
+                  - type: statistic
                     entity: {zappi_today}
                     name: EV Charging
+                    period:
+                      calendar:
+                        period: day
+                    stat_type: change
                     icon: mdi:car-electric
-                  - type: entity
+                  - type: statistic
                     entity: {immersion_today}
                     name: Immersion Heater
+                    period:
+                      calendar:
+                        period: day
+                    stat_type: change
                     icon: mdi:water-boiler
 
               - type: heading
@@ -377,10 +397,8 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
 
               - type: entities
                 entities:
-                  - entity: {sw_enable_charge_target}
-                    name: Enable Charge Target Override
                   - entity: {num_charge_target}
-                    name: Overnight Charge Target
+                    name: Charge Target Override (0 = auto)
                   - entity: {sw_skip_charge}
                     name: Force Skip Charge Tonight
 
