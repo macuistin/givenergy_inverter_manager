@@ -175,10 +175,12 @@ class TestGridPowerMetadata:
 class TestImmersionPowerMetadata:
     """immersion_power must be a watts sensor reading data.immersion_load_w."""
 
+    def test_sensor_declared(self):
+        assert "immersion_power" in _sensor_keys()
+
     def test_unit_is_watt(self):
         unit = _sensor_kwarg("immersion_power", "native_unit_of_measurement")
-        assert unit is not None, "native_unit_of_measurement not set on immersion_power"
-        assert "WATT" in unit.upper() or unit == "W"
+        assert unit is not None and "WATT" in unit.upper()
 
     def test_device_class_is_power(self):
         dc = _sensor_kwarg("immersion_power", "device_class")
@@ -190,10 +192,7 @@ class TestImmersionPowerMetadata:
 
     def test_value_fn_uses_immersion_load_w(self):
         src = _value_fn_source("immersion_power")
-        assert src is not None
-        assert "immersion_load_w" in src, (
-            f"value_fn for immersion_power should read d.immersion_load_w, got: {src!r}"
-        )
+        assert src is not None and "immersion_load_w" in src
 
     def test_lambda_on_when_running(self):
         from unittest.mock import MagicMock

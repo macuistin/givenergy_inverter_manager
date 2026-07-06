@@ -807,3 +807,88 @@ class TestInvertedRateTariff:
         guard_idx = src.index("if not tariff.rate_periods:")
         min_idx = src.index("min(tariff.rate_periods, key=lambda p: p.rate)")
         assert guard_idx < min_idx, "Empty list guard must appear before the min() call"
+
+
+class TestAccumulationLoadOnStartup:
+    """async_load() must be called before async_config_entry_first_refresh."""
+
+    def test_async_load_called_in_setup(self):
+        import ast
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/__init__.py"
+        ).read_text()
+        full_src = ast.unparse(ast.parse(src))
+        assert "coordinator._acc.async_load()" in full_src, (
+            "async_load() must be called in async_setup_entry — without it "
+            "all energy data resets to zero on every HA restart."
+        )
+
+    def test_async_load_before_first_refresh(self):
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/__init__.py"
+        ).read_text()
+        assert src.index("async_load()") < src.index("async_config_entry_first_refresh()"), (
+            "async_load() must come before async_config_entry_first_refresh()."
+        )
+
+
+class TestWeekMonthAccumulation:
+    """Week and month accumulators must be updated each cycle."""
+
+    def test_no_dead_accumulator_functions_in_engine(self):
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/core/engine.py"
+        ).read_text()
+        for dead_fn in (
+            "_set_accumulators",
+            "_apply_charge_decision_overrides",
+            "_set_ev_charger_data",
+        ):
+            assert f"def {dead_fn}(" not in src, f"{dead_fn} is dead code and must be deleted"
+
+    def test_accumulate_energy_loop_covers_week_and_month(self):
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/core/engine.py"
+        ).read_text()
+        assert "for rolling_acc in (acc, acc_week, acc_month)" in src, (
+            "accumulate_energy must be called for week and month accumulators each cycle."
+        )
+
+
+class TestCheapestRateWindow:
+    """Charge window must come from timed rate_periods only, never the synthetic base period."""
+
+    def test_no_get_cheapest_rate_in_coordinator(self):
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/coordinator.py"
+        ).read_text()
+        assert "get_cheapest_rate()" not in src, (
+            "Use min(tariff.rate_periods, ...) — get_cheapest_rate() can return "
+            "the synthetic base-rate period with a zero-length window."
+        )
+
+    def test_empty_rate_periods_guarded(self):
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/coordinator.py"
+        ).read_text()
+        assert "if not tariff.rate_periods:" in src, (
+            "Must guard against empty rate_periods before computing cheapest window."
+        )
