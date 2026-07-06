@@ -418,7 +418,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         target_soc = decision.target_soc
         tariff = build_tariff(cfg)
-        cheap = tariff.get_cheapest_rate()
+        if not tariff.rate_periods:
+            _LOG.warning(
+                "No timed rate periods configured — cannot determine charge window. "
+                "Add at least one rate period (e.g. Night) in Settings → Configure."
+            )
+            return
+        cheap = min(tariff.rate_periods, key=lambda p: p.rate)
 
         if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
             action = (
@@ -504,7 +510,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw.solar_power_w = self._read_float(cfg.get(CONF_SOLAR_POWER))
         raw.battery_soc = self._read_float(cfg.get(CONF_BATTERY_SOC))
         raw.battery_power_w = self._read_float(cfg.get(CONF_BATTERY_POWER))
-        raw.grid_power_w = self._read_float(cfg.get(CONF_GRID_POWER))
+        # GivTCP v3 uses positive=export, negative=import.
+        # Negate to match internal convention (positive=import, negative=export).
+        raw.grid_power_w = -self._read_float(cfg.get(CONF_GRID_POWER))
         raw.house_load_w = self._read_float(cfg.get(CONF_HOUSE_LOAD))
         raw.inverter_max_w = cfg.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT) * 1000
         raw.battery_capacity_kwh = float(cfg.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY))

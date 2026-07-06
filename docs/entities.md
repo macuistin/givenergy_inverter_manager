@@ -29,7 +29,8 @@ All entities are created under a single device — your GivEnergy inverter — a
 |---|---|
 | `Solar Power` | Current solar generation in W |
 | `Battery SoC` | Current battery state of charge in % |
-| `Battery Power` | Current battery charge/discharge power in W |
+| `Battery Power` | Current battery charge/discharge power in W. Positive = charging, negative = discharging. |
+| `Immersion Heater Power` | Configured wattage when the managed switch is on, 0 otherwise. |
 | `Grid Power` | Current grid import/export in W (positive = import) |
 | `House Load` | Total house consumption in W |
 | `Rest of House Load` | House load minus managed loads (EV, immersion) in W |
@@ -155,6 +156,7 @@ These sensors expose HTML content you can render directly in a Markdown card.
 | `Week Summary` | This week's energy and cost overview |
 
 To display one, add a Markdown card with:
+
 ```yaml
 type: markdown
 content: "{{ state_attr('sensor.givenergy_inverter_manager_today_summary', 'html') }}"

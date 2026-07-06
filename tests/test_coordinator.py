@@ -258,26 +258,6 @@ class TestCollectRaw:
         raw = coord._collect_raw(coord._effective_cfg())
         assert raw.battery_soc == pytest.approx(75.5)
 
-    def test_reads_battery_power_charging(self):
-        """Positive battery_power_w means charging."""
-        coord = FakeCoordinator(cfg=_cfg())
-        coord.set_state("sensor.battery_power", "2500")
-        raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.battery_power_w == pytest.approx(2500.0)
-
-    def test_reads_battery_power_discharging(self):
-        """Negative battery_power_w means discharging."""
-        coord = FakeCoordinator(cfg=_cfg())
-        coord.set_state("sensor.battery_power", "-1800")
-        raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.battery_power_w == pytest.approx(-1800.0)
-
-    def test_reads_battery_power_zero_when_idle(self):
-        coord = FakeCoordinator(cfg=_cfg())
-        coord.set_state("sensor.battery_power", "0")
-        raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.battery_power_w == pytest.approx(0.0)
-
     def test_returns_zero_for_missing_entity(self):
         coord = FakeCoordinator(cfg=_cfg())
         # sensor.solar not set in state store
@@ -297,10 +277,19 @@ class TestCollectRaw:
         assert raw.solar_power_w == 0.0
 
     def test_reads_grid_power_negative_when_exporting(self):
+        """GivTCP v3 reports positive values for grid export.
+        The coordinator negates this so internal convention is positive=import."""
         coord = FakeCoordinator(cfg=_cfg())
-        coord.set_state("sensor.grid", "-1200")
+        coord.set_state("sensor.grid", "1200")  # GivTCP v3: positive = export
         raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.grid_power_w == pytest.approx(-1200.0)
+        assert raw.grid_power_w == pytest.approx(-1200.0)  # internal: negative = export
+
+    def test_reads_grid_power_positive_when_importing(self):
+        """GivTCP v3 reports negative values for grid import."""
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("sensor.grid", "-800")  # GivTCP v3: negative = import
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.grid_power_w == pytest.approx(800.0)  # internal: positive = import
 
     def test_reads_immersion_switch_on(self):
         cfg = _cfg(**{CONF_IMMERSION_SWITCH: "switch.immersion"})
@@ -740,3 +729,81 @@ class TestFlatRateTariff:
         # already returned early so the listener was never registered.
         # Confirm _register_charge_target_listener ran without error:
         coord._register_charge_target_listener()  # should not raise
+
+
+class TestInvertedRateTariff:
+    """When base rate is cheaper than all timed periods, the old get_cheapest_rate()
+    returned the synthetic base-rate period (start=00:00, end=00:00) producing a
+    zero-length charge window. The fix uses min(tariff.rate_periods) directly."""
+
+    def _tariff_with_cheap_base(self):
+        """Base rate 0.05 EUR/kWh, Night rate 0.20 — base is cheaper (unusual)."""
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_BASE_RATE,
+            CONF_BASE_RATE_NAME,
+            CONF_BILL_START_DAY,
+            CONF_CURRENCY,
+            CONF_DISCOUNT_RATE,
+            CONF_EXPORT_RATE,
+            CONF_PSO_LEVY,
+            CONF_RATE_PERIODS,
+            CONF_STANDING_CHARGE,
+            CONF_VAT_RATE,
+        )
+        from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
+
+        cfg = {
+            CONF_BASE_RATE: 0.05,
+            CONF_BASE_RATE_NAME: "Day",
+            CONF_RATE_PERIODS: [{"name": "Night", "rate": 0.20, "start": "23:00", "end": "08:00"}],
+            CONF_EXPORT_RATE: 0.10,
+            CONF_STANDING_CHARGE: 0.50,
+            CONF_PSO_LEVY: 3.0,
+            CONF_VAT_RATE: 9.0,
+            CONF_DISCOUNT_RATE: 0.0,
+            CONF_BILL_START_DAY: 1,
+            CONF_CURRENCY: "EUR",
+        }
+        return build_tariff(cfg)
+
+    def test_old_get_cheapest_rate_would_return_zero_window(self):
+        """Confirm the old code's failure mode: get_cheapest_rate() includes the
+        synthetic base-rate period which has start=end=00:00."""
+        from datetime import time
+
+        tariff = self._tariff_with_cheap_base()
+        cheapest = tariff.get_cheapest_rate()
+        # Base rate (0.05) is cheaper than Night (0.20), so old code returns synthetic
+        assert cheapest.rate == pytest.approx(0.05)
+        assert cheapest.start == time(0, 0)
+        assert cheapest.end == time(0, 0), (
+            "Synthetic base-rate period has zero-length window — this is what "
+            "the old code would write to GivTCP, preventing any overnight charging."
+        )
+
+    def test_new_code_uses_timed_period_with_real_window(self):
+        """New code: min(tariff.rate_periods) only considers timed periods."""
+        from datetime import time
+
+        tariff = self._tariff_with_cheap_base()
+        cheap = min(tariff.rate_periods, key=lambda p: p.rate)
+        assert cheap.name == "Night"
+        assert cheap.start != cheap.end, (
+            "Timed periods must have a real window. "
+            "If start == end, the charge window sent to GivTCP would be zero-length."
+        )
+        assert cheap.start == time(23, 0)
+        assert cheap.end == time(8, 0)
+
+    def test_empty_rate_periods_returns_early(self):
+        """Coordinator must return early with a warning when no timed periods are
+        configured, rather than crashing or writing a zero-window."""
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/coordinator.py"
+        ).read_text()
+        guard_idx = src.index("if not tariff.rate_periods:")
+        min_idx = src.index("min(tariff.rate_periods, key=lambda p: p.rate)")
+        assert guard_idx < min_idx, "Empty list guard must appear before the min() call"

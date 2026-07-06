@@ -56,6 +56,27 @@ def _entity_id(hass: HomeAssistant, entry_id: str, unique_id_suffix: str) -> str
     return entry or f"sensor.givenergy_inverter_manager_{unique_id_suffix}"
 
 
+_EV_CHARGER_CANDIDATES = [
+    "sensor.myenergi_zappi_power_ct_internal_load",
+    "sensor.myenergi_zappi_power_ct_internal_load_2",
+    "sensor.myenergi_zappi2_power_ct_internal_load",
+    "sensor.wallbox_charging_power",
+    "sensor.ohme_current_power",
+]
+
+
+def _find_ev_charger_power(hass: HomeAssistant, integration_ev_power: str) -> str:
+    """Return the best available EV charger power entity.
+
+    Checks known external EV charger integrations first since these report power
+    directly. Falls back to the integration's own sensor if none are found.
+    """
+    for candidate in _EV_CHARGER_CANDIDATES:
+        if hass.states.get(candidate) is not None:
+            return candidate
+    return integration_ev_power
+
+
 def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     """
     Build complete Lovelace YAML for all four views.
@@ -70,10 +91,10 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     # ── sensor entity IDs ────────────────────────────────────────────────────
     solar_power = e("solar_power")
     battery_soc = e("battery_soc")
-    battery_power = e("battery_power")
     grid_power = e("grid_power")
     house_load = e("house_load")
-    rest_of_house = e("rest_of_house_load")
+    battery_power = e("battery_power")
+    immersion_power = e("immersion_power")
     current_rate = e("current_rate")
     current_rate_period = e("current_rate_period")
     solar_today = e("solar_today")
@@ -102,7 +123,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     survival_reason = e("night_survival_reason")
     is_clipping = e("is_clipping")
     ev_state = e("ev_charger_state")
-    ev_power = e("ev_power")
+    ev_power = _find_ev_charger_power(hass, e("ev_power"))
     ev_session = e("ev_session_energy")
     ev_draining = e("ev_draining_battery")
     ev_protection_reason = e("ev_protection_reason")
@@ -112,6 +133,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     dry_run_skipped = e("dry_run_last_skipped")
 
     # ── switch / number entity IDs ────────────────────────────────────────────
+    sw_enable_charge_target = e("charge_target_override_enabled")
     sw_auto_immersion = e("auto_immersion")
     sw_immersion_mgd = e("immersion_managed")
     sw_skip_charge = e("skip_charge_override")
@@ -143,15 +165,22 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   battery:
                     entity: {battery_power}
                     state_of_charge: {battery_soc}
+                    display_zero_tolerance: 10
                   grid:
                     entity: {grid_power}
                   home:
                     entity: {house_load}
-                individual_devices:
-                  - entity: {rest_of_house}
-                    name: Rest of House
-                    icon: mdi:home-outline
-                    color: var(--primary-text-color)
+                  individual:
+                  - entity: {ev_power}
+                    name: EV Charger
+                    icon: mdi:car-electric
+                    color: "#4CAF50"
+                    display_zero: false
+                  - entity: {immersion_power}
+                    name: Immersion
+                    icon: mdi:water-boiler
+                    color: "#FF9800"
+                    display_zero: false
                 title: Live Power Flow
                 kw_decimals: 1
                 w_decimals: 0
@@ -189,45 +218,25 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 square: false
                 columns: 2
                 cards:
-                  - type: statistic
+                  - type: entity
                     entity: {solar_today}
                     name: Solar Generated
-                    period:
-                      calendar:
-                        period: day
-                    stat_type: change
                     icon: mdi:solar-power
-                  - type: statistic
+                  - type: entity
                     entity: {import_today}
                     name: Grid Import
-                    period:
-                      calendar:
-                        period: day
-                    stat_type: change
                     icon: mdi:transmission-tower-import
-                  - type: statistic
+                  - type: entity
                     entity: {export_today}
                     name: Grid Export
-                    period:
-                      calendar:
-                        period: day
-                    stat_type: change
                     icon: mdi:transmission-tower-export
-                  - type: statistic
+                  - type: entity
                     entity: {zappi_today}
                     name: EV Charging
-                    period:
-                      calendar:
-                        period: day
-                    stat_type: change
                     icon: mdi:car-electric
-                  - type: statistic
+                  - type: entity
                     entity: {immersion_today}
                     name: Immersion Heater
-                    period:
-                      calendar:
-                        period: day
-                    stat_type: change
                     icon: mdi:water-boiler
 
               - type: heading
@@ -397,8 +406,10 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
 
               - type: entities
                 entities:
+                  - entity: {sw_enable_charge_target}
+                    name: Enable Charge Target Override
                   - entity: {num_charge_target}
-                    name: Charge Target Override (0 = auto)
+                    name: Overnight Charge Target
                   - entity: {sw_skip_charge}
                     name: Force Skip Charge Tonight
 

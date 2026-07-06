@@ -35,6 +35,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = GivEnergyCoordinator(hass, entry)
 
+    # Restore persisted energy accumulators so today/week/month survive HA restarts.
+    await coordinator._acc.async_load()
+
     try:
         await coordinator.async_config_entry_first_refresh()
     except Exception as err:

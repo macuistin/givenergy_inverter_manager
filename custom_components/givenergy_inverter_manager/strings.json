@@ -520,6 +520,12 @@
       },
       "week_summary": {
         "name": "This week's energy summary"
+      },
+      "battery_power": {
+        "name": "Battery Power"
+      },
+      "immersion_power": {
+        "name": "Immersion Heater Power"
       }
     }
   }

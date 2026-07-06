@@ -361,106 +361,6 @@ def update_battery_stats(
     return stats
 
 
-def _set_accumulators(
-    data: CoordinatorData,
-    acc_week: EnergyAccumulator | None,
-    acc_month: EnergyAccumulator | None,
-    acc_yesterday: EnergyAccumulator | None,
-) -> None:
-    for attr, accumulator in (
-        ("week", acc_week),
-        ("month", acc_month),
-        ("yesterday", acc_yesterday),
-    ):
-        if accumulator is not None:
-            setattr(data, attr, accumulator)
-
-
-def _apply_charge_decision_overrides(
-    decision,
-    override_skip_charge: bool,
-    override_charge_target: int | None,
-    max_target: int,
-):
-    if decision.target_soc > max_target and not decision.skip_charge:
-        decision = replace(
-            decision,
-            target_soc=max_target,
-            reason=decision.reason + f" (capped at configured max {max_target}%)",
-        )
-    if override_skip_charge:
-        return replace(
-            decision,
-            skip_charge=True,
-            reason="Manual override: skip overnight charge",
-        )
-    if override_charge_target is not None:
-        return replace(
-            decision,
-            target_soc=override_charge_target,
-            skip_charge=False,
-            reason=f"Manual override: charge to {override_charge_target}%",
-        )
-    return decision
-
-
-def _set_immersion_decision(
-    data: CoordinatorData,
-    raw: RawSensorValues,
-    cfg: dict,
-    override_immersion: bool | None,
-) -> None:
-    if override_immersion is not None:
-        data.should_divert_immersion = override_immersion
-        data.divert_reason = "Manual override"
-        return
-
-    data.should_divert_immersion, data.divert_reason = should_divert_to_immersion(
-        solar_power_w=raw.solar_power_w,
-        house_load_w=raw.house_load_w,
-        battery_soc=raw.battery_soc,
-        battery_power_w=raw.battery_power_w,
-        inverter_max_w=raw.inverter_max_w,
-        immersion_temp=raw.immersion_temp,
-        immersion_target_temp=cfg.get(CONF_IMMERSION_TARGET_TEMP, DEFAULT_IMMERSION_TARGET_TEMP),
-        immersion_min_temp=float(cfg.get(CONF_IMMERSION_MIN_TEMP, DEFAULT_IMMERSION_MIN_TEMP)),
-        soc_threshold=int(cfg.get(CONF_SURPLUS_DIVERT_SOC, SURPLUS_DIVERT_SOC_THRESHOLD)),
-        min_surplus_w=float(cfg.get(CONF_SURPLUS_DIVERT_MIN_W, SURPLUS_DIVERT_MIN_POWER_W)),
-    )
-
-
-def _set_ev_charger_data(
-    data: CoordinatorData,
-    raw: RawSensorValues,
-    cfg: dict,
-    ev_charger: EVCharger | None,
-) -> str | None:
-    if ev_charger is None:
-        return None
-
-    data.ev_available = True
-    data.ev_charger_brand = ev_charger.brand.value
-    data.ev_charger_name = ev_charger.display_name
-    data.ev_charger_state = ev_charger.state
-    data.ev_power_w = ev_charger.power_w
-    data.ev_session_kwh = ev_charger.session_kwh
-    data.ev_draining_battery = ev_charger.is_draining_battery
-
-    solar_surplus_w = max(0.0, raw.solar_power_w - raw.house_load_w - data.immersion_load_w)
-    protect_threshold = float(cfg.get(CONF_EV_BATTERY_PROTECT_SOC, DEFAULT_EV_BATTERY_PROTECT_SOC))
-
-    ev_target_mode, reason = decide_ev_charger_action(
-        charger=ev_charger,
-        battery_soc=raw.battery_soc,
-        battery_power_w=raw.battery_power_w,
-        solar_surplus_w=solar_surplus_w,
-        protection_threshold=protect_threshold,
-    )
-    data.ev_protection_reason = reason
-    data.ev_protection_active = ev_target_mode is not None
-    return ev_target_mode
-
-
 def _process_ev_charger(
     data: CoordinatorData,
     ev_charger: EVCharger,
@@ -690,7 +590,9 @@ def build_coordinator_data(
     data.battery_stats = battery_stats
 
     # ── Energy accumulation ───────────────────────────────────────────────────
-    accumulate_energy(acc, raw, tariff, current_period.name, now, last_update_time)
+    for rolling_acc in (acc, acc_week, acc_month):
+        if rolling_acc is not None:
+            accumulate_energy(rolling_acc, raw, tariff, current_period.name, now, last_update_time)
     data.today = acc
 
     # ── Average daily consumption ─────────────────────────────────────────────
