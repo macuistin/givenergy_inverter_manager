@@ -106,6 +106,15 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: round(d.battery_power_w, 1),
     ),
     GivEnergyManagerSensorDescription(
+        key="immersion_power",
+        translation_key="immersion_power",
+        name="Immersion Heater Power",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: round(d.immersion_load_w, 1),
+    ),
+    GivEnergyManagerSensorDescription(
         key="grid_power",
         translation_key="grid_power",
         name="Grid Power",
