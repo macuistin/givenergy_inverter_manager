@@ -170,3 +170,43 @@ class TestGridPowerMetadata:
 
     def test_state_class_is_measurement(self):
         assert "MEASUREMENT" in _sensor_kwarg("grid_power", "state_class").upper()
+
+
+class TestImmersionPowerMetadata:
+    """immersion_power must be a watts sensor reading data.immersion_load_w."""
+
+    def test_unit_is_watt(self):
+        unit = _sensor_kwarg("immersion_power", "native_unit_of_measurement")
+        assert unit is not None, "native_unit_of_measurement not set on immersion_power"
+        assert "WATT" in unit.upper() or unit == "W"
+
+    def test_device_class_is_power(self):
+        dc = _sensor_kwarg("immersion_power", "device_class")
+        assert dc is not None and "POWER" in dc.upper()
+
+    def test_state_class_is_measurement(self):
+        sc = _sensor_kwarg("immersion_power", "state_class")
+        assert sc is not None and "MEASUREMENT" in sc.upper()
+
+    def test_value_fn_uses_immersion_load_w(self):
+        src = _value_fn_source("immersion_power")
+        assert src is not None
+        assert "immersion_load_w" in src, (
+            f"value_fn for immersion_power should read d.immersion_load_w, got: {src!r}"
+        )
+
+    def test_lambda_on_when_running(self):
+        from unittest.mock import MagicMock
+
+        fn = eval(_value_fn_source("immersion_power").rstrip(","))  # noqa: S307
+        d = MagicMock()
+        d.immersion_load_w = 3000.0
+        assert fn(d) == pytest.approx(3000.0)
+
+    def test_lambda_off_is_zero(self):
+        from unittest.mock import MagicMock
+
+        fn = eval(_value_fn_source("immersion_power").rstrip(","))  # noqa: S307
+        d = MagicMock()
+        d.immersion_load_w = 0.0
+        assert fn(d) == pytest.approx(0.0)

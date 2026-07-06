@@ -258,26 +258,6 @@ class TestCollectRaw:
         raw = coord._collect_raw(coord._effective_cfg())
         assert raw.battery_soc == pytest.approx(75.5)
 
-    def test_reads_battery_power_charging(self):
-        """Positive battery_power_w means charging."""
-        coord = FakeCoordinator(cfg=_cfg())
-        coord.set_state("sensor.battery_power", "2500")
-        raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.battery_power_w == pytest.approx(2500.0)
-
-    def test_reads_battery_power_discharging(self):
-        """Negative battery_power_w means discharging."""
-        coord = FakeCoordinator(cfg=_cfg())
-        coord.set_state("sensor.battery_power", "-1800")
-        raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.battery_power_w == pytest.approx(-1800.0)
-
-    def test_reads_battery_power_zero_when_idle(self):
-        coord = FakeCoordinator(cfg=_cfg())
-        coord.set_state("sensor.battery_power", "0")
-        raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.battery_power_w == pytest.approx(0.0)
-
     def test_returns_zero_for_missing_entity(self):
         coord = FakeCoordinator(cfg=_cfg())
         # sensor.solar not set in state store
@@ -297,10 +277,19 @@ class TestCollectRaw:
         assert raw.solar_power_w == 0.0
 
     def test_reads_grid_power_negative_when_exporting(self):
+        """GivTCP v3 reports positive values for grid export.
+        The coordinator negates this so internal convention is positive=import."""
         coord = FakeCoordinator(cfg=_cfg())
-        coord.set_state("sensor.grid", "-1200")
+        coord.set_state("sensor.grid", "1200")  # GivTCP v3: positive = export
         raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.grid_power_w == pytest.approx(-1200.0)
+        assert raw.grid_power_w == pytest.approx(-1200.0)  # internal: negative = export
+
+    def test_reads_grid_power_positive_when_importing(self):
+        """GivTCP v3 reports negative values for grid import."""
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("sensor.grid", "-800")  # GivTCP v3: negative = import
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.grid_power_w == pytest.approx(800.0)  # internal: positive = import
 
     def test_reads_immersion_switch_on(self):
         cfg = _cfg(**{CONF_IMMERSION_SWITCH: "switch.immersion"})

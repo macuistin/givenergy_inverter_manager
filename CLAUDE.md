@@ -44,14 +44,19 @@ and causes entities to go unavailable after an options save.
 GivTCP publishes sensor data with these sign conventions:
 
 | Sensor | Positive | Negative |
-|---|---|---|
-| `grid_power` | import from grid | export to grid |
-| `battery_power` | charging | discharging |
+| --- | --- | --- |
+| `grid_power` | **export** to grid | import from grid |
+| `battery_power` | charging (verify per model) | discharging |
 | `solar_power` | always positive | n/a |
 
-These match the internal `RawReading` dataclass conventions. **Do not negate grid_power
-when reading it from GivTCP.** The test `test_reads_grid_power_negative_when_exporting`
-confirms this.
+**GivTCP v3 uses positive=export for grid power.** The coordinator negates this on read
+so that `RawReading.grid_power_w` follows the HA/internal convention (positive=import).
+The test `test_reads_grid_power_negative_when_exporting` passes "+1200" from GivTCP
+and asserts raw value is -1200 (after negation).
+
+Without the negation, the engine accumulates all grid exports as imports, inflating
+import costs and causing the power-flow-card-plus to show 9x the expected home load
+(solar + "import" instead of solar - export).
 
 The `house_load_w` sensor is read directly from GivTCP's load measurement, not
 calculated. It only reflects the inverter-side load, not total mains consumption —
