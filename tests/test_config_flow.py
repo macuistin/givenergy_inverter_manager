@@ -126,9 +126,9 @@ class TestTariffSchemaConstruction:
         assert isinstance(schema, vol.Schema)
 
     def test_tariff_schema_accepts_valid_defaults(self, real_ha_selector, real_vol):
-        """Schema must accept a dict of all default values without raising."""
+        """Schema must accept a dict including rate period sections without raising."""
         from custom_components.givenergy_inverter_manager.config_flow import (
-            _rate_periods_to_text,
+            _periods_to_slot_defaults,
         )
         from custom_components.givenergy_inverter_manager.const import (
             DEFAULT_BASE_RATE,
@@ -146,10 +146,10 @@ class TestTariffSchemaConstruction:
         flow_class = _get_flow_class(real_ha_selector, real_vol)
         schema = flow_class._build_tariff_schema()
 
+        slots = _periods_to_slot_defaults(DEFAULT_RATE_PERIODS)
         valid_data = {
             "base_rate": DEFAULT_BASE_RATE,
             "base_rate_name": DEFAULT_BASE_RATE_NAME,
-            "rate_periods_text": _rate_periods_to_text(DEFAULT_RATE_PERIODS),
             "export_rate": DEFAULT_EXPORT_RATE,
             "standing_charge_per_day": DEFAULT_STANDING_CHARGE,
             "pso_levy_per_month": DEFAULT_PSO_LEVY,
@@ -157,6 +157,8 @@ class TestTariffSchemaConstruction:
             "discount_rate": DEFAULT_DISCOUNT_RATE,
             "bill_start_day": DEFAULT_BILL_START_DAY,
             "currency": DEFAULT_CURRENCY,
+            "rate_period_1": slots[0],
+            "rate_period_2": slots[1],
         }
         # Should not raise
         result = schema(valid_data)
@@ -333,9 +335,6 @@ class TestOptionsFlowSections:
         """Submitting the sections form should save all nested data and create entry."""
         import asyncio
 
-        from custom_components.givenergy_inverter_manager.config_flow import (
-            _rate_periods_to_text,
-        )
         from custom_components.givenergy_inverter_manager.const import (
             CONF_BASE_RATE,
             CONF_BATTERY_MIN_SOC,
@@ -347,7 +346,6 @@ class TestOptionsFlowSections:
             DEFAULT_EXPORT_RATE,
             DEFAULT_OVERNIGHT_CHARGE_TARGET,
             DEFAULT_PSO_LEVY,
-            DEFAULT_RATE_PERIODS,
             DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
             DEFAULT_STANDING_CHARGE,
             DEFAULT_VAT_RATE,
@@ -359,7 +357,6 @@ class TestOptionsFlowSections:
             "tariff_settings": {
                 CONF_BASE_RATE: 0.35,
                 "base_rate_name": DEFAULT_BASE_RATE_NAME,
-                "rate_periods_text": _rate_periods_to_text(DEFAULT_RATE_PERIODS),
                 "export_rate": DEFAULT_EXPORT_RATE,
                 "standing_charge_per_day": DEFAULT_STANDING_CHARGE,
                 "pso_levy_per_month": DEFAULT_PSO_LEVY,
@@ -367,6 +364,18 @@ class TestOptionsFlowSections:
                 "discount_rate": DEFAULT_DISCOUNT_RATE,
                 "bill_start_day": DEFAULT_BILL_START_DAY,
                 "currency": DEFAULT_CURRENCY,
+            },
+            "rate_period_1": {
+                "name": "Night",
+                "rate": 0.1644,
+                "start": "23:00:00",
+                "end": "08:00:00",
+            },
+            "rate_period_2": {
+                "name": "Nightboost",
+                "rate": 0.0965,
+                "start": "02:00:00",
+                "end": "04:00:00",
             },
             "threshold_settings": {
                 CONF_BATTERY_MIN_SOC: 10,
