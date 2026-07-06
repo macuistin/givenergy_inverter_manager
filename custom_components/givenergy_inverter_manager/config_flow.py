@@ -241,9 +241,6 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
 
     async def _handle_fully_configured_inverter(self, inverter, user_input):
         """Handle fully configured inverter selection."""
-        _LOGGER.error(
-            "GIVENERGY_DEBUG: _handle_fully_configured_inverter start, serial=%s", inverter.serial
-        )
         for disc_key, conf_key in _DISCOVERY_TO_CONF.items():
             if disc_key in inverter.entities:
                 self._data[conf_key] = inverter.entities[disc_key]
@@ -257,13 +254,8 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             user_input.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)
         )
         self._data[CONF_INVERTER_SERIAL] = inverter.serial
-        _LOGGER.error("GIVENERGY_DEBUG: about to call async_set_unique_id")
         await self.async_set_unique_id(inverter.serial)
-        _LOGGER.error(
-            "GIVENERGY_DEBUG: async_set_unique_id done, about to call _abort_if_unique_id_configured"
-        )
         self._abort_if_unique_id_configured()
-        _LOGGER.error("GIVENERGY_DEBUG: _abort check passed, about to call async_step_tariff")
         return await self.async_step_tariff()
 
     def _handle_partial_inverter(self, inverter, user_input):
