@@ -22,9 +22,8 @@
       },
       "tariff": {
         "title": "Electricity Tariff",
-        "description": "{scheduling_status}\n\n{scheduling_detail}\n\n**Base Rate** is your standard daytime rate — it applies whenever no timed override is active.\n\n**Timed overrides** apply only during their window and take priority over the base rate. The cheapest active override wins (so Nightboost automatically overrides Night during 02:00–04:00).\n\nExample overrides (one per line):\n  Night, 0.1644, 23:00, 08:00\n  Nightboost, 0.0965, 02:00, 04:00",
+        "description": "{scheduling_status}\n\n{scheduling_detail}\n\n**Base Rate** is your standard daytime rate \u2014 it applies whenever no timed override is active.\n\n**Timed overrides** apply only during their window and take priority over the base rate. The cheapest active override wins (so Nightboost automatically overrides Night during 02:00\u201304:00).\n\nExample overrides (one per line):\n  Night, 0.1644, 23:00, 08:00\n  Nightboost, 0.0965, 02:00, 04:00",
         "data": {
-          "rate_periods_text": "Timed overrides (one per line: Name, rate, HH:MM, HH:MM)",
           "export_rate": "Export / CEG rate",
           "standing_charge_per_day": "Standing charge per day",
           "pso_levy_per_month": "PSO levy per month",
@@ -34,6 +33,79 @@
           "currency": "Currency",
           "base_rate": "Base rate (daytime / standard)",
           "base_rate_name": "Base rate name (e.g. Day)"
+        },
+        "data_description": {},
+        "sections": {
+          "rate_period_1": {
+            "name": "Rate period 1",
+            "description": "Leave name empty to skip this slot.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Window start",
+              "end": "Window end"
+            },
+            "data_description": {
+              "start": "When this rate window begins (e.g. 23:00)",
+              "end": "When this rate window ends (e.g. 08:00)"
+            }
+          },
+          "rate_period_2": {
+            "name": "Rate period 2",
+            "description": "Leave name empty to skip this slot.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Window start",
+              "end": "Window end"
+            },
+            "data_description": {
+              "start": "When this rate window begins (e.g. 23:00)",
+              "end": "When this rate window ends (e.g. 08:00)"
+            }
+          },
+          "rate_period_3": {
+            "name": "Rate period 3",
+            "description": "Leave name empty to skip this slot.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Window start",
+              "end": "Window end"
+            },
+            "data_description": {
+              "start": "When this rate window begins (e.g. 23:00)",
+              "end": "When this rate window ends (e.g. 08:00)"
+            }
+          },
+          "rate_period_4": {
+            "name": "Rate period 4",
+            "description": "Leave name empty to skip this slot.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Window start",
+              "end": "Window end"
+            },
+            "data_description": {
+              "start": "When this rate window begins (e.g. 23:00)",
+              "end": "When this rate window ends (e.g. 08:00)"
+            }
+          },
+          "rate_period_5": {
+            "name": "Rate period 5",
+            "description": "Leave name empty to skip this slot.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Window start",
+              "end": "Window end"
+            },
+            "data_description": {
+              "start": "When this rate window begins (e.g. 23:00)",
+              "end": "When this rate window ends (e.g. 08:00)"
+            }
+          }
         }
       },
       "forecast": {
@@ -51,8 +123,8 @@
           "immersion_switch_entity": "Immersion switch",
           "immersion_wattage_w": "Element wattage (W)",
           "immersion_temp_sensor_entity": "Water temperature sensor (optional)",
-          "immersion_target_temp_c": "Target temperature (°C)",
-          "immersion_min_temp_c": "Minimum temperature (°C)"
+          "immersion_target_temp_c": "Target temperature (\u00b0C)",
+          "immersion_min_temp_c": "Minimum temperature (\u00b0C)"
         }
       },
       "ev": {
@@ -99,7 +171,6 @@
             "data": {
               "base_rate": "Base rate",
               "base_rate_name": "Base rate name",
-              "rate_periods_text": "Timed rate overrides",
               "export_rate": "Export / CEG rate",
               "standing_charge_per_day": "Standing charge (per day)",
               "pso_levy_per_month": "PSO levy (per month)",
@@ -108,9 +179,7 @@
               "bill_start_day": "Bill start day of month",
               "currency": "Currency"
             },
-            "data_description": {
-              "rate_periods_text": "One timed rate per line: Name, rate, HH:MM, HH:MM. Example: Nightboost, 0.1, 02:00, 04:00"
-            }
+            "data_description": {}
           },
           "threshold_settings": {
             "name": "Battery & charging thresholds",
@@ -134,6 +203,76 @@
             "data": {
               "forecast_provider": "Forecast provider",
               "forecast_entity": "Tomorrow's forecast sensor"
+            }
+          },
+          "rate_period_1": {
+            "name": "Rate period 1",
+            "description": "Leave name empty to skip this slot.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Window start",
+              "end": "Window end"
+            },
+            "data_description": {
+              "start": "When this rate window begins (e.g. 23:00)",
+              "end": "When this rate window ends (e.g. 08:00)"
+            }
+          },
+          "rate_period_2": {
+            "name": "Rate period 2",
+            "description": "Leave name empty to skip this slot.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Window start",
+              "end": "Window end"
+            },
+            "data_description": {
+              "start": "When this rate window begins (e.g. 23:00)",
+              "end": "When this rate window ends (e.g. 08:00)"
+            }
+          },
+          "rate_period_3": {
+            "name": "Rate period 3",
+            "description": "Leave name empty to skip this slot.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Window start",
+              "end": "Window end"
+            },
+            "data_description": {
+              "start": "When this rate window begins (e.g. 23:00)",
+              "end": "When this rate window ends (e.g. 08:00)"
+            }
+          },
+          "rate_period_4": {
+            "name": "Rate period 4",
+            "description": "Leave name empty to skip this slot.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Window start",
+              "end": "Window end"
+            },
+            "data_description": {
+              "start": "When this rate window begins (e.g. 23:00)",
+              "end": "When this rate window ends (e.g. 08:00)"
+            }
+          },
+          "rate_period_5": {
+            "name": "Rate period 5",
+            "description": "Leave name empty to skip this slot.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Window start",
+              "end": "Window end"
+            },
+            "data_description": {
+              "start": "When this rate window begins (e.g. 23:00)",
+              "end": "When this rate window ends (e.g. 08:00)"
             }
           }
         }

@@ -128,7 +128,7 @@ class TestTariffSchemaConstruction:
     def test_tariff_schema_accepts_valid_defaults(self, real_ha_selector, real_vol):
         """Schema must accept a dict of all default values without raising."""
         from custom_components.givenergy_inverter_manager.config_flow import (
-            _rate_periods_to_text,
+            _periods_to_slot_defaults,
         )
         from custom_components.givenergy_inverter_manager.const import (
             DEFAULT_BASE_RATE,
@@ -146,10 +146,10 @@ class TestTariffSchemaConstruction:
         flow_class = _get_flow_class(real_ha_selector, real_vol)
         schema = flow_class._build_tariff_schema()
 
+        slots = _periods_to_slot_defaults(DEFAULT_RATE_PERIODS)
         valid_data = {
             "base_rate": DEFAULT_BASE_RATE,
             "base_rate_name": DEFAULT_BASE_RATE_NAME,
-            "rate_periods_text": _rate_periods_to_text(DEFAULT_RATE_PERIODS),
             "export_rate": DEFAULT_EXPORT_RATE,
             "standing_charge_per_day": DEFAULT_STANDING_CHARGE,
             "pso_levy_per_month": DEFAULT_PSO_LEVY,
@@ -157,6 +157,8 @@ class TestTariffSchemaConstruction:
             "discount_rate": DEFAULT_DISCOUNT_RATE,
             "bill_start_day": DEFAULT_BILL_START_DAY,
             "currency": DEFAULT_CURRENCY,
+            "rate_period_1": slots[0],
+            "rate_period_2": slots[1],
         }
         # Should not raise
         result = schema(valid_data)
