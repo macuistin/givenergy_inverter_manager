@@ -729,3 +729,166 @@ class TestFlatRateTariff:
         # already returned early so the listener was never registered.
         # Confirm _register_charge_target_listener ran without error:
         coord._register_charge_target_listener()  # should not raise
+
+
+class TestInvertedRateTariff:
+    """When base rate is cheaper than all timed periods, the old get_cheapest_rate()
+    returned the synthetic base-rate period (start=00:00, end=00:00) producing a
+    zero-length charge window. The fix uses min(tariff.rate_periods) directly."""
+
+    def _tariff_with_cheap_base(self):
+        """Base rate 0.05 EUR/kWh, Night rate 0.20 — base is cheaper (unusual)."""
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_BASE_RATE,
+            CONF_BASE_RATE_NAME,
+            CONF_BILL_START_DAY,
+            CONF_CURRENCY,
+            CONF_DISCOUNT_RATE,
+            CONF_EXPORT_RATE,
+            CONF_PSO_LEVY,
+            CONF_RATE_PERIODS,
+            CONF_STANDING_CHARGE,
+            CONF_VAT_RATE,
+        )
+        from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
+
+        cfg = {
+            CONF_BASE_RATE: 0.05,
+            CONF_BASE_RATE_NAME: "Day",
+            CONF_RATE_PERIODS: [{"name": "Night", "rate": 0.20, "start": "23:00", "end": "08:00"}],
+            CONF_EXPORT_RATE: 0.10,
+            CONF_STANDING_CHARGE: 0.50,
+            CONF_PSO_LEVY: 3.0,
+            CONF_VAT_RATE: 9.0,
+            CONF_DISCOUNT_RATE: 0.0,
+            CONF_BILL_START_DAY: 1,
+            CONF_CURRENCY: "EUR",
+        }
+        return build_tariff(cfg)
+
+    def test_old_get_cheapest_rate_would_return_zero_window(self):
+        """Confirm the old code's failure mode: get_cheapest_rate() includes the
+        synthetic base-rate period which has start=end=00:00."""
+        from datetime import time
+
+        tariff = self._tariff_with_cheap_base()
+        cheapest = tariff.get_cheapest_rate()
+        # Base rate (0.05) is cheaper than Night (0.20), so old code returns synthetic
+        assert cheapest.rate == pytest.approx(0.05)
+        assert cheapest.start == time(0, 0)
+        assert cheapest.end == time(0, 0), (
+            "Synthetic base-rate period has zero-length window — this is what "
+            "the old code would write to GivTCP, preventing any overnight charging."
+        )
+
+    def test_new_code_uses_timed_period_with_real_window(self):
+        """New code: min(tariff.rate_periods) only considers timed periods."""
+        from datetime import time
+
+        tariff = self._tariff_with_cheap_base()
+        cheap = min(tariff.rate_periods, key=lambda p: p.rate)
+        assert cheap.name == "Night"
+        assert cheap.start != cheap.end, (
+            "Timed periods must have a real window. "
+            "If start == end, the charge window sent to GivTCP would be zero-length."
+        )
+        assert cheap.start == time(23, 0)
+        assert cheap.end == time(8, 0)
+
+    def test_empty_rate_periods_returns_early(self):
+        """Coordinator must return early with a warning when no timed periods are
+        configured, rather than crashing or writing a zero-window."""
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/coordinator.py"
+        ).read_text()
+        guard_idx = src.index("if not tariff.rate_periods:")
+        min_idx = src.index("min(tariff.rate_periods, key=lambda p: p.rate)")
+        assert guard_idx < min_idx, "Empty list guard must appear before the min() call"
+
+
+class TestAccumulationLoadOnStartup:
+    """async_load() must be called before async_config_entry_first_refresh."""
+
+    def test_async_load_called_in_setup(self):
+        import ast
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/__init__.py"
+        ).read_text()
+        full_src = ast.unparse(ast.parse(src))
+        assert "coordinator._acc.async_load()" in full_src, (
+            "async_load() must be called in async_setup_entry — without it "
+            "all energy data resets to zero on every HA restart."
+        )
+
+    def test_async_load_before_first_refresh(self):
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/__init__.py"
+        ).read_text()
+        assert src.index("async_load()") < src.index("async_config_entry_first_refresh()"), (
+            "async_load() must come before async_config_entry_first_refresh()."
+        )
+
+
+class TestWeekMonthAccumulation:
+    """Week and month accumulators must be updated each cycle."""
+
+    def test_no_dead_accumulator_functions_in_engine(self):
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/core/engine.py"
+        ).read_text()
+        for dead_fn in (
+            "_set_accumulators",
+            "_apply_charge_decision_overrides",
+            "_set_ev_charger_data",
+        ):
+            assert f"def {dead_fn}(" not in src, f"{dead_fn} is dead code and must be deleted"
+
+    def test_accumulate_energy_loop_covers_week_and_month(self):
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/core/engine.py"
+        ).read_text()
+        assert "for rolling_acc in (acc, acc_week, acc_month)" in src, (
+            "accumulate_energy must be called for week and month accumulators each cycle."
+        )
+
+
+class TestCheapestRateWindow:
+    """Charge window must come from timed rate_periods only, never the synthetic base period."""
+
+    def test_no_get_cheapest_rate_in_coordinator(self):
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/coordinator.py"
+        ).read_text()
+        assert "get_cheapest_rate()" not in src, (
+            "Use min(tariff.rate_periods, ...) — get_cheapest_rate() can return "
+            "the synthetic base-rate period with a zero-length window."
+        )
+
+    def test_empty_rate_periods_guarded(self):
+        from pathlib import Path
+
+        src = (
+            Path(__file__).parent.parent
+            / "custom_components/givenergy_inverter_manager/coordinator.py"
+        ).read_text()
+        assert "if not tariff.rate_periods:" in src, (
+            "Must guard against empty rate_periods before computing cheapest window."
+        )

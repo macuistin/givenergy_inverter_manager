@@ -418,7 +418,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         target_soc = decision.target_soc
         tariff = build_tariff(cfg)
-        cheap = tariff.get_cheapest_rate()
+        if not tariff.rate_periods:
+            _LOG.warning(
+                "No timed rate periods configured — cannot determine charge window. "
+                "Add at least one rate period (e.g. Night) in Settings → Configure."
+            )
+            return
+        cheap = min(tariff.rate_periods, key=lambda p: p.rate)
 
         if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
             action = (

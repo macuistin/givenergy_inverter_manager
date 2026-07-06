@@ -222,3 +222,140 @@ class TestSerialisationRoundtrip:
         assert restored.today.import_kwh_cheap == 0.0  # new field, defaults to 0
         assert restored.today_forecast_kwh == 0.0
         assert restored.forecast_accuracy_history == []
+
+
+# ── Persistence round-trip ────────────────────────────────────────────────────
+
+
+class TestPersistence:
+    """AccumulationStore must restore exactly what was saved.
+    Previously async_load() was never called, so this path was completely untested."""
+
+    def _make_store(self, saved_data_holder):
+        """Return an AccumulationStore whose _store is replaced with a mock."""
+        import sys
+        import types
+        from unittest.mock import AsyncMock, MagicMock
+
+        # Ensure homeassistant.helpers.storage is in sys.modules (lazy import in __init__)
+        if "homeassistant.helpers.storage" not in sys.modules:
+            storage_mod = types.ModuleType("homeassistant.helpers.storage")
+            storage_mod.Store = MagicMock
+            sys.modules["homeassistant.helpers.storage"] = storage_mod
+            sys.modules["homeassistant.helpers"].storage = storage_mod
+
+        mock_ha_store = MagicMock()
+        mock_ha_store.async_save = AsyncMock(
+            side_effect=lambda d: saved_data_holder.__setitem__("data", d)
+        )
+        mock_ha_store.async_load = AsyncMock(side_effect=lambda: saved_data_holder.get("data"))
+        # Replace Store class so AccumulationStore.__init__ gets our mock
+        sys.modules["homeassistant.helpers.storage"].Store = MagicMock(return_value=mock_ha_store)
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        store = AccumulationStore(MagicMock(), bill_start_day=1)
+        # Ensure our mock is used (in case __init__ already ran with a different mock)
+        store._store = mock_ha_store
+        return store
+
+    def test_save_then_load_restores_solar_kwh(self):
+        import asyncio
+
+        shared = {}
+        store = self._make_store(shared)
+        store.state.today.solar_kwh = 12.5
+        store.state.week.solar_kwh = 55.3
+        store.state.month.import_kwh = 88.1
+        asyncio.run(store.async_save())
+
+        store2 = self._make_store(shared)
+        asyncio.run(store2.async_load())
+
+        assert store2.today.solar_kwh == pytest.approx(12.5)
+        assert store2.week.solar_kwh == pytest.approx(55.3)
+        assert store2.month.import_kwh == pytest.approx(88.1)
+
+    def test_load_with_no_stored_data_starts_fresh(self):
+        """async_load with no saved data must not raise and must start at zero."""
+        import asyncio
+
+        store = self._make_store({})
+        asyncio.run(store.async_load())
+
+        assert store.today.solar_kwh == pytest.approx(0.0)
+        assert store.week.solar_kwh == pytest.approx(0.0)
+
+    def test_load_with_corrupt_data_starts_fresh(self):
+        """Corrupt stored data must not crash — falls back to zero state."""
+        import asyncio
+
+        store = self._make_store({"data": {"totally": "wrong", "schema": True}})
+        asyncio.run(store.async_load())
+
+        assert store.today.solar_kwh == pytest.approx(0.0)
+
+
+# ── Week / month actually accumulate ─────────────────────────────────────────
+
+
+class TestWeekMonthFunctional:
+    """Verify accumulate_energy actually increments week and month accumulators.
+    This was broken: the engine only called accumulate_energy on acc (today)."""
+
+    def _run_accumulation(self, acc, grid_w=-500.0, solar_w=1000.0, elapsed_h=1 / 120):
+        """Call accumulate_energy on a given accumulator and return it."""
+        from datetime import datetime, timezone
+
+        from custom_components.givenergy_inverter_manager.core.engine import (
+            RawSensorValues,
+            accumulate_energy,
+        )
+        from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
+        from tests.conftest import _nightboost_cfg
+
+        cfg = _nightboost_cfg()
+        tariff = build_tariff(cfg)
+        raw = RawSensorValues()
+        raw.solar_power_w = solar_w
+        raw.grid_power_w = abs(grid_w)  # positive = importing
+        raw.house_load_w = 500.0
+        raw.battery_power_w = 0.0
+        raw.battery_soc = 80.0
+        raw.immersion_on = False
+        raw.immersion_wattage_w = 0.0
+        raw.ev_power_w = 0.0
+
+        now = datetime(2024, 7, 10, 14, 0, tzinfo=timezone.utc)
+        last = datetime(2024, 7, 10, 13, 59, 30, tzinfo=timezone.utc)
+        accumulate_energy(acc, raw, tariff, "Day", now, last)
+        return acc
+
+    def test_week_import_grows_after_accumulation(self):
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
+        acc_week = EnergyAccumulator()
+        self._run_accumulation(acc_week, grid_w=-500.0)
+        assert acc_week.import_kwh > 0, (
+            "acc_week.import_kwh should be > 0 after accumulate_energy. "
+            "If 0, the week accumulator is not being updated each cycle."
+        )
+
+    def test_month_solar_grows_after_accumulation(self):
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
+        acc_month = EnergyAccumulator()
+        self._run_accumulation(acc_month, solar_w=2000.0, grid_w=0.0)
+        assert acc_month.solar_kwh > 0, "acc_month.solar_kwh should be > 0 after accumulate_energy."
+
+    def test_today_week_month_all_accumulate_together(self):
+        """All three accumulators should grow by the same amount in one cycle."""
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
+        accs = [EnergyAccumulator() for _ in range(3)]
+        for acc in accs:
+            self._run_accumulation(acc, solar_w=1000.0, grid_w=-200.0)
+        solar_values = [a.solar_kwh for a in accs]
+        assert len({round(v, 6) for v in solar_values}) == 1, (
+            "today, week, and month should accumulate identically in one cycle"
+        )

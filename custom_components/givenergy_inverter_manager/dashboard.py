@@ -56,6 +56,27 @@ def _entity_id(hass: HomeAssistant, entry_id: str, unique_id_suffix: str) -> str
     return entry or f"sensor.givenergy_inverter_manager_{unique_id_suffix}"
 
 
+_EV_CHARGER_CANDIDATES = [
+    "sensor.myenergi_zappi_power_ct_internal_load",
+    "sensor.myenergi_zappi_power_ct_internal_load_2",
+    "sensor.myenergi_zappi2_power_ct_internal_load",
+    "sensor.wallbox_charging_power",
+    "sensor.ohme_current_power",
+]
+
+
+def _find_ev_charger_power(hass: HomeAssistant, integration_ev_power: str) -> str:
+    """Return the best available EV charger power entity.
+
+    Checks known external EV charger integrations first since these report power
+    directly. Falls back to the integration's own sensor if none are found.
+    """
+    for candidate in _EV_CHARGER_CANDIDATES:
+        if hass.states.get(candidate) is not None:
+            return candidate
+    return integration_ev_power
+
+
 def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     """
     Build complete Lovelace YAML for all four views.
@@ -102,7 +123,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     survival_reason = e("night_survival_reason")
     is_clipping = e("is_clipping")
     ev_state = e("ev_charger_state")
-    ev_power = e("ev_power")
+    ev_power = _find_ev_charger_power(hass, e("ev_power"))
     ev_session = e("ev_session_energy")
     ev_draining = e("ev_draining_battery")
     ev_protection_reason = e("ev_protection_reason")
@@ -147,11 +168,9 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     display_zero_tolerance: 10
                   grid:
                     entity: {grid_power}
-                    # GivTCP positive=export; invert so card treats positive=import
-                    invert_state: true
                   home:
                     entity: {house_load}
-                individual_devices:
+                  individual:
                   - entity: {ev_power}
                     name: EV Charger
                     icon: mdi:car-electric
