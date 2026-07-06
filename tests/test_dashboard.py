@@ -97,6 +97,7 @@ class TestBuildDashboardYaml:
             "battery_remaining_life",
             "dry_run_active",
             "dry_run_last_skipped",
+            "battery_power",
         ]
         for suffix in required:
             assert suffix in result, (
@@ -137,6 +138,24 @@ class TestBuildDashboardYaml:
         """Power Flow view must include the power-flow-card-plus card type."""
         result = _build()
         assert "power-flow-card-plus" in result
+
+    def test_power_flow_card_uses_battery_power_not_soc(self):
+        """Power flow card battery entity must be battery_power (watts), not battery_soc.
+        Using SoC for the entity field gives the card a % value instead of watts,
+        distorting all flow calculations."""
+        result = _build()
+        parsed = yaml.safe_load(result)
+        pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
+        pf_card = next(c for c in pf_view["cards"] if "power-flow-card-plus" in c.get("type", ""))
+        battery_entity = pf_card["entities"]["battery"]["entity"]
+        assert "battery_power" in battery_entity, (
+            f"Power flow card battery entity should be battery_power, got {battery_entity!r}. "
+            "Using battery_soc gives the card a % value instead of watts."
+        )
+        soc_entity = pf_card["entities"]["battery"]["state_of_charge"]
+        assert "battery_soc" in soc_entity or "state_of_charge" in soc_entity, (
+            f"state_of_charge field should reference battery SoC, got {soc_entity!r}"
+        )
 
     def test_no_template_placeholders_remain(self):
         """No unfilled {} placeholders should remain (f-string interpolation complete)."""

@@ -258,6 +258,26 @@ class TestCollectRaw:
         raw = coord._collect_raw(coord._effective_cfg())
         assert raw.battery_soc == pytest.approx(75.5)
 
+    def test_reads_battery_power_charging(self):
+        """Positive battery_power_w means charging."""
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("sensor.battery_power", "2500")
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.battery_power_w == pytest.approx(2500.0)
+
+    def test_reads_battery_power_discharging(self):
+        """Negative battery_power_w means discharging."""
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("sensor.battery_power", "-1800")
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.battery_power_w == pytest.approx(-1800.0)
+
+    def test_reads_battery_power_zero_when_idle(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("sensor.battery_power", "0")
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.battery_power_w == pytest.approx(0.0)
+
     def test_returns_zero_for_missing_entity(self):
         coord = FakeCoordinator(cfg=_cfg())
         # sensor.solar not set in state store
