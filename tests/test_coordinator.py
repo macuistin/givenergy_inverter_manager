@@ -859,3 +859,99 @@ class TestInvertedRateTariff:
         guard_idx = src.index("if not tariff.rate_periods:")
         min_idx = src.index("min(tariff.rate_periods, key=lambda p: p.rate)")
         assert guard_idx < min_idx, "Empty list guard must appear before the min() call"
+
+
+class TestTimezoneHandling:
+    """Rate periods must be evaluated against local time, not UTC.
+    In summer (Ireland GMT+1), a 23:00 Night rate must activate at
+    local 23:00, not at UTC 23:00 (which is local midnight)."""
+
+    def test_night_rate_activates_at_local_time_not_utc(self):
+        from datetime import timezone
+        from zoneinfo import ZoneInfo
+
+        from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
+
+        tariff = build_tariff(_nightboost_cfg())
+        ireland = ZoneInfo("Europe/Dublin")
+        local_2330 = datetime(2024, 7, 10, 23, 30, 0, tzinfo=ireland)
+        utc_2230 = local_2330.astimezone(timezone.utc)
+
+        assert tariff.get_current_rate(local_2330).rate < tariff.base_rate, (
+            "Night rate must be active at local 23:30 — coordinator must pass local time, not UTC."
+        )
+        assert tariff.get_current_rate(utc_2230).rate == pytest.approx(tariff.base_rate), (
+            "UTC 22:30 should still be the Day rate — proves the distinction matters."
+        )
+
+    def test_coordinator_uses_local_time(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        assert "dt_util.as_local(datetime.now" in src, (
+            "coordinator must use dt_util.as_local() — without this, rate periods "
+            "activate 1h late in summer (Ireland GMT+1)."
+        )
+
+    def test_midnight_reset_uses_local_midnight(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        assert "dt_util.as_local(now).replace(hour=0" in src, (
+            "_midnight_reset must use as_local — without this, daily accumulators "
+            "reset at UTC midnight (01:00 local in summer)."
+        )
+
+
+class TestImmersionNumberGuards:
+    """Cross-entity guards prevent min >= target (which causes short-cycling)
+    and entry.data persistence ensures correct values survive HA restart."""
+
+    def test_target_clamped_above_min(self):
+        """Setting target below (min + 1) must clamp it up."""
+        import asyncio
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.number import ImmersionTargetTempNumber
+
+        coord = MagicMock()
+        coord.immersion_min_temp = 50.0
+        coord.entry.entry_id = "test"
+        coord.entry.data = {}
+        entity = ImmersionTargetTempNumber.__new__(ImmersionTargetTempNumber)
+        entity.coordinator = coord
+        entity._value = 55.0
+
+        asyncio.run(entity._apply(48.0))  # below min + 1 = 51°C
+        assert entity._value >= coord.immersion_min_temp + 1, (
+            "Target must be at least 1°C above min to prevent short-cycling."
+        )
+
+    def test_min_clamped_below_target(self):
+        """Setting min above (target - 1) must clamp it down."""
+        import asyncio
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.number import ImmersionMinTempNumber
+
+        coord = MagicMock()
+        coord.immersion_target_temp = 55.0
+        entity = ImmersionMinTempNumber.__new__(ImmersionMinTempNumber)
+        entity.coordinator = coord
+        entity._value = 50.0
+
+        asyncio.run(entity._apply(58.0))  # above target - 1 = 54°C
+        assert entity._value <= coord.immersion_target_temp - 1, (
+            "Min must be at least 1°C below target to prevent short-cycling."
+        )
+
+    def test_persist_writes_to_entry_data(self):
+        """_persist must call async_update_entry so values survive HA restart."""
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/number.py").read_text()
+        assert "async_update_entry" in src, (
+            "Number entities must persist values to entry.data via async_update_entry. "
+            "Without this, coordinator reads stale config defaults on the first cycle "
+            "after a restart (entity state restored after first coordinator update)."
+        )
