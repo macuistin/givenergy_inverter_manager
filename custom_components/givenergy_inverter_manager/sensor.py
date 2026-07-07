@@ -955,9 +955,12 @@ class GivEnergyManagerSensor(CoordinatorEntity[GivEnergyCoordinator], SensorEnti
             from datetime import datetime, timezone
 
             try:
-                return datetime.fromisoformat(coordinator.data.last_reset_time).replace(
-                    tzinfo=timezone.utc
-                )
+                dt = datetime.fromisoformat(coordinator.data.last_reset_time)
+                # Stored as local timezone since coordinator fix; old UTC values
+                # have no tzinfo so fall back to UTC for backwards compatibility.
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
             except (ValueError, AttributeError):
                 pass
         return None

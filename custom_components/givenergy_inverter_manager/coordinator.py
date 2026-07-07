@@ -39,11 +39,13 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
 from datetime import time as dtime
+from zoneinfo import ZoneInfo
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util import dt as dt_util
 
 from .accumulation import AccumulationStore
 from .const import (
@@ -336,6 +338,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         cfg = self._effective_cfg()
         try:
             tariff = build_tariff(cfg)
+            try:
+                tariff.local_tz = ZoneInfo(str(self.hass.config.time_zone))
+            except Exception:
+                tariff.local_tz = None  # falls back to UTC in tariff methods
             if not tariff.rate_periods:
                 _LOG.debug(
                     "No timed rate periods configured — skipping charge target "
@@ -369,7 +375,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     @callback
     def _midnight_reset(self, now: datetime) -> None:
-        midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        midnight = dt_util.as_local(now).replace(hour=0, minute=0, second=0, microsecond=0)
         self._last_reset_time = midnight.isoformat()
         self._acc.on_midnight(midnight)
         self.hass.async_create_task(self._acc.async_save())
@@ -418,6 +424,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         target_soc = decision.target_soc
         tariff = build_tariff(cfg)
+        tariff.local_tz = ZoneInfo(str(self.hass.config.time_zone))
         if not tariff.rate_periods:
             _LOG.warning(
                 "No timed rate periods configured — cannot determine charge window. "
@@ -607,7 +614,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
         # 4. Run the pure logic engine
-        now = datetime.now(timezone.utc)
+        now = dt_util.as_local(datetime.now(timezone.utc))
         data, ev_target_mode = build_coordinator_data(
             raw=raw,
             cfg=cfg,

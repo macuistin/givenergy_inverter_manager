@@ -465,20 +465,20 @@ class TestBuildCoordinatorData:
 
 
 class TestBuildCoordinatorDataNowDefault:
-    def test_now_defaults_to_current_time(self):
-        """When now=None, engine uses datetime.now(timezone.utc) without crashing."""
+    def test_now_is_required(self):
+        """now is a required keyword argument — callers must always supply local time."""
+        import pytest
+
         raw = _raw()
-        data, _ = build_coordinator_data(
-            raw=raw,
-            cfg=_nightboost_cfg(),
-            acc=EnergyAccumulator(),
-            battery_stats=BatteryStats(),
-            last_soc=None,
-            last_update_time=None,
-            now=None,  # explicitly None — triggers datetime.now(timezone.utc) fallback
-        )
-        assert isinstance(data, CoordinatorData)
-        assert data.current_rate > 0
+        with pytest.raises(TypeError, match="now"):
+            build_coordinator_data(
+                raw=raw,
+                cfg=_nightboost_cfg(),
+                acc=EnergyAccumulator(),
+                battery_stats=BatteryStats(),
+                last_soc=None,
+                last_update_time=None,
+            )
 
 
 class TestSkipChargeOverride:
