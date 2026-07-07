@@ -39,7 +39,6 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
 from datetime import time as dtime
-from zoneinfo import ZoneInfo
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -60,7 +59,10 @@ from .const import (
     CONF_FORECAST_ENTITY,
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
+    CONF_IMMERSION_HYSTERESIS,
+    CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_SWITCH,
+    CONF_IMMERSION_TARGET_TEMP,
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
@@ -68,6 +70,9 @@ from .const import (
     CONF_TARGET_SOC_ENTITY,
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_DRY_RUN,
+    DEFAULT_IMMERSION_HYSTERESIS,
+    DEFAULT_IMMERSION_MIN_TEMP,
+    DEFAULT_IMMERSION_TARGET_TEMP,
     DEFAULT_IMMERSION_WATTAGE,
     DEFAULT_INVERTER_MAX_OUTPUT,
     DOMAIN,
@@ -138,6 +143,17 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         # Manual overrides set by switch/number entities
         self.override_charge_target: int | None = None
+        # Immersion temperature controls — set by number entities, read in _collect_raw
+        cfg = entry.data
+        self.immersion_target_temp: float = float(
+            cfg.get(CONF_IMMERSION_TARGET_TEMP, DEFAULT_IMMERSION_TARGET_TEMP)
+        )
+        self.immersion_min_temp: float = float(
+            cfg.get(CONF_IMMERSION_MIN_TEMP, DEFAULT_IMMERSION_MIN_TEMP)
+        )
+        self.immersion_hysteresis_c: float = float(
+            cfg.get(CONF_IMMERSION_HYSTERESIS, DEFAULT_IMMERSION_HYSTERESIS)
+        )
         self.override_immersion: bool | None = None
         self.override_skip_charge: bool = False
 
@@ -338,10 +354,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         cfg = self._effective_cfg()
         try:
             tariff = build_tariff(cfg)
-            try:
-                tariff.local_tz = ZoneInfo(str(self.hass.config.time_zone))
-            except Exception:
-                tariff.local_tz = None  # falls back to UTC in tariff methods
             if not tariff.rate_periods:
                 _LOG.debug(
                     "No timed rate periods configured — skipping charge target "
@@ -424,7 +436,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         target_soc = decision.target_soc
         tariff = build_tariff(cfg)
-        tariff.local_tz = ZoneInfo(str(self.hass.config.time_zone))
         if not tariff.rate_periods:
             _LOG.warning(
                 "No timed rate periods configured — cannot determine charge window. "
@@ -526,6 +537,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         raw.immersion_wattage_w = float(cfg.get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE))
         raw.immersion_on = self._read_bool(cfg.get(CONF_IMMERSION_SWITCH))
+        raw.immersion_target_temp = self.immersion_target_temp
+        raw.immersion_min_temp = self.immersion_min_temp
+        raw.immersion_hysteresis_c = self.immersion_hysteresis_c
 
         temp_eid = cfg.get(CONF_IMMERSION_TEMP_SENSOR)
         if temp_eid:

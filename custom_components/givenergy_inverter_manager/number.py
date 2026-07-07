@@ -16,14 +16,23 @@ Provides one number entity:
 
 from __future__ import annotations
 
-from homeassistant.components.number import NumberEntity, NumberMode
+from homeassistant.components.number import NumberEntity, NumberMode, RestoreNumber
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE
+from homeassistant.const import PERCENTAGE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, INTEGRATION_VERSION
+from .const import (
+    CONF_IMMERSION_HYSTERESIS,
+    CONF_IMMERSION_MIN_TEMP,
+    CONF_IMMERSION_TARGET_TEMP,
+    DEFAULT_IMMERSION_HYSTERESIS,
+    DEFAULT_IMMERSION_MIN_TEMP,
+    DEFAULT_IMMERSION_TARGET_TEMP,
+    DOMAIN,
+    INTEGRATION_VERSION,
+)
 from .coordinator import GivEnergyCoordinator
 from .logging import get_logger
 
@@ -39,7 +48,14 @@ async def async_setup_entry(
 ) -> None:
     """Set up GivEnergy Manager number entities."""
     coordinator: GivEnergyCoordinator = entry.runtime_data
-    async_add_entities([GivEnergyChargeTargetOverride(coordinator)])
+    async_add_entities(
+        [
+            GivEnergyChargeTargetOverride(coordinator),
+            ImmersionTargetTempNumber(coordinator),
+            ImmersionMinTempNumber(coordinator),
+            ImmersionHysteresisNumber(coordinator),
+        ]
+    )
 
 
 class GivEnergyChargeTargetOverride(CoordinatorEntity[GivEnergyCoordinator], NumberEntity):
@@ -83,3 +99,129 @@ class GivEnergyChargeTargetOverride(CoordinatorEntity[GivEnergyCoordinator], Num
         _LOG.info("Charge target override value set to %d%%", int(value))
         self.async_write_ha_state()
         await self.coordinator.async_request_refresh()
+
+
+def _make_device_info(coordinator: GivEnergyCoordinator) -> dict:
+    return {
+        "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
+        "name": "GivEnergy Inverter Manager",
+        "manufacturer": "GivEnergy",
+        "model": "Inverter Manager",
+        "sw_version": INTEGRATION_VERSION,
+    }
+
+
+class _ImmersionNumberBase(CoordinatorEntity[GivEnergyCoordinator], RestoreNumber, NumberEntity):
+    """Base for immersion temperature number controls."""
+
+    _attr_has_entity_name = True
+    _attr_mode = NumberMode.SLIDER
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_icon = "mdi:thermometer"
+
+    def __init__(
+        self,
+        coordinator: GivEnergyCoordinator,
+        key: str,
+        default: float,
+        config_key: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_{key}"
+        self._attr_device_info = _make_device_info(coordinator)
+        self._config_key = config_key
+        self._value: float = default
+
+    @property
+    def native_value(self) -> float:
+        return self._value
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last_number = await self.async_get_last_number_data()
+        if last_number and last_number.native_value is not None:
+            await self._apply(last_number.native_value)
+
+    async def _apply(self, value: float) -> None:
+        """Store value and push to coordinator. Override in subclass."""
+        raise NotImplementedError
+
+    def _persist(self, value: float) -> None:
+        """Write to entry.data so coordinator.__init__ reads the correct value on restart."""
+        self.hass.config_entries.async_update_entry(
+            self.coordinator.entry,
+            data={**self.coordinator.entry.data, self._config_key: value},
+        )
+
+    async def async_set_native_value(self, value: float) -> None:
+        await self._apply(value)
+        self._persist(value)
+        self.async_write_ha_state()
+        await self.coordinator.async_request_refresh()
+
+
+class ImmersionTargetTempNumber(_ImmersionNumberBase):
+    """Upper temperature — immersion turns off when water reaches this."""
+
+    _attr_name = "Immersion Target Temperature"
+    _attr_native_min_value = 40.0
+    _attr_native_max_value = 75.0
+    _attr_native_step = 1.0
+
+    def __init__(self, coordinator: GivEnergyCoordinator) -> None:
+        super().__init__(
+            coordinator,
+            "immersion_target_temp",
+            DEFAULT_IMMERSION_TARGET_TEMP,
+            CONF_IMMERSION_TARGET_TEMP,
+        )
+
+    async def _apply(self, value: float) -> None:
+        # Guard: target must be at least 1°C above min to prevent short-cycling
+        value = max(value, self.coordinator.immersion_min_temp + 1)
+        self._value = value
+        self.coordinator.immersion_target_temp = value
+        _LOG.info("Immersion target temperature set to %.0f°C", value)
+
+
+class ImmersionMinTempNumber(_ImmersionNumberBase):
+    """Lower temperature — immersion forced on below this (legionella / restart threshold)."""
+
+    _attr_name = "Immersion Minimum Temperature"
+    _attr_native_min_value = 30.0
+    _attr_native_max_value = 60.0
+    _attr_native_step = 1.0
+
+    def __init__(self, coordinator: GivEnergyCoordinator) -> None:
+        super().__init__(
+            coordinator, "immersion_min_temp", DEFAULT_IMMERSION_MIN_TEMP, CONF_IMMERSION_MIN_TEMP
+        )
+
+    async def _apply(self, value: float) -> None:
+        # Guard: min must be at least 1°C below target to prevent short-cycling
+        value = min(value, self.coordinator.immersion_target_temp - 1)
+        self._value = value
+        self.coordinator.immersion_min_temp = value
+        _LOG.info("Immersion minimum temperature set to %.0f°C", value)
+
+
+class ImmersionHysteresisNumber(_ImmersionNumberBase):
+    """Hysteresis — only restart after cooling this many degrees below target."""
+
+    _attr_name = "Immersion Restart Hysteresis"
+    _attr_native_min_value = 1.0
+    _attr_native_max_value = 15.0
+    _attr_native_step = 1.0
+
+    def __init__(self, coordinator: GivEnergyCoordinator) -> None:
+        super().__init__(
+            coordinator,
+            "immersion_hysteresis",
+            DEFAULT_IMMERSION_HYSTERESIS,
+            CONF_IMMERSION_HYSTERESIS,
+        )
+
+    async def _apply(self, value: float) -> None:
+        self._value = value
+        self.coordinator.immersion_hysteresis_c = value
+        _LOG.info("Immersion restart hysteresis set to %.0f°C", value)

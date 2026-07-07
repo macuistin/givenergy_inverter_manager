@@ -131,6 +131,7 @@ _switch.SwitchEntityDescription = object
 _number = sys.modules["homeassistant.components.number"]
 _number.NumberEntity = object
 _number.NumberMode = MagicMock()
+_number.RestoreNumber = type("RestoreNumber", (), {})
 
 # --- helpers ---
 _sel = sys.modules["homeassistant.helpers.selector"]

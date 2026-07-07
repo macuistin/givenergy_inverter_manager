@@ -219,6 +219,8 @@ def should_divert_to_immersion(
     immersion_temp: float | None,
     immersion_target_temp: float,
     immersion_min_temp: float,
+    immersion_hysteresis_c: float = 5.0,
+    currently_on: bool = False,
     soc_threshold: int = SURPLUS_DIVERT_SOC_THRESHOLD,
     min_surplus_w: float = SURPLUS_DIVERT_MIN_POWER_W,
 ) -> tuple[bool, str]:
@@ -228,14 +230,17 @@ def should_divert_to_immersion(
     Returns (should_divert, reason).
 
     Algorithm:
-      1. Always heat if below legionella minimum temperature
-      2. Never heat if already at target temperature
-      3. Never heat if battery SoC is below soc_threshold (default: SURPLUS_DIVERT_SOC_THRESHOLD)
-      4. Heat if net solar surplus >= min_surplus_w (default: SURPLUS_DIVERT_MIN_POWER_W)
-      5. Heat if inverter is clipping (at capacity) and battery is charged
+      1. Always heat if below legionella minimum temperature (ignores hysteresis)
+      2. Turn off when target temperature is reached
+      3. Hysteresis: if currently off, only restart once water cools to
+         (target - hysteresis_c); if currently on, keep running until target
+      4. Never heat if battery SoC is below soc_threshold
+      5. Heat if net solar surplus >= min_surplus_w
+      6. Heat if inverter is clipping (at capacity) and battery is charged
 
-    soc_threshold and min_surplus_w are passed from config so users can tune
-    them via Settings → Integrations → Configure without editing code.
+    The hysteresis band prevents rapid on/off cycling near the target temperature.
+    With defaults of target=55°C and hysteresis=5°C: turns off at 55°C and will
+    not restart until water drops below 50°C.
     """
     if immersion_temp is not None and immersion_temp < immersion_min_temp:
         return True, (
@@ -245,6 +250,15 @@ def should_divert_to_immersion(
 
     if immersion_temp is not None and immersion_temp >= immersion_target_temp:
         return False, f"Water already at {immersion_temp:.1f}°C (target {immersion_target_temp}°C)"
+
+    if immersion_temp is not None and not currently_on:
+        turn_on_below = immersion_target_temp - immersion_hysteresis_c
+        if immersion_temp >= turn_on_below:
+            return False, (
+                f"Water at {immersion_temp:.1f}°C — waiting to cool below "
+                f"{turn_on_below:.0f}°C before restarting "
+                f"(hysteresis {immersion_hysteresis_c:.0f}°C)"
+            )
 
     if battery_soc < soc_threshold:
         return False, f"Battery SoC {battery_soc:.0f}% below threshold {soc_threshold}%"

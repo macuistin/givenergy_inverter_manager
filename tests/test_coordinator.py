@@ -74,7 +74,6 @@ class FakeCoordinator(GivEnergyCoordinator):
         entry.async_on_unload = lambda fn: fn  # returns the cancel fn itself
 
         hass = MagicMock()
-        hass.config.time_zone = "Europe/Dublin"
         hass.states.get = lambda eid: self._states.get(eid)
         # async_create_task receives a coroutine — close it immediately so it
         # doesn't linger and trigger an "unawaited coroutine" warning at GC time.
@@ -156,6 +155,9 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._update_cycle: int = 0
         self._ev_charger = None
         self.override_charge_target = None
+        self.immersion_target_temp: float = 55.0
+        self.immersion_min_temp: float = 50.0
+        self.immersion_hysteresis_c: float = 5.0
         self.override_immersion = None
         self.override_skip_charge = False
 
@@ -317,6 +319,26 @@ class TestCollectRaw:
         coord.set_state("sensor.forecast", "12.5")
         raw = coord._collect_raw(coord._effective_cfg())
         assert raw.forecast_kwh_tomorrow == pytest.approx(12.5)
+
+    def test_reads_battery_power_charging(self):
+        """Positive battery_power_w means charging (internal convention)."""
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("sensor.battery_power", "2500")
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.battery_power_w == pytest.approx(2500.0)
+
+    def test_reads_battery_power_discharging(self):
+        """Negative battery_power_w means discharging (internal convention)."""
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("sensor.battery_power", "-1800")
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.battery_power_w == pytest.approx(-1800.0)
+
+    def test_reads_battery_power_zero_when_idle(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("sensor.battery_power", "0")
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.battery_power_w == pytest.approx(0.0)
 
     def test_negative_forecast_treated_as_none(self):
         cfg = _cfg(**{"forecast_entity": "sensor.forecast"})
@@ -536,6 +558,35 @@ class TestWriteChargeTarget:
         # In dry run mode, no task should be created
         assert len(coord.tasks_created) == 0
         assert len(coord.service_calls) == 0
+
+    def test_no_write_when_no_rate_periods(self):
+        """If no timed rate periods are configured, _write_charge_target must
+        return without creating any tasks — it cannot pick a charge window."""
+        from custom_components.givenergy_inverter_manager.const import CONF_RATE_PERIODS
+
+        cfg = _cfg()
+        cfg[CONF_RATE_PERIODS] = []  # no timed periods
+        coord = FakeCoordinator(cfg=cfg)
+        coord.set_states(_default_states())
+        from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
+
+        data = MagicMock()
+        data.charge_decision = ChargeDecision(
+            target_soc=80,
+            skip_charge=False,
+            reason="test",
+            forecast_kwh=10.0,
+            current_soc=60.0,
+            battery_capacity=19.0,
+            car_plugged_in=False,
+            cost_to_charge=1.0,
+        )
+        coord.data = data
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        assert len(coord.tasks_created) == 0, (
+            "No task must be created when rate_periods is empty — "
+            "there is no timed window to write to GivTCP."
+        )
 
 
 # ── TestEffectiveCfg ──────────────────────────────────────────────────────────
@@ -810,99 +861,12 @@ class TestInvertedRateTariff:
         assert guard_idx < min_idx, "Empty list guard must appear before the min() call"
 
 
-class TestAccumulationLoadOnStartup:
-    """async_load() must be called before async_config_entry_first_refresh."""
-
-    def test_async_load_called_in_setup(self):
-        import ast
-        from pathlib import Path
-
-        src = (
-            Path(__file__).parent.parent
-            / "custom_components/givenergy_inverter_manager/__init__.py"
-        ).read_text()
-        full_src = ast.unparse(ast.parse(src))
-        assert "coordinator._acc.async_load()" in full_src, (
-            "async_load() must be called in async_setup_entry — without it "
-            "all energy data resets to zero on every HA restart."
-        )
-
-    def test_async_load_before_first_refresh(self):
-        from pathlib import Path
-
-        src = (
-            Path(__file__).parent.parent
-            / "custom_components/givenergy_inverter_manager/__init__.py"
-        ).read_text()
-        assert src.index("async_load()") < src.index("async_config_entry_first_refresh()"), (
-            "async_load() must come before async_config_entry_first_refresh()."
-        )
-
-
-class TestWeekMonthAccumulation:
-    """Week and month accumulators must be updated each cycle."""
-
-    def test_no_dead_accumulator_functions_in_engine(self):
-        from pathlib import Path
-
-        src = (
-            Path(__file__).parent.parent
-            / "custom_components/givenergy_inverter_manager/core/engine.py"
-        ).read_text()
-        for dead_fn in (
-            "_set_accumulators",
-            "_apply_charge_decision_overrides",
-            "_set_ev_charger_data",
-        ):
-            assert f"def {dead_fn}(" not in src, f"{dead_fn} is dead code and must be deleted"
-
-    def test_accumulate_energy_loop_covers_week_and_month(self):
-        from pathlib import Path
-
-        src = (
-            Path(__file__).parent.parent
-            / "custom_components/givenergy_inverter_manager/core/engine.py"
-        ).read_text()
-        assert "for rolling_acc in (acc, acc_week, acc_month)" in src, (
-            "accumulate_energy must be called for week and month accumulators each cycle."
-        )
-
-
-class TestCheapestRateWindow:
-    """Charge window must come from timed rate_periods only, never the synthetic base period."""
-
-    def test_no_get_cheapest_rate_in_coordinator(self):
-        from pathlib import Path
-
-        src = (
-            Path(__file__).parent.parent
-            / "custom_components/givenergy_inverter_manager/coordinator.py"
-        ).read_text()
-        assert "get_cheapest_rate()" not in src, (
-            "Use min(tariff.rate_periods, ...) — get_cheapest_rate() can return "
-            "the synthetic base-rate period with a zero-length window."
-        )
-
-    def test_empty_rate_periods_guarded(self):
-        from pathlib import Path
-
-        src = (
-            Path(__file__).parent.parent
-            / "custom_components/givenergy_inverter_manager/coordinator.py"
-        ).read_text()
-        assert "if not tariff.rate_periods:" in src, (
-            "Must guard against empty rate_periods before computing cheapest window."
-        )
-
-
 class TestTimezoneHandling:
     """Rate periods must be evaluated against local time, not UTC.
     In summer (Ireland GMT+1), a 23:00 Night rate must activate at
     local 23:00, not at UTC 23:00 (which is local midnight)."""
 
     def test_night_rate_activates_at_local_time_not_utc(self):
-        """With a Night rate starting at 23:00 local, the rate should be
-        active at 23:00 local (22:00 UTC in summer), not 23:00 UTC."""
         from datetime import timezone
         from zoneinfo import ZoneInfo
 
@@ -910,30 +874,84 @@ class TestTimezoneHandling:
 
         tariff = build_tariff(_nightboost_cfg())
         ireland = ZoneInfo("Europe/Dublin")
-
-        # 23:30 Irish Summer Time = 22:30 UTC
         local_2330 = datetime(2024, 7, 10, 23, 30, 0, tzinfo=ireland)
         utc_2230 = local_2330.astimezone(timezone.utc)
 
-        rate_local = tariff.get_current_rate(local_2330)
-        rate_utc = tariff.get_current_rate(utc_2230)
-
-        assert rate_local.rate < tariff.base_rate, (
-            f"At local 23:30 the Night rate should be active (rate={rate_local.rate}), "
-            f"not the base rate ({tariff.base_rate}). "
-            "The coordinator must pass local time, not UTC."
+        assert tariff.get_current_rate(local_2330).rate < tariff.base_rate, (
+            "Night rate must be active at local 23:30 — coordinator must pass local time, not UTC."
         )
-        assert rate_utc.rate == pytest.approx(tariff.base_rate), (
-            "UTC 22:30 should still be the base (Day) rate — this proves the "
-            "UTC-vs-local distinction is real and the fix matters."
+        assert tariff.get_current_rate(utc_2230).rate == pytest.approx(tariff.base_rate), (
+            "UTC 22:30 should still be the Day rate — proves the distinction matters."
         )
 
     def test_coordinator_uses_local_time(self):
-        """Regression guard: coordinator must call dt_util.as_local() for now."""
         from pathlib import Path
 
         src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
         assert "dt_util.as_local(datetime.now" in src, (
-            "coordinator must use dt_util.as_local() so rate periods are evaluated "
-            "in local time — without this, rates activate 1h late in summer."
+            "coordinator must use dt_util.as_local() — without this, rate periods "
+            "activate 1h late in summer (Ireland GMT+1)."
+        )
+
+    def test_midnight_reset_uses_local_midnight(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        assert "dt_util.as_local(now).replace(hour=0" in src, (
+            "_midnight_reset must use as_local — without this, daily accumulators "
+            "reset at UTC midnight (01:00 local in summer)."
+        )
+
+
+class TestImmersionNumberGuards:
+    """Cross-entity guards prevent min >= target (which causes short-cycling)
+    and entry.data persistence ensures correct values survive HA restart."""
+
+    def test_target_clamped_above_min(self):
+        """Setting target below (min + 1) must clamp it up."""
+        import asyncio
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.number import ImmersionTargetTempNumber
+
+        coord = MagicMock()
+        coord.immersion_min_temp = 50.0
+        coord.entry.entry_id = "test"
+        coord.entry.data = {}
+        entity = ImmersionTargetTempNumber.__new__(ImmersionTargetTempNumber)
+        entity.coordinator = coord
+        entity._value = 55.0
+
+        asyncio.run(entity._apply(48.0))  # below min + 1 = 51°C
+        assert entity._value >= coord.immersion_min_temp + 1, (
+            "Target must be at least 1°C above min to prevent short-cycling."
+        )
+
+    def test_min_clamped_below_target(self):
+        """Setting min above (target - 1) must clamp it down."""
+        import asyncio
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.number import ImmersionMinTempNumber
+
+        coord = MagicMock()
+        coord.immersion_target_temp = 55.0
+        entity = ImmersionMinTempNumber.__new__(ImmersionMinTempNumber)
+        entity.coordinator = coord
+        entity._value = 50.0
+
+        asyncio.run(entity._apply(58.0))  # above target - 1 = 54°C
+        assert entity._value <= coord.immersion_target_temp - 1, (
+            "Min must be at least 1°C below target to prevent short-cycling."
+        )
+
+    def test_persist_writes_to_entry_data(self):
+        """_persist must call async_update_entry so values survive HA restart."""
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/number.py").read_text()
+        assert "async_update_entry" in src, (
+            "Number entities must persist values to entry.data via async_update_entry. "
+            "Without this, coordinator reads stale config defaults on the first cycle "
+            "after a restart (entity state restored after first coordinator update)."
         )

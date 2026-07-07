@@ -407,3 +407,78 @@ class TestOvernightChargeEdgeCases:
             )
         )
         assert decision.skip_charge is True
+
+
+class TestImmersionHysteresis:
+    """Hysteresis prevents rapid on/off cycling near the target temperature.
+
+    With target=55°C and hysteresis=5°C:
+    - Turns OFF at 55°C
+    - Will not restart until water cools below 50°C
+    - If currently running at 52°C, keeps running (heading to 55°C)
+    """
+
+    def _base(self, **overrides):
+        defaults = {
+            "solar_power_w": 4000.0,
+            "house_load_w": 800.0,
+            "battery_soc": 90.0,
+            "battery_power_w": 200.0,
+            "inverter_max_w": 5000.0,
+            "immersion_target_temp": 55.0,
+            "immersion_min_temp": 30.0,
+            "immersion_hysteresis_c": 5.0,
+            "soc_threshold": 80,
+            "min_surplus_w": 500,
+        }
+        defaults.update(overrides)
+        return defaults
+
+    def test_turns_off_at_target(self):
+        should, reason = should_divert_to_immersion(
+            **self._base(immersion_temp=55.0, currently_on=True)
+        )
+        assert should is False
+        assert "already" in reason.lower()
+
+    def test_wont_restart_above_hysteresis_band(self):
+        should, reason = should_divert_to_immersion(
+            **self._base(immersion_temp=53.0, currently_on=False)
+        )
+        assert should is False
+        assert "50" in reason
+
+    def test_restarts_below_hysteresis_band(self):
+        should, _ = should_divert_to_immersion(
+            **self._base(immersion_temp=49.0, currently_on=False)
+        )
+        assert should is True
+
+    def test_keeps_running_within_band(self):
+        should, _ = should_divert_to_immersion(**self._base(immersion_temp=52.0, currently_on=True))
+        assert should is True
+
+    def test_exact_turn_on_boundary(self):
+        should, _ = should_divert_to_immersion(
+            **self._base(immersion_temp=50.0, currently_on=False)
+        )
+        assert should is False
+
+    def test_just_below_turn_on_boundary(self):
+        should, _ = should_divert_to_immersion(
+            **self._base(immersion_temp=49.9, currently_on=False)
+        )
+        assert should is True
+
+    def test_legionella_override_ignores_hysteresis(self):
+        should, reason = should_divert_to_immersion(
+            **self._base(immersion_temp=28.0, currently_on=False)
+        )
+        assert should is True
+        assert "minimum" in reason.lower()
+
+    def test_no_temp_sensor_ignores_hysteresis(self):
+        should, _ = should_divert_to_immersion(
+            **self._base(immersion_temp=None, currently_on=False)
+        )
+        assert should is True
