@@ -389,11 +389,6 @@ class TestOptionsFlowSections:
                 CONF_FORECAST_PROVIDER: FORECAST_PROVIDER_FORECAST_SOLAR,
                 "forecast_entity": "sensor.forecast_solar_today",
             },
-            "immersion_settings": {
-                "immersion_target_temp_c": 58.0,
-                "immersion_min_temp_c": 42.0,
-                "immersion_hysteresis_c": 7.0,
-            },
         }
         asyncio.run(flow.async_step_init(nested_input))
 
@@ -402,9 +397,6 @@ class TestOptionsFlowSections:
         assert data.get(CONF_BASE_RATE) == 0.35
         assert data.get(CONF_BATTERY_MIN_SOC) == 10
         assert data.get(CONF_FORECAST_PROVIDER) == FORECAST_PROVIDER_FORECAST_SOLAR
-        assert data.get("immersion_target_temp_c") == 58.0
-        assert data.get("immersion_min_temp_c") == 42.0
-        assert data.get("immersion_hysteresis_c") == 7.0
 
     def test_no_separate_tariff_thresholds_forecast_steps(self):
         """The old multi-step methods must not exist on the options flow."""
@@ -414,70 +406,3 @@ class TestOptionsFlowSections:
             assert not hasattr(GivEnergyOptionsFlow, old_step), (
                 f"Options flow still has {old_step} — should use single async_step_init"
             )
-
-    def test_immersion_settings_section_in_options_form(self):
-        """Options flow must include an immersion_settings section with all three fields."""
-        import asyncio
-        from unittest.mock import MagicMock, patch
-
-        from custom_components.givenergy_inverter_manager.const import (
-            CONF_IMMERSION_HYSTERESIS,
-            CONF_IMMERSION_MIN_TEMP,
-            CONF_IMMERSION_TARGET_TEMP,
-        )
-
-        flow = self._make_flow()
-        seen_keys = []
-
-        with (
-            patch("custom_components.givenergy_inverter_manager.config_flow.vol") as mock_vol,
-            patch("custom_components.givenergy_inverter_manager.config_flow.selector"),
-            patch("custom_components.givenergy_inverter_manager.config_flow.section"),
-        ):
-            mock_vol.Schema.return_value = MagicMock()
-            mock_vol.Required.side_effect = lambda k, **_: seen_keys.append(k) or k
-            mock_vol.Optional.side_effect = lambda k, **_: seen_keys.append(k) or k
-            asyncio.run(flow.async_step_init(None))
-
-        assert "immersion_settings" in seen_keys, (
-            "immersion_settings section missing from options flow — "
-            "users cannot change temperature thresholds after setup"
-        )
-        for key in (CONF_IMMERSION_TARGET_TEMP, CONF_IMMERSION_MIN_TEMP, CONF_IMMERSION_HYSTERESIS):
-            assert key in seen_keys, f"{key} missing from immersion_settings section"
-
-    def test_immersion_settings_not_dropped_when_absent(self):
-        """Submitting without immersion_settings must not crash."""
-        import asyncio
-
-        from custom_components.givenergy_inverter_manager.const import (
-            CONF_BASE_RATE,
-            CONF_BATTERY_MIN_SOC,
-        )
-
-        flow = self._make_flow()
-        minimal_input = {
-            "tariff_settings": {
-                CONF_BASE_RATE: 0.35,
-                "base_rate_name": "Day",
-                "export_rate": 0.18,
-                "standing_charge_per_day": 0.50,
-                "pso_levy_per_month": 3.0,
-                "vat_rate": 9.0,
-                "discount_rate": 0.0,
-                "bill_start_day": 1,
-                "currency": "EUR",
-            },
-            "threshold_settings": {
-                CONF_BATTERY_MIN_SOC: 10,
-                "overnight_charge_target_pct": 80,
-                "skip_charge_soc_threshold_pct": 75,
-                "ev_battery_protect_soc_pct": 20,
-                "dry_run": False,
-                "verbose_logging": False,
-            },
-            "forecast_settings": {},
-            # No immersion_settings — should gracefully default
-        }
-        asyncio.run(flow.async_step_init(minimal_input))
-        flow.async_create_entry.assert_called_once()

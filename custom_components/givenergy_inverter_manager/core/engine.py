@@ -29,15 +29,13 @@ Separation of concerns:
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from ..const import (
     CONF_BATTERY_MIN_SOC,
     CONF_CURRENCY,
     CONF_DRY_RUN,
     CONF_EV_BATTERY_PROTECT_SOC,
-    CONF_IMMERSION_MIN_TEMP,
-    CONF_IMMERSION_TARGET_TEMP,
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_SKIP_CHARGE_SOC_THRESHOLD,
     CONF_SURPLUS_DIVERT_MIN_W,
@@ -47,8 +45,6 @@ from ..const import (
     DEFAULT_CURRENCY,
     DEFAULT_DRY_RUN,
     DEFAULT_EV_BATTERY_PROTECT_SOC,
-    DEFAULT_IMMERSION_MIN_TEMP,
-    DEFAULT_IMMERSION_TARGET_TEMP,
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
@@ -89,6 +85,9 @@ class RawSensorValues:
     immersion_on: bool = False
     immersion_wattage_w: float = 3000.0
     immersion_temp: float | None = None
+    immersion_target_temp: float = 55.0
+    immersion_min_temp: float = 50.0
+    immersion_hysteresis_c: float = 5.0
     forecast_kwh_tomorrow: float | None = None
     ev_power_w: float = 0.0
     ev_plugged_in: bool = False
@@ -481,10 +480,10 @@ def _set_immersion_decision(
             battery_power_w=raw.battery_power_w,
             inverter_max_w=raw.inverter_max_w,
             immersion_temp=raw.immersion_temp,
-            immersion_target_temp=cfg.get(
-                CONF_IMMERSION_TARGET_TEMP, DEFAULT_IMMERSION_TARGET_TEMP
-            ),
-            immersion_min_temp=float(cfg.get(CONF_IMMERSION_MIN_TEMP, DEFAULT_IMMERSION_MIN_TEMP)),
+            immersion_target_temp=raw.immersion_target_temp,
+            immersion_min_temp=raw.immersion_min_temp,
+            immersion_hysteresis_c=raw.immersion_hysteresis_c,
+            currently_on=raw.immersion_on,
             soc_threshold=int(cfg.get(CONF_SURPLUS_DIVERT_SOC, SURPLUS_DIVERT_SOC_THRESHOLD)),
             min_surplus_w=float(cfg.get(CONF_SURPLUS_DIVERT_MIN_W, SURPLUS_DIVERT_MIN_POWER_W)),
         )
@@ -526,8 +525,7 @@ def build_coordinator_data(
     acc_week: EnergyAccumulator | None = None,
     acc_month: EnergyAccumulator | None = None,
     acc_yesterday: EnergyAccumulator | None = None,
-    *,
-    now: datetime,
+    now: datetime | None = None,
     ev_charger: EVCharger | None = None,
     override_charge_target: int | None = None,
     override_immersion: bool | None = None,
@@ -563,6 +561,9 @@ def build_coordinator_data(
         or None if no mode change is needed. The coordinator applies this via
         a HA service call.
     """
+    if now is None:
+        now = datetime.now(timezone.utc)
+
     data = CoordinatorData()
     _initialize_coordinator_data(
         data,

@@ -47,7 +47,6 @@ from .const import (
     CONF_FORECAST_PROVIDER,
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
-    CONF_IMMERSION_HYSTERESIS,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TARGET_TEMP,
@@ -77,7 +76,6 @@ from .const import (
     DEFAULT_DRY_RUN,
     DEFAULT_EV_BATTERY_PROTECT_SOC,
     DEFAULT_EXPORT_RATE,
-    DEFAULT_IMMERSION_HYSTERESIS,
     DEFAULT_IMMERSION_MIN_TEMP,
     DEFAULT_IMMERSION_TARGET_TEMP,
     DEFAULT_IMMERSION_WATTAGE,
@@ -652,7 +650,6 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             tariff = user_input.get("tariff_settings", {})
             thresholds = user_input.get("threshold_settings", {})
             forecast = user_input.get("forecast_settings", {})
-            immersion = user_input.get("immersion_settings", {})
             # Rate periods come from top-level rate_period_N sections
             self._options[CONF_RATE_PERIODS] = _slots_to_rate_periods(user_input)
             for key in [
@@ -671,7 +668,6 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             self._options[CONF_CURRENCY] = tariff.get(CONF_CURRENCY, DEFAULT_CURRENCY)
             self._options.update(thresholds)
             self._options.update({k: v for k, v in forecast.items() if v})
-            self._options.update(immersion)
             return self.async_create_entry(title="", data=self._options)
 
         current_periods = self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS)
@@ -829,40 +825,6 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_FORECAST_ENTITY, default=self._get(CONF_FORECAST_ENTITY, "")
                     ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-                }
-            ),
-            {"collapsed": True},
-        )
-
-        schema_dict[vol.Required("immersion_settings")] = section(
-            vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_IMMERSION_TARGET_TEMP,
-                        default=self._get(
-                            CONF_IMMERSION_TARGET_TEMP, DEFAULT_IMMERSION_TARGET_TEMP
-                        ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=40, max=75, step=1, unit_of_measurement="°C"
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_IMMERSION_MIN_TEMP,
-                        default=self._get(CONF_IMMERSION_MIN_TEMP, DEFAULT_IMMERSION_MIN_TEMP),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=30, max=60, step=1, unit_of_measurement="°C"
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_IMMERSION_HYSTERESIS,
-                        default=self._get(CONF_IMMERSION_HYSTERESIS, DEFAULT_IMMERSION_HYSTERESIS),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1, max=15, step=1, unit_of_measurement="°C"
-                        )
-                    ),
                 }
             ),
             {"collapsed": True},

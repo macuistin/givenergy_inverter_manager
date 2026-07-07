@@ -93,9 +93,7 @@ DEFAULT_BATTERY_CAPACITY = 10.0  # kWh — conservative fallback if not configur
 DEFAULT_IMMERSION_WATTAGE = 3000  # W
 DEFAULT_IMMERSION_TARGET_TEMP = 55  # °C — turn off when water reaches this
 DEFAULT_IMMERSION_MIN_TEMP = 50  # °C — force on below this (legionella protection)
-DEFAULT_IMMERSION_HYSTERESIS = (
-    5  # °C below target before restart is allowed (restart at 50°C by default)
-)
+DEFAULT_IMMERSION_HYSTERESIS = 5  # °C — only restart after cooling this far below target
 DEFAULT_BATTERY_MIN_SOC = 10  # %
 DEFAULT_OVERNIGHT_CHARGE_TARGET = 80  # %
 DEFAULT_SKIP_CHARGE_SOC_THRESHOLD = 75  # %
