@@ -261,6 +261,21 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     name: Rest-of-House Cost
                     icon: mdi:home
 
+              - type: history-graph
+                title: Cost build — today
+                hours_to_show: 24
+                entities:
+                  - entity: {import_cost_today}
+                    name: Grid Import
+                  - entity: {house_cost_today}
+                    name: Rest of House
+                  - entity: {zappi_cost_today}
+                    name: EV Charging
+                  - entity: {immersion_cost_today}
+                    name: Immersion
+                  - entity: {export_earnings}
+                    name: Export Earnings
+
               - type: heading
                 heading: Self-Sufficiency
                 heading_style: title
