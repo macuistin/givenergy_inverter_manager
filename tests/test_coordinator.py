@@ -893,3 +893,47 @@ class TestCheapestRateWindow:
         assert "if not tariff.rate_periods:" in src, (
             "Must guard against empty rate_periods before computing cheapest window."
         )
+
+
+class TestTimezoneHandling:
+    """Rate periods must be evaluated against local time, not UTC.
+    In summer (Ireland GMT+1), a 23:00 Night rate must activate at
+    local 23:00, not at UTC 23:00 (which is local midnight)."""
+
+    def test_night_rate_activates_at_local_time_not_utc(self):
+        """With a Night rate starting at 23:00 local, the rate should be
+        active at 23:00 local (22:00 UTC in summer), not 23:00 UTC."""
+        from datetime import timezone
+        from zoneinfo import ZoneInfo
+
+        from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
+
+        tariff = build_tariff(_nightboost_cfg())
+        ireland = ZoneInfo("Europe/Dublin")
+
+        # 23:30 Irish Summer Time = 22:30 UTC
+        local_2330 = datetime(2024, 7, 10, 23, 30, 0, tzinfo=ireland)
+        utc_2230 = local_2330.astimezone(timezone.utc)
+
+        rate_local = tariff.get_current_rate(local_2330)
+        rate_utc = tariff.get_current_rate(utc_2230)
+
+        assert rate_local.rate < tariff.base_rate, (
+            f"At local 23:30 the Night rate should be active (rate={rate_local.rate}), "
+            f"not the base rate ({tariff.base_rate}). "
+            "The coordinator must pass local time, not UTC."
+        )
+        assert rate_utc.rate == pytest.approx(tariff.base_rate), (
+            "UTC 22:30 should still be the base (Day) rate — this proves the "
+            "UTC-vs-local distinction is real and the fix matters."
+        )
+
+    def test_coordinator_uses_local_time(self):
+        """Regression guard: coordinator must call dt_util.as_local() for now."""
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        assert "dt_util.as_local(datetime.now" in src, (
+            "coordinator must use dt_util.as_local() so rate periods are evaluated "
+            "in local time — without this, rates activate 1h late in summer."
+        )
