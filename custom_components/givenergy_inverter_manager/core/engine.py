@@ -29,7 +29,7 @@ Separation of concerns:
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 
 from ..const import (
     CONF_BATTERY_MIN_SOC,
@@ -526,7 +526,8 @@ def build_coordinator_data(
     acc_week: EnergyAccumulator | None = None,
     acc_month: EnergyAccumulator | None = None,
     acc_yesterday: EnergyAccumulator | None = None,
-    now: datetime | None = None,
+    *,
+    now: datetime,
     ev_charger: EVCharger | None = None,
     override_charge_target: int | None = None,
     override_immersion: bool | None = None,
@@ -562,10 +563,6 @@ def build_coordinator_data(
         or None if no mode change is needed. The coordinator applies this via
         a HA service call.
     """
-    if now is None:
-        # Fallback for tests only — production always passes local now from coordinator.
-        now = datetime.now(timezone.utc)
-
     data = CoordinatorData()
     _initialize_coordinator_data(
         data,

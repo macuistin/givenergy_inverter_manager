@@ -356,7 +356,9 @@ class TestOvernightChargeEdgeCases:
             "skip_charge_threshold": 75,
             "average_daily_consumption_kwh": 15.0,
             "cheapest_rate": 0.0965,
-            "dt": None,
+            "dt": __import__("datetime").datetime(
+                2024, 7, 10, 14, 0, tzinfo=__import__("datetime").timezone.utc
+            ),
         }
         defaults.update(overrides)
         return defaults

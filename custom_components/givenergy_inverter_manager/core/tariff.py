@@ -20,7 +20,7 @@ from __future__ import annotations
 import calendar
 import logging
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, time
+from datetime import datetime, time
 from datetime import time as dtime
 
 from ..const import (
@@ -101,7 +101,7 @@ class TariffConfig:
         """Return the base rate as a RatePeriod for uniform handling."""
         return RatePeriod(self.base_rate_name, self.base_rate, time(0, 0), time(0, 0))
 
-    def get_current_rate(self, dt: datetime | None = None) -> RatePeriod:
+    def get_current_rate(self, dt: datetime) -> RatePeriod:
         """
         Return the rate period that applies at the given datetime.
 
@@ -111,8 +111,6 @@ class TariffConfig:
              €0.1644) automatically — no special-casing needed.
           2. If no timed period is active, the base rate applies.
         """
-        if dt is None:
-            dt = datetime.now(self.local_tz or UTC)
         active_timed = [p for p in self.rate_periods if p.is_active(dt)]
         if active_timed:
             return min(active_timed, key=lambda p: p.rate)
@@ -168,8 +166,6 @@ class TariffConfig:
         (the period has just begun). This prevents division-by-zero in bill
         projection calculations.
         """
-        if dt is None:
-            dt = datetime.now(self.local_tz or UTC)
         if dt.day >= self.bill_start_day:
             return max(1, dt.day - self.bill_start_day)
         # We're in the period that started last month
@@ -178,10 +174,8 @@ class TariffConfig:
         days_in_last_month = calendar.monthrange(last_month_year, last_month)[1]
         return max(1, (days_in_last_month - self.bill_start_day) + dt.day)
 
-    def days_remaining_in_bill_period(self, dt: datetime | None = None) -> int:
+    def days_remaining_in_bill_period(self, dt: datetime) -> int:
         """Return days remaining in the current billing period."""
-        if dt is None:
-            dt = datetime.now(self.local_tz or UTC)
         days_in_month = calendar.monthrange(dt.year, dt.month)[1]
         if dt.day < self.bill_start_day:
             return self.bill_start_day - dt.day

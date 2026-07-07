@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 
 from ..const import (
     CHARGE_EV_BUFFER_KWH,
@@ -114,7 +114,8 @@ def calculate_overnight_charge_target(
     average_daily_consumption_kwh: float,
     cheapest_rate: float,
     solar_fractions: dict[int, float] | None = None,
-    dt: datetime | None = None,
+    *,
+    dt: datetime,
 ) -> ChargeDecision:
     """
     Calculate the optimal overnight charge target SoC.
@@ -129,10 +130,6 @@ def calculate_overnight_charge_target(
       CHARGE_STRONG/MODERATE_BASE_SOC — minimum target SoC per tier
       CHARGE_POOR_TARGET_SOC       — target when forecast is poor
     """
-    if dt is None:
-        # Fallback for tests only — production always passes local now from coordinator.
-        dt = datetime.now(UTC)
-
     month = dt.month
 
     if forecast_kwh is None:
