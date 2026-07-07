@@ -112,7 +112,7 @@ class TariffConfig:
           2. If no timed period is active, the base rate applies.
         """
         if dt is None:
-            dt = datetime.now(UTC)
+            dt = datetime.now(self.local_tz or UTC)
         active_timed = [p for p in self.rate_periods if p.is_active(dt)]
         if active_timed:
             return min(active_timed, key=lambda p: p.rate)
@@ -169,7 +169,7 @@ class TariffConfig:
         projection calculations.
         """
         if dt is None:
-            dt = datetime.now(UTC)
+            dt = datetime.now(self.local_tz or UTC)
         if dt.day >= self.bill_start_day:
             return max(1, dt.day - self.bill_start_day)
         # We're in the period that started last month
@@ -181,7 +181,7 @@ class TariffConfig:
     def days_remaining_in_bill_period(self, dt: datetime | None = None) -> int:
         """Return days remaining in the current billing period."""
         if dt is None:
-            dt = datetime.now(UTC)
+            dt = datetime.now(self.local_tz or UTC)
         days_in_month = calendar.monthrange(dt.year, dt.month)[1]
         if dt.day < self.bill_start_day:
             return self.bill_start_day - dt.day

@@ -36,11 +36,18 @@ _HA_SUBMODULES = [
     "homeassistant.components.sensor",
     "homeassistant.components.switch",
     "homeassistant.components.number",
+    "homeassistant.util",
+    "homeassistant.util.dt",
     "voluptuous",
 ]
 for _mod_name in _HA_SUBMODULES:
     if _mod_name not in sys.modules:
         sys.modules[_mod_name] = types.ModuleType(_mod_name)
+
+# --- homeassistant.util.dt ---
+_dt_util = sys.modules["homeassistant.util.dt"]
+_dt_util.as_local = lambda dt: dt
+sys.modules["homeassistant.util"].dt = _dt_util
 
 # --- homeassistant.const ---
 _const = sys.modules["homeassistant.const"]

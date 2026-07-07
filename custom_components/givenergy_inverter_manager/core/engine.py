@@ -563,6 +563,7 @@ def build_coordinator_data(
         a HA service call.
     """
     if now is None:
+        # Fallback for tests only — production always passes local now from coordinator.
         now = datetime.now(timezone.utc)
 
     data = CoordinatorData()

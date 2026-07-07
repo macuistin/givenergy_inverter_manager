@@ -130,6 +130,7 @@ def calculate_overnight_charge_target(
       CHARGE_POOR_TARGET_SOC       — target when forecast is poor
     """
     if dt is None:
+        # Fallback for tests only — production always passes local now from coordinator.
         dt = datetime.now(UTC)
 
     month = dt.month
