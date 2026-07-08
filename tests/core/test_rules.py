@@ -482,3 +482,39 @@ class TestImmersionHysteresis:
             **self._base(immersion_temp=None, currently_on=False)
         )
         assert should is True
+
+    def test_no_surplus_shows_surplus_reason_not_hysteresis(self):
+        """With 34W solar (no surplus), reason must be insufficient surplus
+        not hysteresis — even if water is in the hysteresis band."""
+        should, reason = should_divert_to_immersion(
+            **self._base(
+                solar_power_w=34.0,
+                house_load_w=800.0,
+                battery_soc=90.0,
+                immersion_temp=54.0,
+                currently_on=False,
+                min_surplus_w=500.0,
+            )
+        )
+        assert should is False
+        assert "surplus" in reason.lower(), f"Expected surplus reason, got: {reason!r}"
+        assert "hysteresis" not in reason.lower(), (
+            f"Hysteresis reason is misleading when there is no surplus: {reason!r}"
+        )
+
+    def test_surplus_available_shows_hysteresis_reason(self):
+        """With real surplus but water in hysteresis band, reason IS hysteresis."""
+        should, reason = should_divert_to_immersion(
+            **self._base(
+                solar_power_w=3500.0,
+                house_load_w=800.0,
+                battery_soc=90.0,
+                immersion_temp=54.0,
+                currently_on=False,
+                min_surplus_w=500.0,
+            )
+        )
+        assert should is False
+        assert "restart" in reason.lower() and "50" in reason, (
+            f"With surplus but temp in band, expected restart-threshold reason: {reason!r}"
+        )

@@ -26,7 +26,9 @@ from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import STATE_ON
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import RestoreEntity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -62,7 +64,9 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class GivEnergyAutoImmersionSwitch(CoordinatorEntity[GivEnergyCoordinator], SwitchEntity):
+class GivEnergyAutoImmersionSwitch(
+    CoordinatorEntity[GivEnergyCoordinator], RestoreEntity, SwitchEntity
+):
     """Switch to enable/disable automatic immersion divert logic."""
 
     _attr_has_entity_name = True
@@ -79,6 +83,14 @@ class GivEnergyAutoImmersionSwitch(CoordinatorEntity[GivEnergyCoordinator], Swit
             "model": "Inverter Manager",
             "sw_version": INTEGRATION_VERSION,
         }
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last is not None:
+            self._auto_immersion_enabled = last.state == STATE_ON
+            if not self._auto_immersion_enabled:
+                self.coordinator.override_immersion = False
 
     @property
     def is_on(self) -> bool:
@@ -217,7 +229,9 @@ class GivEnergySkipChargeOverrideSwitch(CoordinatorEntity[GivEnergyCoordinator],
         await self.coordinator.async_request_refresh()
 
 
-class GivEnergyChargeTargetOverrideSwitch(CoordinatorEntity[GivEnergyCoordinator], SwitchEntity):
+class GivEnergyChargeTargetOverrideSwitch(
+    CoordinatorEntity[GivEnergyCoordinator], RestoreEntity, SwitchEntity
+):
     """
     Switch to enable or disable the manual charge target override.
 
@@ -245,6 +259,14 @@ class GivEnergyChargeTargetOverrideSwitch(CoordinatorEntity[GivEnergyCoordinator
             "sw_version": INTEGRATION_VERSION,
         }
         self._enabled: bool = False
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last is not None:
+            self._enabled = last.state == STATE_ON
+            if not self._enabled:
+                self.coordinator.override_charge_target = None
 
     @property
     def is_on(self) -> bool:
