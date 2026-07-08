@@ -435,6 +435,18 @@ class TestManifest:
             f"manifest version must be 'MAJOR.MINOR.PATCH', got: {version!r}"
         )
 
+    def test_keys_are_sorted_correctly(self):
+        """hassfest requires: domain, name, then alphabetical order.
+        Violation produces [MANIFEST] Manifest keys are not sorted correctly."""
+        manifest = self._manifest()
+        keys = list(manifest.keys())
+        expected = ["domain", "name"] + sorted(k for k in keys if k not in ("domain", "name"))
+        assert keys == expected, (
+            f"manifest.json keys must be domain, name, then alphabetical.\n"
+            f"Got:      {keys}\n"
+            f"Expected: {expected}"
+        )
+
     def test_required_fields_present(self):
         """All mandatory manifest fields must be present."""
         manifest = self._manifest()
