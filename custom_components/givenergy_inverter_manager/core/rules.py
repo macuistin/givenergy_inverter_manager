@@ -251,6 +251,18 @@ def should_divert_to_immersion(
     if immersion_temp is not None and immersion_temp >= immersion_target_temp:
         return False, f"Water already at {immersion_temp:.1f}°C (target {immersion_target_temp}°C)"
 
+    if battery_soc < soc_threshold:
+        return False, f"Battery SoC {battery_soc:.0f}% below threshold {soc_threshold}%"
+
+    battery_charging_w = max(0, battery_power_w)
+    net_surplus_w = solar_power_w - house_load_w - battery_charging_w
+    is_clipping = solar_power_w >= (inverter_max_w * CLIPPING_THRESHOLD_PERCENT / 100)
+    has_surplus = net_surplus_w >= min_surplus_w or (is_clipping and battery_soc >= soc_threshold)
+
+    if not has_surplus:
+        return False, f"Insufficient surplus ({net_surplus_w:.0f}W, need {min_surplus_w:.0f}W)"
+
+    # Surplus is available — but only restart if water has cooled enough (hysteresis)
     if immersion_temp is not None and not currently_on:
         turn_on_below = immersion_target_temp - immersion_hysteresis_c
         if immersion_temp >= turn_on_below:
@@ -260,23 +272,13 @@ def should_divert_to_immersion(
                 f"(hysteresis {immersion_hysteresis_c:.0f}°C)"
             )
 
-    if battery_soc < soc_threshold:
-        return False, f"Battery SoC {battery_soc:.0f}% below threshold {soc_threshold}%"
-
-    battery_charging_w = max(0, battery_power_w)
-    net_surplus_w = solar_power_w - house_load_w - battery_charging_w
-    is_clipping = solar_power_w >= (inverter_max_w * CLIPPING_THRESHOLD_PERCENT / 100)
-
-    if net_surplus_w >= min_surplus_w:
-        return True, f"Solar surplus {net_surplus_w:.0f}W available, battery at {battery_soc:.0f}%"
-
     if is_clipping and battery_soc >= soc_threshold:
         return True, (
             f"Inverter at capacity ({solar_power_w:.0f}W), "
             f"battery {battery_soc:.0f}% — diverting to immersion"
         )
 
-    return False, f"Insufficient surplus ({net_surplus_w:.0f}W, need {min_surplus_w:.0f}W)"
+    return True, f"Solar surplus {net_surplus_w:.0f}W available, battery at {battery_soc:.0f}%"
 
 
 # ── Appliance timing suggestion ───────────────────────────────────────────────
