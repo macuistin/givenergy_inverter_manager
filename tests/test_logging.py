@@ -398,3 +398,67 @@ class TestLogStartup:
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
             log_startup(log, {"base_rate": 0.30})
         assert not caplog.records
+
+
+class TestManifest:
+    """manifest.json must satisfy HA 2026.7+ requirements to load correctly."""
+
+    def _manifest(self):
+        import json
+        from pathlib import Path
+
+        return json.loads(
+            Path("custom_components/givenergy_inverter_manager/manifest.json").read_text()
+        )
+
+    def test_import_executor_is_true(self):
+        """import_executor: true is required on HA 2026.7+.
+
+        Without it, HA raises:
+          Detected blocking call to import_module inside the event loop
+        and the integration fails to load. The field must be a boolean
+        true — not the string "true" or absent entirely.
+        """
+        manifest = self._manifest()
+        assert manifest.get("import_executor") is True, (
+            'manifest.json must have "import_executor": true — '
+            "HA 2026.7+ enforces that platform module imports happen "
+            "in a thread executor, not the event loop."
+        )
+
+    def test_version_is_string(self):
+        """version must be a semver string."""
+        manifest = self._manifest()
+        version = manifest.get("version", "")
+        parts = version.split(".")
+        assert len(parts) == 3 and all(p.isdigit() for p in parts), (
+            f"manifest version must be 'MAJOR.MINOR.PATCH', got: {version!r}"
+        )
+
+    def test_keys_are_sorted_correctly(self):
+        """hassfest requires: domain, name, then alphabetical order.
+        Violation produces [MANIFEST] Manifest keys are not sorted correctly."""
+        manifest = self._manifest()
+        keys = list(manifest.keys())
+        expected = ["domain", "name"] + sorted(k for k in keys if k not in ("domain", "name"))
+        assert keys == expected, (
+            f"manifest.json keys must be domain, name, then alphabetical.\n"
+            f"Got:      {keys}\n"
+            f"Expected: {expected}"
+        )
+
+    def test_required_fields_present(self):
+        """All mandatory manifest fields must be present."""
+        manifest = self._manifest()
+        required = {
+            "domain",
+            "name",
+            "codeowners",
+            "config_flow",
+            "documentation",
+            "iot_class",
+            "version",
+            "import_executor",
+        }
+        missing = required - set(manifest.keys())
+        assert not missing, f"manifest.json missing required fields: {missing}"
