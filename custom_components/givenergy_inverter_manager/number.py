@@ -206,9 +206,9 @@ class ImmersionMinTempNumber(_ImmersionNumberBase):
 
 
 class ImmersionHysteresisNumber(_ImmersionNumberBase):
-    """Hysteresis — only restart after cooling this many degrees below target."""
+    """Restart gap — how many degrees below target before restarting is allowed."""
 
-    _attr_name = "Immersion Restart Hysteresis"
+    _attr_name = "Immersion Restart Gap"
     _attr_native_min_value = 1.0
     _attr_native_max_value = 15.0
     _attr_native_step = 1.0
@@ -224,4 +224,4 @@ class ImmersionHysteresisNumber(_ImmersionNumberBase):
     async def _apply(self, value: float) -> None:
         self._value = value
         self.coordinator.immersion_hysteresis_c = value
-        _LOG.info("Immersion restart hysteresis set to %.0f°C", value)
+        _LOG.info("Immersion restart gap set to %.0f°C", value)

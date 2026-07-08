@@ -262,14 +262,12 @@ def should_divert_to_immersion(
     if not has_surplus:
         return False, f"Insufficient surplus ({net_surplus_w:.0f}W, need {min_surplus_w:.0f}W)"
 
-    # Surplus is available — but only restart if water has cooled enough (hysteresis)
+    # Surplus is available — but only restart if water has cooled enough
     if immersion_temp is not None and not currently_on:
         turn_on_below = immersion_target_temp - immersion_hysteresis_c
         if immersion_temp >= turn_on_below:
             return False, (
-                f"Water at {immersion_temp:.1f}°C — waiting to cool below "
-                f"{turn_on_below:.0f}°C before restarting "
-                f"(hysteresis {immersion_hysteresis_c:.0f}°C)"
+                f"Water at {immersion_temp:.1f}°C — will restart below {turn_on_below:.0f}°C"
             )
 
     if is_clipping and battery_soc >= soc_threshold:

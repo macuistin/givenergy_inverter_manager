@@ -38,8 +38,9 @@ The integration checks whether to run the immersion on every 30-second cycle. It
 - Solar surplus is above the minimum threshold (default 500W)
 - Battery SoC is above the divert threshold (default 80%)
 - Water temperature is below the target temperature
+- The water has cooled enough since the last time it was at target (see "Restart gap" below)
 
-It turns the immersion off when any of these conditions is no longer met.
+It turns the immersion off when water reaches the target temperature.
 
 **Enable Solar Immersion Divert** is the master switch. When it's on, the integration manages the immersion automatically. When it's off, the integration leaves the immersion completely alone — it won't turn it on or off regardless of conditions.
 
@@ -47,7 +48,23 @@ It turns the immersion off when any of these conditions is no longer met.
 
 <!-- screenshot: controls view showing immersion section with divert reason -->
 
-The **Immersion Divert Reason** sensor explains the current decision — for example "Water already at 55°C (target 55°C)" or "Solar surplus insufficient (320W, need 500W)".
+The **Immersion Divert Reason** sensor explains the current decision — for example "Water already at 55°C (target 55°C)" or "Insufficient surplus (320W, need 500W)".
+
+#### Temperature controls
+
+Three number entities appear in the Entities list for this integration. All three are sliders that can be adjusted from the dashboard without going into Settings.
+
+**Target temperature** (default 55°C) — the integration turns the immersion off when the water reaches this temperature. 55°C is the standard safe storage temperature for a domestic hot water cylinder.
+
+**Minimum temperature** (default 50°C) — if the water drops below this, the integration will turn the immersion on regardless of solar surplus. This is the legionella protection floor: Legionella bacteria can grow in water between 20–45°C; keeping stored water above 50°C prevents this. The integration will force the immersion on at this point even on a cloudy day or at night.
+
+**Restart gap** (default 5°C) — after the immersion turns off at the target temperature, it will not restart until the water has cooled by this many degrees. With the defaults (target 55°C, gap 5°C), the immersion won't restart until water drops below 50°C.
+
+Without this gap, the immersion would turn on and off many times in quick succession whenever there is solar surplus — the water reaches 55°C, turns off, cools to 54.9°C, turns on again, reaches 55°C again, and so on. Each switching operation wears the relay in the smart plug. The restart gap means it goes off at 55°C, runs a longer uninterrupted heating cycle only once the water has genuinely cooled, and the switch operates far less often.
+
+The restart gap is only checked when there is actually sufficient solar surplus to run the immersion. At 21:16 with 34W solar, the reason shown will be "Insufficient surplus" not the restart gap — the gap only matters when it is the actual reason heating is blocked.
+
+*This mechanism has a formal name in engineering — "hysteresis" — but it's not a word you need to know or remember. The controls use plain English labels.*
 
 ### EV charger
 

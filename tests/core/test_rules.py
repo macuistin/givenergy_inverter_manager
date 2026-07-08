@@ -515,6 +515,6 @@ class TestImmersionHysteresis:
             )
         )
         assert should is False
-        assert "hysteresis" in reason.lower(), (
-            f"With surplus but temp in band, expected hysteresis reason: {reason!r}"
+        assert "restart" in reason.lower() and "50" in reason, (
+            f"With surplus but temp in band, expected restart-threshold reason: {reason!r}"
         )
