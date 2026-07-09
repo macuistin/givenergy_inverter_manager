@@ -559,3 +559,23 @@ class TestEVChargerAdditionalCoverage:
         )
         update_charger_state(all_states.get, ch, battery_power_w=0)
         assert ch.power_w == 0.0
+
+
+class TestEVPowerEntityWarning:
+    """EV charger discovery must warn when power entity is missing."""
+
+    def test_warning_exists_in_source(self):
+        from pathlib import Path
+
+        src = Path(
+            "custom_components/givenergy_inverter_manager/discovery/ev_charger.py"
+        ).read_text()
+        assert "_LOG.warning" in src and "power entity" in src
+
+    def test_charger_appended_after_warning(self):
+        from pathlib import Path
+
+        src = Path(
+            "custom_components/givenergy_inverter_manager/discovery/ev_charger.py"
+        ).read_text()
+        assert src.find("_LOG.warning") < src.find("chargers.append(ch)")

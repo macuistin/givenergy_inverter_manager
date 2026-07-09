@@ -55,12 +55,12 @@ from ..const import (
 from ..discovery import EVCharger, EVChargerState
 from ..logging import get_logger
 from .battery import BatteryStats, calculate_cycle_increment, estimate_will_survive_night
-from .optimizer import (
+from .rules import (
     ChargeDecision,
     calculate_overnight_charge_target,
+    decide_ev_charger_action,
     should_divert_to_immersion,
 )
-from .rules import decide_ev_charger_action
 from .tariff import EnergyAccumulator, TariffConfig, build_tariff
 
 _LOG = get_logger(__name__)
@@ -292,6 +292,12 @@ def accumulate_energy(
     # Guard against clock skew, HA restart with stale timestamp, or very long gaps
     # (>1 hour implies a restart; don't accumulate a huge energy spike)
     if elapsed_h <= 0 or elapsed_h > 1.0:
+        if elapsed_h > 1.0:
+            _LOG.debug(
+                "Skipping accumulation: %.1fh gap since last update "
+                "(probable restart or HA downtime)",
+                elapsed_h,
+            )
         return
 
     immersion_w = raw.immersion_wattage_w if raw.immersion_on else 0.0

@@ -144,6 +144,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
         self._floor_top_up_applied: bool = False
+        self.export_rate: float = 0.0
         self._ev_charger: EVCharger | None = None
 
         # Manual overrides set by switch/number entities
@@ -241,7 +242,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Read a float state, returning None if entity missing, unavailable, or unknown."""
         if not entity_id:
             return None
-        state = self.hass.states.get(entity_id)
+        state = self._get_state(entity_id)
         if state is None or state.state in ("unavailable", "unknown", ""):
             return None
         try:
@@ -564,7 +565,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     def _maybe_rediscover_ev(self) -> None:
         """Re-run EV charger discovery every 5 minutes when none is cached."""
-        if self._ev_charger is None and (self._update_cycle % _REDISCOVER_EVERY_N_CYCLES == 1):
+        needs_discovery = self._ev_charger is None or self._ev_charger.power_entity is None
+        if needs_discovery and (self._update_cycle % _REDISCOVER_EVERY_N_CYCLES == 1):
             found = discover_ev_chargers(self._get_all_states())
             if found:
                 self._ev_charger = found[0]

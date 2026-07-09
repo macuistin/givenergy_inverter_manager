@@ -526,11 +526,12 @@ async def async_register_services(hass: HomeAssistant) -> None:
             solar_power_w=data.solar_power_w,
             house_load_w=data.house_load_w,
             battery_soc=data.battery_soc,
+            battery_power_w=data.battery_power_w,
             appliance_power_w=appliance_power_w,
             appliance_name=appliance_name,
             rate_period_name=data.current_rate_name,
             rate=data.current_rate,
-            export_rate=data.export_rate if hasattr(data, "export_rate") else 0.0,
+            export_rate=coordinator.export_rate,
         )
 
         verdict = "Good time to run" if recommended else "Not recommended right now"

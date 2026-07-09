@@ -25,6 +25,7 @@ fails (e.g. GivTCP goes offline).
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -894,6 +895,8 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     ),
 )
 
+_LOG = logging.getLogger(__name__)
+
 
 # Coordinator-driven — no parallel updates needed
 PARALLEL_UPDATES = 0
@@ -989,7 +992,8 @@ class GivEnergyManagerSensor(CoordinatorEntity[GivEnergyCoordinator], SensorEnti
             return None
         try:
             return self.entity_description.value_fn(self.coordinator.data)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            _LOG.debug("Sensor %s value_fn raised: %s", self.entity_description.key, exc)
             return None
 
     @property

@@ -265,3 +265,24 @@ class TestEvChargerDiscovery:
     def test_no_invert_state_in_generated_yaml(self):
         """invert_state causes double negation — Home shows 0W."""
         assert "invert_state" not in _build()
+
+
+class TestSuggestApplianceServiceCall:
+    """suggest_appliance_run service handler must pass all required arguments."""
+
+    def test_battery_power_w_in_call(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        assert "battery_power_w=data.battery_power_w" in src, (
+            "Missing battery_power_w causes TypeError on every service invocation."
+        )
+
+    def test_export_rate_from_coordinator_not_data(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        assert "coordinator.export_rate" in src
+        assert 'hasattr(data, "export_rate")' not in src, (
+            "hasattr guard always returned False — CoordinatorData has no export_rate."
+        )

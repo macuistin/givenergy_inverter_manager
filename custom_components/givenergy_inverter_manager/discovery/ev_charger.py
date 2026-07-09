@@ -67,8 +67,11 @@ Strategy implemented here:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from enum import StrEnum
+
+_LOG = logging.getLogger(__name__)
 
 
 class EVChargerBrand(StrEnum):
@@ -218,6 +221,12 @@ def _discover_zappi(all_states: dict) -> list[EVCharger]:
             f"sensor.myenergi_zappi_{serial}_charge_added_session",
         )
         _maybe(ch, "charge_mode_entity", all_states, f"select.myenergi_zappi_{serial}_charge_mode")
+        if ch.power_entity is None:
+            _LOG.warning(
+                "%s discovered but power entity not found "
+                "— EV kWh will not be tracked until the entity appears.",
+                ch.display_name,
+            )
         chargers.append(ch)
     return chargers
 
@@ -238,6 +247,12 @@ def _discover_wallbox(all_states: dict) -> list[EVCharger]:
         )
         _maybe(ch, "power_entity", all_states, f"sensor.wallbox_{serial}_charging_power")
         _maybe(ch, "session_energy_entity", all_states, f"sensor.wallbox_{serial}_added_energy")
+        if ch.power_entity is None:
+            _LOG.warning(
+                "%s discovered but power entity not found "
+                "— EV kWh will not be tracked until the entity appears.",
+                ch.display_name,
+            )
         chargers.append(ch)
     return chargers
 
@@ -257,6 +272,12 @@ def _discover_ocpp(all_states: dict) -> list[EVCharger]:
             status_entity=eid,
         )
         _maybe(ch, "power_entity", all_states, f"sensor.ocpp_{serial}_current_power_import")
+        if ch.power_entity is None:
+            _LOG.warning(
+                "%s discovered but power entity not found "
+                "— EV kWh will not be tracked until the entity appears.",
+                ch.display_name,
+            )
         chargers.append(ch)
     return chargers
 
@@ -278,6 +299,12 @@ def _discover_ohme(all_states: dict) -> list[EVCharger]:
             status_entity=eid,
         )
         _maybe(ch, "power_entity", all_states, f"sensor.ohme_{serial}_power")
+        if ch.power_entity is None:
+            _LOG.warning(
+                "%s discovered but power entity not found "
+                "— EV kWh will not be tracked until the entity appears.",
+                ch.display_name,
+            )
         chargers.append(ch)
     return chargers
 
@@ -297,6 +324,12 @@ def _discover_easee(all_states: dict) -> list[EVCharger]:
             status_entity=eid,
         )
         _maybe(ch, "power_entity", all_states, f"sensor.easee_{serial}_power")
+        if ch.power_entity is None:
+            _LOG.warning(
+                "%s discovered but power entity not found "
+                "— EV kWh will not be tracked until the entity appears.",
+                ch.display_name,
+            )
         chargers.append(ch)
     return chargers
 
