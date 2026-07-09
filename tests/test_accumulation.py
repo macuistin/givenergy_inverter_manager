@@ -359,3 +359,82 @@ class TestWeekMonthFunctional:
         assert len({round(v, 6) for v in solar_values}) == 1, (
             "today, week, and month should accumulate identically in one cycle"
         )
+
+
+class TestForecastRecording:
+    """on_charge_decision must be called so solar_forecast_today is non-zero."""
+
+    def test_on_charge_decision_sets_today_forecast(self):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        store = AccumulationStore(MagicMock(), 16)
+        assert store.today_forecast_kwh == 0.0
+        store.on_charge_decision(38.5)
+        assert store.today_forecast_kwh == 38.5
+
+    def test_on_charge_decision_ignores_zero(self):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        store = AccumulationStore(MagicMock(), 16)
+        store.on_charge_decision(0.0)
+        assert store.today_forecast_kwh == 0.0
+
+    def test_on_charge_decision_only_sets_once(self):
+        """Once set, a second call must not overwrite (first reading locks it)."""
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        store = AccumulationStore(MagicMock(), 16)
+        store.on_charge_decision(38.5)
+        store.on_charge_decision(10.0)
+        assert store.today_forecast_kwh == 38.5
+
+
+class TestBatteryStatsPersistence:
+    """BatteryStats must survive HA restarts via AccumulationStore."""
+
+    def test_save_and_restore_total_cycles(self):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+        from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+
+        store = AccumulationStore(MagicMock(), 16)
+        stats = BatteryStats(total_cycles=4.7)
+        store.save_battery_stats(stats)
+        restored = BatteryStats()
+        store.restore_battery_stats(restored)
+        assert restored.total_cycles == 4.7
+
+    def test_save_and_restore_last_full_charge_date(self):
+        from datetime import date
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+        from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+
+        store = AccumulationStore(MagicMock(), 16)
+        d = date(2026, 7, 9)
+        stats = BatteryStats(last_full_charge_date=d)
+        store.save_battery_stats(stats)
+        restored = BatteryStats()
+        store.restore_battery_stats(restored)
+        assert restored.last_full_charge_date == d
+
+    def test_restore_leaves_zero_untouched(self):
+        """If no saved stats exist, BatteryStats stays at defaults."""
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+        from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+
+        store = AccumulationStore(MagicMock(), 16)
+        stats = BatteryStats()
+        store.restore_battery_stats(stats)
+        assert stats.total_cycles == 0.0
+        assert stats.last_full_charge_date is None

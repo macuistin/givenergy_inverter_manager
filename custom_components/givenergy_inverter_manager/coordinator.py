@@ -711,6 +711,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """
         self._update_cycle += 1
         if self._update_cycle % 10 == 0:
+            self._acc.save_battery_stats(self._battery_stats)
             self.hass.async_create_task(self._acc.async_save())
         cfg = self._effective_cfg()
         self.export_rate = build_tariff(cfg).export_rate
@@ -751,17 +752,21 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
         )
 
-        # 5. Cheap rate floor — top up if battery drops below minimum during cheap hours
+        # 5. Record forecast for accuracy tracking (sets solar_forecast_today sensor)
+        if data.charge_decision is not None and data.charge_decision.forecast_kwh > 0:
+            self._acc.on_charge_decision(data.charge_decision.forecast_kwh)
+
+        # 6. Cheap rate floor — top up if battery drops below minimum during cheap hours
         data.cheap_rate_floor_status = await self._maybe_apply_cheap_rate_floor(now, raw, cfg)
 
-        # 6. Verbose logging (debug-level, opt-in via config)
+        # 7. Verbose logging (debug-level, opt-in via config)
         log_cycle(_LOG, self._update_cycle, raw, data, now)
 
-        # 7. Update coordinator state for next cycle
+        # 8. Update coordinator state for next cycle
         self._last_soc = raw.battery_soc
         self._last_update = now
 
-        # 8. Apply HA side-effects requested by the engine
+        # 9. Apply HA side-effects requested by the engine
         self._apply_ev_action(ev_target_mode)
 
         return data
