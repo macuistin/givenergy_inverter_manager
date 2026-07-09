@@ -441,6 +441,14 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: d.dry_run,
     ),
     GivEnergyManagerSensorDescription(
+        key="cheap_rate_floor_status",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="cheap_rate_floor_status",
+        name="Cheap Rate Floor",
+        icon="mdi:battery-arrow-up",
+        value_fn=lambda d: d.cheap_rate_floor_status or "Inactive",
+    ),
+    GivEnergyManagerSensorDescription(
         key="dry_run_last_skipped",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="dry_run_last_skipped",

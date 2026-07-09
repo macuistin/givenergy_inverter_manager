@@ -462,3 +462,67 @@ class TestManifest:
         }
         missing = required - set(manifest.keys())
         assert not missing, f"manifest.json missing required fields: {missing}"
+
+
+class TestCheapRateFloorPlumbing:
+    """Regression guards ensuring the cheap rate floor feature is fully wired up.
+    The coordinator logic is tested in TestCheapRateFloor; these tests cover
+    the constant, CoordinatorData field, sensor, and config option."""
+
+    def test_constants_defined_with_sensible_defaults(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_CHEAP_RATE_FLOOR_SOC,
+            DEFAULT_CHEAP_RATE_FLOOR_SOC,
+        )
+
+        assert CONF_CHEAP_RATE_FLOOR_SOC == "cheap_rate_floor_soc"
+        assert 0 < DEFAULT_CHEAP_RATE_FLOOR_SOC <= 80, (
+            "Default floor should be a reasonable non-zero percentage"
+        )
+
+    def test_coordinator_data_has_floor_status_field(self):
+        from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+
+        data = CoordinatorData()
+        assert hasattr(data, "cheap_rate_floor_status"), (
+            "CoordinatorData must have cheap_rate_floor_status — "
+            "coordinator writes to it every cycle."
+        )
+        assert data.cheap_rate_floor_status == "", "Should default to empty string"
+
+    def test_sensor_key_registered(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        assert 'key="cheap_rate_floor_status"' in src, (
+            "cheap_rate_floor_status sensor must be registered in sensor.py — "
+            "without it the floor status is calculated but never surfaced in HA."
+        )
+
+    def test_config_option_in_options_flow(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        assert "CONF_CHEAP_RATE_FLOOR_SOC" in src, (
+            "cheap_rate_floor_soc must appear in the options flow — "
+            "without it the floor is fixed at 40% with no way to change it."
+        )
+
+    def test_strings_have_floor_label(self):
+        import json
+        from pathlib import Path
+
+        data = json.loads(
+            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+        )
+        thresh_data = (
+            data.get("options", {})
+            .get("step", {})
+            .get("init", {})
+            .get("sections", {})
+            .get("threshold_settings", {})
+            .get("data", {})
+        )
+        assert "cheap_rate_floor_soc" in thresh_data, (
+            "strings.json must have a label for cheap_rate_floor_soc"
+        )
