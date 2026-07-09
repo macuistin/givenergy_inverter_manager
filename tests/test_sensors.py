@@ -209,3 +209,21 @@ class TestImmersionPowerMetadata:
         d = MagicMock()
         d.immersion_load_w = 0.0
         assert fn(d) == pytest.approx(0.0)
+
+
+class TestWeeklyMonthlySensorStateClass:
+    """Weekly and monthly sensors must use TOTAL not TOTAL_INCREASING.
+    They can decrease from floating-point rounding, causing recorder warnings."""
+
+    def test_weekly_sensors_use_total_not_total_increasing(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        # Find the weekly section
+        weekly_start = src.find("# ── Weekly accumulations")
+        assert weekly_start != -1
+        weekly_section = src[weekly_start:]
+        assert "TOTAL_INCREASING" not in weekly_section, (
+            "Weekly/monthly sensors must use SensorStateClass.TOTAL not TOTAL_INCREASING — "
+            "float rounding can cause micro-decreases that trigger HA recorder warnings."
+        )

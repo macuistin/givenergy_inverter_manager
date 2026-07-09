@@ -86,6 +86,8 @@ class AccumulationState:
 
     # Forecast accuracy — recorded at midnight from the previous charge decision
     today_forecast_kwh: float = 0.0
+    battery_cycles: float = 0.0
+    last_full_charge_date: str = ""  # ISO date string, "" = never
     yesterday_forecast_accuracy_pct: float = 0.0
     forecast_accuracy_history: list = field(default_factory=list)  # last 7 days
 
@@ -232,6 +234,25 @@ class AccumulationStore:
             self.state.month_start_iso = now.isoformat()
             _LOG.debug("Monthly accumulator reset (bill day %d)", self._bill_start_day)
 
+    def restore_battery_stats(self, stats) -> None:
+        """Restore BatteryStats from persisted state after an HA restart."""
+        from datetime import date
+
+        if self.state.battery_cycles > 0:
+            stats.total_cycles = self.state.battery_cycles
+        if self.state.last_full_charge_date:
+            try:
+                stats.last_full_charge_date = date.fromisoformat(self.state.last_full_charge_date)
+            except ValueError:
+                pass
+
+    def save_battery_stats(self, stats) -> None:
+        """Persist BatteryStats so it survives HA restarts."""
+        self.state.battery_cycles = stats.total_cycles
+        self.state.last_full_charge_date = (
+            stats.last_full_charge_date.isoformat() if stats.last_full_charge_date else ""
+        )
+
     def on_charge_decision(self, forecast_kwh: float) -> None:
         """
         Record the forecast kWh from tonight's charge decision.
@@ -260,6 +281,8 @@ def _serialize(state: AccumulationState) -> dict:
         "month": _acc_to_dict(state.month),
         "yesterday": _acc_to_dict(state.yesterday),
         "today_forecast_kwh": state.today_forecast_kwh,
+        "battery_cycles": state.battery_cycles,
+        "last_full_charge_date": state.last_full_charge_date,
         "yesterday_forecast_accuracy_pct": state.yesterday_forecast_accuracy_pct,
         "forecast_accuracy_history": list(state.forecast_accuracy_history),
         "week_start_iso": state.week_start_iso,
@@ -275,6 +298,8 @@ def _deserialize(data: dict) -> AccumulationState:
     state.month = _dict_to_acc(data.get("month", {}))
     state.yesterday = _dict_to_acc(data.get("yesterday", {}))
     state.today_forecast_kwh = float(data.get("today_forecast_kwh", 0.0))
+    state.battery_cycles = float(data.get("battery_cycles", 0.0))
+    state.last_full_charge_date = str(data.get("last_full_charge_date", ""))
     state.yesterday_forecast_accuracy_pct = float(data.get("yesterday_forecast_accuracy_pct", 0.0))
     state.forecast_accuracy_history = [float(x) for x in data.get("forecast_accuracy_history", [])]
     state.week_start_iso = data.get("week_start_iso", "")
