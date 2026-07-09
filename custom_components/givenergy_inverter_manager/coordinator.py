@@ -713,6 +713,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._update_cycle % 10 == 0:
             self.hass.async_create_task(self._acc.async_save())
         cfg = self._effective_cfg()
+        self.export_rate = build_tariff(cfg).export_rate
 
         # 1. Refresh EV charger discovery
         self._maybe_rediscover_ev()
