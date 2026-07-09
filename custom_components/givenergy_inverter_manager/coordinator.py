@@ -49,10 +49,12 @@ from homeassistant.util import dt as dt_util
 from .accumulation import AccumulationStore
 from .const import (
     CONF_BATTERY_CAPACITY,
+    CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
     CONF_CHARGE_END_TIME_ENTITY,
     CONF_CHARGE_START_TIME_ENTITY,
+    CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_DRY_RUN,
     CONF_ENABLE_CHARGE_SCHEDULE,
     CONF_ENABLE_CHARGE_TARGET,
@@ -69,6 +71,8 @@ from .const import (
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
     DEFAULT_BATTERY_CAPACITY,
+    DEFAULT_BATTERY_MIN_SOC,
+    DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_DRY_RUN,
     DEFAULT_IMMERSION_HYSTERESIS,
     DEFAULT_IMMERSION_MIN_TEMP,
@@ -139,6 +143,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
+        self._floor_top_up_applied: bool = False
         self._ev_charger: EVCharger | None = None
 
         # Manual overrides set by switch/number entities
@@ -389,6 +394,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     def _midnight_reset(self, now: datetime) -> None:
         midnight = dt_util.as_local(now).replace(hour=0, minute=0, second=0, microsecond=0)
         self._last_reset_time = midnight.isoformat()
+        self._floor_top_up_applied = False
         self._acc.on_midnight(midnight)
         self.hass.async_create_task(self._acc.async_save())
         self._last_update = None
@@ -604,6 +610,97 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     # ── Main update cycle ─────────────────────────────────────────────────────
 
+    async def _maybe_apply_cheap_rate_floor(
+        self,
+        now: datetime,
+        raw,
+        cfg: dict,
+    ) -> str:
+        """During cheap rate hours, top up battery if it drops below the floor.
+
+        Optimises for the cheapest available window (e.g. Nightboost over Night):
+        - In the cheapest timed period: apply the full floor (default 40%).
+        - In a cheaper-than-base but not cheapest period: only top up if battery
+          is near the minimum SoC — otherwise wait for the cheapest window.
+
+        Called every 30s cycle. Only writes to the inverter once per night
+        (flag resets at midnight).
+        """
+        floor_soc = int(cfg.get(CONF_CHEAP_RATE_FLOOR_SOC, DEFAULT_CHEAP_RATE_FLOOR_SOC))
+        if floor_soc <= 0:
+            return ""
+
+        tariff = build_tariff(cfg)
+        current_period = tariff.get_current_rate(now)
+
+        # Only active during a timed period cheaper than the base rate
+        if current_period.rate >= tariff.base_rate:
+            return ""
+
+        # Determine whether we are in the cheapest available window
+        cheapest = tariff.get_cheapest_rate() if tariff.rate_periods else current_period
+        in_cheapest = current_period.rate <= cheapest.rate
+
+        if in_cheapest:
+            # Cheapest window — apply full floor
+            effective_floor = floor_soc
+        else:
+            # Cheaper than base but a better rate is coming or was available.
+            # Only top up for genuine emergencies (near minimum SoC).
+            min_soc = int(cfg.get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC))
+            emergency_floor = min_soc + 5
+            if raw.battery_soc >= emergency_floor:
+                # Not critical — tell the sensor we are waiting
+                return (
+                    f"Battery at {raw.battery_soc:.0f}% during {current_period.name} — "
+                    f"waiting for cheapest rate ({cheapest.name} "
+                    f"{cheapest.start.strftime('%H:%M')}–{cheapest.end.strftime('%H:%M')})"
+                )
+            effective_floor = emergency_floor
+
+        if raw.battery_soc >= effective_floor:
+            return ""
+
+        if self._floor_top_up_applied:
+            return (
+                f"Floor already applied this window — battery at {raw.battery_soc:.0f}%, "
+                f"floor {effective_floor}%"
+            )
+
+        status = (
+            f"Battery at {raw.battery_soc:.0f}% during {current_period.name} — "
+            f"topping up to {effective_floor}%"
+        )
+        _LOG.info("Cheap rate floor: %s", status)
+
+        target_entity = cfg.get(CONF_TARGET_SOC_ENTITY)
+        if not target_entity:
+            _LOG.warning("Cheap rate floor triggered but no target SoC entity configured")
+            return status
+
+        if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
+            _LOG.info("DRY RUN: %s", status)
+            return f"DRY RUN: {status}"
+
+        # Write the new target — charge schedule already set by the nightly write-back,
+        # so we only need to update the target SoC value.
+        try:
+            await self._call_service(
+                "number",
+                "set_value",
+                {"entity_id": target_entity, "value": str(effective_floor)},
+            )
+            enable_entity = target_entity.replace("target_soc", "enable_charge_target").replace(
+                "number.", "switch."
+            )
+            await self._call_service("switch", "turn_on", {"entity_id": enable_entity})
+        except Exception:
+            _LOG.exception("Cheap rate floor: failed to write target to inverter")
+            return f"Error writing floor — {status}"
+
+        self._floor_top_up_applied = True
+        return status
+
     async def _async_update_data(self) -> CoordinatorData:
         """
         Called every UPDATE_INTERVAL_SECONDS by the HA coordinator framework.
@@ -651,14 +748,17 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
         )
 
-        # 5. Verbose logging (debug-level, opt-in via config)
+        # 5. Cheap rate floor — top up if battery drops below minimum during cheap hours
+        data.cheap_rate_floor_status = await self._maybe_apply_cheap_rate_floor(now, raw, cfg)
+
+        # 6. Verbose logging (debug-level, opt-in via config)
         log_cycle(_LOG, self._update_cycle, raw, data, now)
 
-        # 6. Update coordinator state for next cycle
+        # 7. Update coordinator state for next cycle
         self._last_soc = raw.battery_soc
         self._last_update = now
 
-        # 7. Apply HA side-effects requested by the engine
+        # 8. Apply HA side-effects requested by the engine
         self._apply_ev_action(ev_target_mode)
 
         return data
