@@ -302,15 +302,15 @@ class TestPowerFlowTabChanges:
     def test_no_three_column_grid(self):
         assert "columns: 3" not in _build(), "3-column grid must be replaced with compact markdown."
 
-    def test_compact_markdown_rate_card(self):
+    def test_rate_shown_as_grid_secondary_info(self):
+        """Rate is now secondary_info on the grid entity, not a separate markdown card."""
         yaml = _build()
-        assert "type: markdown" in yaml, "Compact markdown rate card must be present."
-        # Markdown shows rate period and rate on one line
-        md_start = yaml.find("type: markdown")
-        md_block = yaml[md_start : md_start + 300]
-        assert "states(" in md_block and "Clipping" in md_block, (
-            "Markdown card must template both rate info and clipping state."
+        grid_idx = yaml.find("grid:")
+        grid_block = yaml[grid_idx : grid_idx + 400]
+        assert "secondary_info:" in grid_block, (
+            "Rate must be shown as secondary_info on the grid entity."
         )
+        assert "mdi:currency-eur" in grid_block, "Rate secondary_info must use the euro icon."
 
     def test_clipping_entity_card_removed(self):
         assert "icon: mdi:alert-circle-outline" not in _build(), (
@@ -320,8 +320,12 @@ class TestPowerFlowTabChanges:
     def test_immersion_section_absent_when_unconfigured(self):
         """When no immersion temp sensor is set, section must be a comment not broken YAML."""
         yaml = _build()
-        assert "apexcharts-card" not in yaml
+        # "apexcharts-card" appears in the header comment — check the section itself
         assert "no temperature sensor configured" in yaml
+        # No functional apexcharts block should appear (only the header comment reference)
+        assert "graph_span: 12h" not in yaml, (
+            "No apexcharts chart should render when temp sensor is unconfigured."
+        )
 
     def test_immersion_section_present_when_configured(self):
         """When temp sensor is configured, section must include apexcharts + glance."""
@@ -346,5 +350,7 @@ class TestPowerFlowTabChanges:
         assert "apexcharts-card" in yaml, "Immersion section must use apexcharts-card"
         assert "graph_span: 12h" in yaml, "Must show 12 hours of history"
         assert "sensor.water_temp" in yaml, "Actual temp sensor entity must appear in YAML"
-        assert "type: glance" in yaml, "Info row must use glance card"
-        assert "Restart Gap" in yaml, "Restart gap setting must appear in info row"
+        assert yaml.count("apexcharts-card") >= 2, (
+            "Must have temperature chart and energy/power chart."
+        )
+        assert "type: tile" in yaml, "Divert reason must use tile card."

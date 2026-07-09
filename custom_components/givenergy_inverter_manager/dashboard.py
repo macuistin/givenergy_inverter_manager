@@ -85,55 +85,88 @@ def _build_immersion_section(
     num_gap: str,
     immersion_today: str,
 ) -> str:
-    """Build the immersion temperature section for the power flow tab.
+    """Build the immersion section for the power flow tab.
 
     Returns YAML for a vertical-stack with:
-      - apexcharts-card showing 12h temperature history with threshold lines
-      - glance row: divert reason, target, minimum, restart gap, today kWh
+      - apexcharts-card: 12h temperature history (water, target, minimum)
+      - tile card: current divert reason
+      - apexcharts-card: 12h immersion energy accumulated today
 
     Requires apexcharts-card from HACS (github.com/RomRider/apexcharts-card).
+    Inserted at column 14 in the parent template — first line gets that indent
+    for free; every subsequent line carries its own.
     """
     if not immersion_temp_sensor:
         return "# Immersion section: no temperature sensor configured in settings"
 
-    return f"""- type: vertical-stack
-              cards:
-              - type: custom:apexcharts-card
-                # Requires: https://github.com/RomRider/apexcharts-card (HACS)
-                header:
-                  show: true
-                  title: Immersion Temperature (12h)
-                graph_span: 12h
-                yaxis:
-                  - min: ~40
-                    max: ~65
-                series:
-                  - entity: {immersion_temp_sensor}
-                    name: Water
-                    color: "#03a9f4"
-                    stroke_width: 2
-                  - entity: {num_target}
-                    name: Target
-                    color: "#f44336"
-                    stroke_width: 1
-                  - entity: {num_min}
-                    name: Minimum
-                    color: "#ff9800"
-                    stroke_width: 1
-              - type: glance
-                show_name: true
-                show_icon: false
-                entities:
-                  - entity: {immersion_reason}
-                    name: Status
-                  - entity: {num_target}
-                    name: Target
-                  - entity: {num_min}
-                    name: Minimum
-                  - entity: {num_gap}
-                    name: Restart Gap
-                  - entity: {immersion_today}
-                    name: Today"""
+    n = "\n"
+    p16 = "                "  # 16 sp — vertical-stack props / cards list
+    p18 = "                  "  # 18 sp — card props
+    p20 = "                    "  # 20 sp — nested props
+    p22 = "                      "  # 22 sp — deeply nested
+
+    apex_cfg = (
+        f"{p18}apex_config:{n}"
+        f"{p20}chart:{n}"
+        f"{p22}height: 150{n}"
+        f"{p22}zoom:{n}"
+        f"{p22}  enabled: false{n}"
+        f"{p20}tooltip:{n}"
+        f"{p22}shared: true{n}"
+        f"{p22}followCursor: true{n}"
+        f"{p20}stroke:{n}"
+        f"{p22}curve: smooth{n}"
+        f"{p22}width: 2{n}"
+        f"{p20}markers:{n}"
+        f"{p22}size: 0{n}"
+        f"{p22}hover:{n}"
+        f"{p22}  size: 5{n}"
+        f"{p20}legend:{n}"
+        f"{p22}show: false{n}"
+    )
+
+    return (
+        f"- type: vertical-stack{n}"
+        f"{p16}cards:{n}"
+        # Temperature history
+        f"{p16}- type: custom:apexcharts-card{n}"
+        f"{p18}header:{n}"
+        f"{p20}show: true{n}"
+        f"{p20}title: Immersion Temperature (12h){n}"
+        f"{p18}graph_span: 12h{n}" + apex_cfg + f"{p18}series:{n}"
+        f"{p20}- entity: {immersion_temp_sensor}{n}"
+        f"{p22}name: Water{n}"
+        f'{p22}color: "#03a9f4"{n}'
+        f"{p22}stroke_width: 2{n}"
+        f"{p20}- entity: {num_target}{n}"
+        f"{p22}name: Target{n}"
+        f'{p22}color: "#f44336"{n}'
+        f"{p22}stroke_width: 1{n}"
+        f"{p20}- entity: {num_min}{n}"
+        f"{p22}name: Minimum{n}"
+        f'{p22}color: "#ff9800"{n}'
+        f"{p22}stroke_width: 1{n}"
+        # Divert reason tile
+        f"{p16}- type: tile{n}"
+        f"{p18}entity: {immersion_reason}{n}"
+        f"{p18}name: ' '{n}"
+        f"{p18}show_entity_picture: false{n}"
+        f"{p18}hide_state: false{n}"
+        f"{p18}vertical: false{n}"
+        f"{p18}features_position: bottom{n}"
+        # Immersion energy accumulated today
+        f"{p16}- type: custom:apexcharts-card{n}"
+        f"{p18}header:{n}"
+        f"{p20}show: true{n}"
+        f"{p20}title: Power{n}"
+        f"{p18}graph_span: 12h{n}"
+        f"{p18}yaxis:{n}"
+        f"{p20}- min: 0{n}" + apex_cfg + f"{p18}series:{n}"
+        f"{p20}- entity: {immersion_today}{n}"
+        f"{p22}name: Immersion Power Today{n}"
+        f'{p22}color: "#03a9f4"{n}'
+        f"{p22}stroke_width: 2"
+    )
 
 
 def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
@@ -155,7 +188,6 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     battery_power = e("battery_power")
     immersion_power = e("immersion_power")
     current_rate = e("current_rate")
-    current_rate_period = e("current_rate_period")
     solar_today = e("solar_today")
     import_today = e("import_today")
     export_today = e("export_today")
@@ -225,6 +257,10 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
         #
         # View 1 (Power Flow) requires power-flow-card-plus from HACS:
         #   https://github.com/flixlix/power-flow-card-plus
+        # Immersion section requires apexcharts-card from HACS:
+        #   https://github.com/RomRider/apexcharts-card
+        # Battery gauge requires vertical-stack-in-card from HACS:
+        #   https://github.com/ofekashery/vertical-stack-in-card
         # All other views use only built-in HA cards.
         #
         # To use: Settings → Dashboards → new blank dashboard
@@ -238,7 +274,6 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
             path: power-flow
             cards:
               - type: custom:power-flow-card-plus
-                # Requires: https://github.com/flixlix/power-flow-card-plus (HACS)
                 entities:
                   solar:
                     entity: {solar_power}
@@ -246,14 +281,27 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     color_value: false
                     invert_state: false
                     secondary_info_entity: {is_clipping}
+                    secondary_info:
+                      template: |-
+                        {{{{- '·⚡Clip' if
+                                  states('{is_clipping}') ==
+                                  'clipping' else '' }}}}
                   battery:
                     entity: {battery_power}
                     state_of_charge: {battery_soc}
+                    show_state_of_charge: false
                   grid:
                     entity: {grid_power}
                     use_metadata: false
                     invert_state: false
-                    display_state: two_way
+                    display_state: one_way
+                    secondary_info:
+                      entity: {current_rate}
+                      icon: mdi:currency-eur
+                      decimals: 4
+                      display_zero: false
+                      color_value: false
+                      unit_of_measurement: " "
                   home:
                     entity: {house_load}
                     subtract_individual: false
@@ -287,12 +335,6 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 clickable_entities: true
                 no_labels: false
 
-              - type: markdown
-                content: >-
-                  **{{{{ states('{current_rate_period}') }}}}**
-                  · €{{{{ states('{current_rate}') | float | round(4) }}}}/kWh
-                  {{{{- ' · ⚡ Clipping' if states('{is_clipping}') == 'clipping' else '' }}}}
-
               {_immersion_section}
 
           # ── View 2: Today ────────────────────────────────────────────────────
@@ -300,38 +342,27 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
             icon: mdi:calendar-today
             path: today
             cards:
-              - type: heading
-                heading: Energy Today
-                heading_style: title
-
-              - type: grid
-                square: false
-                columns: 2
-                cards:
-                  - type: entity
-                    entity: {solar_today}
-                    name: Solar Generated
+              - show_name: true
+                show_icon: true
+                show_state: true
+                type: glance
+                title: Energy Today
+                entities:
+                  - entity: {solar_today}
+                    name: Generated
                     icon: mdi:solar-power
-                  - type: entity
-                    entity: {import_today}
-                    name: Grid Import
+                  - entity: {import_today}
+                    name: Import
                     icon: mdi:transmission-tower-import
-                  - type: entity
-                    entity: {export_today}
-                    name: Grid Export
+                  - entity: {export_today}
+                    name: Export
                     icon: mdi:transmission-tower-export
-                  - type: entity
-                    entity: {zappi_today}
-                    name: EV Charging
+                  - entity: {zappi_today}
+                    name: EV
                     icon: mdi:car-electric
-                  - type: entity
-                    entity: {immersion_today}
-                    name: Immersion Heater
+                  - entity: {immersion_today}
+                    name: Immersion
                     icon: mdi:water-boiler
-
-              - type: heading
-                heading: Cost Breakdown
-                heading_style: title
 
               - type: entities
                 entities:
@@ -350,6 +381,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - entity: {house_cost_today}
                     name: Rest-of-House Cost
                     icon: mdi:home
+                title: Cost Breakdown
 
               - type: history-graph
                 title: Cost build — today
@@ -366,12 +398,8 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - entity: {export_earnings}
                     name: Export Earnings
 
-              - type: heading
-                heading: Self-Sufficiency
-                heading_style: title
-
-              - type: grid
-                square: false
+              - square: false
+                type: grid
                 columns: 2
                 cards:
                   - type: gauge
@@ -392,10 +420,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                       green: 70
                       yellow: 40
                       red: 0
-
-              - type: heading
-                heading: Bill Prediction
-                heading_style: title
+                title: Self Sufficiency
 
               - type: entities
                 entities:
@@ -408,30 +433,30 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - entity: {days_remaining}
                     name: Days Remaining
                     icon: mdi:calendar-end
+                title: Bill Prediction
+                show_header_toggle: false
+                state_color: false
 
           # ── View 3: Battery ──────────────────────────────────────────────────
           - title: Battery
             icon: mdi:battery-charging
             path: battery
             cards:
-              - type: heading
-                heading: Current State
-                heading_style: title
-
-              - type: gauge
-                entity: {battery_soc}
-                name: Battery SoC
-                min: 0
-                max: 100
-                needle: true
-                severity:
-                  green: 50
-                  yellow: 20
-                  red: 0
-
-              - type: heading
-                heading: Tonight's Charge Plan
-                heading_style: title
+              - type: custom:vertical-stack-in-card
+                cards:
+                  - type: heading
+                    heading: Current State
+                    heading_style: title
+                  - type: gauge
+                    entity: {battery_soc}
+                    name: Battery SoC
+                    min: 0
+                    max: 100
+                    needle: true
+                    severity:
+                      green: 50
+                      yellow: 20
+                      red: 0
 
               - type: entities
                 entities:
@@ -450,10 +475,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - entity: {survival_reason}
                     name: Night Survival Status
                     icon: mdi:moon-waning-crescent
-
-              - type: heading
-                heading: Battery Health
-                heading_style: title
+                title: Tonights Charge Plan
 
               - type: entities
                 entities:
@@ -466,6 +488,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - entity: {days_since_full}
                     name: Days Since Full Charge
                     icon: mdi:battery-100
+                title: Battery Health
 
           # ── View 4: Controls ─────────────────────────────────────────────────
           - title: Controls
@@ -505,10 +528,6 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                       name: Last Skipped Action
                       icon: mdi:skip-next-circle-outline
 
-              - type: heading
-                heading: Overnight Charging
-                heading_style: title
-
               - type: entities
                 entities:
                   - entity: {sw_enable_charge_target}
@@ -517,10 +536,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     name: Overnight Charge Target
                   - entity: {sw_skip_charge}
                     name: Force Skip Charge Tonight
-
-              - type: heading
-                heading: Immersion Heater
-                heading_style: title
+                title: Overnight Charging
 
               - type: entities
                 entities:
@@ -531,10 +547,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - entity: {immersion_reason}
                     name: Divert Reason
                     icon: mdi:water-boiler
-
-              - type: heading
-                heading: EV Charger
-                heading_style: title
+                title: Immersion Heater
 
               - type: entities
                 entities:
@@ -553,7 +566,8 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - entity: {ev_protection_reason}
                     name: Protection Status
                     icon: mdi:shield-check
-    """)
+                title: EV Charger
+        """)
 
 
 async def async_register_services(hass: HomeAssistant) -> None:
