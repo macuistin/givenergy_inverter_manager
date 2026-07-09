@@ -162,31 +162,49 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 entities:
                   solar:
                     entity: {solar_power}
+                    color_icon: false
+                    color_value: false
+                    invert_state: false
                   battery:
                     entity: {battery_power}
                     state_of_charge: {battery_soc}
-                    display_zero_tolerance: 10
                   grid:
                     entity: {grid_power}
+                    use_metadata: false
+                    invert_state: false
+                    display_state: two_way
                   home:
                     entity: {house_load}
+                    subtract_individual: false
+                    hide: false
                   individual:
                   - entity: {ev_power}
-                    name: EV Charger
+                    name: Car Charger
                     icon: mdi:car-electric
-                    color: "#4CAF50"
                     display_zero: false
+                    color: "#4CAF50"
                   - entity: {immersion_power}
                     name: Immersion
                     icon: mdi:water-boiler
-                    color: "#FF9800"
                     display_zero: false
+                    color: "#FF9800"
                 title: Live Power Flow
-                kw_decimals: 1
-                w_decimals: 0
                 min_flow_rate: 0.75
                 max_flow_rate: 6
-                watt_threshold: 1000
+                display_zero_lines:
+                  mode: transparency
+                  transparency: 75
+                  grey_color:
+                  - 189
+                  - 189
+                  - 189
+                allow_layout_break: false
+                kilo_threshold: 1000
+                base_decimals: 0
+                kilo_decimals: 1
+                disable_dots: false
+                clickable_entities: true
+                no_labels: false
 
               - type: grid
                 square: false
@@ -526,11 +544,12 @@ async def async_register_services(hass: HomeAssistant) -> None:
             solar_power_w=data.solar_power_w,
             house_load_w=data.house_load_w,
             battery_soc=data.battery_soc,
+            battery_power_w=data.battery_power_w,
             appliance_power_w=appliance_power_w,
             appliance_name=appliance_name,
             rate_period_name=data.current_rate_name,
             rate=data.current_rate,
-            export_rate=data.export_rate if hasattr(data, "export_rate") else 0.0,
+            export_rate=coordinator.export_rate,
         )
 
         verdict = "Good time to run" if recommended else "Not recommended right now"

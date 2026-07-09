@@ -559,3 +559,65 @@ class TestEVChargerAdditionalCoverage:
         )
         update_charger_state(all_states.get, ch, battery_power_w=0)
         assert ch.power_w == 0.0
+
+
+class TestEVPowerEntityWarning:
+    """EV charger discovery must warn and return the charger when power entity is missing."""
+
+    def _zappi_states_without_power(self, serial: str = "12345678") -> dict:
+        """States with a Zappi plug_status but no power entity."""
+        from unittest.mock import MagicMock
+
+        state = MagicMock()
+        state.state = "Connected"
+        return {f"sensor.myenergi_zappi_{serial}_plug_status": state}
+
+    def test_warning_emitted_when_power_entity_missing(self, caplog):
+        """_discover_zappi must log a warning when the power entity is not in states."""
+        import logging
+
+        from custom_components.givenergy_inverter_manager.discovery.ev_charger import (
+            _discover_zappi,
+        )
+
+        with caplog.at_level(
+            logging.WARNING,
+            logger="custom_components.givenergy_inverter_manager.discovery.ev_charger",
+        ):
+            _discover_zappi(self._zappi_states_without_power())
+        assert any("power entity not found" in r.message for r in caplog.records), (
+            "Must warn when Zappi is discovered but power entity is absent — "
+            "without this EV kWh silently reads 0 with no diagnostic."
+        )
+
+    def test_charger_still_returned_when_power_entity_missing(self):
+        """Charger must still be in the returned list despite missing power entity."""
+        from custom_components.givenergy_inverter_manager.discovery.ev_charger import (
+            _discover_zappi,
+        )
+
+        chargers = _discover_zappi(self._zappi_states_without_power())
+        assert len(chargers) == 1, "Charger must be returned even without power entity"
+        assert chargers[0].power_entity is None
+
+    def test_no_warning_when_power_entity_present(self, caplog):
+        """No warning emitted when all entities are present."""
+        import logging
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.discovery.ev_charger import (
+            _discover_zappi,
+        )
+
+        serial = "12345678"
+        mk = MagicMock()
+        states = {
+            f"sensor.myenergi_zappi_{serial}_plug_status": mk,
+            f"sensor.myenergi_zappi_{serial}_internal_load_ct1": mk,
+        }
+        with caplog.at_level(
+            logging.WARNING,
+            logger="custom_components.givenergy_inverter_manager.discovery.ev_charger",
+        ):
+            _discover_zappi(states)
+        assert not any("power entity" in r.message for r in caplog.records)

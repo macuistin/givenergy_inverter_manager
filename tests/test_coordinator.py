@@ -1056,3 +1056,43 @@ class TestCheapRateFloor:
 
         src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
         assert "_floor_top_up_applied = False" in src
+
+
+class TestReadOptionalFloatProxy:
+    """_read_optional_float must use _get_state proxy, not hass.states.get directly."""
+
+    def test_reads_via_proxy(self):
+        from unittest.mock import MagicMock
+
+        coord = FakeCoordinator(cfg=_cfg())
+        mock_state = MagicMock()
+        mock_state.state = "47.3"
+        coord._get_state = lambda eid: mock_state if eid == "sensor.temp" else None
+        result = coord._read_optional_float("sensor.temp")
+        assert result == pytest.approx(47.3), (
+            "_read_optional_float must use _get_state — calling hass.states.get "
+            "directly bypasses the test proxy and always returns None in tests."
+        )
+
+    def test_hass_states_get_not_called(self):
+        from unittest.mock import MagicMock
+
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._get_state = lambda eid: MagicMock(state="1.0")
+        coord.hass.states.get = MagicMock(
+            side_effect=AssertionError("_read_optional_float called hass.states.get directly")
+        )
+        coord._read_optional_float("sensor.temp")  # must not raise
+
+
+class TestEVRediscoveryNullPowerEntity:
+    """Coordinator must retry EV discovery when power_entity is None."""
+
+    def test_retry_condition_in_source(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        assert "self._ev_charger.power_entity is None" in src, (
+            "Without this, a charger cached on boot with no power entity "
+            "never gets updated even after the entity appears in HA."
+        )
