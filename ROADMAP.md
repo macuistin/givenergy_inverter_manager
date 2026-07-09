@@ -4,7 +4,7 @@ Organised by theme and priority.
 
 ---
 
-## Current State (v0.1.4)
+## Current State (v0.1.5)
 
 ### What is built and working
 
@@ -42,14 +42,14 @@ Organised by theme and priority.
 - **Forecast accuracy tracking** — yesterday's accuracy and 7-day rolling average;
   auto-fallback to seasonal estimate when accuracy is poor
 - **Configurable currency** — EUR, GBP, USD, SEK, NOK, DKK, AUD, CAD, NZD, ZAR
-- **82 sensors** — live power/energy, cost, tariff, battery health, charge decision,
+- **83 sensors** — live power/energy, cost, tariff, battery health, charge decision,
   immersion, EV, bill projection, yesterday/week/month accumulators, forecast accuracy
 - **Dashboard generator** — `get_dashboard_yaml` service produces a ready-to-use
   4-tab dashboard (Power Flow, Today, Battery, Controls) including cost history graph
   and 30-day cost bar chart
 - **HACS-ready** — `hacs.json`, `manifest.json`, `strings.json`, `translations/en.json`,
   custom icons
-- **448 unit tests** — full coverage of all pure logic modules
+- **507 unit tests** — full coverage of all pure logic modules
 
 ---
 
@@ -281,6 +281,52 @@ the config flow, coordinator setup/teardown, and entity lifecycle.
 ---
 
 ## Changelog
+
+### v0.1.5
+
+- **Battery stats persistence** — `total_cycles` and `last_full_charge_date` now saved
+  to HA Storage every 5 minutes and restored on restart; `battery_total_cycles` and
+  `days_since_full_charge` no longer reset to 0/unknown after every HA restart
+- **Solar forecast today fixed** — `on_charge_decision()` was never called; `solar_forecast_today`
+  sensor now correctly shows today's forecast (was always 0.0), and forecast accuracy
+  sensors (`forecast_accuracy_yesterday`, `forecast_accuracy_7_day_average`) now accumulate
+  correctly
+- **Weekly/monthly sensor state class** — 16 weekly and monthly sensors changed from
+  `TOTAL_INCREASING` to `TOTAL`; prevents HA recorder warnings when float rounding causes
+  micro-decreases (e.g. 126.621 < 126.685 kWh)
+- **Cheap rate floor logic** — new `cheap_rate_floor_soc` config option; during cheap rate
+  periods the integration tops up the battery if SoC drops below the configured floor;
+  waits for the cheapest sub-window (Nightboost) rather than triggering on any cheaper period
+- **Immersion temperature controls** — target temperature, minimum temperature, and restart
+  gap now exposed as `RestoreNumber` dashboard sliders; values persist across HA restarts;
+  removed from config flow (live-editable on dashboard)
+- **EV charger discovery** — retries discovery when previously-found charger has no power
+  entity (entity may appear after initial boot); logs a warning when charger is found but
+  power entity is missing
+- **Export rate fix** — `coordinator.export_rate` now populated each cycle from
+  `build_tariff(cfg).export_rate`; was initialised to 0.0 but never written, causing
+  dashboard service call to always pass 0.0
+- **`_read_optional_float` proxy fix** — now uses `_get_state()` proxy instead of calling
+  `hass.states.get()` directly; makes the method correctly testable and consistent with the
+  rest of the coordinator
+- **Sensor exception logging** — bare `except Exception` in sensor `value_fn` now logs the
+  sensor key and exception instead of silently returning `None`
+- **Accumulation gap logging** — engine now logs at DEBUG when an accumulation cycle is
+  skipped due to a large elapsed time (probable HA restart or downtime)
+- **Appliance constants extracted** — `APPLIANCE_MIN_BATTERY_SOC = 80` and
+  `APPLIANCE_RATE_THRESHOLD = 1.5` added to `const.py`; `suggest_appliance_run` no longer
+  uses inline magic numbers
+- **Dashboard improvements** — power flow card: clipping shown as `secondary_info` template
+  on solar entity; current rate shown as `secondary_info` on grid entity; immersion section
+  added (apexcharts temperature history with threshold lines, tile reason card, energy chart);
+  Today tab uses glance card for energy summary; Battery tab uses vertical-stack-in-card
+- **`import_executor: true`** — added to manifest.json for HA 2026.7+ blocking call prevention
+- **Entity registry cleanup** — `service_` prefix removed from 6 entity IDs that were
+  registered with wrong device name at first install
+- **Tests** — 507 passing (up from 448); `TestBatteryStatsPersistence`, `TestForecastRecording`,
+  `TestWeeklyMonthlySensorStateClass`, `TestEVPowerEntityWarning` (caplog-based),
+  `TestReadOptionalFloatProxy`, `TestPowerFlowTabChanges` added;
+  duplicate `test_swicth.py` deleted; `test_switch.py` import path assertion corrected
 
 ### v0.1.4
 
