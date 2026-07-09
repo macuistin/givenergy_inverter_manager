@@ -526,6 +526,9 @@
       },
       "immersion_power": {
         "name": "Immersion Heater Power"
+      },
+      "cheap_rate_floor_status": {
+        "name": "Cheap Rate Floor"
       }
     }
   }
