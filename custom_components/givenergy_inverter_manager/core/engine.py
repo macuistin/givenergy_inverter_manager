@@ -115,6 +115,7 @@ class CoordinatorData:
         "days_remaining",
         "divert_reason",
         "dry_run",
+        "cheap_rate_floor_status",
         "dry_run_last_skipped",
         "estimated_soc_at_sunrise",
         "ev_available",
@@ -190,6 +191,7 @@ class CoordinatorData:
         self.ev_protection_reason: str = ""
         self.ev_available: bool = False
         self.dry_run: bool = False
+        self.cheap_rate_floor_status: str = ""
         self.dry_run_last_skipped: str = ""
         self.last_reset_time: str = ""
         self.solar_forecast_kwh_today: float = 0.0

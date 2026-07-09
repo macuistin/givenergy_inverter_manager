@@ -171,3 +171,7 @@ EV_SURPLUS_DIVERT_W = 500  # minimum surplus (W) to switch Zappi to Eco+
 #  but not yet exposed to the user. Config keys added here for wiring them in.)
 CONF_SURPLUS_DIVERT_SOC = "surplus_divert_soc_pct"
 CONF_SURPLUS_DIVERT_MIN_W = "surplus_divert_min_power_w"
+
+# Cheap rate floor — top up during cheap window if battery drops below this
+CONF_CHEAP_RATE_FLOOR_SOC = "cheap_rate_floor_soc"
+DEFAULT_CHEAP_RATE_FLOOR_SOC = 40  # % — 0 disables the floor

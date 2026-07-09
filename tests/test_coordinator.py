@@ -37,7 +37,7 @@ from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCo
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
-from tests.conftest import _nightboost_cfg
+from tests.conftest import _nightboost_cfg, _raw
 
 # ── Minimal HA state stub ─────────────────────────────────────────────────────
 
@@ -158,6 +158,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self.immersion_target_temp: float = 55.0
         self.immersion_min_temp: float = 50.0
         self.immersion_hysteresis_c: float = 5.0
+        self._floor_top_up_applied: bool = False
         self.override_immersion = None
         self.override_skip_charge = False
 
@@ -955,3 +956,103 @@ class TestImmersionNumberGuards:
             "Without this, coordinator reads stale config defaults on the first cycle "
             "after a restart (entity state restored after first coordinator update)."
         )
+
+
+class TestCheapRateFloor:
+    """During cheap rate hours, battery must not drop below the floor SoC.
+    Optimises for the cheapest window — waits for Nightboost rather than
+    topping up early on the Night rate unless battery is critically low."""
+
+    def _now_at(self, hour: int, minute: int = 0):
+        from zoneinfo import ZoneInfo
+
+        return datetime(2024, 7, 10, hour, minute, tzinfo=ZoneInfo("Europe/Dublin"))
+
+    def test_floor_triggers_during_cheapest_window(self):
+        """Battery below floor during Nightboost (cheapest) must top up."""
+        import asyncio
+
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = _raw(battery_soc=30.0)  # below 40% floor, 02:30 = Nightboost
+        result = asyncio.run(
+            coord._maybe_apply_cheap_rate_floor(self._now_at(2, 30), raw, _nightboost_cfg())
+        )
+        assert "topping up" in result.lower(), f"Expected top-up during Nightboost, got: {result!r}"
+
+    def test_waits_for_cheapest_during_night_rate(self):
+        """Battery below floor but Nightboost (cheaper) is coming — wait."""
+        import asyncio
+
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = _raw(battery_soc=30.0)  # below floor but 23:30 = Night, not Nightboost yet
+        result = asyncio.run(
+            coord._maybe_apply_cheap_rate_floor(self._now_at(23, 30), raw, _nightboost_cfg())
+        )
+        assert "waiting" in result.lower(), f"Expected wait message at 23:30, got: {result!r}"
+        assert "02:00" in result or "nightboost" in result.lower(), (
+            f"Should mention the cheaper window, got: {result!r}"
+        )
+
+    def test_emergency_top_up_during_night_if_critically_low(self):
+        """Battery near min SoC (10%) during Night — top up, can't wait."""
+        import asyncio
+
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = _raw(battery_soc=8.0)  # below min_soc(10) + 5 = 15% emergency floor
+        result = asyncio.run(
+            coord._maybe_apply_cheap_rate_floor(self._now_at(23, 30), raw, _nightboost_cfg())
+        )
+        assert "topping up" in result.lower(), (
+            f"Critically low battery must not wait for Nightboost, got: {result!r}"
+        )
+
+    def test_floor_inactive_above_floor_during_cheapest(self):
+        """Battery above floor during Nightboost — nothing to do."""
+        import asyncio
+
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = _raw(battery_soc=60.0)  # above 40% floor, 02:30 = Nightboost
+        result = asyncio.run(
+            coord._maybe_apply_cheap_rate_floor(self._now_at(2, 30), raw, _nightboost_cfg())
+        )
+        assert result == "", f"Battery above floor should return empty, got: {result!r}"
+
+    def test_floor_inactive_during_day_rate(self):
+        """During Day rate, floor must not trigger even if battery is low."""
+        import asyncio
+
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = _raw(battery_soc=5.0)
+        result = asyncio.run(
+            coord._maybe_apply_cheap_rate_floor(self._now_at(14, 0), raw, _nightboost_cfg())
+        )
+        assert result == "", f"Floor must not trigger during Day rate, got: {result!r}"
+
+    def test_floor_only_writes_once_per_window(self):
+        """Flag prevents repeated writes every 30s."""
+        import asyncio
+
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._floor_top_up_applied = True
+        raw = _raw(battery_soc=20.0)
+        result = asyncio.run(
+            coord._maybe_apply_cheap_rate_floor(self._now_at(2, 30), raw, _nightboost_cfg())
+        )
+        assert "already applied" in result.lower(), f"Expected 'already applied', got: {result!r}"
+
+    def test_floor_disabled_when_zero(self):
+        """Floor SoC of 0 disables the feature entirely."""
+        import asyncio
+
+        cfg = {**_nightboost_cfg(), "cheap_rate_floor_soc": 0}
+        coord = FakeCoordinator(cfg=cfg)
+        raw = _raw(battery_soc=5.0)
+        result = asyncio.run(coord._maybe_apply_cheap_rate_floor(self._now_at(2, 30), raw, cfg))
+        assert result == "", f"Floor of 0 must disable feature, got: {result!r}"
+
+    def test_floor_resets_at_midnight(self):
+        """_floor_top_up_applied flag must reset at midnight so next night works."""
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        assert "_floor_top_up_applied = False" in src

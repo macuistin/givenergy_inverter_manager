@@ -36,6 +36,7 @@ from .const import (
     CONF_BILL_START_DAY,
     CONF_CHARGE_END_TIME_ENTITY,
     CONF_CHARGE_START_TIME_ENTITY,
+    CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_CURRENCY,
     CONF_DISCOUNT_RATE,
     CONF_DRY_RUN,
@@ -71,6 +72,7 @@ from .const import (
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_BILL_START_DAY,
+    DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_CURRENCY,
     DEFAULT_DISCOUNT_RATE,
     DEFAULT_DRY_RUN,
@@ -591,7 +593,10 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         schema = vol.Schema(
             {
                 vol.Optional(
-                    CONF_BATTERY_MIN_SOC, default=DEFAULT_BATTERY_MIN_SOC
+                    CONF_BATTERY_MIN_SOC,
+                    CONF_CHEAP_RATE_FLOOR_SOC,
+                    DEFAULT_CHEAP_RATE_FLOOR_SOC,
+                    default=DEFAULT_BATTERY_MIN_SOC,
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=5, max=30, step=1, unit_of_measurement="%")
                 ),
@@ -758,6 +763,8 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Optional(
                         CONF_BATTERY_MIN_SOC,
+                        CONF_CHEAP_RATE_FLOOR_SOC,
+                        DEFAULT_CHEAP_RATE_FLOOR_SOC,
                         default=self._get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC),
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
