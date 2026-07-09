@@ -77,6 +77,65 @@ def _find_ev_charger_power(hass: HomeAssistant, integration_ev_power: str) -> st
     return integration_ev_power
 
 
+def _build_immersion_section(
+    immersion_temp_sensor: str,
+    immersion_reason: str,
+    num_target: str,
+    num_min: str,
+    num_gap: str,
+    immersion_today: str,
+) -> str:
+    """Build the immersion temperature section for the power flow tab.
+
+    Returns YAML for a vertical-stack with:
+      - apexcharts-card showing 12h temperature history with threshold lines
+      - glance row: divert reason, target, minimum, restart gap, today kWh
+
+    Requires apexcharts-card from HACS (github.com/RomRider/apexcharts-card).
+    """
+    if not immersion_temp_sensor:
+        return "# Immersion section: no temperature sensor configured in settings"
+
+    return f"""- type: vertical-stack
+              cards:
+              - type: custom:apexcharts-card
+                # Requires: https://github.com/RomRider/apexcharts-card (HACS)
+                header:
+                  show: true
+                  title: Immersion Temperature (12h)
+                graph_span: 12h
+                yaxis:
+                  - min: ~40
+                    max: ~65
+                series:
+                  - entity: {immersion_temp_sensor}
+                    name: Water
+                    color: "#03a9f4"
+                    stroke_width: 2
+                  - entity: {num_target}
+                    name: Target
+                    color: "#f44336"
+                    stroke_width: 1
+                  - entity: {num_min}
+                    name: Minimum
+                    color: "#ff9800"
+                    stroke_width: 1
+              - type: glance
+                show_name: true
+                show_icon: false
+                entities:
+                  - entity: {immersion_reason}
+                    name: Status
+                  - entity: {num_target}
+                    name: Target
+                  - entity: {num_min}
+                    name: Minimum
+                  - entity: {num_gap}
+                    name: Restart Gap
+                  - entity: {immersion_today}
+                    name: Today"""
+
+
 def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     """
     Build complete Lovelace YAML for all four views.
@@ -128,6 +187,27 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     ev_draining = e("ev_draining_battery")
     ev_protection_reason = e("ev_protection_reason")
 
+    # ── immersion config (temp sensor and number entities) ───────────────────
+    from .const import CONF_IMMERSION_TEMP_SENSOR
+
+    _entry_cfg: dict = {}
+    for _ce in hass.config_entries.async_entries("givenergy_inverter_manager"):
+        if _ce.entry_id == entry_id:
+            _entry_cfg = {**_ce.data, **_ce.options}
+            break
+    immersion_temp_sensor = _entry_cfg.get(CONF_IMMERSION_TEMP_SENSOR, "")
+    num_immersion_target = e("immersion_target_temp")
+    num_immersion_min = e("immersion_min_temp")
+    num_immersion_gap = e("immersion_hysteresis")
+    _immersion_section = _build_immersion_section(
+        immersion_temp_sensor,
+        immersion_reason,
+        num_immersion_target,
+        num_immersion_min,
+        num_immersion_gap,
+        immersion_today,
+    )
+
     # ── dry run sensor IDs ───────────────────────────────────────────────────────
     dry_run_active = e("dry_run_active")
     dry_run_skipped = e("dry_run_last_skipped")
@@ -165,6 +245,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     color_icon: false
                     color_value: false
                     invert_state: false
+                    secondary_info_entity: {is_clipping}
                   battery:
                     entity: {battery_power}
                     state_of_charge: {battery_soc}
@@ -206,22 +287,13 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 clickable_entities: true
                 no_labels: false
 
-              - type: grid
-                square: false
-                columns: 3
-                cards:
-                  - type: entity
-                    entity: {current_rate_period}
-                    name: Rate Period
-                    icon: mdi:clock-outline
-                  - type: entity
-                    entity: {current_rate}
-                    name: Current Rate
-                    icon: mdi:currency-eur
-                  - type: entity
-                    entity: {is_clipping}
-                    name: Clipping
-                    icon: mdi:alert-circle-outline
+              - type: markdown
+                content: >-
+                  **{{{{ states('{current_rate_period}') }}}}**
+                  · €{{{{ states('{current_rate}') | float | round(4) }}}}/kWh
+                  {{{{- ' · ⚡ Clipping' if states('{is_clipping}') == 'clipping' else '' }}}}
+
+              {_immersion_section}
 
           # ── View 2: Today ────────────────────────────────────────────────────
           - title: Today

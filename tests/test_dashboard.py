@@ -287,3 +287,64 @@ class TestSuggestApplianceServiceCall:
         assert 'hasattr(data, "export_rate")' not in src, (
             "hasattr guard always returned False — CoordinatorData has no export_rate."
         )
+
+
+class TestPowerFlowTabChanges:
+    """Verify the power flow tab layout improvements."""
+
+    def test_clipping_as_secondary_info_on_solar(self):
+        yaml = _build()
+        solar_section = yaml[yaml.find("solar:") : yaml.find("battery:")]
+        assert "secondary_info_entity:" in solar_section, (
+            "Clipping must be secondary_info_entity on solar — not a separate large card."
+        )
+
+    def test_no_three_column_grid(self):
+        assert "columns: 3" not in _build(), "3-column grid must be replaced with compact markdown."
+
+    def test_compact_markdown_rate_card(self):
+        yaml = _build()
+        assert "type: markdown" in yaml, "Compact markdown rate card must be present."
+        # Markdown shows rate period and rate on one line
+        md_start = yaml.find("type: markdown")
+        md_block = yaml[md_start : md_start + 300]
+        assert "states(" in md_block and "Clipping" in md_block, (
+            "Markdown card must template both rate info and clipping state."
+        )
+
+    def test_clipping_entity_card_removed(self):
+        assert "icon: mdi:alert-circle-outline" not in _build(), (
+            "Old standalone clipping entity card must be removed."
+        )
+
+    def test_immersion_section_absent_when_unconfigured(self):
+        """When no immersion temp sensor is set, section must be a comment not broken YAML."""
+        yaml = _build()
+        assert "apexcharts-card" not in yaml
+        assert "no temperature sensor configured" in yaml
+
+    def test_immersion_section_present_when_configured(self):
+        """When temp sensor is configured, section must include apexcharts + glance."""
+        from unittest.mock import MagicMock, patch
+
+        from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_TEMP_SENSOR
+        from custom_components.givenergy_inverter_manager.dashboard import _build_dashboard_yaml
+
+        fake_entry = MagicMock()
+        fake_entry.entry_id = "test_entry_123"
+        fake_entry.data = {CONF_IMMERSION_TEMP_SENSOR: "sensor.water_temp"}
+        fake_entry.options = {}
+
+        hass = MagicMock()
+        hass.config_entries.async_entries.return_value = [fake_entry]
+        hass.states.get.return_value = None
+
+        with patch("custom_components.givenergy_inverter_manager.dashboard.er") as mock_er:
+            mock_er.async_get.return_value.async_get_entity_id.return_value = None
+            yaml = _build_dashboard_yaml(hass, "test_entry_123")
+
+        assert "apexcharts-card" in yaml, "Immersion section must use apexcharts-card"
+        assert "graph_span: 12h" in yaml, "Must show 12 hours of history"
+        assert "sensor.water_temp" in yaml, "Actual temp sensor entity must appear in YAML"
+        assert "type: glance" in yaml, "Info row must use glance card"
+        assert "Restart Gap" in yaml, "Restart gap setting must appear in info row"
