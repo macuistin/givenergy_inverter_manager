@@ -398,6 +398,53 @@ class TestOptionsFlowSections:
         assert data.get(CONF_BATTERY_MIN_SOC) == 10
         assert data.get(CONF_FORECAST_PROVIDER) == FORECAST_PROVIDER_FORECAST_SOLAR
 
+    def test_each_optional_has_exactly_one_schema_key(self, real_vol):
+        """Every vol.Optional in the options flow must have exactly one schema key.
+
+        Regression test for: CONF_CHEAP_RATE_FLOOR_SOC accidentally inserted as a
+        positional argument inside vol.Optional(CONF_BATTERY_MIN_SOC, ...), causing
+        'TypeError: Optional.__init__() got multiple values for argument default'.
+        The existing test mocks vol.Optional so it cannot catch this class of bug.
+        """
+        import re
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        # Find every vol.Optional( call and check that the first positional arg
+        # is not followed by another CONF_ constant before the default= keyword
+        bad = re.findall(
+            r"vol\.Optional\(\s*(CONF_\w+)\s*,\s*(CONF_\w+|DEFAULT_\w+)\s*(?!,\s*description)",
+            src,
+        )
+        assert not bad, (
+            f"vol.Optional calls with multiple positional CONF/DEFAULT args found: {bad}\n"
+            "Each schema key must be its own vol.Optional entry."
+        )
+
+    def test_cheap_rate_floor_is_separate_schema_key(self):
+        """CONF_CHEAP_RATE_FLOOR_SOC must be its own vol.Optional entry,
+        not a positional argument inside another key's vol.Optional call."""
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        # Find the threshold_settings section
+        section_start = src.find("threshold_settings")
+        section_end = src.find(")", src.find("vol.Schema", section_start))
+        section = src[section_start:section_end]
+        # CONF_CHEAP_RATE_FLOOR_SOC must appear as the first arg of its own vol.Optional,
+        # not alongside another key
+        import re
+
+        optional_calls = re.findall(r"vol\.Optional\(\s*(\w+)\s*(?:,\s*(\w+))?", section)
+        for call in optional_calls:
+            first_arg, second_arg = call
+            if first_arg == "CONF_BATTERY_MIN_SOC":
+                assert second_arg != "CONF_CHEAP_RATE_FLOOR_SOC", (
+                    "CONF_CHEAP_RATE_FLOOR_SOC must not appear as a positional arg "
+                    "inside vol.Optional(CONF_BATTERY_MIN_SOC, ...) — it must be its "
+                    "own separate vol.Optional entry."
+                )
+
     def test_no_separate_tariff_thresholds_forecast_steps(self):
         """The old multi-step methods must not exist on the options flow."""
         from custom_components.givenergy_inverter_manager.config_flow import GivEnergyOptionsFlow

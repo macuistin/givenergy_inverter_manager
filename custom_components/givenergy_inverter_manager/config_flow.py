@@ -594,11 +594,15 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             {
                 vol.Optional(
                     CONF_BATTERY_MIN_SOC,
-                    CONF_CHEAP_RATE_FLOOR_SOC,
-                    DEFAULT_CHEAP_RATE_FLOOR_SOC,
                     default=DEFAULT_BATTERY_MIN_SOC,
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=5, max=30, step=1, unit_of_measurement="%")
+                ),
+                vol.Optional(
+                    CONF_CHEAP_RATE_FLOOR_SOC,
+                    default=DEFAULT_CHEAP_RATE_FLOOR_SOC,
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0, max=80, step=5, unit_of_measurement="%")
                 ),
                 vol.Optional(
                     CONF_OVERNIGHT_CHARGE_TARGET, default=DEFAULT_OVERNIGHT_CHARGE_TARGET
@@ -763,12 +767,18 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Optional(
                         CONF_BATTERY_MIN_SOC,
-                        CONF_CHEAP_RATE_FLOOR_SOC,
-                        DEFAULT_CHEAP_RATE_FLOOR_SOC,
                         default=self._get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC),
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=5, max=30, step=1, unit_of_measurement="%"
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_CHEAP_RATE_FLOOR_SOC,
+                        default=self._get(CONF_CHEAP_RATE_FLOOR_SOC, DEFAULT_CHEAP_RATE_FLOOR_SOC),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0, max=80, step=5, unit_of_measurement="%"
                         )
                     ),
                     vol.Optional(
