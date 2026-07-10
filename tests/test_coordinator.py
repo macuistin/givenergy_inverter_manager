@@ -163,6 +163,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self.override_skip_charge = False
         self._givtcp_was_unavailable: bool = False
         self._immersion_manual_run_to_target: bool = False
+        self._immersion_cooldown_until = None
 
         GivLogger.register(self._effective_cfg)
 
