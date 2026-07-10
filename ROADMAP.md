@@ -4,7 +4,7 @@ Organised by theme and priority.
 
 ---
 
-## Current State (v0.1.5)
+## Current State (v0.2.0)
 
 ### What is built and working
 
@@ -281,6 +281,30 @@ the config flow, coordinator setup/teardown, and entity lifecycle.
 ---
 
 ## Changelog
+
+### v0.2.0
+
+- **log-when-unavailable** — coordinator logs a warning once when GivTCP stops publishing
+  and an info message once when it recovers; previously silent after the first HA-framework
+  error log
+- **action-exceptions** — `get_dashboard_yaml` raises `ServiceValidationError` with
+  translation key when no config entry exists, instead of logging an error and returning
+  silently
+- **icon-translations** — `icons.json` added with MDI icons for all 83 sensor entities,
+  4 switch entities, 4 number entities, and 2 services
+- **docs-examples** — `docs/automations.md` with 7 ready-to-use HA automation examples
+  (offline alert, charge plan notification, night survival warning, weekly report, and more)
+- **repair-issues** — `givtcp_entities_missing` repair issue raised in Settings → System →
+  Repairs when configured GivTCP entities are completely absent from HA; cleared automatically
+  on recovery
+- **strict-typing** — `[tool.mypy]` added to `pyproject.toml`; `core/` passes mypy strict;
+  HA-dependent modules use per-module relaxation (no HA type stubs available)
+- **Type fixes** — `dict` → `dict[str, Any]` on four engine/tariff function signatures;
+  `days_in_current_bill_period` and `calculate_import_cost` drop nullable `dt` default
+  (all callers pass a concrete datetime); `bool(unload_ok)` in `async_unload_entry`
+- **Test improvements** — conftest stubs extended: `UpdateFailed` and `ServiceValidationError`
+  accept translation kwargs; `homeassistant.components.repairs` stubbed; 15 new tests covering
+  log-when-unavailable transitions, action-exceptions, icon-translations, and repair-issues
 
 ### v0.1.5
 

@@ -1307,7 +1307,7 @@ class TestRepairIssues:
 
     @pytest.mark.asyncio
     async def test_repair_issue_created_when_entities_missing(self):
-        import homeassistant.components.repairs as ir
+        import homeassistant.helpers.issue_registry as ir
         from homeassistant.helpers.update_coordinator import UpdateFailed
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
@@ -1320,7 +1320,7 @@ class TestRepairIssues:
 
     @pytest.mark.asyncio
     async def test_repair_issue_not_created_when_entities_unavailable(self):
-        import homeassistant.components.repairs as ir
+        import homeassistant.helpers.issue_registry as ir
         from homeassistant.helpers.update_coordinator import UpdateFailed
         # Arrange — set states to 'unavailable' so they exist but are stale
         coord = FakeCoordinator(cfg=_cfg())
@@ -1335,7 +1335,7 @@ class TestRepairIssues:
 
     @pytest.mark.asyncio
     async def test_repair_issue_deleted_on_recovery(self):
-        import homeassistant.components.repairs as ir
+        import homeassistant.helpers.issue_registry as ir
         # Arrange — start from a working state
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_states(_default_states())
