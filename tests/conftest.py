@@ -146,20 +146,6 @@ _repairs.async_delete_issue = MagicMock()
 _repairs.IssueSeverity = MagicMock()
 _repairs.IssueSeverity.WARNING = "warning"
 
-# --- repairs ---
-_repairs = sys.modules["homeassistant.components.repairs"]
-_repairs.async_create_issue = MagicMock()
-_repairs.async_delete_issue = MagicMock()
-_repairs.IssueSeverity = MagicMock()
-_repairs.IssueSeverity.WARNING = "warning"
-
-# --- repairs ---
-_repairs = sys.modules["homeassistant.components.repairs"]
-_repairs.async_create_issue = MagicMock()
-_repairs.async_delete_issue = MagicMock()
-_repairs.IssueSeverity = MagicMock()
-_repairs.IssueSeverity.WARNING = "warning"
-
 # --- sensor ---
 _sensor = sys.modules["homeassistant.components.sensor"]
 _sensor.SensorEntity = object
