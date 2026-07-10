@@ -33,6 +33,7 @@ _HA_SUBMODULES = [
     "homeassistant.helpers.selector",
     "homeassistant.helpers.config_validation",
     "homeassistant.components",
+    "homeassistant.components.repairs",
     "homeassistant.components.sensor",
     "homeassistant.components.switch",
     "homeassistant.components.number",
@@ -88,6 +89,18 @@ _exc = sys.modules["homeassistant.exceptions"]
 _exc.ConfigEntryNotReady = Exception
 _exc.HomeAssistantError = Exception
 
+
+class _ServiceValidationError(Exception):
+    """Stub that mirrors HA's ServiceValidationError signature."""
+
+    def __init__(self, *args, translation_domain=None, translation_key=None, **kwargs):
+        super().__init__(*args)
+        self.translation_domain = translation_domain
+        self.translation_key = translation_key
+
+
+_exc.ServiceValidationError = _ServiceValidationError
+
 # --- DataUpdateCoordinator: must be Generic so coordinator.py's
 #     DataUpdateCoordinator[CoordinatorData] annotation works ---
 _T = TypeVar("_T")
@@ -113,7 +126,32 @@ class _CoordinatorEntity(Generic[_T]):
 _coord = sys.modules["homeassistant.helpers.update_coordinator"]
 _coord.DataUpdateCoordinator = _DataUpdateCoordinator
 _coord.CoordinatorEntity = _CoordinatorEntity
-_coord.UpdateFailed = Exception
+
+
+class _UpdateFailed(Exception):
+    """Stub that mirrors HA's UpdateFailed signature (accepts translation kwargs)."""
+
+    def __init__(self, *args, translation_domain=None, translation_key=None, **kwargs):
+        super().__init__(*args)
+        self.translation_domain = translation_domain
+        self.translation_key = translation_key
+
+
+_coord.UpdateFailed = _UpdateFailed
+
+# --- repairs ---
+_repairs = sys.modules["homeassistant.components.repairs"]
+_repairs.async_create_issue = MagicMock()
+_repairs.async_delete_issue = MagicMock()
+_repairs.IssueSeverity = MagicMock()
+_repairs.IssueSeverity.WARNING = "warning"
+
+# --- repairs ---
+_repairs = sys.modules["homeassistant.components.repairs"]
+_repairs.async_create_issue = MagicMock()
+_repairs.async_delete_issue = MagicMock()
+_repairs.IssueSeverity = MagicMock()
+_repairs.IssueSeverity.WARNING = "warning"
 
 # --- sensor ---
 _sensor = sys.modules["homeassistant.components.sensor"]

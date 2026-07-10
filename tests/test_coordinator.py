@@ -1300,3 +1300,77 @@ class TestIconTranslations:
         idx = qs.find("icon-translations")
         assert idx != -1
         assert "done" in qs[idx : idx + 80]
+
+
+class TestRepairIssues:
+    """Repair issue is created when GivTCP entities are completely absent from HA."""
+
+    @pytest.mark.asyncio
+    async def test_repair_issue_created_when_entities_missing(self):
+        import homeassistant.components.repairs as ir
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+        # Arrange
+        coord = FakeCoordinator(cfg=_cfg())
+        ir.async_create_issue.reset_mock()
+        # Act — no states set, so entities are None (not just unavailable)
+        with pytest.raises(UpdateFailed):
+            await coord._async_update_data()
+        # Assert
+        ir.async_create_issue.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_repair_issue_not_created_when_entities_unavailable(self):
+        import homeassistant.components.repairs as ir
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+        # Arrange — set states to 'unavailable' so they exist but are stale
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("sensor.solar", "unavailable")
+        coord.set_state("sensor.battery_soc", "unavailable")
+        ir.async_create_issue.reset_mock()
+        # Act
+        with pytest.raises(UpdateFailed):
+            await coord._async_update_data()
+        # Assert — issue should NOT be raised for transient unavailability
+        ir.async_create_issue.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_repair_issue_deleted_on_recovery(self):
+        import homeassistant.components.repairs as ir
+        # Arrange — start from a working state
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        ir.async_delete_issue.reset_mock()
+        # Act
+        await coord._async_update_data()
+        # Assert
+        ir.async_delete_issue.assert_called_once()
+
+    def test_repairs_module_exists(self):
+        from pathlib import Path
+        assert Path(
+            "custom_components/givenergy_inverter_manager/repairs.py"
+        ).exists()
+
+    def test_quality_scale_repair_issues_is_done(self):
+        from pathlib import Path
+        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        idx = qs.find("repair-issues")
+        assert idx != -1
+        assert "done" in qs[idx : idx + 80]
+
+
+class TestDashboardServiceValidationError:
+    """get_dashboard_yaml raises ServiceValidationError when no entries exist."""
+
+    def test_service_validation_error_imported_in_dashboard(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        assert "ServiceValidationError" in src
+        assert "no_config_entry" in src
+
+    def test_raises_service_validation_error_when_no_entry_in_source(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        handler_block = src[src.find("def handle_get_dashboard_yaml"):]
+        assert "raise ServiceValidationError" in handler_block
+        assert "no_config_entry" in handler_block
