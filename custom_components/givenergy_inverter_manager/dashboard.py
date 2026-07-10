@@ -576,10 +576,14 @@ async def async_register_services(hass: HomeAssistant) -> None:
     @callback
     def handle_get_dashboard_yaml(call: ServiceCall) -> None:
         """Return pre-filled Lovelace YAML for the first registered entry."""
+        from homeassistant.exceptions import ServiceValidationError  # noqa: PLC0415
+
         entries = hass.config_entries.async_entries(DOMAIN)
         if not entries:
-            _LOG.error("No GivEnergy Inverter Manager entries found")
-            return
+            raise ServiceValidationError(
+                translation_domain="givenergy_inverter_manager",
+                translation_key="no_config_entry",
+            )
 
         entry = entries[0]
         yaml_output = _build_dashboard_yaml(hass, entry.entry_id)

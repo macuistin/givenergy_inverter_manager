@@ -162,6 +162,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         )
         self.override_immersion: bool | None = None
         self.override_skip_charge: bool = False
+        self._givtcp_was_unavailable: bool = False
 
         # Register midnight accumulator reset
         entry.async_on_unload(
@@ -727,10 +728,20 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if (_solar_st is None or _solar_st.state in _stale) and (
             _batt_st is None or _batt_st.state in _stale
         ):
+            if not self._givtcp_was_unavailable:
+                _LOG.warning(
+                    "GivTCP has stopped publishing data — solar and battery sensors "
+                    "are unavailable. Check GivTCP is running and MQTT is connected."
+                )
+                self._givtcp_was_unavailable = True
             raise UpdateFailed(
                 translation_domain="givenergy_inverter_manager",
                 translation_key="givtcp_unavailable",
             )
+
+        if self._givtcp_was_unavailable:
+            _LOG.info("GivTCP is publishing data again — resuming normal operation.")
+            self._givtcp_was_unavailable = False
 
         # 2. Refresh EV charger discovery
         self._maybe_rediscover_ev()

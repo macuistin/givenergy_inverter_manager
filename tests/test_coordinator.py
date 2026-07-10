@@ -161,6 +161,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._floor_top_up_applied: bool = False
         self.override_immersion = None
         self.override_skip_charge = False
+        self._givtcp_was_unavailable: bool = False
 
         GivLogger.register(self._effective_cfg)
 
@@ -1152,3 +1153,102 @@ class TestEntityUnavailable:
         assert idx != -1, "entity-unavailable must exist in quality_scale.yaml"
         entry = qs[idx : idx + 60]
         assert "done" in entry, "entity-unavailable must be marked done in quality_scale.yaml"
+
+
+class TestLogWhenUnavailable:
+    """Coordinator must log once on GivTCP going offline and again on recovery."""
+
+    def _make_coord(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._givtcp_was_unavailable = False
+        return coord
+
+    @pytest.mark.asyncio
+    async def test_logs_warning_on_first_offline(self, caplog):
+        # Arrange
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+        coord = self._make_coord()
+        # Act
+        import logging
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(UpdateFailed):
+                await coord._async_update_data()
+        # Assert
+        assert any("GivTCP has stopped" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_does_not_repeat_warning_when_still_offline(self, caplog):
+        # Arrange
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+        coord = self._make_coord()
+        coord._givtcp_was_unavailable = True  # already flagged offline
+        # Act
+        import logging
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(UpdateFailed):
+                await coord._async_update_data()
+        # Assert — warning must not appear again
+        assert not any("GivTCP has stopped" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_logs_info_on_recovery(self, caplog):
+        # Arrange
+        coord = self._make_coord()
+        coord._givtcp_was_unavailable = True  # was offline
+        coord.set_states(_default_states())
+        # Act
+        import logging
+        with caplog.at_level(logging.INFO):
+            await coord._async_update_data()
+        # Assert
+        assert any("publishing data again" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_flag_cleared_after_recovery(self):
+        # Arrange
+        coord = self._make_coord()
+        coord._givtcp_was_unavailable = True
+        coord.set_states(_default_states())
+        # Act
+        await coord._async_update_data()
+        # Assert
+        assert coord._givtcp_was_unavailable is False
+
+    def test_quality_scale_log_when_unavailable_is_done(self):
+        from pathlib import Path
+        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        idx = qs.find("log-when-unavailable")
+        assert idx != -1
+        assert "done" in qs[idx : idx + 60]
+
+
+class TestActionExceptions:
+    """get_dashboard_yaml must raise ServiceValidationError when not configured."""
+
+    def test_raises_service_validation_error_when_no_entry(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        assert "ServiceValidationError" in src
+
+    def test_no_config_entry_key_in_strings(self):
+        import json
+        from pathlib import Path
+        strings = json.loads(
+            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+        )
+        assert "no_config_entry" in strings["exceptions"]
+
+    def test_no_config_entry_key_in_translations(self):
+        import json
+        from pathlib import Path
+        translations = json.loads(
+            Path("custom_components/givenergy_inverter_manager/translations/en.json").read_text()
+        )
+        assert "no_config_entry" in translations["exceptions"]
+
+    def test_quality_scale_action_exceptions_is_done(self):
+        from pathlib import Path
+        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        idx = qs.find("action-exceptions")
+        assert idx != -1
+        assert "done" in qs[idx : idx + 80]
