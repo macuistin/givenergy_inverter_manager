@@ -15,9 +15,12 @@ Issues raised:
 
 from __future__ import annotations
 
-import importlib
-
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.issue_registry import (
+    IssueSeverity,
+    async_create_issue,
+    async_delete_issue,
+)
 
 from .const import DOMAIN
 
@@ -26,18 +29,16 @@ ISSUE_GIVTCP_ENTITIES_MISSING = "givtcp_entities_missing"
 
 def async_create_givtcp_missing_issue(hass: HomeAssistant) -> None:
     """Surface a repair issue when configured GivTCP entities are absent from HA."""
-    ir = importlib.import_module("homeassistant.components.repairs")
-    ir.async_create_issue(
+    async_create_issue(
         hass,
         DOMAIN,
         ISSUE_GIVTCP_ENTITIES_MISSING,
         is_fixable=False,
-        severity=ir.IssueSeverity.WARNING,
+        severity=IssueSeverity.WARNING,
         translation_key=ISSUE_GIVTCP_ENTITIES_MISSING,
     )
 
 
 def async_delete_givtcp_missing_issue(hass: HomeAssistant) -> None:
     """Clear the missing-entities repair issue once the entities are found again."""
-    ir = importlib.import_module("homeassistant.components.repairs")
-    ir.async_delete_issue(hass, DOMAIN, ISSUE_GIVTCP_ENTITIES_MISSING)
+    async_delete_issue(hass, DOMAIN, ISSUE_GIVTCP_ENTITIES_MISSING)

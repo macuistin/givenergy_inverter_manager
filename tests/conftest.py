@@ -33,7 +33,7 @@ _HA_SUBMODULES = [
     "homeassistant.helpers.selector",
     "homeassistant.helpers.config_validation",
     "homeassistant.components",
-    "homeassistant.components.repairs",
+    "homeassistant.helpers.issue_registry",
     "homeassistant.components.sensor",
     "homeassistant.components.switch",
     "homeassistant.components.number",
@@ -139,12 +139,12 @@ class _UpdateFailed(Exception):
 
 _coord.UpdateFailed = _UpdateFailed
 
-# --- repairs ---
-_repairs = sys.modules["homeassistant.components.repairs"]
-_repairs.async_create_issue = MagicMock()
-_repairs.async_delete_issue = MagicMock()
-_repairs.IssueSeverity = MagicMock()
-_repairs.IssueSeverity.WARNING = "warning"
+# --- helpers.issue_registry (used by repairs.py) ---
+_issue_reg = sys.modules["homeassistant.helpers.issue_registry"]
+_issue_reg.async_create_issue = MagicMock()
+_issue_reg.async_delete_issue = MagicMock()
+_issue_reg.IssueSeverity = MagicMock()
+_issue_reg.IssueSeverity.WARNING = "warning"
 
 # --- sensor ---
 _sensor = sys.modules["homeassistant.components.sensor"]
