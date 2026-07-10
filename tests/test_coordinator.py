@@ -1096,3 +1096,59 @@ class TestEVRediscoveryNullPowerEntity:
             "Without this, a charger cached on boot with no power entity "
             "never gets updated even after the entity appears in HA."
         )
+
+
+class TestEntityUnavailable:
+    """Coordinator must raise UpdateFailed when GivTCP is not publishing.
+
+    HA quality scale — entity-unavailable: sensors should go unavailable
+    when the data source stops publishing rather than holding stale values.
+    """
+
+    def test_update_failed_imported(self):
+        """UpdateFailed must be imported to signal entity unavailability."""
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        assert "UpdateFailed" in src
+
+    def test_check_is_in_update_cycle(self):
+        """UpdateFailed raise must be inside _async_update_data."""
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        update_fn = src[src.find("async def _async_update_data") :]
+        assert "raise UpdateFailed" in update_fn, (
+            "_async_update_data must raise UpdateFailed when GivTCP is silent."
+        )
+
+    def test_both_sensors_must_be_stale(self):
+        """Guard must use AND — a single stale sensor should not trigger unavailability."""
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        check_block = src[src.find("async def _async_update_data") : src.find("raise UpdateFailed")]
+        assert " and " in check_block, (
+            "Both solar AND battery must be unavailable before raising — "
+            "a single brief interruption should not mark the whole integration unavailable."
+        )
+
+    def test_unavailable_and_unknown_both_treated_as_stale(self):
+        """'unavailable' and 'unknown' must both be considered stale states."""
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        check_block = src[src.find("async def _async_update_data") : src.find("raise UpdateFailed")]
+        assert '"unavailable"' in check_block, "Must treat 'unavailable' state as stale"
+        assert '"unknown"' in check_block, "Must treat 'unknown' state as stale"
+
+    def test_quality_scale_yaml_updated(self):
+        """quality_scale.yaml must mark entity-unavailable as done."""
+        from pathlib import Path
+
+        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        # Find the entity-unavailable entry
+        idx = qs.find("entity-unavailable")
+        assert idx != -1, "entity-unavailable must exist in quality_scale.yaml"
+        entry = qs[idx : idx + 60]
+        assert "done" in entry, "entity-unavailable must be marked done in quality_scale.yaml"

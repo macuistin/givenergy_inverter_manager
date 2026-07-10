@@ -29,7 +29,7 @@ rules:
   config-entry-unloading: done # async_unload_entry implemented
   docs-configuration-parameters: done
   docs-installation-parameters: done
-  entity-unavailable: todo     # sensors could mark unavailable when GivTCP is offline
+  entity-unavailable: done     # coordinator raises UpdateFailed when solar+battery both stale
   integration-owner: done      # @macuistin in manifest.json
   log-when-unavailable: todo   # GivTCP offline not specifically handled
   parallel-updates: done       # PARALLEL_UPDATES = 0 on all platforms
