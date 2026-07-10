@@ -36,7 +36,7 @@ rules:
   reauthentication-flow:
     status: exempt
     comment: No authentication required — local integration via GivTCP
-  test-coverage: todo          # below 95%; full coverage is planned for v0.2.0
+  test-coverage: todo          # approaching 95%; conftest stubs now cover repairs, UpdateFailed kwargs, ServiceValidationError
 
   # ── Gold ─────────────────────────────────────────────────────────────────────
   devices: done                # device_info with identifiers on all entities
