@@ -554,6 +554,12 @@
       }
     }
   },
+  "issues": {
+    "givtcp_entities_missing": {
+      "title": "GivTCP entities not found",
+      "description": "One or more GivTCP sensor entities configured during setup are no longer registered in Home Assistant. This usually means GivTCP was reinstalled with a different inverter serial, or the entity IDs changed.\n\nTo fix: go to **Settings → Integrations → GivEnergy Inverter Manager → Configure** and run the reconfiguration wizard to re-select the correct entities."
+    }
+  },
   "exceptions": {
     "config_entry_not_ready": {
       "message": "First data fetch failed. Check that GivTCP is running and MQTT is connected. ({error})"

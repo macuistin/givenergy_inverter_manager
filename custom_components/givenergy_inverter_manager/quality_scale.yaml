@@ -64,7 +64,7 @@ rules:
   exception-translations: done # ConfigEntryNotReady and UpdateFailed use translation_key
   icon-translations: done      # icons.json added with MDI icons for all 83 sensors, 4 switches, 4 numbers
   reconfiguration-flow: done   # async_step_reconfigure added, re-uses tariff step schema
-  repair-issues: todo          # no repair flows yet
+  repair-issues: done          # givtcp_entities_missing repair issue raised when entities absent from HA
   stale-devices:
     status: exempt
     comment: Single logical device per config entry; no stale device scenario

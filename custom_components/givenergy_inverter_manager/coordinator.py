@@ -96,6 +96,7 @@ from .discovery import (
     update_charger_state,
 )
 from .logging import GivLogger, get_logger, log_cycle, log_givtcp_write
+from .repairs import async_create_givtcp_missing_issue, async_delete_givtcp_missing_issue
 
 _LOG = get_logger(__name__)
 
@@ -725,6 +726,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         _solar_st = self._get_state(_solar_eid) if _solar_eid else None
         _batt_st = self._get_state(_batt_eid) if _batt_eid else None
         _stale = ("unavailable", "unknown")
+        _solar_missing = _solar_st is None
+        _batt_missing = _batt_st is None
         if (_solar_st is None or _solar_st.state in _stale) and (
             _batt_st is None or _batt_st.state in _stale
         ):
@@ -734,6 +737,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                     "are unavailable. Check GivTCP is running and MQTT is connected."
                 )
                 self._givtcp_was_unavailable = True
+            if _solar_missing and _batt_missing:
+                async_create_givtcp_missing_issue(self.hass)
             raise UpdateFailed(
                 translation_domain="givenergy_inverter_manager",
                 translation_key="givtcp_unavailable",
@@ -742,6 +747,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._givtcp_was_unavailable:
             _LOG.info("GivTCP is publishing data again — resuming normal operation.")
             self._givtcp_was_unavailable = False
+        async_delete_givtcp_missing_issue(self.hass)
 
         # 2. Refresh EV charger discovery
         self._maybe_rediscover_ev()
