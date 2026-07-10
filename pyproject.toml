@@ -39,3 +39,32 @@ ignore = ["N818"]
 # split without losing readability — the dict key IS the schema declaration
 "custom_components/*/config_flow.py" = ["E501"]
 "tests/*" = ["E501", "C901"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+no_implicit_optional = true
+ignore_missing_imports = true
+
+# HA-dependent modules cannot be strictly checked without the full HA package
+# and its type stubs. Pure logic in core/ is strictly typed.
+[[tool.mypy.overrides]]
+module = [
+    "custom_components.givenergy_inverter_manager.coordinator",
+    "custom_components.givenergy_inverter_manager.config_flow",
+    "custom_components.givenergy_inverter_manager.sensor",
+    "custom_components.givenergy_inverter_manager.switch",
+    "custom_components.givenergy_inverter_manager.number",
+    "custom_components.givenergy_inverter_manager.dashboard",
+    "custom_components.givenergy_inverter_manager.accumulation",
+    "custom_components.givenergy_inverter_manager.diagnostics",
+    "custom_components.givenergy_inverter_manager.logging",
+    "custom_components.givenergy_inverter_manager.repairs",
+    "custom_components.givenergy_inverter_manager.discovery.*",
+]
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+warn_return_any = false
+disallow_any_generics = false

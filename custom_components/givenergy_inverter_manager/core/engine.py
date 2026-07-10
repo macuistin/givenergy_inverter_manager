@@ -30,6 +30,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
+from typing import Any
 
 from ..const import (
     CONF_BATTERY_MIN_SOC,
@@ -150,7 +151,7 @@ class CoordinatorData:
         "will_survive_night",
     )
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.solar_power_w: float = 0.0
         self.battery_soc: float = 0.0
         self.battery_power_w: float = 0.0
@@ -372,7 +373,7 @@ def _process_ev_charger(
     data: CoordinatorData,
     ev_charger: EVCharger,
     raw: RawSensorValues,
-    cfg: dict,
+    cfg: dict[str, Any],
 ) -> str | None:
     """Process EV charger state and return target mode."""
     data.ev_available = True
@@ -401,7 +402,7 @@ def _process_ev_charger(
 def _initialize_coordinator_data(
     data: CoordinatorData,
     raw: RawSensorValues,
-    cfg: dict,
+    cfg: dict[str, Any],
     acc_week: EnergyAccumulator | None,
     acc_month: EnergyAccumulator | None,
     acc_yesterday: EnergyAccumulator | None,
@@ -449,6 +450,8 @@ def _apply_charge_overrides(
     max_target: int,
 ) -> None:
     """Apply charge target overrides to charge decision."""
+    if data.charge_decision is None:
+        return
     if override_skip_charge:
         data.charge_decision = replace(
             data.charge_decision,
@@ -473,7 +476,7 @@ def _apply_charge_overrides(
 def _set_immersion_decision(
     data: CoordinatorData,
     raw: RawSensorValues,
-    cfg: dict,
+    cfg: dict[str, Any],
     override_immersion: bool | None,
 ) -> None:
     """Set immersion divert decision."""
@@ -525,7 +528,7 @@ def _calculate_night_survival(
 
 def build_coordinator_data(
     raw: RawSensorValues,
-    cfg: dict,
+    cfg: dict[str, Any],
     acc: EnergyAccumulator,
     battery_stats: BatteryStats,
     last_soc: float | None,

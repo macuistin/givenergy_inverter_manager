@@ -22,6 +22,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, time
 from datetime import time as dtime
+from typing import Any
 
 from ..const import (
     CONF_BASE_RATE,
@@ -143,7 +144,7 @@ class TariffConfig:
         candidates = list(self.rate_periods) + [self._base_rate_period]
         return max(candidates, key=lambda p: p.rate)
 
-    def calculate_import_cost(self, kwh: float, dt: datetime | None = None) -> float:
+    def calculate_import_cost(self, kwh: float, dt: datetime) -> float:
         """Calculate cost of importing energy at the current rate."""
         rate = self.get_current_rate(dt)
         gross = kwh * rate.rate * (1 - self.discount_rate / 100)
@@ -159,7 +160,7 @@ class TariffConfig:
         pso = self.pso_levy * (days / 30.44)  # pro-rated
         return (gross + pso) * (1 + self.vat_rate / 100)
 
-    def days_in_current_bill_period(self, dt: datetime | None = None) -> int:
+    def days_in_current_bill_period(self, dt: datetime) -> int:
         """Return number of days elapsed in the current billing period.
 
         Returns at least 1 — on the billing start day itself, 1 day has elapsed
@@ -214,7 +215,7 @@ class EnergyAccumulator:
     import_cost_peak: float = 0.0  # cost at peak rate
 
     # ── Cost attribution per rate period and load ─────────────────────────────
-    import_cost_by_period: dict = field(default_factory=dict)
+    import_cost_by_period: dict[str, float] = field(default_factory=dict)
     export_earnings: float = 0.0
     zappi_cost: float = 0.0
     immersion_cost: float = 0.0  # import cost attributable to immersion heater
@@ -279,7 +280,7 @@ class EnergyAccumulator:
 # ── Config factory ────────────────────────────────────────────────────────────
 
 
-def build_tariff(cfg: dict) -> TariffConfig:
+def build_tariff(cfg: dict[str, Any]) -> TariffConfig:
     """Build a TariffConfig from a merged config dict."""
     periods: list[RatePeriod] = []
     for p in cfg.get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS):
