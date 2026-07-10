@@ -76,5 +76,5 @@ rules:
   inject-websession:
     status: exempt
     comment: No HTTP requests made
-  strict-typing: todo          # type annotations present but not mypy strict-checked
+  strict-typing: done          # mypy strict passes on core/; HA layer uses per-module relaxation (no HA type stubs available)
   
