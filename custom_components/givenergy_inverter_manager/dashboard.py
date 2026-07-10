@@ -31,7 +31,6 @@ from __future__ import annotations
 import textwrap
 
 from homeassistant.core import HomeAssistant, ServiceCall, callback
-from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
@@ -577,6 +576,8 @@ async def async_register_services(hass: HomeAssistant) -> None:
     @callback
     def handle_get_dashboard_yaml(call: ServiceCall) -> None:
         """Return pre-filled Lovelace YAML for the first registered entry."""
+        from homeassistant.exceptions import ServiceValidationError  # noqa: PLC0415
+
         entries = hass.config_entries.async_entries(DOMAIN)
         if not entries:
             raise ServiceValidationError(
