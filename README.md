@@ -67,6 +67,7 @@ See [docs/configuration.md](docs/configuration.md) for a full walkthrough.
 | [Entities](docs/entities.md) | Every sensor, switch, and number entity |
 | [Dashboard](docs/dashboard.md) | Setting up the built-in dashboard |
 | [Troubleshooting](docs/troubleshooting.md) | Common problems and fixes |
+| [Automation examples](docs/automations.md) | Ready-to-use HA automations |
 
 ---
 
