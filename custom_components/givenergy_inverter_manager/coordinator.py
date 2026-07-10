@@ -43,7 +43,7 @@ from datetime import time as dtime
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_time_change
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from .accumulation import AccumulationStore
@@ -716,19 +716,34 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         cfg = self._effective_cfg()
         self.export_rate = build_tariff(cfg).export_rate
 
-        # 1. Refresh EV charger discovery
+        # 1. Check GivTCP is publishing (entity-unavailable quality scale item)
+        #    Both sensors must be stale before raising — a single brief interruption
+        #    should not mark the entire integration unavailable.
+        _solar_eid = cfg.get(CONF_SOLAR_POWER)
+        _batt_eid = cfg.get(CONF_BATTERY_SOC)
+        _solar_st = self._get_state(_solar_eid) if _solar_eid else None
+        _batt_st = self._get_state(_batt_eid) if _batt_eid else None
+        _stale = ("unavailable", "unknown")
+        if (_solar_st is None or _solar_st.state in _stale) and (
+            _batt_st is None or _batt_st.state in _stale
+        ):
+            raise UpdateFailed(
+                "GivTCP is not publishing — solar and battery sensors are unavailable"
+            )
+
+        # 2. Refresh EV charger discovery
         self._maybe_rediscover_ev()
 
-        # 2. Read all sensor values from HA
+        # 3. Read all sensor values from HA
         raw = self._collect_raw(cfg)
 
-        # 3. Update EV charger state now we have battery_power_w
+        # 4. Update EV charger state now we have battery_power_w
         if self._ev_charger is not None:
             update_charger_state(self._get_state, self._ev_charger, raw.battery_power_w)
             raw.ev_power_w = self._ev_charger.power_w
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
-        # 4. Run the pure logic engine
+        # 5. Run the pure logic engine
         now = dt_util.as_local(datetime.now(timezone.utc))
         data, ev_target_mode = build_coordinator_data(
             raw=raw,
@@ -752,21 +767,21 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
         )
 
-        # 5. Record forecast for accuracy tracking (sets solar_forecast_today sensor)
+        # 6. Record forecast for accuracy tracking (sets solar_forecast_today sensor)
         if data.charge_decision is not None and data.charge_decision.forecast_kwh > 0:
             self._acc.on_charge_decision(data.charge_decision.forecast_kwh)
 
-        # 6. Cheap rate floor — top up if battery drops below minimum during cheap hours
+        # 7. Cheap rate floor — top up if battery drops below minimum during cheap hours
         data.cheap_rate_floor_status = await self._maybe_apply_cheap_rate_floor(now, raw, cfg)
 
-        # 7. Verbose logging (debug-level, opt-in via config)
+        # 8. Verbose logging (debug-level, opt-in via config)
         log_cycle(_LOG, self._update_cycle, raw, data, now)
 
-        # 8. Update coordinator state for next cycle
+        # 9. Update coordinator state for next cycle
         self._last_soc = raw.battery_soc
         self._last_update = now
 
-        # 9. Apply HA side-effects requested by the engine
+        # 10. Apply HA side-effects requested by the engine
         self._apply_ev_action(ev_target_mode)
 
         return data
