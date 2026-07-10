@@ -453,3 +453,119 @@ class TestOptionsFlowSections:
             assert not hasattr(GivEnergyOptionsFlow, old_step), (
                 f"Options flow still has {old_step} — should use single async_step_init"
             )
+
+
+class TestReconfigureStep:
+    """Config flow must expose async_step_reconfigure for the HA quality scale."""
+
+    def test_reconfigure_step_exists(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        assert "async def async_step_reconfigure" in src, (
+            "async_step_reconfigure is required for the reconfiguration-flow quality scale item."
+        )
+
+    def test_reconfigure_reloads_entry_on_success(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        reconf = src[src.find("async def async_step_reconfigure") :]
+        reconf = reconf[: reconf.find("\n    async def ")]
+        assert "async_reload" in reconf, (
+            "Reconfigure must reload the entry after updating so new tariff takes effect."
+        )
+
+    def test_reconfigure_uses_abort_reason(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        reconf = src[src.find("async def async_step_reconfigure") :]
+        reconf = reconf[: reconf.find("\n    async def ")]
+        assert "reconfigure_successful" in reconf, (
+            "Reconfigure must abort with 'reconfigure_successful' on success."
+        )
+
+    def test_abort_reason_in_strings(self):
+        import json
+        from pathlib import Path
+
+        s = json.loads(
+            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+        )
+        assert "reconfigure_successful" in s.get("config", {}).get("abort", {}), (
+            "strings.json must define the reconfigure_successful abort reason."
+        )
+
+    def test_reconfigure_step_in_strings(self):
+        import json
+        from pathlib import Path
+
+        s = json.loads(
+            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+        )
+        assert "reconfigure" in s.get("config", {}).get("step", {}), (
+            "strings.json must define the reconfigure step."
+        )
+
+    def test_quality_scale_reconfiguration_done(self):
+        from pathlib import Path
+
+        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        idx = qs.find("reconfiguration-flow")
+        assert idx != -1
+        assert "done" in qs[idx : idx + 60]
+
+
+class TestExceptionTranslations:
+    """Exceptions must use translation_key for the HA quality scale."""
+
+    def test_config_entry_not_ready_uses_translation_key(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/__init__.py").read_text()
+        assert "translation_key" in src and "config_entry_not_ready" in src, (
+            "ConfigEntryNotReady must use translation_key for exception-translations."
+        )
+
+    def test_update_failed_uses_translation_key(self):
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        raise_block = src[src.find("raise UpdateFailed") :][:200]
+        assert "translation_key" in raise_block, (
+            "UpdateFailed must use translation_key for exception-translations."
+        )
+
+    def test_exception_keys_in_strings(self):
+        import json
+        from pathlib import Path
+
+        s = json.loads(
+            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+        )
+        exc = s.get("exceptions", {})
+        assert "config_entry_not_ready" in exc
+        assert "givtcp_unavailable" in exc
+
+    def test_exceptions_mirrored_in_translations(self):
+        import json
+        from pathlib import Path
+
+        s = json.loads(
+            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+        )
+        e = json.loads(
+            Path("custom_components/givenergy_inverter_manager/translations/en.json").read_text()
+        )
+        assert e.get("exceptions") == s.get("exceptions"), (
+            "translations/en.json exceptions must mirror strings.json."
+        )
+
+    def test_quality_scale_exception_translations_done(self):
+        from pathlib import Path
+
+        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        idx = qs.find("exception-translations")
+        assert idx != -1
+        assert "done" in qs[idx : idx + 60]

@@ -61,9 +61,9 @@ rules:
   entity-device-class: done    # SensorDeviceClass used where appropriate
   entity-disabled-by-default: done  # yesterday/week/month/forecast/HTML report sensors disabled by default
   entity-translations: done    # strings.json and translations/en.json cover all entities
-  exception-translations: todo # exceptions not yet translatable
+  exception-translations: done # ConfigEntryNotReady and UpdateFailed use translation_key
   icon-translations: todo      # icons.json not yet added
-  reconfiguration-flow: todo   # async_step_reconfigure planned for v0.2.0
+  reconfiguration-flow: done   # async_step_reconfigure added, re-uses tariff step schema
   repair-issues: todo          # no repair flows yet
   stale-devices:
     status: exempt
@@ -77,3 +77,4 @@ rules:
     status: exempt
     comment: No HTTP requests made
   strict-typing: todo          # type annotations present but not mypy strict-checked
+  

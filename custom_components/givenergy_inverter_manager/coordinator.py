@@ -728,7 +728,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             _batt_st is None or _batt_st.state in _stale
         ):
             raise UpdateFailed(
-                "GivTCP is not publishing — solar and battery sensors are unavailable"
+                translation_domain="givenergy_inverter_manager",
+                translation_key="givtcp_unavailable",
             )
 
         # 2. Refresh EV charger discovery

@@ -22,7 +22,7 @@
       },
       "tariff": {
         "title": "Electricity Tariff",
-        "description": "{scheduling_status}\n\n{scheduling_detail}\n\n**Base Rate** is your standard daytime rate \u2014 it applies whenever no timed override is active.\n\n**Timed overrides** apply only during their window and take priority over the base rate. The cheapest active override wins (so Nightboost automatically overrides Night during 02:00\u201304:00).\n\nExample overrides (one per line):\n  Night, 0.1644, 23:00, 08:00\n  Nightboost, 0.0965, 02:00, 04:00",
+        "description": "{scheduling_status}\n\n{scheduling_detail}\n\n**Base Rate** is your standard daytime rate — it applies whenever no timed override is active.\n\n**Timed overrides** apply only during their window and take priority over the base rate. The cheapest active override wins (so Nightboost automatically overrides Night during 02:00–04:00).\n\nExample overrides (one per line):\n  Night, 0.1644, 23:00, 08:00\n  Nightboost, 0.0965, 02:00, 04:00",
         "data": {
           "export_rate": "Export / CEG rate",
           "standing_charge_per_day": "Standing charge per day",
@@ -123,8 +123,8 @@
           "immersion_switch_entity": "Immersion switch",
           "immersion_wattage_w": "Element wattage (W)",
           "immersion_temp_sensor_entity": "Water temperature sensor (optional)",
-          "immersion_target_temp_c": "Target temperature (\u00b0C)",
-          "immersion_min_temp_c": "Minimum temperature (\u00b0C)"
+          "immersion_target_temp_c": "Target temperature (°C)",
+          "immersion_min_temp_c": "Minimum temperature (°C)"
         }
       },
       "ev": {
@@ -152,11 +152,31 @@
         "data_description": {
           "verbose_logging": "When enabled, logs detailed sensor readings, decisions, and GivTCP write results on every cycle. Useful for initial testing. Disable for normal operation."
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure GivEnergy Inverter Manager",
+        "description": "Update your tariff rates, billing settings, or rate periods. To change inverter entity mappings, remove and re-add the integration.",
+        "data": {
+          "export_rate": "Export / CEG rate",
+          "standing_charge_per_day": "Standing charge per day",
+          "pso_levy_per_month": "PSO levy per month",
+          "vat_rate": "VAT rate (%)",
+          "discount_rate": "Supplier discount (%)",
+          "bill_start_day": "Bill start day of month",
+          "currency": "Currency",
+          "base_rate": "Base rate (daytime / standard)",
+          "base_rate_name": "Base rate name (e.g. Day)"
+        },
+        "data_description": {}
       }
     },
     "error": {
       "missing_entities": "One or more required inverter entities are missing. Please check your GivTCP installation.",
       "rate_periods_text": "{message}"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured%]",
+      "reconfigure_successful": "[%key:common::config_flow::abort::reconfigure_successful%]"
     }
   },
   "options": {
@@ -532,6 +552,14 @@
       "cheap_rate_floor_status": {
         "name": "Cheap Rate Floor"
       }
+    }
+  },
+  "exceptions": {
+    "config_entry_not_ready": {
+      "message": "First data fetch failed. Check that GivTCP is running and MQTT is connected. ({error})"
+    },
+    "givtcp_unavailable": {
+      "message": "GivTCP is not publishing data — solar and battery sensors are unavailable. Check that GivTCP is running and MQTT is connected."
     }
   }
 }
