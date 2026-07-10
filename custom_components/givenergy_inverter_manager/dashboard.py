@@ -31,6 +31,7 @@ from __future__ import annotations
 import textwrap
 
 from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
