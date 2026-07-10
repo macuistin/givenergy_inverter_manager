@@ -635,6 +635,42 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         )
         return self.async_show_form(step_id="battery", data_schema=schema)
 
+    async def async_step_reconfigure(self, user_input=None):
+        """Allow updating tariff settings without removing the integration.
+
+        Shows the same form as the tariff setup step, pre-populated with the
+        current entry values. On submit, updates entry data and reloads.
+        Inverter entity mappings (set during initial auto-discovery) require a
+        full remove-and-re-add to change.
+        """
+        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+
+        if user_input is not None:
+            periods = _slots_to_rate_periods(user_input)
+            updates = {
+                CONF_RATE_PERIODS: periods,
+                CONF_BASE_RATE: float(user_input[CONF_BASE_RATE]),
+                CONF_BASE_RATE_NAME: str(
+                    user_input.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
+                ),
+                CONF_EXPORT_RATE: float(user_input[CONF_EXPORT_RATE]),
+                CONF_STANDING_CHARGE: float(user_input[CONF_STANDING_CHARGE]),
+                CONF_PSO_LEVY: float(user_input[CONF_PSO_LEVY]),
+                CONF_VAT_RATE: float(user_input[CONF_VAT_RATE]),
+                CONF_DISCOUNT_RATE: float(user_input[CONF_DISCOUNT_RATE]),
+                CONF_BILL_START_DAY: int(user_input[CONF_BILL_START_DAY]),
+                CONF_CURRENCY: user_input.get(CONF_CURRENCY, DEFAULT_CURRENCY),
+            }
+            self.hass.config_entries.async_update_entry(entry, data={**entry.data, **updates})
+            await self.hass.config_entries.async_reload(entry.entry_id)
+            return self.async_abort(reason="reconfigure_successful")
+
+        current_periods = (
+            entry.options.get(CONF_RATE_PERIODS) or entry.data.get(CONF_RATE_PERIODS) or []
+        )
+        schema = self.__class__._build_tariff_schema(current_periods)
+        return self.async_show_form(step_id="reconfigure", data_schema=schema)
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):

@@ -42,7 +42,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await coordinator.async_config_entry_first_refresh()
     except Exception as err:
-        raise ConfigEntryNotReady(f"First data fetch failed for {entry.title}: {err}") from err
+        raise ConfigEntryNotReady(
+            translation_domain="givenergy_inverter_manager",
+            translation_key="config_entry_not_ready",
+            translation_placeholders={"error": str(err)},
+        ) from err
 
     entry.runtime_data = coordinator
 
