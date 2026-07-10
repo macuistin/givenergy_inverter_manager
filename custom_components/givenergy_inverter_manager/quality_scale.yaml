@@ -48,11 +48,11 @@ rules:
     status: exempt
     comment: No network address to update; GivTCP entities are fixed at setup
   docs-data-update: done       # README and update-cycle.mermaid document the 30s cycle
-  docs-examples: todo          # automation examples planned for v0.2.0
+  docs-examples: done          # docs/automations.md with 7 ready-to-use automation examples
   docs-known-limitations: done # REQUIREMENTS.md documents known limitations
   docs-supported-devices: done # README lists supported EV charger brands and GivTCP
   docs-supported-functions: done  # REQUIREMENTS.md sensor/switch/number table
-  docs-troubleshooting: todo   # troubleshooting section planned
+  docs-troubleshooting: done   # docs/troubleshooting.md covers all common failure modes
   docs-use-cases: done         # README describes solar surplus diversion, charge optimisation
   dynamic-devices:
     status: exempt
