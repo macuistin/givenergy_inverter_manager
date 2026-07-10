@@ -62,7 +62,7 @@ rules:
   entity-disabled-by-default: done  # yesterday/week/month/forecast/HTML report sensors disabled by default
   entity-translations: done    # strings.json and translations/en.json cover all entities
   exception-translations: done # ConfigEntryNotReady and UpdateFailed use translation_key
-  icon-translations: todo      # icons.json not yet added
+  icon-translations: done      # icons.json added with MDI icons for all 83 sensors, 4 switches, 4 numbers
   reconfiguration-flow: done   # async_step_reconfigure added, re-uses tariff step schema
   repair-issues: todo          # no repair flows yet
   stale-devices:

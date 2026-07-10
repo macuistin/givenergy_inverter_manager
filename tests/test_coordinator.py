@@ -1252,3 +1252,51 @@ class TestActionExceptions:
         idx = qs.find("action-exceptions")
         assert idx != -1
         assert "done" in qs[idx : idx + 80]
+
+
+class TestIconTranslations:
+    """icons.json must exist and cover all translated entity keys."""
+
+    def _load_icons(self):
+        import json
+        from pathlib import Path
+        path = Path("custom_components/givenergy_inverter_manager/icons.json")
+        assert path.exists(), "icons.json must exist"
+        return json.loads(path.read_text())
+
+    def _load_strings(self):
+        import json
+        from pathlib import Path
+        return json.loads(
+            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+        )
+
+    def test_icons_json_is_valid_json(self):
+        # Arrange / Act
+        icons = self._load_icons()
+        # Assert
+        assert isinstance(icons, dict)
+
+    def test_all_sensor_keys_have_icons(self):
+        # Arrange
+        icons = self._load_icons()
+        strings = self._load_strings()
+        sensor_keys = list(strings["entity"]["sensor"].keys())
+        icon_sensor_keys = list(icons.get("entity", {}).get("sensor", {}).keys())
+        # Assert
+        missing = [k for k in sensor_keys if k not in icon_sensor_keys]
+        assert not missing, f"Sensor keys missing from icons.json: {missing}"
+
+    def test_services_have_icons(self):
+        # Arrange
+        icons = self._load_icons()
+        # Assert
+        assert "get_dashboard_yaml" in icons.get("services", {})
+        assert "suggest_appliance_run" in icons.get("services", {})
+
+    def test_quality_scale_icon_translations_is_done(self):
+        from pathlib import Path
+        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        idx = qs.find("icon-translations")
+        assert idx != -1
+        assert "done" in qs[idx : idx + 80]
