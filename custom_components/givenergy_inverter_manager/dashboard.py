@@ -31,6 +31,7 @@ from __future__ import annotations
 import textwrap
 
 from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
@@ -578,8 +579,10 @@ async def async_register_services(hass: HomeAssistant) -> None:
         """Return pre-filled Lovelace YAML for the first registered entry."""
         entries = hass.config_entries.async_entries(DOMAIN)
         if not entries:
-            _LOG.error("No GivEnergy Inverter Manager entries found")
-            return
+            raise ServiceValidationError(
+                translation_domain="givenergy_inverter_manager",
+                translation_key="no_config_entry",
+            )
 
         entry = entries[0]
         yaml_output = _build_dashboard_yaml(hass, entry.entry_id)

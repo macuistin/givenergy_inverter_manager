@@ -25,13 +25,13 @@ rules:
   unique-config-entry: done    # async_set_unique_id(inverter.serial) in config flow
 
   # ── Silver ───────────────────────────────────────────────────────────────────
-  action-exceptions: todo      # get_dashboard_yaml does not yet raise typed exceptions
+  action-exceptions: done      # get_dashboard_yaml raises ServiceValidationError when not configured
   config-entry-unloading: done # async_unload_entry implemented
   docs-configuration-parameters: done
   docs-installation-parameters: done
   entity-unavailable: done     # coordinator raises UpdateFailed when solar+battery both stale
   integration-owner: done      # @macuistin in manifest.json
-  log-when-unavailable: todo   # GivTCP offline not specifically handled
+  log-when-unavailable: done   # logs warning on first GivTCP offline; logs info on recovery
   parallel-updates: done       # PARALLEL_UPDATES = 0 on all platforms
   reauthentication-flow:
     status: exempt

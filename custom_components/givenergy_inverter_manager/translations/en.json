@@ -560,6 +560,9 @@
     },
     "givtcp_unavailable": {
       "message": "GivTCP is not publishing data — solar and battery sensors are unavailable. Check that GivTCP is running and MQTT is connected."
+    },
+    "no_config_entry": {
+      "message": "GivEnergy Inverter Manager is not configured. Add the integration in Settings → Integrations before calling this service."
     }
   }
 }
