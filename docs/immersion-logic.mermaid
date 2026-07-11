@@ -33,15 +33,14 @@ flowchart TD
         HYST -- No --> OVRIDE3[should_be_on = True]
     end
 
-    CHECKEXT{External change?\ncurrent_on ≠ last_write\nAND not within cooldown} -- Yes, turned ON --> EXTRON[Activate run-to-target\nClear cooldown\nRecord write]
-    CHECKEXT -- Yes, turned OFF --> EXTROFF[Clear run-to-target\nCooldown 10 min\nRelease to auto]
+    CHECKEXT{No external change?\ncurrent_on = last_write\nOR within cooldown} -- Yes → proceed normally --> DIFFER
+    CHECKEXT -- No, turned ON externally --> EXTRON[Activate run-to-target\nClear cooldown\nRecord write]
+    CHECKEXT -- No, turned OFF externally --> EXTROFF[Clear run-to-target\nCooldown 10 min\nRelease to auto]
     EXTRON --> DONE([Return])
     EXTROFF --> DONE
 
-    CHECKEXT -- No change detected --> DIFFER{should_be_on\n≠ current_on?}
-    DIFFER -- No --> DONE
-
-    DIFFER -- Yes --> OVERTEMP{Water ≥ target\nAND turning off?}
+    DIFFER{should_be_on\n= current_on?} -- Yes → no change --> DONE
+    DIFFER -- No → write needed --> OVERTEMP{Water ≥ target\nAND turning off?}
     OVERTEMP -- Yes → bypass cooldown --> WRITE
     OVERTEMP -- No --> COOL{Within\n10-min cooldown?}
     COOL -- Yes → skip --> LOG[Log: cooldown active]
