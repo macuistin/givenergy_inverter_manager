@@ -4,6 +4,14 @@ All entities are created under a single device — your GivEnergy inverter — a
 
 ---
 
+## Buttons
+
+| Entity | What it does |
+|---|---|
+| **Refresh Dashboard** | Writes the current dashboard YAML to `givenergy_dashboard.yaml` in the HA config directory. Press after reconfiguring the integration to regenerate the file. |
+
+---
+
 ## Switches
 
 | Entity | What it does |

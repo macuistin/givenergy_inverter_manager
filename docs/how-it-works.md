@@ -17,7 +17,9 @@ The calculation works like this:
 3. **Work out the minimum charge needed** — enough to get through the night and into the morning solar window without running out.
 4. **Write the charge target to GivTCP** — via MQTT, so your inverter acts on it during the cheap rate window.
 
-If the battery is already high enough to last the night with margin to spare, the charge is skipped entirely. The **Overnight Charge Reason** sensor tells you exactly what decision was made and why.
+If the battery is already high enough to last the night with margin to spare, the charge is skipped entirely. When a charge is skipped, the integration writes the **minimum SoC** as the GivTCP target so the battery can discharge freely overnight — without this, the inverter would hold the battery at the old target (e.g. 80%) and import from the grid instead of discharging.
+
+The **Overnight Charge Reason** sensor tells you exactly what decision was made and why.
 
 ### Manual override
 
@@ -44,7 +46,13 @@ It turns the immersion off when water reaches the target temperature.
 
 **Enable Solar Immersion Divert** is the master switch. When it's on, the integration manages the immersion automatically. When it's off, the integration leaves the immersion completely alone — it won't turn it on or off regardless of conditions.
 
-**Immersion Heater (Controlled)** reflects the current state — whether the integration has the immersion on right now. You can toggle it manually for a one-cycle override, but the integration will update it again on the next cycle if the master switch is on.
+**Immersion Heater (Controlled)** reflects the current state — whether the integration has the immersion on right now.
+
+**Turning it on manually** (from the dashboard, an automation, or a physical button) activates **run-to-target mode**: the heater stays on until the water reaches the target temperature, then releases back to auto. This prevents the integration from overriding a deliberate manual action on the next 30-second cycle.
+
+**Turning it off manually** turns the heater off immediately and applies a **10-minute cooldown** before the integration can turn it on again automatically. This also applies to external automations and physical switches — if anything outside the integration changes the switch state, the cooldown kicks in to prevent immediate re-override.
+
+The cooldown also applies between **automatic** on/off decisions to prevent rapid cycling caused by brief solar surplus fluctuations (e.g. a cloud passing). The cooldown is bypassed if the water is at or above the target temperature — the heater must shut off immediately in that case.
 
 <!-- screenshot: controls view showing immersion section with divert reason -->
 
@@ -68,9 +76,13 @@ The restart gap is only checked when there is actually sufficient solar surplus 
 
 ### EV charger
 
-If an EV charger is configured, the integration manages it similarly. It starts charging when there's sufficient solar surplus and battery SoC is healthy, and pauses charging if the battery SoC falls below the EV battery protection threshold.
+If an EV charger is configured, the integration manages it in two ways:
 
-For Zappi chargers specifically, the integration can switch between Eco+ (charge from solar) and Stopped mode.
+**During the day (solar hours):** starts EV charging when there's sufficient solar surplus and battery SoC is healthy; pauses if battery SoC falls below the **EV battery protection threshold** (default 50%). This preserves battery for evening/night rather than letting the car drain it.
+
+**During cheap rate periods (overnight):** if the battery is actively discharging while the EV is charging, the integration pauses the EV charger. Grid electricity is cheap — the car should charge purely from the grid, not drain a battery that was charged to cover morning load.
+
+For Zappi chargers, the integration switches between Eco+ (absorb solar surplus) and Stopped mode. The **EV Protection Reason** sensor explains the current decision.
 
 ---
 
