@@ -1462,3 +1462,72 @@ class TestImmersionRunToTarget:
         # Assert
         assert "55" in data.divert_reason
         assert "48" in data.divert_reason
+
+
+class TestInverterTemperature:
+    """Inverter temperature sensors populate from GivTCP temp entity."""
+
+    @pytest.mark.asyncio
+    async def test_normal_temperature(self):
+        # Arrange
+        from custom_components.givenergy_inverter_manager.const import CONF_INVERTER_TEMP_ENTITY
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.entry.data[CONF_INVERTER_TEMP_ENTITY] = "sensor.inverter_temp"
+        coord.set_state("sensor.inverter_temp", "55.0")
+        # Act
+        data = await coord._async_update_data()
+        # Assert
+        assert data.inverter_temperature == pytest.approx(55.0)
+        assert data.inverter_temperature_status == "Normal"
+
+    @pytest.mark.asyncio
+    async def test_warm_temperature(self):
+        from custom_components.givenergy_inverter_manager.const import CONF_INVERTER_TEMP_ENTITY
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.entry.data[CONF_INVERTER_TEMP_ENTITY] = "sensor.inverter_temp"
+        coord.set_state("sensor.inverter_temp", "62.0")
+        data = await coord._async_update_data()
+        assert data.inverter_temperature_status == "Warm"
+
+    @pytest.mark.asyncio
+    async def test_derating_temperature(self):
+        from custom_components.givenergy_inverter_manager.const import CONF_INVERTER_TEMP_ENTITY
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.entry.data[CONF_INVERTER_TEMP_ENTITY] = "sensor.inverter_temp"
+        coord.set_state("sensor.inverter_temp", "68.0")
+        data = await coord._async_update_data()
+        assert data.inverter_temperature_status == "Derating"
+
+    @pytest.mark.asyncio
+    async def test_critical_temperature(self):
+        from custom_components.givenergy_inverter_manager.const import CONF_INVERTER_TEMP_ENTITY
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.entry.data[CONF_INVERTER_TEMP_ENTITY] = "sensor.inverter_temp"
+        coord.set_state("sensor.inverter_temp", "78.0")
+        data = await coord._async_update_data()
+        assert data.inverter_temperature_status == "Critical"
+
+    @pytest.mark.asyncio
+    async def test_no_temp_entity_returns_none(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        data = await coord._async_update_data()
+        assert data.inverter_temperature is None
+        assert data.inverter_temperature_status == "Unknown"
+
+    def test_inverter_temp_in_discovery_map(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        assert "inverter_temp" in src
+        assert "CONF_INVERTER_TEMP_ENTITY" in src
+
+    def test_inverter_temp_suffix_in_givtcp_discovery(self):
+        from pathlib import Path
+        src = Path(
+            "custom_components/givenergy_inverter_manager/discovery/givtcp.py"
+        ).read_text()
+        assert "_invertor_temperature" in src

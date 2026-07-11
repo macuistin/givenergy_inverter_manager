@@ -83,7 +83,9 @@
       "week_summary": {"default": "mdi:text-box-outline"},
       "battery_power": {"default": "mdi:battery-charging"},
       "immersion_power": {"default": "mdi:water-boiler"},
-      "cheap_rate_floor_status": {"default": "mdi:floor-plan"}
+      "cheap_rate_floor_status": {"default": "mdi:floor-plan"},
+      "inverter_temperature": {"default": "mdi:thermometer"},
+      "inverter_temperature_status": {"default": "mdi:thermometer-alert"}
     },
     "button": {
       "refresh_dashboard": {"default": "mdi:view-dashboard-edit"}
