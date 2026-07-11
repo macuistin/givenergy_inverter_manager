@@ -166,6 +166,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._givtcp_was_unavailable: bool = False
         # When True, manual override stays on until water reaches target temp, then releases.
         self._immersion_manual_run_to_target: bool = False
+        # Cooldown: timestamp until which auto switch decisions are suppressed.
+        # Manual on/off via the managed switch bypasses this and resets the timer.
+        self._immersion_cooldown_until: datetime | None = None
+        # Tracks what the coordinator last wrote to the real switch so external
+        # state changes (automation, physical button) can be detected.
+        self._last_immersion_coordinator_write: bool | None = None
 
         # Register midnight accumulator reset
         entry.async_on_unload(

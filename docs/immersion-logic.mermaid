@@ -1,0 +1,55 @@
+---
+title: Immersion Heater Decision Logic (coordinator + switch.py)
+---
+flowchart TD
+    START([Coordinator update\nevery 30 s]) --> READ[Read real switch state\ncurrent_on]
+
+    READ --> RUNTO{_immersion_manual\n_run_to_target?}
+
+    RUNTO -- Yes --> TEMPSENS{Temperature\nsensor available?}
+    TEMPSENS -- Yes --> ATTARGET{immersion_temp\n≥ target_temp?}
+    ATTARGET -- Yes --> RELEASE[Release override → auto\nLog: target reached]
+    ATTARGET -- No --> KEEPON[Keep override ON\nReason: 'Manual — running to Xºc']
+    TEMPSENS -- No --> KEEPON
+
+    RELEASE --> AUTOPATH
+    KEEPON --> CHECKEXT
+
+    RUNTO -- No --> AUTOPATH
+
+    AUTOPATH[Compute should_be_on\nfrom auto-divert logic] --> CHECKEXT
+
+    subgraph AUTO [Auto-divert logic — rules.py]
+        AUTOPATH --> LEGIONELLA{Temp below\nmin_temp?}
+        LEGIONELLA -- Yes → force on --> OVRIDE[override = True]
+        LEGIONELLA -- No --> TARGTEMP{Temp ≥\ntarget_temp?}
+        TARGTEMP -- Yes → force off --> OVRIDE2[should_be_on = False]
+        TARGTEMP -- No --> BATT{Battery SoC\n< threshold?}
+        BATT -- Yes → no divert --> OVRIDE2
+        BATT -- No --> SURPLUS{Net solar surplus\n≥ min_surplus\nOR clipping?}
+        SURPLUS -- No --> OVRIDE2
+        SURPLUS -- Yes --> HYST{Currently OFF AND\ntemp ≥ target − hysteresis?}
+        HYST -- Yes → wait to cool --> OVRIDE2
+        HYST -- No --> OVRIDE3[should_be_on = True]
+    end
+
+    CHECKEXT{No external change?\ncurrent_on = last_write\nOR within cooldown} -- Yes → proceed normally --> DIFFER
+    CHECKEXT -- No, turned ON externally --> EXTRON[Activate run-to-target\nClear cooldown\nRecord write]
+    CHECKEXT -- No, turned OFF externally --> EXTROFF[Clear run-to-target\nCooldown 10 min\nRelease to auto]
+    EXTRON --> DONE([Return])
+    EXTROFF --> DONE
+
+    DIFFER{should_be_on\n= current_on?} -- Yes → no change --> DONE
+    DIFFER -- No → write needed --> OVERTEMP{Water ≥ target\nAND turning off?}
+    OVERTEMP -- Yes → bypass cooldown --> WRITE
+    OVERTEMP -- No --> COOL{Within\n10-min cooldown?}
+    COOL -- Yes → skip --> LOG[Log: cooldown active]
+    LOG --> DONE
+    COOL -- No --> WRITE[Write turn_on / turn_off\nto real switch entity\nSet 10-min cooldown\nRecord write]
+    WRITE --> DONE
+
+    subgraph MANUAL [Manual triggers — bypass cooldown]
+        M1([Managed switch ON]) --> MAN1[override = True\nrun-to-target = True\nClear cooldown\nRecord write = True]
+        M2([Managed switch OFF]) --> MAN2[override = None\nrun-to-target = False\nCooldown 10 min\nRecord write = False]
+        M3([AutoImmersion\nmaster OFF]) --> MAN3[override = False\nPermanently off]
+    end

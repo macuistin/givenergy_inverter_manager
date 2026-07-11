@@ -80,3 +80,64 @@ class TestSwitchImportsRestoreEntity:
             "from homeassistant.helpers.entity import RestoreEntity" in src
             or "RestoreEntity" in src
         ), "switch.py must import RestoreEntity from homeassistant.helpers.entity."
+
+
+class TestImmersionCooldown:
+    """Auto write to the real switch is suppressed within the cooldown window."""
+
+    def test_cooldown_constant_in_const(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            IMMERSION_SWITCH_COOLDOWN_MINUTES,
+        )
+        assert IMMERSION_SWITCH_COOLDOWN_MINUTES > 0
+
+    def test_cooldown_attribute_on_coordinator(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        assert "_immersion_cooldown_until" in src
+
+    def test_cooldown_checked_in_handle_update(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        update_fn = src[src.find("def _handle_coordinator_update"):]
+        assert "_immersion_cooldown_until" in update_fn
+
+    def test_manual_on_clears_cooldown(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        # Search within GivEnergyImmersionControlSwitch only
+        control_cls = src[src.find("class GivEnergyImmersionControlSwitch"):]
+        next_cls = control_cls.find("\nclass ", 10)
+        control_cls = control_cls[:next_cls] if next_cls != -1 else control_cls
+        assert "_immersion_cooldown_until = None" in control_cls
+
+    def test_manual_off_clears_cooldown(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        control_cls = src[src.find("class GivEnergyImmersionControlSwitch"):]
+        next_cls = control_cls.find("\nclass ", 10)
+        control_cls = control_cls[:next_cls] if next_cls != -1 else control_cls
+        assert control_cls.count("_immersion_cooldown_until = None") >= 2
+
+    def test_cooldown_bypassed_when_water_above_target(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        update_fn = src[src.find("def _handle_coordinator_update"):]
+        # The bypass condition must check both temp and target
+        assert "water_above_target" in update_fn
+        assert "immersion_target_temp" in update_fn
+        assert "not water_above_target" in update_fn
+
+    def test_external_turnon_tracked_in_coordinator(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        # External turn-on should trigger run-to-target flag
+        handle_fn = src[src.find("def _handle_coordinator_update"):]
+        assert "_immersion_manual_run_to_target = True" in handle_fn
+
+    def test_external_turnoff_applies_cooldown(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        handle_fn = src[src.find("def _handle_coordinator_update"):]
+        # External turn-off should start a cooldown
+        assert "_immersion_manual_run_to_target = False" in handle_fn

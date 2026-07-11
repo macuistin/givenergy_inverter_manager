@@ -22,6 +22,7 @@ Provides three switches:
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
@@ -31,8 +32,14 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
-from .const import CONF_IMMERSION_SWITCH, DOMAIN, INTEGRATION_VERSION
+from .const import (
+    CONF_IMMERSION_SWITCH,
+    DOMAIN,
+    IMMERSION_SWITCH_COOLDOWN_MINUTES,
+    INTEGRATION_VERSION,
+)
 from .coordinator import GivEnergyCoordinator
 from .logging import get_logger
 
@@ -137,6 +144,8 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
         """Manual override: force immersion on and run until target temperature is reached."""
         self.coordinator.override_immersion = True
         self.coordinator._immersion_manual_run_to_target = True
+        self.coordinator._immersion_cooldown_until = None
+        self.coordinator._last_immersion_coordinator_write = True
         immersion_switch = self.coordinator.entry.data.get(CONF_IMMERSION_SWITCH)
         if immersion_switch and not self._is_dry_run():
             await self.hass.services.async_call(
@@ -145,9 +154,14 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Manual override: force immersion off and cancel run-to-target."""
-        self.coordinator.override_immersion = False
+        """Turn off now; auto-divert resumes after cooldown expires."""
+        self.coordinator.override_immersion = None
         self.coordinator._immersion_manual_run_to_target = False
+        now = dt_util.as_local(datetime.now(timezone.utc))
+        self.coordinator._immersion_cooldown_until = now + timedelta(
+            minutes=IMMERSION_SWITCH_COOLDOWN_MINUTES
+        )
+        self.coordinator._last_immersion_coordinator_write = False
         immersion_switch = self.coordinator.entry.data.get(CONF_IMMERSION_SWITCH)
         if immersion_switch and not self._is_dry_run():
             await self.hass.services.async_call(
@@ -171,7 +185,57 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
         current_state = self.coordinator._get_state(immersion_switch)
         current_on = current_state is not None and current_state.state == "on"
 
+        now = dt_util.as_local(datetime.now(timezone.utc))
+        cooldown_until = self.coordinator._immersion_cooldown_until
+        within_cooldown = cooldown_until is not None and now < cooldown_until
+
+        # Detect external state change: something other than the coordinator
+        # (an automation, physical button, or direct HA UI action) toggled the
+        # real switch since our last write.
+        last_write = self.coordinator._last_immersion_coordinator_write
+        if last_write is not None and current_on != last_write and not within_cooldown:
+            if current_on:
+                # External turn-on: run to target temperature then auto-release,
+                # exactly as if the user pressed the managed switch.
+                _LOG.info("Immersion turned on externally — running to target temperature")
+                self.coordinator.override_immersion = True
+                self.coordinator._immersion_manual_run_to_target = True
+                self.coordinator._immersion_cooldown_until = None
+            else:
+                # External turn-off: respect it and apply a cooldown so the
+                # coordinator doesn't immediately turn it back on.
+                _LOG.info(
+                    "Immersion turned off externally — respecting for %d min",
+                    IMMERSION_SWITCH_COOLDOWN_MINUTES,
+                )
+                self.coordinator.override_immersion = None
+                self.coordinator._immersion_manual_run_to_target = False
+                self.coordinator._immersion_cooldown_until = now + timedelta(
+                    minutes=IMMERSION_SWITCH_COOLDOWN_MINUTES
+                )
+            self.coordinator._last_immersion_coordinator_write = current_on
+            self.async_write_ha_state()
+            return
+
         if should_be_on != current_on:
+            # Cooldown: skip auto writes within N minutes of the last write.
+            # Exception: always allow an immediate turn-off when water is at or
+            # above target temperature — delaying that risks overheating.
+            immersion_temp = self.coordinator.data.immersion_temp
+            water_above_target = (
+                not should_be_on
+                and immersion_temp is not None
+                and immersion_temp >= self.coordinator.immersion_target_temp
+            )
+            if within_cooldown and not water_above_target:
+                _LOG.debug(
+                    "Immersion: skipping %s — cooldown active until %s",
+                    "turn_on" if should_be_on else "turn_off",
+                    cooldown_until.strftime("%H:%M:%S"),
+                )
+                self.async_write_ha_state()
+                return
+
             service = "turn_on" if should_be_on else "turn_off"
             if self.coordinator.is_dry_run:
                 action = (
@@ -191,6 +255,10 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
                         "switch", service, {"entity_id": immersion_switch}, blocking=False
                     )
                 )
+                self.coordinator._immersion_cooldown_until = now + timedelta(
+                    minutes=IMMERSION_SWITCH_COOLDOWN_MINUTES
+                )
+                self.coordinator._last_immersion_coordinator_write = should_be_on
 
         self.async_write_ha_state()
 
