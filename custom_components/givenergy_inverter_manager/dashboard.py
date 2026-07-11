@@ -28,9 +28,10 @@ All other views use only built-in HA Lovelace cards — no other dependencies.
 
 from __future__ import annotations
 
+import os
 import textwrap
 
-from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
@@ -595,9 +596,8 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
 async def async_register_services(hass: HomeAssistant) -> None:
     """Register the get_dashboard_yaml service."""
 
-    @callback
-    def handle_get_dashboard_yaml(call: ServiceCall) -> None:
-        """Return pre-filled Lovelace YAML for the first registered entry."""
+    async def handle_get_dashboard_yaml(call: ServiceCall) -> None:
+        """Write dashboard YAML to /config/givenergy_dashboard.yaml."""
         from homeassistant.exceptions import ServiceValidationError  # noqa: PLC0415
 
         entries = hass.config_entries.async_entries(DOMAIN)
@@ -610,27 +610,51 @@ async def async_register_services(hass: HomeAssistant) -> None:
         entry = entries[0]
         yaml_output = _build_dashboard_yaml(hass, entry.entry_id)
 
-        # Fire a persistent notification so the user can copy the YAML
-        hass.async_create_task(
-            hass.services.async_call(
-                "persistent_notification",
-                "create",
-                {
-                    "title": "GivEnergy Dashboard YAML",
-                    "message": (
-                        "Copy the YAML below and paste it into a new blank dashboard "
-                        "(Settings → Dashboards → new dashboard → Raw configuration editor).\n\n"
-                        "**Note:** View 1 (Power Flow) requires "
-                        "[power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) "
-                        "from HACS. All other views use only built-in HA cards.\n\n"
-                        f"```yaml\n{yaml_output}\n```"
-                    ),
-                    "notification_id": "givenergy_dashboard_yaml",
-                },
-                blocking=False,
-            )
+        file_path = os.path.join(hass.config.config_dir, "givenergy_dashboard.yaml")
+
+        def _write_file() -> None:
+            with open(file_path, "w", encoding="utf-8") as fh:
+                fh.write(yaml_output)
+
+        try:
+            await hass.async_add_executor_job(_write_file)
+        except OSError as err:
+            _LOG.error("Failed to write dashboard file %s: %s", file_path, err)
+            raise ServiceValidationError(
+                translation_domain="givenergy_inverter_manager",
+                translation_key="dashboard_write_failed",
+            ) from err
+
+        _LOG.info("Dashboard YAML written to %s", file_path)
+
+        await hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "GivEnergy Dashboard Ready",
+                "message": (
+                    f"Dashboard written to `{file_path}`.\n\n"
+                    "**To apply (UI mode):**\n"
+                    "1. Settings → Dashboards → Add Dashboard → Blank\n"
+                    "2. Three-dot menu → Edit dashboard → Raw configuration editor\n"
+                    "3. Paste the contents of `givenergy_dashboard.yaml`\n\n"
+                    "**To apply (YAML mode):** add to `configuration.yaml`:\n"
+                    "```yaml\n"
+                    "lovelace:\n"
+                    "  dashboards:\n"
+                    "    givenergy:\n"
+                    "      mode: yaml\n"
+                    "      filename: givenergy_dashboard.yaml\n"
+                    "      title: GivEnergy Inverter Manager\n"
+                    "      icon: mdi:solar-power-variant\n"
+                    "      show_in_sidebar: true\n"
+                    "```\n\n"
+                    "Run this action again after reconfiguring to regenerate the file."
+                ),
+                "notification_id": "givenergy_dashboard_yaml",
+            },
+            blocking=False,
         )
-        _LOG.info("Dashboard YAML generated for entry %s — check Notifications", entry.title)
 
     hass.services.async_register(
         DOMAIN,
