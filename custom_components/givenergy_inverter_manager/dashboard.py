@@ -352,47 +352,34 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 entities:
                   - entity: {solar_today}
                     name: Generated
-                    icon: mdi:solar-power
                   - entity: {import_today}
                     name: Import
-                    icon: mdi:transmission-tower-import
                   - entity: {export_today}
                     name: Export
-                    icon: mdi:transmission-tower-export
                   - entity: {zappi_today}
                     name: EV
-                    icon: mdi:car-electric
                   - entity: {immersion_today}
                     name: Immersion
-                    icon: mdi:water-boiler
 
               - type: entities
                 entities:
                   - entity: {current_rate}
                     name: Current Rate
-                    icon: mdi:currency-eur
                   - entity: {current_rate_period}
                     name: Rate Period
-                    icon: mdi:clock-time-four
                   - type: divider
                   - entity: {import_cost_today}
                     name: Import Cost
-                    icon: mdi:cash-minus
                   - entity: {export_earnings}
                     name: Export Earnings
-                    icon: mdi:cash-plus
                   - entity: {zappi_cost_today}
                     name: EV Charging Cost
-                    icon: mdi:car-electric
                   - entity: {immersion_cost_today}
                     name: Immersion Cost
-                    icon: mdi:water-boiler
                   - entity: {immersion_savings}
                     name: Immersion Savings
-                    icon: mdi:piggy-bank
                   - entity: {house_cost_today}
                     name: Rest-of-House Cost
-                    icon: mdi:home
                 title: Cost Breakdown
 
               - type: history-graph
@@ -438,13 +425,10 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 entities:
                   - entity: {accrued_bill}
                     name: Accrued This Period
-                    icon: mdi:receipt
                   - entity: {projected_bill}
                     name: Projected Total
-                    icon: mdi:receipt-text-outline
                   - entity: {days_remaining}
                     name: Days Remaining
-                    icon: mdi:calendar-end
                 title: Bill Prediction
                 show_header_toggle: false
                 state_color: false
@@ -469,38 +453,28 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 entities:
                   - entity: {battery_power}
                     name: Charge / Discharge Power
-                    icon: mdi:battery-charging
                   - entity: {charge_target}
                     name: Recommended Target Tonight
-                    icon: mdi:battery-charging-80
                   - entity: {charge_reason}
                     name: Reason
-                    icon: mdi:information-outline
                   - entity: {charge_cost}
                     name: Estimated Charge Cost
-                    icon: mdi:currency-eur
                   - entity: {soc_at_sunrise}
                     name: Estimated SoC at Sunrise
-                    icon: mdi:weather-sunny
                   - entity: {survival_reason}
                     name: Night Survival Status
-                    icon: mdi:moon-waning-crescent
                   - entity: {cheap_rate_floor}
                     name: Cheap Rate Floor
-                    icon: mdi:floor-plan
                 title: Tonight's Charge Plan
 
               - type: entities
                 entities:
                   - entity: {battery_cycles}
                     name: Total Cycles
-                    icon: mdi:battery-sync
                   - entity: {battery_life}
                     name: Estimated Life Remaining
-                    icon: mdi:battery-heart
                   - entity: {days_since_full}
                     name: Days Since Full Charge
-                    icon: mdi:battery-100
                 title: Battery Health
 
           # ── View 4: Controls ─────────────────────────────────────────────────
@@ -536,10 +510,8 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   entities:
                     - entity: {dry_run_active}
                       name: Dry Run Mode
-                      icon: mdi:test-tube
                     - entity: {dry_run_skipped}
                       name: Last Skipped Action
-                      icon: mdi:skip-next-circle-outline
 
               - type: entities
                 entities:
@@ -559,36 +531,28 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     name: Immersion Heater (Managed)
                   - entity: {immersion_reason}
                     name: Divert Reason
-                    icon: mdi:water-boiler
                   - type: divider
                   - entity: {num_immersion_target}
                     name: Target Temperature
-                    icon: mdi:thermometer-high
                   - entity: {num_immersion_min}
                     name: Minimum Temperature
-                    icon: mdi:thermometer-low
                   - entity: {num_immersion_gap}
                     name: Restart Gap
-                    icon: mdi:thermometer-lines
                 title: Immersion Heater
 
               - type: entities
                 entities:
                   - entity: {ev_state}
                     name: Charger State
-                    icon: mdi:ev-station
                   - entity: {ev_power}
                     name: Charge Power
                     icon: mdi:lightning-bolt
                   - entity: {ev_session}
                     name: Session Energy
-                    icon: mdi:battery-charging-outline
                   - entity: {ev_draining}
                     name: Draining Battery
-                    icon: mdi:battery-arrow-down
                   - entity: {ev_protection_reason}
                     name: Protection Status
-                    icon: mdi:shield-check
                 title: EV Charger
         """)
 
