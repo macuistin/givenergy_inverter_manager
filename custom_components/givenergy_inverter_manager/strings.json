@@ -449,6 +449,9 @@
       "battery_throughput_kwh_today": {
         "name": "Battery throughput"
       },
+      "missed_solar_today": {
+        "name": "Missed solar today"
+      },
       "solar_yesterday": {
         "name": "Solar generated yesterday"
       },
