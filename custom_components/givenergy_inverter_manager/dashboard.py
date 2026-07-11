@@ -249,6 +249,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     dry_run_skipped = e("dry_run_last_skipped")
 
     # ── switch / number entity IDs ────────────────────────────────────────────
+    btn_refresh_dashboard = e("refresh_dashboard")
     sw_enable_charge_target = e("charge_target_override_enabled")
     sw_auto_immersion = e("auto_immersion")
     sw_immersion_mgd = e("immersion_managed")
@@ -562,6 +563,15 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     name: Protection Status
                     icon: mdi:shield-check
                 title: EV Charger
+
+              - type: button
+                entity: {btn_refresh_dashboard}
+                name: Refresh Dashboard
+                icon: mdi:view-dashboard-edit
+                tap_action:
+                  action: perform-action
+                  perform_action: {DOMAIN}.get_dashboard_yaml
+                  data: {{}}
         """)
 
 

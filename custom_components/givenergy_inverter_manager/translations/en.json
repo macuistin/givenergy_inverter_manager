@@ -302,6 +302,11 @@
     }
   },
   "entity": {
+    "button": {
+      "refresh_dashboard": {
+        "name": "Refresh Dashboard"
+      }
+    },
     "sensor": {
       "solar_power": {
         "name": "Solar Power"

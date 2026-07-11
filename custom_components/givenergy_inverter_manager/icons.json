@@ -85,6 +85,9 @@
       "immersion_power": {"default": "mdi:water-boiler"},
       "cheap_rate_floor_status": {"default": "mdi:floor-plan"}
     },
+    "button": {
+      "refresh_dashboard": {"default": "mdi:view-dashboard-edit"}
+    },
     "switch": {
       "auto_immersion": {"default": "mdi:water-boiler-auto"},
       "immersion_managed": {"default": "mdi:water-boiler"},
