@@ -154,10 +154,13 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Manual override: force immersion off and cancel run-to-target."""
-        self.coordinator.override_immersion = False
+        """Turn off now; auto-divert resumes after cooldown expires."""
+        self.coordinator.override_immersion = None
         self.coordinator._immersion_manual_run_to_target = False
-        self.coordinator._immersion_cooldown_until = None
+        now = dt_util.as_local(datetime.now(timezone.utc))
+        self.coordinator._immersion_cooldown_until = now + timedelta(
+            minutes=IMMERSION_SWITCH_COOLDOWN_MINUTES
+        )
         self.coordinator._last_immersion_coordinator_write = False
         immersion_switch = self.coordinator.entry.data.get(CONF_IMMERSION_SWITCH)
         if immersion_switch and not self._is_dry_run():
