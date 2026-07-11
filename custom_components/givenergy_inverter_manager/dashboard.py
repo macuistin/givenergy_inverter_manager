@@ -28,9 +28,10 @@ All other views use only built-in HA Lovelace cards — no other dependencies.
 
 from __future__ import annotations
 
+import os
 import textwrap
 
-from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
@@ -248,6 +249,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     dry_run_skipped = e("dry_run_last_skipped")
 
     # ── switch / number entity IDs ────────────────────────────────────────────
+    btn_refresh_dashboard = e("refresh_dashboard")
     sw_enable_charge_target = e("charge_target_override_enabled")
     sw_auto_immersion = e("auto_immersion")
     sw_immersion_mgd = e("immersion_managed")
@@ -290,7 +292,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   battery:
                     entity: {battery_power}
                     state_of_charge: {battery_soc}
-                    show_state_of_charge: false
+                    show_state_of_charge: true
                   grid:
                     entity: {grid_power}
                     use_metadata: false
@@ -351,47 +353,34 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 entities:
                   - entity: {solar_today}
                     name: Generated
-                    icon: mdi:solar-power
                   - entity: {import_today}
                     name: Import
-                    icon: mdi:transmission-tower-import
                   - entity: {export_today}
                     name: Export
-                    icon: mdi:transmission-tower-export
                   - entity: {zappi_today}
                     name: EV
-                    icon: mdi:car-electric
                   - entity: {immersion_today}
                     name: Immersion
-                    icon: mdi:water-boiler
 
               - type: entities
                 entities:
                   - entity: {current_rate}
                     name: Current Rate
-                    icon: mdi:currency-eur
                   - entity: {current_rate_period}
                     name: Rate Period
-                    icon: mdi:clock-time-four
                   - type: divider
                   - entity: {import_cost_today}
                     name: Import Cost
-                    icon: mdi:cash-minus
                   - entity: {export_earnings}
                     name: Export Earnings
-                    icon: mdi:cash-plus
                   - entity: {zappi_cost_today}
                     name: EV Charging Cost
-                    icon: mdi:car-electric
                   - entity: {immersion_cost_today}
                     name: Immersion Cost
-                    icon: mdi:water-boiler
                   - entity: {immersion_savings}
                     name: Immersion Savings
-                    icon: mdi:piggy-bank
                   - entity: {house_cost_today}
                     name: Rest-of-House Cost
-                    icon: mdi:home
                 title: Cost Breakdown
 
               - type: history-graph
@@ -437,13 +426,10 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 entities:
                   - entity: {accrued_bill}
                     name: Accrued This Period
-                    icon: mdi:receipt
                   - entity: {projected_bill}
                     name: Projected Total
-                    icon: mdi:receipt-text-outline
                   - entity: {days_remaining}
                     name: Days Remaining
-                    icon: mdi:calendar-end
                 title: Bill Prediction
                 show_header_toggle: false
                 state_color: false
@@ -468,19 +454,15 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 entities:
                   - entity: {battery_power}
                     name: Charge / Discharge Power
-                    icon: mdi:battery-charging
                   - entity: {charge_target}
                     name: Recommended Target Tonight
-                    icon: mdi:battery-charging-80
                   - entity: {charge_reason}
                     name: Reason
                     icon: mdi:information-outline
                   - entity: {charge_cost}
                     name: Estimated Charge Cost
-                    icon: mdi:currency-eur
                   - entity: {soc_at_sunrise}
                     name: Estimated SoC at Sunrise
-                    icon: mdi:weather-sunny
                   - entity: {survival_reason}
                     name: Night Survival Status
                     icon: mdi:moon-waning-crescent
@@ -493,13 +475,10 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 entities:
                   - entity: {battery_cycles}
                     name: Total Cycles
-                    icon: mdi:battery-sync
                   - entity: {battery_life}
                     name: Estimated Life Remaining
-                    icon: mdi:battery-heart
                   - entity: {days_since_full}
                     name: Days Since Full Charge
-                    icon: mdi:battery-100
                 title: Battery Health
 
           # ── View 4: Controls ─────────────────────────────────────────────────
@@ -562,13 +541,10 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - type: divider
                   - entity: {num_immersion_target}
                     name: Target Temperature
-                    icon: mdi:thermometer-high
                   - entity: {num_immersion_min}
                     name: Minimum Temperature
-                    icon: mdi:thermometer-low
                   - entity: {num_immersion_gap}
                     name: Restart Gap
-                    icon: mdi:thermometer-lines
                 title: Immersion Heater
 
               - type: entities
@@ -581,23 +557,29 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     icon: mdi:lightning-bolt
                   - entity: {ev_session}
                     name: Session Energy
-                    icon: mdi:battery-charging-outline
                   - entity: {ev_draining}
                     name: Draining Battery
-                    icon: mdi:battery-arrow-down
                   - entity: {ev_protection_reason}
                     name: Protection Status
                     icon: mdi:shield-check
                 title: EV Charger
+
+              - type: button
+                entity: {btn_refresh_dashboard}
+                name: Refresh Dashboard
+                icon: mdi:view-dashboard-edit
+                tap_action:
+                  action: perform-action
+                  perform_action: {DOMAIN}.get_dashboard_yaml
+                  data: {{}}
         """)
 
 
 async def async_register_services(hass: HomeAssistant) -> None:
     """Register the get_dashboard_yaml service."""
 
-    @callback
-    def handle_get_dashboard_yaml(call: ServiceCall) -> None:
-        """Return pre-filled Lovelace YAML for the first registered entry."""
+    async def handle_get_dashboard_yaml(call: ServiceCall) -> None:
+        """Write dashboard YAML to /config/givenergy_dashboard.yaml."""
         from homeassistant.exceptions import ServiceValidationError  # noqa: PLC0415
 
         entries = hass.config_entries.async_entries(DOMAIN)
@@ -610,27 +592,51 @@ async def async_register_services(hass: HomeAssistant) -> None:
         entry = entries[0]
         yaml_output = _build_dashboard_yaml(hass, entry.entry_id)
 
-        # Fire a persistent notification so the user can copy the YAML
-        hass.async_create_task(
-            hass.services.async_call(
-                "persistent_notification",
-                "create",
-                {
-                    "title": "GivEnergy Dashboard YAML",
-                    "message": (
-                        "Copy the YAML below and paste it into a new blank dashboard "
-                        "(Settings → Dashboards → new dashboard → Raw configuration editor).\n\n"
-                        "**Note:** View 1 (Power Flow) requires "
-                        "[power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) "
-                        "from HACS. All other views use only built-in HA cards.\n\n"
-                        f"```yaml\n{yaml_output}\n```"
-                    ),
-                    "notification_id": "givenergy_dashboard_yaml",
-                },
-                blocking=False,
-            )
+        file_path = os.path.join(hass.config.config_dir, "givenergy_dashboard.yaml")
+
+        def _write_file() -> None:
+            with open(file_path, "w", encoding="utf-8") as fh:
+                fh.write(yaml_output)
+
+        try:
+            await hass.async_add_executor_job(_write_file)
+        except OSError as err:
+            _LOG.error("Failed to write dashboard file %s: %s", file_path, err)
+            raise ServiceValidationError(
+                translation_domain="givenergy_inverter_manager",
+                translation_key="dashboard_write_failed",
+            ) from err
+
+        _LOG.info("Dashboard YAML written to %s", file_path)
+
+        await hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "GivEnergy Dashboard Ready",
+                "message": (
+                    f"Dashboard written to `{file_path}`.\n\n"
+                    "**To apply (UI mode):**\n"
+                    "1. Settings → Dashboards → Add Dashboard → Blank\n"
+                    "2. Three-dot menu → Edit dashboard → Raw configuration editor\n"
+                    "3. Paste the contents of `givenergy_dashboard.yaml`\n\n"
+                    "**To apply (YAML mode):** add to `configuration.yaml`:\n"
+                    "```yaml\n"
+                    "lovelace:\n"
+                    "  dashboards:\n"
+                    "    givenergy:\n"
+                    "      mode: yaml\n"
+                    "      filename: givenergy_dashboard.yaml\n"
+                    "      title: GivEnergy Inverter Manager\n"
+                    "      icon: mdi:solar-power-variant\n"
+                    "      show_in_sidebar: true\n"
+                    "```\n\n"
+                    "Run this action again after reconfiguring to regenerate the file."
+                ),
+                "notification_id": "givenergy_dashboard_yaml",
+            },
+            blocking=False,
         )
-        _LOG.info("Dashboard YAML generated for entry %s — check Notifications", entry.title)
 
     hass.services.async_register(
         DOMAIN,

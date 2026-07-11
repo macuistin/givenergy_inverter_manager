@@ -302,6 +302,11 @@
     }
   },
   "entity": {
+    "button": {
+      "refresh_dashboard": {
+        "name": "Refresh Dashboard"
+      }
+    },
     "sensor": {
       "solar_power": {
         "name": "Solar Power"
@@ -569,6 +574,9 @@
     },
     "no_config_entry": {
       "message": "GivEnergy Inverter Manager is not configured. Add the integration in Settings → Integrations before calling this service."
+    },
+    "dashboard_write_failed": {
+      "message": "Failed to write dashboard file to the Home Assistant config directory. Check that HA has write access to the config folder."
     }
   }
 }

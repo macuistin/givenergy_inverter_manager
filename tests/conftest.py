@@ -36,6 +36,7 @@ _HA_SUBMODULES = [
     "homeassistant.helpers.issue_registry",
     "homeassistant.components.sensor",
     "homeassistant.components.switch",
+    "homeassistant.components.button",
     "homeassistant.components.number",
     "homeassistant.util",
     "homeassistant.util.dt",
@@ -157,6 +158,10 @@ _sensor.SensorStateClass = MagicMock()
 _switch = sys.modules["homeassistant.components.switch"]
 _switch.SwitchEntity = object
 _switch.SwitchEntityDescription = object
+
+# --- button ---
+_button = sys.modules["homeassistant.components.button"]
+_button.ButtonEntity = object
 
 # --- number ---
 _number = sys.modules["homeassistant.components.number"]
