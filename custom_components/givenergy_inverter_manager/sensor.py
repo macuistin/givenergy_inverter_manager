@@ -42,6 +42,7 @@ from homeassistant.const import (
     EntityCategory,
     UnitOfEnergy,
     UnitOfPower,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -448,6 +449,21 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Cheap Rate Floor",
         icon="mdi:battery-arrow-up",
         value_fn=lambda d: d.cheap_rate_floor_status or "Inactive",
+    ),
+    GivEnergyManagerSensorDescription(
+        key="inverter_temperature",
+        translation_key="inverter_temperature",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        value_fn=lambda d: round(d.inverter_temperature, 1)
+        if d.inverter_temperature is not None
+        else None,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="inverter_temperature_status",
+        translation_key="inverter_temperature_status",
+        value_fn=lambda d: d.inverter_temperature_status,
     ),
     GivEnergyManagerSensorDescription(
         key="dry_run_last_skipped",

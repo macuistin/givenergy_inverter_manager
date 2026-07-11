@@ -556,6 +556,12 @@
       },
       "cheap_rate_floor_status": {
         "name": "Cheap Rate Floor"
+      },
+      "inverter_temperature": {
+        "name": "Inverter Temperature"
+      },
+      "inverter_temperature_status": {
+        "name": "Inverter Temperature Status"
       }
     }
   },

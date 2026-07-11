@@ -26,6 +26,7 @@ CONF_BATTERY_POWER = "battery_power_entity"
 CONF_GRID_POWER = "grid_power_entity"
 CONF_HOUSE_LOAD = "house_load_entity"
 CONF_INVERTER_MAX_OUTPUT = "inverter_max_output_kw"
+CONF_INVERTER_TEMP_ENTITY = "inverter_temp_entity"  # sensor.*_invertor_temperature
 # GivTCP charge control entities — all optional
 CONF_TARGET_SOC_ENTITY = "target_soc_entity"  # number.*_target_soc
 CONF_ENABLE_CHARGE_TARGET = "enable_charge_target_entity"  # switch.*_enable_charge_target
@@ -126,6 +127,18 @@ DEFAULT_DRY_RUN = False
 
 CONF_VERBOSE_LOGGING = "verbose_logging"
 DEFAULT_VERBOSE_LOGGING = False
+
+# ── Inverter temperature thresholds ─────────────────────────────────────────
+INVERTER_TEMP_WARM = 60      # °C — efficiency begins to drop
+INVERTER_TEMP_DERATING = 65  # °C — significant throttling begins
+INVERTER_TEMP_CRITICAL = 75  # °C — protection mode likely
+
+# Inverter temperature status labels
+INVERTER_TEMP_STATUS_NORMAL = "Normal"
+INVERTER_TEMP_STATUS_WARM = "Warm"
+INVERTER_TEMP_STATUS_DERATING = "Derating"
+INVERTER_TEMP_STATUS_CRITICAL = "Critical"
+INVERTER_TEMP_STATUS_UNKNOWN = "Unknown"
 
 # ── Operational thresholds ───────────────────────────────────────────────────
 # Battery SoC must be above this before immersion divert activates

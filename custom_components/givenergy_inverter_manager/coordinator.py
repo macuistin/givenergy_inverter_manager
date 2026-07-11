@@ -68,6 +68,7 @@ from .const import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
+    CONF_INVERTER_TEMP_ENTITY,
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
     DEFAULT_BATTERY_CAPACITY,
@@ -590,6 +591,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if forecast_eid:
             v = self._read_optional_float(forecast_eid)
             raw.forecast_kwh_tomorrow = v if v is not None and v >= 0 else None
+
+        inverter_temp_eid = cfg.get(CONF_INVERTER_TEMP_ENTITY)
+        if inverter_temp_eid:
+            raw.inverter_temp = self._read_optional_float(inverter_temp_eid)
 
         if self._ev_charger is not None:
             raw.ev_power_w = self._ev_charger.power_w

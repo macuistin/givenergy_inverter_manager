@@ -49,6 +49,14 @@ from ..const import (
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
+    INVERTER_TEMP_CRITICAL,
+    INVERTER_TEMP_DERATING,
+    INVERTER_TEMP_STATUS_CRITICAL,
+    INVERTER_TEMP_STATUS_DERATING,
+    INVERTER_TEMP_STATUS_NORMAL,
+    INVERTER_TEMP_STATUS_UNKNOWN,
+    INVERTER_TEMP_STATUS_WARM,
+    INVERTER_TEMP_WARM,
     SOLAR_SUNRISE_HOUR,
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
@@ -92,6 +100,7 @@ class RawSensorValues:
     forecast_kwh_tomorrow: float | None = None
     ev_power_w: float = 0.0
     ev_plugged_in: bool = False
+    inverter_temp: float | None = None
 
 
 class CoordinatorData:
@@ -117,6 +126,8 @@ class CoordinatorData:
         "divert_reason",
         "dry_run",
         "cheap_rate_floor_status",
+        "inverter_temperature",
+        "inverter_temperature_status",
         "dry_run_last_skipped",
         "estimated_soc_at_sunrise",
         "ev_available",
@@ -194,6 +205,8 @@ class CoordinatorData:
         self.dry_run: bool = False
         self.cheap_rate_floor_status: str = ""
         self.dry_run_last_skipped: str = ""
+        self.inverter_temperature: float | None = None
+        self.inverter_temperature_status: str = "Unknown"
         self.last_reset_time: str = ""
         self.solar_forecast_kwh_today: float = 0.0
         self.yesterday_forecast_accuracy_pct: float = 0.0
@@ -475,6 +488,24 @@ def _apply_charge_overrides(
         )
 
 
+def _set_inverter_temperature(
+    data: CoordinatorData,
+    inverter_temp: float | None,
+) -> None:
+    """Populate inverter temperature and status on CoordinatorData."""
+    data.inverter_temperature = inverter_temp
+    if inverter_temp is None:
+        data.inverter_temperature_status = INVERTER_TEMP_STATUS_UNKNOWN
+    elif inverter_temp >= INVERTER_TEMP_CRITICAL:
+        data.inverter_temperature_status = INVERTER_TEMP_STATUS_CRITICAL
+    elif inverter_temp >= INVERTER_TEMP_DERATING:
+        data.inverter_temperature_status = INVERTER_TEMP_STATUS_DERATING
+    elif inverter_temp >= INVERTER_TEMP_WARM:
+        data.inverter_temperature_status = INVERTER_TEMP_STATUS_WARM
+    else:
+        data.inverter_temperature_status = INVERTER_TEMP_STATUS_NORMAL
+
+
 def _set_immersion_decision(
     data: CoordinatorData,
     raw: RawSensorValues,
@@ -638,6 +669,7 @@ def build_coordinator_data(
 
     # ── Immersion divert decision ─────────────────────────────────────────────
     _set_immersion_decision(data, raw, cfg, override_immersion)
+    _set_inverter_temperature(data, raw.inverter_temp)
 
     # ── Bill prediction ───────────────────────────────────────────────────────
     days_in = tariff.days_in_current_bill_period(now)

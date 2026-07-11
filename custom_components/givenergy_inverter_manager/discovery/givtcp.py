@@ -20,6 +20,7 @@ ENTITY_SUFFIXES: dict[str, str] = {
     "battery_power": "_battery_power",
     "grid_power": "_grid_power",
     "house_load": "_load_power",
+    "inverter_temp": "_invertor_temperature",  # GivTCP spells it "invertor"
     "target_soc": "_target_soc",
     "enable_charge_target": "_enable_charge_target",
     "enable_charge_schedule": "_enable_charge_schedule",
@@ -40,6 +41,7 @@ ENTITY_DOMAINS: dict[str, str] = {
     "charge_start_time": "select",
     "charge_end_time": "select",
     "battery_capacity_kwh": "sensor",
+    "inverter_temp": "sensor",
 }
 
 
