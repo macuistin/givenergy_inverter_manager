@@ -411,3 +411,24 @@ class TestDashboardImprovements:
         battery_view = next(v for v in parsed["views"] if v.get("path") == "battery")
         battery_yaml = yaml.dump(battery_view)
         assert "battery_power" in battery_yaml
+
+
+class TestIncomeBar:
+    """Income bar markdown card is present on the Power Flow view."""
+
+    def test_income_bar_in_power_flow_view(self):
+        result = _build()
+        parsed = yaml.safe_load(result)
+        pf_view = next(v for v in parsed["views"] if v.get("path") == "power-flow")
+        card_types = [c.get("type", "") for c in pf_view.get("cards", [])]
+        assert "markdown" in card_types, "Income bar markdown card missing from Power Flow view"
+
+    def test_income_bar_references_grid_power(self):
+        result = _build()
+        assert "grid_power" in result
+
+    def test_income_bar_shows_earning_spending_idle(self):
+        result = _build()
+        assert "Earning" in result
+        assert "Spending" in result
+        assert "Idle" in result

@@ -340,6 +340,20 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
 
               {_immersion_section}
 
+              - type: markdown
+                content: >
+                  {{% set grid_w = states('{grid_power}') | float(0) %}}
+                  {{% set rate = states('{current_rate}') | float(0) %}}
+                  {{% set rate_name = states('{current_rate_period}') %}}
+                  {{% set eur_hr = (grid_w | abs / 1000 * rate) | round(3) %}}
+                  {{%- if grid_w < -50 -%}}
+                  🟢 **Earning €{{{{ eur_hr }}}}/hr** · {{{{ rate_name }}}} @ €{{{{ rate }}}}/kWh
+                  {{%- elif grid_w > 50 -%}}
+                  🔴 **Spending €{{{{ eur_hr }}}}/hr** · {{{{ rate_name }}}} @ €{{{{ rate }}}}/kWh
+                  {{%- else -%}}
+                  ⚪ **Idle** · {{{{ rate_name }}}} @ €{{{{ rate }}}}/kWh
+                  {{%- endif %}}
+
           # ── View 2: Today ────────────────────────────────────────────────────
           - title: Today
             icon: mdi:calendar-today
