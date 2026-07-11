@@ -445,10 +445,34 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         decision = self.data.charge_decision
 
         if decision.skip_charge:
-            _LOG.info(
-                "Charge target write-back: skip_charge=True (%s) — leaving GivTCP unchanged",
-                decision.reason,
-            )
+            # Write the minimum SoC as the charge target so the battery can discharge
+            # freely overnight. If we leave the old target (e.g. 80%) in GivTCP the
+            # inverter will hold the battery at that level and import from grid instead
+            # of discharging.
+            tariff = build_tariff(cfg)
+            if tariff.rate_periods:
+                min_soc = int(cfg.get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC))
+                cheap = min(tariff.rate_periods, key=lambda p: p.rate)
+                if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
+                    _LOG.info(
+                        "DRY RUN: skip_charge=True — would write min target %d%% (%s)",
+                        min_soc,
+                        decision.reason,
+                    )
+                else:
+                    _LOG.info(
+                        "skip_charge=True — writing min target %d%% to allow free discharge (%s)",
+                        min_soc,
+                        decision.reason,
+                    )
+                    self._create_task(
+                        self._async_apply_charge_target(cfg, min_soc, cheap)
+                    )
+            else:
+                _LOG.info(
+                    "skip_charge=True (%s) — no rate periods, leaving GivTCP unchanged",
+                    decision.reason,
+                )
             return
 
         target_soc = decision.target_soc

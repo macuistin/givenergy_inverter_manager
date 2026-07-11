@@ -520,11 +520,27 @@ class TestWriteChargeTarget:
         eids = [c["entity_id"] for c in switch_off]
         assert "switch.enable_charge_target" in eids
 
-    def test_skip_charge_suppresses_write(self):
+    @pytest.mark.asyncio
+    async def test_skip_charge_writes_min_target_for_free_discharge(self):
+        """When skipping charge, the min SoC must be written so the battery
+        can discharge freely overnight instead of holding at the old target."""
         coord = self._coord_with_decision(skip=True)
         coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
-        assert len(coord.tasks_created) == 0
-        assert len(coord.service_calls) == 0
+        # A task must be created to write the min target
+        assert len(coord.tasks_created) == 1, (
+            "skip_charge=True must still write the min target to GivTCP. "
+            "Leaving the old 80% target causes the battery to hold at 80% "
+            "and import from grid overnight instead of discharging."
+        )
+        await coord.tasks_created[0]
+        # Target written must be the configured min SoC
+        number_calls = coord.service_calls_for("number", "set_value")
+        assert len(number_calls) > 0
+        target_written = int(number_calls[0]["value"])
+        from custom_components.givenergy_inverter_manager.const import DEFAULT_BATTERY_MIN_SOC
+        assert target_written == DEFAULT_BATTERY_MIN_SOC, (
+            f"Expected min target {DEFAULT_BATTERY_MIN_SOC}% but got {target_written}%"
+        )
 
     def test_no_write_when_no_target_entity(self):
         cfg = _cfg()
