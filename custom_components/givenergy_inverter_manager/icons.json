@@ -37,6 +37,8 @@
       "ev_session_energy": {"default": "mdi:battery-charging-outline"},
       "ev_draining_battery": {"default": "mdi:battery-arrow-down"},
       "ev_protection_reason": {"default": "mdi:shield-check"},
+      "ev_charging_source": {"default": "mdi:lightning-bolt-circle"},
+      "ev_solar_surplus_available": {"default": "mdi:solar-power-variant"},
       "immersion_cost_today": {"default": "mdi:water-boiler"},
       "dry_run_active": {"default": "mdi:test-tube"},
       "dry_run_last_skipped": {"default": "mdi:skip-next-circle-outline"},
