@@ -133,6 +133,13 @@ INVERTER_TEMP_WARM = 60      # °C — efficiency begins to drop
 INVERTER_TEMP_DERATING = 65  # °C — significant throttling begins
 INVERTER_TEMP_CRITICAL = 75  # °C — protection mode likely
 
+# Inverter temperature status labels
+INVERTER_TEMP_STATUS_NORMAL = "Normal"
+INVERTER_TEMP_STATUS_WARM = "Warm"
+INVERTER_TEMP_STATUS_DERATING = "Derating"
+INVERTER_TEMP_STATUS_CRITICAL = "Critical"
+INVERTER_TEMP_STATUS_UNKNOWN = "Unknown"
+
 # ── Operational thresholds ───────────────────────────────────────────────────
 # Battery SoC must be above this before immersion divert activates
 SURPLUS_DIVERT_SOC_THRESHOLD = 80  # %

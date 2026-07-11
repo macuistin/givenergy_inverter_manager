@@ -51,6 +51,11 @@ from ..const import (
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
     INVERTER_TEMP_CRITICAL,
     INVERTER_TEMP_DERATING,
+    INVERTER_TEMP_STATUS_CRITICAL,
+    INVERTER_TEMP_STATUS_DERATING,
+    INVERTER_TEMP_STATUS_NORMAL,
+    INVERTER_TEMP_STATUS_UNKNOWN,
+    INVERTER_TEMP_STATUS_WARM,
     INVERTER_TEMP_WARM,
     SOLAR_SUNRISE_HOUR,
     SURPLUS_DIVERT_MIN_POWER_W,
@@ -490,15 +495,15 @@ def _set_inverter_temperature(
     """Populate inverter temperature and status on CoordinatorData."""
     data.inverter_temperature = inverter_temp
     if inverter_temp is None:
-        data.inverter_temperature_status = "Unknown"
+        data.inverter_temperature_status = INVERTER_TEMP_STATUS_UNKNOWN
     elif inverter_temp >= INVERTER_TEMP_CRITICAL:
-        data.inverter_temperature_status = "Critical"
+        data.inverter_temperature_status = INVERTER_TEMP_STATUS_CRITICAL
     elif inverter_temp >= INVERTER_TEMP_DERATING:
-        data.inverter_temperature_status = "Derating"
+        data.inverter_temperature_status = INVERTER_TEMP_STATUS_DERATING
     elif inverter_temp >= INVERTER_TEMP_WARM:
-        data.inverter_temperature_status = "Warm"
+        data.inverter_temperature_status = INVERTER_TEMP_STATUS_WARM
     else:
-        data.inverter_temperature_status = "Normal"
+        data.inverter_temperature_status = INVERTER_TEMP_STATUS_NORMAL
 
 
 def _set_immersion_decision(

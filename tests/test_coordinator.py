@@ -1479,7 +1479,8 @@ class TestInverterTemperature:
         data = await coord._async_update_data()
         # Assert
         assert data.inverter_temperature == pytest.approx(55.0)
-        assert data.inverter_temperature_status == "Normal"
+        from custom_components.givenergy_inverter_manager.const import INVERTER_TEMP_STATUS_NORMAL
+        assert data.inverter_temperature_status == INVERTER_TEMP_STATUS_NORMAL
 
     @pytest.mark.asyncio
     async def test_warm_temperature(self):
@@ -1489,7 +1490,8 @@ class TestInverterTemperature:
         coord.entry.data[CONF_INVERTER_TEMP_ENTITY] = "sensor.inverter_temp"
         coord.set_state("sensor.inverter_temp", "62.0")
         data = await coord._async_update_data()
-        assert data.inverter_temperature_status == "Warm"
+        from custom_components.givenergy_inverter_manager.const import INVERTER_TEMP_STATUS_WARM
+        assert data.inverter_temperature_status == INVERTER_TEMP_STATUS_WARM
 
     @pytest.mark.asyncio
     async def test_derating_temperature(self):
@@ -1499,7 +1501,8 @@ class TestInverterTemperature:
         coord.entry.data[CONF_INVERTER_TEMP_ENTITY] = "sensor.inverter_temp"
         coord.set_state("sensor.inverter_temp", "68.0")
         data = await coord._async_update_data()
-        assert data.inverter_temperature_status == "Derating"
+        from custom_components.givenergy_inverter_manager.const import INVERTER_TEMP_STATUS_DERATING
+        assert data.inverter_temperature_status == INVERTER_TEMP_STATUS_DERATING
 
     @pytest.mark.asyncio
     async def test_critical_temperature(self):
@@ -1509,7 +1512,8 @@ class TestInverterTemperature:
         coord.entry.data[CONF_INVERTER_TEMP_ENTITY] = "sensor.inverter_temp"
         coord.set_state("sensor.inverter_temp", "78.0")
         data = await coord._async_update_data()
-        assert data.inverter_temperature_status == "Critical"
+        from custom_components.givenergy_inverter_manager.const import INVERTER_TEMP_STATUS_CRITICAL
+        assert data.inverter_temperature_status == INVERTER_TEMP_STATUS_CRITICAL
 
     @pytest.mark.asyncio
     async def test_no_temp_entity_returns_none(self):
@@ -1517,7 +1521,8 @@ class TestInverterTemperature:
         coord.set_states(_default_states())
         data = await coord._async_update_data()
         assert data.inverter_temperature is None
-        assert data.inverter_temperature_status == "Unknown"
+        from custom_components.givenergy_inverter_manager.const import INVERTER_TEMP_STATUS_UNKNOWN
+        assert data.inverter_temperature_status == INVERTER_TEMP_STATUS_UNKNOWN
 
     def test_inverter_temp_in_discovery_map(self):
         from pathlib import Path
