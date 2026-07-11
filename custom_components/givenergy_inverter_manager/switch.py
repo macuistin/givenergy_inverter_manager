@@ -134,8 +134,9 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
         return self.coordinator.is_dry_run
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Manual override: force immersion on."""
+        """Manual override: force immersion on and run until target temperature is reached."""
         self.coordinator.override_immersion = True
+        self.coordinator._immersion_manual_run_to_target = True
         immersion_switch = self.coordinator.entry.data.get(CONF_IMMERSION_SWITCH)
         if immersion_switch and not self._is_dry_run():
             await self.hass.services.async_call(
@@ -144,8 +145,9 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Manual override: force immersion off."""
+        """Manual override: force immersion off and cancel run-to-target."""
         self.coordinator.override_immersion = False
+        self.coordinator._immersion_manual_run_to_target = False
         immersion_switch = self.coordinator.entry.data.get(CONF_IMMERSION_SWITCH)
         if immersion_switch and not self._is_dry_run():
             await self.hass.services.async_call(

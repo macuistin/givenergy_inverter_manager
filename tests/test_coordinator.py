@@ -162,6 +162,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self.override_immersion = None
         self.override_skip_charge = False
         self._givtcp_was_unavailable: bool = False
+        self._immersion_manual_run_to_target: bool = False
 
         GivLogger.register(self._effective_cfg)
 
@@ -1374,3 +1375,72 @@ class TestDashboardServiceValidationError:
         handler_block = src[src.find("def handle_get_dashboard_yaml"):]
         assert "raise ServiceValidationError" in handler_block
         assert "no_config_entry" in handler_block
+
+
+class TestImmersionRunToTarget:
+    """Manual on releases override automatically when water reaches target temperature."""
+
+    @pytest.mark.asyncio
+    async def test_override_released_when_target_reached(self):
+        # Arrange — manual run-to-target active, water at target
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.override_immersion = True
+        coord._immersion_manual_run_to_target = True
+        coord.immersion_target_temp = 55.0
+        # Simulate immersion temp sensor at target
+        from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_TEMP_SENSOR
+        coord.entry.data[CONF_IMMERSION_TEMP_SENSOR] = "sensor.immersion_temp"
+        coord.set_state("sensor.immersion_temp", "55.0")
+        # Act
+        await coord._async_update_data()
+        # Assert — both flags cleared, override released to auto
+        assert coord._immersion_manual_run_to_target is False
+        assert coord.override_immersion is None
+
+    @pytest.mark.asyncio
+    async def test_override_stays_when_below_target(self):
+        # Arrange — manual run-to-target active, water below target
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.override_immersion = True
+        coord._immersion_manual_run_to_target = True
+        coord.immersion_target_temp = 55.0
+        from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_TEMP_SENSOR
+        coord.entry.data[CONF_IMMERSION_TEMP_SENSOR] = "sensor.immersion_temp"
+        coord.set_state("sensor.immersion_temp", "48.0")
+        # Act
+        await coord._async_update_data()
+        # Assert — still active
+        assert coord._immersion_manual_run_to_target is True
+        assert coord.override_immersion is True
+
+    @pytest.mark.asyncio
+    async def test_override_stays_when_no_temp_sensor(self):
+        # Arrange — no temp sensor configured
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.override_immersion = True
+        coord._immersion_manual_run_to_target = True
+        # Act
+        await coord._async_update_data()
+        # Assert — can't auto-release without temp reading
+        assert coord._immersion_manual_run_to_target is True
+        assert coord.override_immersion is True
+
+    @pytest.mark.asyncio
+    async def test_divert_reason_shows_run_to_target(self):
+        # Arrange — manual run-to-target, water below target
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.override_immersion = True
+        coord._immersion_manual_run_to_target = True
+        coord.immersion_target_temp = 55.0
+        from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_TEMP_SENSOR
+        coord.entry.data[CONF_IMMERSION_TEMP_SENSOR] = "sensor.immersion_temp"
+        coord.set_state("sensor.immersion_temp", "48.0")
+        # Act
+        data = await coord._async_update_data()
+        # Assert
+        assert "55" in data.divert_reason
+        assert "48" in data.divert_reason

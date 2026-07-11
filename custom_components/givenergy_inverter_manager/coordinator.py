@@ -164,6 +164,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.override_immersion: bool | None = None
         self.override_skip_charge: bool = False
         self._givtcp_was_unavailable: bool = False
+        # When True, manual override stays on until water reaches target temp, then releases.
+        self._immersion_manual_run_to_target: bool = False
 
         # Register midnight accumulator reset
         entry.async_on_unload(
@@ -612,6 +614,20 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
         )
 
+    def _maybe_release_immersion_run_to_target(
+        self, immersion_temp: float | None
+    ) -> None:
+        """Release manual run-to-target override once water reaches target temperature."""
+        if not self._immersion_manual_run_to_target:
+            return
+        if immersion_temp is not None and immersion_temp >= self.immersion_target_temp:
+            _LOG.info(
+                "Immersion reached target %.1f°C — releasing manual override",
+                immersion_temp,
+            )
+            self._immersion_manual_run_to_target = False
+            self.override_immersion = None
+
     # ── Main update cycle ─────────────────────────────────────────────────────
 
     async def _maybe_apply_cheap_rate_floor(
@@ -761,6 +777,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.ev_power_w = self._ev_charger.power_w
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
+        # 5a. Release manual run-to-target override once water reaches target temperature.
+        self._maybe_release_immersion_run_to_target(raw.immersion_temp)
+
         # 5. Run the pure logic engine
         now = dt_util.as_local(datetime.now(timezone.utc))
         data, ev_target_mode = build_coordinator_data(
@@ -784,6 +803,17 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             yesterday_forecast_accuracy_pct=self._acc.yesterday_forecast_accuracy_pct,
             forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
         )
+
+        # 5b. Annotate divert reason when manual run-to-target is still active.
+        if self._immersion_manual_run_to_target and data.should_divert_immersion:
+            data.divert_reason = (
+                f"Manual — running to {self.immersion_target_temp:.0f}°C"
+                + (
+                    f" ({raw.immersion_temp:.1f}°C now)"
+                    if raw.immersion_temp is not None
+                    else ""
+                )
+            )
 
         # 6. Record forecast for accuracy tracking (sets solar_forecast_today sensor)
         if data.charge_decision is not None and data.charge_decision.forecast_kwh > 0:
