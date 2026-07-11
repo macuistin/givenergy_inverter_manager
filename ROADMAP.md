@@ -42,14 +42,34 @@ Organised by theme and priority.
 - **Forecast accuracy tracking** — yesterday's accuracy and 7-day rolling average;
   auto-fallback to seasonal estimate when accuracy is poor
 - **Configurable currency** — EUR, GBP, USD, SEK, NOK, DKK, AUD, CAD, NZD, ZAR
-- **83 sensors** — live power/energy, cost, tariff, battery health, charge decision,
+- **Immersion run-to-target** — when the immersion is switched on (manually, via
+  automation, or physical button) it runs until the water reaches the configured target
+  temperature, then releases back to auto; external turn-off applies a 10-minute cooldown
+  before auto-divert can resume
+- **Immersion cooldown** — a 10-minute cooldown between automatic on/off writes prevents
+  rapid cycling caused by brief solar surplus fluctuations
+- **Free battery discharge overnight** — when the integration decides to skip overnight
+  charging it writes the minimum SoC target to GivTCP so the battery can discharge freely
+  rather than holding at the old target and importing from grid
+- **EV battery protection tuned** — daytime threshold raised to 50% SoC (was 20%); during
+  cheap rate periods the Zappi is stopped if the battery is discharging, so the car charges
+  from cheap grid rather than draining the battery
+- **Dashboard writes to file** — `get_dashboard_yaml` writes `givenergy_dashboard.yaml`
+  directly to the HA config directory; no more copy-pasting from a notification; a
+  **Refresh Dashboard** button entity on the device page regenerates the file on demand
+- **84 sensors** — live power/energy, cost, tariff, battery health, charge decision,
   immersion, EV, bill projection, yesterday/week/month accumulators, forecast accuracy
-- **Dashboard generator** — `get_dashboard_yaml` service produces a ready-to-use
-  4-tab dashboard (Power Flow, Today, Battery, Controls) including cost history graph
-  and 30-day cost bar chart
+- **Dashboard generator** — 4-tab dashboard (Power Flow, Today, Battery, Controls);
+  current rate and period shown above cost breakdown; immersion temperature sliders
+  in Controls; battery power and cheap rate floor status in Battery tab
 - **HACS-ready** — `hacs.json`, `manifest.json`, `strings.json`, `translations/en.json`,
-  custom icons
-- **507 unit tests** — full coverage of all pure logic modules
+  `icons.json` with MDI icons for all entities
+- **Repair issues** — `givtcp_entities_missing` repair issue surfaces in Settings → System
+  → Repairs when configured GivTCP entities are absent from HA
+- **Automation examples** — `docs/automations.md` with 7 ready-to-use HA automation
+  examples
+- **525 unit tests** — full coverage of all pure logic modules; conftest stubs extended for
+  repairs, UpdateFailed kwargs, and ServiceValidationError
 
 ---
 
@@ -284,27 +304,59 @@ the config flow, coordinator setup/teardown, and entity lifecycle.
 
 ### v0.2.0
 
-- **log-when-unavailable** — coordinator logs a warning once when GivTCP stops publishing
-  and an info message once when it recovers; previously silent after the first HA-framework
-  error log
-- **action-exceptions** — `get_dashboard_yaml` raises `ServiceValidationError` with
-  translation key when no config entry exists, instead of logging an error and returning
-  silently
-- **icon-translations** — `icons.json` added with MDI icons for all 83 sensor entities,
-  4 switch entities, 4 number entities, and 2 services
-- **docs-examples** — `docs/automations.md` with 7 ready-to-use HA automation examples
-  (offline alert, charge plan notification, night survival warning, weekly report, and more)
-- **repair-issues** — `givtcp_entities_missing` repair issue raised in Settings → System →
-  Repairs when configured GivTCP entities are completely absent from HA; cleared automatically
-  on recovery
-- **strict-typing** — `[tool.mypy]` added to `pyproject.toml`; `core/` passes mypy strict;
-  HA-dependent modules use per-module relaxation (no HA type stubs available)
-- **Type fixes** — `dict` → `dict[str, Any]` on four engine/tariff function signatures;
-  `days_in_current_bill_period` and `calculate_import_cost` drop nullable `dt` default
-  (all callers pass a concrete datetime); `bool(unload_ok)` in `async_unload_entry`
-- **Test improvements** — conftest stubs extended: `UpdateFailed` and `ServiceValidationError`
-  accept translation kwargs; `homeassistant.components.repairs` stubbed; 15 new tests covering
-  log-when-unavailable transitions, action-exceptions, icon-translations, and repair-issues
+**Battery & charging fixes**
+- **Free battery discharge overnight** — when the integration skips overnight charging it
+  now writes the minimum SoC target to GivTCP so the battery can discharge freely; previously
+  the old target (e.g. 80%) stayed in GivTCP and the inverter held the battery at that level,
+  importing from grid instead of discharging
+- **EV battery protection raised to 50%** — daytime Zappi protection threshold raised from
+  20% to 50%; preserves battery for evening/night rather than letting the car drain it during
+  the day
+- **EV stopped during cheap rate if battery discharges** — when a cheap rate period is active
+  and the battery is discharging, the Zappi is paused; grid is cheap, the car should charge
+  from grid only and not drain the battery
+
+**Immersion heater**
+- **Run-to-target on manual on** — turning on the Immersion Heater (Managed) switch (manually,
+  via automation, or physical button) now runs the heater until the water reaches the configured
+  target temperature, then auto-releases back to auto mode
+- **10-minute cooldown between auto decisions** — prevents rapid on/off cycling caused by
+  brief solar surplus fluctuations; manual on/off bypasses and resets the cooldown
+- **External state change detection** — if an automation or physical button turns the immersion
+  on externally, the integration activates run-to-target mode; external turn-off applies a
+  cooldown before auto-divert resumes
+
+**Dashboard**
+- **Writes to file** — `get_dashboard_yaml` writes `givenergy_dashboard.yaml` directly to
+  the HA config directory; no copy-pasting from a notification
+- **Refresh Dashboard button** — new button entity on the device page regenerates the file
+  on demand; also appears as a button card in the Controls tab
+- **Current rate and period** — shown above the cost breakdown on the Today tab
+- **Immersion savings** — added to the Today cost breakdown
+- **Battery power** — live charge/discharge watts added to the Battery tab
+- **Cheap rate floor status** — shown in the Battery charge plan card
+- **Tonight's Charge Plan** — typo fixed (was "Tonights")
+- **Immersion temperature sliders** — target, minimum, and restart gap now inline in
+  the Controls immersion card
+- **Battery SoC** — shown on the power flow card
+- **HACS dependency reduced** — `vertical-stack-in-card` no longer required (replaced with
+  native HA gauge card)
+
+**Quality scale (HA Silver/Gold/Platinum)**
+- **entity-unavailable** — sensors go unavailable when GivTCP stops publishing (#35)
+- **reconfiguration-flow** — inverter serial, MQTT topic, and entity mappings can be changed
+  without reinstalling (#36)
+- **exception-translations** — `ConfigEntryNotReady` and `UpdateFailed` use translation keys
+  (#36); `get_dashboard_yaml` raises `ServiceValidationError` when unconfigured (#37)
+- **log-when-unavailable** — coordinator logs a warning once when GivTCP goes offline and
+  logs info once on recovery (#37)
+- **icon-translations** — `icons.json` with MDI icons for all entities (#38)
+- **docs-examples** — `docs/automations.md` with 7 ready-to-use HA automation examples (#39)
+- **docs-troubleshooting** — `docs/troubleshooting.md` covers all common failure modes (#39)
+- **repair-issues** — `givtcp_entities_missing` repair issue in Settings → System → Repairs
+  when entities are absent from HA; cleared on recovery (#40)
+- **strict-typing** — `[tool.mypy]` added; `core/` passes mypy strict; HA layer uses
+  per-module relaxation (#42)
 
 ### v0.1.5
 
