@@ -164,6 +164,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._givtcp_was_unavailable: bool = False
         self._immersion_manual_run_to_target: bool = False
         self._immersion_cooldown_until = None
+        self._last_immersion_coordinator_write = None
 
         GivLogger.register(self._effective_cfg)
 

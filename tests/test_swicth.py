@@ -127,3 +127,17 @@ class TestImmersionCooldown:
         assert "water_above_target" in update_fn
         assert "immersion_target_temp" in update_fn
         assert "not water_above_target" in update_fn
+
+    def test_external_turnon_tracked_in_coordinator(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        # External turn-on should trigger run-to-target flag
+        handle_fn = src[src.find("def _handle_coordinator_update"):]
+        assert "_immersion_manual_run_to_target = True" in handle_fn
+
+    def test_external_turnoff_applies_cooldown(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        handle_fn = src[src.find("def _handle_coordinator_update"):]
+        # External turn-off should start a cooldown
+        assert "_immersion_manual_run_to_target = False" in handle_fn
