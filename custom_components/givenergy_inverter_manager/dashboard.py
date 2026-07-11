@@ -487,6 +487,15 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   yellow: 20
                   red: 0
 
+              - type: history-graph
+                title: Battery SoC — 24h
+                hours_to_show: 24
+                entities:
+                  - entity: {battery_soc}
+                    name: SoC
+                  - entity: {battery_power}
+                    name: Power (W)
+
               - type: entities
                 entities:
                   - entity: {battery_power}
