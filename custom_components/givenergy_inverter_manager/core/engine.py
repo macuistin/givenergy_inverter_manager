@@ -374,6 +374,7 @@ def _process_ev_charger(
     ev_charger: EVCharger,
     raw: RawSensorValues,
     cfg: dict[str, Any],
+    in_cheap_rate_period: bool = False,
 ) -> str | None:
     """Process EV charger state and return target mode."""
     data.ev_available = True
@@ -393,6 +394,7 @@ def _process_ev_charger(
         battery_power_w=raw.battery_power_w,
         solar_surplus_w=solar_surplus_w,
         protection_threshold=protect_threshold,
+        in_cheap_rate_period=in_cheap_rate_period,
     )
     data.ev_protection_reason = reason
     data.ev_protection_active = ev_target_mode is not None
@@ -654,6 +656,9 @@ def build_coordinator_data(
     # ── EV charger state ─────────────────────────────────────────────────────
     ev_target_mode: str | None = None
     if ev_charger is not None:
-        ev_target_mode = _process_ev_charger(data, ev_charger, raw, cfg)
+        in_cheap = current_period.rate < tariff.base_rate
+        ev_target_mode = _process_ev_charger(
+            data, ev_charger, raw, cfg, in_cheap_rate_period=in_cheap
+        )
 
     return data, ev_target_mode

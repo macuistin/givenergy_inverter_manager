@@ -621,3 +621,84 @@ class TestEVPowerEntityWarning:
         ):
             _discover_zappi(states)
         assert not any("power entity" in r.message for r in caplog.records)
+
+
+class TestDecideEVChargerActionCheapRate:
+    """During cheap rate, Zappi must stop if battery is discharging to power the EV."""
+
+    def _zappi(self, mode="Fast") -> EVCharger:
+        ch = _make_zappi(mode=mode)
+        ch.state = EVChargerState.CHARGING
+        return ch
+
+    def test_stops_zappi_when_cheap_rate_and_battery_discharging(self):
+        # Arrange — cheap rate active, battery discharging
+        ch = self._zappi(mode="Fast")
+        target, reason = decide_ev_charger_action(
+            ch,
+            battery_soc=70.0,
+            battery_power_w=-1500,
+            solar_surplus_w=0,
+            protection_threshold=50.0,
+            in_cheap_rate_period=True,
+        )
+        # Assert
+        assert target == ZAPPI_STOPPED_MODE
+        assert "cheap rate" in reason.lower()
+
+    def test_no_stop_when_cheap_rate_but_battery_not_discharging(self):
+        # Arrange — cheap rate, but battery is idle or charging
+        ch = self._zappi(mode="Fast")
+        target, _ = decide_ev_charger_action(
+            ch,
+            battery_soc=70.0,
+            battery_power_w=0,
+            solar_surplus_w=0,
+            protection_threshold=50.0,
+            in_cheap_rate_period=True,
+        )
+        # Assert — battery not being drained, EV can continue
+        assert target is None
+
+    def test_no_stop_when_battery_discharging_but_not_cheap_rate(self):
+        # Arrange — battery discharging, but NOT in cheap rate (normal day rate)
+        ch = self._zappi(mode="Fast")
+        target, _ = decide_ev_charger_action(
+            ch,
+            battery_soc=70.0,
+            battery_power_w=-1500,
+            solar_surplus_w=0,
+            protection_threshold=50.0,
+            in_cheap_rate_period=False,
+        )
+        # Assert — cheap rate guard does not apply; SoC check applies instead
+        assert target is None  # 70% > 50% threshold so no stop
+
+    def test_cheap_rate_guard_takes_priority_over_soc_threshold(self):
+        # Arrange — battery at 80% (above threshold) but cheap rate + discharging
+        ch = self._zappi(mode="Eco+")
+        target, reason = decide_ev_charger_action(
+            ch,
+            battery_soc=80.0,
+            battery_power_w=-500,
+            solar_surplus_w=0,
+            protection_threshold=50.0,
+            in_cheap_rate_period=True,
+        )
+        # Assert — stopped even though SoC is above the daytime threshold
+        assert target == ZAPPI_STOPPED_MODE
+
+    def test_already_stopped_during_cheap_rate_no_action(self):
+        # Arrange — Zappi already stopped
+        ch = _make_zappi(mode="Stopped")
+        ch.state = EVChargerState.PAUSED
+        target, _ = decide_ev_charger_action(
+            ch,
+            battery_soc=70.0,
+            battery_power_w=-500,
+            solar_surplus_w=0,
+            protection_threshold=50.0,
+            in_cheap_rate_period=True,
+        )
+        # Assert — already stopped, no change needed
+        assert target is None
