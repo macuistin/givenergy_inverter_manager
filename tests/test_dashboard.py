@@ -354,3 +354,48 @@ class TestPowerFlowTabChanges:
             "Must have temperature chart and energy/power chart."
         )
         assert "type: tile" in yaml, "Divert reason must use tile card."
+
+
+class TestDashboardImprovements:
+    """Tests for dashboard improvements: new entities, removed HACS dep, typo fix."""
+
+    def test_new_sensor_references_present(self):
+        """Sensors added in dashboard improvements must appear in the output."""
+        result = _build()
+        for suffix in [
+            "current_rate_period",
+            "cheap_rate_floor_status",
+            "immersion_savings_today",
+        ]:
+            assert suffix in result, f"Expected {suffix!r} in dashboard YAML"
+
+    def test_immersion_temp_numbers_in_controls(self):
+        """Immersion temperature number entities must appear in the Controls view."""
+        result = _build()
+        parsed = yaml.safe_load(result)
+        controls_view = next(v for v in parsed["views"] if v.get("path") == "controls")
+        controls_yaml = yaml.dump(controls_view)
+        assert "immersion_target_temp" in controls_yaml
+        assert "immersion_min_temp" in controls_yaml
+        assert "immersion_hysteresis" in controls_yaml
+
+    def test_no_vertical_stack_in_card(self):
+        """vertical-stack-in-card HACS dependency must be removed."""
+        result = _build()
+        assert "vertical-stack-in-card" not in result, (
+            "vertical-stack-in-card is a HACS dependency that was removed from the Battery tab"
+        )
+
+    def test_tonights_typo_fixed(self):
+        """'Tonights' must be corrected to 'Tonight\\'s'."""
+        result = _build()
+        assert "Tonights" not in result
+        assert "Tonight's" in result
+
+    def test_battery_power_in_battery_view(self):
+        """battery_power must appear in the Battery view, not just the Power Flow view."""
+        result = _build()
+        parsed = yaml.safe_load(result)
+        battery_view = next(v for v in parsed["views"] if v.get("path") == "battery")
+        battery_yaml = yaml.dump(battery_view)
+        assert "battery_power" in battery_yaml
