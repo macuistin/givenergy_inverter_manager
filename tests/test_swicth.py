@@ -118,3 +118,12 @@ class TestImmersionCooldown:
         next_cls = control_cls.find("\nclass ", 10)
         control_cls = control_cls[:next_cls] if next_cls != -1 else control_cls
         assert control_cls.count("_immersion_cooldown_until = None") >= 2
+
+    def test_cooldown_bypassed_when_water_above_target(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        update_fn = src[src.find("def _handle_coordinator_update"):]
+        # The bypass condition must check both temp and target
+        assert "water_above_target" in update_fn
+        assert "immersion_target_temp" in update_fn
+        assert "not water_above_target" in update_fn

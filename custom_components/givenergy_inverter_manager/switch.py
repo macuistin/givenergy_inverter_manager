@@ -182,9 +182,17 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
 
         if should_be_on != current_on:
             # Cooldown: skip auto writes within N minutes of the last write.
+            # Exception: always allow an immediate turn-off when water is at or
+            # above target temperature — delaying that risks overheating.
             now = dt_util.as_local(datetime.now(timezone.utc))
             cooldown_until = self.coordinator._immersion_cooldown_until
-            if cooldown_until is not None and now < cooldown_until:
+            immersion_temp = self.coordinator.data.immersion_temp
+            water_above_target = (
+                not should_be_on
+                and immersion_temp is not None
+                and immersion_temp >= self.coordinator.immersion_target_temp
+            )
+            if cooldown_until is not None and now < cooldown_until and not water_above_target:
                 _LOG.debug(
                     "Immersion: skipping %s — cooldown active until %s",
                     "turn_on" if should_be_on else "turn_off",
