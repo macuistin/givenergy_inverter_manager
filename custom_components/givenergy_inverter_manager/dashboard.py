@@ -217,6 +217,9 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     current_rate_period = e("current_rate_period")
     cheap_rate_floor = e("cheap_rate_floor_status")
     immersion_savings = e("immersion_savings_today")
+    solar_forecast_today = e("solar_forecast_kwh_today")
+    solar_vs_forecast_pct = e("solar_actual_vs_forecast_pct")
+    forecast_accuracy_yesterday = e("yesterday_forecast_accuracy_pct")
     ev_state = e("ev_charger_state")
     ev_power = _find_ev_charger_power(hass, e("ev_power"))
     ev_session = e("ev_session_energy")
@@ -411,6 +414,26 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     name: Immersion
                   - entity: {export_earnings}
                     name: Export Earnings
+
+              - type: history-graph
+                title: Solar generation — today
+                hours_to_show: 24
+                entities:
+                  - entity: {solar_today}
+                    name: Actual
+
+              - type: entities
+                title: Solar vs Forecast
+                entities:
+                  - entity: {solar_today}
+                    name: Generated today
+                  - entity: {solar_forecast_today}
+                    name: Today's forecast
+                  - entity: {solar_vs_forecast_pct}
+                    name: Tracking
+                    icon: mdi:chart-line
+                  - entity: {forecast_accuracy_yesterday}
+                    name: Yesterday's accuracy
 
               - square: false
                 type: grid

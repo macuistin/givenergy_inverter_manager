@@ -432,3 +432,22 @@ class TestIncomeBar:
         assert "Earning" in result
         assert "Spending" in result
         assert "Idle" in result
+class TestSolarForecastCards:
+    """Solar vs forecast section is present on the Today tab."""
+
+    def test_solar_forecast_entities_in_today_view(self):
+        result = _build()
+        assert "solar_forecast_kwh_today" in result
+        assert "solar_actual_vs_forecast_pct" in result
+        assert "yesterday_forecast_accuracy_pct" in result
+
+    def test_solar_history_graph_in_today_view(self):
+        result = _build()
+        parsed = yaml.safe_load(result)
+        today_view = next(v for v in parsed["views"] if v.get("path") == "today")
+        history_titles = [
+            c.get("title", "")
+            for c in today_view.get("cards", [])
+            if c.get("type") == "history-graph"
+        ]
+        assert any("solar" in t.lower() for t in history_titles)
