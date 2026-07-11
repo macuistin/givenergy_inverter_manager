@@ -457,14 +457,17 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     name: Recommended Target Tonight
                   - entity: {charge_reason}
                     name: Reason
+                    icon: mdi:information-outline
                   - entity: {charge_cost}
                     name: Estimated Charge Cost
                   - entity: {soc_at_sunrise}
                     name: Estimated SoC at Sunrise
                   - entity: {survival_reason}
                     name: Night Survival Status
+                    icon: mdi:moon-waning-crescent
                   - entity: {cheap_rate_floor}
                     name: Cheap Rate Floor
+                    icon: mdi:floor-plan
                 title: Tonight's Charge Plan
 
               - type: entities
@@ -510,8 +513,10 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   entities:
                     - entity: {dry_run_active}
                       name: Dry Run Mode
+                      icon: mdi:test-tube
                     - entity: {dry_run_skipped}
                       name: Last Skipped Action
+                      icon: mdi:skip-next-circle-outline
 
               - type: entities
                 entities:
@@ -531,6 +536,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     name: Immersion Heater (Managed)
                   - entity: {immersion_reason}
                     name: Divert Reason
+                    icon: mdi:water-boiler
                   - type: divider
                   - entity: {num_immersion_target}
                     name: Target Temperature
@@ -544,6 +550,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 entities:
                   - entity: {ev_state}
                     name: Charger State
+                    icon: mdi:ev-station
                   - entity: {ev_power}
                     name: Charge Power
                     icon: mdi:lightning-bolt
@@ -553,6 +560,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     name: Draining Battery
                   - entity: {ev_protection_reason}
                     name: Protection Status
+                    icon: mdi:shield-check
                 title: EV Charger
         """)
 
