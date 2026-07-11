@@ -213,6 +213,9 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     soc_at_sunrise = e("estimated_soc_at_sunrise")
     survival_reason = e("night_survival_reason")
     is_clipping = e("is_clipping")
+    current_rate_period = e("current_rate_period")
+    cheap_rate_floor = e("cheap_rate_floor_status")
+    immersion_savings = e("immersion_savings_today")
     ev_state = e("ev_charger_state")
     ev_power = _find_ev_charger_power(hass, e("ev_power"))
     ev_session = e("ev_session_energy")
@@ -259,8 +262,6 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
         #   https://github.com/flixlix/power-flow-card-plus
         # Immersion section requires apexcharts-card from HACS:
         #   https://github.com/RomRider/apexcharts-card
-        # Battery gauge requires vertical-stack-in-card from HACS:
-        #   https://github.com/ofekashery/vertical-stack-in-card
         # All other views use only built-in HA cards.
         #
         # To use: Settings → Dashboards → new blank dashboard
@@ -366,6 +367,13 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
 
               - type: entities
                 entities:
+                  - entity: {current_rate}
+                    name: Current Rate
+                    icon: mdi:currency-eur
+                  - entity: {current_rate_period}
+                    name: Rate Period
+                    icon: mdi:clock-time-four
+                  - type: divider
                   - entity: {import_cost_today}
                     name: Import Cost
                     icon: mdi:cash-minus
@@ -378,6 +386,9 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - entity: {immersion_cost_today}
                     name: Immersion Cost
                     icon: mdi:water-boiler
+                  - entity: {immersion_savings}
+                    name: Immersion Savings
+                    icon: mdi:piggy-bank
                   - entity: {house_cost_today}
                     name: Rest-of-House Cost
                     icon: mdi:home
@@ -442,26 +453,24 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
             icon: mdi:battery-charging
             path: battery
             cards:
-              - type: custom:vertical-stack-in-card
-                cards:
-                  - type: heading
-                    heading: Current State
-                    heading_style: title
-                  - type: gauge
-                    entity: {battery_soc}
-                    name: Battery SoC
-                    min: 0
-                    max: 100
-                    needle: true
-                    severity:
-                      green: 50
-                      yellow: 20
-                      red: 0
+              - type: gauge
+                entity: {battery_soc}
+                name: Battery SoC
+                min: 0
+                max: 100
+                needle: true
+                severity:
+                  green: 50
+                  yellow: 20
+                  red: 0
 
               - type: entities
                 entities:
+                  - entity: {battery_power}
+                    name: Charge / Discharge Power
+                    icon: mdi:battery-charging
                   - entity: {charge_target}
-                    name: Recommended Target
+                    name: Recommended Target Tonight
                     icon: mdi:battery-charging-80
                   - entity: {charge_reason}
                     name: Reason
@@ -475,7 +484,10 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - entity: {survival_reason}
                     name: Night Survival Status
                     icon: mdi:moon-waning-crescent
-                title: Tonights Charge Plan
+                  - entity: {cheap_rate_floor}
+                    name: Cheap Rate Floor
+                    icon: mdi:floor-plan
+                title: Tonight's Charge Plan
 
               - type: entities
                 entities:
@@ -547,6 +559,16 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - entity: {immersion_reason}
                     name: Divert Reason
                     icon: mdi:water-boiler
+                  - type: divider
+                  - entity: {num_immersion_target}
+                    name: Target Temperature
+                    icon: mdi:thermometer-high
+                  - entity: {num_immersion_min}
+                    name: Minimum Temperature
+                    icon: mdi:thermometer-low
+                  - entity: {num_immersion_gap}
+                    name: Restart Gap
+                    icon: mdi:thermometer-lines
                 title: Immersion Heater
 
               - type: entities
