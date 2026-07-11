@@ -157,6 +157,18 @@ class TestBuildDashboardYaml:
             f"state_of_charge field should reference battery SoC, got {soc_entity!r}"
         )
 
+    def test_power_flow_battery_soc_is_visible(self):
+        """show_state_of_charge must be true so the SoC % appears on the power flow card."""
+        result = _build()
+        parsed = yaml.safe_load(result)
+        pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
+        pf_card = next(
+            c for c in pf_view["cards"] if "power-flow-card-plus" in c.get("type", "")
+        )
+        assert pf_card["entities"]["battery"]["show_state_of_charge"] is True, (
+            "show_state_of_charge must be true — the battery % is otherwise hidden on the card"
+        )
+
     def test_no_template_placeholders_remain(self):
         """No unfilled {} placeholders should remain (f-string interpolation complete)."""
         result = _build()
