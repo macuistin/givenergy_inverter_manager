@@ -291,7 +291,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   battery:
                     entity: {battery_power}
                     state_of_charge: {battery_soc}
-                    show_state_of_charge: false
+                    show_state_of_charge: true
                   grid:
                     entity: {grid_power}
                     use_metadata: false
