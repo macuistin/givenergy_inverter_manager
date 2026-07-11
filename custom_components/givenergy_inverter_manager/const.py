@@ -106,6 +106,7 @@ DEFAULT_PSO_LEVY = 1.46  # per month
 DEFAULT_EXPORT_RATE = 0.195  # per kWh (Irish CEG rate)
 DEFAULT_BILL_START_DAY = 1  # day of month
 DEFAULT_EV_BATTERY_PROTECT_SOC = 50  # % — pause EV below this SoC during day rate
+EV_SOLAR_SURPLUS_THRESHOLD_W = 1400  # W net surplus needed to flag solar available for EV
 
 # Default rate periods: Electric Ireland Home Electric + Nightboost
 # Nightboost (02:00–04:00) is listed last but takes priority over Night

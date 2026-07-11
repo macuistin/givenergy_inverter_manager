@@ -49,6 +49,7 @@ from ..const import (
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
+    EV_SOLAR_SURPLUS_THRESHOLD_W,
     INVERTER_TEMP_CRITICAL,
     INVERTER_TEMP_DERATING,
     INVERTER_TEMP_STATUS_CRITICAL,
@@ -138,6 +139,8 @@ class CoordinatorData:
         "ev_power_w",
         "ev_protection_active",
         "ev_protection_reason",
+        "ev_charging_source",
+        "ev_solar_surplus_available",
         "ev_session_kwh",
         "forecast_kwh_tomorrow",
         "grid_power_w",
@@ -202,6 +205,8 @@ class CoordinatorData:
         self.ev_protection_active: bool = False
         self.ev_protection_reason: str = ""
         self.ev_available: bool = False
+        self.ev_charging_source: str = "Not charging"
+        self.ev_solar_surplus_available: bool = False
         self.dry_run: bool = False
         self.cheap_rate_floor_status: str = ""
         self.dry_run_last_skipped: str = ""
@@ -411,6 +416,29 @@ def _process_ev_charger(
     )
     data.ev_protection_reason = reason
     data.ev_protection_active = ev_target_mode is not None
+
+    # EV charging source classification
+    ev_w = ev_charger.power_w
+    grid_w = raw.grid_power_w      # positive = import
+    batt_w = raw.battery_power_w   # positive = charging, negative = discharging
+    if ev_w <= 0:
+        data.ev_charging_source = "Not charging"
+    elif grid_w <= 0 and batt_w >= 0:
+        data.ev_charging_source = "Solar"
+    elif grid_w <= 0 and batt_w < 0:
+        data.ev_charging_source = "Battery"
+    elif grid_w > 0 and batt_w >= 0:
+        data.ev_charging_source = "Grid"
+    else:
+        data.ev_charging_source = "Mixed"
+
+    # Solar surplus availability signal for Zappi Eco+ automation
+    soc_threshold = float(cfg.get(CONF_EV_BATTERY_PROTECT_SOC, DEFAULT_EV_BATTERY_PROTECT_SOC))
+    data.ev_solar_surplus_available = (
+        solar_surplus_w >= EV_SOLAR_SURPLUS_THRESHOLD_W
+        and raw.battery_soc >= soc_threshold
+    )
+
     return ev_target_mode
 
 

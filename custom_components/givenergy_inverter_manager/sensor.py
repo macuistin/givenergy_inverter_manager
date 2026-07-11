@@ -426,6 +426,17 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         available_fn=lambda d: d.ev_available,
     ),
     GivEnergyManagerSensorDescription(
+        key="ev_charging_source",
+        translation_key="ev_charging_source",
+        value_fn=lambda d: d.ev_charging_source,
+        available_fn=lambda d: d.ev_available,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="ev_solar_surplus_available",
+        translation_key="ev_solar_surplus_available",
+        value_fn=lambda d: "Available" if d.ev_solar_surplus_available else "Not available",
+    ),
+    GivEnergyManagerSensorDescription(
         key="immersion_cost_today",
         is_daily_total=True,
         translation_key="immersion_cost_today",
