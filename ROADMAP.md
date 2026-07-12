@@ -51,9 +51,6 @@ Organised by theme and priority.
 - **Free battery discharge overnight** — when the integration decides to skip overnight
   charging it writes the minimum SoC target to GivTCP so the battery can discharge freely
   rather than holding at the old target and importing from grid
-- **EV battery protection tuned** — daytime threshold raised to 50% SoC (was 20%); during
-  cheap rate periods the Zappi is stopped if the battery is discharging, so the car charges
-  from cheap grid rather than draining the battery
 - **Dashboard writes to file** — `get_dashboard_yaml` writes `givenergy_dashboard.yaml`
   directly to the HA config directory; placeholder created on setup so YAML-mode
   dashboards load immediately; **Refresh Dashboard** button regenerates on demand
