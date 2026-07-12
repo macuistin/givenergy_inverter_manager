@@ -146,6 +146,8 @@ INVERTER_TEMP_STATUS_UNKNOWN = "Unknown"
 SURPLUS_DIVERT_SOC_THRESHOLD = 80  # %
 # Minimum solar surplus (W) before turning on immersion
 SURPLUS_DIVERT_MIN_POWER_W = 500  # W
+# Predictive immersion: run during cheap rate when tomorrow's solar forecast is below this
+PREDICTIVE_IMMERSION_FORECAST_THRESHOLD_KWH = 5.0  # kWh — poor solar day
 # Inverter output as % of max that signals clipping
 CLIPPING_THRESHOLD_PERCENT = 95  # %
 

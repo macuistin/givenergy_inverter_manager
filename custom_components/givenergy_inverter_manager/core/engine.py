@@ -58,6 +58,7 @@ from ..const import (
     INVERTER_TEMP_STATUS_UNKNOWN,
     INVERTER_TEMP_STATUS_WARM,
     INVERTER_TEMP_WARM,
+    PREDICTIVE_IMMERSION_FORECAST_THRESHOLD_KWH,
     SOLAR_NOISE_FLOOR_W,
     SOLAR_SUNRISE_HOUR,
     SURPLUS_DIVERT_MIN_POWER_W,
@@ -562,6 +563,7 @@ def _set_immersion_decision(
     raw: RawSensorValues,
     cfg: dict[str, Any],
     override_immersion: bool | None,
+    in_cheap_rate_period: bool = False,
 ) -> None:
     """Set immersion divert decision."""
     if override_immersion is not None:
@@ -581,6 +583,9 @@ def _set_immersion_decision(
             currently_on=raw.immersion_on,
             soc_threshold=int(cfg.get(CONF_SURPLUS_DIVERT_SOC, SURPLUS_DIVERT_SOC_THRESHOLD)),
             min_surplus_w=float(cfg.get(CONF_SURPLUS_DIVERT_MIN_W, SURPLUS_DIVERT_MIN_POWER_W)),
+            in_cheap_rate_period=in_cheap_rate_period,
+            forecast_kwh_tomorrow=raw.forecast_kwh_tomorrow,
+            predictive_threshold_kwh=PREDICTIVE_IMMERSION_FORECAST_THRESHOLD_KWH,
         )
 
 
@@ -725,7 +730,8 @@ def build_coordinator_data(
     )
 
     # ── Immersion divert decision ─────────────────────────────────────────────
-    _set_immersion_decision(data, raw, cfg, override_immersion)
+    in_cheap_now = current_period.rate < tariff.base_rate
+    _set_immersion_decision(data, raw, cfg, override_immersion, in_cheap_now)
     _set_inverter_temperature(data, raw.inverter_temp)
 
     # ── Bill prediction ───────────────────────────────────────────────────────
@@ -745,9 +751,8 @@ def build_coordinator_data(
     # ── EV charger state ─────────────────────────────────────────────────────
     ev_target_mode: str | None = None
     if ev_charger is not None:
-        in_cheap = current_period.rate < tariff.base_rate
         ev_target_mode = _process_ev_charger(
-            data, ev_charger, raw, cfg, in_cheap_rate_period=in_cheap
+            data, ev_charger, raw, cfg, in_cheap_rate_period=in_cheap_now
         )
 
     return data, ev_target_mode

@@ -223,6 +223,9 @@ def should_divert_to_immersion(
     currently_on: bool = False,
     soc_threshold: int = SURPLUS_DIVERT_SOC_THRESHOLD,
     min_surplus_w: float = SURPLUS_DIVERT_MIN_POWER_W,
+    in_cheap_rate_period: bool = False,
+    forecast_kwh_tomorrow: float | None = None,
+    predictive_threshold_kwh: float = 5.0,
 ) -> tuple[bool, str]:
     """
     Decide whether to turn on the immersion heater.
@@ -235,8 +238,10 @@ def should_divert_to_immersion(
       3. Hysteresis: if currently off, only restart once water cools to
          (target - hysteresis_c); if currently on, keep running until target
       4. Never heat if battery SoC is below soc_threshold
-      5. Heat if net solar surplus >= min_surplus_w
-      6. Heat if inverter is clipping (at capacity) and battery is charged
+      5. Predictive: heat during cheap rate if tomorrow's solar forecast is poor
+         (forecast_kwh_tomorrow < predictive_threshold_kwh)
+      6. Heat if net solar surplus >= min_surplus_w
+      7. Heat if inverter is clipping (at capacity) and battery is charged
 
     The hysteresis band prevents rapid on/off cycling near the target temperature.
     With defaults of target=55°C and hysteresis=5°C: turns off at 55°C and will
@@ -253,6 +258,20 @@ def should_divert_to_immersion(
 
     if battery_soc < soc_threshold:
         return False, f"Battery SoC {battery_soc:.0f}% below threshold {soc_threshold}%"
+
+    # Predictive mode: run during cheap rate on poor-forecast days so hot water
+    # is available regardless of how much solar tomorrow actually generates.
+    if (
+        in_cheap_rate_period
+        and forecast_kwh_tomorrow is not None
+        and forecast_kwh_tomorrow < predictive_threshold_kwh
+        and immersion_temp is not None
+        and immersion_temp < immersion_target_temp - immersion_hysteresis_c
+    ):
+        return True, (
+            f"Predictive: forecast {forecast_kwh_tomorrow:.1f} kWh < "
+            f"{predictive_threshold_kwh:.0f} kWh threshold — heating during cheap rate"
+        )
 
     battery_charging_w = max(0, battery_power_w)
     net_surplus_w = solar_power_w - house_load_w - battery_charging_w
