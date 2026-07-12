@@ -290,3 +290,73 @@ class TestGetCurrentRatePrecedence:
         for h, name in expected.items():
             r = t.get_current_rate(datetime(2024, 6, 15, h, 0))
             assert r.name == name, f"At {h:02d}:00: expected {name!r}, got {r.name!r}"
+
+
+# ── TariffConfig — additional coverage ───────────────────────────────────────
+
+
+class TestTariffConfigExtras:
+    def _tariff(self):
+        from datetime import time
+
+        from custom_components.givenergy_inverter_manager.core.tariff import (
+            RatePeriod,
+            TariffConfig,
+        )
+
+        return TariffConfig(
+            rate_periods=[
+                RatePeriod("Night", 0.1644, time(23, 0), time(8, 0)),
+                RatePeriod("Nightboost", 0.0965, time(2, 0), time(4, 0)),
+            ],
+            base_rate=0.3334,
+            base_rate_name="Day",
+            export_rate=0.195,
+            standing_charge=0.8259,
+            pso_levy=1.46,
+            vat_rate=9.0,
+            discount_rate=5.5,
+            bill_start_day=1,
+        )
+
+    def test_get_most_expensive_rate_returns_day(self):
+        t = self._tariff()
+        most_exp = t.get_most_expensive_rate()
+        assert most_exp.name == "Day"
+        assert most_exp.rate == pytest.approx(0.3334)
+
+    def test_get_most_expensive_rate_beats_all_periods(self):
+        t = self._tariff()
+        most_exp = t.get_most_expensive_rate()
+        for period in t.rate_periods:
+            assert most_exp.rate >= period.rate
+
+
+# ── EnergyAccumulator — total_cost and net_position ─────────────────────────
+
+
+class TestEnergyAccumulatorFinancials:
+    def _acc(self):
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
+        acc = EnergyAccumulator()
+        acc.import_cost_by_period["Day"] = 1.50
+        acc.import_cost_by_period["Night"] = 0.80
+        acc.export_earnings = 0.45
+        return acc
+
+    def test_total_cost_sums_all_periods(self):
+        acc = self._acc()
+        assert acc.total_cost == pytest.approx(2.30)
+
+    def test_net_position_negative_when_cost_exceeds_earnings(self):
+        acc = self._acc()
+        assert acc.net_position == pytest.approx(0.45 - 2.30)
+
+    def test_net_position_positive_when_earnings_exceed_cost(self):
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
+        acc = EnergyAccumulator()
+        acc.export_earnings = 5.00
+        acc.import_cost_by_period["Day"] = 1.00
+        assert acc.net_position == pytest.approx(4.00)

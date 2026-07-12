@@ -34,6 +34,7 @@ _HA_SUBMODULES = [
     "homeassistant.helpers.config_validation",
     "homeassistant.components",
     "homeassistant.helpers.issue_registry",
+    "homeassistant.helpers.redact",
     "homeassistant.components.sensor",
     "homeassistant.components.switch",
     "homeassistant.components.button",
@@ -139,6 +140,10 @@ class _UpdateFailed(Exception):
 
 
 _coord.UpdateFailed = _UpdateFailed
+
+# --- helpers.redact (used by diagnostics.py) ---
+_redact = sys.modules["homeassistant.helpers.redact"]
+_redact.async_redact_data = lambda data, _keys: data
 
 # --- helpers.issue_registry (used by repairs.py) ---
 _issue_reg = sys.modules["homeassistant.helpers.issue_registry"]

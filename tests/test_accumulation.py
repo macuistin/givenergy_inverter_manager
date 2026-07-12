@@ -438,3 +438,166 @@ class TestBatteryStatsPersistence:
         store.restore_battery_stats(stats)
         assert stats.total_cycles == 0.0
         assert stats.last_full_charge_date is None
+
+
+# ── AccumulationStore property coverage ──────────────────────────────────────
+
+
+class TestStorePropertyCoverage:
+    def _store(self):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        return AccumulationStore(MagicMock(), bill_start_day=1)
+
+    def test_year_property_returns_accumulator(self):
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
+        store = self._store()
+        assert isinstance(store.year, EnergyAccumulator)
+
+    def test_today_forecast_kwh_defaults_to_zero(self):
+        store = self._store()
+        assert store.today_forecast_kwh == 0.0
+
+    def test_forecast_accuracy_7day_avg_zero_when_no_history(self):
+        store = self._store()
+        assert store.forecast_accuracy_7day_avg_pct == 0.0
+
+    def test_forecast_accuracy_7day_avg_with_history(self):
+        store = self._store()
+        store.state.forecast_accuracy_history = [90.0, 95.0, 100.0]
+        assert store.forecast_accuracy_7day_avg_pct == pytest.approx(95.0)
+
+    def test_update_bill_start_day(self):
+        store = self._store()
+        store.update_bill_start_day(16)
+        assert store._bill_start_day == 16
+
+
+# ── async_load / async_save error branches ───────────────────────────────────
+
+
+class TestStorageErrorBranches:
+    def test_async_load_corrupt_data_starts_fresh(self):
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        hass = MagicMock()
+        store = AccumulationStore(hass, bill_start_day=1)
+        mock_ha_store = AsyncMock()
+        mock_ha_store.async_load = AsyncMock(return_value={"bad": "data"})
+        store._store = mock_ha_store
+        store.state.today.solar_kwh = 5.0
+
+        asyncio.run(store.async_load())
+        assert store.state.today.solar_kwh == 0.0
+
+    def test_async_save_exception_does_not_raise(self):
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        hass = MagicMock()
+        store = AccumulationStore(hass, bill_start_day=1)
+        mock_ha_store = AsyncMock()
+        mock_ha_store.async_save = AsyncMock(side_effect=OSError("disk full"))
+        store._store = mock_ha_store
+
+        asyncio.run(store.async_save())
+
+
+# ── on_midnight resets ────────────────────────────────────────────────────────
+
+
+class TestOnMidnight:
+    def _store(self, bill_start_day=1):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        return AccumulationStore(MagicMock(), bill_start_day=bill_start_day)
+
+    def test_snapshots_today_to_yesterday(self):
+        from datetime import datetime, timezone
+
+        store = self._store()
+        store.state.today.solar_kwh = 8.5
+        store.on_midnight(datetime(2026, 7, 8, 0, 0, tzinfo=timezone.utc))
+        assert store.yesterday.solar_kwh == pytest.approx(8.5)
+
+    def test_resets_today_after_snapshot(self):
+        from datetime import datetime, timezone
+
+        store = self._store()
+        store.state.today.solar_kwh = 8.5
+        store.on_midnight(datetime(2026, 7, 8, 0, 0, tzinfo=timezone.utc))
+        assert store.state.today.solar_kwh == pytest.approx(0.0)
+
+    def test_records_forecast_accuracy_when_forecast_positive(self):
+        from datetime import datetime, timezone
+
+        store = self._store()
+        store.state.today_forecast_kwh = 10.0
+        store.state.today.solar_kwh = 8.0
+        store.on_midnight(datetime(2026, 7, 8, 0, 0, tzinfo=timezone.utc))
+        assert store.state.yesterday_forecast_accuracy_pct == pytest.approx(80.0)
+        assert 80.0 in store.state.forecast_accuracy_history
+
+    def test_weekly_reset_on_monday(self):
+        from datetime import datetime, timezone
+
+        store = self._store()
+        store.state.week.solar_kwh = 42.0
+        monday = datetime(2026, 7, 13, 0, 0, tzinfo=timezone.utc)  # a Monday
+        store.on_midnight(monday)
+        assert store.state.week.solar_kwh == pytest.approx(0.0)
+
+    def test_no_weekly_reset_on_non_monday(self):
+        from datetime import datetime, timezone
+
+        store = self._store()
+        store.state.week.solar_kwh = 42.0
+        tuesday = datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)
+        store.on_midnight(tuesday)
+        assert store.state.week.solar_kwh == pytest.approx(42.0)
+
+    def test_monthly_reset_on_bill_start_day(self):
+        from datetime import datetime, timezone
+
+        store = self._store(bill_start_day=16)
+        store.state.month.solar_kwh = 100.0
+        bill_day = datetime(2026, 7, 16, 0, 0, tzinfo=timezone.utc)
+        store.on_midnight(bill_day)
+        assert store.state.month.solar_kwh == pytest.approx(0.0)
+
+    def test_yearly_reset_on_jan_1(self):
+        from datetime import datetime, timezone
+
+        store = self._store()
+        store.state.year.solar_kwh = 3000.0
+        jan1 = datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc)
+        store.on_midnight(jan1)
+        assert store.state.year.solar_kwh == pytest.approx(0.0)
+
+
+# ── restore_battery_stats with valid ISO date ─────────────────────────────────
+
+
+class TestRestoreBatteryStatsISO:
+    def test_restores_last_full_charge_date_from_iso_string(self):
+        from datetime import date
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+        from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+
+        store = AccumulationStore(MagicMock(), bill_start_day=1)
+        store.state.last_full_charge_date = "2026-07-01"
+        stats = BatteryStats()
+        store.restore_battery_stats(stats)
+        assert stats.last_full_charge_date == date(2026, 7, 1)

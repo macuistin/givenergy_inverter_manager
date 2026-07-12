@@ -526,3 +526,69 @@ class TestCheapRateFloorPlumbing:
         assert "cheap_rate_floor_soc" in thresh_data, (
             "strings.json must have a label for cheap_rate_floor_soc"
         )
+
+
+# ── GivLogger additional coverage ────────────────────────────────────────────
+
+
+class TestGivLoggerAdditional:
+    def test_exception_delegates_to_stdlib(self, caplog):
+        import logging as stdlib_logging
+
+        from custom_components.givenergy_inverter_manager.logging import get_logger
+
+        log = get_logger(f"{_ROOT}.exc_test")
+        with caplog.at_level(stdlib_logging.ERROR, logger=f"{_ROOT}.exc_test"):
+            try:
+                raise ValueError("boom")
+            except ValueError:
+                log.exception("caught error %s", "here")
+        assert any("caught error here" in r.message for r in caplog.records)
+
+    def test_is_enabled_for_debug(self):
+        import logging as stdlib_logging
+
+        from custom_components.givenergy_inverter_manager.logging import get_logger
+
+        log = get_logger(f"{_ROOT}.level_test")
+        assert isinstance(log.is_enabled_for(stdlib_logging.DEBUG), bool)
+
+    def test_verbose_enabled_returns_false_when_cfg_fn_raises(self):
+        from custom_components.givenergy_inverter_manager.logging import GivLogger
+
+        GivLogger.register(lambda: (_ for _ in ()).throw(RuntimeError("cfg boom")))
+        assert GivLogger._verbose_enabled() is False
+        _disable_verbose()
+
+
+# ── log_cycle: EV available branch ───────────────────────────────────────────
+
+
+class TestLogCycleEVBranch:
+    def test_ev_protection_reason_logged_when_present(self, caplog):
+        import logging as stdlib_logging
+        from datetime import datetime, timezone
+
+        from custom_components.givenergy_inverter_manager.discovery.ev_charger import (
+            EVChargerState,
+        )
+        from custom_components.givenergy_inverter_manager.logging import (
+            get_logger,
+            log_cycle,
+        )
+
+        _enable_verbose()
+        log = get_logger(f"{_ROOT}.ev_branch_test")
+        data = _make_data(
+            ev_available=True,
+            ev_charger_name="Zappi",
+            ev_charger_state=EVChargerState.CHARGING,
+            ev_power_w=2000.0,
+            ev_draining_battery=False,
+            ev_protection_reason="No action needed",
+        )
+        raw = _make_raw(ev_plugged_in=True, ev_power_w=2000.0)
+        with caplog.at_level(stdlib_logging.DEBUG, logger=_ROOT):
+            log_cycle(log, 1, raw, data, datetime.now(timezone.utc))
+        assert any("Zappi" in r.message for r in caplog.records)
+        _disable_verbose()
