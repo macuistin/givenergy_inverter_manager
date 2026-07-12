@@ -1186,3 +1186,79 @@ class TestReportingGaps:
         data.forecast_accuracy_7day_avg_pct = 88.0
         html = build_week_summary_html(data)
         assert "88" in html
+
+
+# ── _apply_daily_counters (GivTCP energy precision) ──────────────────────────
+
+
+class TestApplyDailyCounters:
+    """GivTCP daily energy counters override integration when present."""
+
+    def _run_with_counters(self, **counter_kwargs):
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, 14, 0, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=5)
+        raw = _raw(
+            solar_power_w=3000.0,
+            grid_power_w=-500.0,
+            battery_power_w=500.0,
+        )
+        for key, value in counter_kwargs.items():
+            setattr(raw, key, value)
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        return data
+
+    def test_solar_counter_overrides_integration(self):
+        data = self._run_with_counters(solar_energy_today_kwh=12.5)
+        assert data.today.solar_kwh == pytest.approx(12.5)
+
+    def test_import_counter_overrides_integration(self):
+        data = self._run_with_counters(import_energy_today_kwh=4.2)
+        assert data.today.import_kwh == pytest.approx(4.2)
+
+    def test_export_counter_overrides_integration(self):
+        data = self._run_with_counters(export_energy_today_kwh=7.8)
+        assert data.today.export_kwh == pytest.approx(7.8)
+
+    def test_battery_charge_counter_overrides_integration(self):
+        data = self._run_with_counters(charge_energy_today_kwh=3.1)
+        assert data.today.battery_charge_kwh == pytest.approx(3.1)
+
+    def test_battery_discharge_counter_overrides_integration(self):
+        data = self._run_with_counters(discharge_energy_today_kwh=2.9)
+        assert data.today.battery_discharge_kwh == pytest.approx(2.9)
+
+    def test_load_counter_overrides_integration(self):
+        data = self._run_with_counters(load_energy_today_kwh=9.3)
+        assert data.today.house_kwh == pytest.approx(9.3)
+
+    def test_none_counter_preserves_integration_value(self):
+        """When counter is None, integration value is kept."""
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, 14, 0, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=5)
+        raw = _raw(solar_power_w=3000.0)
+        raw.solar_energy_today_kwh = None
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        assert data.today.solar_kwh > 0.0
+
+    def test_financial_fields_not_overridden_by_counters(self):
+        """Costs come from integration (GivTCP has no tariff knowledge)."""
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, 14, 0, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=5)
+        raw = _raw(grid_power_w=2000.0)
+        raw.import_energy_today_kwh = 99.9
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        assert data.today.import_kwh == pytest.approx(99.9)
+        total_cost = sum(data.today.import_cost_by_period.values())
+        assert total_cost > 0

@@ -69,6 +69,7 @@ from .const import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
+    CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
@@ -600,6 +601,28 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._ev_charger is not None:
             raw.ev_power_w = self._ev_charger.power_w
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
+
+        # GivTCP daily energy counters — present on GivTCP v2.1+ and v3.
+        # Entity IDs are derived from the inverter serial stored in config.
+        # _read_optional_float returns None for missing/unavailable entities;
+        # the engine falls back to power-integration when any counter is None.
+        serial = cfg.get(CONF_INVERTER_SERIAL)
+        if serial:
+            pfx = f"sensor.givtcp_{serial}"
+            raw.solar_energy_today_kwh = self._read_optional_float(f"{pfx}_pv_energy_today_kwh")
+            raw.import_energy_today_kwh = self._read_optional_float(
+                f"{pfx}_import_energy_today_kwh"
+            )
+            raw.export_energy_today_kwh = self._read_optional_float(
+                f"{pfx}_export_energy_today_kwh"
+            )
+            raw.charge_energy_today_kwh = self._read_optional_float(
+                f"{pfx}_charge_energy_today_kwh"
+            )
+            raw.discharge_energy_today_kwh = self._read_optional_float(
+                f"{pfx}_discharge_energy_today_kwh"
+            )
+            raw.load_energy_today_kwh = self._read_optional_float(f"{pfx}_load_energy_today_kwh")
 
         return raw
 
