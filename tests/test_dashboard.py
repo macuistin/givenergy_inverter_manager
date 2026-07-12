@@ -451,3 +451,16 @@ class TestSolarForecastCards:
             if c.get("type") == "history-graph"
         ]
         assert any("solar" in t.lower() for t in history_titles)
+class TestSoCHistoryChart:
+    """Battery SoC 24h history graph is present on the Battery tab."""
+
+    def test_soc_history_graph_in_battery_view(self):
+        result = _build()
+        parsed = yaml.safe_load(result)
+        battery_view = next(v for v in parsed["views"] if v.get("path") == "battery")
+        history_titles = [
+            c.get("title", "")
+            for c in battery_view.get("cards", [])
+            if c.get("type") == "history-graph"
+        ]
+        assert any("soc" in t.lower() or "battery" in t.lower() for t in history_titles)
