@@ -239,6 +239,10 @@ class EnergyAccumulator:
     # active — represents solar that could have been self-consumed.
     missed_solar_kwh: float = 0.0
 
+    # ── Inverter derating ──────────────────────────────────────────────────────
+    # Minutes the inverter spent above the derating temperature threshold today.
+    inverter_derating_minutes: float = 0.0
+
     @property
     def total_import_cost(self) -> float:
         return sum(self.import_cost_by_period.values())

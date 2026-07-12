@@ -58,6 +58,7 @@ from ..const import (
     INVERTER_TEMP_STATUS_UNKNOWN,
     INVERTER_TEMP_STATUS_WARM,
     INVERTER_TEMP_WARM,
+    SOLAR_NOISE_FLOOR_W,
     SOLAR_SUNRISE_HOUR,
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
@@ -320,7 +321,10 @@ def accumulate_energy(
         return
 
     immersion_w = raw.immersion_wattage_w if raw.immersion_on else 0.0
-    acc.solar_kwh += (raw.solar_power_w / 1000) * elapsed_h
+    # Ignore sensor noise — GivTCP may return a small positive value at night.
+    # 10W threshold filters this without affecting any real generation reading.
+    solar_w = raw.solar_power_w if raw.solar_power_w >= SOLAR_NOISE_FLOOR_W else 0.0
+    acc.solar_kwh += (solar_w / 1000) * elapsed_h
     acc.zappi_kwh += (raw.ev_power_w / 1000) * elapsed_h
     acc.immersion_kwh += (immersion_w / 1000) * elapsed_h
     acc.house_kwh += (raw.house_load_w / 1000) * elapsed_h
@@ -353,6 +357,13 @@ def accumulate_energy(
     if battery_full and exporting and no_flex_load and elapsed_h > 0:
         missed_kwh = abs(raw.grid_power_w / 1000) * elapsed_h
         acc.missed_solar_kwh += missed_kwh
+
+    if (
+        raw.inverter_temp is not None
+        and raw.inverter_temp >= INVERTER_TEMP_DERATING
+        and elapsed_h > 0
+    ):
+        acc.inverter_derating_minutes += elapsed_h * 60
 
 
 def estimate_avg_daily_kwh(

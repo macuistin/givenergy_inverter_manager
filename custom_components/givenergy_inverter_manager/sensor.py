@@ -477,6 +477,14 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: d.inverter_temperature_status,
     ),
     GivEnergyManagerSensorDescription(
+        key="inverter_derating_today_minutes",
+        translation_key="inverter_derating_today_minutes",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        is_daily_total=True,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.today.inverter_derating_minutes, 1),
+    ),
+    GivEnergyManagerSensorDescription(
         key="dry_run_last_skipped",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="dry_run_last_skipped",
