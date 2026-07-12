@@ -249,7 +249,6 @@ def _nightboost_cfg() -> dict:
         "skip_charge_soc_threshold_pct": 75,
         "immersion_target_temp_c": 55,
         "immersion_min_temp_c": 45,
-        "ev_battery_protect_soc_pct": 20,
         "battery_capacity_kwh": 19.0,
         "inverter_max_output_kw": 5.0,
     }

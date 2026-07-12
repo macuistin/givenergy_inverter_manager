@@ -42,7 +42,6 @@ from .const import (
     CONF_DRY_RUN,
     CONF_ENABLE_CHARGE_SCHEDULE,
     CONF_ENABLE_CHARGE_TARGET,
-    CONF_EV_BATTERY_PROTECT_SOC,
     CONF_EXPORT_RATE,
     CONF_FORECAST_ENTITY,
     CONF_FORECAST_PROVIDER,
@@ -77,7 +76,6 @@ from .const import (
     DEFAULT_CURRENCY,
     DEFAULT_DISCOUNT_RATE,
     DEFAULT_DRY_RUN,
-    DEFAULT_EV_BATTERY_PROTECT_SOC,
     DEFAULT_EXPORT_RATE,
     DEFAULT_IMMERSION_MIN_TEMP,
     DEFAULT_IMMERSION_TARGET_TEMP,
@@ -628,11 +626,6 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                         min=100, max=2000, step=100, unit_of_measurement="W"
                     )
                 ),
-                vol.Optional(
-                    CONF_EV_BATTERY_PROTECT_SOC, default=DEFAULT_EV_BATTERY_PROTECT_SOC
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=5, max=50, step=5, unit_of_measurement="%")
-                ),
             }
         )
         return self.async_show_form(step_id="battery", data_schema=schema)
@@ -837,16 +830,6 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=20, max=100, step=1, unit_of_measurement="%"
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_EV_BATTERY_PROTECT_SOC,
-                        default=self._get(
-                            CONF_EV_BATTERY_PROTECT_SOC, DEFAULT_EV_BATTERY_PROTECT_SOC
-                        ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=5, max=50, step=5, unit_of_measurement="%"
                         )
                     ),
                     vol.Optional(

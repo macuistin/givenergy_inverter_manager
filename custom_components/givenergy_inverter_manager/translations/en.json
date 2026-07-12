@@ -144,7 +144,6 @@
           "battery_min_soc_pct": "Minimum battery SoC (%)",
           "overnight_charge_target_pct": "Default overnight charge target (%)",
           "skip_charge_soc_threshold_pct": "Skip charge if SoC above (%) with good forecast",
-          "ev_battery_protect_soc_pct": "Pause EV charger if battery below (%)",
           "verbose_logging": "Verbose logging (per-cycle diagnostics)",
           "surplus_divert_soc_pct": "Immersion divert: minimum battery SoC (%)",
           "surplus_divert_min_power_w": "Immersion divert: minimum solar surplus (W)"
@@ -208,7 +207,6 @@
               "battery_min_soc_pct": "Minimum battery SoC",
               "overnight_charge_target_pct": "Default overnight charge target",
               "skip_charge_soc_threshold_pct": "Skip charge if SoC above",
-              "ev_battery_protect_soc_pct": "EV battery protection threshold",
               "dry_run": "Dry run mode",
               "verbose_logging": "Verbose logging",
               "cheap_rate_floor_soc": "Cheap rate floor (%)"

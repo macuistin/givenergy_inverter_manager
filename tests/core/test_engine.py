@@ -30,7 +30,6 @@ from custom_components.givenergy_inverter_manager.core.engine import (
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.discovery import (
     ZAPPI_ECO_PLUS_MODE,
-    ZAPPI_STOPPED_MODE,
     EVCharger,
     EVChargerBrand,
     EVChargerState,
@@ -370,24 +369,6 @@ class TestBuildCoordinatorData:
         data, _ = _run(ev_charger=ch)
         assert data.ev_available is True
         assert data.ev_charger_brand == EVChargerBrand.ZAPPI.value
-
-    def test_ev_stops_when_battery_low(self):
-        """When battery is below protection threshold, engine requests Stopped."""
-        ch = EVCharger(
-            brand=EVChargerBrand.ZAPPI,
-            name="Zappi",
-            serial="123",
-            display_name="Zappi (123)",
-            state=EVChargerState.CHARGING,
-            charge_mode="Fast",
-            charge_mode_entity="select.zappi_123_charge_mode",
-        )
-        ch.is_draining_battery = True
-        raw = _raw(battery_soc=15.0, battery_power_w=-2000.0)
-        cfg = _nightboost_cfg()
-        cfg["ev_battery_protect_soc_pct"] = 20
-        _, ev_target = _run(raw=raw, cfg=cfg, ev_charger=ch)
-        assert ev_target == ZAPPI_STOPPED_MODE
 
     def test_ev_eco_plus_when_battery_ok_and_surplus(self):
         """When battery high and solar surplus available, engine requests Eco+."""

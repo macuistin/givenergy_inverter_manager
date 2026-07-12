@@ -15,7 +15,6 @@ from custom_components.givenergy_inverter_manager.core.rules import (
 from custom_components.givenergy_inverter_manager.discovery import (
     ZAPPI_BATTERY_DRAINING_MODES,
     ZAPPI_ECO_PLUS_MODE,
-    ZAPPI_STOPPED_MODE,
     EVCharger,
     EVChargerBrand,
     EVChargerState,
@@ -390,37 +389,12 @@ class TestDecideEVChargerAction:
         ch.state = state
         return ch
 
-    def test_stops_when_battery_below_threshold(self):
-        ch = self._zappi(mode="Fast", state=EVChargerState.CHARGING)
-        target, reason = decide_ev_charger_action(
-            ch,
-            battery_soc=15.0,
-            battery_power_w=-2000,
-            solar_surplus_w=0,
-            protection_threshold=20.0,
-        )
-        assert target == ZAPPI_STOPPED_MODE
-        assert "15" in reason
-
-    def test_no_action_already_stopped_at_low_soc(self):
-        ch = self._zappi(mode="Stopped", state=EVChargerState.PAUSED)
-        target, reason = decide_ev_charger_action(
-            ch,
-            battery_soc=15.0,
-            battery_power_w=0,
-            solar_surplus_w=0,
-            protection_threshold=20.0,
-        )
-        assert target is None  # already stopped, no change needed
-
-    def test_sets_eco_plus_when_battery_ok_and_surplus(self):
+    def test_sets_eco_plus_when_surplus(self):
         ch = self._zappi(mode="Fast", state=EVChargerState.CHARGING)
         target, reason = decide_ev_charger_action(
             ch,
             battery_soc=85.0,
-            battery_power_w=500,
             solar_surplus_w=2000,
-            protection_threshold=20.0,
         )
         assert target == ZAPPI_ECO_PLUS_MODE
         assert "surplus" in reason.lower()
@@ -430,35 +404,39 @@ class TestDecideEVChargerAction:
         target, _ = decide_ev_charger_action(
             ch,
             battery_soc=85.0,
-            battery_power_w=500,
             solar_surplus_w=2000,
-            protection_threshold=20.0,
         )
-        assert target is None  # already in right mode
+        assert target is None
 
     def test_no_action_when_not_plugged_in(self):
         ch = self._zappi(mode="Fast", state=EVChargerState.DISCONNECTED)
         target, reason = decide_ev_charger_action(
             ch,
             battery_soc=10.0,
-            battery_power_w=-2000,
             solar_surplus_w=0,
-            protection_threshold=20.0,
         )
         assert target is None
         assert "not connected" in reason.lower()
 
-    def test_no_action_battery_ok_no_surplus(self):
-        """Battery is fine but no surplus — leave mode as-is."""
+    def test_no_action_no_surplus(self):
+        """No surplus — leave Zappi mode as-is regardless of battery SoC."""
         ch = self._zappi(mode="Eco+", state=EVChargerState.CONNECTED)
         target, _ = decide_ev_charger_action(
             ch,
-            battery_soc=80.0,
-            battery_power_w=0,
+            battery_soc=15.0,
             solar_surplus_w=200,
-            protection_threshold=20.0,
         )
         assert target is None
+
+    def test_no_action_low_battery_with_surplus(self):
+        """Battery protection removed — Zappi switches to Eco+ if surplus exists, regardless of SoC."""
+        ch = self._zappi(mode="Fast", state=EVChargerState.CHARGING)
+        target, reason = decide_ev_charger_action(
+            ch,
+            battery_soc=10.0,
+            solar_surplus_w=2000,
+        )
+        assert target == ZAPPI_ECO_PLUS_MODE
 
     def test_non_zappi_no_mode_change(self):
         """Non-Zappi chargers can't be mode-switched, target is always None."""
@@ -471,13 +449,11 @@ class TestDecideEVChargerAction:
         )
         target, reason = decide_ev_charger_action(
             ch,
-            battery_soc=10.0,
-            battery_power_w=-2000,
-            solar_surplus_w=0,
-            protection_threshold=20.0,
+            battery_soc=85.0,
+            solar_surplus_w=2000,
         )
         assert target is None
-        assert "manual" in reason.lower()
+        assert "no action" in reason.lower()
 
 
 # ── Currency constants ────────────────────────────────────────────────────────
@@ -621,3 +597,6 @@ class TestEVPowerEntityWarning:
         ):
             _discover_zappi(states)
         assert not any("power entity" in r.message for r in caplog.records)
+
+
+

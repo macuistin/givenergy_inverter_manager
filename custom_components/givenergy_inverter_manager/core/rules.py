@@ -43,7 +43,6 @@ from ..const import (
 from ..discovery.ev_charger import (
     ZAPPI_BATTERY_DRAINING_MODES,
     ZAPPI_ECO_PLUS_MODE,
-    ZAPPI_STOPPED_MODE,
     EVCharger,
     EVChargerBrand,
 )
@@ -338,9 +337,7 @@ def suggest_appliance_run(
 def decide_ev_charger_action(
     charger: EVCharger,
     battery_soc: float,
-    battery_power_w: float,
     solar_surplus_w: float,
-    protection_threshold: float,
 ) -> tuple[str | None, str]:
     """
     Decide what mode the EV charger should be in.
@@ -348,30 +345,11 @@ def decide_ev_charger_action(
     Returns (target_mode_or_None, reason).
 
     Rules (in priority order):
-      1. Battery below protection_threshold → stop charging (protect battery)
-      2. Solar surplus > EV_SURPLUS_DIVERT_W and Zappi → switch to Eco+
-      3. Otherwise → no change
-
-    Note: the Zappi is never paused during cheap rate periods. Battery behaviour
-    during cheap rate is managed by the GivTCP charge schedule, not by stopping
-    the car charger.
+      1. Solar surplus > EV_SURPLUS_DIVERT_W and Zappi → switch to Eco+
+      2. Otherwise → no change
     """
     if not charger.is_plugged_in:
         return None, "EV not connected"
-
-    if battery_soc < protection_threshold:
-        if charger.brand == EVChargerBrand.ZAPPI:
-            current = (charger.charge_mode or "").lower()
-            if current != "stopped":
-                return ZAPPI_STOPPED_MODE, (
-                    f"Battery SoC {battery_soc:.0f}% below protection threshold "
-                    f"{protection_threshold:.0f}% — pausing EV charger"
-                )
-            return None, f"Already stopped (SoC {battery_soc:.0f}% < {protection_threshold:.0f}%)"
-        return None, (
-            f"Battery SoC {battery_soc:.0f}% below threshold {protection_threshold:.0f}% "
-            f"— manual action needed to pause {charger.display_name}"
-        )
 
     if solar_surplus_w > EV_SURPLUS_DIVERT_W and charger.brand == EVChargerBrand.ZAPPI:
         current = (charger.charge_mode or "").lower()

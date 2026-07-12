@@ -235,30 +235,11 @@ class TestEVProtectionLifecycle:
         )
         return ch
 
-    def test_protection_engages_when_soc_low(self):
-        """When SoC drops below protection threshold, EV target is Stopped."""
-        cfg = _nightboost_cfg()
-        cfg["ev_battery_protect_soc_pct"] = 20
-        charger = self._zappi()
-        raw = _raw(battery_soc=10.0, battery_power_w=-2000.0, ev_plugged_in=True)
-        _, ev_target = _run(raw=raw, cfg=cfg, ev_charger=charger)
-        assert ev_target == "Stopped"
-
-    def test_no_protection_when_battery_healthy(self):
-        """Above threshold, EV should not be stopped."""
-        cfg = _nightboost_cfg()
-        cfg["ev_battery_protect_soc_pct"] = 20
-        charger = self._zappi()
-        raw = _raw(battery_soc=70.0, battery_power_w=0.0, ev_plugged_in=True)
-        _, ev_target = _run(raw=raw, cfg=cfg, ev_charger=charger)
-        assert ev_target != "Stopped"
-
-    def test_eco_plus_when_surplus_and_healthy(self):
-        """With surplus solar and healthy battery, Zappi should switch to Eco+."""
+    def test_eco_plus_when_surplus(self):
+        """With surplus solar, Zappi should switch to Eco+."""
         from custom_components.givenergy_inverter_manager.discovery import ZAPPI_ECO_PLUS_MODE
 
         cfg = _nightboost_cfg()
-        cfg["ev_battery_protect_soc_pct"] = 20
         charger = self._zappi()
         charger.charge_mode = "Fast"  # currently on Fast, not Eco+
         raw = _raw(
