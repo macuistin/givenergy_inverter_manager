@@ -123,6 +123,7 @@ class CoordinatorData:
         "currency_symbol",
         "current_rate",
         "current_rate_name",
+        "live_grid_cost_rate",
         "days_in_period",
         "days_remaining",
         "divert_reason",
@@ -180,6 +181,7 @@ class CoordinatorData:
         self.rest_of_house_w: float = 0.0
         self.current_rate_name: str = ""
         self.current_rate: float = 0.0
+        self.live_grid_cost_rate: float = 0.0  # €/hr, positive=spending, negative=earning
         self.currency_symbol: str = "€"
         self.is_clipping: bool = False
         self.charge_decision: ChargeDecision | None = None
@@ -676,6 +678,12 @@ def build_coordinator_data(
     current_period = tariff.get_current_rate(now)
     data.current_rate_name = current_period.name
     data.current_rate = current_period.rate
+    # Live grid cost/earning rate in €/hr using the correct tariff rate for each direction.
+    grid_kw = raw.grid_power_w / 1000
+    if grid_kw > 0:
+        data.live_grid_cost_rate = round(grid_kw * current_period.rate, 4)
+    else:
+        data.live_grid_cost_rate = round(grid_kw * tariff.export_rate, 4)
 
     # ── Battery stats ─────────────────────────────────────────────────────────
     update_battery_stats(battery_stats, raw.battery_soc, last_soc)

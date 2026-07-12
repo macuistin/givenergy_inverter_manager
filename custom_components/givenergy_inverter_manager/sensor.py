@@ -158,6 +158,13 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Current Rate Period",
         value_fn=lambda d: d.current_rate_name,
     ),
+    GivEnergyManagerSensorDescription(
+        key="live_grid_cost_rate",
+        translation_key="live_grid_cost_rate",
+        native_unit_of_measurement=_CURRENCY_UNIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: d.live_grid_cost_rate,
+    ),
     # --- Today energy ---
     GivEnergyManagerSensorDescription(
         key="solar_today",

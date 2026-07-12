@@ -329,6 +329,9 @@
       "current_rate_period": {
         "name": "Current Rate Period"
       },
+      "live_grid_cost_rate": {
+        "name": "Live Grid Cost Rate"
+      },
       "solar_today": {
         "name": "Solar Generation Today"
       },

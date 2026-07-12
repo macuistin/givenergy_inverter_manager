@@ -1655,3 +1655,53 @@ class TestDeratingMinutes:
         acc = EnergyAccumulator()
         assert hasattr(acc, "inverter_derating_minutes")
         assert acc.inverter_derating_minutes == pytest.approx(0.0)
+
+
+class TestLiveGridCostRate:
+    """live_grid_cost_rate uses import rate when importing, export rate when exporting."""
+
+    @pytest.mark.asyncio
+    async def test_positive_when_importing(self):
+        # Arrange — importing 1 kW at €0.33/kWh = €0.33/hr
+        from custom_components.givenergy_inverter_manager.const import CONF_EXPORT_RATE
+        cfg = _cfg(**{CONF_EXPORT_RATE: 0.20})
+        coord = FakeCoordinator(cfg=cfg)
+        coord.set_states({**_default_states(), "sensor.grid": "-1000"})  # GivTCP: negative = import
+        data = await coord._async_update_data()
+        # internal grid_power_w = +1000 (import) → spending
+        assert data.live_grid_cost_rate > 0
+
+    @pytest.mark.asyncio
+    async def test_negative_when_exporting(self):
+        # Arrange — exporting 1 kW
+        from custom_components.givenergy_inverter_manager.const import CONF_EXPORT_RATE
+        cfg = _cfg(**{CONF_EXPORT_RATE: 0.20})
+        coord = FakeCoordinator(cfg=cfg)
+        coord.set_states({**_default_states(), "sensor.grid": "1000"})  # GivTCP: positive = export
+        data = await coord._async_update_data()
+        # internal grid_power_w = -1000 (export) → earning
+        assert data.live_grid_cost_rate < 0
+
+    @pytest.mark.asyncio
+    async def test_zero_when_idle(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states({**_default_states(), "sensor.grid": "0"})
+        data = await coord._async_update_data()
+        assert data.live_grid_cost_rate == pytest.approx(0.0)
+
+    def test_live_grid_cost_rate_in_sensor_descriptions(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        assert "live_grid_cost_rate" in src
+
+    def test_income_bar_markdown_removed_from_dashboard(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        # The Jinja2 template strings from the income bar should be gone
+        assert "Earning €" not in src
+        assert "Spending €" not in src
+
+    def test_grid_node_secondary_info_uses_live_rate(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        assert "live_grid_cost_rate" in src

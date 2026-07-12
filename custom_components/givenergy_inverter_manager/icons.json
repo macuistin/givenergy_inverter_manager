@@ -8,6 +8,7 @@
       "rest_of_house_load": {"default": "mdi:home-lightning-bolt-outline"},
       "current_rate": {"default": "mdi:currency-eur"},
       "current_rate_period": {"default": "mdi:clock-time-four"},
+      "live_grid_cost_rate": {"default": "mdi:cash-clock"},
       "solar_today": {"default": "mdi:solar-power"},
       "import_today": {"default": "mdi:transmission-tower-import"},
       "export_today": {"default": "mdi:transmission-tower-export"},
