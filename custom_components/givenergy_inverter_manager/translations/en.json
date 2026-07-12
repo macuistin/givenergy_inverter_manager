@@ -113,7 +113,8 @@
         "description": "Connect a solar forecast integration to enable smart overnight charging decisions. Without this, a seasonal estimate is used.",
         "data": {
           "forecast_provider": "Forecast provider",
-          "forecast_entity": "Tomorrow's forecast sensor"
+          "forecast_entity": "Tomorrow's forecast sensor (array 1)",
+          "forecast_entity_2": "Tomorrow's forecast sensor — array 2 (optional, e.g. east/west split)"
         }
       },
       "immersion": {
@@ -224,7 +225,8 @@
             "description": "Connect a forecast integration for smarter overnight charging. Without this, a seasonal estimate is used.",
             "data": {
               "forecast_provider": "Forecast provider",
-              "forecast_entity": "Tomorrow's forecast sensor"
+              "forecast_entity": "Tomorrow's forecast sensor (array 1)",
+          "forecast_entity_2": "Tomorrow's forecast sensor — array 2 (optional, e.g. east/west split)"
             }
           },
           "rate_period_1": {

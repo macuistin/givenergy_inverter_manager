@@ -52,6 +52,7 @@ CONF_CURRENCY = "currency"  # symbol used in cost sensor units
 
 # ── Solar forecast ───────────────────────────────────────────────────────────
 CONF_FORECAST_ENTITY = "forecast_entity"
+CONF_FORECAST_ENTITY_2 = "forecast_entity_2"  # optional second array (east/west split)
 CONF_FORECAST_PROVIDER = "forecast_provider"
 FORECAST_PROVIDER_FORECAST_SOLAR = "forecast_solar"
 FORECAST_PROVIDER_SOLCAST = "solcast"

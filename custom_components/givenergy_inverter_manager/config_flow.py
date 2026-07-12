@@ -45,6 +45,7 @@ from .const import (
     CONF_EV_BATTERY_PROTECT_SOC,
     CONF_EXPORT_RATE,
     CONF_FORECAST_ENTITY,
+    CONF_FORECAST_ENTITY_2,
     CONF_FORECAST_PROVIDER,
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
@@ -511,6 +512,9 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                     )
                 ),
                 vol.Optional(CONF_FORECAST_ENTITY): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="sensor")
+                ),
+                vol.Optional(CONF_FORECAST_ENTITY_2): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="sensor")
                 ),
             }
