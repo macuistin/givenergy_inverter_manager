@@ -58,6 +58,7 @@ from .const import (
     CONF_DRY_RUN,
     CONF_ENABLE_CHARGE_SCHEDULE,
     CONF_ENABLE_CHARGE_TARGET,
+    CONF_EXPORT_RATE,
     CONF_FORECAST_ENTITY,
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
@@ -663,6 +664,15 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._immersion_manual_run_to_target = False
             self.override_immersion = None
 
+    async def _write_floor_target(self, cfg: dict, target_entity: str, soc: int) -> None:
+        """Write SoC target and enable charge target switch for cheap rate floor top-up."""
+        await self._call_service(
+            "number", "set_value", {"entity_id": target_entity, "value": str(soc)}
+        )
+        enable_entity = cfg.get(CONF_ENABLE_CHARGE_TARGET)
+        if enable_entity:
+            await self._call_service("switch", "turn_on", {"entity_id": enable_entity})
+
     # ── Main update cycle ─────────────────────────────────────────────────────
 
     async def _maybe_apply_cheap_rate_floor(
@@ -737,18 +747,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             _LOG.info("DRY RUN: %s", status)
             return f"DRY RUN: {status}"
 
-        # Write the new target — charge schedule already set by the nightly write-back,
-        # so we only need to update the target SoC value.
         try:
-            await self._call_service(
-                "number",
-                "set_value",
-                {"entity_id": target_entity, "value": str(effective_floor)},
-            )
-            enable_entity = target_entity.replace("target_soc", "enable_charge_target").replace(
-                "number.", "switch."
-            )
-            await self._call_service("switch", "turn_on", {"entity_id": enable_entity})
+            await self._write_floor_target(cfg, target_entity, effective_floor)
         except Exception:
             _LOG.exception("Cheap rate floor: failed to write target to inverter")
             return f"Error writing floor — {status}"
@@ -767,7 +767,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._acc.save_battery_stats(self._battery_stats)
             self.hass.async_create_task(self._acc.async_save())
         cfg = self._effective_cfg()
-        self.export_rate = build_tariff(cfg).export_rate
+        self.export_rate = float(cfg.get(CONF_EXPORT_RATE, 0.0))
 
         # 1. Check GivTCP is publishing (entity-unavailable quality scale item)
         #    Both sensors must be stale before raising — a single brief interruption
