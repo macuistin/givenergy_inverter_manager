@@ -101,6 +101,13 @@ class RawSensorValues:
     ev_power_w: float = 0.0
     ev_plugged_in: bool = False
     inverter_temp: float | None = None
+    # GivTCP daily energy counters — authoritative when present, None → fall back to integration
+    solar_energy_today_kwh: float | None = None
+    import_energy_today_kwh: float | None = None
+    export_energy_today_kwh: float | None = None
+    charge_energy_today_kwh: float | None = None
+    discharge_energy_today_kwh: float | None = None
+    load_energy_today_kwh: float | None = None
 
 
 class CoordinatorData:
@@ -603,6 +610,30 @@ def _calculate_night_survival(
     )
 
 
+def _apply_daily_counters(acc: EnergyAccumulator, raw: RawSensorValues) -> None:
+    """
+    Override today's physical kWh fields with GivTCP daily energy counters.
+
+    GivTCP reads energy directly from the inverter's own metering, avoiding the
+    small rounding errors introduced by integrating 30-second power readings.
+    Only fields where the counter is present (not None) are overridden.
+    Financial fields (costs, earnings, per-period breakdown) are left unchanged
+    — they require tariff knowledge that GivTCP doesn't have.
+    """
+    if raw.solar_energy_today_kwh is not None:
+        acc.solar_kwh = raw.solar_energy_today_kwh
+    if raw.import_energy_today_kwh is not None:
+        acc.import_kwh = raw.import_energy_today_kwh
+    if raw.export_energy_today_kwh is not None:
+        acc.export_kwh = raw.export_energy_today_kwh
+    if raw.charge_energy_today_kwh is not None:
+        acc.battery_charge_kwh = raw.charge_energy_today_kwh
+    if raw.discharge_energy_today_kwh is not None:
+        acc.battery_discharge_kwh = raw.discharge_energy_today_kwh
+    if raw.load_energy_today_kwh is not None:
+        acc.house_kwh = raw.load_energy_today_kwh
+
+
 def build_coordinator_data(
     raw: RawSensorValues,
     cfg: dict[str, Any],
@@ -688,6 +719,11 @@ def build_coordinator_data(
     for rolling_acc in (acc, acc_week, acc_month, acc_year):
         if rolling_acc is not None:
             accumulate_energy(rolling_acc, raw, tariff, current_period.name, now, last_update_time)
+    # Override today's physical kWh with GivTCP's own daily counters when available.
+    # GivTCP reads directly from the inverter's metering, which is more accurate than
+    # integrating 30-second power readings. Financial fields (costs, earnings) remain
+    # integration-based since GivTCP has no tariff knowledge.
+    _apply_daily_counters(acc, raw)
     data.today = acc
 
     # ── Average daily consumption ─────────────────────────────────────────────
