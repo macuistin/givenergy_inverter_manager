@@ -82,6 +82,7 @@ class AccumulationState:
     today: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     week: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     month: EnergyAccumulator = field(default_factory=EnergyAccumulator)
+    year: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     yesterday: EnergyAccumulator = field(default_factory=EnergyAccumulator)
 
     # Forecast accuracy — recorded at midnight from the previous charge decision
@@ -94,6 +95,7 @@ class AccumulationState:
     # Reset timestamps (ISO strings for JSON serialisation)
     week_start_iso: str = ""
     month_start_iso: str = ""
+    year_start_iso: str = ""
     last_reset_iso: str = ""
 
 
@@ -138,6 +140,10 @@ class AccumulationStore:
     @property
     def month(self) -> EnergyAccumulator:
         return self.state.month
+
+    @property
+    def year(self) -> EnergyAccumulator:
+        return self.state.year
 
     @property
     def yesterday(self) -> EnergyAccumulator:
@@ -233,6 +239,12 @@ class AccumulationStore:
             self.state.month = EnergyAccumulator()
             self.state.month_start_iso = now.isoformat()
             _LOG.debug("Monthly accumulator reset (bill day %d)", self._bill_start_day)
+
+        # 6. Yearly reset on Jan 1
+        if today_date.month == 1 and today_date.day == 1:
+            self.state.year = EnergyAccumulator()
+            self.state.year_start_iso = now.isoformat()
+            _LOG.debug("Yearly accumulator reset (Jan 1)")
 
     def restore_battery_stats(self, stats) -> None:
         """Restore BatteryStats from persisted state after an HA restart."""

@@ -119,6 +119,10 @@ class FakeCoordinator(GivEnergyCoordinator):
                 return self.state.month
 
             @property
+            def year(self):
+                return self.state.year
+
+            @property
             def yesterday(self):
                 return self.state.yesterday
 

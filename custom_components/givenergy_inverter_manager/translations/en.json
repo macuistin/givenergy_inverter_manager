@@ -519,6 +519,15 @@
       "export_earnings_this_month": {
         "name": "Export earnings this month"
       },
+      "export_this_year": {
+        "name": "Export this year"
+      },
+      "export_earnings_this_year": {
+        "name": "Export earnings this year"
+      },
+      "solar_this_year": {
+        "name": "Solar generated this year"
+      },
       "import_kwh_cheap_this_month": {
         "name": "Import at cheap rate this month"
       },
