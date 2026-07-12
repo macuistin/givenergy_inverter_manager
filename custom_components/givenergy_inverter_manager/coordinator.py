@@ -833,6 +833,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             last_reset_time=self._last_reset_time,
             acc_week=self._acc.week,
             acc_month=self._acc.month,
+            acc_year=self._acc.year,
             acc_yesterday=self._acc.yesterday,
             solar_forecast_kwh_today=self._acc.today_forecast_kwh,
             yesterday_forecast_accuracy_pct=self._acc.yesterday_forecast_accuracy_pct,

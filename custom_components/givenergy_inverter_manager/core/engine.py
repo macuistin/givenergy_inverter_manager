@@ -157,6 +157,7 @@ class CoordinatorData:
         "today",
         "week",
         "month",
+        "year",
         "yesterday",
         "last_reset_time",
         "solar_forecast_kwh_today",
@@ -188,6 +189,7 @@ class CoordinatorData:
         self.today: EnergyAccumulator = EnergyAccumulator()
         self.week: EnergyAccumulator = EnergyAccumulator()
         self.month: EnergyAccumulator = EnergyAccumulator()
+        self.year: EnergyAccumulator = EnergyAccumulator()
         self.yesterday: EnergyAccumulator = EnergyAccumulator()
         self.battery_stats: BatteryStats = BatteryStats()
         self.accrued_bill: float = 0.0
@@ -459,6 +461,7 @@ def _initialize_coordinator_data(
     cfg: dict[str, Any],
     acc_week: EnergyAccumulator | None,
     acc_month: EnergyAccumulator | None,
+    acc_year: EnergyAccumulator | None,
     acc_yesterday: EnergyAccumulator | None,
     last_reset_time: str,
     solar_forecast_kwh_today: float,
@@ -474,6 +477,8 @@ def _initialize_coordinator_data(
         data.week = acc_week
     if acc_month is not None:
         data.month = acc_month
+    if acc_year is not None:
+        data.year = acc_year
     if acc_yesterday is not None:
         data.yesterday = acc_yesterday
 
@@ -607,6 +612,7 @@ def build_coordinator_data(
     last_update_time: datetime | None,
     acc_week: EnergyAccumulator | None = None,
     acc_month: EnergyAccumulator | None = None,
+    acc_year: EnergyAccumulator | None = None,
     acc_yesterday: EnergyAccumulator | None = None,
     now: datetime | None = None,
     ev_charger: EVCharger | None = None,
@@ -654,6 +660,7 @@ def build_coordinator_data(
         cfg,
         acc_week,
         acc_month,
+        acc_year,
         acc_yesterday,
         last_reset_time,
         solar_forecast_kwh_today,
@@ -678,7 +685,7 @@ def build_coordinator_data(
     data.battery_stats = battery_stats
 
     # ── Energy accumulation ───────────────────────────────────────────────────
-    for rolling_acc in (acc, acc_week, acc_month):
+    for rolling_acc in (acc, acc_week, acc_month, acc_year):
         if rolling_acc is not None:
             accumulate_energy(rolling_acc, raw, tariff, current_period.name, now, last_update_time)
     data.today = acc
