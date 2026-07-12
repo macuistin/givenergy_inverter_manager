@@ -226,6 +226,10 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     ev_session = e("ev_session_energy")
     ev_draining = e("ev_draining_battery")
     ev_protection_reason = e("ev_protection_reason")
+    ev_charging_source = e("ev_charging_source")
+    ev_solar_surplus = e("ev_solar_surplus_available")
+    inverter_temp = e("inverter_temperature")
+    inverter_temp_status = e("inverter_temperature_status")
 
     # ── immersion config (temp sensor and number entities) ───────────────────
     from .const import CONF_IMMERSION_TEMP_SENSOR
@@ -512,6 +516,11 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     name: Estimated Life Remaining
                   - entity: {days_since_full}
                     name: Days Since Full Charge
+                  - entity: {inverter_temp}
+                    name: Inverter Temperature
+                  - entity: {inverter_temp_status}
+                    name: Inverter Status
+                    icon: mdi:thermometer-alert
                 title: Battery Health
 
           # ── View 4: Controls ─────────────────────────────────────────────────
@@ -595,6 +604,10 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - entity: {ev_protection_reason}
                     name: Protection Status
                     icon: mdi:shield-check
+                  - entity: {ev_charging_source}
+                    name: Charging Source
+                  - entity: {ev_solar_surplus}
+                    name: Solar Surplus Available
                 title: EV Charger
 
               - type: button
