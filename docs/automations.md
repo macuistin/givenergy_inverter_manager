@@ -168,3 +168,84 @@ The integration fires a persistent notification with the recommendation. You can
 redirect this to a mobile notification by listening for the `persistent_notifications_updated`
 event or by using the [HA Companion App](https://companion.home-assistant.io/) notification
 actions.
+
+---
+
+## Switch Zappi to Eco+ when solar surplus is available for EV charging
+
+Uses `ev_solar_surplus_available` (ON when solar surplus exceeds 1,400W) to automatically switch the Zappi to solar absorption mode. Without this, the Zappi stays in Fast or Stopped mode and charges from the grid even when there's enough solar to cover it.
+
+Requires the myenergi HA integration.
+
+```yaml
+alias: Zappi Eco+ on solar surplus
+trigger:
+  - platform: state
+    entity_id: sensor.givenergy_inverter_manager_ev_solar_surplus_available
+    to: Available
+condition:
+  - condition: not
+    conditions:
+      - condition: state
+        entity_id: sensor.givenergy_inverter_manager_ev_charger_state
+        state: Disconnected
+action:
+  - service: myenergi.set_zappi_mode
+    data:
+      serial: YOUR_ZAPPI_SERIAL
+      mode: eco_plus
+mode: single
+```
+
+Replace `YOUR_ZAPPI_SERIAL` with your Zappi's serial number (visible in the myenergi app).
+
+---
+
+## Alert when inverter is derating due to high temperature
+
+Fires a notification when the inverter has been throttling generation for more than 30 minutes. Based on the 30-day analysis, derating can reduce generation by 50% or more on peak summer days.
+
+```yaml
+alias: Inverter derating alert
+trigger:
+  - platform: state
+    entity_id: sensor.givenergy_inverter_manager_inverter_temperature_status
+    to: Derating
+    for:
+      minutes: 30
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: "⚠️ Inverter Derating"
+      message: >
+        Inverter at {{ states('sensor.givenergy_inverter_manager_inverter_temperature') }}°C
+        and has been derating for 30+ minutes. Check ventilation clearances.
+        Generation losses typically 30–50% during derating.
+mode: single
+```
+
+---
+
+## Daily derating summary
+
+Sends a summary at sunset of how many minutes the inverter spent derating today. Enable `sensor.inverter_derating_today_minutes` in the entity list first.
+
+```yaml
+alias: Daily derating summary
+trigger:
+  - platform: sun
+    event: sunset
+condition:
+  - condition: numeric_state
+    entity_id: sensor.givenergy_inverter_manager_inverter_derating_today_minutes
+    above: 0
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: Inverter derating today
+      message: >
+        Inverter spent
+        {{ states('sensor.givenergy_inverter_manager_inverter_derating_today_minutes') }}
+        minutes derating today. Max temperature:
+        {{ states('sensor.givenergy_inverter_manager_inverter_temperature') }}°C.
+```
