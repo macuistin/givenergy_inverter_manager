@@ -4,7 +4,7 @@ Organised by theme and priority.
 
 ---
 
-## Current State (v0.2.0)
+## Current State (v0.2.1)
 
 ### What is built and working
 
@@ -55,72 +55,78 @@ Organised by theme and priority.
   cheap rate periods the Zappi is stopped if the battery is discharging, so the car charges
   from cheap grid rather than draining the battery
 - **Dashboard writes to file** — `get_dashboard_yaml` writes `givenergy_dashboard.yaml`
-  directly to the HA config directory; no more copy-pasting from a notification; a
-  **Refresh Dashboard** button entity on the device page regenerates the file on demand
-- **84 sensors** — live power/energy, cost, tariff, battery health, charge decision,
-  immersion, EV, bill projection, yesterday/week/month accumulators, forecast accuracy
-- **Dashboard generator** — 4-tab dashboard (Power Flow, Today, Battery, Controls);
-  current rate and period shown above cost breakdown; immersion temperature sliders
-  in Controls; battery power and cheap rate floor status in Battery tab
+  directly to the HA config directory; placeholder created on setup so YAML-mode
+  dashboards load immediately; **Refresh Dashboard** button regenerates on demand
+- **Inverter temperature derating** — auto-discovers `givtcp_*_invertor_temperature`;
+  surfaces `inverter_temperature`, `inverter_temperature_status` (Normal/Warm/Derating/Critical),
+  and `inverter_derating_today_minutes` (disabled by default)
+- **EV solar charging signal** — `ev_charging_source` (Solar/Grid/Battery/Mixed) and
+  `ev_solar_surplus_available` (Available/Not available) for Zappi Eco+ automation triggers
+- **Missed solar opportunity** — `missed_solar_today` accumulates kWh exported while
+  battery is full and no flex load is active (disabled by default)
+- **Predictive immersion scheduling** — runs immersion during cheap rate when tomorrow's
+  forecast is below 5 kWh, ensuring hot water on overcast days
+- **Solar noise floor** — sensor readings below 10W are ignored during accumulation,
+  preventing overnight noise from inflating `solar_today`
+- **Solcast multi-array** — optional second forecast entity summed with the first for
+  east/west facing array installations
+- **Live grid cost rate** — `live_grid_cost_rate` sensor (€/hr) shown on the power flow
+  card grid node using correct import/export rates; replaces static tariff rate display
+- **94 sensors** — includes all new inverter, EV, and solar opportunity sensors
+- **Dashboard generator** — 4-tab dashboard; live cost rate on grid node; new sensors in
+  Battery Health (inverter temp) and Controls EV (charging source, solar surplus)
 - **HACS-ready** — `hacs.json`, `manifest.json`, `strings.json`, `translations/en.json`,
   `icons.json` with MDI icons for all entities
 - **Repair issues** — `givtcp_entities_missing` repair issue surfaces in Settings → System
   → Repairs when configured GivTCP entities are absent from HA
-- **Automation examples** — `docs/automations.md` with 7 ready-to-use HA automation
-  examples
-- **525 unit tests** — full coverage of all pure logic modules; conftest stubs extended for
-  repairs, UpdateFailed kwargs, and ServiceValidationError
+- **Automation examples** — `docs/automations.md` with 10 ready-to-use HA automation
+  examples including Zappi Eco+ and inverter derating alert
+- **555 unit tests**
 
 ---
 
-## Near-Term (v0.2.0)
-
-### `entity-unavailable` quality scale item
-
-Sensors should report `unavailable` when GivTCP is not publishing data rather than
-holding the last known value indefinitely. This requires tracking the age of the last
-MQTT message and setting coordinator state accordingly.
-
-**Complexity:** Low.
-
----
-
-### Reconfiguration flow
-
-Allow changing inverter serial, MQTT topic, and entity mappings after initial setup
-without deleting and re-adding the integration. Required for HACS Silver quality scale.
-
-**Complexity:** Low–Medium.
-
----
-
-### `exception-translations` and `icon-translations`
-
-Add `icons.json` and move exception strings to `strings.json` for full HA quality
-scale compliance. Remaining items to reach Silver.
-
-**Complexity:** Low.
-
----
-
-### Solcast multi-array support
-
-The integration currently accepts a single forecast entity. Homes with east and west
-facing arrays benefit from separate Solcast rooftop sites. Add a second optional
-forecast entity in config flow; sum both for the overnight charge decision.
-
-**Complexity:** Low.
-
----
+## Near-Term (v0.2.x) — remaining
 
 ### 95% test coverage target
 
-Several coordinator integration paths (config flow steps, options flow,
-`async_setup_entry` teardown) are not covered by the current test suite. Moving to
-`pytest-homeassistant-custom-component` would allow proper end-to-end integration
-tests.
+Config flow steps and options flow are not covered by the current test suite. Moving
+to `pytest-homeassistant-custom-component` would allow proper end-to-end integration
+tests covering the full HA lifecycle.
 
-**Complexity:** Medium.
+**Complexity:** Large.
+
+---
+
+### Monthly/annual export volume tracking
+
+Track export kWh per calendar month and rolling 12-month total. Surface an alert
+when export volume justifies renegotiating the CEG rate with the supplier.
+Requires persistent storage for 12 monthly snapshots.
+
+**Complexity:** Medium — new storage layer needed.
+
+---
+
+## Near-Term — Completed ✅
+
+All of the following were planned as near-term and have shipped:
+
+| Item | PR |
+|---|---|
+| entity-unavailable quality scale | #35 |
+| Reconfiguration flow | #36 |
+| exception-translations and icon-translations | #36–#38 |
+| Solcast multi-array support | #60 |
+| Inverter temperature derating sensors | #50, #56 |
+| EV solar charging signal | #51 |
+| Missed solar opportunity sensor | #52 |
+| Predictive immersion scheduling | #61 |
+| Solar noise floor fix | #56 |
+| Live grid cost rate sensor | #57 |
+| Dashboard file write + auto-init | #49, #59 |
+| Automation examples | #39, #58 |
+| repair-issues quality scale | #40 |
+| strict-typing quality scale | #42 |
 
 ---
 
