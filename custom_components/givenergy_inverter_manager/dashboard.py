@@ -215,6 +215,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     survival_reason = e("night_survival_reason")
     is_clipping = e("is_clipping")
     current_rate_period = e("current_rate_period")
+    live_grid_cost_rate = e("live_grid_cost_rate")
     cheap_rate_floor = e("cheap_rate_floor_status")
     immersion_savings = e("immersion_savings_today")
     solar_forecast_today = e("solar_forecast_kwh_today")
@@ -302,10 +303,10 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     invert_state: false
                     display_state: one_way
                     secondary_info:
-                      entity: {current_rate}
-                      icon: mdi:currency-eur
+                      entity: {live_grid_cost_rate}
+                      icon: mdi:cash-clock
                       decimals: 4
-                      display_zero: false
+                      display_zero: true
                       color_value: false
                       unit_of_measurement: " "
                   home:
@@ -342,20 +343,6 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 no_labels: false
 
               {_immersion_section}
-
-              - type: markdown
-                content: >
-                  {{% set grid_w = states('{grid_power}') | float(0) %}}
-                  {{% set rate = states('{current_rate}') | float(0) %}}
-                  {{% set rate_name = states('{current_rate_period}') %}}
-                  {{% set eur_hr = (grid_w | abs / 1000 * rate) | round(3) %}}
-                  {{%- if grid_w < -50 -%}}
-                  🟢 **Earning €{{{{ eur_hr }}}}/hr** · {{{{ rate_name }}}} @ €{{{{ rate }}}}/kWh
-                  {{%- elif grid_w > 50 -%}}
-                  🔴 **Spending €{{{{ eur_hr }}}}/hr** · {{{{ rate_name }}}} @ €{{{{ rate }}}}/kWh
-                  {{%- else -%}}
-                  ⚪ **Idle** · {{{{ rate_name }}}} @ €{{{{ rate }}}}/kWh
-                  {{%- endif %}}
 
           # ── View 2: Today ────────────────────────────────────────────────────
           - title: Today

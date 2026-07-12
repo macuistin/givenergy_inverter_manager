@@ -314,15 +314,17 @@ class TestPowerFlowTabChanges:
     def test_no_three_column_grid(self):
         assert "columns: 3" not in _build(), "3-column grid must be replaced with compact markdown."
 
-    def test_rate_shown_as_grid_secondary_info(self):
-        """Rate is now secondary_info on the grid entity, not a separate markdown card."""
+    def test_live_cost_rate_shown_as_grid_secondary_info(self):
+        """Live €/hr cost rate is secondary_info on the grid entity."""
         yaml = _build()
         grid_idx = yaml.find("grid:")
         grid_block = yaml[grid_idx : grid_idx + 400]
         assert "secondary_info:" in grid_block, (
-            "Rate must be shown as secondary_info on the grid entity."
+            "Live cost rate must be shown as secondary_info on the grid entity."
         )
-        assert "mdi:currency-eur" in grid_block, "Rate secondary_info must use the euro icon."
+        assert "live_grid_cost_rate" in grid_block, (
+            "Grid secondary_info must reference the live_grid_cost_rate sensor."
+        )
 
     def test_clipping_entity_card_removed(self):
         assert "icon: mdi:alert-circle-outline" not in _build(), (
@@ -414,24 +416,24 @@ class TestDashboardImprovements:
 
 
 class TestIncomeBar:
-    """Income bar markdown card is present on the Power Flow view."""
+    """Live cost rate is embedded in the grid node secondary_info (no separate markdown card)."""
 
-    def test_income_bar_in_power_flow_view(self):
+    def test_no_income_markdown_card_on_power_flow(self):
         result = _build()
         parsed = yaml.safe_load(result)
         pf_view = next(v for v in parsed["views"] if v.get("path") == "power-flow")
         card_types = [c.get("type", "") for c in pf_view.get("cards", [])]
-        assert "markdown" in card_types, "Income bar markdown card missing from Power Flow view"
+        assert "markdown" not in card_types, (
+            "Income bar is now on the grid node — no separate markdown card needed"
+        )
 
     def test_income_bar_references_grid_power(self):
         result = _build()
         assert "grid_power" in result
 
-    def test_income_bar_shows_earning_spending_idle(self):
+    def test_live_cost_rate_in_dashboard(self):
         result = _build()
-        assert "Earning" in result
-        assert "Spending" in result
-        assert "Idle" in result
+        assert "live_grid_cost_rate" in result
 class TestSolarForecastCards:
     """Solar vs forecast section is present on the Today tab."""
 
