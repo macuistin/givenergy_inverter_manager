@@ -11,9 +11,10 @@ Organised by theme and priority.
 - **GivTCP auto-discovery** — scans HA for `sensor.givtcp_{SERIAL}_*` entities and
   pre-fills the setup form
 - **Multi-brand EV charger discovery** — Zappi (myenergi), Wallbox, Ohme, Easee, OCPP
-- **Zappi battery protection** — detects when the Zappi is draining the battery and
-  switches it to `Stopped`; resumes `Eco+` when battery recovers and solar surplus
-  is available
+- **EV drain detection** — `ev_draining_battery` sensor detects when the EV charger
+  is drawing from the battery rather than solar or grid; `ev_charging_source`
+  (Solar/Grid/Battery/Mixed) shows the live source; `ev_solar_surplus_available`
+  triggers Zappi Eco+ automation when surplus exceeds 1,400W
 - **Overnight charge calculator** — uses Forecast.Solar or Solcast (or seasonal
   fallback) to decide how much to charge from grid overnight; skips charging entirely
   when battery is high and forecast is strong
@@ -304,6 +305,23 @@ the config flow, coordinator setup/teardown, and entity lifecycle.
 ---
 
 ## Changelog
+
+### v0.2.1
+
+- **Remove EV battery protection** — the 50% SoC protection that stopped the Zappi and
+  the cheap-rate guard that stopped it when the battery was discharging are both removed.
+  The Zappi (myenergi) and GivEnergy inverter are separate systems; stopping the Zappi
+  does not protect the GivEnergy battery. `ev_draining_battery`, `ev_charging_source`,
+  and `ev_solar_surplus_available` remain as informational sensors. (#71, #72)
+- **Year-to-date sensors** — `solar_this_year`, `export_this_year` accumulators added;
+  persistent storage extended to include the `year` accumulator. (#67)
+- **Dashboard updated** — EV charging source, solar surplus, and inverter temperature
+  sensors wired into the dashboard. (#62)
+- **Auto-init dashboard file** — `givenergy_dashboard.yaml` placeholder created on
+  first setup so YAML-mode dashboards load immediately. (#59)
+- **Coordinator tech debt** — `_write_floor_target` extracted; `export_rate` read
+  directly from config rather than cached field. (#65)
+- **555 unit tests**
 
 ### v0.2.0
 
