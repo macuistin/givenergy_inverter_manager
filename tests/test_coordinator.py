@@ -1590,3 +1590,68 @@ class TestMissedSolar:
         idx = src.find('"missed_solar_today"')
         block = src[idx:idx+400]
         assert "entity_registry_enabled_default=False" in block
+
+
+class TestSolarNoiseFloor:
+    """Solar accumulation ignores sensor noise below 10W."""
+
+    @pytest.mark.asyncio
+    async def test_no_accumulation_below_noise_floor(self):
+        # Arrange — solar reads 5W (sensor noise at night)
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states({**_default_states(), "sensor.solar": "5"})
+        await coord._async_update_data()
+        coord._last_update = coord._last_update
+        coord.set_states({**_default_states(), "sensor.solar": "5"})
+        await coord._async_update_data()
+        # Assert — tiny reading treated as zero
+        assert coord._acc.today.solar_kwh == pytest.approx(0.0)
+
+    @pytest.mark.asyncio
+    async def test_accumulates_above_noise_floor(self):
+        # Arrange — solar reads 100W (real generation)
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states({**_default_states(), "sensor.solar": "3000"})
+        await coord._async_update_data()
+        coord._last_update = coord._last_update - __import__('datetime').timedelta(minutes=30)
+        await coord._async_update_data()
+        # Assert — real generation accumulates
+        assert coord._acc.today.solar_kwh > 0
+
+    def test_noise_floor_constant_in_const(self):
+        from custom_components.givenergy_inverter_manager.const import SOLAR_NOISE_FLOOR_W
+        assert SOLAR_NOISE_FLOOR_W == pytest.approx(10.0)
+
+
+class TestDeratingMinutes:
+    """Derating minutes accumulate when inverter temp >= INVERTER_TEMP_DERATING."""
+
+    @pytest.mark.asyncio
+    async def test_accumulates_during_derating(self):
+        from custom_components.givenergy_inverter_manager.const import CONF_INVERTER_TEMP_ENTITY
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.entry.data[CONF_INVERTER_TEMP_ENTITY] = "sensor.inverter_temp"
+        coord.set_state("sensor.inverter_temp", "68.0")  # above 65°C derating threshold
+        await coord._async_update_data()
+        coord._last_update = coord._last_update - __import__('datetime').timedelta(minutes=30)
+        await coord._async_update_data()
+        assert coord._acc.today.inverter_derating_minutes == pytest.approx(30.0, rel=0.05)
+
+    @pytest.mark.asyncio
+    async def test_no_accumulation_below_threshold(self):
+        from custom_components.givenergy_inverter_manager.const import CONF_INVERTER_TEMP_ENTITY
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.entry.data[CONF_INVERTER_TEMP_ENTITY] = "sensor.inverter_temp"
+        coord.set_state("sensor.inverter_temp", "55.0")  # below 65°C derating threshold
+        await coord._async_update_data()
+        coord._last_update = coord._last_update - __import__('datetime').timedelta(minutes=30)
+        await coord._async_update_data()
+        assert coord._acc.today.inverter_derating_minutes == pytest.approx(0.0)
+
+    def test_derating_minutes_in_energy_accumulator(self):
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        acc = EnergyAccumulator()
+        assert hasattr(acc, "inverter_derating_minutes")
+        assert acc.inverter_derating_minutes == pytest.approx(0.0)

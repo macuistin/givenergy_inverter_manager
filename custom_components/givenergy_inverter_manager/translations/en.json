@@ -565,6 +565,9 @@
       },
       "inverter_temperature_status": {
         "name": "Inverter Temperature Status"
+      },
+      "inverter_derating_today_minutes": {
+        "name": "Inverter Derating Today"
       }
     }
   },

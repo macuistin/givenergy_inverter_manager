@@ -174,6 +174,7 @@ CHARGE_EV_SOC_BONUS = 10  # extra SoC percentage added when EV is plugged in
 
 # ── Solar / generation parameters ─────────────────────────────────────────────
 SOLAR_SUNRISE_HOUR = 8  # hour of day when solar generation typically starts
+SOLAR_NOISE_FLOOR_W = 10.0  # W — sensor readings below this are treated as zero
 
 # ── Battery health parameters ─────────────────────────────────────────────────
 BATTERY_RATED_CYCLES = 6000  # typical LFP rated cycle life (manufacturer spec)
