@@ -846,7 +846,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                         ),
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
-                            min=5, max=50, step=5, unit_of_measurement="%"
+                            min=5, max=90, step=5, unit_of_measurement="%"
                         )
                     ),
                     vol.Optional(
