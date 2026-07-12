@@ -999,3 +999,190 @@ class TestReportGenerators:
         assert "ge-card" not in html  # class-based CSS removed; uses inline styles now
         assert "<style>" not in html  # removed — uses inline styles for HA Markdown card compat
         assert "style=" in html  # inline styles present instead
+
+
+# ── _accumulate_energy: elapsed > 1h guard ───────────────────────────────────
+
+
+class TestAccumulationElapsedGuard:
+    def test_skips_accumulation_when_gap_exceeds_one_hour(self):
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        raw = _raw(solar_power_w=3000.0)
+        cfg = _nightboost_cfg()
+        now = datetime(2026, 6, 15, 12, 0, tzinfo=timezone.utc)
+        stale = now - timedelta(hours=2)
+
+        data1, _ = _run(raw=raw, cfg=cfg, now=stale)
+        solar_before = data1.today.solar_kwh
+
+        data2, _ = _run(raw=raw, cfg=cfg, now=now, last_update_time=stale)
+        assert data2.today.solar_kwh == pytest.approx(solar_before, abs=0.01)
+
+
+# ── _accumulate_energy: missed_solar ────────────────────────────────────────
+
+
+class TestMissedSolarAccumulation:
+    def test_accumulates_when_battery_full_and_exporting(self):
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, 12, 0, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=5)
+        raw = _raw(
+            battery_soc=100.0,
+            grid_power_w=-1000.0,
+            solar_power_w=4000.0,
+            house_load_w=500.0,
+            immersion_on=False,
+            ev_power_w=0.0,
+        )
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        assert data.today.missed_solar_kwh > 0.0
+
+    def test_does_not_accumulate_when_battery_not_full(self):
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, 12, 0, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=5)
+        raw = _raw(
+            battery_soc=80.0,
+            grid_power_w=-500.0,
+            solar_power_w=3000.0,
+        )
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        assert data.today.missed_solar_kwh == pytest.approx(0.0)
+
+
+# ── EV charging source labels ────────────────────────────────────────────────
+
+
+class TestEVChargingSourceLabels:
+    def _zappi(self):
+        from custom_components.givenergy_inverter_manager.discovery import (
+            EVCharger,
+            EVChargerBrand,
+            EVChargerState,
+        )
+
+        ch = EVCharger(
+            brand=EVChargerBrand.ZAPPI,
+            name="Zappi",
+            serial="123",
+            display_name="Zappi (123)",
+            state=EVChargerState.CHARGING,
+            charge_mode="Eco+",
+            charge_mode_entity="select.zappi_123_charge_mode",
+        )
+        ch.power_w = 2000.0
+        return ch
+
+    def _run_with(self, grid_w, batt_w, ev_w=2000.0):
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        ch = self._zappi()
+        ch.power_w = ev_w
+        raw = _raw(grid_power_w=grid_w, battery_power_w=batt_w, ev_power_w=ev_w, ev_plugged_in=True)
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), ev_charger=ch)
+        return data.ev_charging_source
+
+    def test_solar_when_grid_importing_and_battery_charging(self):
+        assert self._run_with(grid_w=-100.0, batt_w=500.0) == "Solar"
+
+    def test_battery_when_grid_exporting_and_battery_discharging(self):
+        assert self._run_with(grid_w=-100.0, batt_w=-500.0) == "Battery"
+
+    def test_grid_when_importing_and_battery_idle(self):
+        assert self._run_with(grid_w=800.0, batt_w=0.0) == "Grid"
+
+    def test_mixed_when_importing_and_battery_discharging(self):
+        assert self._run_with(grid_w=800.0, batt_w=-300.0) == "Mixed"
+
+
+# ── override_skip_charge ────────────────────────────────────────────────────
+
+
+class TestOverrideSkipCharge:
+    def test_skip_charge_override_sets_skip_true(self):
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        raw = _raw(battery_soc=40.0)
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), override_skip_charge=True)
+        assert data.charge_decision is not None
+        assert data.charge_decision.skip_charge is True
+        assert "manual" in data.charge_decision.reason.lower()
+
+
+# ── Reporting: build_charge_plan_state skip branch ──────────────────────────
+
+
+class TestReportingGaps:
+    def _data(self):
+        from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+        from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+        from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        from custom_components.givenergy_inverter_manager.discovery.ev_charger import EVChargerState
+
+        data = CoordinatorData()
+        data.today = EnergyAccumulator()
+        data.week = EnergyAccumulator()
+        data.month = EnergyAccumulator()
+        data.yesterday = EnergyAccumulator()
+        data.battery_stats = BatteryStats()
+        data.currency_symbol = "€"
+        data.ev_available = False
+        data.ev_charger_state = EVChargerState.UNKNOWN
+        data.ev_charger_name = ""
+        data.ev_power_w = 0.0
+        data.ev_draining_battery = False
+        data.ev_protection_reason = ""
+        data.charge_decision = ChargeDecision(
+            target_soc=80,
+            skip_charge=True,
+            reason="Good forecast",
+            forecast_kwh=12.0,
+            current_soc=75.0,
+            battery_capacity=10.0,
+            car_plugged_in=False,
+            cost_to_charge=0.0,
+        )
+        data.should_divert_immersion = False
+        data.divert_reason = ""
+        data.will_survive_night = True
+        data.survival_reason = ""
+        data.accrued_bill = 0.0
+        data.projected_bill = 0.0
+        data.days_remaining = 15
+        data.days_in_period = 30
+        data.forecast_kwh_tomorrow = None
+        data.solar_forecast_kwh_today = 0.0
+        data.yesterday_forecast_accuracy_pct = 0.0
+        data.forecast_accuracy_7day_avg_pct = 0.0
+        return data
+
+    def test_charge_plan_state_shows_skip_when_skipping(self):
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_charge_plan_state,
+        )
+
+        data = self._data()
+        state = build_charge_plan_state(data)
+        assert "Skip" in state
+        assert "12.0" in state
+
+    def test_week_summary_shows_7day_accuracy_when_present(self):
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_week_summary_html,
+        )
+
+        data = self._data()
+        data.forecast_accuracy_7day_avg_pct = 88.0
+        html = build_week_summary_html(data)
+        assert "88" in html
