@@ -341,7 +341,6 @@ def decide_ev_charger_action(
     battery_power_w: float,
     solar_surplus_w: float,
     protection_threshold: float,
-    in_cheap_rate_period: bool = False,
 ) -> tuple[str | None, str]:
     """
     Decide what mode the EV charger should be in.
@@ -349,26 +348,12 @@ def decide_ev_charger_action(
     Returns (target_mode_or_None, reason).
 
     Rules (in priority order):
-      1. Cheap rate period AND battery discharging → stop (grid should power EV, not battery)
-      2. Battery below protection_threshold → stop charging (protect battery)
-      3. Solar surplus > EV_SURPLUS_DIVERT_W and Zappi → switch to Eco+
+      1. Battery below protection_threshold → stop charging (protect battery)
+      2. Solar surplus > EV_SURPLUS_DIVERT_W and Zappi → switch to Eco+
       3. Otherwise → no change
     """
     if not charger.is_plugged_in:
         return None, "EV not connected"
-
-    if in_cheap_rate_period and battery_power_w < 0:
-        if charger.brand == EVChargerBrand.ZAPPI:
-            current = (charger.charge_mode or "").lower()
-            if current != "stopped":
-                return ZAPPI_STOPPED_MODE, (
-                    "Cheap rate active — battery discharging to power EV; "
-                    "car should charge from grid only"
-                )
-        return None, (
-            "Cheap rate active — battery discharging to power EV; "
-            "car should charge from grid only"
-        )
 
     if battery_soc < protection_threshold:
         if charger.brand == EVChargerBrand.ZAPPI:
