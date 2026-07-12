@@ -97,7 +97,6 @@ Changes take effect on the next 30-second cycle. No restart needed.
 | **Minimum battery SoC** | The integration will never recommend charging below this level. Default 10%. |
 | **Default overnight charge target** | Target SoC used as a fallback if no forecast is available. Default 80%. |
 | **Skip charge if SoC above** | If the battery is already above this level at the start of the cheap window, overnight charging is skipped. Default 80%. |
-| **EV battery protection threshold** | During the day, the Zappi is paused if battery SoC falls below this level. Default 50%. During cheap rate periods, the Zappi is also paused if the battery is actively discharging (regardless of SoC) — grid is cheap, so the car should charge from grid, not battery. |
 | **Dry run mode** | Calculates decisions and updates all sensors normally but sends no commands to GivTCP. Useful for testing before going live. |
 | **Verbose logging** | Logs every sensor reading and decision on each 30-second cycle. Turn off for normal use. |
 
