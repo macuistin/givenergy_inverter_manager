@@ -50,6 +50,7 @@
       "immersion_savings_today": {"default": "mdi:piggy-bank"},
       "immersion_solar_kwh_today": {"default": "mdi:solar-panel"},
       "battery_throughput_kwh_today": {"default": "mdi:battery-charging"},
+      "missed_solar_today": {"default": "mdi:solar-panel-large"},
       "solar_yesterday": {"default": "mdi:solar-power"},
       "import_yesterday": {"default": "mdi:transmission-tower-import"},
       "export_yesterday": {"default": "mdi:transmission-tower-export"},

@@ -344,6 +344,16 @@ def accumulate_energy(
 
     _accumulate_immersion_savings(acc, raw, tariff, now, immersion_w, elapsed_h)
 
+    # Missed solar: kWh exported while battery is full and no flex load is active.
+    # Represents solar that could have been self-consumed (EV charging or a larger
+    # immersion divert window would have captured this).
+    battery_full = raw.battery_soc >= 99.0
+    exporting = raw.grid_power_w < 0
+    no_flex_load = immersion_w <= 0 and raw.ev_power_w <= 0
+    if battery_full and exporting and no_flex_load and elapsed_h > 0:
+        missed_kwh = abs(raw.grid_power_w / 1000) * elapsed_h
+        acc.missed_solar_kwh += missed_kwh
+
 
 def estimate_avg_daily_kwh(
     house_kwh_today: float,

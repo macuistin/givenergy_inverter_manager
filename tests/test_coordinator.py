@@ -1536,3 +1536,57 @@ class TestInverterTemperature:
             "custom_components/givenergy_inverter_manager/discovery/givtcp.py"
         ).read_text()
         assert "_invertor_temperature" in src
+class TestMissedSolar:
+    """Missed solar accumulates when battery full, exporting, no flex load active."""
+
+    @pytest.mark.asyncio
+    async def test_accumulates_when_battery_full_and_exporting(self):
+        # Arrange — battery full, exporting, no EV or immersion
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states({
+            "sensor.solar": "6000",
+            "sensor.battery_soc": "100",
+            "sensor.battery_power": "100",   # tiny charging
+            "sensor.grid": "3000",           # GivTCP v3: positive = export → internal grid_power_w = -3000
+            "sensor.house": "500",
+        })
+        coord._last_update = None  # first cycle, no elapsed time
+        # Act
+        await coord._async_update_data()
+        # On first cycle elapsed_h = 0 so no accumulation yet
+        assert coord._acc.today.missed_solar_kwh == pytest.approx(0.0)
+
+    @pytest.mark.asyncio
+    async def test_no_accumulation_when_battery_not_full(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states({
+            "sensor.solar": "6000",
+            "sensor.battery_soc": "85",   # not full
+            "sensor.battery_power": "2000",
+            "sensor.grid": "2000",        # GivTCP v3 export → internal -2000
+            "sensor.house": "500",
+        })
+        await coord._async_update_data()
+        coord._last_update = coord._last_update  # keep timestamp
+        await coord._async_update_data()
+        # battery not 100% → no missed solar
+        assert coord._acc.today.missed_solar_kwh == pytest.approx(0.0)
+
+    def test_missed_solar_field_in_energy_accumulator(self):
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        acc = EnergyAccumulator()
+        assert hasattr(acc, "missed_solar_kwh")
+        assert acc.missed_solar_kwh == pytest.approx(0.0)
+
+    def test_missed_solar_in_sensor_descriptions(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        assert "missed_solar_today" in src
+
+    def test_missed_solar_disabled_by_default(self):
+        from pathlib import Path
+        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        # Find the missed_solar_today block and check it has enabled_default=False
+        idx = src.find('"missed_solar_today"')
+        block = src[idx:idx+400]
+        assert "entity_registry_enabled_default=False" in block

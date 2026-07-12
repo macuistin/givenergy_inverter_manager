@@ -234,6 +234,11 @@ class EnergyAccumulator:
     # to estimate depreciation cost.
     battery_throughput_kwh: float = 0.0
 
+    # ── Missed solar (self-consumption opportunity) ───────────────────────────
+    # kWh exported while battery is full, solar generating, and no flex load
+    # active — represents solar that could have been self-consumed.
+    missed_solar_kwh: float = 0.0
+
     @property
     def total_import_cost(self) -> float:
         return sum(self.import_cost_by_period.values())

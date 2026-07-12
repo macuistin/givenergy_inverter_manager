@@ -568,6 +568,16 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         is_daily_total=True,
         value_fn=lambda d: round(d.today.battery_throughput_kwh, 3),
     ),
+    GivEnergyManagerSensorDescription(
+        key="missed_solar_today",
+        translation_key="missed_solar_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        is_daily_total=True,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.today.missed_solar_kwh, 3),
+    ),
     # ── Solar forecast and accuracy ───────────────────────────────────────────
     GivEnergyManagerSensorDescription(
         key="solar_forecast_kwh_today",
