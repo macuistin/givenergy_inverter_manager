@@ -105,6 +105,9 @@ All entities are created under a single device — your GivEnergy inverter — a
 | `Battery Total Cycles` | Estimated lifetime charge cycles used |
 | `Battery Remaining Life` | Estimated remaining battery life as a percentage |
 | `Days Since Full Charge` | How many days since the battery reached 100% |
+| `Inverter Temperature` | Inverter temperature in °C (requires GivTCP temp entity) |
+| `Inverter Temperature Status` | Normal / Warm / Derating / Critical |
+| `Inverter Derating Today` | Minutes spent above 65°C derating threshold today (disabled by default) |
 
 ---
 
@@ -117,6 +120,8 @@ All entities are created under a single device — your GivEnergy inverter — a
 | `EV Session Energy` | Energy delivered in the current charging session |
 | `EV Draining Battery` | Whether EV charging is drawing from the battery |
 | `EV Battery Protection Status` | Current EV protection decision and reason |
+| `EV Charging Source` | Where the car is drawing power from: Solar / Grid / Battery / Mixed |
+| `EV Solar Surplus Available` | Available / Not available — trigger for Zappi Eco+ automation |
 
 ---
 
@@ -124,7 +129,7 @@ All entities are created under a single device — your GivEnergy inverter — a
 
 | Entity | Description |
 |---|---|
-| `Immersion Divert Reason` | Why the immersion is on or off right now |
+| `Immersion Divert Reason` | Why the immersion is on or off right now (includes predictive mode reason) |
 
 ---
 
@@ -150,6 +155,30 @@ Enable these in Settings → Devices & Services → your integration → entity 
 ## Sensors — Weekly and monthly accumulations (disabled by default)
 
 Nine sensors each for the current week and current month: the same set as yesterday comparisons plus a period total. The week resets on Monday; the month resets on your configured bill start day.
+
+---
+
+## Sensors — Year-to-date accumulations (disabled by default)
+
+Three sensors tracking the calendar year from Jan 1:
+
+| Entity | Description |
+|---|---|
+| `Export This Year` | Total kWh exported since Jan 1 |
+| `Export Earnings This Year` | Total export earnings since Jan 1 |
+| `Solar This Year` | Total solar generation since Jan 1 |
+
+Enable these when you want to track annual export volume — useful for deciding when to renegotiate your CEG (export) rate with your supplier.
+
+---
+
+## Sensors — Today's opportunities (disabled by default)
+
+| Entity | Description |
+|---|---|
+| `Missed Solar Today` | kWh exported while battery was full and no flex load (EV/immersion) was active. Quantifies the residual self-consumption gap. |
+
+Enable in Settings → entity list.
 
 ---
 
