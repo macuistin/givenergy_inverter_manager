@@ -381,7 +381,6 @@ class TestOptionsFlowSections:
                 CONF_BATTERY_MIN_SOC: 10,
                 "overnight_charge_target_pct": DEFAULT_OVERNIGHT_CHARGE_TARGET,
                 "skip_charge_soc_threshold_pct": DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
-                "ev_battery_protect_soc_pct": 20,
                 "dry_run": False,
                 "verbose_logging": False,
             },

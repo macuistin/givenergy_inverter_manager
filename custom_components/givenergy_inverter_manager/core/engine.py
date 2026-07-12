@@ -36,7 +36,6 @@ from ..const import (
     CONF_BATTERY_MIN_SOC,
     CONF_CURRENCY,
     CONF_DRY_RUN,
-    CONF_EV_BATTERY_PROTECT_SOC,
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_SKIP_CHARGE_SOC_THRESHOLD,
     CONF_SURPLUS_DIVERT_MIN_W,
@@ -45,7 +44,6 @@ from ..const import (
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_CURRENCY,
     DEFAULT_DRY_RUN,
-    DEFAULT_EV_BATTERY_PROTECT_SOC,
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
@@ -426,14 +424,11 @@ def _process_ev_charger(
     data.ev_draining_battery = ev_charger.is_draining_battery
 
     solar_surplus_w = max(0.0, raw.solar_power_w - raw.house_load_w - data.immersion_load_w)
-    protect_threshold = float(cfg.get(CONF_EV_BATTERY_PROTECT_SOC, DEFAULT_EV_BATTERY_PROTECT_SOC))
 
     ev_target_mode, reason = decide_ev_charger_action(
         charger=ev_charger,
         battery_soc=raw.battery_soc,
-        battery_power_w=raw.battery_power_w,
         solar_surplus_w=solar_surplus_w,
-        protection_threshold=protect_threshold,
     )
     data.ev_protection_reason = reason
     data.ev_protection_active = ev_target_mode is not None
@@ -453,12 +448,7 @@ def _process_ev_charger(
     else:
         data.ev_charging_source = "Mixed"
 
-    # Solar surplus availability signal for Zappi Eco+ automation
-    soc_threshold = float(cfg.get(CONF_EV_BATTERY_PROTECT_SOC, DEFAULT_EV_BATTERY_PROTECT_SOC))
-    data.ev_solar_surplus_available = (
-        solar_surplus_w >= EV_SOLAR_SURPLUS_THRESHOLD_W
-        and raw.battery_soc >= soc_threshold
-    )
+    data.ev_solar_surplus_available = solar_surplus_w >= EV_SOLAR_SURPLUS_THRESHOLD_W
 
     return ev_target_mode
 
@@ -743,8 +733,6 @@ def build_coordinator_data(
     # ── EV charger state ─────────────────────────────────────────────────────
     ev_target_mode: str | None = None
     if ev_charger is not None:
-        ev_target_mode = _process_ev_charger(
-            data, ev_charger, raw, cfg
-        )
+        ev_target_mode = _process_ev_charger(data, ev_charger, raw, cfg)
 
     return data, ev_target_mode

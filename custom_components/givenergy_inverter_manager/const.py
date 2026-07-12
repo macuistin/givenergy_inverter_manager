@@ -64,10 +64,6 @@ CONF_IMMERSION_TARGET_TEMP = "immersion_target_temp_c"
 CONF_IMMERSION_MIN_TEMP = "immersion_min_temp_c"
 CONF_IMMERSION_HYSTERESIS = "immersion_hysteresis_c"
 
-# ── EV charger ───────────────────────────────────────────────────────────────
-# Battery protection threshold: pause EV charging when SoC drops below this
-CONF_EV_BATTERY_PROTECT_SOC = "ev_battery_protect_soc_pct"
-
 # ── Battery management ───────────────────────────────────────────────────────
 CONF_BATTERY_MIN_SOC = "battery_min_soc_pct"
 CONF_OVERNIGHT_CHARGE_TARGET = "overnight_charge_target_pct"
@@ -105,7 +101,6 @@ DEFAULT_STANDING_CHARGE = 0.8259  # per day
 DEFAULT_PSO_LEVY = 1.46  # per month
 DEFAULT_EXPORT_RATE = 0.195  # per kWh (Irish CEG rate)
 DEFAULT_BILL_START_DAY = 1  # day of month
-DEFAULT_EV_BATTERY_PROTECT_SOC = 50  # % — pause EV below this SoC during day rate
 EV_SOLAR_SURPLUS_THRESHOLD_W = 1400  # W net surplus needed to flag solar available for EV
 
 # Default rate periods: Electric Ireland Home Electric + Nightboost
