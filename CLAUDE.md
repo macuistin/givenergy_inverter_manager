@@ -62,6 +62,18 @@ The `house_load_w` sensor is read directly from GivTCP's load measurement, not
 calculated. It only reflects the inverter-side load, not total mains consumption —
 this is expected behaviour and matches what GivTCP reports.
 
+**GivTCP daily energy counters** (`pv_energy_today_kwh`, `import_energy_today_kwh`,
+`export_energy_today_kwh`, `charge_energy_today_kwh`, `discharge_energy_today_kwh`,
+`load_energy_today_kwh`) are read from the inverter serial derived entity IDs and used
+as the authoritative source for today's kWh values. The coordinator reads these via
+`_collect_raw` and `_apply_daily_counters` overrides the integration-accumulated values
+after each cycle. Falls back silently to integration if entities are absent.
+
+**The Zappi (myenergi) and GivEnergy inverter are separate systems.** The Zappi uses
+its own CT clamp and there is no integration between them. The integration does not
+stop or pause the Zappi — it only surfaces `ev_solar_surplus_available`,
+`ev_charging_source`, and `ev_draining_battery` as signals for user automations.
+
 ---
 
 ## HA selector constraints

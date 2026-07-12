@@ -76,13 +76,15 @@ The restart gap is only checked when there is actually sufficient solar surplus 
 
 ### EV charger
 
-If an EV charger is configured, the integration manages it in two ways:
+The Zappi (myenergi) and GivEnergy inverter are separate systems — the Zappi uses its own CT clamp and the integration cannot directly control battery discharge. For this reason the integration does not pause or stop the EV charger.
 
-**During the day (solar hours):** starts EV charging when there's sufficient solar surplus and battery SoC is healthy; pauses if battery SoC falls below the **EV battery protection threshold** (default 50%). This preserves battery for evening/night rather than letting the car drain it.
+Instead it provides two automation signals:
 
-**During cheap rate periods (overnight):** if the battery is actively discharging while the EV is charging, the integration pauses the EV charger. Grid electricity is cheap — the car should charge purely from the grid, not drain a battery that was charged to cover morning load.
+**`ev_solar_surplus_available`** — becomes `Available` when solar surplus exceeds 1,400W. Use this in a HA automation to switch the Zappi to Eco+ mode so it charges from surplus solar rather than the grid. See `docs/automations.md` for a ready-to-use example.
 
-For Zappi chargers, the integration switches between Eco+ (absorb solar surplus) and Stopped mode. The **EV Protection Reason** sensor explains the current decision.
+**`ev_charging_source`** — reports the live charging source: Solar, Grid, Battery, or Mixed. Useful for monitoring and dashboards.
+
+**`ev_draining_battery`** — becomes `True` when the EV charger is drawing from the battery rather than solar or grid. Useful for automations that want to act when the car is using stored energy.
 
 ---
 
@@ -98,7 +100,9 @@ At any moment it knows the current rate period (Day, Night, Nightboost, etc.) an
 - **Immersion cost** — cost attributed to immersion heater today
 - **Rest-of-house cost** — everything else
 
-These reset at midnight and also accumulate into weekly and monthly totals. Yesterday's figures are preserved for comparison.
+These reset at midnight and also accumulate into weekly, monthly, and yearly totals. Yesterday's figures are preserved for comparison.
+
+Where GivTCP publishes its own daily energy counters (`pv_energy_today_kwh`, `import_energy_today_kwh`, etc.), the integration uses those in preference to its own 30-second integration. GivTCP reads directly from the inverter's metering, which is more accurate than accumulating power readings. The integration falls back to its own accumulation silently if these entities are absent.
 
 ---
 
