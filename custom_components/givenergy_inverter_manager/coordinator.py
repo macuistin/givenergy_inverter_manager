@@ -147,7 +147,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._update_cycle: int = 0
         self._floor_top_up_applied: bool = False
         self.export_rate: float = 0.0
-        self._ev_charger: EVCharger | None = None
+        self._ev_charger: EVCharger | None = None  # primary (first Zappi or first found)
+        self._ev_chargers: list[EVCharger] = []    # all discovered chargers
 
         # Manual overrides set by switch/number entities
         self.override_charge_target: int | None = None
@@ -608,46 +609,57 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if needs_discovery and (self._update_cycle % _REDISCOVER_EVERY_N_CYCLES == 1):
             found = discover_ev_chargers(self._get_all_states())
             if found:
+                self._ev_chargers = found
                 self._ev_charger = found[0]
-                _LOG.info("Discovered EV charger: %s", self._ev_charger.display_name)
+                names = ", ".join(c.display_name for c in found)
+                _LOG.info("Discovered %d EV charger(s): %s", len(found), names)
             else:
                 _LOG.debug("No EV charger found (cycle %d)", self._update_cycle)
 
     def _apply_ev_action(self, target_mode: str | None) -> None:
-        """Apply an EV charger mode change via HA service call."""
-        if (
-            target_mode is None
-            or self._ev_charger is None
-            or not self._ev_charger.charge_mode_entity
-        ):
+        """Apply an EV charger mode change to all discovered chargers."""
+        if target_mode is None:
             return
-        current = (self._ev_charger.charge_mode or "").strip()
-        if current == target_mode:
+        chargers_to_act = [
+            c for c in (self._ev_chargers or ([self._ev_charger] if self._ev_charger else []))
+            if c.charge_mode_entity and (c.charge_mode or "").strip() != target_mode
+        ]
+        if not chargers_to_act:
             return
 
         cfg = self._effective_cfg()
-        action = (
-            f"Would set {self._ev_charger.display_name} → {target_mode} (currently {current!r})"
-        )
-        if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
-            _LOG.info("DRY RUN: %s", action)
-            if self.data is not None:
-                self.data.dry_run_last_skipped = action
-            return
-
-        _LOG.info(
-            "EV charger action: %s → %s",
-            self._ev_charger.display_name,
-            target_mode,
-        )
-        self._create_task(
-            self._call_service(
-                "select",
-                "select_option",
-                {"entity_id": self._ev_charger.charge_mode_entity, "option": target_mode},
-                blocking=False,
+        for charger in chargers_to_act:
+            action = (
+                f"Would set {charger.display_name} → {target_mode} "
+                f"(currently {charger.charge_mode!r})"
             )
-        )
+            if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
+                _LOG.info("DRY RUN: %s", action)
+                if self.data is not None:
+                    self.data.dry_run_last_skipped = action
+                continue
+
+            _LOG.info("EV charger action: %s → %s", charger.display_name, target_mode)
+            self._create_task(
+                self._call_service(
+                    "select",
+                    "select_option",
+                    {"entity_id": charger.charge_mode_entity, "option": target_mode},
+                    blocking=False,
+                )
+            )
+
+    def _update_ev_charger_states(self, raw: RawSensorValues) -> None:
+        """Update all discovered EV charger states and sum their power."""
+        if self._ev_chargers:
+            for charger in self._ev_chargers:
+                update_charger_state(self._get_state, charger, raw.battery_power_w)
+            raw.ev_power_w = sum(c.power_w for c in self._ev_chargers)
+            raw.ev_plugged_in = any(c.is_plugged_in for c in self._ev_chargers)
+        elif self._ev_charger is not None:
+            update_charger_state(self._get_state, self._ev_charger, raw.battery_power_w)
+            raw.ev_power_w = self._ev_charger.power_w
+            raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
     def _maybe_release_immersion_run_to_target(
         self, immersion_temp: float | None
@@ -807,10 +819,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw = self._collect_raw(cfg)
 
         # 4. Update EV charger state now we have battery_power_w
-        if self._ev_charger is not None:
-            update_charger_state(self._get_state, self._ev_charger, raw.battery_power_w)
-            raw.ev_power_w = self._ev_charger.power_w
-            raw.ev_plugged_in = self._ev_charger.is_plugged_in
+        self._update_ev_charger_states(raw)
 
         # 5a. Release manual run-to-target override once water reaches target temperature.
         self._maybe_release_immersion_run_to_target(raw.immersion_temp)

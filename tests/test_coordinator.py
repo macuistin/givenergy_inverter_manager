@@ -154,6 +154,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
         self._ev_charger = None
+        self._ev_chargers: list = []
         self.override_charge_target = None
         self.immersion_target_temp: float = 55.0
         self.immersion_min_temp: float = 50.0
