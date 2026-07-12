@@ -173,7 +173,7 @@ actions.
 
 ## Switch Zappi to Eco+ when solar surplus is available for EV charging
 
-Uses `ev_solar_surplus_available` (ON when surplus > 1,400W and battery > protection threshold) to automatically switch the Zappi to solar absorption mode. Without this, the Zappi stays in Fast or Stopped mode and charges from the grid even when there's enough solar to cover it.
+Uses `ev_solar_surplus_available` (ON when solar surplus exceeds 1,400W) to automatically switch the Zappi to solar absorption mode. Without this, the Zappi stays in Fast or Stopped mode and charges from the grid even when there's enough solar to cover it.
 
 Requires the myenergi HA integration.
 
