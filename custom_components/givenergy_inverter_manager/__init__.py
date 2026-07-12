@@ -15,6 +15,8 @@ Also handles:
 
 from __future__ import annotations
 
+import os
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -56,6 +58,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Register services (idempotent — safe to call on every entry setup)
     await async_register_services(hass)
+
+    # Create a placeholder dashboard file so YAML-mode lovelace can reference it
+    # immediately without requiring the user to run Refresh Dashboard first.
+    dashboard_path = os.path.join(hass.config.config_dir, "givenergy_dashboard.yaml")
+    if not os.path.exists(dashboard_path):
+        def _write_placeholder() -> None:
+            with open(dashboard_path, "w", encoding="utf-8") as fh:
+                fh.write("views: []\n")
+        await hass.async_add_executor_job(_write_placeholder)
+        _LOG.info("Created dashboard placeholder at %s", dashboard_path)
 
     # Emit startup entity config to the verbose logger (opt-in, debug only)
     cfg = dict(entry.data)
