@@ -336,6 +336,20 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: d.battery_stats.days_since_full_charge,
     ),
+    GivEnergyManagerSensorDescription(
+        key="battery_state",
+        translation_key="battery_state",
+        name="Battery State",
+        icon="mdi:battery-charging-80",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: "Full"
+        if d.battery_soc >= 99
+        else (
+            "Charging"
+            if d.battery_power_w > 50
+            else ("Discharging" if d.battery_power_w < -50 else "Idle")
+        ),
+    ),
     # --- Overnight charge decision ---
     GivEnergyManagerSensorDescription(
         key="overnight_charge_target",
@@ -387,6 +401,16 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="night_survival_reason",
         name="Battery Night Survival Status",
         value_fn=lambda d: d.survival_reason,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="night_survival_confidence",
+        translation_key="night_survival_confidence",
+        name="Night Survival Confidence",
+        icon="mdi:moon-waning-crescent",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: "Critical"
+        if not d.will_survive_night
+        else ("Warning" if d.estimated_soc_at_sunrise < 15 else "Safe"),
     ),
     # --- Clipping ---
     GivEnergyManagerSensorDescription(
