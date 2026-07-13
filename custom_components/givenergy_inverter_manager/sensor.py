@@ -48,7 +48,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, INTEGRATION_VERSION
+from .const import BATTERY_RATED_CYCLES, DOMAIN, INTEGRATION_VERSION
 from .coordinator import GivEnergyCoordinator
 from .core.engine import CoordinatorData
 from .core.reporting import (
@@ -278,6 +278,48 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.today.house_cost, 4),
+    ),
+    # --- ROI metrics ---
+    GivEnergyManagerSensorDescription(
+        key="self_consumed_kwh_today",
+        is_daily_total=True,
+        translation_key="self_consumed_kwh_today",
+        name="Self-consumed Solar Today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        icon="mdi:solar-panel",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(max(0.0, d.today.solar_kwh - d.today.export_kwh), 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="net_position_today",
+        is_daily_total=True,
+        translation_key="net_position_today",
+        name="Net Financial Position Today",
+        native_unit_of_measurement=_CURRENCY_UNIT,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        icon="mdi:scale-balance",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.today.net_position, 4),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="battery_life_consumed_today",
+        is_daily_total=True,
+        translation_key="battery_life_consumed_today",
+        name="Battery Life Consumed Today",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.TOTAL,
+        icon="mdi:battery-minus",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(
+            d.today.battery_throughput_kwh / (d.battery_capacity_kwh * BATTERY_RATED_CYCLES) * 100,
+            6,
+        )
+        if d.battery_capacity_kwh > 0
+        else 0.0,
     ),
     # --- Self-sufficiency ---
     GivEnergyManagerSensorDescription(
