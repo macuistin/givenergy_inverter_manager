@@ -203,6 +203,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     zappi_cost_today = e("zappi_cost_today")
     immersion_cost_today = e("immersion_cost_today")
     house_cost_today = e("house_cost_today")
+    house_energy_today = e("house_energy_today")
     self_sufficiency = e("self_sufficiency")
     self_consumption = e("self_consumption")
     accrued_bill = e("accrued_bill")
@@ -261,7 +262,6 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     dry_run_skipped = e("dry_run_last_skipped")
 
     # ── switch / number entity IDs ────────────────────────────────────────────
-    btn_refresh_dashboard = e("refresh_dashboard")
     sw_enable_charge_target = e("charge_target_override_enabled")
     sw_auto_immersion = e("auto_immersion")
     sw_immersion_mgd = e("immersion_managed")
@@ -349,6 +349,24 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                 disable_dots: false
                 clickable_entities: true
                 no_labels: false
+
+              - show_name: true
+                show_icon: true
+                show_state: true
+                type: glance
+                title: Energy Today
+                columns: 5
+                entities:
+                  - entity: {solar_today}
+                    name: Generated
+                  - entity: {import_today}
+                    name: Imported
+                  - entity: {export_today}
+                    name: Exported
+                  - entity: {house_energy_today}
+                    name: Used
+                  - entity: {immersion_today}
+                    name: Immersion
 
               {_immersion_section}
 
@@ -614,14 +632,6 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     name: Solar Surplus Available
                 title: EV Charger
 
-              - type: button
-                entity: {btn_refresh_dashboard}
-                name: Refresh Dashboard
-                icon: mdi:view-dashboard-edit
-                tap_action:
-                  action: perform-action
-                  perform_action: {DOMAIN}.get_dashboard_yaml
-                  data: {{}}
         """)
 
 
