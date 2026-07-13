@@ -162,6 +162,7 @@ class CoordinatorData:
         "ev_solar_surplus_available",
         "ev_session_kwh",
         "forecast_kwh_tomorrow",
+        "trailing_12m_export_kwh",
         "grid_power_w",
         "house_load_w",
         "immersion_load_w",
@@ -196,6 +197,7 @@ class CoordinatorData:
         self.battery_capacity_kwh: float = 0.0
         self.immersion_temp: float | None = None
         self.forecast_kwh_tomorrow: float | None = None
+        self.trailing_12m_export_kwh: float = 0.0
         self.immersion_load_w: float = 0.0
         self.rest_of_house_w: float = 0.0
         self.current_rate_name: str = ""

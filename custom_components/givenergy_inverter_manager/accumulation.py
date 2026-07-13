@@ -92,6 +92,10 @@ class AccumulationState:
     yesterday_forecast_accuracy_pct: float = 0.0
     forecast_accuracy_history: list = field(default_factory=list)  # last 7 days
 
+    # Rolling 12-month export snapshots — one entry per completed billing month,
+    # oldest first, capped at 12. Populated at each monthly reset before clearing.
+    monthly_export_snapshots: list = field(default_factory=list)
+
     # Reset timestamps (ISO strings for JSON serialisation)
     week_start_iso: str = ""
     month_start_iso: str = ""
@@ -162,6 +166,16 @@ class AccumulationStore:
         """Rolling 7-day average forecast accuracy (0 if no history)."""
         h = self.state.forecast_accuracy_history
         return round(sum(h) / len(h), 1) if h else 0.0
+
+    @property
+    def trailing_12m_export_kwh(self) -> float:
+        """Sum of the last 12 completed billing months' export kWh."""
+        return round(sum(self.state.monthly_export_snapshots), 3)
+
+    @property
+    def monthly_export_snapshots(self) -> list[float]:
+        """Export kWh for each of the last 12 completed billing months, oldest first."""
+        return list(self.state.monthly_export_snapshots)
 
     # ── HA Storage ────────────────────────────────────────────────────────────
 
@@ -236,9 +250,20 @@ class AccumulationStore:
 
         # 5. Monthly reset on bill start day
         if today_date.day == self._bill_start_day:
+            # Snapshot completed month's export before clearing
+            snapshots = self.state.monthly_export_snapshots[-11:] + [
+                round(self.state.month.export_kwh, 3)
+            ]
+            self.state.monthly_export_snapshots = snapshots
             self.state.month = EnergyAccumulator()
             self.state.month_start_iso = now.isoformat()
-            _LOG.debug("Monthly accumulator reset (bill day %d)", self._bill_start_day)
+            _LOG.debug(
+                "Monthly accumulator reset (bill day %d) — export this month: %.2f kWh, "
+                "trailing 12m: %.2f kWh",
+                self._bill_start_day,
+                snapshots[-1],
+                sum(snapshots),
+            )
 
         # 6. Yearly reset on Jan 1
         if today_date.month == 1 and today_date.day == 1:
@@ -300,6 +325,7 @@ def _serialize(state: AccumulationState) -> dict:
         "week_start_iso": state.week_start_iso,
         "month_start_iso": state.month_start_iso,
         "last_reset_iso": state.last_reset_iso,
+        "monthly_export_snapshots": list(state.monthly_export_snapshots),
     }
 
 
@@ -317,4 +343,7 @@ def _deserialize(data: dict) -> AccumulationState:
     state.week_start_iso = data.get("week_start_iso", "")
     state.month_start_iso = data.get("month_start_iso", "")
     state.last_reset_iso = data.get("last_reset_iso", "")
+    state.monthly_export_snapshots = [
+        float(x) for x in data.get("monthly_export_snapshots", [])
+    ]
     return state

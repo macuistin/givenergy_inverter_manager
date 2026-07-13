@@ -584,6 +584,88 @@ class TestOnMidnight:
         store.on_midnight(jan1)
         assert store.state.year.solar_kwh == pytest.approx(0.0)
 
+    def test_monthly_reset_snapshots_export_kwh(self):
+        # Arrange — build store without HA Storage
+        from datetime import datetime, timezone
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import (
+            AccumulationState,
+            AccumulationStore,
+        )
+
+        store = AccumulationStore.__new__(AccumulationStore)
+        store.state = AccumulationState()
+        store._bill_start_day = 1
+        store._store = MagicMock()
+        store.state.month.export_kwh = 85.5
+        bill_day = datetime(2026, 7, 1, 0, 0, tzinfo=timezone.utc)
+
+        # Act
+        store.on_midnight(bill_day)
+
+        # Assert — snapshot captured, month cleared
+        assert store.state.monthly_export_snapshots == [pytest.approx(85.5)]
+        assert store.state.month.export_kwh == pytest.approx(0.0)
+
+    def test_monthly_snapshots_capped_at_12(self):
+        # Arrange — seed 12 existing snapshots
+        from datetime import datetime, timezone
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import (
+            AccumulationState,
+            AccumulationStore,
+        )
+
+        store = AccumulationStore.__new__(AccumulationStore)
+        store.state = AccumulationState()
+        store._bill_start_day = 1
+        store._store = MagicMock()
+        store.state.monthly_export_snapshots = [float(i) for i in range(12)]  # 0..11
+        store.state.month.export_kwh = 99.0
+        bill_day = datetime(2026, 7, 1, 0, 0, tzinfo=timezone.utc)
+
+        # Act
+        store.on_midnight(bill_day)
+
+        # Assert — oldest entry (0) dropped, new entry appended
+        assert len(store.state.monthly_export_snapshots) == 12
+        assert store.state.monthly_export_snapshots[-1] == pytest.approx(99.0)
+        assert store.state.monthly_export_snapshots[0] == pytest.approx(1.0)
+
+    def test_trailing_12m_export_kwh_property(self):
+        # Arrange
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        store = AccumulationStore.__new__(AccumulationStore)
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationState
+
+        store.state = AccumulationState()
+        store._bill_start_day = 1
+        store._store = MagicMock()
+        store.state.monthly_export_snapshots = [10.0, 20.5, 30.0]
+
+        # Act / Assert
+        assert store.trailing_12m_export_kwh == pytest.approx(60.5)
+
+    def test_trailing_12m_zero_when_no_snapshots(self):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import (
+            AccumulationState,
+            AccumulationStore,
+        )
+
+        store = AccumulationStore.__new__(AccumulationStore)
+        store.state = AccumulationState()
+        store._bill_start_day = 1
+        store._store = MagicMock()
+
+        assert store.trailing_12m_export_kwh == pytest.approx(0.0)
+
 
 # ── restore_battery_stats with valid ISO date ─────────────────────────────────
 

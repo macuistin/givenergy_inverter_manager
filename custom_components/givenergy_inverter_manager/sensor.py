@@ -901,6 +901,17 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: round(d.year.export_earnings, 4),
     ),
     GivEnergyManagerSensorDescription(
+        key="export_trailing_12m",
+        translation_key="export_trailing_12m",
+        name="Export — trailing 12 months",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        icon="mdi:transmission-tower-export",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.trailing_12m_export_kwh, 3),
+    ),
+    GivEnergyManagerSensorDescription(
         key="solar_this_year",
         translation_key="solar_this_year",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,

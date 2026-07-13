@@ -140,6 +140,14 @@ class FakeCoordinator(GivEnergyCoordinator):
                 h = self.state.forecast_accuracy_history
                 return round(sum(h) / len(h), 1) if h else 0.0
 
+            @property
+            def trailing_12m_export_kwh(self):
+                return round(sum(self.state.monthly_export_snapshots), 3)
+
+            @property
+            def monthly_export_snapshots(self):
+                return list(self.state.monthly_export_snapshots)
+
             def on_midnight(self, now):
                 self.state.yesterday = self.state.today
                 self.state.today = EnergyAccumulator()
