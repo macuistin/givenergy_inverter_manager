@@ -96,6 +96,10 @@ class AccumulationState:
     # oldest first, capped at 12. Populated at each monthly reset before clearing.
     monthly_export_snapshots: list = field(default_factory=list)
 
+    # Rolling 12-month snapshots — one dict per completed billing month (oldest first).
+    # Each entry is the full _acc_to_dict() output of state.month at reset.
+    monthly_snapshots: list = field(default_factory=list)
+
     # Reset timestamps (ISO strings for JSON serialisation)
     week_start_iso: str = ""
     month_start_iso: str = ""
@@ -177,6 +181,35 @@ class AccumulationStore:
         """Export kWh for each of the last 12 completed billing months, oldest first."""
         return list(self.state.monthly_export_snapshots)
 
+    @property
+    def monthly_snapshots(self) -> list[dict]:
+        """Snapshots of completed billing months, oldest first (max 12)."""
+        return list(self.state.monthly_snapshots)
+
+    def _trailing_12m(self, field: str) -> float:
+        """Sum a numeric field across the last 12 monthly snapshots."""
+        return round(sum(s.get(field, 0.0) for s in self.state.monthly_snapshots), 3)
+
+    @property
+    def trailing_12m_solar_kwh(self) -> float:
+        return self._trailing_12m("solar_kwh")
+
+    @property
+    def trailing_12m_import_kwh(self) -> float:
+        return self._trailing_12m("import_kwh")
+
+    @property
+    def trailing_12m_import_cost(self) -> float:
+        total = sum(
+            sum(s.get("import_cost_by_period", {}).values())
+            for s in self.state.monthly_snapshots
+        )
+        return round(total, 4)
+
+    @property
+    def trailing_12m_export_earnings(self) -> float:
+        return self._trailing_12m("export_earnings")
+
     # ── HA Storage ────────────────────────────────────────────────────────────
 
     async def async_load(self) -> None:
@@ -255,14 +288,15 @@ class AccumulationStore:
                 round(self.state.month.export_kwh, 3)
             ]
             self.state.monthly_export_snapshots = snapshots
+            # Snapshot full month dict for trailing 12m calculations
+            full_snapshots = self.state.monthly_snapshots[-11:] + [_acc_to_dict(self.state.month)]
+            self.state.monthly_snapshots = full_snapshots
             self.state.month = EnergyAccumulator()
             self.state.month_start_iso = now.isoformat()
             _LOG.debug(
-                "Monthly accumulator reset (bill day %d) — export this month: %.2f kWh, "
-                "trailing 12m: %.2f kWh",
+                "Monthly accumulator reset (bill day %d) — snapshot saved, %d total",
                 self._bill_start_day,
-                snapshots[-1],
-                sum(snapshots),
+                len(full_snapshots),
             )
 
         # 6. Yearly reset on Jan 1
@@ -326,6 +360,7 @@ def _serialize(state: AccumulationState) -> dict:
         "month_start_iso": state.month_start_iso,
         "last_reset_iso": state.last_reset_iso,
         "monthly_export_snapshots": list(state.monthly_export_snapshots),
+        "monthly_snapshots": list(state.monthly_snapshots),
     }
 
 
@@ -345,5 +380,9 @@ def _deserialize(data: dict) -> AccumulationState:
     state.last_reset_iso = data.get("last_reset_iso", "")
     state.monthly_export_snapshots = [
         float(x) for x in data.get("monthly_export_snapshots", [])
+    ]
+    state.monthly_snapshots = [
+        dict(entry) for entry in data.get("monthly_snapshots", [])
+        if isinstance(entry, dict)
     ]
     return state

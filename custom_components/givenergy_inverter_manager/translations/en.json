@@ -552,6 +552,21 @@
       "solar_this_year": {
         "name": "Solar generated this year"
       },
+      "solar_trailing_12m": {
+        "name": "Solar — trailing 12 months"
+      },
+      "import_trailing_12m": {
+        "name": "Import — trailing 12 months"
+      },
+      "export_trailing_12m": {
+        "name": "Export — trailing 12 months"
+      },
+      "import_cost_trailing_12m": {
+        "name": "Import Cost — trailing 12 months"
+      },
+      "export_earnings_trailing_12m": {
+        "name": "Export Earnings — trailing 12 months"
+      },
       "import_kwh_cheap_this_month": {
         "name": "Import at cheap rate this month"
       },

@@ -683,3 +683,70 @@ class TestRestoreBatteryStatsISO:
         stats = BatteryStats()
         store.restore_battery_stats(stats)
         assert stats.last_full_charge_date == date(2026, 7, 1)
+
+
+class TestMonthlySnapshots:
+    """Complete monthly billing snapshots stored at each month reset."""
+
+    def _make_store(self, bill_start_day=1):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import (
+            AccumulationState,
+            AccumulationStore,
+        )
+
+        store = AccumulationStore.__new__(AccumulationStore)
+        store.state = AccumulationState()
+        store._bill_start_day = bill_start_day
+        store._store = MagicMock()
+        return store
+
+    def test_snapshot_captured_at_monthly_reset(self):
+        from datetime import datetime, timezone
+
+
+        store = self._make_store()
+        store.state.month.solar_kwh = 45.0
+        store.state.month.export_kwh = 12.5
+        bill_day = datetime(2026, 7, 1, 0, 0, tzinfo=timezone.utc)
+        store.on_midnight(bill_day)
+        assert len(store.state.monthly_snapshots) == 1
+        assert store.state.monthly_snapshots[0]["solar_kwh"] == pytest.approx(45.0)
+        assert store.state.monthly_snapshots[0]["export_kwh"] == pytest.approx(12.5)
+        assert store.state.month.solar_kwh == pytest.approx(0.0)
+
+    def test_snapshots_capped_at_12(self):
+        from datetime import datetime, timezone
+
+        store = self._make_store()
+        store.state.monthly_snapshots = [{"solar_kwh": float(i)} for i in range(12)]
+        store.state.month.solar_kwh = 99.9
+        bill_day = datetime(2026, 7, 1, 0, 0, tzinfo=timezone.utc)
+        store.on_midnight(bill_day)
+        assert len(store.state.monthly_snapshots) == 12
+        assert store.state.monthly_snapshots[-1]["solar_kwh"] == pytest.approx(99.9)
+        assert store.state.monthly_snapshots[0]["solar_kwh"] == pytest.approx(1.0)
+
+    def test_trailing_12m_solar(self):
+        store = self._make_store()
+        store.state.monthly_snapshots = [{"solar_kwh": 10.0, "export_kwh": 2.0} for _ in range(6)]
+        assert store.trailing_12m_solar_kwh == pytest.approx(60.0)
+
+    def test_trailing_12m_zero_when_no_snapshots(self):
+        store = self._make_store()
+        assert store.trailing_12m_solar_kwh == pytest.approx(0.0)
+        assert store.trailing_12m_export_kwh == pytest.approx(0.0)
+
+    def test_serialization_roundtrip(self):
+        from custom_components.givenergy_inverter_manager.accumulation import (
+            AccumulationState,
+            _deserialize,
+            _serialize,
+        )
+
+        state = AccumulationState()
+        state.monthly_snapshots = [{"solar_kwh": 30.5, "export_kwh": 5.0, "import_kwh": 20.0}]
+        restored = _deserialize(_serialize(state))
+        assert len(restored.monthly_snapshots) == 1
+        assert restored.monthly_snapshots[0]["solar_kwh"] == pytest.approx(30.5)

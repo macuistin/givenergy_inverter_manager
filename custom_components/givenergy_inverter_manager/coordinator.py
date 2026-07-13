@@ -1052,6 +1052,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         data.register_write_count = getattr(self, "_register_write_count", 0)
         data.trailing_12m_export_kwh = self._acc.trailing_12m_export_kwh
+        data.trailing_12m_solar_kwh = self._acc.trailing_12m_solar_kwh
+        data.trailing_12m_import_kwh = self._acc.trailing_12m_import_kwh
+        data.trailing_12m_import_cost = self._acc.trailing_12m_import_cost
+        data.trailing_12m_export_earnings = self._acc.trailing_12m_export_earnings
 
         # 5b. Annotate divert reason when manual run-to-target is still active.
         if self._immersion_manual_run_to_target and data.should_divert_immersion:
