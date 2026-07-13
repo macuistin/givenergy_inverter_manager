@@ -576,6 +576,15 @@
       "week_summary": {
         "name": "This week's energy summary"
       },
+      "battery_power_direction": {
+        "name": "Battery Power Direction"
+      },
+      "integration_version": {
+        "name": "Integration Version"
+      },
+      "days_in_period": {
+        "name": "Days Elapsed in Bill Period"
+      },
       "battery_power": {
         "name": "Battery Power"
       },
