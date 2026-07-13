@@ -98,7 +98,10 @@
       "cheap_rate_floor_status": {"default": "mdi:floor-plan"},
       "inverter_temperature": {"default": "mdi:thermometer"},
       "inverter_temperature_status": {"default": "mdi:thermometer-alert"},
-      "inverter_derating_today_minutes": {"default": "mdi:thermometer-minus"}
+      "inverter_derating_today_minutes": {"default": "mdi:thermometer-minus"},
+      "battery_power_direction": {"default": "mdi:battery-charging"},
+      "integration_version": {"default": "mdi:information-outline"},
+      "days_in_period": {"default": "mdi:calendar-start"}
     },
     "button": {
       "refresh_dashboard": {"default": "mdi:view-dashboard-edit"}
