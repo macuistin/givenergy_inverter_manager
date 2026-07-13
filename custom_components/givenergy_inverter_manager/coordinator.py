@@ -37,6 +37,7 @@ current charge decision, and calls number.set_value on the GivTCP entity.
 from __future__ import annotations
 
 import asyncio
+import time
 from datetime import datetime, timedelta, timezone
 from datetime import time as dtime
 
@@ -84,6 +85,7 @@ from .const import (
     DEFAULT_INVERTER_MAX_OUTPUT,
     DOMAIN,
     GIVTCP_MAX_WRITE_RETRIES,
+    GIVTCP_MIN_WRITE_INTERVAL_S,
     GIVTCP_WRITE_LIFETIME_WARN,
     GIVTCP_WRITE_RETRY_SLEEP_S,
     UPDATE_INTERVAL_SECONDS,
@@ -158,6 +160,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.override_charge_target: int | None = None
         # Register write tracking — GivEnergy inverters have ~1M lifetime writes
         self._register_write_count: int = 0
+        # Per-entity timestamp of last write — enforces GIVTCP_MIN_WRITE_INTERVAL_S
+        self._last_write_time: dict[str, float] = {}
         # EMA-smoothed solar power (α=0.5) — used for surplus divert decisions
         # to prevent chasing transient cloud gaps. Raw value used for accumulation.
         self._smoothed_solar_w: float = 0.0
@@ -301,6 +305,21 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 self._register_write_count,
             )
 
+    def _write_cooldown_active(self, entity_id: str, name: str) -> bool:
+        """Return True if this entity was written within GIVTCP_MIN_WRITE_INTERVAL_S."""
+        last = self._last_write_time.get(entity_id)
+        if last is None:
+            return False
+        elapsed = time.monotonic() - last
+        if elapsed < GIVTCP_MIN_WRITE_INTERVAL_S:
+            _LOG.debug(
+                "%s: write cooldown active — %.0fs remaining before next write is allowed",
+                name,
+                GIVTCP_MIN_WRITE_INTERVAL_S - elapsed,
+            )
+            return True
+        return False
+
     async def _givtcp_set_switch(
         self,
         entity_id: str | None,
@@ -318,7 +337,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             if current_on == state:
                 _LOG.debug("%s: already %s — skipping write", name, "on" if state else "off")
                 return
+        if self._write_cooldown_active(entity_id, name):
+            return
 
+        self._last_write_time[entity_id] = time.monotonic()
         service = "turn_on" if state else "turn_off"
         accepted = False
         for attempt in range(1, GIVTCP_MAX_WRITE_RETRIES + 1):
@@ -370,7 +392,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if current is not None and current.state == value:
             _LOG.debug("%s: already %r — skipping write", name, value)
             return
+        if self._write_cooldown_active(entity_id, name):
+            return
 
+        self._last_write_time[entity_id] = time.monotonic()
         accepted = False
         for attempt in range(1, GIVTCP_MAX_WRITE_RETRIES + 1):
             await self._call_service(
@@ -425,7 +450,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if current_val == value:
             _LOG.debug("%s: already %d — skipping write", name, value)
             return
+        if self._write_cooldown_active(entity_id, name):
+            return
 
+        self._last_write_time[entity_id] = time.monotonic()
         accepted = False
         for attempt in range(1, GIVTCP_MAX_WRITE_RETRIES + 1):
             await self._call_service(
