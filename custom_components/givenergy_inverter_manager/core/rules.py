@@ -449,3 +449,48 @@ def should_protect_battery_from_charger(
         f"EV charger drawing from battery "
         f"(SoC {battery_soc:.0f}% <= {battery_protection_threshold:.0f}%)"
     )
+
+
+# ── Storage heater ────────────────────────────────────────────────────────────
+
+
+def should_run_storage_heater(
+    battery_soc: float,
+    is_cheapest_rate: bool,
+    solar_power_w: float,
+    house_load_w: float,
+    battery_power_w: float,
+    heater_wattage_w: float,
+    heater_min_soc_cheap: int = 80,
+    soc_threshold: int = SURPLUS_DIVERT_SOC_THRESHOLD,
+) -> tuple[bool, str]:
+    """
+    Decide whether to run the storage heater.
+
+    Two activation conditions:
+    1. Cheap rate is active AND battery SoC >= heater_min_soc_cheap
+       (heater charges from cheap grid overnight without draining battery)
+    2. Solar surplus >= heater_wattage_w AND battery SoC >= soc_threshold
+       (heater absorbs excess solar instead of exporting)
+
+    Returns (should_run, reason).
+    """
+    if is_cheapest_rate and battery_soc >= heater_min_soc_cheap:
+        return True, (
+            f"Cheap rate active, battery at {battery_soc:.0f}% "
+            f"(≥{heater_min_soc_cheap}%) — running storage heater"
+        )
+
+    battery_charging_w = max(0, battery_power_w)
+    net_surplus_w = solar_power_w - house_load_w - battery_charging_w
+    if net_surplus_w >= heater_wattage_w and battery_soc >= soc_threshold:
+        return True, (
+            f"Solar surplus {net_surplus_w:.0f}W ≥ {heater_wattage_w:.0f}W, "
+            f"battery {battery_soc:.0f}% — running storage heater from solar"
+        )
+
+    if not is_cheapest_rate:
+        return False, f"Not on cheap rate (battery {battery_soc:.0f}%)"
+    return False, (
+        f"Battery {battery_soc:.0f}% below minimum {heater_min_soc_cheap}% for cheap-rate heating"
+    )

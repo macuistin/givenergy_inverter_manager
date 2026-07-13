@@ -518,3 +518,63 @@ class TestImmersionHysteresis:
         assert "restart" in reason.lower() and "50" in reason, (
             f"With surplus but temp in band, expected restart-threshold reason: {reason!r}"
         )
+
+
+class TestStorageHeater:
+    """should_run_storage_heater in rules.py."""
+
+    def _call(self, **overrides):
+        from custom_components.givenergy_inverter_manager.core.rules import (
+            should_run_storage_heater,
+        )
+
+        defaults = {
+            "battery_soc": 85.0,
+            "is_cheapest_rate": True,
+            "solar_power_w": 0.0,
+            "house_load_w": 500.0,
+            "battery_power_w": 0.0,
+            "heater_wattage_w": 3000.0,
+            "heater_min_soc_cheap": 80,
+        }
+        defaults.update(overrides)
+        return should_run_storage_heater(**defaults)
+
+    def test_runs_during_cheap_rate_with_sufficient_soc(self):
+        should, reason = self._call()
+        assert should is True
+        assert "cheap rate" in reason.lower()
+
+    def test_does_not_run_during_cheap_rate_with_low_soc(self):
+        should, reason = self._call(battery_soc=70.0, heater_min_soc_cheap=80)
+        assert should is False
+        assert "minimum" in reason.lower() or "below" in reason.lower()
+
+    def test_runs_from_solar_surplus_outside_cheap_rate(self):
+        should, reason = self._call(
+            is_cheapest_rate=False,
+            solar_power_w=5000.0,
+            house_load_w=500.0,
+            battery_soc=85.0,
+        )
+        assert should is True
+        assert "solar" in reason.lower()
+
+    def test_does_not_run_outside_cheap_rate_insufficient_surplus(self):
+        should, reason = self._call(
+            is_cheapest_rate=False,
+            solar_power_w=2000.0,
+            house_load_w=500.0,
+            heater_wattage_w=3000.0,
+            battery_soc=85.0,
+        )
+        assert should is False
+
+    def test_does_not_run_outside_cheap_rate_low_battery(self):
+        should, reason = self._call(
+            is_cheapest_rate=False,
+            solar_power_w=5000.0,
+            house_load_w=500.0,
+            battery_soc=60.0,
+        )
+        assert should is False

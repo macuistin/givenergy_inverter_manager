@@ -372,6 +372,23 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Immersion Divert Reason",
         value_fn=lambda d: d.divert_reason,
     ),
+    GivEnergyManagerSensorDescription(
+        key="storage_heater_active",
+        translation_key="storage_heater_active",
+        name="Storage Heater Active",
+        icon="mdi:radiator",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: "yes" if d.should_run_storage_heater else "no",
+    ),
+    GivEnergyManagerSensorDescription(
+        key="storage_heater_reason",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="storage_heater_reason",
+        name="Storage Heater Reason",
+        icon="mdi:radiator",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.storage_heater_reason,
+    ),
     # --- Night survival ---
     GivEnergyManagerSensorDescription(
         key="estimated_soc_at_sunrise",

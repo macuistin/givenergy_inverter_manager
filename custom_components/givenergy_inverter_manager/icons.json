@@ -31,6 +31,8 @@
       "overnight_charge_reason": {"default": "mdi:information-outline"},
       "overnight_charge_cost": {"default": "mdi:currency-eur"},
       "immersion_divert_reason": {"default": "mdi:water-boiler"},
+      "storage_heater_active": {"default": "mdi:radiator"},
+      "storage_heater_reason": {"default": "mdi:radiator"},
       "estimated_soc_at_sunrise": {"default": "mdi:weather-sunny"},
       "night_survival_reason": {"default": "mdi:moon-waning-crescent"},
       "is_clipping": {"default": "mdi:lightning-bolt"},

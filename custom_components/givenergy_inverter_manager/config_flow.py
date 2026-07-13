@@ -61,6 +61,9 @@ from .const import (
     CONF_SKIP_CHARGE_SOC_THRESHOLD,
     CONF_SOLAR_POWER,
     CONF_STANDING_CHARGE,
+    CONF_STORAGE_HEATER_MIN_SOC_CHEAP,
+    CONF_STORAGE_HEATER_SWITCH,
+    CONF_STORAGE_HEATER_WATTAGE_W,
     CONF_SURPLUS_DIVERT_MIN_W,
     CONF_SURPLUS_DIVERT_SOC,
     CONF_TARGET_SOC_ENTITY,
@@ -86,6 +89,8 @@ from .const import (
     DEFAULT_RATE_PERIODS,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
     DEFAULT_STANDING_CHARGE,
+    DEFAULT_STORAGE_HEATER_MIN_SOC_CHEAP,
+    DEFAULT_STORAGE_HEATER_WATTAGE_W,
     DEFAULT_VAT_RATE,
     DEFAULT_VERBOSE_LOGGING,
     DOMAIN,
@@ -544,6 +549,21 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                     CONF_IMMERSION_MIN_TEMP, default=DEFAULT_IMMERSION_MIN_TEMP
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=30, max=60, step=1, unit_of_measurement="°C")
+                ),
+                vol.Optional(CONF_STORAGE_HEATER_SWITCH): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="switch")
+                ),
+                vol.Optional(
+                    CONF_STORAGE_HEATER_WATTAGE_W, default=DEFAULT_STORAGE_HEATER_WATTAGE_W
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=500, max=8000, step=100, unit_of_measurement="W"
+                    )
+                ),
+                vol.Optional(
+                    CONF_STORAGE_HEATER_MIN_SOC_CHEAP, default=DEFAULT_STORAGE_HEATER_MIN_SOC_CHEAP
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=50, max=100, step=5, unit_of_measurement="%")
                 ),
             }
         )

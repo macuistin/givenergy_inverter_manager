@@ -38,6 +38,8 @@ from ..const import (
     CONF_DRY_RUN,
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_SKIP_CHARGE_SOC_THRESHOLD,
+    CONF_STORAGE_HEATER_MIN_SOC_CHEAP,
+    CONF_STORAGE_HEATER_WATTAGE_W,
     CONF_SURPLUS_DIVERT_MIN_W,
     CONF_SURPLUS_DIVERT_SOC,
     CURRENCIES,
@@ -47,6 +49,8 @@ from ..const import (
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
+    DEFAULT_STORAGE_HEATER_MIN_SOC_CHEAP,
+    DEFAULT_STORAGE_HEATER_WATTAGE_W,
     EV_SOLAR_SURPLUS_THRESHOLD_W,
     INVERTER_TEMP_CRITICAL,
     INVERTER_TEMP_DERATING,
@@ -69,6 +73,7 @@ from .rules import (
     calculate_overnight_charge_target,
     decide_ev_charger_action,
     should_divert_to_immersion,
+    should_run_storage_heater,
 )
 from .tariff import EnergyAccumulator, TariffConfig, build_tariff
 
@@ -181,6 +186,8 @@ class CoordinatorData:
         "yesterday_forecast_accuracy_pct",
         "forecast_accuracy_7day_avg_pct",
         "will_survive_night",
+        "should_run_storage_heater",
+        "storage_heater_reason",
     )
 
     def __init__(self) -> None:
@@ -214,6 +221,8 @@ class CoordinatorData:
         self.days_in_period: int = 0
         self.days_remaining: int = 0
         self.will_survive_night: bool = True
+        self.should_run_storage_heater: bool = False
+        self.storage_heater_reason: str = ""
         self.estimated_soc_at_sunrise: float = 0.0
         self.survival_reason: str = ""
         self.ev_charger_brand: str = ""
@@ -782,6 +791,26 @@ def build_coordinator_data(
     )
     data.days_in_period = days_in
     data.days_remaining = days_remaining
+
+    # ── Storage heater ────────────────────────────────────────────────────────
+    heater_wattage = float(
+        cfg.get(CONF_STORAGE_HEATER_WATTAGE_W, DEFAULT_STORAGE_HEATER_WATTAGE_W)
+    )
+    heater_min_soc = int(
+        cfg.get(CONF_STORAGE_HEATER_MIN_SOC_CHEAP, DEFAULT_STORAGE_HEATER_MIN_SOC_CHEAP)
+    )
+    if heater_wattage > 0:
+        is_cheapest = current_period.rate <= tariff.get_cheapest_rate().rate
+        data.should_run_storage_heater, data.storage_heater_reason = should_run_storage_heater(
+            battery_soc=raw.battery_soc,
+            is_cheapest_rate=is_cheapest,
+            solar_power_w=raw.smoothed_solar_power_w,
+            house_load_w=raw.house_load_w,
+            battery_power_w=raw.battery_power_w,
+            heater_wattage_w=heater_wattage,
+            heater_min_soc_cheap=heater_min_soc,
+            soc_threshold=int(cfg.get(CONF_SURPLUS_DIVERT_SOC, SURPLUS_DIVERT_SOC_THRESHOLD)),
+        )
 
     # ── Night survival ────────────────────────────────────────────────────────
     _calculate_night_survival(data, raw, now, min_soc, avg_daily_kwh)

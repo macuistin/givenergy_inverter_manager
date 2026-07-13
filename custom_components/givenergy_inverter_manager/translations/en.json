@@ -396,6 +396,12 @@
       "immersion_divert_reason": {
         "name": "Immersion Divert Reason"
       },
+      "storage_heater_active": {
+        "name": "Storage Heater Active"
+      },
+      "storage_heater_reason": {
+        "name": "Storage Heater Reason"
+      },
       "estimated_soc_at_sunrise": {
         "name": "Estimated SoC at Sunrise"
       },

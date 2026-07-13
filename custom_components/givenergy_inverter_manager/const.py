@@ -73,6 +73,15 @@ CONF_IMMERSION_TARGET_TEMP = "immersion_target_temp_c"
 CONF_IMMERSION_MIN_TEMP = "immersion_min_temp_c"
 CONF_IMMERSION_HYSTERESIS = "immersion_hysteresis_c"
 
+# ── Storage heater ────────────────────────────────────────────────────────────
+# Optional smart plug/switch. Activates during cheap rate (when battery is
+# adequately charged) or when solar surplus >= heater wattage.
+CONF_STORAGE_HEATER_SWITCH = "storage_heater_switch_entity"
+CONF_STORAGE_HEATER_WATTAGE_W = "storage_heater_wattage_w"
+CONF_STORAGE_HEATER_MIN_SOC_CHEAP = "storage_heater_min_soc_cheap_pct"
+DEFAULT_STORAGE_HEATER_WATTAGE_W = 3000  # W
+DEFAULT_STORAGE_HEATER_MIN_SOC_CHEAP = 80  # % — run from grid only when battery is this charged
+
 # ── Battery management ───────────────────────────────────────────────────────
 CONF_BATTERY_MIN_SOC = "battery_min_soc_pct"
 CONF_OVERNIGHT_CHARGE_TARGET = "overnight_charge_target_pct"
