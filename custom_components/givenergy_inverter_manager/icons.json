@@ -131,6 +131,7 @@
   "services": {
     "get_dashboard_yaml": "mdi:view-dashboard-edit",
     "suggest_appliance_run": "mdi:washing-machine",
-    "get_roi_summary": "mdi:chart-line"
+    "get_roi_summary": "mdi:chart-line",
+    "compare_tariff": "mdi:swap-horizontal"
   }
 }
