@@ -363,6 +363,15 @@
       "house_cost_today": {
         "name": "House Cost Today"
       },
+      "self_consumed_kwh_today": {
+        "name": "Self-consumed Solar Today"
+      },
+      "net_position_today": {
+        "name": "Net Financial Position Today"
+      },
+      "battery_life_consumed_today": {
+        "name": "Battery Life Consumed Today"
+      },
       "self_sufficiency": {
         "name": "Self Sufficiency"
       },

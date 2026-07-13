@@ -237,13 +237,16 @@ class TestSensorDefaultEnabled:
         "Pre-boost export recommended",
         "Pre-boost exportable kWh",
         "Pre-boost export net gain",
+        "Self-consumed Solar Today",
+        "Net Financial Position Today",
+        "Battery Life Consumed Today",
     }
 
     def test_exactly_five_sensors_disabled(self):
-        """Exactly 12 sensors should be disabled by default."""
+        """Exactly 15 sensors should be disabled by default."""
         state = _parse_sensor_enabled_state()
         disabled = [n for n, enabled in state.items() if not enabled]
-        assert len(disabled) == 12, f"Expected 12 disabled sensors, got {len(disabled)}: {disabled}"
+        assert len(disabled) == 15, f"Expected 15 disabled sensors, got {len(disabled)}: {disabled}"
 
     def test_disabled_sensors_are_the_expected_ones(self):
         """The disabled sensors must be the HTML reports and forecast accuracy."""
