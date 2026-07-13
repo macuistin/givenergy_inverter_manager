@@ -69,6 +69,7 @@ from .rules import (
     calculate_overnight_charge_target,
     decide_ev_charger_action,
     should_divert_to_immersion,
+    should_divert_to_second_immersion,
 )
 from .tariff import EnergyAccumulator, TariffConfig, build_tariff
 
@@ -103,6 +104,8 @@ class RawSensorValues:
     immersion_min_temp: float = 50.0
     immersion_hysteresis_c: float = 5.0
     forecast_kwh_tomorrow: float | None = None
+    second_immersion_on: bool = False
+    second_immersion_wattage_w: float = 3000.0
     ev_power_w: float = 0.0
     ev_plugged_in: bool = False
     inverter_temp: float | None = None
@@ -181,6 +184,9 @@ class CoordinatorData:
         "yesterday_forecast_accuracy_pct",
         "forecast_accuracy_7day_avg_pct",
         "will_survive_night",
+        "should_divert_second_immersion",
+        "second_immersion_divert_reason",
+        "second_immersion_load_w",
     )
 
     def __init__(self) -> None:
@@ -214,6 +220,9 @@ class CoordinatorData:
         self.days_in_period: int = 0
         self.days_remaining: int = 0
         self.will_survive_night: bool = True
+        self.should_divert_second_immersion: bool = False
+        self.second_immersion_divert_reason: str = ""
+        self.second_immersion_load_w: float = 0.0
         self.estimated_soc_at_sunrise: float = 0.0
         self.survival_reason: str = ""
         self.ev_charger_brand: str = ""
@@ -771,6 +780,24 @@ def build_coordinator_data(
     # ── Immersion divert decision ─────────────────────────────────────────────
     _set_immersion_decision(data, raw, cfg, override_immersion)
     _set_inverter_temperature(data, raw.inverter_temp)
+
+    # ── Second immersion element ──────────────────────────────────────────────
+    if raw.second_immersion_wattage_w > 0:
+        (
+            data.should_divert_second_immersion,
+            data.second_immersion_divert_reason,
+        ) = should_divert_to_second_immersion(
+            solar_power_w=raw.smoothed_solar_power_w,
+            house_load_w=raw.house_load_w,
+            battery_soc=raw.battery_soc,
+            battery_power_w=raw.battery_power_w,
+            second_immersion_wattage_w=raw.second_immersion_wattage_w,
+            immersion_temp=raw.immersion_temp,
+            immersion_target_temp=raw.immersion_target_temp,
+            soc_threshold=int(cfg.get(CONF_SURPLUS_DIVERT_SOC, SURPLUS_DIVERT_SOC_THRESHOLD)),
+        )
+        if data.should_divert_second_immersion:
+            data.second_immersion_load_w = raw.second_immersion_wattage_w
 
     # ── Bill prediction ───────────────────────────────────────────────────────
     days_in = tariff.days_in_current_bill_period(now)

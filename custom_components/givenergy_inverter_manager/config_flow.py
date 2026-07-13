@@ -58,6 +58,8 @@ from .const import (
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
+    CONF_SECOND_IMMERSION_SWITCH,
+    CONF_SECOND_IMMERSION_WATTAGE,
     CONF_SKIP_CHARGE_SOC_THRESHOLD,
     CONF_SOLAR_POWER,
     CONF_STANDING_CHARGE,
@@ -84,6 +86,7 @@ from .const import (
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DEFAULT_PSO_LEVY,
     DEFAULT_RATE_PERIODS,
+    DEFAULT_SECOND_IMMERSION_WATTAGE,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
     DEFAULT_STANDING_CHARGE,
     DEFAULT_VAT_RATE,
@@ -544,6 +547,16 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                     CONF_IMMERSION_MIN_TEMP, default=DEFAULT_IMMERSION_MIN_TEMP
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=30, max=60, step=1, unit_of_measurement="°C")
+                ),
+                vol.Optional(CONF_SECOND_IMMERSION_SWITCH): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="switch")
+                ),
+                vol.Optional(
+                    CONF_SECOND_IMMERSION_WATTAGE, default=DEFAULT_SECOND_IMMERSION_WATTAGE
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=500, max=6000, step=100, unit_of_measurement="W"
+                    )
                 ),
             }
         )

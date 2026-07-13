@@ -72,6 +72,8 @@ from .const import (
     CONF_INVERTER_MAX_OUTPUT,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
+    CONF_SECOND_IMMERSION_SWITCH,
+    CONF_SECOND_IMMERSION_WATTAGE,
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
     DEFAULT_BATTERY_CAPACITY,
@@ -83,6 +85,7 @@ from .const import (
     DEFAULT_IMMERSION_TARGET_TEMP,
     DEFAULT_IMMERSION_WATTAGE,
     DEFAULT_INVERTER_MAX_OUTPUT,
+    DEFAULT_SECOND_IMMERSION_WATTAGE,
     DOMAIN,
     GIVTCP_MAX_WRITE_RETRIES,
     GIVTCP_MIN_WRITE_INTERVAL_S,
@@ -717,6 +720,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw.immersion_target_temp = self.immersion_target_temp
         raw.immersion_min_temp = self.immersion_min_temp
         raw.immersion_hysteresis_c = self.immersion_hysteresis_c
+
+        second_switch_eid = cfg.get(CONF_SECOND_IMMERSION_SWITCH)
+        if second_switch_eid:
+            raw.second_immersion_on = self._read_bool(second_switch_eid)
+            raw.second_immersion_wattage_w = float(
+                cfg.get(CONF_SECOND_IMMERSION_WATTAGE, DEFAULT_SECOND_IMMERSION_WATTAGE)
+            )
 
         temp_eid = cfg.get(CONF_IMMERSION_TEMP_SENSOR)
         if temp_eid:

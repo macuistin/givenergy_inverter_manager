@@ -2,6 +2,8 @@
 
 from datetime import datetime
 
+import pytest  # noqa: F401
+
 from custom_components.givenergy_inverter_manager.core.rules import (
     calculate_overnight_charge_target,
     monthly_solar_fractions,
@@ -518,3 +520,55 @@ class TestImmersionHysteresis:
         assert "restart" in reason.lower() and "50" in reason, (
             f"With surplus but temp in band, expected restart-threshold reason: {reason!r}"
         )
+
+
+class TestSecondImmersionDivert:
+    """should_divert_to_second_immersion in rules.py."""
+
+    from custom_components.givenergy_inverter_manager.core.rules import (
+        should_divert_to_second_immersion,
+    )
+
+    def _call(self, **overrides):
+        from custom_components.givenergy_inverter_manager.core.rules import (
+            should_divert_to_second_immersion,
+        )
+
+        defaults = {
+            "solar_power_w": 4000.0,
+            "house_load_w": 500.0,
+            "battery_soc": 90.0,
+            "battery_power_w": 0.0,
+            "second_immersion_wattage_w": 3000.0,
+            "immersion_temp": 56.0,
+            "immersion_target_temp": 55.0,
+        }
+        defaults.update(overrides)
+        return should_divert_to_second_immersion(**defaults)
+
+    def test_activates_when_conditions_met(self):
+        # Arrange — main at target, surplus > second element, battery OK
+        should, reason = self._call()
+        assert should is True
+
+    def test_does_not_activate_when_main_below_target(self):
+        # Arrange — main element still heating (temp < target)
+        should, reason = self._call(immersion_temp=50.0, immersion_target_temp=55.0)
+        assert should is False
+        assert "Main element still heating" in reason
+
+    def test_does_not_activate_when_temp_is_none(self):
+        should, reason = self._call(immersion_temp=None)
+        assert should is False
+
+    def test_does_not_activate_when_battery_low(self):
+        should, reason = self._call(battery_soc=60.0)
+        assert should is False
+        assert "threshold" in reason
+
+    def test_does_not_activate_when_insufficient_surplus(self):
+        # Arrange — surplus = 4000 - 500 = 3500W but second element needs 3000W... wait that's enough
+        # Let's reduce solar so surplus < 3000W
+        should, reason = self._call(solar_power_w=2000.0, house_load_w=500.0)
+        assert should is False
+        assert "surplus" in reason.lower()

@@ -449,3 +449,46 @@ def should_protect_battery_from_charger(
         f"EV charger drawing from battery "
         f"(SoC {battery_soc:.0f}% <= {battery_protection_threshold:.0f}%)"
     )
+
+
+# ── Second immersion element ──────────────────────────────────────────────────
+
+
+def should_divert_to_second_immersion(
+    solar_power_w: float,
+    house_load_w: float,
+    battery_soc: float,
+    battery_power_w: float,
+    second_immersion_wattage_w: float,
+    immersion_temp: float | None,
+    immersion_target_temp: float,
+    soc_threshold: int = SURPLUS_DIVERT_SOC_THRESHOLD,
+) -> tuple[bool, str]:
+    """
+    Decide whether to turn on the second immersion element.
+
+    The second element only activates when:
+    1. Main element has reached its target temperature (water is hot → main is off)
+    2. Battery SoC is above the threshold
+    3. Net solar surplus >= second element wattage
+
+    Returns (should_divert, reason).
+    """
+    if immersion_temp is None or immersion_temp < immersion_target_temp:
+        return False, "Main element still heating or temp unknown — second not needed"
+
+    if battery_soc < soc_threshold:
+        return False, f"Battery SoC {battery_soc:.0f}% below threshold {soc_threshold}%"
+
+    battery_charging_w = max(0, battery_power_w)
+    net_surplus_w = solar_power_w - house_load_w - battery_charging_w
+    if net_surplus_w < second_immersion_wattage_w:
+        return False, (
+            f"Insufficient surplus ({net_surplus_w:.0f}W < "
+            f"{second_immersion_wattage_w:.0f}W second element)"
+        )
+
+    return True, (
+        f"Main at target {immersion_temp:.1f}°C, {net_surplus_w:.0f}W surplus — "
+        f"diverting to second element"
+    )

@@ -372,6 +372,24 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Immersion Divert Reason",
         value_fn=lambda d: d.divert_reason,
     ),
+    GivEnergyManagerSensorDescription(
+        key="second_immersion_active",
+        translation_key="second_immersion_active",
+        name="Second Immersion Active",
+        icon="mdi:water-boiler",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: "yes" if d.should_divert_second_immersion else "no",
+        available_fn=lambda d: True,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="second_immersion_divert_reason",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="second_immersion_divert_reason",
+        name="Second Immersion Divert Reason",
+        icon="mdi:water-boiler",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.second_immersion_divert_reason,
+    ),
     # --- Night survival ---
     GivEnergyManagerSensorDescription(
         key="estimated_soc_at_sunrise",

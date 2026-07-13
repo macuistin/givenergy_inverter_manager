@@ -72,6 +72,10 @@ CONF_IMMERSION_TEMP_SENSOR = "immersion_temp_sensor_entity"
 CONF_IMMERSION_TARGET_TEMP = "immersion_target_temp_c"
 CONF_IMMERSION_MIN_TEMP = "immersion_min_temp_c"
 CONF_IMMERSION_HYSTERESIS = "immersion_hysteresis_c"
+# Second immersion element — optional; activates when main is at target temp and surplus continues
+CONF_SECOND_IMMERSION_SWITCH = "second_immersion_switch_entity"
+CONF_SECOND_IMMERSION_WATTAGE = "second_immersion_wattage_w"
+DEFAULT_SECOND_IMMERSION_WATTAGE = 3000  # W
 
 # ── Battery management ───────────────────────────────────────────────────────
 CONF_BATTERY_MIN_SOC = "battery_min_soc_pct"

@@ -396,6 +396,12 @@
       "immersion_divert_reason": {
         "name": "Immersion Divert Reason"
       },
+      "second_immersion_active": {
+        "name": "Second Immersion Active"
+      },
+      "second_immersion_divert_reason": {
+        "name": "Second Immersion Divert Reason"
+      },
       "estimated_soc_at_sunrise": {
         "name": "Estimated SoC at Sunrise"
       },
