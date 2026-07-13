@@ -625,6 +625,30 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: round(d.today.battery_throughput_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(
+        key="battery_throughput_budget_pct",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="battery_throughput_budget_pct",
+        name="Battery Throughput Budget Used",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:battery-sync",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.battery_throughput_budget_pct, 1)
+        if d.battery_throughput_budget_pct is not None
+        else None,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="battery_throughput_budget_status",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="battery_throughput_budget_status",
+        name="Battery Throughput Budget Status",
+        icon="mdi:battery-heart-variant",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.battery_throughput_budget_status
+        if d.battery_throughput_budget_pct is not None
+        else None,
+    ),
+    GivEnergyManagerSensorDescription(
         key="missed_solar_today",
         translation_key="missed_solar_today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
