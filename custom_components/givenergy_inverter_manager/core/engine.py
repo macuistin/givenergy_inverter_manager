@@ -224,6 +224,8 @@ class CoordinatorData:
         "pre_boost_export_recommended",
         "ev_km_charged_today",
         "ev_cost_per_km_today",
+        "cheapest_rate",
+        "cheapest_rate_name",
     )
 
     def __init__(self) -> None:
@@ -275,6 +277,8 @@ class CoordinatorData:
         self.pre_boost_export_recommended: bool = False
         self.ev_km_charged_today: float | None = None
         self.ev_cost_per_km_today: float | None = None
+        self.cheapest_rate: float = 0.0
+        self.cheapest_rate_name: str = ""
         self.estimated_soc_at_sunrise: float = 0.0
         self.survival_reason: str = ""
         self.ev_charger_brand: str = ""
@@ -834,6 +838,9 @@ def build_coordinator_data(
     data.current_rate_name = current_period.name
     data.current_rate = current_period.rate
     _set_next_cheap_rate(data, tariff, now)
+    cheapest_period = tariff.get_cheapest_rate()
+    data.cheapest_rate = cheapest_period.rate
+    data.cheapest_rate_name = cheapest_period.name
     # Live grid cost/earning rate in €/hr using the correct tariff rate for each direction.
     grid_kw = raw.grid_power_w / 1000
     if grid_kw > 0:

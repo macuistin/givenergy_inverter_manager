@@ -1473,3 +1473,29 @@ class TestEvKm:
     def test_zero_efficiency_is_ignored(self):
         data = self._calc(zappi_kwh=10.0, zappi_cost=2.0, efficiency=0.0)
         assert data.ev_km_charged_today is None
+class TestCheapestRateSensors:
+    """cheapest_rate and cheapest_rate_name in CoordinatorData."""
+
+    def _run(self):
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, 14, 0, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=5)
+        raw = _raw()
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        return data
+
+    def test_cheapest_rate_is_nightboost(self):
+        # Nightboost 0.0965 < Night 0.1644 — cheapest should be Nightboost
+        data = self._run()
+        assert data.cheapest_rate == pytest.approx(0.0965)
+
+    def test_cheapest_rate_name_is_nightboost(self):
+        data = self._run()
+        assert data.cheapest_rate_name == "Nightboost"
+
+    def test_cheapest_rate_is_float(self):
+        data = self._run()
+        assert isinstance(data.cheapest_rate, float)

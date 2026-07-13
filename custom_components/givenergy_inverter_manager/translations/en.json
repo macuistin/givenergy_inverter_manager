@@ -357,6 +357,12 @@
       "hours_to_cheap_rate": {
         "name": "Hours to Cheap Rate"
       },
+      "cheapest_rate": {
+        "name": "Cheapest Tariff Rate"
+      },
+      "cheapest_rate_period": {
+        "name": "Cheapest Rate Period Name"
+      },
       "solar_today": {
         "name": "Solar Generation Today"
       },
