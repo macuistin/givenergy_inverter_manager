@@ -1832,3 +1832,39 @@ class TestLiveGridCostRate:
         from pathlib import Path
         src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
         assert "live_grid_cost_rate" in src
+
+
+class TestHardwareSettingsInOptions:
+    """Battery capacity and inverter max output can be overridden via options flow."""
+
+    @pytest.mark.asyncio
+    async def test_battery_capacity_from_options_overrides_data(self):
+        # Arrange — entry.data has 10.0 kWh, options has 19.2 kWh
+        from custom_components.givenergy_inverter_manager.const import CONF_BATTERY_CAPACITY
+
+        cfg = _cfg(**{CONF_BATTERY_CAPACITY: 10.0})
+        coord = FakeCoordinator(cfg=cfg)
+        # Simulate options override
+        coord.entry.options = {CONF_BATTERY_CAPACITY: 19.2}
+        coord.set_states(_default_states())
+
+        # Act
+        await coord.run_cycle()
+
+        # Assert — effective config merges options over data → 19.2 kWh
+        effective = coord._effective_cfg()
+        assert effective.get(CONF_BATTERY_CAPACITY) == pytest.approx(19.2)
+
+    def test_effective_cfg_merges_data_and_options(self):
+        # Arrange
+        from custom_components.givenergy_inverter_manager.const import CONF_BATTERY_CAPACITY
+
+        cfg = _cfg(**{CONF_BATTERY_CAPACITY: 10.0})
+        coord = FakeCoordinator(cfg=cfg)
+        coord.entry.options = {CONF_BATTERY_CAPACITY: 19.2}
+
+        # Act
+        effective = coord._effective_cfg()
+
+        # Assert — options override data
+        assert effective[CONF_BATTERY_CAPACITY] == pytest.approx(19.2)
