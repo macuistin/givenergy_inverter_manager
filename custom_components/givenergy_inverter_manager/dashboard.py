@@ -42,6 +42,7 @@ _LOG = get_logger(__name__)
 
 SERVICE_GET_DASHBOARD_YAML = "get_dashboard_yaml"
 SERVICE_SUGGEST_APPLIANCE = "suggest_appliance_run"
+SERVICE_GET_ROI_SUMMARY = "get_roi_summary"
 
 
 def _entity_id(hass: HomeAssistant, entry_id: str, unique_id_suffix: str) -> str:
@@ -621,6 +622,73 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
         """)
 
 
+def _make_roi_summary_handler(hass: HomeAssistant):
+    """Return the get_roi_summary service handler bound to *hass*."""
+
+    async def handle(call: ServiceCall) -> dict:
+        """Return ROI metrics for today/week/month/year and battery health."""
+        entries = hass.config_entries.async_entries(DOMAIN)
+        if not entries or entries[0].runtime_data is None:
+            return {}
+        coordinator = entries[0].runtime_data
+        if coordinator.data is None:
+            return {}
+        d = coordinator.data
+        self_consumed_kwh = max(0.0, d.today.solar_kwh - d.today.export_kwh)
+        avg_import_rate = (
+            d.today.total_import_cost / d.today.import_kwh
+            if d.today.import_kwh > 0
+            else d.current_rate
+        )
+        export_rate = (
+            d.today.export_earnings / d.today.export_kwh if d.today.export_kwh > 0 else 0.0
+        )
+        self_consumption_saving = self_consumed_kwh * max(0.0, avg_import_rate - export_rate)
+        return {
+            "today": {
+                "solar_kwh": round(d.today.solar_kwh, 3),
+                "export_kwh": round(d.today.export_kwh, 3),
+                "import_kwh": round(d.today.import_kwh, 3),
+                "self_consumed_kwh": round(self_consumed_kwh, 3),
+                "self_consumption_saving": round(self_consumption_saving, 4),
+                "import_cost": round(d.today.total_import_cost, 4),
+                "export_earnings": round(d.today.export_earnings, 4),
+                "net_position": round(d.today.net_position, 4),
+                "battery_throughput_kwh": round(d.today.battery_throughput_kwh, 3),
+                "self_sufficiency_pct": round(d.today.self_sufficiency_pct, 1),
+            },
+            "week": {
+                "solar_kwh": round(d.week.solar_kwh, 3),
+                "export_kwh": round(d.week.export_kwh, 3),
+                "import_kwh": round(d.week.import_kwh, 3),
+                "import_cost": round(d.week.total_import_cost, 4),
+                "export_earnings": round(d.week.export_earnings, 4),
+                "net_position": round(d.week.net_position, 4),
+            },
+            "month": {
+                "solar_kwh": round(d.month.solar_kwh, 3),
+                "export_kwh": round(d.month.export_kwh, 3),
+                "import_kwh": round(d.month.import_kwh, 3),
+                "import_cost": round(d.month.total_import_cost, 4),
+                "export_earnings": round(d.month.export_earnings, 4),
+                "net_position": round(d.month.net_position, 4),
+            },
+            "year": {
+                "solar_kwh": round(d.year.solar_kwh, 3),
+                "export_kwh": round(d.year.export_kwh, 3),
+                "import_kwh": round(d.year.import_kwh, 3),
+                "export_earnings": round(d.year.export_earnings, 4),
+            },
+            "battery": {
+                "total_cycles": round(d.battery_stats.total_cycles, 2),
+                "remaining_life_pct": round(d.battery_stats.estimated_remaining_life_pct, 1),
+                "throughput_today_kwh": round(d.today.battery_throughput_kwh, 3),
+            },
+        }
+
+    return handle
+
+
 async def async_register_services(hass: HomeAssistant) -> None:
     """Register the get_dashboard_yaml service."""
 
@@ -745,7 +813,19 @@ async def async_register_services(hass: HomeAssistant) -> None:
     _LOG.debug("Registered service %s.%s", DOMAIN, SERVICE_SUGGEST_APPLIANCE)
 
 
+    from homeassistant.core import SupportsResponse  # noqa: PLC0415
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_GET_ROI_SUMMARY,
+        _make_roi_summary_handler(hass),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    _LOG.debug("Registered service %s.%s", DOMAIN, SERVICE_GET_ROI_SUMMARY)
+
+
 def async_unregister_services(hass: HomeAssistant) -> None:
     """Unregister services when the integration is unloaded."""
     hass.services.async_remove(DOMAIN, SERVICE_GET_DASHBOARD_YAML)
     hass.services.async_remove(DOMAIN, SERVICE_SUGGEST_APPLIANCE)
+    hass.services.async_remove(DOMAIN, SERVICE_GET_ROI_SUMMARY)

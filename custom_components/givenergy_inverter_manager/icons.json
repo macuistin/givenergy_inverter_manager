@@ -124,6 +124,7 @@
   },
   "services": {
     "get_dashboard_yaml": "mdi:view-dashboard-edit",
-    "suggest_appliance_run": "mdi:washing-machine"
+    "suggest_appliance_run": "mdi:washing-machine",
+    "get_roi_summary": "mdi:chart-line"
   }
 }
