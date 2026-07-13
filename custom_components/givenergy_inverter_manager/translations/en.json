@@ -351,6 +351,12 @@
       "export_earnings_today": {
         "name": "Export Earnings Today"
       },
+      "saving_vs_grid_today": {
+        "name": "Saving vs Grid Today"
+      },
+      "net_saving_today": {
+        "name": "Net Saving Today (inc. battery wear)"
+      },
       "zappi_cost_today": {
         "name": "EV Charging Cost Today"
       },
