@@ -1262,3 +1262,62 @@ class TestApplyDailyCounters:
         assert data.today.import_kwh == pytest.approx(99.9)
         total_cost = sum(data.today.import_cost_by_period.values())
         assert total_cost > 0
+
+
+class TestCounterfactualCost:
+    """saving_vs_grid_today and net_saving_today in CoordinatorData."""
+
+    def _run_with_energy(
+        self,
+        house_load_w=2000.0,
+        grid_power_w=500.0,
+        solar_power_w=2500.0,
+        battery_power_w=0.0,
+        duration_minutes=60,
+    ):
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, 14, 0, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=duration_minutes)
+        raw = _raw(
+            house_load_w=house_load_w,
+            grid_power_w=grid_power_w,
+            solar_power_w=solar_power_w,
+            battery_power_w=battery_power_w,
+        )
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        return data
+
+    def test_saving_vs_grid_positive_when_solar_offsets_import(self):
+        # Arrange — solar offsets most of load; import is minimal
+        data = self._run_with_energy(
+            house_load_w=2000.0,
+            solar_power_w=2500.0,
+            grid_power_w=0.0,
+        )
+        # Assert — counterfactual (load × base_rate) > actual cost
+        assert data.saving_vs_grid_today > 0.0
+
+    def test_saving_vs_grid_zero_with_no_solar(self):
+        # Arrange — no solar, all load from grid
+        data = self._run_with_energy(
+            house_load_w=2000.0,
+            solar_power_w=0.0,
+            grid_power_w=2000.0,
+        )
+        # Assert — saving approaches 0 (paying grid rate for all load)
+        # (small positive rounding is acceptable — base rate equals import rate)
+        assert data.saving_vs_grid_today >= -0.05
+
+    def test_net_saving_equals_saving_when_no_cycle_cost(self):
+        # Arrange — battery_cycle_cost_per_kwh defaults to 0.0
+        data = self._run_with_energy()
+        # Assert
+        assert data.net_saving_today == pytest.approx(data.saving_vs_grid_today)
+
+    def test_saving_fields_are_float(self):
+        data = self._run_with_energy()
+        assert isinstance(data.saving_vs_grid_today, float)
+        assert isinstance(data.net_saving_today, float)

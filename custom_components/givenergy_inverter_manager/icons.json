@@ -16,6 +16,8 @@
       "immersion_today": {"default": "mdi:water-boiler"},
       "import_cost_today": {"default": "mdi:cash-minus"},
       "export_earnings_today": {"default": "mdi:cash-plus"},
+      "saving_vs_grid_today": {"default": "mdi:piggy-bank-outline"},
+      "net_saving_today": {"default": "mdi:piggy-bank"},
       "zappi_cost_today": {"default": "mdi:car-electric"},
       "house_cost_today": {"default": "mdi:home"},
       "self_sufficiency": {"default": "mdi:home-battery"},

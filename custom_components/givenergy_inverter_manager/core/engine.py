@@ -189,6 +189,9 @@ class CoordinatorData:
         "yesterday_forecast_accuracy_pct",
         "forecast_accuracy_7day_avg_pct",
         "will_survive_night",
+        "battery_cycle_cost_per_kwh",
+        "saving_vs_grid_today",
+        "net_saving_today",
     )
 
     def __init__(self) -> None:
@@ -223,6 +226,9 @@ class CoordinatorData:
         self.days_in_period: int = 0
         self.days_remaining: int = 0
         self.will_survive_night: bool = True
+        self.battery_cycle_cost_per_kwh: float = 0.0
+        self.saving_vs_grid_today: float = 0.0
+        self.net_saving_today: float = 0.0
         self.estimated_soc_at_sunrise: float = 0.0
         self.survival_reason: str = ""
         self.ev_charger_brand: str = ""
@@ -809,6 +815,13 @@ def build_coordinator_data(
     )
     data.days_in_period = days_in
     data.days_remaining = days_remaining
+
+    # ── Counterfactual cost (what you'd have paid without solar/battery) ─────
+    counterfactual_cost = acc.house_kwh * tariff.base_rate
+    actual_net_cost = acc.total_import_cost - acc.export_earnings
+    data.saving_vs_grid_today = round(counterfactual_cost - actual_net_cost, 4)
+    battery_wear_today = acc.battery_throughput_kwh * data.battery_cycle_cost_per_kwh
+    data.net_saving_today = round(data.saving_vs_grid_today - battery_wear_today, 4)
 
     # ── Night survival ────────────────────────────────────────────────────────
     _calculate_night_survival(data, raw, now, min_soc, avg_daily_kwh)
