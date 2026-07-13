@@ -64,6 +64,7 @@ FORECAST_PROVIDER_SOLCAST = "solcast"
 CONF_FORECAST_CONSERVATISM = "forecast_conservatism"
 DEFAULT_FORECAST_CONSERVATISM = 0.35  # dimensionless 0.0–1.0
 CONF_FORECAST_ENTITY_P10 = "forecast_entity_p10"  # optional Solcast P10 sensor
+CONF_FORECAST_ENTITY_D2 = "forecast_entity_d2"   # optional day-after-tomorrow forecast
 
 # ── Immersion heater ─────────────────────────────────────────────────────────
 CONF_IMMERSION_SWITCH = "immersion_switch_entity"

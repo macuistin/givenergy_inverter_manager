@@ -170,6 +170,32 @@ class ChargeDecision:
     cost_to_charge: float
 
 
+def _apply_overmorrow_correction(
+    target_soc: int,
+    reason: str,
+    forecast_kwh_d2: float | None,
+    battery_capacity_kwh: float,
+    min_soc: int,
+    car_plugged_in: bool,
+) -> tuple[int, str]:
+    """
+    PALM overmorrow correction: if d+2 solar would overflow the battery, reduce
+    tonight's target proportionally. Skipped when EV is connected.
+    """
+    if forecast_kwh_d2 is None or car_plugged_in:
+        return target_soc, reason
+    d2_fill_pct = (forecast_kwh_d2 / battery_capacity_kwh) * 100
+    if d2_fill_pct <= 100:
+        return target_soc, reason
+    overflow_pct = d2_fill_pct - 100
+    reduction = int(overflow_pct / 2)
+    if reduction <= 0:
+        return target_soc, reason
+    target_soc = max(min_soc, target_soc - reduction)
+    reason += f" Overmorrow {forecast_kwh_d2:.1f}kWh → reduced target by {reduction}%."
+    return target_soc, reason
+
+
 def calculate_overnight_charge_target(
     current_soc: float,
     battery_capacity_kwh: float,
@@ -183,6 +209,7 @@ def calculate_overnight_charge_target(
     solar_fractions: dict[int, float] | None = None,
     forecast_kwh_p10: float | None = None,
     forecast_conservatism: float = 0.0,
+    forecast_kwh_d2: float | None = None,
     *,
     dt: datetime,
 ) -> ChargeDecision:
@@ -264,6 +291,10 @@ def calculate_overnight_charge_target(
     reason = (
         f"Forward simulation: {forecast_kwh:.1f}kWh forecast ({forecast_source}). "
         f"Target {target_soc}%."
+    )
+
+    target_soc, reason = _apply_overmorrow_correction(
+        target_soc, reason, forecast_kwh_d2, battery_capacity_kwh, min_soc, car_plugged_in
     )
 
     if car_plugged_in:
