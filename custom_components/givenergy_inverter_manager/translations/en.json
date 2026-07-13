@@ -528,6 +528,9 @@
       "export_earnings_this_year": {
         "name": "Export earnings this year"
       },
+      "export_trailing_12m": {
+        "name": "Export — trailing 12 months"
+      },
       "solar_this_year": {
         "name": "Solar generated this year"
       },
