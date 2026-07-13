@@ -453,6 +453,15 @@
       "peak_import_fraction_today": {
         "name": "Peak rate import fraction"
       },
+      "avg_import_rate_today": {
+        "name": "Average Import Rate Today"
+      },
+      "avg_import_rate_this_week": {
+        "name": "Average Import Rate This Week"
+      },
+      "avg_import_rate_this_month": {
+        "name": "Average Import Rate This Month"
+      },
       "immersion_savings_today": {
         "name": "Immersion solar savings"
       },
