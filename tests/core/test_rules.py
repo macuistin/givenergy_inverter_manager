@@ -736,3 +736,94 @@ class TestPreBoostExportOpportunity:
         # 6.5 kWh × (0.195 - 0.0965) = 6.5 × 0.0985 = 0.6403
         spare, gain, _ = self._calc(current_soc=90.0, target_soc=80, avg_daily_kwh=10.0)
         assert gain == pytest.approx(spare * (0.195 - 0.0965), rel=1e-3)
+class TestForwardSocSimulation:
+    """Forward SoC simulation helpers in rules.py."""
+
+    def test_simulate_min_soc_decreases_with_low_solar(self):
+        from custom_components.givenergy_inverter_manager.core.rules import _simulate_min_soc
+
+        # High load, zero solar → battery drains to 0
+        min_soc = _simulate_min_soc(
+            start_soc_pct=50.0,
+            forecast_kwh=0.0,
+            avg_daily_kwh=20.0,
+            battery_capacity_kwh=10.0,
+        )
+        assert min_soc == pytest.approx(0.0)
+
+    def test_simulate_min_soc_stays_above_zero_with_strong_solar(self):
+        from custom_components.givenergy_inverter_manager.core.rules import _simulate_min_soc
+
+        # Even with strong solar, there's a morning trough before solar kicks in;
+        # but the battery should stay above 0% (solar eventually refills it)
+        min_soc = _simulate_min_soc(
+            start_soc_pct=50.0,
+            forecast_kwh=25.0,
+            avg_daily_kwh=8.0,
+            battery_capacity_kwh=10.0,
+        )
+        assert min_soc >= 20.0  # morning trough before solar kicks in
+
+    def test_find_minimum_charge_target_high_solar(self):
+        from custom_components.givenergy_inverter_manager.core.rules import (
+            _find_minimum_charge_target,
+        )
+
+        # Strong solar → low target (solar will refill the battery)
+        target = _find_minimum_charge_target(
+            forecast_kwh=15.0,
+            avg_daily_kwh=8.0,
+            battery_capacity_kwh=10.0,
+            min_soc=10,
+        )
+        assert target <= 50  # solar-rich day needs less overnight charge
+
+    def test_find_minimum_charge_target_poor_solar(self):
+        from custom_components.givenergy_inverter_manager.core.rules import (
+            _find_minimum_charge_target,
+        )
+
+        # Poor solar → high target
+        target = _find_minimum_charge_target(
+            forecast_kwh=1.0,
+            avg_daily_kwh=12.0,
+            battery_capacity_kwh=10.0,
+            min_soc=10,
+        )
+        assert target >= 80  # poor solar needs high overnight charge
+
+    def test_find_minimum_charge_target_never_below_min_soc(self):
+        from custom_components.givenergy_inverter_manager.core.rules import (
+            _find_minimum_charge_target,
+            _simulate_min_soc,
+        )
+
+        for forecast in [2.0, 5.0, 10.0, 15.0, 20.0]:
+            target = _find_minimum_charge_target(
+                forecast_kwh=forecast,
+                avg_daily_kwh=10.0,
+                battery_capacity_kwh=10.0,
+                min_soc=10,
+            )
+            actual_min = _simulate_min_soc(target, forecast, 10.0, 10.0)
+            assert actual_min >= 10 - 0.5, (
+                f"forecast={forecast}: target={target}%, actual_min={actual_min:.1f}%"
+            )
+
+    def test_charge_target_monotone_with_forecast(self):
+        from custom_components.givenergy_inverter_manager.core.rules import (
+            _find_minimum_charge_target,
+        )
+
+        # More solar → lower or equal target
+        prev = 100
+        for forecast in [2.0, 5.0, 8.0, 12.0, 18.0, 25.0]:
+            target = _find_minimum_charge_target(forecast, 10.0, 10.0, 10)
+            assert target <= prev + 1, f"forecast={forecast}: target={target} > prev={prev}"
+            prev = target
+
+    def test_solar_slot_weights_sum_to_one(self):
+        from custom_components.givenergy_inverter_manager.core.rules import _SOLAR_SLOT_WEIGHTS
+
+        assert abs(sum(_SOLAR_SLOT_WEIGHTS) - 1.0) < 1e-9
+        assert len(_SOLAR_SLOT_WEIGHTS) == 48

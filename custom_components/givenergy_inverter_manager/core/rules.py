@@ -22,21 +22,14 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ..const import (
-    CHARGE_EV_BUFFER_KWH,
     CHARGE_EV_SOC_BONUS,
-    CHARGE_MODERATE_BASE_SOC,
-    CHARGE_MODERATE_BUFFER,
-    CHARGE_MODERATE_FRACTION,
     CHARGE_MORNING_LOAD_FRACTION,
     CHARGE_PEAK_SOLAR_HOURS,
-    CHARGE_POOR_TARGET_SOC,
     CHARGE_SHOULDER_MIN_SOC,
     CHARGE_SHOULDER_MONTHS,
     CHARGE_SKIP_HEADROOM,
     CHARGE_SOLAR_USABLE_FRACTION,
-    CHARGE_STRONG_BASE_SOC,
     CHARGE_STRONG_BUFFER,
-    CHARGE_STRONG_FRACTION,
     CHARGE_WINTER_MONTHS,
     CLIPPING_THRESHOLD_PERCENT,
     EV_CHARGER_MIN_POWER_W,
@@ -91,6 +84,64 @@ def monthly_solar_fractions(latitude_deg: float) -> dict[int, float]:
 
 # ── Overnight charge decision ─────────────────────────────────────────────────
 
+def _make_solar_slot_weights() -> tuple[float, ...]:
+    """Build normalized 48-slot (30-min) solar generation weights.
+
+    Bell curve centred at 13:00 with σ=3.5 hours, active only between 06:30–19:30.
+    Called once at module import; the result is stored in _SOLAR_SLOT_WEIGHTS.
+    """
+    raw = [
+        math.exp(-0.5 * ((slot / 2.0 - 13.0) / 3.5) ** 2)
+        if 6.5 <= slot / 2.0 <= 19.5
+        else 0.0
+        for slot in range(48)
+    ]
+    total = sum(raw)
+    return tuple(w / total for w in raw) if total > 0 else (1 / 48,) * 48
+
+
+# Normalized per-slot solar weights — built once, reused every cycle.
+_SOLAR_SLOT_WEIGHTS: tuple[float, ...] = _make_solar_slot_weights()
+
+
+def _simulate_min_soc(
+    start_soc_pct: float,
+    forecast_kwh: float,
+    avg_daily_kwh: float,
+    battery_capacity_kwh: float,
+) -> float:
+    """Simulate one day starting from start_soc_pct. Return the minimum SoC reached."""
+    slot_load_kwh = avg_daily_kwh / 48
+    soc_pct = start_soc_pct
+    min_reached = start_soc_pct
+    for weight in _SOLAR_SLOT_WEIGHTS:
+        net_pct = (forecast_kwh * weight - slot_load_kwh) / battery_capacity_kwh * 100
+        soc_pct = max(0.0, min(100.0, soc_pct + net_pct))
+        min_reached = min(min_reached, soc_pct)
+    return min_reached
+
+
+def _find_minimum_charge_target(
+    forecast_kwh: float,
+    avg_daily_kwh: float,
+    battery_capacity_kwh: float,
+    min_soc: int,
+) -> int:
+    """
+    Binary search for the lowest overnight target SoC that keeps the battery
+    above min_soc throughout the simulated day.
+
+    More charge → higher min SoC → monotonically safe to binary search.
+    """
+    lo, hi = min_soc, 100
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if _simulate_min_soc(mid, forecast_kwh, avg_daily_kwh, battery_capacity_kwh) >= min_soc:
+            hi = mid
+        else:
+            lo = mid + 1
+    return lo
+
 
 def _blend_forecast_p10(
     forecast_kwh: float,
@@ -138,15 +189,15 @@ def calculate_overnight_charge_target(
     """
     Calculate the optimal overnight charge target SoC.
 
+    Uses a 48-slot (30-min) forward SoC simulation (PALM algorithm) to find the
+    minimum overnight charge that keeps battery SoC above min_soc throughout the day.
+
     Algorithm parameters (CHARGE_* in const.py):
       CHARGE_PEAK_SOLAR_HOURS      — peak hours at full output for seasonal fallback
-      CHARGE_MORNING_LOAD_FRACTION — fraction of daily load assumed before solar starts
-      CHARGE_SOLAR_USABLE_FRACTION — fraction of forecast we can realistically charge from
-      CHARGE_EV_BUFFER_KWH         — extra kWh reserved overnight when EV is connected
+      CHARGE_SOLAR_USABLE_FRACTION — fraction of forecast we can realistically use for skip check
       CHARGE_SKIP_HEADROOM         — how far forecast must exceed fill before skipping
-      CHARGE_STRONG/MODERATE_FRACTION — forecast thresholds for decision tiers
-      CHARGE_STRONG/MODERATE_BASE_SOC — minimum target SoC per tier
-      CHARGE_POOR_TARGET_SOC       — target when forecast is poor
+      CHARGE_STRONG_BUFFER         — SoC buffer added to skip_charge target
+      CHARGE_EV_SOC_BONUS          — extra % added to target when EV is connected
     """
     month = dt.month
 
@@ -186,16 +237,7 @@ def calculate_overnight_charge_target(
     forecast_source += blend_suffix
 
     usable_capacity = battery_capacity_kwh * (1 - min_soc / 100)
-    current_kwh = battery_capacity_kwh * (current_soc / 100)
-    morning_load_kwh = average_daily_consumption_kwh * CHARGE_MORNING_LOAD_FRACTION
     expected_solar_fill = min(forecast_kwh * CHARGE_SOLAR_USABLE_FRACTION, usable_capacity)
-
-    required_morning_kwh = morning_load_kwh
-    if car_plugged_in:
-        required_morning_kwh += CHARGE_EV_BUFFER_KWH
-
-    gap_kwh = max(0, required_morning_kwh - current_kwh)
-    gap_soc = int((gap_kwh / battery_capacity_kwh) * 100)
 
     if current_soc >= skip_charge_threshold and not car_plugged_in:
         if forecast_kwh > expected_solar_fill * CHARGE_SKIP_HEADROOM:
@@ -213,21 +255,16 @@ def calculate_overnight_charge_target(
                 cost_to_charge=0.0,
             )
 
-    if forecast_kwh >= battery_capacity_kwh * CHARGE_STRONG_FRACTION:
-        target_soc = max(min_soc + gap_soc + CHARGE_STRONG_BUFFER, CHARGE_STRONG_BASE_SOC)
-        reason = (
-            f"Strong forecast ({forecast_kwh:.1f}kWh). "
-            f"Charging to {target_soc}% to cover morning load."
-        )
-    elif forecast_kwh >= battery_capacity_kwh * CHARGE_MODERATE_FRACTION:
-        target_soc = max(min_soc + gap_soc + CHARGE_MODERATE_BUFFER, CHARGE_MODERATE_BASE_SOC)
-        reason = f"Moderate forecast ({forecast_kwh:.1f}kWh). Charging to {target_soc}%."
-    else:
-        target_soc = CHARGE_POOR_TARGET_SOC
-        reason = (
-            f"Poor forecast ({forecast_kwh:.1f}kWh from {forecast_source}). "
-            f"Charging to {target_soc}%."
-        )
+    # Forward SoC simulation (PALM algorithm) — replaces the three-tier lookup.
+    # Binary-search for the minimum overnight charge that keeps SoC >= min_soc
+    # throughout the simulated day (48 half-hour slots, bell-curve solar profile).
+    target_soc = _find_minimum_charge_target(
+        forecast_kwh, average_daily_consumption_kwh, battery_capacity_kwh, min_soc
+    )
+    reason = (
+        f"Forward simulation: {forecast_kwh:.1f}kWh forecast ({forecast_source}). "
+        f"Target {target_soc}%."
+    )
 
     if car_plugged_in:
         target_soc = min(100, target_soc + CHARGE_EV_SOC_BONUS)
