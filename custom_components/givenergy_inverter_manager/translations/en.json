@@ -330,6 +330,12 @@
       "live_grid_cost_rate": {
         "name": "Live Grid Cost Rate"
       },
+      "is_on_cheapest_rate": {
+        "name": "On Cheapest Rate"
+      },
+      "is_on_base_rate": {
+        "name": "On Base (Daytime) Rate"
+      },
       "solar_today": {
         "name": "Solar Generation Today"
       },
