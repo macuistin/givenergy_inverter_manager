@@ -1262,3 +1262,31 @@ class TestApplyDailyCounters:
         assert data.today.import_kwh == pytest.approx(99.9)
         total_cost = sum(data.today.import_cost_by_period.values())
         assert total_cost > 0
+
+
+class TestCheapestRateSensors:
+    """cheapest_rate and cheapest_rate_name in CoordinatorData."""
+
+    def _run(self):
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, 14, 0, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=5)
+        raw = _raw()
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        return data
+
+    def test_cheapest_rate_is_nightboost(self):
+        # Nightboost 0.0965 < Night 0.1644 — cheapest should be Nightboost
+        data = self._run()
+        assert data.cheapest_rate == pytest.approx(0.0965)
+
+    def test_cheapest_rate_name_is_nightboost(self):
+        data = self._run()
+        assert data.cheapest_rate_name == "Nightboost"
+
+    def test_cheapest_rate_is_float(self):
+        data = self._run()
+        assert isinstance(data.cheapest_rate, float)

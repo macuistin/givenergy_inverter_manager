@@ -181,6 +181,8 @@ class CoordinatorData:
         "yesterday_forecast_accuracy_pct",
         "forecast_accuracy_7day_avg_pct",
         "will_survive_night",
+        "cheapest_rate",
+        "cheapest_rate_name",
     )
 
     def __init__(self) -> None:
@@ -214,6 +216,8 @@ class CoordinatorData:
         self.days_in_period: int = 0
         self.days_remaining: int = 0
         self.will_survive_night: bool = True
+        self.cheapest_rate: float = 0.0
+        self.cheapest_rate_name: str = ""
         self.estimated_soc_at_sunrise: float = 0.0
         self.survival_reason: str = ""
         self.ev_charger_brand: str = ""
@@ -717,6 +721,9 @@ def build_coordinator_data(
     current_period = tariff.get_current_rate(now)
     data.current_rate_name = current_period.name
     data.current_rate = current_period.rate
+    cheapest_period = tariff.get_cheapest_rate()
+    data.cheapest_rate = cheapest_period.rate
+    data.cheapest_rate_name = cheapest_period.name
     # Live grid cost/earning rate in €/hr using the correct tariff rate for each direction.
     grid_kw = raw.grid_power_w / 1000
     if grid_kw > 0:
