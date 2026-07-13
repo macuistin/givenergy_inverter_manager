@@ -34,6 +34,7 @@ from .const import (
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
     CONF_BILL_START_DAY,
+    CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CHARGE_END_TIME_ENTITY,
     CONF_CHARGE_START_TIME_ENTITY,
     CONF_CHEAP_RATE_FLOOR_SOC,
@@ -72,6 +73,7 @@ from .const import (
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_BILL_START_DAY,
+    DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_CURRENCY,
     DEFAULT_DISCOUNT_RATE,
@@ -690,6 +692,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             tariff = user_input.get("tariff_settings", {})
             thresholds = user_input.get("threshold_settings", {})
             forecast = user_input.get("forecast_settings", {})
+            ev_settings = user_input.get("ev_settings", {})
             # Rate periods come from top-level rate_period_N sections
             self._options[CONF_RATE_PERIODS] = _slots_to_rate_periods(user_input)
             for key in [
@@ -708,6 +711,10 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             self._options[CONF_CURRENCY] = tariff.get(CONF_CURRENCY, DEFAULT_CURRENCY)
             self._options.update(thresholds)
             self._options.update({k: v for k, v in forecast.items() if v})
+            if CONF_CAR_EFFICIENCY_KWH_PER_100KM in ev_settings:
+                self._options[CONF_CAR_EFFICIENCY_KWH_PER_100KM] = float(
+                    ev_settings[CONF_CAR_EFFICIENCY_KWH_PER_100KM]
+                )
             return self.async_create_entry(title="", data=self._options)
 
         current_periods = self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS)
@@ -863,6 +870,26 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_FORECAST_ENTITY, default=self._get(CONF_FORECAST_ENTITY, "")
                     ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+                }
+            ),
+            {"collapsed": True},
+        )
+        schema_dict[vol.Required("ev_settings")] = section(
+            vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_CAR_EFFICIENCY_KWH_PER_100KM,
+                        default=float(
+                            self._get(
+                                CONF_CAR_EFFICIENCY_KWH_PER_100KM,
+                                DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
+                            )
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=5, max=40, step=0.1, unit_of_measurement="kWh/100km"
+                        )
+                    ),
                 }
             ),
             {"collapsed": True},
