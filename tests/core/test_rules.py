@@ -672,3 +672,67 @@ class TestBatteryCycleCostEngine:
 
         cfg = {CONF_BATTERY_COST: 4000.0}
         assert _battery_cycle_cost(cfg, capacity_kwh=0.0) == pytest.approx(0.0)
+
+
+class TestPreBoostExportOpportunity:
+    """calculate_pre_boost_export_opportunity in rules.py."""
+
+    from custom_components.givenergy_inverter_manager.core.rules import (
+        calculate_pre_boost_export_opportunity,
+    )
+
+    def _calc(self, **overrides):
+        from custom_components.givenergy_inverter_manager.core.rules import (
+            calculate_pre_boost_export_opportunity,
+        )
+
+        defaults = {
+            "current_soc": 70.0,
+            "battery_capacity_kwh": 10.0,
+            "target_soc": 80,
+            "avg_daily_kwh": 10.0,
+            "ceg_rate": 0.195,
+            "cheapest_rate": 0.0965,
+        }
+        defaults.update(overrides)
+        return calculate_pre_boost_export_opportunity(**defaults)
+
+    def test_recommends_when_spare_and_positive_gain(self):
+        # Arrange — battery higher than needed; export rate > boost rate
+        spare, gain, recommended = self._calc(current_soc=95.0, target_soc=80)
+        assert recommended is True
+        assert spare > 0.0
+        assert gain > 0.0
+
+    def test_does_not_recommend_when_export_rate_below_boost_rate(self):
+        # Arrange — boost rate > export rate → negative gain
+        spare, gain, recommended = self._calc(ceg_rate=0.05, cheapest_rate=0.10)
+        assert recommended is False
+        assert gain <= 0.0
+
+    def test_does_not_recommend_when_spare_below_minimum(self):
+        # Arrange — current SoC just enough to cover deficit + evening load
+        spare, gain, recommended = self._calc(current_soc=50.0, target_soc=80)
+        assert recommended is False
+        assert spare == pytest.approx(0.0)
+
+    def test_spare_kwh_is_zero_when_soc_too_low(self):
+        # Arrange — battery needs charging just to reach target, no room to export
+        spare, gain, recommended = self._calc(current_soc=20.0, target_soc=80)
+        assert spare == pytest.approx(0.0)
+        assert recommended is False
+
+    def test_spare_kwh_calculation(self):
+        # Arrange — known values for manual check:
+        # current_soc_kwh = 10 × 0.9 = 9.0
+        # target_soc_kwh = 10 × 0.8 = 8.0
+        # overnight_deficit = max(0, 8 - 9) = 0
+        # evening_load = 10 × 0.25 = 2.5
+        # spare = 9.0 - 0 - 2.5 = 6.5
+        spare, _, _ = self._calc(current_soc=90.0, target_soc=80, avg_daily_kwh=10.0)
+        assert spare == pytest.approx(6.5, rel=1e-3)
+
+    def test_net_gain_calculation(self):
+        # 6.5 kWh × (0.195 - 0.0965) = 6.5 × 0.0985 = 0.6403
+        spare, gain, _ = self._calc(current_soc=90.0, target_soc=80, avg_daily_kwh=10.0)
+        assert gain == pytest.approx(spare * (0.195 - 0.0965), rel=1e-3)

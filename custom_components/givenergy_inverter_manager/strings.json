@@ -576,6 +576,15 @@
       "week_summary": {
         "name": "This week's energy summary"
       },
+      "pre_boost_export_recommended": {
+        "name": "Pre-boost export recommended"
+      },
+      "pre_boost_export_kwh": {
+        "name": "Pre-boost exportable kWh"
+      },
+      "pre_boost_export_net_gain": {
+        "name": "Pre-boost export net gain"
+      },
       "battery_power": {
         "name": "Battery Power"
       },

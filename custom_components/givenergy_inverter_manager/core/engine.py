@@ -72,6 +72,7 @@ from .battery import BatteryStats, calculate_cycle_increment, estimate_will_surv
 from .rules import (
     ChargeDecision,
     calculate_overnight_charge_target,
+    calculate_pre_boost_export_opportunity,
     decide_ev_charger_action,
     should_divert_to_immersion,
 )
@@ -192,6 +193,9 @@ class CoordinatorData:
         "battery_cycle_cost_per_kwh",
         "saving_vs_grid_today",
         "net_saving_today",
+        "pre_boost_export_kwh",
+        "pre_boost_export_net_gain",
+        "pre_boost_export_recommended",
     )
 
     def __init__(self) -> None:
@@ -229,6 +233,9 @@ class CoordinatorData:
         self.battery_cycle_cost_per_kwh: float = 0.0
         self.saving_vs_grid_today: float = 0.0
         self.net_saving_today: float = 0.0
+        self.pre_boost_export_kwh: float = 0.0
+        self.pre_boost_export_net_gain: float = 0.0
+        self.pre_boost_export_recommended: bool = False
         self.estimated_soc_at_sunrise: float = 0.0
         self.survival_reason: str = ""
         self.ev_charger_brand: str = ""
@@ -822,6 +829,21 @@ def build_coordinator_data(
     data.saving_vs_grid_today = round(counterfactual_cost - actual_net_cost, 4)
     battery_wear_today = acc.battery_throughput_kwh * data.battery_cycle_cost_per_kwh
     data.net_saving_today = round(data.saving_vs_grid_today - battery_wear_today, 4)
+
+    # ── Pre-boost export opportunity ─────────────────────────────────────────
+    if data.charge_decision is not None:
+        (
+            data.pre_boost_export_kwh,
+            data.pre_boost_export_net_gain,
+            data.pre_boost_export_recommended,
+        ) = calculate_pre_boost_export_opportunity(
+            current_soc=raw.battery_soc,
+            battery_capacity_kwh=raw.battery_capacity_kwh,
+            target_soc=data.charge_decision.target_soc,
+            avg_daily_kwh=avg_daily_kwh,
+            ceg_rate=tariff.export_rate,
+            cheapest_rate=tariff.get_cheapest_rate().rate,
+        )
 
     # ── Night survival ────────────────────────────────────────────────────────
     _calculate_night_survival(data, raw, now, min_soc, avg_daily_kwh)
