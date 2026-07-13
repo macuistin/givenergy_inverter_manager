@@ -170,6 +170,20 @@ class ChargeDecision:
     cost_to_charge: float
 
 
+def _estimate_morning_load(
+    average_daily_consumption_kwh: float,
+    load_profile: list[float] | None,
+) -> float:
+    """Estimate load in the 00:00-08:00 window (slots 0-15) before solar starts.
+
+    Uses per-slot history when available; falls back to CHARGE_MORNING_LOAD_FRACTION
+    × avg_daily when fewer than 2 completed days have been accumulated.
+    """
+    if load_profile is not None and len(load_profile) == 48:
+        return sum(load_profile[0:16])
+    return average_daily_consumption_kwh * CHARGE_MORNING_LOAD_FRACTION
+
+
 def _apply_overmorrow_correction(
     target_soc: int,
     reason: str,
@@ -210,6 +224,7 @@ def calculate_overnight_charge_target(
     forecast_kwh_p10: float | None = None,
     forecast_conservatism: float = 0.0,
     forecast_kwh_d2: float | None = None,
+    load_profile: list[float] | None = None,
     *,
     dt: datetime,
 ) -> ChargeDecision:

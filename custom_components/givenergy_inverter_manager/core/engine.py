@@ -704,6 +704,7 @@ def build_coordinator_data(
     solar_forecast_kwh_today: float = 0.0,
     yesterday_forecast_accuracy_pct: float = 0.0,
     forecast_accuracy_7day_avg_pct: float = 0.0,
+    load_profile: list[float] | None = None,
 ) -> tuple[CoordinatorData, str | None]:
     """
     Core engine: build a complete CoordinatorData snapshot from raw inputs.
@@ -793,6 +794,7 @@ def build_coordinator_data(
         average_daily_consumption_kwh=avg_daily_kwh,
         cheapest_rate=tariff.get_cheapest_rate().rate,
         solar_fractions=solar_fractions,
+        load_profile=load_profile,
         forecast_kwh_p10=raw.forecast_kwh_p10,
         forecast_conservatism=float(
             cfg.get(CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM)
