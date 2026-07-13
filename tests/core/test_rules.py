@@ -827,3 +827,69 @@ class TestForwardSocSimulation:
 
         assert abs(sum(_SOLAR_SLOT_WEIGHTS) - 1.0) < 1e-9
         assert len(_SOLAR_SLOT_WEIGHTS) == 48
+
+class TestOvermorrowCorrection:
+    """Overmorrow correction in calculate_overnight_charge_target."""
+
+    def _base(self, **overrides):
+        defaults = {
+            "current_soc": 50.0,
+            "battery_capacity_kwh": 10.0,
+            "forecast_kwh": 5.0,
+            "inverter_max_kw": 5.0,
+            "car_plugged_in": False,
+            "min_soc": 10,
+            "skip_charge_threshold": 75,
+            "average_daily_consumption_kwh": 10.0,
+            "cheapest_rate": 0.0965,
+            "dt": datetime(2024, 6, 15, 22, 0),
+        }
+        defaults.update(overrides)
+        return defaults
+
+    def test_no_correction_without_d2(self):
+        # Arrange — no day-2 forecast
+        decision_no_d2 = calculate_overnight_charge_target(**self._base())
+        decision_with_none = calculate_overnight_charge_target(
+            **self._base(), forecast_kwh_d2=None
+        )
+        # Assert — both produce identical targets
+        assert decision_no_d2.target_soc == decision_with_none.target_soc
+
+    def test_correction_lowers_target_when_d2_overflows(self):
+        # Arrange — day 2 has 20 kWh solar on a 10 kWh battery → 200% overflow
+        decision_no_d2 = calculate_overnight_charge_target(**self._base())
+        decision_with_d2 = calculate_overnight_charge_target(
+            **self._base(), forecast_kwh_d2=20.0
+        )
+        # Assert — d+2 sunny → lower tonight's target
+        assert decision_with_d2.target_soc < decision_no_d2.target_soc
+        assert "Overmorrow" in decision_with_d2.reason
+
+    def test_no_correction_when_d2_does_not_overflow(self):
+        # Arrange — day 2 only 8 kWh on 10 kWh battery → no overflow
+        decision_no_d2 = calculate_overnight_charge_target(**self._base())
+        decision_weak_d2 = calculate_overnight_charge_target(
+            **self._base(), forecast_kwh_d2=8.0
+        )
+        # Assert — d+2 not strong enough to trigger correction
+        assert decision_weak_d2.target_soc == decision_no_d2.target_soc
+
+    def test_no_correction_when_car_plugged_in(self):
+        # Arrange — EV connected; correction disabled to protect EV buffer
+        decision_no_ev = calculate_overnight_charge_target(
+            **self._base(), forecast_kwh_d2=20.0
+        )
+        decision_with_ev = calculate_overnight_charge_target(
+            **self._base(car_plugged_in=True), forecast_kwh_d2=20.0
+        )
+        # Assert — EV target >= non-EV target (correction doesn't lower EV target)
+        assert decision_with_ev.target_soc >= decision_no_ev.target_soc
+
+    def test_target_never_below_min_soc_plus_buffer(self):
+        # Arrange — extreme d+2 (100 kWh) cannot reduce target below floor
+        decision = calculate_overnight_charge_target(
+            **self._base(), forecast_kwh_d2=100.0
+        )
+        # Assert — floor = min_soc (10%) applied via max(target_soc, min_soc + 5)
+        assert decision.target_soc >= 15  # min_soc (10) + 5 guard
