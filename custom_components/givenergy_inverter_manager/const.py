@@ -66,6 +66,20 @@ DEFAULT_FORECAST_CONSERVATISM = 0.35  # dimensionless 0.0–1.0
 CONF_FORECAST_ENTITY_P10 = "forecast_entity_p10"  # optional Solcast P10 sensor
 CONF_FORECAST_ENTITY_D2 = "forecast_entity_d2"   # optional day-after-tomorrow forecast
 
+# ── Carbon intensity ──────────────────────────────────────────────────────────
+# Optional sensor providing real-time grid carbon intensity (g CO2/kWh).
+# Compatible with the HA CO2Signal integration or any sensor publishing this unit.
+CONF_CARBON_INTENSITY_ENTITY = "carbon_intensity_entity"
+# Thresholds for status classification (g CO2/kWh).
+# Below LOW → "Low" (high renewable fraction, good time to import).
+# Above HIGH → "High" (mostly fossil generation, prefer self-consumption).
+CARBON_LOW_THRESHOLD = 200   # g CO2/kWh
+CARBON_HIGH_THRESHOLD = 400  # g CO2/kWh
+CARBON_STATUS_LOW = "Low"
+CARBON_STATUS_MEDIUM = "Medium"
+CARBON_STATUS_HIGH = "High"
+CARBON_STATUS_UNKNOWN = "Unknown"
+
 # ── Immersion heater ─────────────────────────────────────────────────────────
 CONF_IMMERSION_SWITCH = "immersion_switch_entity"
 CONF_IMMERSION_WATTAGE = "immersion_wattage_w"

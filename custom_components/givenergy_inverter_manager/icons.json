@@ -104,7 +104,9 @@
       "inverter_derating_today_minutes": {"default": "mdi:thermometer-minus"},
       "pre_boost_export_recommended": {"default": "mdi:transmission-tower-export"},
       "pre_boost_export_kwh": {"default": "mdi:battery-arrow-up"},
-      "pre_boost_export_net_gain": {"default": "mdi:cash-plus"}
+      "pre_boost_export_net_gain": {"default": "mdi:cash-plus"},
+      "carbon_intensity": {"default": "mdi:molecule-co2"},
+      "carbon_intensity_status": {"default": "mdi:leaf"}
     },
     "button": {
       "refresh_dashboard": {"default": "mdi:view-dashboard-edit"}

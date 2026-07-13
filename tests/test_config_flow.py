@@ -240,13 +240,15 @@ class TestSensorDefaultEnabled:
         "Self-consumed Solar Today",
         "Net Financial Position Today",
         "Battery Life Consumed Today",
+        "Grid Carbon Intensity",
+        "Grid Carbon Intensity Status",
     }
 
     def test_exactly_five_sensors_disabled(self):
-        """Exactly 15 sensors should be disabled by default."""
+        """Exactly 17 sensors should be disabled by default."""
         state = _parse_sensor_enabled_state()
         disabled = [n for n, enabled in state.items() if not enabled]
-        assert len(disabled) == 15, f"Expected 15 disabled sensors, got {len(disabled)}: {disabled}"
+        assert len(disabled) == 17, f"Expected 17 disabled sensors, got {len(disabled)}: {disabled}"
 
     def test_disabled_sensors_are_the_expected_ones(self):
         """The disabled sensors must be the HTML reports and forecast accuracy."""
