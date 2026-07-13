@@ -44,6 +44,7 @@ SERVICE_GET_DASHBOARD_YAML = "get_dashboard_yaml"
 SERVICE_SUGGEST_APPLIANCE = "suggest_appliance_run"
 SERVICE_COMPARE_TARIFF = "compare_tariff"
 SERVICE_YEAR_ON_YEAR = "year_on_year_summary"
+SERVICE_EXPORT_ENERGY_DATA = "export_energy_data"
 SERVICE_GET_ROI_SUMMARY = "get_roi_summary"
 
 
@@ -840,6 +841,121 @@ def _make_year_on_year_handler(hass: HomeAssistant):
     return handle
 
 
+_CSV_HEADER = (
+    "period,solar_kwh,import_kwh,export_kwh,battery_throughput_kwh,"
+    "import_cost,export_earnings,net_position,self_sufficiency_pct"
+)
+
+
+def _acc_to_csv_row(period: str, acc) -> str:
+    """Format one EnergyAccumulator as a CSV row."""
+    import_cost = getattr(acc, "total_import_cost", 0.0)
+    export_earn = getattr(acc, "export_earnings", 0.0)
+    net = export_earn - import_cost
+    ss = getattr(acc, "self_sufficiency_pct", 0.0)
+    return (
+        f"{period},"
+        f"{round(acc.solar_kwh, 3)},"
+        f"{round(acc.import_kwh, 3)},"
+        f"{round(acc.export_kwh, 3)},"
+        f"{round(acc.battery_throughput_kwh, 3)},"
+        f"{round(import_cost, 4)},"
+        f"{round(export_earn, 4)},"
+        f"{round(net, 4)},"
+        f"{round(ss, 1)}"
+    )
+
+
+def _snapshot_to_csv_row(index: int, snap: dict) -> str:
+    """Format one monthly snapshot dict as a CSV row."""
+    import_cost = sum((snap.get("import_cost_by_period") or {}).values())
+    export_earn = snap.get("export_earnings", 0.0)
+    net = (export_earn or 0.0) - import_cost
+    solar = snap.get("solar_kwh", 0.0) or 0.0
+    house = snap.get("house_kwh", 0.0) or 1.0
+    ss = min(100.0, (solar / house) * 100) if house > 0 else 0.0
+    return (
+        f"month_snapshot_{index:02d},"
+        f"{round(snap.get('solar_kwh', 0.0) or 0.0, 3)},"
+        f"{round(snap.get('import_kwh', 0.0) or 0.0, 3)},"
+        f"{round(snap.get('export_kwh', 0.0) or 0.0, 3)},"
+        f"{round(snap.get('battery_throughput_kwh', 0.0) or 0.0, 3)},"
+        f"{round(import_cost, 4)},"
+        f"{round(export_earn or 0.0, 4)},"
+        f"{round(net, 4)},"
+        f"{round(ss, 1)}"
+    )
+
+
+def _make_export_handler(hass: HomeAssistant):
+    """Return the export_energy_data service handler bound to *hass*."""
+
+    async def handle(call: ServiceCall) -> None:
+        """Export energy history to /config/givenergy_energy_export.csv."""
+        from homeassistant.exceptions import ServiceValidationError  # noqa: PLC0415
+
+        entries = hass.config_entries.async_entries(DOMAIN)
+        if not entries or entries[0].runtime_data is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="no_config_entry",
+            )
+        coordinator = entries[0].runtime_data
+        if coordinator.data is None:
+            return
+
+        d = coordinator.data
+        rows = [_CSV_HEADER]
+        rows.append(_acc_to_csv_row("today", d.today))
+        rows.append(_acc_to_csv_row("yesterday", d.yesterday))
+        rows.append(_acc_to_csv_row("this_week", d.week))
+        rows.append(_acc_to_csv_row("this_month", d.month))
+        rows.append(_acc_to_csv_row("this_year", d.year))
+
+        snapshots: list[dict] = getattr(coordinator._acc, "monthly_snapshots", [])
+        for idx, snap in enumerate(reversed(snapshots), 1):
+            rows.append(_snapshot_to_csv_row(idx, snap))
+
+        csv_content = "\n".join(rows) + "\n"
+        file_path = os.path.join(hass.config.config_dir, "givenergy_energy_export.csv")
+
+        def _write() -> None:
+            with open(file_path, "w", encoding="utf-8") as fh:
+                fh.write(csv_content)
+
+        try:
+            await hass.async_add_executor_job(_write)
+        except OSError as err:
+            _LOG.error("Failed to write energy export %s: %s", file_path, err)
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="dashboard_write_failed",
+            ) from err
+
+        n_rows = len(rows) - 1
+        _LOG.info("Energy data exported to %s (%d rows)", file_path, n_rows)
+        await hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "GivEnergy Energy Export Complete",
+                "message": (
+                    f"Exported {n_rows} rows to `{file_path}`.\n\n"
+                    "Rows: today, yesterday, this_week, this_month, this_year"
+                    + (
+                        f", and {len(snapshots)} completed billing months."
+                        if snapshots
+                        else "."
+                    )
+                ),
+                "notification_id": "givenergy_energy_export",
+            },
+            blocking=False,
+        )
+
+    return handle
+
+
 async def async_register_services(hass: HomeAssistant) -> None:
     """Register the get_dashboard_yaml service."""
 
@@ -990,6 +1106,13 @@ async def async_register_services(hass: HomeAssistant) -> None:
     )
     _LOG.debug("Registered service %s.%s", DOMAIN, SERVICE_YEAR_ON_YEAR)
 
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_EXPORT_ENERGY_DATA,
+        _make_export_handler(hass),
+    )
+    _LOG.debug("Registered service %s.%s", DOMAIN, SERVICE_EXPORT_ENERGY_DATA)
+
 
 def async_unregister_services(hass: HomeAssistant) -> None:
     """Unregister services when the integration is unloaded."""
@@ -998,3 +1121,4 @@ def async_unregister_services(hass: HomeAssistant) -> None:
     hass.services.async_remove(DOMAIN, SERVICE_GET_ROI_SUMMARY)
     hass.services.async_remove(DOMAIN, SERVICE_COMPARE_TARIFF)
     hass.services.async_remove(DOMAIN, SERVICE_YEAR_ON_YEAR)
+    hass.services.async_remove(DOMAIN, SERVICE_EXPORT_ENERGY_DATA)

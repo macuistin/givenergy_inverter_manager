@@ -13,6 +13,7 @@ What is tested:
 
 from unittest.mock import MagicMock
 
+import pytest
 import yaml
 
 
@@ -466,3 +467,48 @@ class TestSoCHistoryChart:
             if c.get("type") == "history-graph"
         ]
         assert any("soc" in t.lower() or "battery" in t.lower() for t in history_titles)
+
+
+class TestExportCsvHelpers:
+    """Unit tests for the CSV export helper functions in dashboard.py."""
+
+    def test_acc_to_csv_row_format(self):
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        from custom_components.givenergy_inverter_manager.dashboard import _acc_to_csv_row
+
+        acc = EnergyAccumulator()
+        acc.solar_kwh = 12.5
+        acc.import_kwh = 3.2
+        acc.export_kwh = 2.1
+        row = _acc_to_csv_row("today", acc)
+        parts = row.split(",")
+        assert parts[0] == "today"
+        assert float(parts[1]) == pytest.approx(12.5)
+        assert float(parts[2]) == pytest.approx(3.2)
+        assert float(parts[3]) == pytest.approx(2.1)
+
+    def test_snapshot_to_csv_row_format(self):
+        from custom_components.givenergy_inverter_manager.dashboard import _snapshot_to_csv_row
+
+        snap = {
+            "solar_kwh": 45.0,
+            "import_kwh": 20.0,
+            "export_kwh": 10.0,
+            "battery_throughput_kwh": 8.0,
+            "export_earnings": 1.95,
+            "import_cost_by_period": {"Night": 1.5, "Day": 2.0},
+        }
+        row = _snapshot_to_csv_row(1, snap)
+        parts = row.split(",")
+        assert parts[0] == "month_snapshot_01"
+        assert float(parts[1]) == pytest.approx(45.0)  # solar_kwh
+        assert float(parts[5]) == pytest.approx(3.5)   # import_cost (1.5 + 2.0)
+
+    def test_csv_header_fields(self):
+        from custom_components.givenergy_inverter_manager.dashboard import _CSV_HEADER
+
+        fields = _CSV_HEADER.split(",")
+        assert fields[0] == "period"
+        assert "solar_kwh" in fields
+        assert "import_cost" in fields
+        assert "net_position" in fields
