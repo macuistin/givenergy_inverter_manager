@@ -34,6 +34,7 @@ from typing import Any
 
 from ..const import (
     CONF_BATTERY_MIN_SOC,
+    CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CURRENCY,
     CONF_DRY_RUN,
     CONF_OVERNIGHT_CHARGE_TARGET,
@@ -42,6 +43,7 @@ from ..const import (
     CONF_SURPLUS_DIVERT_SOC,
     CURRENCIES,
     DEFAULT_BATTERY_MIN_SOC,
+    DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
     DEFAULT_CURRENCY,
     DEFAULT_DRY_RUN,
     DEFAULT_INVERTER_MAX_OUTPUT,
@@ -181,6 +183,8 @@ class CoordinatorData:
         "yesterday_forecast_accuracy_pct",
         "forecast_accuracy_7day_avg_pct",
         "will_survive_night",
+        "ev_km_charged_today",
+        "ev_cost_per_km_today",
     )
 
     def __init__(self) -> None:
@@ -214,6 +218,8 @@ class CoordinatorData:
         self.days_in_period: int = 0
         self.days_remaining: int = 0
         self.will_survive_night: bool = True
+        self.ev_km_charged_today: float | None = None
+        self.ev_cost_per_km_today: float | None = None
         self.estimated_soc_at_sunrise: float = 0.0
         self.survival_reason: str = ""
         self.ev_charger_brand: str = ""
@@ -782,6 +788,15 @@ def build_coordinator_data(
     )
     data.days_in_period = days_in
     data.days_remaining = days_remaining
+
+    # ── EV km charged today ──────────────────────────────────────────────────
+    car_efficiency = float(
+        cfg.get(CONF_CAR_EFFICIENCY_KWH_PER_100KM, DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM)
+    )
+    if car_efficiency > 0 and acc.zappi_kwh > 0:
+        data.ev_km_charged_today = round(acc.zappi_kwh / car_efficiency * 100, 1)
+        if acc.zappi_cost > 0:
+            data.ev_cost_per_km_today = round(acc.zappi_cost / data.ev_km_charged_today, 4)
 
     # ── Night survival ────────────────────────────────────────────────────────
     _calculate_night_survival(data, raw, now, min_soc, avg_daily_kwh)

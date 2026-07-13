@@ -414,6 +414,12 @@
       "ev_session_energy": {
         "name": "EV Session Energy"
       },
+      "ev_km_charged_today": {
+        "name": "EV km Charged Today"
+      },
+      "ev_cost_per_km_today": {
+        "name": "EV Cost per km Today"
+      },
       "ev_draining_battery": {
         "name": "EV Draining Battery"
       },

@@ -34,6 +34,7 @@ from .const import (
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
     CONF_BILL_START_DAY,
+    CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CHARGE_END_TIME_ENTITY,
     CONF_CHARGE_START_TIME_ENTITY,
     CONF_CHEAP_RATE_FLOOR_SOC,
@@ -72,6 +73,7 @@ from .const import (
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_BILL_START_DAY,
+    DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_CURRENCY,
     DEFAULT_DISCOUNT_RATE,
@@ -576,6 +578,14 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 vol.Optional(
                     "discovered_charger", default=default_charger
                 ): selector.SelectSelector(selector.SelectSelectorConfig(options=charger_options)),
+                vol.Optional(
+                    CONF_CAR_EFFICIENCY_KWH_PER_100KM,
+                    default=DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=5, max=40, step=0.1, unit_of_measurement="kWh/100km"
+                    )
+                ),
             }
         )
         return self.async_show_form(

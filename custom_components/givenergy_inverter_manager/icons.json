@@ -37,6 +37,8 @@
       "ev_charger_state": {"default": "mdi:ev-station"},
       "ev_power": {"default": "mdi:lightning-bolt"},
       "ev_session_energy": {"default": "mdi:battery-charging-outline"},
+      "ev_km_charged_today": {"default": "mdi:car-electric"},
+      "ev_cost_per_km_today": {"default": "mdi:car-electric"},
       "ev_draining_battery": {"default": "mdi:battery-arrow-down"},
       "ev_protection_reason": {"default": "mdi:shield-check"},
       "ev_charging_source": {"default": "mdi:lightning-bolt-circle"},
