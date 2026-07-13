@@ -179,6 +179,8 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._immersion_cooldown_until = None
         self._last_immersion_coordinator_write = None
         self._last_write_time: dict[str, float] = {}
+        self._slot_load_today: list[float] = [0.0] * 48
+        self._slot_load_history: list[list[float]] = []
 
         GivLogger.register(self._effective_cfg)
 
