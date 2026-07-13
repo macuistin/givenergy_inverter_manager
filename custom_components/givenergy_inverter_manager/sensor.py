@@ -203,6 +203,22 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.cheapest_rate_name if d.cheapest_rate_name else None,
     ),
+    GivEnergyManagerSensorDescription(
+        key="is_on_cheapest_rate",
+        translation_key="is_on_cheapest_rate",
+        name="On Cheapest Rate",
+        icon="mdi:cash-check",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: "yes" if d.is_on_cheapest_rate else "no",
+    ),
+    GivEnergyManagerSensorDescription(
+        key="is_on_base_rate",
+        translation_key="is_on_base_rate",
+        name="On Base (Daytime) Rate",
+        icon="mdi:cash",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: "yes" if d.is_on_base_rate else "no",
+    ),
     # --- Today energy ---
     GivEnergyManagerSensorDescription(
         key="solar_today",
