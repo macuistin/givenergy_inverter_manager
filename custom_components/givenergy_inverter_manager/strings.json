@@ -459,6 +459,9 @@
       "battery_usable_capacity_kwh": {
         "name": "Battery Estimated Usable Capacity"
       },
+      "battery_state": {
+        "name": "Battery State"
+      },
       "overnight_charge_target": {
         "name": "Recommended Overnight Charge Target"
       },
@@ -476,6 +479,9 @@
       },
       "night_survival_reason": {
         "name": "Battery Night Survival Status"
+      },
+      "night_survival_confidence": {
+        "name": "Night Survival Confidence"
       },
       "is_clipping": {
         "name": "Inverter Clipping"
