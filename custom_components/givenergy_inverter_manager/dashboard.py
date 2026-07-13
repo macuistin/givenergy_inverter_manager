@@ -43,6 +43,7 @@ _LOG = get_logger(__name__)
 SERVICE_GET_DASHBOARD_YAML = "get_dashboard_yaml"
 SERVICE_SUGGEST_APPLIANCE = "suggest_appliance_run"
 SERVICE_COMPARE_TARIFF = "compare_tariff"
+SERVICE_YEAR_ON_YEAR = "year_on_year_summary"
 SERVICE_GET_ROI_SUMMARY = "get_roi_summary"
 
 
@@ -750,6 +751,95 @@ def _make_compare_tariff_handler(hass: HomeAssistant):
     return handle
 
 
+def _make_year_on_year_handler(hass: HomeAssistant):
+    """Return the year_on_year_summary service handler bound to *hass*."""
+
+    async def handle(call: ServiceCall) -> dict:
+        """Compare current billing month against the same month one year ago."""
+        entries = hass.config_entries.async_entries(DOMAIN)
+        if not entries or entries[0].runtime_data is None:
+            return {}
+        coordinator = entries[0].runtime_data
+        if coordinator.data is None:
+            return {}
+
+        d = coordinator.data
+        snapshots: list[dict] = getattr(coordinator._acc, "monthly_snapshots", [])
+        n_snapshots = len(snapshots)
+
+        current = {
+            "solar_kwh": round(d.month.solar_kwh, 3),
+            "import_kwh": round(d.month.import_kwh, 3),
+            "export_kwh": round(d.month.export_kwh, 3),
+            "import_cost": round(d.month.total_import_cost, 4),
+            "export_earnings": round(d.month.export_earnings, 4),
+            "self_sufficiency_pct": round(d.month.self_sufficiency_pct, 1),
+        }
+
+        if n_snapshots < 12:
+            return {
+                "snapshots_available": n_snapshots,
+                "snapshots_needed": 12,
+                "no_data": True,
+                "message": (
+                    f"Year-on-year comparison requires 12 completed billing months. "
+                    f"{n_snapshots} available. "
+                    f"Full comparison will be ready in {12 - n_snapshots} more billing cycles."
+                ),
+                "current_month": current,
+            }
+
+        last_year = snapshots[-12]
+
+        def _delta(key: str) -> float:
+            curr_val = current.get(key, 0.0) or 0.0
+            prev_val = float(last_year.get(key, 0.0) or 0.0)
+            return round(curr_val - prev_val, 4)
+
+        def _delta_pct(key: str) -> float | None:
+            prev_val = float(last_year.get(key, 0.0) or 0.0)
+            if prev_val == 0:
+                return None
+            return round((current.get(key, 0.0) - prev_val) / prev_val * 100, 1)
+
+        return {
+            "snapshots_available": n_snapshots,
+            "no_data": False,
+            "current_month": current,
+            "last_year_same_month": {
+                "solar_kwh": round(float(last_year.get("solar_kwh", 0.0)), 3),
+                "import_kwh": round(float(last_year.get("import_kwh", 0.0)), 3),
+                "export_kwh": round(float(last_year.get("export_kwh", 0.0)), 3),
+                "import_cost": round(
+                    sum(last_year.get("import_cost_by_period", {}).values()), 4
+                ),
+                "export_earnings": round(float(last_year.get("export_earnings", 0.0)), 4),
+                "self_sufficiency_pct": round(
+                    float(last_year.get("solar_kwh", 0.0))
+                    / max(1.0, float(last_year.get("house_kwh", 1.0)))
+                    * 100,
+                    1,
+                ),
+            },
+            "delta": {
+                "solar_kwh": _delta("solar_kwh"),
+                "import_kwh": _delta("import_kwh"),
+                "export_kwh": _delta("export_kwh"),
+                "import_cost": _delta("import_cost"),
+                "export_earnings": _delta("export_earnings"),
+            },
+            "delta_pct": {
+                "solar_kwh": _delta_pct("solar_kwh"),
+                "import_kwh": _delta_pct("import_kwh"),
+                "export_kwh": _delta_pct("export_kwh"),
+                "import_cost": _delta_pct("import_cost"),
+                "export_earnings": _delta_pct("export_earnings"),
+            },
+        }
+
+    return handle
+
+
 async def async_register_services(hass: HomeAssistant) -> None:
     """Register the get_dashboard_yaml service."""
 
@@ -892,6 +982,14 @@ async def async_register_services(hass: HomeAssistant) -> None:
     )
     _LOG.debug("Registered service %s.%s", DOMAIN, SERVICE_COMPARE_TARIFF)
 
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_YEAR_ON_YEAR,
+        _make_year_on_year_handler(hass),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    _LOG.debug("Registered service %s.%s", DOMAIN, SERVICE_YEAR_ON_YEAR)
+
 
 def async_unregister_services(hass: HomeAssistant) -> None:
     """Unregister services when the integration is unloaded."""
@@ -899,3 +997,4 @@ def async_unregister_services(hass: HomeAssistant) -> None:
     hass.services.async_remove(DOMAIN, SERVICE_SUGGEST_APPLIANCE)
     hass.services.async_remove(DOMAIN, SERVICE_GET_ROI_SUMMARY)
     hass.services.async_remove(DOMAIN, SERVICE_COMPARE_TARIFF)
+    hass.services.async_remove(DOMAIN, SERVICE_YEAR_ON_YEAR)
