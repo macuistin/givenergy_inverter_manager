@@ -30,6 +30,7 @@
       "battery_cycle_cost_per_kwh": {"default": "mdi:battery-heart-variant"},
       "battery_remaining_life": {"default": "mdi:battery-heart"},
       "days_since_full_charge": {"default": "mdi:battery-100"},
+      "battery_years_remaining": {"default": "mdi:battery-clock"},
       "overnight_charge_target": {"default": "mdi:battery-charging-80"},
       "overnight_charge_reason": {"default": "mdi:information-outline"},
       "overnight_charge_cost": {"default": "mdi:currency-eur"},
