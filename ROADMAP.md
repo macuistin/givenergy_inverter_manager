@@ -85,6 +85,60 @@ Organised by theme and priority.
 
 ## Near-Term (v0.2.x) — remaining
 
+### Register write rate-limiting and hardware protection
+
+GivEnergy inverters have ~1 million total register write capacity. Aggressive
+automation can exhaust this in under two years. The current write helpers do a
+single write + read-back; they need three additional safeguards:
+
+1. **Read-before-write** — skip the write if the register already holds the target value
+2. **Retry logic** — retry up to 3 times with a 2-second sleep when GivTCP does not
+   acknowledge the write (currently just logs a warning and moves on)
+3. **Minimum write interval** — do not re-write the same entity more than once per 5 minutes
+4. **Write counter sensor** — expose `total_register_writes` as a diagnostic sensor;
+   log a warning at 500,000 (halfway through lifetime)
+
+Research source: Predbat `inverter.py` `write_and_poll_value` pattern;
+GivEnergy community flash memory degradation discussions.
+
+**Complexity:** Low — contained within coordinator write helpers.
+
+---
+
+### EMA solar smoothing + dual-budget surplus diversion
+
+The current immersion and EV diversion logic uses a single instantaneous surplus
+reading. Two improvements from PV-Excess-Control and solar_optimizer:
+
+1. **EMA smoothing** — replace `solar_power_w` with `0.5 × prev + 0.5 × current`
+   in the engine accumulation cycle. Prevents chasing transient cloud gaps.
+2. **Dual avg/instant budget** — maintain both a ring-buffer average and the
+   instantaneous reading. The allocation budget is `min(avg, instant)`: reacts
+   quickly to real drops but does not ramp past what the average sustains.
+3. **Sensor unavailable safety gate** — if solar or grid readings are unavailable
+   or NaN, hold the current device state rather than making decisions on bad data.
+
+Research source: InventoCasa/PV-Excess-Control `dual_budget` model;
+jmcollin78/solar_optimizer EMA pattern.
+
+**Complexity:** Low — changes in `engine.py` (smoothing) and `rules.py` (budget logic).
+
+---
+
+### EV charger minimum power guard (1380W)
+
+OCPP EV chargers have a minimum operating current (typically 6A single-phase =
+1,380W). If the allocated surplus is below this, do not attempt to start or
+maintain the charger — it will simply refuse the command. Without this guard,
+the integration issues start commands that are silently ignored, and the charger
+oscillates between starting and stopping as surplus fluctuates near the threshold.
+
+Research source: hsem (woopstar) `charger_min_power_w` parameter.
+
+**Complexity:** XS — one threshold check in `decide_ev_charger_action` in `rules.py`.
+
+---
+
 ### 95% test coverage target
 
 Config flow steps and options flow are not covered by the current test suite. Moving
@@ -129,6 +183,170 @@ All of the following were planned as near-term and have shipped:
 ---
 
 ## Medium-Term (v0.3.0)
+
+### Solcast P10/P50 conservatism weighting
+
+The overnight charge target currently uses a single forecast value (P50 median).
+Solcast also exposes P10 (pessimistic) and P90 (optimistic) bands. A configurable
+`forecast_conservatism` weight (0.0 = pure P50, 1.0 = pure P10) lets the user
+dial in how aggressively to hedge against cloudy days.
+
+Triangular blend formula (from pv_opt and EMHASS):
+```
+wgt_10 = max(0, 0.5 - conservatism) / 0.4
+wgt_50 = 1 - abs(conservatism - 0.5) / 0.4
+wgt_90 = max(0, conservatism - 0.5) / 0.4
+forecast = wgt_10 * p10 + wgt_50 * p50 + wgt_90 * p90
+```
+
+Exposed as a slider in the Forecast section of the options flow.
+Default: 0.35 (slightly pessimistic, same as PALM default).
+
+**Complexity:** Low — new config key + pass weight through to `rules.py`.
+
+---
+
+### Forward SoC simulation for overnight charge target
+
+Replace the three-tier lookup (strong/moderate/poor forecast) with a physics-based
+forward simulation over the next 24–48 hours. Directly implements the PALM algorithm:
+
+1. Build a 48-slot (30-min) profile of estimated solar generation using the
+   weighted forecast (P10/P50 blend) and estimated load from historical average.
+2. Simulate battery SoC slot-by-slot from start of cheap-rate window.
+3. Track `max_charge` (battery peak from solar) and `min_charge` (trough before
+   that peak — the worst SoC point during the day).
+4. `target_soc = max(100 - max_charge_pct, (min_reserve - min_charge_pct), min_reserve)`
+
+This answers precisely: "what is the minimum overnight charge that ensures the
+battery never drops below reserve, even at its worst point during the day?"
+
+Add winter bypass: if current month is in `winter_months` config list (default
+Nov–Feb), return 100% immediately without simulation — solar is negligible and
+filling the battery is always correct.
+
+Add shoulder-month floor: raise `min_soc` from `battery_min_soc` to
+`battery_max_soc` during shoulder months (Mar–Apr, Sep–Oct) when heating load
+is variable.
+
+Research source: PALM `compute_tgt_soc()`.
+
+**Complexity:** Medium — requires per-slot load history accumulation (see below);
+the simulation itself is ~50 lines of pure Python in `rules.py`.
+
+---
+
+### Per-slot load history accumulation
+
+The forward SoC simulation needs a per-half-hour consumption profile, not just
+a daily average. Accumulate the past 7 days of 48-slot consumption in coordinator
+state. Weight recent days higher (yesterday=1.0, three days ago=0.5, etc.).
+
+Subtract immersion and EV energy from historical load before averaging to avoid
+inflating the baseline with intermittent large loads.
+
+Apply 5% pessimism scaling (`load_scaling = 1.05`) — from Predbat's load scaling.
+
+Apply in-day adjustment: `scale_today = actual_load_so_far / predicted_load_so_far`
+— corrects for days that are running hotter or cooler than the weekly average.
+
+**Complexity:** Medium — new accumulator ring buffer in coordinator state.
+
+---
+
+### Overmorrow correction for overnight charge target
+
+After computing tonight's target, simulate two days ahead. If the day-after-tomorrow
+would overflow the battery (solar fills it past 100%), reduce tonight's target
+proportionally — leaving room for extra solar without wasting grid charge.
+
+```python
+if max_charge_pct_day2 > 100 and max_charge_pct_day1 < 100:
+    max_charge_pct += int((max_charge_pct_day2 - 100) / 2)
+```
+
+~15 lines added to `calculate_overnight_charge_target` in `rules.py`.
+Requires two forecast readings (tomorrow + day-after-tomorrow) from Solcast.
+
+Research source: PALM overmorrow function.
+
+**Complexity:** XS (once forward simulation exists).
+
+---
+
+### Battery degradation cost in dispatch decisions
+
+Factor battery cycle cost into the dispatch decision threshold. The integration
+currently diverts surplus to immersion and recommends EV charging without
+considering whether the resulting battery cycles are economically worthwhile.
+
+Add `battery_cycle_cost_per_kwh` constant derived from the Predbat formula:
+```python
+cycle_cost_per_kwh = battery_cost / (2 * capacity_kwh * cycle_life)
+# e.g. €4,000 / (2 × 19 × 6,000) = 1.75c/kWh per direction
+```
+
+Use as a minimum threshold in divert and dispatch decisions: only divert if
+the CEG rate foregone exceeds the degradation cost. Exposed as `CONF_BATTERY_COST`
+(install cost in €) — new optional config field.
+
+Research source: arXiv 2606.16051 (cost-only optimisers destroy 3–8 years of
+battery lifespan); Predbat `metric_battery_cycle` parameter.
+
+**Complexity:** Low — new constant + one comparison in `should_divert_to_immersion`.
+
+---
+
+### Solar ROI and payback calculator
+
+See `improvement-designs.md` Design 5. Enhanced using research findings:
+
+- Use proper net-gain formula: `saving = self_consume_kwh × (import_rate - export_rate)`
+  (not just `self_consume_kwh × import_rate` — that ignores lost CEG income)
+- Add cycle cost tracking: `battery_life_consumed_pct = total_kwh_cycled / (capacity × rated_cycles)`
+- Surface `arbitrage_efficiency` (€ saved per kWh cycled through the battery)
+- Add `electricity_price_inflation_pct` config input for long-term projection
+
+New service: `givenergy_inverter_manager.get_roi_summary` returning structured data.
+
+**Complexity:** Medium — template sensors + new service, no coordinator changes.
+
+---
+
+### Counterfactual cost tracking
+
+See `improvement-designs.md` Design 6. The `daily_cost_without_solar` calculation
+should use:
+```python
+counterfactual = load_energy_today_kwh × import_rate  # what you'd have paid without solar
+actual = (grid_import_kwh × import_rate) - (export_kwh × export_rate)
+saving = counterfactual - actual
+```
+
+Include battery cycle cost in `actual` to give a true net saving:
+```python
+actual_net = actual + total_kwh_cycled_today × cycle_cost_per_kwh
+```
+
+**Complexity:** Medium — template sensors + utility meter helpers.
+
+---
+
+### Pre-cheap-rate export opportunity estimator
+
+See `improvement-designs.md` Design 7. Formula refined from research:
+```
+spare_kwh = current_soc_kwh - evening_load_est_kwh - tomorrow_deficit_kwh
+net_gain = spare_kwh × (ceg_rate - boost_rate)
+```
+
+On Night Boost: CEG 19.5c vs Boost 9.94c → 9.56c/kWh net gain per kWh
+exported before 2am and recharged during Boost. Only recommend if
+`net_gain > 0` and `spare_kwh > 1.0`.
+
+**Complexity:** Medium — existing sensor inputs + new binary_sensor + notification.
+
+---
 
 ### Monthly and annual export volume tracking
 

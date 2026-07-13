@@ -83,6 +83,9 @@ from .const import (
     DEFAULT_IMMERSION_WATTAGE,
     DEFAULT_INVERTER_MAX_OUTPUT,
     DOMAIN,
+    GIVTCP_MAX_WRITE_RETRIES,
+    GIVTCP_WRITE_LIFETIME_WARN,
+    GIVTCP_WRITE_RETRY_SLEEP_S,
     UPDATE_INTERVAL_SECONDS,
 )
 from .core.battery import BatteryStats
@@ -153,6 +156,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         # Manual overrides set by switch/number entities
         self.override_charge_target: int | None = None
+        # Register write tracking — GivEnergy inverters have ~1M lifetime writes
+        self._register_write_count: int = 0
+        # EMA-smoothed solar power (α=0.5) — used for surplus divert decisions
+        # to prevent chasing transient cloud gaps. Raw value used for accumulation.
+        self._smoothed_solar_w: float = 0.0
         # Immersion temperature controls — set by number entities, read in _collect_raw
         cfg = entry.data
         self.immersion_target_temp: float = float(
@@ -274,6 +282,24 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         return state.state.lower() == on_state.lower()
 
     # ── GivTCP write helpers ──────────────────────────────────────────────────
+    #
+    # Each helper:
+    #   1. Reads current state — skips the write if already at the target value
+    #   2. Writes and retries up to GIVTCP_MAX_WRITE_RETRIES times on failure
+    #   3. Increments the register write counter (hardware lifetime tracking)
+    #
+    # GivEnergy inverters have ~1M total register write capacity. The counter
+    # is surfaced as a diagnostic sensor so users can monitor it.
+
+    def _increment_write_count(self) -> None:
+        count = getattr(self, "_register_write_count", 0) + 1
+        self._register_write_count = count
+        if count == GIVTCP_WRITE_LIFETIME_WARN:
+            _LOG.warning(
+                "GivTCP register write count has reached %d — approximately 50%% of the "
+                "inverter's rated lifetime. Review automation frequency.",
+                self._register_write_count,
+            )
 
     async def _givtcp_set_switch(
         self,
@@ -282,29 +308,51 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         name: str,
         step: int = 0,
     ) -> None:
-        """Set a GivTCP switch entity, verify the write, and log both."""
+        """Set a GivTCP switch entity with read-before-write and retry."""
         if not entity_id:
             return
+        # Read-before-write: skip if already at the desired state
+        current = self._get_state(entity_id)
+        if current is not None:
+            current_on = current.state == "on"
+            if current_on == state:
+                _LOG.debug("%s: already %s — skipping write", name, "on" if state else "off")
+                return
+
         service = "turn_on" if state else "turn_off"
-        await self._call_service("switch", service, {"entity_id": entity_id})
-        await asyncio.sleep(1)
-        actual = self._get_state(entity_id)
-        actual_on = actual is not None and actual.state == "on"
-        accepted = actual_on == state
-        log_givtcp_write(
-            _LOG,
-            step,
-            entity_id,
-            "on" if state else "off",
-            actual.state if actual else "unknown",
-            accepted,
-        )
-        if not accepted:
-            _LOG.warning(
-                "%s: wrote %s but read back %s — GivTCP may not have accepted the write",
-                name,
+        accepted = False
+        for attempt in range(1, GIVTCP_MAX_WRITE_RETRIES + 1):
+            await self._call_service("switch", service, {"entity_id": entity_id})
+            self._increment_write_count()
+            await asyncio.sleep(GIVTCP_WRITE_RETRY_SLEEP_S)
+            actual = self._get_state(entity_id)
+            actual_on = actual is not None and actual.state == "on"
+            accepted = actual_on == state
+            log_givtcp_write(
+                _LOG,
+                step,
+                entity_id,
                 "on" if state else "off",
                 actual.state if actual else "unknown",
+                accepted,
+            )
+            if accepted:
+                break
+            if attempt < GIVTCP_MAX_WRITE_RETRIES:
+                _LOG.warning(
+                    "%s: attempt %d/%d — wrote %s but read back %s, retrying",
+                    name,
+                    attempt,
+                    GIVTCP_MAX_WRITE_RETRIES,
+                    "on" if state else "off",
+                    actual.state if actual else "unknown",
+                )
+        if not accepted:
+            _LOG.warning(
+                "%s: wrote %s but could not confirm after %d attempts",
+                name,
+                "on" if state else "off",
+                GIVTCP_MAX_WRITE_RETRIES,
             )
 
     async def _givtcp_set_select(
@@ -314,24 +362,49 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         name: str,
         step: int = 0,
     ) -> None:
-        """Set a GivTCP select entity, verify the write, and log both."""
+        """Set a GivTCP select entity with read-before-write and retry."""
         if not entity_id:
             return
-        await self._call_service(
-            "select", "select_option", {"entity_id": entity_id, "option": value}
-        )
-        await asyncio.sleep(1)
-        actual = self._get_state(entity_id)
-        if actual is None:
-            _LOG.warning(
-                "%s: entity %s vanished from HA state machine after write", name, entity_id
-            )
-            log_givtcp_write(_LOG, step, entity_id, value, "unavailable", False)
+        # Read-before-write: skip if already correct
+        current = self._get_state(entity_id)
+        if current is not None and current.state == value:
+            _LOG.debug("%s: already %r — skipping write", name, value)
             return
-        accepted = actual.state == value
-        log_givtcp_write(_LOG, step, entity_id, value, actual.state, accepted)
+
+        accepted = False
+        for attempt in range(1, GIVTCP_MAX_WRITE_RETRIES + 1):
+            await self._call_service(
+                "select", "select_option", {"entity_id": entity_id, "option": value}
+            )
+            self._increment_write_count()
+            await asyncio.sleep(GIVTCP_WRITE_RETRY_SLEEP_S)
+            actual = self._get_state(entity_id)
+            if actual is None:
+                _LOG.warning(
+                    "%s: entity %s vanished from HA state machine after write", name, entity_id
+                )
+                log_givtcp_write(_LOG, step, entity_id, value, "unavailable", False)
+                return
+            accepted = actual.state == value
+            log_givtcp_write(_LOG, step, entity_id, value, actual.state, accepted)
+            if accepted:
+                break
+            if attempt < GIVTCP_MAX_WRITE_RETRIES:
+                _LOG.warning(
+                    "%s: attempt %d/%d — wrote %r but read back %r, retrying",
+                    name,
+                    attempt,
+                    GIVTCP_MAX_WRITE_RETRIES,
+                    value,
+                    actual.state,
+                )
         if not accepted:
-            _LOG.warning("%s: wrote %r but read back %r", name, value, actual.state)
+            _LOG.warning(
+                "%s: wrote %r but could not confirm after %d attempts",
+                name,
+                value,
+                GIVTCP_MAX_WRITE_RETRIES,
+            )
 
     async def _givtcp_set_number(
         self,
@@ -340,26 +413,52 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         name: str,
         step: int = 0,
     ) -> None:
-        """Set a GivTCP number entity, verify the write, and log both."""
+        """Set a GivTCP number entity with read-before-write and retry."""
         if not entity_id:
             return
-        await self._call_service("number", "set_value", {"entity_id": entity_id, "value": value})
-        await asyncio.sleep(1)
-        actual = self._get_state(entity_id)
+        # Read-before-write: skip if already at the target value
+        current = self._get_state(entity_id)
         try:
-            actual_val = int(float(actual.state)) if actual else None
+            current_val = int(float(current.state)) if current else None
         except (ValueError, TypeError):
-            actual_val = None
-        accepted = actual_val == value
-        log_givtcp_write(
-            _LOG, step, entity_id, value, actual.state if actual else "unknown", accepted
-        )
+            current_val = None
+        if current_val == value:
+            _LOG.debug("%s: already %d — skipping write", name, value)
+            return
+
+        accepted = False
+        for attempt in range(1, GIVTCP_MAX_WRITE_RETRIES + 1):
+            await self._call_service(
+                "number", "set_value", {"entity_id": entity_id, "value": value}
+            )
+            self._increment_write_count()
+            await asyncio.sleep(GIVTCP_WRITE_RETRY_SLEEP_S)
+            actual = self._get_state(entity_id)
+            try:
+                actual_val = int(float(actual.state)) if actual else None
+            except (ValueError, TypeError):
+                actual_val = None
+            accepted = actual_val == value
+            log_givtcp_write(
+                _LOG, step, entity_id, value, actual.state if actual else "unknown", accepted
+            )
+            if accepted:
+                break
+            if attempt < GIVTCP_MAX_WRITE_RETRIES:
+                _LOG.warning(
+                    "%s: attempt %d/%d — wrote %d but read back %s, retrying",
+                    name,
+                    attempt,
+                    GIVTCP_MAX_WRITE_RETRIES,
+                    value,
+                    actual.state if actual else "unknown",
+                )
         if not accepted:
             _LOG.warning(
-                "%s: wrote %d but read back %s",
+                "%s: wrote %d but could not confirm after %d attempts",
                 name,
                 value,
-                actual.state if actual else "unknown",
+                GIVTCP_MAX_WRITE_RETRIES,
             )
 
     # ── Listener registration ─────────────────────────────────────────────────
@@ -570,6 +669,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Read all sensor entity states and return as a plain-Python struct."""
         raw = RawSensorValues()
         raw.solar_power_w = self._read_float(cfg.get(CONF_SOLAR_POWER))
+        # EMA smoothing (α=0.5) — prevents divert decisions from chasing transient cloud gaps.
+        # The smoothed value converges to steady state in ~4 cycles (2 minutes at 30s intervals).
+        # getattr fallback handles subclasses that don't call our __init__ (e.g. FakeCoordinator).
+        prev_smoothed = getattr(self, "_smoothed_solar_w", 0.0)
+        self._smoothed_solar_w = 0.5 * prev_smoothed + 0.5 * raw.solar_power_w
+        raw.smoothed_solar_power_w = self._smoothed_solar_w
         raw.battery_soc = self._read_float(cfg.get(CONF_BATTERY_SOC))
         raw.battery_power_w = self._read_float(cfg.get(CONF_BATTERY_POWER))
         # GivTCP v3 uses positive=export, negative=import.
@@ -862,6 +967,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             yesterday_forecast_accuracy_pct=self._acc.yesterday_forecast_accuracy_pct,
             forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
         )
+
+        data.register_write_count = getattr(self, "_register_write_count", 0)
 
         # 5b. Annotate divert reason when manual run-to-target is still active.
         if self._immersion_manual_run_to_target and data.should_divert_immersion:

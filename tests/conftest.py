@@ -270,6 +270,10 @@ def _raw(**overrides) -> RawSensorValues:
     )
     for k, v in overrides.items():
         setattr(base, k, v)
+    # Re-sync smoothed to solar after overrides unless caller set it explicitly.
+    # __post_init__ runs before setattr overrides, so solar changes don't propagate.
+    if "smoothed_solar_power_w" not in overrides:
+        base.smoothed_solar_power_w = base.solar_power_w
     return base
 
 

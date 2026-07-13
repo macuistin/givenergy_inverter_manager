@@ -55,6 +55,15 @@ CONF_FORECAST_ENTITY = "forecast_entity"
 CONF_FORECAST_PROVIDER = "forecast_provider"
 FORECAST_PROVIDER_FORECAST_SOLAR = "forecast_solar"
 FORECAST_PROVIDER_SOLCAST = "solcast"
+# Solcast P10/P50 conservatism blend (0.0 = pure P50, 1.0 = pure P10).
+# When Solcast is configured as the forecast provider and exposes separate P10/P90
+# entities, this weight controls how pessimistic the forecast is.
+# At 0.35 (the default, matching PALM): slightly pessimistic — avoids over-reliance
+# on optimistic sunny-day forecasts that may not materialise.
+# Optional — has no effect when a non-Solcast forecast provider is used.
+CONF_FORECAST_CONSERVATISM = "forecast_conservatism"
+DEFAULT_FORECAST_CONSERVATISM = 0.35  # dimensionless 0.0–1.0
+CONF_FORECAST_ENTITY_P10 = "forecast_entity_p10"  # optional Solcast P10 sensor
 
 # ── Immersion heater ─────────────────────────────────────────────────────────
 CONF_IMMERSION_SWITCH = "immersion_switch_entity"
@@ -153,6 +162,16 @@ PLATFORMS = ["sensor", "switch", "number"]
 # ── Charge algorithm parameters ───────────────────────────────────────────────
 # These govern the overnight charge decision logic in rules.py.
 # Named here so behaviour is documented and auditable — not buried as magic numbers.
+
+# Winter months: charge to 100% regardless of forecast. Solar is negligible
+# and grid charging is nearly always the right decision in Ireland (Dec–Feb).
+CHARGE_WINTER_MONTHS: tuple[int, ...] = (12, 1, 2)
+# Shoulder months: raise the min_soc floor to max_soc_target — heating load is
+# variable and the forecast is less reliable than in peak summer.
+CHARGE_SHOULDER_MONTHS: tuple[int, ...] = (3, 4, 10, 11)
+# Shoulder month min SoC floor (% of battery) — more conservative than summer floor.
+CHARGE_SHOULDER_MIN_SOC = 70  # % — applied instead of battery_min_soc in shoulder months
+
 CHARGE_PEAK_SOLAR_HOURS = 4.0  # peak-output hours assumed when no forecast available
 CHARGE_MORNING_LOAD_FRACTION = 0.25  # fraction of daily load consumed before solar starts
 CHARGE_SOLAR_USABLE_FRACTION = 0.6  # fraction of forecast kWh we can realistically charge from
@@ -176,6 +195,10 @@ BATTERY_RATED_CYCLES = 6000  # typical LFP rated cycle life (manufacturer spec)
 
 # ── EV diversion parameters ───────────────────────────────────────────────────
 EV_SURPLUS_DIVERT_W = 500  # minimum surplus (W) to switch Zappi to Eco+
+# Minimum power for an OCPP EV charger to start — 6A × 230V single-phase.
+# If the available surplus is below this, the charger will refuse to start.
+# Based on IEC 61851 minimum of 6A (1,380W at 230V). Single-phase assumption.
+EV_CHARGER_MIN_POWER_W = 1380
 
 # ── Configurable thresholds — exposed in config flow ─────────────────────────
 # (SURPLUS_DIVERT_SOC_THRESHOLD and SURPLUS_DIVERT_MIN_POWER_W already defined above,
@@ -186,3 +209,10 @@ CONF_SURPLUS_DIVERT_MIN_W = "surplus_divert_min_power_w"
 # Cheap rate floor — top up during cheap window if battery drops below this
 CONF_CHEAP_RATE_FLOOR_SOC = "cheap_rate_floor_soc"
 DEFAULT_CHEAP_RATE_FLOOR_SOC = 40  # % — 0 disables the floor
+
+# ── GivTCP register write safety ──────────────────────────────────────────────
+# GivEnergy inverters have ~1M total register write capacity. Limiting unnecessary
+# writes protects hardware lifetime. Predbat documents this as a known issue.
+GIVTCP_MAX_WRITE_RETRIES = 3          # attempts per write before giving up
+GIVTCP_WRITE_RETRY_SLEEP_S = 2        # seconds between retry attempts
+GIVTCP_WRITE_LIFETIME_WARN = 500_000  # log a warning at this write count (~50% of rated)

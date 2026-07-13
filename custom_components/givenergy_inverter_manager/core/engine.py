@@ -85,6 +85,11 @@ class RawSensorValues:
     """
 
     solar_power_w: float = 0.0
+    # EMA-smoothed solar (α=0.5) — used for divert decisions to prevent chasing
+    # cloud transients. The coordinator sets this from the rolling EMA it maintains.
+    # Defaults to -1.0 as a sentinel; __post_init__ copies solar_power_w if unset,
+    # so tests that only set solar_power_w get correct behaviour without changes.
+    smoothed_solar_power_w: float = -1.0
     battery_soc: float = 0.0
     battery_power_w: float = 0.0  # positive=charging, negative=discharging
     grid_power_w: float = 0.0  # positive=import, negative=export
@@ -108,6 +113,10 @@ class RawSensorValues:
     charge_energy_today_kwh: float | None = None
     discharge_energy_today_kwh: float | None = None
     load_energy_today_kwh: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.smoothed_solar_power_w < 0.0:
+            self.smoothed_solar_power_w = self.solar_power_w
 
 
 class CoordinatorData:
@@ -157,6 +166,7 @@ class CoordinatorData:
         "inverter_max_w",
         "is_clipping",
         "projected_bill",
+        "register_write_count",
         "rest_of_house_w",
         "should_divert_immersion",
         "solar_power_w",
@@ -226,6 +236,7 @@ class CoordinatorData:
         self.solar_forecast_kwh_today: float = 0.0
         self.yesterday_forecast_accuracy_pct: float = 0.0
         self.forecast_accuracy_7day_avg_pct: float = 0.0
+        self.register_write_count: int = 0
 
 
 def _apportion_import_cost(
@@ -432,7 +443,9 @@ def _process_ev_charger(
     data.ev_session_kwh = ev_charger.session_kwh
     data.ev_draining_battery = ev_charger.is_draining_battery
 
-    solar_surplus_w = max(0.0, raw.solar_power_w - raw.house_load_w - data.immersion_load_w)
+    solar_surplus_w = max(
+        0.0, raw.smoothed_solar_power_w - raw.house_load_w - data.immersion_load_w
+    )
 
     ev_target_mode, reason = decide_ev_charger_action(
         charger=ev_charger,
@@ -569,7 +582,7 @@ def _set_immersion_decision(
         data.divert_reason = "Manual override"
     else:
         data.should_divert_immersion, data.divert_reason = should_divert_to_immersion(
-            solar_power_w=raw.solar_power_w,
+            solar_power_w=raw.smoothed_solar_power_w,
             house_load_w=raw.house_load_w,
             battery_soc=raw.battery_soc,
             battery_power_w=raw.battery_power_w,

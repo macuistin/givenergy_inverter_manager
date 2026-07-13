@@ -375,6 +375,9 @@
       "battery_cycles": {
         "name": "Battery Total Cycles"
       },
+      "register_write_count": {
+        "name": "GivTCP Register Write Count"
+      },
       "battery_remaining_life": {
         "name": "Battery Remaining Life"
       },
