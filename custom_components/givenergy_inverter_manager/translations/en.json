@@ -462,6 +462,12 @@
       "battery_throughput_kwh_today": {
         "name": "Battery throughput"
       },
+      "battery_throughput_budget_pct": {
+        "name": "Battery Throughput Budget Used"
+      },
+      "battery_throughput_budget_status": {
+        "name": "Battery Throughput Budget Status"
+      },
       "missed_solar_today": {
         "name": "Missed solar today"
       },
