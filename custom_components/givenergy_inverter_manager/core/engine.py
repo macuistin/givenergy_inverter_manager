@@ -29,7 +29,7 @@ Separation of concerns:
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from ..const import (
@@ -90,7 +90,7 @@ from .rules import (
     decide_ev_charger_action,
     should_divert_to_immersion,
 )
-from .tariff import EnergyAccumulator, TariffConfig, build_tariff
+from .tariff import EnergyAccumulator, RatePeriod, TariffConfig, build_tariff
 
 _LOG = get_logger(__name__)
 
@@ -228,6 +228,8 @@ class CoordinatorData:
         "cheapest_rate_name",
         "is_on_cheapest_rate",
         "is_on_base_rate",
+        "minutes_remaining_in_period",
+        "rate_savings_vs_daytime",
     )
 
     def __init__(self) -> None:
@@ -283,6 +285,8 @@ class CoordinatorData:
         self.cheapest_rate_name: str = ""
         self.is_on_cheapest_rate: bool = False
         self.is_on_base_rate: bool = False
+        self.minutes_remaining_in_period: float | None = None
+        self.rate_savings_vs_daytime: float = 0.0
         self.estimated_soc_at_sunrise: float = 0.0
         self.survival_reason: str = ""
         self.ev_charger_brand: str = ""
@@ -720,6 +724,20 @@ def _calculate_ev_km(data: CoordinatorData, acc: EnergyAccumulator, cfg: dict[st
             data.ev_cost_per_km_today = round(acc.zappi_cost / km, 4)
 
 
+def _minutes_remaining_in_period(
+    tariff: TariffConfig, current_period: RatePeriod, now: datetime
+) -> float | None:
+    if current_period.name == tariff.base_rate_name or not tariff.rate_periods:
+        return None
+    today_date = now.date()
+    end = datetime.combine(today_date, current_period.end, tzinfo=now.tzinfo)
+    if end <= now:
+        end = datetime.combine(
+            today_date + timedelta(days=1), current_period.end, tzinfo=now.tzinfo
+        )
+    return round((end - now).total_seconds() / 60, 1)
+
+
 def _calculate_night_survival(
     data: CoordinatorData,
     raw: RawSensorValues,
@@ -850,6 +868,17 @@ def build_coordinator_data(
         bool(tariff.rate_periods) and current_period.rate <= cheapest.rate
     )
     data.is_on_base_rate = current_period.name == tariff.base_rate_name
+
+    # Minutes remaining in the current timed rate period (None for base/daytime rate)
+    data.minutes_remaining_in_period = _minutes_remaining_in_period(
+        tariff, current_period, now
+    )
+
+    # Rate savings vs the base (daytime) rate — 0 when currently at base rate
+    data.rate_savings_vs_daytime = round(
+        max(0.0, tariff.base_rate - current_period.rate), 4
+    )
+
     # Live grid cost/earning rate in €/hr using the correct tariff rate for each direction.
     grid_kw = raw.grid_power_w / 1000
     if grid_kw > 0:

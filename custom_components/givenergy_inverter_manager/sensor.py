@@ -219,6 +219,28 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda d: "yes" if d.is_on_base_rate else "no",
     ),
+    GivEnergyManagerSensorDescription(
+        key="minutes_remaining_in_period",
+        translation_key="minutes_remaining_in_period",
+        name="Minutes Remaining in Rate Period",
+        native_unit_of_measurement="min",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:clock-end",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.minutes_remaining_in_period,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="rate_savings_vs_daytime",
+        translation_key="rate_savings_vs_daytime",
+        name="Rate Saving vs Daytime",
+        native_unit_of_measurement=_CURRENCY_UNIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:cash-fast",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.rate_savings_vs_daytime, 4)
+        if d.rate_savings_vs_daytime > 0
+        else None,
+    ),
     # --- Today energy ---
     GivEnergyManagerSensorDescription(
         key="solar_today",
