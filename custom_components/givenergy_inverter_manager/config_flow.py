@@ -724,6 +724,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             thresholds = user_input.get("threshold_settings", {})
             forecast = user_input.get("forecast_settings", {})
             hardware = user_input.get("hardware_settings", {})
+            ev_settings = user_input.get("ev_settings", {})
             # Rate periods come from top-level rate_period_N sections
             self._options[CONF_RATE_PERIODS] = _slots_to_rate_periods(user_input)
             for key in [
@@ -745,6 +746,10 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                 if key in hardware:
                     self._options[key] = float(hardware[key])
             self._options.update({k: v for k, v in forecast.items() if v != ""})
+            if CONF_CAR_EFFICIENCY_KWH_PER_100KM in ev_settings:
+                self._options[CONF_CAR_EFFICIENCY_KWH_PER_100KM] = float(
+                    ev_settings[CONF_CAR_EFFICIENCY_KWH_PER_100KM]
+                )
             return self.async_create_entry(title="", data=self._options)
 
         current_periods = self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS)
@@ -970,6 +975,26 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                         ),
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(min=0.0, max=1.0, step=0.05, mode="slider")
+                    ),
+                }
+            ),
+            {"collapsed": True},
+        )
+        schema_dict[vol.Required("ev_settings")] = section(
+            vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_CAR_EFFICIENCY_KWH_PER_100KM,
+                        default=float(
+                            self._get(
+                                CONF_CAR_EFFICIENCY_KWH_PER_100KM,
+                                DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
+                            )
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=5, max=40, step=0.1, unit_of_measurement="kWh/100km"
+                        )
                     ),
                 }
             ),
