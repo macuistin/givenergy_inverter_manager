@@ -165,6 +165,24 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: d.live_grid_cost_rate,
     ),
+    GivEnergyManagerSensorDescription(
+        key="cheapest_rate",
+        translation_key="cheapest_rate",
+        name="Cheapest Tariff Rate",
+        native_unit_of_measurement=_CURRENCY_UNIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:cash-minus",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.cheapest_rate, 4) if d.cheapest_rate > 0 else None,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="cheapest_rate_period",
+        translation_key="cheapest_rate_period",
+        name="Cheapest Rate Period Name",
+        icon="mdi:clock-time-four-outline",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.cheapest_rate_name if d.cheapest_rate_name else None,
+    ),
     # --- Today energy ---
     GivEnergyManagerSensorDescription(
         key="solar_today",
