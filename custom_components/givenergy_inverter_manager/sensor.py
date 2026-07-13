@@ -165,6 +165,26 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: d.live_grid_cost_rate,
     ),
+    GivEnergyManagerSensorDescription(
+        key="next_cheap_rate_start",
+        translation_key="next_cheap_rate_start",
+        name="Next Cheap Rate Start",
+        icon="mdi:clock-time-four-outline",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.next_cheap_rate_start
+        if d.next_cheap_rate_start is not None
+        else ("Now" if d.hours_to_cheap_rate == 0.0 else None),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="hours_to_cheap_rate",
+        translation_key="hours_to_cheap_rate",
+        name="Hours to Cheap Rate",
+        native_unit_of_measurement="h",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:clock-countdown-outline",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.hours_to_cheap_rate,
+    ),
     # --- Today energy ---
     GivEnergyManagerSensorDescription(
         key="solar_today",
