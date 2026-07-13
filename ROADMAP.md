@@ -85,60 +85,6 @@ Organised by theme and priority.
 
 ## Near-Term (v0.2.x) — remaining
 
-### Register write rate-limiting and hardware protection
-
-GivEnergy inverters have ~1 million total register write capacity. Aggressive
-automation can exhaust this in under two years. The current write helpers do a
-single write + read-back; they need three additional safeguards:
-
-1. **Read-before-write** — skip the write if the register already holds the target value
-2. **Retry logic** — retry up to 3 times with a 2-second sleep when GivTCP does not
-   acknowledge the write (currently just logs a warning and moves on)
-3. **Minimum write interval** — do not re-write the same entity more than once per 5 minutes
-4. **Write counter sensor** — expose `total_register_writes` as a diagnostic sensor;
-   log a warning at 500,000 (halfway through lifetime)
-
-Research source: Predbat `inverter.py` `write_and_poll_value` pattern;
-GivEnergy community flash memory degradation discussions.
-
-**Complexity:** Low — contained within coordinator write helpers.
-
----
-
-### EMA solar smoothing + dual-budget surplus diversion
-
-The current immersion and EV diversion logic uses a single instantaneous surplus
-reading. Two improvements from PV-Excess-Control and solar_optimizer:
-
-1. **EMA smoothing** — replace `solar_power_w` with `0.5 × prev + 0.5 × current`
-   in the engine accumulation cycle. Prevents chasing transient cloud gaps.
-2. **Dual avg/instant budget** — maintain both a ring-buffer average and the
-   instantaneous reading. The allocation budget is `min(avg, instant)`: reacts
-   quickly to real drops but does not ramp past what the average sustains.
-3. **Sensor unavailable safety gate** — if solar or grid readings are unavailable
-   or NaN, hold the current device state rather than making decisions on bad data.
-
-Research source: InventoCasa/PV-Excess-Control `dual_budget` model;
-jmcollin78/solar_optimizer EMA pattern.
-
-**Complexity:** Low — changes in `engine.py` (smoothing) and `rules.py` (budget logic).
-
----
-
-### EV charger minimum power guard (1380W)
-
-OCPP EV chargers have a minimum operating current (typically 6A single-phase =
-1,380W). If the allocated surplus is below this, do not attempt to start or
-maintain the charger — it will simply refuse the command. Without this guard,
-the integration issues start commands that are silently ignored, and the charger
-oscillates between starting and stopping as surplus fluctuates near the threshold.
-
-Research source: hsem (woopstar) `charger_min_power_w` parameter.
-
-**Complexity:** XS — one threshold check in `decide_ev_charger_action` in `rules.py`.
-
----
-
 ### 95% test coverage target
 
 Config flow steps and options flow are not covered by the current test suite. Moving
@@ -179,6 +125,11 @@ All of the following were planned as near-term and have shipped:
 | Automation examples | #39, #58 |
 | repair-issues quality scale | #40 |
 | strict-typing quality scale | #42 |
+| Register write safety (read-before-write, retry, write counter) | #77 |
+| EMA solar smoothing | #77 |
+| EV charger minimum power guard (1,380W) | #77 |
+| Seasonal charge bypass (winter/shoulder months) | #77 |
+| Minimum write interval per entity (5 min cooldown) | #78 |
 
 ---
 

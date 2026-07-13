@@ -13,6 +13,7 @@ and records what the coordinator asked it to do.
 
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
@@ -169,6 +170,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._immersion_manual_run_to_target: bool = False
         self._immersion_cooldown_until = None
         self._last_immersion_coordinator_write = None
+        self._last_write_time: dict[str, float] = {}
 
         GivLogger.register(self._effective_cfg)
 
@@ -762,6 +764,85 @@ class TestGivtcpWriteHelpers:
         with caplog.at_level(logging.WARNING):
             await coord._givtcp_set_number("number.target", 80, "target_soc")
         assert any("wrote" in r.message and "read back" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_set_switch_skips_within_cooldown(self):
+        # Arrange
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._last_write_time["switch.target"] = time.monotonic()  # just written
+
+        # Act
+        await coord._givtcp_set_switch("switch.target", True, "test")
+
+        # Assert
+        assert len(coord.service_calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_set_switch_writes_after_cooldown(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            GIVTCP_MIN_WRITE_INTERVAL_S,
+        )
+
+        # Arrange
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._last_write_time["switch.target"] = (
+            time.monotonic() - GIVTCP_MIN_WRITE_INTERVAL_S - 1
+        )
+
+        # Act
+        await coord._givtcp_set_switch("switch.target", True, "test")
+
+        # Assert
+        assert ("switch", "turn_on", {"entity_id": "switch.target"}) in coord.service_calls
+
+    @pytest.mark.asyncio
+    async def test_set_select_skips_within_cooldown(self):
+        # Arrange
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._last_write_time["select.target"] = time.monotonic()
+
+        # Act
+        await coord._givtcp_set_select("select.target", "Eco+", "test")
+
+        # Assert
+        assert len(coord.service_calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_set_number_skips_within_cooldown(self):
+        # Arrange
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._last_write_time["number.target"] = time.monotonic()
+
+        # Act
+        await coord._givtcp_set_number("number.target", 80, "test")
+
+        # Assert
+        assert len(coord.service_calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_cooldown_does_not_block_read_before_write_skip(self):
+        # Arrange — entity already at the target value; cooldown is active
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("switch.target", "on")
+        coord._last_write_time["switch.target"] = time.monotonic()
+
+        # Act
+        await coord._givtcp_set_switch("switch.target", True, "test")
+
+        # Assert — read-before-write caught it before cooldown was checked
+        assert len(coord.service_calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_first_write_sets_cooldown_timestamp(self):
+        # Arrange
+        coord = FakeCoordinator(cfg=_cfg())
+        assert "switch.target" not in coord._last_write_time
+
+        # Act
+        await coord._givtcp_set_switch("switch.target", True, "test")
+
+        # Assert
+        assert "switch.target" in coord._last_write_time
 
 
 # ── TestFlatRateTariff ────────────────────────────────────────────────────────
