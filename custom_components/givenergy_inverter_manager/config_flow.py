@@ -45,6 +45,7 @@ from .const import (
     CONF_ENABLE_CHARGE_TARGET,
     CONF_EXPORT_RATE,
     CONF_FORECAST_CONSERVATISM,
+    CONF_CARBON_INTENSITY_ENTITY,
     CONF_FORECAST_ENTITY,
     CONF_FORECAST_ENTITY_D2,
     CONF_FORECAST_ENTITY_P10,
@@ -523,6 +524,9 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 vol.Optional(CONF_FORECAST_ENTITY_D2): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="sensor")
                 ),
+                vol.Optional(CONF_CARBON_INTENSITY_ENTITY): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="sensor")
+                ),
                 vol.Optional(
                     CONF_FORECAST_CONSERVATISM, default=DEFAULT_FORECAST_CONSERVATISM
                 ): selector.NumberSelector(
@@ -893,6 +897,10 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
                     vol.Optional(
                         CONF_FORECAST_ENTITY_D2, default=self._get(CONF_FORECAST_ENTITY_D2, "")
+                    ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+                    vol.Optional(
+                        CONF_CARBON_INTENSITY_ENTITY,
+                        default=self._get(CONF_CARBON_INTENSITY_ENTITY, ""),
                     ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
                     vol.Optional(
                         CONF_FORECAST_CONSERVATISM,

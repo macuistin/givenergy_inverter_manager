@@ -575,6 +575,28 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: round(d.today.inverter_derating_minutes, 1),
     ),
     GivEnergyManagerSensorDescription(
+        key="carbon_intensity",
+        translation_key="carbon_intensity",
+        name="Grid Carbon Intensity",
+        native_unit_of_measurement="g CO2/kWh",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:molecule-co2",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.carbon_intensity_gco2, 1)
+        if d.carbon_intensity_gco2 is not None
+        else None,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="carbon_intensity_status",
+        translation_key="carbon_intensity_status",
+        name="Grid Carbon Intensity Status",
+        icon="mdi:leaf",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.carbon_intensity_status
+        if d.carbon_intensity_gco2 is not None
+        else None,
+    ),
+    GivEnergyManagerSensorDescription(
         key="dry_run_last_skipped",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="dry_run_last_skipped",

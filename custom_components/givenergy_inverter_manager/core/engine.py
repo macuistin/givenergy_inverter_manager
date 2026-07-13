@@ -52,6 +52,12 @@ from ..const import (
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
+    CARBON_HIGH_THRESHOLD,
+    CARBON_LOW_THRESHOLD,
+    CARBON_STATUS_HIGH,
+    CARBON_STATUS_LOW,
+    CARBON_STATUS_MEDIUM,
+    CARBON_STATUS_UNKNOWN,
     EV_SOLAR_SURPLUS_THRESHOLD_W,
     INVERTER_TEMP_CRITICAL,
     INVERTER_TEMP_DERATING,
@@ -110,6 +116,7 @@ class RawSensorValues:
     immersion_hysteresis_c: float = 5.0
     forecast_kwh_tomorrow: float | None = None
     forecast_kwh_p10: float | None = None
+    carbon_intensity_gco2: float | None = None
     ev_power_w: float = 0.0
     ev_plugged_in: bool = False
     inverter_temp: float | None = None
@@ -135,6 +142,8 @@ class CoordinatorData:
     """
 
     __slots__ = (
+        "carbon_intensity_gco2",
+        "carbon_intensity_status",
         "accrued_bill",
         "battery_capacity_kwh",
         "battery_power_w",
@@ -260,6 +269,8 @@ class CoordinatorData:
         self.forecast_accuracy_7day_avg_pct: float = 0.0
         self.register_write_count: int = 0
         self.battery_cycle_cost_per_kwh: float = 0.0
+        self.carbon_intensity_gco2: float | None = None
+        self.carbon_intensity_status: str = "Unknown"
 
 
 def _apportion_import_cost(
@@ -849,6 +860,17 @@ def build_coordinator_data(
 
     # ── Night survival ────────────────────────────────────────────────────────
     _calculate_night_survival(data, raw, now, min_soc, avg_daily_kwh)
+
+    # ── Carbon intensity ─────────────────────────────────────────────────────
+    data.carbon_intensity_gco2 = raw.carbon_intensity_gco2
+    if raw.carbon_intensity_gco2 is None:
+        data.carbon_intensity_status = CARBON_STATUS_UNKNOWN
+    elif raw.carbon_intensity_gco2 < CARBON_LOW_THRESHOLD:
+        data.carbon_intensity_status = CARBON_STATUS_LOW
+    elif raw.carbon_intensity_gco2 < CARBON_HIGH_THRESHOLD:
+        data.carbon_intensity_status = CARBON_STATUS_MEDIUM
+    else:
+        data.carbon_intensity_status = CARBON_STATUS_HIGH
 
     # ── EV charger state ─────────────────────────────────────────────────────
     ev_target_mode: str | None = None

@@ -611,6 +611,12 @@
       },
       "inverter_derating_today_minutes": {
         "name": "Inverter Derating Today"
+      },
+      "carbon_intensity": {
+        "name": "Grid Carbon Intensity"
+      },
+      "carbon_intensity_status": {
+        "name": "Grid Carbon Intensity Status"
       }
     }
   },

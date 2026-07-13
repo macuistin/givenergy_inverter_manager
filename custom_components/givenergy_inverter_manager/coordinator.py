@@ -62,6 +62,7 @@ from .const import (
     CONF_EXPORT_RATE,
     CONF_FORECAST_ENTITY,
     CONF_FORECAST_ENTITY_D2,
+    CONF_CARBON_INTENSITY_ENTITY,
     CONF_FORECAST_ENTITY_P10,
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
@@ -765,6 +766,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if forecast_d2_eid:
             v = self._read_optional_float(forecast_d2_eid)
             raw.forecast_kwh_d2 = v if v is not None and v >= 0 else None
+
+        carbon_eid = cfg.get(CONF_CARBON_INTENSITY_ENTITY)
+        if carbon_eid:
+            raw.carbon_intensity_gco2 = self._read_optional_float(carbon_eid)
 
         inverter_temp_eid = cfg.get(CONF_INVERTER_TEMP_ENTITY)
         if inverter_temp_eid:
