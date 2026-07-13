@@ -321,6 +321,12 @@
       "rest_of_house_load": {
         "name": "Rest of House Load"
       },
+      "grid_power_direction": {
+        "name": "Grid Power Direction"
+      },
+      "solar_power_pct_of_max": {
+        "name": "Solar Output % of Max"
+      },
       "current_rate": {
         "name": "Current Rate"
       },
