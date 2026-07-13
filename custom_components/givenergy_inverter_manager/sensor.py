@@ -862,6 +862,18 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.self_sufficiency_pct, 1),
     ),
+    GivEnergyManagerSensorDescription(
+        key="cheap_import_fraction_this_week",
+        translation_key="cheap_import_fraction_this_week",
+        name="Cheap rate import fraction this week",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:chart-pie",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.week.cheap_import_fraction * 100, 1)
+        if d.week.import_kwh > 0
+        else None,
+    ),
     # ── Monthly accumulations (disabled by default) ───────────────────────────
     GivEnergyManagerSensorDescription(
         key="solar_this_month",
@@ -994,6 +1006,34 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:home-battery",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.self_sufficiency_pct, 1),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="cheap_import_fraction_this_month",
+        translation_key="cheap_import_fraction_this_month",
+        name="Cheap rate import fraction this month",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:chart-pie",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.month.cheap_import_fraction * 100, 1)
+        if d.month.import_kwh > 0
+        else None,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="battery_roundtrip_efficiency_today",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="battery_roundtrip_efficiency_today",
+        name="Battery Round-trip Efficiency Today",
+        is_daily_total=True,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:battery-sync",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(
+            d.today.battery_discharge_kwh / d.today.battery_charge_kwh * 100, 1
+        )
+        if d.today.battery_charge_kwh > 0
+        else None,
     ),
     # ── HTML report sensors (disabled by default) ─────────────────────────────
     GivEnergyManagerSensorDescription(
