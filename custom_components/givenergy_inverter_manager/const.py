@@ -15,7 +15,7 @@ GivTCP entity naming convention (all prefixed with serial number):
 """
 
 DOMAIN = "givenergy_inverter_manager"
-INTEGRATION_VERSION = "0.2.1"  # keep in sync with manifest.json
+INTEGRATION_VERSION = "0.3.0"  # keep in sync with manifest.json
 NAME = "GivEnergy Inverter Manager"
 
 # ── GivTCP inverter entities ────────────────────────────────────────────────
