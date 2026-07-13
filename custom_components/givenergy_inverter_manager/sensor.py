@@ -143,6 +143,32 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.rest_of_house_w, 1),
     ),
+    GivEnergyManagerSensorDescription(
+        key="net_solar_surplus_w",
+        translation_key="net_solar_surplus_w",
+        name="Net Solar Surplus",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:solar-power-variant",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(
+            max(0.0, d.solar_power_w - d.house_load_w - max(0.0, d.battery_power_w)), 1
+        ),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="battery_kwh_available",
+        translation_key="battery_kwh_available",
+        name="Battery Energy Available",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:battery",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.battery_soc / 100 * d.battery_capacity_kwh, 2)
+        if d.battery_capacity_kwh > 0
+        else None,
+    ),
     # --- Current tariff ---
     GivEnergyManagerSensorDescription(
         key="current_rate",

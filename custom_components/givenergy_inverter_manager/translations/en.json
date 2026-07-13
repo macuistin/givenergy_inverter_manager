@@ -321,6 +321,12 @@
       "rest_of_house_load": {
         "name": "Rest of House Load"
       },
+      "net_solar_surplus_w": {
+        "name": "Net Solar Surplus"
+      },
+      "battery_kwh_available": {
+        "name": "Battery Energy Available"
+      },
       "current_rate": {
         "name": "Current Rate"
       },
