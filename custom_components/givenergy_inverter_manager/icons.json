@@ -133,6 +133,7 @@
     "suggest_appliance_run": "mdi:washing-machine",
     "get_roi_summary": "mdi:chart-line",
     "compare_tariff": "mdi:swap-horizontal",
-    "year_on_year_summary": "mdi:calendar-arrow-right"
+    "year_on_year_summary": "mdi:calendar-arrow-right",
+    "export_energy_data": "mdi:database-export"
   }
 }
