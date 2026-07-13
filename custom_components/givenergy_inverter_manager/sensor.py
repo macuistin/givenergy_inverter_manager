@@ -369,6 +369,19 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: d.battery_stats.days_since_full_charge,
     ),
+    GivEnergyManagerSensorDescription(
+        key="battery_years_remaining",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="battery_years_remaining",
+        name="Battery Years Remaining (est.)",
+        native_unit_of_measurement="years",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:battery-clock",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.battery_years_remaining, 1)
+        if d.battery_years_remaining is not None
+        else None,
+    ),
     # --- Overnight charge decision ---
     GivEnergyManagerSensorDescription(
         key="overnight_charge_target",

@@ -393,6 +393,9 @@
       "days_since_full_charge": {
         "name": "Days Since Full Charge"
       },
+      "battery_years_remaining": {
+        "name": "Battery Years Remaining (est.)"
+      },
       "overnight_charge_target": {
         "name": "Recommended Overnight Charge Target"
       },
