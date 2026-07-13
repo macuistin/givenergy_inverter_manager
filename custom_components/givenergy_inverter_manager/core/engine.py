@@ -29,7 +29,7 @@ Separation of concerns:
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from ..const import (
@@ -181,6 +181,8 @@ class CoordinatorData:
         "yesterday_forecast_accuracy_pct",
         "forecast_accuracy_7day_avg_pct",
         "will_survive_night",
+        "minutes_remaining_in_period",
+        "rate_savings_vs_daytime",
     )
 
     def __init__(self) -> None:
@@ -214,6 +216,8 @@ class CoordinatorData:
         self.days_in_period: int = 0
         self.days_remaining: int = 0
         self.will_survive_night: bool = True
+        self.minutes_remaining_in_period: float | None = None
+        self.rate_savings_vs_daytime: float = 0.0
         self.estimated_soc_at_sunrise: float = 0.0
         self.survival_reason: str = ""
         self.ev_charger_brand: str = ""
@@ -717,6 +721,28 @@ def build_coordinator_data(
     current_period = tariff.get_current_rate(now)
     data.current_rate_name = current_period.name
     data.current_rate = current_period.rate
+
+    # Minutes remaining in the current timed rate period (None for base/daytime rate)
+    if current_period.name != tariff.base_rate_name and tariff.rate_periods:
+        today_date = now.date()
+        end_today = datetime.combine(today_date, current_period.end, tzinfo=now.tzinfo)
+        if end_today > now:
+            data.minutes_remaining_in_period = round(
+                (end_today - now).total_seconds() / 60, 1
+            )
+        else:
+            end_tomorrow = datetime.combine(
+                today_date + timedelta(days=1), current_period.end, tzinfo=now.tzinfo
+            )
+            data.minutes_remaining_in_period = round(
+                (end_tomorrow - now).total_seconds() / 60, 1
+            )
+
+    # Rate savings vs the base (daytime) rate — 0 when currently at base rate
+    data.rate_savings_vs_daytime = round(
+        max(0.0, tariff.base_rate - current_period.rate), 4
+    )
+
     # Live grid cost/earning rate in €/hr using the correct tariff rate for each direction.
     grid_kw = raw.grid_power_w / 1000
     if grid_kw > 0:
