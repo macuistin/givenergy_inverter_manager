@@ -330,6 +330,12 @@
       "live_grid_cost_rate": {
         "name": "Live Grid Cost Rate"
       },
+      "minutes_remaining_in_period": {
+        "name": "Minutes Remaining in Rate Period"
+      },
+      "rate_savings_vs_daytime": {
+        "name": "Rate Saving vs Daytime"
+      },
       "solar_today": {
         "name": "Solar Generation Today"
       },

@@ -1262,3 +1262,40 @@ class TestApplyDailyCounters:
         assert data.today.import_kwh == pytest.approx(99.9)
         total_cost = sum(data.today.import_cost_by_period.values())
         assert total_cost > 0
+
+
+class TestPeriodTimeSensors:
+    """minutes_remaining_in_period and rate_savings_vs_daytime in CoordinatorData."""
+
+    def _run_at_hour(self, hour: int, minute: int = 0):
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, hour, minute, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=5)
+        raw = _raw()
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        return data
+
+    def test_minutes_remaining_none_during_daytime(self):
+        # 14:00 — base rate, no timed period
+        data = self._run_at_hour(14)
+        assert data.minutes_remaining_in_period is None
+
+    def test_minutes_remaining_positive_during_night(self):
+        # 01:00 — Night rate ends at 08:00 = 7 hours = 420 minutes remaining
+        data = self._run_at_hour(1, 0)
+        assert data.minutes_remaining_in_period is not None
+        assert data.minutes_remaining_in_period > 0
+
+    def test_rate_savings_zero_at_base_rate(self):
+        # 14:00 — at daytime base rate: savings = 0
+        data = self._run_at_hour(14)
+        assert data.rate_savings_vs_daytime == pytest.approx(0.0)
+
+    def test_rate_savings_positive_during_nightboost(self):
+        # 03:00 — Nightboost (0.0965) vs base (0.3334): saving = 0.2369
+        data = self._run_at_hour(3)
+        assert data.rate_savings_vs_daytime > 0.0
+        assert data.rate_savings_vs_daytime == pytest.approx(0.3334 - 0.0965, rel=0.01)
