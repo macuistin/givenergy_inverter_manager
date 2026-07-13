@@ -319,6 +319,17 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: d.register_write_count,
     ),
     GivEnergyManagerSensorDescription(
+        key="battery_cycle_cost_per_kwh",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="battery_cycle_cost_per_kwh",
+        name="Battery Cycle Cost per kWh",
+        native_unit_of_measurement=_CURRENCY_UNIT,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.battery_cycle_cost_per_kwh, 5)
+        if d.battery_cycle_cost_per_kwh
+        else None,
+    ),
+    GivEnergyManagerSensorDescription(
         key="battery_remaining_life",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="battery_remaining_life",

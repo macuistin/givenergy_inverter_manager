@@ -33,6 +33,8 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 from ..const import (
+    BATTERY_RATED_CYCLES,
+    CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_CURRENCY,
     CONF_DRY_RUN,
@@ -42,6 +44,7 @@ from ..const import (
     CONF_SURPLUS_DIVERT_MIN_W,
     CONF_SURPLUS_DIVERT_SOC,
     CURRENCIES,
+    DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_CURRENCY,
     DEFAULT_DRY_RUN,
@@ -170,6 +173,7 @@ class CoordinatorData:
         "inverter_max_w",
         "is_clipping",
         "projected_bill",
+        "battery_cycle_cost_per_kwh",
         "register_write_count",
         "rest_of_house_w",
         "should_divert_immersion",
@@ -242,6 +246,7 @@ class CoordinatorData:
         self.yesterday_forecast_accuracy_pct: float = 0.0
         self.forecast_accuracy_7day_avg_pct: float = 0.0
         self.register_write_count: int = 0
+        self.battery_cycle_cost_per_kwh: float = 0.0
 
 
 def _apportion_import_cost(
@@ -575,13 +580,24 @@ def _set_inverter_temperature(
         data.inverter_temperature_status = INVERTER_TEMP_STATUS_NORMAL
 
 
+def _battery_cycle_cost(cfg: dict[str, Any], capacity_kwh: float) -> float:
+    """Return €/kWh battery cycle cost, or 0.0 if CONF_BATTERY_COST is not set."""
+    battery_cost = float(cfg.get(CONF_BATTERY_COST, DEFAULT_BATTERY_COST))
+    if battery_cost <= 0 or capacity_kwh <= 0:
+        return 0.0
+    return battery_cost / (2 * capacity_kwh * BATTERY_RATED_CYCLES)
+
+
 def _set_immersion_decision(
     data: CoordinatorData,
     raw: RawSensorValues,
     cfg: dict[str, Any],
     override_immersion: bool | None,
+    export_rate: float,
 ) -> None:
     """Set immersion divert decision."""
+    cycle_cost = _battery_cycle_cost(cfg, raw.battery_capacity_kwh)
+    data.battery_cycle_cost_per_kwh = cycle_cost
     if override_immersion is not None:
         data.should_divert_immersion = override_immersion
         data.divert_reason = "Manual override"
@@ -599,6 +615,8 @@ def _set_immersion_decision(
             currently_on=raw.immersion_on,
             soc_threshold=int(cfg.get(CONF_SURPLUS_DIVERT_SOC, SURPLUS_DIVERT_SOC_THRESHOLD)),
             min_surplus_w=float(cfg.get(CONF_SURPLUS_DIVERT_MIN_W, SURPLUS_DIVERT_MIN_POWER_W)),
+            battery_cycle_cost_per_kwh=cycle_cost,
+            export_rate=export_rate,
         )
 
 
@@ -778,7 +796,7 @@ def build_coordinator_data(
     )
 
     # ── Immersion divert decision ─────────────────────────────────────────────
-    _set_immersion_decision(data, raw, cfg, override_immersion)
+    _set_immersion_decision(data, raw, cfg, override_immersion, tariff.export_rate)
     _set_inverter_temperature(data, raw.inverter_temp)
 
     # ── Bill prediction ───────────────────────────────────────────────────────

@@ -25,6 +25,7 @@
       "days_remaining_in_period": {"default": "mdi:calendar-end"},
       "battery_cycles": {"default": "mdi:battery-sync"},
       "register_write_count": {"default": "mdi:counter"},
+      "battery_cycle_cost_per_kwh": {"default": "mdi:battery-heart-variant"},
       "battery_remaining_life": {"default": "mdi:battery-heart"},
       "days_since_full_charge": {"default": "mdi:battery-100"},
       "overnight_charge_target": {"default": "mdi:battery-charging-80"},

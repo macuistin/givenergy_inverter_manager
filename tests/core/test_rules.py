@@ -591,3 +591,84 @@ class TestImmersionHysteresis:
         assert "restart" in reason.lower() and "50" in reason, (
             f"With surplus but temp in band, expected restart-threshold reason: {reason!r}"
         )
+
+
+class TestBatteryCycleCostDivertGuard:
+    """Battery degradation cost check in should_divert_to_immersion."""
+
+    def _base(self, **overrides):
+        defaults = {
+            "solar_power_w": 3500.0,
+            "house_load_w": 800.0,
+            "battery_soc": 90.0,
+            "battery_power_w": 0.0,
+            "inverter_max_w": 5000.0,
+            "immersion_temp": 45.0,
+            "immersion_target_temp": 55.0,
+            "immersion_min_temp": 45.0,
+        }
+        defaults.update(overrides)
+        return defaults
+
+    def test_no_battery_cost_diverts_normally(self):
+        # Arrange — default (disabled) — no cycle cost check
+        should, _ = should_divert_to_immersion(
+            **self._base(), battery_cycle_cost_per_kwh=0.0, export_rate=0.195
+        )
+        # Assert
+        assert should is True
+
+    def test_diverts_when_export_rate_exceeds_cycle_cost(self):
+        # Arrange — export_rate 19.5c > cycle_cost 1.75c
+        should, reason = should_divert_to_immersion(
+            **self._base(), battery_cycle_cost_per_kwh=0.0175, export_rate=0.195
+        )
+        # Assert
+        assert should is True
+
+    def test_does_not_divert_when_export_rate_below_cycle_cost(self):
+        # Arrange — export_rate 1c < cycle_cost 5c (edge case: low-value export market)
+        should, reason = should_divert_to_immersion(
+            **self._base(), battery_cycle_cost_per_kwh=0.05, export_rate=0.01
+        )
+        # Assert
+        assert should is False
+        assert "cycle cost" in reason
+
+    def test_zero_export_rate_does_not_trigger_guard(self):
+        # Arrange — export_rate=0 means no export tariff; guard should not block diversion
+        should, _ = should_divert_to_immersion(
+            **self._base(), battery_cycle_cost_per_kwh=0.05, export_rate=0.0
+        )
+        # Assert — 0 export rate means guard is inactive (condition: 0 < export_rate)
+        assert should is True
+
+
+class TestBatteryCycleCostEngine:
+    """_battery_cycle_cost helper in engine.py."""
+
+    def test_returns_zero_when_battery_cost_not_configured(self):
+        from custom_components.givenergy_inverter_manager.core.engine import _battery_cycle_cost
+
+        # Arrange / Act
+        cost = _battery_cycle_cost({}, capacity_kwh=10.0)
+        # Assert
+        assert cost == pytest.approx(0.0)
+
+    def test_computes_correct_cycle_cost(self):
+        from custom_components.givenergy_inverter_manager.const import CONF_BATTERY_COST
+        from custom_components.givenergy_inverter_manager.core.engine import _battery_cycle_cost
+
+        # Arrange — €4,000 battery, 19 kWh, 6,000 cycles
+        cfg = {CONF_BATTERY_COST: 4000.0}
+        # Act
+        cost = _battery_cycle_cost(cfg, capacity_kwh=19.0)
+        # Assert — 4000 / (2 * 19 * 6000) ≈ 0.01754
+        assert cost == pytest.approx(4000 / (2 * 19 * 6000), rel=1e-4)
+
+    def test_returns_zero_when_capacity_is_zero(self):
+        from custom_components.givenergy_inverter_manager.const import CONF_BATTERY_COST
+        from custom_components.givenergy_inverter_manager.core.engine import _battery_cycle_cost
+
+        cfg = {CONF_BATTERY_COST: 4000.0}
+        assert _battery_cycle_cost(cfg, capacity_kwh=0.0) == pytest.approx(0.0)

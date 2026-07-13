@@ -378,6 +378,9 @@
       "register_write_count": {
         "name": "GivTCP Register Write Count"
       },
+      "battery_cycle_cost_per_kwh": {
+        "name": "Battery Cycle Cost per kWh"
+      },
       "battery_remaining_life": {
         "name": "Battery Remaining Life"
       },
