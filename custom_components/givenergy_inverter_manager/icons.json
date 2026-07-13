@@ -20,6 +20,7 @@
       "net_saving_today": {"default": "mdi:piggy-bank"},
       "zappi_cost_today": {"default": "mdi:car-electric"},
       "house_cost_today": {"default": "mdi:home"},
+      "house_energy_today": {"default": "mdi:home-lightning-bolt"},
       "self_consumed_kwh_today": {"default": "mdi:solar-panel"},
       "net_position_today": {"default": "mdi:scale-balance"},
       "battery_life_consumed_today": {"default": "mdi:battery-minus"},

@@ -363,6 +363,9 @@
       "house_cost_today": {
         "name": "House Cost Today"
       },
+      "house_energy_today": {
+        "name": "House Energy Today"
+      },
       "self_consumed_kwh_today": {
         "name": "Self-consumed Solar Today"
       },
