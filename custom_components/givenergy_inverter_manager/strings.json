@@ -384,6 +384,9 @@
       "days_since_full_charge": {
         "name": "Days Since Full Charge"
       },
+      "battery_state": {
+        "name": "Battery State"
+      },
       "overnight_charge_target": {
         "name": "Recommended Overnight Charge Target"
       },
@@ -401,6 +404,9 @@
       },
       "night_survival_reason": {
         "name": "Battery Night Survival Status"
+      },
+      "night_survival_confidence": {
+        "name": "Night Survival Confidence"
       },
       "is_clipping": {
         "name": "Inverter Clipping"
