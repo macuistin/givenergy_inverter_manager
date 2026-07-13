@@ -106,7 +106,11 @@
       "pre_boost_export_kwh": {"default": "mdi:battery-arrow-up"},
       "pre_boost_export_net_gain": {"default": "mdi:cash-plus"},
       "carbon_intensity": {"default": "mdi:molecule-co2"},
-      "carbon_intensity_status": {"default": "mdi:leaf"}
+      "carbon_intensity_status": {"default": "mdi:leaf"},
+      "solar_trailing_12m": {"default": "mdi:solar-power"},
+      "import_trailing_12m": {"default": "mdi:transmission-tower-import"},
+      "import_cost_trailing_12m": {"default": "mdi:cash-minus"},
+      "export_earnings_trailing_12m": {"default": "mdi:cash-plus"}
     },
     "button": {
       "refresh_dashboard": {"default": "mdi:view-dashboard-edit"}

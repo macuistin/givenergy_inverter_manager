@@ -148,6 +148,26 @@ class FakeCoordinator(GivEnergyCoordinator):
             def monthly_export_snapshots(self):
                 return list(self.state.monthly_export_snapshots)
 
+            @property
+            def trailing_12m_solar_kwh(self):
+                return round(sum(s.get("solar_kwh", 0.0) for s in self.state.monthly_snapshots), 3)
+
+            @property
+            def trailing_12m_import_kwh(self):
+                return round(sum(s.get("import_kwh", 0.0) for s in self.state.monthly_snapshots), 3)
+
+            @property
+            def trailing_12m_import_cost(self):
+                total = sum(
+                    sum(s.get("import_cost_by_period", {}).values())
+                    for s in self.state.monthly_snapshots
+                )
+                return round(total, 4)
+
+            @property
+            def trailing_12m_export_earnings(self):
+                return round(sum(s.get("export_earnings", 0.0) for s in self.state.monthly_snapshots), 3)
+
             def on_midnight(self, now):
                 self.state.yesterday = self.state.today
                 self.state.today = EnergyAccumulator()
