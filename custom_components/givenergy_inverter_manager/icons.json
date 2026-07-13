@@ -6,6 +6,8 @@
       "grid_power": {"default": "mdi:transmission-tower"},
       "house_load": {"default": "mdi:home-lightning-bolt"},
       "rest_of_house_load": {"default": "mdi:home-lightning-bolt-outline"},
+      "grid_power_direction": {"default": "mdi:transmission-tower"},
+      "solar_power_pct_of_max": {"default": "mdi:solar-power-variant"},
       "current_rate": {"default": "mdi:currency-eur"},
       "current_rate_period": {"default": "mdi:clock-time-four"},
       "live_grid_cost_rate": {"default": "mdi:cash-clock"},

@@ -143,6 +143,28 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.rest_of_house_w, 1),
     ),
+    GivEnergyManagerSensorDescription(
+        key="grid_power_direction",
+        translation_key="grid_power_direction",
+        name="Grid Power Direction",
+        icon="mdi:transmission-tower",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: "Importing"
+        if d.grid_power_w > 50
+        else ("Exporting" if d.grid_power_w < -50 else "Balanced"),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="solar_power_pct_of_max",
+        translation_key="solar_power_pct_of_max",
+        name="Solar Output % of Max",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:solar-power-variant",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.solar_power_w / d.inverter_max_w * 100, 1)
+        if d.inverter_max_w > 0
+        else None,
+    ),
     # --- Current tariff ---
     GivEnergyManagerSensorDescription(
         key="current_rate",
