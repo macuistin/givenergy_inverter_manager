@@ -193,6 +193,15 @@ SOLAR_NOISE_FLOOR_W = 10.0  # W — sensor readings below this are treated as ze
 # ── Battery health parameters ─────────────────────────────────────────────────
 BATTERY_RATED_CYCLES = 6000  # typical LFP rated cycle life (manufacturer spec)
 
+# ── Battery degradation cost ──────────────────────────────────────────────────
+# Install cost of the battery (€). When set, the cycle cost is computed as:
+#   cycle_cost = battery_cost / (2 × capacity_kwh × BATTERY_RATED_CYCLES)
+# This is used as a minimum threshold in divert decisions: only divert
+# when the economic benefit exceeds the wear cost per kWh.
+# Set to 0 to disable (default — behaves identically to previous versions).
+CONF_BATTERY_COST = "battery_cost_eur"
+DEFAULT_BATTERY_COST = 0.0  # € — 0 disables the degradation cost check
+
 # ── EV diversion parameters ───────────────────────────────────────────────────
 EV_SURPLUS_DIVERT_W = 500  # minimum surplus (W) to switch Zappi to Eco+
 # Minimum power for an OCPP EV charger to start — 6A × 230V single-phase.

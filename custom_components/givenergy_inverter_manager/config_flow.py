@@ -30,6 +30,7 @@ from .const import (
     CONF_BASE_RATE,
     CONF_BASE_RATE_NAME,
     CONF_BATTERY_CAPACITY,
+    CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
@@ -72,6 +73,7 @@ from .const import (
     DEFAULT_BASE_RATE,
     DEFAULT_BASE_RATE_NAME,
     DEFAULT_BATTERY_CAPACITY,
+    DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_BILL_START_DAY,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
@@ -841,6 +843,14 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=20, max=100, step=1, unit_of_measurement="%"
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_BATTERY_COST,
+                        default=float(self._get(CONF_BATTERY_COST, DEFAULT_BATTERY_COST)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0, max=20000, step=100, unit_of_measurement="€"
                         )
                     ),
                     vol.Optional(

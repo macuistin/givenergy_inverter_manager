@@ -267,6 +267,8 @@ def should_divert_to_immersion(
     currently_on: bool = False,
     soc_threshold: int = SURPLUS_DIVERT_SOC_THRESHOLD,
     min_surplus_w: float = SURPLUS_DIVERT_MIN_POWER_W,
+    battery_cycle_cost_per_kwh: float = 0.0,
+    export_rate: float = 0.0,
 ) -> tuple[bool, str]:
     """
     Decide whether to turn on the immersion heater.
@@ -305,6 +307,12 @@ def should_divert_to_immersion(
 
     if not has_surplus:
         return False, f"Insufficient surplus ({net_surplus_w:.0f}W, need {min_surplus_w:.0f}W)"
+
+    if battery_cycle_cost_per_kwh > 0 and 0 < export_rate < battery_cycle_cost_per_kwh:
+        return False, (
+            f"Export rate {export_rate:.4f} €/kWh is below battery cycle cost "
+            f"{battery_cycle_cost_per_kwh:.4f} €/kWh — not worth cycling"
+        )
 
     # Surplus is available — but only restart if water has cooled enough
     if immersion_temp is not None and not currently_on:
