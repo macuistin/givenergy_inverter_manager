@@ -1262,3 +1262,38 @@ class TestApplyDailyCounters:
         assert data.today.import_kwh == pytest.approx(99.9)
         total_cost = sum(data.today.import_cost_by_period.values())
         assert total_cost > 0
+
+
+class TestRateStatusSensors:
+    """is_on_cheapest_rate and is_on_base_rate in CoordinatorData."""
+
+    def _run_at_hour(self, hour: int):
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, hour, 0, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=5)
+        raw = _raw()
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        return data
+
+    def test_on_cheapest_rate_during_nightboost(self):
+        # 03:00 — Nightboost is active (cheapest period)
+        data = self._run_at_hour(3)
+        assert data.is_on_cheapest_rate is True
+
+    def test_not_on_cheapest_rate_during_day(self):
+        # 14:00 — daytime (base rate, not cheapest)
+        data = self._run_at_hour(14)
+        assert data.is_on_cheapest_rate is False
+
+    def test_on_base_rate_during_day(self):
+        # 14:00 — daytime = base rate
+        data = self._run_at_hour(14)
+        assert data.is_on_base_rate is True
+
+    def test_not_on_base_rate_during_night(self):
+        # 01:00 — Night rate period is active, not base rate
+        data = self._run_at_hour(1)
+        assert data.is_on_base_rate is False
