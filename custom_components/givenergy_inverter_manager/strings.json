@@ -462,6 +462,15 @@
       "battery_throughput_kwh_today": {
         "name": "Battery throughput"
       },
+      "battery_charge_kwh_today": {
+        "name": "Battery Charged Today"
+      },
+      "battery_discharge_kwh_today": {
+        "name": "Battery Discharged Today"
+      },
+      "house_kwh_today": {
+        "name": "House Load Today"
+      },
       "missed_solar_today": {
         "name": "Missed solar today"
       },
