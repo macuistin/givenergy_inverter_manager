@@ -2,6 +2,8 @@
 
 from datetime import datetime
 
+import pytest
+
 from custom_components.givenergy_inverter_manager.core.rules import (
     calculate_overnight_charge_target,
     monthly_solar_fractions,
@@ -407,6 +409,77 @@ class TestOvernightChargeEdgeCases:
             )
         )
         assert decision.skip_charge is True
+
+
+class TestForecastConservatism:
+    """P10/P50 conservatism blend wires through calculate_overnight_charge_target."""
+
+    def _base(self, **overrides):
+        defaults = {
+            "current_soc": 30.0,
+            "battery_capacity_kwh": 10.0,
+            "inverter_max_kw": 5.0,
+            "car_plugged_in": False,
+            "min_soc": 10,
+            "skip_charge_threshold": 75,
+            "average_daily_consumption_kwh": 10.0,
+            "cheapest_rate": 0.10,
+            "dt": datetime(2024, 6, 15, 22, 0),
+        }
+        defaults.update(overrides)
+        return defaults
+
+    def test_no_p10_entity_uses_p50_unchanged(self):
+        # Arrange — P10=None means no Solcast P10 sensor configured
+        decision_no_p10 = calculate_overnight_charge_target(
+            **self._base(forecast_kwh=12.0, forecast_kwh_p10=None, forecast_conservatism=0.5)
+        )
+        decision_p50_only = calculate_overnight_charge_target(**self._base(forecast_kwh=12.0))
+        # Assert — without a P10 value, conservatism has no effect
+        assert decision_no_p10.target_soc == decision_p50_only.target_soc
+        assert decision_no_p10.forecast_kwh == pytest.approx(12.0)
+
+    def test_zero_conservatism_uses_p50_unchanged(self):
+        # Arrange
+        decision_plain = calculate_overnight_charge_target(
+            **self._base(forecast_kwh=12.0)
+        )
+        decision_zero = calculate_overnight_charge_target(
+            **self._base(forecast_kwh=12.0, forecast_kwh_p10=6.0, forecast_conservatism=0.0)
+        )
+        # Assert — conservatism=0 means pure P50, same target as no-P10 call
+        assert decision_zero.target_soc == decision_plain.target_soc
+        assert "blend" not in decision_zero.reason
+
+    def test_full_conservatism_uses_p10(self):
+        # Arrange — P50=12, P10=4; conservatism=1.0 means pure P10
+        decision = calculate_overnight_charge_target(
+            **self._base(forecast_kwh=12.0, forecast_kwh_p10=4.0, forecast_conservatism=1.0)
+        )
+        # Assert — pessimistic forecast means a higher charge target than P50 alone
+        decision_p50 = calculate_overnight_charge_target(**self._base(forecast_kwh=12.0))
+        assert decision.target_soc >= decision_p50.target_soc
+
+    def test_partial_conservatism_blends_correctly(self):
+        # Arrange — P50=10, P10=4; conservatism=0.5 → blended = 7.0
+        # The blended forecast should fall in a different tier than pure P50
+        decision_p50 = calculate_overnight_charge_target(**self._base(forecast_kwh=10.0))
+        decision_blended = calculate_overnight_charge_target(
+            **self._base(forecast_kwh=10.0, forecast_kwh_p10=4.0, forecast_conservatism=0.5)
+        )
+        # Assert — blended (7.0 kWh) produces the same or higher target than pure P50
+        # (less optimistic forecast → same or more charging needed)
+        assert decision_blended.forecast_kwh == pytest.approx(7.0)
+        assert decision_blended.target_soc >= decision_p50.target_soc
+
+    def test_p10_lower_than_p50_raises_target(self):
+        # Arrange — pessimistic P10 gives less solar → need more overnight charge
+        decision_p50_only = calculate_overnight_charge_target(**self._base(forecast_kwh=10.0))
+        decision_with_p10 = calculate_overnight_charge_target(
+            **self._base(forecast_kwh=10.0, forecast_kwh_p10=3.0, forecast_conservatism=0.5)
+        )
+        # Assert — adding P10 pessimism should not lower the target
+        assert decision_with_p10.target_soc >= decision_p50_only.target_soc
 
 
 class TestImmersionHysteresis:

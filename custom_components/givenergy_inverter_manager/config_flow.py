@@ -43,7 +43,9 @@ from .const import (
     CONF_ENABLE_CHARGE_SCHEDULE,
     CONF_ENABLE_CHARGE_TARGET,
     CONF_EXPORT_RATE,
+    CONF_FORECAST_CONSERVATISM,
     CONF_FORECAST_ENTITY,
+    CONF_FORECAST_ENTITY_P10,
     CONF_FORECAST_PROVIDER,
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
@@ -77,6 +79,7 @@ from .const import (
     DEFAULT_DISCOUNT_RATE,
     DEFAULT_DRY_RUN,
     DEFAULT_EXPORT_RATE,
+    DEFAULT_FORECAST_CONSERVATISM,
     DEFAULT_IMMERSION_MIN_TEMP,
     DEFAULT_IMMERSION_TARGET_TEMP,
     DEFAULT_IMMERSION_WATTAGE,
@@ -511,6 +514,14 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 vol.Optional(CONF_FORECAST_ENTITY): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="sensor")
                 ),
+                vol.Optional(CONF_FORECAST_ENTITY_P10): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="sensor")
+                ),
+                vol.Optional(
+                    CONF_FORECAST_CONSERVATISM, default=DEFAULT_FORECAST_CONSERVATISM
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0.0, max=1.0, step=0.05, mode="slider")
+                ),
             }
         )
         return self.async_show_form(step_id="forecast", data_schema=schema)
@@ -707,7 +718,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             )
             self._options[CONF_CURRENCY] = tariff.get(CONF_CURRENCY, DEFAULT_CURRENCY)
             self._options.update(thresholds)
-            self._options.update({k: v for k, v in forecast.items() if v})
+            self._options.update({k: v for k, v in forecast.items() if v != ""})
             return self.async_create_entry(title="", data=self._options)
 
         current_periods = self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS)
@@ -863,6 +874,17 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_FORECAST_ENTITY, default=self._get(CONF_FORECAST_ENTITY, "")
                     ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+                    vol.Optional(
+                        CONF_FORECAST_ENTITY_P10, default=self._get(CONF_FORECAST_ENTITY_P10, "")
+                    ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+                    vol.Optional(
+                        CONF_FORECAST_CONSERVATISM,
+                        default=float(
+                            self._get(CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM)
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(min=0.0, max=1.0, step=0.05, mode="slider")
+                    ),
                 }
             ),
             {"collapsed": True},

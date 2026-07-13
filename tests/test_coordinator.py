@@ -358,6 +358,40 @@ class TestCollectRaw:
         raw = coord._collect_raw(coord._effective_cfg())
         assert raw.forecast_kwh_tomorrow is None
 
+    def test_reads_forecast_p10_when_configured(self):
+        # Arrange
+        cfg = _cfg(**{"forecast_entity_p10": "sensor.forecast_p10"})
+        coord = FakeCoordinator(cfg=cfg)
+        coord.set_state("sensor.forecast_p10", "6.0")
+
+        # Act
+        raw = coord._collect_raw(coord._effective_cfg())
+
+        # Assert
+        assert raw.forecast_kwh_p10 == pytest.approx(6.0)
+
+    def test_forecast_p10_absent_when_not_configured(self):
+        # Arrange
+        coord = FakeCoordinator(cfg=_cfg())
+
+        # Act
+        raw = coord._collect_raw(coord._effective_cfg())
+
+        # Assert
+        assert raw.forecast_kwh_p10 is None
+
+    def test_negative_p10_treated_as_none(self):
+        # Arrange
+        cfg = _cfg(**{"forecast_entity_p10": "sensor.forecast_p10"})
+        coord = FakeCoordinator(cfg=cfg)
+        coord.set_state("sensor.forecast_p10", "-0.5")
+
+        # Act
+        raw = coord._collect_raw(coord._effective_cfg())
+
+        # Assert
+        assert raw.forecast_kwh_p10 is None
+
 
 # ── TestUpdateCycle ───────────────────────────────────────────────────────────
 
