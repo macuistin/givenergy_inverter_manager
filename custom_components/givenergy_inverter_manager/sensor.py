@@ -1023,6 +1023,36 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: build_week_summary_state(d),
         html_fn=build_week_summary_html,
     ),
+    GivEnergyManagerSensorDescription(
+        key="pre_boost_export_recommended",
+        translation_key="pre_boost_export_recommended",
+        name="Pre-boost export recommended",
+        icon="mdi:transmission-tower-export",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: "yes" if d.pre_boost_export_recommended else "no",
+    ),
+    GivEnergyManagerSensorDescription(
+        key="pre_boost_export_kwh",
+        translation_key="pre_boost_export_kwh",
+        name="Pre-boost exportable kWh",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:battery-arrow-up",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.pre_boost_export_kwh, 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="pre_boost_export_net_gain",
+        translation_key="pre_boost_export_net_gain",
+        name="Pre-boost export net gain",
+        native_unit_of_measurement=_CURRENCY_UNIT,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:cash-plus",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.pre_boost_export_net_gain, 4),
+    ),
 )
 
 _LOG = logging.getLogger(__name__)

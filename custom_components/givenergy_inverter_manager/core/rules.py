@@ -457,3 +457,42 @@ def should_protect_battery_from_charger(
         f"EV charger drawing from battery "
         f"(SoC {battery_soc:.0f}% <= {battery_protection_threshold:.0f}%)"
     )
+
+
+# ── Pre-cheap-rate export opportunity ─────────────────────────────────────────
+
+
+def calculate_pre_boost_export_opportunity(
+    current_soc: float,
+    battery_capacity_kwh: float,
+    target_soc: int,
+    avg_daily_kwh: float,
+    ceg_rate: float,
+    cheapest_rate: float,
+    min_spare_kwh: float = 1.0,
+) -> tuple[float, float, bool]:
+    """
+    Calculate whether it's worth exporting before the cheap rate window.
+
+    Returns (spare_kwh, net_gain, recommended).
+
+    spare_kwh:   kWh available to export before overnight charge (0 if none)
+    net_gain:    estimated € gain from exporting now and recharging at boost rate
+    recommended: True when net_gain > 0 and spare_kwh >= min_spare_kwh
+
+    Formula (from improvement-designs.md Design 7):
+      spare_kwh = current_soc_kwh - overnight_deficit_kwh - evening_load_est_kwh
+      net_gain  = spare_kwh × (ceg_rate - cheapest_rate)
+
+    The evening load estimate uses CHARGE_MORNING_LOAD_FRACTION (25% of daily avg)
+    as a conservative proxy for evening consumption before the cheap window opens.
+    """
+    current_soc_kwh = battery_capacity_kwh * (current_soc / 100)
+    target_soc_kwh = battery_capacity_kwh * (target_soc / 100)
+    overnight_deficit_kwh = max(0.0, target_soc_kwh - current_soc_kwh)
+    evening_load_est_kwh = avg_daily_kwh * CHARGE_MORNING_LOAD_FRACTION
+    spare_kwh = max(0.0, current_soc_kwh - overnight_deficit_kwh - evening_load_est_kwh)
+    net_gain_per_kwh = ceg_rate - cheapest_rate
+    net_gain = spare_kwh * net_gain_per_kwh
+    recommended = net_gain > 0.0 and spare_kwh >= min_spare_kwh
+    return round(spare_kwh, 3), round(net_gain, 4), recommended
