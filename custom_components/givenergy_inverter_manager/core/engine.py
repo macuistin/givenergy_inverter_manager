@@ -36,6 +36,7 @@ from ..const import (
     CONF_BATTERY_MIN_SOC,
     CONF_CURRENCY,
     CONF_DRY_RUN,
+    CONF_FORECAST_CONSERVATISM,
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_SKIP_CHARGE_SOC_THRESHOLD,
     CONF_SURPLUS_DIVERT_MIN_W,
@@ -44,6 +45,7 @@ from ..const import (
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_CURRENCY,
     DEFAULT_DRY_RUN,
+    DEFAULT_FORECAST_CONSERVATISM,
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
@@ -103,6 +105,7 @@ class RawSensorValues:
     immersion_min_temp: float = 50.0
     immersion_hysteresis_c: float = 5.0
     forecast_kwh_tomorrow: float | None = None
+    forecast_kwh_p10: float | None = None
     ev_power_w: float = 0.0
     ev_plugged_in: bool = False
     inverter_temp: float | None = None
@@ -757,6 +760,10 @@ def build_coordinator_data(
         average_daily_consumption_kwh=avg_daily_kwh,
         cheapest_rate=tariff.get_cheapest_rate().rate,
         solar_fractions=solar_fractions,
+        forecast_kwh_p10=raw.forecast_kwh_p10,
+        forecast_conservatism=float(
+            cfg.get(CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM)
+        ),
         dt=now,
     )
 
