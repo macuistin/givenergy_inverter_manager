@@ -42,6 +42,7 @@ _LOG = get_logger(__name__)
 
 SERVICE_GET_DASHBOARD_YAML = "get_dashboard_yaml"
 SERVICE_SUGGEST_APPLIANCE = "suggest_appliance_run"
+SERVICE_COMPARE_TARIFF = "compare_tariff"
 SERVICE_GET_ROI_SUMMARY = "get_roi_summary"
 
 
@@ -689,6 +690,66 @@ def _make_roi_summary_handler(hass: HomeAssistant):
     return handle
 
 
+def _make_compare_tariff_handler(hass: HomeAssistant):
+    """Return the compare_tariff service handler bound to *hass*."""
+
+    async def handle(call: ServiceCall) -> dict:
+        """Compare current billing period cost against a flat-rate alternative tariff.
+
+        Service data fields:
+          rate            — flat import rate of the comparison tariff (€/kWh, required)
+          standing_charge — daily standing charge of the comparison tariff (€/day, default 0)
+          export_rate     — export rate of the comparison tariff (€/kWh, default 0)
+        """
+        entries = hass.config_entries.async_entries(DOMAIN)
+        if not entries or entries[0].runtime_data is None:
+            return {}
+        coordinator = entries[0].runtime_data
+        if coordinator.data is None:
+            return {}
+
+        d = coordinator.data
+        alt_rate = float(call.data["rate"])
+        alt_standing = float(call.data.get("standing_charge", 0.0))
+        alt_export_rate = float(call.data.get("export_rate", 0.0))
+
+        days = d.days_in_period
+        import_kwh = d.month.import_kwh
+        export_kwh = d.month.export_kwh
+
+        actual_import_cost = d.month.total_import_cost
+        actual_export_earnings = d.month.export_earnings
+        actual_net = actual_import_cost - actual_export_earnings
+
+        alt_import_cost = import_kwh * alt_rate
+        alt_export_earnings = export_kwh * alt_export_rate
+        alt_standing_total = alt_standing * days
+        alt_net = alt_import_cost + alt_standing_total - alt_export_earnings
+
+        return {
+            "period_days": days,
+            "import_kwh": round(import_kwh, 3),
+            "export_kwh": round(export_kwh, 3),
+            "current_tariff": {
+                "import_cost": round(actual_import_cost, 4),
+                "export_earnings": round(actual_export_earnings, 4),
+                "net_cost": round(actual_net, 4),
+            },
+            "comparison_tariff": {
+                "rate": alt_rate,
+                "standing_charge_per_day": alt_standing,
+                "export_rate": alt_export_rate,
+                "import_cost": round(alt_import_cost, 4),
+                "standing_charges": round(alt_standing_total, 4),
+                "export_earnings": round(alt_export_earnings, 4),
+                "net_cost": round(alt_net, 4),
+            },
+            "saving": round(actual_net - alt_net, 4),
+        }
+
+    return handle
+
+
 async def async_register_services(hass: HomeAssistant) -> None:
     """Register the get_dashboard_yaml service."""
 
@@ -823,9 +884,18 @@ async def async_register_services(hass: HomeAssistant) -> None:
     )
     _LOG.debug("Registered service %s.%s", DOMAIN, SERVICE_GET_ROI_SUMMARY)
 
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_COMPARE_TARIFF,
+        _make_compare_tariff_handler(hass),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    _LOG.debug("Registered service %s.%s", DOMAIN, SERVICE_COMPARE_TARIFF)
+
 
 def async_unregister_services(hass: HomeAssistant) -> None:
     """Unregister services when the integration is unloaded."""
     hass.services.async_remove(DOMAIN, SERVICE_GET_DASHBOARD_YAML)
     hass.services.async_remove(DOMAIN, SERVICE_SUGGEST_APPLIANCE)
     hass.services.async_remove(DOMAIN, SERVICE_GET_ROI_SUMMARY)
+    hass.services.async_remove(DOMAIN, SERVICE_COMPARE_TARIFF)
