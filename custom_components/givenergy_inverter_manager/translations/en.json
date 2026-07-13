@@ -516,6 +516,9 @@
       "self_sufficiency_this_week": {
         "name": "Self-sufficiency this week"
       },
+      "cheap_import_fraction_this_week": {
+        "name": "Cheap rate import fraction this week"
+      },
       "solar_this_month": {
         "name": "Solar generated this month"
       },
@@ -554,6 +557,12 @@
       },
       "self_sufficiency_this_month": {
         "name": "Self-sufficiency this month"
+      },
+      "cheap_import_fraction_this_month": {
+        "name": "Cheap rate import fraction this month"
+      },
+      "battery_roundtrip_efficiency_today": {
+        "name": "Battery Round-trip Efficiency Today"
       },
       "solar_forecast_kwh_today": {
         "name": "Solar forecast today"
