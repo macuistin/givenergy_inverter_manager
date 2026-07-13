@@ -43,6 +43,7 @@ from ..const import (
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_THROUGHPUT_BUDGET,
+    CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CURRENCY,
     CONF_DRY_RUN,
     CONF_FORECAST_CONSERVATISM,
@@ -54,6 +55,7 @@ from ..const import (
     DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_BATTERY_THROUGHPUT_BUDGET,
+    DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
     DEFAULT_CURRENCY,
     DEFAULT_DRY_RUN,
     DEFAULT_FORECAST_CONSERVATISM,
@@ -220,6 +222,8 @@ class CoordinatorData:
         "pre_boost_export_kwh",
         "pre_boost_export_net_gain",
         "pre_boost_export_recommended",
+        "ev_km_charged_today",
+        "ev_cost_per_km_today",
     )
 
     def __init__(self) -> None:
@@ -269,6 +273,8 @@ class CoordinatorData:
         self.pre_boost_export_kwh: float = 0.0
         self.pre_boost_export_net_gain: float = 0.0
         self.pre_boost_export_recommended: bool = False
+        self.ev_km_charged_today: float | None = None
+        self.ev_cost_per_km_today: float | None = None
         self.estimated_soc_at_sunrise: float = 0.0
         self.survival_reason: str = ""
         self.ev_charger_brand: str = ""
@@ -695,6 +701,16 @@ def _set_immersion_decision(
         )
 
 
+def _calculate_ev_km(data: CoordinatorData, acc: EnergyAccumulator, cfg: dict[str, Any]) -> None:
+    car_efficiency = float(
+        cfg.get(CONF_CAR_EFFICIENCY_KWH_PER_100KM, DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM)
+    )
+    if car_efficiency > 0 and acc.zappi_kwh > 0:
+        data.ev_km_charged_today = round(acc.zappi_kwh / car_efficiency * 100, 1)
+        if acc.zappi_cost > 0:
+            data.ev_cost_per_km_today = round(acc.zappi_cost / data.ev_km_charged_today, 4)
+
+
 def _calculate_night_survival(
     data: CoordinatorData,
     raw: RawSensorValues,
@@ -911,6 +927,9 @@ def build_coordinator_data(
             ceg_rate=tariff.export_rate,
             cheapest_rate=tariff.get_cheapest_rate().rate,
         )
+
+    # ── EV km charged today ──────────────────────────────────────────────────
+    _calculate_ev_km(data, acc, cfg)
 
     # ── Night survival ────────────────────────────────────────────────────────
     _calculate_night_survival(data, raw, now, min_soc, avg_daily_kwh)
