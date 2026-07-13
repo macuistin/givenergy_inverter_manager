@@ -311,6 +311,14 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: round(d.battery_stats.total_cycles, 2),
     ),
     GivEnergyManagerSensorDescription(
+        key="register_write_count",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="register_write_count",
+        name="GivTCP Register Write Count",
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: d.register_write_count,
+    ),
+    GivEnergyManagerSensorDescription(
         key="battery_remaining_life",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="battery_remaining_life",

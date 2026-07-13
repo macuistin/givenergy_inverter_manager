@@ -73,7 +73,7 @@ class TestCalculateOvernightChargeTarget:
         assert 60 <= decision.target_soc <= 85
 
     def test_seasonal_fallback_winter(self):
-        """Uses low seasonal estimate in winter with no forecast."""
+        """Winter bypass charges to 100% regardless of forecast."""
         decision = calculate_overnight_charge_target(
             **self._base_kwargs(
                 current_soc=30.0,
@@ -82,9 +82,9 @@ class TestCalculateOvernightChargeTarget:
                 solar_fractions=monthly_solar_fractions(53.0),
             )
         )
-        # Winter forecast should be low → high charge target
-        assert decision.target_soc >= 80
-        assert "seasonal estimate" in decision.reason
+        # Winter months always return 100% — solar is negligible
+        assert decision.target_soc == 100
+        assert "Winter month" in decision.reason
 
     def test_seasonal_fallback_summer(self):
         """Uses high seasonal estimate in summer with no forecast."""

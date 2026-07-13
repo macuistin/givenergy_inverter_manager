@@ -30,12 +30,16 @@ from ..const import (
     CHARGE_MORNING_LOAD_FRACTION,
     CHARGE_PEAK_SOLAR_HOURS,
     CHARGE_POOR_TARGET_SOC,
+    CHARGE_SHOULDER_MIN_SOC,
+    CHARGE_SHOULDER_MONTHS,
     CHARGE_SKIP_HEADROOM,
     CHARGE_SOLAR_USABLE_FRACTION,
     CHARGE_STRONG_BASE_SOC,
     CHARGE_STRONG_BUFFER,
     CHARGE_STRONG_FRACTION,
+    CHARGE_WINTER_MONTHS,
     CLIPPING_THRESHOLD_PERCENT,
+    EV_CHARGER_MIN_POWER_W,
     EV_SURPLUS_DIVERT_W,
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
@@ -88,6 +92,19 @@ def monthly_solar_fractions(latitude_deg: float) -> dict[int, float]:
 # ── Overnight charge decision ─────────────────────────────────────────────────
 
 
+def _blend_forecast_p10(
+    forecast_kwh: float,
+    forecast_kwh_p10: float | None,
+    conservatism: float,
+) -> tuple[float, str]:
+    """Return (blended_forecast_kwh, blend_suffix_for_reason_string)."""
+    if forecast_kwh_p10 is None or conservatism <= 0.0:
+        return forecast_kwh, ""
+    weight = max(0.0, min(1.0, conservatism))
+    blended = (1.0 - weight) * forecast_kwh + weight * forecast_kwh_p10
+    return blended, f" (P10/P50 blend, conservatism={weight:.2f})"
+
+
 @dataclass
 class ChargeDecision:
     """Result of the overnight charge calculation."""
@@ -113,6 +130,8 @@ def calculate_overnight_charge_target(
     average_daily_consumption_kwh: float,
     cheapest_rate: float,
     solar_fractions: dict[int, float] | None = None,
+    forecast_kwh_p10: float | None = None,
+    forecast_conservatism: float = 0.0,
     *,
     dt: datetime,
 ) -> ChargeDecision:
@@ -131,6 +150,27 @@ def calculate_overnight_charge_target(
     """
     month = dt.month
 
+    # Winter bypass: solar is negligible in Dec–Feb; always fill the battery.
+    # Skips the forecast simulation entirely — saves a register write and is
+    # nearly always the correct decision.
+    if month in CHARGE_WINTER_MONTHS:
+        kwh_to_charge = max(0.0, battery_capacity_kwh * (100 - current_soc) / 100)
+        return ChargeDecision(
+            target_soc=100,
+            skip_charge=current_soc >= 95,
+            reason=f"Winter month ({month}) — charging to 100%.",
+            forecast_kwh=0.0,
+            current_soc=current_soc,
+            battery_capacity=battery_capacity_kwh,
+            car_plugged_in=car_plugged_in,
+            cost_to_charge=kwh_to_charge * cheapest_rate,
+        )
+
+    # Shoulder months: raise the min_soc floor — heating load is more variable
+    # and the forecast is less reliable than in peak summer.
+    if month in CHARGE_SHOULDER_MONTHS:
+        min_soc = max(min_soc, CHARGE_SHOULDER_MIN_SOC)
+
     if forecast_kwh is None:
         fractions = solar_fractions or {}
         seasonal_fraction = fractions.get(month, 0.5)
@@ -139,6 +179,11 @@ def calculate_overnight_charge_target(
         forecast_source = f"seasonal estimate (month={month}, lat-derived)"
     else:
         forecast_source = "forecast integration"
+
+    forecast_kwh, blend_suffix = _blend_forecast_p10(
+        forecast_kwh, forecast_kwh_p10, forecast_conservatism
+    )
+    forecast_source += blend_suffix
 
     usable_capacity = battery_capacity_kwh * (1 - min_soc / 100)
     current_kwh = battery_capacity_kwh * (current_soc / 100)
@@ -350,6 +395,15 @@ def decide_ev_charger_action(
     """
     if not charger.is_plugged_in:
         return None, "EV not connected"
+
+    # Minimum power guard: OCPP chargers will not start below 6A (1,380W at 230V).
+    # Sending an Eco+ command when surplus is below this threshold wastes a register
+    # write and causes the charger to oscillate at the threshold boundary.
+    if solar_surplus_w < EV_CHARGER_MIN_POWER_W:
+        return None, (
+            f"Surplus {solar_surplus_w:.0f}W below charger minimum {EV_CHARGER_MIN_POWER_W}W — "
+            f"not starting"
+        )
 
     if solar_surplus_w > EV_SURPLUS_DIVERT_W and charger.brand == EVChargerBrand.ZAPPI:
         current = (charger.charge_mode or "").lower()
