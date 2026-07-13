@@ -336,6 +336,22 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: d.battery_stats.days_since_full_charge,
     ),
+    GivEnergyManagerSensorDescription(
+        key="battery_usable_capacity_kwh",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="battery_usable_capacity_kwh",
+        name="Battery Estimated Usable Capacity",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:battery-heart-outline",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(
+            d.battery_capacity_kwh * d.battery_stats.estimated_remaining_life_pct / 100, 2
+        )
+        if d.battery_capacity_kwh > 0
+        else None,
+    ),
     # --- Overnight charge decision ---
     GivEnergyManagerSensorDescription(
         key="overnight_charge_target",
@@ -600,6 +616,21 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         is_daily_total=True,
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.today.missed_solar_kwh, 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="solar_capture_efficiency_today",
+        translation_key="solar_capture_efficiency_today",
+        name="Solar Capture Efficiency Today",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:solar-power-variant",
+        is_daily_total=True,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(
+            d.today.solar_kwh / (d.today.solar_kwh + d.today.missed_solar_kwh) * 100, 1
+        )
+        if (d.today.solar_kwh + d.today.missed_solar_kwh) > 0
+        else None,
     ),
     # ── Solar forecast and accuracy ───────────────────────────────────────────
     GivEnergyManagerSensorDescription(
@@ -950,6 +981,17 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:home-battery",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.self_sufficiency_pct, 1),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="net_position_this_month",
+        translation_key="net_position_this_month",
+        name="Net Financial Position This Month",
+        native_unit_of_measurement=_CURRENCY_UNIT,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        icon="mdi:scale-balance",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.month.net_position, 4),
     ),
     # ── HTML report sensors (disabled by default) ─────────────────────────────
     GivEnergyManagerSensorDescription(

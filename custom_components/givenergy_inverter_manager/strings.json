@@ -384,6 +384,9 @@
       "days_since_full_charge": {
         "name": "Days Since Full Charge"
       },
+      "battery_usable_capacity_kwh": {
+        "name": "Battery Estimated Usable Capacity"
+      },
       "overnight_charge_target": {
         "name": "Recommended Overnight Charge Target"
       },
@@ -455,6 +458,9 @@
       },
       "missed_solar_today": {
         "name": "Missed solar today"
+      },
+      "solar_capture_efficiency_today": {
+        "name": "Solar Capture Efficiency Today"
       },
       "solar_yesterday": {
         "name": "Solar generated yesterday"
@@ -542,6 +548,9 @@
       },
       "self_sufficiency_this_month": {
         "name": "Self-sufficiency this month"
+      },
+      "net_position_this_month": {
+        "name": "Net Financial Position This Month"
       },
       "solar_forecast_kwh_today": {
         "name": "Solar forecast today"
