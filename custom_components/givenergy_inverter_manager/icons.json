@@ -124,7 +124,10 @@
       "solar_trailing_12m": {"default": "mdi:solar-power"},
       "import_trailing_12m": {"default": "mdi:transmission-tower-import"},
       "import_cost_trailing_12m": {"default": "mdi:cash-minus"},
-      "export_earnings_trailing_12m": {"default": "mdi:cash-plus"}
+      "export_earnings_trailing_12m": {"default": "mdi:cash-plus"},
+      "battery_power_direction": {"default": "mdi:battery-charging"},
+      "integration_version": {"default": "mdi:information-outline"},
+      "days_in_period": {"default": "mdi:calendar-start"}
     },
     "button": {
       "refresh_dashboard": {"default": "mdi:view-dashboard-edit"}

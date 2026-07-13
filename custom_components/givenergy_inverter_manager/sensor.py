@@ -1339,6 +1339,36 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.pre_boost_export_net_gain, 4),
     ),
+    # --- Miscellaneous ---
+    GivEnergyManagerSensorDescription(
+        key="battery_power_direction",
+        translation_key="battery_power_direction",
+        name="Battery Power Direction",
+        icon="mdi:battery-charging",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: "Charging"
+        if d.battery_power_w > 50
+        else ("Discharging" if d.battery_power_w < -50 else "Idle"),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="integration_version",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="integration_version",
+        name="Integration Version",
+        icon="mdi:information-outline",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: INTEGRATION_VERSION,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="days_in_period",
+        translation_key="days_in_period",
+        name="Days Elapsed in Bill Period",
+        native_unit_of_measurement="days",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:calendar-start",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.days_in_period,
+    ),
 )
 
 _LOG = logging.getLogger(__name__)
