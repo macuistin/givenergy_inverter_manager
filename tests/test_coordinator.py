@@ -1510,8 +1510,39 @@ class TestRepairIssues:
         ir.async_delete_issue.reset_mock()
         # Act
         await coord._async_update_data()
+        # Assert — givtcp_entities_missing is cleared when data is available
+        calls = [str(call) for call in ir.async_delete_issue.call_args_list]
+        assert any("givtcp_entities_missing" in call for call in calls)
+
+    @pytest.mark.asyncio
+    async def test_repair_issue_created_when_min_soc_too_high(self):
+        import homeassistant.helpers.issue_registry as ir
+
+        from custom_components.givenergy_inverter_manager.const import CONF_BATTERY_MIN_SOC
+        # Arrange — legacy config with min SoC above the selector max (30%)
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_BATTERY_MIN_SOC: 66}))
+        coord.set_states(_default_states())
+        ir.async_create_issue.reset_mock()
+        # Act
+        await coord._async_update_data()
         # Assert
-        ir.async_delete_issue.assert_called_once()
+        calls = [str(call) for call in ir.async_create_issue.call_args_list]
+        assert any("min_soc_too_high" in call for call in calls)
+
+    @pytest.mark.asyncio
+    async def test_repair_issue_cleared_when_min_soc_normal(self):
+        import homeassistant.helpers.issue_registry as ir
+
+        from custom_components.givenergy_inverter_manager.const import CONF_BATTERY_MIN_SOC
+        # Arrange — correctly configured min SoC
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_BATTERY_MIN_SOC: 20}))
+        coord.set_states(_default_states())
+        ir.async_delete_issue.reset_mock()
+        # Act
+        await coord._async_update_data()
+        # Assert
+        calls = [str(call) for call in ir.async_delete_issue.call_args_list]
+        assert any("min_soc_too_high" in call for call in calls)
 
     def test_repairs_module_exists(self):
         from pathlib import Path
