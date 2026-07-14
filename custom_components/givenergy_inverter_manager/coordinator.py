@@ -107,7 +107,13 @@ from .discovery import (
     update_charger_state,
 )
 from .logging import GivLogger, get_logger, log_cycle, log_givtcp_write
-from .repairs import async_create_givtcp_missing_issue, async_delete_givtcp_missing_issue
+from .repairs import (
+    MIN_SOC_HIGH_THRESHOLD,
+    async_create_givtcp_missing_issue,
+    async_create_min_soc_issue,
+    async_delete_givtcp_missing_issue,
+    async_delete_min_soc_issue,
+)
 
 _LOG = get_logger(__name__)
 
@@ -956,6 +962,14 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._floor_top_up_applied = True
         return status
 
+    def _check_config_repair_issues(self, cfg: dict) -> None:
+        """Raise or clear repair issues for misconfigured values that won't self-heal."""
+        min_soc = int(cfg.get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC))
+        if min_soc > MIN_SOC_HIGH_THRESHOLD:
+            async_create_min_soc_issue(self.hass, min_soc)
+        else:
+            async_delete_min_soc_issue(self.hass)
+
     async def _async_update_data(self) -> CoordinatorData:
         """
         Called every UPDATE_INTERVAL_SECONDS by the HA coordinator framework.
@@ -968,6 +982,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self.hass.async_create_task(self._acc.async_save())
         cfg = self._effective_cfg()
         self.export_rate = float(cfg.get(CONF_EXPORT_RATE, 0.0))
+
+        # 0. Validate config — raise repair issues for values that won't self-heal.
+        self._check_config_repair_issues(cfg)
 
         # 1. Check GivTCP is publishing (entity-unavailable quality scale item)
         #    Both sensors must be stale before raising — a single brief interruption
