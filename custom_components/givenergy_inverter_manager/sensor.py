@@ -657,6 +657,42 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: round(d.today.peak_import_fraction * 100, 1),
     ),
     GivEnergyManagerSensorDescription(
+        key="avg_import_rate_today",
+        translation_key="avg_import_rate_today",
+        name="Average Import Rate Today",
+        native_unit_of_measurement=_CURRENCY_UNIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:cash-clock",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.today.total_import_cost / d.today.import_kwh, 4)
+        if d.today.import_kwh > 0
+        else None,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="avg_import_rate_this_week",
+        translation_key="avg_import_rate_this_week",
+        name="Average Import Rate This Week",
+        native_unit_of_measurement=_CURRENCY_UNIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:cash-clock",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.week.total_import_cost / d.week.import_kwh, 4)
+        if d.week.import_kwh > 0
+        else None,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="avg_import_rate_this_month",
+        translation_key="avg_import_rate_this_month",
+        name="Average Import Rate This Month",
+        native_unit_of_measurement=_CURRENCY_UNIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:cash-clock",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.month.total_import_cost / d.month.import_kwh, 4)
+        if d.month.import_kwh > 0
+        else None,
+    ),
+    GivEnergyManagerSensorDescription(
         key="immersion_savings_today",
         translation_key="immersion_savings_today",
         name="Immersion solar savings",
