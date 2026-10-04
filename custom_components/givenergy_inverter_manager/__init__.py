@@ -34,6 +34,7 @@ from .const import (
 from .coordinator import GivEnergyCoordinator
 from .dashboard import async_register_services, async_unregister_services, loaded_entries
 from .logging import get_logger, log_startup
+from .strategy import async_register_strategy
 
 _LOG = get_logger(__name__)
 
@@ -116,6 +117,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # async_setup runs once per start; this restores services removed by the last unload.
     await async_register_services(hass)
+
+    try:
+        await async_register_strategy(hass)
+    except Exception:
+        _LOG.exception("Could not register the dashboard strategy")
 
     # Create a placeholder dashboard file so YAML-mode lovelace can reference it
     # immediately without requiring the user to run Refresh Dashboard first.

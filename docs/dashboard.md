@@ -58,6 +58,22 @@ lovelace:
 
 After regenerating, reload the dashboard or restart Home Assistant.
 
+## Dashboard strategy (optional)
+
+Instead of a generated file, a dashboard can build itself each time it opens. Create a dashboard, open the Raw configuration editor and use this as the whole configuration:
+
+```yaml
+strategy:
+  type: custom:givenergy-manager
+```
+
+The integration serves a small JavaScript file at `/givenergy_inverter_manager/givenergy-manager-strategy.js` and adds it to the frontend as a module. The file asks Home Assistant for the dashboard over a websocket command, `givenergy_inverter_manager/dashboard`, which returns the same dashboard as the action, built from the current entity registry, options and Lovelace resources. Changing the tariff, enabling a sensor or installing a HACS card shows up on the next page load, with no file to regenerate.
+
+- Reload the browser tab after you first set up or upgrade the integration, so the frontend loads the file.
+- The strategy needs a loaded config entry. Without one the dashboard shows a short message instead.
+- The skipped sensor list and the header notes in the file are not part of the strategy output.
+- The generated file and the action work the same with or without the strategy.
+
 ## HACS cards
 
 | Card | Needed for | Behaviour without it |

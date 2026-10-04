@@ -1,6 +1,11 @@
 {
   "domain": "givenergy_inverter_manager",
   "name": "GivEnergy Inverter Manager",
+  "after_dependencies": [
+    "frontend",
+    "http",
+    "websocket_api"
+  ],
   "codeowners": [
     "@macuistin"
   ],

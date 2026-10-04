@@ -19,6 +19,8 @@ python3 -m venv .venv
 
 `tests/test_dashboard_example.py` is a golden test for `docs/dashboard-example.yaml`. After an intended change to the dashboard generator, regenerate the file with `UPDATE_DASHBOARD_EXAMPLE=1 python -m pytest tests/test_dashboard_example.py` and review the diff.
 
+`tests/test_dashboard_strategy.py` runs the strategy JavaScript under `node` when `node` is installed, and skips those tests otherwise.
+
 ## Real Home Assistant suite
 
 Use a separate virtualenv. The plugin pins `homeassistant`, `pytest` and `pytest-asyncio`, and Home Assistant 2026.9 needs Python 3.14.2 or newer.
