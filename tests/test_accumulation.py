@@ -974,3 +974,20 @@ class TestRollForwardOnRestart:
         store.roll_forward(datetime(2026, 7, 14, 18, 0, tzinfo=timezone.utc))
 
         assert store.state.week_start_iso == "2026-07-06T00:00:00+00:00"
+
+
+class TestScheduleSave:
+    def test_delayed_save_serialises_the_state_at_write_time(self):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        store = AccumulationStore(MagicMock(), bill_start_day=1)
+        store._store = MagicMock()
+
+        store.schedule_save()
+        store.state.today.solar_kwh = 7.0
+
+        data_func, delay = store._store.async_delay_save.call_args.args
+        assert delay > 0
+        assert data_func()["today"]["solar_kwh"] == pytest.approx(7.0)

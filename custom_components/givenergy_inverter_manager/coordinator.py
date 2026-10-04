@@ -42,7 +42,8 @@ from datetime import datetime, timedelta, timezone
 from datetime import time as dtime
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.const import EVENT_HOMEASSISTANT_FINAL_WRITE
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -552,6 +553,18 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._acc.roll_forward(now):
             await self._acc.async_save()
         self._last_reset_time = self._acc.state.last_reset_iso
+        self.entry.async_on_unload(self.async_flush)
+        self.entry.async_on_unload(
+            self.hass.bus.async_listen(EVENT_HOMEASSISTANT_FINAL_WRITE, self._async_final_write)
+        )
+
+    async def async_flush(self) -> None:
+        """Write the accumulators and battery statistics to storage now."""
+        self._acc.save_battery_stats(self._battery_stats)
+        await self._acc.async_save()
+
+    async def _async_final_write(self, _event: Event) -> None:
+        await self.async_flush()
 
     # ── Time-triggered callbacks ──────────────────────────────────────────────
 
@@ -1010,7 +1023,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._update_cycle += 1
         if self._update_cycle % 10 == 0:
             self._acc.save_battery_stats(self._battery_stats)
-            self.hass.async_create_task(self._acc.async_save())
+            self._acc.schedule_save()
         cfg = self._effective_cfg()
         self._acc.update_bill_start_day(self._configured_bill_start_day(cfg))
         self.export_rate = float(cfg.get(CONF_EXPORT_RATE, 0.0))

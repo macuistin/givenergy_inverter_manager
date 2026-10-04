@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 from conftest import MIDDAY
+from homeassistant.const import EVENT_HOMEASSISTANT_FINAL_WRITE
 from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
 from custom_components.givenergy_inverter_manager.accumulation import (
     _STORAGE_KEY,
@@ -77,3 +81,58 @@ async def test_restart_across_the_bill_day_resets_the_month(
     assert len(acc.monthly_snapshots) == 1
     assert acc.monthly_snapshots[0]["solar_kwh"] == pytest.approx(200.0)
     assert acc.year.solar_kwh == pytest.approx(1500.0)
+
+
+@pytest.mark.parametrize("scenario", [MIDDAY], ids=lambda s: s.name)
+async def test_unload_writes_the_accumulators_to_storage(
+    hass, hass_in_scenario, service_calls, config_entry, hass_storage
+):
+    """Saving the options reloads the entry. Energy added since the last save must survive."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    config_entry.runtime_data._acc.state.month.solar_kwh = 77.7
+    config_entry.runtime_data._battery_stats.total_cycles = 4.25
+
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    saved = hass_storage[_STORAGE_KEY]["data"]
+    assert saved["month"]["solar_kwh"] == pytest.approx(77.7)
+    assert saved["battery_cycles"] == pytest.approx(4.25)
+
+
+@pytest.mark.parametrize("scenario", [MIDDAY], ids=lambda s: s.name)
+async def test_home_assistant_stop_writes_the_accumulators_to_storage(
+    hass, hass_in_scenario, service_calls, config_entry, hass_storage
+):
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    config_entry.runtime_data._acc.state.week.solar_kwh = 31.5
+
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_FINAL_WRITE)
+    await hass.async_block_till_done()
+
+    assert hass_storage[_STORAGE_KEY]["data"]["week"]["solar_kwh"] == pytest.approx(31.5)
+
+
+@pytest.mark.parametrize("scenario", [MIDDAY], ids=lambda s: s.name)
+async def test_tenth_cycle_saves_after_the_delay(
+    hass, hass_in_scenario, service_calls, config_entry, hass_storage, freezer
+):
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = config_entry.runtime_data
+    coordinator._acc.state.year.solar_kwh = 1234.5
+
+    for _ in range(10 - coordinator._update_cycle):
+        await coordinator.async_refresh()
+    assert hass_storage[_STORAGE_KEY]["data"]["year"]["solar_kwh"] == 0.0
+
+    freezer.tick(timedelta(seconds=30))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+    assert hass_storage[_STORAGE_KEY]["data"]["year"]["solar_kwh"] == pytest.approx(1234.5)

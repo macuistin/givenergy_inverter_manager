@@ -37,6 +37,7 @@ _FORECAST_RATIO_HISTORY_DAYS = 14
 _SLOT_HISTORY_DAYS = 28
 _SLOTS_PER_DAY = 48
 _SLOT_HOURS = 0.5
+_SAVE_DELAY_SECONDS = 15
 
 
 # ── Serialisation helpers ─────────────────────────────────────────────────────
@@ -284,6 +285,10 @@ class AccumulationStore:
             await self._store.async_save(_serialize(self.state))
         except Exception as err:
             _LOG.warning("Could not save accumulation state: %s", err)
+
+    def schedule_save(self) -> None:
+        """Queue a save. HA writes it after a short delay, or at shutdown if still pending."""
+        self._store.async_delay_save(lambda: _serialize(self.state), _SAVE_DELAY_SECONDS)
 
     # ── Event handlers ────────────────────────────────────────────────────────
 

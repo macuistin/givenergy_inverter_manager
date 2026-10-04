@@ -61,6 +61,7 @@ _const.UnitOfPower = MagicMock()
 _const.UnitOfEnergy = MagicMock()
 _const.UnitOfTemperature = MagicMock()
 _const.EntityCategory = MagicMock()
+_const.EVENT_HOMEASSISTANT_FINAL_WRITE = "homeassistant_final_write"
 
 # --- homeassistant.config_entries ---
 _ce = sys.modules["homeassistant.config_entries"]
@@ -90,6 +91,7 @@ _def.FlowResult = dict
 # --- homeassistant.core ---
 _core = sys.modules["homeassistant.core"]
 _core.HomeAssistant = MagicMock
+_core.Event = MagicMock
 _core.callback = lambda f: f
 
 # --- homeassistant.exceptions ---

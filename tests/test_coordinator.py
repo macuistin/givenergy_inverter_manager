@@ -205,6 +205,14 @@ class FakeCoordinator(GivEnergyCoordinator):
                 if self.state.today_forecast_kwh == 0.0 and kwh > 0:
                     self.state.today_forecast_kwh = kwh
 
+            scheduled_saves = 0
+
+            def schedule_save(self):
+                self.scheduled_saves += 1
+
+            def save_battery_stats(self, stats):
+                pass
+
             async def async_save(self):
                 pass  # no-op in tests
 
@@ -688,6 +696,57 @@ class TestRestoreState:
 
         assert coord._last_reset_time == "2026-07-15T00:00:00+00:00"
         assert store.state.year_start_iso == "2026-01-01T00:00:00+00:00"
+
+
+class TestDurablePersistence:
+    @pytest.mark.asyncio
+    async def test_tenth_cycle_queues_a_delayed_save(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        for _ in range(9):
+            await coord.run_cycle()
+        assert coord._acc.scheduled_saves == 0
+        await coord.run_cycle()
+        assert coord._acc.scheduled_saves == 1
+
+    async def test_flush_saves_battery_stats_and_accumulators(self, monkeypatch):
+        coord, store = _coord_with_real_store(
+            None, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+        coord._battery_stats.total_cycles = 3.5
+        store.state.month.solar_kwh = 77.7
+
+        await coord.async_flush()
+
+        assert store._store.saved["battery_cycles"] == pytest.approx(3.5)
+        assert store._store.saved["month"]["solar_kwh"] == pytest.approx(77.7)
+
+    async def test_restore_registers_a_flush_for_unload_and_for_home_assistant_stop(
+        self, monkeypatch
+    ):
+        from custom_components.givenergy_inverter_manager.coordinator import (
+            EVENT_HOMEASSISTANT_FINAL_WRITE,
+        )
+
+        coord, store = _coord_with_real_store(
+            None, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+        on_unload = []
+        coord.entry.async_on_unload = on_unload.append
+        stop_remover = MagicMock()
+        coord.hass.bus.async_listen = MagicMock(return_value=stop_remover)
+
+        await coord.async_restore_state()
+
+        assert coord.async_flush in on_unload
+        assert stop_remover in on_unload
+        coord.hass.bus.async_listen.assert_called_once_with(
+            EVENT_HOMEASSISTANT_FINAL_WRITE, coord._async_final_write
+        )
+
+        store.state.week.solar_kwh = 12.0
+        await coord._async_final_write(MagicMock())
+        assert store._store.saved["week"]["solar_kwh"] == pytest.approx(12.0)
 
 
 class TestMidnightReset:
