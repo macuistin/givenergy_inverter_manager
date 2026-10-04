@@ -208,6 +208,30 @@ class TestSerialisationRoundtrip:
         assert restored.forecast_accuracy_history == [90.0, 85.0, 92.5]
         assert restored.week_start_iso == "2024-07-01T00:00:00+00:00"
 
+    def test_year_and_year_start_survive_a_roundtrip(self):
+        state = AccumulationState()
+        state.year.solar_kwh = 2100.0
+        state.year.export_earnings = 310.5
+        state.year_start_iso = "2026-01-01T00:00:00+00:00"
+
+        restored = _deserialize(_serialize(state))
+
+        assert restored.year.solar_kwh == pytest.approx(2100.0)
+        assert restored.year.export_earnings == pytest.approx(310.5)
+        assert restored.year_start_iso == "2026-01-01T00:00:00+00:00"
+
+    def test_missed_solar_and_derating_minutes_survive_a_roundtrip(self):
+        state = AccumulationState()
+        state.today.missed_solar_kwh = 1.75
+        state.today.inverter_derating_minutes = 42.0
+        state.week.missed_solar_kwh = 4.5
+
+        restored = _deserialize(_serialize(state))
+
+        assert restored.today.missed_solar_kwh == pytest.approx(1.75)
+        assert restored.today.inverter_derating_minutes == pytest.approx(42.0)
+        assert restored.week.missed_solar_kwh == pytest.approx(4.5)
+
     def test_missing_fields_in_stored_data_use_defaults(self):
         """Old stored data without new fields should restore gracefully."""
         minimal_data = {

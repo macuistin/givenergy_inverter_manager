@@ -65,6 +65,8 @@ def _acc_to_dict(acc: EnergyAccumulator) -> dict:
         "immersion_solar_kwh": acc.immersion_solar_kwh,
         "immersion_savings": acc.immersion_savings,
         "battery_throughput_kwh": acc.battery_throughput_kwh,
+        "missed_solar_kwh": acc.missed_solar_kwh,
+        "inverter_derating_minutes": acc.inverter_derating_minutes,
     }
 
 
@@ -457,6 +459,7 @@ def _serialize(state: AccumulationState) -> dict:
         "today": _acc_to_dict(state.today),
         "week": _acc_to_dict(state.week),
         "month": _acc_to_dict(state.month),
+        "year": _acc_to_dict(state.year),
         "yesterday": _acc_to_dict(state.yesterday),
         "today_forecast_kwh": state.today_forecast_kwh,
         "battery_cycles": state.battery_cycles,
@@ -475,6 +478,7 @@ def _serialize(state: AccumulationState) -> dict:
         "slot_load_history": [dict(e) for e in state.slot_load_history],
         "week_start_iso": state.week_start_iso,
         "month_start_iso": state.month_start_iso,
+        "year_start_iso": state.year_start_iso,
         "last_reset_iso": state.last_reset_iso,
         "monthly_export_snapshots": list(state.monthly_export_snapshots),
         "monthly_snapshots": list(state.monthly_snapshots),
@@ -486,6 +490,7 @@ def _deserialize(data: dict) -> AccumulationState:
     state.today = _dict_to_acc(data.get("today", {}))
     state.week = _dict_to_acc(data.get("week", {}))
     state.month = _dict_to_acc(data.get("month", {}))
+    state.year = _dict_to_acc(data.get("year", {}))
     state.yesterday = _dict_to_acc(data.get("yesterday", {}))
     state.today_forecast_kwh = float(data.get("today_forecast_kwh", 0.0))
     state.battery_cycles = float(data.get("battery_cycles", 0.0))
@@ -510,6 +515,7 @@ def _deserialize(data: dict) -> AccumulationState:
             setattr(state, key, [float(v) for v in values])
     state.week_start_iso = data.get("week_start_iso", "")
     state.month_start_iso = data.get("month_start_iso", "")
+    state.year_start_iso = data.get("year_start_iso", "")
     state.last_reset_iso = data.get("last_reset_iso", "")
     state.monthly_export_snapshots = [
         float(x) for x in data.get("monthly_export_snapshots", [])
