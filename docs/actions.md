@@ -71,7 +71,7 @@ Template example: `{{ roi.today.self_consumption_saving }}`.
 
 `self_consumed_kwh` is solar generated minus exported, floored at 0. `self_consumption_saving` is that energy times the difference between today's average import rate and today's average export rate, floored at 0. With nothing imported yet, the import rate is the current rate. With no export yet, the export rate is taken as 0. `net_position` is export earnings minus import cost.
 
-The `year` block starts from zero after every restart or reload, because the year totals are not saved.
+The `year` block is saved over a restart and resets on 1 January.
 
 ## compare_tariff
 
@@ -136,4 +136,4 @@ Columns: `period`, `solar_kwh`, `import_kwh`, `export_kwh`, `battery_throughput_
 
 Rows: `today`, `yesterday`, `this_week`, `this_month`, `this_year`, then one `month_snapshot_NN` row per completed bill period. `month_snapshot_01` is the most recent.
 
-In snapshot rows, `self_sufficiency_pct` is solar divided by house energy, capped at 100. Year totals are not saved over a restart, so `this_year` can be short.
+In snapshot rows, `self_sufficiency_pct` is solar divided by house energy, capped at 100.

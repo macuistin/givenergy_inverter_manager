@@ -224,7 +224,7 @@ mode: single
 
 ## Daily derating summary
 
-Sends the minutes spent at 65 °C or more, at sunset. Enable the Inverter Derating Today sensor first. It is disabled by default and is not saved over a restart.
+Sends the minutes spent at 65 °C or more, at sunset. Enable the Inverter Derating Today sensor first. It is disabled by default.
 
 ```yaml
 alias: Daily derating summary
