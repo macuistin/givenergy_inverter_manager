@@ -6,6 +6,7 @@ import math
 
 import pytest
 
+from custom_components.givenergy_inverter_manager.const import GIVTCP_MIN_WRITE_INTERVAL_S
 from custom_components.givenergy_inverter_manager.core.rules import should_divert_to_immersion
 
 CYCLES = 200
@@ -46,11 +47,13 @@ def simulate(
     on = False
     temp = start_temp
     smoothed = 0.0
+    outage_s = 0.0
     states, temps, reasons = [], [], []
     for i in range(CYCLES):
         solar = solar_fn(i)
         house_load = base_fn(i) + (element_w if on else 0.0)
         missing = dropout(i) if dropout else set()
+        outage_s = outage_s + CYCLE_S if missing else 0.0
         smoothed = EMA_ALPHA * smoothed + EMA_ALPHA * solar if "solar" not in missing else smoothed
         on, reason = should_divert_to_immersion(
             solar_power_w=None if "solar" in missing else smoothed,
@@ -64,6 +67,7 @@ def simulate(
             currently_on=on,
             immersion_power_w=decision_w,
             immersion_temp_unavailable="temp" in missing,
+            unavailable_for_s=outage_s,
         )
         if on:
             temp += heat_c_per_cycle
@@ -146,6 +150,28 @@ class TestDropouts:
         )
         assert all(states[10:])
         assert transitions(states) <= 1
+
+    @pytest.mark.parametrize("sensor", ["house_load", "battery_power", "solar", "temp"])
+    def test_long_dropout_while_on_turns_off_after_hold_limit(self, sensor):
+        start = 50
+        states, _, reasons = simulate(
+            lambda _i: 5000.0,
+            dropout=lambda i: {sensor} if i >= start else set(),
+        )
+        hold_cycles = GIVTCP_MIN_WRITE_INTERVAL_S // CYCLE_S
+        off_at = start + hold_cycles - 1
+        assert all(states[start:off_at])
+        assert not any(states[off_at:])
+        assert "turning off" in reasons[off_at]
+        assert transitions(states) <= MAX_TRANSITIONS
+
+    def test_hold_clock_restarts_after_recovery(self):
+        gap = GIVTCP_MIN_WRITE_INTERVAL_S // CYCLE_S - 2
+        states, _, _ = simulate(
+            lambda _i: 5000.0,
+            dropout=lambda i: {"house_load"} if i % (gap + 2) < gap else set(),
+        )
+        assert all(states[10:])
 
     def test_all_sensors_down_all_day_never_starts(self):
         states, _, _ = simulate(

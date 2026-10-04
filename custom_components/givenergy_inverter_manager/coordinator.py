@@ -192,6 +192,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.override_immersion: bool | None = None
         self.override_skip_charge: bool = False
         self._givtcp_was_unavailable: bool = False
+        self._inputs_unavailable_since: datetime | None = None
         # When True, manual override stays on until water reaches target temp, then releases.
         self._immersion_manual_run_to_target: bool = False
         # Cooldown: timestamp until which auto switch decisions are suppressed.
@@ -831,6 +832,16 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         return raw
 
+    def _track_input_outage(self, raw: RawSensorValues, now: datetime) -> None:
+        """Record how long the required inputs have been continuously unavailable."""
+        if not raw.unavailable_inputs:
+            self._inputs_unavailable_since = None
+            raw.unavailable_for_s = 0.0
+            return
+        if self._inputs_unavailable_since is None:
+            self._inputs_unavailable_since = now
+        raw.unavailable_for_s = max(0.0, (now - self._inputs_unavailable_since).total_seconds())
+
     def _maybe_rediscover_ev(self) -> None:
         """Re-run EV charger discovery every 5 minutes when none is cached."""
         needs_discovery = self._ev_charger is None or self._ev_charger.power_entity is None
@@ -1059,6 +1070,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         # 5. Run the pure logic engine
         now = dt_util.as_local(datetime.now(timezone.utc))
+
+        self._track_input_outage(raw, now)
 
         # 5a. Update per-slot baseline load for this 30-min window.
         if self._last_update is not None:

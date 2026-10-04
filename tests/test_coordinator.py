@@ -207,6 +207,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self.override_immersion = None
         self.override_skip_charge = False
         self._givtcp_was_unavailable: bool = False
+        self._inputs_unavailable_since = None
         self._immersion_manual_run_to_target: bool = False
         self._immersion_cooldown_until = None
         self._last_immersion_coordinator_write = None
@@ -2094,3 +2095,55 @@ class TestSensorDropouts:
         coord._smoothed_solar_w = 5000.0
         data = await coord._async_update_data()
         assert data.should_divert_immersion is True
+
+
+class TestInputOutageTracking:
+    """The coordinator measures how long required inputs have been unavailable."""
+
+    def _raw_with(self, *unavailable):
+        raw = _raw()
+        raw.unavailable_inputs = tuple(unavailable)
+        return raw
+
+    def test_no_outage_reports_zero(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = self._raw_with()
+        coord._track_input_outage(raw, datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc))
+        assert raw.unavailable_for_s == 0.0
+        assert coord._inputs_unavailable_since is None
+
+    def test_outage_duration_counts_from_first_cycle(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        start = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
+        for offset in (0, 30, 90):
+            raw = self._raw_with("house_load")
+            coord._track_input_outage(raw, start + timedelta(seconds=offset))
+        assert raw.unavailable_for_s == pytest.approx(90.0)
+
+    def test_recovery_resets_the_clock(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        start = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
+        coord._track_input_outage(self._raw_with("solar_power"), start)
+        coord._track_input_outage(self._raw_with(), start + timedelta(seconds=60))
+        raw = self._raw_with("solar_power")
+        coord._track_input_outage(raw, start + timedelta(seconds=120))
+        assert raw.unavailable_for_s == 0.0
+
+    @pytest.mark.asyncio
+    async def test_running_immersion_turns_off_after_hold_limit(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            GIVTCP_MIN_WRITE_INTERVAL_S,
+        )
+
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_IMMERSION_SWITCH: "switch.immersion"}))
+        coord.set_states(_default_states())
+        coord.set_states({"sensor.solar": "5000", "sensor.battery_soc": "95",
+                          "sensor.battery_power": "0", "sensor.house": "unavailable",
+                          "switch.immersion": "on"})
+        coord._smoothed_solar_w = 5000.0
+        coord._inputs_unavailable_since = datetime.now(timezone.utc) - timedelta(
+            seconds=GIVTCP_MIN_WRITE_INTERVAL_S + 10
+        )
+        data = await coord._async_update_data()
+        assert data.should_divert_immersion is False
+        assert "turning off" in data.divert_reason

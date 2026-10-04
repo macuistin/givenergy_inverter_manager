@@ -1093,3 +1093,47 @@ class TestImmersionSensorDropouts:
             **self._kwargs(immersion_temp=56.0, house_load_w=None), currently_on=True
         )
         assert should is False
+
+    @pytest.mark.parametrize("name", ["solar_power_w", "house_load_w", "battery_power_w"])
+    def test_turns_off_once_outage_reaches_hold_limit(self, name):
+        from custom_components.givenergy_inverter_manager.const import (
+            GIVTCP_MIN_WRITE_INTERVAL_S,
+        )
+
+        should, reason = should_divert_to_immersion(
+            **self._kwargs(**{name: None}),
+            currently_on=True,
+            unavailable_for_s=GIVTCP_MIN_WRITE_INTERVAL_S,
+        )
+        assert should is False
+        assert "turning off" in reason
+
+    def test_holds_on_just_under_hold_limit(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            GIVTCP_MIN_WRITE_INTERVAL_S,
+        )
+
+        should, _ = should_divert_to_immersion(
+            **self._kwargs(house_load_w=None),
+            currently_on=True,
+            unavailable_for_s=GIVTCP_MIN_WRITE_INTERVAL_S - 1,
+        )
+        assert should is True
+
+    def test_turns_off_after_hold_limit_when_temp_unavailable(self):
+        should, _ = should_divert_to_immersion(
+            **self._kwargs(immersion_temp=None),
+            immersion_temp_unavailable=True,
+            currently_on=True,
+            unavailable_for_s=3600.0,
+        )
+        assert should is False
+
+    def test_legionella_heating_wins_over_expired_hold(self):
+        should, reason = should_divert_to_immersion(
+            **self._kwargs(immersion_temp=20.0, house_load_w=None),
+            currently_on=True,
+            unavailable_for_s=3600.0,
+        )
+        assert should is True
+        assert "minimum safe" in reason

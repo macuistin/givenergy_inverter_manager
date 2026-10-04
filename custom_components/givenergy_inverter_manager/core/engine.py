@@ -131,6 +131,8 @@ class RawSensorValues:
     inverter_temp: float | None = None
     # Names of required inputs that were unavailable this cycle (their value is a 0.0 placeholder)
     unavailable_inputs: tuple[str, ...] = ()
+    # Seconds the current unavailable_inputs outage has lasted (0.0 when none)
+    unavailable_for_s: float = 0.0
     # GivTCP daily energy counters — authoritative when present, None → fall back to integration
     solar_energy_today_kwh: float | None = None
     import_energy_today_kwh: float | None = None
@@ -735,6 +737,7 @@ def _set_immersion_decision(
             export_rate=export_rate,
             immersion_power_w=raw.immersion_wattage_w,
             immersion_temp_unavailable="immersion_temp" in missing,
+            unavailable_for_s=raw.unavailable_for_s,
         )
 
 

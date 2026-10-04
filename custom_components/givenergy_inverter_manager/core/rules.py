@@ -34,6 +34,7 @@ from ..const import (
     CLIPPING_THRESHOLD_PERCENT,
     EV_CHARGER_MIN_POWER_W,
     EV_SURPLUS_DIVERT_W,
+    GIVTCP_MIN_WRITE_INTERVAL_S,
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
@@ -376,6 +377,21 @@ def _missing_inputs(
     return missing
 
 
+def _missing_input_decision(
+    missing: list[str], currently_on: bool, unavailable_for_s: float
+) -> tuple[bool, str]:
+    """Hold an already-running element for a bounded time, never start on missing data."""
+    names = ", ".join(missing)
+    if not currently_on:
+        return False, f"Sensor unavailable ({names}), not starting"
+    if unavailable_for_s < GIVTCP_MIN_WRITE_INTERVAL_S:
+        return True, f"Sensor unavailable ({names}), holding on"
+    return False, (
+        f"Sensor unavailable ({names}) for {unavailable_for_s:.0f}s, "
+        f"hold limit {GIVTCP_MIN_WRITE_INTERVAL_S}s reached, turning off"
+    )
+
+
 def should_divert_to_immersion(
     solar_power_w: float | None,
     house_load_w: float | None,
@@ -393,6 +409,7 @@ def should_divert_to_immersion(
     export_rate: float = 0.0,
     immersion_power_w: float = 0.0,
     immersion_temp_unavailable: bool = False,
+    unavailable_for_s: float = 0.0,
 ) -> tuple[bool, str]:
     """
     Decide whether to turn on the immersion heater.
@@ -402,9 +419,10 @@ def should_divert_to_immersion(
     Algorithm:
       1. Always heat if below legionella minimum temperature (ignores hysteresis)
       2. Turn off when target temperature is reached
-      3. Hold the current state if a required input is missing (None solar, house
-         load or battery power, or immersion_temp_unavailable). Never start on
-         missing data.
+      3. If a required input is missing (None solar, house load or battery power,
+         or immersion_temp_unavailable): never start on missing data. If already on,
+         hold on while unavailable_for_s is below GIVTCP_MIN_WRITE_INTERVAL_S, then
+         turn off. The caller measures unavailable_for_s so this function stays pure.
       4. Hysteresis: if currently off, only restart once water cools to
          (target - hysteresis_c); if currently on, keep running until target
       5. Never heat if battery SoC is below soc_threshold
@@ -430,10 +448,7 @@ def should_divert_to_immersion(
         solar_power_w, house_load_w, battery_power_w, immersion_temp_unavailable
     )
     if missing:
-        return currently_on, (
-            f"Sensor unavailable ({', '.join(missing)}), "
-            f"{'holding on' if currently_on else 'not starting'}"
-        )
+        return _missing_input_decision(missing, currently_on, unavailable_for_s)
 
     if battery_soc < soc_threshold:
         return False, f"Battery SoC {battery_soc:.0f}% below threshold {soc_threshold}%"
