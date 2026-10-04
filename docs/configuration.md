@@ -1,108 +1,173 @@
 # Configuration
 
-This page covers the full setup wizard and every option available in Settings → Devices & Services → GivEnergy Inverter Manager → Configure.
+Every setup step and every option, with ranges and defaults taken from the config flow.
 
----
+- **Setup** is a six-step wizard: inverter, tariff, forecast, immersion, EV, battery.
+- **Configure** opens a single options page with collapsible sections. Saving it reloads the integration.
+- **Reconfigure** edits the tariff only.
 
-## Initial setup
+Some fields are missing a label in the forms. They show their key name instead, for example `forecast_entity_p10`. The tables below give the key in that case.
 
-### Step 1 — Inverter discovery
+## Setup
 
-When you add the integration, it scans Home Assistant for GivTCP entities and tries to find your inverter automatically.
+### Step 1: Inverter
 
-<!-- screenshot: inverter discovery step showing detected inverter -->
+The integration looks for a GivTCP inverter by its `sensor.givtcp_<id>_invertor_serial_number` entity. GivTCP spells "inverter" as "invertor". For each inverter found it looks for these entities, all with the same `givtcp_<id>_` prefix:
 
-If your inverter is found, it will appear in a dropdown. Select it and the form pre-fills with the entities GivTCP is already publishing.
+| Purpose | Entity suffix | Required |
+|---|---|---|
+| Solar power | `sensor..._pv_power` | yes |
+| Battery SoC | `sensor..._soc` (GivTCP v3) or `sensor..._battery_soc` (v2) | yes |
+| Battery power | `sensor..._battery_power` | yes |
+| Grid power | `sensor..._grid_power` | yes |
+| House load | `sensor..._load_power` | yes |
+| Battery capacity | `sensor..._battery_capacity_kwh` | no, pre-fills the capacity |
+| Inverter temperature | `sensor..._invertor_temperature` | no |
+| Target SoC | `number..._target_soc` | no, needed to write charge targets |
+| Enable charge target | `switch..._enable_charge_target` | no, needed to write charge targets |
+| Enable charge schedule | `switch..._enable_charge_schedule` | no, needed to write charge targets |
+| Charge start and end, slot 1 | `select..._charge_start_time_slot_1` and `..._charge_end_time_slot_1` | no, needed to write charge targets |
 
-If nothing is found, check that GivTCP is running and publishing to MQTT before continuing. See [Troubleshooting](troubleshooting.md) if you're stuck.
+If the five required power sensors are found, the form shows only three fields and fills the entity IDs itself.
 
-**Battery capacity** and **max inverter output** are pre-filled from GivTCP where possible. Adjust them if they look wrong.
+| Field | Default | Range |
+|---|---|---|
+| Detected inverter | The best match | A detected inverter, or Manual entry |
+| Battery capacity (kWh) | From GivTCP, else 10 | 1 to 100 |
+| Inverter max output (kW) | 5.0 | 1 to 20 |
 
----
+If a required sensor is missing, or you pick Manual entry, the form also asks for the five power sensors. Leaving one empty shows the error "One or more required inverter entities are missing."
 
-### Step 2 — Tariff
+The charge control entities are never asked for. They come from discovery only. Without all of them the integration still calculates a target, but it cannot write it. The tariff step shows how many of the five were detected. An inverter is added once: its serial number is the unique ID.
 
-This is where you tell the integration what you pay for electricity. It uses this to calculate overnight charge costs, bill projections, and immersion divert savings.
+### Step 2: Tariff
 
-<!-- screenshot: tariff configuration step -->
+| Field | Default | Range |
+|---|---|---|
+| Base rate (daytime / standard) | 0.3334 | 0 to 5 per kWh |
+| Base rate name | Day | text |
+| Export / CEG rate | 0.195 | 0 to 1 per kWh |
+| Standing charge per day | 0.8259 | 0 to 5 |
+| PSO levy per month | 1.46 | 0 to 20 |
+| VAT rate (%) | 9.0 | 0 to 30 |
+| Supplier discount (%) | 5.5 | 0 to 20 |
+| Bill start day of month | 1 | 1 to 28 |
+| Currency | EUR | EUR, GBP, USD, SEK, NOK, DKK, AUD, CAD, NZD, ZAR |
+| Rate period 1 to 5 | Night and Nightboost in slots 1 and 2 | name, rate, window start, window end |
 
-See [docs/tariff.md](tariff.md) for a full guide to filling this in, including an Electric Ireland Nightboost example.
+The defaults are Electric Ireland Home Electric with Nightboost. Replace all of them. The rate fields say EUR/kWh whatever currency you pick. The currency only changes the symbol on money sensors. See [Tariff](tariff.md) for how periods and bill figures work.
 
----
+### Step 3: Forecast and carbon (optional)
 
-### Step 3 — Solar forecast (optional)
+| Field | Key | Notes |
+|---|---|---|
+| Forecast provider | `forecast_provider` | Forecast.Solar or Solcast. Stored, but nothing reads it. The integration uses the sensors below |
+| Tomorrow's forecast sensor | `forecast_entity` | A sensor giving tomorrow's expected energy in kWh |
+| Solcast P10 sensor | `forecast_entity_p10` | Optional. A pessimistic forecast in kWh, blended in when conservatism is above 0 |
+| Day-after-tomorrow sensor | `forecast_entity_d2` | Optional. Read each cycle but not used by the charge calculation in v0.3.0 |
+| Grid carbon intensity sensor | `carbon_intensity_entity` | Optional. g CO2/kWh. Feeds the two carbon sensors |
+| Forecast conservatism | `forecast_conservatism` | Slider 0 to 1 in steps of 0.05, default 0.35. 0 is the plain forecast, 1 is the P10 value |
 
-Connect a forecast integration so the charge calculator knows what the sun is going to do tomorrow.
+With no forecast sensor, the charge calculation uses a seasonal estimate from your latitude.
 
-<!-- screenshot: forecast step -->
+### Step 4: Immersion (optional)
 
-| Option | What to put |
-|---|---|
-| **Forecast provider** | Forecast.Solar or Solcast |
-| **Tomorrow's forecast sensor** | The entity from your forecast integration that gives tomorrow's expected generation in kWh |
+| Field | Default | Range |
+|---|---|---|
+| Immersion switch | none | a `switch` entity |
+| Element wattage (W) | 3000 | 500 to 6000 |
+| Water temperature sensor | none | a `sensor` entity |
+| Target temperature (°C) | 55 | 40 to 75 |
+| Minimum temperature (°C) | 50 | 30 to 60 |
 
-Leave this blank if you don't have a forecast integration. The system will use a seasonal estimate instead.
+The restart gap (default 5 °C) is not in the form. Change it with the Immersion Restart Gap number. See [Entities](entities.md).
 
----
+### Step 5: EV charger (optional)
 
-### Steps 4–6 — Immersion, EV charger, battery thresholds (optional)
+| Field | Default | Range |
+|---|---|---|
+| Detected charger | none | The chargers found, or None / Manual entry |
+| Car efficiency (kWh/100km) | 15 | 5 to 40 |
 
-These steps are optional. Skip any you don't need.
+The coordinator finds the charger itself, whatever you pick here. Car efficiency converts the energy delivered to the car into kilometres.
 
-**Immersion heater** — if you have one connected to a smart switch, enter the switch entity here. The integration will turn it on and off based on solar surplus.
+### Step 6: Battery
 
-**EV charger** — if you have a Zappi, Wallbox, OCPP, Ohme, or Easee charger, enter its entities here. The integration will manage charging based on solar surplus and battery state.
+| Field | Key | Default | Range |
+|---|---|---|---|
+| Minimum battery SoC | `battery_min_soc_pct` | 10 | 5 to 30 |
+| Cheap rate floor | `cheap_rate_floor_soc` | 40 | 0 to 80 in steps of 5. 0 turns it off |
+| Default overnight charge target | `overnight_charge_target_pct` | 80 | 20 to 100 |
+| Skip charge if SoC above | `skip_charge_soc_threshold_pct` | 75 | 20 to 100 |
+| Immersion divert: minimum battery SoC | `surplus_divert_soc_pct` | 80 | 50 to 100 in steps of 5 |
+| Immersion divert: minimum solar surplus (W) | `surplus_divert_min_power_w` | 500 | 100 to 2000 in steps of 100 |
 
-**Battery thresholds** — sensible defaults are pre-filled. See the options reference below if you want to change them.
+The two immersion divert fields can only be set here. The options page does not have them. To change them later, remove and re-add the integration.
 
----
+## Options
 
-## Changing settings after setup
-
-Go to **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**.
-
-<!-- screenshot: options flow showing three sections -->
-
-The options page has three collapsible sections:
-
-- **Tariff** — update your rates, rate periods, currency, and billing dates
-- **Battery & charging thresholds** — adjust charge targets, protection thresholds, dry run mode, and verbose logging
-- **Solar forecast** — change or add a forecast provider
-
-Changes take effect on the next 30-second cycle. No restart needed.
-
----
-
-## All options
+Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. Saving reloads the integration, so entities are unavailable for a few seconds. Saved options override the values entered at setup.
 
 ### Tariff
 
-| Option | Description |
-|---|---|
-| **Base rate** | Your standard daytime unit rate in EUR/kWh |
-| **Base rate name** | Label for the base rate (e.g. "Day") |
-| **Rate period 1–5** | Named time windows with their own unit rate, start time, and end time. See [tariff.md](tariff.md). |
-| **Export / CEG rate** | What you receive per kWh exported to the grid |
-| **Standing charge** | Daily standing charge in EUR |
-| **PSO levy** | Monthly PSO levy in EUR (Ireland only — set to 0 if not applicable) |
-| **VAT rate** | VAT percentage applied to your bill |
-| **Supplier discount** | Percentage discount from your supplier |
-| **Bill start day** | Day of the month your billing period starts |
-| **Currency** | EUR, GBP, or USD |
+Same fields as setup step 2. Rate periods 1 to 5 sit in their own sections below the tariff section. See [Tariff](tariff.md).
 
 ### Battery & charging thresholds
 
-| Option | Description |
-|---|---|
-| **Minimum battery SoC** | The integration will never recommend charging below this level. Default 10%. |
-| **Default overnight charge target** | Target SoC used as a fallback if no forecast is available. Default 80%. |
-| **Skip charge if SoC above** | If the battery is already above this level at the start of the cheap window, overnight charging is skipped. Default 80%. |
-| **Dry run mode** | Calculates decisions and updates all sensors normally but sends no commands to GivTCP. Useful for testing before going live. |
-| **Verbose logging** | Logs every sensor reading and decision on each 30-second cycle. Turn off for normal use. |
+| Field | Key | Default | Range |
+|---|---|---|---|
+| Minimum battery SoC | `battery_min_soc_pct` | 10 | 5 to 30 |
+| Cheap rate floor (%) | `cheap_rate_floor_soc` | 40 | 0 to 80 in steps of 5. 0 turns it off |
+| Default overnight charge target | `overnight_charge_target_pct` | 80 | 20 to 100. The calculated target is capped at this |
+| Skip charge if SoC above | `skip_charge_soc_threshold_pct` | 75 | 20 to 100 |
+| Battery cost | `battery_cost_eur` | 0 | 0 to 20000 in steps of 100. 0 turns the wear check off |
+| Daily battery throughput budget (kWh) | `battery_throughput_budget_kwh` | 0 | 0 to 50 in steps of 0.5. 0 turns the budget sensors off |
+| Dry run mode | `dry_run` | off | Decisions and sensors update, nothing is sent |
+| Verbose logging | `verbose_logging` | off | Detailed per-cycle log lines |
+
+- **Battery cost** sets a wear cost per kWh: cost divided by (2 x capacity x 6000 rated cycles). The immersion rule then refuses to divert when the export rate is lower than that wear cost. It also feeds Net Saving Today and Battery Cycle Cost per kWh.
+- **Throughput budget** drives Battery Throughput Budget Used and Status. Status is OK below 80% of the budget, High from 80%, and Over budget above 100%.
+- **Verbose logging** writes at debug level. Also enable debug logging for the integration, or the lines will not appear. See [Troubleshooting](troubleshooting.md#a-charge-decision-looks-wrong).
+- A minimum SoC above 30 (possible only from older saved values) raises a repair issue, because on skip nights that value is written as the charge target.
+
+### Hardware
+
+| Field | Key | Default | Range |
+|---|---|---|---|
+| Battery capacity | `battery_capacity_kwh` | from setup | 1 to 100 kWh |
+| Inverter max output | `inverter_max_output_kw` | from setup | 1 to 20 kW |
+| Immersion element power | `immersion_wattage_w` | from setup | 500 to 6000 W |
+
+Update these when you add battery modules, change the inverter, or replace the element.
 
 ### Solar forecast
 
-| Option | Description |
+| Field | Key |
 |---|---|
-| **Forecast provider** | Forecast.Solar or Solcast |
-| **Tomorrow's forecast sensor** | Entity from your forecast integration giving tomorrow's expected kWh |
+| Forecast provider | `forecast_provider` |
+| Tomorrow's forecast sensor | `forecast_entity` |
+| Solcast P10 sensor | `forecast_entity_p10` |
+| Day-after-tomorrow sensor | `forecast_entity_d2` |
+| Grid carbon intensity sensor | `carbon_intensity_entity` |
+| Forecast conservatism | `forecast_conservatism` |
+
+Details as in setup step 3. Clear an entity field to remove the saved entity.
+
+### Electric vehicle
+
+| Field | Key | Default | Range |
+|---|---|---|---|
+| Car efficiency (kWh/100km) | `car_efficiency_kwh_per_100km` | 15 | 5 to 40 |
+
+## Reconfigure
+
+**Settings → Devices & Services → GivEnergy Inverter Manager → ⋮ → Reconfigure** shows the tariff form and saves it to the setup data. To change inverter entities, remove and re-add the integration.
+
+Saved options override setup data. After you have saved the Configure page once, it holds a full copy of the tariff, so Reconfigure no longer changes the tariff. Use Configure instead.
+
+## Things to know
+
+- **A saved 0 can look like the setup value.** The options page treats a saved 0 as empty and shows the value from setup. This affects Cheap rate floor and Forecast conservatism, both set at setup. If you set either to 0 and open the page again, it shows the setup value. Saving without checking restores that value.
+- **Bill start day.** The month totals reset on the bill start day saved at setup or in Reconfigure. A different day saved on the options page changes the day counts in the bill sensors but not the month reset.
+- **Immersion temperatures.** Target, minimum and restart gap are changed with number entities, not the options page. See [Entities](entities.md).
+- **Forecast provider.** The choice is stored and not used. Set the sensors.
