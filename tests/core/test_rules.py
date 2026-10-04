@@ -5,6 +5,7 @@ from datetime import datetime
 import pytest
 
 from custom_components.givenergy_inverter_manager.core.rules import (
+    available_surplus_w,
     calculate_overnight_charge_target,
     monthly_solar_fractions,
     should_divert_to_immersion,
@@ -893,3 +894,131 @@ class TestOvermorrowCorrection:
         )
         # Assert — floor = min_soc (10%) applied via max(target_soc, min_soc + 5)
         assert decision.target_soc >= 15  # min_soc (10) + 5 guard
+
+
+class TestAvailableSurplus:
+    def test_off_subtracts_full_house_load(self):
+        assert available_surplus_w(4000.0, 1000.0) == pytest.approx(3000.0)
+
+    def test_on_adds_back_own_draw(self):
+        assert available_surplus_w(4000.0, 4000.0, 0.0, True, 3000.0) == pytest.approx(3000.0)
+
+    def test_same_surplus_off_and_on(self):
+        off = available_surplus_w(4000.0, 1000.0, 200.0, False, 3000.0)
+        on = available_surplus_w(4000.0, 4000.0, 200.0, True, 3000.0)
+        assert off == pytest.approx(on)
+
+    def test_off_ignores_element_wattage(self):
+        assert available_surplus_w(4000.0, 1000.0, 0.0, False, 3000.0) == pytest.approx(3000.0)
+
+    def test_add_back_capped_at_house_load(self):
+        assert available_surplus_w(4000.0, 500.0, 0.0, True, 3000.0) == pytest.approx(4000.0)
+
+    def test_battery_discharge_not_counted_as_surplus(self):
+        assert available_surplus_w(2000.0, 1000.0, -800.0) == pytest.approx(1000.0)
+
+
+class TestImmersionSurplusStability:
+    """Turning the element on must not change the decision on the next cycle."""
+
+    def _kwargs(self, **overrides):
+        defaults = {
+            "battery_soc": 90.0,
+            "battery_power_w": 0.0,
+            "inverter_max_w": 8000.0,
+            "immersion_temp": 40.0,
+            "immersion_target_temp": 55.0,
+            "immersion_min_temp": 30.0,
+            "soc_threshold": 80,
+            "min_surplus_w": 500,
+            "immersion_power_w": 3000.0,
+        }
+        defaults.update(overrides)
+        return defaults
+
+    def test_stays_on_after_element_draw_appears_in_house_load(self):
+        off, _ = should_divert_to_immersion(
+            solar_power_w=4000.0, house_load_w=1000.0, currently_on=False, **self._kwargs()
+        )
+        on, reason = should_divert_to_immersion(
+            solar_power_w=4000.0, house_load_w=4000.0, currently_on=True, **self._kwargs()
+        )
+        assert off is True
+        assert on is True, reason
+
+    def test_reason_reports_same_surplus_before_and_after(self):
+        _, off_reason = should_divert_to_immersion(
+            solar_power_w=4000.0, house_load_w=1000.0, currently_on=False, **self._kwargs()
+        )
+        _, on_reason = should_divert_to_immersion(
+            solar_power_w=4000.0, house_load_w=4000.0, currently_on=True, **self._kwargs()
+        )
+        assert "3000W" in off_reason
+        assert "3000W" in on_reason
+
+    def test_old_behaviour_without_element_wattage_unchanged(self):
+        should, _ = should_divert_to_immersion(
+            solar_power_w=4000.0,
+            house_load_w=4000.0,
+            currently_on=False,
+            **self._kwargs(immersion_power_w=0.0),
+        )
+        assert should is False
+
+
+class TestImmersionStartStopBand:
+    def _kwargs(self, **overrides):
+        defaults = {
+            "battery_soc": 90.0,
+            "battery_power_w": 0.0,
+            "inverter_max_w": 8000.0,
+            "immersion_temp": 40.0,
+            "immersion_target_temp": 55.0,
+            "immersion_min_temp": 30.0,
+            "soc_threshold": 80,
+            "min_surplus_w": 500,
+            "immersion_power_w": 3000.0,
+        }
+        defaults.update(overrides)
+        return defaults
+
+    def test_does_not_start_below_min_surplus(self):
+        should, _ = should_divert_to_immersion(
+            solar_power_w=1400.0, house_load_w=1000.0, currently_on=False, **self._kwargs()
+        )
+        assert should is False
+
+    def test_starts_at_min_surplus(self):
+        should, _ = should_divert_to_immersion(
+            solar_power_w=1500.0, house_load_w=1000.0, currently_on=False, **self._kwargs()
+        )
+        assert should is True
+
+    def test_stays_on_with_small_deficit(self):
+        # rest of house 1000 W, solar 800 W: surplus -200 W, inside the -500 W band
+        should, reason = should_divert_to_immersion(
+            solar_power_w=800.0, house_load_w=4000.0, currently_on=True, **self._kwargs()
+        )
+        assert should is True, reason
+
+    def test_stays_on_at_band_edge(self):
+        should, _ = should_divert_to_immersion(
+            solar_power_w=500.0, house_load_w=4000.0, currently_on=True, **self._kwargs()
+        )
+        assert should is True
+
+    def test_stops_below_band(self):
+        should, reason = should_divert_to_immersion(
+            solar_power_w=400.0, house_load_w=4000.0, currently_on=True, **self._kwargs()
+        )
+        assert should is False
+        assert "insufficient" in reason.lower()
+
+    def test_band_follows_configured_min_surplus(self):
+        should, _ = should_divert_to_immersion(
+            solar_power_w=0.0,
+            house_load_w=4000.0,
+            currently_on=True,
+            **self._kwargs(min_surplus_w=1200),
+        )
+        assert should is True

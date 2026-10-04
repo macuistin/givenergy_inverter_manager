@@ -337,11 +337,50 @@ def calculate_overnight_charge_target(
 # ── Immersion divert decision ─────────────────────────────────────────────────
 
 
-def should_divert_to_immersion(
+def available_surplus_w(
     solar_power_w: float,
     house_load_w: float,
+    battery_power_w: float = 0.0,
+    immersion_on: bool = False,
+    immersion_power_w: float = 0.0,
+) -> float:
+    """
+    Solar power left over once the rest of the house and battery charging are served.
+
+    house_load_w already includes the immersion's draw while it is on, so that draw
+    is added back. Without this the surplus collapses as soon as the element starts,
+    and the next cycle switches it off again.
+    """
+    own_draw_w = min(max(0.0, immersion_power_w), max(0.0, house_load_w)) if immersion_on else 0.0
+    return solar_power_w - (house_load_w - own_draw_w) - max(0.0, battery_power_w)
+
+
+def _missing_inputs(
+    solar_power_w: float | None,
+    house_load_w: float | None,
+    battery_power_w: float | None,
+    immersion_temp_unavailable: bool,
+) -> list[str]:
+    """Names of required decision inputs that are unavailable."""
+    missing = [
+        name
+        for name, value in (
+            ("solar_power", solar_power_w),
+            ("house_load", house_load_w),
+            ("battery_power", battery_power_w),
+        )
+        if value is None
+    ]
+    if immersion_temp_unavailable:
+        missing.append("immersion_temp")
+    return missing
+
+
+def should_divert_to_immersion(
+    solar_power_w: float | None,
+    house_load_w: float | None,
     battery_soc: float,
-    battery_power_w: float,
+    battery_power_w: float | None,
     inverter_max_w: float,
     immersion_temp: float | None,
     immersion_target_temp: float,
@@ -352,6 +391,8 @@ def should_divert_to_immersion(
     min_surplus_w: float = SURPLUS_DIVERT_MIN_POWER_W,
     battery_cycle_cost_per_kwh: float = 0.0,
     export_rate: float = 0.0,
+    immersion_power_w: float = 0.0,
+    immersion_temp_unavailable: bool = False,
 ) -> tuple[bool, str]:
     """
     Decide whether to turn on the immersion heater.
@@ -361,11 +402,16 @@ def should_divert_to_immersion(
     Algorithm:
       1. Always heat if below legionella minimum temperature (ignores hysteresis)
       2. Turn off when target temperature is reached
-      3. Hysteresis: if currently off, only restart once water cools to
+      3. Hold the current state if a required input is missing (None solar, house
+         load or battery power, or immersion_temp_unavailable). Never start on
+         missing data.
+      4. Hysteresis: if currently off, only restart once water cools to
          (target - hysteresis_c); if currently on, keep running until target
-      4. Never heat if battery SoC is below soc_threshold
-      5. Heat if net solar surplus >= min_surplus_w
-      6. Heat if inverter is clipping (at capacity) and battery is charged
+      5. Never heat if battery SoC is below soc_threshold
+      6. Start when available surplus >= min_surplus_w. Once on, stay on while
+         the available surplus (with the element's own draw added back) is
+         >= -min_surplus_w.
+      7. Heat if inverter is clipping (at capacity) and battery is charged
 
     The hysteresis band prevents rapid on/off cycling near the target temperature.
     With defaults of target=55°C and hysteresis=5°C: turns off at 55°C and will
@@ -380,16 +426,27 @@ def should_divert_to_immersion(
     if immersion_temp is not None and immersion_temp >= immersion_target_temp:
         return False, f"Water already at {immersion_temp:.1f}°C (target {immersion_target_temp}°C)"
 
+    missing = _missing_inputs(
+        solar_power_w, house_load_w, battery_power_w, immersion_temp_unavailable
+    )
+    if missing:
+        return currently_on, (
+            f"Sensor unavailable ({', '.join(missing)}), "
+            f"{'holding on' if currently_on else 'not starting'}"
+        )
+
     if battery_soc < soc_threshold:
         return False, f"Battery SoC {battery_soc:.0f}% below threshold {soc_threshold}%"
 
-    battery_charging_w = max(0, battery_power_w)
-    net_surplus_w = solar_power_w - house_load_w - battery_charging_w
+    net_surplus_w = available_surplus_w(
+        solar_power_w, house_load_w, battery_power_w, currently_on, immersion_power_w
+    )
     is_clipping = solar_power_w >= (inverter_max_w * CLIPPING_THRESHOLD_PERCENT / 100)
-    has_surplus = net_surplus_w >= min_surplus_w or (is_clipping and battery_soc >= soc_threshold)
+    required_w = -min_surplus_w if currently_on else min_surplus_w
+    has_surplus = net_surplus_w >= required_w or (is_clipping and battery_soc >= soc_threshold)
 
     if not has_surplus:
-        return False, f"Insufficient surplus ({net_surplus_w:.0f}W, need {min_surplus_w:.0f}W)"
+        return False, f"Insufficient surplus ({net_surplus_w:.0f}W, need {required_w:.0f}W)"
 
     if battery_cycle_cost_per_kwh > 0 and 0 < export_rate < battery_cycle_cost_per_kwh:
         return False, (

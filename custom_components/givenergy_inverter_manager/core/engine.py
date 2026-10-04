@@ -85,6 +85,7 @@ from ..logging import get_logger
 from .battery import BatteryStats, calculate_cycle_increment, estimate_will_survive_night
 from .rules import (
     ChargeDecision,
+    available_surplus_w,
     calculate_overnight_charge_target,
     calculate_pre_boost_export_opportunity,
     decide_ev_charger_action,
@@ -379,7 +380,12 @@ def _accumulate_immersion_savings(
     """Handle immersion savings when there is solar surplus."""
     if immersion_w <= 0:
         return
-    solar_surplus_w = max(0.0, raw.solar_power_w - raw.house_load_w - max(0.0, raw.battery_power_w))
+    solar_surplus_w = max(
+        0.0,
+        available_surplus_w(
+            raw.solar_power_w, raw.house_load_w, raw.battery_power_w, True, immersion_w
+        ),
+    )
     solar_to_immersion_w = min(immersion_w, solar_surplus_w)
     if solar_to_immersion_w > 0:
         solar_diverted_kwh = (solar_to_immersion_w / 1000) * elapsed_h
@@ -597,7 +603,14 @@ def _initialize_coordinator_data(
     data.forecast_kwh_tomorrow = raw.forecast_kwh_tomorrow
     data.immersion_load_w = raw.immersion_wattage_w if raw.immersion_on else 0.0
     data.net_solar_surplus_w = max(
-        0.0, raw.smoothed_solar_power_w - raw.house_load_w - data.immersion_load_w
+        0.0,
+        available_surplus_w(
+            raw.smoothed_solar_power_w,
+            raw.house_load_w,
+            0.0,
+            raw.immersion_on,
+            raw.immersion_wattage_w,
+        ),
     )
     data.rest_of_house_w = max(
         0.0,
@@ -715,6 +728,7 @@ def _set_immersion_decision(
             min_surplus_w=float(cfg.get(CONF_SURPLUS_DIVERT_MIN_W, SURPLUS_DIVERT_MIN_POWER_W)),
             battery_cycle_cost_per_kwh=cycle_cost,
             export_rate=export_rate,
+            immersion_power_w=raw.immersion_wattage_w,
         )
 
 

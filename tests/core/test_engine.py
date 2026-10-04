@@ -837,6 +837,27 @@ class TestImmersionSavings:
         assert acc.immersion_solar_kwh == 0.0, "No solar surplus → no solar divert"
         assert acc.immersion_savings == 0.0
 
+    def test_house_load_including_immersion_counts_full_diversion(self):
+        from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
+        acc = EnergyAccumulator()
+        # 1 kW rest of house + 3 kW element = 4 kW house load, 5 kW solar
+        raw = _raw(
+            solar_power_w=5000.0,
+            house_load_w=4000.0,
+            battery_power_w=0.0,
+            grid_power_w=0.0,
+            immersion_on=True,
+            immersion_wattage_w=3000.0,
+        )
+        tariff = build_tariff(_nightboost_cfg())
+        now = datetime(2024, 6, 15, 13, 0, tzinfo=timezone.utc)
+        last = datetime(2024, 6, 15, 12, 30, tzinfo=timezone.utc)
+        accumulate_energy(acc, raw, tariff, "Day", now, last)
+
+        assert acc.immersion_solar_kwh == pytest.approx(1.5)
+
 
 class TestBatteryThroughput:
     """Battery throughput accumulates on both charge and discharge."""
@@ -1599,15 +1620,50 @@ class TestNetSolarSurplus:
         data, _ = _run(raw=raw)
         assert data.net_solar_surplus_w == pytest.approx(2500.0)
 
-    def test_subtracts_immersion_when_on(self):
+    def test_adds_back_immersion_draw_when_on(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=3500.0, immersion_on=True)
+        raw.smoothed_solar_power_w = 4000.0
+        raw.immersion_wattage_w = 3000.0
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == pytest.approx(3500.0)
+
+    def test_surplus_unchanged_by_immersion_switching_on(self):
+        off = _raw(solar_power_w=4000.0, house_load_w=500.0, immersion_on=False)
+        on = _raw(solar_power_w=4000.0, house_load_w=3500.0, immersion_on=True)
+        on.immersion_wattage_w = off.immersion_wattage_w = 3000.0
+        data_off, _ = _run(raw=off)
+        data_on, _ = _run(raw=on)
+        assert data_on.net_solar_surplus_w == pytest.approx(data_off.net_solar_surplus_w)
+
+    def test_house_load_below_element_wattage_does_not_overstate(self):
         raw = _raw(solar_power_w=4000.0, house_load_w=500.0, immersion_on=True)
         raw.smoothed_solar_power_w = 4000.0
         raw.immersion_wattage_w = 3000.0
         data, _ = _run(raw=raw)
-        assert data.net_solar_surplus_w == pytest.approx(500.0)
+        assert data.net_solar_surplus_w == pytest.approx(4000.0)
 
     def test_never_negative(self):
         raw = _raw(solar_power_w=200.0, house_load_w=900.0)
         raw.smoothed_solar_power_w = 200.0
         data, _ = _run(raw=raw)
         assert data.net_solar_surplus_w == 0.0
+
+
+class TestImmersionDecisionStability:
+    def _raw(self, house_load_w, immersion_on):
+        raw = _raw(
+            solar_power_w=4000.0,
+            house_load_w=house_load_w,
+            battery_soc=90.0,
+            battery_power_w=0.0,
+            immersion_on=immersion_on,
+            immersion_temp=40.0,
+        )
+        raw.immersion_wattage_w = 3000.0
+        return raw
+
+    def test_keeps_diverting_once_element_is_in_house_load(self):
+        off, _ = _run(raw=self._raw(1000.0, False))
+        on, _ = _run(raw=self._raw(4000.0, True))
+        assert off.should_divert_immersion is True
+        assert on.should_divert_immersion is True, on.divert_reason
