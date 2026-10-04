@@ -125,6 +125,7 @@ class RawSensorValues:
     immersion_hysteresis_c: float = 5.0
     forecast_kwh_tomorrow: float | None = None
     forecast_kwh_p10: float | None = None
+    forecast_kwh_d2: float | None = None
     carbon_intensity_gco2: float | None = None
     ev_power_w: float = 0.0
     ev_plugged_in: bool = False
@@ -965,6 +966,7 @@ def build_coordinator_data(
         solar_fractions=solar_fractions,
         load_profile=load_profile,
         forecast_kwh_p10=raw.forecast_kwh_p10,
+        forecast_kwh_d2=raw.forecast_kwh_d2,
         forecast_conservatism=float(
             cfg.get(CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM)
         ),

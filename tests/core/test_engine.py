@@ -1779,3 +1779,30 @@ class TestEVSurplusThreshold:
     def test_old_protection_flag_is_gone(self):
         data, _ = self._run_with_surplus(3000.0)
         assert not hasattr(data, "ev_protection_active")
+class TestOvermorrowReachesEngine:
+    """forecast_kwh_d2 on RawSensorValues feeds the overmorrow correction."""
+
+    _NOW = datetime(2026, 6, 15, 22, 0)
+
+    def _decision(self, d2):
+        raw = _raw(battery_soc=40.0, battery_capacity_kwh=19.0, forecast_kwh_tomorrow=5.0)
+        raw.forecast_kwh_d2 = d2
+        data, _ = _run(raw=raw, now=self._NOW)
+        return data.charge_decision
+
+    def test_raw_values_declares_d2_field(self):
+        import dataclasses
+
+        from custom_components.givenergy_inverter_manager.core.engine import RawSensorValues
+
+        assert "forecast_kwh_d2" in {f.name for f in dataclasses.fields(RawSensorValues)}
+        assert RawSensorValues().forecast_kwh_d2 is None
+
+    def test_strong_d2_lowers_tonights_target(self):
+        without = self._decision(None)
+        with_d2 = self._decision(25.0)
+        assert with_d2.target_soc < without.target_soc
+        assert "Overmorrow" in with_d2.reason
+
+    def test_weak_d2_leaves_target_unchanged(self):
+        assert self._decision(10.0).target_soc == self._decision(None).target_soc
