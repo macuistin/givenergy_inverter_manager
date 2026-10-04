@@ -183,6 +183,8 @@ after the supplier's price change on 1 July.
 | Immersion surplus collapsed once the element switched on, so it flapped | done |
 | Hold or refuse to start on unavailable sensors | done |
 | Bound the hold during a long outage | in progress |
+| EV energy and cost never worked: Zappi discovery assumed the serial was in the myenergi entity ids, and charging was never detected because only the plug status sensor was read (PR 129) | in progress |
+| Use the Zappi's own energy counters (`green_energy_today`, `energy_used_today`, `charge_added_session`) as the authority for EV energy, and split EV cost into solar and grid shares; today the cost is the EV's share of inverter-side grid import, so it accrues only while the house imports | backlog |
 | Remove dead EV code and the three overlapping EV thresholds | in progress |
 | On and off delays on sustained conditions rather than only a write lockout (evcc: enable 1 minute, disable 3 minutes; solar_optimizer: minimum on and off durations) | backlog |
 | Smooth the net surplus, not only solar, and seed the average from the first reading | backlog |
