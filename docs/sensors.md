@@ -126,9 +126,6 @@ Health, wear and state of the battery.
 |---|---|---|---|---|---|---|---|
 | Battery Energy Available | `battery_kwh_available` | kWh | energy_storage | measurement | no | no | Battery state of charge times the configured capacity. |
 | Battery Life Consumed Today | `battery_life_consumed_today` | % | - | total | day | no | Today's throughput as a share of (2 x capacity x 6000 cycles). Diagnostic category. |
-| Battery Total Cycles | `battery_cycles` | - | - | total | no | yes | Sum of SoC changes, up and down, divided by 100. Diagnostic category. |
-| GivTCP Register Write Count | `register_write_count` | - | - | total | no | yes | Writes sent to GivTCP since the integration was last loaded. Diagnostic category. |
-| Battery Life Consumed Today | `battery_life_consumed_today` | % | - | total | yes | no | Today's throughput as a share of (2 x capacity x 6000 cycles). Diagnostic category. |
 | Battery Total Cycles | `battery_cycles` | - | - | total | no | yes | Equivalent full cycles (capacity discharged once). The GivTCP BMS counter when it exists, otherwise falls in SoC divided by 100. Diagnostic category. |
 | GivTCP Register Write Count | `register_write_count` | - | - | total | no | yes | Lifetime writes sent to GivTCP. Saved and kept across restarts. Diagnostic category. |
 | Battery Cycle Cost per kWh | `battery_cycle_cost_per_kwh` | currency | - | none | no | no | Battery cost divided by (2 x capacity x 6000). Empty when battery cost is 0. Diagnostic category. |

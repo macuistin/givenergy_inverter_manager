@@ -338,9 +338,6 @@ DESCRIPTIONS: dict[str, str] = {
     "projected_bill": "Accrued bill spread over the whole bill period.",
     "days_remaining_in_period": "Days left in the bill period after today.",
     "days_in_period": "Day of the bill period, 1 on the bill start day.",
-    "battery_cycles": "Sum of SoC changes, up and down, divided by 100.",
-    "days_remaining_in_period": "Days until the next bill start day.",
-    "days_in_period": "Days elapsed in the bill period, minimum 1.",
     "battery_cycles": (
         "Equivalent full cycles (capacity discharged once). The GivTCP BMS counter when it "
         "exists, otherwise falls in SoC divided by 100."

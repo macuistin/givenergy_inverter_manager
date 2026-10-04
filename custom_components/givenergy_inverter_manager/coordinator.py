@@ -44,7 +44,6 @@ from datetime import time as dtime
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_FINAL_WRITE
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -956,9 +955,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
 
         entity_id = self._ev_charger.charge_mode_entity
-        if self._write_cooldown_active(entity_id, self._ev_charger.display_name):
+        if self._write_cooldown_active(entity_id, self._ev_charger.display_name, target_mode):
             return
-        self._last_write_time[entity_id] = time.monotonic()
+        self._last_write_time[(entity_id, target_mode)] = time.monotonic()
 
         _LOG.info(
             "EV charger action: %s → %s",

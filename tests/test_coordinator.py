@@ -1025,7 +1025,7 @@ class TestApplyEvAction:
         coord.data = MagicMock()
         coord._apply_ev_action("Eco+")
         await coord.tasks_created[0]
-        coord._last_write_time["select.zappi_mode"] = (
+        coord._last_write_time[("select.zappi_mode", "Eco+")] = (
             time.monotonic() - GIVTCP_MIN_WRITE_INTERVAL_S - 1
         )
         coord._ev_charger = self._charger(mode="Fast")
