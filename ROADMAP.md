@@ -4,7 +4,7 @@ Organised by theme and priority.
 
 ---
 
-## Current State (v0.2.1)
+## Current State (v0.3.0)
 
 ### What is built and working
 
@@ -70,7 +70,7 @@ Organised by theme and priority.
   east/west facing array installations
 - **Live grid cost rate** — `live_grid_cost_rate` sensor (€/hr) shown on the power flow
   card grid node using correct import/export rates; replaces static tariff rate display
-- **94 sensors** — includes all new inverter, EV, and solar opportunity sensors
+- **About 145 sensors**, most of the newer ones disabled by default
 - **Dashboard generator** — 4-tab dashboard; live cost rate on grid node; new sensors in
   Battery Health (inverter temp) and Controls EV (charging source, solar surplus)
 - **HACS-ready** — `hacs.json`, `manifest.json`, `strings.json`, `translations/en.json`,
@@ -79,7 +79,7 @@ Organised by theme and priority.
   → Repairs when configured GivTCP entities are absent from HA
 - **Automation examples** — `docs/automations.md` with 10 ready-to-use HA automation
   examples including Zappi Eco+ and inverter derating alert
-- **555 unit tests**
+- **More than 950 unit tests and 43 real Home Assistant end-to-end tests**
 
 ---
 
@@ -87,21 +87,14 @@ Organised by theme and priority.
 
 ### 95% test coverage target
 
-Config flow steps and options flow are not covered by the current test suite. Moving
-to `pytest-homeassistant-custom-component` would allow proper end-to-end integration
-tests covering the full HA lifecycle.
+A real Home Assistant end-to-end suite (`tests/ha_e2e/`, using
+`pytest-homeassistant-custom-component`) now covers setup, unload, the config and
+options flows, every sensor and midnight `last_reset`. What remains is to measure
+coverage across both suites, raise `config_flow.py` coverage, and replace the
+source-text assertions in `tests/test_swicth.py` and `tests/test_untested_modules.py`
+with behavioural tests.
 
-**Complexity:** Large.
-
----
-
-### Monthly/annual export volume tracking
-
-Track export kWh per calendar month and rolling 12-month total. Surface an alert
-when export volume justifies renegotiating the CEG rate with the supplier.
-Requires persistent storage for 12 monthly snapshots.
-
-**Complexity:** Medium — new storage layer needed.
+**Complexity:** Medium.
 
 ---
 
@@ -130,6 +123,133 @@ All of the following were planned as near-term and have shipped:
 | EV charger minimum power guard (1,380W) | #77 |
 | Seasonal charge bypass (winter/shoulder months) | #77 |
 | Minimum write interval per entity (5 min cooldown) | #78 |
+| Monthly and annual export volume tracking (12-month snapshots, trailing 12-month sensors) | #90 to #93 |
+| Real Home Assistant end-to-end test suite | #126 |
+
+---
+
+## Backlog from external research and bill reconciliation (October 2026)
+
+Sources: a reconciliation of five real electricity bills against the integration, and
+a code review of GivTCP, Predbat, the Octopus Energy integration, cdpuk/givenergy-local,
+EMHASS, evcc, OpenEMS, solar_optimizer, PV Excess Control, powercalc and Home Assistant
+core. Only findings checked in code or documentation are listed. Status: **done** means
+merged, **in progress** means a branch exists, **backlog** means not started.
+
+**Order of work.** The direction of this roadmap is sound, but the accounting and test
+foundations come before new optimisation features. Finish the items under Accuracy and
+Platform quality first, then Forecast and planning, then new hardware support.
+
+### Accuracy (bill reconciliation)
+
+Import kWh matched the bill to 0.1 kWh once the 16th-to-15th billing window was
+aligned. Cost was about 9% low because the tariff in the options had not been updated
+after the supplier's price change on 1 July.
+
+| Item | Status |
+|---|---|
+| Reject zero-length and duplicate rate periods in setup and options, and skip them when building the tariff (a 00:00 to 00:00 slot with rate 0 became the "cheapest rate") | in progress |
+| PSO levy is a flat monthly amount on the bill, not prorated by days | in progress |
+| Bill start day off by one on the start day; read it from the saved options, not only the setup data; document that it is the first day of the billing period | in progress |
+| `accrued_bill` and `projected_bill` are computed from today's import cost instead of the billing period (live: EUR 21 against EUR 104 for the month) | in progress |
+| `compare_tariff` compared unlike quantities (no supplier saving or VAT on the alternative, standing charge on one side only) | in progress |
+| Dated tariff changes: apply a new rate set from an effective date, with a repair when rates have not been reviewed for a long time | backlog |
+| A calibration service to match the integration's totals to a supplier bill (powercalc `calibrate_cost` is the model) | backlog |
+| Export reads about 2% above the supplier meter (inverter-side measurement); document it | backlog |
+| Live tariff comparison across plans (issue 114): needs a persisted per-slot (30 minute) import and export accumulator first | backlog |
+
+### Battery
+
+| Item | Status |
+|---|---|
+| Cycle count counts charge and discharge, so it runs about 1.6 times the BMS counter; count discharge only and seed from the GivTCP BMS cycle counter | in progress |
+| `Battery Life Consumed Today` read twice its real value | done |
+| State of health sensor from the GivTCP calibrated and design capacity, and battery temperature | backlog |
+| Include round-trip efficiency and cycle cost in the pre-boost export gain (evcc uses 0.9 per direction; EOS uses a levelised cost of storage) | backlog |
+| Persist the register write count and read GivTCP's own write count when present | in progress |
+
+### Inverter writes
+
+| Item | Status |
+|---|---|
+| Cheap-rate floor write bypassed the cooldown, read-back and write counter | done |
+| A failed service call aborts the five-step charge-target sequence before the enable switch; clamp targets to 4 to 100 (GivTCP's own range); key the cooldown on entity and value | in progress |
+| Zappi mode writes have no cooldown | in progress |
+
+### Control logic
+
+| Item | Status |
+|---|---|
+| Immersion surplus collapsed once the element switched on, so it flapped | done |
+| Hold or refuse to start on unavailable sensors | done |
+| Bound the hold during a long outage | in progress |
+| Remove dead EV code and the three overlapping EV thresholds | in progress |
+| On and off delays on sustained conditions rather than only a write lockout (evcc: enable 1 minute, disable 3 minutes; solar_optimizer: minimum on and off durations) | backlog |
+| Smooth the net surplus, not only solar, and seed the average from the first reading | backlog |
+| Periodic pasteurisation cycle for the hot water cylinder, separate from the minimum temperature floor (needs the owner's confirmation of target temperature) | backlog |
+| Deadline heating: reach a temperature by a set time using the cheapest tariff window (OpenEMS heating element controller) | backlog |
+| Priority arbitration when EV and immersion compete for the same surplus (evcc prioritiser) | backlog |
+| EV departure-time plan over the tariff windows, as a signal for automations (evcc planner) | backlog |
+| Charger minimum power depends on phases: 1,380 W is correct for single phase only | backlog |
+
+### Forecast and planning
+
+| Item | Status |
+|---|---|
+| The learned per-slot load profile is not used by the charge calculation and is lost on restart; persist it and use it | in progress |
+| Forecast accuracy is measured but never fed back; scale the forecast by a clamped median actual to forecast ratio (evcc `solarScale`; EMHASS adaptive conformal inference) | in progress |
+| The day-after-tomorrow forecast does not reach the engine | in progress |
+| Slot-shaped solar curve from a per-period forecast attribute instead of a fixed bell curve (uncertain: depends on what the Solcast integration exposes) | backlog |
+| Dynamic day-ahead tariffs: the supplier and regulator timeline needs a verified source before this is planned | backlog |
+
+### Platform quality
+
+| Item | Status |
+|---|---|
+| Daily sensors used `TOTAL_INCREASING` with `last_reset`, which Home Assistant rejects, so their values froze | done |
+| Duplicate `export_trailing_12m`, invalid state classes on the pre-boost sensors, missing translations | done |
+| Options form reverted saved zero and cleared values; empty entity selectors blocked saving | done |
+| Manual setup path crashed | done |
+| Week, month and year sensors need `last_reset`; yesterday, rolling and projected sensors should have no state class; persist year totals; flush accumulators on shutdown | in progress |
+| Monetary unit is a currency symbol; Home Assistant expects an ISO 4217 code. Changing it breaks existing statistics, so it needs a migration plan | backlog |
+| Diagnostics redact nothing, repairs have no learn-more link, no `_unrecorded_attributes` for the HTML report sensors, translation drift between `strings.json` and `en.json`, services registered per entry instead of once | in progress |
+| `hacs.json` minimum Home Assistant version, `pyproject.toml` build backend, nightly CI and a Python matrix, untrack `coverage.json` | in progress |
+| Issue templates that require a diagnostics download and the GivTCP version; architecture decision records for the cycle definition and the tariff model | backlog |
+
+### Dashboard and installation
+
+A review of the live dashboard found that a pasted dashboard goes stale, new installs
+show "Entity not available" for a disabled sensor, and the actionable facts (battery
+level, night survival, next cheap window) sit on different tabs.
+
+| Item | Status |
+|---|---|
+| Include rows and cards only for entities that are registered and enabled, or for features that are configured | in progress |
+| "Now" strip on the first view and a "Bill" view built from core cards, so drift against a real bill is visible | in progress |
+| Build the dashboard as a dictionary instead of hand-indented text, with a golden test | in progress |
+| Copy-me example dashboard in `docs/`, kept in step by a test | in progress |
+| Thin Lovelace strategy (`custom:givenergy-manager`) served by the integration, about 30 lines of plain JavaScript, so the dashboard never goes stale (pattern verified in garmin_connect and WebRTC; Mushroom's strategy shows the support cost of cache and registration problems) | in progress, separate commit that can be dropped |
+| Fallback card when `power-flow-card-plus` or `apexcharts-card` is not installed | in progress, if resources can be detected reliably |
+| Charge plan timeline card | backlog, build only if core cards cannot express it |
+| Integration-owned storage dashboard that rewrites the user's Lovelace | not planned: relies on internal Home Assistant APIs and would overwrite user edits |
+| Sidebar panel, a rebuild of power-flow-card-plus or apexcharts, a webpack or TypeScript pipeline | not planned |
+
+### Configuration experience
+
+| Item | Status |
+|---|---|
+| Label and one-sentence help for every setup, options and reconfigure field, including what 0 or empty means; "First day of your billing period" wording for the bill start day | in progress |
+| Immersion temperature sliders reload the whole integration on every move | in progress |
+| Reconfigure is overridden by saved options and reloads twice | in progress |
+| Options sections ordered by use, tariff expanded by default | in progress |
+| Stale-tariff prompt and dated rate changes | backlog, see Accuracy |
+
+### What not to copy
+
+- Predbat source: personal and non-commercial licence in `control_ledger.py`. Reimplement ideas only.
+- PV Excess Control (AGPL-3.0), `ecodan_ctrl` (GPL-3.0) and OpenEMS (AGPL-3.0 or EPL-2.0): ideas only.
+- Linear programming or genetic optimisers and machine learning forecasters (EMHASS, EOS): too heavy for this integration.
+- Unredacted `entry.as_dict()` diagnostics (powercalc) and per-sensor attribute dumps (Tibber).
 
 ---
 
@@ -455,9 +575,8 @@ Only `en.json` exists. Translations for `ga` (Irish), `sv` (Swedish), `nb`
 
 ### `pytest-homeassistant-custom-component`
 
-The test suite uses manual HA stubs in `conftest.py`. Migrating to
-`pytest-homeassistant-custom-component` would allow proper end-to-end testing of
-the config flow, coordinator setup/teardown, and entity lifecycle.
+Done in #126. The stubbed suite in `tests/` is kept for fast logic tests, and the real
+Home Assistant suite lives in `tests/ha_e2e/` with its own CI job. See `docs/testing.md`.
 
 ---
 
@@ -470,6 +589,9 @@ the config flow, coordinator setup/teardown, and entity lifecycle.
 | Forecast.Solar less accurate for east-west arrays | Charge target may be slightly off | Solcast multi-array planned v0.2.0 |
 | Bill prediction assumes constant daily usage | Inaccurate early in billing period | Improves over time as more data is collected |
 | GivTCP must be installed and running | Hard dependency | Documented; detection in place; `givenergy-local` fallback planned v1.0 |
+| Tariff rates are entered by hand | A supplier price change leaves costs low until the options are updated (seen after 1 July 2026) | Dated tariff changes in backlog |
+| Cycle count is an estimate from state of charge | Reads higher than the battery's own counter | Fix in progress |
+| Monetary sensors use a currency symbol as the unit | Long-term statistics for cost sensors may be rejected by newer Home Assistant versions | Migration plan in backlog |
 
 ---
 
