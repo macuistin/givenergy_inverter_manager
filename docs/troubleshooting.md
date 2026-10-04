@@ -33,13 +33,31 @@ Related behaviour:
 - If only one of the two sensors drops out, the integration keeps running and reads the missing value as 0.
 - The integration judges by the entity's state, not its age. If GivTCP leaves the last value in place when it stops, the integration keeps using it.
 - At startup, a failed first read raises "First data fetch failed" and Home Assistant retries the setup on its own.
-- If both entities are missing from Home Assistant entirely, the repair **GivTCP entities not found** appears in **Settings → System → Repairs**. This usually means GivTCP was reinstalled with another serial. The repair text points to Reconfigure, but Reconfigure only edits the tariff. Remove and re-add the integration instead. Accumulated energy is kept, because the storage file is not deleted.
+- If both entities are missing from Home Assistant entirely, the repair **GivTCP entities not found** appears. See [GivTCP entities not found](#givtcp-entities-not-found).
+
+## GivTCP entities not found
+
+The repair **GivTCP entities not found** appears in **Settings → System → Repairs** when the solar power and battery SoC entities chosen at setup no longer exist in Home Assistant. This usually means GivTCP was reinstalled with another serial, or its entity IDs changed.
+
+1. Open **Developer Tools → States** and search for `givtcp_`. Note the new serial in the entity IDs.
+2. Remove the integration and add it again, picking the new inverter. The repair text points to Reconfigure, but Reconfigure only edits the tariff.
+3. Accumulated energy is kept, because the storage file is not deleted.
+
+The repair clears on its own once both entities exist again.
 
 ## Options form errors
 
 - **"Entity is neither a valid entity ID nor a valid UUID" on save.** This was a bug in v0.2.1 when a forecast or carbon intensity field was empty. Update to v0.3.0. In v0.3.0 an empty field saves as empty, and clearing a saved entity removes it.
 - **Battery divert threshold or surplus is not on the page.** They are set at setup only. See [Configuration](configuration.md#step-6-battery).
 - **Entities went unavailable after saving.** Saving reloads the integration. It takes a few seconds. If entities have not recovered after 30 seconds, check the log for errors.
+
+## Battery minimum SoC is set too high
+
+The repair **Battery minimum SoC is set too high** appears when the saved minimum SoC is above 30%. Older versions accepted higher values. On a skip night the integration writes the minimum SoC as the charge target, so a high value holds the battery at that level all night and imports from the grid.
+
+1. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**.
+2. In the Battery & charging thresholds section, set **Minimum battery SoC** to 10 to 20.
+3. Save. The repair clears on the next update cycle after the integration reloads.
 
 ## Daily sensors are frozen after an upgrade
 
