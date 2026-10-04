@@ -19,10 +19,10 @@ from __future__ import annotations
 
 import calendar
 import logging
+from decimal import ROUND_HALF_UP, Decimal
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 from datetime import time as dtime
-from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from ..const import (
@@ -414,6 +414,13 @@ def build_tariff(cfg: dict[str, Any]) -> TariffConfig:
             )
         except (KeyError, ValueError, IndexError) as err:
             _LOG.warning("Skipping malformed rate period %s: %s", p, err)
+            continue
+        if period.start == period.end:
+            _LOG.warning(
+                "Skipping rate period %s: start and end are both %s, so it never applies",
+                p.get("name"),
+                period.start.strftime("%H:%M"),
+            )
             continue
         periods.append(period)
 

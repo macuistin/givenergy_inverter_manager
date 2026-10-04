@@ -509,3 +509,45 @@ class TestGoldenBill:
     def test_zero_discount_gives_no_saving(self):
         t = TariffConfig(**{**_bill_tariff().__dict__, "discount_rate": 0.0})
         assert t.calculate_bill(100.0, 31, 31).supplier_saving == 0.0
+
+
+# ── Zero-length and malformed rate periods ────────────────────────────────────
+
+
+class TestBuildTariffSkipsInvalidPeriods:
+    def _cfg(self, periods):
+        return {"rate_periods": periods, "base_rate": 0.365}
+
+    def test_zero_length_period_is_skipped_with_warning(self, caplog):
+        cfg = self._cfg(
+            [
+                {"name": "Night", "rate": 0.18, "start": "23:00", "end": "08:00"},
+                {"name": "Empty", "rate": 0.01, "start": "00:00", "end": "00:00"},
+            ]
+        )
+        with caplog.at_level("WARNING"):
+            t = build_tariff(cfg)
+        assert [p.name for p in t.rate_periods] == ["Night"]
+        assert any("Empty" in r.message for r in caplog.records)
+
+    def test_zero_length_period_is_not_the_cheapest_rate(self):
+        cfg = self._cfg(
+            [
+                {"name": "Night", "rate": 0.18, "start": "23:00", "end": "08:00"},
+                {"name": "Empty", "rate": 0.01, "start": "12:00", "end": "12:00"},
+            ]
+        )
+        t = build_tariff(cfg)
+        assert t.get_cheapest_rate().name == "Night"
+        assert t.get_cheapest_rate_start() == time(23, 0)
+
+    def test_only_zero_length_periods_leaves_a_flat_tariff(self):
+        t = build_tariff(
+            self._cfg([{"name": "Empty", "rate": 0.01, "start": "00:00", "end": "00:00"}])
+        )
+        assert t.rate_periods == []
+        assert t.get_cheapest_rate().rate == pytest.approx(0.365)
+
+    def test_malformed_period_is_still_skipped(self):
+        t = build_tariff(self._cfg([{"name": "Bad", "rate": "x", "start": "1", "end": "2"}]))
+        assert t.rate_periods == []
