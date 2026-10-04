@@ -477,9 +477,7 @@ the config flow, coordinator setup/teardown, and entity lifecycle.
 
 ### v0.3.0
 
-Major feature release adding physics-based charge optimisation, ROI metrics, hardware
-support for second immersion elements and storage heaters, and an extensive set of new
-sensors and services.
+Charge optimisation, ROI metrics, and a large set of new sensors and services.
 
 **Charge algorithm**
 - **Forward SoC simulation** — replaces the three-tier strong/moderate/poor forecast
@@ -490,30 +488,24 @@ sensors and services.
 - **Solcast P10/P50 conservatism** — blend P10 pessimistic forecast into the charge
   target via a configurable slider (default 0.35, same as PALM).
 - **Per-slot load history** — accumulates 48-slot (30-min) baseline load profiles over
-  7 days; uses weighted average for morning load estimate in the charge algorithm.
+  7 days. The charge calculation does not use the profile yet.
 - **Seasonal charge bypass** — winter months charge to 100%; shoulder months apply
-  `CHARGE_SHOULDER_MIN_SOC` floor (already in v0.2.x, now used by simulation).
+  the `CHARGE_SHOULDER_MIN_SOC` floor.
 
 **Hardware protection**
 - **Minimum write interval** — 5-minute per-entity cooldown prevents rapid register writes.
-- **Battery throughput daily budget** — optional daily kWh cycling limit with OK/High/Over
-  budget status sensors.
+- **Battery throughput daily budget** — optional daily kWh cycling limit (off by default)
+  with OK/High/Over budget status sensors.
 - **Battery degradation cost guard** — optional `battery_cost_eur` config prevents surplus
   diversion when the export rate is below the battery wear cost per kWh.
-
-**New hardware support**
-- **Second immersion element** — decision sensors for dual-element cylinders; activates
-  when main element is at target temp and surplus continues.
-- **Storage heater** — activates during cheap rate (with sufficient SoC) or solar surplus.
 
 **New services**
 - `get_roi_summary` — structured ROI metrics for today/week/month/year with response_variable
 - `compare_tariff` — what would this billing period have cost on a different tariff?
 - `year_on_year_summary` — current month vs same month last year (requires 12+ months)
-- `export_energy_data` — write energy history to CSV for backup
 - `export_energy_data` — writes `/config/givenergy_energy_export.csv` for data backup
 
-**New sensors (all disabled by default)**
+**New sensors (all disabled by default except House Load Today)**
 - Solcast P10 entity, forecast conservatism slider
 - Carbon intensity (g CO2/kWh) and Low/Medium/High status
 - Pre-boost export: spare_kwh, net_gain, recommended
@@ -521,24 +513,28 @@ sensors and services.
 - Counterfactual cost tracking: saving_vs_grid_today, net_saving_today
 - Trailing 12-month: solar, import, export kWh + import cost + export earnings
 - Monthly export snapshots (12-month history for year-on-year comparison)
-- Battery years remaining estimate (7-day throughput average)
+- Battery years remaining estimate (cycles per day since tracking started, shown after 7 days)
+- Battery throughput budget used / status
+- Battery usable capacity estimate, energy available, charged and discharged today
+- Battery state (Charging/Discharging/Full/Idle) and night survival confidence
 - Average import rate: today/week/month
 - Cheap import fraction: week/month
-- Battery round-trip efficiency today
-- Next cheap rate start (HH:MM) and hours to cheap rate
-- Battery charged/discharged/house load today
-- Battery power direction (Charging/Discharging/Idle)
-- Integration version (diagnostic)
-- Days elapsed in billing period
-- Storage heater active / reason
-- Second immersion active / reason
-- Grid carbon intensity / status
+- Battery round-trip efficiency today and solar capture efficiency today
+- Cheapest tariff rate and period name; on cheapest rate and on base rate
+- Next cheap rate start (HH:MM), hours to cheap rate and minutes remaining in the period
+- Rate saving versus the daytime rate
+- Grid power direction, solar output as a percentage of inverter maximum, net solar surplus
+- EV km charged today and EV cost per km (uses the new car efficiency option)
+- House load today, net financial position this month
+- Integration version (diagnostic) and days elapsed in the billing period
 
 **Options flow improvements**
-- Hardware settings section: update battery capacity, inverter max output, immersion
+- Hardware settings section: update battery capacity, inverter max output and immersion
   wattage without reinstalling
+- EV section: car efficiency in kWh/100 km
 
-**636 unit tests**
+**Dashboard**
+- Energy Today summary card on the power flow view
 
 ---
 
