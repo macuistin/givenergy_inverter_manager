@@ -854,7 +854,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 _LOG.debug("No EV charger found (cycle %d)", self._update_cycle)
 
     def _apply_ev_action(self, target_mode: str | None) -> None:
-        """Apply an EV charger mode change via HA service call."""
+        """Apply an EV charger mode change via HA service call.
+
+        Skips the write when the charger is already in the target mode and honours
+        the same per-entity write cooldown as the GivTCP writes.
+        """
         if (
             target_mode is None
             or self._ev_charger is None
@@ -874,6 +878,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             if self.data is not None:
                 self.data.dry_run_last_skipped = action
             return
+
+        entity_id = self._ev_charger.charge_mode_entity
+        if self._write_cooldown_active(entity_id, self._ev_charger.display_name):
+            return
+        self._last_write_time[entity_id] = time.monotonic()
 
         _LOG.info(
             "EV charger action: %s → %s",

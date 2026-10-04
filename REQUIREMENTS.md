@@ -36,8 +36,8 @@ Decide how much to charge the battery from the grid each night, during the cheap
 **2. Divert solar surplus to the immersion heater**
 When solar output exceeds house load and the battery is sufficiently charged, turn on the immersion heater rather than exporting at a lower rate. Turn it off when surplus drops. Never activate if water is already at target temperature.
 
-**3. Signal solar surplus availability for EV charging**
-The Zappi (myenergi) and GivEnergy inverter are separate systems — the integration cannot directly control Zappi mode or battery discharge. Instead, surface `ev_solar_surplus_available` (True when surplus >= 1,380W) so users can build a HA automation to switch the Zappi to Eco+ themselves. Also surface `ev_charging_source` (Solar/Grid/Battery/Mixed) and `ev_draining_battery` for monitoring.
+**3. Move the Zappi to Eco+ and signal solar surplus availability for EV charging**
+The Zappi (myenergi) and GivEnergy inverter are separate systems — the integration cannot control battery discharge. It switches a Zappi with a charge mode select to Eco+ when a car is plugged in and surplus is at least 1,380W, and never stops it. It also surfaces `ev_solar_surplus_available` (True when surplus >= 1,380W) so users can build automations for chargers it cannot control. Also surface `ev_charging_source` (Solar/Grid/Battery/Mixed) and `ev_draining_battery` for monitoring.
 
 **4. Surface useful energy information as HA sensors**
 Expose real-time and accumulated energy data as first-class HA sensors so users can build dashboards, automations, and energy-cost tracking without any additional configuration.
@@ -155,24 +155,20 @@ inputs:  current_soc, battery_capacity, forecast_kwh (or None), inverter_max_kw,
 
 ## EV charger logic
 
-The Zappi (myenergi) and GivEnergy inverter are separate systems with no integration between them. The Zappi uses its own CT clamp; stopping it does not protect the GivEnergy battery (the inverter covers house load from the battery regardless of what the Zappi does). For this reason the integration does not pause or stop the EV charger.
+The Zappi (myenergi) and GivEnergy inverter are separate systems with no integration between them. The Zappi uses its own CT clamp; stopping it does not protect the GivEnergy battery (the inverter covers house load from the battery regardless of what the Zappi does). For this reason the integration does not pause or stop the EV charger. It only selects Eco+ on a Zappi with a charge mode entity, when a car is plugged in and solar_surplus_w >= EV_CHARGER_MIN_POWER_W, subject to the write cooldown.
 
-The integration surfaces signals for the user to act on via HA automations:
+The integration also surfaces signals for the user to act on via HA automations:
 
 ```
-if ev_plugged_in:
-    if solar_surplus_w >= EV_CHARGER_MIN_POWER_W:
-        ev_solar_surplus_available = True  (signal for Zappi Eco+ automation)
-    else:
-        ev_solar_surplus_available = False
+ev_solar_surplus_available = solar_surplus_w >= EV_CHARGER_MIN_POWER_W
 
 ev_charging_source = Solar | Grid | Battery | Mixed  (classification of live source)
 ev_draining_battery = battery_power_w < 0 and ev_power_w > 0
 ```
 
-The user automation (see `docs/automations.md`) watches `ev_solar_surplus_available` and calls the myenergi service to switch the Zappi to Eco+ when surplus is available.
+A user automation (see `docs/automations.md`) can watch `ev_solar_surplus_available` to start chargers the integration cannot control.
 
-Supported charger brands for monitoring: Zappi (myenergi), Wallbox, OCPP, Ohme, Easee. Only Zappi is supported for mode control via the myenergi integration.
+Supported charger brands for monitoring: Zappi (myenergi), Wallbox, OCPP, Ohme, Easee. Only Zappi is supported for mode control, through its select entity.
 
 ---
 

@@ -761,6 +761,46 @@ class TestApplyEvAction:
         coord._apply_ev_action(None)
         assert len(coord.tasks_created) == 0
 
+    @pytest.mark.asyncio
+    async def test_second_write_within_cooldown_is_skipped(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._ev_charger = self._charger(mode="Fast")
+        coord.data = MagicMock()
+        coord._apply_ev_action("Eco+")
+        await coord.tasks_created[0]
+        coord._ev_charger = self._charger(mode="Fast")
+        coord._apply_ev_action("Eco+")
+        assert len(coord.tasks_created) == 1
+
+    @pytest.mark.asyncio
+    async def test_write_allowed_again_after_cooldown(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            GIVTCP_MIN_WRITE_INTERVAL_S,
+        )
+
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._ev_charger = self._charger(mode="Fast")
+        coord.data = MagicMock()
+        coord._apply_ev_action("Eco+")
+        await coord.tasks_created[0]
+        coord._last_write_time["select.zappi_mode"] = (
+            time.monotonic() - GIVTCP_MIN_WRITE_INTERVAL_S - 1
+        )
+        coord._ev_charger = self._charger(mode="Fast")
+        coord._apply_ev_action("Eco+")
+        assert len(coord.tasks_created) == 2
+        await coord.tasks_created[1]
+
+    def test_dry_run_does_not_start_the_cooldown(self):
+        cfg = _cfg(**{CONF_DRY_RUN: True})
+        coord = FakeCoordinator(cfg=cfg)
+        coord._ev_charger = self._charger(mode="Fast")
+        from types import SimpleNamespace
+
+        coord.data = SimpleNamespace(dry_run_last_skipped="")
+        coord._apply_ev_action("Eco+")
+        assert "select.zappi_mode" not in coord._last_write_time
+
     def test_dry_run_skips_ev_action(self):
         cfg = _cfg(**{CONF_DRY_RUN: True})
         coord = FakeCoordinator(cfg=cfg)

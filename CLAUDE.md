@@ -70,9 +70,14 @@ as the authoritative source for today's kWh values. The coordinator reads these 
 after each cycle. Falls back silently to integration if entities are absent.
 
 **The Zappi (myenergi) and GivEnergy inverter are separate systems.** The Zappi uses
-its own CT clamp and there is no integration between them. The integration does not
-stop or pause the Zappi — it only surfaces `ev_solar_surplus_available`,
-`ev_charging_source`, and `ev_draining_battery` as signals for user automations.
+its own CT clamp and there is no integration between them. For a Zappi with a charge
+mode select entity, the integration switches it to Eco+ (never Stopped or Fast) when a
+car is plugged in and net solar surplus is at least `EV_CHARGER_MIN_POWER_W`
+(`_apply_ev_action` in `coordinator.py`; skipped in dry run, read-before-write, and
+subject to the `GIVTCP_MIN_WRITE_INTERVAL_S` write cooldown). It never stops or pauses
+the Zappi. It also surfaces `ev_solar_surplus_available`, `ev_charging_source`, and
+`ev_draining_battery` as signals for user automations, and for chargers it cannot
+control.
 
 ---
 

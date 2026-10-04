@@ -58,6 +58,8 @@ GivTCP writes use registers with a limited lifetime. Each write helper:
 - reads the entity back after 2 seconds and retries up to 3 times;
 - counts each write in the GivTCP Register Write Count sensor, and logs a warning at 500,000 writes.
 
+The Zappi mode write skips when the Zappi is already in the target mode and when that select entity was written in the last 300 seconds. It is not read back or counted, because it is not an inverter register.
+
 ## GivTCP sign conventions
 
 The integration was written against GivTCP v3 on a GIV-HY-5.0.
