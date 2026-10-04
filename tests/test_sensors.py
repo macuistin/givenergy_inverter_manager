@@ -767,3 +767,32 @@ class TestDashboardSummarySensors:
         dashboard = (_SENSOR_PY.parent / "dashboard.py").read_text()
         assert 'e("house_kwh_today")' in dashboard
         assert "house_energy_today" not in dashboard
+class TestDailyTotalSensorsUseTotalStateClass:
+    """HA raises ValueError from state_attributes when last_reset is set on a non-TOTAL sensor."""
+
+    @staticmethod
+    def _daily_total_keys():
+        keys = []
+        for node in ast.walk(_TREE):
+            if not isinstance(node, ast.Call):
+                continue
+            kws = {kw.arg: kw.value for kw in node.keywords}
+            flag = kws.get("is_daily_total")
+            if isinstance(flag, ast.Constant) and flag.value is True:
+                keys.append((kws["key"].value, kws.get("state_class")))
+        return keys
+
+    def test_found_daily_total_sensors(self):
+        assert len(self._daily_total_keys()) >= 20
+
+    def test_every_daily_total_sensor_is_state_class_total(self):
+        wrong = [
+            key
+            for key, state_class in self._daily_total_keys()
+            if not (isinstance(state_class, ast.Attribute) and state_class.attr == "TOTAL")
+        ]
+        assert wrong == []
+
+    def test_last_reset_guards_on_state_class(self):
+        src = _SENSOR_PY.read_text()
+        assert "state_class != SensorStateClass.TOTAL" in src
