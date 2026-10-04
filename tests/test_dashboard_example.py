@@ -46,3 +46,8 @@ def test_example_is_valid_yaml_with_views():
 
     parsed = yaml.safe_load(_EXAMPLE.read_text(encoding="utf-8"))
     assert [v["path"] for v in parsed["views"]]
+
+
+def test_dashboard_page_links_the_example():
+    page = (_EXAMPLE.parent / "dashboard.md").read_text(encoding="utf-8")
+    assert "(dashboard-example.yaml)" in page

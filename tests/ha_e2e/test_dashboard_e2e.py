@@ -166,3 +166,31 @@ async def test_generated_file_keeps_the_cards_that_are_registered(hass, loaded_e
     assert "custom:power-flow-card-plus" in text
     assert "custom:apexcharts-card" in text
     assert "not installed" not in text
+
+
+async def test_live_dashboard_matches_the_docs_example(hass, loaded_entry):
+    """Full config, every sensor enabled and an EV charger: the output is the docs example."""
+    from types import SimpleNamespace
+
+    from custom_components.givenergy_inverter_manager.const import CONF_BILL_START_DAY
+
+    # The e2e config bills from day 16. The example uses the default, day 1.
+    hass.config_entries.async_update_entry(
+        loaded_entry, data={**loaded_entry.data, CONF_BILL_START_DAY: 1}
+    )
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    for entry in er.async_entries_for_config_entry(registry, loaded_entry.entry_id):
+        if entry.disabled_by is not None:
+            registry.async_update_entity(entry.entity_id, disabled_by=None)
+    async_fire_time_changed(
+        hass, dt_util.utcnow() + timedelta(seconds=RELOAD_AFTER_UPDATE_DELAY + 1)
+    )
+    await hass.async_block_till_done()
+    assert loaded_entry.state is ConfigEntryState.LOADED
+    loaded_entry.runtime_data._ev_charger = SimpleNamespace(brand=SimpleNamespace(value="myenergi"))
+
+    text, _ = await _generate(hass)
+
+    example = Path(__file__).parents[2] / "docs" / "dashboard-example.yaml"
+    assert text == example.read_text(encoding="utf-8")
