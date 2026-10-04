@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from datetime import date
 
 # GivEnergy battery typical rated cycles
+from ..const import BATTERY_LIFE_ESTIMATE_MIN_DAYS
 from ..const import BATTERY_RATED_CYCLES as TYPICAL_RATED_CYCLES
 
 
@@ -34,6 +35,8 @@ class BatteryStats:
     """Aggregated battery statistics."""
     total_cycles: float = 0.0
     last_full_charge_date: date | None = None
+    tracking_start_date: date | None = None
+    tracking_start_cycles: float = 0.0
 
     @property
     def estimated_remaining_life_pct(self) -> float:
@@ -47,23 +50,34 @@ class BatteryStats:
         return (date.today() - self.last_full_charge_date).days
 
     @property
-    def average_daily_cycles(self) -> float:
-        """
-        Average cycles per day.
+    def days_tracked(self) -> int:
+        """Whole days since cycle tracking started, 0 if it has not started."""
+        if self.tracking_start_date is None:
+            return 0
+        return max(0, (date.today() - self.tracking_start_date).days)
 
-        Currently returns 0.0 — daily cycle history is not yet persisted
-        across HA restarts (planned for v0.2.0). When persistence lands,
-        this will be derived from the stored rolling cycle log.
-        """
-        return 0.0
+    @property
+    def average_daily_cycles(self) -> float:
+        """Average cycles per day since tracking started, 0.0 before any data."""
+        if self.tracking_start_date is None:
+            return 0.0
+        cycles = max(0.0, self.total_cycles - self.tracking_start_cycles)
+        return cycles / max(1, self.days_tracked)
 
     @property
     def estimated_years_remaining(self) -> float:
         """Estimated years of life remaining based on average daily cycle rate."""
         if self.average_daily_cycles == 0:
             return 0.0
-        remaining_cycles = TYPICAL_RATED_CYCLES - self.total_cycles
+        remaining_cycles = max(0.0, TYPICAL_RATED_CYCLES - self.total_cycles)
         return remaining_cycles / (self.average_daily_cycles * 365)
+
+    @property
+    def years_remaining_estimate(self) -> float | None:
+        """Years of life left, or None until enough days of cycle data exist."""
+        if self.days_tracked < BATTERY_LIFE_ESTIMATE_MIN_DAYS or self.average_daily_cycles <= 0:
+            return None
+        return self.estimated_years_remaining
 
 
 def calculate_cycle_increment(soc_delta: float) -> float:

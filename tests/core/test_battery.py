@@ -10,6 +10,7 @@ from custom_components.givenergy_inverter_manager.core.battery import (
     calculate_cycle_increment,
     estimate_will_survive_night,
 )
+from custom_components.givenergy_inverter_manager.core.engine import update_battery_stats
 
 
 class TestBatteryStats:
@@ -117,3 +118,42 @@ class TestWillSurviveNight:
 
 
 # ── BatterySession coverage ───────────────────────────────────────────────────
+
+
+class TestYearsRemainingEstimate:
+    """years_remaining_estimate needs tracked days and a non-zero cycle rate."""
+
+    @staticmethod
+    def _stats(total, start_cycles, days_ago):
+        from datetime import date, timedelta
+
+        return BatteryStats(
+            total_cycles=total,
+            tracking_start_date=date.today() - timedelta(days=days_ago),
+            tracking_start_cycles=start_cycles,
+        )
+
+    def test_none_when_tracking_not_started(self):
+        assert BatteryStats(total_cycles=100.0).years_remaining_estimate is None
+
+    def test_none_before_minimum_days(self):
+        assert self._stats(total=85.0, start_cycles=79.0, days_ago=6).years_remaining_estimate is None
+
+    def test_none_when_no_new_cycles(self):
+        assert self._stats(total=79.0, start_cycles=79.0, days_ago=30).years_remaining_estimate is None
+
+    def test_average_ignores_cycles_before_tracking_started(self):
+        stats = self._stats(total=179.0, start_cycles=79.0, days_ago=50)
+        assert stats.average_daily_cycles == pytest.approx(2.0)
+
+    def test_years_remaining_from_rate(self):
+        stats = self._stats(total=179.0, start_cycles=79.0, days_ago=50)
+        expected = (6000 - 179.0) / (2.0 * 365)
+        assert stats.years_remaining_estimate == pytest.approx(expected)
+
+    def test_first_soc_change_starts_tracking_at_current_total(self):
+        stats = BatteryStats(total_cycles=79.0)
+        update_battery_stats(stats, current_soc=60.0, last_soc=50.0)
+        assert stats.tracking_start_cycles == pytest.approx(79.0)
+        assert stats.tracking_start_date is not None
+        assert stats.total_cycles == pytest.approx(79.1)

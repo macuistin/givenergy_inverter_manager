@@ -195,6 +195,7 @@ class CoordinatorData:
         "projected_bill",
         "battery_cycle_cost_per_kwh",
         "battery_throughput_budget_pct",
+        "battery_years_remaining",
         "battery_throughput_budget_status",
         "register_write_count",
         "rest_of_house_w",
@@ -257,6 +258,7 @@ class CoordinatorData:
         self.will_survive_night: bool = True
         self.battery_cycle_cost_per_kwh: float = 0.0
         self.battery_throughput_budget_pct: float | None = None
+        self.battery_years_remaining: float | None = None
         self.battery_throughput_budget_status: str = ""
         self.saving_vs_grid_today: float = 0.0
         self.net_saving_today: float = 0.0
@@ -474,6 +476,9 @@ def update_battery_stats(
     """
     if last_soc is not None and current_soc != last_soc:
         increment = calculate_cycle_increment(current_soc - last_soc)
+        if stats.tracking_start_date is None:
+            stats.tracking_start_date = date.today()
+            stats.tracking_start_cycles = stats.total_cycles
         stats.total_cycles += increment
         if current_soc >= 99.0:
             stats.last_full_charge_date = date.today()
@@ -810,6 +815,7 @@ def build_coordinator_data(
     # ── Battery stats ─────────────────────────────────────────────────────────
     update_battery_stats(battery_stats, raw.battery_soc, last_soc)
     data.battery_stats = battery_stats
+    data.battery_years_remaining = battery_stats.years_remaining_estimate
 
     # ── Energy accumulation ───────────────────────────────────────────────────
     for rolling_acc in (acc, acc_week, acc_month, acc_year):

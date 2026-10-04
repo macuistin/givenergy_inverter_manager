@@ -271,3 +271,15 @@ class TestThroughputBudgetSensors:
         assert fn(d) is None
         d.battery_throughput_budget_status = "High"
         assert fn(d) == "High"
+
+
+class TestBatteryYearsRemainingSensor:
+    def test_value_fn_rounds_and_handles_none(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("battery_years_remaining")
+        d = MagicMock()
+        d.battery_years_remaining = 12.345
+        assert fn(d) == pytest.approx(12.3)
+        d.battery_years_remaining = None
+        assert fn(d) is None
