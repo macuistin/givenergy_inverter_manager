@@ -730,3 +730,24 @@ class TestStatusSensors:
     def test_night_survival_safe(self):
         fn = _lambda_for("night_survival_confidence")
         assert fn(self._night(sunrise_soc=40.0, min_soc=10)) == "Safe"
+
+
+class TestPowerBalanceSensors:
+    def test_net_solar_surplus_rounds(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("net_solar_surplus_w")
+        d = MagicMock()
+        d.net_solar_surplus_w = 1234.56
+        assert fn(d) == pytest.approx(1234.6)
+
+    def test_battery_kwh_available(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("battery_kwh_available")
+        d = MagicMock()
+        d.battery_soc = 50.0
+        d.battery_capacity_kwh = 18.6
+        assert fn(d) == pytest.approx(9.3)
+        d.battery_capacity_kwh = 0.0
+        assert fn(d) is None

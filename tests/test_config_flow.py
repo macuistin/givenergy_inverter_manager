@@ -278,13 +278,15 @@ class TestSensorDefaultEnabled:
         "Solar Output % of Max",
         "Battery State",
         "Night Survival Confidence",
+        "Net Solar Surplus",
+        "Battery Energy Available",
     }
 
     def test_exactly_five_sensors_disabled(self):
-        """Exactly 53 sensors should be disabled by default."""
+        """Exactly 55 sensors should be disabled by default."""
         state = _parse_sensor_enabled_state()
         disabled = [n for n, enabled in state.items() if not enabled]
-        assert len(disabled) == 53, f"Expected 53 disabled sensors, got {len(disabled)}: {disabled}"
+        assert len(disabled) == 55, f"Expected 55 disabled sensors, got {len(disabled)}: {disabled}"
 
     def test_disabled_sensors_are_the_expected_ones(self):
         """The disabled sensors must be the HTML reports and forecast accuracy."""

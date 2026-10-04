@@ -179,9 +179,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:solar-power-variant",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(
-            max(0.0, d.solar_power_w - d.house_load_w - max(0.0, d.battery_power_w)), 1
-        ),
+        value_fn=lambda d: round(d.net_solar_surplus_w, 1),
     ),
     GivEnergyManagerSensorDescription(
         key="battery_kwh_available",

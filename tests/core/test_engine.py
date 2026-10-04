@@ -1588,3 +1588,26 @@ class TestBatteryMinSocField:
         cfg["battery_min_soc_pct"] = 20
         data, _ = _run(cfg=cfg)
         assert data.battery_min_soc == 20
+
+
+class TestNetSolarSurplus:
+    """net_solar_surplus_w uses smoothed solar minus house load and immersion, as the EV path does."""
+
+    def test_uses_smoothed_solar_not_raw(self):
+        raw = _raw(solar_power_w=6000.0, house_load_w=500.0)
+        raw.smoothed_solar_power_w = 3000.0
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == pytest.approx(2500.0)
+
+    def test_subtracts_immersion_when_on(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=500.0, immersion_on=True)
+        raw.smoothed_solar_power_w = 4000.0
+        raw.immersion_wattage_w = 3000.0
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == pytest.approx(500.0)
+
+    def test_never_negative(self):
+        raw = _raw(solar_power_w=200.0, house_load_w=900.0)
+        raw.smoothed_solar_power_w = 200.0
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == 0.0

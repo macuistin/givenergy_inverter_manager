@@ -198,6 +198,7 @@ class CoordinatorData:
         "battery_cycle_cost_per_kwh",
         "battery_throughput_budget_pct",
         "battery_min_soc",
+        "net_solar_surplus_w",
         "battery_years_remaining",
         "hours_to_cheap_rate",
         "next_cheap_rate_start",
@@ -272,6 +273,7 @@ class CoordinatorData:
         self.battery_cycle_cost_per_kwh: float = 0.0
         self.battery_throughput_budget_pct: float | None = None
         self.battery_min_soc: int = 0
+        self.net_solar_surplus_w: float = 0.0
         self.battery_years_remaining: float | None = None
         self.hours_to_cheap_rate: float | None = None
         self.next_cheap_rate_start: str | None = None
@@ -524,9 +526,7 @@ def _process_ev_charger(
     data.ev_session_kwh = ev_charger.session_kwh
     data.ev_draining_battery = ev_charger.is_draining_battery
 
-    solar_surplus_w = max(
-        0.0, raw.smoothed_solar_power_w - raw.house_load_w - data.immersion_load_w
-    )
+    solar_surplus_w = data.net_solar_surplus_w
 
     ev_target_mode, reason = decide_ev_charger_action(
         charger=ev_charger,
@@ -596,6 +596,9 @@ def _initialize_coordinator_data(
     data.immersion_temp = raw.immersion_temp
     data.forecast_kwh_tomorrow = raw.forecast_kwh_tomorrow
     data.immersion_load_w = raw.immersion_wattage_w if raw.immersion_on else 0.0
+    data.net_solar_surplus_w = max(
+        0.0, raw.smoothed_solar_power_w - raw.house_load_w - data.immersion_load_w
+    )
     data.rest_of_house_w = max(
         0.0,
         raw.house_load_w - raw.ev_power_w - data.immersion_load_w,
