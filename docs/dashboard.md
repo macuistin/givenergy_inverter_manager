@@ -1,40 +1,33 @@
 # Dashboard
 
-The integration generates a ready-to-use Lovelace dashboard pre-filled with your actual entity IDs and writes it directly to your HA config directory as `givenergy_dashboard.yaml`.
+The integration writes a Lovelace dashboard, filled in with your real entity IDs, to `givenergy_dashboard.yaml` in the Home Assistant config folder.
 
----
+## Generate the file
 
-## Generating the dashboard
+Either:
 
-Run the **Refresh Dashboard** action in one of two ways:
+- Press **Refresh Dashboard** on the device page (**Settings → Devices & Services → GivEnergy Inverter Manager**), or
+- Run the `givenergy_inverter_manager.get_dashboard_yaml` action in **Developer Tools → Actions**.
 
-**From the device page (recommended):**
-1. Go to **Settings → Integrations → GivEnergy Inverter Manager**
-2. Click the device card
-3. Press the **Refresh Dashboard** button
+A notification, **GivEnergy Dashboard Ready**, confirms the write. The first time the integration is set up it also creates a placeholder file containing `views: []`, so a YAML-mode dashboard can point at the file straight away.
 
-**From Developer Tools:**
-1. Go to **Developer Tools → Actions**
-2. Search for `givenergy_inverter_manager.get_dashboard_yaml`
-3. Click **Perform Action**
+Generate the file again after you change the options, rename entities, or add an immersion temperature sensor. The file is overwritten.
 
-A notification appears confirming the file was written and showing setup instructions.
+## Add the dashboard
 
----
+### UI mode
 
-## Setting up the dashboard
+1. Open `givenergy_dashboard.yaml` in your config folder, for example with the File editor add-on.
+2. Copy the whole file.
+3. Go to **Settings → Dashboards → Add Dashboard → Blank**.
+4. Open the new dashboard, then the three-dot menu, **Edit dashboard**, then the three-dot menu again and **Raw configuration editor**.
+5. Replace the content with the copied YAML and save.
 
-### UI mode (most users)
-
-1. Open `givenergy_dashboard.yaml` in your HA config directory (e.g. via the File Editor add-on or SSH)
-2. Copy the entire contents
-3. Go to **Settings → Dashboards → Add Dashboard → Blank**
-4. Give it a name, click the three-dot menu → **Edit dashboard → Raw configuration editor**
-5. Replace everything with the copied YAML and save
+After regenerating, repeat steps 1 to 5.
 
 ### YAML mode
 
-If you manage your Lovelace dashboards in `configuration.yaml`, add this block once:
+Add this once to `configuration.yaml`, then restart Home Assistant:
 
 ```yaml
 lovelace:
@@ -47,51 +40,50 @@ lovelace:
       show_in_sidebar: true
 ```
 
-Then restart HA. The dashboard will appear in the sidebar and will use the generated file directly.
+After regenerating, reload the dashboard or restart Home Assistant.
 
----
+## HACS cards
 
-## Keeping the dashboard up to date
+| Card | Needed for | Behaviour without it |
+|---|---|---|
+| [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | The live flow card in the Power Flow view | The card shows a configuration error |
+| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The immersion charts in the Power Flow view | Those two charts show an error |
 
-After reconfiguring the integration (e.g. changing tariff rates or adding a second forecast sensor), press the **Refresh Dashboard** button again. The file is overwritten in place. Restart HA or reload the dashboard to pick up the changes.
-
-The Controls tab of the dashboard also includes a **Refresh Dashboard** button card.
-
----
+Everything else uses built-in Home Assistant cards.
 
 ## The four views
 
 ### Power Flow
 
-Live animated energy flows between solar, battery, grid, and home. Shows the current unit rate on the grid node, battery SoC, and whether the inverter is clipping. Also shows immersion temperature history when a temperature sensor is configured.
+- A power-flow-card-plus card with solar, battery, grid, home and two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery card reads Battery Power for the flow and Battery State of Charge for the percentage. The grid node shows the Live Grid Cost Rate.
+- An **Energy Today** row: Generated, Imported, Exported, Used (House Load Today) and Immersion.
+- An immersion block, only when an immersion water temperature sensor is configured. It has a 12-hour chart of water temperature with the target and minimum, a tile with the divert reason, and a 12-hour chart of Immersion Heater Today.
 
-> This view requires **power-flow-card-plus** from HACS. If you see a "Configuration error", install it from HACS → Frontend → search "power-flow-card-plus".
-
-> The immersion temperature graph requires **apexcharts-card** from HACS.
+For the EV load, the dashboard uses the first of these entities that exists, else the integration's own EV Charging Power: `sensor.myenergi_zappi_power_ct_internal_load`, `..._2`, `sensor.myenergi_zappi2_power_ct_internal_load`, `sensor.wallbox_charging_power`, `sensor.ohme_current_power`.
 
 ### Today
 
-Current rate and rate period at the top, followed by today's energy totals (solar, import, export, EV, immersion), cost breakdown by load including immersion savings, self-sufficiency gauges, and bill prediction.
+Energy totals, current rate and rate period, a cost breakdown (import, export, EV, immersion, immersion savings, rest of house), two 24-hour history graphs, a solar against forecast card, self-sufficiency and self-consumption gauges, and the bill prediction card.
 
 ### Battery
 
-Battery SoC gauge, live charge/discharge power, tonight's charge plan (recommended target, reason, estimated cost, estimated SoC at sunrise, night survival status, cheap rate floor activity), and battery health stats.
+A SoC gauge, a 24-hour history of SoC and power, **Tonight's Charge Plan** (target, reason, estimated cost, SoC at sunrise, night survival, cheap rate floor), and battery health (cycles, remaining life, days since full charge, inverter temperature and status).
 
 ### Controls
 
-Switches and overrides for overnight charging, immersion heater (including inline temperature sliders), and EV charger status. Also includes a **Refresh Dashboard** button.
+The charge target override switch and slider, Force Skip Charge Tonight, the immersion switches, divert reason and the three temperature numbers, and the EV charger card. A dry run banner and a dry run status card appear only while Dry Run Mode Active is true.
 
-A yellow warning banner appears at the top if dry run mode is active.
+There is no Refresh Dashboard card. Use the button on the device page.
 
----
+## HTML report cards
 
-## Using HTML report cards
+Three sensors carry a styled HTML report in their `html` attribute: Today's energy summary, Tonight's charge plan and This week's energy summary. They use inline styles, so the built-in Markdown card renders them.
 
-Three sensors expose formatted HTML reports. To display them, add a Markdown card:
+They are disabled by default. Enable them in the entity list first.
 
 ```yaml
 type: markdown
-content: "{{ state_attr('sensor.givenergy_inverter_manager_today_summary', 'html') }}"
+content: "{{ state_attr('sensor.givenergy_inverter_manager_todays_energy_summary', 'html') }}"
 ```
 
-These use inline styles only and work with the default Markdown card — no HACS dependency needed. The `today_summary`, `charge_plan`, and `week_summary` sensors are disabled by default; enable them in the entity list before using them.
+Replace the entity ID with the real one from **Settings → Entities**.
