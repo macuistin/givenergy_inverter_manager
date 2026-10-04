@@ -13,6 +13,12 @@ A notification, **GivEnergy Dashboard Ready**, confirms the write. The first tim
 
 Generate the file again after you change the options, rename entities, or add an immersion temperature sensor. The file is overwritten.
 
+## Example
+
+[`dashboard-example.yaml`](dashboard-example.yaml) is a complete dashboard you can copy and edit. It shows the output for a setup with an immersion heater, an EV charger, an inverter temperature sensor and a solar forecast configured, and with every sensor enabled. The entity IDs are the ones Home Assistant gives a fresh install. If you renamed entities, generate your own file instead.
+
+A test regenerates the example and fails when it no longer matches the generator, so it always shows the current layout.
+
 ## Add the dashboard
 
 ### UI mode
