@@ -727,7 +727,18 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         self._options: dict[str, Any] = dict(config_entry.options)
 
     def _get(self, key, default):
-        return self._config_entry.options.get(key) or self._config_entry.data.get(key) or default
+        """Return the saved option, else the setup value, else the default.
+
+        A saved falsy option (0, an empty string, an empty list) is a real choice
+        and must not fall back to the setup value.
+        """
+        options = self._config_entry.options
+        if options.get(key) is not None:
+            return options[key]
+        data = self._config_entry.data
+        if data.get(key) is not None:
+            return data[key]
+        return default
 
     def _optional_key(self, key):
         """Optional schema key that pre-fills a saved value but has no default when empty.

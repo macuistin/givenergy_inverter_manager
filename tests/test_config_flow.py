@@ -831,3 +831,48 @@ class TestManualSetupPath:
 
         flow.async_step_tariff.assert_not_awaited()
         assert flow.async_show_form.call_args.kwargs["errors"] == {"base": "missing_entities"}
+
+
+class TestOptionsFlowSavedValues:
+    """A saved option wins over the setup value even when it is falsy."""
+
+    @staticmethod
+    def _flow(options, data):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.config_flow import GivEnergyOptionsFlow
+
+        entry = MagicMock()
+        entry.options = options
+        entry.data = data
+        return GivEnergyOptionsFlow(entry)
+
+    def test_saved_zero_is_kept(self):
+        flow = self._flow({"cheap_rate_floor_soc": 0}, {"cheap_rate_floor_soc": 40})
+        assert flow._get("cheap_rate_floor_soc", 40) == 0
+
+    def test_cleared_entity_does_not_fall_back_to_setup(self):
+        flow = self._flow({"forecast_entity": ""}, {"forecast_entity": "sensor.forecast_today"})
+        assert flow._get("forecast_entity", "") == ""
+
+    def test_saved_empty_rate_periods_are_kept(self):
+        flow = self._flow({"rate_periods": []}, {"rate_periods": [{"name": "Night"}]})
+        assert flow._get("rate_periods", [{"name": "default"}]) == []
+
+    def test_unset_option_uses_setup_value(self):
+        flow = self._flow({}, {"base_rate": 0.31})
+        assert flow._get("base_rate", 0.2) == 0.31
+
+    def test_missing_everywhere_uses_default(self):
+        flow = self._flow({}, {})
+        assert flow._get("base_rate", 0.2) == 0.2
+
+    def test_cleared_entity_shows_no_suggested_value(self):
+        from unittest.mock import patch
+
+        import voluptuous as real_vol
+
+        flow = self._flow({"forecast_entity": ""}, {"forecast_entity": "sensor.forecast_today"})
+        with patch("custom_components.givenergy_inverter_manager.config_flow.vol", real_vol):
+            key = flow._optional_key("forecast_entity")
+        assert key.description is None
