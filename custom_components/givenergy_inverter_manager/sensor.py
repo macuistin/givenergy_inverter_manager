@@ -237,9 +237,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:cash-fast",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.rate_savings_vs_daytime, 4)
-        if d.rate_savings_vs_daytime > 0
-        else None,
+        value_fn=lambda d: round(d.rate_savings_vs_daytime, 4),
     ),
     # --- Today energy ---
     GivEnergyManagerSensorDescription(

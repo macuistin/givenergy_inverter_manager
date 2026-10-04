@@ -1558,8 +1558,17 @@ class TestPeriodTimeSensors:
     def test_minutes_remaining_positive_during_night(self):
         # 01:00 — Night rate ends at 08:00 = 7 hours = 420 minutes remaining
         data = self._run_at_hour(1, 0)
-        assert data.minutes_remaining_in_period is not None
-        assert data.minutes_remaining_in_period > 0
+        assert data.minutes_remaining_in_period == pytest.approx(420.0)
+
+    def test_minutes_remaining_uses_cheapest_active_period(self):
+        # 03:00 — Nightboost (cheapest active) ends at 04:00
+        data = self._run_at_hour(3, 0)
+        assert data.minutes_remaining_in_period == pytest.approx(60.0)
+
+    def test_minutes_remaining_wraps_past_midnight(self):
+        # 23:30 — Night runs to 08:00 the next day = 8.5 hours
+        data = self._run_at_hour(23, 30)
+        assert data.minutes_remaining_in_period == pytest.approx(510.0)
 
     def test_rate_savings_zero_at_base_rate(self):
         # 14:00 — at daytime base rate: savings = 0

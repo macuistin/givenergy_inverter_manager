@@ -605,3 +605,25 @@ class TestRateStatusSensors:
         assert fn(d) == "yes"
         setattr(d, attr, False)
         assert fn(d) == "no"
+
+
+class TestPeriodTimeSensors:
+    def test_minutes_remaining_passthrough(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("minutes_remaining_in_period")
+        d = MagicMock()
+        d.minutes_remaining_in_period = 60.0
+        assert fn(d) == 60.0
+        d.minutes_remaining_in_period = None
+        assert fn(d) is None
+
+    def test_rate_saving_reports_zero_at_base_rate(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("rate_savings_vs_daytime")
+        d = MagicMock()
+        d.rate_savings_vs_daytime = 0.0
+        assert fn(d) == 0.0
+        d.rate_savings_vs_daytime = 0.23694
+        assert fn(d) == pytest.approx(0.2369)
