@@ -1,0 +1,9 @@
+# Real Home Assistant end-to-end suite (tests/ha_e2e).
+#
+# Install into its own virtualenv, not the one used for requirements-test.txt:
+# the plugin pins homeassistant, pytest and pytest-asyncio, and it needs Python
+# 3.14.2 or newer because Home Assistant 2026.9 does.
+#
+# The plugin release pins the matching homeassistant version
+# (0.13.367 -> homeassistant 2026.9.4). Bump both together.
+pytest-homeassistant-custom-component==0.13.367

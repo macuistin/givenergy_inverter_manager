@@ -1,0 +1,120 @@
+"""Set up and unload the integration inside a real Home Assistant instance."""
+
+from __future__ import annotations
+
+import logging
+
+from conftest import SOLAR, TARGET_SOC
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.helpers import entity_registry as er
+
+from custom_components.givenergy_inverter_manager.const import DOMAIN
+from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
+from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
+
+PLATFORMS = ("sensor", "switch", "number", "button")
+
+
+async def test_entry_loads_with_givtcp_inputs(hass, loaded_entry):
+    """(a) Full valid config plus GivTCP-style states gives a LOADED entry."""
+    assert loaded_entry.state is ConfigEntryState.LOADED
+    coordinator = loaded_entry.runtime_data
+    assert isinstance(coordinator, GivEnergyCoordinator)
+    assert coordinator.last_update_success
+    assert coordinator.data is not None
+
+
+async def test_platforms_register_expected_entities(hass, loaded_entry):
+    """Every platform adds entities and the dashboard service is registered."""
+    registry = er.async_get(hass)
+    entries = er.async_entries_for_config_entry(registry, loaded_entry.entry_id)
+    by_domain = {d: [e for e in entries if e.domain == d] for d in PLATFORMS}
+
+    assert len(by_domain["sensor"]) == len(SENSOR_DESCRIPTIONS)
+    assert len(by_domain["switch"]) == 4  # includes the immersion control switch
+    assert len(by_domain["number"]) == 4
+    assert len(by_domain["button"]) == 1
+    assert hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+
+
+async def test_unique_ids_are_unique(hass, loaded_entry):
+    """Every entity of the entry has its own unique ID, and descriptions have unique keys."""
+    keys = [d.key for d in SENSOR_DESCRIPTIONS]
+    assert len(keys) == len(set(keys)), "duplicate SensorEntityDescription keys"
+
+    registry = er.async_get(hass)
+    entries = er.async_entries_for_config_entry(registry, loaded_entry.entry_id)
+    unique_ids = [(e.domain, e.unique_id) for e in entries]
+    assert len(unique_ids) == len(set(unique_ids))
+
+
+async def test_grid_sign_convention_end_to_end(hass, loaded_entry, scenario):
+    """GivTCP publishes export as positive. The sensors must report import as positive."""
+    registry = er.async_get(hass)
+
+    def state_of(key: str) -> float:
+        entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{loaded_entry.entry_id}_{key}")
+        assert entity_id is not None, key
+        return float(hass.states.get(entity_id).state)
+
+    assert state_of("solar_power") == scenario.solar_w
+    assert state_of("battery_soc") == scenario.battery_soc
+    assert state_of("grid_power") == -scenario.grid_w
+    assert state_of("house_load") == scenario.load_w
+
+
+async def test_unload_is_clean(hass, loaded_entry, caplog):
+    """(f) Unloading removes the services, marks entities unavailable and can be repeated."""
+    caplog.set_level(logging.WARNING)
+    registry = er.async_get(hass)
+    entity_ids = [
+        e.entity_id
+        for e in er.async_entries_for_config_entry(registry, loaded_entry.entry_id)
+        if not e.disabled
+    ]
+    assert entity_ids
+
+    assert await hass.config_entries.async_unload(loaded_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert loaded_entry.state is ConfigEntryState.NOT_LOADED
+    assert not hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+    for entity_id in entity_ids:
+        state = hass.states.get(entity_id)
+        assert state is not None and state.state == STATE_UNAVAILABLE, entity_id
+
+    # The entry can be set up again after an unload.
+    assert await hass.config_entries.async_setup(loaded_entry.entry_id)
+    await hass.async_block_till_done()
+    assert loaded_entry.state is ConfigEntryState.LOADED
+    assert hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert not errors, [r.getMessage() for r in errors]
+
+
+async def test_remove_entry_cleans_up(hass, loaded_entry):
+    """Removing the entry drops its registry entries and services."""
+    entry_id = loaded_entry.entry_id
+    assert await hass.config_entries.async_remove(entry_id) is not None
+    await hass.async_block_till_done()
+
+    registry = er.async_get(hass)
+    assert er.async_entries_for_config_entry(registry, entry_id) == []
+    assert not hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+
+
+async def test_setup_retries_when_givtcp_is_absent(
+    hass, hass_in_scenario, service_calls, config_entry
+):
+    """No GivTCP states at all puts the entry in SETUP_RETRY instead of crashing."""
+    for entity_id in (SOLAR, TARGET_SOC):
+        hass.states.async_remove(entity_id)
+    for state in list(hass.states.async_all()):
+        hass.states.async_remove(state.entity_id)
+
+    config_entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(config_entry.entry_id)
+    assert config_entry.state is ConfigEntryState.SETUP_RETRY
+    await hass.config_entries.async_unload(config_entry.entry_id)
