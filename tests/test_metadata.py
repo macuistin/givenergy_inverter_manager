@@ -115,3 +115,37 @@ def test_every_platform_sets_parallel_updates():
             missing.append(name)
 
     assert missing == []
+
+
+def _quality_status(rule: str) -> str:
+    rules = yaml.safe_load((_PKG / "quality_scale.yaml").read_text())["rules"]
+    value = rules[rule]
+    return value if isinstance(value, str) else value["status"]
+
+
+def test_quality_scale_uses_known_statuses_and_explains_exemptions():
+    rules = yaml.safe_load((_PKG / "quality_scale.yaml").read_text())["rules"]
+
+    for name, value in rules.items():
+        status = value if isinstance(value, str) else value["status"]
+        assert status in {"done", "todo", "exempt"}, name
+        if status == "exempt":
+            assert value["comment"], name
+
+
+def test_quality_scale_done_claims_hold_in_the_code():
+    init = (_PKG / "__init__.py").read_text(encoding="utf-8")
+    if _quality_status("action-setup") == "done":
+        assert "async def async_setup(" in init
+
+    untranslated = [
+        name
+        for name in ("sensor", "switch", "number", "button")
+        if "translation_key" not in (_PKG / f"{name}.py").read_text(encoding="utf-8")
+    ]
+    for rule in ("entity-translations", "icon-translations"):
+        if _quality_status(rule) == "done":
+            assert untranslated == [], rule
+
+    if _quality_status("strict-typing") == "done":
+        assert (_PKG / "py.typed").exists()

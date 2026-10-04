@@ -3,14 +3,14 @@
 
 rules:
   # ── Bronze ──────────────────────────────────────────────────────────────────
-  action-setup: done           # get_dashboard_yaml registered in async_setup_entry
+  action-setup: done           # all six actions registered in async_setup; each raises when no entry is loaded
   appropriate-polling: done    # 30s UPDATE_INTERVAL_SECONDS, fits the use case
   brands: done                 # icon.png and logo.png in brand/
   common-modules: done         # coordinator.py, const.py, rules.py
-  config-flow-test-coverage: todo  # test_config_flow.py exists; full coverage planned
-  config-flow: done            # 7-step wizard with GivTCP auto-discovery
+  config-flow-test-coverage: todo  # config_flow.py is at 97% across both suites; the partly discovered inverter path and the discovered EV charger selector are not tested
+  config-flow: done            # 7-step wizard (inverter, tariff, forecast, immersion, EV, battery, confirm) with GivTCP auto-discovery
   dependency-transparency: done  # requirements: [] — relies only on HA built-ins
-  docs-actions: done           # README documents get_dashboard_yaml
+  docs-actions: done           # docs/actions.md documents all six actions
   docs-high-level-description: done
   docs-installation-instructions: done
   docs-removal-instructions: done
@@ -25,7 +25,7 @@ rules:
   unique-config-entry: done    # async_set_unique_id(inverter.serial) in config flow
 
   # ── Silver ───────────────────────────────────────────────────────────────────
-  action-exceptions: done      # get_dashboard_yaml raises ServiceValidationError when not configured
+  action-exceptions: done      # all six actions raise ServiceValidationError (no_config_entry) when no entry is loaded
   config-entry-unloading: done # async_unload_entry implemented
   docs-configuration-parameters: done
   docs-installation-parameters: done
@@ -36,11 +36,11 @@ rules:
   reauthentication-flow:
     status: exempt
     comment: No authentication required — local integration via GivTCP
-  test-coverage: todo          # approaching 95%; conftest stubs now cover repairs, UpdateFailed kwargs, ServiceValidationError
+  test-coverage: todo          # 94% combined across the stubbed and end-to-end suites; the rule needs above 95%. Weakest: switch.py 67%, dashboard.py 83%, sensor.py 87%
 
   # ── Gold ─────────────────────────────────────────────────────────────────────
   devices: done                # device_info with identifiers on all entities
-  diagnostics: done            # diagnostics.py provides Download Diagnostics
+  diagnostics: done            # diagnostics.py provides Download Diagnostics; the inverter serial and entity IDs built from it are redacted
   discovery:
     status: exempt
     comment: GivTCP inverter entities are discovered at setup time only (not runtime)
@@ -48,7 +48,7 @@ rules:
     status: exempt
     comment: No network address to update; GivTCP entities are fixed at setup
   docs-data-update: done       # README and update-cycle.mermaid document the 30s cycle
-  docs-examples: done          # docs/automations.md with 7 ready-to-use automation examples
+  docs-examples: done          # docs/automations.md with 10 ready-to-use automation examples
   docs-known-limitations: done # REQUIREMENTS.md documents known limitations
   docs-supported-devices: done # README lists supported EV charger brands and GivTCP
   docs-supported-functions: done  # REQUIREMENTS.md sensor/switch/number table
@@ -60,11 +60,11 @@ rules:
   entity-category: done        # EntityCategory.DIAGNOSTIC on operational sensors
   entity-device-class: done    # SensorDeviceClass used where appropriate
   entity-disabled-by-default: done  # yesterday/week/month/forecast/HTML report sensors disabled by default
-  entity-translations: done    # strings.json and translations/en.json cover all entities
+  entity-translations: todo    # sensors and the refresh button are translated; the 4 switches and 4 numbers set _attr_name in code
   exception-translations: done # ConfigEntryNotReady and UpdateFailed use translation_key
-  icon-translations: done      # icons.json added with MDI icons for all 83 sensors, 4 switches, 4 numbers
-  reconfiguration-flow: done   # async_step_reconfigure added, re-uses tariff step schema
-  repair-issues: done          # givtcp_entities_missing repair issue raised when entities absent from HA
+  icon-translations: todo      # icons.json covers the sensors and the button; switches and numbers have no translation_key, so their entries are unused
+  reconfiguration-flow: done   # async_step_reconfigure re-uses the tariff step schema; it edits tariff values only
+  repair-issues: done          # givtcp_entities_missing and min_soc_too_high repair issues, each with a learn_more_url
   stale-devices:
     status: exempt
     comment: Single logical device per config entry; no stale device scenario
@@ -76,5 +76,5 @@ rules:
   inject-websession:
     status: exempt
     comment: No HTTP requests made
-  strict-typing: done          # mypy strict passes on core/; HA layer uses per-module relaxation (no HA type stubs available)
+  strict-typing: todo          # mypy is configured in pyproject.toml but not run in CI, the HA layer is relaxed per module, and there is no py.typed
   

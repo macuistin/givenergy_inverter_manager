@@ -1757,13 +1757,6 @@ class TestIconTranslations:
         assert "get_dashboard_yaml" in icons.get("services", {})
         assert "suggest_appliance_run" in icons.get("services", {})
 
-    def test_quality_scale_icon_translations_is_done(self):
-        from pathlib import Path
-        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
-        idx = qs.find("icon-translations")
-        assert idx != -1
-        assert "done" in qs[idx : idx + 80]
-
 
 class TestRepairIssues:
     """Repair issue is created when GivTCP entities are completely absent from HA."""
