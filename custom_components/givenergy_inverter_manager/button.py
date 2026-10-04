@@ -13,6 +13,8 @@ from .logging import get_logger
 
 _LOG = get_logger(__name__)
 
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
     hass: HomeAssistant,

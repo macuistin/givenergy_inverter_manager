@@ -96,3 +96,22 @@ def test_newer_python_versions_are_tested():
     job = _workflow()["jobs"]["tests-python"]
 
     assert job["strategy"]["matrix"]["python-version"] == ["3.13", "3.14"]
+
+
+def test_every_platform_sets_parallel_updates():
+    import ast
+
+    missing = []
+    for name in ("sensor", "switch", "number", "button"):
+        tree = ast.parse((_PKG / f"{name}.py").read_text(encoding="utf-8"))
+        assigned = {
+            target.id
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        if "PARALLEL_UPDATES" not in assigned:
+            missing.append(name)
+
+    assert missing == []
