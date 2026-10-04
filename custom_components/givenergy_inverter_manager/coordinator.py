@@ -153,10 +153,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             getattr(hass.config, "latitude", 51.5)  # 51.5N = reasonable mid-Europe fallback
         )
         self._last_reset_time: str = ""
-        from .const import CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY
-
-        _bill_start = int(entry.data.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY))
-        self._acc = AccumulationStore(hass, _bill_start)
+        self._acc = AccumulationStore(hass, self._configured_bill_start_day())
         self._battery_stats = BatteryStats()
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
@@ -711,6 +708,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         cfg.update(self.entry.options)
         return cfg
 
+    def _configured_bill_start_day(self, cfg: dict | None = None) -> int:
+        """Return the bill start day from the effective config (options over data)."""
+        from .const import CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY
+
+        cfg = cfg if cfg is not None else self._effective_cfg()
+        return int(cfg.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY))
+
     def _read_power_inputs(self, cfg: dict, raw: RawSensorValues, unavailable: list[str]) -> None:
         """Read solar, battery and house power, recording any unavailable inputs."""
         raw.solar_power_w = self._read_tracked(
@@ -999,6 +1003,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._acc.save_battery_stats(self._battery_stats)
             self.hass.async_create_task(self._acc.async_save())
         cfg = self._effective_cfg()
+        self._acc.update_bill_start_day(self._configured_bill_start_day(cfg))
         self.export_rate = float(cfg.get(CONF_EXPORT_RATE, 0.0))
 
         # 0. Validate config — raise repair issues for values that won't self-heal.

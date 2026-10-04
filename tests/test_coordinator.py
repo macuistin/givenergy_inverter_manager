@@ -196,6 +196,11 @@ class FakeCoordinator(GivEnergyCoordinator):
             on_raw_forecast = AccumulationStore.on_raw_forecast
             note_clipping = AccumulationStore.note_clipping
 
+            bill_start_day = 1
+
+            def update_bill_start_day(self, bill_start_day):
+                self.bill_start_day = bill_start_day
+
             def on_charge_decision(self, kwh):
                 if self.state.today_forecast_kwh == 0.0 and kwh > 0:
                     self.state.today_forecast_kwh = kwh
@@ -456,6 +461,39 @@ class TestCollectRaw:
 
         # Assert
         assert raw.forecast_kwh_p10 is None
+
+
+class TestBillStartDayFromOptions:
+    """The accumulator reset day follows the effective config, options over data."""
+
+    @pytest.mark.asyncio
+    async def test_cycle_applies_bill_start_day_from_options(self):
+        coord = FakeCoordinator(cfg=_cfg(bill_start_day=16))
+        coord.set_states(_default_states())
+        coord.entry.options = {"bill_start_day": 5}
+        await coord.run_cycle()
+        assert coord._acc.bill_start_day == 5
+
+    @pytest.mark.asyncio
+    async def test_cycle_uses_data_when_no_option_set(self):
+        coord = FakeCoordinator(cfg=_cfg(bill_start_day=16))
+        coord.set_states(_default_states())
+        await coord.run_cycle()
+        assert coord._acc.bill_start_day == 16
+
+    @pytest.mark.asyncio
+    async def test_later_option_change_is_picked_up_next_cycle(self):
+        coord = FakeCoordinator(cfg=_cfg(bill_start_day=16))
+        coord.set_states(_default_states())
+        await coord.run_cycle()
+        coord.entry.options = {"bill_start_day": 7}
+        await coord.run_cycle()
+        assert coord._acc.bill_start_day == 7
+
+    def test_configured_bill_start_day_prefers_options(self):
+        coord = FakeCoordinator(cfg=_cfg(bill_start_day=16))
+        coord.entry.options = {"bill_start_day": 28}
+        assert coord._configured_bill_start_day() == 28
 
 
 # ── TestUpdateCycle ───────────────────────────────────────────────────────────
