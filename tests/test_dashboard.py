@@ -333,12 +333,11 @@ class TestPowerFlowTabChanges:
         )
 
     def test_immersion_section_absent_when_unconfigured(self):
-        """When no immersion temp sensor is set, section must be a comment not broken YAML."""
-        yaml = _build()
-        # "apexcharts-card" appears in the header comment — check the section itself
-        assert "no temperature sensor configured" in yaml
-        # No functional apexcharts block should appear (only the header comment reference)
-        assert "graph_span: 12h" not in yaml, (
+        """With no immersion temperature sensor the power flow view has no apexcharts card."""
+        parsed = yaml.safe_load(_build())
+        pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
+        assert all(c.get("type") != "vertical-stack" for c in pf_view["cards"])
+        assert "graph_span: 12h" not in _build(), (
             "No apexcharts chart should render when temp sensor is unconfigured."
         )
 
@@ -512,3 +511,31 @@ class TestExportCsvHelpers:
         assert "solar_kwh" in fields
         assert "import_cost" in fields
         assert "net_position" in fields
+
+
+class TestYamlSerialisation:
+    """The dashboard is built as a dict and serialised once."""
+
+    def _dict(self):
+        from custom_components.givenergy_inverter_manager.dashboard import _build_dashboard
+
+        return _build_dashboard(_mock_hass_with_registry("test_entry_123"), "test_entry_123")
+
+    def test_yaml_round_trips_to_the_dict(self):
+        assert yaml.safe_load(_build()) == self._dict()
+
+    def test_no_anchors_or_aliases(self):
+        """Shared sub-dicts (the apex config) must be written out, not aliased."""
+        import re
+
+        assert not re.search(r"[&*]id\d+", _build())
+
+    def test_multiline_strings_are_literal_blocks(self):
+        text = _build()
+        assert "content: |-\n" in text
+        assert "\\n" not in text
+
+    def test_header_comment_precedes_views(self):
+        text = _build()
+        assert text.startswith("# GivEnergy Inverter Manager")
+        assert text.index("views:") > text.index("power-flow-card-plus")

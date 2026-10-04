@@ -29,15 +29,15 @@ All other views use only built-in HA Lovelace cards — no other dependencies.
 from __future__ import annotations
 
 import os
-import textwrap
 from dataclasses import replace
 
+import yaml
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 
-from .const import DOMAIN
+from .const import CONF_IMMERSION_TEMP_SENSOR, DOMAIN
 from .core.rules import suggest_appliance_run
 from .core.tariff import BillBreakdown, TariffConfig, build_tariff
 from .logging import get_logger
@@ -105,101 +105,122 @@ def _find_ev_charger_power(hass: HomeAssistant, integration_ev_power: str) -> st
     return integration_ev_power
 
 
+class _DashboardDumper(yaml.SafeDumper):
+    """SafeDumper that writes multi-line strings as literal blocks and never folds."""
+
+    def ignore_aliases(self, data):
+        return True
+
+
+def _represent_str(dumper: yaml.SafeDumper, data: str):
+    style = "|" if "\n" in data else None
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+
+_DashboardDumper.add_representer(str, _represent_str)
+
+
+def _dump_yaml(data: dict) -> str:
+    """Serialise with the options Home Assistant uses for its own YAML output."""
+    return yaml.dump(
+        data,
+        Dumper=_DashboardDumper,
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+        width=10_000,
+    )
+
+
+def _apex_config() -> dict:
+    return {
+        "chart": {"height": 150, "zoom": {"enabled": False}},
+        "tooltip": {"shared": True, "followCursor": True},
+        "stroke": {"curve": "smooth", "width": 2},
+        "markers": {"size": 0, "hover": {"size": 5}},
+        "legend": {"show": False},
+    }
+
+
 def _build_immersion_section(
     immersion_temp_sensor: str,
     immersion_reason: str,
     num_target: str,
     num_min: str,
-    num_gap: str,
     immersion_today: str,
-) -> str:
-    """Build the immersion section for the power flow tab.
+) -> dict | None:
+    """Build the immersion block for the power flow view.
 
-    Returns YAML for a vertical-stack with:
-      - apexcharts-card: 12h temperature history (water, target, minimum)
-      - tile card: current divert reason
-      - apexcharts-card: 12h immersion energy accumulated today
-
-    Requires apexcharts-card from HACS (github.com/RomRider/apexcharts-card).
-    Inserted at column 14 in the parent template — first line gets that indent
-    for free; every subsequent line carries its own.
+    A vertical-stack of a 12 hour temperature chart (water, target, minimum),
+    a tile with the divert reason and a 12 hour chart of immersion energy today.
+    Returns None when no immersion temperature sensor is configured.
+    Requires apexcharts-card from HACS.
     """
     if not immersion_temp_sensor:
-        return "# Immersion section: no temperature sensor configured in settings"
+        return None
 
-    n = "\n"
-    p16 = "                "  # 16 sp — vertical-stack props / cards list
-    p18 = "                  "  # 18 sp — card props
-    p20 = "                    "  # 20 sp — nested props
-    p22 = "                      "  # 22 sp — deeply nested
+    def series(entity: str, name: str, color: str, width: int) -> dict:
+        return {"entity": entity, "name": name, "color": color, "stroke_width": width}
 
-    apex_cfg = (
-        f"{p18}apex_config:{n}"
-        f"{p20}chart:{n}"
-        f"{p22}height: 150{n}"
-        f"{p22}zoom:{n}"
-        f"{p22}  enabled: false{n}"
-        f"{p20}tooltip:{n}"
-        f"{p22}shared: true{n}"
-        f"{p22}followCursor: true{n}"
-        f"{p20}stroke:{n}"
-        f"{p22}curve: smooth{n}"
-        f"{p22}width: 2{n}"
-        f"{p20}markers:{n}"
-        f"{p22}size: 0{n}"
-        f"{p22}hover:{n}"
-        f"{p22}  size: 5{n}"
-        f"{p20}legend:{n}"
-        f"{p22}show: false{n}"
-    )
+    return {
+        "type": "vertical-stack",
+        "cards": [
+            {
+                "type": "custom:apexcharts-card",
+                "header": {"show": True, "title": "Immersion Temperature (12h)"},
+                "graph_span": "12h",
+                "apex_config": _apex_config(),
+                "series": [
+                    series(immersion_temp_sensor, "Water", "#03a9f4", 2),
+                    series(num_target, "Target", "#f44336", 1),
+                    series(num_min, "Minimum", "#ff9800", 1),
+                ],
+            },
+            {
+                "type": "tile",
+                "entity": immersion_reason,
+                "name": " ",
+                "show_entity_picture": False,
+                "hide_state": False,
+                "vertical": False,
+                "features_position": "bottom",
+            },
+            {
+                "type": "custom:apexcharts-card",
+                "header": {"show": True, "title": "Power"},
+                "graph_span": "12h",
+                "yaxis": [{"min": 0}],
+                "apex_config": _apex_config(),
+                "series": [series(immersion_today, "Immersion Power Today", "#03a9f4", 2)],
+            },
+        ],
+    }
 
-    return (
-        f"- type: vertical-stack{n}"
-        f"{p16}cards:{n}"
-        # Temperature history
-        f"{p16}- type: custom:apexcharts-card{n}"
-        f"{p18}header:{n}"
-        f"{p20}show: true{n}"
-        f"{p20}title: Immersion Temperature (12h){n}"
-        f"{p18}graph_span: 12h{n}" + apex_cfg + f"{p18}series:{n}"
-        f"{p20}- entity: {immersion_temp_sensor}{n}"
-        f"{p22}name: Water{n}"
-        f'{p22}color: "#03a9f4"{n}'
-        f"{p22}stroke_width: 2{n}"
-        f"{p20}- entity: {num_target}{n}"
-        f"{p22}name: Target{n}"
-        f'{p22}color: "#f44336"{n}'
-        f"{p22}stroke_width: 1{n}"
-        f"{p20}- entity: {num_min}{n}"
-        f"{p22}name: Minimum{n}"
-        f'{p22}color: "#ff9800"{n}'
-        f"{p22}stroke_width: 1{n}"
-        # Divert reason tile
-        f"{p16}- type: tile{n}"
-        f"{p18}entity: {immersion_reason}{n}"
-        f"{p18}name: ' '{n}"
-        f"{p18}show_entity_picture: false{n}"
-        f"{p18}hide_state: false{n}"
-        f"{p18}vertical: false{n}"
-        f"{p18}features_position: bottom{n}"
-        # Immersion energy accumulated today
-        f"{p16}- type: custom:apexcharts-card{n}"
-        f"{p18}header:{n}"
-        f"{p20}show: true{n}"
-        f"{p20}title: Power{n}"
-        f"{p18}graph_span: 12h{n}"
-        f"{p18}yaxis:{n}"
-        f"{p20}- min: 0{n}" + apex_cfg + f"{p18}series:{n}"
-        f"{p20}- entity: {immersion_today}{n}"
-        f"{p22}name: Immersion Power Today{n}"
-        f'{p22}color: "#03a9f4"{n}'
-        f"{p22}stroke_width: 2"
-    )
+
+_DASHBOARD_HEADER = f"""\
+# GivEnergy Inverter Manager — Generated Dashboard
+# Generated by: Developer Tools → Actions → {DOMAIN}.{SERVICE_GET_DASHBOARD_YAML}
+#
+# View 1 (Power Flow) requires power-flow-card-plus from HACS:
+#   https://github.com/flixlix/power-flow-card-plus
+# Immersion section requires apexcharts-card from HACS:
+#   https://github.com/RomRider/apexcharts-card
+# All other views use only built-in HA cards.
+#
+# To use: Settings → Dashboards → new blank dashboard
+#         Three-dot menu → Edit dashboard → Raw configuration editor → paste
+
+"""
 
 
 def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
+    """Return the dashboard as YAML text, with a short header comment."""
+    return _DASHBOARD_HEADER + _dump_yaml(_build_dashboard(hass, entry_id))
+
+
+def _build_dashboard(hass: HomeAssistant, entry_id: str) -> dict:
     """
-    Build complete Lovelace YAML for all four views.
+    Build the Lovelace configuration for all four views as a dict.
 
     Uses actual entity IDs from the entity registry so names customised
     in the HA UI are automatically respected.
@@ -258,404 +279,356 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     ev_solar_surplus = e("ev_solar_surplus_available")
     inverter_temp = e("inverter_temperature")
     inverter_temp_status = e("inverter_temperature_status")
-
-    # ── immersion config (temp sensor and number entities) ───────────────────
-    from .const import CONF_IMMERSION_TEMP_SENSOR
-
-    _entry_cfg: dict = {}
-    for _ce in hass.config_entries.async_entries("givenergy_inverter_manager"):
-        if _ce.entry_id == entry_id:
-            _entry_cfg = {**_ce.data, **_ce.options}
-            break
-    immersion_temp_sensor = _entry_cfg.get(CONF_IMMERSION_TEMP_SENSOR, "")
-    num_immersion_target = e("immersion_target_temp")
-    num_immersion_min = e("immersion_min_temp")
-    num_immersion_gap = e("immersion_hysteresis")
-    _immersion_section = _build_immersion_section(
-        immersion_temp_sensor,
-        immersion_reason,
-        num_immersion_target,
-        num_immersion_min,
-        num_immersion_gap,
-        immersion_today,
-    )
-
-    # ── dry run sensor IDs ───────────────────────────────────────────────────────
     dry_run_active = e("dry_run_active")
     dry_run_skipped = e("dry_run_last_skipped")
-
-    # ── switch / number entity IDs ────────────────────────────────────────────
     sw_enable_charge_target = e("charge_target_override_enabled")
     sw_auto_immersion = e("auto_immersion")
     sw_immersion_mgd = e("immersion_managed")
     sw_skip_charge = e("skip_charge_override")
     num_charge_target = e("charge_target_override")
+    num_immersion_target = e("immersion_target_temp")
+    num_immersion_min = e("immersion_min_temp")
+    num_immersion_gap = e("immersion_hysteresis")
 
-    return textwrap.dedent(f"""\
-        # GivEnergy Inverter Manager — Generated Dashboard
-        # Generated by: Developer Tools → Actions → {DOMAIN}.{SERVICE_GET_DASHBOARD_YAML}
-        #
-        # View 1 (Power Flow) requires power-flow-card-plus from HACS:
-        #   https://github.com/flixlix/power-flow-card-plus
-        # Immersion section requires apexcharts-card from HACS:
-        #   https://github.com/RomRider/apexcharts-card
-        # All other views use only built-in HA cards.
-        #
-        # To use: Settings → Dashboards → new blank dashboard
-        #         Three-dot menu → Edit dashboard → Raw configuration editor → paste
+    entry_cfg = _entry_config(hass, entry_id)
+    immersion_section = _build_immersion_section(
+        entry_cfg.get(CONF_IMMERSION_TEMP_SENSOR, ""),
+        immersion_reason,
+        num_immersion_target,
+        num_immersion_min,
+        immersion_today,
+    )
 
-        views:
+    def row(entity: str, name: str, **extra) -> dict:
+        return {"entity": entity, "name": name, **extra}
 
-          # ── View 1: Live Power Flow ──────────────────────────────────────────
-          - title: Power Flow
-            icon: mdi:solar-power-variant
-            path: power-flow
-            cards:
-              - type: custom:power-flow-card-plus
-                entities:
-                  solar:
-                    entity: {solar_power}
-                    color_icon: false
-                    color_value: false
-                    invert_state: false
-                    secondary_info_entity: {is_clipping}
-                    secondary_info:
-                      template: |-
-                        {{{{- '·⚡Clip' if
-                                  states('{is_clipping}') ==
-                                  'clipping' else '' }}}}
-                  battery:
-                    entity: {battery_power}
-                    state_of_charge: {battery_soc}
-                    show_state_of_charge: true
-                  grid:
-                    entity: {grid_power}
-                    use_metadata: false
-                    invert_state: false
-                    display_state: one_way
-                    secondary_info:
-                      entity: {live_grid_cost_rate}
-                      icon: mdi:cash-clock
-                      decimals: 4
-                      display_zero: true
-                      color_value: false
-                      unit_of_measurement: " "
-                  home:
-                    entity: {house_load}
-                    subtract_individual: false
-                    hide: false
-                  individual:
-                  - entity: {ev_power}
-                    name: Car Charger
-                    icon: mdi:car-electric
-                    display_zero: false
-                    color: "#4CAF50"
-                  - entity: {immersion_power}
-                    name: Immersion
-                    icon: mdi:water-boiler
-                    display_zero: false
-                    color: "#FF9800"
-                title: Live Power Flow
-                min_flow_rate: 0.75
-                max_flow_rate: 6
-                display_zero_lines:
-                  mode: transparency
-                  transparency: 75
-                  grey_color:
-                  - 189
-                  - 189
-                  - 189
-                allow_layout_break: false
-                kilo_threshold: 1000
-                base_decimals: 0
-                kilo_decimals: 1
-                disable_dots: false
-                clickable_entities: true
-                no_labels: false
+    power_flow_cards = [
+        {
+            "type": "custom:power-flow-card-plus",
+            "entities": {
+                "solar": {
+                    "entity": solar_power,
+                    "color_icon": False,
+                    "color_value": False,
+                    "invert_state": False,
+                    "secondary_info_entity": is_clipping,
+                    "secondary_info": {
+                        "template": (
+                            f'{{{{- "·⚡Clip" if states("{is_clipping}") == "clipping" else "" }}}}'
+                        )
+                    },
+                },
+                "battery": {
+                    "entity": battery_power,
+                    "state_of_charge": battery_soc,
+                    "show_state_of_charge": True,
+                },
+                "grid": {
+                    "entity": grid_power,
+                    "use_metadata": False,
+                    "invert_state": False,
+                    "display_state": "one_way",
+                    "secondary_info": {
+                        "entity": live_grid_cost_rate,
+                        "icon": "mdi:cash-clock",
+                        "decimals": 4,
+                        "display_zero": True,
+                        "color_value": False,
+                        "unit_of_measurement": " ",
+                    },
+                },
+                "home": {
+                    "entity": house_load,
+                    "subtract_individual": False,
+                    "hide": False,
+                },
+                "individual": [
+                    {
+                        "entity": ev_power,
+                        "name": "Car Charger",
+                        "icon": "mdi:car-electric",
+                        "display_zero": False,
+                        "color": "#4CAF50",
+                    },
+                    {
+                        "entity": immersion_power,
+                        "name": "Immersion",
+                        "icon": "mdi:water-boiler",
+                        "display_zero": False,
+                        "color": "#FF9800",
+                    },
+                ],
+            },
+            "title": "Live Power Flow",
+            "min_flow_rate": 0.75,
+            "max_flow_rate": 6,
+            "display_zero_lines": {
+                "mode": "transparency",
+                "transparency": 75,
+                "grey_color": [189, 189, 189],
+            },
+            "allow_layout_break": False,
+            "kilo_threshold": 1000,
+            "base_decimals": 0,
+            "kilo_decimals": 1,
+            "disable_dots": False,
+            "clickable_entities": True,
+            "no_labels": False,
+        },
+        {
+            "show_name": True,
+            "show_icon": True,
+            "show_state": True,
+            "type": "glance",
+            "title": "Energy Today",
+            "columns": 5,
+            "entities": [
+                row(solar_today, "Generated"),
+                row(import_today, "Imported"),
+                row(export_today, "Exported"),
+                row(house_kwh_today, "Used"),
+                row(immersion_today, "Immersion"),
+            ],
+        },
+    ]
+    if immersion_section is not None:
+        power_flow_cards.append(immersion_section)
 
-              - show_name: true
-                show_icon: true
-                show_state: true
-                type: glance
-                title: Energy Today
-                columns: 5
-                entities:
-                  - entity: {solar_today}
-                    name: Generated
-                  - entity: {import_today}
-                    name: Imported
-                  - entity: {export_today}
-                    name: Exported
-                  - entity: {house_kwh_today}
-                    name: Used
-                  - entity: {immersion_today}
-                    name: Immersion
+    today_cards = [
+        {
+            "show_name": True,
+            "show_icon": True,
+            "show_state": True,
+            "type": "glance",
+            "title": "Energy Today",
+            "entities": [
+                row(solar_today, "Generated"),
+                row(import_today, "Import"),
+                row(export_today, "Export"),
+                row(zappi_today, "EV"),
+                row(immersion_today, "Immersion"),
+            ],
+        },
+        {
+            "type": "entities",
+            "entities": [
+                row(current_rate, "Current Rate"),
+                row(current_rate_period, "Rate Period"),
+                {"type": "divider"},
+                row(import_cost_today, "Import Cost"),
+                row(export_earnings, "Export Earnings"),
+                row(zappi_cost_today, "EV Charging Cost"),
+                row(immersion_cost_today, "Immersion Cost"),
+                row(immersion_savings, "Immersion Savings"),
+                row(house_cost_today, "Rest-of-House Cost"),
+            ],
+            "title": "Cost Breakdown",
+        },
+        {
+            "type": "history-graph",
+            "title": "Cost build — today",
+            "hours_to_show": 24,
+            "entities": [
+                row(import_cost_today, "Grid Import"),
+                row(house_cost_today, "Rest of House"),
+                row(zappi_cost_today, "EV Charging"),
+                row(immersion_cost_today, "Immersion"),
+                row(export_earnings, "Export Earnings"),
+            ],
+        },
+        {
+            "type": "history-graph",
+            "title": "Solar generation — today",
+            "hours_to_show": 24,
+            "entities": [row(solar_today, "Actual")],
+        },
+        {
+            "type": "entities",
+            "title": "Solar vs Forecast",
+            "entities": [
+                row(solar_today, "Generated today"),
+                row(solar_forecast_today, "Today's forecast"),
+                row(solar_vs_forecast_pct, "Tracking", icon="mdi:chart-line"),
+                row(forecast_accuracy_yesterday, "Yesterday's accuracy"),
+            ],
+        },
+        {
+            "square": False,
+            "type": "grid",
+            "columns": 2,
+            "cards": [
+                {
+                    "type": "gauge",
+                    "entity": self_sufficiency,
+                    "name": "Self-Sufficiency",
+                    "min": 0,
+                    "max": 100,
+                    "severity": {"green": 60, "yellow": 30, "red": 0},
+                },
+                {
+                    "type": "gauge",
+                    "entity": self_consumption,
+                    "name": "Self-Consumption",
+                    "min": 0,
+                    "max": 100,
+                    "severity": {"green": 70, "yellow": 40, "red": 0},
+                },
+            ],
+            "title": "Self Sufficiency",
+        },
+        {
+            "type": "entities",
+            "entities": [
+                row(accrued_bill, "Accrued This Period"),
+                row(projected_bill, "Projected Total"),
+                row(days_remaining, "Days Remaining"),
+            ],
+            "title": "Bill Prediction",
+            "show_header_toggle": False,
+            "state_color": False,
+        },
+    ]
 
-              {_immersion_section}
+    battery_cards = [
+        {
+            "type": "gauge",
+            "entity": battery_soc,
+            "name": "Battery SoC",
+            "min": 0,
+            "max": 100,
+            "needle": True,
+            "severity": {"green": 50, "yellow": 20, "red": 0},
+        },
+        {
+            "type": "history-graph",
+            "title": "Battery SoC — 24h",
+            "hours_to_show": 24,
+            "entities": [row(battery_soc, "SoC"), row(battery_power, "Power (W)")],
+        },
+        {
+            "type": "entities",
+            "entities": [
+                row(battery_power, "Charge / Discharge Power"),
+                row(charge_target, "Recommended Target Tonight"),
+                row(charge_reason, "Reason", icon="mdi:information-outline"),
+                row(charge_cost, "Estimated Charge Cost"),
+                row(soc_at_sunrise, "Estimated SoC at Sunrise"),
+                row(survival_reason, "Night Survival Status", icon="mdi:moon-waning-crescent"),
+                row(cheap_rate_floor, "Cheap Rate Floor", icon="mdi:floor-plan"),
+            ],
+            "title": "Tonight's Charge Plan",
+        },
+        {
+            "type": "entities",
+            "entities": [
+                row(battery_cycles, "Total Cycles"),
+                row(battery_life, "Estimated Life Remaining"),
+                row(days_since_full, "Days Since Full Charge"),
+                row(inverter_temp, "Inverter Temperature"),
+                row(inverter_temp_status, "Inverter Status", icon="mdi:thermometer-alert"),
+            ],
+            "title": "Battery Health",
+        },
+    ]
 
-          # ── View 2: Today ────────────────────────────────────────────────────
-          - title: Today
-            icon: mdi:calendar-today
-            path: today
-            cards:
-              - show_name: true
-                show_icon: true
-                show_state: true
-                type: glance
-                title: Energy Today
-                entities:
-                  - entity: {solar_today}
-                    name: Generated
-                  - entity: {import_today}
-                    name: Import
-                  - entity: {export_today}
-                    name: Export
-                  - entity: {zappi_today}
-                    name: EV
-                  - entity: {immersion_today}
-                    name: Immersion
+    dry_run_condition = [{"condition": "state", "entity": dry_run_active, "state": "True"}]
+    controls_cards = [
+        {
+            "type": "conditional",
+            "conditions": dry_run_condition,
+            "card": {
+                "type": "markdown",
+                "content": (
+                    "## ⚠️ Dry Run Mode Active\n"
+                    "\n"
+                    "This integration is in **simulation mode**. All sensor values update "
+                    "normally and charge decisions are calculated, but **no commands are "
+                    "sent to your inverter or EV charger**.\n"
+                    "\n"
+                    "To go live, disable Dry Run in Settings → Integrations → GivEnergy "
+                    "Inverter Manager → Configure."
+                ),
+            },
+        },
+        {
+            "type": "conditional",
+            "conditions": dry_run_condition,
+            "card": {
+                "type": "entities",
+                "title": "Dry Run Status",
+                "entities": [
+                    row(dry_run_active, "Dry Run Mode", icon="mdi:test-tube"),
+                    row(
+                        dry_run_skipped,
+                        "Last Skipped Action",
+                        icon="mdi:skip-next-circle-outline",
+                    ),
+                ],
+            },
+        },
+        {
+            "type": "entities",
+            "entities": [
+                row(sw_enable_charge_target, "Enable Charge Target Override"),
+                row(num_charge_target, "Overnight Charge Target"),
+                row(sw_skip_charge, "Force Skip Charge Tonight"),
+            ],
+            "title": "Overnight Charging",
+        },
+        {
+            "type": "entities",
+            "entities": [
+                row(sw_auto_immersion, "Auto Immersion Divert"),
+                row(sw_immersion_mgd, "Immersion Heater (Managed)"),
+                row(immersion_reason, "Divert Reason", icon="mdi:water-boiler"),
+                {"type": "divider"},
+                row(num_immersion_target, "Target Temperature"),
+                row(num_immersion_min, "Minimum Temperature"),
+                row(num_immersion_gap, "Restart Gap"),
+            ],
+            "title": "Immersion Heater",
+        },
+        {
+            "type": "entities",
+            "entities": [
+                row(ev_state, "Charger State", icon="mdi:ev-station"),
+                row(ev_power, "Charge Power", icon="mdi:lightning-bolt"),
+                row(ev_session, "Session Energy"),
+                row(ev_draining, "Draining Battery"),
+                row(ev_protection_reason, "Mode Decision", icon="mdi:car-electric"),
+                row(ev_charging_source, "Charging Source"),
+                row(ev_solar_surplus, "Solar Surplus Available"),
+            ],
+            "title": "EV Charger",
+        },
+    ]
 
-              - type: entities
-                entities:
-                  - entity: {current_rate}
-                    name: Current Rate
-                  - entity: {current_rate_period}
-                    name: Rate Period
-                  - type: divider
-                  - entity: {import_cost_today}
-                    name: Import Cost
-                  - entity: {export_earnings}
-                    name: Export Earnings
-                  - entity: {zappi_cost_today}
-                    name: EV Charging Cost
-                  - entity: {immersion_cost_today}
-                    name: Immersion Cost
-                  - entity: {immersion_savings}
-                    name: Immersion Savings
-                  - entity: {house_cost_today}
-                    name: Rest-of-House Cost
-                title: Cost Breakdown
+    return {
+        "views": [
+            {
+                "title": "Power Flow",
+                "icon": "mdi:solar-power-variant",
+                "path": "power-flow",
+                "cards": power_flow_cards,
+            },
+            {"title": "Today", "icon": "mdi:calendar-today", "path": "today", "cards": today_cards},
+            {
+                "title": "Battery",
+                "icon": "mdi:battery-charging",
+                "path": "battery",
+                "cards": battery_cards,
+            },
+            {"title": "Controls", "icon": "mdi:tune", "path": "controls", "cards": controls_cards},
+        ]
+    }
 
-              - type: history-graph
-                title: Cost build — today
-                hours_to_show: 24
-                entities:
-                  - entity: {import_cost_today}
-                    name: Grid Import
-                  - entity: {house_cost_today}
-                    name: Rest of House
-                  - entity: {zappi_cost_today}
-                    name: EV Charging
-                  - entity: {immersion_cost_today}
-                    name: Immersion
-                  - entity: {export_earnings}
-                    name: Export Earnings
 
-              - type: history-graph
-                title: Solar generation — today
-                hours_to_show: 24
-                entities:
-                  - entity: {solar_today}
-                    name: Actual
-
-              - type: entities
-                title: Solar vs Forecast
-                entities:
-                  - entity: {solar_today}
-                    name: Generated today
-                  - entity: {solar_forecast_today}
-                    name: Today's forecast
-                  - entity: {solar_vs_forecast_pct}
-                    name: Tracking
-                    icon: mdi:chart-line
-                  - entity: {forecast_accuracy_yesterday}
-                    name: Yesterday's accuracy
-
-              - square: false
-                type: grid
-                columns: 2
-                cards:
-                  - type: gauge
-                    entity: {self_sufficiency}
-                    name: Self-Sufficiency
-                    min: 0
-                    max: 100
-                    severity:
-                      green: 60
-                      yellow: 30
-                      red: 0
-                  - type: gauge
-                    entity: {self_consumption}
-                    name: Self-Consumption
-                    min: 0
-                    max: 100
-                    severity:
-                      green: 70
-                      yellow: 40
-                      red: 0
-                title: Self Sufficiency
-
-              - type: entities
-                entities:
-                  - entity: {accrued_bill}
-                    name: Accrued This Period
-                  - entity: {projected_bill}
-                    name: Projected Total
-                  - entity: {days_remaining}
-                    name: Days Remaining
-                title: Bill Prediction
-                show_header_toggle: false
-                state_color: false
-
-          # ── View 3: Battery ──────────────────────────────────────────────────
-          - title: Battery
-            icon: mdi:battery-charging
-            path: battery
-            cards:
-              - type: gauge
-                entity: {battery_soc}
-                name: Battery SoC
-                min: 0
-                max: 100
-                needle: true
-                severity:
-                  green: 50
-                  yellow: 20
-                  red: 0
-
-              - type: history-graph
-                title: Battery SoC — 24h
-                hours_to_show: 24
-                entities:
-                  - entity: {battery_soc}
-                    name: SoC
-                  - entity: {battery_power}
-                    name: Power (W)
-
-              - type: entities
-                entities:
-                  - entity: {battery_power}
-                    name: Charge / Discharge Power
-                  - entity: {charge_target}
-                    name: Recommended Target Tonight
-                  - entity: {charge_reason}
-                    name: Reason
-                    icon: mdi:information-outline
-                  - entity: {charge_cost}
-                    name: Estimated Charge Cost
-                  - entity: {soc_at_sunrise}
-                    name: Estimated SoC at Sunrise
-                  - entity: {survival_reason}
-                    name: Night Survival Status
-                    icon: mdi:moon-waning-crescent
-                  - entity: {cheap_rate_floor}
-                    name: Cheap Rate Floor
-                    icon: mdi:floor-plan
-                title: Tonight's Charge Plan
-
-              - type: entities
-                entities:
-                  - entity: {battery_cycles}
-                    name: Total Cycles
-                  - entity: {battery_life}
-                    name: Estimated Life Remaining
-                  - entity: {days_since_full}
-                    name: Days Since Full Charge
-                  - entity: {inverter_temp}
-                    name: Inverter Temperature
-                  - entity: {inverter_temp_status}
-                    name: Inverter Status
-                    icon: mdi:thermometer-alert
-                title: Battery Health
-
-          # ── View 4: Controls ─────────────────────────────────────────────────
-          - title: Controls
-            icon: mdi:tune
-            path: controls
-            cards:
-              - type: conditional
-                conditions:
-                  - condition: state
-                    entity: {dry_run_active}
-                    state: "True"
-                card:
-                  type: markdown
-                  content: >
-                    ## ⚠️ Dry Run Mode Active
-
-                    This integration is in **simulation mode**. All sensor
-                    values update normally and charge decisions are calculated,
-                    but **no commands are sent to your inverter or EV charger**.
-
-                    To go live, disable Dry Run in Settings → Integrations →
-                    GivEnergy Inverter Manager → Configure.
-
-              - type: conditional
-                conditions:
-                  - condition: state
-                    entity: {dry_run_active}
-                    state: "True"
-                card:
-                  type: entities
-                  title: Dry Run Status
-                  entities:
-                    - entity: {dry_run_active}
-                      name: Dry Run Mode
-                      icon: mdi:test-tube
-                    - entity: {dry_run_skipped}
-                      name: Last Skipped Action
-                      icon: mdi:skip-next-circle-outline
-
-              - type: entities
-                entities:
-                  - entity: {sw_enable_charge_target}
-                    name: Enable Charge Target Override
-                  - entity: {num_charge_target}
-                    name: Overnight Charge Target
-                  - entity: {sw_skip_charge}
-                    name: Force Skip Charge Tonight
-                title: Overnight Charging
-
-              - type: entities
-                entities:
-                  - entity: {sw_auto_immersion}
-                    name: Auto Immersion Divert
-                  - entity: {sw_immersion_mgd}
-                    name: Immersion Heater (Managed)
-                  - entity: {immersion_reason}
-                    name: Divert Reason
-                    icon: mdi:water-boiler
-                  - type: divider
-                  - entity: {num_immersion_target}
-                    name: Target Temperature
-                  - entity: {num_immersion_min}
-                    name: Minimum Temperature
-                  - entity: {num_immersion_gap}
-                    name: Restart Gap
-                title: Immersion Heater
-
-              - type: entities
-                entities:
-                  - entity: {ev_state}
-                    name: Charger State
-                    icon: mdi:ev-station
-                  - entity: {ev_power}
-                    name: Charge Power
-                    icon: mdi:lightning-bolt
-                  - entity: {ev_session}
-                    name: Session Energy
-                  - entity: {ev_draining}
-                    name: Draining Battery
-                  - entity: {ev_protection_reason}
-                    name: Mode Decision
-                    icon: mdi:car-electric
-                  - entity: {ev_charging_source}
-                    name: Charging Source
-                  - entity: {ev_solar_surplus}
-                    name: Solar Surplus Available
-                title: EV Charger
-
-        """)
+def _entry_config(hass: HomeAssistant, entry_id: str) -> dict:
+    """Return the config entry's data with options layered over it."""
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.entry_id == entry_id:
+            return {**entry.data, **entry.options}
+    return {}
 
 
 def _make_roi_summary_handler(hass: HomeAssistant):
