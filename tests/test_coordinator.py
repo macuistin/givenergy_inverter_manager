@@ -2301,6 +2301,7 @@ class TestSensorDropouts:
             ("sensor.house", "house_load"),
             ("sensor.battery_power", "battery_power"),
             ("sensor.solar", "solar_power"),
+            ("sensor.battery_soc", "battery_soc"),
         ],
     )
     @pytest.mark.parametrize("state", ["unavailable", "unknown"])
@@ -2522,3 +2523,41 @@ class TestLoadProfileAndForecastCorrectionWiring:
         assert [e["date"] for e in history] == ["2026-06-15"]
         assert history[0]["coverage"] == pytest.approx(1.0)
         assert coord._acc.state.slot_load_today == [0.0] * 48
+# ── Battery cycle accounting ──────────────────────────────────────────────────
+
+
+class TestBatteryCycleAccounting:
+    """SoC glitches must not add phantom cycles through the coordinator."""
+
+    async def _run(self, readings):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        for soc in readings:
+            coord.set_state("sensor.battery_soc", soc)
+            await coord.run_cycle()
+        return coord
+
+    @pytest.mark.asyncio
+    async def test_unavailable_soc_between_healthy_readings_adds_no_cycles(self):
+        coord = await self._run(["80", "unavailable", "80"])
+        assert coord._battery_stats.total_cycles == pytest.approx(0.0)
+
+    @pytest.mark.asyncio
+    async def test_unavailable_soc_does_not_become_the_previous_reading(self):
+        coord = await self._run(["80", "unavailable"])
+        assert coord._last_soc is None
+
+    @pytest.mark.asyncio
+    async def test_literal_zero_soc_adds_no_cycles(self):
+        coord = await self._run(["80", "0", "79"])
+        assert coord._battery_stats.total_cycles == pytest.approx(0.0)
+
+    @pytest.mark.asyncio
+    async def test_discharge_between_healthy_readings_is_counted(self):
+        coord = await self._run(["80", "79", "78"])
+        assert coord._battery_stats.total_cycles == pytest.approx(0.02)
+
+    @pytest.mark.asyncio
+    async def test_charging_between_healthy_readings_is_not_counted(self):
+        coord = await self._run(["70", "71", "72"])
+        assert coord._battery_stats.total_cycles == pytest.approx(0.0)

@@ -750,7 +750,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if "solar_power" not in unavailable:
             self._smoothed_solar_w = 0.5 * prev_smoothed + 0.5 * raw.solar_power_w
         raw.smoothed_solar_power_w = getattr(self, "_smoothed_solar_w", 0.0)
-        raw.battery_soc = self._read_float(cfg.get(CONF_BATTERY_SOC))
+        raw.battery_soc = self._read_tracked(cfg.get(CONF_BATTERY_SOC), "battery_soc", unavailable)
         raw.battery_power_w = self._read_tracked(
             cfg.get(CONF_BATTERY_POWER), "battery_power", unavailable
         )
@@ -1150,7 +1150,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         log_cycle(_LOG, self._update_cycle, raw, data, now)
 
         # 9. Update coordinator state for next cycle
-        self._last_soc = raw.battery_soc
+        self._last_soc = None if "battery_soc" in raw.unavailable_inputs else raw.battery_soc
         self._last_update = now
 
         # 10. Apply HA side-effects requested by the engine

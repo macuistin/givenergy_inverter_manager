@@ -209,8 +209,57 @@ class TestUpdateBatteryStats:
 
     def test_cycle_increments_on_discharge(self):
         stats = BatteryStats()
-        update_battery_stats(stats, 50.0, 80.0)
-        assert stats.total_cycles == pytest.approx(0.30)
+        update_battery_stats(stats, 75.0, 80.0)
+        assert stats.total_cycles == pytest.approx(0.05)
+
+    def test_charging_does_not_add_cycles(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, 80.0, 75.0)
+        assert stats.total_cycles == pytest.approx(0.0)
+
+    def test_discharge_then_recharge_counts_discharge_only(self):
+        stats = BatteryStats()
+        soc = 100.0
+        for nxt in (95.0, 90.0, 85.0, 90.0, 95.0, 100.0):
+            update_battery_stats(stats, nxt, soc)
+            soc = nxt
+        assert stats.total_cycles == pytest.approx(0.15)
+
+    def test_unavailable_reading_adds_nothing(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, None, 80.0)
+        assert stats.total_cycles == 0.0
+        assert stats.tracking_start_date is None
+
+    def test_zero_reading_after_healthy_reading_adds_nothing(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, 0.0, 80.0)
+        assert stats.total_cycles == 0.0
+
+    def test_recovery_from_zero_reading_adds_nothing(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, 79.0, 0.0)
+        assert stats.total_cycles == 0.0
+
+    def test_jump_above_sane_step_adds_nothing(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, 30.0, 80.0)
+        assert stats.total_cycles == 0.0
+
+    def test_step_at_the_limit_is_counted(self):
+        from custom_components.givenergy_inverter_manager.const import BATTERY_MAX_SOC_STEP_PCT
+
+        stats = BatteryStats()
+        update_battery_stats(stats, 80.0 - BATTERY_MAX_SOC_STEP_PCT, 80.0)
+        assert stats.total_cycles == pytest.approx(BATTERY_MAX_SOC_STEP_PCT / 100)
+
+    def test_glitch_to_zero_and_back_adds_no_phantom_cycles(self):
+        stats = BatteryStats()
+        last = 80.0
+        for reading in (79.5, 0.0, 79.4):
+            update_battery_stats(stats, reading, last)
+            last = reading
+        assert stats.total_cycles == pytest.approx(0.005)
 
     def test_full_charge_date_set_at_99_pct(self):
         from datetime import date
@@ -440,9 +489,19 @@ class TestBuildCoordinatorData:
         data, _ = _run(
             raw=_raw(battery_soc=60.0),
             battery_stats=stats,
-            last_soc=80.0,  # 20% drop
+            last_soc=65.0,  # 5% drop
         )
-        assert data.battery_stats.total_cycles == pytest.approx(0.20)
+        assert data.battery_stats.total_cycles == pytest.approx(0.05)
+
+    def test_unavailable_soc_does_not_add_cycles(self):
+        """A 0.0 placeholder from an unavailable SoC sensor must not count as a discharge."""
+        stats = BatteryStats()
+        data, _ = _run(
+            raw=_raw(battery_soc=0.0, unavailable_inputs=("battery_soc",)),
+            battery_stats=stats,
+            last_soc=80.0,
+        )
+        assert data.battery_stats.total_cycles == 0.0
 
 
 class TestBuildCoordinatorDataNowDefault:

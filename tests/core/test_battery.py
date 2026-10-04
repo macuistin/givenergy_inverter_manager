@@ -52,20 +52,26 @@ class TestBatteryStats:
         assert stats.average_daily_cycles == 0.0
 
     def test_full_cycle(self):
-        """100% SoC change = 1.0 cycle."""
-        assert calculate_cycle_increment(100.0) == pytest.approx(1.0)
+        """A 100% fall in SoC = 1.0 cycle."""
+        assert calculate_cycle_increment(-100.0) == pytest.approx(1.0)
 
     def test_half_cycle(self):
-        """50% SoC change = 0.5 cycle."""
-        assert calculate_cycle_increment(50.0) == pytest.approx(0.5)
+        """A 50% fall in SoC = 0.5 cycle."""
+        assert calculate_cycle_increment(-50.0) == pytest.approx(0.5)
+
+    def test_charging_adds_nothing(self):
+        """A rising SoC is not an equivalent full cycle."""
+        assert calculate_cycle_increment(50.0) == pytest.approx(0.0)
+        assert calculate_cycle_increment(100.0) == pytest.approx(0.0)
 
     def test_zero_change(self):
         """0% SoC change = 0 cycles."""
         assert calculate_cycle_increment(0.0) == pytest.approx(0.0)
 
-    def test_negative_delta_absolute(self):
-        """Negative SoC delta (discharge) treated as absolute value."""
-        assert calculate_cycle_increment(-50.0) == pytest.approx(0.5)
+    def test_full_discharge_and_recharge_is_one_cycle(self):
+        """Down 100 then up 100 is one equivalent full cycle, not two."""
+        total = calculate_cycle_increment(-100.0) + calculate_cycle_increment(100.0)
+        assert total == pytest.approx(1.0)
 
 
 class TestWillSurviveNight:
@@ -153,7 +159,7 @@ class TestYearsRemainingEstimate:
 
     def test_first_soc_change_starts_tracking_at_current_total(self):
         stats = BatteryStats(total_cycles=79.0)
-        update_battery_stats(stats, current_soc=60.0, last_soc=50.0)
+        update_battery_stats(stats, current_soc=40.0, last_soc=50.0)
         assert stats.tracking_start_cycles == pytest.approx(79.0)
         assert stats.tracking_start_date is not None
         assert stats.total_cycles == pytest.approx(79.1)

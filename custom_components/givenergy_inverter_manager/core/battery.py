@@ -8,8 +8,10 @@ Provides:
                         Rated cycles default to BATTERY_RATED_CYCLES (const.py).
 
   calculate_cycle_increment()
-    Converts an SoC delta (%) into a fractional cycle count. A 100% swing
-    equals 1.0 cycle; partial swings are proportional.
+    Converts an SoC delta (%) into a fractional cycle count. One cycle is the
+    battery's full capacity discharged once (equivalent full cycle), so only a
+    falling SoC counts. A 100% fall equals 1.0 cycle; partial falls are
+    proportional.
 
   estimate_will_survive_night()
     Predicts whether the battery will last until solar generation starts
@@ -37,6 +39,7 @@ class BatteryStats:
     last_full_charge_date: date | None = None
     tracking_start_date: date | None = None
     tracking_start_cycles: float = 0.0
+    lifetime_from_bms: bool = False
 
     @property
     def estimated_remaining_life_pct(self) -> float:
@@ -85,10 +88,10 @@ def calculate_cycle_increment(soc_delta: float) -> float:
     Calculate the cycle increment for a given SoC change.
 
     A full 100% discharge = 1.0 cycle; a 50% discharge = 0.5 cycles.
-    Sign is ignored — charging and discharging both count toward wear.
+    Only a falling SoC counts, which matches the equivalent full cycle count
+    a battery BMS reports. A rising SoC adds nothing.
     """
-    return abs(soc_delta) / 100.0
-
+    return max(0.0, -soc_delta) / 100.0
 
 
 def estimate_will_survive_night(

@@ -33,6 +33,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from ..const import (
+    BATTERY_MAX_SOC_STEP_PCT,
     BATTERY_RATED_CYCLES,
     CARBON_HIGH_THRESHOLD,
     CARBON_LOW_THRESHOLD,
@@ -508,23 +509,29 @@ def estimate_avg_daily_kwh(
 
 def update_battery_stats(
     stats: BatteryStats,
-    current_soc: float,
+    current_soc: float | None,
     last_soc: float | None,
 ) -> BatteryStats:
     """
     Update battery stats for the current SoC reading.
 
-    Tracks cycle increments and records the date of the last full charge.
+    Counts equivalent full cycles (discharge only) and records the date of the
+    last full charge. A missing reading, a reading of 0.0 after a healthy one, or
+    a step above BATTERY_MAX_SOC_STEP_PCT is a sensor glitch and adds nothing.
     Mutates stats in place and also returns it for convenience.
     """
-    if last_soc is not None and current_soc != last_soc:
-        increment = calculate_cycle_increment(current_soc - last_soc)
-        if stats.tracking_start_date is None:
-            stats.tracking_start_date = date.today()
-            stats.tracking_start_cycles = stats.total_cycles
-        stats.total_cycles += increment
-        if current_soc >= 99.0:
-            stats.last_full_charge_date = date.today()
+    if current_soc is None or last_soc is None or current_soc == last_soc:
+        return stats
+    if current_soc >= 99.0:
+        stats.last_full_charge_date = date.today()
+    if last_soc <= 0.0 or current_soc <= 0.0:
+        return stats
+    if abs(current_soc - last_soc) > BATTERY_MAX_SOC_STEP_PCT:
+        return stats
+    if stats.tracking_start_date is None:
+        stats.tracking_start_date = date.today()
+        stats.tracking_start_cycles = stats.total_cycles
+    stats.total_cycles += calculate_cycle_increment(current_soc - last_soc)
     return stats
 
 
@@ -938,7 +945,11 @@ def build_coordinator_data(
         data.live_grid_cost_rate = round(grid_kw * tariff.export_rate, 4)
 
     # ── Battery stats ─────────────────────────────────────────────────────────
-    update_battery_stats(battery_stats, raw.battery_soc, last_soc)
+    update_battery_stats(
+        battery_stats,
+        None if "battery_soc" in raw.unavailable_inputs else raw.battery_soc,
+        last_soc,
+    )
     data.battery_stats = battery_stats
     data.battery_years_remaining = battery_stats.years_remaining_estimate
 
