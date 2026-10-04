@@ -404,16 +404,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.today.house_cost, 4),
     ),
-    GivEnergyManagerSensorDescription(
-        key="house_energy_today",
-        is_daily_total=True,
-        translation_key="house_energy_today",
-        name="House Energy Today",
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
-        value_fn=lambda d: round(d.today.house_kwh, 3),
-    ),
     # --- ROI metrics ---
     GivEnergyManagerSensorDescription(
         key="self_consumed_kwh_today",
@@ -997,7 +987,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
         icon="mdi:home-lightning-bolt",
         is_daily_total=True,
-        entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.today.house_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(

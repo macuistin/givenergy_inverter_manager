@@ -751,3 +751,19 @@ class TestPowerBalanceSensors:
         assert fn(d) == pytest.approx(9.3)
         d.battery_capacity_kwh = 0.0
         assert fn(d) is None
+
+
+class TestDashboardSummarySensors:
+    def test_house_energy_today_sensor_was_not_duplicated(self):
+        assert "house_energy_today" not in _sensor_keys()
+
+    def test_house_load_today_is_enabled_by_default(self):
+        src = _SENSOR_PY.read_text()
+        start = src.index('key="house_kwh_today"')
+        block = src[start : src.index("\n    ),", start)]
+        assert "entity_registry_enabled_default=False" not in block
+
+    def test_dashboard_uses_house_kwh_today(self):
+        dashboard = (_SENSOR_PY.parent / "dashboard.py").read_text()
+        assert 'e("house_kwh_today")' in dashboard
+        assert "house_energy_today" not in dashboard

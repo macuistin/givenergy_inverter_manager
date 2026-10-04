@@ -203,7 +203,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     zappi_cost_today = e("zappi_cost_today")
     immersion_cost_today = e("immersion_cost_today")
     house_cost_today = e("house_cost_today")
-    house_energy_today = e("house_energy_today")
+    house_kwh_today = e("house_kwh_today")
     self_sufficiency = e("self_sufficiency")
     self_consumption = e("self_consumption")
     accrued_bill = e("accrued_bill")
@@ -363,7 +363,7 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                     name: Imported
                   - entity: {export_today}
                     name: Exported
-                  - entity: {house_energy_today}
+                  - entity: {house_kwh_today}
                     name: Used
                   - entity: {immersion_today}
                     name: Immersion
