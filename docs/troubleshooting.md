@@ -167,5 +167,5 @@ Open an issue on [GitHub](https://github.com/macuistin/givenergy_inverter_manage
 
 - the log lines from **Settings → System → Logs** that contain `givenergy`;
 - your Home Assistant and GivTCP versions;
-- the diagnostics file, from the integration page, **Download diagnostics**. It holds your configuration, including entity IDs and tariff values, and is not redacted. Read it before you post it;
+- the diagnostics file, from the integration page, **Download diagnostics**. It holds your configuration, including tariff values. The inverter serial and every entity ID that contains it are redacted. Read it before you post it;
 - what you expected and what happened.
