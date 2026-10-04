@@ -115,11 +115,9 @@ If the reason says to heat but the heater stays off, check that an immersion swi
 
 With a Zappi that has a charge mode entity, a car plugged in and net solar surplus of at least 1380 W, the integration selects Eco+. It never selects Stopped. The only way to stop it is dry run. See [Concepts](concepts.md#ev-charger).
 
-## Totals are lower after a restart
+## Totals are lower after a crash
 
-Accumulated energy is saved every 5 minutes and at midnight, not at shutdown. See [Concepts](concepts.md#the-30-second-cycle). Saving the options reloads the integration, which has the same effect. Moving an immersion temperature slider also reloads it.
-
-The year sensors, Missed Solar Today and Inverter Derating Today are not saved at all.
+Accumulated energy is saved every 5 minutes, at midnight, when the integration unloads and when Home Assistant stops. See [Concepts](concepts.md#the-30-second-cycle). Only a crash or a power cut can lose up to about 5 minutes of energy.
 
 ## The bill sensors look low early in the period
 

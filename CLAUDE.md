@@ -119,6 +119,9 @@ HA 2026.7+ rejects `state_class=MEASUREMENT` on monetary or certain energy senso
 - Monetary sensors that accumulate: use `TOTAL`
 - Monetary sensors that are estimates/projections: use `None`
 - Energy sensors that reset daily: use `TOTAL` (not `TOTAL_INCREASING` — they reset)
+- Any `TOTAL` sensor that resets must report `last_reset`: `is_daily_total=True` or
+  `reset_period="week"|"month"|"year"` on the description. `test_sensor_integrity.py` enforces this
+- Yesterday, trailing 12-month and forecast sensors are not cumulative: use `None`
 - Live power sensors: use `MEASUREMENT`
 
 ---

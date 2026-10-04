@@ -44,10 +44,11 @@ Three things happen on a clock instead of in the cycle.
 | 00:00:00 local time | Daily reset. Today moves to yesterday. Monday also resets the week. The bill start day also resets the month and saves a snapshot. 1 January also resets the year. |
 | One minute before the cheapest timed rate period starts, once a day | Write the charge target and window to GivTCP |
 | Every tenth cycle (about 5 minutes) and at midnight | Save accumulated energy and battery statistics |
+| Entry unload and Home Assistant stop | Save accumulated energy and battery statistics |
 
 Energy is added using the real time between cycles. The first cycle after a start or a midnight reset adds nothing, and a gap longer than one hour is skipped, so a restart does not create a spike.
 
-Accumulated energy is not saved when Home Assistant stops. A restart, or a reload after saving options, loses up to about 5 minutes of energy. The year totals, Missed Solar Today and Inverter Derating Today are not saved at all and restart from zero.
+Accumulated energy is saved when the integration unloads and when Home Assistant stops, so a restart or a reload after saving options keeps it. A crash can lose up to about 5 minutes. On start-up the integration applies any midnight, Monday, bill start day or 1 January reset that passed while Home Assistant was down.
 
 ### Write protection
 

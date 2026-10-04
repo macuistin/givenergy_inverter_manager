@@ -18,7 +18,7 @@ Enable the two battery sensors in **Settings → Devices & Services → GivEnerg
 
 - They have state class `total` and report `last_reset` at local midnight. See [Long-term statistics](long-term-statistics.md).
 - Solar, import, export and the two battery sensors use the GivTCP daily counters when those exist, so the figures match the inverter's own metering. See [Concepts](concepts.md#givtcp-daily-counters).
-- Do not use the Yesterday, This week, This month or This year sensors. They reset on other schedules and do not report `last_reset`.
+- Do not use the Yesterday, This week, This month, This year or trailing 12-month sensors. The Energy dashboard builds its own weekly and monthly views from the daily sensors, and Yesterday and trailing values have no state class.
 
 ## Costs
 
