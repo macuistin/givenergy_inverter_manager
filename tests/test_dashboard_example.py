@@ -20,14 +20,14 @@ _EXAMPLE = Path(__file__).parent.parent / "docs" / "dashboard-example.yaml"
 
 
 def generate_example() -> str:
-    from custom_components.givenergy_inverter_manager.dashboard import _build_dashboard_yaml
+    from custom_components.givenergy_inverter_manager.dashboard_builder import build_dashboard_yaml
 
     with fake_hass(
         FULL_CONFIG,
         FakeRegistry(enable_all=True),
         ev_brand="myenergi",
     ) as hass:
-        return _build_dashboard_yaml(hass, ENTRY_ID)
+        return build_dashboard_yaml(hass, ENTRY_ID)
 
 
 def test_example_is_up_to_date():

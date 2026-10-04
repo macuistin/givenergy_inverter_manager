@@ -32,10 +32,10 @@ def _mock_hass_with_registry(entry_id: str) -> MagicMock:
 
 
 def _build(entry_id: str = "test_entry_123") -> str:
-    from custom_components.givenergy_inverter_manager.dashboard import _build_dashboard_yaml
+    from custom_components.givenergy_inverter_manager.dashboard_builder import build_dashboard_yaml
 
     hass = _mock_hass_with_registry(entry_id)
-    return _build_dashboard_yaml(hass, entry_id)
+    return build_dashboard_yaml(hass, entry_id)
 
 
 class TestBuildDashboardYaml:
@@ -249,7 +249,7 @@ class TestEvChargerDiscovery:
     def _find(self, states_present=None):
         from unittest.mock import MagicMock
 
-        from custom_components.givenergy_inverter_manager.dashboard import (
+        from custom_components.givenergy_inverter_manager.dashboard_builder import (
             _find_ev_charger_power,
         )
 
@@ -346,7 +346,9 @@ class TestPowerFlowTabChanges:
         from unittest.mock import MagicMock, patch
 
         from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_TEMP_SENSOR
-        from custom_components.givenergy_inverter_manager.dashboard import _build_dashboard_yaml
+        from custom_components.givenergy_inverter_manager.dashboard_builder import (
+            build_dashboard_yaml,
+        )
 
         fake_entry = MagicMock()
         fake_entry.entry_id = "test_entry_123"
@@ -357,9 +359,9 @@ class TestPowerFlowTabChanges:
         hass.config_entries.async_entries.return_value = [fake_entry]
         hass.states.get.return_value = None
 
-        with patch("custom_components.givenergy_inverter_manager.dashboard.er") as mock_er:
+        with patch("custom_components.givenergy_inverter_manager.dashboard_builder.er") as mock_er:
             mock_er.async_get.return_value.async_get_entity_id.return_value = None
-            yaml = _build_dashboard_yaml(hass, "test_entry_123")
+            yaml = build_dashboard_yaml(hass, "test_entry_123")
 
         assert "apexcharts-card" in yaml, "Immersion section must use apexcharts-card"
         assert "graph_span: 12h" in yaml, "Must show 12 hours of history"
@@ -517,9 +519,9 @@ class TestYamlSerialisation:
     """The dashboard is built as a dict and serialised once."""
 
     def _dict(self):
-        from custom_components.givenergy_inverter_manager.dashboard import _build_dashboard
+        from custom_components.givenergy_inverter_manager.dashboard_builder import build_dashboard
 
-        return _build_dashboard(_mock_hass_with_registry("test_entry_123"), "test_entry_123")
+        return build_dashboard(_mock_hass_with_registry("test_entry_123"), "test_entry_123")
 
     def test_yaml_round_trips_to_the_dict(self):
         assert yaml.safe_load(_build()) == self._dict()

@@ -764,7 +764,7 @@ class TestDashboardSummarySensors:
         assert "entity_registry_enabled_default=False" not in block
 
     def test_dashboard_uses_house_kwh_today(self):
-        dashboard = (_SENSOR_PY.parent / "dashboard.py").read_text()
+        dashboard = (_SENSOR_PY.parent / "dashboard_builder.py").read_text()
         assert 'e("house_kwh_today")' in dashboard
         assert "house_energy_today" not in dashboard
 class TestDailyTotalSensorsUseTotalStateClass:

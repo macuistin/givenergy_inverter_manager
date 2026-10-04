@@ -2173,7 +2173,7 @@ class TestLiveGridCostRate:
 
     def test_grid_node_secondary_info_uses_live_rate(self):
         from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        src = Path("custom_components/givenergy_inverter_manager/dashboard_builder.py").read_text()
         assert "live_grid_cost_rate" in src
 
 

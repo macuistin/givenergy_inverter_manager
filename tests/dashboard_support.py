@@ -126,6 +126,6 @@ def fake_hass(
     hass.states.get = lambda entity_id: MagicMock() if entity_id in states else None
     hass.states.async_all.return_value = []
 
-    with patch("custom_components.givenergy_inverter_manager.dashboard.er") as er_mock:
+    with patch("custom_components.givenergy_inverter_manager.dashboard_builder.er") as er_mock:
         er_mock.async_get.return_value = registry or FakeRegistry()
         yield hass
