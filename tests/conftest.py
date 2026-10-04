@@ -308,6 +308,7 @@ def _run(
         raw=raw,
         cfg=cfg,
         acc=acc,
+        acc_month=kwargs.get("acc_month"),
         battery_stats=battery_stats,
         last_soc=last_soc,
         last_update_time=last_update_time,

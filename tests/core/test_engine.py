@@ -335,8 +335,8 @@ class TestBuildCoordinatorData:
         )
         assert data.accrued_bill > 0
         assert data.projected_bill > 0
-        assert data.days_in_period == 4
-        assert data.days_remaining > 0
+        assert data.days_in_period == 5
+        assert data.days_remaining == 26
 
     def test_night_survival_positive_case(self):
         """Full battery at day time should survive the night."""
@@ -1817,3 +1817,68 @@ class TestOvermorrowReachesEngine:
 
     def test_weak_d2_leaves_target_unchanged(self):
         assert self._decision(10.0).target_soc == self._decision(None).target_soc
+# ── Bill sensors use the billing period ───────────────────────────────────────
+
+
+def _month_acc_for_golden_bill() -> EnergyAccumulator:
+    month = EnergyAccumulator()
+    keep = (1 - 0.055) * 1.09
+    month.import_cost_by_period["Nightboost"] = 154 * 0.1056 * keep
+    month.import_cost_by_period["Day"] = 33 * 0.365 * keep
+    month.import_cost_by_period["Night"] = 517 * 0.18 * keep
+    month.export_earnings = 179 * 0.195
+    return month
+
+
+class TestBillSensors:
+    def test_day_one_of_period_is_one_day_elapsed(self):
+        data, _ = _run(cfg={**_nightboost_cfg(), "bill_start_day": 16}, now=datetime(2026, 8, 16, 9))
+        assert data.days_in_period == 1
+        assert data.days_remaining == 30
+
+    def test_elapsed_plus_remaining_is_period_length_in_february(self):
+        data, _ = _run(cfg={**_nightboost_cfg(), "bill_start_day": 1}, now=datetime(2026, 2, 1, 9))
+        assert data.days_in_period == 1
+        assert data.days_remaining == 27
+
+    def test_full_period_reproduces_the_real_bill(self):
+        data, _ = _run(
+            cfg={**_nightboost_cfg(), "bill_start_day": 16},
+            now=datetime(2026, 9, 15, 23, 30),
+            acc_month=_month_acc_for_golden_bill(),
+        )
+        assert data.days_in_period == 31
+        assert data.days_remaining == 0
+        assert data.accrued_bill == pytest.approx(119.60)
+        assert data.projected_bill == pytest.approx(119.60)
+
+    def test_accrued_bill_reads_the_month_not_today(self):
+        today = EnergyAccumulator()
+        today.import_cost_by_period["Day"] = 3.0
+        data, _ = _run(
+            cfg={**_nightboost_cfg(), "bill_start_day": 16},
+            now=datetime(2026, 9, 15, 23, 30),
+            acc=today,
+            acc_month=_month_acc_for_golden_bill(),
+        )
+        assert data.accrued_bill == pytest.approx(119.60, abs=0.02)
+
+    def test_part_period_projects_with_real_period_length(self):
+        cfg = {**_nightboost_cfg(), "bill_start_day": 16}
+        month = EnergyAccumulator()
+        month.import_cost_by_period["Day"] = 50.0
+        data, _ = _run(cfg=cfg, now=datetime(2026, 8, 30, 12), acc_month=month)
+        assert data.days_in_period == 15
+        assert data.days_remaining == 16
+        accrued = 50.0 + (0.8259 * 15 + 1.46 * 15 / 31) * 1.09
+        assert data.accrued_bill == pytest.approx(accrued, abs=0.02)
+        assert data.projected_bill == pytest.approx(accrued / 15 * 31, abs=0.05)
+
+    def test_export_credit_reduces_the_bill(self):
+        cfg = {**_nightboost_cfg(), "bill_start_day": 16}
+        month = EnergyAccumulator()
+        month.import_cost_by_period["Day"] = 50.0
+        base, _ = _run(cfg=cfg, now=datetime(2026, 8, 30, 12), acc_month=month)
+        month.export_earnings = 10.0
+        credited, _ = _run(cfg=cfg, now=datetime(2026, 8, 30, 12), acc_month=month)
+        assert credited.accrued_bill == pytest.approx(base.accrued_bill - 10.0)

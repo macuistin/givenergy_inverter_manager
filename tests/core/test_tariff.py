@@ -8,7 +8,7 @@ from config_flow.
 Helpers (_nightboost_cfg, _raw, _run) are in conftest.py.
 """
 
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 import pytest
 
@@ -360,3 +360,152 @@ class TestEnergyAccumulatorFinancials:
         acc.export_earnings = 5.00
         acc.import_cost_by_period["Day"] = 1.00
         assert acc.net_position == pytest.approx(4.00)
+
+
+# ── Billing period calendar ───────────────────────────────────────────────────
+
+
+def _bill_tariff(start_day=16, pso=1.46):
+    return TariffConfig(
+        rate_periods=[
+            RatePeriod("Night", 0.18, time(23, 0), time(8, 0)),
+            RatePeriod("Nightboost", 0.1056, time(2, 0), time(4, 0)),
+        ],
+        base_rate=0.365,
+        base_rate_name="Day",
+        export_rate=0.195,
+        standing_charge=0.8259,
+        pso_levy=pso,
+        vat_rate=9.0,
+        discount_rate=5.5,
+        bill_start_day=start_day,
+    )
+
+
+class TestBillPeriodCalendar:
+    @pytest.mark.parametrize(
+        ("start_day", "day", "elapsed", "remaining"),
+        [
+            (1, datetime(2026, 10, 1, 9), 1, 30),
+            (1, datetime(2026, 10, 15, 9), 15, 16),
+            (1, datetime(2026, 10, 31, 23, 59), 31, 0),
+            (1, datetime(2026, 11, 1, 0, 0), 1, 29),
+            (1, datetime(2026, 2, 1, 9), 1, 27),
+            (1, datetime(2026, 2, 28, 9), 28, 0),
+            (1, datetime(2028, 2, 29, 9), 29, 0),
+            (16, datetime(2026, 8, 16, 0, 0), 1, 30),
+            (16, datetime(2026, 9, 15, 23, 59), 31, 0),
+            (16, datetime(2026, 9, 16, 9), 1, 29),
+            (16, datetime(2026, 10, 15, 9), 30, 0),
+            (16, datetime(2026, 2, 10, 9), 26, 5),
+            (16, datetime(2026, 2, 16, 9), 1, 27),
+            (16, datetime(2026, 3, 15, 9), 28, 0),
+            (16, datetime(2026, 12, 31, 9), 16, 15),
+            (16, datetime(2027, 1, 5, 9), 21, 10),
+            (16, datetime(2027, 1, 15, 9), 31, 0),
+            (16, datetime(2027, 1, 16, 9), 1, 30),
+            (28, datetime(2026, 3, 1, 9), 2, 26),
+            (28, datetime(2026, 2, 28, 9), 1, 27),
+            (28, datetime(2028, 3, 1, 9), 3, 26),
+        ],
+    )
+    def test_day_of_period_and_remaining(self, start_day, day, elapsed, remaining):
+        t = _bill_tariff(start_day)
+        assert t.days_in_current_bill_period(day) == elapsed
+        assert t.days_remaining_in_bill_period(day) == remaining
+
+    @pytest.mark.parametrize("start_day", [1, 2, 15, 16, 27, 28])
+    def test_elapsed_plus_remaining_is_the_period_length_every_day(self, start_day):
+        t = _bill_tariff(start_day)
+        day = datetime(2026, 1, 1, 12)
+        previous = None
+        for offset in range(3 * 366):
+            now = day + timedelta(days=offset)
+            elapsed = t.days_in_current_bill_period(now)
+            remaining = t.days_remaining_in_bill_period(now)
+            length = t.days_in_bill_period(now)
+            assert elapsed >= 1
+            assert remaining >= 0
+            assert elapsed + remaining == length
+            assert 28 <= length <= 31
+            if previous is not None:
+                assert elapsed in (previous + 1, 1)
+                assert (elapsed == 1) == (now.day == start_day)
+            previous = elapsed
+
+    def test_start_day_is_day_one(self):
+        t = _bill_tariff(16)
+        assert t.days_in_current_bill_period(datetime(2026, 8, 16, 0, 0)) == 1
+        assert t.days_in_bill_period(datetime(2026, 8, 16, 0, 0)) == 31
+
+
+# ── Standing charge and PSO levy ──────────────────────────────────────────────
+
+
+class TestStandingCharges:
+    @pytest.mark.parametrize("period_days", [28, 29, 30, 31])
+    def test_full_period_charges_exactly_the_monthly_pso(self, period_days):
+        t = _bill_tariff()
+        expected = (0.8259 * period_days + 1.46) * 1.09
+        assert t.calculate_standing_charges(period_days, period_days) == pytest.approx(expected)
+
+    def test_part_period_charges_pro_rata_share_of_actual_period_length(self):
+        t = _bill_tariff()
+        expected = (0.8259 * 10 + 1.46 * 10 / 31) * 1.09
+        assert t.calculate_standing_charges(10, 31) == pytest.approx(expected)
+        expected_feb = (0.8259 * 10 + 1.46 * 10 / 28) * 1.09
+        assert t.calculate_standing_charges(10, 28) == pytest.approx(expected_feb)
+
+    def test_pso_is_not_prorated_by_average_month_when_period_given(self):
+        t = _bill_tariff(pso=1.46)
+        zero_standing = TariffConfig(**{**t.__dict__, "standing_charge": 0.0, "vat_rate": 0.0})
+        assert zero_standing.calculate_standing_charges(31, 31) == pytest.approx(1.46)
+
+    def test_without_period_length_pso_never_exceeds_one_levy(self):
+        t = TariffConfig(**{**_bill_tariff().__dict__, "standing_charge": 0.0, "vat_rate": 0.0})
+        assert t.calculate_standing_charges(31) == pytest.approx(1.46)
+        assert t.calculate_standing_charges(45) == pytest.approx(1.46)
+
+
+# ── Bill breakdown: owner's real bill ─────────────────────────────────────────
+
+
+class TestGoldenBill:
+    """16 Aug to 15 Sep 2026, 31 days, the owner's real bill."""
+
+    def _energy(self):
+        return 154 * 0.1056 + 33 * 0.365 + 517 * 0.18
+
+    def test_lines_match_the_bill(self):
+        t = _bill_tariff(16)
+        now = datetime(2026, 9, 15, 20, 0)
+        bill = t.calculate_bill(
+            self._energy(),
+            t.days_in_current_bill_period(now),
+            t.days_in_bill_period(now),
+            179 * 0.195,
+        )
+        assert bill.energy == 121.37
+        assert bill.supplier_saving == 6.68
+        assert bill.standing_charge == 25.60
+        assert bill.pso_levy == 1.46
+        assert bill.before_vat == 141.75
+        assert bill.vat == 12.76
+        assert bill.export_credit == 34.91
+        assert bill.total == 119.60
+
+    def test_energy_cost_round_trips_through_accumulated_import_cost(self):
+        t = _bill_tariff(16)
+        import_cost = self._energy() * (1 - 0.055) * 1.09
+        assert t.energy_cost_from_import_cost(import_cost) == pytest.approx(self._energy())
+
+    def test_export_credit_has_no_vat_and_comes_off_after_vat(self):
+        t = _bill_tariff(16)
+        no_export = t.calculate_bill(100.0, 31, 31, 0.0)
+        with_export = t.calculate_bill(100.0, 31, 31, 10.0)
+        assert with_export.vat == no_export.vat
+        assert with_export.total == pytest.approx(no_export.total - 10.0)
+
+    def test_zero_discount_gives_no_saving(self):
+        t = TariffConfig(**{**_bill_tariff().__dict__, "discount_rate": 0.0})
+        assert t.calculate_bill(100.0, 31, 31).supplier_saving == 0.0

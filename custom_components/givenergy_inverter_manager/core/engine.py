@@ -990,11 +990,16 @@ def build_coordinator_data(
     # ── Bill prediction ───────────────────────────────────────────────────────
     days_in = tariff.days_in_current_bill_period(now)
     days_remaining = tariff.days_remaining_in_bill_period(now)
-    standing = tariff.calculate_standing_charges(days_in)
-    data.accrued_bill = acc.total_import_cost + standing
-    data.projected_bill = (
-        (data.accrued_bill / max(1, days_in)) * (days_in + days_remaining) if days_in > 0 else 0.0
+    period_days = days_in + days_remaining
+    bill_acc = acc_month if acc_month is not None else acc
+    bill = tariff.calculate_bill(
+        tariff.energy_cost_from_import_cost(bill_acc.total_import_cost),
+        days_in,
+        period_days,
+        bill_acc.export_earnings,
     )
+    data.accrued_bill = bill.total
+    data.projected_bill = bill.total / days_in * period_days if days_in > 0 else 0.0
     data.days_in_period = days_in
     data.days_remaining = days_remaining
 
