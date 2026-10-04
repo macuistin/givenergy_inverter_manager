@@ -99,11 +99,15 @@ _STATE_MAP: dict[EVChargerBrand, dict[str, EVChargerState]] = {
         "ev disconnected": EVChargerState.DISCONNECTED,
         "ev connected": EVChargerState.CONNECTED,
         "waiting for ev": EVChargerState.CONNECTED,
+        "ev ready to charge": EVChargerState.CONNECTED,
         "charging": EVChargerState.CHARGING,
+        "diverting": EVChargerState.CHARGING,
         "paused": EVChargerState.PAUSED,
         "boosting": EVChargerState.BOOSTING,
         "completed": EVChargerState.COMPLETED,
+        "charging complete": EVChargerState.COMPLETED,
         "stopped": EVChargerState.PAUSED,
+        "fault": EVChargerState.UNKNOWN,
     },
     EVChargerBrand.WALLBOX: {
         "disconnected": EVChargerState.DISCONNECTED,
@@ -165,6 +169,7 @@ class EVCharger:
     power_entity: str | None = None
     session_energy_entity: str | None = None
     charge_mode_entity: str | None = None  # select entity (Zappi / some others)
+    activity_entity: str | None = None  # operating status (Zappi: Boosting, Diverting, Paused)
 
     # Runtime state (populated by coordinator each cycle, NOT at discovery)
     state: EVChargerState = EVChargerState.UNKNOWN
@@ -198,29 +203,44 @@ class EVCharger:
 
 
 def _discover_zappi(all_states: dict) -> list[EVCharger]:
-    """Discover myenergi Zappi chargers from HA entity states."""
+    """Discover myenergi Zappi chargers from HA entity states.
+
+    The myenergi integration names entities `sensor.myenergi_zappi_<serial>_plug_status`
+    when the device name includes the serial and `sensor.myenergi_zappi_plug_status`
+    when it does not. Every related entity shares the prefix of the plug status entity.
+    """
     chargers = []
     for eid in list(all_states):
         if "myenergi_zappi_" not in eid or not eid.startswith("sensor."):
             continue
         if not eid.endswith("_plug_status"):
             continue
-        serial = eid.replace("sensor.myenergi_zappi_", "").replace("_plug_status", "")
+        prefix = eid[: -len("plug_status")]
+        serial = prefix.replace("sensor.myenergi_zappi_", "").strip("_")
+        if not serial:
+            serial_state = all_states.get("sensor.myenergi_zappi_serial_number")
+            serial = (
+                getattr(serial_state, "state", "") or "" if serial_state is not None else ""
+            ).strip()
+            if serial in ("unknown", "unavailable"):
+                serial = ""
+        label = serial or "myenergi"
         ch = EVCharger(
             brand=EVChargerBrand.ZAPPI,
-            name=f"Zappi {serial}",
+            name=f"Zappi {label}",
             serial=serial,
-            display_name=f"Zappi ({serial})",
+            display_name=f"Zappi ({label})",
             status_entity=eid,
         )
-        _maybe(ch, "power_entity", all_states, f"sensor.myenergi_zappi_{serial}_internal_load_ct1")
+        _maybe(ch, "power_entity", all_states, f"{prefix}internal_load_ct1")
+        _maybe(ch, "session_energy_entity", all_states, f"{prefix}charge_added_session")
         _maybe(
             ch,
-            "session_energy_entity",
+            "charge_mode_entity",
             all_states,
-            f"sensor.myenergi_zappi_{serial}_charge_added_session",
+            prefix.replace("sensor.", "select.", 1) + "charge_mode",
         )
-        _maybe(ch, "charge_mode_entity", all_states, f"select.myenergi_zappi_{serial}_charge_mode")
+        _maybe(ch, "activity_entity", all_states, f"{prefix.rstrip('_')}_status".replace("__", "_"))
         if ch.power_entity is None:
             _LOG.warning(
                 "%s discovered but power entity not found "
@@ -394,6 +414,12 @@ def update_charger_state(
     raw = _read_state(charger.status_entity)
     if raw is not None:
         charger.state = charger.normalise_state(raw)
+
+    activity = _read_state(charger.activity_entity)
+    if activity is not None and charger.is_plugged_in:
+        activity_state = charger.normalise_state(activity)
+        if activity_state is not EVChargerState.UNKNOWN:
+            charger.state = activity_state
 
     charger.power_w = _read_float(charger.power_entity)
     charger.session_kwh = _read_float(charger.session_energy_entity)

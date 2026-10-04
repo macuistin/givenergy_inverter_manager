@@ -600,3 +600,83 @@ class TestEVPowerEntityWarning:
 
 
 
+
+
+class TestZappiEntityNaming:
+    """The myenergi integration may or may not put the serial in its entity ids."""
+
+    NO_SERIAL = {
+        "sensor.myenergi_zappi_plug_status": "EV Connected",
+        "sensor.myenergi_zappi_status": "Boosting",
+        "sensor.myenergi_zappi_internal_load_ct1": "7200",
+        "sensor.myenergi_zappi_charge_added_session": "3.2",
+        "select.myenergi_zappi_charge_mode": "Fast",
+        "sensor.myenergi_zappi_serial_number": "21637627",
+    }
+    WITH_SERIAL = {
+        "sensor.myenergi_zappi_21637627_plug_status": "EV Connected",
+        "sensor.myenergi_zappi_21637627_status": "Diverting",
+        "sensor.myenergi_zappi_21637627_internal_load_ct1": "3100",
+        "sensor.myenergi_zappi_21637627_charge_added_session": "1.0",
+        "select.myenergi_zappi_21637627_charge_mode": "Eco+",
+    }
+
+    def test_entities_found_without_serial_in_ids(self):
+        (charger,) = discover_ev_chargers(_states(self.NO_SERIAL))
+        assert charger.status_entity == "sensor.myenergi_zappi_plug_status"
+        assert charger.power_entity == "sensor.myenergi_zappi_internal_load_ct1"
+        assert charger.session_energy_entity == "sensor.myenergi_zappi_charge_added_session"
+        assert charger.charge_mode_entity == "select.myenergi_zappi_charge_mode"
+        assert charger.activity_entity == "sensor.myenergi_zappi_status"
+
+    def test_serial_taken_from_serial_number_sensor(self):
+        (charger,) = discover_ev_chargers(_states(self.NO_SERIAL))
+        assert charger.serial == "21637627"
+
+    def test_entities_found_with_serial_in_ids(self):
+        (charger,) = discover_ev_chargers(_states(self.WITH_SERIAL))
+        assert charger.serial == "21637627"
+        assert charger.power_entity == "sensor.myenergi_zappi_21637627_internal_load_ct1"
+        assert charger.charge_mode_entity == "select.myenergi_zappi_21637627_charge_mode"
+        assert charger.activity_entity == "sensor.myenergi_zappi_21637627_status"
+
+    def test_power_flows_into_the_charger_state(self):
+        (charger,) = discover_ev_chargers(_states(self.NO_SERIAL))
+        update_charger_state(_get_state(self.NO_SERIAL), charger, battery_power_w=0.0)
+        assert charger.power_w == 7200.0
+        assert charger.session_kwh == 3.2
+        assert charger.charge_mode == "Fast"
+
+    def test_boosting_status_makes_the_charger_active(self):
+        (charger,) = discover_ev_chargers(_states(self.NO_SERIAL))
+        update_charger_state(_get_state(self.NO_SERIAL), charger, battery_power_w=0.0)
+        assert charger.state is EVChargerState.BOOSTING
+        assert charger.is_active
+
+    def test_diverting_status_counts_as_charging(self):
+        (charger,) = discover_ev_chargers(_states(self.WITH_SERIAL))
+        update_charger_state(_get_state(self.WITH_SERIAL), charger, battery_power_w=0.0)
+        assert charger.state is EVChargerState.CHARGING
+
+    def test_stale_boosting_status_is_ignored_when_unplugged(self):
+        states = {**self.NO_SERIAL, "sensor.myenergi_zappi_plug_status": "EV Disconnected"}
+        (charger,) = discover_ev_chargers(_states(states))
+        update_charger_state(_get_state(states), charger, battery_power_w=0.0)
+        assert charger.state is EVChargerState.DISCONNECTED
+        assert not charger.is_active
+
+    def test_ready_to_charge_is_connected(self):
+        states = {
+            **self.NO_SERIAL,
+            "sensor.myenergi_zappi_plug_status": "EV Ready to Charge",
+            "sensor.myenergi_zappi_status": "Paused",
+        }
+        (charger,) = discover_ev_chargers(_states(states))
+        update_charger_state(_get_state(states), charger, battery_power_w=0.0)
+        assert charger.is_plugged_in
+        assert charger.state is EVChargerState.PAUSED
+
+    def test_battery_drain_detected_while_boosting(self):
+        (charger,) = discover_ev_chargers(_states(self.NO_SERIAL))
+        update_charger_state(_get_state(self.NO_SERIAL), charger, battery_power_w=-2500.0)
+        assert charger.is_draining_battery
