@@ -645,14 +645,15 @@ class TestReconfigureStep:
             "async_step_reconfigure is required for the reconfiguration-flow quality scale item."
         )
 
-    def test_reconfigure_reloads_entry_on_success(self):
+    def test_reconfigure_leaves_the_reload_to_the_update_listener(self):
         from pathlib import Path
 
         src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
         reconf = src[src.find("async def async_step_reconfigure") :]
         reconf = reconf[: reconf.find("\n    async def ")]
-        assert "async_reload" in reconf, (
-            "Reconfigure must reload the entry after updating so new tariff takes effect."
+        assert "async_update_entry" in reconf
+        assert "async_reload" not in reconf, (
+            "The entry update listener already reloads; an explicit reload reloads twice."
         )
 
     def test_reconfigure_uses_abort_reason(self):

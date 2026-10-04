@@ -138,6 +138,13 @@ _CHARGE_SCHEDULING_CONF_KEYS = [
 _MAX_RATE_PERIODS = 5
 
 
+def _saved_values(entry) -> dict:
+    """Return the entry values in force: saved options over setup data."""
+    values = {k: v for k, v in entry.data.items() if v is not None}
+    values.update({k: v for k, v in entry.options.items() if v is not None})
+    return values
+
+
 def _hhmmss(hhmm: str) -> str:
     """Ensure a time string is HH:MM:SS (append :00 when only HH:MM is stored)."""
     return hhmm if len(hhmm) > 5 else hhmm + ":00"
@@ -472,46 +479,60 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         )
 
     @staticmethod
-    def _build_tariff_schema(periods: list[dict] | None = None) -> vol.Schema:
+    def _build_tariff_schema(
+        periods: list[dict] | None = None, values: dict | None = None
+    ) -> vol.Schema:
+        values = values or {}
         slots = _periods_to_slot_defaults(periods if periods is not None else DEFAULT_RATE_PERIODS)
         schema_dict: dict = {
-            vol.Required(CONF_BASE_RATE, default=DEFAULT_BASE_RATE): selector.NumberSelector(
+            vol.Required(
+                CONF_BASE_RATE, default=values.get(CONF_BASE_RATE, DEFAULT_BASE_RATE)
+            ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=0, max=5, step=0.001, unit_of_measurement="EUR/kWh"
                 )
             ),
             vol.Optional(
-                CONF_BASE_RATE_NAME, default=DEFAULT_BASE_RATE_NAME
+                CONF_BASE_RATE_NAME, default=values.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
             ): selector.TextSelector(),
-            vol.Required(CONF_EXPORT_RATE, default=DEFAULT_EXPORT_RATE): selector.NumberSelector(
+            vol.Required(
+                CONF_EXPORT_RATE, default=values.get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE)
+            ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=0, max=1, step=0.001, unit_of_measurement="EUR/kWh"
                 )
             ),
             vol.Required(
-                CONF_STANDING_CHARGE, default=DEFAULT_STANDING_CHARGE
+                CONF_STANDING_CHARGE,
+                default=values.get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE),
             ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=0, max=5, step=0.001, unit_of_measurement="EUR/day"
                 )
             ),
-            vol.Required(CONF_PSO_LEVY, default=DEFAULT_PSO_LEVY): selector.NumberSelector(
+            vol.Required(
+                CONF_PSO_LEVY, default=values.get(CONF_PSO_LEVY, DEFAULT_PSO_LEVY)
+            ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=0, max=20, step=0.01, unit_of_measurement="EUR/month"
                 )
             ),
-            vol.Required(CONF_VAT_RATE, default=DEFAULT_VAT_RATE): selector.NumberSelector(
+            vol.Required(
+                CONF_VAT_RATE, default=values.get(CONF_VAT_RATE, DEFAULT_VAT_RATE)
+            ): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0, max=30, step=0.1, unit_of_measurement="%")
             ),
             vol.Required(
-                CONF_DISCOUNT_RATE, default=DEFAULT_DISCOUNT_RATE
+                CONF_DISCOUNT_RATE, default=values.get(CONF_DISCOUNT_RATE, DEFAULT_DISCOUNT_RATE)
             ): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0, max=20, step=0.1, unit_of_measurement="%")
             ),
             vol.Required(
-                CONF_BILL_START_DAY, default=DEFAULT_BILL_START_DAY
+                CONF_BILL_START_DAY, default=values.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY)
             ): selector.NumberSelector(selector.NumberSelectorConfig(min=1, max=28, step=1)),
-            vol.Required(CONF_CURRENCY, default=DEFAULT_CURRENCY): selector.SelectSelector(
+            vol.Required(
+                CONF_CURRENCY, default=values.get(CONF_CURRENCY, DEFAULT_CURRENCY)
+            ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=[
                         selector.SelectOptionDict(value=code, label=f"{code} ({symbol})")
@@ -691,7 +712,9 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         """Allow updating tariff settings without removing the integration.
 
         Shows the same form as the tariff setup step, pre-populated with the
-        current entry values. On submit, updates entry data and reloads.
+        values in force. On submit, writes entry data and drops the saved options
+        for the same keys, because options override data. The entry update listener
+        reloads the integration.
         Inverter entity mappings (set during initial auto-discovery) require a
         full remove-and-re-add to change.
         """
@@ -718,17 +741,21 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 CONF_BILL_START_DAY: int(user_input[CONF_BILL_START_DAY]),
                 CONF_CURRENCY: user_input.get(CONF_CURRENCY, DEFAULT_CURRENCY),
             }
-            self.hass.config_entries.async_update_entry(entry, data={**entry.data, **updates})
-            await self.hass.config_entries.async_reload(entry.entry_id)
+            options = {k: v for k, v in entry.options.items() if k not in updates}
+            self.hass.config_entries.async_update_entry(
+                entry, data={**entry.data, **updates}, options=options
+            )
             return self.async_abort(reason="reconfigure_successful")
 
-        current_periods = (
-            entry.options.get(CONF_RATE_PERIODS) or entry.data.get(CONF_RATE_PERIODS) or []
+        current = _saved_values(entry)
+        schema = self.__class__._build_tariff_schema(
+            current.get(CONF_RATE_PERIODS) or [], current
         )
         schema = self.__class__._build_tariff_schema(current_periods)
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
         return self.async_show_form(step_id="reconfigure", data_schema=schema, errors=errors)
+        return self.async_show_form(step_id="reconfigure", data_schema=schema)
 
     @staticmethod
     @callback
