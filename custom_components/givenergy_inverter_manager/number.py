@@ -155,7 +155,7 @@ class _ImmersionNumberBase(CoordinatorEntity[GivEnergyCoordinator], RestoreNumbe
 
     async def async_set_native_value(self, value: float) -> None:
         await self._apply(value)
-        self._persist(value)
+        self._persist(self._value)
         self.async_write_ha_state()
         await self.coordinator.async_request_refresh()
 

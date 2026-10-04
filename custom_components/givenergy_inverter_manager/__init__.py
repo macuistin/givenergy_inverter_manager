@@ -9,12 +9,13 @@ Sets up the integration from a config entry:
 
 Also handles:
   async_unload_entry  — clean teardown when the integration is removed.
-  async_reload_entry  — called by the options listener on config change.
+  async_reload_entry  — called by the update listener when a reload-relevant setting changes.
   async_migrate_entry — version migration hook for future schema changes.
 """
 
 from __future__ import annotations
 
+import copy
 import os
 
 from homeassistant.config_entries import ConfigEntry
@@ -22,6 +23,11 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
+from .const import (
+    CONF_IMMERSION_HYSTERESIS,
+    CONF_IMMERSION_MIN_TEMP,
+    CONF_IMMERSION_TARGET_TEMP,
+)
 from .coordinator import GivEnergyCoordinator
 from .dashboard import async_register_services, async_unregister_services
 from .logging import get_logger, log_startup
@@ -29,6 +35,45 @@ from .logging import get_logger, log_startup
 _LOG = get_logger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH, Platform.NUMBER, Platform.BUTTON]
+
+_LIVE_SETTINGS: dict[str, str] = {
+    CONF_IMMERSION_TARGET_TEMP: "immersion_target_temp",
+    CONF_IMMERSION_MIN_TEMP: "immersion_min_temp",
+    CONF_IMMERSION_HYSTERESIS: "immersion_hysteresis_c",
+}
+
+
+def _reload_relevant(entry: ConfigEntry) -> tuple[dict, dict]:
+    """Return the entry contents that need a reload when they change."""
+    data = {k: v for k, v in entry.data.items() if k not in _LIVE_SETTINGS}
+    return copy.deepcopy(data), copy.deepcopy(dict(entry.options))
+
+
+def _apply_live_settings(coordinator: GivEnergyCoordinator, entry: ConfigEntry) -> None:
+    """Copy the immersion temperature settings onto the running coordinator."""
+    for conf_key, attr in _LIVE_SETTINGS.items():
+        if entry.data.get(conf_key) is not None:
+            setattr(coordinator, attr, float(entry.data[conf_key]))
+
+
+def _make_update_listener(entry: ConfigEntry):
+    """Build the update listener for *entry*.
+
+    A change that only touches the immersion temperature settings (moved with the
+    number entities) updates the running coordinator. Any other change reloads.
+    """
+    reload_state = _reload_relevant(entry)
+
+    async def _on_entry_updated(hass: HomeAssistant, updated: ConfigEntry) -> None:
+        nonlocal reload_state
+        current = _reload_relevant(updated)
+        if current == reload_state:
+            _apply_live_settings(updated.runtime_data, updated)
+            return
+        reload_state = current
+        await async_reload_entry(hass, updated)
+
+    return _on_entry_updated
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -56,7 +101,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+    entry.async_on_unload(entry.add_update_listener(_make_update_listener(entry)))
 
     # Register services (idempotent — safe to call on every entry setup)
     await async_register_services(hass)
