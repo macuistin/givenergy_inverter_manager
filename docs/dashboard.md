@@ -71,6 +71,7 @@ Everything else uses built-in Home Assistant cards.
 
 ### Power Flow
 
+- A **Now** strip at the top with six core cards: Battery state of charge, Night Survival Confidence, Current Rate, Next Cheap Rate Start, Hours to Cheap Rate and Import Cost Today. Night Survival Confidence and the two cheap rate sensors are disabled by default, so a new install shows three of the six until you enable them.
 - A power-flow-card-plus card with solar, battery, grid, home and two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery card reads Battery Power for the flow and Battery State of Charge for the percentage. The grid node shows the Live Grid Cost Rate.
 - An **Energy Today** row: Generated, Imported, Exported, Used (House Load Today) and Immersion.
 - An immersion block, only when an immersion water temperature sensor is configured. It has a 12-hour chart of water temperature with the target and minimum, a tile with the divert reason, and a 12-hour chart of Immersion Heater Today.
@@ -79,11 +80,15 @@ For the EV load, the dashboard uses the first of these entities that exists, els
 
 ### Today
 
-Energy totals, current rate and rate period, a cost breakdown (import, export, EV, immersion, immersion savings, rest of house), two 24-hour history graphs, a solar against forecast card, self-sufficiency and self-consumption gauges, and the bill prediction card.
+Energy totals, current rate and rate period, a cost breakdown (import, export, EV, immersion, immersion savings, rest of house), a bar graph of cost per day over 14 days, a bar graph of solar generation per hour over 2 days, a solar against forecast card, self-sufficiency and self-consumption gauges, and the bill prediction card.
+
+The two graphs are statistics graphs, not history graphs. The daily sensors fall to zero at midnight, so a history graph of them draws a sawtooth. The graphs plot the change in each period instead, from the long-term statistics. They stay empty until Home Assistant has compiled statistics for the sensors, which takes up to an hour.
 
 ### Battery
 
-A SoC gauge, a 24-hour history of SoC and power, **Tonight's Charge Plan** (target, reason, estimated cost, SoC at sunrise, night survival, cheap rate floor), and battery health (cycles, remaining life, days since full charge, inverter temperature and status).
+A SoC gauge, a 24-hour history of SoC and power, **Tonight's Charge Plan** (target, estimated cost, SoC at sunrise, cheap rate floor), a **Tonight in words** card with the overnight charge reason and the night survival status, and battery health (cycles, remaining life, days since full charge, inverter temperature and status).
+
+The charge reason and the night survival status are sentences. An entities row cuts them off, so they sit in a Markdown card.
 
 ### Controls
 

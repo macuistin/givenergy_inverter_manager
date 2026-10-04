@@ -319,8 +319,12 @@ class TestPowerFlowTabChanges:
             "Clipping must be secondary_info_entity on solar — not a separate large card."
         )
 
-    def test_no_three_column_grid(self):
-        assert "columns: 3" not in _build(), "3-column grid must be replaced with compact markdown."
+    def test_only_the_now_strip_is_a_three_column_grid(self):
+        """The old 3-column status grid was replaced by compact markdown. The Now strip is new."""
+        parsed = yaml.safe_load(_build())
+        pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
+        grids = [c for c in pf_view["cards"] if c.get("type") == "grid" and c.get("columns") == 3]
+        assert [g["title"] for g in grids] == ["Now"]
 
     def test_live_cost_rate_shown_as_grid_secondary_info(self):
         """Live €/hr cost rate is secondary_info on the grid entity."""
@@ -439,16 +443,15 @@ class TestSolarForecastCards:
         ):
             assert eid(key) in result
 
-    def test_solar_history_graph_in_today_view(self):
-        result = _build()
-        parsed = yaml.safe_load(result)
+    def test_solar_graph_in_today_view_uses_statistics(self):
+        parsed = yaml.safe_load(_build())
         today_view = next(v for v in parsed["views"] if v.get("path") == "today")
-        history_titles = [
-            c.get("title", "")
-            for c in today_view.get("cards", [])
-            if c.get("type") == "history-graph"
+        graphs = [
+            c for c in today_view["cards"] if c.get("type") == "statistics-graph"
         ]
-        assert any("solar" in t.lower() for t in history_titles)
+        assert any("solar" in c["title"].lower() for c in graphs)
+
+
 class TestSoCHistoryChart:
     """Battery SoC 24h history graph is present on the Battery tab."""
 
@@ -700,3 +703,106 @@ class TestFeatureGating:
         )
         assert "Immersion Heater" in _titles(text)
         assert "sensor.t" in text
+
+
+def _cards(text: str, path: str) -> list[dict]:
+    parsed = yaml.safe_load(text)
+    return next(v for v in parsed["views"] if v["path"] == path)["cards"]
+
+
+class TestNowStrip:
+    """The first card of the first view is a short strip of core cards."""
+
+    def test_now_strip_is_the_first_card_of_the_first_view(self):
+        first = _cards(_build(), "power-flow")[0]
+        assert first["type"] == "grid"
+        assert first["title"] == "Now"
+
+    def test_now_strip_has_the_six_core_entities(self):
+        strip = _cards(_build(), "power-flow")[0]
+        assert [c["entity"] for c in strip["cards"]] == [
+            eid("battery_soc"),
+            eid("night_survival_confidence"),
+            eid("current_rate"),
+            eid("next_cheap_rate_start"),
+            eid("hours_to_cheap_rate"),
+            eid("import_cost_today"),
+        ]
+
+    def test_now_strip_uses_only_built_in_cards(self):
+        strip = _cards(_build(), "power-flow")[0]
+        assert {c["type"] for c in strip["cards"]} <= {"gauge", "tile"}
+
+    def test_now_strip_drops_sensors_that_are_disabled_by_default(self):
+        """Night survival confidence and the cheap rate sensors are off on a fresh install."""
+        text = _build(registry=FakeRegistry())
+        strip = _cards(text, "power-flow")[0]
+        assert [c["entity"] for c in strip["cards"]] == [
+            eid("battery_soc"),
+            eid("current_rate"),
+            eid("import_cost_today"),
+        ]
+        header = text[: text.index("views:")]
+        for name in ("Night Survival Confidence", "Next Cheap Rate Start", "Hours to Cheap Rate"):
+            assert name in header
+
+
+class TestLongTextStates:
+    """Sentences go in a markdown card, not in an entities row where they are cut off."""
+
+    def _battery(self):
+        return _cards(_build(), "battery")
+
+    def test_long_text_entities_are_not_entities_rows(self):
+        for card in self._battery():
+            if card.get("type") != "entities":
+                continue
+            rows = {r.get("entity") for r in card["entities"]}
+            assert eid("overnight_charge_reason") not in rows
+            assert eid("night_survival_reason") not in rows
+
+    def test_markdown_card_renders_both_states(self):
+        markdown = [c for c in self._battery() if c["type"] == "markdown"]
+        assert len(markdown) == 1
+        content = markdown[0]["content"]
+        assert f"{{{{ states('{eid('overnight_charge_reason')}') }}}}" in content
+        assert f"{{{{ states('{eid('night_survival_reason')}') }}}}" in content
+
+    def test_markdown_card_is_valid_jinja(self):
+        from jinja2 import Environment
+
+        content = [c for c in self._battery() if c["type"] == "markdown"][0]["content"]
+        assert Environment().from_string(content).render(states=lambda entity: "x")
+
+    def test_markdown_card_follows_the_plan_card(self):
+        types = [c["type"] for c in self._battery()]
+        titles = [c.get("title") for c in self._battery()]
+        assert types.index("markdown") == titles.index("Tonight's Charge Plan") + 1
+
+
+class TestStatisticsGraphs:
+    """Sensors that reset at midnight draw a sawtooth in a history graph."""
+
+    def test_no_history_graph_plots_a_midnight_reset_sensor(self):
+        from tests.dashboard_support import midnight_reset_ids
+
+        resets = midnight_reset_ids()
+        parsed = yaml.safe_load(_build())
+        for view in parsed["views"]:
+            for card in view["cards"]:
+                if card.get("type") != "history-graph":
+                    continue
+                plotted = {r["entity"] for r in card["entities"]}
+                assert plotted.isdisjoint(resets), card["title"]
+
+    def test_cost_and_solar_use_statistics_graphs(self):
+        graphs = [c for c in _cards(_build(), "today") if c["type"] == "statistics-graph"]
+        assert [g["period"] for g in graphs] == ["day", "hour"]
+        for g in graphs:
+            assert g["stat_types"] == ["change"]
+            assert g["chart_type"] == "bar"
+
+    def test_battery_soc_history_graph_is_kept(self):
+        """SoC and power do not reset, so a line graph is right for them."""
+        graphs = [c for c in _cards(_build(), "battery") if c["type"] == "history-graph"]
+        assert len(graphs) == 1

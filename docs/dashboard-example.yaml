@@ -15,6 +15,41 @@ views:
   icon: mdi:solar-power-variant
   path: power-flow
   cards:
+  - type: grid
+    title: Now
+    columns: 3
+    square: false
+    cards:
+    - type: gauge
+      entity: sensor.givenergy_inverter_manager_battery_state_of_charge
+      name: Battery
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 50
+        yellow: 20
+        red: 0
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_night_survival_confidence
+      name: Night survival
+      vertical: true
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_current_rate
+      name: Rate now
+      vertical: true
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_next_cheap_rate_start
+      name: Cheap rate starts
+      vertical: true
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_hours_to_cheap_rate
+      name: Hours to cheap rate
+      vertical: true
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_import_cost_today
+      name: Cost today
+      vertical: true
   - type: custom:power-flow-card-plus
     entities:
       solar:
@@ -203,9 +238,8 @@ views:
     - entity: sensor.givenergy_inverter_manager_house_cost_today
       name: Rest-of-House Cost
     title: Cost Breakdown
-  - type: history-graph
-    title: Cost build — today
-    hours_to_show: 24
+  - type: statistics-graph
+    title: Cost per day
     entities:
     - entity: sensor.givenergy_inverter_manager_import_cost_today
       name: Grid Import
@@ -217,12 +251,21 @@ views:
       name: Immersion
     - entity: sensor.givenergy_inverter_manager_export_earnings_today
       name: Export Earnings
-  - type: history-graph
-    title: Solar generation — today
-    hours_to_show: 24
+    chart_type: bar
+    period: day
+    days_to_show: 14
+    stat_types:
+    - change
+  - type: statistics-graph
+    title: Solar generation per hour
     entities:
     - entity: sensor.givenergy_inverter_manager_solar_generation_today
       name: Actual
+    chart_type: bar
+    period: hour
+    days_to_show: 2
+    stat_types:
+    - change
   - type: entities
     title: Solar vs Forecast
     entities:
@@ -297,20 +340,24 @@ views:
       name: Charge / Discharge Power
     - entity: sensor.givenergy_inverter_manager_recommended_overnight_charge_target
       name: Recommended Target Tonight
-    - entity: sensor.givenergy_inverter_manager_overnight_charge_reason
-      name: Reason
-      icon: mdi:information-outline
     - entity: sensor.givenergy_inverter_manager_estimated_overnight_charge_cost
       name: Estimated Charge Cost
     - entity: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise
       name: Estimated SoC at Sunrise
-    - entity: sensor.givenergy_inverter_manager_battery_night_survival_status
-      name: Night Survival Status
-      icon: mdi:moon-waning-crescent
     - entity: sensor.givenergy_inverter_manager_cheap_rate_floor
       name: Cheap Rate Floor
       icon: mdi:floor-plan
     title: Tonight's Charge Plan
+  - type: markdown
+    title: Tonight in words
+    content: |-
+      **Why this charge target**
+
+      {{ states('sensor.givenergy_inverter_manager_overnight_charge_reason') }}
+
+      **Night survival**
+
+      {{ states('sensor.givenergy_inverter_manager_battery_night_survival_status') }}
   - type: entities
     entities:
     - entity: sensor.givenergy_inverter_manager_battery_total_cycles

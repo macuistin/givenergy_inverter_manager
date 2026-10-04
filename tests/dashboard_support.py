@@ -72,6 +72,12 @@ def default_entity_ids() -> dict[str, str]:
     return ids
 
 
+def midnight_reset_ids() -> set[str]:
+    """Entity IDs of the sensors that fall back to zero at midnight."""
+    ids = default_entity_ids()
+    return {ids[s["key"]] for s in _sensors() if s["last_reset"] == "day"}
+
+
 def disabled_by_default() -> set[str]:
     return {s["key"] for s in _sensors() if not s["enabled"]}
 

@@ -142,6 +142,28 @@ def _row(entity: str | None, name: str, **extra) -> dict | None:
     return {"entity": entity, "name": name, **extra}
 
 
+def _tile(entity: str | None, name: str, **extra) -> dict | None:
+    if not entity:
+        return None
+    return {"type": "tile", "entity": entity, "name": name, "vertical": True, **extra}
+
+
+def _statistics_graph(rows: list, title: str, period: str, days: int) -> dict | None:
+    """Bars of the change in each period, for sensors that reset every day.
+
+    A history graph of such a sensor draws a sawtooth that falls to zero at midnight.
+    The daily sensors keep long-term statistics, so the change per period is exact.
+    """
+    return _entity_list_card(
+        rows,
+        {"type": "statistics-graph", "title": title},
+        chart_type="bar",
+        period=period,
+        days_to_show=days,
+        stat_types=["change"],
+    )
+
+
 def _entity_list_card(rows: list, head: dict, **tail) -> dict | None:
     """A card built from rows. None when no row points at an entity."""
     rows = _present(rows)
@@ -400,6 +422,34 @@ class _Builder:
             out["individual"] = individual
         return out
 
+    def now_strip(self) -> dict | None:
+        """The few numbers worth a glance: charge, tonight's outlook, next cheap rate, cost."""
+        e = self.e
+        soc = e("battery_soc")
+        cards = _present(
+            [
+                {
+                    "type": "gauge",
+                    "entity": soc,
+                    "name": "Battery",
+                    "min": 0,
+                    "max": 100,
+                    "needle": True,
+                    "severity": {"green": 50, "yellow": 20, "red": 0},
+                }
+                if soc
+                else None,
+                _tile(e("night_survival_confidence"), "Night survival"),
+                _tile(e("current_rate"), "Rate now"),
+                _tile(e("next_cheap_rate_start"), "Cheap rate starts"),
+                _tile(e("hours_to_cheap_rate"), "Hours to cheap rate"),
+                _tile(e("import_cost_today"), "Cost today"),
+            ]
+        )
+        if not cards:
+            return None
+        return {"type": "grid", "title": "Now", "columns": 3, "square": False, "cards": cards}
+
     def power_flow_cards(self) -> list:
         flow = self._flow_entities()
         immersion_today = self.when(self.has_immersion, "immersion_today")
@@ -431,6 +481,7 @@ class _Builder:
         )
         return _present(
             [
+                self.now_strip(),
                 flow_card if flow else None,
                 _entity_list_card(
                     [
@@ -496,7 +547,7 @@ class _Builder:
                     {"type": "entities"},
                     title="Cost Breakdown",
                 ),
-                _entity_list_card(
+                _statistics_graph(
                     [
                         _row(import_cost_today, "Grid Import"),
                         _row(house_cost_today, "Rest of House"),
@@ -504,15 +555,15 @@ class _Builder:
                         _row(immersion_cost_today, "Immersion"),
                         _row(export_earnings, "Export Earnings"),
                     ],
-                    {"type": "history-graph", "title": "Cost build — today", "hours_to_show": 24},
+                    "Cost per day",
+                    "day",
+                    14,
                 ),
-                _entity_list_card(
+                _statistics_graph(
                     [_row(solar_today, "Actual")],
-                    {
-                        "type": "history-graph",
-                        "title": "Solar generation — today",
-                        "hours_to_show": 24,
-                    },
+                    "Solar generation per hour",
+                    "hour",
+                    2,
                 ),
                 self._forecast_card(solar_today),
                 _grid_of_gauges(
@@ -581,16 +632,8 @@ class _Builder:
                     [
                         _row(battery_power, "Charge / Discharge Power"),
                         _row(e("overnight_charge_target"), "Recommended Target Tonight"),
-                        _row(
-                            e("overnight_charge_reason"), "Reason", icon="mdi:information-outline"
-                        ),
                         _row(e("overnight_charge_cost"), "Estimated Charge Cost"),
                         _row(e("estimated_soc_at_sunrise"), "Estimated SoC at Sunrise"),
-                        _row(
-                            e("night_survival_reason"),
-                            "Night Survival Status",
-                            icon="mdi:moon-waning-crescent",
-                        ),
                         _row(
                             e("cheap_rate_floor_status"), "Cheap Rate Floor", icon="mdi:floor-plan"
                         ),
@@ -598,6 +641,7 @@ class _Builder:
                     {"type": "entities"},
                     title="Tonight's Charge Plan",
                 ),
+                self._tonight_notes(),
                 _entity_list_card(
                     [
                         _row(e("battery_cycles"), "Total Cycles"),
@@ -615,6 +659,23 @@ class _Builder:
                 ),
             ]
         )
+
+    def _tonight_notes(self) -> dict | None:
+        """The charge reason and night survival status are sentences, so they get a card."""
+        sections = [
+            (name, entity)
+            for name, entity in (
+                ("Why this charge target", self.e("overnight_charge_reason")),
+                ("Night survival", self.e("night_survival_reason")),
+            )
+            if entity
+        ]
+        if not sections:
+            return None
+        content = "\n\n".join(
+            f"**{name}**\n\n{{{{ states('{entity}') }}}}" for name, entity in sections
+        )
+        return {"type": "markdown", "title": "Tonight in words", "content": content}
 
     def _dry_run_cards(self) -> list:
         dry_run_active = self.e("dry_run_active")
