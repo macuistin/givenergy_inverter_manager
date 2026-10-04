@@ -21,26 +21,51 @@ All other views use only built-in HA Lovelace cards.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 import yaml
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from .const import CONF_IMMERSION_TEMP_SENSOR, DOMAIN
+from .const import (
+    CONF_FORECAST_ENTITY,
+    CONF_IMMERSION_SWITCH,
+    CONF_IMMERSION_TEMP_SENSOR,
+    CONF_INVERTER_TEMP_ENTITY,
+    DOMAIN,
+)
 
 SERVICE_GET_DASHBOARD_YAML = "get_dashboard_yaml"
 
 
-def _entity_id(hass: HomeAssistant, entry_id: str, unique_id_suffix: str) -> str:
-    """Look up the current entity_id for one of our entities by its unique_id suffix."""
-    reg = er.async_get(hass)
-    uid = f"{entry_id}_{unique_id_suffix}"
-    entry = (
-        reg.async_get_entity_id("sensor", DOMAIN, uid)
-        or reg.async_get_entity_id("switch", DOMAIN, uid)
-        or reg.async_get_entity_id("number", DOMAIN, uid)
-    )
-    # Fall back to a predictable name if not registered yet
-    return entry or f"sensor.givenergy_inverter_manager_{unique_id_suffix}"
+class _Registry:
+    """Looks up our entities and skips those that are missing or disabled.
+
+    A card that points at a disabled entity shows "Entity not available", so the
+    generator leaves such rows out and remembers what it dropped.
+    """
+
+    def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
+        self._reg = er.async_get(hass)
+        self._entry_id = entry_id
+        self.disabled: dict[str, str] = {}
+
+    def get(self, unique_id_suffix: str) -> str | None:
+        """Return the entity_id for one of our entities, or None if unusable."""
+        uid = f"{self._entry_id}_{unique_id_suffix}"
+        entity_id = None
+        for domain in ("sensor", "switch", "number"):
+            entity_id = self._reg.async_get_entity_id(domain, DOMAIN, uid)
+            if entity_id:
+                break
+        if not entity_id:
+            return None
+        registered = self._reg.async_get(entity_id)
+        if registered is not None and registered.disabled_by is not None:
+            label = registered.name or registered.original_name or entity_id
+            self.disabled.setdefault(entity_id, label)
+            return None
+        return entity_id
 
 
 _EV_CHARGER_CANDIDATES = [
@@ -52,16 +77,21 @@ _EV_CHARGER_CANDIDATES = [
 ]
 
 
+def _external_ev_power(hass: HomeAssistant) -> str | None:
+    """Return the first known external EV charger power entity that exists."""
+    for candidate in _EV_CHARGER_CANDIDATES:
+        if hass.states.get(candidate) is not None:
+            return candidate
+    return None
+
+
 def _find_ev_charger_power(hass: HomeAssistant, integration_ev_power: str) -> str:
     """Return the best available EV charger power entity.
 
     Checks known external EV charger integrations first since these report power
     directly. Falls back to the integration's own sensor if none are found.
     """
-    for candidate in _EV_CHARGER_CANDIDATES:
-        if hass.states.get(candidate) is not None:
-            return candidate
-    return integration_ev_power
+    return _external_ev_power(hass) or integration_ev_power
 
 
 class _DashboardDumper(yaml.SafeDumper):
@@ -101,12 +131,31 @@ def _apex_config() -> dict:
     }
 
 
+def _present(items: list) -> list:
+    return [item for item in items if item is not None]
+
+
+def _row(entity: str | None, name: str, **extra) -> dict | None:
+    """An entities-card or glance row, or None when the entity is unusable."""
+    if not entity:
+        return None
+    return {"entity": entity, "name": name, **extra}
+
+
+def _entity_list_card(rows: list, head: dict, **tail) -> dict | None:
+    """A card built from rows. None when no row points at an entity."""
+    rows = _present(rows)
+    if not any("entity" in r for r in rows):
+        return None
+    return {**head, "entities": rows, **tail}
+
+
 def _build_immersion_section(
     immersion_temp_sensor: str,
-    immersion_reason: str,
-    num_target: str,
-    num_min: str,
-    immersion_today: str,
+    immersion_reason: str | None,
+    num_target: str | None,
+    num_min: str | None,
+    immersion_today: str | None,
 ) -> dict | None:
     """Build the immersion block for the power flow view.
 
@@ -118,23 +167,28 @@ def _build_immersion_section(
     if not immersion_temp_sensor:
         return None
 
-    def series(entity: str, name: str, color: str, width: int) -> dict:
+    def series(entity: str | None, name: str, color: str, width: int) -> dict | None:
+        if not entity:
+            return None
         return {"entity": entity, "name": name, "color": color, "stroke_width": width}
 
-    return {
-        "type": "vertical-stack",
-        "cards": [
-            {
-                "type": "custom:apexcharts-card",
-                "header": {"show": True, "title": "Immersion Temperature (12h)"},
-                "graph_span": "12h",
-                "apex_config": _apex_config(),
-                "series": [
+    cards: list = [
+        {
+            "type": "custom:apexcharts-card",
+            "header": {"show": True, "title": "Immersion Temperature (12h)"},
+            "graph_span": "12h",
+            "apex_config": _apex_config(),
+            "series": _present(
+                [
                     series(immersion_temp_sensor, "Water", "#03a9f4", 2),
                     series(num_target, "Target", "#f44336", 1),
                     series(num_min, "Minimum", "#ff9800", 1),
-                ],
-            },
+                ]
+            ),
+        }
+    ]
+    if immersion_reason:
+        cards.append(
             {
                 "type": "tile",
                 "entity": immersion_reason,
@@ -143,7 +197,10 @@ def _build_immersion_section(
                 "hide_state": False,
                 "vertical": False,
                 "features_position": "bottom",
-            },
+            }
+        )
+    if immersion_today:
+        cards.append(
             {
                 "type": "custom:apexcharts-card",
                 "header": {"show": True, "title": "Power"},
@@ -151,19 +208,25 @@ def _build_immersion_section(
                 "yaxis": [{"min": 0}],
                 "apex_config": _apex_config(),
                 "series": [series(immersion_today, "Immersion Power Today", "#03a9f4", 2)],
-            },
-        ],
-    }
+            }
+        )
+    return {"type": "vertical-stack", "cards": cards}
 
 
-_DASHBOARD_HEADER = f"""\
+_HEADER_TITLE = f"""\
 # GivEnergy Inverter Manager — Generated Dashboard
 # Generated by: Developer Tools → Actions → {DOMAIN}.{SERVICE_GET_DASHBOARD_YAML}
 #
+"""
+_HEADER_POWER_FLOW = """\
 # View 1 (Power Flow) requires power-flow-card-plus from HACS:
 #   https://github.com/flixlix/power-flow-card-plus
+"""
+_HEADER_APEX = """\
 # Immersion section requires apexcharts-card from HACS:
 #   https://github.com/RomRider/apexcharts-card
+"""
+_HEADER_USE = """\
 # All other views use only built-in HA cards.
 #
 # To use: Settings → Dashboards → new blank dashboard
@@ -172,152 +235,177 @@ _DASHBOARD_HEADER = f"""\
 """
 
 
+@dataclass
+class _Built:
+    config: dict
+    skipped: list[str] = field(default_factory=list)
+
+
+def render_dashboard(hass: HomeAssistant, entry_id: str) -> tuple[str, list[str]]:
+    """Return the dashboard YAML text and the names of disabled sensors it left out."""
+    built = _generate(hass, entry_id)
+    body = _dump_yaml(built.config)
+    return _header(built.skipped, body) + body, built.skipped
+
+
 def build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
     """Return the dashboard as YAML text, with a short header comment."""
-    return _DASHBOARD_HEADER + _dump_yaml(build_dashboard(hass, entry_id))
+    return render_dashboard(hass, entry_id)[0]
+
+
+def _header(skipped: list[str], body: str) -> str:
+    parts = [_HEADER_TITLE]
+    if "custom:power-flow-card-plus" in body:
+        parts.append(_HEADER_POWER_FLOW)
+    if "custom:apexcharts-card" in body:
+        parts.append(_HEADER_APEX)
+    parts.append(_HEADER_USE)
+    if skipped:
+        parts[-1] = parts[-1].rstrip("\n") + "\n"
+        parts.append("# Left out because these sensors are disabled. Enable them in\n")
+        parts.append("# Settings → Devices & services → Entities, then generate this file again:\n")
+        parts.extend(f"#   {name}\n" for name in skipped)
+        parts.append("\n")
+    return "".join(parts)
 
 
 def build_dashboard(hass: HomeAssistant, entry_id: str) -> dict:
+    return _generate(hass, entry_id).config
+
+
+def _generate(hass: HomeAssistant, entry_id: str) -> _Built:
+    """Build the Lovelace configuration as a dict.
+
+    Uses actual entity IDs from the entity registry so names customised in the HA
+    UI are respected. A row or card appears only when its entity is registered and
+    enabled, and the feature behind it (EV charger, immersion heater, inverter
+    temperature, solar forecast) is configured.
     """
-    Build the Lovelace configuration for all four views as a dict.
-
-    Uses actual entity IDs from the entity registry so names customised
-    in the HA UI are automatically respected.
-    """
-
-    def e(suffix: str) -> str:
-        return _entity_id(hass, entry_id, suffix)
-
-    # ── sensor entity IDs ────────────────────────────────────────────────────
-    solar_power = e("solar_power")
-    battery_soc = e("battery_soc")
-    grid_power = e("grid_power")
-    house_load = e("house_load")
-    battery_power = e("battery_power")
-    immersion_power = e("immersion_power")
-    current_rate = e("current_rate")
-    solar_today = e("solar_today")
-    import_today = e("import_today")
-    export_today = e("export_today")
-    zappi_today = e("zappi_today")
-    immersion_today = e("immersion_today")
-    import_cost_today = e("import_cost_today")
-    export_earnings = e("export_earnings_today")
-    zappi_cost_today = e("zappi_cost_today")
-    immersion_cost_today = e("immersion_cost_today")
-    house_cost_today = e("house_cost_today")
-    house_kwh_today = e("house_kwh_today")
-    self_sufficiency = e("self_sufficiency")
-    self_consumption = e("self_consumption")
-    accrued_bill = e("accrued_bill")
-    projected_bill = e("projected_bill")
-    days_remaining = e("days_remaining_in_period")
-    battery_cycles = e("battery_cycles")
-    battery_life = e("battery_remaining_life")
-    days_since_full = e("days_since_full_charge")
-    charge_target = e("overnight_charge_target")
-    charge_reason = e("overnight_charge_reason")
-    charge_cost = e("overnight_charge_cost")
-    immersion_reason = e("immersion_divert_reason")
-    soc_at_sunrise = e("estimated_soc_at_sunrise")
-    survival_reason = e("night_survival_reason")
-    is_clipping = e("is_clipping")
-    current_rate_period = e("current_rate_period")
-    live_grid_cost_rate = e("live_grid_cost_rate")
-    cheap_rate_floor = e("cheap_rate_floor_status")
-    immersion_savings = e("immersion_savings_today")
-    solar_forecast_today = e("solar_forecast_kwh_today")
-    solar_vs_forecast_pct = e("solar_actual_vs_forecast_pct")
-    forecast_accuracy_yesterday = e("yesterday_forecast_accuracy_pct")
-    ev_state = e("ev_charger_state")
-    ev_power = _find_ev_charger_power(hass, e("ev_power"))
-    ev_session = e("ev_session_energy")
-    ev_draining = e("ev_draining_battery")
-    ev_protection_reason = e("ev_protection_reason")
-    ev_charging_source = e("ev_charging_source")
-    ev_solar_surplus = e("ev_solar_surplus_available")
-    inverter_temp = e("inverter_temperature")
-    inverter_temp_status = e("inverter_temperature_status")
-    dry_run_active = e("dry_run_active")
-    dry_run_skipped = e("dry_run_last_skipped")
-    sw_enable_charge_target = e("charge_target_override_enabled")
-    sw_auto_immersion = e("auto_immersion")
-    sw_immersion_mgd = e("immersion_managed")
-    sw_skip_charge = e("skip_charge_override")
-    num_charge_target = e("charge_target_override")
-    num_immersion_target = e("immersion_target_temp")
-    num_immersion_min = e("immersion_min_temp")
-    num_immersion_gap = e("immersion_hysteresis")
-
-    entry_cfg = _entry_config(hass, entry_id)
-    immersion_section = _build_immersion_section(
-        entry_cfg.get(CONF_IMMERSION_TEMP_SENSOR, ""),
-        immersion_reason,
-        num_immersion_target,
-        num_immersion_min,
-        immersion_today,
-    )
-
-    def row(entity: str, name: str, **extra) -> dict:
-        return {"entity": entity, "name": name, **extra}
-
-    power_flow_cards = [
+    b = _Builder(hass, entry_id)
+    views = [
         {
-            "type": "custom:power-flow-card-plus",
-            "entities": {
-                "solar": {
-                    "entity": solar_power,
-                    "color_icon": False,
+            "title": "Power Flow",
+            "icon": "mdi:solar-power-variant",
+            "path": "power-flow",
+            "cards": b.power_flow_cards(),
+        },
+        {
+            "title": "Today",
+            "icon": "mdi:calendar-today",
+            "path": "today",
+            "cards": b.today_cards(),
+        },
+        {
+            "title": "Battery",
+            "icon": "mdi:battery-charging",
+            "path": "battery",
+            "cards": b.battery_cards(),
+        },
+        {
+            "title": "Controls",
+            "icon": "mdi:tune",
+            "path": "controls",
+            "cards": b.controls_cards(),
+        },
+    ]
+    return _Built({"views": [v for v in views if v["cards"]]}, sorted(b.reg.disabled.values()))
+
+
+class _Builder:
+    """Builds the cards of each view from the entities that exist."""
+
+    def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
+        self.reg = _Registry(hass, entry_id)
+        self.e = self.reg.get
+        cfg = _entry_config(hass, entry_id)
+        self.cfg = cfg
+        self.external_ev = _external_ev_power(hass)
+        self.has_ev = bool(_ev_charger_brand(hass, entry_id) or self.external_ev)
+        self.has_immersion = bool(
+            cfg.get(CONF_IMMERSION_SWITCH) or cfg.get(CONF_IMMERSION_TEMP_SENSOR)
+        )
+        self.has_inverter_temp = bool(cfg.get(CONF_INVERTER_TEMP_ENTITY))
+        self.has_forecast = bool(cfg.get(CONF_FORECAST_ENTITY))
+
+    def when(self, flag: bool, suffix: str) -> str | None:
+        return self.e(suffix) if flag else None
+
+    def ev_power(self) -> str | None:
+        if not self.has_ev:
+            return None
+        return self.external_ev or self.e("ev_power")
+
+    def _flow_entities(self) -> dict:
+        e = self.e
+        out: dict = {}
+        if solar_power := e("solar_power"):
+            solar: dict = {
+                "entity": solar_power,
+                "color_icon": False,
+                "color_value": False,
+                "invert_state": False,
+            }
+            if is_clipping := e("is_clipping"):
+                solar["secondary_info_entity"] = is_clipping
+                solar["secondary_info"] = {
+                    "template": (
+                        f'{{{{- "·⚡Clip" if states("{is_clipping}") == "clipping" else "" }}}}'
+                    )
+                }
+            out["solar"] = solar
+        if battery_power := e("battery_power"):
+            battery: dict = {"entity": battery_power}
+            if battery_soc := e("battery_soc"):
+                battery["state_of_charge"] = battery_soc
+                battery["show_state_of_charge"] = True
+            out["battery"] = battery
+        if grid_power := e("grid_power"):
+            grid: dict = {
+                "entity": grid_power,
+                "use_metadata": False,
+                "invert_state": False,
+                "display_state": "one_way",
+            }
+            if live_grid_cost_rate := e("live_grid_cost_rate"):
+                grid["secondary_info"] = {
+                    "entity": live_grid_cost_rate,
+                    "icon": "mdi:cash-clock",
+                    "decimals": 4,
+                    "display_zero": True,
                     "color_value": False,
-                    "invert_state": False,
-                    "secondary_info_entity": is_clipping,
-                    "secondary_info": {
-                        "template": (
-                            f'{{{{- "·⚡Clip" if states("{is_clipping}") == "clipping" else "" }}}}'
-                        )
-                    },
-                },
-                "battery": {
-                    "entity": battery_power,
-                    "state_of_charge": battery_soc,
-                    "show_state_of_charge": True,
-                },
-                "grid": {
-                    "entity": grid_power,
-                    "use_metadata": False,
-                    "invert_state": False,
-                    "display_state": "one_way",
-                    "secondary_info": {
-                        "entity": live_grid_cost_rate,
-                        "icon": "mdi:cash-clock",
-                        "decimals": 4,
-                        "display_zero": True,
-                        "color_value": False,
-                        "unit_of_measurement": " ",
-                    },
-                },
-                "home": {
-                    "entity": house_load,
-                    "subtract_individual": False,
-                    "hide": False,
-                },
-                "individual": [
-                    {
-                        "entity": ev_power,
-                        "name": "Car Charger",
-                        "icon": "mdi:car-electric",
-                        "display_zero": False,
-                        "color": "#4CAF50",
-                    },
-                    {
-                        "entity": immersion_power,
-                        "name": "Immersion",
-                        "icon": "mdi:water-boiler",
-                        "display_zero": False,
-                        "color": "#FF9800",
-                    },
-                ],
-            },
+                    "unit_of_measurement": " ",
+                }
+            out["grid"] = grid
+        if house_load := e("house_load"):
+            out["home"] = {"entity": house_load, "subtract_individual": False, "hide": False}
+        individual = _present(
+            [
+                _row(
+                    self.ev_power(),
+                    "Car Charger",
+                    icon="mdi:car-electric",
+                    display_zero=False,
+                    color="#4CAF50",
+                ),
+                _row(
+                    self.when(self.has_immersion, "immersion_power"),
+                    "Immersion",
+                    icon="mdi:water-boiler",
+                    display_zero=False,
+                    color="#FF9800",
+                ),
+            ]
+        )
+        if individual:
+            out["individual"] = individual
+        return out
+
+    def power_flow_cards(self) -> list:
+        flow = self._flow_entities()
+        immersion_today = self.when(self.has_immersion, "immersion_today")
+        flow_card = {
+            "type": "custom:power-flow-card-plus",
+            "entities": flow,
             "title": "Live Power Flow",
             "min_flow_rate": 0.75,
             "max_flow_rate": 6,
@@ -333,123 +421,147 @@ def build_dashboard(hass: HomeAssistant, entry_id: str) -> dict:
             "disable_dots": False,
             "clickable_entities": True,
             "no_labels": False,
-        },
-        {
-            "show_name": True,
-            "show_icon": True,
-            "show_state": True,
-            "type": "glance",
-            "title": "Energy Today",
-            "columns": 5,
-            "entities": [
-                row(solar_today, "Generated"),
-                row(import_today, "Imported"),
-                row(export_today, "Exported"),
-                row(house_kwh_today, "Used"),
-                row(immersion_today, "Immersion"),
-            ],
-        },
-    ]
-    if immersion_section is not None:
-        power_flow_cards.append(immersion_section)
+        }
+        immersion_section = _build_immersion_section(
+            self.cfg.get(CONF_IMMERSION_TEMP_SENSOR, ""),
+            self.when(self.has_immersion, "immersion_divert_reason"),
+            self.when(self.has_immersion, "immersion_target_temp"),
+            self.when(self.has_immersion, "immersion_min_temp"),
+            immersion_today,
+        )
+        return _present(
+            [
+                flow_card if flow else None,
+                _entity_list_card(
+                    [
+                        _row(self.e("solar_today"), "Generated"),
+                        _row(self.e("import_today"), "Imported"),
+                        _row(self.e("export_today"), "Exported"),
+                        _row(self.e("house_kwh_today"), "Used"),
+                        _row(immersion_today, "Immersion"),
+                    ],
+                    {
+                        "show_name": True,
+                        "show_icon": True,
+                        "show_state": True,
+                        "type": "glance",
+                        "title": "Energy Today",
+                        "columns": 5,
+                    },
+                ),
+                immersion_section,
+            ]
+        )
 
-    today_cards = [
-        {
-            "show_name": True,
-            "show_icon": True,
-            "show_state": True,
-            "type": "glance",
-            "title": "Energy Today",
-            "entities": [
-                row(solar_today, "Generated"),
-                row(import_today, "Import"),
-                row(export_today, "Export"),
-                row(zappi_today, "EV"),
-                row(immersion_today, "Immersion"),
-            ],
-        },
-        {
-            "type": "entities",
-            "entities": [
-                row(current_rate, "Current Rate"),
-                row(current_rate_period, "Rate Period"),
-                {"type": "divider"},
-                row(import_cost_today, "Import Cost"),
-                row(export_earnings, "Export Earnings"),
-                row(zappi_cost_today, "EV Charging Cost"),
-                row(immersion_cost_today, "Immersion Cost"),
-                row(immersion_savings, "Immersion Savings"),
-                row(house_cost_today, "Rest-of-House Cost"),
-            ],
-            "title": "Cost Breakdown",
-        },
-        {
-            "type": "history-graph",
-            "title": "Cost build — today",
-            "hours_to_show": 24,
-            "entities": [
-                row(import_cost_today, "Grid Import"),
-                row(house_cost_today, "Rest of House"),
-                row(zappi_cost_today, "EV Charging"),
-                row(immersion_cost_today, "Immersion"),
-                row(export_earnings, "Export Earnings"),
-            ],
-        },
-        {
-            "type": "history-graph",
-            "title": "Solar generation — today",
-            "hours_to_show": 24,
-            "entities": [row(solar_today, "Actual")],
-        },
-        {
-            "type": "entities",
-            "title": "Solar vs Forecast",
-            "entities": [
-                row(solar_today, "Generated today"),
-                row(solar_forecast_today, "Today's forecast"),
-                row(solar_vs_forecast_pct, "Tracking", icon="mdi:chart-line"),
-                row(forecast_accuracy_yesterday, "Yesterday's accuracy"),
-            ],
-        },
-        {
-            "square": False,
-            "type": "grid",
-            "columns": 2,
-            "cards": [
-                {
-                    "type": "gauge",
-                    "entity": self_sufficiency,
-                    "name": "Self-Sufficiency",
-                    "min": 0,
-                    "max": 100,
-                    "severity": {"green": 60, "yellow": 30, "red": 0},
-                },
-                {
-                    "type": "gauge",
-                    "entity": self_consumption,
-                    "name": "Self-Consumption",
-                    "min": 0,
-                    "max": 100,
-                    "severity": {"green": 70, "yellow": 40, "red": 0},
-                },
-            ],
-            "title": "Self Sufficiency",
-        },
-        {
-            "type": "entities",
-            "entities": [
-                row(accrued_bill, "Accrued This Period"),
-                row(projected_bill, "Projected Total"),
-                row(days_remaining, "Days Remaining"),
-            ],
-            "title": "Bill Prediction",
-            "show_header_toggle": False,
-            "state_color": False,
-        },
-    ]
+    def today_cards(self) -> list:
+        e, when = self.e, self.when
+        solar_today = e("solar_today")
+        import_cost_today = e("import_cost_today")
+        export_earnings = e("export_earnings_today")
+        house_cost_today = e("house_cost_today")
+        zappi_cost_today = when(self.has_ev, "zappi_cost_today")
+        immersion_cost_today = when(self.has_immersion, "immersion_cost_today")
+        return _present(
+            [
+                _entity_list_card(
+                    [
+                        _row(solar_today, "Generated"),
+                        _row(e("import_today"), "Import"),
+                        _row(e("export_today"), "Export"),
+                        _row(when(self.has_ev, "zappi_today"), "EV"),
+                        _row(when(self.has_immersion, "immersion_today"), "Immersion"),
+                    ],
+                    {
+                        "show_name": True,
+                        "show_icon": True,
+                        "show_state": True,
+                        "type": "glance",
+                        "title": "Energy Today",
+                    },
+                ),
+                _entity_list_card(
+                    [
+                        _row(e("current_rate"), "Current Rate"),
+                        _row(e("current_rate_period"), "Rate Period"),
+                        {"type": "divider"},
+                        _row(import_cost_today, "Import Cost"),
+                        _row(export_earnings, "Export Earnings"),
+                        _row(zappi_cost_today, "EV Charging Cost"),
+                        _row(immersion_cost_today, "Immersion Cost"),
+                        _row(
+                            when(self.has_immersion, "immersion_savings_today"), "Immersion Savings"
+                        ),
+                        _row(house_cost_today, "Rest-of-House Cost"),
+                    ],
+                    {"type": "entities"},
+                    title="Cost Breakdown",
+                ),
+                _entity_list_card(
+                    [
+                        _row(import_cost_today, "Grid Import"),
+                        _row(house_cost_today, "Rest of House"),
+                        _row(zappi_cost_today, "EV Charging"),
+                        _row(immersion_cost_today, "Immersion"),
+                        _row(export_earnings, "Export Earnings"),
+                    ],
+                    {"type": "history-graph", "title": "Cost build — today", "hours_to_show": 24},
+                ),
+                _entity_list_card(
+                    [_row(solar_today, "Actual")],
+                    {
+                        "type": "history-graph",
+                        "title": "Solar generation — today",
+                        "hours_to_show": 24,
+                    },
+                ),
+                self._forecast_card(solar_today),
+                _grid_of_gauges(
+                    [
+                        (
+                            e("self_sufficiency"),
+                            "Self-Sufficiency",
+                            {"green": 60, "yellow": 30, "red": 0},
+                        ),
+                        (
+                            e("self_consumption"),
+                            "Self-Consumption",
+                            {"green": 70, "yellow": 40, "red": 0},
+                        ),
+                    ]
+                ),
+                _entity_list_card(
+                    [
+                        _row(e("accrued_bill"), "Accrued This Period"),
+                        _row(e("projected_bill"), "Projected Total"),
+                        _row(e("days_remaining_in_period"), "Days Remaining"),
+                    ],
+                    {"type": "entities"},
+                    title="Bill Prediction",
+                    show_header_toggle=False,
+                    state_color=False,
+                ),
+            ]
+        )
 
-    battery_cards = [
-        {
+    def _forecast_card(self, solar_today: str | None) -> dict | None:
+        if not self.has_forecast:
+            return None
+        return _entity_list_card(
+            [
+                _row(solar_today, "Generated today"),
+                _row(self.e("solar_forecast_kwh_today"), "Today's forecast"),
+                _row(self.e("solar_actual_vs_forecast_pct"), "Tracking", icon="mdi:chart-line"),
+                _row(self.e("yesterday_forecast_accuracy_pct"), "Yesterday's accuracy"),
+            ],
+            {"type": "entities", "title": "Solar vs Forecast"},
+        )
+
+    def battery_cards(self) -> list:
+        e, when = self.e, self.when
+        battery_soc = e("battery_soc")
+        battery_power = e("battery_power")
+        has_temp = self.has_inverter_temp
+        gauge = {
             "type": "gauge",
             "entity": battery_soc,
             "name": "Battery SoC",
@@ -457,134 +569,180 @@ def build_dashboard(hass: HomeAssistant, entry_id: str) -> dict:
             "max": 100,
             "needle": True,
             "severity": {"green": 50, "yellow": 20, "red": 0},
-        },
-        {
-            "type": "history-graph",
-            "title": "Battery SoC — 24h",
-            "hours_to_show": 24,
-            "entities": [row(battery_soc, "SoC"), row(battery_power, "Power (W)")],
-        },
-        {
-            "type": "entities",
-            "entities": [
-                row(battery_power, "Charge / Discharge Power"),
-                row(charge_target, "Recommended Target Tonight"),
-                row(charge_reason, "Reason", icon="mdi:information-outline"),
-                row(charge_cost, "Estimated Charge Cost"),
-                row(soc_at_sunrise, "Estimated SoC at Sunrise"),
-                row(survival_reason, "Night Survival Status", icon="mdi:moon-waning-crescent"),
-                row(cheap_rate_floor, "Cheap Rate Floor", icon="mdi:floor-plan"),
-            ],
-            "title": "Tonight's Charge Plan",
-        },
-        {
-            "type": "entities",
-            "entities": [
-                row(battery_cycles, "Total Cycles"),
-                row(battery_life, "Estimated Life Remaining"),
-                row(days_since_full, "Days Since Full Charge"),
-                row(inverter_temp, "Inverter Temperature"),
-                row(inverter_temp_status, "Inverter Status", icon="mdi:thermometer-alert"),
-            ],
-            "title": "Battery Health",
-        },
-    ]
-
-    dry_run_condition = [{"condition": "state", "entity": dry_run_active, "state": "True"}]
-    controls_cards = [
-        {
-            "type": "conditional",
-            "conditions": dry_run_condition,
-            "card": {
-                "type": "markdown",
-                "content": (
-                    "## ⚠️ Dry Run Mode Active\n"
-                    "\n"
-                    "This integration is in **simulation mode**. All sensor values update "
-                    "normally and charge decisions are calculated, but **no commands are "
-                    "sent to your inverter or EV charger**.\n"
-                    "\n"
-                    "To go live, disable Dry Run in Settings → Integrations → GivEnergy "
-                    "Inverter Manager → Configure."
+        }
+        return _present(
+            [
+                gauge if battery_soc else None,
+                _entity_list_card(
+                    [_row(battery_soc, "SoC"), _row(battery_power, "Power (W)")],
+                    {"type": "history-graph", "title": "Battery SoC — 24h", "hours_to_show": 24},
                 ),
-            },
-        },
-        {
-            "type": "conditional",
-            "conditions": dry_run_condition,
-            "card": {
-                "type": "entities",
-                "title": "Dry Run Status",
-                "entities": [
-                    row(dry_run_active, "Dry Run Mode", icon="mdi:test-tube"),
-                    row(
-                        dry_run_skipped,
-                        "Last Skipped Action",
-                        icon="mdi:skip-next-circle-outline",
-                    ),
-                ],
-            },
-        },
-        {
-            "type": "entities",
-            "entities": [
-                row(sw_enable_charge_target, "Enable Charge Target Override"),
-                row(num_charge_target, "Overnight Charge Target"),
-                row(sw_skip_charge, "Force Skip Charge Tonight"),
-            ],
-            "title": "Overnight Charging",
-        },
-        {
-            "type": "entities",
-            "entities": [
-                row(sw_auto_immersion, "Auto Immersion Divert"),
-                row(sw_immersion_mgd, "Immersion Heater (Managed)"),
-                row(immersion_reason, "Divert Reason", icon="mdi:water-boiler"),
-                {"type": "divider"},
-                row(num_immersion_target, "Target Temperature"),
-                row(num_immersion_min, "Minimum Temperature"),
-                row(num_immersion_gap, "Restart Gap"),
-            ],
-            "title": "Immersion Heater",
-        },
-        {
-            "type": "entities",
-            "entities": [
-                row(ev_state, "Charger State", icon="mdi:ev-station"),
-                row(ev_power, "Charge Power", icon="mdi:lightning-bolt"),
-                row(ev_session, "Session Energy"),
-                row(ev_draining, "Draining Battery"),
-                row(ev_protection_reason, "Mode Decision", icon="mdi:car-electric"),
-                row(ev_charging_source, "Charging Source"),
-                row(ev_solar_surplus, "Solar Surplus Available"),
-            ],
-            "title": "EV Charger",
-        },
-    ]
+                _entity_list_card(
+                    [
+                        _row(battery_power, "Charge / Discharge Power"),
+                        _row(e("overnight_charge_target"), "Recommended Target Tonight"),
+                        _row(
+                            e("overnight_charge_reason"), "Reason", icon="mdi:information-outline"
+                        ),
+                        _row(e("overnight_charge_cost"), "Estimated Charge Cost"),
+                        _row(e("estimated_soc_at_sunrise"), "Estimated SoC at Sunrise"),
+                        _row(
+                            e("night_survival_reason"),
+                            "Night Survival Status",
+                            icon="mdi:moon-waning-crescent",
+                        ),
+                        _row(
+                            e("cheap_rate_floor_status"), "Cheap Rate Floor", icon="mdi:floor-plan"
+                        ),
+                    ],
+                    {"type": "entities"},
+                    title="Tonight's Charge Plan",
+                ),
+                _entity_list_card(
+                    [
+                        _row(e("battery_cycles"), "Total Cycles"),
+                        _row(e("battery_remaining_life"), "Estimated Life Remaining"),
+                        _row(e("days_since_full_charge"), "Days Since Full Charge"),
+                        _row(when(has_temp, "inverter_temperature"), "Inverter Temperature"),
+                        _row(
+                            when(has_temp, "inverter_temperature_status"),
+                            "Inverter Status",
+                            icon="mdi:thermometer-alert",
+                        ),
+                    ],
+                    {"type": "entities"},
+                    title="Battery Health",
+                ),
+            ]
+        )
 
+    def _dry_run_cards(self) -> list:
+        dry_run_active = self.e("dry_run_active")
+        if not dry_run_active:
+            return []
+        condition = [{"condition": "state", "entity": dry_run_active, "state": "True"}]
+        banner = {
+            "type": "markdown",
+            "content": (
+                "## ⚠️ Dry Run Mode Active\n"
+                "\n"
+                "This integration is in **simulation mode**. All sensor values update "
+                "normally and charge decisions are calculated, but **no commands are "
+                "sent to your inverter or EV charger**.\n"
+                "\n"
+                "To go live, disable Dry Run in Settings → Integrations → GivEnergy "
+                "Inverter Manager → Configure."
+            ),
+        }
+        status = _entity_list_card(
+            [
+                _row(dry_run_active, "Dry Run Mode", icon="mdi:test-tube"),
+                _row(
+                    self.e("dry_run_last_skipped"),
+                    "Last Skipped Action",
+                    icon="mdi:skip-next-circle-outline",
+                ),
+            ],
+            {"type": "entities", "title": "Dry Run Status"},
+        )
+        return [{"type": "conditional", "conditions": condition, "card": banner}] + (
+            [{"type": "conditional", "conditions": condition, "card": status}] if status else []
+        )
+
+    def controls_cards(self) -> list:
+        e, when = self.e, self.when
+        imm = self.has_immersion
+        return self._dry_run_cards() + _present(
+            [
+                _entity_list_card(
+                    [
+                        _row(e("charge_target_override_enabled"), "Enable Charge Target Override"),
+                        _row(e("charge_target_override"), "Overnight Charge Target"),
+                        _row(e("skip_charge_override"), "Force Skip Charge Tonight"),
+                    ],
+                    {"type": "entities"},
+                    title="Overnight Charging",
+                ),
+                _entity_list_card(
+                    [
+                        _row(when(imm, "auto_immersion"), "Auto Immersion Divert"),
+                        _row(when(imm, "immersion_managed"), "Immersion Heater (Managed)"),
+                        _row(
+                            when(imm, "immersion_divert_reason"),
+                            "Divert Reason",
+                            icon="mdi:water-boiler",
+                        ),
+                        {"type": "divider"},
+                        _row(when(imm, "immersion_target_temp"), "Target Temperature"),
+                        _row(when(imm, "immersion_min_temp"), "Minimum Temperature"),
+                        _row(when(imm, "immersion_hysteresis"), "Restart Gap"),
+                    ],
+                    {"type": "entities"},
+                    title="Immersion Heater",
+                ),
+                self._ev_card(),
+            ]
+        )
+
+    def _ev_card(self) -> dict | None:
+        when, ev = self.when, self.has_ev
+        return _entity_list_card(
+            [
+                _row(when(ev, "ev_charger_state"), "Charger State", icon="mdi:ev-station"),
+                _row(self.ev_power(), "Charge Power", icon="mdi:lightning-bolt"),
+                _row(when(ev, "ev_session_energy"), "Session Energy"),
+                _row(when(ev, "ev_draining_battery"), "Draining Battery"),
+                _row(
+                    when(ev, "ev_protection_reason"),
+                    "Mode Decision",
+                    icon="mdi:car-electric",
+                ),
+                _row(when(ev, "ev_charging_source"), "Charging Source"),
+                _row(when(ev, "ev_solar_surplus_available"), "Solar Surplus Available"),
+            ],
+            {"type": "entities"},
+            title="EV Charger",
+        )
+
+
+def _grid_of_gauges(gauges: list[tuple[str | None, str, dict]]) -> dict | None:
+    cards = [
+        {
+            "type": "gauge",
+            "entity": entity,
+            "name": name,
+            "min": 0,
+            "max": 100,
+            "severity": severity,
+        }
+        for entity, name, severity in gauges
+        if entity
+    ]
+    if not cards:
+        return None
     return {
-        "views": [
-            {
-                "title": "Power Flow",
-                "icon": "mdi:solar-power-variant",
-                "path": "power-flow",
-                "cards": power_flow_cards,
-            },
-            {"title": "Today", "icon": "mdi:calendar-today", "path": "today", "cards": today_cards},
-            {
-                "title": "Battery",
-                "icon": "mdi:battery-charging",
-                "path": "battery",
-                "cards": battery_cards,
-            },
-            {"title": "Controls", "icon": "mdi:tune", "path": "controls", "cards": controls_cards},
-        ]
+        "square": False,
+        "type": "grid",
+        "columns": 2,
+        "cards": cards,
+        "title": "Self Sufficiency",
     }
+
+
+def _find_entry(hass: HomeAssistant, entry_id: str):
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.entry_id == entry_id:
+            return entry
+    return None
 
 
 def _entry_config(hass: HomeAssistant, entry_id: str) -> dict:
     """Return the config entry's data with options layered over it."""
-    for entry in hass.config_entries.async_entries(DOMAIN):
-        if entry.entry_id == entry_id:
-            return {**entry.data, **entry.options}
-    return {}
+    entry = _find_entry(hass, entry_id)
+    return {**entry.data, **entry.options} if entry else {}
+
+
+def _ev_charger_brand(hass: HomeAssistant, entry_id: str) -> str | None:
+    """Brand of the EV charger the coordinator discovered, if any."""
+    entry = _find_entry(hass, entry_id)
+    return getattr(getattr(entry, "runtime_data", None), "ev_charger_brand", None)

@@ -19,6 +19,16 @@ Generate the file again after you change the options, rename entities, or add an
 
 A test regenerates the example and fails when it no longer matches the generator, so it always shows the current layout.
 
+## What is left out
+
+The file only contains rows and cards that will show a value.
+
+- A row is left out when its entity is disabled or not registered. Many sensors are disabled by default. The file header and the **GivEnergy Dashboard Ready** notification list the disabled sensors the dashboard would have used. Enable them in **Settings → Devices & services → Entities**, then generate the file again.
+- EV rows and the EV Charger card need an EV charger. The dashboard counts a charger the integration has discovered, or one of the external power sensors listed under Power Flow.
+- Immersion rows, the Immersion Heater card and the immersion charts need an immersion switch or temperature sensor in the options. The charts need the temperature sensor.
+- Inverter temperature rows need the inverter temperature entity in the options.
+- The Solar vs Forecast card needs a forecast entity in the options.
+
 ## Add the dashboard
 
 ### UI mode

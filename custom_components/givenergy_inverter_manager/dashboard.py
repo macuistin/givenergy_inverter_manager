@@ -26,7 +26,7 @@ from homeassistant.exceptions import ServiceValidationError
 from .const import DOMAIN
 from .core.rules import suggest_appliance_run
 from .core.tariff import BillBreakdown, TariffConfig, build_tariff
-from .dashboard_builder import SERVICE_GET_DASHBOARD_YAML, build_dashboard_yaml
+from .dashboard_builder import SERVICE_GET_DASHBOARD_YAML, render_dashboard
 from .logging import get_logger
 
 _LOG = get_logger(__name__)
@@ -443,7 +443,7 @@ async def async_register_services(hass: HomeAssistant) -> None:
         entries = require_loaded_entries(hass)
 
         entry = entries[0]
-        yaml_output = build_dashboard_yaml(hass, entry.entry_id)
+        yaml_output, skipped = render_dashboard(hass, entry.entry_id)
 
         file_path = os.path.join(hass.config.config_dir, "givenergy_dashboard.yaml")
 
@@ -485,6 +485,14 @@ async def async_register_services(hass: HomeAssistant) -> None:
                     "      show_in_sidebar: true\n"
                     "```\n\n"
                     "Run this action again after reconfiguring to regenerate the file."
+                    + (
+                        "\n\nLeft out because the sensors are disabled: "
+                        + ", ".join(skipped)
+                        + ". Enable them under Settings → Devices & services → Entities, "
+                        "then run this action again."
+                        if skipped
+                        else ""
+                    )
                 ),
                 "notification_id": "givenergy_dashboard_yaml",
             },

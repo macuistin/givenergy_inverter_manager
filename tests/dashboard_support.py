@@ -88,6 +88,9 @@ class FakeRegistry:
         absent: set[str] = frozenset(),
     ) -> None:
         disabled = set() if enable_all else disabled_by_default() - set(enabled)
+        names = {s["key"]: s["name"] for s in _sensors()} | {
+            key: name for key, (_, name) in _OTHER_ENTITIES.items()
+        }
         self._by_uid: dict[tuple[str, str], str] = {}
         self._entries: dict[str, SimpleNamespace] = {}
         for key, entity_id in default_entity_ids().items():
@@ -97,6 +100,8 @@ class FakeRegistry:
             self._by_uid[(domain, f"{entry_id}_{key}")] = entity_id
             self._entries[entity_id] = SimpleNamespace(
                 entity_id=entity_id,
+                name=None,
+                original_name=names.get(key, key),
                 disabled_by="integration" if key in disabled else None,
             )
 
