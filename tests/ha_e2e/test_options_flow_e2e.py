@@ -147,22 +147,8 @@ async def test_options_save_tariff_change_takes_effect(hass, loaded_entry):
     assert loaded_entry.state is ConfigEntryState.LOADED
 
 
-async def test_cleared_forecast_stays_cleared_when_form_reopens(hass, loaded_entry, request):
+async def test_cleared_forecast_stays_cleared_when_form_reopens(hass, loaded_entry):
     """After clearing the forecast entity, the next options form must not suggest the old one."""
-    if CONF_FORECAST_ENTITY in loaded_entry.data:
-        # Only entries whose forecast entity came from the original setup trip the bug.
-        request.applymarker(
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Real bug: GivEnergyOptionsFlow._get (config_flow.py:730) returns "
-                    "`options.get(key) or data.get(key)`, so an emptied forecast entity falls "
-                    "back to the value from the original setup and the options form suggests "
-                    "it again. The coordinator honours the cleared value, so saving the form "
-                    "a second time silently restores it."
-                ),
-            )
-        )
     # Select a forecast entity through the options flow.
     result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
     payload = frontend_payload(result, forecast_settings={CONF_FORECAST_ENTITY: FORECAST})
@@ -187,14 +173,6 @@ async def test_cleared_forecast_stays_cleared_when_form_reopens(hass, loaded_ent
     assert not suggested.get(CONF_FORECAST_ENTITY), suggested
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Real bug, same cause as above (config_flow.py:730): a saved option of 0 is falsy, so "
-        "GivEnergyOptionsFlow._get returns the original setup value instead. Setting the cheap "
-        "rate floor to 0 (documented as 'disabled') shows 40 again when the form is reopened."
-    ),
-)
 async def test_zero_threshold_survives_reopening_the_form(hass, loaded_entry):
     result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
     payload = frontend_payload(result, threshold_settings={"cheap_rate_floor_soc": 0})
