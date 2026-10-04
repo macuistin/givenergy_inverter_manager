@@ -991,3 +991,108 @@ class TestScheduleSave:
         data_func, delay = store._store.async_delay_save.call_args.args
         assert delay > 0
         assert data_func()["today"]["solar_kwh"] == pytest.approx(7.0)
+# ── Storage version migration ─────────────────────────────────────────────────
+
+
+def _v1_payload() -> dict:
+    """A payload as written by storage version 1 (both-directions cycle count)."""
+    payload = _serialize(AccumulationState())
+    payload["version"] = 1
+    payload["battery_cycles"] = 62.6
+    payload["battery_tracking_start"] = "2026-01-10"
+    payload["battery_tracking_start_cycles"] = 10.0
+    payload["last_full_charge_date"] = "2026-10-01"
+    payload["today"]["solar_kwh"] = 7.5
+    return payload
+
+
+class TestStorageMigration:
+    def test_storage_version_is_bumped(self):
+        from custom_components.givenergy_inverter_manager import accumulation
+
+        assert accumulation._STORAGE_VERSION == 2
+
+    def test_version_1_cycle_figures_are_halved(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        migrated = migrate_storage(1, _v1_payload())
+        assert migrated["battery_cycles"] == pytest.approx(31.3)
+        assert migrated["battery_tracking_start_cycles"] == pytest.approx(5.0)
+        assert migrated["version"] == 2
+
+    def test_other_fields_are_left_alone(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        migrated = migrate_storage(1, _v1_payload())
+        assert migrated["today"]["solar_kwh"] == pytest.approx(7.5)
+        assert migrated["battery_tracking_start"] == "2026-01-10"
+        assert migrated["last_full_charge_date"] == "2026-10-01"
+
+    def test_input_payload_is_not_mutated(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v1_payload()
+        migrate_storage(1, payload)
+        assert payload["battery_cycles"] == pytest.approx(62.6)
+
+    def test_current_version_payload_is_not_halved(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _serialize(AccumulationState())
+        payload["battery_cycles"] = 31.3
+        assert migrate_storage(2, payload)["battery_cycles"] == pytest.approx(31.3)
+
+    def test_migrating_twice_halves_only_once(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        once = migrate_storage(1, _v1_payload())
+        twice = migrate_storage(1, once)
+        assert twice["battery_cycles"] == pytest.approx(31.3)
+        assert twice["battery_tracking_start_cycles"] == pytest.approx(5.0)
+
+    def test_missing_or_bad_cycle_fields_become_zero(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v1_payload()
+        del payload["battery_cycles"]
+        payload["battery_tracking_start_cycles"] = "not a number"
+        migrated = migrate_storage(1, payload)
+        assert migrated["battery_cycles"] == 0.0
+        assert migrated["battery_tracking_start_cycles"] == 0.0
+
+    def test_migrated_payload_loads_into_state(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        state = _deserialize(migrate_storage(1, _v1_payload()))
+        assert state.battery_cycles == pytest.approx(31.3)
+        assert state.battery_tracking_start_cycles == pytest.approx(5.0)
+        assert state.today.solar_kwh == pytest.approx(7.5)
+
+    @pytest.mark.asyncio
+    async def test_store_hook_migrates_old_data(self):
+        import sys
+        import types
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager import accumulation
+
+        class _BaseStore:
+            def __init__(self, hass, version, key):
+                self.version = version
+                self.key = key
+
+        storage_mod = types.ModuleType("homeassistant.helpers.storage")
+        storage_mod.Store = _BaseStore
+        saved = {name: sys.modules.get(name) for name in ("homeassistant.helpers.storage",)}
+        sys.modules["homeassistant.helpers.storage"] = storage_mod
+        try:
+            store = accumulation._create_store(MagicMock())
+            migrated = await store._async_migrate_func(1, 1, _v1_payload())
+        finally:
+            if saved["homeassistant.helpers.storage"] is None:
+                del sys.modules["homeassistant.helpers.storage"]
+            else:
+                sys.modules["homeassistant.helpers.storage"] = saved["homeassistant.helpers.storage"]
+
+        assert store.version == 2
+        assert migrated["battery_cycles"] == pytest.approx(31.3)

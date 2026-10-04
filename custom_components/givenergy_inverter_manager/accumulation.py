@@ -31,7 +31,10 @@ if TYPE_CHECKING:
 
 _LOG = logging.getLogger(__name__)
 _STORAGE_KEY = "givenergy_inverter_manager.energy"
-_STORAGE_VERSION = 1
+_STORAGE_VERSION = 2
+# Version 1 counted battery cycles in both directions (charge and discharge).
+# Version 2 counts discharge only, so stored cycle figures are halved once.
+_CYCLE_FIELDS_HALVED_AT_V2 = ("battery_cycles", "battery_tracking_start_cycles")
 _FORECAST_HISTORY_DAYS = 7
 _FORECAST_RATIO_HISTORY_DAYS = 14
 _SLOT_HISTORY_DAYS = 28
@@ -93,6 +96,33 @@ def _stored_date(iso: str) -> date | None:
         return datetime.fromisoformat(iso).date()
     except (TypeError, ValueError):
         return None
+def migrate_storage(old_version: int, data: dict) -> dict:
+    """Bring a stored payload up to the current storage version.
+
+    Version 1 -> 2 converts the battery cycle figures from the old both-directions
+    definition to discharge only by halving them. The inner "version" key makes
+    the conversion safe to call twice on the same payload.
+    """
+    migrated = dict(data)
+    if old_version < 2 and int(migrated.get("version", 1)) < 2:
+        for key in _CYCLE_FIELDS_HALVED_AT_V2:
+            try:
+                migrated[key] = float(migrated.get(key, 0.0)) / 2
+            except (TypeError, ValueError):
+                migrated[key] = 0.0
+        migrated["version"] = 2
+    return migrated
+
+
+def _create_store(hass: HomeAssistant):
+    """Build the HA Store with a version migration hook."""
+    from homeassistant.helpers.storage import Store  # lazy — not available in test env
+
+    class _AccumulationStorage(Store):
+        async def _async_migrate_func(self, old_major_version, old_minor_version, old_data):
+            return migrate_storage(old_major_version, old_data)
+
+    return _AccumulationStorage(hass, _STORAGE_VERSION, _STORAGE_KEY)
 
 
 # ── Public state dataclass ────────────────────────────────────────────────────
@@ -169,9 +199,7 @@ class AccumulationStore:
     """
 
     def __init__(self, hass: HomeAssistant, bill_start_day: int) -> None:
-        from homeassistant.helpers.storage import Store  # lazy — not available in test env
-
-        self._store = Store(hass, _STORAGE_VERSION, _STORAGE_KEY)
+        self._store = _create_store(hass)
         self._bill_start_day = bill_start_day
         self.state = AccumulationState()
 
