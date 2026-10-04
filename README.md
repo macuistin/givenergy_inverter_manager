@@ -6,84 +6,73 @@
 [![hacs](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
 [![Tests](https://img.shields.io/github/actions/workflow/status/macuistin/givenergy_inverter_manager/tests.yml?style=for-the-badge&label=Tests)](https://github.com/macuistin/givenergy_inverter_manager/actions/workflows/tests.yml)
 
-A Home Assistant integration for GivEnergy inverters. It works out how much to charge overnight, diverts spare solar to your immersion heater and EV charger, and tracks your energy costs across multiple tariff periods. Everything runs locally via GivTCP over MQTT — no cloud account needed.
+A Home Assistant integration for GivEnergy inverters. It sets the overnight charge target, diverts spare solar to an immersion heater, and tracks energy costs across your tariff periods. It reads and writes Home Assistant entities published by GivTCP over MQTT. No cloud account is needed.
 
-Tested on a GivEnergy GIV-HY-5.0 with a 19kWh battery on the Electric Ireland Nightboost tariff.
-
-<!-- screenshot: dashboard overview showing all four tabs -->
-
----
+Tested on a GivEnergy GIV-HY-5.0 on the Electric Ireland Nightboost tariff. Current version: 0.3.0.
 
 ## What it does
 
-- **Overnight charge optimisation** — calculates the minimum charge target for the night based on tomorrow's solar forecast and your usage history. Avoids overcharging when the sun is going to do the work anyway.
-- **Solar surplus diversion** — turns on your immersion heater and/or EV charger when the battery is full and solar is generating more than the house needs.
-- **Cost tracking** — tracks import cost, export earnings, and per-load costs (EV, immersion, rest of house) across cheap and peak rate periods, with daily, weekly, and monthly totals.
-- **Charge plan reporting** — generates a readable summary of tonight's charge plan and today's energy flows, viewable directly in a dashboard Markdown card.
-
----
+- **Overnight charge target.** Works out how much to charge tonight from tomorrow's solar forecast and your usage, and writes it to GivTCP once a day, just before your cheapest rate period.
+- **Immersion divert.** Heats water from spare solar, with a minimum temperature, a target and a restart gap.
+- **EV signals.** Reports when solar surplus is available and where the car's power comes from. A Zappi is set to Eco+ when there is enough surplus.
+- **Cost tracking.** Import cost, export earnings and per-load costs across cheap and base rates, with daily, weekly, monthly and yearly totals.
+- **Bill estimate, battery health and ROI figures.** Plus a large set of sensors and six actions.
 
 ## Requirements
 
-- Home Assistant 2024.1.0 or later
-- [GivTCP](https://github.com/britkat1980/giv_tcp) v3 running as a Home Assistant add-on, publishing inverter data over MQTT
-- A GivEnergy hybrid inverter with battery storage
+- Home Assistant 2024.1.0 or later (the minimum declared in `hacs.json`)
+- [GivTCP](https://github.com/britkat1980/giv_tcp) publishing your inverter to Home Assistant over MQTT
+- A GivEnergy hybrid inverter with a battery
 
----
-
-## Installation
+## Install
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=macuistin&repository=givenergy_inverter_manager&category=integration)
 
-**Via HACS:**
-1. Open HACS → Integrations → Custom repositories
-2. Add `https://github.com/macuistin/givenergy_inverter_manager`, category **Integration**
-3. Install **GivEnergy Inverter Manager** and restart Home Assistant
+**HACS:** open HACS, then Integrations, then Custom repositories. Add `https://github.com/macuistin/givenergy_inverter_manager` as an **Integration**, install it, and restart Home Assistant.
 
-**Manual:**
-1. Download the latest release zip from [Releases](https://github.com/macuistin/givenergy_inverter_manager/releases)
-2. Extract `givenergy_inverter_manager/` into `config/custom_components/`
-3. Restart Home Assistant
+**Manual:** download the latest release from [Releases](https://github.com/macuistin/givenergy_inverter_manager/releases), copy `givenergy_inverter_manager/` into `config/custom_components/`, and restart Home Assistant.
 
----
-
-## Setup
+## Set up
 
 [![Open your Home Assistant instance and start setting up this integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=givenergy_inverter_manager)
 
-Go to **Settings → Devices & Services → Add Integration** and search for **GivEnergy Inverter Manager**. The setup wizard will auto-discover your inverter via GivTCP and walk you through tariff configuration.
-
-See [docs/configuration.md](docs/configuration.md) for a full walkthrough.
-
----
+Go to **Settings → Devices & Services → Add Integration** and search for **GivEnergy Inverter Manager**. The wizard finds your GivTCP inverter and asks for your tariff. Turn on dry run first, so nothing is written to the inverter until you have checked the decisions. The [quick start](docs/quick-start.md) has the steps.
 
 ## Documentation
 
-| | |
-|---|---|
-| [Configuration](docs/configuration.md) | Setup wizard walkthrough, all options explained |
-| [Tariff setup](docs/tariff.md) | Rate periods, Nightboost, PSO levy, VAT |
-| [How it works](docs/how-it-works.md) | Charge logic, immersion divert, EV protection |
-| [Entities](docs/entities.md) | Every sensor, switch, and number entity |
-| [Dashboard](docs/dashboard.md) | Setting up the built-in dashboard |
-| [Troubleshooting](docs/troubleshooting.md) | Common problems and fixes |
-| [Automation examples](docs/automations.md) | Ready-to-use HA automations |
+Start at the [documentation index](docs/index.md).
 
----
+| Page | Contents |
+|---|---|
+| [Quick start](docs/quick-start.md) | Install, set up and check in ten minutes |
+| [Concepts](docs/concepts.md) | Data flow, 30-second cycle, sign conventions, decisions |
+| [Configuration](docs/configuration.md) | Every setup step and option |
+| [Tariff](docs/tariff.md) | Rate periods, which rate wins, bill line items |
+| [Sensors](docs/sensors.md) | Every sensor |
+| [Entities](docs/entities.md) | Switches, numbers and the button |
+| [Actions](docs/actions.md) | The six actions |
+| [Dashboard](docs/dashboard.md) | The generated dashboard |
+| [Energy dashboard](docs/energy-dashboard.md) | Sensors for the Home Assistant Energy dashboard |
+| [Long-term statistics](docs/long-term-statistics.md) | State classes and midnight reset |
+| [Automation examples](docs/automations.md) | Ready-to-use automations |
+| [Troubleshooting](docs/troubleshooting.md) | Fixes by symptom |
+| [Upgrade to v0.3.0](docs/upgrade-v0.3.0.md) | What changed since v0.2.1 |
+| [Uninstall](docs/uninstall.md) | Remove the integration and its files |
 
 ## Development
 
 ```bash
 pip install -r requirements-test.txt
 python -m pytest tests/ -q
-ruff check custom_components/givenergy_inverter_manager/ tests/
+ruff check
+python scripts/gen_sensor_docs.py   # regenerate docs/sensors.md after changing sensor.py
 ```
 
----
+A test fails when `docs/sensors.md` is out of date.
 
 ## Acknowledgements
 
-- [GivTCP](https://github.com/britkat1980/giv_tcp) — the GivEnergy MQTT bridge this integration builds on
-- [Predbat](https://github.com/springfall2008/batpred) — inspiration for accumulation and forecast accuracy patterns
-- [Octopus Energy integration](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy) — reference for HA quality scale patterns
-- [cdpuk/givenergy-local](https://github.com/cdpuk/givenergy-local) — structural reference for GivEnergy HA integrations
+- [GivTCP](https://github.com/britkat1980/giv_tcp), the GivEnergy MQTT bridge this integration builds on
+- [Predbat](https://github.com/springfall2008/batpred), inspiration for accumulation and forecast accuracy patterns
+- [Octopus Energy integration](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy), reference for HA quality scale patterns
+- [cdpuk/givenergy-local](https://github.com/cdpuk/givenergy-local), structural reference for GivEnergy HA integrations

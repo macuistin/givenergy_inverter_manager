@@ -1,214 +1,41 @@
 # Entities
 
-All entities are created under a single device — your GivEnergy inverter — and prefixed `givenergy_inverter_manager_`.
+Everything except sensors. For sensors, see [Sensors](sensors.md).
 
----
-
-## Buttons
-
-| Entity | What it does |
-|---|---|
-| **Refresh Dashboard** | Writes the current dashboard YAML to `givenergy_dashboard.yaml` in the HA config directory. Press after reconfiguring the integration to regenerate the file. |
-
----
+All entities belong to one device, **GivEnergy Inverter Manager** (manufacturer GivEnergy, model Inverter Manager). Home Assistant builds entity IDs from the device name and the entity name, for example `switch.givenergy_inverter_manager_force_skip_overnight_charge`. Check yours in **Settings → Entities**.
 
 ## Switches
 
-| Entity | What it does |
-|---|---|
-| **Enable Solar Immersion Divert** | Master switch for the immersion divert logic. When on, the integration manages the immersion automatically based on solar surplus and water temperature. When off, the immersion is left entirely alone. |
-| **Immersion Heater (Controlled)** | The current state of the managed immersion switch. Reflects whether the integration has turned the immersion on. Can be toggled manually for a one-cycle override. |
-| **Enable Charge Target Override** | When on, uses the manual charge target from the number below instead of calculating one automatically. |
-| **Force Skip Overnight Charge** | Tells GivTCP to skip tonight's charge entirely, regardless of forecast or battery level. |
+| Entity | Default | Restored after restart | What it does |
+|---|---|---|---|
+| Auto Immersion Divert | on | yes | On: the immersion rule runs. Off: the rule is bypassed and the managed switch asks for the real immersion switch to be off. The minimum temperature rule does not run while it is off. See [Concepts](concepts.md#immersion-divert) |
+| Immersion Heater (Managed) | follows the decision | no | Only created when an immersion switch was set at setup. Shows whether the integration wants the heater on. Turning it on starts a run to target temperature. Turning it off switches the heater off and holds off automatic control for 10 minutes |
+| Force Skip Overnight Charge | off | no | On: tonight's decision becomes skip, with the reason `Manual override: skip overnight charge`. At the write time the minimum SoC is written as the target. It is off again after a restart |
+| Enable Charge Target Override | off | yes | Turning it off clears the manual target. See the note below |
 
----
+### Manual charge target
+
+Use the **Overnight Charge Target Override** number to set a target yourself. Moving the slider applies the override straight away, and the Overnight Charge Reason sensor reads `Manual override: charge to <n>%`. Turning **Enable Charge Target Override** off clears it and returns to the automatic target.
+
+Turning the switch on does not apply the slider's value by itself. Move the slider after turning the switch on. The slider starts at 80 after every restart, and a switch restored as on does not re-apply a target, so set the slider again after a restart.
+
+The configured cap does not limit a manual target. Force Skip takes priority over a manual target.
 
 ## Numbers
 
+| Entity | Range | Default | What it does |
+|---|---|---|---|
+| Overnight Charge Target Override | 10 to 100, step 5 | 80 | The manual charge target. See above |
+| Immersion Target Temperature | 40 to 75 °C, step 1 | 55 | The immersion stops heating at this temperature. Kept at least 1 °C above the minimum |
+| Immersion Minimum Temperature | 30 to 60 °C, step 1 | 50 | Below this the immersion heats whatever the surplus. Kept at least 1 °C below the target |
+| Immersion Restart Gap | 1 to 15 °C, step 1 | 5 | After reaching the target, the heater restarts only once the water is this far below it |
+
+The three immersion numbers are restored after a restart and saved to the integration's data. Changing one of them reloads the integration, as saving the options page does, so entities are unavailable for a few seconds.
+
+The restart gap stops rapid switching near the target. With the defaults the heater turns off at 55 °C and does not restart until the water drops below 50 °C.
+
+## Button
+
 | Entity | What it does |
 |---|---|
-| **Overnight Charge Target Override** | Manual charge target (10–100%, step 5). Only applied when Enable Charge Target Override is on. |
-
----
-
-## Sensors — Live
-
-| Entity | Description |
-|---|---|
-| `Solar Power` | Current solar generation in W |
-| `Battery SoC` | Current battery state of charge in % |
-| `Battery Power` | Current battery charge/discharge power in W. Positive = charging, negative = discharging. |
-| `Immersion Heater Power` | Configured wattage when the managed switch is on, 0 otherwise. |
-| `Grid Power` | Current grid import/export in W (positive = import) |
-| `House Load` | Total house consumption in W |
-| `Rest of House Load` | House load minus managed loads (EV, immersion) in W |
-| `Current Rate` | Unit rate applying right now in EUR/kWh |
-| `Current Rate Period` | Name of the rate window active right now (e.g. Nightboost) |
-| `Inverter Clipping` | Whether the inverter is clipping solar output |
-
----
-
-## Sensors — Today's energy
-
-| Entity | Description |
-|---|---|
-| `Solar Generation Today` | Total solar generated today in kWh |
-| `Grid Import Today` | Total imported from grid today in kWh |
-| `Grid Export Today` | Total exported to grid today in kWh |
-| `Battery Charge Today` | Total energy into battery today in kWh |
-| `Battery Discharge Today` | Total energy out of battery today in kWh |
-| `EV Charging Today` | Total energy used for EV charging today in kWh |
-| `Immersion Heater Today` | Total energy used by immersion heater today in kWh |
-
----
-
-## Sensors — Today's costs
-
-| Entity | Description |
-|---|---|
-| `Import Cost Today` | Cost of grid imports today |
-| `Export Earnings Today` | Earnings from grid exports today |
-| `EV Charging Cost Today` | Cost attributed to EV charging today |
-| `Immersion Cost Today` | Cost attributed to immersion heater today |
-| `House Cost Today` | Cost attributed to rest-of-house consumption today |
-| `Self Sufficiency` | % of today's consumption met by solar + battery |
-| `Self Consumption` | % of today's solar generation used on-site |
-
----
-
-## Sensors — Charge plan
-
-| Entity | Description |
-|---|---|
-| `Recommended Overnight Charge Target` | Tonight's recommended charge target in % |
-| `Overnight Charge Reason` | Plain-English explanation of tonight's charge decision |
-| `Estimated Overnight Charge Cost` | Projected cost of tonight's charge at current rates |
-| `Estimated SoC at Sunrise` | Predicted battery level when solar begins tomorrow |
-| `Night Survival Status` | Whether the battery is expected to last through the night |
-
----
-
-## Sensors — Bill prediction
-
-| Entity | Description |
-|---|---|
-| `Accrued Bill This Period` | Running total of this billing period's costs |
-| `Projected Bill This Period` | Predicted total bill at end of current period |
-| `Days Remaining in Period` | Days left in the current billing period |
-
----
-
-## Sensors — Battery health
-
-| Entity | Description |
-|---|---|
-| `Battery Total Cycles` | Estimated lifetime charge cycles used |
-| `Battery Remaining Life` | Estimated remaining battery life as a percentage |
-| `Days Since Full Charge` | How many days since the battery reached 100% |
-| `Inverter Temperature` | Inverter temperature in °C (requires GivTCP temp entity) |
-| `Inverter Temperature Status` | Normal / Warm / Derating / Critical |
-| `Inverter Derating Today` | Minutes spent above 65°C derating threshold today (disabled by default) |
-
----
-
-## Sensors — EV charger
-
-| Entity | Description |
-|---|---|
-| `EV Charger State` | Current charger state (charging, connected, disconnected) |
-| `EV Charging Power` | Current EV charge rate in W |
-| `EV Session Energy` | Energy delivered in the current charging session |
-| `EV Draining Battery` | Whether EV charging is drawing from the battery |
-| `EV Battery Protection Status` | Current EV protection decision and reason |
-| `EV Charging Source` | Where the car is drawing power from: Solar / Grid / Battery / Mixed |
-| `EV Solar Surplus Available` | Available / Not available — trigger for Zappi Eco+ automation |
-
----
-
-## Sensors — Immersion
-
-| Entity | Description |
-|---|---|
-| `Immersion Divert Reason` | Why the immersion is on or off right now (includes predictive mode reason) |
-
----
-
-## Sensors — Forecast accuracy (disabled by default)
-
-| Entity | Description |
-|---|---|
-| `Forecast Accuracy Today` | Percentage error between today's forecast and actual solar |
-| `Forecast Accuracy 7-day` | Rolling 7-day mean absolute error |
-| `Forecast Accuracy 30-day` | Rolling 30-day mean absolute error |
-| `Forecast Bias` | Systematic over/under-forecast tendency |
-
----
-
-## Sensors — Yesterday comparisons (disabled by default)
-
-Eight sensors mirroring today's figures but for yesterday: import cost, cheap import, peak import, solar generation, battery charge, battery discharge, immersion savings, and net cost.
-
-Enable these in Settings → Devices & Services → your integration → entity list.
-
----
-
-## Sensors — Weekly and monthly accumulations (disabled by default)
-
-Nine sensors each for the current week and current month: the same set as yesterday comparisons plus a period total. The week resets on Monday; the month resets on your configured bill start day.
-
----
-
-## Sensors — Year-to-date accumulations (disabled by default)
-
-Three sensors tracking the calendar year from Jan 1:
-
-| Entity | Description |
-|---|---|
-| `Export This Year` | Total kWh exported since Jan 1 |
-| `Export Earnings This Year` | Total export earnings since Jan 1 |
-| `Solar This Year` | Total solar generation since Jan 1 |
-
-Enable these when you want to track annual export volume — useful for deciding when to renegotiate your CEG (export) rate with your supplier.
-
----
-
-## Sensors — Today's opportunities (disabled by default)
-
-| Entity | Description |
-|---|---|
-| `Missed Solar Today` | kWh exported while battery was full and no flex load (EV/immersion) was active. Quantifies the residual self-consumption gap. |
-
-Enable in Settings → entity list.
-
----
-
-## Sensors — HTML reports (disabled by default)
-
-These sensors expose HTML content you can render directly in a Markdown card.
-
-| Entity | Description |
-|---|---|
-| `Today Summary` | Today's energy flows, costs, and savings |
-| `Charge Plan` | Tonight's planned charge window, target, and cost breakdown |
-| `Week Summary` | This week's energy and cost overview |
-
-To display one, add a Markdown card with:
-
-```yaml
-type: markdown
-content: "{{ state_attr('sensor.givenergy_inverter_manager_today_summary', 'html') }}"
-```
-
----
-
-## Energy Dashboard
-
-These entities appear automatically in the Home Assistant Energy Dashboard entity picker:
-
-| Dashboard slot | Entity |
-|---|---|
-| Solar production | `solar_generation_today` |
-| Grid consumption | `grid_import_today` |
-| Return to grid | `grid_export_today` |
-| Battery in | `battery_charge_today` |
-| Battery out | `battery_discharge_today` |
+| Refresh Dashboard | Runs the `get_dashboard_yaml` action, which rewrites `givenergy_dashboard.yaml` in the config folder. See [Dashboard](dashboard.md) |

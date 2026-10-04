@@ -1,17 +1,14 @@
-# Automation Examples
+# Automation examples
 
-Example Home Assistant automations that use GivEnergy Inverter Manager sensors and services.
+Example automations that use GivEnergy Inverter Manager entities and actions.
 
-Replace `sensor.givenergy_inverter_manager_*` with your actual entity IDs — use the
-`get_dashboard_yaml` service to generate a dashboard pre-filled with your real entity IDs,
-which also reveals the correct names.
+Entity IDs are built by Home Assistant from the device name and the entity name, so the examples use the default English names, such as `sensor.givenergy_inverter_manager_recommended_overnight_charge_target`. Check each ID in **Settings → Entities** before you use an example. The generated [dashboard](dashboard.md) also uses your real IDs.
 
 ---
 
 ## Notify when GivTCP goes offline
 
-Sends a mobile notification if GivTCP stops publishing data. The integration marks sensors
-as `unavailable` after both solar and battery sensors go stale.
+Sends a mobile notification if the integration marks its sensors unavailable. That happens when both the solar power and battery SoC sensors are `unavailable`, `unknown` or missing. See [Troubleshooting](troubleshooting.md#all-entities-are-unavailable).
 
 ```yaml
 alias: GivTCP offline alert
@@ -24,39 +21,35 @@ trigger:
 action:
   - service: notify.mobile_app_your_phone
     data:
-      title: GivEnergy — GivTCP offline
+      title: GivEnergy, GivTCP offline
       message: Solar power sensor is unavailable. Check GivTCP is running.
 ```
 
 ---
 
-## Notify when charge target is written
+## Report tonight's charge plan at the start of the cheap window
 
-Fires each morning when the overnight charge target is applied to the inverter.
+Set the time to the start of your cheapest timed rate period. The integration writes the target one minute earlier.
 
 ```yaml
-alias: Charge target applied
+alias: Charge plan report
 trigger:
-  - platform: state
-    entity_id: sensor.givenergy_inverter_manager_overnight_charge_target
-condition:
-  - condition: time
-    after: "01:00:00"
-    before: "08:00:00"
+  - platform: time
+    at: "02:00:00"
 action:
   - service: notify.mobile_app_your_phone
     data:
-      title: GivEnergy — charge plan set
+      title: GivEnergy, charge plan
       message: >
-        Charging to {{ states('sensor.givenergy_inverter_manager_overnight_charge_target') }}%
-        — {{ states('sensor.givenergy_inverter_manager_overnight_charge_reason') }}
+        Target {{ states('sensor.givenergy_inverter_manager_recommended_overnight_charge_target') }}%.
+        {{ states('sensor.givenergy_inverter_manager_overnight_charge_reason') }}
 ```
 
 ---
 
-## Alert when night survival is at risk
+## Alert when the battery may run flat
 
-Warns if the battery is predicted to run flat before sunrise.
+Warns if the estimated SoC at 08:00 falls below 10%.
 
 ```yaml
 alias: Battery night survival warning
@@ -67,19 +60,18 @@ trigger:
 action:
   - service: notify.mobile_app_your_phone
     data:
-      title: GivEnergy — battery may run flat
+      title: GivEnergy, battery may run flat
       message: >
         Estimated SoC at sunrise:
         {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') }}%.
-        {{ states('sensor.givenergy_inverter_manager_night_survival_reason') }}
+        {{ states('sensor.givenergy_inverter_manager_battery_night_survival_status') }}
 ```
 
 ---
 
 ## Log daily energy totals to a helper
 
-Creates a daily record of solar generation and import cost using an input_text helper.
-Useful for external tracking or Google Sheets export.
+Writes a one-line daily record to an `input_text` helper. Create the helper first and set its maximum length to 255.
 
 ```yaml
 alias: Log daily energy summary
@@ -92,19 +84,19 @@ action:
       entity_id: input_text.givenergy_daily_log
     data:
       value: >
-        {{ now().date() }}: solar={{ states('sensor.givenergy_inverter_manager_solar_today') }}kWh,
-        import={{ states('sensor.givenergy_inverter_manager_import_today') }}kWh,
+        {{ now().date() }}: solar={{ states('sensor.givenergy_inverter_manager_solar_generation_today') }}kWh,
+        import={{ states('sensor.givenergy_inverter_manager_grid_import_today') }}kWh,
         cost={{ states('sensor.givenergy_inverter_manager_import_cost_today') }}
 ```
 
 ---
 
-## Force-skip charge on a specific night
+## Skip the charge on a specific night
 
-Useful before a weekend when prices are higher and you have a strong forecast.
+Turns on Force Skip Overnight Charge before the cheap window, and off again in the morning. The switch stays on until something turns it off, so keep both automations.
 
 ```yaml
-alias: Skip charge this Saturday night
+alias: Skip charge on Saturday night
 trigger:
   - platform: time
     at: "22:00:00"
@@ -115,17 +107,28 @@ condition:
 action:
   - service: switch.turn_on
     target:
-      entity_id: switch.givenergy_inverter_manager_skip_charge_override
+      entity_id: switch.givenergy_inverter_manager_force_skip_overnight_charge
   - service: notify.mobile_app_your_phone
     data:
       message: Overnight charge skipped for tonight.
+```
+
+```yaml
+alias: Clear the skip switch
+trigger:
+  - platform: time
+    at: "08:00:00"
+action:
+  - service: switch.turn_off
+    target:
+      entity_id: switch.givenergy_inverter_manager_force_skip_overnight_charge
 ```
 
 ---
 
 ## Weekly energy report
 
-Sends a summary of the week's import cost and solar generation every Sunday evening.
+Sends this week's solar, import cost and self-sufficiency every Sunday evening.
 
 ```yaml
 alias: Weekly energy report
@@ -139,18 +142,18 @@ condition:
 action:
   - service: notify.mobile_app_your_phone
     data:
-      title: GivEnergy — weekly summary
+      title: GivEnergy, weekly summary
       message: >
-        This week: solar={{ states('sensor.givenergy_inverter_manager_solar_this_week') }}kWh,
+        This week: solar={{ states('sensor.givenergy_inverter_manager_solar_generated_this_week') }}kWh,
         import cost={{ states('sensor.givenergy_inverter_manager_import_cost_this_week') }},
         self-sufficiency={{ states('sensor.givenergy_inverter_manager_self_sufficiency_this_week') }}%
 ```
 
 ---
 
-## Check appliance run time before starting the dishwasher
+## Check appliance run time
 
-Calls the `suggest_appliance_run` service and sends the verdict as a notification.
+Calls `suggest_appliance_run`. The verdict arrives as a persistent notification.
 
 ```yaml
 alias: Dishwasher run suggestion
@@ -164,46 +167,40 @@ action:
       appliance_power_w: 1800
 ```
 
-The integration fires a persistent notification with the recommendation. You can
-redirect this to a mobile notification by listening for the `persistent_notifications_updated`
-event or by using the [HA Companion App](https://companion.home-assistant.io/) notification
-actions.
+The action returns no data, so the verdict appears only in the Home Assistant notifications panel. The notification ID is `givenergy_appliance_dishwasher`, built from the appliance name.
 
 ---
 
-## Switch Zappi to Eco+ when solar surplus is available for EV charging
+## Start another EV charger on solar surplus
 
-Uses `ev_solar_surplus_available` (ON when solar surplus exceeds 1,400W) to automatically switch the Zappi to solar absorption mode. Without this, the Zappi stays in Fast or Stopped mode and charges from the grid even when there's enough solar to cover it.
-
-Requires the myenergi HA integration.
+The integration switches a Zappi to Eco+ by itself. For a charger it cannot control, use the EV Solar Surplus sensor, which reads `Available` at 1400 W of net surplus or more. Replace `switch.your_ev_charger` with your charger's switch.
 
 ```yaml
-alias: Zappi Eco+ on solar surplus
+alias: EV charger on solar surplus
 trigger:
   - platform: state
-    entity_id: sensor.givenergy_inverter_manager_ev_solar_surplus_available
+    entity_id: sensor.givenergy_inverter_manager_ev_solar_surplus
     to: Available
+    for:
+      minutes: 5
 condition:
   - condition: not
     conditions:
       - condition: state
         entity_id: sensor.givenergy_inverter_manager_ev_charger_state
-        state: Disconnected
+        state: disconnected
 action:
-  - service: myenergi.set_zappi_mode
-    data:
-      serial: YOUR_ZAPPI_SERIAL
-      mode: eco_plus
+  - service: switch.turn_on
+    target:
+      entity_id: switch.your_ev_charger
 mode: single
 ```
 
-Replace `YOUR_ZAPPI_SERIAL` with your Zappi's serial number (visible in the myenergi app).
-
 ---
 
-## Alert when inverter is derating due to high temperature
+## Alert when the inverter is derating
 
-Fires a notification when the inverter has been throttling generation for more than 30 minutes. Based on the 30-day analysis, derating can reduce generation by 50% or more on peak summer days.
+Fires when the inverter temperature status has been Derating for 30 minutes. Derating starts at 65 °C.
 
 ```yaml
 alias: Inverter derating alert
@@ -216,11 +213,10 @@ trigger:
 action:
   - service: notify.mobile_app_your_phone
     data:
-      title: "⚠️ Inverter Derating"
+      title: GivEnergy, inverter derating
       message: >
-        Inverter at {{ states('sensor.givenergy_inverter_manager_inverter_temperature') }}°C
-        and has been derating for 30+ minutes. Check ventilation clearances.
-        Generation losses typically 30–50% during derating.
+        Inverter at {{ states('sensor.givenergy_inverter_manager_inverter_temperature') }} °C
+        and derating for 30 minutes. Check ventilation around the inverter.
 mode: single
 ```
 
@@ -228,7 +224,7 @@ mode: single
 
 ## Daily derating summary
 
-Sends a summary at sunset of how many minutes the inverter spent derating today. Enable `sensor.inverter_derating_today_minutes` in the entity list first.
+Sends the minutes spent at 65 °C or more, at sunset. Enable the Inverter Derating Today sensor first. It is disabled by default and is not saved over a restart.
 
 ```yaml
 alias: Daily derating summary
@@ -237,15 +233,15 @@ trigger:
     event: sunset
 condition:
   - condition: numeric_state
-    entity_id: sensor.givenergy_inverter_manager_inverter_derating_today_minutes
+    entity_id: sensor.givenergy_inverter_manager_inverter_derating_today
     above: 0
 action:
   - service: notify.mobile_app_your_phone
     data:
       title: Inverter derating today
       message: >
-        Inverter spent
-        {{ states('sensor.givenergy_inverter_manager_inverter_derating_today_minutes') }}
-        minutes derating today. Max temperature:
-        {{ states('sensor.givenergy_inverter_manager_inverter_temperature') }}°C.
+        The inverter spent
+        {{ states('sensor.givenergy_inverter_manager_inverter_derating_today') }}
+        minutes derating today. Temperature now:
+        {{ states('sensor.givenergy_inverter_manager_inverter_temperature') }} °C.
 ```

@@ -1,0 +1,133 @@
+# Actions
+
+The integration registers six actions under `givenergy_inverter_manager`. Run them from **Developer Tools → Actions**, or from scripts and automations.
+
+- All six use the first configured entry.
+- Three of them return data. Read it with `response_variable`.
+- The examples use `action:`. Home Assistant releases before 2024.8 call it `service:`.
+
+| Action | Fields | Returns |
+|---|---|---|
+| [`get_dashboard_yaml`](#get_dashboard_yaml) | none | nothing |
+| [`suggest_appliance_run`](#suggest_appliance_run) | `appliance_name`, `appliance_power_w` | nothing |
+| [`get_roi_summary`](#get_roi_summary) | none | ROI figures |
+| [`compare_tariff`](#compare_tariff) | `rate`, optional `standing_charge`, `export_rate` | cost comparison |
+| [`year_on_year_summary`](#year_on_year_summary) | none | month against last year |
+| [`export_energy_data`](#export_energy_data) | none | nothing |
+
+## get_dashboard_yaml
+
+Writes the Lovelace dashboard to `givenergy_dashboard.yaml` in the Home Assistant config folder, then shows the persistent notification **GivEnergy Dashboard Ready** with setup steps. The **Refresh Dashboard** button calls this action. See [Dashboard](dashboard.md).
+
+- Entity IDs come from the entity registry, so renamed entities are picked up.
+- It fails with "GivEnergy Inverter Manager is not configured" when no entry exists, and with a write error when the config folder is read-only.
+
+```yaml
+action: givenergy_inverter_manager.get_dashboard_yaml
+```
+
+## suggest_appliance_run
+
+Checks whether now is a good time to run a large appliance. It creates a persistent notification with the verdict and the reason. It returns nothing.
+
+| Field | Required | Notes |
+|---|---|---|
+| `appliance_name` | yes | Shown in the notification. Also sets the notification ID, so each appliance keeps its own |
+| `appliance_power_w` | yes | Rated power in watts |
+
+The rules, in order:
+
+1. Net solar surplus (solar minus house load minus battery charging power) is at least the appliance power: good time.
+2. Battery SoC is 80% or more and the current rate is no more than 1.5 times the export rate: acceptable time.
+3. The current rate is more than 1.5 times the export rate: not recommended.
+4. Anything else: no strong reason.
+
+Nothing happens until the first update has completed.
+
+```yaml
+action: givenergy_inverter_manager.suggest_appliance_run
+data:
+  appliance_name: Dishwasher
+  appliance_power_w: 1800
+```
+
+## get_roi_summary
+
+Returns return-on-investment figures. The response is empty until the first update has completed. Values are rounded.
+
+```yaml
+action: givenergy_inverter_manager.get_roi_summary
+response_variable: roi
+```
+
+Template example: `{{ roi.today.self_consumption_saving }}`.
+
+| Block | Keys |
+|---|---|
+| `today` | `solar_kwh`, `export_kwh`, `import_kwh`, `self_consumed_kwh`, `self_consumption_saving`, `import_cost`, `export_earnings`, `net_position`, `battery_throughput_kwh`, `self_sufficiency_pct` |
+| `week` and `month` | `solar_kwh`, `export_kwh`, `import_kwh`, `import_cost`, `export_earnings`, `net_position` |
+| `year` | `solar_kwh`, `export_kwh`, `import_kwh`, `export_earnings` |
+| `battery` | `total_cycles`, `remaining_life_pct`, `throughput_today_kwh` |
+
+`self_consumed_kwh` is solar generated minus exported, floored at 0. `self_consumption_saving` is that energy times the difference between today's average import rate and today's average export rate, floored at 0. With nothing imported yet, the import rate is the current rate. With no export yet, the export rate is taken as 0. `net_position` is export earnings minus import cost.
+
+The `year` block starts from zero after every restart or reload, because the year totals are not saved.
+
+## compare_tariff
+
+Compares this bill period against a flat-rate alternative, using the kWh imported and exported since the bill period started.
+
+| Field | Required | Default | Notes |
+|---|---|---|---|
+| `rate` | yes | none | Import rate per kWh of the alternative |
+| `standing_charge` | no | 0 | Daily standing charge of the alternative |
+| `export_rate` | no | 0 | Export rate per kWh of the alternative |
+
+```yaml
+action: givenergy_inverter_manager.compare_tariff
+data:
+  rate: 0.28
+  standing_charge: 0.65
+  export_rate: 0.15
+response_variable: comparison
+```
+
+Response keys: `period_days`, `import_kwh`, `export_kwh`, `current_tariff` (`import_cost`, `export_earnings`, `net_cost`), `comparison_tariff` (`rate`, `standing_charge_per_day`, `export_rate`, `import_cost`, `standing_charges`, `export_earnings`, `net_cost`) and `saving`.
+
+How to read it:
+
+- The current tariff's import cost already includes your supplier discount and VAT. The alternative is `import_kwh x rate` with nothing added. Enter the alternative's rate after its own discount and VAT.
+- `net_cost` is import cost minus export earnings. For the current tariff it leaves out the standing charge. For the alternative it adds `standing_charge x period_days`. Leave `standing_charge` at 0 for a like-for-like comparison.
+- `saving` is the current net cost minus the alternative's net cost. A positive number means the alternative is cheaper.
+- `period_days` is the days elapsed in the bill period, minimum 1.
+
+## year_on_year_summary
+
+Compares this bill period with the same period one year ago. It needs 12 completed bill periods. A snapshot is stored each time the month resets on the bill start day.
+
+```yaml
+action: givenergy_inverter_manager.year_on_year_summary
+response_variable: yoy
+```
+
+While fewer than 12 snapshots exist, the response has `no_data: true`, `snapshots_available`, `snapshots_needed` (12), a `message`, and `current_month`.
+
+With 12 or more, the response has `no_data: false`, `snapshots_available`, `current_month`, `last_year_same_month`, `delta` and `delta_pct`.
+
+- `current_month` and `last_year_same_month` hold `solar_kwh`, `import_kwh`, `export_kwh`, `import_cost`, `export_earnings` and `self_sufficiency_pct`.
+- `delta` and `delta_pct` cover the first five of those. `delta_pct` is empty where last year's value was 0.
+- For last year, `self_sufficiency_pct` is solar kWh divided by house kWh. This is a simpler measure than the current month's figure.
+
+## export_energy_data
+
+Writes `givenergy_energy_export.csv` to the Home Assistant config folder and shows the notification **GivEnergy Energy Export Complete**. The file is replaced each time.
+
+```yaml
+action: givenergy_inverter_manager.export_energy_data
+```
+
+Columns: `period`, `solar_kwh`, `import_kwh`, `export_kwh`, `battery_throughput_kwh`, `import_cost`, `export_earnings`, `net_position`, `self_sufficiency_pct`.
+
+Rows: `today`, `yesterday`, `this_week`, `this_month`, `this_year`, then one `month_snapshot_NN` row per completed bill period. `month_snapshot_01` is the most recent.
+
+In snapshot rows, `self_sufficiency_pct` is solar divided by house energy, capped at 100. Year totals are not saved over a restart, so `this_year` can be short.
