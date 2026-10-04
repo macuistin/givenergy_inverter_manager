@@ -314,3 +314,47 @@ class TestAvgImportRateSensors:
     )
     def test_state_class_is_measurement(self, key):
         assert _sensor_kwarg(key, "state_class") == "MEASUREMENT"
+
+
+class TestEfficiencySensors:
+    @pytest.mark.parametrize(
+        ("key", "period"),
+        [
+            ("cheap_import_fraction_this_week", "week"),
+            ("cheap_import_fraction_this_month", "month"),
+        ],
+    )
+    def test_cheap_import_fraction(self, key, period):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for(key)
+        d = MagicMock()
+        acc = getattr(d, period)
+        acc.cheap_import_fraction = 0.625
+        acc.import_kwh = 8.0
+        assert fn(d) == pytest.approx(62.5)
+        acc.import_kwh = 0.0
+        assert fn(d) is None
+
+    def test_roundtrip_efficiency_value(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("battery_roundtrip_efficiency_today")
+        d = MagicMock()
+        d.today.battery_charge_kwh = 10.0
+        d.today.battery_discharge_kwh = 9.2
+        assert fn(d) == pytest.approx(92.0)
+        d.today.battery_charge_kwh = 0.0
+        assert fn(d) is None
+
+    def test_roundtrip_efficiency_is_not_a_daily_total(self):
+        for node in ast.walk(_TREE):
+            if isinstance(node, ast.Call) and any(
+                kw.arg == "key"
+                and isinstance(kw.value, ast.Constant)
+                and kw.value.value == "battery_roundtrip_efficiency_today"
+                for kw in node.keywords
+            ):
+                assert not any(kw.arg == "is_daily_total" for kw in node.keywords), (
+                    "MEASUREMENT sensors must not set last_reset"
+                )

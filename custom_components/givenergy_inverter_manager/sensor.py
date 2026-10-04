@@ -1215,7 +1215,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="battery_roundtrip_efficiency_today",
         name="Battery Round-trip Efficiency Today",
-        is_daily_total=True,
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:battery-sync",
