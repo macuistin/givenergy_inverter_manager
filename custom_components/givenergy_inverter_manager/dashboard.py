@@ -34,6 +34,7 @@ from dataclasses import replace
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
@@ -58,6 +59,16 @@ def loaded_entries(hass: HomeAssistant) -> list[ConfigEntry]:
         for entry in hass.config_entries.async_entries(DOMAIN)
         if entry.state is ConfigEntryState.LOADED
     ]
+
+
+def require_loaded_entries(hass: HomeAssistant) -> list[ConfigEntry]:
+    """Return the loaded entries, or raise when none is loaded."""
+    if not (entries := loaded_entries(hass)):
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="no_config_entry",
+        )
+    return entries
 
 
 def _entity_id(hass: HomeAssistant, entry_id: str, unique_id_suffix: str) -> str:
@@ -652,9 +663,7 @@ def _make_roi_summary_handler(hass: HomeAssistant):
 
     async def handle(call: ServiceCall) -> dict:
         """Return ROI metrics for today/week/month/year and battery health."""
-        entries = loaded_entries(hass)
-        if not entries:
-            return {}
+        entries = require_loaded_entries(hass)
         coordinator = entries[0].runtime_data
         if coordinator.data is None:
             return {}
@@ -811,7 +820,7 @@ def _make_compare_tariff_handler(hass: HomeAssistant):
         one entry set up, "entries" lists every entry's comparison.
         """
         results = []
-        for entry in loaded_entries(hass):
+        for entry in require_loaded_entries(hass):
             coordinator = entry.runtime_data
             if coordinator.data is None:
                 continue
@@ -831,9 +840,7 @@ def _make_year_on_year_handler(hass: HomeAssistant):
 
     async def handle(call: ServiceCall) -> dict:
         """Compare current billing month against the same month one year ago."""
-        entries = loaded_entries(hass)
-        if not entries:
-            return {}
+        entries = require_loaded_entries(hass)
         coordinator = entries[0].runtime_data
         if coordinator.data is None:
             return {}
@@ -966,14 +973,7 @@ def _make_export_handler(hass: HomeAssistant):
 
     async def handle(call: ServiceCall) -> dict:
         """Export energy history to /config/givenergy_energy_export.csv."""
-        from homeassistant.exceptions import ServiceValidationError  # noqa: PLC0415
-
-        entries = loaded_entries(hass)
-        if not entries:
-            raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="no_config_entry",
-            )
+        entries = require_loaded_entries(hass)
         coordinator = entries[0].runtime_data
         if coordinator.data is None:
             return {"file": None, "rows_written": 0, "header": _CSV_HEADER, "rows": []}
@@ -1041,14 +1041,7 @@ async def async_register_services(hass: HomeAssistant) -> None:
 
     async def handle_get_dashboard_yaml(call: ServiceCall) -> None:
         """Write dashboard YAML to /config/givenergy_dashboard.yaml."""
-        from homeassistant.exceptions import ServiceValidationError  # noqa: PLC0415
-
-        entries = loaded_entries(hass)
-        if not entries:
-            raise ServiceValidationError(
-                translation_domain="givenergy_inverter_manager",
-                translation_key="no_config_entry",
-            )
+        entries = require_loaded_entries(hass)
 
         entry = entries[0]
         yaml_output = _build_dashboard_yaml(hass, entry.entry_id)
@@ -1108,9 +1101,7 @@ async def async_register_services(hass: HomeAssistant) -> None:
 
     async def handle_suggest_appliance(call) -> None:
         """Evaluate whether now is a good time to run a high-load appliance."""
-        entries = loaded_entries(hass)
-        if not entries:
-            return
+        entries = require_loaded_entries(hass)
         coordinator = entries[0].runtime_data
         if coordinator.data is None:
             return

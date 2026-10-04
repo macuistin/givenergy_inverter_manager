@@ -1866,8 +1866,10 @@ class TestDashboardServiceValidationError:
         from pathlib import Path
         src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
         handler_block = src[src.find("def handle_get_dashboard_yaml"):]
-        assert "raise ServiceValidationError" in handler_block
-        assert "no_config_entry" in handler_block
+        assert "require_loaded_entries(hass)" in handler_block
+        helper_block = src[src.find("def require_loaded_entries"):src.find("def _entity_id")]
+        assert "raise ServiceValidationError" in helper_block
+        assert "no_config_entry" in helper_block
 
 
 class TestImmersionRunToTarget:

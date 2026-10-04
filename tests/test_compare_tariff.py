@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.exceptions import ServiceValidationError
 
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
@@ -171,8 +172,16 @@ class TestResponseShape:
 
 
 class TestEntries:
-    def test_no_entries_gives_empty_response(self):
-        assert _call([], rate=0.25) == {}
+    def test_no_loaded_entry_raises_no_config_entry(self):
+        with pytest.raises(ServiceValidationError) as err:
+            _call([], rate=0.25)
+        assert err.value.translation_key == "no_config_entry"
+
+    def test_entry_that_is_not_loaded_counts_as_no_entry(self):
+        not_loaded = _entry(_coordinator())
+        not_loaded.state = ConfigEntryState.NOT_LOADED
+        with pytest.raises(ServiceValidationError):
+            _call([not_loaded], rate=0.25)
 
     def test_entry_without_data_is_skipped(self):
         empty = SimpleNamespace(data=None, _effective_cfg=lambda: dict(CFG))

@@ -2,7 +2,7 @@
 
 The integration registers six actions under `givenergy_inverter_manager`. Run them from **Developer Tools → Actions**, or from scripts and automations.
 
-- All six use the first loaded entry, and `compare_tariff` also lists every loaded entry. They stay registered while at least one entry is loaded.
+- All six use the first loaded entry, and `compare_tariff` also lists every loaded entry. They stay registered while at least one entry is loaded. With no loaded entry, each one fails with the error "not configured".
 - Four of them return data. Read it with `response_variable`.
 - The examples use `action:`. Home Assistant releases before 2024.8 call it `service:`.
 
