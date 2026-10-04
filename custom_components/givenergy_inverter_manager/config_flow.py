@@ -705,6 +705,15 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         return GivEnergyOptionsFlow(config_entry)
 
 
+_OPTIONAL_FORECAST_KEYS = (
+    CONF_FORECAST_PROVIDER,
+    CONF_FORECAST_ENTITY,
+    CONF_FORECAST_ENTITY_P10,
+    CONF_FORECAST_ENTITY_D2,
+    CONF_CARBON_INTENSITY_ENTITY,
+)
+
+
 class GivEnergyOptionsFlow(config_entries.OptionsFlow):
     """Options flow — tariff rates, per-period rates, thresholds, forecast."""
 
@@ -714,6 +723,16 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
 
     def _get(self, key, default):
         return self._config_entry.options.get(key) or self._config_entry.data.get(key) or default
+
+    def _optional_key(self, key):
+        """Optional schema key that pre-fills a saved value but has no default when empty.
+
+        An empty-string default fails EntitySelector and SelectSelector validation.
+        """
+        current = self._get(key, "")
+        if current:
+            return vol.Optional(key, description={"suggested_value": current})
+        return vol.Optional(key)
 
     async def async_step_init(self, user_input=None):
         """Single-page options: tariff, per-period rates, thresholds, forecast."""
@@ -745,7 +764,12 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             for key in (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT, CONF_IMMERSION_WATTAGE):
                 if key in hardware:
                     self._options[key] = float(hardware[key])
-            self._options.update({k: v for k, v in forecast.items() if v != ""})
+            for key in _OPTIONAL_FORECAST_KEYS:
+                self._options[key] = forecast.get(key, "")
+            if CONF_FORECAST_CONSERVATISM in forecast:
+                self._options[CONF_FORECAST_CONSERVATISM] = float(
+                    forecast[CONF_FORECAST_CONSERVATISM]
+                )
             if CONF_CAR_EFFICIENCY_KWH_PER_100KM in ev_settings:
                 self._options[CONF_CAR_EFFICIENCY_KWH_PER_100KM] = float(
                     ev_settings[CONF_CAR_EFFICIENCY_KWH_PER_100KM]
@@ -941,9 +965,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         schema_dict[vol.Required("forecast_settings")] = section(
             vol.Schema(
                 {
-                    vol.Optional(
-                        CONF_FORECAST_PROVIDER, default=self._get(CONF_FORECAST_PROVIDER, "")
-                    ): selector.SelectSelector(
+                    self._optional_key(CONF_FORECAST_PROVIDER): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=[
                                 selector.SelectOptionDict(
@@ -955,19 +977,18 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                             ]
                         )
                     ),
-                    vol.Optional(
-                        CONF_FORECAST_ENTITY, default=self._get(CONF_FORECAST_ENTITY, "")
-                    ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-                    vol.Optional(
-                        CONF_FORECAST_ENTITY_P10, default=self._get(CONF_FORECAST_ENTITY_P10, "")
-                    ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-                    vol.Optional(
-                        CONF_FORECAST_ENTITY_D2, default=self._get(CONF_FORECAST_ENTITY_D2, "")
-                    ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-                    vol.Optional(
-                        CONF_CARBON_INTENSITY_ENTITY,
-                        default=self._get(CONF_CARBON_INTENSITY_ENTITY, ""),
-                    ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+                    self._optional_key(CONF_FORECAST_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="sensor")
+                    ),
+                    self._optional_key(CONF_FORECAST_ENTITY_P10): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="sensor")
+                    ),
+                    self._optional_key(CONF_FORECAST_ENTITY_D2): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="sensor")
+                    ),
+                    self._optional_key(CONF_CARBON_INTENSITY_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="sensor")
+                    ),
                     vol.Optional(
                         CONF_FORECAST_CONSERVATISM,
                         default=float(

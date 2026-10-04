@@ -523,6 +523,49 @@ class TestOptionsFlowSections:
             sections = data["options"]["step"]["init"]["sections"]
             assert "car_efficiency_kwh_per_100km" in sections["ev_settings"]["data"]
 
+    def test_empty_forecast_fields_clear_saved_entities(self):
+        import asyncio
+
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_CARBON_INTENSITY_ENTITY,
+            CONF_FORECAST_ENTITY,
+            CONF_FORECAST_ENTITY_D2,
+            CONF_FORECAST_ENTITY_P10,
+        )
+
+        flow = self._make_flow()
+        flow._options[CONF_FORECAST_ENTITY_P10] = "sensor.old_p10"
+        user_input = self._tariff_input()
+        user_input["forecast_settings"] = {CONF_FORECAST_ENTITY: "sensor.forecast_today"}
+        asyncio.run(flow.async_step_init(user_input))
+
+        data = flow.async_create_entry.call_args.kwargs["data"]
+        assert data[CONF_FORECAST_ENTITY] == "sensor.forecast_today"
+        assert data[CONF_FORECAST_ENTITY_P10] == ""
+        assert data[CONF_FORECAST_ENTITY_D2] == ""
+        assert data[CONF_CARBON_INTENSITY_ENTITY] == ""
+
+    def test_selectors_have_no_empty_string_default(self):
+        """An empty-string default fails EntitySelector validation in the HA frontend."""
+        import re
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        assert not re.findall(r"default=self\._get\(\w+,\s*\"\"\)", src)
+
+    def test_optional_key_prefills_saved_value_without_default(self):
+        import voluptuous as real_vol
+
+        flow = self._make_flow()
+        flow._config_entry.options = {"forecast_entity": "sensor.forecast_today"}
+        from unittest.mock import patch
+
+        with patch("custom_components.givenergy_inverter_manager.config_flow.vol", real_vol):
+            filled = flow._optional_key("forecast_entity")
+            empty = flow._optional_key("forecast_entity_p10")
+        assert filled.description == {"suggested_value": "sensor.forecast_today"}
+        assert empty.default is real_vol.UNDEFINED
+
     def test_missing_hardware_section_leaves_options_unchanged(self):
         import asyncio
 
