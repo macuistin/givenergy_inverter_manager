@@ -589,3 +589,19 @@ class TestCheapestRateSensors:
         assert fn(d) == "Nightboost"
         d.cheapest_rate_name = ""
         assert fn(d) is None
+
+
+class TestRateStatusSensors:
+    @pytest.mark.parametrize(
+        ("key", "attr"),
+        [("is_on_cheapest_rate", "is_on_cheapest_rate"), ("is_on_base_rate", "is_on_base_rate")],
+    )
+    def test_yes_no(self, key, attr):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for(key)
+        d = MagicMock()
+        setattr(d, attr, True)
+        assert fn(d) == "yes"
+        setattr(d, attr, False)
+        assert fn(d) == "no"

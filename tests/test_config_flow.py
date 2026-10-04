@@ -270,13 +270,15 @@ class TestSensorDefaultEnabled:
         "Net Financial Position This Month",
         "Cheapest Tariff Rate",
         "Cheapest Rate Period Name",
+        "On Cheapest Rate",
+        "On Base (Daytime) Rate",
     }
 
     def test_exactly_five_sensors_disabled(self):
-        """Exactly 45 sensors should be disabled by default."""
+        """Exactly 47 sensors should be disabled by default."""
         state = _parse_sensor_enabled_state()
         disabled = [n for n, enabled in state.items() if not enabled]
-        assert len(disabled) == 45, f"Expected 45 disabled sensors, got {len(disabled)}: {disabled}"
+        assert len(disabled) == 47, f"Expected 47 disabled sensors, got {len(disabled)}: {disabled}"
 
     def test_disabled_sensors_are_the_expected_ones(self):
         """The disabled sensors must be the HTML reports and forecast accuracy."""
