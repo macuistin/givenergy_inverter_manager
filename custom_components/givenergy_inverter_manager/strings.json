@@ -818,7 +818,7 @@
     },
     "compare_tariff": {
       "name": "Compare tariff",
-      "description": "Compares this bill period against a flat-rate alternative tariff, using the kWh imported and exported so far this period. The comparison rate is used as entered, with no supplier discount or VAT added. The current tariff's net cost leaves out standing charges, so a standing charge entered here counts against the alternative. Use response_variable to read the result.",
+      "description": "Compares this bill period against a flat-rate alternative tariff, using the kWh imported and exported so far this period. Both tariffs are billed the same way: energy, supplier saving, standing charge, PSO levy, VAT, then the export credit. The alternative uses your tariff's supplier discount, VAT and PSO levy unless you enter your own. With more than one entry set up, the response lists every entry. Use response_variable to read the result.",
       "fields": {
         "rate": {
           "name": "Import rate",
@@ -831,6 +831,18 @@
         "export_rate": {
           "name": "Export rate",
           "description": "Export rate of the alternative tariff, per kWh"
+        },
+        "discount_rate": {
+          "name": "Supplier discount",
+          "description": "Supplier discount of the alternative tariff in percent. Leave empty to use your tariff's discount"
+        },
+        "vat_rate": {
+          "name": "VAT rate",
+          "description": "VAT of the alternative tariff in percent. Leave empty to use your tariff's VAT rate"
+        },
+        "pso_levy": {
+          "name": "PSO levy",
+          "description": "PSO levy of the alternative tariff for a whole bill period. Leave empty to use your tariff's PSO levy"
         }
       }
     },

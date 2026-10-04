@@ -149,3 +149,18 @@ async def test_bill_start_day_comes_from_options_over_data(hass_in_scenario, ser
 
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
+
+
+async def test_compare_tariff_service_returns_a_like_for_like_bill(hass, loaded_entry):
+    response = await hass.services.async_call(
+        DOMAIN,
+        "compare_tariff",
+        {"rate": 0.25, "standing_charge": 0.6, "vat_rate": 13.5},
+        blocking=True,
+        return_response=True,
+    )
+    assert response["entry_id"] == loaded_entry.entry_id
+    assert response["entries"][0]["entry_id"] == loaded_entry.entry_id
+    assert set(response["current_tariff"]["bill"]) == set(response["comparison_tariff"]["bill"])
+    assert response["comparison_tariff"]["vat_rate"] == 13.5
+    assert response["current_tariff"]["vat_rate"] == 9.0

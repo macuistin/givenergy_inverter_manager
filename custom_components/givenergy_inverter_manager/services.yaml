@@ -52,10 +52,11 @@ compare_tariff:
   name: Compare tariff
   description: >
     Compares this bill period against a flat-rate alternative tariff, using the
-    kWh imported and exported so far this period. The comparison rate is used as
-    entered, with no supplier discount or VAT added. The current tariff's net
-    cost leaves out standing charges, so a standing charge entered here counts
-    against the alternative. Use response_variable to read the result.
+    kWh imported and exported so far this period. Both tariffs are billed the same
+    way: energy, supplier saving, standing charge, PSO levy, VAT, then the export
+    credit. The alternative uses your tariff's supplier discount, VAT and PSO levy
+    unless you enter your own. With more than one entry set up, the response
+    lists every entry. Use response_variable to read the result.
   fields:
     rate:
       name: Import rate
@@ -91,6 +92,39 @@ compare_tariff:
           min: 0
           max: 1
           step: 0.001
+          mode: box
+    discount_rate:
+      name: Supplier discount
+      description: Supplier discount of the alternative tariff in percent. Leave empty to use your tariff's discount
+      required: false
+      example: 5.5
+      selector:
+        number:
+          min: 0
+          max: 20
+          step: 0.1
+          mode: box
+    vat_rate:
+      name: VAT rate
+      description: VAT of the alternative tariff in percent. Leave empty to use your tariff's VAT rate
+      required: false
+      example: 9
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 0.1
+          mode: box
+    pso_levy:
+      name: PSO levy
+      description: PSO levy of the alternative tariff for a whole bill period. Leave empty to use your tariff's PSO levy
+      required: false
+      example: 1.46
+      selector:
+        number:
+          min: 0
+          max: 20
+          step: 0.01
           mode: box
 
 year_on_year_summary:

@@ -30,12 +30,14 @@ from __future__ import annotations
 
 import os
 import textwrap
+from dataclasses import replace
 
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
 from .core.rules import suggest_appliance_run
+from .core.tariff import BillBreakdown, TariffConfig, build_tariff
 from .logging import get_logger
 
 _LOG = get_logger(__name__)
@@ -702,62 +704,114 @@ def _make_roi_summary_handler(hass: HomeAssistant):
     return handle
 
 
+def _bill_side(bill: BillBreakdown, tariff: TariffConfig) -> dict:
+    """Return one side of a tariff comparison from a bill breakdown."""
+    import_cost = (bill.energy - bill.supplier_saving) * (1 + tariff.vat_rate / 100)
+    before_export = bill.before_vat + bill.vat
+    return {
+        "import_cost": round(import_cost, 4),
+        "standing_charges": round(before_export - import_cost, 4),
+        "export_earnings": round(bill.export_credit, 4),
+        "net_cost": round(bill.total, 4),
+        "discount_rate": tariff.discount_rate,
+        "vat_rate": tariff.vat_rate,
+        "bill": {
+            "energy": bill.energy,
+            "supplier_saving": bill.supplier_saving,
+            "standing_charge": bill.standing_charge,
+            "pso_levy": bill.pso_levy,
+            "vat": bill.vat,
+            "export_credit": bill.export_credit,
+            "total": bill.total,
+        },
+    }
+
+
+def _compare_tariff_for_entry(coordinator, data) -> dict:
+    """Compare one entry's bill period so far with a flat-rate alternative.
+
+    Both sides go through TariffConfig.calculate_bill, so energy, supplier saving,
+    standing charge, PSO levy, VAT and export credit are worked out the same way.
+    """
+    d = coordinator.data
+    tariff = build_tariff(coordinator._effective_cfg())
+    alt_rate = float(data["rate"])
+    alt_standing = float(data.get("standing_charge", 0.0))
+    alt_export_rate = float(data.get("export_rate", 0.0))
+    overrides = {
+        "standing_charge": alt_standing,
+        "export_rate": alt_export_rate,
+    }
+    for field_name in ("discount_rate", "vat_rate", "pso_levy"):
+        if data.get(field_name) is not None:
+            overrides[field_name] = float(data[field_name])
+    alt_tariff = replace(tariff, **overrides)
+
+    days = d.days_in_period
+    period_days = days + d.days_remaining
+    import_kwh = d.month.import_kwh
+    export_kwh = d.month.export_kwh
+
+    current_bill = tariff.calculate_bill(
+        tariff.energy_cost_from_import_cost(d.month.total_import_cost),
+        days,
+        period_days,
+        d.month.export_earnings,
+    )
+    alt_bill = alt_tariff.calculate_bill(
+        import_kwh * alt_rate, days, period_days, export_kwh * alt_export_rate
+    )
+    current = _bill_side(current_bill, tariff)
+    alternative = _bill_side(alt_bill, alt_tariff)
+    alternative.update(
+        {
+            "rate": alt_rate,
+            "standing_charge_per_day": alt_standing,
+            "export_rate": alt_export_rate,
+            "pso_levy_per_period": alt_tariff.pso_levy,
+        }
+    )
+    current["pso_levy_per_period"] = tariff.pso_levy
+    return {
+        "period_days": days,
+        "period_length_days": period_days,
+        "import_kwh": round(import_kwh, 3),
+        "export_kwh": round(export_kwh, 3),
+        "current_tariff": current,
+        "comparison_tariff": alternative,
+        "saving": round(current_bill.total - alt_bill.total, 4),
+    }
+
+
 def _make_compare_tariff_handler(hass: HomeAssistant):
     """Return the compare_tariff service handler bound to *hass*."""
 
     async def handle(call: ServiceCall) -> dict:
-        """Compare current billing period cost against a flat-rate alternative tariff.
+        """Compare the current bill period against a flat-rate alternative tariff.
 
         Service data fields:
-          rate            — flat import rate of the comparison tariff (€/kWh, required)
-          standing_charge — daily standing charge of the comparison tariff (€/day, default 0)
-          export_rate     — export rate of the comparison tariff (€/kWh, default 0)
+          rate            - flat import rate of the comparison tariff (EUR/kWh, required)
+          standing_charge - daily standing charge of the comparison tariff (EUR/day, default 0)
+          export_rate     - export rate of the comparison tariff (EUR/kWh, default 0)
+          discount_rate   - supplier discount in percent (default: the configured tariff's)
+          vat_rate        - VAT in percent (default: the configured tariff's)
+          pso_levy        - PSO levy per bill period (default: the configured tariff's)
+
+        The top level of the response describes the first loaded entry. With more than
+        one entry set up, "entries" lists every entry's comparison.
         """
-        entries = hass.config_entries.async_entries(DOMAIN)
-        if not entries or entries[0].runtime_data is None:
+        results = []
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            coordinator = entry.runtime_data
+            if coordinator is None or coordinator.data is None:
+                continue
+            result = _compare_tariff_for_entry(coordinator, call.data)
+            result["entry_id"] = entry.entry_id
+            result["title"] = entry.title
+            results.append(result)
+        if not results:
             return {}
-        coordinator = entries[0].runtime_data
-        if coordinator.data is None:
-            return {}
-
-        d = coordinator.data
-        alt_rate = float(call.data["rate"])
-        alt_standing = float(call.data.get("standing_charge", 0.0))
-        alt_export_rate = float(call.data.get("export_rate", 0.0))
-
-        days = d.days_in_period
-        import_kwh = d.month.import_kwh
-        export_kwh = d.month.export_kwh
-
-        actual_import_cost = d.month.total_import_cost
-        actual_export_earnings = d.month.export_earnings
-        actual_net = actual_import_cost - actual_export_earnings
-
-        alt_import_cost = import_kwh * alt_rate
-        alt_export_earnings = export_kwh * alt_export_rate
-        alt_standing_total = alt_standing * days
-        alt_net = alt_import_cost + alt_standing_total - alt_export_earnings
-
-        return {
-            "period_days": days,
-            "import_kwh": round(import_kwh, 3),
-            "export_kwh": round(export_kwh, 3),
-            "current_tariff": {
-                "import_cost": round(actual_import_cost, 4),
-                "export_earnings": round(actual_export_earnings, 4),
-                "net_cost": round(actual_net, 4),
-            },
-            "comparison_tariff": {
-                "rate": alt_rate,
-                "standing_charge_per_day": alt_standing,
-                "export_rate": alt_export_rate,
-                "import_cost": round(alt_import_cost, 4),
-                "standing_charges": round(alt_standing_total, 4),
-                "export_earnings": round(alt_export_earnings, 4),
-                "net_cost": round(alt_net, 4),
-            },
-            "saving": round(actual_net - alt_net, 4),
-        }
+        return {**results[0], "entries": results}
 
     return handle
 
