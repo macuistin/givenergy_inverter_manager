@@ -811,12 +811,9 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         schema = self.__class__._build_tariff_schema(
             current.get(CONF_RATE_PERIODS) or [], current
         )
-        schema = self.__class__._build_tariff_schema(current_periods)
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
         return self.async_show_form(step_id="reconfigure", data_schema=schema, errors=errors)
-        schema = self.__class__._build_tariff_schema(current.get(CONF_RATE_PERIODS) or [], current)
-        return self.async_show_form(step_id="reconfigure", data_schema=schema)
 
     @staticmethod
     @callback
@@ -1164,10 +1161,9 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(schema_dict)
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
-        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(schema_dict),
+            data_schema=schema,
             errors=errors,
             description_placeholders={
                 "tariff_summary": _tariff_summary(_saved_values(self._config_entry))
