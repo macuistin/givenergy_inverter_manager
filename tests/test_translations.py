@@ -24,3 +24,7 @@ def test_en_json_text_matches_strings_json():
     strings = json.loads((_COMPONENT / "strings.json").read_text(encoding="utf-8"))
     en = json.loads((_COMPONENT / "translations" / "en.json").read_text(encoding="utf-8"))
     assert en == strings
+
+
+def test_en_json_is_a_byte_copy_of_strings_json():
+    assert (_COMPONENT / "translations" / "en.json").read_bytes() == (_COMPONENT / "strings.json").read_bytes()
