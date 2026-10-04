@@ -169,6 +169,11 @@ class TariffConfig:
         gross = kwh * rate.rate * (1 - self.discount_rate / 100)
         return gross * (1 + self.vat_rate / 100)
 
+    def calculate_base_rate_cost(self, kwh: float) -> float:
+        """Cost of kwh at the base rate with the same discount and VAT as actual imports."""
+        gross = kwh * self.base_rate * (1 - self.discount_rate / 100)
+        return gross * (1 + self.vat_rate / 100)
+
     def calculate_export_earnings(self, kwh: float) -> float:
         """Calculate earnings from exporting energy."""
         return kwh * self.export_rate

@@ -997,7 +997,7 @@ def build_coordinator_data(
     data.days_remaining = days_remaining
 
     # ── Counterfactual cost (what you'd have paid without solar/battery) ─────
-    counterfactual_cost = acc.house_kwh * tariff.base_rate
+    counterfactual_cost = tariff.calculate_base_rate_cost(acc.house_kwh)
     actual_net_cost = acc.total_import_cost - acc.export_earnings
     data.saving_vs_grid_today = round(counterfactual_cost - actual_net_cost, 4)
     battery_wear_today = acc.battery_throughput_kwh * data.battery_cycle_cost_per_kwh

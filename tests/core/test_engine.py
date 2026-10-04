@@ -1332,6 +1332,17 @@ class TestCounterfactualCost:
         # (small positive rounding is acceptable — base rate equals import rate)
         assert data.saving_vs_grid_today >= -0.05
 
+    def test_saving_vs_grid_is_zero_with_no_solar_at_base_rate(self):
+        # Arrange — every kWh of load is imported at the base rate; discount and VAT
+        # apply to the actual cost, so they must apply to the counterfactual too
+        data = self._run_with_energy(
+            house_load_w=2000.0,
+            solar_power_w=0.0,
+            grid_power_w=2000.0,
+        )
+        # Assert
+        assert data.saving_vs_grid_today == pytest.approx(0.0, abs=1e-4)
+
     def test_net_saving_equals_saving_when_no_cycle_cost(self):
         # Arrange — battery_cycle_cost_per_kwh defaults to 0.0
         data = self._run_with_energy()
