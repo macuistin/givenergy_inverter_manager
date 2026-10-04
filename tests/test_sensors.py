@@ -550,3 +550,42 @@ class TestDerivedSensors:
         d = MagicMock()
         d.month.net_position = 3.141592
         assert fn(d) == pytest.approx(3.1416)
+
+
+class TestCheapestRateSensors:
+    def test_zero_rate_is_reported(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("cheapest_rate")
+        d = MagicMock()
+        d.cheapest_rate = 0.0
+        d.cheapest_rate_name = "Free hour"
+        assert fn(d) == 0.0
+
+    def test_none_before_first_cycle(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("cheapest_rate")
+        d = MagicMock()
+        d.cheapest_rate = 0.0
+        d.cheapest_rate_name = ""
+        assert fn(d) is None
+
+    def test_rate_rounds_to_four_places(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("cheapest_rate")
+        d = MagicMock()
+        d.cheapest_rate = 0.096512
+        d.cheapest_rate_name = "Nightboost"
+        assert fn(d) == pytest.approx(0.0965)
+
+    def test_period_name(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("cheapest_rate_period")
+        d = MagicMock()
+        d.cheapest_rate_name = "Nightboost"
+        assert fn(d) == "Nightboost"
+        d.cheapest_rate_name = ""
+        assert fn(d) is None

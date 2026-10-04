@@ -193,7 +193,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:cash-minus",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.cheapest_rate, 4) if d.cheapest_rate > 0 else None,
+        value_fn=lambda d: round(d.cheapest_rate, 4) if d.cheapest_rate_name else None,
     ),
     GivEnergyManagerSensorDescription(
         key="cheapest_rate_period",
