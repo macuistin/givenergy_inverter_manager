@@ -11,6 +11,7 @@ Setup wizard steps:
   4. immersion  — optional immersion heater.
   5. ev         — optional EV charger.
   6. battery    — overnight charge thresholds.
+  7. confirm    — read-only summary, submit to create the entry.
 
 Options flow: edit tariff and thresholds without reinstalling.
 """
@@ -173,6 +174,25 @@ def _tariff_summary(cfg: dict) -> str:
         f"Cheapest rate in your saved tariff: {cheapest.name} at {cheapest.rate:.4f} "
         f"{code}/kWh, {window}. {bill}"
     )
+
+
+def _setup_summary(data: dict) -> str:
+    """Bullet list of the choices made so far, shown before the entry is created."""
+    periods = ", ".join(
+        f"{p['name']} {float(p['rate']):.4f} ({p['start']} to {p['end']})"
+        for p in data.get(CONF_RATE_PERIODS) or []
+    )
+    lines = [
+        _tariff_summary(data),
+        f"Base rate: {data.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)} "
+        f"{float(data.get(CONF_BASE_RATE, DEFAULT_BASE_RATE)):.4f}. "
+        f"Timed rates: {periods or 'none'}.",
+        f"Battery {float(data.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY)):g} kWh, "
+        f"inverter {float(data.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)):g} kW.",
+        f"Forecast sensor: {data.get(CONF_FORECAST_ENTITY) or 'none, a seasonal estimate is used'}.",
+        f"Immersion switch: {data.get(CONF_IMMERSION_SWITCH) or 'none'}.",
+    ]
+    return "\n".join(f"- {line}" for line in lines if line)
 
 
 def _hhmmss(hhmm: str) -> str:
@@ -694,10 +714,10 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         )
 
     async def async_step_battery(self, user_input=None):
-        """Step 7: Battery management thresholds."""
+        """Step 6: Battery management thresholds."""
         if user_input is not None:
             self._data.update(user_input)
-            return self.async_create_entry(title="GivEnergy Inverter Manager", data=self._data)
+            return await self.async_step_confirm()
         schema = vol.Schema(
             {
                 vol.Optional(
@@ -737,6 +757,16 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             }
         )
         return self.async_show_form(step_id="battery", data_schema=schema)
+
+    async def async_step_confirm(self, user_input=None):
+        """Step 7: Show what will be saved, then create the entry."""
+        if user_input is not None:
+            return self.async_create_entry(title="GivEnergy Inverter Manager", data=self._data)
+        return self.async_show_form(
+            step_id="confirm",
+            data_schema=vol.Schema({}),
+            description_placeholders={"summary": _setup_summary(self._data)},
+        )
 
     async def async_step_reconfigure(self, user_input=None):
         """Allow updating tariff settings without removing the integration.

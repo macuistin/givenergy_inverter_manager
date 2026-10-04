@@ -208,6 +208,10 @@
           "surplus_divert_min_power_w": "Smallest solar surplus in watts that starts diverting power to the immersion."
         }
       },
+      "confirm": {
+        "title": "Check your settings",
+        "description": "{summary}\n\nSelect Submit to finish. You can change all of these later from Configure."
+      },
       "reconfigure": {
         "title": "Reconfigure GivEnergy Inverter Manager",
         "description": "Update your tariff. Values you already saved on the Configure page are replaced by what you enter here. To change the inverter entities, remove and re-add the integration.",
