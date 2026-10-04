@@ -869,12 +869,11 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:solar-power-variant",
-        is_daily_total=True,
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(
-            d.today.solar_kwh / (d.today.solar_kwh + d.today.missed_solar_kwh) * 100, 1
+            max(0.0, d.today.solar_kwh - d.today.missed_solar_kwh) / d.today.solar_kwh * 100, 1
         )
-        if (d.today.solar_kwh + d.today.missed_solar_kwh) > 0
+        if d.today.solar_kwh > 0
         else None,
     ),
     # ── Solar forecast and accuracy ───────────────────────────────────────────

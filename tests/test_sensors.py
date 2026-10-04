@@ -483,3 +483,70 @@ class TestEvKmSensors:
                 for kw in node.keywords
             ):
                 assert not any(kw.arg == "is_daily_total" for kw in node.keywords)
+
+
+class TestDerivedSensors:
+    def test_solar_capture_excludes_missed_solar_once(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("solar_capture_efficiency_today")
+        d = MagicMock()
+        d.today.solar_kwh = 20.0
+        d.today.missed_solar_kwh = 5.0
+        assert fn(d) == pytest.approx(75.0)
+
+    def test_solar_capture_full_when_nothing_missed(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("solar_capture_efficiency_today")
+        d = MagicMock()
+        d.today.solar_kwh = 12.0
+        d.today.missed_solar_kwh = 0.0
+        assert fn(d) == pytest.approx(100.0)
+
+    def test_solar_capture_never_negative(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("solar_capture_efficiency_today")
+        d = MagicMock()
+        d.today.solar_kwh = 4.0
+        d.today.missed_solar_kwh = 6.0
+        assert fn(d) == pytest.approx(0.0)
+
+    def test_solar_capture_none_without_solar(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("solar_capture_efficiency_today")
+        d = MagicMock()
+        d.today.solar_kwh = 0.0
+        d.today.missed_solar_kwh = 0.0
+        assert fn(d) is None
+
+    def test_solar_capture_is_not_a_daily_total(self):
+        for node in ast.walk(_TREE):
+            if isinstance(node, ast.Call) and any(
+                kw.arg == "key"
+                and isinstance(kw.value, ast.Constant)
+                and kw.value.value == "solar_capture_efficiency_today"
+                for kw in node.keywords
+            ):
+                assert not any(kw.arg == "is_daily_total" for kw in node.keywords)
+
+    def test_usable_capacity_scales_with_remaining_life(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("battery_usable_capacity_kwh")
+        d = MagicMock()
+        d.battery_capacity_kwh = 10.0
+        d.battery_stats.estimated_remaining_life_pct = 90.0
+        assert fn(d) == pytest.approx(9.0)
+        d.battery_capacity_kwh = 0.0
+        assert fn(d) is None
+
+    def test_net_position_this_month_rounds(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("net_position_this_month")
+        d = MagicMock()
+        d.month.net_position = 3.141592
+        assert fn(d) == pytest.approx(3.1416)
