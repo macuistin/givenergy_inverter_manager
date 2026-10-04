@@ -201,6 +201,13 @@ CHARGE_POOR_TARGET_SOC = 90  # target SoC for a poor-forecast night
 CHARGE_STRONG_BUFFER = 10  # SoC points added above gap for strong forecast
 CHARGE_MODERATE_BUFFER = 20  # SoC points added above gap for moderate forecast
 CHARGE_EV_SOC_BONUS = 10  # extra SoC percentage added when EV is plugged in
+CHARGE_LOAD_PROFILE_MIN_COVERAGE = 0.9  # fraction of the day a load record must cover
+CHARGE_LOAD_PROFILE_MIN_DAYS = 2  # complete days needed before the per-slot profile is used
+CHARGE_LOAD_PROFILE_SAME_WEEKDAY_MIN_DAYS = 3  # same-weekday days needed to prefer them
+CHARGE_FORECAST_CORRECTION_MIN = 0.6  # lowest factor applied to the P50 forecast
+CHARGE_FORECAST_CORRECTION_MAX = 1.2  # highest factor applied to the P50 forecast
+CHARGE_FORECAST_CORRECTION_MIN_DAYS = 5  # usable days needed before the factor is applied
+CHARGE_FORECAST_CORRECTION_MIN_KWH = 0.5  # days with forecast or actual below this are ignored
 
 # ── Solar / generation parameters ─────────────────────────────────────────────
 SOLAR_SUNRISE_HOUR = 8  # hour of day when solar generation typically starts
