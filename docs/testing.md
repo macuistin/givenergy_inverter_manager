@@ -40,6 +40,8 @@ If you run `pytest tests/ha_e2e` in the stubbed suite's virtualenv, it reports o
 - Enables every sensor that is disabled by default, reloads, and checks each one has a state.
 - Drives the options flow with the payload the frontend would send, including an empty forecast and carbon selection, and serialises the form schema the way the frontend API does.
 - Walks the config flow for the manual path (no discovered inverters) and the discovered path.
+- Checks that every field in the setup, reconfigure and options forms has a label and help text in `strings.json` and `translations/en.json`.
+- Moves the immersion temperature numbers and checks the integration is not reloaded.
 - Unloads, reloads and removes the entry.
 
 Writes to GivTCP are captured with `async_mock_service` for `number.set_value`, `switch.turn_on`, `switch.turn_off` and `select.select_option`. Nothing talks to a real inverter. The 2 s retry sleep in the coordinator is patched to 0.

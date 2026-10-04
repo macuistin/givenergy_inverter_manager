@@ -38,7 +38,6 @@ Related behaviour:
 ## Options form errors
 
 - **"Entity is neither a valid entity ID nor a valid UUID" on save.** This was a bug in v0.2.1 when a forecast or carbon intensity field was empty. Update to v0.3.0. In v0.3.0 an empty field saves as empty, and clearing a saved entity removes it.
-- **Tariff changes made in Reconfigure have no effect.** Once you have saved the Configure page, its saved copy overrides Reconfigure. Change the tariff in Configure.
 - **Battery divert threshold or surplus is not on the page.** They are set at setup only. See [Configuration](configuration.md#step-6-battery).
 - **Entities went unavailable after saving.** Saving reloads the integration. It takes a few seconds. If entities have not recovered after 30 seconds, check the log for errors.
 
@@ -118,6 +117,7 @@ With a Zappi that has a charge mode entity, a car plugged in and net solar surpl
 ## Totals are lower after a crash
 
 Accumulated energy is saved every 5 minutes, at midnight, when the integration unloads and when Home Assistant stops. See [Concepts](concepts.md#the-30-second-cycle). Only a crash or a power cut can lose up to about 5 minutes of energy.
+Accumulated energy is saved every 5 minutes and at midnight, not at shutdown. See [Concepts](concepts.md#the-30-second-cycle). Saving the options reloads the integration, which has the same effect. Moving an immersion temperature slider does not reload it.
 
 ## The bill sensors look low early in the period
 

@@ -98,8 +98,8 @@ Rate period sections in the options flow sit at the top level alongside `tariff_
 
 ## Config flow structure
 
-**Initial setup (6 steps):**
-`inverter` → `tariff` → `forecast` → `immersion` → `ev` → `battery`
+**Initial setup (7 steps):**
+`inverter` → `tariff` → `forecast` → `immersion` → `ev` → `battery` → `confirm`
 
 The tariff step uses `_build_tariff_schema(periods)` which includes up to 5 rate period
 sections. Rate periods are stored as `list[dict]` with keys `name`, `rate`, `start`,

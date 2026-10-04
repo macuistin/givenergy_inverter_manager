@@ -30,7 +30,7 @@ The configured cap does not limit a manual target. Force Skip takes priority ove
 | Immersion Minimum Temperature | 30 to 60 °C, step 1 | 50 | Below this the immersion heats whatever the surplus. Kept at least 1 °C below the target |
 | Immersion Restart Gap | 1 to 15 °C, step 1 | 5 | After reaching the target, the heater restarts only once the water is this far below it |
 
-The three immersion numbers are restored after a restart and saved to the integration's data. Changing one of them reloads the integration, as saving the options page does, so entities are unavailable for a few seconds.
+The three immersion numbers are restored after a restart and saved to the integration's data. Changing one of them updates the running integration. It does not reload it.
 
 The restart gap stops rapid switching near the target. With the defaults the heater turns off at 55 °C and does not restart until the water drops below 50 °C.
 

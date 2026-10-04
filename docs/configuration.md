@@ -2,11 +2,11 @@
 
 Every setup step and every option, with ranges and defaults taken from the config flow.
 
-- **Setup** is a six-step wizard: inverter, tariff, forecast, immersion, EV, battery.
+- **Setup** is a seven-step wizard: inverter, tariff, forecast, immersion, EV, battery, then a read-only confirmation summary.
 - **Configure** opens a single options page with collapsible sections. Saving it reloads the integration.
 - **Reconfigure** edits the tariff only.
 
-Some fields are missing a label in the forms. They show their key name instead, for example `forecast_entity_p10`. The tables below give the key in that case.
+Every field has a label and a one-line help text in the form. [Field meanings](#field-meanings) explains the ones that caused mistakes.
 
 ## Setup
 
@@ -44,16 +44,16 @@ The charge control entities are never asked for. They come from discovery only. 
 
 | Field | Default | Range |
 |---|---|---|
-| Base rate (daytime / standard) | 0.3334 | 0 to 5 per kWh |
+| Base rate | 0.3334 | 0 to 5 per kWh |
 | Base rate name | Day | text |
 | Export / CEG rate | 0.195 | 0 to 1 per kWh |
 | Standing charge per day | 0.8259 | 0 to 5 |
-| PSO levy per month | 1.46 | 0 to 20 |
+| PSO levy per billing period | 1.46 | 0 to 20 |
 | VAT rate (%) | 9.0 | 0 to 30 |
 | Supplier discount (%) | 5.5 | 0 to 20 |
-| Bill start day of month | 1 | 1 to 28 |
+| First day of your billing period | 1 | 1 to 28 |
 | Currency | EUR | EUR, GBP, USD, SEK, NOK, DKK, AUD, CAD, NZD, ZAR |
-| Rate period 1 to 5 | Night and Nightboost in slots 1 and 2 | name, rate, window start, window end |
+| Rate period 1 to 5 | Night and Nightboost in slots 1 and 2 | name, rate, window start, window end. An empty name removes the slot |
 
 The defaults are Electric Ireland Home Electric with Nightboost. Replace all of them. The rate fields say EUR/kWh whatever currency you pick. The currency only changes the symbol on money sensors. See [Tariff](tariff.md) for how periods and bill figures work.
 
@@ -65,6 +65,8 @@ The defaults are Electric Ireland Home Electric with Nightboost. Replace all of 
 | Tomorrow's forecast sensor | `forecast_entity` | A sensor giving tomorrow's expected energy in kWh |
 | Solcast P10 sensor | `forecast_entity_p10` | Optional. A pessimistic forecast in kWh, blended in when conservatism is above 0 |
 | Day-after-tomorrow sensor | `forecast_entity_d2` | Optional. When it exceeds the battery capacity, tonight's target is lowered to leave room for that day's solar |
+| Pessimistic (P10) forecast sensor | `forecast_entity_p10` | Optional. A pessimistic forecast in kWh, blended in when conservatism is above 0 |
+| Day-after-tomorrow forecast sensor | `forecast_entity_d2` | Optional. Read each cycle but not used by the charge calculation in v0.3.0 |
 | Grid carbon intensity sensor | `carbon_intensity_entity` | Optional. g CO2/kWh. Feeds the two carbon sensors |
 | Forecast conservatism | `forecast_conservatism` | Slider 0 to 1 in steps of 0.05, default 0.35. 0 is the plain forecast, 1 is the P10 value |
 
@@ -97,20 +99,26 @@ The coordinator finds the charger itself, whatever you pick here. Car efficiency
 |---|---|---|---|
 | Minimum battery SoC | `battery_min_soc_pct` | 10 | 5 to 30 |
 | Cheap rate floor | `cheap_rate_floor_soc` | 40 | 0 to 80 in steps of 5. 0 turns it off |
-| Default overnight charge target | `overnight_charge_target_pct` | 80 | 20 to 100 |
+| Maximum overnight charge target | `overnight_charge_target_pct` | 80 | 20 to 100 |
 | Skip charge if SoC above | `skip_charge_soc_threshold_pct` | 75 | 20 to 100 |
 | Immersion divert: minimum battery SoC | `surplus_divert_soc_pct` | 80 | 50 to 100 in steps of 5 |
 | Immersion divert: minimum solar surplus (W) | `surplus_divert_min_power_w` | 500 | 100 to 2000 in steps of 100 |
 
 The two immersion divert fields can only be set here. The options page does not have them. To change them later, remove and re-add the integration.
 
+### Step 7: Confirm
+
+A read-only summary lists the cheapest rate, the billing period (for example "Your bill runs from the 16th to the 15th."), the base rate and timed rates, the battery and inverter sizes, the forecast sensor and the immersion switch. Submit it to create the entry. Nothing is saved before this step. To change something, cancel and start again, or use Configure afterwards.
+
 ## Options
 
 Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. Saving reloads the integration, so entities are unavailable for a few seconds. Saved options override the values entered at setup.
 
+The sections run in the order they are used most: Tariff, the five rate periods, Battery & charging thresholds, Solar forecast, Hardware, Electric vehicle. Only Tariff opens expanded, and a rate period opens expanded when it has a name. The first line of the page states the cheapest rate in the saved tariff and the billing period, so a wrong rate slot or bill start day shows before you save.
+
 ### Tariff
 
-Same fields as setup step 2. Rate periods 1 to 5 sit in their own sections below the tariff section. See [Tariff](tariff.md).
+Same fields as setup step 2. Rate periods 1 to 5 sit in their own sections below the tariff section. Check the rates against your latest bill whenever your supplier changes its prices. See [Tariff](tariff.md).
 
 ### Battery & charging thresholds
 
@@ -118,9 +126,9 @@ Same fields as setup step 2. Rate periods 1 to 5 sit in their own sections below
 |---|---|---|---|
 | Minimum battery SoC | `battery_min_soc_pct` | 10 | 5 to 30 |
 | Cheap rate floor (%) | `cheap_rate_floor_soc` | 40 | 0 to 80 in steps of 5. 0 turns it off |
-| Default overnight charge target | `overnight_charge_target_pct` | 80 | 20 to 100. The calculated target is capped at this |
+| Maximum overnight charge target | `overnight_charge_target_pct` | 80 | 20 to 100. The calculated target is capped at this |
 | Skip charge if SoC above | `skip_charge_soc_threshold_pct` | 75 | 20 to 100 |
-| Battery cost | `battery_cost_eur` | 0 | 0 to 20000 in steps of 100. 0 turns the wear check off |
+| Battery cost (EUR) | `battery_cost_eur` | 0 | 0 to 20000 in steps of 100. 0 turns the wear check off |
 | Daily battery throughput budget (kWh) | `battery_throughput_budget_kwh` | 0 | 0 to 50 in steps of 0.5. 0 turns the budget sensors off |
 | Dry run mode | `dry_run` | off | Decisions and sensors update, nothing is sent |
 | Verbose logging | `verbose_logging` | off | Detailed per-cycle log lines |
@@ -146,8 +154,8 @@ Update these when you add battery modules, change the inverter, or replace the e
 |---|---|
 | Forecast provider | `forecast_provider` |
 | Tomorrow's forecast sensor | `forecast_entity` |
-| Solcast P10 sensor | `forecast_entity_p10` |
-| Day-after-tomorrow sensor | `forecast_entity_d2` |
+| Pessimistic (P10) forecast sensor | `forecast_entity_p10` |
+| Day-after-tomorrow forecast sensor | `forecast_entity_d2` |
 | Grid carbon intensity sensor | `carbon_intensity_entity` |
 | Forecast conservatism | `forecast_conservatism` |
 
@@ -161,12 +169,33 @@ Details as in setup step 3. Clear an entity field to remove the saved entity.
 
 ## Reconfigure
 
-**Settings → Devices & Services → GivEnergy Inverter Manager → ⋮ → Reconfigure** shows the tariff form and saves it to the setup data. To change inverter entities, remove and re-add the integration.
-
-Saved options override setup data. After you have saved the Configure page once, it holds a full copy of the tariff, so Reconfigure no longer changes the tariff. Use Configure instead.
+**Settings → Devices & Services → GivEnergy Inverter Manager → ⋮ → Reconfigure** shows the tariff form, pre-filled with the values in force, and saves it to the setup data. It also removes any saved Configure-page values for the same tariff keys, because saved options override setup data. The integration reloads once. To change inverter entities, remove and re-add the integration.
 
 ## Things to know
 
 - **Bill start day.** The month totals reset at midnight on the bill start day. A day saved on the options page takes precedence over the one saved at setup or in Reconfigure, and applies from the next 30-second cycle.
 - **Immersion temperatures.** Target, minimum and restart gap are changed with number entities, not the options page. See [Entities](entities.md).
+- **Bill start day.** The month totals reset on the bill start day saved at setup or in Reconfigure. A different day saved on the options page changes the day counts in the bill sensors but not the month reset.
+- **Immersion temperatures.** Target, minimum and restart gap are changed with number entities, not the options page. Moving one updates the running integration without a reload. See [Entities](entities.md).
 - **Forecast provider.** The choice is stored and not used. Set the sensors.
+
+## Field meanings
+
+These are the fields that have been entered wrongly. The same wording is in the forms.
+
+| Field | Meaning |
+|---|---|
+| First day of your billing period | The day your bill starts. If your bill runs from the 16th to the 15th, enter 16. The Configure and confirmation pages repeat it back as "Your bill runs from the 16th to the 15th." |
+| Base rate | The rate per kWh, before VAT, outside the timed rate periods. |
+| Rate period 1 to 5 | An optional timed rate that overrides the base rate inside its window. Leave the name empty to remove the slot. The cheapest active period wins. A window that ends before it starts runs overnight, for example 23:00 to 08:00. Start and end must be different times. A rate of 0 means free electricity, so do not use it as a placeholder. |
+| Supplier discount (%) | Taken off the energy rate only, before VAT. It does not apply to the standing charge or the levy. 0 means no discount. |
+| PSO levy per billing period | A flat amount, before VAT, charged once per billing period. The bill sensors spread it evenly across the days. 0 means no levy. |
+| Standing charge per day | A fixed charge per day, before VAT. 0 means none. |
+| Export / CEG rate | Paid per kWh sent to the grid. No VAT or discount applies. |
+| Cheap rate floor (%) | During the cheapest rate window the battery is topped up if it falls below this. 0 turns it off. |
+| Battery cost (EUR) | Used to put a wear cost on each kWh cycled. 0 turns the wear check off. |
+| Daily battery throughput budget (kWh) | A cap on kWh charged plus discharged per day. 0 turns the budget sensors off. |
+| Forecast sensors | An empty tomorrow sensor means a seasonal estimate is used. An empty pessimistic sensor means conservatism has no effect. An empty carbon sensor means the carbon sensors have no data. |
+| Water temperature sensor | Empty means the heater is not started or stopped by temperature. |
+
+Rates and charges are entered before VAT. VAT is added on top, as set in the VAT rate field.
