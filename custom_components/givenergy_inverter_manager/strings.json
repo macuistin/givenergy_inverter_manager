@@ -231,6 +231,13 @@
               "battery_capacity_kwh": "Total usable capacity of all battery modules."
             }
           },
+          "ev_settings": {
+            "name": "Electric vehicle",
+            "description": "Used to convert kWh charged into km added.",
+            "data": {
+              "car_efficiency_kwh_per_100km": "Car efficiency (kWh/100km)"
+            }
+          },
           "forecast_settings": {
             "name": "Solar forecast",
             "description": "Connect a forecast integration for smarter overnight charging. Without this, a seasonal estimate is used.",

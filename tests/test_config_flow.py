@@ -484,6 +484,31 @@ class TestOptionsFlowSections:
         assert data[CONF_INVERTER_MAX_OUTPUT] == pytest.approx(5.0)
         assert data[CONF_IMMERSION_WATTAGE] == pytest.approx(2800.0)
 
+    def test_ev_efficiency_is_saved_to_options(self):
+        import asyncio
+
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_CAR_EFFICIENCY_KWH_PER_100KM,
+        )
+
+        flow = self._make_flow()
+        user_input = self._tariff_input()
+        user_input["ev_settings"] = {CONF_CAR_EFFICIENCY_KWH_PER_100KM: 17.5}
+        asyncio.run(flow.async_step_init(user_input))
+
+        data = flow.async_create_entry.call_args.kwargs["data"]
+        assert data[CONF_CAR_EFFICIENCY_KWH_PER_100KM] == pytest.approx(17.5)
+
+    def test_ev_settings_section_has_labels(self):
+        import json
+        from pathlib import Path
+
+        base = Path("custom_components/givenergy_inverter_manager")
+        for name in ("strings.json", "translations/en.json"):
+            data = json.loads((base / name).read_text())
+            sections = data["options"]["step"]["init"]["sections"]
+            assert "car_efficiency_kwh_per_100km" in sections["ev_settings"]["data"]
+
     def test_missing_hardware_section_leaves_options_unchanged(self):
         import asyncio
 
