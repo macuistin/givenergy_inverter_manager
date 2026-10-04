@@ -654,6 +654,12 @@
       "export_trailing_12m": {
         "name": "Export — trailing 12 months"
       },
+      "ev_charging_source": {
+        "name": "EV Charging Source"
+      },
+      "ev_solar_surplus_available": {
+        "name": "EV Solar Surplus"
+      },
       "solar_this_year": {
         "name": "Solar generated this year"
       },
@@ -662,9 +668,6 @@
       },
       "import_trailing_12m": {
         "name": "Import — trailing 12 months"
-      },
-      "export_trailing_12m": {
-        "name": "Export — trailing 12 months"
       },
       "import_cost_trailing_12m": {
         "name": "Import Cost — trailing 12 months"
