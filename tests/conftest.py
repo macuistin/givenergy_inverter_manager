@@ -36,6 +36,7 @@ _HA_SUBMODULES = [
     "homeassistant.components",
     "homeassistant.helpers.issue_registry",
     "homeassistant.helpers.redact",
+    "homeassistant.helpers.typing",
     "homeassistant.components.sensor",
     "homeassistant.components.switch",
     "homeassistant.components.button",
@@ -66,6 +67,7 @@ _const.EVENT_HOMEASSISTANT_FINAL_WRITE = "homeassistant_final_write"
 # --- homeassistant.config_entries ---
 _ce = sys.modules["homeassistant.config_entries"]
 _ce.ConfigEntry = MagicMock
+_ce.ConfigEntryState = MagicMock()
 
 
 class _ConfigFlow:
@@ -199,6 +201,8 @@ for _cls in [
 
 _cv = sys.modules["homeassistant.helpers.config_validation"]
 _cv.string = str
+sys.modules["homeassistant.helpers.typing"].ConfigType = dict
+_cv.config_entry_only_config_schema = lambda domain: {}
 
 _ep = sys.modules["homeassistant.helpers.entity_platform"]
 _ep.AddEntitiesCallback = MagicMock
@@ -212,6 +216,7 @@ sys.modules["homeassistant.helpers.event"].async_track_time_change = lambda *a, 
 # homeassistant.core needs ServiceCall for dashboard.py
 _core = sys.modules["homeassistant.core"]
 _core.ServiceCall = MagicMock
+_core.SupportsResponse = MagicMock()
 
 # homeassistant.helpers.entity_registry (used by dashboard.py)
 if "homeassistant.helpers.entity_registry" not in sys.modules:

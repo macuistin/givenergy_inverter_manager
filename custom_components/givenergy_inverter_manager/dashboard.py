@@ -32,7 +32,8 @@ import os
 import textwrap
 from dataclasses import replace
 
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
@@ -48,6 +49,15 @@ SERVICE_COMPARE_TARIFF = "compare_tariff"
 SERVICE_YEAR_ON_YEAR = "year_on_year_summary"
 SERVICE_EXPORT_ENERGY_DATA = "export_energy_data"
 SERVICE_GET_ROI_SUMMARY = "get_roi_summary"
+
+
+def loaded_entries(hass: HomeAssistant) -> list[ConfigEntry]:
+    """Return the config entries of this integration that are currently loaded."""
+    return [
+        entry
+        for entry in hass.config_entries.async_entries(DOMAIN)
+        if entry.state is ConfigEntryState.LOADED
+    ]
 
 
 def _entity_id(hass: HomeAssistant, entry_id: str, unique_id_suffix: str) -> str:
@@ -642,8 +652,8 @@ def _make_roi_summary_handler(hass: HomeAssistant):
 
     async def handle(call: ServiceCall) -> dict:
         """Return ROI metrics for today/week/month/year and battery health."""
-        entries = hass.config_entries.async_entries(DOMAIN)
-        if not entries or entries[0].runtime_data is None:
+        entries = loaded_entries(hass)
+        if not entries:
             return {}
         coordinator = entries[0].runtime_data
         if coordinator.data is None:
@@ -801,9 +811,9 @@ def _make_compare_tariff_handler(hass: HomeAssistant):
         one entry set up, "entries" lists every entry's comparison.
         """
         results = []
-        for entry in hass.config_entries.async_entries(DOMAIN):
+        for entry in loaded_entries(hass):
             coordinator = entry.runtime_data
-            if coordinator is None or coordinator.data is None:
+            if coordinator.data is None:
                 continue
             result = _compare_tariff_for_entry(coordinator, call.data)
             result["entry_id"] = entry.entry_id
@@ -821,8 +831,8 @@ def _make_year_on_year_handler(hass: HomeAssistant):
 
     async def handle(call: ServiceCall) -> dict:
         """Compare current billing month against the same month one year ago."""
-        entries = hass.config_entries.async_entries(DOMAIN)
-        if not entries or entries[0].runtime_data is None:
+        entries = loaded_entries(hass)
+        if not entries:
             return {}
         coordinator = entries[0].runtime_data
         if coordinator.data is None:
@@ -954,19 +964,19 @@ def _snapshot_to_csv_row(index: int, snap: dict) -> str:
 def _make_export_handler(hass: HomeAssistant):
     """Return the export_energy_data service handler bound to *hass*."""
 
-    async def handle(call: ServiceCall) -> None:
+    async def handle(call: ServiceCall) -> dict:
         """Export energy history to /config/givenergy_energy_export.csv."""
         from homeassistant.exceptions import ServiceValidationError  # noqa: PLC0415
 
-        entries = hass.config_entries.async_entries(DOMAIN)
-        if not entries or entries[0].runtime_data is None:
+        entries = loaded_entries(hass)
+        if not entries:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="no_config_entry",
             )
         coordinator = entries[0].runtime_data
         if coordinator.data is None:
-            return
+            return {"file": None, "rows_written": 0, "header": _CSV_HEADER, "rows": []}
 
         d = coordinator.data
         rows = [_CSV_HEADER]
@@ -1016,18 +1026,24 @@ def _make_export_handler(hass: HomeAssistant):
             },
             blocking=False,
         )
+        return {
+            "file": file_path,
+            "rows_written": n_rows,
+            "header": _CSV_HEADER,
+            "rows": rows[1:],
+        }
 
     return handle
 
 
 async def async_register_services(hass: HomeAssistant) -> None:
-    """Register the get_dashboard_yaml service."""
+    """Register the integration's service actions."""
 
     async def handle_get_dashboard_yaml(call: ServiceCall) -> None:
         """Write dashboard YAML to /config/givenergy_dashboard.yaml."""
         from homeassistant.exceptions import ServiceValidationError  # noqa: PLC0415
 
-        entries = hass.config_entries.async_entries(DOMAIN)
+        entries = loaded_entries(hass)
         if not entries:
             raise ServiceValidationError(
                 translation_domain="givenergy_inverter_manager",
@@ -1092,8 +1108,8 @@ async def async_register_services(hass: HomeAssistant) -> None:
 
     async def handle_suggest_appliance(call) -> None:
         """Evaluate whether now is a good time to run a high-load appliance."""
-        entries = hass.config_entries.async_entries(DOMAIN)
-        if not entries or entries[0].runtime_data is None:
+        entries = loaded_entries(hass)
+        if not entries:
             return
         coordinator = entries[0].runtime_data
         if coordinator.data is None:
@@ -1143,9 +1159,6 @@ async def async_register_services(hass: HomeAssistant) -> None:
     )
     _LOG.debug("Registered service %s.%s", DOMAIN, SERVICE_SUGGEST_APPLIANCE)
 
-
-    from homeassistant.core import SupportsResponse  # noqa: PLC0415
-
     hass.services.async_register(
         DOMAIN,
         SERVICE_GET_ROI_SUMMARY,
@@ -1174,6 +1187,7 @@ async def async_register_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_EXPORT_ENERGY_DATA,
         _make_export_handler(hass),
+        supports_response=SupportsResponse.OPTIONAL,
     )
     _LOG.debug("Registered service %s.%s", DOMAIN, SERVICE_EXPORT_ENERGY_DATA)
 

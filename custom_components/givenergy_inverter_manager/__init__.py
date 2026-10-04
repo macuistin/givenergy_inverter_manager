@@ -22,17 +22,22 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     CONF_IMMERSION_HYSTERESIS,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_TARGET_TEMP,
+    DOMAIN,
 )
 from .coordinator import GivEnergyCoordinator
-from .dashboard import async_register_services, async_unregister_services
+from .dashboard import async_register_services, async_unregister_services, loaded_entries
 from .logging import get_logger, log_startup
 
 _LOG = get_logger(__name__)
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH, Platform.NUMBER, Platform.BUTTON]
 
@@ -76,6 +81,12 @@ def _make_update_listener(entry: ConfigEntry):
     return _on_entry_updated
 
 
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the service actions once, independent of any config entry."""
+    await async_register_services(hass)
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up GivEnergy Inverter Manager from a config entry."""
     _LOG.debug("Setting up entry %s (%s)", entry.entry_id, entry.title)
@@ -103,7 +114,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     entry.async_on_unload(entry.add_update_listener(_make_update_listener(entry)))
 
-    # Register services (idempotent — safe to call on every entry setup)
+    # async_setup runs once per start; this restores services removed by the last unload.
     await async_register_services(hass)
 
     # Create a placeholder dashboard file so YAML-mode lovelace can reference it
@@ -129,7 +140,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOG.debug("Unloading entry %s (%s)", entry.entry_id, entry.title)
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        async_unregister_services(hass)
+        if not [e for e in loaded_entries(hass) if e.entry_id != entry.entry_id]:
+            async_unregister_services(hass)
     return bool(unload_ok)
 
 

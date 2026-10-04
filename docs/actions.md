@@ -2,8 +2,8 @@
 
 The integration registers six actions under `givenergy_inverter_manager`. Run them from **Developer Tools → Actions**, or from scripts and automations.
 
-- All six use the first configured entry.
-- Three of them return data. Read it with `response_variable`.
+- All six use the first loaded entry, and `compare_tariff` also lists every loaded entry. They stay registered while at least one entry is loaded.
+- Four of them return data. Read it with `response_variable`.
 - The examples use `action:`. Home Assistant releases before 2024.8 call it `service:`.
 
 | Action | Fields | Returns |
@@ -13,7 +13,7 @@ The integration registers six actions under `givenergy_inverter_manager`. Run th
 | [`get_roi_summary`](#get_roi_summary) | none | ROI figures |
 | [`compare_tariff`](#compare_tariff) | `rate`, optional `standing_charge`, `export_rate`, `discount_rate`, `vat_rate`, `pso_levy` | cost comparison |
 | [`year_on_year_summary`](#year_on_year_summary) | none | month against last year |
-| [`export_energy_data`](#export_energy_data) | none | nothing |
+| [`export_energy_data`](#export_energy_data) | none | file path and rows written |
 
 ## get_dashboard_yaml
 
@@ -130,7 +130,10 @@ Writes `givenergy_energy_export.csv` to the Home Assistant config folder and sho
 
 ```yaml
 action: givenergy_inverter_manager.export_energy_data
+response_variable: export
 ```
+
+The response, when you ask for one, holds `file` (the path written), `rows_written`, `header` and `rows` (the data rows as CSV lines).
 
 Columns: `period`, `solar_kwh`, `import_kwh`, `export_kwh`, `battery_throughput_kwh`, `import_cost`, `export_earnings`, `net_position`, `self_sufficiency_pct`.
 

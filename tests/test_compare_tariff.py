@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from homeassistant.config_entries import ConfigEntryState
 
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
@@ -44,7 +45,9 @@ def _coordinator(cfg=None, days_in=31, days_remaining=0, scale=1.0):
 
 
 def _entry(coordinator, entry_id="entry1", title="Home"):
-    return SimpleNamespace(runtime_data=coordinator, entry_id=entry_id, title=title)
+    return SimpleNamespace(
+        runtime_data=coordinator, entry_id=entry_id, title=title, state=ConfigEntryState.LOADED
+    )
 
 
 def _call(hass_entries, **data):

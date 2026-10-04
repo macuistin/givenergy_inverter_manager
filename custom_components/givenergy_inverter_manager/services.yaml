@@ -141,6 +141,6 @@ export_energy_data:
   description: >
     Writes today, yesterday, this week, this month, this year and each stored
     completed bill period to givenergy_energy_export.csv in the Home Assistant
-    config directory, then shows a persistent notification. The action does not
-    return a response.
+    config directory, then shows a persistent notification. Use response_variable
+    to read the file path and the rows written.
   fields: {}
