@@ -218,5 +218,5 @@ Supported charger brands for monitoring: Zappi (myenergi), Wallbox, OCPP, Ohme, 
 
 `github.com/macuistin/givenergy_inverter_manager`
 
-Requires: Home Assistant ≥ 2024.1.0, HACS ≥ 1.32.0, GivTCP running as a HA add-on.
+Requires: Home Assistant ≥ 2024.11.0, HACS ≥ 1.32.0, GivTCP running as a HA add-on.
 

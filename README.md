@@ -20,7 +20,7 @@ Tested on a GivEnergy GIV-HY-5.0 on the Electric Ireland Nightboost tariff. Curr
 
 ## Requirements
 
-- Home Assistant 2024.1.0 or later (the minimum declared in `hacs.json`)
+- Home Assistant 2024.11.0 or later (the minimum declared in `hacs.json`)
 - [GivTCP](https://github.com/britkat1980/giv_tcp) publishing your inverter to Home Assistant over MQTT
 - A GivEnergy hybrid inverter with a battery
 
