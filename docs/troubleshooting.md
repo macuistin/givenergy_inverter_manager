@@ -38,7 +38,6 @@ Related behaviour:
 ## Options form errors
 
 - **"Entity is neither a valid entity ID nor a valid UUID" on save.** This was a bug in v0.2.1 when a forecast or carbon intensity field was empty. Update to v0.3.0. In v0.3.0 an empty field saves as empty, and clearing a saved entity removes it.
-- **A value I set to 0 comes back.** The page treats a saved 0 as empty and shows the setup value. This affects Cheap rate floor and Forecast conservatism. Check them before you save.
 - **Tariff changes made in Reconfigure have no effect.** Once you have saved the Configure page, its saved copy overrides Reconfigure. Change the tariff in Configure.
 - **Battery divert threshold or surplus is not on the page.** They are set at setup only. See [Configuration](configuration.md#step-6-battery).
 - **Entities went unavailable after saving.** Saving reloads the integration. It takes a few seconds. If entities have not recovered after 30 seconds, check the log for errors.

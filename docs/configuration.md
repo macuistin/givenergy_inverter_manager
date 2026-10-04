@@ -167,7 +167,6 @@ Saved options override setup data. After you have saved the Configure page once,
 
 ## Things to know
 
-- **A saved 0 can look like the setup value.** The options page treats a saved 0 as empty and shows the value from setup. This affects Cheap rate floor and Forecast conservatism, both set at setup. If you set either to 0 and open the page again, it shows the setup value. Saving without checking restores that value.
 - **Bill start day.** The month totals reset on the bill start day saved at setup or in Reconfigure. A different day saved on the options page changes the day counts in the bill sensors but not the month reset.
 - **Immersion temperatures.** Target, minimum and restart gap are changed with number entities, not the options page. See [Entities](entities.md).
 - **Forecast provider.** The choice is stored and not used. Set the sensors.
