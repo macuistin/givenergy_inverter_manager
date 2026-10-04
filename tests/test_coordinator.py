@@ -510,6 +510,20 @@ class TestUpdateCycle:
         assert isinstance(data, CoordinatorData)
 
     @pytest.mark.asyncio
+    async def test_period_start_stamps_reach_the_data(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord._acc.state.week_start_iso = "2026-07-13T00:00:00+00:00"
+        coord._acc.state.month_start_iso = "2026-07-01T00:00:00+00:00"
+        coord._acc.state.year_start_iso = "2026-01-01T00:00:00+00:00"
+        coord._last_reset_time = "2026-07-15T00:00:00+00:00"
+        data = await coord.run_cycle()
+        assert data.week_start_time == "2026-07-13T00:00:00+00:00"
+        assert data.month_start_time == "2026-07-01T00:00:00+00:00"
+        assert data.year_start_time == "2026-01-01T00:00:00+00:00"
+        assert data.last_reset_time == "2026-07-15T00:00:00+00:00"
+
+    @pytest.mark.asyncio
     async def test_solar_power_reflected_in_data(self):
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_states(_default_states())

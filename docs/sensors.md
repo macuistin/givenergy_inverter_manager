@@ -10,14 +10,14 @@ Column guide:
 
 - **Key**: the suffix of the sensor's unique ID. It does not set the entity ID. Home Assistant builds the entity ID from the device name and the sensor name, for example `sensor.givenergy_inverter_manager_solar_power`. Check yours in **Settings > Entities**.
 - **Unit**: `currency` is the symbol of the currency chosen in the tariff.
-- **Midnight reset**: `yes` means the sensor reports `last_reset` as the most recent local midnight. See [Long-term statistics](long-term-statistics.md).
+- **Last reset**: `day`, `week`, `month` or `year` means the sensor reports `last_reset` as the start of that period. `no` means it reports none. See [Long-term statistics](long-term-statistics.md).
 - **Enabled**: whether the sensor is enabled when first created.
 
 ## Live power and flow
 
 Updated every 30 seconds. Power values are in watts. Grid Power is positive when importing.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Solar Power | `solar_power` | W | power | measurement | no | yes | Current solar generation. |
 | Battery State of Charge | `battery_soc` | % | battery | measurement | no | yes | Battery state of charge. |
@@ -38,7 +38,7 @@ Updated every 30 seconds. Power values are in watts. Grid Power is positive when
 
 Read from the tariff you configured. See [Tariff](tariff.md).
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Current Rate | `current_rate` | currency | - | measurement | no | yes | Unit import rate in force now. |
 | Current Rate Period | `current_rate_period` | - | - | none | no | yes | Name of the active period, or the base rate name. |
@@ -57,49 +57,49 @@ Read from the tariff you configured. See [Tariff](tariff.md).
 
 ## Energy today
 
-Accumulated since local midnight. Sensors marked yes in the midnight reset column report `last_reset`. See [Long-term statistics](long-term-statistics.md).
+Accumulated since local midnight. They report `last_reset` as the most recent midnight. See [Long-term statistics](long-term-statistics.md).
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Solar Generation Today | `solar_today` | kWh | energy | total | yes | yes | Solar generated. Uses the GivTCP daily counter when present. |
-| Grid Import Today | `import_today` | kWh | energy | total | yes | yes | Grid import. Uses the GivTCP daily counter when present. |
-| Grid Export Today | `export_today` | kWh | energy | total | yes | yes | Grid export. Uses the GivTCP daily counter when present. |
-| EV Charging Today | `zappi_today` | kWh | energy | total | yes | yes | Energy delivered to the EV charger, from charger power. |
-| Immersion Heater Today | `immersion_today` | kWh | energy | total | yes | yes | Immersion energy, from the configured wattage while the switch is on. |
-| Self-consumed Solar Today | `self_consumed_kwh_today` | kWh | energy | total | yes | no | Solar generated minus exported, floored at 0. |
-| Inverter Derating Today | `inverter_derating_today_minutes` | - | - | total | yes | no | Minutes with the inverter at 65 °C or more. Not saved over a restart. |
-| Import at cheap rate | `import_kwh_cheap_today` | kWh | energy | total | yes | yes | Energy imported while a timed rate period was active. |
-| Import at peak rate | `import_kwh_peak_today` | kWh | energy | total | yes | yes | Energy imported at the base rate. |
-| Immersion solar diverted | `immersion_solar_kwh_today` | kWh | energy | total | yes | yes | Solar energy that went to the immersion. |
-| Battery throughput | `battery_throughput_kwh_today` | kWh | energy | total | yes | yes | Battery energy in plus out. |
-| Battery Charged Today | `battery_charge_kwh_today` | kWh | energy | total | yes | no | Energy into the battery. Uses the GivTCP counter when present. |
-| Battery Discharged Today | `battery_discharge_kwh_today` | kWh | energy | total | yes | no | Energy out of the battery. Uses the GivTCP counter when present. |
-| House Load Today | `house_kwh_today` | kWh | energy | total | yes | yes | House consumption. Uses the GivTCP load counter when present. |
-| Missed solar today | `missed_solar_today` | kWh | energy | total | yes | no | Export while the battery was at 99% or more and no EV or immersion load was on. Not saved over a restart. |
+| Solar Generation Today | `solar_today` | kWh | energy | total | day | yes | Solar generated. Uses the GivTCP daily counter when present. |
+| Grid Import Today | `import_today` | kWh | energy | total | day | yes | Grid import. Uses the GivTCP daily counter when present. |
+| Grid Export Today | `export_today` | kWh | energy | total | day | yes | Grid export. Uses the GivTCP daily counter when present. |
+| EV Charging Today | `zappi_today` | kWh | energy | total | day | yes | Energy delivered to the EV charger, from charger power. |
+| Immersion Heater Today | `immersion_today` | kWh | energy | total | day | yes | Immersion energy, from the configured wattage while the switch is on. |
+| Self-consumed Solar Today | `self_consumed_kwh_today` | kWh | energy | total | day | no | Solar generated minus exported, floored at 0. |
+| Inverter Derating Today | `inverter_derating_today_minutes` | - | - | total | day | no | Minutes with the inverter at 65 °C or more. |
+| Import at cheap rate | `import_kwh_cheap_today` | kWh | energy | total | day | yes | Energy imported while a timed rate period was active. |
+| Import at peak rate | `import_kwh_peak_today` | kWh | energy | total | day | yes | Energy imported at the base rate. |
+| Immersion solar diverted | `immersion_solar_kwh_today` | kWh | energy | total | day | yes | Solar energy that went to the immersion. |
+| Battery throughput | `battery_throughput_kwh_today` | kWh | energy | total | day | yes | Battery energy in plus out. |
+| Battery Charged Today | `battery_charge_kwh_today` | kWh | energy | total | day | no | Energy into the battery. Uses the GivTCP counter when present. |
+| Battery Discharged Today | `battery_discharge_kwh_today` | kWh | energy | total | day | no | Energy out of the battery. Uses the GivTCP counter when present. |
+| House Load Today | `house_kwh_today` | kWh | energy | total | day | yes | House consumption. Uses the GivTCP load counter when present. |
+| Missed solar today | `missed_solar_today` | kWh | energy | total | day | no | Export while the battery was at 99% or more and no EV or immersion load was on. |
 
 ## Cost and savings today
 
 Money sensors use the currency symbol you chose in the tariff.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Import Cost Today | `import_cost_today` | currency | monetary | total | yes | yes | Import cost after the supplier discount and VAT. |
-| Export Earnings Today | `export_earnings_today` | currency | monetary | total | yes | yes | Exported kWh times the export rate. |
-| Saving vs Grid Today | `saving_vs_grid_today` | currency | monetary | total | yes | no | House kWh at the base rate minus net import cost (import cost minus export earnings). |
-| Net Saving Today (inc. battery wear) | `net_saving_today` | currency | monetary | total | yes | no | Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. |
-| EV Charging Cost Today | `zappi_cost_today` | currency | monetary | total | yes | yes | Import cost attributed to the EV charger. |
-| House Cost Today | `house_cost_today` | currency | monetary | total | yes | yes | Import cost attributed to the rest of the house. |
-| Net Financial Position Today | `net_position_today` | currency | monetary | total | yes | no | Export earnings minus import cost. |
-| Immersion Cost Today | `immersion_cost_today` | currency | - | total | yes | yes | Import cost attributed to the immersion. |
-| Import cost at cheap rate | `import_cost_cheap_today` | currency | - | total | yes | yes | Import cost while a timed rate period was active. |
-| Import cost at peak rate | `import_cost_peak_today` | currency | - | total | yes | yes | Import cost at the base rate. |
-| Immersion solar savings | `immersion_savings_today` | currency | - | total | yes | yes | Diverted solar kWh times (current rate minus export rate). |
+| Import Cost Today | `import_cost_today` | currency | monetary | total | day | yes | Import cost after the supplier discount and VAT. |
+| Export Earnings Today | `export_earnings_today` | currency | monetary | total | day | yes | Exported kWh times the export rate. |
+| Saving vs Grid Today | `saving_vs_grid_today` | currency | monetary | total | day | no | House kWh at the base rate minus net import cost (import cost minus export earnings). |
+| Net Saving Today (inc. battery wear) | `net_saving_today` | currency | monetary | total | day | no | Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. |
+| EV Charging Cost Today | `zappi_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the EV charger. |
+| House Cost Today | `house_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the rest of the house. |
+| Net Financial Position Today | `net_position_today` | currency | monetary | total | day | no | Export earnings minus import cost. |
+| Immersion Cost Today | `immersion_cost_today` | currency | - | total | day | yes | Import cost attributed to the immersion. |
+| Import cost at cheap rate | `import_cost_cheap_today` | currency | - | total | day | yes | Import cost while a timed rate period was active. |
+| Import cost at peak rate | `import_cost_peak_today` | currency | - | total | day | yes | Import cost at the base rate. |
+| Immersion solar savings | `immersion_savings_today` | currency | - | total | day | yes | Diverted solar kWh times (current rate minus export rate). |
 
 ## Efficiency today
 
 Percentages worked out from today's totals.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Self Sufficiency | `self_sufficiency` | % | - | measurement | no | yes | Share of consumption (house, EV, immersion) covered by solar and battery discharge. |
 | Self Consumption | `self_consumption` | % | - | measurement | no | yes | Share of today's solar that was not exported. 0 with no solar. |
@@ -111,9 +111,10 @@ Percentages worked out from today's totals.
 
 Estimates for the current bill period. See [Tariff](tariff.md#bill-line-items).
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Accrued Bill This Period | `accrued_bill` | currency | monetary | total | no | yes | Bill so far this period: energy less the supplier saving, standing charge and PSO levy, VAT, minus export earnings. |
+| Accrued Bill This Period | `accrued_bill` | currency | monetary | total | month | yes | Today's import cost plus standing charge and PSO levy (with VAT) for the days elapsed. |
 | Projected Bill This Period | `projected_bill` | currency | monetary | none | no | yes | Accrued bill spread over the whole bill period. |
 | Days Remaining in Bill Period | `days_remaining_in_period` | days | - | measurement | no | yes | Days left in the bill period after today. |
 | Days Elapsed in Bill Period | `days_in_period` | days | - | measurement | no | no | Day of the bill period, 1 on the bill start day. |
@@ -122,10 +123,10 @@ Estimates for the current bill period. See [Tariff](tariff.md#bill-line-items).
 
 Health, wear and state of the battery.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Battery Energy Available | `battery_kwh_available` | kWh | energy_storage | measurement | no | no | Battery state of charge times the configured capacity. |
-| Battery Life Consumed Today | `battery_life_consumed_today` | % | - | total | yes | no | Today's throughput as a share of (2 x capacity x 6000 cycles). Diagnostic category. |
+| Battery Life Consumed Today | `battery_life_consumed_today` | % | - | total | day | no | Today's throughput as a share of (2 x capacity x 6000 cycles). Diagnostic category. |
 | Battery Total Cycles | `battery_cycles` | - | - | total | no | yes | Sum of SoC changes, up and down, divided by 100. Diagnostic category. |
 | GivTCP Register Write Count | `register_write_count` | - | - | total | no | yes | Writes sent to GivTCP since the integration was last loaded. Diagnostic category. |
 | Battery Cycle Cost per kWh | `battery_cycle_cost_per_kwh` | currency | - | none | no | no | Battery cost divided by (2 x capacity x 6000). Empty when battery cost is 0. Diagnostic category. |
@@ -141,7 +142,7 @@ Health, wear and state of the battery.
 
 Outputs of the overnight charge calculation.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Recommended Overnight Charge Target | `overnight_charge_target` | % | - | measurement | no | yes | Tonight's target after overrides and the configured cap. |
 | Overnight Charge Reason | `overnight_charge_reason` | - | - | none | no | yes | Why that target was chosen. Diagnostic category. |
@@ -158,7 +159,7 @@ Outputs of the overnight charge calculation.
 
 Output of the immersion divert rule.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Immersion Divert Reason | `immersion_divert_reason` | - | - | none | no | yes | Why the immersion is on or off. Diagnostic category. |
 
@@ -166,12 +167,12 @@ Output of the immersion divert rule.
 
 Sensors marked `EV charger needed` are unavailable until a supported charger is discovered.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | EV Charger State | `ev_charger_state` | - | - | none | no | yes | disconnected, connected, charging, paused, boosting, completed or unknown. EV charger needed. |
 | EV Charging Power | `ev_power` | W | power | measurement | no | yes | EV charger power. EV charger needed. |
-| EV Session Energy | `ev_session_energy` | kWh | energy | total | no | yes | Energy of the current session, as reported by the charger. EV charger needed. |
-| EV km Charged Today | `ev_km_charged_today` | km | - | total | yes | no | EV energy today divided by car efficiency. Empty with no EV energy. |
+| EV Session Energy | `ev_session_energy` | kWh | energy | total_increasing | no | yes | Energy of the current session, as reported by the charger. EV charger needed. |
+| EV km Charged Today | `ev_km_charged_today` | km | - | total | day | no | EV energy today divided by car efficiency. Empty with no EV energy. |
 | EV Cost per km Today | `ev_cost_per_km_today` | currency | - | measurement | no | no | EV cost today divided by km charged. |
 | EV Draining Battery | `ev_draining_battery` | - | - | none | no | yes | yes while the charger is charging and the battery discharges over 200 W. EV charger needed. Diagnostic category. |
 | EV Mode Decision | `ev_protection_reason` | - | - | none | no | yes | Reason for the latest EV charge mode decision. EV charger needed. Diagnostic category. |
@@ -182,9 +183,9 @@ Sensors marked `EV charger needed` are unavailable until a supported charger is 
 
 Needs a forecast sensor in the options to be meaningful.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Solar forecast today | `solar_forecast_kwh_today` | kWh | energy | total | no | yes | First forecast value the charge calculation used today. |
+| Solar forecast today | `solar_forecast_kwh_today` | kWh | energy | none | no | yes | First forecast value the charge calculation used today. |
 | Solar actual vs forecast | `solar_actual_vs_forecast_pct` | % | - | measurement | no | yes | Solar generated today as a share of that forecast. |
 | Forecast accuracy yesterday | `yesterday_forecast_accuracy_pct` | % | - | measurement | no | no | Yesterday's actual solar as a share of its forecast, capped at 200. |
 | Forecast accuracy 7-day average | `forecast_accuracy_7day_avg_pct` | % | - | measurement | no | no | Average of the last 7 daily accuracy values. |
@@ -193,81 +194,81 @@ Needs a forecast sensor in the options to be meaningful.
 
 Needs a carbon intensity sensor in the options.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Grid Carbon Intensity | `carbon_intensity` | g CO2/kWh | - | measurement | no | no | Value of the carbon intensity entity you set. |
 | Grid Carbon Intensity Status | `carbon_intensity_status` | - | - | none | no | no | Low (under 200), Medium (under 400) or High, in g CO2/kWh. |
 
 ## Yesterday
 
-Yesterday's totals, copied from today's accumulator at midnight.
+Yesterday's totals, copied from today's accumulator at midnight. They have no state class, so Home Assistant keeps no long-term statistics for them.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Solar generated yesterday | `solar_yesterday` | kWh | energy | total | no | yes | - |
-| Grid import yesterday | `import_yesterday` | kWh | energy | total | no | yes | - |
-| Grid export yesterday | `export_yesterday` | kWh | energy | total | no | yes | - |
-| Import cost yesterday | `import_cost_yesterday` | currency | - | total | no | yes | - |
-| Import at cheap rate yesterday | `import_kwh_cheap_yesterday` | kWh | energy | total | no | yes | - |
-| Import at peak rate yesterday | `import_kwh_peak_yesterday` | kWh | energy | total | no | yes | - |
-| Immersion savings yesterday | `immersion_savings_yesterday` | currency | - | total | no | yes | - |
+| Solar generated yesterday | `solar_yesterday` | kWh | energy | none | no | yes | - |
+| Grid import yesterday | `import_yesterday` | kWh | energy | none | no | yes | - |
+| Grid export yesterday | `export_yesterday` | kWh | energy | none | no | yes | - |
+| Import cost yesterday | `import_cost_yesterday` | currency | - | none | no | yes | - |
+| Import at cheap rate yesterday | `import_kwh_cheap_yesterday` | kWh | energy | none | no | yes | - |
+| Import at peak rate yesterday | `import_kwh_peak_yesterday` | kWh | energy | none | no | yes | - |
+| Immersion savings yesterday | `immersion_savings_yesterday` | currency | - | none | no | yes | - |
 | Self-sufficiency yesterday | `self_sufficiency_yesterday` | % | - | measurement | no | yes | - |
 
 ## This week
 
-Resets at midnight on Monday.
+Resets at midnight on Monday. Reports `last_reset` as the start of the week.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Solar generated this week | `solar_this_week` | kWh | energy | total | no | yes | - |
-| Grid import this week | `import_this_week` | kWh | energy | total | no | yes | - |
-| Grid export this week | `export_this_week` | kWh | energy | total | no | yes | - |
-| Import cost this week | `import_cost_this_week` | currency | - | total | no | yes | - |
-| Export earnings this week | `export_earnings_this_week` | currency | - | total | no | yes | - |
-| Import at cheap rate this week | `import_kwh_cheap_this_week` | kWh | energy | total | no | yes | - |
-| Import at peak rate this week | `import_kwh_peak_this_week` | kWh | energy | total | no | yes | - |
-| Immersion savings this week | `immersion_savings_this_week` | currency | - | total | no | yes | - |
+| Solar generated this week | `solar_this_week` | kWh | energy | total | week | yes | - |
+| Grid import this week | `import_this_week` | kWh | energy | total | week | yes | - |
+| Grid export this week | `export_this_week` | kWh | energy | total | week | yes | - |
+| Import cost this week | `import_cost_this_week` | currency | - | total | week | yes | - |
+| Export earnings this week | `export_earnings_this_week` | currency | - | total | week | yes | - |
+| Import at cheap rate this week | `import_kwh_cheap_this_week` | kWh | energy | total | week | yes | - |
+| Import at peak rate this week | `import_kwh_peak_this_week` | kWh | energy | total | week | yes | - |
+| Immersion savings this week | `immersion_savings_this_week` | currency | - | total | week | yes | - |
 | Self-sufficiency this week | `self_sufficiency_this_week` | % | - | measurement | no | yes | - |
 | Cheap rate import fraction this week | `cheap_import_fraction_this_week` | % | - | measurement | no | no | - |
 
 ## This month
 
-Resets at midnight on the bill start day chosen at setup.
+Resets at midnight on the bill start day chosen at setup. Reports `last_reset` as the start of the bill period.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Solar generated this month | `solar_this_month` | kWh | energy | total | no | yes | - |
-| Grid import this month | `import_this_month` | kWh | energy | total | no | yes | - |
-| Grid export this month | `export_this_month` | kWh | energy | total | no | yes | - |
-| Import cost this month | `import_cost_this_month` | currency | - | total | no | yes | - |
-| Export earnings this month | `export_earnings_this_month` | currency | - | total | no | yes | - |
-| Import at cheap rate this month | `import_kwh_cheap_this_month` | kWh | energy | total | no | yes | - |
-| Import at peak rate this month | `import_kwh_peak_this_month` | kWh | energy | total | no | yes | - |
-| Immersion savings this month | `immersion_savings_this_month` | currency | - | total | no | yes | - |
+| Solar generated this month | `solar_this_month` | kWh | energy | total | month | yes | - |
+| Grid import this month | `import_this_month` | kWh | energy | total | month | yes | - |
+| Grid export this month | `export_this_month` | kWh | energy | total | month | yes | - |
+| Import cost this month | `import_cost_this_month` | currency | - | total | month | yes | - |
+| Export earnings this month | `export_earnings_this_month` | currency | - | total | month | yes | - |
+| Import at cheap rate this month | `import_kwh_cheap_this_month` | kWh | energy | total | month | yes | - |
+| Import at peak rate this month | `import_kwh_peak_this_month` | kWh | energy | total | month | yes | - |
+| Immersion savings this month | `immersion_savings_this_month` | currency | - | total | month | yes | - |
 | Self-sufficiency this month | `self_sufficiency_this_month` | % | - | measurement | no | yes | - |
 | Cheap rate import fraction this month | `cheap_import_fraction_this_month` | % | - | measurement | no | no | - |
-| Net Financial Position This Month | `net_position_this_month` | currency | monetary | total | no | no | - |
+| Net Financial Position This Month | `net_position_this_month` | currency | monetary | total | month | no | - |
 
 ## This year and trailing 12 months
 
-Year sensors reset on 1 January and are not saved over a restart or reload. Trailing 12-month sensors add up the last 12 completed bill periods.
+Year sensors reset at midnight on 1 January and report `last_reset` as the start of the year. Trailing 12-month sensors add up the last 12 completed bill periods and have no state class.
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Export this year | `export_this_year` | kWh | energy | total | no | no | - |
-| Export earnings this year | `export_earnings_this_year` | currency | - | total | no | no | - |
-| Export — trailing 12 months | `export_trailing_12m` | kWh | energy | total | no | no | - |
-| Solar generated this year | `solar_this_year` | kWh | energy | total | no | no | - |
-| Solar — trailing 12 months | `solar_trailing_12m` | kWh | energy | total | no | no | - |
-| Import — trailing 12 months | `import_trailing_12m` | kWh | energy | total | no | no | - |
-| Import Cost — trailing 12 months | `import_cost_trailing_12m` | currency | monetary | total | no | no | - |
-| Export Earnings — trailing 12 months | `export_earnings_trailing_12m` | currency | monetary | total | no | no | - |
+| Export this year | `export_this_year` | kWh | energy | total | year | no | - |
+| Export earnings this year | `export_earnings_this_year` | currency | - | total | year | no | - |
+| Export — trailing 12 months | `export_trailing_12m` | kWh | energy | none | no | no | - |
+| Solar generated this year | `solar_this_year` | kWh | energy | total | year | no | - |
+| Solar — trailing 12 months | `solar_trailing_12m` | kWh | energy | none | no | no | - |
+| Import — trailing 12 months | `import_trailing_12m` | kWh | energy | none | no | no | - |
+| Import Cost — trailing 12 months | `import_cost_trailing_12m` | currency | monetary | none | no | no | - |
+| Export Earnings — trailing 12 months | `export_earnings_trailing_12m` | currency | monetary | none | no | no | - |
 
 ## HTML reports
 
 The state is a one-line summary. The `html` attribute holds a styled report for a Markdown card. See [Dashboard](dashboard.md#html-report-cards).
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Today's energy summary | `today_summary` | - | - | none | no | no | Solar, import cost, immersion savings and self-sufficiency for today. |
 | Tonight's charge plan | `charge_plan` | - | - | none | no | no | Tonight's target, the percentage to add and the cost, or Skip charge. |
@@ -275,7 +276,7 @@ The state is a one-line summary. The `html` attribute holds a styled report for 
 
 ## Dry run and diagnostics
 
-| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
+| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Dry Run Mode Active | `dry_run_active` | - | - | none | no | yes | True when dry run mode is on. Diagnostic category. |
 | Last Skipped Action (Dry Run) | `dry_run_last_skipped` | - | - | none | no | yes | The last action dry run mode held back. Diagnostic category. |

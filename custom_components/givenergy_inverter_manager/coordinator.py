@@ -1102,6 +1102,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             forecast_correction=self._acc.forecast_correction_factor,
         )
 
+        data.week_start_time = self._acc.state.week_start_iso
+        data.month_start_time = self._acc.state.month_start_iso
+        data.year_start_time = self._acc.state.year_start_iso
         data.register_write_count = getattr(self, "_register_write_count", 0)
         data.trailing_12m_export_kwh = self._acc.trailing_12m_export_kwh
         data.trailing_12m_solar_kwh = self._acc.trailing_12m_solar_kwh

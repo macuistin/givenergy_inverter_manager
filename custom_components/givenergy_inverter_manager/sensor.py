@@ -77,10 +77,26 @@ class GivEnergyManagerSensorDescription(SensorEntityDescription):
     available_fn: Callable[[CoordinatorData], bool] = lambda d: True
     entity_category: EntityCategory | None = None
     is_daily_total: bool = False
+    reset_period: str | None = None
     entity_registry_enabled_default: bool = True
     html_fn: object = (
         None  # Callable[[CoordinatorData], str] | None  # True → expose last_reset_time for HA LTS
     )
+
+
+_RESET_FIELDS = {
+    "day": "last_reset_time",
+    "week": "week_start_time",
+    "month": "month_start_time",
+    "year": "year_start_time",
+}
+
+
+def reset_period_of(description: GivEnergyManagerSensorDescription) -> str | None:
+    """Return "day", "week", "month" or "year" for a sensor that resets, else None."""
+    if description.reset_period is not None:
+        return description.reset_period
+    return "day" if description.is_daily_total else None
 
 
 SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
@@ -473,6 +489,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="month",
         value_fn=lambda d: round(d.accrued_bill, 2),
     ),
     GivEnergyManagerSensorDescription(
@@ -684,7 +701,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="EV Session Energy",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda d: round(d.ev_session_kwh, 3),
         available_fn=lambda d: d.ev_available,
     ),
@@ -1022,7 +1039,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Solar forecast today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:weather-sunny-alert",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.solar_forecast_kwh_today, 3),
@@ -1068,7 +1085,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Solar generated yesterday",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:solar-power",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.solar_kwh, 3),
@@ -1079,7 +1096,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Grid import yesterday",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:transmission-tower-import",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.import_kwh, 3),
@@ -1090,7 +1107,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Grid export yesterday",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:transmission-tower-export",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.export_kwh, 3),
@@ -1100,7 +1117,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="import_cost_yesterday",
         name="Import cost yesterday",
         native_unit_of_measurement=_CURRENCY_UNIT,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:cash-minus",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.total_import_cost, 4),
@@ -1111,7 +1128,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Import at cheap rate yesterday",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:lightning-bolt-circle",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.import_kwh_cheap, 3),
@@ -1122,7 +1139,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Import at peak rate yesterday",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:lightning-bolt",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.import_kwh_peak, 3),
@@ -1132,7 +1149,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="immersion_savings_yesterday",
         name="Immersion savings yesterday",
         native_unit_of_measurement=_CURRENCY_UNIT,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:water-boiler",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.immersion_savings, 4),
@@ -1155,6 +1172,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="week",
         icon="mdi:solar-power",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.solar_kwh, 3),
@@ -1166,6 +1184,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="week",
         icon="mdi:transmission-tower-import",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.import_kwh, 3),
@@ -1177,6 +1196,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="week",
         icon="mdi:transmission-tower-export",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.export_kwh, 3),
@@ -1187,6 +1207,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Import cost this week",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
+        reset_period="week",
         icon="mdi:cash-minus",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.total_import_cost, 4),
@@ -1197,6 +1218,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Export earnings this week",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
+        reset_period="week",
         icon="mdi:cash-plus",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.export_earnings, 4),
@@ -1208,6 +1230,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="week",
         icon="mdi:lightning-bolt-circle",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.import_kwh_cheap, 3),
@@ -1219,6 +1242,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="week",
         icon="mdi:lightning-bolt",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.import_kwh_peak, 3),
@@ -1229,6 +1253,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Immersion savings this week",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
+        reset_period="week",
         icon="mdi:water-boiler",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.immersion_savings, 4),
@@ -1263,6 +1288,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="month",
         icon="mdi:solar-power",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.solar_kwh, 3),
@@ -1274,6 +1300,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="month",
         icon="mdi:transmission-tower-import",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.import_kwh, 3),
@@ -1285,6 +1312,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="month",
         icon="mdi:transmission-tower-export",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.export_kwh, 3),
@@ -1295,6 +1323,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Import cost this month",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
+        reset_period="month",
         icon="mdi:cash-minus",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.total_import_cost, 4),
@@ -1305,6 +1334,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Export earnings this month",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
+        reset_period="month",
         icon="mdi:cash-plus",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.export_earnings, 4),
@@ -1315,6 +1345,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="year",
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.year.export_kwh, 3),
     ),
@@ -1323,6 +1354,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="export_earnings_this_year",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
+        reset_period="year",
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.year.export_earnings, 4),
     ),
@@ -1332,7 +1364,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Export — trailing 12 months",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:transmission-tower-export",
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.trailing_12m_export_kwh, 3),
@@ -1343,6 +1375,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="year",
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.year.solar_kwh, 3),
     ),
@@ -1353,7 +1386,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Solar — trailing 12 months",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:solar-power",
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.trailing_12m_solar_kwh, 3),
@@ -1364,7 +1397,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Import — trailing 12 months",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:transmission-tower-import",
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.trailing_12m_import_kwh, 3),
@@ -1375,7 +1408,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Import Cost — trailing 12 months",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:cash-minus",
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.trailing_12m_import_cost, 4),
@@ -1386,7 +1419,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Export Earnings — trailing 12 months",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
-        state_class=SensorStateClass.TOTAL,
+        state_class=None,
         icon="mdi:cash-plus",
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.trailing_12m_export_earnings, 4),
@@ -1398,6 +1431,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="month",
         icon="mdi:lightning-bolt-circle",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.import_kwh_cheap, 3),
@@ -1409,6 +1443,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="month",
         icon="mdi:lightning-bolt",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.import_kwh_peak, 3),
@@ -1419,6 +1454,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Immersion savings this month",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
+        reset_period="month",
         icon="mdi:water-boiler",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.month.immersion_savings, 4),
@@ -1467,6 +1503,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
+        reset_period="month",
         icon="mdi:scale-balance",
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.month.net_position, 4),
@@ -1594,7 +1631,7 @@ class GivEnergyManagerSensor(CoordinatorEntity[GivEnergyCoordinator], SensorEnti
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{description.key}"
         if description.entity_category is not None:
             self._attr_entity_category = description.entity_category
-        self._is_daily_total = description.is_daily_total
+        self._reset_period = reset_period_of(description)
         self._attr_entity_registry_enabled_default = description.entity_registry_enabled_default
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
@@ -1622,25 +1659,28 @@ class GivEnergyManagerSensor(CoordinatorEntity[GivEnergyCoordinator], SensorEnti
 
     @property
     def last_reset(self):
-        """Return the last reset time for daily total sensors (enables HA long-term stats)."""
-        if not self._is_daily_total:
+        """Return when the sensor's accumulation period started (enables HA long-term stats)."""
+        if self._reset_period is None:
             return None
         if self.entity_description.state_class != SensorStateClass.TOTAL:
             return None
-        coordinator = self.coordinator
-        if coordinator.data and coordinator.data.last_reset_time:
-            from datetime import datetime, timezone
+        data = self.coordinator.data
+        if not data:
+            return None
+        iso = getattr(data, _RESET_FIELDS[self._reset_period], "")
+        if not iso:
+            return None
+        from datetime import datetime, timezone
 
-            try:
-                dt = datetime.fromisoformat(coordinator.data.last_reset_time)
-                # Stored as local timezone since coordinator fix; old UTC values
-                # have no tzinfo so fall back to UTC for backwards compatibility.
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-                return dt
-            except (ValueError, AttributeError):
-                pass
-        return None
+        try:
+            dt = datetime.fromisoformat(iso)
+            # Stored as local timezone since coordinator fix; old UTC values
+            # have no tzinfo so fall back to UTC for backwards compatibility.
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except (ValueError, TypeError, AttributeError):
+            return None
 
     @property
     def extra_state_attributes(self) -> dict | None:

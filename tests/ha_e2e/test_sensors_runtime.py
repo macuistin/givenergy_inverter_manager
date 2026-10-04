@@ -21,8 +21,11 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
-from custom_components.givenergy_inverter_manager.const import CONF_DRY_RUN
-from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
+from custom_components.givenergy_inverter_manager.const import CONF_DRY_RUN, DOMAIN
+from custom_components.givenergy_inverter_manager.sensor import (
+    SENSOR_DESCRIPTIONS,
+    reset_period_of,
+)
 
 INTEGRATION_LOGGER = "custom_components.givenergy_inverter_manager"
 BAD_LOG_FRAGMENTS = (
@@ -102,7 +105,7 @@ async def test_daily_totals_expose_last_reset_after_midnight(hass, loaded_entry,
     total_sensors = {
         f"{loaded_entry.entry_id}_{d.key}"
         for d in SENSOR_DESCRIPTIONS
-        if d.is_daily_total and d.state_class == "total"
+        if reset_period_of(d) and d.state_class == "total"
     }
     assert total_sensors, "expected daily total sensors"
     seen_last_reset = 0
@@ -117,6 +120,32 @@ async def test_daily_totals_expose_last_reset_after_midnight(hass, loaded_entry,
             assert "last_reset" not in state.attributes, entry.entity_id
     assert seen_last_reset
     assert _bad_records(caplog) == []
+
+
+@pytest.mark.parametrize("scenario", [MIDDAY], ids=lambda s: s.name)
+async def test_week_month_and_year_totals_report_their_period_start(hass, loaded_entry):
+    """Monday 15 June 2026, bill day 16: each period sensor reports where its period began."""
+    await _refresh(hass, loaded_entry)
+
+    registry = er.async_get(hass)
+    expected = {
+        "week": "2026-06-15T00:00:00+01:00",
+        "month": "2026-05-16T00:00:00+01:00",
+        "year": "2026-01-01T00:00:00+00:00",
+    }
+    checked = 0
+    for description in SENSOR_DESCRIPTIONS:
+        period = reset_period_of(description)
+        if period not in expected or not description.entity_registry_enabled_default:
+            continue
+        entity_id = registry.async_get_entity_id(
+            "sensor", DOMAIN, f"{loaded_entry.entry_id}_{description.key}"
+        )
+        state = hass.states.get(entity_id)
+        assert state.attributes.get("state_class") == "total", description.key
+        assert state.attributes.get("last_reset") == expected[period], description.key
+        checked += 1
+    assert checked >= 15
 
 
 async def test_all_sensors_enabled_have_usable_state(hass, loaded_entry, caplog, scenario):

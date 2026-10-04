@@ -220,6 +220,9 @@ class CoordinatorData:
         "year",
         "yesterday",
         "last_reset_time",
+        "week_start_time",
+        "month_start_time",
+        "year_start_time",
         "solar_forecast_kwh_today",
         "yesterday_forecast_accuracy_pct",
         "forecast_accuracy_7day_avg_pct",
@@ -316,6 +319,9 @@ class CoordinatorData:
         self.inverter_temperature: float | None = None
         self.inverter_temperature_status: str = "Unknown"
         self.last_reset_time: str = ""
+        self.week_start_time: str = ""
+        self.month_start_time: str = ""
+        self.year_start_time: str = ""
         self.solar_forecast_kwh_today: float = 0.0
         self.yesterday_forecast_accuracy_pct: float = 0.0
         self.forecast_accuracy_7day_avg_pct: float = 0.0
