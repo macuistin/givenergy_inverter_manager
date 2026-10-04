@@ -713,6 +713,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             tariff = user_input.get("tariff_settings", {})
             thresholds = user_input.get("threshold_settings", {})
             forecast = user_input.get("forecast_settings", {})
+            hardware = user_input.get("hardware_settings", {})
             # Rate periods come from top-level rate_period_N sections
             self._options[CONF_RATE_PERIODS] = _slots_to_rate_periods(user_input)
             for key in [
@@ -730,6 +731,9 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             )
             self._options[CONF_CURRENCY] = tariff.get(CONF_CURRENCY, DEFAULT_CURRENCY)
             self._options.update(thresholds)
+            for key in (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT, CONF_IMMERSION_WATTAGE):
+                if key in hardware:
+                    self._options[key] = float(hardware[key])
             self._options.update({k: v for k, v in forecast.items() if v != ""})
             return self.async_create_entry(title="", data=self._options)
 
@@ -882,6 +886,39 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                         CONF_VERBOSE_LOGGING,
                         default=bool(self._get(CONF_VERBOSE_LOGGING, DEFAULT_VERBOSE_LOGGING)),
                     ): selector.BooleanSelector(),
+                }
+            ),
+            {"collapsed": True},
+        )
+        schema_dict[vol.Required("hardware_settings")] = section(
+            vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_BATTERY_CAPACITY,
+                        default=float(self._get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=100, step=0.1, unit_of_measurement="kWh"
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_INVERTER_MAX_OUTPUT,
+                        default=float(
+                            self._get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=20, step=0.1, unit_of_measurement="kW"
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_IMMERSION_WATTAGE,
+                        default=float(self._get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=500, max=6000, step=100, unit_of_measurement="W"
+                        )
+                    ),
                 }
             ),
             {"collapsed": True},

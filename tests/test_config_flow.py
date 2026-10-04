@@ -416,6 +416,69 @@ class TestOptionsFlowSections:
         assert data.get(CONF_BATTERY_MIN_SOC) == 10
         assert data.get(CONF_FORECAST_PROVIDER) == FORECAST_PROVIDER_FORECAST_SOLAR
 
+    def _tariff_input(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_BASE_RATE,
+            DEFAULT_BASE_RATE_NAME,
+            DEFAULT_BILL_START_DAY,
+            DEFAULT_CURRENCY,
+            DEFAULT_DISCOUNT_RATE,
+            DEFAULT_EXPORT_RATE,
+            DEFAULT_PSO_LEVY,
+            DEFAULT_STANDING_CHARGE,
+            DEFAULT_VAT_RATE,
+        )
+
+        return {
+            "tariff_settings": {
+                CONF_BASE_RATE: 0.35,
+                "base_rate_name": DEFAULT_BASE_RATE_NAME,
+                "export_rate": DEFAULT_EXPORT_RATE,
+                "standing_charge_per_day": DEFAULT_STANDING_CHARGE,
+                "pso_levy_per_month": DEFAULT_PSO_LEVY,
+                "vat_rate": DEFAULT_VAT_RATE,
+                "discount_rate": DEFAULT_DISCOUNT_RATE,
+                "bill_start_day": DEFAULT_BILL_START_DAY,
+                "currency": DEFAULT_CURRENCY,
+            },
+            "threshold_settings": {},
+            "forecast_settings": {},
+        }
+
+    def test_hardware_settings_are_saved_to_options(self):
+        import asyncio
+
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_BATTERY_CAPACITY,
+            CONF_IMMERSION_WATTAGE,
+            CONF_INVERTER_MAX_OUTPUT,
+        )
+
+        flow = self._make_flow()
+        user_input = self._tariff_input()
+        user_input["hardware_settings"] = {
+            CONF_BATTERY_CAPACITY: 18.6,
+            CONF_INVERTER_MAX_OUTPUT: 5.0,
+            CONF_IMMERSION_WATTAGE: 2800,
+        }
+        asyncio.run(flow.async_step_init(user_input))
+
+        data = flow.async_create_entry.call_args.kwargs["data"]
+        assert data[CONF_BATTERY_CAPACITY] == pytest.approx(18.6)
+        assert data[CONF_INVERTER_MAX_OUTPUT] == pytest.approx(5.0)
+        assert data[CONF_IMMERSION_WATTAGE] == pytest.approx(2800.0)
+
+    def test_missing_hardware_section_leaves_options_unchanged(self):
+        import asyncio
+
+        from custom_components.givenergy_inverter_manager.const import CONF_BATTERY_CAPACITY
+
+        flow = self._make_flow()
+        asyncio.run(flow.async_step_init(self._tariff_input()))
+
+        data = flow.async_create_entry.call_args.kwargs["data"]
+        assert CONF_BATTERY_CAPACITY not in data
+
     def test_each_optional_has_exactly_one_schema_key(self, real_vol):
         """Every vol.Optional in the options flow must have exactly one schema key.
 

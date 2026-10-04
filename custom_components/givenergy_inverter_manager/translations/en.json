@@ -219,6 +219,18 @@
               "cheap_rate_floor_soc": "Top up during cheap rate hours if battery drops below this. Set to 0 to disable. Default 40%."
             }
           },
+          "hardware_settings": {
+            "name": "Hardware",
+            "description": "Update these when you add battery modules, change the inverter or replace the immersion element.",
+            "data": {
+              "battery_capacity_kwh": "Battery capacity",
+              "inverter_max_output_kw": "Inverter max output",
+              "immersion_wattage_w": "Immersion element power"
+            },
+            "data_description": {
+              "battery_capacity_kwh": "Total usable capacity of all battery modules."
+            }
+          },
           "forecast_settings": {
             "name": "Solar forecast",
             "description": "Connect a forecast integration for smarter overnight charging. Without this, a seasonal estimate is used.",
