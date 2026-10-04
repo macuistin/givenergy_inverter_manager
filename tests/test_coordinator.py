@@ -55,9 +55,13 @@ class FakeState:
 
 @pytest.fixture(autouse=True)
 def _no_write_retry_sleep(monkeypatch):
-    """Skip the real 2 s read-back delay in the inverter write helpers."""
-    monkeypatch.setattr(
-        "custom_components.givenergy_inverter_manager.coordinator.GIVTCP_WRITE_RETRY_SLEEP_S", 0
+    """Skip the real 2 s read-back delay in the inverter write helpers.
+
+    Patch the globals the coordinator methods actually use. Other test modules
+    re-import the package, so patching it by module path can miss.
+    """
+    monkeypatch.setitem(
+        GivEnergyCoordinator._givtcp_set_number.__globals__, "GIVTCP_WRITE_RETRY_SLEEP_S", 0
     )
 
 
