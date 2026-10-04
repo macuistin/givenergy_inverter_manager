@@ -796,3 +796,46 @@ class TestDailyTotalSensorsUseTotalStateClass:
     def test_last_reset_guards_on_state_class(self):
         src = _SENSOR_PY.read_text()
         assert "state_class != SensorStateClass.TOTAL" in src
+
+
+class TestBatteryWearFormulaAgreement:
+    """Throughput counts charge plus discharge, so one rated cycle is 2 x capacity of throughput."""
+
+    def test_life_consumed_matches_engine_cycle_cost(self):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.const import (
+            BATTERY_RATED_CYCLES,
+            CONF_BATTERY_COST,
+        )
+        from custom_components.givenergy_inverter_manager.core.engine import (
+            _battery_cycle_cost,
+        )
+
+        capacity = 18.6
+        throughput = 37.2  # one full charge plus one full discharge
+        d = MagicMock()
+        d.battery_capacity_kwh = capacity
+        d.today.battery_throughput_kwh = throughput
+
+        from custom_components.givenergy_inverter_manager import const
+
+        src = _SENSOR_PY.read_text()
+        fn = None
+        for node in ast.walk(_TREE):
+            if isinstance(node, ast.Call) and any(
+                kw.arg == "key"
+                and isinstance(kw.value, ast.Constant)
+                and kw.value.value == "battery_life_consumed_today"
+                for kw in node.keywords
+            ):
+                for kw in node.keywords:
+                    if kw.arg == "value_fn":
+                        fn = eval(  # noqa: S307
+                            f"({ast.get_source_segment(src, kw.value)})", dict(vars(const))
+                        )
+        life_pct = fn(d)
+        assert life_pct == pytest.approx(100 / BATTERY_RATED_CYCLES, rel=1e-3)
+
+        cost_per_kwh = _battery_cycle_cost({CONF_BATTERY_COST: 3000.0}, capacity)
+        assert cost_per_kwh * throughput == pytest.approx(3000.0 / BATTERY_RATED_CYCLES, rel=1e-6)

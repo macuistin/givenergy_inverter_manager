@@ -440,7 +440,9 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:battery-minus",
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(
-            d.today.battery_throughput_kwh / (d.battery_capacity_kwh * BATTERY_RATED_CYCLES) * 100,
+            d.today.battery_throughput_kwh
+            / (2 * d.battery_capacity_kwh * BATTERY_RATED_CYCLES)
+            * 100,
             6,
         )
         if d.battery_capacity_kwh > 0
