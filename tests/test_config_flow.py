@@ -249,13 +249,16 @@ class TestSensorDefaultEnabled:
         "Battery Throughput Budget Used",
         "Battery Throughput Budget Status",
         "Battery Years Remaining (est.)",
+        "Average Import Rate Today",
+        "Average Import Rate This Week",
+        "Average Import Rate This Month",
     }
 
     def test_exactly_five_sensors_disabled(self):
-        """Exactly 24 sensors should be disabled by default."""
+        """Exactly 27 sensors should be disabled by default."""
         state = _parse_sensor_enabled_state()
         disabled = [n for n, enabled in state.items() if not enabled]
-        assert len(disabled) == 24, f"Expected 24 disabled sensors, got {len(disabled)}: {disabled}"
+        assert len(disabled) == 27, f"Expected 27 disabled sensors, got {len(disabled)}: {disabled}"
 
     def test_disabled_sensors_are_the_expected_ones(self):
         """The disabled sensors must be the HTML reports and forecast accuracy."""

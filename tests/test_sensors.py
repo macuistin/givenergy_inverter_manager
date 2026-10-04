@@ -283,3 +283,34 @@ class TestBatteryYearsRemainingSensor:
         assert fn(d) == pytest.approx(12.3)
         d.battery_years_remaining = None
         assert fn(d) is None
+
+
+class TestAvgImportRateSensors:
+    """Average import rate = import cost / import kWh, None when nothing was imported."""
+
+    @pytest.mark.parametrize(
+        ("key", "period"),
+        [
+            ("avg_import_rate_today", "today"),
+            ("avg_import_rate_this_week", "week"),
+            ("avg_import_rate_this_month", "month"),
+        ],
+    )
+    def test_value_fn(self, key, period):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for(key)
+        d = MagicMock()
+        acc = getattr(d, period)
+        acc.total_import_cost = 3.0
+        acc.import_kwh = 10.0
+        assert fn(d) == pytest.approx(0.3)
+        acc.import_kwh = 0.0
+        assert fn(d) is None
+
+    @pytest.mark.parametrize(
+        "key",
+        ["avg_import_rate_today", "avg_import_rate_this_week", "avg_import_rate_this_month"],
+    )
+    def test_state_class_is_measurement(self, key):
+        assert _sensor_kwarg(key, "state_class") == "MEASUREMENT"
