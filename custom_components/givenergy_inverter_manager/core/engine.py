@@ -196,6 +196,8 @@ class CoordinatorData:
         "battery_cycle_cost_per_kwh",
         "battery_throughput_budget_pct",
         "battery_years_remaining",
+        "hours_to_cheap_rate",
+        "next_cheap_rate_start",
         "battery_throughput_budget_status",
         "register_write_count",
         "rest_of_house_w",
@@ -259,6 +261,8 @@ class CoordinatorData:
         self.battery_cycle_cost_per_kwh: float = 0.0
         self.battery_throughput_budget_pct: float | None = None
         self.battery_years_remaining: float | None = None
+        self.hours_to_cheap_rate: float | None = None
+        self.next_cheap_rate_start: str | None = None
         self.battery_throughput_budget_status: str = ""
         self.saving_vs_grid_today: float = 0.0
         self.net_saving_today: float = 0.0
@@ -635,6 +639,13 @@ def _battery_cycle_cost(cfg: dict[str, Any], capacity_kwh: float) -> float:
     return battery_cost / (2 * capacity_kwh * BATTERY_RATED_CYCLES)
 
 
+def _set_next_cheap_rate(data: CoordinatorData, tariff: TariffConfig, now: datetime) -> None:
+    """Set hours to, and start time of, the next cheaper-than-base rate period."""
+    upcoming = tariff.next_cheap_rate(now)
+    if upcoming is not None:
+        data.hours_to_cheap_rate, data.next_cheap_rate_start = upcoming
+
+
 def _set_throughput_budget(data: CoordinatorData, cfg: dict[str, Any]) -> None:
     """Set budget used (%) and status from today's throughput, or None when no budget is set."""
     budget = float(cfg.get(CONF_BATTERY_THROUGHPUT_BUDGET, DEFAULT_BATTERY_THROUGHPUT_BUDGET))
@@ -805,6 +816,7 @@ def build_coordinator_data(
     current_period = tariff.get_current_rate(now)
     data.current_rate_name = current_period.name
     data.current_rate = current_period.rate
+    _set_next_cheap_rate(data, tariff, now)
     # Live grid cost/earning rate in €/hr using the correct tariff rate for each direction.
     grid_kw = raw.grid_power_w / 1000
     if grid_kw > 0:

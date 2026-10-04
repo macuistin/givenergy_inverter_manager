@@ -358,3 +358,40 @@ class TestEfficiencySensors:
                 assert not any(kw.arg == "is_daily_total" for kw in node.keywords), (
                     "MEASUREMENT sensors must not set last_reset"
                 )
+
+
+class TestNextCheapRateSensors:
+    def test_start_shows_time_when_known(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("next_cheap_rate_start")
+        d = MagicMock()
+        d.next_cheap_rate_start = "23:00"
+        d.hours_to_cheap_rate = 9.0
+        assert fn(d) == "23:00"
+
+    def test_start_shows_now_when_active(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("next_cheap_rate_start")
+        d = MagicMock()
+        d.next_cheap_rate_start = None
+        d.hours_to_cheap_rate = 0.0
+        assert fn(d) == "Now"
+
+    def test_start_is_none_on_flat_tariff(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("next_cheap_rate_start")
+        d = MagicMock()
+        d.next_cheap_rate_start = None
+        d.hours_to_cheap_rate = None
+        assert fn(d) is None
+
+    def test_hours_value_fn(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("hours_to_cheap_rate")
+        d = MagicMock()
+        d.hours_to_cheap_rate = 9.0
+        assert fn(d) == 9.0

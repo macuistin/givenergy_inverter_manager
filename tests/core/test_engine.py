@@ -1386,3 +1386,46 @@ class TestThroughputBudget:
         data, _ = _run()
         assert data.battery_throughput_budget_pct is None
         assert data.battery_throughput_budget_status == ""
+
+
+class TestNextCheapRate:
+    """Time until the next cheaper-than-base rate period starts."""
+
+    @staticmethod
+    def _tariff():
+        return build_tariff(_nightboost_cfg())
+
+    def test_daytime_counts_down_to_night_start(self):
+        result = self._tariff().next_cheap_rate(datetime(2024, 6, 15, 14, 0))
+        assert result == (9.0, "23:00")
+
+    def test_half_hour_before_night(self):
+        result = self._tariff().next_cheap_rate(datetime(2024, 6, 15, 22, 30))
+        assert result == (0.5, "23:00")
+
+    def test_active_period_returns_zero_hours_and_no_start(self):
+        assert self._tariff().next_cheap_rate(datetime(2024, 6, 15, 3, 0)) == (0.0, None)
+
+    def test_flat_tariff_returns_none(self):
+        cfg = _nightboost_cfg()
+        cfg["rate_periods"] = []
+        assert build_tariff(cfg).next_cheap_rate(datetime(2024, 6, 15, 14, 0)) is None
+
+    def test_period_more_expensive_than_base_is_not_cheap(self):
+        cfg = _nightboost_cfg()
+        cfg["rate_periods"] = [
+            {"name": "Peak", "rate": 0.50, "start": "17:00", "end": "19:00"},
+        ]
+        assert build_tariff(cfg).next_cheap_rate(datetime(2024, 6, 15, 14, 0)) is None
+
+    def test_engine_populates_fields(self):
+        data, _ = _run(now=datetime(2024, 6, 15, 14, 0))
+        assert data.hours_to_cheap_rate == 9.0
+        assert data.next_cheap_rate_start == "23:00"
+
+    def test_engine_fields_none_on_flat_tariff(self):
+        cfg = _nightboost_cfg()
+        cfg["rate_periods"] = []
+        data, _ = _run(cfg=cfg)
+        assert data.hours_to_cheap_rate is None
+        assert data.next_cheap_rate_start is None
