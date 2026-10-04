@@ -419,3 +419,41 @@ class TestBatteryEnergySensors:
     )
     def test_daily_energy_sensors_are_total(self, key):
         assert _sensor_kwarg(key, "state_class") == "TOTAL"
+
+
+class TestMiscellaneousSensors:
+    @pytest.mark.parametrize(
+        ("power_w", "expected"),
+        [
+            (2500.0, "Charging"),
+            (51.0, "Charging"),
+            (50.0, "Idle"),
+            (0.0, "Idle"),
+            (-50.0, "Idle"),
+            (-51.0, "Discharging"),
+            (-1800.0, "Discharging"),
+        ],
+    )
+    def test_battery_power_direction(self, power_w, expected):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("battery_power_direction")
+        d = MagicMock()
+        d.battery_power_w = power_w
+        assert fn(d) == expected
+
+    def test_days_in_period_value_fn(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("days_in_period")
+        d = MagicMock()
+        d.days_in_period = 12
+        assert fn(d) == 12
+
+    def test_integration_version_matches_manifest(self):
+        import json
+
+        from custom_components.givenergy_inverter_manager.const import INTEGRATION_VERSION
+
+        manifest = _SENSOR_PY.parent / "manifest.json"
+        assert json.loads(manifest.read_text())["version"] == INTEGRATION_VERSION
