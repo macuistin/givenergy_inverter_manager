@@ -82,7 +82,7 @@ Read **Overnight Charge Reason** first. Then check these:
 - **December to February.** The target is 100% before the cap, whatever the forecast.
 - **March, April, October and November.** The minimum SoC is at least 70% in the calculation.
 - **No forecast.** Without a tomorrow sensor, the integration uses a seasonal estimate from your latitude. The reason says so.
-- **A forecast setting has no effect.** Forecast provider is stored and unused. The day-after-tomorrow sensor is read and unused. The P10 sensor only matters when conservatism is above 0.
+- **A forecast setting has no effect.** Forecast provider is stored and unused. The P10 sensor only matters when conservatism is above 0.
 - **A manual target.** See [Entities](entities.md#manual-charge-target).
 
 To see every reading and decision, turn on both of these:

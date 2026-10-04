@@ -64,7 +64,7 @@ The defaults are Electric Ireland Home Electric with Nightboost. Replace all of 
 | Forecast provider | `forecast_provider` | Forecast.Solar or Solcast. Stored, but nothing reads it. The integration uses the sensors below |
 | Tomorrow's forecast sensor | `forecast_entity` | A sensor giving tomorrow's expected energy in kWh |
 | Solcast P10 sensor | `forecast_entity_p10` | Optional. A pessimistic forecast in kWh, blended in when conservatism is above 0 |
-| Day-after-tomorrow sensor | `forecast_entity_d2` | Optional. Read each cycle but not used by the charge calculation in v0.3.0 |
+| Day-after-tomorrow sensor | `forecast_entity_d2` | Optional. When it exceeds the battery capacity, tonight's target is lowered to leave room for that day's solar |
 | Grid carbon intensity sensor | `carbon_intensity_entity` | Optional. g CO2/kWh. Feeds the two carbon sensors |
 | Forecast conservatism | `forecast_conservatism` | Slider 0 to 1 in steps of 0.05, default 0.35. 0 is the plain forecast, 1 is the P10 value |
 
