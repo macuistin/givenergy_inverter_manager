@@ -839,3 +839,20 @@ class TestBatteryWearFormulaAgreement:
 
         cost_per_kwh = _battery_cycle_cost({CONF_BATTERY_COST: 3000.0}, capacity)
         assert cost_per_kwh * throughput == pytest.approx(3000.0 / BATTERY_RATED_CYCLES, rel=1e-6)
+
+
+def test_html_attribute_is_not_recorded():
+    sensor_class = next(
+        node
+        for node in ast.walk(_TREE)
+        if isinstance(node, ast.ClassDef) and node.name == "GivEnergyManagerSensor"
+    )
+    assigned = {
+        target.id: node.value
+        for node in sensor_class.body
+        if isinstance(node, ast.Assign)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    value = assigned["_unrecorded_attributes"]
+    assert ast.literal_eval(value.args[0]) == {"html"}

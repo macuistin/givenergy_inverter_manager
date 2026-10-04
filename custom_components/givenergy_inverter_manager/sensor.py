@@ -1620,6 +1620,7 @@ class GivEnergyManagerSensor(CoordinatorEntity[GivEnergyCoordinator], SensorEnti
 
     entity_description: GivEnergyManagerSensorDescription
     _attr_has_entity_name = True
+    _unrecorded_attributes = frozenset({"html"})
 
     def __init__(
         self,
