@@ -136,6 +136,20 @@ EMHASS, evcc, OpenEMS, solar_optimizer, PV Excess Control, powercalc and Home As
 core. Only findings checked in code or documentation are listed. Status: **done** means
 merged, **in progress** means a branch exists, **backlog** means not started.
 
+**Pull requests for the items marked in progress.** They form one stack, merged in this order.
+
+| PR | Covers |
+|---|---|
+| 129 | EV cost: Zappi entities with no serial in the id, charging detection |
+| 130 | Bounded immersion hold, one EV threshold, dead EV code, Zappi write cooldown |
+| 131 | Per-slot load profile, forecast accuracy correction, day-after-tomorrow forecast, no-solar counterfactual |
+| 132 | Bill sensors, flat PSO levy, billing period days, bill start day from options, rate period validation, `compare_tariff` |
+| 133 | `last_reset` for week, month and year sensors, year totals saved, restart across a boundary, durable storage |
+| 134 | Equivalent-full-cycle count, BMS seeding, write error handling, charge target clamp, write count saved |
+| 135 | Labels and help for every config field, slider reloads, reconfigure, options ordering, setup summary |
+| 136 | Diagnostics redaction, repair links, services registered once, translation drift, CI and metadata |
+| 138 | Dashboard: Now strip, Bill view, empty states, fallbacks, example, optional strategy |
+
 **Order of work.** The direction of this roadmap is sound, but the accounting and test
 foundations come before new optimisation features. Finish the items under Accuracy and
 Platform quality first, then Forecast and planning, then new hardware support.
