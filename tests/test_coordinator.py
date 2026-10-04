@@ -2008,3 +2008,89 @@ class TestCheapRateFloorWriteSafety:
             await coord._write_floor_target(cfg, "number.target_soc", 40)
 
         assert coord._register_write_count == 2
+
+
+class TestSensorDropouts:
+    """Unavailable required sensors are flagged, not read as zero readings."""
+
+    def _coord(self, **cfg_overrides):
+        coord = FakeCoordinator(cfg=_cfg(**cfg_overrides))
+        coord.set_states(_default_states())
+        return coord
+
+    @pytest.mark.parametrize(
+        ("entity", "name"),
+        [
+            ("sensor.house", "house_load"),
+            ("sensor.battery_power", "battery_power"),
+            ("sensor.solar", "solar_power"),
+        ],
+    )
+    @pytest.mark.parametrize("state", ["unavailable", "unknown"])
+    def test_flags_unavailable_input(self, entity, name, state):
+        coord = self._coord()
+        coord.set_state(entity, state)
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.unavailable_inputs == (name,)
+
+    def test_flags_missing_entity(self):
+        coord = self._coord()
+        del coord._states["sensor.house"]
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert "house_load" in raw.unavailable_inputs
+
+    def test_nothing_flagged_when_all_available(self):
+        coord = self._coord()
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.unavailable_inputs == ()
+
+    def test_flags_unavailable_temp_sensor_when_configured(self):
+        from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_TEMP_SENSOR
+
+        coord = self._coord(**{CONF_IMMERSION_TEMP_SENSOR: "sensor.immersion_temp"})
+        coord.set_state("sensor.immersion_temp", "unavailable")
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.unavailable_inputs == ("immersion_temp",)
+
+    def test_no_temp_sensor_configured_is_not_flagged(self):
+        coord = self._coord()
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.immersion_temp is None
+        assert "immersion_temp" not in raw.unavailable_inputs
+
+    def test_unavailable_solar_does_not_change_smoothed_value(self):
+        coord = self._coord()
+        coord.set_state("sensor.solar", "4000")
+        coord._collect_raw(coord._effective_cfg())
+        before = coord._smoothed_solar_w
+        coord.set_state("sensor.solar", "unavailable")
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert coord._smoothed_solar_w == pytest.approx(before)
+        assert raw.smoothed_solar_power_w == pytest.approx(before)
+
+    def test_available_solar_still_smoothed(self):
+        coord = self._coord()
+        coord.set_state("sensor.solar", "4000")
+        coord._collect_raw(coord._effective_cfg())
+        assert coord._smoothed_solar_w == pytest.approx(2000.0)
+
+    @pytest.mark.asyncio
+    async def test_house_load_dropout_does_not_start_immersion(self):
+        coord = self._coord(**{CONF_IMMERSION_SWITCH: "switch.immersion"})
+        coord.set_states({"sensor.solar": "5000", "sensor.battery_soc": "95",
+                          "sensor.battery_power": "0", "sensor.house": "unavailable",
+                          "switch.immersion": "off"})
+        coord._smoothed_solar_w = 5000.0
+        data = await coord._async_update_data()
+        assert data.should_divert_immersion is False
+        assert "sensor unavailable" in data.divert_reason.lower()
+
+    @pytest.mark.asyncio
+    async def test_house_load_dropout_holds_running_immersion(self):
+        coord = self._coord(**{CONF_IMMERSION_SWITCH: "switch.immersion"})
+        coord.set_states({"sensor.solar": "5000", "sensor.battery_soc": "95",
+                          "sensor.battery_power": "0", "sensor.house": "unavailable",
+                          "switch.immersion": "on"})
+        coord._smoothed_solar_w = 5000.0
+        data = await coord._async_update_data()
+        assert data.should_divert_immersion is True

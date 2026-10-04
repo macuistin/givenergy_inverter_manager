@@ -129,6 +129,8 @@ class RawSensorValues:
     ev_power_w: float = 0.0
     ev_plugged_in: bool = False
     inverter_temp: float | None = None
+    # Names of required inputs that were unavailable this cycle (their value is a 0.0 placeholder)
+    unavailable_inputs: tuple[str, ...] = ()
     # GivTCP daily energy counters — authoritative when present, None → fall back to integration
     solar_energy_today_kwh: float | None = None
     import_energy_today_kwh: float | None = None
@@ -602,16 +604,18 @@ def _initialize_coordinator_data(
     data.immersion_temp = raw.immersion_temp
     data.forecast_kwh_tomorrow = raw.forecast_kwh_tomorrow
     data.immersion_load_w = raw.immersion_wattage_w if raw.immersion_on else 0.0
-    data.net_solar_surplus_w = max(
-        0.0,
-        available_surplus_w(
-            raw.smoothed_solar_power_w,
-            raw.house_load_w,
+    data.net_solar_surplus_w = 0.0
+    if not {"solar_power", "house_load"} & set(raw.unavailable_inputs):
+        data.net_solar_surplus_w = max(
             0.0,
-            raw.immersion_on,
-            raw.immersion_wattage_w,
-        ),
-    )
+            available_surplus_w(
+                raw.smoothed_solar_power_w,
+                raw.house_load_w,
+                0.0,
+                raw.immersion_on,
+                raw.immersion_wattage_w,
+            ),
+        )
     data.rest_of_house_w = max(
         0.0,
         raw.house_load_w - raw.ev_power_w - data.immersion_load_w,
@@ -713,11 +717,12 @@ def _set_immersion_decision(
         data.should_divert_immersion = override_immersion
         data.divert_reason = "Manual override"
     else:
+        missing = set(raw.unavailable_inputs)
         data.should_divert_immersion, data.divert_reason = should_divert_to_immersion(
-            solar_power_w=raw.smoothed_solar_power_w,
-            house_load_w=raw.house_load_w,
+            solar_power_w=None if "solar_power" in missing else raw.smoothed_solar_power_w,
+            house_load_w=None if "house_load" in missing else raw.house_load_w,
             battery_soc=raw.battery_soc,
-            battery_power_w=raw.battery_power_w,
+            battery_power_w=None if "battery_power" in missing else raw.battery_power_w,
             inverter_max_w=raw.inverter_max_w,
             immersion_temp=raw.immersion_temp,
             immersion_target_temp=raw.immersion_target_temp,
@@ -729,6 +734,7 @@ def _set_immersion_decision(
             battery_cycle_cost_per_kwh=cycle_cost,
             export_rate=export_rate,
             immersion_power_w=raw.immersion_wattage_w,
+            immersion_temp_unavailable="immersion_temp" in missing,
         )
 
 

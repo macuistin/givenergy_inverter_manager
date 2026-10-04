@@ -308,6 +308,14 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         except (ValueError, TypeError):
             return None
 
+    def _read_tracked(self, entity_id: str | None, name: str, unavailable: list[str]) -> float:
+        """Read a float state, recording name in unavailable and returning 0.0 if it is missing."""
+        value = self._read_optional_float(entity_id)
+        if value is None:
+            unavailable.append(name)
+            return 0.0
+        return value
+
     def _read_bool(self, entity_id: str | None, on_state: str = "on") -> bool:
         """Read a boolean entity state safely."""
         if not entity_id:
@@ -729,22 +737,33 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         cfg.update(self.entry.options)
         return cfg
 
-    def _collect_raw(self, cfg: dict) -> RawSensorValues:
-        """Read all sensor entity states and return as a plain-Python struct."""
-        raw = RawSensorValues()
-        raw.solar_power_w = self._read_float(cfg.get(CONF_SOLAR_POWER))
+    def _read_power_inputs(self, cfg: dict, raw: RawSensorValues, unavailable: list[str]) -> None:
+        """Read solar, battery and house power, recording any unavailable inputs."""
+        raw.solar_power_w = self._read_tracked(
+            cfg.get(CONF_SOLAR_POWER), "solar_power", unavailable
+        )
         # EMA smoothing (α=0.5) — prevents divert decisions from chasing transient cloud gaps.
         # The smoothed value converges to steady state in ~4 cycles (2 minutes at 30s intervals).
+        # An unavailable reading is not fed in, so a dropout does not drag the average to zero.
         # getattr fallback handles subclasses that don't call our __init__ (e.g. FakeCoordinator).
         prev_smoothed = getattr(self, "_smoothed_solar_w", 0.0)
-        self._smoothed_solar_w = 0.5 * prev_smoothed + 0.5 * raw.solar_power_w
-        raw.smoothed_solar_power_w = self._smoothed_solar_w
+        if "solar_power" not in unavailable:
+            self._smoothed_solar_w = 0.5 * prev_smoothed + 0.5 * raw.solar_power_w
+        raw.smoothed_solar_power_w = getattr(self, "_smoothed_solar_w", 0.0)
         raw.battery_soc = self._read_float(cfg.get(CONF_BATTERY_SOC))
-        raw.battery_power_w = self._read_float(cfg.get(CONF_BATTERY_POWER))
+        raw.battery_power_w = self._read_tracked(
+            cfg.get(CONF_BATTERY_POWER), "battery_power", unavailable
+        )
         # GivTCP v3 uses positive=export, negative=import.
         # Negate to match internal convention (positive=import, negative=export).
         raw.grid_power_w = -self._read_float(cfg.get(CONF_GRID_POWER))
-        raw.house_load_w = self._read_float(cfg.get(CONF_HOUSE_LOAD))
+        raw.house_load_w = self._read_tracked(cfg.get(CONF_HOUSE_LOAD), "house_load", unavailable)
+
+    def _collect_raw(self, cfg: dict) -> RawSensorValues:
+        """Read all sensor entity states and return as a plain-Python struct."""
+        raw = RawSensorValues()
+        unavailable: list[str] = []
+        self._read_power_inputs(cfg, raw, unavailable)
         raw.inverter_max_w = cfg.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT) * 1000
         raw.battery_capacity_kwh = float(cfg.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY))
 
@@ -757,6 +776,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         temp_eid = cfg.get(CONF_IMMERSION_TEMP_SENSOR)
         if temp_eid:
             raw.immersion_temp = self._read_optional_float(temp_eid)
+            if raw.immersion_temp is None:
+                unavailable.append("immersion_temp")
+        raw.unavailable_inputs = tuple(unavailable)
 
         forecast_eid = cfg.get(CONF_FORECAST_ENTITY)
         if forecast_eid:

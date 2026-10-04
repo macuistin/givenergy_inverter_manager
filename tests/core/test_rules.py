@@ -1022,3 +1022,74 @@ class TestImmersionStartStopBand:
             **self._kwargs(min_surplus_w=1200),
         )
         assert should is True
+
+
+class TestImmersionSensorDropouts:
+    def _kwargs(self, **overrides):
+        defaults = {
+            "solar_power_w": 4000.0,
+            "house_load_w": 800.0,
+            "battery_soc": 90.0,
+            "battery_power_w": 0.0,
+            "inverter_max_w": 8000.0,
+            "immersion_temp": 40.0,
+            "immersion_target_temp": 55.0,
+            "immersion_min_temp": 30.0,
+            "soc_threshold": 80,
+            "min_surplus_w": 500,
+        }
+        defaults.update(overrides)
+        return defaults
+
+    @pytest.mark.parametrize("name", ["solar_power_w", "house_load_w", "battery_power_w"])
+    def test_does_not_start_on_missing_input(self, name):
+        should, reason = should_divert_to_immersion(**self._kwargs(**{name: None}))
+        assert should is False
+        assert "sensor unavailable" in reason.lower()
+
+    @pytest.mark.parametrize("name", ["solar_power_w", "house_load_w", "battery_power_w"])
+    def test_holds_on_when_input_missing(self, name):
+        should, reason = should_divert_to_immersion(
+            **self._kwargs(**{name: None}), currently_on=True
+        )
+        assert should is True
+        assert "sensor unavailable" in reason.lower()
+
+    def test_does_not_start_on_unavailable_temp(self):
+        should, reason = should_divert_to_immersion(
+            **self._kwargs(immersion_temp=None), immersion_temp_unavailable=True
+        )
+        assert should is False
+        assert "immersion_temp" in reason
+
+    def test_holds_on_when_temp_unavailable(self):
+        should, _ = should_divert_to_immersion(
+            **self._kwargs(immersion_temp=None),
+            immersion_temp_unavailable=True,
+            currently_on=True,
+        )
+        assert should is True
+
+    def test_no_temp_sensor_configured_is_not_a_dropout(self):
+        should, _ = should_divert_to_immersion(**self._kwargs(immersion_temp=None))
+        assert should is True
+
+    def test_reason_names_every_missing_input(self):
+        _, reason = should_divert_to_immersion(
+            **self._kwargs(house_load_w=None, battery_power_w=None)
+        )
+        assert "house_load" in reason
+        assert "battery_power" in reason
+
+    def test_legionella_heating_does_not_need_load_sensors(self):
+        should, reason = should_divert_to_immersion(
+            **self._kwargs(immersion_temp=20.0, house_load_w=None, battery_power_w=None)
+        )
+        assert should is True
+        assert "minimum safe" in reason
+
+    def test_target_reached_still_turns_off_when_load_missing(self):
+        should, _ = should_divert_to_immersion(
+            **self._kwargs(immersion_temp=56.0, house_load_w=None), currently_on=True
+        )
+        assert should is False

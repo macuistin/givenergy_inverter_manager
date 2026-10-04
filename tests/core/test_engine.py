@@ -1667,3 +1667,51 @@ class TestImmersionDecisionStability:
         on, _ = _run(raw=self._raw(4000.0, True))
         assert off.should_divert_immersion is True
         assert on.should_divert_immersion is True, on.divert_reason
+
+
+class TestUnavailableInputs:
+    def test_house_load_dropout_does_not_start_immersion(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=0.0, battery_soc=90.0, battery_power_w=0.0)
+        raw.unavailable_inputs = ("house_load",)
+        data, _ = _run(raw=raw)
+        assert data.should_divert_immersion is False
+        assert "sensor unavailable" in data.divert_reason.lower()
+
+    def test_battery_power_dropout_does_not_start_immersion(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=500.0, battery_soc=90.0)
+        raw.unavailable_inputs = ("battery_power",)
+        data, _ = _run(raw=raw)
+        assert data.should_divert_immersion is False
+
+    def test_temp_dropout_does_not_start_immersion(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=500.0, battery_soc=90.0, battery_power_w=0.0)
+        raw.unavailable_inputs = ("immersion_temp",)
+        data, _ = _run(raw=raw)
+        assert data.should_divert_immersion is False
+
+    def test_dropout_holds_running_element(self):
+        raw = _raw(
+            solar_power_w=4000.0, house_load_w=0.0, battery_soc=90.0, battery_power_w=0.0,
+            immersion_on=True,
+        )
+        raw.unavailable_inputs = ("house_load",)
+        data, _ = _run(raw=raw)
+        assert data.should_divert_immersion is True
+
+    def test_manual_override_still_wins(self):
+        raw = _raw()
+        raw.unavailable_inputs = ("house_load",)
+        data, _ = _run(raw=raw, override_immersion=True)
+        assert data.should_divert_immersion is True
+
+    def test_house_load_dropout_zeroes_net_surplus(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=0.0)
+        raw.unavailable_inputs = ("house_load",)
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == 0.0
+
+    def test_solar_dropout_zeroes_net_surplus(self):
+        raw = _raw(solar_power_w=0.0, house_load_w=0.0)
+        raw.unavailable_inputs = ("solar_power",)
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == 0.0
