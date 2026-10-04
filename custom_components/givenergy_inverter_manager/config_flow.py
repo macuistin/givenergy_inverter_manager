@@ -105,6 +105,7 @@ from .const import (
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
+from .core.tariff import build_tariff
 from .discovery import discover_ev_chargers, discover_givtcp_inverters
 
 _LOGGER = logging.getLogger(__name__)
@@ -143,6 +144,35 @@ def _saved_values(entry) -> dict:
     values = {k: v for k, v in entry.data.items() if v is not None}
     values.update({k: v for k, v in entry.options.items() if v is not None})
     return values
+
+
+def _ordinal(day: int) -> str:
+    """Return 1 as '1st', 16 as '16th'."""
+    suffix = "th" if 10 <= day % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+    return f"{day}{suffix}"
+
+
+def _tariff_summary(cfg: dict) -> str:
+    """One paragraph stating the cheapest rate and the billing period for *cfg*."""
+    try:
+        tariff = build_tariff(cfg)
+    except (TypeError, ValueError):
+        return ""
+    cheapest = tariff.get_cheapest_rate()
+    if any(cheapest is p for p in tariff.rate_periods):
+        window = f"{cheapest.start:%H:%M} to {cheapest.end:%H:%M}"
+    else:
+        window = "all day"
+    code = cfg.get(CONF_CURRENCY) or DEFAULT_CURRENCY
+    start = tariff.bill_start_day
+    if start == 1:
+        bill = "Your bill runs from the 1st to the last day of the month."
+    else:
+        bill = f"Your bill runs from the {_ordinal(start)} to the {_ordinal(start - 1)}."
+    return (
+        f"Cheapest rate in your saved tariff: {cheapest.name} at {cheapest.rate:.4f} "
+        f"{code}/kWh, {window}. {bill}"
+    )
 
 
 def _hhmmss(hhmm: str) -> str:
@@ -755,6 +785,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
         return self.async_show_form(step_id="reconfigure", data_schema=schema, errors=errors)
+        schema = self.__class__._build_tariff_schema(current.get(CONF_RATE_PERIODS) or [], current)
         return self.async_show_form(step_id="reconfigure", data_schema=schema)
 
     @staticmethod
@@ -1007,39 +1038,6 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             ),
             {"collapsed": True},
         )
-        schema_dict[vol.Required("hardware_settings")] = section(
-            vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_BATTERY_CAPACITY,
-                        default=float(self._get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY)),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1, max=100, step=0.1, unit_of_measurement="kWh"
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_INVERTER_MAX_OUTPUT,
-                        default=float(
-                            self._get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)
-                        ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1, max=20, step=0.1, unit_of_measurement="kW"
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_IMMERSION_WATTAGE,
-                        default=float(self._get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE)),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=500, max=6000, step=100, unit_of_measurement="W"
-                        )
-                    ),
-                }
-            ),
-            {"collapsed": True},
-        )
         schema_dict[vol.Required("forecast_settings")] = section(
             vol.Schema(
                 {
@@ -1079,6 +1077,39 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             ),
             {"collapsed": True},
         )
+        schema_dict[vol.Required("hardware_settings")] = section(
+            vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_BATTERY_CAPACITY,
+                        default=float(self._get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=100, step=0.1, unit_of_measurement="kWh"
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_INVERTER_MAX_OUTPUT,
+                        default=float(
+                            self._get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=20, step=0.1, unit_of_measurement="kW"
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_IMMERSION_WATTAGE,
+                        default=float(self._get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=500, max=6000, step=100, unit_of_measurement="W"
+                        )
+                    ),
+                }
+            ),
+            {"collapsed": True},
+        )
         schema_dict[vol.Required("ev_settings")] = section(
             vol.Schema(
                 {
@@ -1104,3 +1135,11 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
         return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(schema_dict),
+            errors=errors,
+            description_placeholders={
+                "tariff_summary": _tariff_summary(_saved_values(self._config_entry))
+            },
+        )

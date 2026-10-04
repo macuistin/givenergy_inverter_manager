@@ -246,3 +246,59 @@ async def test_options_accept_a_valid_extra_rate_period(hass, loaded_entry):
         "Nightboost",
         "Evening",
     ]
+async def test_options_sections_follow_how_often_they_are_used(hass, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    names = [f["name"] for f in _serialise(result)]
+    assert names == [
+        "tariff_settings",
+        "rate_period_1",
+        "rate_period_2",
+        "rate_period_3",
+        "rate_period_4",
+        "rate_period_5",
+        "threshold_settings",
+        "forecast_settings",
+        "hardware_settings",
+        "ev_settings",
+    ]
+
+
+async def test_only_the_tariff_section_is_open_among_the_settings(hass, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    expanded = {
+        f["name"]: f.get("expanded")
+        for f in _serialise(result)
+        if not f["name"].startswith("rate_period_")
+    }
+    assert expanded == {
+        "tariff_settings": True,
+        "threshold_settings": False,
+        "forecast_settings": False,
+        "hardware_settings": False,
+        "ev_settings": False,
+    }
+
+
+async def test_options_form_states_the_cheapest_rate_and_billing_period(hass, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    summary = result["description_placeholders"]["tariff_summary"]
+    assert (
+        "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00."
+        in summary
+    )
+    assert "Your bill runs from the 16th to the 15th." in summary
+
+
+async def test_options_summary_follows_saved_options_over_setup_data(hass, loaded_entry):
+    hass.config_entries.async_update_entry(
+        loaded_entry,
+        options={
+            "rate_periods": [{"name": "Free", "rate": 0.0, "start": "11:00", "end": "14:00"}],
+            "bill_start_day": 1,
+        },
+    )
+    await hass.async_block_till_done()
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    summary = result["description_placeholders"]["tariff_summary"]
+    assert "Free at 0.0000 EUR/kWh, 11:00 to 14:00" in summary
+    assert "from the 1st to the last day of the month" in summary

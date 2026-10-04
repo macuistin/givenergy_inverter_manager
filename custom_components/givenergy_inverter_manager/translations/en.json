@@ -332,7 +332,7 @@
     "step": {
       "init": {
         "title": "GivEnergy Inverter Manager Settings",
-        "description": "Update your integration settings. Tariff changes take effect on the next 30-second cycle.",
+        "description": "{tariff_summary}\n\nChanges apply when you save. The integration reloads, so entities are unavailable for a few seconds.",
         "sections": {
           "tariff_settings": {
             "name": "Tariff",
