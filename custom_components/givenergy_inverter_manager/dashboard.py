@@ -26,7 +26,11 @@ from homeassistant.exceptions import ServiceValidationError
 from .const import DOMAIN
 from .core.rules import suggest_appliance_run
 from .core.tariff import BillBreakdown, TariffConfig, build_tariff
-from .dashboard_builder import SERVICE_GET_DASHBOARD_YAML, render_dashboard
+from .dashboard_builder import (
+    SERVICE_GET_DASHBOARD_YAML,
+    async_lovelace_resource_urls,
+    render_dashboard,
+)
 from .logging import get_logger
 
 _LOG = get_logger(__name__)
@@ -443,7 +447,8 @@ async def async_register_services(hass: HomeAssistant) -> None:
         entries = require_loaded_entries(hass)
 
         entry = entries[0]
-        yaml_output, skipped = render_dashboard(hass, entry.entry_id)
+        resources = await async_lovelace_resource_urls(hass)
+        yaml_output, skipped = render_dashboard(hass, entry.entry_id, resources)
 
         file_path = os.path.join(hass.config.config_dir, "givenergy_dashboard.yaml")
 

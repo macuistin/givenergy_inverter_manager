@@ -899,3 +899,145 @@ class TestBillView:
     def test_tariff_table_falls_back_to_the_defaults_the_engine_uses(self):
         table = self._tariff_markdown(config={})
         assert "| Night | 23:00 to 08:00 | €0.1644 |" in table
+
+
+_PFC = "/hacsfiles/power-flow-card-plus/power-flow-card-plus.js?hacstag=1"
+_APEX = "/hacsfiles/apexcharts-card/apexcharts-card.js?hacstag=2"
+
+
+def _all_cards(text: str) -> list[dict]:
+    parsed = yaml.safe_load(text)
+    out: list[dict] = []
+
+    def walk(cards):
+        for card in cards:
+            out.append(card)
+            walk(card.get("cards", []))
+
+    for view in parsed["views"]:
+        walk(view["cards"])
+    return out
+
+
+class TestMissingHacsCards:
+    """The custom cards are optional: without their resource the view uses built-in cards."""
+
+    def _types(self, resources) -> set[str]:
+        from custom_components.givenergy_inverter_manager.dashboard_builder import (
+            build_dashboard_yaml,
+        )
+
+        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
+            return {c["type"] for c in _all_cards(build_dashboard_yaml(hass, ENTRY_ID, resources))}
+
+    def _text(self, resources) -> str:
+        from custom_components.givenergy_inverter_manager.dashboard_builder import (
+            build_dashboard_yaml,
+        )
+
+        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
+            return build_dashboard_yaml(hass, ENTRY_ID, resources)
+
+    def test_unknown_resources_keep_the_custom_cards(self):
+        types = self._types(None)
+        assert {"custom:power-flow-card-plus", "custom:apexcharts-card"} <= types
+
+    def test_both_installed_keep_the_custom_cards(self):
+        types = self._types([_PFC, _APEX])
+        assert {"custom:power-flow-card-plus", "custom:apexcharts-card"} <= types
+
+    def test_no_resources_means_no_custom_cards(self):
+        types = self._types([])
+        assert not {t for t in types if t.startswith("custom:")}
+
+    def test_power_flow_falls_back_to_an_entities_card(self):
+        text = self._text([_APEX])
+        assert "custom:power-flow-card-plus" not in text
+        card = next(c for c in _all_cards(text) if c.get("title") == "Live Power")
+        assert card["type"] == "entities"
+        rows = [r["entity"] for r in card["entities"]]
+        for key in ("solar_power", "battery_power", "battery_soc", "grid_power", "house_load"):
+            assert eid(key) in rows
+        assert eid("ev_power") in rows
+        assert eid("immersion_power") in rows
+
+    def test_immersion_charts_fall_back_to_built_in_cards(self):
+        text = self._text([_PFC])
+        assert "custom:apexcharts-card" not in text
+        stack = next(c for c in _all_cards(text) if c["type"] == "vertical-stack")
+        assert [c["type"] for c in stack["cards"]] == ["history-graph", "tile", "statistics-graph"]
+        graph = stack["cards"][0]
+        assert [r["entity"] for r in graph["entities"]][0] == "sensor.hot_water_cylinder_temperature"
+
+    def test_matching_ignores_case_and_path(self):
+        types = self._types(["/local/Community/PowerFlowCard/POWER-FLOW-CARD-PLUS.js", _APEX])
+        assert "custom:power-flow-card-plus" in types
+
+    def test_header_names_the_missing_cards(self):
+        header = self._text([])
+        header = header[: header.index("views:")]
+        assert "power-flow-card-plus" in header
+        assert "apexcharts-card" in header
+        assert "not installed" in header
+
+    def test_header_has_no_note_when_cards_are_present(self):
+        header = self._text([_PFC, _APEX])
+        assert "not installed" not in header[: header.index("views:")]
+
+    def test_no_apex_note_without_an_immersion_sensor(self):
+        from custom_components.givenergy_inverter_manager.dashboard_builder import (
+            build_dashboard_yaml,
+        )
+
+        with fake_hass(MINIMAL_CONFIG, FakeRegistry(enable_all=True)) as hass:
+            text = build_dashboard_yaml(hass, ENTRY_ID, [_PFC])
+        assert "not installed" not in text[: text.index("views:")]
+
+    def test_fallback_dashboard_references_only_usable_entities(self):
+        assert _referenced(self._text([])) <= set(default_entity_ids().values())
+
+
+class TestReadingLovelaceResources:
+    """async_lovelace_resource_urls reads hass.data['lovelace'] and fails open."""
+
+    @staticmethod
+    def _urls(data):
+        import asyncio
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.dashboard_builder import (
+            async_lovelace_resource_urls,
+        )
+
+        hass = MagicMock()
+        hass.data = data
+        return asyncio.run(async_lovelace_resource_urls(hass))
+
+    @staticmethod
+    def _collection(items, *, fail=False):
+        from unittest.mock import AsyncMock, MagicMock
+
+        resources = MagicMock()
+        resources.async_get_info = AsyncMock(side_effect=OSError("boom") if fail else None)
+        resources.async_items.return_value = items
+        return resources
+
+    def test_returns_urls_from_the_collection(self):
+        from types import SimpleNamespace
+
+        collection = self._collection([{"url": _PFC, "type": "module"}, {"type": "js"}])
+        assert self._urls({"lovelace": SimpleNamespace(resources=collection)}) == [_PFC, ""]
+        collection.async_get_info.assert_awaited_once()
+
+    def test_not_loaded_returns_none(self):
+        assert self._urls({}) is None
+
+    def test_unreadable_collection_returns_none(self):
+        from types import SimpleNamespace
+
+        collection = self._collection([], fail=True)
+        assert self._urls({"lovelace": SimpleNamespace(resources=collection)}) is None
+
+    def test_dict_shaped_lovelace_data_is_read(self):
+        collection = self._collection([{"url": _APEX}])
+        assert self._urls({"lovelace": {"resources": collection}}) == [_APEX]

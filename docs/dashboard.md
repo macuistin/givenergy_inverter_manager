@@ -62,8 +62,12 @@ After regenerating, reload the dashboard or restart Home Assistant.
 
 | Card | Needed for | Behaviour without it |
 |---|---|---|
-| [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | The live flow card in the Power Flow view | The card shows a configuration error |
-| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The immersion charts in the Power Flow view | Those two charts show an error |
+| [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | The live flow card in the Power Flow view | An entities card lists the same values |
+| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The immersion charts in the Power Flow view | A history graph of the temperatures and a statistics graph of immersion energy replace them |
+
+When you generate the file, the integration reads the Lovelace resource list (**Settings → Dashboards → Resources**). A card whose URL is not in the list is treated as not installed, and the built-in cards are used. The file header names the cards it replaced. Install the card from HACS and generate the file again to get the custom card.
+
+A card loaded some other way, for example by another integration, does not appear in the resource list. Add it as a resource, or the generator will replace it. If the list cannot be read, the generator assumes both cards are installed.
 
 Everything else uses built-in Home Assistant cards.
 

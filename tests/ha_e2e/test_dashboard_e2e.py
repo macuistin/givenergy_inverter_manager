@@ -113,3 +113,56 @@ async def test_enabling_a_sensor_puts_it_back_in_the_dashboard(hass, loaded_entr
 
     text, _ = await _generate(hass)
     assert accuracy in text
+
+
+async def _setup_lovelace(hass):
+    from homeassistant.setup import async_setup_component
+
+    assert await async_setup_component(hass, "lovelace", {})
+    await hass.async_block_till_done()
+    return hass.data["lovelace"].resources
+
+
+async def test_resources_are_read_from_a_real_lovelace(hass, loaded_entry):
+    from custom_components.givenergy_inverter_manager.dashboard_builder import (
+        async_lovelace_resource_urls,
+    )
+
+    resources = await _setup_lovelace(hass)
+    assert await async_lovelace_resource_urls(hass) == []
+    await resources.async_create_item(
+        {"res_type": "module", "url": "/hacsfiles/apexcharts-card/apexcharts-card.js"}
+    )
+    assert await async_lovelace_resource_urls(hass) == [
+        "/hacsfiles/apexcharts-card/apexcharts-card.js"
+    ]
+
+
+async def test_resources_are_none_without_lovelace(hass, loaded_entry):
+    from custom_components.givenergy_inverter_manager.dashboard_builder import (
+        async_lovelace_resource_urls,
+    )
+
+    assert "lovelace" not in hass.data
+    assert await async_lovelace_resource_urls(hass) is None
+
+
+async def test_generated_file_falls_back_when_cards_are_not_registered(hass, loaded_entry):
+    await _setup_lovelace(hass)
+    text, _ = await _generate(hass)
+    assert "custom:power-flow-card-plus" not in text
+    assert "custom:apexcharts-card" not in text
+    assert "not installed" in text[: text.index("views:")]
+
+
+async def test_generated_file_keeps_the_cards_that_are_registered(hass, loaded_entry):
+    resources = await _setup_lovelace(hass)
+    for url in (
+        "/hacsfiles/power-flow-card-plus/power-flow-card-plus.js",
+        "/hacsfiles/apexcharts-card/apexcharts-card.js",
+    ):
+        await resources.async_create_item({"res_type": "module", "url": url})
+    text, _ = await _generate(hass)
+    assert "custom:power-flow-card-plus" in text
+    assert "custom:apexcharts-card" in text
+    assert "not installed" not in text
