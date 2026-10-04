@@ -748,3 +748,86 @@ class TestExceptionTranslations:
         idx = qs.find("exception-translations")
         assert idx != -1
         assert "done" in qs[idx : idx + 60]
+
+
+class TestManualSetupPath:
+    """The manual entity path of the inverter step must build its form and advance."""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_selectors(self):
+        """Replace selectors and voluptuous so results do not depend on test order."""
+        from unittest.mock import MagicMock, patch
+
+        module = "custom_components.givenergy_inverter_manager.config_flow"
+        with patch(f"{module}.selector", MagicMock()), patch(f"{module}.vol", MagicMock()):
+            yield
+
+    @staticmethod
+    def _flow():
+        import asyncio  # noqa: F401
+        from unittest.mock import AsyncMock, MagicMock
+
+        from custom_components.givenergy_inverter_manager.config_flow import (
+            GivEnergyInverterManagerConfigFlow,
+        )
+
+        flow = GivEnergyInverterManagerConfigFlow()
+        flow.hass = MagicMock()
+        flow.hass.states.async_all.return_value = []
+        flow.async_show_form = MagicMock(return_value={"type": "form"})
+        flow.async_set_unique_id = AsyncMock()
+        flow._abort_if_unique_id_configured = MagicMock()
+        flow.async_step_tariff = AsyncMock(return_value={"type": "form", "step_id": "tariff"})
+        return flow
+
+    @staticmethod
+    def _entities():
+        return {
+            "solar_power_entity": "sensor.solar",
+            "battery_soc_entity": "sensor.soc",
+            "battery_power_entity": "sensor.battery",
+            "grid_power_entity": "sensor.grid",
+            "house_load_entity": "sensor.house",
+            "battery_capacity_kwh": 18.6,
+        }
+
+    def test_manual_form_builds_without_discovered_inverters(self):
+        import asyncio
+
+        flow = self._flow()
+        asyncio.run(flow.async_step_inverter(None))
+
+        flow.async_show_form.assert_called_once()
+        assert flow.async_show_form.call_args.kwargs["step_id"] == "inverter"
+
+    def test_manual_schema_default_is_the_manual_option(self):
+        from unittest.mock import patch
+
+        import voluptuous as real_vol
+
+        flow = self._flow()
+        options = [{"value": "__manual__", "label": "Manual entry"}]
+        with patch("custom_components.givenergy_inverter_manager.config_flow.vol", real_vol):
+            flow._build_manual_schema(10.0, options)
+
+    def test_complete_manual_input_advances_to_tariff(self):
+        import asyncio
+
+        flow = self._flow()
+        result = asyncio.run(flow.async_step_inverter(self._entities()))
+
+        assert result == {"type": "form", "step_id": "tariff"}
+        flow.async_step_tariff.assert_awaited_once()
+        flow.async_show_form.assert_not_called()
+        assert flow._data["solar_power_entity"] == "sensor.solar"
+
+    def test_missing_entity_shows_error_and_does_not_advance(self):
+        import asyncio
+
+        flow = self._flow()
+        user_input = self._entities()
+        del user_input["grid_power_entity"]
+        asyncio.run(flow.async_step_inverter(user_input))
+
+        flow.async_step_tariff.assert_not_awaited()
+        assert flow.async_show_form.call_args.kwargs["errors"] == {"base": "missing_entities"}

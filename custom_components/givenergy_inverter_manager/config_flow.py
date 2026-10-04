@@ -277,8 +277,9 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             if disc_key in inverter.entities:
                 user_input[conf_key] = inverter.entities[disc_key]
 
-    async def _handle_manual_path(self, user_input):
-        """Handle manual entity entry path."""
+    @staticmethod
+    def _manual_path_errors(user_input) -> dict[str, str]:
+        """Return form errors when a required manual entity is missing."""
         required = [
             CONF_SOLAR_POWER,
             CONF_BATTERY_SOC,
@@ -288,6 +289,10 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         ]
         if any(not user_input.get(k) for k in required):
             return {"base": "missing_entities"}
+        return {}
+
+    async def _finish_manual_path(self, user_input):
+        """Store the manually selected entities and move to the tariff step."""
         self._data.update(user_input)
         serial = user_input.get("discovered_inverter", "manual")
         self._data[CONF_INVERTER_SERIAL] = serial
@@ -324,7 +329,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         return vol.Schema(
             {
                 vol.Optional(
-                    "discovered_inverter", default=inverter_options[0][0]
+                    "discovered_inverter", default=inverter_options[0]["value"]
                 ): selector.SelectSelector(selector.SelectSelectorConfig(options=inverter_options)),
                 vol.Required(CONF_SOLAR_POWER): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="sensor")
@@ -383,9 +388,9 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 if inverter:
                     self._handle_partial_inverter(inverter, user_input)
 
-            errors = await self._handle_manual_path(user_input) or errors
+            errors = self._manual_path_errors(user_input)
             if not errors:
-                return None
+                return await self._finish_manual_path(user_input)
 
         # ── Build the form ────────────────────────────────────────────────────
         inverter_options, default_inverter = self._build_inverter_options(best_inverter)
