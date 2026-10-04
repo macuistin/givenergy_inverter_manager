@@ -207,11 +207,13 @@
               "battery_min_soc_pct": "Minimum battery SoC",
               "overnight_charge_target_pct": "Default overnight charge target",
               "skip_charge_soc_threshold_pct": "Skip charge if SoC above",
+              "battery_throughput_budget_kwh": "Daily battery throughput budget (kWh)",
               "dry_run": "Dry run mode",
               "verbose_logging": "Verbose logging",
               "cheap_rate_floor_soc": "Cheap rate floor (%)"
             },
             "data_description": {
+              "battery_throughput_budget_kwh": "Optional cap on kWh charged plus discharged per day. 0 turns the budget sensors off.",
               "dry_run": "Calculates decisions and updates sensors but sends no commands to GivTCP. The Last Skipped Action sensor shows what would have run.",
               "verbose_logging": "Logs detailed sensor readings and decisions on every cycle. Disable for normal operation.",
               "cheap_rate_floor_soc": "Top up during cheap rate hours if battery drops below this. Set to 0 to disable. Default 40%."

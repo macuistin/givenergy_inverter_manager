@@ -42,6 +42,7 @@ from ..const import (
     CARBON_STATUS_UNKNOWN,
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
+    CONF_BATTERY_THROUGHPUT_BUDGET,
     CONF_CURRENCY,
     CONF_DRY_RUN,
     CONF_FORECAST_CONSERVATISM,
@@ -52,6 +53,7 @@ from ..const import (
     CURRENCIES,
     DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
+    DEFAULT_BATTERY_THROUGHPUT_BUDGET,
     DEFAULT_CURRENCY,
     DEFAULT_DRY_RUN,
     DEFAULT_FORECAST_CONSERVATISM,
@@ -71,6 +73,10 @@ from ..const import (
     SOLAR_SUNRISE_HOUR,
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
+    THROUGHPUT_BUDGET_HIGH_PCT,
+    THROUGHPUT_BUDGET_STATUS_HIGH,
+    THROUGHPUT_BUDGET_STATUS_OK,
+    THROUGHPUT_BUDGET_STATUS_OVER,
 )
 from ..discovery import EVCharger, EVChargerState
 from ..logging import get_logger
@@ -188,6 +194,8 @@ class CoordinatorData:
         "is_clipping",
         "projected_bill",
         "battery_cycle_cost_per_kwh",
+        "battery_throughput_budget_pct",
+        "battery_throughput_budget_status",
         "register_write_count",
         "rest_of_house_w",
         "should_divert_immersion",
@@ -248,6 +256,8 @@ class CoordinatorData:
         self.days_remaining: int = 0
         self.will_survive_night: bool = True
         self.battery_cycle_cost_per_kwh: float = 0.0
+        self.battery_throughput_budget_pct: float | None = None
+        self.battery_throughput_budget_status: str = ""
         self.saving_vs_grid_today: float = 0.0
         self.net_saving_today: float = 0.0
         self.pre_boost_export_kwh: float = 0.0
@@ -620,6 +630,23 @@ def _battery_cycle_cost(cfg: dict[str, Any], capacity_kwh: float) -> float:
     return battery_cost / (2 * capacity_kwh * BATTERY_RATED_CYCLES)
 
 
+def _set_throughput_budget(data: CoordinatorData, cfg: dict[str, Any]) -> None:
+    """Set budget used (%) and status from today's throughput, or None when no budget is set."""
+    budget = float(cfg.get(CONF_BATTERY_THROUGHPUT_BUDGET, DEFAULT_BATTERY_THROUGHPUT_BUDGET))
+    if budget <= 0:
+        data.battery_throughput_budget_pct = None
+        data.battery_throughput_budget_status = ""
+        return
+    pct = data.today.battery_throughput_kwh / budget * 100
+    data.battery_throughput_budget_pct = pct
+    if pct > 100:
+        data.battery_throughput_budget_status = THROUGHPUT_BUDGET_STATUS_OVER
+    elif pct >= THROUGHPUT_BUDGET_HIGH_PCT:
+        data.battery_throughput_budget_status = THROUGHPUT_BUDGET_STATUS_HIGH
+    else:
+        data.battery_throughput_budget_status = THROUGHPUT_BUDGET_STATUS_OK
+
+
 def _set_immersion_decision(
     data: CoordinatorData,
     raw: RawSensorValues,
@@ -850,6 +877,7 @@ def build_coordinator_data(
     data.saving_vs_grid_today = round(counterfactual_cost - actual_net_cost, 4)
     battery_wear_today = acc.battery_throughput_kwh * data.battery_cycle_cost_per_kwh
     data.net_saving_today = round(data.saving_vs_grid_today - battery_wear_today, 4)
+    _set_throughput_budget(data, cfg)
 
     # ── Pre-boost export opportunity ─────────────────────────────────────────
     if data.charge_decision is not None:

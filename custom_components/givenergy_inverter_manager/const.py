@@ -217,6 +217,15 @@ BATTERY_RATED_CYCLES = 6000  # typical LFP rated cycle life (manufacturer spec)
 CONF_BATTERY_COST = "battery_cost_eur"
 DEFAULT_BATTERY_COST = 0.0  # € — 0 disables the degradation cost check
 
+# ── Battery throughput budget ─────────────────────────────────────────────────
+# Optional daily cycling budget (kWh charged plus discharged). 0 disables it.
+CONF_BATTERY_THROUGHPUT_BUDGET = "battery_throughput_budget_kwh"
+DEFAULT_BATTERY_THROUGHPUT_BUDGET = 0.0
+THROUGHPUT_BUDGET_HIGH_PCT = 80.0  # at or above this, status is "High"
+THROUGHPUT_BUDGET_STATUS_OK = "OK"
+THROUGHPUT_BUDGET_STATUS_HIGH = "High"
+THROUGHPUT_BUDGET_STATUS_OVER = "Over budget"
+
 # ── EV diversion parameters ───────────────────────────────────────────────────
 EV_SURPLUS_DIVERT_W = 500  # minimum surplus (W) to switch Zappi to Eco+
 # Minimum power for an OCPP EV charger to start — 6A × 230V single-phase.

@@ -34,6 +34,7 @@ from .const import (
     CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
+    CONF_BATTERY_THROUGHPUT_BUDGET,
     CONF_BILL_START_DAY,
     CONF_CARBON_INTENSITY_ENTITY,
     CONF_CHARGE_END_TIME_ENTITY,
@@ -77,6 +78,7 @@ from .const import (
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
+    DEFAULT_BATTERY_THROUGHPUT_BUDGET,
     DEFAULT_BILL_START_DAY,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_CURRENCY,
@@ -859,6 +861,18 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=0, max=20000, step=100, unit_of_measurement="€"
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_BATTERY_THROUGHPUT_BUDGET,
+                        default=float(
+                            self._get(
+                                CONF_BATTERY_THROUGHPUT_BUDGET, DEFAULT_BATTERY_THROUGHPUT_BUDGET
+                            )
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0, max=50, step=0.5, unit_of_measurement="kWh"
                         )
                     ),
                     vol.Optional(

@@ -1321,3 +1321,68 @@ class TestCounterfactualCost:
         data = self._run_with_energy()
         assert isinstance(data.saving_vs_grid_today, float)
         assert isinstance(data.net_saving_today, float)
+
+
+class TestThroughputBudget:
+    """battery_throughput_budget_pct and _status derive from today's throughput."""
+
+    @staticmethod
+    def _data_with_throughput(kwh):
+        data = CoordinatorData()
+        data.today.battery_throughput_kwh = kwh
+        return data
+
+    @staticmethod
+    def _cfg(budget):
+        return {"battery_throughput_budget_kwh": budget}
+
+    def test_disabled_when_budget_is_zero(self):
+        from custom_components.givenergy_inverter_manager.core.engine import (
+            _set_throughput_budget,
+        )
+
+        data = self._data_with_throughput(5.0)
+        _set_throughput_budget(data, self._cfg(0.0))
+        assert data.battery_throughput_budget_pct is None
+        assert data.battery_throughput_budget_status == ""
+
+    def test_disabled_when_option_absent(self):
+        from custom_components.givenergy_inverter_manager.core.engine import (
+            _set_throughput_budget,
+        )
+
+        data = self._data_with_throughput(5.0)
+        _set_throughput_budget(data, {})
+        assert data.battery_throughput_budget_pct is None
+
+    @pytest.mark.parametrize(
+        ("throughput", "pct", "status"),
+        [
+            (0.0, 0.0, "OK"),
+            (7.9, 79.0, "OK"),
+            (8.0, 80.0, "High"),
+            (10.0, 100.0, "High"),
+            (10.5, 105.0, "Over budget"),
+        ],
+    )
+    def test_pct_and_status_against_10kwh_budget(self, throughput, pct, status):
+        from custom_components.givenergy_inverter_manager.core.engine import (
+            _set_throughput_budget,
+        )
+
+        data = self._data_with_throughput(throughput)
+        _set_throughput_budget(data, self._cfg(10.0))
+        assert data.battery_throughput_budget_pct == pytest.approx(pct)
+        assert data.battery_throughput_budget_status == status
+
+    def test_build_coordinator_data_populates_fields(self):
+        cfg = _nightboost_cfg()
+        cfg["battery_throughput_budget_kwh"] = 10.0
+        data, _ = _run(cfg=cfg)
+        assert data.battery_throughput_budget_pct is not None
+        assert data.battery_throughput_budget_status == "OK"
+
+    def test_build_coordinator_data_leaves_fields_unset_by_default(self):
+        data, _ = _run()
+        assert data.battery_throughput_budget_pct is None
+        assert data.battery_throughput_budget_status == ""

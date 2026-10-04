@@ -227,3 +227,47 @@ class TestWeeklyMonthlySensorStateClass:
             "Weekly/monthly sensors must use SensorStateClass.TOTAL not TOTAL_INCREASING — "
             "float rounding can cause micro-decreases that trigger HA recorder warnings."
         )
+
+
+def _lambda_for(key: str):
+    """Compile the full (possibly multi-line) value_fn lambda for the given sensor key."""
+    src = _SENSOR_PY.read_text()
+    for node in ast.walk(_TREE):
+        if not isinstance(node, ast.Call):
+            continue
+        if not any(
+            kw.arg == "key" and isinstance(kw.value, ast.Constant) and kw.value.value == key
+            for kw in node.keywords
+        ):
+            continue
+        for kw in node.keywords:
+            if kw.arg == "value_fn":
+                return eval(f"({ast.get_source_segment(src, kw.value)})")  # noqa: S307
+    raise AssertionError(f"value_fn not found for {key}")
+
+
+class TestThroughputBudgetSensors:
+    """Budget sensors are disabled diagnostics that read the engine fields."""
+
+    def test_pct_sensor_state_class_is_measurement(self):
+        assert _sensor_kwarg("battery_throughput_budget_pct", "state_class") == "MEASUREMENT"
+
+    def test_pct_value_fn_rounds_and_handles_none(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("battery_throughput_budget_pct")
+        d = MagicMock()
+        d.battery_throughput_budget_pct = 83.456
+        assert fn(d) == pytest.approx(83.5)
+        d.battery_throughput_budget_pct = None
+        assert fn(d) is None
+
+    def test_status_value_fn_returns_none_when_unset(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("battery_throughput_budget_status")
+        d = MagicMock()
+        d.battery_throughput_budget_status = ""
+        assert fn(d) is None
+        d.battery_throughput_budget_status = "High"
+        assert fn(d) == "High"

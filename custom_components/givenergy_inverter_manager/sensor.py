@@ -708,9 +708,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Battery Throughput Budget Status",
         icon="mdi:battery-heart-variant",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: d.battery_throughput_budget_status
-        if d.battery_throughput_budget_pct is not None
-        else None,
+        value_fn=lambda d: d.battery_throughput_budget_status or None,
     ),
     GivEnergyManagerSensorDescription(
         key="missed_solar_today",
