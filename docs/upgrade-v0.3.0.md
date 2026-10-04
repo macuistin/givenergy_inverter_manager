@@ -8,7 +8,7 @@
 4. Press **Refresh Dashboard** to regenerate the dashboard.
 5. Check **Developer Tools → Statistics** for the nine sensors in the next section.
 
-No config entry migration runs. Existing setups keep working.
+No config entry migration runs. Existing setups keep working. The saved battery cycle count is halved once on the first start, because cycles now count discharge only. See [Concepts](concepts.md#battery-cycles).
 
 ## Charge calculation
 

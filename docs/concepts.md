@@ -55,9 +55,12 @@ Accumulated energy is saved when the integration unloads and when Home Assistant
 GivTCP writes use registers with a limited lifetime. Each write helper:
 
 - reads the entity first and skips the write when it already holds the value;
-- skips the write when the same entity was written in the last 300 seconds;
+- skips the write when the same value was written to the same entity in the last 300 seconds (a different value is still written);
 - reads the entity back after 2 seconds and retries up to 3 times;
-- counts each write in the GivTCP Register Write Count sensor, and logs a warning at 500,000 writes.
+- catches an error from the service call, logs it and carries on instead of stopping the task;
+- counts each write in the GivTCP Register Write Count sensor, and logs a warning at 500,000 writes. The count is saved with the accumulated energy and survives restarts.
+
+If writing the target SoC fails, the charge target is not enabled, so the inverter is not limited to an old target. Charge targets are limited to 4 to 100%, the range GivTCP accepts.
 
 The Zappi mode write skips when the Zappi is already in the target mode and when that select entity was written in the last 300 seconds. It is not read back or counted, because it is not an inverter register.
 
@@ -83,6 +86,15 @@ When these entities exist, they replace the integration's own sum for today's ph
 `sensor.givtcp_<serial>_pv_energy_today_kwh`, `_import_energy_today_kwh`, `_export_energy_today_kwh`, `_charge_energy_today_kwh`, `_discharge_energy_today_kwh` and `_load_energy_today_kwh`.
 
 A missing counter falls back to the integration's own sum, one counter at a time. Week, month and year totals always use the integration's own sum. Costs and earnings are always worked out by the integration, because GivTCP does not know your tariff.
+
+### Battery cycles
+
+One cycle is the battery's full capacity discharged once (an equivalent full cycle), which is how the battery's own BMS counts. Charging does not add cycles.
+
+- **From the BMS.** When GivTCP publishes `sensor.givtcp_<battery serial>_battery_cycles`, that counter is the lifetime count. The integration finds these entities by name every 5 minutes. With several battery packs it uses the highest value, not the sum, because each pack counts its own cycles.
+- **From SoC.** Without a BMS counter, each fall in SoC between two updates adds the fall divided by 100. A missing reading, a reading of 0% after a healthy one, and a step of more than 10% between updates are treated as glitches and add nothing. If the BMS counter goes missing, the estimate carries on from the last BMS value.
+
+Battery Total Cycles, Battery Remaining Life, Battery Years Remaining and Battery Usable Capacity all use this count. Earlier versions counted charge and discharge, which roughly doubled the figure. The saved count is halved once when the integration first loads the new storage format.
 
 ## How decisions are made
 

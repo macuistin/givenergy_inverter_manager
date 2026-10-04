@@ -339,6 +339,12 @@ DESCRIPTIONS: dict[str, str] = {
     "days_remaining_in_period": "Days left in the bill period after today.",
     "days_in_period": "Day of the bill period, 1 on the bill start day.",
     "battery_cycles": "Sum of SoC changes, up and down, divided by 100.",
+    "days_remaining_in_period": "Days until the next bill start day.",
+    "days_in_period": "Days elapsed in the bill period, minimum 1.",
+    "battery_cycles": (
+        "Equivalent full cycles (capacity discharged once). The GivTCP BMS counter when it "
+        "exists, otherwise falls in SoC divided by 100."
+    ),
     "battery_remaining_life": "100 minus total cycles as a share of 6000 rated cycles.",
     "days_since_full_charge": "Days since the battery last reached 99% or more.",
     "battery_years_remaining": (
@@ -356,7 +362,7 @@ DESCRIPTIONS: dict[str, str] = {
         "Today's throughput as a share of the daily budget. Empty when the budget is 0."
     ),
     "battery_throughput_budget_status": "OK, High (80% or more) or Over budget.",
-    "register_write_count": "Writes sent to GivTCP since the integration was last loaded.",
+    "register_write_count": "Lifetime writes sent to GivTCP. Saved and kept across restarts.",
     "overnight_charge_target": "Tonight's target after overrides and the configured cap.",
     "overnight_charge_reason": "Why that target was chosen.",
     "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",
