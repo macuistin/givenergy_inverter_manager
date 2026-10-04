@@ -93,7 +93,7 @@ def _external_ev_power(hass: HomeAssistant) -> str | None:
     return None
 
 
-def _find_ev_charger_power(hass: HomeAssistant, integration_ev_power: str) -> str:
+def _find_ev_charger_power(hass: HomeAssistant, integration_ev_power: str | None) -> str | None:
     """Return the best available EV charger power entity.
 
     Checks known external EV charger integrations first since these report power
@@ -425,6 +425,7 @@ class _Builder:
     def __init__(
         self, hass: HomeAssistant, entry_id: str, resources: list[str] | None = None
     ) -> None:
+        self.hass = hass
         self.resources = resources
         self.fallbacks: list[str] = []
         self.reg = _Registry(hass, entry_id)
@@ -455,7 +456,7 @@ class _Builder:
     def ev_power(self) -> str | None:
         if not self.has_ev:
             return None
-        return self.external_ev or self.e("ev_power")
+        return _find_ev_charger_power(self.hass, self.e("ev_power"))
 
     def _flow_entities(self) -> dict:
         e = self.e
