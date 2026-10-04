@@ -1096,3 +1096,39 @@ class TestStorageMigration:
 
         assert store.version == 2
         assert migrated["battery_cycles"] == pytest.approx(31.3)
+
+
+# ── Register write count persistence ──────────────────────────────────────────
+
+
+class TestRegisterWriteCountPersistence:
+    def test_defaults_to_zero(self):
+        assert AccumulationState().register_write_count == 0
+
+    def test_round_trips_through_serialisation(self):
+        state = AccumulationState()
+        state.register_write_count = 4321
+        assert _deserialize(_serialize(state)).register_write_count == 4321
+
+    def test_payload_without_the_field_loads_as_zero(self):
+        payload = _serialize(AccumulationState())
+        del payload["register_write_count"]
+        assert _deserialize(payload).register_write_count == 0
+
+    def test_version_1_payload_loads_as_zero(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v1_payload()
+        del payload["register_write_count"]
+        migrated = migrate_storage(1, payload)
+        assert migrated["register_write_count"] == 0
+        assert _deserialize(migrated).register_write_count == 0
+
+    @pytest.mark.parametrize("bad", ["many", None, -5])
+    def test_bad_values_load_as_zero_without_losing_other_state(self, bad):
+        payload = _serialize(AccumulationState())
+        payload["register_write_count"] = bad
+        payload["today"]["solar_kwh"] = 3.0
+        state = _deserialize(payload)
+        assert state.register_write_count == 0
+        assert state.today.solar_kwh == pytest.approx(3.0)

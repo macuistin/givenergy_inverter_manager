@@ -39,6 +39,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Restore persisted energy accumulators so today/week/month survive HA restarts.
     await coordinator.async_restore_state()
+    await coordinator._acc.async_load()
+    coordinator._acc.restore_battery_stats(coordinator._battery_stats)
+    coordinator._register_write_count = coordinator._acc.state.register_write_count
 
     try:
         await coordinator.async_config_entry_first_refresh()

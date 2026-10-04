@@ -2894,3 +2894,40 @@ class TestChargeTargetClamp:
         coord, cfg = _write_coord({"number.target_soc"})
         assert await coord._write_floor_target(cfg, "number.target_soc", 40) is False
         assert coord.service_calls_for("switch", "turn_on") == []
+
+
+# ── Register write count ──────────────────────────────────────────────────────
+
+
+class TestRegisterWriteCountPersistence:
+    @pytest.mark.asyncio
+    async def test_each_write_updates_the_value_that_gets_saved(self):
+        coord, _ = _write_coord()
+        coord._acc.state.register_write_count = 0
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert coord._acc.state.register_write_count == coord._register_write_count > 0
+
+    @pytest.mark.asyncio
+    async def test_count_continues_from_a_restored_value(self):
+        coord, _ = _write_coord()
+        coord._register_write_count = 1000
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert coord._acc.state.register_write_count == 1001
+
+    @pytest.mark.asyncio
+    async def test_lifetime_warning_fires_when_the_restored_count_reaches_the_limit(self, caplog):
+        from custom_components.givenergy_inverter_manager.const import GIVTCP_WRITE_LIFETIME_WARN
+
+        coord, _ = _write_coord()
+        coord._register_write_count = GIVTCP_WRITE_LIFETIME_WARN - 1
+        with caplog.at_level(logging.WARNING):
+            await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert any("rated lifetime" in r.getMessage() for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_no_lifetime_warning_below_the_limit(self, caplog):
+        coord, _ = _write_coord()
+        coord._register_write_count = 10
+        with caplog.at_level(logging.WARNING):
+            await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert not any("rated lifetime" in r.getMessage() for r in caplog.records)

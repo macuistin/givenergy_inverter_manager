@@ -340,6 +340,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     def _increment_write_count(self) -> None:
         count = getattr(self, "_register_write_count", 0) + 1
         self._register_write_count = count
+        self._acc.state.register_write_count = count
         if count == GIVTCP_WRITE_LIFETIME_WARN:
             _LOG.warning(
                 "GivTCP register write count has reached %d — approximately 50%% of the "

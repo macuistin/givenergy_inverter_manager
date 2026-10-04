@@ -96,6 +96,14 @@ def _stored_date(iso: str) -> date | None:
         return datetime.fromisoformat(iso).date()
     except (TypeError, ValueError):
         return None
+def _as_count(value) -> int:
+    """Return value as a non-negative int, or 0 if it is not a number."""
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return 0
+
+
 def migrate_storage(old_version: int, data: dict) -> dict:
     """Bring a stored payload up to the current storage version.
 
@@ -110,6 +118,7 @@ def migrate_storage(old_version: int, data: dict) -> dict:
                 migrated[key] = float(migrated.get(key, 0.0)) / 2
             except (TypeError, ValueError):
                 migrated[key] = 0.0
+        migrated.setdefault("register_write_count", 0)
         migrated["version"] = 2
     return migrated
 
@@ -144,6 +153,7 @@ class AccumulationState:
     last_full_charge_date: str = ""  # ISO date string, "" = never
     battery_tracking_start: str = ""  # ISO date cycle tracking began, "" = not started
     battery_tracking_start_cycles: float = 0.0
+    register_write_count: int = 0  # lifetime GivTCP register writes made by this integration
     yesterday_forecast_accuracy_pct: float = 0.0
     forecast_accuracy_history: list = field(default_factory=list)  # last 7 days
 
@@ -554,6 +564,7 @@ def _serialize(state: AccumulationState) -> dict:
         "last_full_charge_date": state.last_full_charge_date,
         "battery_tracking_start": state.battery_tracking_start,
         "battery_tracking_start_cycles": state.battery_tracking_start_cycles,
+        "register_write_count": state.register_write_count,
         "yesterday_forecast_accuracy_pct": state.yesterday_forecast_accuracy_pct,
         "forecast_accuracy_history": list(state.forecast_accuracy_history),
         "pending_raw_forecast_kwh": state.pending_raw_forecast_kwh,
@@ -585,6 +596,7 @@ def _deserialize(data: dict) -> AccumulationState:
     state.last_full_charge_date = str(data.get("last_full_charge_date", ""))
     state.battery_tracking_start = str(data.get("battery_tracking_start", ""))
     state.battery_tracking_start_cycles = float(data.get("battery_tracking_start_cycles", 0.0))
+    state.register_write_count = _as_count(data.get("register_write_count", 0))
     state.yesterday_forecast_accuracy_pct = float(data.get("yesterday_forecast_accuracy_pct", 0.0))
     state.forecast_accuracy_history = [float(x) for x in data.get("forecast_accuracy_history", [])]
     state.pending_raw_forecast_kwh = float(data.get("pending_raw_forecast_kwh", 0.0))
