@@ -854,6 +854,7 @@ def build_coordinator_data(
     yesterday_forecast_accuracy_pct: float = 0.0,
     forecast_accuracy_7day_avg_pct: float = 0.0,
     load_profile: list[float] | None = None,
+    forecast_correction: float | None = None,
 ) -> tuple[CoordinatorData, str | None]:
     """
     Core engine: build a complete CoordinatorData snapshot from raw inputs.
@@ -965,6 +966,7 @@ def build_coordinator_data(
         cheapest_rate=tariff.get_cheapest_rate().rate,
         solar_fractions=solar_fractions,
         load_profile=load_profile,
+        forecast_correction=forecast_correction,
         forecast_kwh_p10=raw.forecast_kwh_p10,
         forecast_kwh_d2=raw.forecast_kwh_d2,
         forecast_conservatism=float(

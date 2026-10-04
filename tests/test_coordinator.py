@@ -19,7 +19,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.accumulation import AccumulationState
+from custom_components.givenergy_inverter_manager.accumulation import (
+    AccumulationState,
+    AccumulationStore,
+)
 from custom_components.givenergy_inverter_manager.const import (
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
@@ -183,6 +186,15 @@ class FakeCoordinator(GivEnergyCoordinator):
             def on_midnight(self, now):
                 self.state.yesterday = self.state.today
                 self.state.today = EnergyAccumulator()
+                if self.state.slot_load_date and self.state.slot_load_date < now.date().isoformat():
+                    self._archive_slot_day()
+
+            record_slot_load = AccumulationStore.record_slot_load
+            _archive_slot_day = AccumulationStore._archive_slot_day
+            slot_load_profile = AccumulationStore.slot_load_profile
+            forecast_correction_factor = AccumulationStore.forecast_correction_factor
+            on_raw_forecast = AccumulationStore.on_raw_forecast
+            note_clipping = AccumulationStore.note_clipping
 
             def on_charge_decision(self, kwh):
                 if self.state.today_forecast_kwh == 0.0 and kwh > 0:
@@ -212,8 +224,6 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._immersion_cooldown_until = None
         self._last_immersion_coordinator_write = None
         self._last_write_time: dict[str, float] = {}
-        self._slot_load_today: list[float] = [0.0] * 48
-        self._slot_load_history: list[list[float]] = []
 
         GivLogger.register(self._effective_cfg)
 
@@ -2199,3 +2209,102 @@ class TestInputOutageTracking:
         data = await coord._async_update_data()
         assert data.should_divert_immersion is False
         assert "turning off" in data.divert_reason
+# ── Load profile and forecast correction wiring ───────────────────────────────
+
+
+class _FixedClock(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return datetime(2026, 6, 15, 12, 0, tzinfo=tz or timezone.utc)  # a Monday
+
+
+@pytest.fixture
+def fixed_clock(monkeypatch):
+    monkeypatch.setitem(
+        GivEnergyCoordinator._async_update_data.__globals__, "datetime", _FixedClock
+    )
+
+
+def _history_day(offset_days: int, slots: list[float]) -> dict:
+    day = datetime(2026, 6, 14, tzinfo=timezone.utc) - timedelta(days=offset_days)
+    return {"date": day.date().isoformat(), "slots": slots, "coverage": 1.0}
+
+
+def _evening_heavy_slots() -> list[float]:
+    return [0.1 if slot < 34 else 0.1 + (20 - 0.1 * 48) / 14 for slot in range(48)]
+
+
+def _forecast_coord() -> FakeCoordinator:
+    coord = FakeCoordinator(cfg=_cfg(**{"forecast_entity": "sensor.forecast"}))
+    coord.set_states(_default_states())
+    coord.set_state("sensor.forecast", "14")
+    coord._acc.today.house_kwh = 10.0  # 20 kWh/day pace at noon
+    return coord
+
+
+class TestLoadProfileAndForecastCorrectionWiring:
+    @pytest.mark.asyncio
+    async def test_cycle_records_baseline_load_in_persisted_slot_state(self, fixed_clock):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord._last_update = datetime(2026, 6, 15, 11, 59, 30, tzinfo=timezone.utc)
+        await coord.run_cycle()
+        assert coord._acc.state.slot_load_today[24] == pytest.approx(1.5 * 30 / 3600)
+        assert coord._acc.state.slot_hours_today[24] == pytest.approx(30 / 3600)
+        assert coord._acc.state.slot_load_date == "2026-06-15"
+
+    @pytest.mark.asyncio
+    async def test_stored_profile_changes_the_charge_target(self, fixed_clock):
+        flat = await _forecast_coord().run_cycle()
+        coord = _forecast_coord()
+        coord._acc.state.slot_load_history = [
+            _history_day(1, _evening_heavy_slots()),
+            _history_day(2, _evening_heavy_slots()),
+        ]
+        profiled = await coord.run_cycle()
+        assert profiled.charge_decision.target_soc < flat.charge_decision.target_soc
+        assert "load profile" in profiled.charge_decision.reason
+
+    @pytest.mark.asyncio
+    async def test_no_history_gives_flat_decision(self, fixed_clock):
+        data = await _forecast_coord().run_cycle()
+        assert "load profile" not in data.charge_decision.reason
+        assert "accuracy" not in data.charge_decision.reason
+
+    @pytest.mark.asyncio
+    async def test_recorded_accuracy_scales_the_forecast(self, fixed_clock):
+        coord = _forecast_coord()
+        coord._acc.state.forecast_ratio_history = [
+            {"forecast": 10.0, "actual": 7.0, "clipped": False}
+        ] * 5
+        data = await coord.run_cycle()
+        assert data.charge_decision.forecast_kwh == pytest.approx(14.0 * 0.7)
+
+    @pytest.mark.asyncio
+    async def test_cycle_stores_raw_forecast_and_clipping(self, fixed_clock):
+        coord = _forecast_coord()
+        coord.set_state("sensor.solar", "4900")
+        await coord.run_cycle()
+        assert coord._acc.state.pending_raw_forecast_kwh == pytest.approx(14.0)
+        assert coord._acc.state.today_clipping is True
+
+    @pytest.mark.asyncio
+    async def test_no_clipping_flag_below_threshold(self, fixed_clock):
+        coord = _forecast_coord()
+        await coord.run_cycle()
+        assert coord._acc.state.today_clipping is False
+
+    def test_midnight_reset_archives_the_completed_day(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        for slot in range(48):
+            coord._acc.record_slot_load(
+                datetime(2026, 6, 15, slot // 2, (slot % 2) * 30, tzinfo=timezone.utc),
+                slot,
+                0.4,
+                0.5,
+            )
+        coord._midnight_reset(datetime(2026, 6, 16, 0, 0, tzinfo=timezone.utc))
+        history = coord._acc.state.slot_load_history
+        assert [e["date"] for e in history] == ["2026-06-15"]
+        assert history[0]["coverage"] == pytest.approx(1.0)
+        assert coord._acc.state.slot_load_today == [0.0] * 48

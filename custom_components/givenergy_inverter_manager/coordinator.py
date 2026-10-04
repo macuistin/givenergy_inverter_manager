@@ -174,10 +174,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # EMA-smoothed solar power (α=0.5) — used for surplus divert decisions
         # to prevent chasing transient cloud gaps. Raw value used for accumulation.
         self._smoothed_solar_w: float = 0.0
-        # Per-slot (30-min) baseline load history — updated each cycle, rotated at midnight.
-        # 48 slots × 7 days (oldest first). Cleared on HA restart; accuracy builds over time.
-        self._slot_load_today: list[float] = [0.0] * 48
-        self._slot_load_history: list[list[float]] = []  # max 7 completed days
         # Immersion temperature controls — set by number entities, read in _collect_raw
         cfg = entry.data
         self.immersion_target_temp: float = float(
@@ -211,26 +207,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # We derive the start time from the configured tariff and register
         # one minute before so the target is set before charging begins.
         self._register_charge_target_listener()
-
-    def _avg_slot_load_kwh(self) -> list[float] | None:
-        """Weighted 7-day average baseline load per 30-min slot (kWh).
-
-        Returns None when fewer than 2 completed days are available — the
-        engine falls back to flat avg_daily_kwh / 48 in that case.
-
-        Weights: yesterday=1.0, 2 days ago=0.85, declining to 0.4 at 7 days.
-        """
-        if len(self._slot_load_history) < 2:
-            return None
-        weights = (1.0, 0.85, 0.7, 0.6, 0.5, 0.45, 0.4)
-        result = [0.0] * 48
-        total_w = 0.0
-        for i, day_profile in enumerate(reversed(self._slot_load_history)):
-            w = weights[i] if i < len(weights) else 0.4
-            for slot_idx in range(48):
-                result[slot_idx] += day_profile[slot_idx] * w
-            total_w += w
-        return [v / total_w for v in result] if total_w > 0 else None
 
     @property
     def update_cycle(self) -> int:
@@ -581,9 +557,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._acc.on_midnight(midnight)
         self.hass.async_create_task(self._acc.async_save())
         self._last_update = None
-        # Rotate per-slot load profile: archive today, start fresh
-        self._slot_load_history = (self._slot_load_history + [self._slot_load_today])[-7:]
-        self._slot_load_today = [0.0] * 48
         _LOG.debug("Midnight reset: daily, weekly, and monthly accumulators updated")
 
     @callback
@@ -1088,7 +1061,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             slot = now.hour * 2 + now.minute // 30
             immersion_w = raw.immersion_wattage_w if raw.immersion_on else 0.0
             baseline_w = max(0.0, raw.house_load_w - immersion_w - raw.ev_power_w)
-            self._slot_load_today[slot] += (baseline_w / 1000) * elapsed_h
+            self._acc.record_slot_load(now, slot, (baseline_w / 1000) * elapsed_h, elapsed_h)
 
         data, ev_target_mode = build_coordinator_data(
             raw=raw,
@@ -1111,7 +1084,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             solar_forecast_kwh_today=self._acc.today_forecast_kwh,
             yesterday_forecast_accuracy_pct=self._acc.yesterday_forecast_accuracy_pct,
             forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
-            load_profile=self._avg_slot_load_kwh(),
+            load_profile=self._acc.slot_load_profile((now + timedelta(days=1)).weekday()),
+            forecast_correction=self._acc.forecast_correction_factor,
         )
 
         data.register_write_count = getattr(self, "_register_write_count", 0)
@@ -1131,6 +1105,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                     else ""
                 )
             )
+
+        self._acc.on_raw_forecast(raw.forecast_kwh_tomorrow)
+        self._acc.note_clipping(data.is_clipping)
 
         # 6. Record forecast for accuracy tracking (sets solar_forecast_today sensor)
         if data.charge_decision is not None and data.charge_decision.forecast_kwh > 0:
