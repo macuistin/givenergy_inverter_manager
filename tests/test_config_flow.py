@@ -246,13 +246,46 @@ class TestSensorDefaultEnabled:
         "Import — trailing 12 months",
         "Import Cost — trailing 12 months",
         "Export Earnings — trailing 12 months",
+        "Battery Throughput Budget Used",
+        "Battery Throughput Budget Status",
+        "Battery Years Remaining (est.)",
+        "Average Import Rate Today",
+        "Average Import Rate This Week",
+        "Average Import Rate This Month",
+        "Cheap rate import fraction this week",
+        "Cheap rate import fraction this month",
+        "Battery Round-trip Efficiency Today",
+        "Next Cheap Rate Start",
+        "Hours to Cheap Rate",
+        "Battery Charged Today",
+        "Battery Discharged Today",
+        "Battery Power Direction",
+        "Integration Version",
+        "Days Elapsed in Bill Period",
+        "EV km Charged Today",
+        "EV Cost per km Today",
+        "Battery Estimated Usable Capacity",
+        "Solar Capture Efficiency Today",
+        "Net Financial Position This Month",
+        "Cheapest Tariff Rate",
+        "Cheapest Rate Period Name",
+        "On Cheapest Rate",
+        "On Base (Daytime) Rate",
+        "Minutes Remaining in Rate Period",
+        "Rate Saving vs Daytime",
+        "Grid Power Direction",
+        "Solar Output % of Max",
+        "Battery State",
+        "Night Survival Confidence",
+        "Net Solar Surplus",
+        "Battery Energy Available",
     }
 
     def test_exactly_five_sensors_disabled(self):
-        """Exactly 21 sensors should be disabled by default."""
+        """Exactly 54 sensors should be disabled by default."""
         state = _parse_sensor_enabled_state()
         disabled = [n for n, enabled in state.items() if not enabled]
-        assert len(disabled) == 21, f"Expected 21 disabled sensors, got {len(disabled)}: {disabled}"
+        assert len(disabled) == 54, f"Expected 54 disabled sensors, got {len(disabled)}: {disabled}"
 
     def test_disabled_sensors_are_the_expected_ones(self):
         """The disabled sensors must be the HTML reports and forecast accuracy."""
@@ -412,6 +445,137 @@ class TestOptionsFlowSections:
         assert data.get(CONF_BASE_RATE) == 0.35
         assert data.get(CONF_BATTERY_MIN_SOC) == 10
         assert data.get(CONF_FORECAST_PROVIDER) == FORECAST_PROVIDER_FORECAST_SOLAR
+
+    def _tariff_input(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_BASE_RATE,
+            DEFAULT_BASE_RATE_NAME,
+            DEFAULT_BILL_START_DAY,
+            DEFAULT_CURRENCY,
+            DEFAULT_DISCOUNT_RATE,
+            DEFAULT_EXPORT_RATE,
+            DEFAULT_PSO_LEVY,
+            DEFAULT_STANDING_CHARGE,
+            DEFAULT_VAT_RATE,
+        )
+
+        return {
+            "tariff_settings": {
+                CONF_BASE_RATE: 0.35,
+                "base_rate_name": DEFAULT_BASE_RATE_NAME,
+                "export_rate": DEFAULT_EXPORT_RATE,
+                "standing_charge_per_day": DEFAULT_STANDING_CHARGE,
+                "pso_levy_per_month": DEFAULT_PSO_LEVY,
+                "vat_rate": DEFAULT_VAT_RATE,
+                "discount_rate": DEFAULT_DISCOUNT_RATE,
+                "bill_start_day": DEFAULT_BILL_START_DAY,
+                "currency": DEFAULT_CURRENCY,
+            },
+            "threshold_settings": {},
+            "forecast_settings": {},
+        }
+
+    def test_hardware_settings_are_saved_to_options(self):
+        import asyncio
+
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_BATTERY_CAPACITY,
+            CONF_IMMERSION_WATTAGE,
+            CONF_INVERTER_MAX_OUTPUT,
+        )
+
+        flow = self._make_flow()
+        user_input = self._tariff_input()
+        user_input["hardware_settings"] = {
+            CONF_BATTERY_CAPACITY: 18.6,
+            CONF_INVERTER_MAX_OUTPUT: 5.0,
+            CONF_IMMERSION_WATTAGE: 2800,
+        }
+        asyncio.run(flow.async_step_init(user_input))
+
+        data = flow.async_create_entry.call_args.kwargs["data"]
+        assert data[CONF_BATTERY_CAPACITY] == pytest.approx(18.6)
+        assert data[CONF_INVERTER_MAX_OUTPUT] == pytest.approx(5.0)
+        assert data[CONF_IMMERSION_WATTAGE] == pytest.approx(2800.0)
+
+    def test_ev_efficiency_is_saved_to_options(self):
+        import asyncio
+
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_CAR_EFFICIENCY_KWH_PER_100KM,
+        )
+
+        flow = self._make_flow()
+        user_input = self._tariff_input()
+        user_input["ev_settings"] = {CONF_CAR_EFFICIENCY_KWH_PER_100KM: 17.5}
+        asyncio.run(flow.async_step_init(user_input))
+
+        data = flow.async_create_entry.call_args.kwargs["data"]
+        assert data[CONF_CAR_EFFICIENCY_KWH_PER_100KM] == pytest.approx(17.5)
+
+    def test_ev_settings_section_has_labels(self):
+        import json
+        from pathlib import Path
+
+        base = Path("custom_components/givenergy_inverter_manager")
+        for name in ("strings.json", "translations/en.json"):
+            data = json.loads((base / name).read_text())
+            sections = data["options"]["step"]["init"]["sections"]
+            assert "car_efficiency_kwh_per_100km" in sections["ev_settings"]["data"]
+
+    def test_empty_forecast_fields_clear_saved_entities(self):
+        import asyncio
+
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_CARBON_INTENSITY_ENTITY,
+            CONF_FORECAST_ENTITY,
+            CONF_FORECAST_ENTITY_D2,
+            CONF_FORECAST_ENTITY_P10,
+        )
+
+        flow = self._make_flow()
+        flow._options[CONF_FORECAST_ENTITY_P10] = "sensor.old_p10"
+        user_input = self._tariff_input()
+        user_input["forecast_settings"] = {CONF_FORECAST_ENTITY: "sensor.forecast_today"}
+        asyncio.run(flow.async_step_init(user_input))
+
+        data = flow.async_create_entry.call_args.kwargs["data"]
+        assert data[CONF_FORECAST_ENTITY] == "sensor.forecast_today"
+        assert data[CONF_FORECAST_ENTITY_P10] == ""
+        assert data[CONF_FORECAST_ENTITY_D2] == ""
+        assert data[CONF_CARBON_INTENSITY_ENTITY] == ""
+
+    def test_selectors_have_no_empty_string_default(self):
+        """An empty-string default fails EntitySelector validation in the HA frontend."""
+        import re
+        from pathlib import Path
+
+        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        assert not re.findall(r"default=self\._get\(\w+,\s*\"\"\)", src)
+
+    def test_optional_key_prefills_saved_value_without_default(self):
+        import voluptuous as real_vol
+
+        flow = self._make_flow()
+        flow._config_entry.options = {"forecast_entity": "sensor.forecast_today"}
+        from unittest.mock import patch
+
+        with patch("custom_components.givenergy_inverter_manager.config_flow.vol", real_vol):
+            filled = flow._optional_key("forecast_entity")
+            empty = flow._optional_key("forecast_entity_p10")
+        assert filled.description == {"suggested_value": "sensor.forecast_today"}
+        assert empty.default is real_vol.UNDEFINED
+
+    def test_missing_hardware_section_leaves_options_unchanged(self):
+        import asyncio
+
+        from custom_components.givenergy_inverter_manager.const import CONF_BATTERY_CAPACITY
+
+        flow = self._make_flow()
+        asyncio.run(flow.async_step_init(self._tariff_input()))
+
+        data = flow.async_create_entry.call_args.kwargs["data"]
+        assert CONF_BATTERY_CAPACITY not in data
 
     def test_each_optional_has_exactly_one_schema_key(self, real_vol):
         """Every vol.Optional in the options flow must have exactly one schema key.
@@ -584,3 +748,131 @@ class TestExceptionTranslations:
         idx = qs.find("exception-translations")
         assert idx != -1
         assert "done" in qs[idx : idx + 60]
+
+
+class TestManualSetupPath:
+    """The manual entity path of the inverter step must build its form and advance."""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_selectors(self):
+        """Replace selectors and voluptuous so results do not depend on test order."""
+        from unittest.mock import MagicMock, patch
+
+        module = "custom_components.givenergy_inverter_manager.config_flow"
+        with patch(f"{module}.selector", MagicMock()), patch(f"{module}.vol", MagicMock()):
+            yield
+
+    @staticmethod
+    def _flow():
+        import asyncio  # noqa: F401
+        from unittest.mock import AsyncMock, MagicMock
+
+        from custom_components.givenergy_inverter_manager.config_flow import (
+            GivEnergyInverterManagerConfigFlow,
+        )
+
+        flow = GivEnergyInverterManagerConfigFlow()
+        flow.hass = MagicMock()
+        flow.hass.states.async_all.return_value = []
+        flow.async_show_form = MagicMock(return_value={"type": "form"})
+        flow.async_set_unique_id = AsyncMock()
+        flow._abort_if_unique_id_configured = MagicMock()
+        flow.async_step_tariff = AsyncMock(return_value={"type": "form", "step_id": "tariff"})
+        return flow
+
+    @staticmethod
+    def _entities():
+        return {
+            "solar_power_entity": "sensor.solar",
+            "battery_soc_entity": "sensor.soc",
+            "battery_power_entity": "sensor.battery",
+            "grid_power_entity": "sensor.grid",
+            "house_load_entity": "sensor.house",
+            "battery_capacity_kwh": 18.6,
+        }
+
+    def test_manual_form_builds_without_discovered_inverters(self):
+        import asyncio
+
+        flow = self._flow()
+        asyncio.run(flow.async_step_inverter(None))
+
+        flow.async_show_form.assert_called_once()
+        assert flow.async_show_form.call_args.kwargs["step_id"] == "inverter"
+
+    def test_manual_schema_default_is_the_manual_option(self):
+        from unittest.mock import patch
+
+        import voluptuous as real_vol
+
+        flow = self._flow()
+        options = [{"value": "__manual__", "label": "Manual entry"}]
+        with patch("custom_components.givenergy_inverter_manager.config_flow.vol", real_vol):
+            flow._build_manual_schema(10.0, options)
+
+    def test_complete_manual_input_advances_to_tariff(self):
+        import asyncio
+
+        flow = self._flow()
+        result = asyncio.run(flow.async_step_inverter(self._entities()))
+
+        assert result == {"type": "form", "step_id": "tariff"}
+        flow.async_step_tariff.assert_awaited_once()
+        flow.async_show_form.assert_not_called()
+        assert flow._data["solar_power_entity"] == "sensor.solar"
+
+    def test_missing_entity_shows_error_and_does_not_advance(self):
+        import asyncio
+
+        flow = self._flow()
+        user_input = self._entities()
+        del user_input["grid_power_entity"]
+        asyncio.run(flow.async_step_inverter(user_input))
+
+        flow.async_step_tariff.assert_not_awaited()
+        assert flow.async_show_form.call_args.kwargs["errors"] == {"base": "missing_entities"}
+
+
+class TestOptionsFlowSavedValues:
+    """A saved option wins over the setup value even when it is falsy."""
+
+    @staticmethod
+    def _flow(options, data):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.config_flow import GivEnergyOptionsFlow
+
+        entry = MagicMock()
+        entry.options = options
+        entry.data = data
+        return GivEnergyOptionsFlow(entry)
+
+    def test_saved_zero_is_kept(self):
+        flow = self._flow({"cheap_rate_floor_soc": 0}, {"cheap_rate_floor_soc": 40})
+        assert flow._get("cheap_rate_floor_soc", 40) == 0
+
+    def test_cleared_entity_does_not_fall_back_to_setup(self):
+        flow = self._flow({"forecast_entity": ""}, {"forecast_entity": "sensor.forecast_today"})
+        assert flow._get("forecast_entity", "") == ""
+
+    def test_saved_empty_rate_periods_are_kept(self):
+        flow = self._flow({"rate_periods": []}, {"rate_periods": [{"name": "Night"}]})
+        assert flow._get("rate_periods", [{"name": "default"}]) == []
+
+    def test_unset_option_uses_setup_value(self):
+        flow = self._flow({}, {"base_rate": 0.31})
+        assert flow._get("base_rate", 0.2) == 0.31
+
+    def test_missing_everywhere_uses_default(self):
+        flow = self._flow({}, {})
+        assert flow._get("base_rate", 0.2) == 0.2
+
+    def test_cleared_entity_shows_no_suggested_value(self):
+        from unittest.mock import patch
+
+        import voluptuous as real_vol
+
+        flow = self._flow({"forecast_entity": ""}, {"forecast_entity": "sensor.forecast_today"})
+        with patch("custom_components.givenergy_inverter_manager.config_flow.vol", real_vol):
+            key = flow._optional_key("forecast_entity")
+        assert key.description is None

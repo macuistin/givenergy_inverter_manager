@@ -12,7 +12,9 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--tb=short"
+# tests/ha_e2e needs a real Home Assistant and its own virtualenv, so the stubbed
+# suite never collects it. See docs/testing.md.
+addopts = "--tb=short --ignore=tests/ha_e2e"
 asyncio_mode = "auto"
 
 [tool.coverage.run]

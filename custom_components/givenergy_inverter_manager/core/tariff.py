@@ -139,6 +139,25 @@ class TariffConfig:
             )
         return min(self.rate_periods, key=lambda p: p.rate).start
 
+    def next_cheap_rate(self, dt: datetime) -> tuple[float, str | None] | None:
+        """Return (hours until a cheaper-than-base period starts, its HH:MM start).
+
+        Returns (0.0, None) when a cheaper-than-base period is active now, and None
+        when the tariff has no such period.
+        """
+        cheap = [p for p in self.rate_periods if p.rate < self.base_rate]
+        if not cheap:
+            return None
+        if any(p.is_active(dt) for p in cheap):
+            return 0.0, None
+        now_minutes = dt.hour * 60 + dt.minute
+        soonest = min(
+            cheap,
+            key=lambda p: (p.start.hour * 60 + p.start.minute - now_minutes) % 1440,
+        )
+        delta = (soonest.start.hour * 60 + soonest.start.minute - now_minutes) % 1440
+        return round(delta / 60, 2), soonest.start.strftime("%H:%M")
+
     def get_most_expensive_rate(self) -> RatePeriod:
         """Return the most expensive rate across all periods including the base rate."""
         candidates = list(self.rate_periods) + [self._base_rate_period]

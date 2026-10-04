@@ -23,6 +23,7 @@ from unittest.mock import MagicMock
 _HA_SUBMODULES = [
     "homeassistant",
     "homeassistant.config_entries",
+    "homeassistant.data_entry_flow",
     "homeassistant.core",
     "homeassistant.exceptions",
     "homeassistant.const",
@@ -80,6 +81,11 @@ class _OptionsFlow:
 _ce.ConfigFlow = _ConfigFlow
 _ce.OptionsFlow = _OptionsFlow
 _ce.callback = lambda f: f
+
+# --- homeassistant.data_entry_flow ---
+_def = sys.modules["homeassistant.data_entry_flow"]
+_def.section = MagicMock()
+_def.FlowResult = dict
 
 # --- homeassistant.core ---
 _core = sys.modules["homeassistant.core"]

@@ -53,6 +53,18 @@ class FakeState:
 # ── FakeCoordinator ───────────────────────────────────────────────────────────
 
 
+@pytest.fixture(autouse=True)
+def _no_write_retry_sleep(monkeypatch):
+    """Skip the real 2 s read-back delay in the inverter write helpers.
+
+    Patch the globals the coordinator methods actually use. Other test modules
+    re-import the package, so patching it by module path can miss.
+    """
+    monkeypatch.setitem(
+        GivEnergyCoordinator._givtcp_set_number.__globals__, "GIVTCP_WRITE_RETRY_SLEEP_S", 0
+    )
+
+
 class FakeCoordinator(GivEnergyCoordinator):
     """
     Test subclass that overrides the three HA proxy methods.
@@ -1885,3 +1897,200 @@ class TestLiveGridCostRate:
         from pathlib import Path
         src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
         assert "live_grid_cost_rate" in src
+
+
+class TestHardwareSettingsInOptions:
+    """Battery capacity and inverter max output can be overridden via options flow."""
+
+    @pytest.mark.asyncio
+    async def test_battery_capacity_from_options_overrides_data(self):
+        # Arrange — entry.data has 10.0 kWh, options has 19.2 kWh
+        from custom_components.givenergy_inverter_manager.const import CONF_BATTERY_CAPACITY
+
+        cfg = _cfg(**{CONF_BATTERY_CAPACITY: 10.0})
+        coord = FakeCoordinator(cfg=cfg)
+        # Simulate options override
+        coord.entry.options = {CONF_BATTERY_CAPACITY: 19.2}
+        coord.set_states(_default_states())
+
+        # Act
+        await coord.run_cycle()
+
+        # Assert — effective config merges options over data → 19.2 kWh
+        effective = coord._effective_cfg()
+        assert effective.get(CONF_BATTERY_CAPACITY) == pytest.approx(19.2)
+
+    def test_effective_cfg_merges_data_and_options(self):
+        # Arrange
+        from custom_components.givenergy_inverter_manager.const import CONF_BATTERY_CAPACITY
+
+        cfg = _cfg(**{CONF_BATTERY_CAPACITY: 10.0})
+        coord = FakeCoordinator(cfg=cfg)
+        coord.entry.options = {CONF_BATTERY_CAPACITY: 19.2}
+
+        # Act
+        effective = coord._effective_cfg()
+
+        # Assert — options override data
+        assert effective[CONF_BATTERY_CAPACITY] == pytest.approx(19.2)
+class TestCheapRateFloorWriteSafety:
+    """The floor top-up must use the guarded write helpers, not raw service calls."""
+
+    @staticmethod
+    def _coord(target_now: str | None = None):
+        cfg = {
+            **_cfg(),
+            "target_soc_entity": "number.target_soc",
+            "enable_charge_target_entity": "switch.enable_target",
+        }
+        coord = FakeCoordinator(cfg=cfg)
+        if target_now is not None:
+            coord.set_state("number.target_soc", target_now)
+        coord.set_state("switch.enable_target", "off")
+        return coord, cfg
+
+    @pytest.mark.asyncio
+    async def test_writes_integer_target_and_enables_switch(self):
+        from unittest.mock import AsyncMock, patch
+
+        coord, cfg = self._coord(target_now="100")
+        with patch(
+            "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
+            new=AsyncMock(),
+        ):
+            await coord._write_floor_target(cfg, "number.target_soc", 40)
+
+        assert coord.service_calls_for("number", "set_value") == [
+            {"entity_id": "number.target_soc", "value": 40}
+        ]
+        assert coord.service_calls_for("switch", "turn_on") == [
+            {"entity_id": "switch.enable_target"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_skips_writes_when_already_at_target(self):
+        from unittest.mock import AsyncMock, patch
+
+        coord, cfg = self._coord(target_now="40")
+        coord.set_state("switch.enable_target", "on")
+        with patch(
+            "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
+            new=AsyncMock(),
+        ):
+            await coord._write_floor_target(cfg, "number.target_soc", 40)
+
+        assert coord.service_calls == []
+
+    @pytest.mark.asyncio
+    async def test_cooldown_blocks_a_second_write_within_the_interval(self):
+        from unittest.mock import AsyncMock, patch
+
+        coord, cfg = self._coord(target_now="100")
+        with patch(
+            "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
+            new=AsyncMock(),
+        ):
+            await coord._write_floor_target(cfg, "number.target_soc", 40)
+            await coord._write_floor_target(cfg, "number.target_soc", 55)
+
+        values = [c["value"] for c in coord.service_calls_for("number", "set_value")]
+        assert values == [40]
+
+    @pytest.mark.asyncio
+    async def test_counts_register_writes(self):
+        from unittest.mock import AsyncMock, patch
+
+        coord, cfg = self._coord(target_now="100")
+        with patch(
+            "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
+            new=AsyncMock(),
+        ):
+            await coord._write_floor_target(cfg, "number.target_soc", 40)
+
+        assert coord._register_write_count == 2
+
+
+class TestSensorDropouts:
+    """Unavailable required sensors are flagged, not read as zero readings."""
+
+    def _coord(self, **cfg_overrides):
+        coord = FakeCoordinator(cfg=_cfg(**cfg_overrides))
+        coord.set_states(_default_states())
+        return coord
+
+    @pytest.mark.parametrize(
+        ("entity", "name"),
+        [
+            ("sensor.house", "house_load"),
+            ("sensor.battery_power", "battery_power"),
+            ("sensor.solar", "solar_power"),
+        ],
+    )
+    @pytest.mark.parametrize("state", ["unavailable", "unknown"])
+    def test_flags_unavailable_input(self, entity, name, state):
+        coord = self._coord()
+        coord.set_state(entity, state)
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.unavailable_inputs == (name,)
+
+    def test_flags_missing_entity(self):
+        coord = self._coord()
+        del coord._states["sensor.house"]
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert "house_load" in raw.unavailable_inputs
+
+    def test_nothing_flagged_when_all_available(self):
+        coord = self._coord()
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.unavailable_inputs == ()
+
+    def test_flags_unavailable_temp_sensor_when_configured(self):
+        from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_TEMP_SENSOR
+
+        coord = self._coord(**{CONF_IMMERSION_TEMP_SENSOR: "sensor.immersion_temp"})
+        coord.set_state("sensor.immersion_temp", "unavailable")
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.unavailable_inputs == ("immersion_temp",)
+
+    def test_no_temp_sensor_configured_is_not_flagged(self):
+        coord = self._coord()
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.immersion_temp is None
+        assert "immersion_temp" not in raw.unavailable_inputs
+
+    def test_unavailable_solar_does_not_change_smoothed_value(self):
+        coord = self._coord()
+        coord.set_state("sensor.solar", "4000")
+        coord._collect_raw(coord._effective_cfg())
+        before = coord._smoothed_solar_w
+        coord.set_state("sensor.solar", "unavailable")
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert coord._smoothed_solar_w == pytest.approx(before)
+        assert raw.smoothed_solar_power_w == pytest.approx(before)
+
+    def test_available_solar_still_smoothed(self):
+        coord = self._coord()
+        coord.set_state("sensor.solar", "4000")
+        coord._collect_raw(coord._effective_cfg())
+        assert coord._smoothed_solar_w == pytest.approx(2000.0)
+
+    @pytest.mark.asyncio
+    async def test_house_load_dropout_does_not_start_immersion(self):
+        coord = self._coord(**{CONF_IMMERSION_SWITCH: "switch.immersion"})
+        coord.set_states({"sensor.solar": "5000", "sensor.battery_soc": "95",
+                          "sensor.battery_power": "0", "sensor.house": "unavailable",
+                          "switch.immersion": "off"})
+        coord._smoothed_solar_w = 5000.0
+        data = await coord._async_update_data()
+        assert data.should_divert_immersion is False
+        assert "sensor unavailable" in data.divert_reason.lower()
+
+    @pytest.mark.asyncio
+    async def test_house_load_dropout_holds_running_immersion(self):
+        coord = self._coord(**{CONF_IMMERSION_SWITCH: "switch.immersion"})
+        coord.set_states({"sensor.solar": "5000", "sensor.battery_soc": "95",
+                          "sensor.battery_power": "0", "sensor.house": "unavailable",
+                          "switch.immersion": "on"})
+        coord._smoothed_solar_w = 5000.0
+        data = await coord._async_update_data()
+        assert data.should_divert_immersion is True

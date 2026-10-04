@@ -411,6 +411,39 @@ class TestBatteryStatsPersistence:
         store.restore_battery_stats(restored)
         assert restored.total_cycles == 4.7
 
+    def test_save_and_restore_tracking_start(self):
+        from datetime import date
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+        from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+
+        store = AccumulationStore(MagicMock(), 16)
+        stats = BatteryStats(
+            total_cycles=90.0,
+            tracking_start_date=date(2026, 7, 9),
+            tracking_start_cycles=79.0,
+        )
+        store.save_battery_stats(stats)
+        restored = BatteryStats()
+        store.restore_battery_stats(restored)
+        assert restored.tracking_start_date == date(2026, 7, 9)
+        assert restored.tracking_start_cycles == 79.0
+
+    def test_tracking_start_survives_serialisation(self):
+        from custom_components.givenergy_inverter_manager.accumulation import (
+            AccumulationState,
+            _deserialize,
+            _serialize,
+        )
+
+        state = AccumulationState()
+        state.battery_tracking_start = "2026-07-09"
+        state.battery_tracking_start_cycles = 79.0
+        loaded = _deserialize(_serialize(state))
+        assert loaded.battery_tracking_start == "2026-07-09"
+        assert loaded.battery_tracking_start_cycles == 79.0
+
     def test_save_and_restore_last_full_charge_date(self):
         from datetime import date
         from unittest.mock import MagicMock

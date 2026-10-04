@@ -34,7 +34,9 @@ from .const import (
     CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
+    CONF_BATTERY_THROUGHPUT_BUDGET,
     CONF_BILL_START_DAY,
+    CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CARBON_INTENSITY_ENTITY,
     CONF_CHARGE_END_TIME_ENTITY,
     CONF_CHARGE_START_TIME_ENTITY,
@@ -77,7 +79,9 @@ from .const import (
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
+    DEFAULT_BATTERY_THROUGHPUT_BUDGET,
     DEFAULT_BILL_START_DAY,
+    DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_CURRENCY,
     DEFAULT_DISCOUNT_RATE,
@@ -273,8 +277,9 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             if disc_key in inverter.entities:
                 user_input[conf_key] = inverter.entities[disc_key]
 
-    async def _handle_manual_path(self, user_input):
-        """Handle manual entity entry path."""
+    @staticmethod
+    def _manual_path_errors(user_input) -> dict[str, str]:
+        """Return form errors when a required manual entity is missing."""
         required = [
             CONF_SOLAR_POWER,
             CONF_BATTERY_SOC,
@@ -284,6 +289,10 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         ]
         if any(not user_input.get(k) for k in required):
             return {"base": "missing_entities"}
+        return {}
+
+    async def _finish_manual_path(self, user_input):
+        """Store the manually selected entities and move to the tariff step."""
         self._data.update(user_input)
         serial = user_input.get("discovered_inverter", "manual")
         self._data[CONF_INVERTER_SERIAL] = serial
@@ -320,7 +329,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         return vol.Schema(
             {
                 vol.Optional(
-                    "discovered_inverter", default=inverter_options[0][0]
+                    "discovered_inverter", default=inverter_options[0]["value"]
                 ): selector.SelectSelector(selector.SelectSelectorConfig(options=inverter_options)),
                 vol.Required(CONF_SOLAR_POWER): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="sensor")
@@ -379,9 +388,9 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 if inverter:
                     self._handle_partial_inverter(inverter, user_input)
 
-            errors = await self._handle_manual_path(user_input) or errors
+            errors = self._manual_path_errors(user_input)
             if not errors:
-                return None
+                return await self._finish_manual_path(user_input)
 
         # ── Build the form ────────────────────────────────────────────────────
         inverter_options, default_inverter = self._build_inverter_options(best_inverter)
@@ -597,6 +606,14 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 vol.Optional(
                     "discovered_charger", default=default_charger
                 ): selector.SelectSelector(selector.SelectSelectorConfig(options=charger_options)),
+                vol.Optional(
+                    CONF_CAR_EFFICIENCY_KWH_PER_100KM,
+                    default=DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=5, max=40, step=0.1, unit_of_measurement="kWh/100km"
+                    )
+                ),
             }
         )
         return self.async_show_form(
@@ -693,6 +710,15 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         return GivEnergyOptionsFlow(config_entry)
 
 
+_OPTIONAL_FORECAST_KEYS = (
+    CONF_FORECAST_PROVIDER,
+    CONF_FORECAST_ENTITY,
+    CONF_FORECAST_ENTITY_P10,
+    CONF_FORECAST_ENTITY_D2,
+    CONF_CARBON_INTENSITY_ENTITY,
+)
+
+
 class GivEnergyOptionsFlow(config_entries.OptionsFlow):
     """Options flow — tariff rates, per-period rates, thresholds, forecast."""
 
@@ -701,7 +727,28 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         self._options: dict[str, Any] = dict(config_entry.options)
 
     def _get(self, key, default):
-        return self._config_entry.options.get(key) or self._config_entry.data.get(key) or default
+        """Return the saved option, else the setup value, else the default.
+
+        A saved falsy option (0, an empty string, an empty list) is a real choice
+        and must not fall back to the setup value.
+        """
+        options = self._config_entry.options
+        if options.get(key) is not None:
+            return options[key]
+        data = self._config_entry.data
+        if data.get(key) is not None:
+            return data[key]
+        return default
+
+    def _optional_key(self, key):
+        """Optional schema key that pre-fills a saved value but has no default when empty.
+
+        An empty-string default fails EntitySelector and SelectSelector validation.
+        """
+        current = self._get(key, "")
+        if current:
+            return vol.Optional(key, description={"suggested_value": current})
+        return vol.Optional(key)
 
     async def async_step_init(self, user_input=None):
         """Single-page options: tariff, per-period rates, thresholds, forecast."""
@@ -711,6 +758,8 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             tariff = user_input.get("tariff_settings", {})
             thresholds = user_input.get("threshold_settings", {})
             forecast = user_input.get("forecast_settings", {})
+            hardware = user_input.get("hardware_settings", {})
+            ev_settings = user_input.get("ev_settings", {})
             # Rate periods come from top-level rate_period_N sections
             self._options[CONF_RATE_PERIODS] = _slots_to_rate_periods(user_input)
             for key in [
@@ -728,7 +777,19 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             )
             self._options[CONF_CURRENCY] = tariff.get(CONF_CURRENCY, DEFAULT_CURRENCY)
             self._options.update(thresholds)
-            self._options.update({k: v for k, v in forecast.items() if v != ""})
+            for key in (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT, CONF_IMMERSION_WATTAGE):
+                if key in hardware:
+                    self._options[key] = float(hardware[key])
+            for key in _OPTIONAL_FORECAST_KEYS:
+                self._options[key] = forecast.get(key, "")
+            if CONF_FORECAST_CONSERVATISM in forecast:
+                self._options[CONF_FORECAST_CONSERVATISM] = float(
+                    forecast[CONF_FORECAST_CONSERVATISM]
+                )
+            if CONF_CAR_EFFICIENCY_KWH_PER_100KM in ev_settings:
+                self._options[CONF_CAR_EFFICIENCY_KWH_PER_100KM] = float(
+                    ev_settings[CONF_CAR_EFFICIENCY_KWH_PER_100KM]
+                )
             return self.async_create_entry(title="", data=self._options)
 
         current_periods = self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS)
@@ -862,6 +923,18 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                         )
                     ),
                     vol.Optional(
+                        CONF_BATTERY_THROUGHPUT_BUDGET,
+                        default=float(
+                            self._get(
+                                CONF_BATTERY_THROUGHPUT_BUDGET, DEFAULT_BATTERY_THROUGHPUT_BUDGET
+                            )
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0, max=50, step=0.5, unit_of_measurement="kWh"
+                        )
+                    ),
+                    vol.Optional(
                         CONF_DRY_RUN, default=bool(self._get(CONF_DRY_RUN, DEFAULT_DRY_RUN))
                     ): selector.BooleanSelector(),
                     vol.Optional(
@@ -872,12 +945,43 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             ),
             {"collapsed": True},
         )
-        schema_dict[vol.Required("forecast_settings")] = section(
+        schema_dict[vol.Required("hardware_settings")] = section(
             vol.Schema(
                 {
                     vol.Optional(
-                        CONF_FORECAST_PROVIDER, default=self._get(CONF_FORECAST_PROVIDER, "")
-                    ): selector.SelectSelector(
+                        CONF_BATTERY_CAPACITY,
+                        default=float(self._get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=100, step=0.1, unit_of_measurement="kWh"
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_INVERTER_MAX_OUTPUT,
+                        default=float(
+                            self._get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=20, step=0.1, unit_of_measurement="kW"
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_IMMERSION_WATTAGE,
+                        default=float(self._get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=500, max=6000, step=100, unit_of_measurement="W"
+                        )
+                    ),
+                }
+            ),
+            {"collapsed": True},
+        )
+        schema_dict[vol.Required("forecast_settings")] = section(
+            vol.Schema(
+                {
+                    self._optional_key(CONF_FORECAST_PROVIDER): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=[
                                 selector.SelectOptionDict(
@@ -889,19 +993,18 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                             ]
                         )
                     ),
-                    vol.Optional(
-                        CONF_FORECAST_ENTITY, default=self._get(CONF_FORECAST_ENTITY, "")
-                    ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-                    vol.Optional(
-                        CONF_FORECAST_ENTITY_P10, default=self._get(CONF_FORECAST_ENTITY_P10, "")
-                    ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-                    vol.Optional(
-                        CONF_FORECAST_ENTITY_D2, default=self._get(CONF_FORECAST_ENTITY_D2, "")
-                    ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-                    vol.Optional(
-                        CONF_CARBON_INTENSITY_ENTITY,
-                        default=self._get(CONF_CARBON_INTENSITY_ENTITY, ""),
-                    ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+                    self._optional_key(CONF_FORECAST_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="sensor")
+                    ),
+                    self._optional_key(CONF_FORECAST_ENTITY_P10): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="sensor")
+                    ),
+                    self._optional_key(CONF_FORECAST_ENTITY_D2): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="sensor")
+                    ),
+                    self._optional_key(CONF_CARBON_INTENSITY_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="sensor")
+                    ),
                     vol.Optional(
                         CONF_FORECAST_CONSERVATISM,
                         default=float(
@@ -909,6 +1012,26 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                         ),
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(min=0.0, max=1.0, step=0.05, mode="slider")
+                    ),
+                }
+            ),
+            {"collapsed": True},
+        )
+        schema_dict[vol.Required("ev_settings")] = section(
+            vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_CAR_EFFICIENCY_KWH_PER_100KM,
+                        default=float(
+                            self._get(
+                                CONF_CAR_EFFICIENCY_KWH_PER_100KM,
+                                DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
+                            )
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=5, max=40, step=0.1, unit_of_measurement="kWh/100km"
+                        )
                     ),
                 }
             ),

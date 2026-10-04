@@ -207,14 +207,35 @@
               "battery_min_soc_pct": "Minimum battery SoC",
               "overnight_charge_target_pct": "Default overnight charge target",
               "skip_charge_soc_threshold_pct": "Skip charge if SoC above",
+              "battery_throughput_budget_kwh": "Daily battery throughput budget (kWh)",
               "dry_run": "Dry run mode",
               "verbose_logging": "Verbose logging",
               "cheap_rate_floor_soc": "Cheap rate floor (%)"
             },
             "data_description": {
+              "battery_throughput_budget_kwh": "Optional cap on kWh charged plus discharged per day. 0 turns the budget sensors off.",
               "dry_run": "Calculates decisions and updates sensors but sends no commands to GivTCP. The Last Skipped Action sensor shows what would have run.",
               "verbose_logging": "Logs detailed sensor readings and decisions on every cycle. Disable for normal operation.",
               "cheap_rate_floor_soc": "Top up during cheap rate hours if battery drops below this. Set to 0 to disable. Default 40%."
+            }
+          },
+          "hardware_settings": {
+            "name": "Hardware",
+            "description": "Update these when you add battery modules, change the inverter or replace the immersion element.",
+            "data": {
+              "battery_capacity_kwh": "Battery capacity",
+              "inverter_max_output_kw": "Inverter max output",
+              "immersion_wattage_w": "Immersion element power"
+            },
+            "data_description": {
+              "battery_capacity_kwh": "Total usable capacity of all battery modules."
+            }
+          },
+          "ev_settings": {
+            "name": "Electric vehicle",
+            "description": "Used to convert kWh charged into km added.",
+            "data": {
+              "car_efficiency_kwh_per_100km": "Car efficiency (kWh/100km)"
             }
           },
           "forecast_settings": {
@@ -321,6 +342,18 @@
       "rest_of_house_load": {
         "name": "Rest of House Load"
       },
+      "grid_power_direction": {
+        "name": "Grid Power Direction"
+      },
+      "solar_power_pct_of_max": {
+        "name": "Solar Output % of Max"
+      },
+      "net_solar_surplus_w": {
+        "name": "Net Solar Surplus"
+      },
+      "battery_kwh_available": {
+        "name": "Battery Energy Available"
+      },
       "current_rate": {
         "name": "Current Rate"
       },
@@ -329,6 +362,30 @@
       },
       "live_grid_cost_rate": {
         "name": "Live Grid Cost Rate"
+      },
+      "next_cheap_rate_start": {
+        "name": "Next Cheap Rate Start"
+      },
+      "hours_to_cheap_rate": {
+        "name": "Hours to Cheap Rate"
+      },
+      "cheapest_rate": {
+        "name": "Cheapest Tariff Rate"
+      },
+      "cheapest_rate_period": {
+        "name": "Cheapest Rate Period Name"
+      },
+      "is_on_cheapest_rate": {
+        "name": "On Cheapest Rate"
+      },
+      "is_on_base_rate": {
+        "name": "On Base (Daytime) Rate"
+      },
+      "minutes_remaining_in_period": {
+        "name": "Minutes Remaining in Rate Period"
+      },
+      "rate_savings_vs_daytime": {
+        "name": "Rate Saving vs Daytime"
       },
       "solar_today": {
         "name": "Solar Generation Today"
@@ -402,6 +459,15 @@
       "days_since_full_charge": {
         "name": "Days Since Full Charge"
       },
+      "battery_years_remaining": {
+        "name": "Battery Years Remaining (est.)"
+      },
+      "battery_usable_capacity_kwh": {
+        "name": "Battery Estimated Usable Capacity"
+      },
+      "battery_state": {
+        "name": "Battery State"
+      },
       "overnight_charge_target": {
         "name": "Recommended Overnight Charge Target"
       },
@@ -420,6 +486,9 @@
       "night_survival_reason": {
         "name": "Battery Night Survival Status"
       },
+      "night_survival_confidence": {
+        "name": "Night Survival Confidence"
+      },
       "is_clipping": {
         "name": "Inverter Clipping"
       },
@@ -431,6 +500,12 @@
       },
       "ev_session_energy": {
         "name": "EV Session Energy"
+      },
+      "ev_km_charged_today": {
+        "name": "EV km Charged Today"
+      },
+      "ev_cost_per_km_today": {
+        "name": "EV Cost per km Today"
       },
       "ev_draining_battery": {
         "name": "EV Draining Battery"
@@ -462,6 +537,15 @@
       "peak_import_fraction_today": {
         "name": "Peak rate import fraction"
       },
+      "avg_import_rate_today": {
+        "name": "Average Import Rate Today"
+      },
+      "avg_import_rate_this_week": {
+        "name": "Average Import Rate This Week"
+      },
+      "avg_import_rate_this_month": {
+        "name": "Average Import Rate This Month"
+      },
       "immersion_savings_today": {
         "name": "Immersion solar savings"
       },
@@ -471,8 +555,26 @@
       "battery_throughput_kwh_today": {
         "name": "Battery throughput"
       },
+      "battery_throughput_budget_pct": {
+        "name": "Battery Throughput Budget Used"
+      },
+      "battery_throughput_budget_status": {
+        "name": "Battery Throughput Budget Status"
+      },
+      "battery_charge_kwh_today": {
+        "name": "Battery Charged Today"
+      },
+      "battery_discharge_kwh_today": {
+        "name": "Battery Discharged Today"
+      },
+      "house_kwh_today": {
+        "name": "House Load Today"
+      },
       "missed_solar_today": {
         "name": "Missed solar today"
+      },
+      "solar_capture_efficiency_today": {
+        "name": "Solar Capture Efficiency Today"
       },
       "solar_yesterday": {
         "name": "Solar generated yesterday"
@@ -525,6 +627,9 @@
       "self_sufficiency_this_week": {
         "name": "Self-sufficiency this week"
       },
+      "cheap_import_fraction_this_week": {
+        "name": "Cheap rate import fraction this week"
+      },
       "solar_this_month": {
         "name": "Solar generated this month"
       },
@@ -549,6 +654,12 @@
       "export_trailing_12m": {
         "name": "Export — trailing 12 months"
       },
+      "ev_charging_source": {
+        "name": "EV Charging Source"
+      },
+      "ev_solar_surplus_available": {
+        "name": "EV Solar Surplus"
+      },
       "solar_this_year": {
         "name": "Solar generated this year"
       },
@@ -557,9 +668,6 @@
       },
       "import_trailing_12m": {
         "name": "Import — trailing 12 months"
-      },
-      "export_trailing_12m": {
-        "name": "Export — trailing 12 months"
       },
       "import_cost_trailing_12m": {
         "name": "Import Cost — trailing 12 months"
@@ -578,6 +686,15 @@
       },
       "self_sufficiency_this_month": {
         "name": "Self-sufficiency this month"
+      },
+      "cheap_import_fraction_this_month": {
+        "name": "Cheap rate import fraction this month"
+      },
+      "battery_roundtrip_efficiency_today": {
+        "name": "Battery Round-trip Efficiency Today"
+      },
+      "net_position_this_month": {
+        "name": "Net Financial Position This Month"
       },
       "solar_forecast_kwh_today": {
         "name": "Solar forecast today"
@@ -608,6 +725,15 @@
       },
       "pre_boost_export_net_gain": {
         "name": "Pre-boost export net gain"
+      },
+      "battery_power_direction": {
+        "name": "Battery Power Direction"
+      },
+      "integration_version": {
+        "name": "Integration Version"
+      },
+      "days_in_period": {
+        "name": "Days Elapsed in Bill Period"
       },
       "battery_power": {
         "name": "Battery Power"

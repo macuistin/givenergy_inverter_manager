@@ -29,7 +29,7 @@ Separation of concerns:
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from ..const import (
@@ -42,6 +42,8 @@ from ..const import (
     CARBON_STATUS_UNKNOWN,
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
+    CONF_BATTERY_THROUGHPUT_BUDGET,
+    CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CURRENCY,
     CONF_DRY_RUN,
     CONF_FORECAST_CONSERVATISM,
@@ -52,6 +54,8 @@ from ..const import (
     CURRENCIES,
     DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
+    DEFAULT_BATTERY_THROUGHPUT_BUDGET,
+    DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
     DEFAULT_CURRENCY,
     DEFAULT_DRY_RUN,
     DEFAULT_FORECAST_CONSERVATISM,
@@ -71,18 +75,23 @@ from ..const import (
     SOLAR_SUNRISE_HOUR,
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
+    THROUGHPUT_BUDGET_HIGH_PCT,
+    THROUGHPUT_BUDGET_STATUS_HIGH,
+    THROUGHPUT_BUDGET_STATUS_OK,
+    THROUGHPUT_BUDGET_STATUS_OVER,
 )
 from ..discovery import EVCharger, EVChargerState
 from ..logging import get_logger
 from .battery import BatteryStats, calculate_cycle_increment, estimate_will_survive_night
 from .rules import (
     ChargeDecision,
+    available_surplus_w,
     calculate_overnight_charge_target,
     calculate_pre_boost_export_opportunity,
     decide_ev_charger_action,
     should_divert_to_immersion,
 )
-from .tariff import EnergyAccumulator, TariffConfig, build_tariff
+from .tariff import EnergyAccumulator, RatePeriod, TariffConfig, build_tariff
 
 _LOG = get_logger(__name__)
 
@@ -120,6 +129,8 @@ class RawSensorValues:
     ev_power_w: float = 0.0
     ev_plugged_in: bool = False
     inverter_temp: float | None = None
+    # Names of required inputs that were unavailable this cycle (their value is a 0.0 placeholder)
+    unavailable_inputs: tuple[str, ...] = ()
     # GivTCP daily energy counters — authoritative when present, None → fall back to integration
     solar_energy_today_kwh: float | None = None
     import_energy_today_kwh: float | None = None
@@ -188,6 +199,13 @@ class CoordinatorData:
         "is_clipping",
         "projected_bill",
         "battery_cycle_cost_per_kwh",
+        "battery_throughput_budget_pct",
+        "battery_min_soc",
+        "net_solar_surplus_w",
+        "battery_years_remaining",
+        "hours_to_cheap_rate",
+        "next_cheap_rate_start",
+        "battery_throughput_budget_status",
         "register_write_count",
         "rest_of_house_w",
         "should_divert_immersion",
@@ -209,6 +227,14 @@ class CoordinatorData:
         "pre_boost_export_kwh",
         "pre_boost_export_net_gain",
         "pre_boost_export_recommended",
+        "ev_km_charged_today",
+        "ev_cost_per_km_today",
+        "cheapest_rate",
+        "cheapest_rate_name",
+        "is_on_cheapest_rate",
+        "is_on_base_rate",
+        "minutes_remaining_in_period",
+        "rate_savings_vs_daytime",
     )
 
     def __init__(self) -> None:
@@ -248,11 +274,26 @@ class CoordinatorData:
         self.days_remaining: int = 0
         self.will_survive_night: bool = True
         self.battery_cycle_cost_per_kwh: float = 0.0
+        self.battery_throughput_budget_pct: float | None = None
+        self.battery_min_soc: int = 0
+        self.net_solar_surplus_w: float = 0.0
+        self.battery_years_remaining: float | None = None
+        self.hours_to_cheap_rate: float | None = None
+        self.next_cheap_rate_start: str | None = None
+        self.battery_throughput_budget_status: str = ""
         self.saving_vs_grid_today: float = 0.0
         self.net_saving_today: float = 0.0
         self.pre_boost_export_kwh: float = 0.0
         self.pre_boost_export_net_gain: float = 0.0
         self.pre_boost_export_recommended: bool = False
+        self.ev_km_charged_today: float | None = None
+        self.ev_cost_per_km_today: float | None = None
+        self.cheapest_rate: float = 0.0
+        self.cheapest_rate_name: str = ""
+        self.is_on_cheapest_rate: bool = False
+        self.is_on_base_rate: bool = False
+        self.minutes_remaining_in_period: float | None = None
+        self.rate_savings_vs_daytime: float = 0.0
         self.estimated_soc_at_sunrise: float = 0.0
         self.survival_reason: str = ""
         self.ev_charger_brand: str = ""
@@ -341,7 +382,12 @@ def _accumulate_immersion_savings(
     """Handle immersion savings when there is solar surplus."""
     if immersion_w <= 0:
         return
-    solar_surplus_w = max(0.0, raw.solar_power_w - raw.house_load_w - max(0.0, raw.battery_power_w))
+    solar_surplus_w = max(
+        0.0,
+        available_surplus_w(
+            raw.solar_power_w, raw.house_load_w, raw.battery_power_w, True, immersion_w
+        ),
+    )
     solar_to_immersion_w = min(immersion_w, solar_surplus_w)
     if solar_to_immersion_w > 0:
         solar_diverted_kwh = (solar_to_immersion_w / 1000) * elapsed_h
@@ -464,6 +510,9 @@ def update_battery_stats(
     """
     if last_soc is not None and current_soc != last_soc:
         increment = calculate_cycle_increment(current_soc - last_soc)
+        if stats.tracking_start_date is None:
+            stats.tracking_start_date = date.today()
+            stats.tracking_start_cycles = stats.total_cycles
         stats.total_cycles += increment
         if current_soc >= 99.0:
             stats.last_full_charge_date = date.today()
@@ -485,9 +534,7 @@ def _process_ev_charger(
     data.ev_session_kwh = ev_charger.session_kwh
     data.ev_draining_battery = ev_charger.is_draining_battery
 
-    solar_surplus_w = max(
-        0.0, raw.smoothed_solar_power_w - raw.house_load_w - data.immersion_load_w
-    )
+    solar_surplus_w = data.net_solar_surplus_w
 
     ev_target_mode, reason = decide_ev_charger_action(
         charger=ev_charger,
@@ -557,6 +604,18 @@ def _initialize_coordinator_data(
     data.immersion_temp = raw.immersion_temp
     data.forecast_kwh_tomorrow = raw.forecast_kwh_tomorrow
     data.immersion_load_w = raw.immersion_wattage_w if raw.immersion_on else 0.0
+    data.net_solar_surplus_w = 0.0
+    if not {"solar_power", "house_load"} & set(raw.unavailable_inputs):
+        data.net_solar_surplus_w = max(
+            0.0,
+            available_surplus_w(
+                raw.smoothed_solar_power_w,
+                raw.house_load_w,
+                0.0,
+                raw.immersion_on,
+                raw.immersion_wattage_w,
+            ),
+        )
     data.rest_of_house_w = max(
         0.0,
         raw.house_load_w - raw.ev_power_w - data.immersion_load_w,
@@ -620,6 +679,30 @@ def _battery_cycle_cost(cfg: dict[str, Any], capacity_kwh: float) -> float:
     return battery_cost / (2 * capacity_kwh * BATTERY_RATED_CYCLES)
 
 
+def _set_next_cheap_rate(data: CoordinatorData, tariff: TariffConfig, now: datetime) -> None:
+    """Set hours to, and start time of, the next cheaper-than-base rate period."""
+    upcoming = tariff.next_cheap_rate(now)
+    if upcoming is not None:
+        data.hours_to_cheap_rate, data.next_cheap_rate_start = upcoming
+
+
+def _set_throughput_budget(data: CoordinatorData, cfg: dict[str, Any]) -> None:
+    """Set budget used (%) and status from today's throughput, or None when no budget is set."""
+    budget = float(cfg.get(CONF_BATTERY_THROUGHPUT_BUDGET, DEFAULT_BATTERY_THROUGHPUT_BUDGET))
+    if budget <= 0:
+        data.battery_throughput_budget_pct = None
+        data.battery_throughput_budget_status = ""
+        return
+    pct = data.today.battery_throughput_kwh / budget * 100
+    data.battery_throughput_budget_pct = pct
+    if pct > 100:
+        data.battery_throughput_budget_status = THROUGHPUT_BUDGET_STATUS_OVER
+    elif pct >= THROUGHPUT_BUDGET_HIGH_PCT:
+        data.battery_throughput_budget_status = THROUGHPUT_BUDGET_STATUS_HIGH
+    else:
+        data.battery_throughput_budget_status = THROUGHPUT_BUDGET_STATUS_OK
+
+
 def _set_immersion_decision(
     data: CoordinatorData,
     raw: RawSensorValues,
@@ -634,11 +717,12 @@ def _set_immersion_decision(
         data.should_divert_immersion = override_immersion
         data.divert_reason = "Manual override"
     else:
+        missing = set(raw.unavailable_inputs)
         data.should_divert_immersion, data.divert_reason = should_divert_to_immersion(
-            solar_power_w=raw.smoothed_solar_power_w,
-            house_load_w=raw.house_load_w,
+            solar_power_w=None if "solar_power" in missing else raw.smoothed_solar_power_w,
+            house_load_w=None if "house_load" in missing else raw.house_load_w,
             battery_soc=raw.battery_soc,
-            battery_power_w=raw.battery_power_w,
+            battery_power_w=None if "battery_power" in missing else raw.battery_power_w,
             inverter_max_w=raw.inverter_max_w,
             immersion_temp=raw.immersion_temp,
             immersion_target_temp=raw.immersion_target_temp,
@@ -649,7 +733,34 @@ def _set_immersion_decision(
             min_surplus_w=float(cfg.get(CONF_SURPLUS_DIVERT_MIN_W, SURPLUS_DIVERT_MIN_POWER_W)),
             battery_cycle_cost_per_kwh=cycle_cost,
             export_rate=export_rate,
+            immersion_power_w=raw.immersion_wattage_w,
+            immersion_temp_unavailable="immersion_temp" in missing,
         )
+
+
+def _calculate_ev_km(data: CoordinatorData, acc: EnergyAccumulator, cfg: dict[str, Any]) -> None:
+    car_efficiency = float(
+        cfg.get(CONF_CAR_EFFICIENCY_KWH_PER_100KM, DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM)
+    )
+    if car_efficiency > 0 and acc.zappi_kwh > 0:
+        km = acc.zappi_kwh / car_efficiency * 100
+        data.ev_km_charged_today = round(km, 1)
+        if acc.zappi_cost > 0:
+            data.ev_cost_per_km_today = round(acc.zappi_cost / km, 4)
+
+
+def _minutes_remaining_in_period(
+    tariff: TariffConfig, current_period: RatePeriod, now: datetime
+) -> float | None:
+    if current_period.name == tariff.base_rate_name or not tariff.rate_periods:
+        return None
+    today_date = now.date()
+    end = datetime.combine(today_date, current_period.end, tzinfo=now.tzinfo)
+    if end <= now:
+        end = datetime.combine(
+            today_date + timedelta(days=1), current_period.end, tzinfo=now.tzinfo
+        )
+    return round((end - now).total_seconds() / 60, 1)
 
 
 def _calculate_night_survival(
@@ -660,6 +771,7 @@ def _calculate_night_survival(
     avg_daily_kwh: float,
 ) -> None:
     """Calculate night survival metrics."""
+    data.battery_min_soc = min_soc
     if now.hour < SOLAR_SUNRISE_HOUR:
         hours_until_solar = max(1, SOLAR_SUNRISE_HOUR - now.hour)
     else:
@@ -773,6 +885,26 @@ def build_coordinator_data(
     current_period = tariff.get_current_rate(now)
     data.current_rate_name = current_period.name
     data.current_rate = current_period.rate
+    _set_next_cheap_rate(data, tariff, now)
+    cheapest_period = tariff.get_cheapest_rate()
+    data.cheapest_rate = cheapest_period.rate
+    data.cheapest_rate_name = cheapest_period.name
+    cheapest = tariff.get_cheapest_rate()
+    data.is_on_cheapest_rate = (
+        bool(tariff.rate_periods) and current_period.rate <= cheapest.rate
+    )
+    data.is_on_base_rate = current_period.name == tariff.base_rate_name
+
+    # Minutes remaining in the current timed rate period (None for base/daytime rate)
+    data.minutes_remaining_in_period = _minutes_remaining_in_period(
+        tariff, current_period, now
+    )
+
+    # Rate savings vs the base (daytime) rate — 0 when currently at base rate
+    data.rate_savings_vs_daytime = round(
+        max(0.0, tariff.base_rate - current_period.rate), 4
+    )
+
     # Live grid cost/earning rate in €/hr using the correct tariff rate for each direction.
     grid_kw = raw.grid_power_w / 1000
     if grid_kw > 0:
@@ -783,6 +915,7 @@ def build_coordinator_data(
     # ── Battery stats ─────────────────────────────────────────────────────────
     update_battery_stats(battery_stats, raw.battery_soc, last_soc)
     data.battery_stats = battery_stats
+    data.battery_years_remaining = battery_stats.years_remaining_estimate
 
     # ── Energy accumulation ───────────────────────────────────────────────────
     for rolling_acc in (acc, acc_week, acc_month, acc_year):
@@ -850,6 +983,7 @@ def build_coordinator_data(
     data.saving_vs_grid_today = round(counterfactual_cost - actual_net_cost, 4)
     battery_wear_today = acc.battery_throughput_kwh * data.battery_cycle_cost_per_kwh
     data.net_saving_today = round(data.saving_vs_grid_today - battery_wear_today, 4)
+    _set_throughput_budget(data, cfg)
 
     # ── Pre-boost export opportunity ─────────────────────────────────────────
     if data.charge_decision is not None:
@@ -865,6 +999,9 @@ def build_coordinator_data(
             ceg_rate=tariff.export_rate,
             cheapest_rate=tariff.get_cheapest_rate().rate,
         )
+
+    # ── EV km charged today ──────────────────────────────────────────────────
+    _calculate_ev_km(data, acc, cfg)
 
     # ── Night survival ────────────────────────────────────────────────────────
     _calculate_night_survival(data, raw, now, min_soc, avg_daily_kwh)

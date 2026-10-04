@@ -837,6 +837,27 @@ class TestImmersionSavings:
         assert acc.immersion_solar_kwh == 0.0, "No solar surplus → no solar divert"
         assert acc.immersion_savings == 0.0
 
+    def test_house_load_including_immersion_counts_full_diversion(self):
+        from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
+        acc = EnergyAccumulator()
+        # 1 kW rest of house + 3 kW element = 4 kW house load, 5 kW solar
+        raw = _raw(
+            solar_power_w=5000.0,
+            house_load_w=4000.0,
+            battery_power_w=0.0,
+            grid_power_w=0.0,
+            immersion_on=True,
+            immersion_wattage_w=3000.0,
+        )
+        tariff = build_tariff(_nightboost_cfg())
+        now = datetime(2024, 6, 15, 13, 0, tzinfo=timezone.utc)
+        last = datetime(2024, 6, 15, 12, 30, tzinfo=timezone.utc)
+        accumulate_energy(acc, raw, tariff, "Day", now, last)
+
+        assert acc.immersion_solar_kwh == pytest.approx(1.5)
+
 
 class TestBatteryThroughput:
     """Battery throughput accumulates on both charge and discharge."""
@@ -1321,3 +1342,376 @@ class TestCounterfactualCost:
         data = self._run_with_energy()
         assert isinstance(data.saving_vs_grid_today, float)
         assert isinstance(data.net_saving_today, float)
+
+
+class TestThroughputBudget:
+    """battery_throughput_budget_pct and _status derive from today's throughput."""
+
+    @staticmethod
+    def _data_with_throughput(kwh):
+        data = CoordinatorData()
+        data.today.battery_throughput_kwh = kwh
+        return data
+
+    @staticmethod
+    def _cfg(budget):
+        return {"battery_throughput_budget_kwh": budget}
+
+    def test_disabled_when_budget_is_zero(self):
+        from custom_components.givenergy_inverter_manager.core.engine import (
+            _set_throughput_budget,
+        )
+
+        data = self._data_with_throughput(5.0)
+        _set_throughput_budget(data, self._cfg(0.0))
+        assert data.battery_throughput_budget_pct is None
+        assert data.battery_throughput_budget_status == ""
+
+    def test_disabled_when_option_absent(self):
+        from custom_components.givenergy_inverter_manager.core.engine import (
+            _set_throughput_budget,
+        )
+
+        data = self._data_with_throughput(5.0)
+        _set_throughput_budget(data, {})
+        assert data.battery_throughput_budget_pct is None
+
+    @pytest.mark.parametrize(
+        ("throughput", "pct", "status"),
+        [
+            (0.0, 0.0, "OK"),
+            (7.9, 79.0, "OK"),
+            (8.0, 80.0, "High"),
+            (10.0, 100.0, "High"),
+            (10.5, 105.0, "Over budget"),
+        ],
+    )
+    def test_pct_and_status_against_10kwh_budget(self, throughput, pct, status):
+        from custom_components.givenergy_inverter_manager.core.engine import (
+            _set_throughput_budget,
+        )
+
+        data = self._data_with_throughput(throughput)
+        _set_throughput_budget(data, self._cfg(10.0))
+        assert data.battery_throughput_budget_pct == pytest.approx(pct)
+        assert data.battery_throughput_budget_status == status
+
+    def test_build_coordinator_data_populates_fields(self):
+        cfg = _nightboost_cfg()
+        cfg["battery_throughput_budget_kwh"] = 10.0
+        data, _ = _run(cfg=cfg)
+        assert data.battery_throughput_budget_pct is not None
+        assert data.battery_throughput_budget_status == "OK"
+
+    def test_build_coordinator_data_leaves_fields_unset_by_default(self):
+        data, _ = _run()
+        assert data.battery_throughput_budget_pct is None
+        assert data.battery_throughput_budget_status == ""
+
+
+class TestNextCheapRate:
+    """Time until the next cheaper-than-base rate period starts."""
+
+    @staticmethod
+    def _tariff():
+        return build_tariff(_nightboost_cfg())
+
+    def test_daytime_counts_down_to_night_start(self):
+        result = self._tariff().next_cheap_rate(datetime(2024, 6, 15, 14, 0))
+        assert result == (9.0, "23:00")
+
+    def test_half_hour_before_night(self):
+        result = self._tariff().next_cheap_rate(datetime(2024, 6, 15, 22, 30))
+        assert result == (0.5, "23:00")
+
+    def test_active_period_returns_zero_hours_and_no_start(self):
+        assert self._tariff().next_cheap_rate(datetime(2024, 6, 15, 3, 0)) == (0.0, None)
+
+    def test_flat_tariff_returns_none(self):
+        cfg = _nightboost_cfg()
+        cfg["rate_periods"] = []
+        assert build_tariff(cfg).next_cheap_rate(datetime(2024, 6, 15, 14, 0)) is None
+
+    def test_period_more_expensive_than_base_is_not_cheap(self):
+        cfg = _nightboost_cfg()
+        cfg["rate_periods"] = [
+            {"name": "Peak", "rate": 0.50, "start": "17:00", "end": "19:00"},
+        ]
+        assert build_tariff(cfg).next_cheap_rate(datetime(2024, 6, 15, 14, 0)) is None
+
+    def test_engine_populates_fields(self):
+        data, _ = _run(now=datetime(2024, 6, 15, 14, 0))
+        assert data.hours_to_cheap_rate == 9.0
+        assert data.next_cheap_rate_start == "23:00"
+
+    def test_engine_fields_none_on_flat_tariff(self):
+        cfg = _nightboost_cfg()
+        cfg["rate_periods"] = []
+        data, _ = _run(cfg=cfg)
+        assert data.hours_to_cheap_rate is None
+        assert data.next_cheap_rate_start is None
+
+
+class TestEvKm:
+    """EV km charged and cost per km derive from today's Zappi kWh and cost."""
+
+    @staticmethod
+    def _calc(zappi_kwh, zappi_cost, efficiency=None):
+        from custom_components.givenergy_inverter_manager.core.engine import _calculate_ev_km
+
+        data = CoordinatorData()
+        acc = EnergyAccumulator()
+        acc.zappi_kwh = zappi_kwh
+        acc.zappi_cost = zappi_cost
+        cfg = {} if efficiency is None else {"car_efficiency_kwh_per_100km": efficiency}
+        _calculate_ev_km(data, acc, cfg)
+        return data
+
+    def test_km_from_default_efficiency(self):
+        data = self._calc(zappi_kwh=15.0, zappi_cost=3.0)
+        assert data.ev_km_charged_today == pytest.approx(100.0)
+        assert data.ev_cost_per_km_today == pytest.approx(0.03)
+
+    def test_km_from_configured_efficiency(self):
+        data = self._calc(zappi_kwh=18.0, zappi_cost=3.6, efficiency=18.0)
+        assert data.ev_km_charged_today == pytest.approx(100.0)
+
+    def test_none_when_nothing_charged(self):
+        data = self._calc(zappi_kwh=0.0, zappi_cost=0.0)
+        assert data.ev_km_charged_today is None
+        assert data.ev_cost_per_km_today is None
+
+    def test_tiny_charge_does_not_divide_by_zero(self):
+        data = self._calc(zappi_kwh=0.005, zappi_cost=0.001)
+        assert data.ev_km_charged_today == 0.0
+        assert data.ev_cost_per_km_today is not None
+
+    def test_cost_per_km_none_when_no_cost(self):
+        data = self._calc(zappi_kwh=10.0, zappi_cost=0.0)
+        assert data.ev_km_charged_today is not None
+        assert data.ev_cost_per_km_today is None
+
+    def test_zero_efficiency_is_ignored(self):
+        data = self._calc(zappi_kwh=10.0, zappi_cost=2.0, efficiency=0.0)
+        assert data.ev_km_charged_today is None
+class TestCheapestRateSensors:
+    """cheapest_rate and cheapest_rate_name in CoordinatorData."""
+
+    def _run(self):
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, 14, 0, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=5)
+        raw = _raw()
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        return data
+
+    def test_cheapest_rate_is_nightboost(self):
+        # Nightboost 0.0965 < Night 0.1644 — cheapest should be Nightboost
+        data = self._run()
+        assert data.cheapest_rate == pytest.approx(0.0965)
+
+    def test_cheapest_rate_name_is_nightboost(self):
+        data = self._run()
+        assert data.cheapest_rate_name == "Nightboost"
+
+    def test_cheapest_rate_is_float(self):
+        data = self._run()
+        assert isinstance(data.cheapest_rate, float)
+
+
+class TestRateStatusSensors:
+    """is_on_cheapest_rate and is_on_base_rate in CoordinatorData."""
+
+    def _run_at_hour(self, hour: int):
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, hour, 0, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=5)
+        raw = _raw()
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        return data
+
+    def test_on_cheapest_rate_during_nightboost(self):
+        # 03:00 — Nightboost is active (cheapest period)
+        data = self._run_at_hour(3)
+        assert data.is_on_cheapest_rate is True
+
+    def test_not_on_cheapest_rate_during_day(self):
+        # 14:00 — daytime (base rate, not cheapest)
+        data = self._run_at_hour(14)
+        assert data.is_on_cheapest_rate is False
+
+    def test_on_base_rate_during_day(self):
+        # 14:00 — daytime = base rate
+        data = self._run_at_hour(14)
+        assert data.is_on_base_rate is True
+
+    def test_not_on_base_rate_during_night(self):
+        # 01:00 — Night rate period is active, not base rate
+        data = self._run_at_hour(1)
+        assert data.is_on_base_rate is False
+
+
+class TestPeriodTimeSensors:
+    """minutes_remaining_in_period and rate_savings_vs_daytime in CoordinatorData."""
+
+    def _run_at_hour(self, hour: int, minute: int = 0):
+        from datetime import datetime, timedelta, timezone
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        now = datetime(2026, 6, 15, hour, minute, tzinfo=timezone.utc)
+        last = now - timedelta(minutes=5)
+        raw = _raw()
+        data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
+        return data
+
+    def test_minutes_remaining_none_during_daytime(self):
+        # 14:00 — base rate, no timed period
+        data = self._run_at_hour(14)
+        assert data.minutes_remaining_in_period is None
+
+    def test_minutes_remaining_positive_during_night(self):
+        # 01:00 — Night rate ends at 08:00 = 7 hours = 420 minutes remaining
+        data = self._run_at_hour(1, 0)
+        assert data.minutes_remaining_in_period == pytest.approx(420.0)
+
+    def test_minutes_remaining_uses_cheapest_active_period(self):
+        # 03:00 — Nightboost (cheapest active) ends at 04:00
+        data = self._run_at_hour(3, 0)
+        assert data.minutes_remaining_in_period == pytest.approx(60.0)
+
+    def test_minutes_remaining_wraps_past_midnight(self):
+        # 23:30 — Night runs to 08:00 the next day = 8.5 hours
+        data = self._run_at_hour(23, 30)
+        assert data.minutes_remaining_in_period == pytest.approx(510.0)
+
+    def test_rate_savings_zero_at_base_rate(self):
+        # 14:00 — at daytime base rate: savings = 0
+        data = self._run_at_hour(14)
+        assert data.rate_savings_vs_daytime == pytest.approx(0.0)
+
+    def test_rate_savings_positive_during_nightboost(self):
+        # 03:00 — Nightboost (0.0965) vs base (0.3334): saving = 0.2369
+        data = self._run_at_hour(3)
+        assert data.rate_savings_vs_daytime > 0.0
+        assert data.rate_savings_vs_daytime == pytest.approx(0.3334 - 0.0965, rel=0.01)
+
+
+class TestBatteryMinSocField:
+    def test_engine_exposes_min_soc_for_night_survival(self):
+        cfg = _nightboost_cfg()
+        cfg["battery_min_soc_pct"] = 20
+        data, _ = _run(cfg=cfg)
+        assert data.battery_min_soc == 20
+
+
+class TestNetSolarSurplus:
+    """net_solar_surplus_w uses smoothed solar minus house load and immersion, as the EV path does."""
+
+    def test_uses_smoothed_solar_not_raw(self):
+        raw = _raw(solar_power_w=6000.0, house_load_w=500.0)
+        raw.smoothed_solar_power_w = 3000.0
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == pytest.approx(2500.0)
+
+    def test_adds_back_immersion_draw_when_on(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=3500.0, immersion_on=True)
+        raw.smoothed_solar_power_w = 4000.0
+        raw.immersion_wattage_w = 3000.0
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == pytest.approx(3500.0)
+
+    def test_surplus_unchanged_by_immersion_switching_on(self):
+        off = _raw(solar_power_w=4000.0, house_load_w=500.0, immersion_on=False)
+        on = _raw(solar_power_w=4000.0, house_load_w=3500.0, immersion_on=True)
+        on.immersion_wattage_w = off.immersion_wattage_w = 3000.0
+        data_off, _ = _run(raw=off)
+        data_on, _ = _run(raw=on)
+        assert data_on.net_solar_surplus_w == pytest.approx(data_off.net_solar_surplus_w)
+
+    def test_house_load_below_element_wattage_does_not_overstate(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=500.0, immersion_on=True)
+        raw.smoothed_solar_power_w = 4000.0
+        raw.immersion_wattage_w = 3000.0
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == pytest.approx(4000.0)
+
+    def test_never_negative(self):
+        raw = _raw(solar_power_w=200.0, house_load_w=900.0)
+        raw.smoothed_solar_power_w = 200.0
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == 0.0
+
+
+class TestImmersionDecisionStability:
+    def _raw(self, house_load_w, immersion_on):
+        raw = _raw(
+            solar_power_w=4000.0,
+            house_load_w=house_load_w,
+            battery_soc=90.0,
+            battery_power_w=0.0,
+            immersion_on=immersion_on,
+            immersion_temp=40.0,
+        )
+        raw.immersion_wattage_w = 3000.0
+        return raw
+
+    def test_keeps_diverting_once_element_is_in_house_load(self):
+        off, _ = _run(raw=self._raw(1000.0, False))
+        on, _ = _run(raw=self._raw(4000.0, True))
+        assert off.should_divert_immersion is True
+        assert on.should_divert_immersion is True, on.divert_reason
+
+
+class TestUnavailableInputs:
+    def test_house_load_dropout_does_not_start_immersion(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=0.0, battery_soc=90.0, battery_power_w=0.0)
+        raw.unavailable_inputs = ("house_load",)
+        data, _ = _run(raw=raw)
+        assert data.should_divert_immersion is False
+        assert "sensor unavailable" in data.divert_reason.lower()
+
+    def test_battery_power_dropout_does_not_start_immersion(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=500.0, battery_soc=90.0)
+        raw.unavailable_inputs = ("battery_power",)
+        data, _ = _run(raw=raw)
+        assert data.should_divert_immersion is False
+
+    def test_temp_dropout_does_not_start_immersion(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=500.0, battery_soc=90.0, battery_power_w=0.0)
+        raw.unavailable_inputs = ("immersion_temp",)
+        data, _ = _run(raw=raw)
+        assert data.should_divert_immersion is False
+
+    def test_dropout_holds_running_element(self):
+        raw = _raw(
+            solar_power_w=4000.0, house_load_w=0.0, battery_soc=90.0, battery_power_w=0.0,
+            immersion_on=True,
+        )
+        raw.unavailable_inputs = ("house_load",)
+        data, _ = _run(raw=raw)
+        assert data.should_divert_immersion is True
+
+    def test_manual_override_still_wins(self):
+        raw = _raw()
+        raw.unavailable_inputs = ("house_load",)
+        data, _ = _run(raw=raw, override_immersion=True)
+        assert data.should_divert_immersion is True
+
+    def test_house_load_dropout_zeroes_net_surplus(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=0.0)
+        raw.unavailable_inputs = ("house_load",)
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == 0.0
+
+    def test_solar_dropout_zeroes_net_surplus(self):
+        raw = _raw(solar_power_w=0.0, house_load_w=0.0)
+        raw.unavailable_inputs = ("solar_power",)
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == 0.0
