@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 SERIAL_SENSOR_SUFFIX = "_invertor_serial_number"
 GIVTCP_PREFIX = "givtcp_"
+BATTERY_CYCLES_SUFFIX = "_battery_cycles"
 
 ENTITY_SUFFIXES: dict[str, str] = {
     "solar_power": "_pv_power",
@@ -127,6 +128,22 @@ def discover_givtcp_inverters(all_states: dict) -> list[GivTCPInverter]:
 
     inverters.sort(key=lambda i: i.serial)
     return inverters
+
+
+def discover_battery_cycle_entities(all_states: dict) -> list[str]:
+    """
+    Find the BMS lifetime cycle counters GivTCP publishes for each battery pack.
+
+    Each pack is named sensor.givtcp_<battery serial>_battery_cycles, with the
+    battery serial rather than the inverter serial. Accepts a dict of
+    {entity_id: state_object} and returns the entity IDs sorted.
+    """
+    start = f"sensor.{GIVTCP_PREFIX}"
+    return sorted(
+        entity_id
+        for entity_id in all_states
+        if entity_id.startswith(start) and entity_id.endswith(BATTERY_CYCLES_SUFFIX)
+    )
 
 
 def get_suggested_entities(inverter: GivTCPInverter) -> dict[str, str]:

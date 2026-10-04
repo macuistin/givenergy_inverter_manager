@@ -224,6 +224,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
         self._ev_charger = None
+        self._battery_cycle_entities: list[str] = []
         self.override_charge_target = None
         self.immersion_target_temp: float = 55.0
         self.immersion_min_temp: float = 50.0
@@ -2561,3 +2562,88 @@ class TestBatteryCycleAccounting:
     async def test_charging_between_healthy_readings_is_not_counted(self):
         coord = await self._run(["70", "71", "72"])
         assert coord._battery_stats.total_cycles == pytest.approx(0.0)
+
+
+# ── BMS lifetime cycle counter ────────────────────────────────────────────────
+
+PACK_1 = "sensor.givtcp_bt2349g123_battery_cycles"
+PACK_2 = "sensor.givtcp_bt2349g456_battery_cycles"
+
+
+class TestBatteryLifetimeCycles:
+    """The GivTCP BMS counter is the authoritative lifetime cycle count."""
+
+    def _coord(self, **states):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.set_states(states)
+        return coord
+
+    def test_reads_the_bms_counter_once_discovered(self):
+        coord = self._coord(**{PACK_1: "38"})
+        coord._update_cycle = 1
+        coord._maybe_rediscover_battery_cycles()
+        assert coord._battery_cycle_entities == [PACK_1]
+        assert coord._read_battery_lifetime_cycles() == pytest.approx(38.0)
+
+    def test_uses_the_highest_pack_not_the_sum(self):
+        coord = self._coord(**{PACK_1: "38", PACK_2: "41"})
+        coord._update_cycle = 1
+        coord._maybe_rediscover_battery_cycles()
+        assert coord._read_battery_lifetime_cycles() == pytest.approx(41.0)
+
+    def test_unavailable_and_zero_packs_are_ignored(self):
+        coord = self._coord(**{PACK_1: "unavailable", PACK_2: "0"})
+        coord._update_cycle = 1
+        coord._maybe_rediscover_battery_cycles()
+        assert coord._read_battery_lifetime_cycles() is None
+
+    def test_none_when_no_counter_exists(self):
+        coord = self._coord()
+        coord._update_cycle = 1
+        coord._maybe_rediscover_battery_cycles()
+        assert coord._read_battery_lifetime_cycles() is None
+
+    def test_rediscovery_only_runs_every_tenth_cycle(self):
+        coord = self._coord(**{PACK_1: "38"})
+        coord._update_cycle = 2
+        coord._maybe_rediscover_battery_cycles()
+        assert coord._battery_cycle_entities == []
+        coord._update_cycle = 11
+        coord._maybe_rediscover_battery_cycles()
+        assert coord._battery_cycle_entities == [PACK_1]
+
+    @pytest.mark.asyncio
+    async def test_total_cycles_is_seeded_from_the_bms_counter(self):
+        coord = self._coord(**{PACK_1: "38"})
+        data = await coord.run_cycle()
+        assert data.battery_stats.total_cycles == pytest.approx(38.0)
+        assert data.battery_stats.estimated_remaining_life_pct == pytest.approx(
+            (1 - 38.0 / 6000) * 100
+        )
+
+    @pytest.mark.asyncio
+    async def test_bms_counter_replaces_a_lower_soc_estimate(self):
+        coord = self._coord(**{PACK_1: "38"})
+        coord._battery_stats.total_cycles = 12.0
+        data = await coord.run_cycle()
+        assert data.battery_stats.total_cycles == pytest.approx(38.0)
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_the_soc_estimate_without_a_counter(self):
+        coord = self._coord()
+        coord.set_state("sensor.battery_soc", "80")
+        await coord.run_cycle()
+        coord.set_state("sensor.battery_soc", "79")
+        data = await coord.run_cycle()
+        assert data.battery_stats.total_cycles == pytest.approx(0.01)
+
+    @pytest.mark.asyncio
+    async def test_soc_estimate_continues_from_the_last_bms_value(self):
+        coord = self._coord(**{PACK_1: "38"})
+        coord.set_state("sensor.battery_soc", "80")
+        await coord.run_cycle()
+        coord.set_state(PACK_1, "unavailable")
+        coord.set_state("sensor.battery_soc", "79")
+        data = await coord.run_cycle()
+        assert data.battery_stats.total_cycles == pytest.approx(38.01)

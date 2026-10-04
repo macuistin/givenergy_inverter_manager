@@ -9,7 +9,12 @@ from .ev_charger import (
     discover_ev_chargers,
     update_charger_state,
 )
-from .givtcp import GivTCPInverter, discover_givtcp_inverters, get_suggested_entities
+from .givtcp import (
+    GivTCPInverter,
+    discover_battery_cycle_entities,
+    discover_givtcp_inverters,
+    get_suggested_entities,
+)
 
 __all__ = [
     "ZAPPI_ECO_PLUS_MODE",
@@ -17,6 +22,7 @@ __all__ = [
     "EVChargerBrand",
     "EVChargerState",
     "GivTCPInverter",
+    "discover_battery_cycle_entities",
     "discover_ev_chargers",
     "discover_givtcp_inverters",
     "get_suggested_entities",

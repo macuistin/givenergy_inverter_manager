@@ -104,6 +104,7 @@ from .core.rules import monthly_solar_fractions
 from .core.tariff import build_tariff
 from .discovery import (
     EVCharger,
+    discover_battery_cycle_entities,
     discover_ev_chargers,
     update_charger_state,
 )
@@ -162,6 +163,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._floor_top_up_applied: bool = False
         self.export_rate: float = 0.0
         self._ev_charger: EVCharger | None = None
+        self._battery_cycle_entities: list[str] = []
 
         # Manual overrides set by switch/number entities
         self.override_charge_target: int | None = None
@@ -807,6 +809,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.ev_power_w = self._ev_charger.power_w
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
+        raw.battery_lifetime_cycles = self._read_battery_lifetime_cycles()
+
         # GivTCP daily energy counters — present on GivTCP v2.1+ and v3.
         # Entity IDs are derived from the inverter serial stored in config.
         # _read_optional_float returns None for missing/unavailable entities;
@@ -840,6 +844,21 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._inputs_unavailable_since is None:
             self._inputs_unavailable_since = now
         raw.unavailable_for_s = max(0.0, (now - self._inputs_unavailable_since).total_seconds())
+    def _read_battery_lifetime_cycles(self) -> float | None:
+        """Highest BMS cycle counter across the battery packs, None if none is readable.
+
+        Each pack counts its own cycles, so the packs are not summed.
+        """
+        values = [self._read_optional_float(eid) for eid in self._battery_cycle_entities]
+        readable = [v for v in values if v is not None and v > 0]
+        return max(readable) if readable else None
+
+    def _maybe_rediscover_battery_cycles(self) -> None:
+        """Look for GivTCP battery cycle counters every 5 minutes so new packs are picked up."""
+        if self._update_cycle % _REDISCOVER_EVERY_N_CYCLES == 1:
+            self._battery_cycle_entities = discover_battery_cycle_entities(
+                self._get_all_states()
+            )
 
     def _maybe_rediscover_ev(self) -> None:
         """Re-run EV charger discovery every 5 minutes when none is cached."""
@@ -1064,6 +1083,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         # 2. Refresh EV charger discovery
         self._maybe_rediscover_ev()
+        self._maybe_rediscover_battery_cycles()
 
         # 3. Read all sensor values from HA
         raw = self._collect_raw(cfg)

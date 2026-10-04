@@ -142,6 +142,8 @@ class RawSensorValues:
     charge_energy_today_kwh: float | None = None
     discharge_energy_today_kwh: float | None = None
     load_energy_today_kwh: float | None = None
+    # Lifetime cycle count reported by the battery BMS (highest single pack), None if unknown
+    battery_lifetime_cycles: float | None = None
 
     def __post_init__(self) -> None:
         if self.smoothed_solar_power_w < 0.0:
@@ -511,20 +513,27 @@ def update_battery_stats(
     stats: BatteryStats,
     current_soc: float | None,
     last_soc: float | None,
+    lifetime_cycles: float | None = None,
 ) -> BatteryStats:
     """
     Update battery stats for the current SoC reading.
 
-    Counts equivalent full cycles (discharge only) and records the date of the
-    last full charge. A missing reading, a reading of 0.0 after a healthy one, or
-    a step above BATTERY_MAX_SOC_STEP_PCT is a sensor glitch and adds nothing.
+    The lifetime cycle count comes from the battery's own BMS counter when it is
+    available (lifetime_cycles above zero) and is otherwise estimated from SoC.
+    The estimate counts equivalent full cycles (discharge only). A missing
+    reading, a reading of 0.0 after a healthy one, or a step above
+    BATTERY_MAX_SOC_STEP_PCT is a sensor glitch and adds nothing.
+    Also records the date of the last full charge.
     Mutates stats in place and also returns it for convenience.
     """
-    if current_soc is None or last_soc is None or current_soc == last_soc:
-        return stats
-    if current_soc >= 99.0:
+    soc_changed = current_soc is not None and last_soc is not None and current_soc != last_soc
+    if soc_changed and current_soc >= 99.0:
         stats.last_full_charge_date = date.today()
-    if last_soc <= 0.0 or current_soc <= 0.0:
+    if lifetime_cycles is not None and lifetime_cycles > 0:
+        _adopt_lifetime_cycles(stats, lifetime_cycles)
+        return stats
+    stats.lifetime_from_bms = False
+    if not soc_changed or last_soc <= 0.0 or current_soc <= 0.0:
         return stats
     if abs(current_soc - last_soc) > BATTERY_MAX_SOC_STEP_PCT:
         return stats
@@ -533,6 +542,17 @@ def update_battery_stats(
         stats.tracking_start_cycles = stats.total_cycles
     stats.total_cycles += calculate_cycle_increment(current_soc - last_soc)
     return stats
+
+
+def _adopt_lifetime_cycles(stats: BatteryStats, lifetime_cycles: float) -> None:
+    """Make the BMS cycle counter the lifetime total without distorting the daily rate."""
+    if not stats.lifetime_from_bms and stats.tracking_start_date is not None:
+        stats.tracking_start_cycles += lifetime_cycles - stats.total_cycles
+    stats.total_cycles = lifetime_cycles
+    stats.lifetime_from_bms = True
+    if stats.tracking_start_date is None:
+        stats.tracking_start_date = date.today()
+        stats.tracking_start_cycles = lifetime_cycles
 
 
 def _process_ev_charger(
@@ -949,6 +969,7 @@ def build_coordinator_data(
         battery_stats,
         None if "battery_soc" in raw.unavailable_inputs else raw.battery_soc,
         last_soc,
+        raw.battery_lifetime_cycles,
     )
     data.battery_stats = battery_stats
     data.battery_years_remaining = battery_stats.years_remaining_estimate

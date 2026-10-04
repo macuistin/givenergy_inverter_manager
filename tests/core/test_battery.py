@@ -163,3 +163,74 @@ class TestYearsRemainingEstimate:
         assert stats.tracking_start_cycles == pytest.approx(79.0)
         assert stats.tracking_start_date is not None
         assert stats.total_cycles == pytest.approx(79.1)
+
+
+class TestLifetimeCyclesFromBms:
+    """update_battery_stats prefers the BMS counter over the SoC estimate."""
+
+    def test_bms_counter_sets_total_cycles(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, 80.0, None, lifetime_cycles=38.0)
+        assert stats.total_cycles == pytest.approx(38.0)
+        assert stats.lifetime_from_bms is True
+
+    def test_soc_movement_is_not_added_on_top_of_the_bms_counter(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, 79.0, 80.0, lifetime_cycles=38.0)
+        assert stats.total_cycles == pytest.approx(38.0)
+
+    def test_bms_counter_starts_tracking_at_its_own_value(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, 80.0, None, lifetime_cycles=38.0)
+        assert stats.tracking_start_date is not None
+        assert stats.tracking_start_cycles == pytest.approx(38.0)
+
+    def test_switching_to_bms_keeps_the_daily_rate(self):
+        from datetime import date, timedelta
+
+        stats = BatteryStats(
+            total_cycles=10.0,
+            tracking_start_date=date.today() - timedelta(days=10),
+            tracking_start_cycles=0.0,
+        )
+        assert stats.average_daily_cycles == pytest.approx(1.0)
+        update_battery_stats(stats, 80.0, None, lifetime_cycles=50.0)
+        assert stats.total_cycles == pytest.approx(50.0)
+        assert stats.average_daily_cycles == pytest.approx(1.0)
+
+    def test_later_bms_growth_raises_the_daily_rate(self):
+        from datetime import date, timedelta
+
+        stats = BatteryStats(
+            total_cycles=10.0,
+            tracking_start_date=date.today() - timedelta(days=10),
+            tracking_start_cycles=0.0,
+        )
+        update_battery_stats(stats, 80.0, None, lifetime_cycles=50.0)
+        update_battery_stats(stats, 80.0, 80.0, lifetime_cycles=55.0)
+        assert stats.average_daily_cycles == pytest.approx(1.5)
+
+    def test_zero_bms_counter_falls_back_to_the_estimate(self):
+        stats = BatteryStats(total_cycles=3.0)
+        update_battery_stats(stats, 79.0, 80.0, lifetime_cycles=0.0)
+        assert stats.total_cycles == pytest.approx(3.01)
+        assert stats.lifetime_from_bms is False
+
+    def test_estimate_continues_from_the_last_bms_value(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, 80.0, None, lifetime_cycles=38.0)
+        update_battery_stats(stats, 79.0, 80.0, lifetime_cycles=None)
+        assert stats.total_cycles == pytest.approx(38.01)
+        assert stats.lifetime_from_bms is False
+
+    def test_remaining_life_and_years_use_the_bms_total(self):
+        from datetime import date, timedelta
+
+        stats = BatteryStats(
+            total_cycles=100.0,
+            tracking_start_date=date.today() - timedelta(days=70),
+            tracking_start_cycles=0.0,
+        )
+        update_battery_stats(stats, 80.0, None, lifetime_cycles=500.0)
+        assert stats.estimated_remaining_life_pct == pytest.approx((1 - 500 / 6000) * 100)
+        assert stats.years_remaining_estimate == pytest.approx((6000 - 500) / ((100 / 70) * 365))
