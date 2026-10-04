@@ -573,6 +573,109 @@ class TestUpdateCycle:
 # ── TestMidnightReset ─────────────────────────────────────────────────────────
 
 
+class _MemoryStore:
+    """Stands in for homeassistant.helpers.storage.Store."""
+
+    def __init__(self, saved: dict | None = None):
+        self.saved = saved
+        self.saves = 0
+
+    async def async_load(self):
+        return self.saved
+
+    async def async_save(self, data):
+        self.saved = data
+        self.saves += 1
+
+
+def _coord_with_real_store(saved: dict | None, monkeypatch, local_now: datetime):
+    from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+    class _Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return local_now
+
+    monkeypatch.setitem(GivEnergyCoordinator.async_restore_state.__globals__, "datetime", _Clock)
+    coord = FakeCoordinator(cfg=_cfg())
+    store = AccumulationStore.__new__(AccumulationStore)
+    store.state = AccumulationState()
+    store._bill_start_day = 1
+    store._store = _MemoryStore(saved)
+    coord._acc = store
+    return coord, store
+
+
+class TestRestoreState:
+    def _saved(self, last_midnight: datetime) -> dict:
+        from custom_components.givenergy_inverter_manager.accumulation import _serialize
+
+        state = AccumulationState()
+        state.last_reset_iso = last_midnight.isoformat()
+        state.today.solar_kwh = 9.0
+        state.week.solar_kwh = 50.0
+        return _serialize(state)
+
+    async def test_restart_across_midnight_starts_a_new_day(self, monkeypatch):
+        saved = self._saved(datetime(2026, 7, 14, tzinfo=timezone.utc))
+        coord, store = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert store.yesterday.solar_kwh == pytest.approx(9.0)
+        assert store.today.solar_kwh == 0.0
+        assert coord._last_reset_time == "2026-07-15T00:00:00+00:00"
+
+    async def test_restart_after_a_missed_monday_resets_the_week(self, monkeypatch):
+        saved = self._saved(datetime(2026, 7, 11, tzinfo=timezone.utc))
+        coord, store = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 14, 6, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert store.week.solar_kwh == 0.0
+        assert store.state.week_start_iso == "2026-07-13T00:00:00+00:00"
+
+    async def test_rolled_state_is_saved_straight_away(self, monkeypatch):
+        saved = self._saved(datetime(2026, 7, 14, tzinfo=timezone.utc))
+        coord, store = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert store._store.saves == 1
+        assert store._store.saved["last_reset_iso"] == "2026-07-15T00:00:00+00:00"
+
+    async def test_restart_on_the_same_day_keeps_the_day_and_last_reset(self, monkeypatch):
+        saved = self._saved(datetime(2026, 7, 14, tzinfo=timezone.utc))
+        saved["week_start_iso"] = "2026-07-13T00:00:00+00:00"
+        saved["month_start_iso"] = "2026-07-01T00:00:00+00:00"
+        saved["year_start_iso"] = "2026-01-01T00:00:00+00:00"
+        coord, store = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 14, 18, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert store.today.solar_kwh == pytest.approx(9.0)
+        assert coord._last_reset_time == "2026-07-14T00:00:00+00:00"
+        assert store._store.saves == 0
+
+    async def test_fresh_install_stamps_last_reset_with_todays_midnight(self, monkeypatch):
+        coord, store = _coord_with_real_store(
+            None, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert coord._last_reset_time == "2026-07-15T00:00:00+00:00"
+        assert store.state.year_start_iso == "2026-01-01T00:00:00+00:00"
+
+
 class TestMidnightReset:
     def test_clears_accumulator(self):
         coord = FakeCoordinator(cfg=_cfg())

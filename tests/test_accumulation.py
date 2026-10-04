@@ -807,3 +807,170 @@ class TestMonthlySnapshots:
         restored = _deserialize(_serialize(state))
         assert len(restored.monthly_snapshots) == 1
         assert restored.monthly_snapshots[0]["solar_kwh"] == pytest.approx(30.5)
+
+
+# ── Restart across a reset boundary ──────────────────────────────────────────
+
+
+def _restart(saved: AccumulationState, bill_start_day: int = 1):
+    """A new store holding what a previous run wrote to storage."""
+    from unittest.mock import MagicMock
+
+    from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+    store = AccumulationStore(MagicMock(), bill_start_day=bill_start_day)
+    store.state = _deserialize(_serialize(saved))
+    return store
+
+
+def _stored_run(last_midnight: datetime) -> AccumulationState:
+    """State as left by a run that last passed midnight at *last_midnight*."""
+    state = AccumulationState()
+    state.last_reset_iso = last_midnight.isoformat()
+    state.today.solar_kwh = 9.0
+    state.today.import_kwh = 2.0
+    state.week.solar_kwh = 50.0
+    state.month.solar_kwh = 200.0
+    state.year.solar_kwh = 1500.0
+    return state
+
+
+class TestRollForwardOnRestart:
+    def test_restart_on_the_same_day_changes_nothing(self):
+        store = _restart(_stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)))
+        store.state.week_start_iso = "2026-07-13T00:00:00+00:00"
+        store.state.month_start_iso = "2026-07-01T00:00:00+00:00"
+        store.state.year_start_iso = "2026-01-01T00:00:00+00:00"
+
+        changed = store.roll_forward(datetime(2026, 7, 14, 18, 30, tzinfo=timezone.utc))
+
+        assert changed is False
+        assert store.today.solar_kwh == pytest.approx(9.0)
+        assert store.yesterday.solar_kwh == 0.0
+        assert store.state.last_reset_iso == "2026-07-14T00:00:00+00:00"
+
+    def test_restart_after_one_midnight_moves_today_to_yesterday(self):
+        store = _restart(_stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)))
+
+        changed = store.roll_forward(datetime(2026, 7, 15, 7, 0, tzinfo=timezone.utc))
+
+        assert changed is True
+        assert store.yesterday.solar_kwh == pytest.approx(9.0)
+        assert store.today.solar_kwh == 0.0
+        assert store.today.import_kwh == 0.0
+        assert store.state.last_reset_iso == "2026-07-15T00:00:00+00:00"
+        assert store.week.solar_kwh == pytest.approx(50.0)
+
+    def test_restart_after_several_days_leaves_no_yesterday_data(self):
+        store = _restart(_stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)))
+
+        store.roll_forward(datetime(2026, 7, 17, 7, 0, tzinfo=timezone.utc))
+
+        assert store.today.solar_kwh == 0.0
+        assert store.yesterday.solar_kwh == 0.0
+        assert store.state.last_reset_iso == "2026-07-17T00:00:00+00:00"
+
+    def test_missed_monday_resets_the_week(self):
+        # Last run passed midnight on Saturday 11 July. Restart on Tuesday 14 July.
+        store = _restart(_stored_run(datetime(2026, 7, 11, 0, 0, tzinfo=timezone.utc)))
+
+        store.roll_forward(datetime(2026, 7, 14, 7, 0, tzinfo=timezone.utc))
+
+        assert store.week.solar_kwh == 0.0
+        assert store.state.week_start_iso == "2026-07-13T00:00:00+00:00"
+        assert store.month.solar_kwh == pytest.approx(200.0)
+
+    def test_week_is_kept_when_no_monday_was_missed(self):
+        store = _restart(_stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)))
+        store.state.week_start_iso = "2026-07-13T00:00:00+00:00"
+
+        store.roll_forward(datetime(2026, 7, 16, 7, 0, tzinfo=timezone.utc))
+
+        assert store.week.solar_kwh == pytest.approx(50.0)
+        assert store.state.week_start_iso == "2026-07-13T00:00:00+00:00"
+
+    def test_missed_bill_day_resets_the_month_and_snapshots_it(self):
+        store = _restart(
+            _stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)), bill_start_day=16
+        )
+        store.state.month.export_kwh = 80.0
+
+        store.roll_forward(datetime(2026, 7, 18, 7, 0, tzinfo=timezone.utc))
+
+        assert store.month.solar_kwh == 0.0
+        assert store.state.month_start_iso == "2026-07-16T00:00:00+00:00"
+        assert store.monthly_export_snapshots == [pytest.approx(80.0)]
+        assert store.monthly_snapshots[-1]["solar_kwh"] == pytest.approx(200.0)
+
+    def test_several_missed_bill_days_add_one_snapshot_each(self):
+        store = _restart(_stored_run(datetime(2026, 6, 20, 0, 0, tzinfo=timezone.utc)))
+
+        store.roll_forward(datetime(2026, 8, 5, 7, 0, tzinfo=timezone.utc))
+
+        assert len(store.monthly_snapshots) == 2
+        assert store.monthly_snapshots[0]["solar_kwh"] == pytest.approx(200.0)
+        assert store.monthly_snapshots[1]["solar_kwh"] == 0.0
+        assert store.state.month_start_iso == "2026-08-01T00:00:00+00:00"
+
+    def test_missed_new_year_resets_the_year(self):
+        store = _restart(_stored_run(datetime(2025, 12, 30, 0, 0, tzinfo=timezone.utc)))
+
+        store.roll_forward(datetime(2026, 1, 2, 7, 0, tzinfo=timezone.utc))
+
+        assert store.year.solar_kwh == 0.0
+        assert store.state.year_start_iso == "2026-01-01T00:00:00+00:00"
+
+    def test_year_is_kept_inside_the_same_year(self):
+        store = _restart(_stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)))
+
+        store.roll_forward(datetime(2026, 7, 20, 7, 0, tzinfo=timezone.utc))
+
+        assert store.year.solar_kwh == pytest.approx(1500.0)
+
+    def test_forecast_accuracy_is_recorded_once_for_the_stored_day(self):
+        saved = _stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc))
+        saved.today_forecast_kwh = 10.0
+        store = _restart(saved)
+
+        store.roll_forward(datetime(2026, 7, 17, 7, 0, tzinfo=timezone.utc))
+
+        assert store.state.forecast_accuracy_history == [90.0]
+        assert store.state.today_forecast_kwh == 0.0
+
+    def test_dst_zone_keeps_local_midnight_stamps(self):
+        from zoneinfo import ZoneInfo
+
+        dublin = ZoneInfo("Europe/Dublin")
+        store = _restart(_stored_run(datetime(2026, 3, 27, 0, 0, tzinfo=dublin)))
+
+        store.roll_forward(datetime(2026, 3, 30, 9, 0, tzinfo=dublin))
+
+        assert store.state.last_reset_iso == "2026-03-30T00:00:00+01:00"
+        assert store.state.week_start_iso == "2026-03-30T00:00:00+01:00"
+
+    def test_first_ever_start_stamps_today_and_keeps_data(self):
+        store = _restart(AccumulationState())
+
+        changed = store.roll_forward(datetime(2026, 7, 15, 7, 0, tzinfo=timezone.utc))
+
+        assert changed is True
+        assert store.state.last_reset_iso == "2026-07-15T00:00:00+00:00"
+        assert store.yesterday.solar_kwh == 0.0
+
+    def test_empty_period_starts_default_to_the_current_period(self):
+        store = _restart(AccumulationState(), bill_start_day=16)
+
+        store.roll_forward(datetime(2026, 7, 15, 7, 0, tzinfo=timezone.utc))
+
+        assert store.state.week_start_iso == "2026-07-13T00:00:00+00:00"
+        assert store.state.month_start_iso == "2026-06-16T00:00:00+00:00"
+        assert store.state.year_start_iso == "2026-01-01T00:00:00+00:00"
+
+    def test_existing_period_starts_are_not_overwritten(self):
+        saved = _stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc))
+        saved.week_start_iso = "2026-07-06T00:00:00+00:00"
+        store = _restart(saved)
+
+        store.roll_forward(datetime(2026, 7, 14, 18, 0, tzinfo=timezone.utc))
+
+        assert store.state.week_start_iso == "2026-07-06T00:00:00+00:00"

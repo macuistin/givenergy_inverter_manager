@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from .core.rules import build_load_profile, forecast_correction_factor
@@ -77,6 +77,21 @@ def _dict_to_acc(d: dict) -> EnergyAccumulator:
         if hasattr(acc, key):
             setattr(acc, key, value)
     return acc
+
+
+def _midnight_of(now: datetime, day: date) -> datetime:
+    """Local midnight at the start of *day*, in the timezone of *now*."""
+    return now.replace(
+        year=day.year, month=day.month, day=day.day, hour=0, minute=0, second=0, microsecond=0
+    )
+
+
+def _stored_date(iso: str) -> date | None:
+    """Date part of a stored ISO timestamp, or None when empty or unreadable."""
+    try:
+        return datetime.fromisoformat(iso).date()
+    except (TypeError, ValueError):
+        return None
 
 
 # ── Public state dataclass ────────────────────────────────────────────────────
@@ -346,10 +361,50 @@ class AccumulationStore:
             self.state.year_start_iso = now.isoformat()
             _LOG.debug("Yearly accumulator reset (Jan 1)")
 
+    def roll_forward(self, now: datetime) -> bool:
+        """
+        Apply the midnight resets that passed while Home Assistant was not running.
+
+        Compares the stored last_reset_iso date with today and runs on_midnight once
+        for every missed day, so the day, week, bill period and year all reset as
+        they would have done live. Also fills empty period start stamps with the
+        start of the current period. Returns True when the state changed.
+        """
+        today = now.date()
+        changed = False
+        last = _stored_date(self.state.last_reset_iso)
+        if last is None:
+            self.state.last_reset_iso = _midnight_of(now, today).isoformat()
+            changed = True
+        else:
+            for offset in range(1, (today - last).days + 1):
+                self.on_midnight(_midnight_of(now, last + timedelta(days=offset)))
+                changed = True
+        return self._fill_period_starts(now) or changed
+
+    def _fill_period_starts(self, now: datetime) -> bool:
+        today = now.date()
+        state = self.state
+        changed = False
+        if not state.week_start_iso:
+            monday = today - timedelta(days=today.isoweekday() - 1)
+            state.week_start_iso = _midnight_of(now, monday).isoformat()
+            changed = True
+        if not state.month_start_iso:
+            if today.day >= self._bill_start_day:
+                bill_day = today.replace(day=self._bill_start_day)
+            else:
+                last_of_previous = today.replace(day=1) - timedelta(days=1)
+                bill_day = last_of_previous.replace(day=self._bill_start_day)
+            state.month_start_iso = _midnight_of(now, bill_day).isoformat()
+            changed = True
+        if not state.year_start_iso:
+            state.year_start_iso = _midnight_of(now, today.replace(month=1, day=1)).isoformat()
+            changed = True
+        return changed
+
     def restore_battery_stats(self, stats) -> None:
         """Restore BatteryStats from persisted state after an HA restart."""
-        from datetime import date
-
         if self.state.battery_cycles > 0:
             stats.total_cycles = self.state.battery_cycles
         if self.state.last_full_charge_date:

@@ -544,6 +544,15 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         except (ValueError, TypeError, AttributeError) as err:
             _LOG.warning("Could not register charge target listener: %s", err)
 
+    async def async_restore_state(self) -> None:
+        """Load stored accumulators and apply any resets missed while HA was down."""
+        await self._acc.async_load()
+        self._acc.restore_battery_stats(self._battery_stats)
+        now = dt_util.as_local(datetime.now(timezone.utc))
+        if self._acc.roll_forward(now):
+            await self._acc.async_save()
+        self._last_reset_time = self._acc.state.last_reset_iso
+
     # ── Time-triggered callbacks ──────────────────────────────────────────────
 
     @callback
