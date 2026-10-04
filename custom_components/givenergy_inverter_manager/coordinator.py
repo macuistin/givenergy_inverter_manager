@@ -871,13 +871,16 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self.override_immersion = None
 
     async def _write_floor_target(self, cfg: dict, target_entity: str, soc: int) -> None:
-        """Write SoC target and enable charge target switch for cheap rate floor top-up."""
-        await self._call_service(
-            "number", "set_value", {"entity_id": target_entity, "value": str(soc)}
+        """Write SoC target and enable charge target switch for cheap rate floor top-up.
+
+        Uses the same read-before-write, cooldown, write counting and read-back
+        helpers as the overnight charge target so the inverter registers are not
+        written more often than necessary.
+        """
+        await self._givtcp_set_number(target_entity, soc, "Cheap rate floor target")
+        await self._givtcp_set_switch(
+            cfg.get(CONF_ENABLE_CHARGE_TARGET), True, "Cheap rate floor charge target enable"
         )
-        enable_entity = cfg.get(CONF_ENABLE_CHARGE_TARGET)
-        if enable_entity:
-            await self._call_service("switch", "turn_on", {"entity_id": enable_entity})
 
     # ── Main update cycle ─────────────────────────────────────────────────────
 

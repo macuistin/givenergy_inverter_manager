@@ -53,6 +53,14 @@ class FakeState:
 # ── FakeCoordinator ───────────────────────────────────────────────────────────
 
 
+@pytest.fixture(autouse=True)
+def _no_write_retry_sleep(monkeypatch):
+    """Skip the real 2 s read-back delay in the inverter write helpers."""
+    monkeypatch.setattr(
+        "custom_components.givenergy_inverter_manager.coordinator.GIVTCP_WRITE_RETRY_SLEEP_S", 0
+    )
+
+
 class FakeCoordinator(GivEnergyCoordinator):
     """
     Test subclass that overrides the three HA proxy methods.
@@ -1921,3 +1929,78 @@ class TestHardwareSettingsInOptions:
 
         # Assert — options override data
         assert effective[CONF_BATTERY_CAPACITY] == pytest.approx(19.2)
+class TestCheapRateFloorWriteSafety:
+    """The floor top-up must use the guarded write helpers, not raw service calls."""
+
+    @staticmethod
+    def _coord(target_now: str | None = None):
+        cfg = {
+            **_cfg(),
+            "target_soc_entity": "number.target_soc",
+            "enable_charge_target_entity": "switch.enable_target",
+        }
+        coord = FakeCoordinator(cfg=cfg)
+        if target_now is not None:
+            coord.set_state("number.target_soc", target_now)
+        coord.set_state("switch.enable_target", "off")
+        return coord, cfg
+
+    @pytest.mark.asyncio
+    async def test_writes_integer_target_and_enables_switch(self):
+        from unittest.mock import AsyncMock, patch
+
+        coord, cfg = self._coord(target_now="100")
+        with patch(
+            "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
+            new=AsyncMock(),
+        ):
+            await coord._write_floor_target(cfg, "number.target_soc", 40)
+
+        assert coord.service_calls_for("number", "set_value") == [
+            {"entity_id": "number.target_soc", "value": 40}
+        ]
+        assert coord.service_calls_for("switch", "turn_on") == [
+            {"entity_id": "switch.enable_target"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_skips_writes_when_already_at_target(self):
+        from unittest.mock import AsyncMock, patch
+
+        coord, cfg = self._coord(target_now="40")
+        coord.set_state("switch.enable_target", "on")
+        with patch(
+            "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
+            new=AsyncMock(),
+        ):
+            await coord._write_floor_target(cfg, "number.target_soc", 40)
+
+        assert coord.service_calls == []
+
+    @pytest.mark.asyncio
+    async def test_cooldown_blocks_a_second_write_within_the_interval(self):
+        from unittest.mock import AsyncMock, patch
+
+        coord, cfg = self._coord(target_now="100")
+        with patch(
+            "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
+            new=AsyncMock(),
+        ):
+            await coord._write_floor_target(cfg, "number.target_soc", 40)
+            await coord._write_floor_target(cfg, "number.target_soc", 55)
+
+        values = [c["value"] for c in coord.service_calls_for("number", "set_value")]
+        assert values == [40]
+
+    @pytest.mark.asyncio
+    async def test_counts_register_writes(self):
+        from unittest.mock import AsyncMock, patch
+
+        coord, cfg = self._coord(target_now="100")
+        with patch(
+            "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
+            new=AsyncMock(),
+        ):
+            await coord._write_floor_target(cfg, "number.target_soc", 40)
+
+        assert coord._register_write_count == 2
