@@ -13,6 +13,7 @@ and records what the coordinator asked it to do.
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
@@ -238,6 +239,10 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._immersion_cooldown_until = None
         self._last_immersion_coordinator_write = None
         self._last_write_time: dict[str, float] = {}
+        self._last_write_time: dict[tuple[str, object], float] = {}
+        self._register_write_count: int = 0
+        self._slot_load_today: list[float] = [0.0] * 48
+        self._slot_load_history: list[list[float]] = []
 
         GivLogger.register(self._effective_cfg)
 
@@ -1123,7 +1128,7 @@ class TestGivtcpWriteHelpers:
     async def test_set_switch_skips_within_cooldown(self):
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
-        coord._last_write_time["switch.target"] = time.monotonic()  # just written
+        coord._last_write_time[("switch.target", True)] = time.monotonic()  # just written
 
         # Act
         await coord._givtcp_set_switch("switch.target", True, "test")
@@ -1139,7 +1144,7 @@ class TestGivtcpWriteHelpers:
 
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
-        coord._last_write_time["switch.target"] = (
+        coord._last_write_time[("switch.target", True)] = (
             time.monotonic() - GIVTCP_MIN_WRITE_INTERVAL_S - 1
         )
 
@@ -1153,7 +1158,7 @@ class TestGivtcpWriteHelpers:
     async def test_set_select_skips_within_cooldown(self):
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
-        coord._last_write_time["select.target"] = time.monotonic()
+        coord._last_write_time[("select.target", "Eco+")] = time.monotonic()
 
         # Act
         await coord._givtcp_set_select("select.target", "Eco+", "test")
@@ -1165,7 +1170,7 @@ class TestGivtcpWriteHelpers:
     async def test_set_number_skips_within_cooldown(self):
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
-        coord._last_write_time["number.target"] = time.monotonic()
+        coord._last_write_time[("number.target", 80)] = time.monotonic()
 
         # Act
         await coord._givtcp_set_number("number.target", 80, "test")
@@ -1178,7 +1183,7 @@ class TestGivtcpWriteHelpers:
         # Arrange — entity already at the target value; cooldown is active
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_state("switch.target", "on")
-        coord._last_write_time["switch.target"] = time.monotonic()
+        coord._last_write_time[("switch.target", True)] = time.monotonic()
 
         # Act
         await coord._givtcp_set_switch("switch.target", True, "test")
@@ -1190,13 +1195,13 @@ class TestGivtcpWriteHelpers:
     async def test_first_write_sets_cooldown_timestamp(self):
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
-        assert "switch.target" not in coord._last_write_time
+        assert ("switch.target", True) not in coord._last_write_time
 
         # Act
         await coord._givtcp_set_switch("switch.target", True, "test")
 
         # Assert
-        assert "switch.target" in coord._last_write_time
+        assert ("switch.target", True) in coord._last_write_time
 
 
 # ── TestFlatRateTariff ────────────────────────────────────────────────────────
@@ -2260,7 +2265,7 @@ class TestCheapRateFloorWriteSafety:
         assert coord.service_calls == []
 
     @pytest.mark.asyncio
-    async def test_cooldown_blocks_a_second_write_within_the_interval(self):
+    async def test_cooldown_does_not_block_a_different_value(self):
         from unittest.mock import AsyncMock, patch
 
         coord, cfg = self._coord(target_now="100")
@@ -2272,7 +2277,7 @@ class TestCheapRateFloorWriteSafety:
             await coord._write_floor_target(cfg, "number.target_soc", 55)
 
         values = [c["value"] for c in coord.service_calls_for("number", "set_value")]
-        assert values == [40]
+        assert values == [40, 55]
 
     @pytest.mark.asyncio
     async def test_counts_register_writes(self):
@@ -2647,3 +2652,245 @@ class TestBatteryLifetimeCycles:
         coord.set_state("sensor.battery_soc", "79")
         data = await coord.run_cycle()
         assert data.battery_stats.total_cycles == pytest.approx(38.01)
+
+
+# ── Write safety ──────────────────────────────────────────────────────────────
+
+
+class _Boom(Exception):
+    """Stand-in for an error raised by a service call."""
+
+
+def _write_coord(fail_entities=(), exc=None, **cfg_overrides):
+    """FakeCoordinator whose service calls raise for the listed entities."""
+    from homeassistant.exceptions import HomeAssistantError
+
+    error = exc or HomeAssistantError("service failed")
+    cfg = _cfg(**cfg_overrides)
+    coord = FakeCoordinator(cfg=cfg)
+    coord.set_state("switch.enable_charge_target", "off")
+    coord.set_state("switch.enable_charge_schedule", "off")
+    coord.set_state("select.charge_start", "00:00:00")
+    coord.set_state("select.charge_end", "00:00:00")
+    coord.set_state("number.target_soc", "100")
+    original = coord._call_service
+
+    async def call(domain, service, data, blocking=True):
+        if data.get("entity_id") in fail_entities:
+            raise error
+        await original(domain, service, data, blocking)
+
+    coord._call_service = call
+    return coord, cfg
+
+
+def _cheap_period():
+    from datetime import time as dtime
+    from types import SimpleNamespace
+
+    return SimpleNamespace(name="Night", start=dtime(23, 0), end=dtime(8, 0))
+
+
+class TestWriteHelpersCatchServiceErrors:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("exc", [None, RuntimeError("boom")])
+    async def test_set_number_returns_false_instead_of_raising(self, exc):
+        coord, _ = _write_coord({"number.target_soc"}, exc)
+        assert await coord._givtcp_set_number("number.target_soc", 80, "target") is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("exc", [None, RuntimeError("boom")])
+    async def test_set_switch_returns_false_instead_of_raising(self, exc):
+        coord, _ = _write_coord({"switch.enable_charge_target"}, exc)
+        assert await coord._givtcp_set_switch("switch.enable_charge_target", True, "x") is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("exc", [None, RuntimeError("boom")])
+    async def test_set_select_returns_false_instead_of_raising(self, exc):
+        coord, _ = _write_coord({"select.charge_start"}, exc)
+        assert await coord._givtcp_set_select("select.charge_start", "23:00:00", "x") is False
+
+    @pytest.mark.asyncio
+    async def test_successful_write_returns_true(self):
+        coord, _ = _write_coord()
+        assert await coord._givtcp_set_number("number.target_soc", 80, "target") is True
+        assert await coord._givtcp_set_switch("switch.enable_charge_target", True, "x") is True
+        assert await coord._givtcp_set_select("select.charge_start", "23:00:00", "x") is True
+
+    @pytest.mark.asyncio
+    async def test_already_at_value_returns_true_without_writing(self):
+        coord, _ = _write_coord()
+        coord.set_state("number.target_soc", "80")
+        assert await coord._givtcp_set_number("number.target_soc", 80, "target") is True
+        assert coord.service_calls == []
+
+    @pytest.mark.asyncio
+    async def test_missing_entity_returns_false(self):
+        coord, _ = _write_coord()
+        assert await coord._givtcp_set_number(None, 80, "target") is False
+
+    @pytest.mark.asyncio
+    async def test_failed_write_is_not_counted(self):
+        coord, _ = _write_coord({"number.target_soc"})
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert coord._register_write_count == 0
+
+    @pytest.mark.asyncio
+    async def test_failed_write_does_not_start_a_cooldown(self):
+        coord, _ = _write_coord({"number.target_soc"})
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert ("number.target_soc", 80) not in coord._last_write_time
+
+    @pytest.mark.asyncio
+    async def test_failure_is_logged(self, caplog):
+        coord, _ = _write_coord({"number.target_soc"})
+        with caplog.at_level(logging.WARNING):
+            await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert any("number.target_soc" in r.getMessage() for r in caplog.records)
+
+
+class TestWriteCooldownKeyedOnValue:
+    @staticmethod
+    def _stuck(coord):
+        """Service calls are recorded but the state never changes."""
+
+        async def call(domain, service, data, blocking=True):
+            coord.service_calls.append((domain, service, data))
+
+        coord._call_service = call
+
+    @pytest.mark.asyncio
+    async def test_identical_value_within_cooldown_is_not_rewritten(self):
+        coord, _ = _write_coord()
+        self._stuck(coord)
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        calls_after_first = len(coord.service_calls)
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert len(coord.service_calls) == calls_after_first
+
+    @pytest.mark.asyncio
+    async def test_different_value_within_cooldown_is_written(self):
+        coord, _ = _write_coord()
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        await coord._givtcp_set_number("number.target_soc", 60, "target")
+        values = [c["value"] for c in coord.service_calls_for("number", "set_value")]
+        assert values == [80, 60]
+
+    @pytest.mark.asyncio
+    async def test_cooldown_is_per_value_for_switches(self):
+        coord, _ = _write_coord()
+        await coord._givtcp_set_switch("switch.enable_charge_target", True, "x")
+        await coord._givtcp_set_switch("switch.enable_charge_target", False, "x")
+        assert len(coord.service_calls_for("switch", "turn_on")) == 1
+        assert len(coord.service_calls_for("switch", "turn_off")) == 1
+
+    @pytest.mark.asyncio
+    async def test_cooldown_is_per_value_for_selects(self):
+        coord, _ = _write_coord()
+        await coord._givtcp_set_select("select.charge_start", "23:00:00", "x")
+        await coord._givtcp_set_select("select.charge_start", "01:00:00", "x")
+        options = [c["option"] for c in coord.service_calls_for("select", "select_option")]
+        assert options == ["23:00:00", "01:00:00"]
+
+
+class TestChargeTargetSequenceSafety:
+    @pytest.mark.asyncio
+    async def test_failed_target_write_does_not_enable_the_charge_target(self):
+        coord, cfg = _write_coord({"number.target_soc"})
+        await coord._async_apply_charge_target(cfg, 80, _cheap_period())
+        assert coord.service_calls_for("switch", "turn_on") == [
+            {"entity_id": "switch.enable_charge_schedule"}
+        ]
+        assert {"entity_id": "switch.enable_charge_target"} not in coord.service_calls_for(
+            "switch", "turn_on"
+        )
+
+    @pytest.mark.asyncio
+    async def test_failed_target_write_logs_a_warning(self, caplog):
+        coord, cfg = _write_coord({"number.target_soc"})
+        with caplog.at_level(logging.WARNING):
+            await coord._async_apply_charge_target(cfg, 80, _cheap_period())
+        assert any("not enabling the charge target" in r.getMessage() for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_failed_target_write_still_lets_a_100_percent_target_clear_the_limit(self):
+        coord, cfg = _write_coord({"number.target_soc"})
+        coord.set_state("switch.enable_charge_target", "on")
+        await coord._async_apply_charge_target(cfg, 100, _cheap_period())
+        assert coord.service_calls_for("switch", "turn_off") == [
+            {"entity_id": "switch.enable_charge_target"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_earlier_step_failure_does_not_abort_the_sequence(self):
+        coord, cfg = _write_coord({"switch.enable_charge_schedule", "select.charge_start"})
+        await coord._async_apply_charge_target(cfg, 80, _cheap_period())
+        assert coord.service_calls_for("number", "set_value") == [
+            {"entity_id": "number.target_soc", "value": 80}
+        ]
+        assert {"entity_id": "switch.enable_charge_target"} in coord.service_calls_for(
+            "switch", "turn_on"
+        )
+        assert coord.service_calls_for("select", "select_option") == [
+            {"entity_id": "select.charge_end", "option": "08:00:00"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_generic_exception_in_the_target_write_is_contained(self):
+        coord, cfg = _write_coord({"number.target_soc"}, RuntimeError("boom"))
+        await coord._async_apply_charge_target(cfg, 80, _cheap_period())
+        assert {"entity_id": "switch.enable_charge_target"} not in coord.service_calls_for(
+            "switch", "turn_on"
+        )
+
+    @pytest.mark.asyncio
+    async def test_full_sequence_runs_when_everything_succeeds(self):
+        coord, cfg = _write_coord()
+        await coord._async_apply_charge_target(cfg, 80, _cheap_period())
+        assert {"entity_id": "switch.enable_charge_target"} in coord.service_calls_for(
+            "switch", "turn_on"
+        )
+
+
+class TestChargeTargetClamp:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("requested", "written"), [(0, 4), (2, 4), (3, 4), (4, 4), (150, 100)])
+    async def test_target_is_clamped_to_what_givtcp_accepts(self, requested, written):
+        coord, cfg = _write_coord()
+        coord.set_state("number.target_soc", "50")
+        await coord._async_apply_charge_target(cfg, requested, _cheap_period())
+        assert coord.service_calls_for("number", "set_value") == [
+            {"entity_id": "number.target_soc", "value": written}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_clamped_100_percent_clears_the_charge_target_limit(self):
+        coord, cfg = _write_coord()
+        coord.set_state("switch.enable_charge_target", "on")
+        coord.set_state("number.target_soc", "50")
+        await coord._async_apply_charge_target(cfg, 120, _cheap_period())
+        assert coord.service_calls_for("number", "set_value")[0]["value"] == 100
+        assert coord.service_calls_for("switch", "turn_off") == [
+            {"entity_id": "switch.enable_charge_target"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_clamping_is_logged(self, caplog):
+        coord, cfg = _write_coord()
+        with caplog.at_level(logging.WARNING):
+            await coord._async_apply_charge_target(cfg, 1, _cheap_period())
+        assert any("outside the range" in r.getMessage() for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_floor_target_is_clamped(self):
+        coord, cfg = _write_coord()
+        assert await coord._write_floor_target(cfg, "number.target_soc", 1) is True
+        assert coord.service_calls_for("number", "set_value") == [
+            {"entity_id": "number.target_soc", "value": 4}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_floor_does_not_enable_the_target_when_the_number_write_fails(self):
+        coord, cfg = _write_coord({"number.target_soc"})
+        assert await coord._write_floor_target(cfg, "number.target_soc", 40) is False
+        assert coord.service_calls_for("switch", "turn_on") == []

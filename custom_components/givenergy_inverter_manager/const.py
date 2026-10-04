@@ -261,4 +261,6 @@ DEFAULT_CHEAP_RATE_FLOOR_SOC = 40  # % — 0 disables the floor
 GIVTCP_MAX_WRITE_RETRIES = 3          # attempts per write before giving up
 GIVTCP_WRITE_RETRY_SLEEP_S = 2        # seconds between retry attempts
 GIVTCP_WRITE_LIFETIME_WARN = 500_000  # log a warning at this write count (~50% of rated)
-GIVTCP_MIN_WRITE_INTERVAL_S = 300     # minimum seconds between writes to the same entity
+GIVTCP_MIN_WRITE_INTERVAL_S = 300     # minimum seconds before the same value is rewritten
+GIVTCP_MIN_CHARGE_TARGET_PCT = 4      # lowest charge target GivTCP accepts
+GIVTCP_MAX_CHARGE_TARGET_PCT = 100    # highest charge target GivTCP accepts
