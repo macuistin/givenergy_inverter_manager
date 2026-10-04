@@ -118,3 +118,47 @@ async def test_discovered_inverter_is_offered_and_creates_entry(
     )
     assert again["type"] is FlowResultType.ABORT
     assert again["reason"] == "already_configured"
+
+
+async def test_tariff_step_rejects_zero_length_rate_period(hass):
+    flow = hass.config_entries.flow
+    result = await flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    result = await flow.async_configure(result["flow_id"], user_input=MANUAL_INPUT)
+    assert result["step_id"] == "tariff"
+
+    slot = {"name": "Empty", "rate": 0.01, "start": "00:00:00", "end": "00:00:00"}
+    result = await flow.async_configure(result["flow_id"], user_input={"rate_period_3": slot})
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "tariff"
+    assert result["errors"] == {"base": "rate_period_zero_length"}
+
+    slot = {"name": "Evening", "rate": 0.4, "start": "17:00:00", "end": "19:00:00"}
+    result = await flow.async_configure(result["flow_id"], user_input={"rate_period_3": slot})
+    assert result["step_id"] == "forecast"
+    flow.async_abort(result["flow_id"])
+
+
+async def test_tariff_step_rejects_duplicate_rate_period_names(hass):
+    flow = hass.config_entries.flow
+    result = await flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    result = await flow.async_configure(result["flow_id"], user_input=MANUAL_INPUT)
+
+    night = {"name": "Night", "rate": 0.18, "start": "23:00:00", "end": "08:00:00"}
+    again = {"name": "NIGHT", "rate": 0.2, "start": "10:00:00", "end": "11:00:00"}
+    result = await flow.async_configure(
+        result["flow_id"], user_input={"rate_period_1": night, "rate_period_2": again}
+    )
+    assert result["errors"] == {"base": "rate_period_duplicate_name"}
+    flow.async_abort(result["flow_id"])
+
+
+async def test_reconfigure_rejects_zero_length_rate_period(hass, loaded_entry):
+    result = await loaded_entry.start_reconfigure_flow(hass)
+    assert result["step_id"] == "reconfigure"
+    slot = {"name": "Empty", "rate": 0.01, "start": "00:00:00", "end": "00:00:00"}
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={"rate_period_3": slot}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "rate_period_zero_length"}
+    hass.config_entries.flow.async_abort(result["flow_id"])

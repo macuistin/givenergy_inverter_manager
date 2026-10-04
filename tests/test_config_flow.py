@@ -876,3 +876,51 @@ class TestOptionsFlowSavedValues:
         with patch("custom_components.givenergy_inverter_manager.config_flow.vol", real_vol):
             key = flow._optional_key("forecast_entity")
         assert key.description is None
+
+
+class TestRatePeriodErrors:
+    def _errors(self, periods, base="Day"):
+        from custom_components.givenergy_inverter_manager.config_flow import _rate_period_errors
+
+        return _rate_period_errors(periods, base)
+
+    def test_valid_periods_have_no_errors(self):
+        periods = [
+            {"name": "Night", "rate": 0.18, "start": "23:00", "end": "08:00"},
+            {"name": "Nightboost", "rate": 0.1, "start": "02:00", "end": "04:00"},
+        ]
+        assert self._errors(periods) == {}
+
+    def test_no_periods_have_no_errors(self):
+        assert self._errors([]) == {}
+
+    def test_same_start_and_end_is_rejected(self):
+        periods = [{"name": "Empty", "rate": 0.01, "start": "00:00", "end": "00:00"}]
+        assert self._errors(periods) == {"base": "rate_period_zero_length"}
+
+    def test_same_start_and_end_midday_is_rejected(self):
+        periods = [{"name": "Empty", "rate": 0.01, "start": "12:30", "end": "12:30"}]
+        assert self._errors(periods) == {"base": "rate_period_zero_length"}
+
+    def test_duplicate_names_ignore_case_and_are_rejected(self):
+        periods = [
+            {"name": "Night", "rate": 0.18, "start": "23:00", "end": "08:00"},
+            {"name": "night", "rate": 0.1, "start": "02:00", "end": "04:00"},
+        ]
+        assert self._errors(periods) == {"base": "rate_period_duplicate_name"}
+
+    def test_name_matching_base_rate_is_rejected(self):
+        periods = [{"name": "day", "rate": 0.18, "start": "10:00", "end": "11:00"}]
+        assert self._errors(periods) == {"base": "rate_period_duplicate_name"}
+
+    def test_error_keys_exist_in_both_translation_files(self):
+        import json
+        from pathlib import Path
+
+        root = Path("custom_components/givenergy_inverter_manager")
+        for name in ("strings.json", "translations/en.json"):
+            data = json.loads((root / name).read_text())
+            for scope in ("config", "options"):
+                errors = data[scope]["error"]
+                assert "rate_period_zero_length" in errors
+                assert "rate_period_duplicate_name" in errors

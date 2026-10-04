@@ -184,3 +184,65 @@ async def test_zero_threshold_survives_reopening_the_form(hass, loaded_entry):
     threshold_section = next(f for f in _serialise(result) if f.get("name") == "threshold_settings")
     defaults = {f["name"]: f.get("default") for f in threshold_section["schema"]}
     assert defaults["cheap_rate_floor_soc"] == 0
+
+
+SLOT_EMPTY = {"name": "Empty", "rate": 0.01, "start": "00:00:00", "end": "00:00:00"}
+
+
+async def test_options_reject_zero_length_rate_period(hass, loaded_entry):
+    before = [dict(p) for p in loaded_entry.data[CONF_RATE_PERIODS]]
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    payload = frontend_payload(
+        result, tariff_settings={"export_rate": 0.21}, rate_period_3=SLOT_EMPTY
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=payload
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "rate_period_zero_length"}
+    assert _serialise(result)
+    tariff_section = next(f for f in _serialise(result) if f.get("name") == "tariff_settings")
+    suggested = {
+        f["name"]: f.get("description", {}).get("suggested_value") for f in tariff_section["schema"]
+    }
+    assert suggested["export_rate"] == pytest.approx(0.21)
+    assert "export_rate" not in loaded_entry.options
+    assert loaded_entry.data[CONF_RATE_PERIODS] == before
+    hass.config_entries.options.async_abort(result["flow_id"])
+
+
+async def test_options_reject_duplicate_rate_period_names(hass, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    slot = {"name": "night", "rate": 0.2, "start": "10:00:00", "end": "11:00:00"}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=frontend_payload(result, rate_period_3=slot)
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "rate_period_duplicate_name"}
+    hass.config_entries.options.async_abort(result["flow_id"])
+
+
+async def test_options_reject_rate_period_named_like_the_base_rate(hass, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    slot = {"name": "Day", "rate": 0.2, "start": "10:00:00", "end": "11:00:00"}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=frontend_payload(result, rate_period_3=slot)
+    )
+    assert result["errors"] == {"base": "rate_period_duplicate_name"}
+    hass.config_entries.options.async_abort(result["flow_id"])
+
+
+async def test_options_accept_a_valid_extra_rate_period(hass, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    slot = {"name": "Evening", "rate": 0.4, "start": "17:00:00", "end": "19:00:00"}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=frontend_payload(result, rate_period_3=slot)
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert [p["name"] for p in loaded_entry.options[CONF_RATE_PERIODS]] == [
+        "Night",
+        "Nightboost",
+        "Evening",
+    ]

@@ -171,7 +171,9 @@
     },
     "error": {
       "missing_entities": "One or more required inverter entities are missing. Please check your GivTCP installation.",
-      "rate_periods_text": "{message}"
+      "rate_periods_text": "{message}",
+      "rate_period_zero_length": "A rate period cannot start and end at the same time. Change its start or end time, or clear its name to remove it.",
+      "rate_period_duplicate_name": "Rate period names must be different from each other and from the base rate name."
     },
     "abort": {
       "already_configured": "Already configured",
@@ -318,6 +320,10 @@
           }
         }
       }
+    },
+    "error": {
+      "rate_period_zero_length": "A rate period cannot start and end at the same time. Change its start or end time, or clear its name to remove it.",
+      "rate_period_duplicate_name": "Rate period names must be different from each other and from the base rate name."
     }
   },
   "entity": {

@@ -181,6 +181,19 @@ def _slots_to_rate_periods(user_input: dict) -> list[dict]:
     return periods
 
 
+def _rate_period_errors(periods: list[dict], base_rate_name: str = "") -> dict[str, str]:
+    """Return form errors for rate periods that cannot work, or an empty dict."""
+    if any(p["start"] == p["end"] for p in periods):
+        return {"base": "rate_period_zero_length"}
+    names = [p["name"].casefold() for p in periods]
+    base = (base_rate_name or "").strip().casefold()
+    if base:
+        names.append(base)
+    if len(names) != len(set(names)):
+        return {"base": "rate_period_duplicate_name"}
+    return {}
+
+
 def _rate_period_section(slot: dict) -> object:
     """Return a section() for one rate-period slot pre-filled from *slot*."""
     return section(
@@ -423,6 +436,10 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         errors: dict[str, str] = {}
         if user_input is not None:
             periods = _slots_to_rate_periods(user_input)
+            errors = _rate_period_errors(
+                periods, str(user_input.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
+            )
+        if user_input is not None and not errors:
             self._data[CONF_RATE_PERIODS] = periods
             for key in [
                 CONF_EXPORT_RATE,
@@ -441,6 +458,8 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             return await self.async_step_forecast()
 
         schema = self._build_tariff_schema()
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(schema, user_input)
         scheduling_status, scheduling_detail = _build_charge_scheduling_summary(self._data)
         return self.async_show_form(
             step_id="tariff",
@@ -678,8 +697,13 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         """
         entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
 
+        errors: dict[str, str] = {}
         if user_input is not None:
             periods = _slots_to_rate_periods(user_input)
+            errors = _rate_period_errors(
+                periods, str(user_input.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
+            )
+        if user_input is not None and not errors:
             updates = {
                 CONF_RATE_PERIODS: periods,
                 CONF_BASE_RATE: float(user_input[CONF_BASE_RATE]),
@@ -702,7 +726,9 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             entry.options.get(CONF_RATE_PERIODS) or entry.data.get(CONF_RATE_PERIODS) or []
         )
         schema = self.__class__._build_tariff_schema(current_periods)
-        return self.async_show_form(step_id="reconfigure", data_schema=schema)
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(schema, user_input)
+        return self.async_show_form(step_id="reconfigure", data_schema=schema, errors=errors)
 
     @staticmethod
     @callback
@@ -756,12 +782,17 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
 
         if user_input is not None:
             tariff = user_input.get("tariff_settings", {})
+            rate_periods = _slots_to_rate_periods(user_input)
+            errors = _rate_period_errors(
+                rate_periods, str(tariff.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
+            )
+        if user_input is not None and not errors:
             thresholds = user_input.get("threshold_settings", {})
             forecast = user_input.get("forecast_settings", {})
             hardware = user_input.get("hardware_settings", {})
             ev_settings = user_input.get("ev_settings", {})
             # Rate periods come from top-level rate_period_N sections
-            self._options[CONF_RATE_PERIODS] = _slots_to_rate_periods(user_input)
+            self._options[CONF_RATE_PERIODS] = rate_periods
             for key in [
                 CONF_EXPORT_RATE,
                 CONF_STANDING_CHARGE,
@@ -1038,6 +1069,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             {"collapsed": True},
         )
 
-        return self.async_show_form(
-            step_id="init", data_schema=vol.Schema(schema_dict), errors=errors
-        )
+        schema = vol.Schema(schema_dict)
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(schema, user_input)
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
