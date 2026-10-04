@@ -2,9 +2,7 @@
 discovery/__init__.py — Auto-discovery modules for GivEnergy Inverter Manager.
 """
 from .ev_charger import (
-    ZAPPI_BATTERY_DRAINING_MODES,
     ZAPPI_ECO_PLUS_MODE,
-    ZAPPI_STOPPED_MODE,
     EVCharger,
     EVChargerBrand,
     EVChargerState,
@@ -14,9 +12,7 @@ from .ev_charger import (
 from .givtcp import GivTCPInverter, discover_givtcp_inverters, get_suggested_entities
 
 __all__ = [
-    "ZAPPI_BATTERY_DRAINING_MODES",
     "ZAPPI_ECO_PLUS_MODE",
-    "ZAPPI_STOPPED_MODE",
     "EVCharger",
     "EVChargerBrand",
     "EVChargerState",

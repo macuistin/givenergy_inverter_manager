@@ -62,7 +62,7 @@ from ..const import (
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
-    EV_SOLAR_SURPLUS_THRESHOLD_W,
+    EV_CHARGER_MIN_POWER_W,
     INVERTER_TEMP_CRITICAL,
     INVERTER_TEMP_DERATING,
     INVERTER_TEMP_STATUS_CRITICAL,
@@ -182,7 +182,7 @@ class CoordinatorData:
         "ev_charger_state",
         "ev_draining_battery",
         "ev_power_w",
-        "ev_protection_active",
+        "ev_mode_change_requested",
         "ev_protection_reason",
         "ev_charging_source",
         "ev_solar_surplus_available",
@@ -304,7 +304,7 @@ class CoordinatorData:
         self.ev_power_w: float = 0.0
         self.ev_session_kwh: float = 0.0
         self.ev_draining_battery: bool = False
-        self.ev_protection_active: bool = False
+        self.ev_mode_change_requested: bool = False
         self.ev_protection_reason: str = ""
         self.ev_available: bool = False
         self.ev_charging_source: str = "Not charging"
@@ -544,7 +544,7 @@ def _process_ev_charger(
         solar_surplus_w=solar_surplus_w,
     )
     data.ev_protection_reason = reason
-    data.ev_protection_active = ev_target_mode is not None
+    data.ev_mode_change_requested = ev_target_mode is not None
 
     # EV charging source classification
     ev_w = ev_charger.power_w
@@ -561,7 +561,7 @@ def _process_ev_charger(
     else:
         data.ev_charging_source = "Mixed"
 
-    data.ev_solar_surplus_available = solar_surplus_w >= EV_SOLAR_SURPLUS_THRESHOLD_W
+    data.ev_solar_surplus_available = solar_surplus_w >= EV_CHARGER_MIN_POWER_W
 
     return ev_target_mode
 

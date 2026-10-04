@@ -125,7 +125,6 @@ DEFAULT_STANDING_CHARGE = 0.8259  # per day
 DEFAULT_PSO_LEVY = 1.46  # per month
 DEFAULT_EXPORT_RATE = 0.195  # per kWh (Irish CEG rate)
 DEFAULT_BILL_START_DAY = 1  # day of month
-EV_SOLAR_SURPLUS_THRESHOLD_W = 1400  # W net surplus needed to flag solar available for EV
 CONF_CAR_EFFICIENCY_KWH_PER_100KM = "car_efficiency_kwh_per_100km"
 DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM = 15.0  # kWh/100km — typical BEV efficiency
 
@@ -231,9 +230,10 @@ THROUGHPUT_BUDGET_STATUS_HIGH = "High"
 THROUGHPUT_BUDGET_STATUS_OVER = "Over budget"
 
 # ── EV diversion parameters ───────────────────────────────────────────────────
-EV_SURPLUS_DIVERT_W = 500  # minimum surplus (W) to switch Zappi to Eco+
 # Minimum power for an OCPP EV charger to start — 6A × 230V single-phase.
 # If the available surplus is below this, the charger will refuse to start.
+# This is also the surplus at which the EV Solar Surplus signal reads Available
+# and the Zappi is switched to Eco+.
 # Based on IEC 61851 minimum of 6A (1,380W at 230V). Single-phase assumption.
 EV_CHARGER_MIN_POWER_W = 1380
 

@@ -511,7 +511,7 @@
         "name": "EV Draining Battery"
       },
       "ev_protection_reason": {
-        "name": "EV Battery Protection Status"
+        "name": "EV Mode Decision"
       },
       "immersion_cost_today": {
         "name": "Immersion Cost Today"

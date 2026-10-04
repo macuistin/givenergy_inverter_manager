@@ -721,7 +721,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="ev_protection_reason",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="ev_protection_reason",
-        name="EV Battery Protection Status",
+        name="EV Mode Decision",
         value_fn=lambda d: d.ev_protection_reason,
         available_fn=lambda d: d.ev_available,
     ),

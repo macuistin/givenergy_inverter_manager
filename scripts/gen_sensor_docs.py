@@ -375,9 +375,9 @@ DESCRIPTIONS: dict[str, str] = {
     "ev_draining_battery": (
         "yes while the charger is charging and the battery discharges over 200 W."
     ),
-    "ev_protection_reason": "Result of the EV rule check.",
+    "ev_protection_reason": "Reason for the latest EV charge mode decision.",
     "ev_charging_source": "Not charging, Solar, Grid, Battery or Mixed.",
-    "ev_solar_surplus_available": "Available when net solar surplus is 1400 W or more.",
+    "ev_solar_surplus_available": "Available when net solar surplus is 1380 W or more.",
     "solar_forecast_kwh_today": "First forecast value the charge calculation used today.",
     "solar_actual_vs_forecast_pct": "Solar generated today as a share of that forecast.",
     "yesterday_forecast_accuracy_pct": (

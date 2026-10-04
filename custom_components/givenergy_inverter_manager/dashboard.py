@@ -624,8 +624,8 @@ def _build_dashboard_yaml(hass: HomeAssistant, entry_id: str) -> str:
                   - entity: {ev_draining}
                     name: Draining Battery
                   - entity: {ev_protection_reason}
-                    name: Protection Status
-                    icon: mdi:shield-check
+                    name: Mode Decision
+                    icon: mdi:car-electric
                   - entity: {ev_charging_source}
                     name: Charging Source
                   - entity: {ev_solar_surplus}

@@ -284,7 +284,7 @@ def log_cycle(log: GivLogger, cycle: int, raw: object, data: object, now: object
             f"  draining={data.ev_draining_battery}"
         )
         if data.ev_protection_reason:
-            lines.append(f"  EV PROTECTION {data.ev_protection_reason!r}")
+            lines.append(f"  EV MODE       {data.ev_protection_reason!r}")
     else:
         lines.append("  EV CHARGER    not discovered")
 

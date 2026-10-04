@@ -12,7 +12,6 @@ Sections:
   should_divert_to_immersion()        — whether to run the immersion heater
   suggest_appliance_run()             — whether now is a good time for a high-load appliance
   decide_ev_charger_action()          — what mode the EV charger should be in
-  should_protect_battery_from_charger() — is the EV drawing from the battery?
 """
 
 from __future__ import annotations
@@ -33,13 +32,11 @@ from ..const import (
     CHARGE_WINTER_MONTHS,
     CLIPPING_THRESHOLD_PERCENT,
     EV_CHARGER_MIN_POWER_W,
-    EV_SURPLUS_DIVERT_W,
     GIVTCP_MIN_WRITE_INTERVAL_S,
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
 from ..discovery.ev_charger import (
-    ZAPPI_BATTERY_DRAINING_MODES,
     ZAPPI_ECO_PLUS_MODE,
     EVCharger,
     EVChargerBrand,
@@ -553,8 +550,10 @@ def decide_ev_charger_action(
     Returns (target_mode_or_None, reason).
 
     Rules (in priority order):
-      1. Solar surplus > EV_SURPLUS_DIVERT_W and Zappi → switch to Eco+
-      2. Otherwise → no change
+      1. No plugged-in vehicle → no change
+      2. Surplus below EV_CHARGER_MIN_POWER_W (the charger cannot start) → no change
+      3. Zappi not already in Eco+ → switch to Eco+
+      4. Otherwise → no change
     """
     if not charger.is_plugged_in:
         return None, "EV not connected"
@@ -568,7 +567,7 @@ def decide_ev_charger_action(
             f"not starting"
         )
 
-    if solar_surplus_w > EV_SURPLUS_DIVERT_W and charger.brand == EVChargerBrand.ZAPPI:
+    if charger.brand == EVChargerBrand.ZAPPI:
         current = (charger.charge_mode or "").lower()
         if current not in ("eco+",):
             return ZAPPI_ECO_PLUS_MODE, (
@@ -579,38 +578,6 @@ def decide_ev_charger_action(
 
     return None, (
         f"Battery SoC {battery_soc:.0f}% OK, surplus {solar_surplus_w:.0f}W — no action needed"
-    )
-
-
-def should_protect_battery_from_charger(
-    charger: EVCharger,
-    battery_soc: float,
-    battery_protection_threshold: float,
-) -> tuple[bool, str]:
-    """
-    Determine whether the battery needs protecting from the EV charger.
-
-    Returns (should_protect, reason).
-    Protection is needed when the charger is actively discharging the battery
-    and SoC is below the protection threshold.
-    """
-    if not charger.is_active:
-        return False, "Charger not active"
-    if not charger.is_draining_battery:
-        return False, "Battery not discharging into car"
-    if battery_soc > battery_protection_threshold:
-        return False, (
-            f"Battery SoC {battery_soc:.0f}% above threshold {battery_protection_threshold:.0f}%"
-        )
-    if charger.brand == EVChargerBrand.ZAPPI and charger.charge_mode:
-        if charger.charge_mode.lower() in ZAPPI_BATTERY_DRAINING_MODES:
-            return True, (
-                f"Zappi in {charger.charge_mode!r} mode drawing from battery "
-                f"(SoC {battery_soc:.0f}% <= {battery_protection_threshold:.0f}%)"
-            )
-    return True, (
-        f"EV charger drawing from battery "
-        f"(SoC {battery_soc:.0f}% <= {battery_protection_threshold:.0f}%)"
     )
 
 

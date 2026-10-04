@@ -174,9 +174,9 @@ Sensors marked `EV charger needed` are unavailable until a supported charger is 
 | EV km Charged Today | `ev_km_charged_today` | km | - | total | yes | no | EV energy today divided by car efficiency. Empty with no EV energy. |
 | EV Cost per km Today | `ev_cost_per_km_today` | currency | - | measurement | no | no | EV cost today divided by km charged. |
 | EV Draining Battery | `ev_draining_battery` | - | - | none | no | yes | yes while the charger is charging and the battery discharges over 200 W. EV charger needed. Diagnostic category. |
-| EV Battery Protection Status | `ev_protection_reason` | - | - | none | no | yes | Result of the EV rule check. EV charger needed. Diagnostic category. |
+| EV Mode Decision | `ev_protection_reason` | - | - | none | no | yes | Reason for the latest EV charge mode decision. EV charger needed. Diagnostic category. |
 | EV Charging Source | `ev_charging_source` | - | - | none | no | yes | Not charging, Solar, Grid, Battery or Mixed. EV charger needed. |
-| EV Solar Surplus | `ev_solar_surplus_available` | - | - | none | no | yes | Available when net solar surplus is 1400 W or more. |
+| EV Solar Surplus | `ev_solar_surplus_available` | - | - | none | no | yes | Available when net solar surplus is 1380 W or more. |
 
 ## Solar forecast
 

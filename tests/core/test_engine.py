@@ -1715,3 +1715,55 @@ class TestUnavailableInputs:
         raw.unavailable_inputs = ("solar_power",)
         data, _ = _run(raw=raw)
         assert data.net_solar_surplus_w == 0.0
+
+
+# ── EV surplus threshold and mode-change flag ───────────────────────────────
+
+
+class TestEVSurplusThreshold:
+    def _zappi(self, mode="Fast"):
+        return EVCharger(
+            brand=EVChargerBrand.ZAPPI,
+            name="Zappi",
+            serial="123",
+            display_name="Zappi (123)",
+            state=EVChargerState.CONNECTED,
+            charge_mode=mode,
+            charge_mode_entity="select.zappi_123_charge_mode",
+        )
+
+    def _run_with_surplus(self, surplus_w, mode="Fast"):
+        raw = _raw(
+            solar_power_w=surplus_w + 500.0,
+            house_load_w=500.0,
+            battery_power_w=0.0,
+            ev_plugged_in=True,
+        )
+        return _run(raw=raw, ev_charger=self._zappi(mode))
+
+    @pytest.mark.parametrize("surplus_w", [1379.0, 1380.0, 1390.0, 1399.0, 1400.0, 1500.0])
+    def test_signal_and_mode_request_switch_at_the_same_surplus(self, surplus_w):
+        data, target = self._run_with_surplus(surplus_w)
+        assert data.ev_solar_surplus_available == (target == ZAPPI_ECO_PLUS_MODE)
+
+    def test_signal_reads_available_at_charger_minimum(self):
+        data, _ = self._run_with_surplus(1380.0)
+        assert data.ev_solar_surplus_available is True
+
+    def test_signal_clear_just_below_charger_minimum(self):
+        data, _ = self._run_with_surplus(1379.0)
+        assert data.ev_solar_surplus_available is False
+
+    def test_mode_change_flag_set_when_switching_to_eco_plus(self):
+        data, target = self._run_with_surplus(3000.0, mode="Fast")
+        assert target == ZAPPI_ECO_PLUS_MODE
+        assert data.ev_mode_change_requested is True
+
+    def test_mode_change_flag_clear_when_already_in_eco_plus(self):
+        data, target = self._run_with_surplus(3000.0, mode="Eco+")
+        assert target is None
+        assert data.ev_mode_change_requested is False
+
+    def test_old_protection_flag_is_gone(self):
+        data, _ = self._run_with_surplus(3000.0)
+        assert not hasattr(data, "ev_protection_active")

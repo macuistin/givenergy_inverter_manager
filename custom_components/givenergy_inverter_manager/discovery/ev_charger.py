@@ -39,30 +39,15 @@ Normalised EV states:
   unknown      — state cannot be determined
 
 ─────────────────────────────────────────────────────────────────────────────
-IMPORTANT: Zappi Eco+ vs Pause — why we PAUSE rather than switch to Eco+
+Zappi mode control
 ─────────────────────────────────────────────────────────────────────────────
-The Zappi runs autonomously using its own CT clamp — it does NOT read from
-GivEnergy. In Eco+ mode the Zappi only charges when it sees net export on
-its own CT. This means:
+The Zappi runs autonomously using its own CT clamp and does not read from
+GivEnergy. The integration only ever selects Eco+ (never Stopped or Fast), and
+only when a vehicle is plugged in and the net solar surplus is at least
+EV_CHARGER_MIN_POWER_W. Eco+ then self-regulates on the surplus the Zappi CT sees.
 
-  • At night: the battery naturally discharges to power the house. The Zappi
-    CT sees that household consumption and does NOT export, so Eco+ would
-    already prevent car charging. But if the Zappi is in Fast mode it will
-    happily draw from the battery. The correct response is to set it to
-    Stopped (paused), not Eco+.
-
-  • During the day: Eco+ and the GivEnergy battery compete for solar surplus.
-    The Zappi CT sees net export and starts charging the car, but that same
-    solar could be going into the battery first. The coordinator handles this
-    by only un-pausing the Zappi once the battery is above its target SoC,
-    then letting Eco+ absorb genuine surplus.
-
-Strategy implemented here:
-  1. If battery SoC < protection threshold → set Zappi to Stopped
-  2. If battery SoC ≥ protection threshold AND solar surplus is available
-     → set Zappi to Eco+ (it will self-regulate on surplus)
-  3. For non-Zappi chargers that have no mode select → rely on battery SoC
-     reporting via the ev_draining_battery sensor; users must handle manually
+For chargers with no mode select, the ev_draining_battery sensor reports battery
+discharge and users must act on it themselves.
 """
 
 from __future__ import annotations
@@ -145,12 +130,8 @@ _STATE_MAP: dict[EVChargerBrand, dict[str, EVChargerState]] = {
     },
 }
 
-# Zappi charge modes that allow drawing from the battery
-ZAPPI_BATTERY_DRAINING_MODES = {"fast", "eco"}
 # Mode to use when we want to absorb genuine solar surplus (no battery draw)
 ZAPPI_ECO_PLUS_MODE = "Eco+"
-# Mode to use when we want to completely pause the Zappi
-ZAPPI_STOPPED_MODE = "Stopped"
 # Keep this as an alias for any remaining references
 ZAPPI_SOLAR_ONLY_MODE = ZAPPI_ECO_PLUS_MODE
 

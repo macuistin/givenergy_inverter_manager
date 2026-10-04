@@ -37,7 +37,7 @@ Decide how much to charge the battery from the grid each night, during the cheap
 When solar output exceeds house load and the battery is sufficiently charged, turn on the immersion heater rather than exporting at a lower rate. Turn it off when surplus drops. Never activate if water is already at target temperature.
 
 **3. Signal solar surplus availability for EV charging**
-The Zappi (myenergi) and GivEnergy inverter are separate systems — the integration cannot directly control Zappi mode or battery discharge. Instead, surface `ev_solar_surplus_available` (True when surplus > 1,400W) so users can build a HA automation to switch the Zappi to Eco+ themselves. Also surface `ev_charging_source` (Solar/Grid/Battery/Mixed) and `ev_draining_battery` for monitoring.
+The Zappi (myenergi) and GivEnergy inverter are separate systems — the integration cannot directly control Zappi mode or battery discharge. Instead, surface `ev_solar_surplus_available` (True when surplus >= 1,380W) so users can build a HA automation to switch the Zappi to Eco+ themselves. Also surface `ev_charging_source` (Solar/Grid/Battery/Mixed) and `ev_draining_battery` for monitoring.
 
 **4. Surface useful energy information as HA sensors**
 Expose real-time and accumulated energy data as first-class HA sensors so users can build dashboards, automations, and energy-cost tracking without any additional configuration.
@@ -161,7 +161,7 @@ The integration surfaces signals for the user to act on via HA automations:
 
 ```
 if ev_plugged_in:
-    if solar_surplus_w > EV_SURPLUS_DIVERT_W:
+    if solar_surplus_w >= EV_CHARGER_MIN_POWER_W:
         ev_solar_surplus_available = True  (signal for Zappi Eco+ automation)
     else:
         ev_solar_surplus_available = False
