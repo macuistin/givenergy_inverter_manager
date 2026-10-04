@@ -776,6 +776,44 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             return vol.Optional(key, description={"suggested_value": current})
         return vol.Optional(key)
 
+    def _save_options(self, user_input: dict, rate_periods: list[dict]):
+        """Store the submitted options and create the entry."""
+        tariff = user_input.get("tariff_settings", {})
+        thresholds = user_input.get("threshold_settings", {})
+        forecast = user_input.get("forecast_settings", {})
+        hardware = user_input.get("hardware_settings", {})
+        ev_settings = user_input.get("ev_settings", {})
+        self._options[CONF_RATE_PERIODS] = rate_periods
+        for key in [
+            CONF_EXPORT_RATE,
+            CONF_STANDING_CHARGE,
+            CONF_PSO_LEVY,
+            CONF_VAT_RATE,
+            CONF_DISCOUNT_RATE,
+        ]:
+            self._options[key] = float(tariff[key])
+        self._options[CONF_BILL_START_DAY] = int(tariff[CONF_BILL_START_DAY])
+        self._options[CONF_BASE_RATE] = float(tariff[CONF_BASE_RATE])
+        self._options[CONF_BASE_RATE_NAME] = str(
+            tariff.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
+        )
+        self._options[CONF_CURRENCY] = tariff.get(CONF_CURRENCY, DEFAULT_CURRENCY)
+        self._options.update(thresholds)
+        for key in (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT, CONF_IMMERSION_WATTAGE):
+            if key in hardware:
+                self._options[key] = float(hardware[key])
+        for key in _OPTIONAL_FORECAST_KEYS:
+            self._options[key] = forecast.get(key, "")
+        if CONF_FORECAST_CONSERVATISM in forecast:
+            self._options[CONF_FORECAST_CONSERVATISM] = float(
+                forecast[CONF_FORECAST_CONSERVATISM]
+            )
+        if CONF_CAR_EFFICIENCY_KWH_PER_100KM in ev_settings:
+            self._options[CONF_CAR_EFFICIENCY_KWH_PER_100KM] = float(
+                ev_settings[CONF_CAR_EFFICIENCY_KWH_PER_100KM]
+            )
+        return self.async_create_entry(title="", data=self._options)
+
     async def async_step_init(self, user_input=None):
         """Single-page options: tariff, per-period rates, thresholds, forecast."""
         errors: dict[str, str] = {}
@@ -787,41 +825,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                 rate_periods, str(tariff.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
             )
         if user_input is not None and not errors:
-            thresholds = user_input.get("threshold_settings", {})
-            forecast = user_input.get("forecast_settings", {})
-            hardware = user_input.get("hardware_settings", {})
-            ev_settings = user_input.get("ev_settings", {})
-            # Rate periods come from top-level rate_period_N sections
-            self._options[CONF_RATE_PERIODS] = rate_periods
-            for key in [
-                CONF_EXPORT_RATE,
-                CONF_STANDING_CHARGE,
-                CONF_PSO_LEVY,
-                CONF_VAT_RATE,
-                CONF_DISCOUNT_RATE,
-            ]:
-                self._options[key] = float(tariff[key])
-            self._options[CONF_BILL_START_DAY] = int(tariff[CONF_BILL_START_DAY])
-            self._options[CONF_BASE_RATE] = float(tariff[CONF_BASE_RATE])
-            self._options[CONF_BASE_RATE_NAME] = str(
-                tariff.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
-            )
-            self._options[CONF_CURRENCY] = tariff.get(CONF_CURRENCY, DEFAULT_CURRENCY)
-            self._options.update(thresholds)
-            for key in (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT, CONF_IMMERSION_WATTAGE):
-                if key in hardware:
-                    self._options[key] = float(hardware[key])
-            for key in _OPTIONAL_FORECAST_KEYS:
-                self._options[key] = forecast.get(key, "")
-            if CONF_FORECAST_CONSERVATISM in forecast:
-                self._options[CONF_FORECAST_CONSERVATISM] = float(
-                    forecast[CONF_FORECAST_CONSERVATISM]
-                )
-            if CONF_CAR_EFFICIENCY_KWH_PER_100KM in ev_settings:
-                self._options[CONF_CAR_EFFICIENCY_KWH_PER_100KM] = float(
-                    ev_settings[CONF_CAR_EFFICIENCY_KWH_PER_100KM]
-                )
-            return self.async_create_entry(title="", data=self._options)
+            return self._save_options(user_input, rate_periods)
 
         current_periods = self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS)
         slots = _periods_to_slot_defaults(current_periods)
