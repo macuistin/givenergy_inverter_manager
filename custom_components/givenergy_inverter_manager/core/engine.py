@@ -706,9 +706,10 @@ def _calculate_ev_km(data: CoordinatorData, acc: EnergyAccumulator, cfg: dict[st
         cfg.get(CONF_CAR_EFFICIENCY_KWH_PER_100KM, DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM)
     )
     if car_efficiency > 0 and acc.zappi_kwh > 0:
-        data.ev_km_charged_today = round(acc.zappi_kwh / car_efficiency * 100, 1)
+        km = acc.zappi_kwh / car_efficiency * 100
+        data.ev_km_charged_today = round(km, 1)
         if acc.zappi_cost > 0:
-            data.ev_cost_per_km_today = round(acc.zappi_cost / data.ev_km_charged_today, 4)
+            data.ev_cost_per_km_today = round(acc.zappi_cost / km, 4)
 
 
 def _calculate_night_survival(

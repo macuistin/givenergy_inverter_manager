@@ -263,13 +263,15 @@ class TestSensorDefaultEnabled:
         "Battery Power Direction",
         "Integration Version",
         "Days Elapsed in Bill Period",
+        "EV km Charged Today",
+        "EV Cost per km Today",
     }
 
     def test_exactly_five_sensors_disabled(self):
-        """Exactly 38 sensors should be disabled by default."""
+        """Exactly 40 sensors should be disabled by default."""
         state = _parse_sensor_enabled_state()
         disabled = [n for n, enabled in state.items() if not enabled]
-        assert len(disabled) == 38, f"Expected 38 disabled sensors, got {len(disabled)}: {disabled}"
+        assert len(disabled) == 40, f"Expected 40 disabled sensors, got {len(disabled)}: {disabled}"
 
     def test_disabled_sensors_are_the_expected_ones(self):
         """The disabled sensors must be the HTML reports and forecast accuracy."""

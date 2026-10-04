@@ -457,3 +457,29 @@ class TestMiscellaneousSensors:
 
         manifest = _SENSOR_PY.parent / "manifest.json"
         assert json.loads(manifest.read_text())["version"] == INTEGRATION_VERSION
+
+
+class TestEvKmSensors:
+    def test_km_value_fn(self):
+        from unittest.mock import MagicMock
+
+        d = MagicMock()
+        d.ev_km_charged_today = 42.5
+        assert _lambda_for("ev_km_charged_today")(d) == 42.5
+
+    def test_cost_per_km_value_fn(self):
+        from unittest.mock import MagicMock
+
+        d = MagicMock()
+        d.ev_cost_per_km_today = None
+        assert _lambda_for("ev_cost_per_km_today")(d) is None
+
+    def test_cost_per_km_is_not_a_daily_total(self):
+        for node in ast.walk(_TREE):
+            if isinstance(node, ast.Call) and any(
+                kw.arg == "key"
+                and isinstance(kw.value, ast.Constant)
+                and kw.value.value == "ev_cost_per_km_today"
+                for kw in node.keywords
+            ):
+                assert not any(kw.arg == "is_daily_total" for kw in node.keywords)

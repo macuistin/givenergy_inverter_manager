@@ -1429,3 +1429,47 @@ class TestNextCheapRate:
         data, _ = _run(cfg=cfg)
         assert data.hours_to_cheap_rate is None
         assert data.next_cheap_rate_start is None
+
+
+class TestEvKm:
+    """EV km charged and cost per km derive from today's Zappi kWh and cost."""
+
+    @staticmethod
+    def _calc(zappi_kwh, zappi_cost, efficiency=None):
+        from custom_components.givenergy_inverter_manager.core.engine import _calculate_ev_km
+
+        data = CoordinatorData()
+        acc = EnergyAccumulator()
+        acc.zappi_kwh = zappi_kwh
+        acc.zappi_cost = zappi_cost
+        cfg = {} if efficiency is None else {"car_efficiency_kwh_per_100km": efficiency}
+        _calculate_ev_km(data, acc, cfg)
+        return data
+
+    def test_km_from_default_efficiency(self):
+        data = self._calc(zappi_kwh=15.0, zappi_cost=3.0)
+        assert data.ev_km_charged_today == pytest.approx(100.0)
+        assert data.ev_cost_per_km_today == pytest.approx(0.03)
+
+    def test_km_from_configured_efficiency(self):
+        data = self._calc(zappi_kwh=18.0, zappi_cost=3.6, efficiency=18.0)
+        assert data.ev_km_charged_today == pytest.approx(100.0)
+
+    def test_none_when_nothing_charged(self):
+        data = self._calc(zappi_kwh=0.0, zappi_cost=0.0)
+        assert data.ev_km_charged_today is None
+        assert data.ev_cost_per_km_today is None
+
+    def test_tiny_charge_does_not_divide_by_zero(self):
+        data = self._calc(zappi_kwh=0.005, zappi_cost=0.001)
+        assert data.ev_km_charged_today == 0.0
+        assert data.ev_cost_per_km_today is not None
+
+    def test_cost_per_km_none_when_no_cost(self):
+        data = self._calc(zappi_kwh=10.0, zappi_cost=0.0)
+        assert data.ev_km_charged_today is not None
+        assert data.ev_cost_per_km_today is None
+
+    def test_zero_efficiency_is_ignored(self):
+        data = self._calc(zappi_kwh=10.0, zappi_cost=2.0, efficiency=0.0)
+        assert data.ev_km_charged_today is None

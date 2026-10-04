@@ -550,7 +550,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:car-electric",
-        is_daily_total=True,
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.ev_cost_per_km_today,
     ),
