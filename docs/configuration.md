@@ -167,6 +167,6 @@ Saved options override setup data. After you have saved the Configure page once,
 
 ## Things to know
 
-- **Bill start day.** The month totals reset on the bill start day saved at setup or in Reconfigure. A different day saved on the options page changes the day counts in the bill sensors but not the month reset.
+- **Bill start day.** The month totals reset at midnight on the bill start day. A day saved on the options page takes precedence over the one saved at setup or in Reconfigure, and applies from the next 30-second cycle.
 - **Immersion temperatures.** Target, minimum and restart gap are changed with number entities, not the options page. See [Entities](entities.md).
 - **Forecast provider.** The choice is stored and not used. Set the sensors.

@@ -113,10 +113,10 @@ Estimates for the current bill period. See [Tariff](tariff.md#bill-line-items).
 
 | Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Accrued Bill This Period | `accrued_bill` | currency | monetary | total | no | yes | Today's import cost plus standing charge and PSO levy (with VAT) for the days elapsed. |
+| Accrued Bill This Period | `accrued_bill` | currency | monetary | total | no | yes | Bill so far this period: energy less the supplier saving, standing charge and PSO levy, VAT, minus export earnings. |
 | Projected Bill This Period | `projected_bill` | currency | monetary | none | no | yes | Accrued bill spread over the whole bill period. |
-| Days Remaining in Bill Period | `days_remaining_in_period` | days | - | measurement | no | yes | Days until the next bill start day. |
-| Days Elapsed in Bill Period | `days_in_period` | days | - | measurement | no | no | Days elapsed in the bill period, minimum 1. |
+| Days Remaining in Bill Period | `days_remaining_in_period` | days | - | measurement | no | yes | Days left in the bill period after today. |
+| Days Elapsed in Bill Period | `days_in_period` | days | - | measurement | no | no | Day of the bill period, 1 on the bill start day. |
 
 ## Battery
 

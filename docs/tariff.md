@@ -14,7 +14,8 @@ Rules for windows:
 - Times are `HH:MM` in Home Assistant's time zone.
 - The start is included and the end is not. A window `23:00` to `08:00` is active at 23:00 and at 07:59, and not at 08:00.
 - A window may cross midnight. If the end is earlier than the start, it runs overnight.
-- A window whose start equals its end is never active.
+- A window whose start equals its end is never active. The forms reject it, and a stored one is skipped with a warning in the log.
+- Names must differ from each other and from the base rate name, ignoring case.
 - A slot with an empty name is ignored.
 
 ## Which rate applies
@@ -59,7 +60,7 @@ All amounts use your tariff values. The percentages are the VAT rate and the sup
 |---|---|
 | Import energy | kWh x rate x (1 - discount) x (1 + VAT) |
 | Export earnings | kWh x export rate. No discount, no VAT |
-| Standing charge | (daily standing charge x days + PSO levy x days / 30.44) x (1 + VAT). No discount |
+| Standing charge and PSO levy | (daily standing charge x days + PSO levy x days / days in the bill period) x (1 + VAT). No discount. The PSO levy is one flat amount per bill period, so a full period charges it once |
 
 With the default tariff and 10 kWh:
 
@@ -69,25 +70,40 @@ With the default tariff and 10 kWh:
 | Import at 12:00 (Day) | 10 x 0.3334 x 0.945 x 1.09 | 3.4342 |
 | Import at 23:30 (Night) | 10 x 0.1644 x 0.945 x 1.09 | 1.6934 |
 | Export | 10 x 0.195 | 1.9500 |
-| Standing charge and PSO for 10 days | (0.8259 x 10 + 1.46 x 10 / 30.44) x 1.09 | 9.5251 |
+| Standing charge and PSO for 10 days of a 31 day period | (0.8259 x 10 + 1.46 x 10 / 31) x 1.09 | 9.5157 |
 
 ### Bill sensors
 
-Accrued Bill This Period is today's import cost plus the standing charge and PSO levy for the days elapsed in the bill period. It does not add the import cost of earlier days, and it leaves out export earnings.
+Accrued Bill This Period is the bill so far, worked out the way the supplier works it out. Each line is rounded to cents.
+
+| Line | Formula |
+|---|---|
+| Energy | kWh x rate for each rate period, summed over the bill period |
+| Supplier saving | Discount % of the energy line. Energy only |
+| Standing charge | Daily standing charge x days elapsed |
+| PSO levy | One flat amount per bill period, charged in proportion to the days elapsed |
+| VAT | VAT % of energy less saving, plus standing charge, plus PSO levy |
+| Export credit | Export kWh x export rate. No VAT, and taken off after VAT |
+
+The accrued bill is energy less saving, plus standing charge, PSO levy and VAT, minus the export credit. It reads the month totals, which reset on the bill start day.
 
 Projected Bill This Period is the accrued bill divided by the days elapsed, times the days in the whole period.
 
-Days elapsed counts the days since the bill start day, not including today, with a minimum of 1. Days remaining counts to the next bill start day.
+Days elapsed is the day of the bill period: the bill start day is day 1. Days remaining is the days left after today, so elapsed plus remaining is the length of the period (28 to 31 days).
 
-Example: bill start day 1, on 15 October, with 2.00 of import cost today.
+Example from a real bill, 16 August to 15 September, 31 days, bill start day 16:
 
-| Step | Value |
-|---|---|
-| Days elapsed | 14 |
-| Days remaining | 17 |
-| Standing charge and PSO for 14 days | 13.3352 |
-| Accrued bill | 2.00 + 13.3352 = 15.3352 |
-| Projected bill | 15.3352 / 14 x 31 = 33.96 |
+| Line | Calculation | Amount |
+|---|---|---|
+| Energy | 154 kWh x 0.1056 + 33 kWh x 0.365 + 517 kWh x 0.18 | 121.37 |
+| Supplier saving | 5.5% of 121.37 | -6.68 |
+| Standing charge | 31 x 0.8259 | 25.60 |
+| PSO levy | flat, full period | 1.46 |
+| VAT | 9% of 141.75 | 12.76 |
+| Export credit | 179 kWh x 0.195 | -34.91 |
+| Bill | | 119.60 |
+
+On 15 September the accrued and projected bill are both 119.60.
 
 ### Where costs go
 
@@ -99,7 +115,7 @@ Each cycle's import cost is split between the EV charger, the immersion and the 
 |---|---|
 | Export / CEG rate | Paid per kWh exported. Default 0.195 |
 | Standing charge | Fixed daily charge. Default 0.8259 |
-| PSO levy | Monthly levy, spread across days as days / 30.44. Default 1.46. Set 0 if you have none |
+| PSO levy | One flat amount per bill period. A part period is charged in proportion to its days. Default 1.46. Set 0 if you have none |
 | VAT rate | Default 9.0 |
 | Supplier discount | Default 5.5. Applied to import energy only |
 | Bill start day | 1 to 28. See the note on the month reset in [Configuration](configuration.md#things-to-know) |

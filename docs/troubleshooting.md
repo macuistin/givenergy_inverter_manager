@@ -121,9 +121,9 @@ Accumulated energy is saved every 5 minutes and at midnight, not at shutdown. Se
 
 The year sensors, Missed Solar Today and Inverter Derating Today are not saved at all.
 
-## The bill sensors look low
+## The bill sensors look low early in the period
 
-Accrued Bill This Period is today's import cost plus standing charges for the days elapsed. It does not add earlier days' import cost. For the month so far, use Import cost this month. See [Tariff](tariff.md#bill-sensors).
+Accrued Bill This Period is built from the month totals, which start again on the bill start day. Early in a period it is low because few days have passed. See [Tariff](tariff.md#bill-sensors).
 
 ## A sensor shows unknown
 

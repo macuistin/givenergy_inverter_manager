@@ -328,11 +328,12 @@ DESCRIPTIONS: dict[str, str] = {
     "solar_capture_efficiency_today": "Solar generated minus missed solar, as a share of solar.",
     "battery_roundtrip_efficiency_today": "Energy out of the battery divided by energy in.",
     "accrued_bill": (
-        "Today's import cost plus standing charge and PSO levy (with VAT) for the days elapsed."
+        "Bill so far this period: energy less the supplier saving, standing charge and PSO levy, "
+        "VAT, minus export earnings."
     ),
     "projected_bill": "Accrued bill spread over the whole bill period.",
-    "days_remaining_in_period": "Days until the next bill start day.",
-    "days_in_period": "Days elapsed in the bill period, minimum 1.",
+    "days_remaining_in_period": "Days left in the bill period after today.",
+    "days_in_period": "Day of the bill period, 1 on the bill start day.",
     "battery_cycles": "Sum of SoC changes, up and down, divided by 100.",
     "battery_remaining_life": "100 minus total cycles as a share of 6000 rated cycles.",
     "days_since_full_charge": "Days since the battery last reached 99% or more.",

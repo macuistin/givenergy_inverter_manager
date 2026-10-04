@@ -11,7 +11,7 @@ The integration registers six actions under `givenergy_inverter_manager`. Run th
 | [`get_dashboard_yaml`](#get_dashboard_yaml) | none | nothing |
 | [`suggest_appliance_run`](#suggest_appliance_run) | `appliance_name`, `appliance_power_w` | nothing |
 | [`get_roi_summary`](#get_roi_summary) | none | ROI figures |
-| [`compare_tariff`](#compare_tariff) | `rate`, optional `standing_charge`, `export_rate` | cost comparison |
+| [`compare_tariff`](#compare_tariff) | `rate`, optional `standing_charge`, `export_rate`, `discount_rate`, `vat_rate`, `pso_levy` | cost comparison |
 | [`year_on_year_summary`](#year_on_year_summary) | none | month against last year |
 | [`export_energy_data`](#export_energy_data) | none | nothing |
 
@@ -75,13 +75,16 @@ The `year` block starts from zero after every restart or reload, because the yea
 
 ## compare_tariff
 
-Compares this bill period against a flat-rate alternative, using the kWh imported and exported since the bill period started.
+Compares this bill period against a flat-rate alternative, using the kWh imported and exported since the bill period started. Both tariffs are billed the same way: energy, supplier saving, standing charge, PSO levy, VAT, then the export credit. See [Tariff](tariff.md#bill-sensors).
 
 | Field | Required | Default | Notes |
 |---|---|---|---|
-| `rate` | yes | none | Import rate per kWh of the alternative |
+| `rate` | yes | none | Import rate per kWh of the alternative, before discount and VAT |
 | `standing_charge` | no | 0 | Daily standing charge of the alternative |
 | `export_rate` | no | 0 | Export rate per kWh of the alternative |
+| `discount_rate` | no | your tariff's | Supplier discount of the alternative, in percent |
+| `vat_rate` | no | your tariff's | VAT of the alternative, in percent |
+| `pso_levy` | no | your tariff's | PSO levy of the alternative for a whole bill period |
 
 ```yaml
 action: givenergy_inverter_manager.compare_tariff
@@ -92,14 +95,17 @@ data:
 response_variable: comparison
 ```
 
-Response keys: `period_days`, `import_kwh`, `export_kwh`, `current_tariff` (`import_cost`, `export_earnings`, `net_cost`), `comparison_tariff` (`rate`, `standing_charge_per_day`, `export_rate`, `import_cost`, `standing_charges`, `export_earnings`, `net_cost`) and `saving`.
+Response keys: `period_days`, `period_length_days`, `import_kwh`, `export_kwh`, `current_tariff`, `comparison_tariff`, `saving`, `entry_id`, `title` and `entries`.
+
+`current_tariff` and `comparison_tariff` both have `import_cost`, `standing_charges`, `export_earnings`, `net_cost`, `discount_rate`, `vat_rate` and `bill`. `bill` lists the line items: `energy`, `supplier_saving`, `standing_charge`, `pso_levy`, `vat`, `export_credit` and `total`. The alternative also has `rate`, `standing_charge_per_day`, `export_rate` and `pso_levy_per_period`.
 
 How to read it:
 
-- The current tariff's import cost already includes your supplier discount and VAT. The alternative is `import_kwh x rate` with nothing added. Enter the alternative's rate after its own discount and VAT.
-- `net_cost` is import cost minus export earnings. For the current tariff it leaves out the standing charge. For the alternative it adds `standing_charge x period_days`. Leave `standing_charge` at 0 for a like-for-like comparison.
+- `import_cost` is energy less the supplier saving, with VAT. `standing_charges` is standing charge plus PSO levy, with VAT. `net_cost` is `import_cost + standing_charges - export_earnings`, which equals `bill.total`.
+- The alternative uses your tariff's discount, VAT and PSO levy unless you set them in the call.
 - `saving` is the current net cost minus the alternative's net cost. A positive number means the alternative is cheaper.
-- `period_days` is the days elapsed in the bill period, minimum 1.
+- `period_days` is the day of the bill period (1 on the bill start day). `period_length_days` is the whole period.
+- The top level of the response is the first loaded entry. `entries` lists every loaded entry with its own `entry_id` and `title`, each compared against its own tariff.
 
 ## year_on_year_summary
 
