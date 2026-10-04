@@ -144,7 +144,7 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
     _LOG.debug("Migrating from version %s", config_entry.version)
 
     if config_entry.version == 1:
-        # Future migrations go here
-        pass
+        return True
 
-    return True
+    _LOG.error("Cannot migrate config entry from unknown version %s", config_entry.version)
+    return False
