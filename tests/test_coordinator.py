@@ -413,6 +413,18 @@ class TestCollectRaw:
         # Assert
         assert raw.forecast_kwh_p10 == pytest.approx(6.0)
 
+    def test_reads_forecast_d2_when_configured(self):
+        cfg = _cfg(**{"forecast_entity_d2": "sensor.forecast_d2"})
+        coord = FakeCoordinator(cfg=cfg)
+        coord.set_state("sensor.forecast_d2", "21.5")
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.forecast_kwh_d2 == pytest.approx(21.5)
+
+    def test_forecast_d2_absent_when_not_configured(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.forecast_kwh_d2 is None
+
     def test_forecast_p10_absent_when_not_configured(self):
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())

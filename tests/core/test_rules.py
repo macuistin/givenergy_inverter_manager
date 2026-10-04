@@ -483,6 +483,36 @@ class TestForecastConservatism:
         assert decision_with_p10.target_soc >= decision_p50_only.target_soc
 
 
+class TestForecastBlendWeightClamp:
+    """The P10/P50 blend weight stays inside 0 to 1 for any conservatism value."""
+
+    def _decide(self, conservatism):
+        return calculate_overnight_charge_target(
+            current_soc=50.0,
+            battery_capacity_kwh=19.0,
+            forecast_kwh=14.0,
+            inverter_max_kw=5.0,
+            car_plugged_in=False,
+            min_soc=10,
+            skip_charge_threshold=75,
+            average_daily_consumption_kwh=20.0,
+            cheapest_rate=0.0965,
+            forecast_kwh_p10=6.0,
+            forecast_conservatism=conservatism,
+            dt=datetime(2026, 6, 15, 22, 0),
+        )
+
+    def test_negative_conservatism_behaves_as_zero(self):
+        assert self._decide(-0.5).forecast_kwh == pytest.approx(14.0)
+
+    def test_conservatism_above_one_behaves_as_one(self):
+        assert self._decide(1.5).forecast_kwh == pytest.approx(6.0)
+
+    @pytest.mark.parametrize("conservatism", [-1.0, -0.1, 0.0, 0.05, 0.5, 0.95, 1.0, 2.0])
+    def test_blended_forecast_between_p10_and_p50(self, conservatism):
+        assert 6.0 <= self._decide(conservatism).forecast_kwh <= 14.0
+
+
 class TestImmersionHysteresis:
     """Hysteresis prevents rapid on/off cycling near the target temperature.
 
