@@ -6,7 +6,7 @@ get_dashboard_yaml:
     persistent notification with setup steps. Paste the file into a new blank
     dashboard via Raw configuration editor, or point a YAML-mode dashboard at it.
 
-    The dashboard has four views: Power Flow, Today, Battery, and Controls.
+    The dashboard has five views: Power Flow, Today, Bill, Battery, and Controls.
     View 1 requires power-flow-card-plus from HACS.
   fields: {}
 

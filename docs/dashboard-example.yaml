@@ -301,17 +301,58 @@ views:
         yellow: 40
         red: 0
     title: Self Sufficiency
+- title: Bill
+  icon: mdi:receipt-text
+  path: bill
+  cards:
   - type: entities
     entities:
+    - entity: sensor.givenergy_inverter_manager_import_cost_this_month
+      name: Import cost this month
+    - entity: sensor.givenergy_inverter_manager_export_earnings_this_month
+      name: Export earnings this month
     - entity: sensor.givenergy_inverter_manager_accrued_bill_this_period
-      name: Accrued This Period
+      name: Accrued bill this period
     - entity: sensor.givenergy_inverter_manager_projected_bill_this_period
-      name: Projected Total
-    - entity: sensor.givenergy_inverter_manager_days_remaining_in_bill_period
-      name: Days Remaining
-    title: Bill Prediction
+      name: Projected bill this period
+    title: Bill so far
     show_header_toggle: false
     state_color: false
+  - type: entities
+    entities:
+    - entity: sensor.givenergy_inverter_manager_days_elapsed_in_bill_period
+      name: Days elapsed
+    - entity: sensor.givenergy_inverter_manager_days_remaining_in_bill_period
+      name: Days remaining
+    title: Bill period
+    show_header_toggle: false
+    state_color: false
+  - type: entities
+    entities:
+    - entity: sensor.givenergy_inverter_manager_average_import_rate_this_month
+      name: Average import rate this month
+    - entity: sensor.givenergy_inverter_manager_cheap_rate_import_fraction_this_month
+      name: Cheap rate share of import
+    title: Import mix this month
+    show_header_toggle: false
+    state_color: false
+  - type: markdown
+    title: Tariff in use
+    content: |-
+      | Period | Window | Rate per kWh | Billed per kWh |
+      |---|---|---:|---:|
+      | Day | all other times | €0.3334 | €0.3434 |
+      | Night | 23:00 to 08:00 | €0.1644 | €0.1693 |
+      | Nightboost | 02:00 to 04:00 | €0.0965 | €0.0994 |
+
+      Billed per kWh is the rate less the 5.5% discount, plus 9% VAT. Where periods overlap, the cheapest applies.
+
+      | Other charge | Value |
+      |---|---:|
+      | Export rate | €0.1950 per kWh |
+      | Standing charge | €0.8259 per day |
+      | PSO levy | €1.46 per bill period |
+      | Bill starts on day | 1 |
 - title: Battery
   icon: mdi:battery-charging
   path: battery

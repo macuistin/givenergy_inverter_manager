@@ -65,28 +65,22 @@ class TestBuildDashboardYaml:
         parsed = yaml.safe_load(result)
         assert "views" in parsed
 
-    def test_has_four_views(self):
+    def test_has_five_views(self):
         result = _build()
         parsed = yaml.safe_load(result)
-        assert len(parsed["views"]) == 4
+        assert len(parsed["views"]) == 5
 
     def test_view_titles(self):
         result = _build()
         parsed = yaml.safe_load(result)
         titles = [v["title"] for v in parsed["views"]]
-        assert "Power Flow" in titles
-        assert "Today" in titles
-        assert "Battery" in titles
-        assert "Controls" in titles
+        assert titles == ["Power Flow", "Today", "Bill", "Battery", "Controls"]
 
     def test_view_paths(self):
         result = _build()
         parsed = yaml.safe_load(result)
         paths = [v["path"] for v in parsed["views"]]
-        assert "power-flow" in paths
-        assert "today" in paths
-        assert "battery" in paths
-        assert "controls" in paths
+        assert paths == ["power-flow", "today", "bill", "battery", "controls"]
 
     def test_sensor_references_present(self):
         """Key entities must appear in the output."""
@@ -615,6 +609,7 @@ class TestEntityAvailability:
         assert [v["path"] for v in parsed["views"]] == [
             "power-flow",
             "today",
+            "bill",
             "battery",
             "controls",
         ]
@@ -806,3 +801,101 @@ class TestStatisticsGraphs:
         """SoC and power do not reset, so a line graph is right for them."""
         graphs = [c for c in _cards(_build(), "battery") if c["type"] == "history-graph"]
         assert len(graphs) == 1
+
+
+class TestBillView:
+    """A view of the month so far and the tariff behind it, to compare with a real bill."""
+
+    def test_bill_view_has_the_month_figures(self):
+        text = yaml.dump(_cards(_build(), "bill"))
+        for key in (
+            "import_cost_this_month",
+            "export_earnings_this_month",
+            "accrued_bill",
+            "projected_bill",
+            "days_in_period",
+            "days_remaining_in_period",
+            "avg_import_rate_this_month",
+            "cheap_import_fraction_this_month",
+        ):
+            assert eid(key) in text, key
+
+    def test_bill_view_uses_only_built_in_cards(self):
+        types = {c["type"] for c in _cards(_build(), "bill")}
+        assert types <= {"entities", "markdown", "tile", "grid", "glance"}
+
+    def test_disabled_by_default_figures_are_left_out_and_listed(self):
+        text = _build(registry=FakeRegistry())
+        bill = yaml.dump(_cards(text, "bill"))
+        for key in (
+            "days_in_period",
+            "avg_import_rate_this_month",
+            "cheap_import_fraction_this_month",
+        ):
+            assert eid(key) not in bill
+        header = text[: text.index("views:")]
+        assert "Days Elapsed in Bill Period" in header
+        assert "Average Import Rate This Month" in header
+
+    def test_bill_prediction_moved_off_the_today_view(self):
+        titles = [c.get("title") for c in _cards(_build(), "today")]
+        assert "Bill Prediction" not in titles
+
+    def _tariff_markdown(self, config=None) -> str:
+        cards = _cards(_build(config=config), "bill")
+        return next(c for c in cards if c["type"] == "markdown")["content"]
+
+    def test_tariff_table_lists_base_rate_and_periods(self):
+        table = self._tariff_markdown()
+        assert "| Day | all other times | €0.3334 |" in table
+        assert "| Night | 23:00 to 08:00 | €0.1644 |" in table
+        assert "| Nightboost | 02:00 to 04:00 | €0.0965 |" in table
+
+    def test_tariff_table_shows_the_billed_rate(self):
+        """Billed per kWh follows the docs: rate x (1 - discount) x (1 + VAT)."""
+        table = self._tariff_markdown()
+        assert "€0.3334 | €0.3434 |" in table
+        assert "€0.0965 | €0.0994 |" in table
+
+    def test_tariff_table_reads_the_config_entry(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_BASE_RATE,
+            CONF_BASE_RATE_NAME,
+            CONF_BILL_START_DAY,
+            CONF_CURRENCY,
+            CONF_DISCOUNT_RATE,
+            CONF_EXPORT_RATE,
+            CONF_PSO_LEVY,
+            CONF_RATE_PERIODS,
+            CONF_STANDING_CHARGE,
+            CONF_VAT_RATE,
+        )
+
+        table = self._tariff_markdown(
+            {
+                CONF_BASE_RATE: 0.30,
+                CONF_BASE_RATE_NAME: "Standard",
+                CONF_RATE_PERIODS: [
+                    {"name": "Off-peak", "rate": 0.10, "start": "00:30", "end": "05:30"}
+                ],
+                CONF_EXPORT_RATE: 0.15,
+                CONF_STANDING_CHARGE: 0.5,
+                CONF_PSO_LEVY: 0,
+                CONF_VAT_RATE: 20,
+                CONF_DISCOUNT_RATE: 0,
+                CONF_BILL_START_DAY: 12,
+                CONF_CURRENCY: "GBP",
+            }
+        )
+        assert "| Standard | all other times | £0.3000 | £0.3600 |" in table
+        assert "| Off-peak | 00:30 to 05:30 | £0.1000 | £0.1200 |" in table
+        assert "Night" not in table
+        assert "less the 0% discount, plus 20% VAT" in table
+        assert "| Export rate | £0.1500 per kWh |" in table
+        assert "| Standing charge | £0.5000 per day |" in table
+        assert "| PSO levy | £0.00 per bill period |" in table
+        assert "| Bill starts on day | 12 |" in table
+
+    def test_tariff_table_falls_back_to_the_defaults_the_engine_uses(self):
+        table = self._tariff_markdown(config={})
+        assert "| Night | 23:00 to 08:00 | €0.1644 |" in table

@@ -67,7 +67,7 @@ After regenerating, reload the dashboard or restart Home Assistant.
 
 Everything else uses built-in Home Assistant cards.
 
-## The four views
+## The five views
 
 ### Power Flow
 
@@ -80,9 +80,24 @@ For the EV load, the dashboard uses the first of these entities that exists, els
 
 ### Today
 
-Energy totals, current rate and rate period, a cost breakdown (import, export, EV, immersion, immersion savings, rest of house), a bar graph of cost per day over 14 days, a bar graph of solar generation per hour over 2 days, a solar against forecast card, self-sufficiency and self-consumption gauges, and the bill prediction card.
+Energy totals, current rate and rate period, a cost breakdown (import, export, EV, immersion, immersion savings, rest of house), a bar graph of cost per day over 14 days, a bar graph of solar generation per hour over 2 days, a solar against forecast card, and self-sufficiency and self-consumption gauges.
 
 The two graphs are statistics graphs, not history graphs. The daily sensors fall to zero at midnight, so a history graph of them draws a sawtooth. The graphs plot the change in each period instead, from the long-term statistics. They stay empty until Home Assistant has compiled statistics for the sensors, which takes up to an hour.
+
+### Bill
+
+Figures for the current bill period, next to the tariff they were worked out from, so you can hold them against a real bill.
+
+- **Bill so far**: Import cost this month, Export earnings this month, Accrued Bill This Period and Projected Bill This Period.
+- **Bill period**: Days Elapsed in Bill Period and Days Remaining in Bill Period.
+- **Import mix this month**: Average Import Rate This Month and Cheap rate import fraction this month.
+- **Tariff in use**: a table of the base rate and each timed rate period with its window, the rate, and the rate billed per kWh after the supplier discount and VAT. It also lists the export rate, standing charge, PSO levy and bill start day.
+
+The tariff table is read from your options when the file is generated, so generate the file again after you change the tariff. It uses the same defaults as the integration for any field you have not set.
+
+Days Elapsed in Bill Period, Average Import Rate This Month and Cheap rate import fraction this month are disabled by default. Enable them to see those rows.
+
+Accrued Bill This Period is worked out line by line from the month totals: energy less the supplier saving, standing charge, PSO levy and VAT, minus the export credit. Projected Bill This Period scales it to the whole period. See [Tariff](tariff.md#bill-sensors). Import cost this month is the import energy for the period after discount and VAT. It leaves out the standing charge, the PSO levy and the export credit.
 
 ### Battery
 

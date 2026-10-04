@@ -4,11 +4,12 @@ dashboard_builder.py - builds the Lovelace dashboard for GivEnergy Inverter Mana
 The dashboard is built as a plain dict, then serialised with PyYAML. The
 get_dashboard_yaml service writes the YAML to a file.
 
-The generated dashboard has four views:
-  1. Power Flow   - live animated energy flow (power-flow-card-plus from HACS)
+The generated dashboard has five views:
+  1. Power Flow   - a Now strip and the live energy flow (power-flow-card-plus from HACS)
   2. Today        - daily energy totals, cost breakdown, self-sufficiency
-  3. Battery      - battery health, charge decision, night survival
-  4. Controls     - charge target slider, switches, EV charger state
+  3. Bill         - the month so far and the tariff behind it
+  4. Battery      - battery health, charge decision, night survival
+  5. Controls     - charge target slider, switches, EV charger state
 
 Power flow view requires power-flow-card-plus from HACS:
   https://github.com/flixlix/power-flow-card-plus
@@ -28,12 +29,16 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from .const import (
+    CONF_CURRENCY,
     CONF_FORECAST_ENTITY,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_INVERTER_TEMP_ENTITY,
+    CURRENCIES,
+    DEFAULT_CURRENCY,
     DOMAIN,
 )
+from .core.tariff import TariffConfig, build_tariff
 
 SERVICE_GET_DASHBOARD_YAML = "get_dashboard_yaml"
 
@@ -318,6 +323,12 @@ def _generate(hass: HomeAssistant, entry_id: str) -> _Built:
             "cards": b.today_cards(),
         },
         {
+            "title": "Bill",
+            "icon": "mdi:receipt-text",
+            "path": "bill",
+            "cards": b.bill_cards(),
+        },
+        {
             "title": "Battery",
             "icon": "mdi:battery-charging",
             "path": "battery",
@@ -580,17 +591,6 @@ class _Builder:
                         ),
                     ]
                 ),
-                _entity_list_card(
-                    [
-                        _row(e("accrued_bill"), "Accrued This Period"),
-                        _row(e("projected_bill"), "Projected Total"),
-                        _row(e("days_remaining_in_period"), "Days Remaining"),
-                    ],
-                    {"type": "entities"},
-                    title="Bill Prediction",
-                    show_header_toggle=False,
-                    state_color=False,
-                ),
             ]
         )
 
@@ -605,6 +605,51 @@ class _Builder:
                 _row(self.e("yesterday_forecast_accuracy_pct"), "Yesterday's accuracy"),
             ],
             {"type": "entities", "title": "Solar vs Forecast"},
+        )
+
+    def bill_cards(self) -> list:
+        """The month so far and the tariff the sums use, to compare with a real bill."""
+        e = self.e
+        return _present(
+            [
+                _entity_list_card(
+                    [
+                        _row(e("import_cost_this_month"), "Import cost this month"),
+                        _row(e("export_earnings_this_month"), "Export earnings this month"),
+                        _row(e("accrued_bill"), "Accrued bill this period"),
+                        _row(e("projected_bill"), "Projected bill this period"),
+                    ],
+                    {"type": "entities"},
+                    title="Bill so far",
+                    show_header_toggle=False,
+                    state_color=False,
+                ),
+                _entity_list_card(
+                    [
+                        _row(e("days_in_period"), "Days elapsed"),
+                        _row(e("days_remaining_in_period"), "Days remaining"),
+                    ],
+                    {"type": "entities"},
+                    title="Bill period",
+                    show_header_toggle=False,
+                    state_color=False,
+                ),
+                _entity_list_card(
+                    [
+                        _row(e("avg_import_rate_this_month"), "Average import rate this month"),
+                        _row(e("cheap_import_fraction_this_month"), "Cheap rate share of import"),
+                    ],
+                    {"type": "entities"},
+                    title="Import mix this month",
+                    show_header_toggle=False,
+                    state_color=False,
+                ),
+                {
+                    "type": "markdown",
+                    "title": "Tariff in use",
+                    "content": _tariff_table(build_tariff(self.cfg), self.cfg),
+                },
+            ]
         )
 
     def battery_cards(self) -> list:
@@ -764,6 +809,30 @@ class _Builder:
             {"type": "entities"},
             title="EV Charger",
         )
+
+
+def _tariff_table(tariff: TariffConfig, cfg: dict) -> str:
+    """Markdown table of the rates the integration prices energy with."""
+    symbol = CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), "€")
+    billed = (1 - tariff.discount_rate / 100) * (1 + tariff.vat_rate / 100)
+    rows = [(tariff.base_rate_name, "all other times", tariff.base_rate)]
+    rows += [(p.name, f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate) for p in tariff.rate_periods]
+    lines = [
+        "| Period | Window | Rate per kWh | Billed per kWh |",
+        "|---|---|---:|---:|",
+        *(f"| {n} | {w} | {symbol}{r:.4f} | {symbol}{r * billed:.4f} |" for n, w, r in rows),
+        "",
+        f"Billed per kWh is the rate less the {tariff.discount_rate:g}% discount, "
+        f"plus {tariff.vat_rate:g}% VAT. Where periods overlap, the cheapest applies.",
+        "",
+        "| Other charge | Value |",
+        "|---|---:|",
+        f"| Export rate | {symbol}{tariff.export_rate:.4f} per kWh |",
+        f"| Standing charge | {symbol}{tariff.standing_charge:.4f} per day |",
+        f"| PSO levy | {symbol}{tariff.pso_levy:.2f} per bill period |",
+        f"| Bill starts on day | {tariff.bill_start_day} |",
+    ]
+    return "\n".join(lines)
 
 
 def _grid_of_gauges(gauges: list[tuple[str | None, str, dict]]) -> dict | None:
