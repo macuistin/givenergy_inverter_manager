@@ -48,7 +48,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import BATTERY_RATED_CYCLES, DOMAIN, INTEGRATION_VERSION
+from .const import (
+    BATTERY_RATED_CYCLES,
+    DOMAIN,
+    INTEGRATION_VERSION,
+    NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
+)
 from .coordinator import GivEnergyCoordinator
 from .core.engine import CoordinatorData
 from .core.reporting import (
@@ -542,12 +547,12 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Battery State",
         icon="mdi:battery-charging-80",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: "Full"
-        if d.battery_soc >= 99
+        value_fn=lambda d: "Discharging"
+        if d.battery_power_w < -50
         else (
-            "Charging"
-            if d.battery_power_w > 50
-            else ("Discharging" if d.battery_power_w < -50 else "Idle")
+            "Full"
+            if d.battery_soc >= 99
+            else ("Charging" if d.battery_power_w > 50 else "Idle")
         ),
     ),
     # --- Overnight charge decision ---
@@ -608,9 +613,18 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         name="Night Survival Confidence",
         icon="mdi:moon-waning-crescent",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: "Critical"
-        if not d.will_survive_night
-        else ("Warning" if d.estimated_soc_at_sunrise < 15 else "Safe"),
+        value_fn=lambda d: None
+        if not d.survival_reason
+        else (
+            "Critical"
+            if not d.will_survive_night
+            else (
+                "Warning"
+                if d.estimated_soc_at_sunrise
+                < d.battery_min_soc + NIGHT_SURVIVAL_WARNING_MARGIN_PCT
+                else "Safe"
+            )
+        ),
     ),
     # --- Clipping ---
     GivEnergyManagerSensorDescription(

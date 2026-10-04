@@ -209,6 +209,7 @@ SOLAR_NOISE_FLOOR_W = 10.0  # W — sensor readings below this are treated as ze
 
 # ── Battery health parameters ─────────────────────────────────────────────────
 BATTERY_RATED_CYCLES = 6000  # typical LFP rated cycle life (manufacturer spec)
+NIGHT_SURVIVAL_WARNING_MARGIN_PCT = 5.0  # warn within this many SoC points of min SoC
 BATTERY_LIFE_ESTIMATE_MIN_DAYS = 7  # days of cycle data needed before estimating years left
 
 # ── Battery degradation cost ──────────────────────────────────────────────────

@@ -197,6 +197,7 @@ class CoordinatorData:
         "projected_bill",
         "battery_cycle_cost_per_kwh",
         "battery_throughput_budget_pct",
+        "battery_min_soc",
         "battery_years_remaining",
         "hours_to_cheap_rate",
         "next_cheap_rate_start",
@@ -270,6 +271,7 @@ class CoordinatorData:
         self.will_survive_night: bool = True
         self.battery_cycle_cost_per_kwh: float = 0.0
         self.battery_throughput_budget_pct: float | None = None
+        self.battery_min_soc: int = 0
         self.battery_years_remaining: float | None = None
         self.hours_to_cheap_rate: float | None = None
         self.next_cheap_rate_start: str | None = None
@@ -746,6 +748,7 @@ def _calculate_night_survival(
     avg_daily_kwh: float,
 ) -> None:
     """Calculate night survival metrics."""
+    data.battery_min_soc = min_soc
     if now.hour < SOLAR_SUNRISE_HOUR:
         hours_until_solar = max(1, SOLAR_SUNRISE_HOUR - now.hour)
     else:

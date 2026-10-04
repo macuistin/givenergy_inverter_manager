@@ -242,7 +242,11 @@ def _lambda_for(key: str):
             continue
         for kw in node.keywords:
             if kw.arg == "value_fn":
-                return eval(f"({ast.get_source_segment(src, kw.value)})")  # noqa: S307
+                from custom_components.givenergy_inverter_manager import const
+
+                return eval(  # noqa: S307
+                    f"({ast.get_source_segment(src, kw.value)})", dict(vars(const))
+                )
     raise AssertionError(f"value_fn not found for {key}")
 
 
@@ -667,3 +671,62 @@ class TestGridSolarStatusSensors:
         d.solar_power_w = 2500.0
         d.inverter_max_w = 0.0
         assert fn(d) is None
+
+
+class TestStatusSensors:
+    @staticmethod
+    def _battery(soc, power):
+        from unittest.mock import MagicMock
+
+        d = MagicMock()
+        d.battery_soc = soc
+        d.battery_power_w = power
+        return d
+
+    @pytest.mark.parametrize(
+        ("soc", "power", "expected"),
+        [
+            (100.0, 0.0, "Full"),
+            (99.0, 10.0, "Full"),
+            (99.0, 1500.0, "Full"),
+            (100.0, -1500.0, "Discharging"),
+            (80.0, -1500.0, "Discharging"),
+            (80.0, 1500.0, "Charging"),
+            (80.0, 20.0, "Idle"),
+            (50.0, -50.0, "Idle"),
+        ],
+    )
+    def test_battery_state(self, soc, power, expected):
+        fn = _lambda_for("battery_state")
+        assert fn(self._battery(soc, power)) == expected
+
+    @staticmethod
+    def _night(reason="ok", survive=True, sunrise_soc=50.0, min_soc=10):
+        from unittest.mock import MagicMock
+
+        d = MagicMock()
+        d.survival_reason = reason
+        d.will_survive_night = survive
+        d.estimated_soc_at_sunrise = sunrise_soc
+        d.battery_min_soc = min_soc
+        return d
+
+    def test_night_survival_unknown_before_first_cycle(self):
+        fn = _lambda_for("night_survival_confidence")
+        assert fn(self._night(reason="")) is None
+
+    def test_night_survival_critical(self):
+        fn = _lambda_for("night_survival_confidence")
+        assert fn(self._night(survive=False, sunrise_soc=10.0)) == "Critical"
+
+    def test_night_survival_warning_near_min_soc(self):
+        fn = _lambda_for("night_survival_confidence")
+        assert fn(self._night(sunrise_soc=12.0, min_soc=10)) == "Warning"
+
+    def test_night_survival_warning_fires_with_high_min_soc(self):
+        fn = _lambda_for("night_survival_confidence")
+        assert fn(self._night(sunrise_soc=22.0, min_soc=20)) == "Warning"
+
+    def test_night_survival_safe(self):
+        fn = _lambda_for("night_survival_confidence")
+        assert fn(self._night(sunrise_soc=40.0, min_soc=10)) == "Safe"

@@ -1580,3 +1580,11 @@ class TestPeriodTimeSensors:
         data = self._run_at_hour(3)
         assert data.rate_savings_vs_daytime > 0.0
         assert data.rate_savings_vs_daytime == pytest.approx(0.3334 - 0.0965, rel=0.01)
+
+
+class TestBatteryMinSocField:
+    def test_engine_exposes_min_soc_for_night_survival(self):
+        cfg = _nightboost_cfg()
+        cfg["battery_min_soc_pct"] = 20
+        data, _ = _run(cfg=cfg)
+        assert data.battery_min_soc == 20
