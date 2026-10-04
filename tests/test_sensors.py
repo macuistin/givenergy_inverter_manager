@@ -627,3 +627,43 @@ class TestPeriodTimeSensors:
         assert fn(d) == 0.0
         d.rate_savings_vs_daytime = 0.23694
         assert fn(d) == pytest.approx(0.2369)
+
+
+class TestGridSolarStatusSensors:
+    @pytest.mark.parametrize(
+        ("grid_w", "expected"),
+        [
+            (1200.0, "Importing"),
+            (51.0, "Importing"),
+            (50.0, "Balanced"),
+            (0.0, "Balanced"),
+            (-50.0, "Balanced"),
+            (-51.0, "Exporting"),
+            (-3000.0, "Exporting"),
+        ],
+    )
+    def test_grid_power_direction(self, grid_w, expected):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("grid_power_direction")
+        d = MagicMock()
+        d.grid_power_w = grid_w
+        assert fn(d) == expected
+
+    def test_solar_pct_of_max(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("solar_power_pct_of_max")
+        d = MagicMock()
+        d.solar_power_w = 2500.0
+        d.inverter_max_w = 5000.0
+        assert fn(d) == pytest.approx(50.0)
+
+    def test_solar_pct_of_max_none_without_inverter_limit(self):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for("solar_power_pct_of_max")
+        d = MagicMock()
+        d.solar_power_w = 2500.0
+        d.inverter_max_w = 0.0
+        assert fn(d) is None
