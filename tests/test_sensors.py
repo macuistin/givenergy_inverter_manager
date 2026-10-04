@@ -395,3 +395,27 @@ class TestNextCheapRateSensors:
         d = MagicMock()
         d.hours_to_cheap_rate = 9.0
         assert fn(d) == 9.0
+
+
+class TestBatteryEnergySensors:
+    @pytest.mark.parametrize(
+        ("key", "attr", "section"),
+        [
+            ("battery_charge_kwh_today", "battery_charge_kwh", "today"),
+            ("battery_discharge_kwh_today", "battery_discharge_kwh", "today"),
+            ("house_kwh_today", "house_kwh", "today"),
+        ],
+    )
+    def test_value_fn_rounds_to_three_places(self, key, attr, section):
+        from unittest.mock import MagicMock
+
+        fn = _lambda_for(key)
+        d = MagicMock()
+        setattr(getattr(d, section), attr, 4.56789)
+        assert fn(d) == pytest.approx(4.568)
+
+    @pytest.mark.parametrize(
+        "key", ["battery_charge_kwh_today", "battery_discharge_kwh_today", "house_kwh_today"]
+    )
+    def test_daily_energy_sensors_are_total(self, key):
+        assert _sensor_kwarg(key, "state_class") == "TOTAL"
