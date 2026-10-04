@@ -197,12 +197,12 @@ class TestNumberSelectorStepConstraint:
 def _parse_sensor_enabled_state():
     """Return {name: enabled_default} by parsing sensor.py with ast."""
     import ast
+    import json
     from pathlib import Path
 
-    src = (
-        Path(__file__).parent.parent / "custom_components/givenergy_inverter_manager/sensor.py"
-    ).read_text()
-    tree = ast.parse(src)
+    pkg = Path(__file__).parent.parent / "custom_components/givenergy_inverter_manager"
+    tree = ast.parse((pkg / "sensor.py").read_text())
+    translated = json.loads((pkg / "strings.json").read_text())["entity"]["sensor"]
 
     results = {}
     # Walk all Call nodes looking for GivEnergyManagerSensorDescription(...)
@@ -212,7 +212,9 @@ def _parse_sensor_enabled_state():
         name_val = None
         enabled_val = True  # default per dataclass default
         for kw in node.keywords:
-            if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+            if kw.arg == "translation_key" and isinstance(kw.value, ast.Constant):
+                name_val = translated.get(kw.value.value, {}).get("name", name_val)
+            if kw.arg == "name" and isinstance(kw.value, ast.Constant) and name_val is None:
                 name_val = kw.value.value
             if kw.arg == "entity_registry_enabled_default" and isinstance(kw.value, ast.Constant):
                 enabled_val = bool(kw.value.value)
@@ -279,13 +281,18 @@ class TestSensorDefaultEnabled:
         "Night Survival Confidence",
         "Net Solar Surplus",
         "Battery Energy Available",
+        "Solar generated this year",
+        "Export this year",
+        "Export earnings this year",
+        "Missed solar today",
+        "Inverter Derating Today",
     }
 
     def test_exactly_five_sensors_disabled(self):
-        """Exactly 54 sensors should be disabled by default."""
+        """Exactly 59 sensors should be disabled by default."""
         state = _parse_sensor_enabled_state()
         disabled = [n for n, enabled in state.items() if not enabled]
-        assert len(disabled) == 54, f"Expected 54 disabled sensors, got {len(disabled)}: {disabled}"
+        assert len(disabled) == 59, f"Expected 59 disabled sensors, got {len(disabled)}: {disabled}"
 
     def test_disabled_sensors_are_the_expected_ones(self):
         """The disabled sensors must be the HTML reports and forecast accuracy."""

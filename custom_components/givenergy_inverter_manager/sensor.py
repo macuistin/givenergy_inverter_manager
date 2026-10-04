@@ -104,7 +104,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="solar_power",
         translation_key="solar_power",
-        name="Solar Power",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -113,7 +112,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="battery_soc",
         translation_key="battery_soc",
-        name="Battery State of Charge",
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -122,7 +120,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="battery_power",
         translation_key="battery_power",
-        name="Battery Power",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -131,7 +128,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="immersion_power",
         translation_key="immersion_power",
-        name="Immersion Heater Power",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -140,7 +136,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="grid_power",
         translation_key="grid_power",
-        name="Grid Power",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -149,7 +144,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="house_load",
         translation_key="house_load",
-        name="House Load",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -158,7 +152,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="rest_of_house_load",
         translation_key="rest_of_house_load",
-        name="Rest of House Load",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -167,7 +160,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="grid_power_direction",
         translation_key="grid_power_direction",
-        name="Grid Power Direction",
         icon="mdi:transmission-tower",
         entity_registry_enabled_default=False,
         value_fn=lambda d: "Importing"
@@ -177,7 +169,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="solar_power_pct_of_max",
         translation_key="solar_power_pct_of_max",
-        name="Solar Output % of Max",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:solar-power-variant",
@@ -189,7 +180,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="net_solar_surplus_w",
         translation_key="net_solar_surplus_w",
-        name="Net Solar Surplus",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -200,7 +190,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="battery_kwh_available",
         translation_key="battery_kwh_available",
-        name="Battery Energy Available",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -214,7 +203,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="current_rate",
         translation_key="current_rate",
-        name="Current Rate",
         native_unit_of_measurement=_CURRENCY_UNIT,  # unit resolved dynamically
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.current_rate, 4),
@@ -222,7 +210,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="current_rate_period",
         translation_key="current_rate_period",
-        name="Current Rate Period",
         value_fn=lambda d: d.current_rate_name,
     ),
     GivEnergyManagerSensorDescription(
@@ -235,7 +222,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="next_cheap_rate_start",
         translation_key="next_cheap_rate_start",
-        name="Next Cheap Rate Start",
         icon="mdi:clock-time-four-outline",
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.next_cheap_rate_start
@@ -245,7 +231,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="hours_to_cheap_rate",
         translation_key="hours_to_cheap_rate",
-        name="Hours to Cheap Rate",
         native_unit_of_measurement="h",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:clock-countdown-outline",
@@ -255,7 +240,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="cheapest_rate",
         translation_key="cheapest_rate",
-        name="Cheapest Tariff Rate",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:cash-minus",
@@ -265,7 +249,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="cheapest_rate_period",
         translation_key="cheapest_rate_period",
-        name="Cheapest Rate Period Name",
         icon="mdi:clock-time-four-outline",
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.cheapest_rate_name if d.cheapest_rate_name else None,
@@ -273,7 +256,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="is_on_cheapest_rate",
         translation_key="is_on_cheapest_rate",
-        name="On Cheapest Rate",
         icon="mdi:cash-check",
         entity_registry_enabled_default=False,
         value_fn=lambda d: "yes" if d.is_on_cheapest_rate else "no",
@@ -281,7 +263,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="is_on_base_rate",
         translation_key="is_on_base_rate",
-        name="On Base (Daytime) Rate",
         icon="mdi:cash",
         entity_registry_enabled_default=False,
         value_fn=lambda d: "yes" if d.is_on_base_rate else "no",
@@ -289,7 +270,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="minutes_remaining_in_period",
         translation_key="minutes_remaining_in_period",
-        name="Minutes Remaining in Rate Period",
         native_unit_of_measurement="min",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:clock-end",
@@ -299,7 +279,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="rate_savings_vs_daytime",
         translation_key="rate_savings_vs_daytime",
-        name="Rate Saving vs Daytime",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:cash-fast",
@@ -311,7 +290,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="solar_today",
         is_daily_total=True,
         translation_key="solar_today",
-        name="Solar Generation Today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -321,7 +299,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="import_today",
         is_daily_total=True,
         translation_key="import_today",
-        name="Grid Import Today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -331,7 +308,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="export_today",
         is_daily_total=True,
         translation_key="export_today",
-        name="Grid Export Today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -341,7 +317,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="zappi_today",
         is_daily_total=True,
         translation_key="zappi_today",
-        name="EV Charging Today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -351,7 +326,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="immersion_today",
         is_daily_total=True,
         translation_key="immersion_today",
-        name="Immersion Heater Today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -362,7 +336,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="import_cost_today",
         is_daily_total=True,
         translation_key="import_cost_today",
-        name="Import Cost Today",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -372,7 +345,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="export_earnings_today",
         is_daily_total=True,
         translation_key="export_earnings_today",
-        name="Export Earnings Today",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -382,7 +354,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="saving_vs_grid_today",
         is_daily_total=True,
         translation_key="saving_vs_grid_today",
-        name="Saving vs Grid Today",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -393,7 +364,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="net_saving_today",
         is_daily_total=True,
         translation_key="net_saving_today",
-        name="Net Saving Today (inc. battery wear)",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -404,7 +374,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="zappi_cost_today",
         is_daily_total=True,
         translation_key="zappi_cost_today",
-        name="EV Charging Cost Today",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -414,7 +383,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="house_cost_today",
         is_daily_total=True,
         translation_key="house_cost_today",
-        name="House Cost Today",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -425,7 +393,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="self_consumed_kwh_today",
         is_daily_total=True,
         translation_key="self_consumed_kwh_today",
-        name="Self-consumed Solar Today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -437,7 +404,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="net_position_today",
         is_daily_total=True,
         translation_key="net_position_today",
-        name="Net Financial Position Today",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -449,7 +415,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="battery_life_consumed_today",
         is_daily_total=True,
         translation_key="battery_life_consumed_today",
-        name="Battery Life Consumed Today",
         entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.TOTAL,
@@ -468,7 +433,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="self_sufficiency",
         translation_key="self_sufficiency",
-        name="Self Sufficiency",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.today.self_sufficiency_pct, 1),
@@ -476,7 +440,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="self_consumption",
         translation_key="self_consumption",
-        name="Self Consumption",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.today.self_consumption_pct, 1),
@@ -485,7 +448,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="accrued_bill",
         translation_key="accrued_bill",
-        name="Accrued Bill This Period",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -495,7 +457,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="projected_bill",
         translation_key="projected_bill",
-        name="Projected Bill This Period",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=None,
@@ -504,7 +465,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="days_remaining_in_period",
         translation_key="days_remaining_in_period",
-        name="Days Remaining in Bill Period",
         native_unit_of_measurement="days",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: d.days_remaining,
@@ -514,7 +474,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="battery_cycles",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="battery_cycles",
-        name="Battery Total Cycles",
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.battery_stats.total_cycles, 2),
     ),
@@ -522,7 +481,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="register_write_count",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="register_write_count",
-        name="GivTCP Register Write Count",
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: d.register_write_count,
     ),
@@ -530,7 +488,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="battery_cycle_cost_per_kwh",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="battery_cycle_cost_per_kwh",
-        name="Battery Cycle Cost per kWh",
         native_unit_of_measurement=_CURRENCY_UNIT,
         entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.battery_cycle_cost_per_kwh, 5)
@@ -541,7 +498,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="battery_remaining_life",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="battery_remaining_life",
-        name="Battery Remaining Life",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.battery_stats.estimated_remaining_life_pct, 1),
@@ -550,7 +506,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="days_since_full_charge",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="days_since_full_charge",
-        name="Days Since Full Charge",
         native_unit_of_measurement="days",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: d.battery_stats.days_since_full_charge,
@@ -559,7 +514,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="battery_years_remaining",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="battery_years_remaining",
-        name="Battery Years Remaining (est.)",
         native_unit_of_measurement="years",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:battery-clock",
@@ -572,7 +526,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="battery_usable_capacity_kwh",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="battery_usable_capacity_kwh",
-        name="Battery Estimated Usable Capacity",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -587,7 +540,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="battery_state",
         translation_key="battery_state",
-        name="Battery State",
         icon="mdi:battery-charging-80",
         entity_registry_enabled_default=False,
         value_fn=lambda d: "Discharging"
@@ -602,7 +554,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="overnight_charge_target",
         translation_key="overnight_charge_target",
-        name="Recommended Overnight Charge Target",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: d.charge_decision.target_soc if d.charge_decision else None,
@@ -611,14 +562,12 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="overnight_charge_reason",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="overnight_charge_reason",
-        name="Overnight Charge Reason",
         value_fn=lambda d: d.charge_decision.reason if d.charge_decision else None,
     ),
     GivEnergyManagerSensorDescription(
         key="overnight_charge_cost",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="overnight_charge_cost",
-        name="Estimated Overnight Charge Cost",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=None,
@@ -631,14 +580,12 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="immersion_divert_reason",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="immersion_divert_reason",
-        name="Immersion Divert Reason",
         value_fn=lambda d: d.divert_reason,
     ),
     # --- Night survival ---
     GivEnergyManagerSensorDescription(
         key="estimated_soc_at_sunrise",
         translation_key="estimated_soc_at_sunrise",
-        name="Estimated SoC at Sunrise",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.estimated_soc_at_sunrise, 1),
@@ -647,13 +594,11 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="night_survival_reason",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="night_survival_reason",
-        name="Battery Night Survival Status",
         value_fn=lambda d: d.survival_reason,
     ),
     GivEnergyManagerSensorDescription(
         key="night_survival_confidence",
         translation_key="night_survival_confidence",
-        name="Night Survival Confidence",
         icon="mdi:moon-waning-crescent",
         entity_registry_enabled_default=False,
         value_fn=lambda d: None
@@ -674,21 +619,18 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="is_clipping",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="is_clipping",
-        name="Inverter Clipping",
         value_fn=lambda d: "clipping" if d.is_clipping else "normal",
     ),
     # --- EV charger ---
     GivEnergyManagerSensorDescription(
         key="ev_charger_state",
         translation_key="ev_charger_state",
-        name="EV Charger State",
         value_fn=lambda d: d.ev_charger_state.value if d.ev_charger_state else None,
         available_fn=lambda d: d.ev_available,
     ),
     GivEnergyManagerSensorDescription(
         key="ev_power",
         translation_key="ev_power",
-        name="EV Charging Power",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -698,7 +640,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="ev_session_energy",
         translation_key="ev_session_energy",
-        name="EV Session Energy",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -708,7 +649,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="ev_km_charged_today",
         translation_key="ev_km_charged_today",
-        name="EV km Charged Today",
         native_unit_of_measurement="km",
         state_class=SensorStateClass.TOTAL,
         icon="mdi:car-electric",
@@ -719,7 +659,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="ev_cost_per_km_today",
         translation_key="ev_cost_per_km_today",
-        name="EV Cost per km Today",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:car-electric",
@@ -730,7 +669,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="ev_draining_battery",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="ev_draining_battery",
-        name="EV Draining Battery",
         value_fn=lambda d: "yes" if d.ev_draining_battery else "no",
         available_fn=lambda d: d.ev_available,
     ),
@@ -738,7 +676,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="ev_protection_reason",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="ev_protection_reason",
-        name="EV Mode Decision",
         value_fn=lambda d: d.ev_protection_reason,
         available_fn=lambda d: d.ev_available,
     ),
@@ -757,7 +694,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="immersion_cost_today",
         is_daily_total=True,
         translation_key="immersion_cost_today",
-        name="Immersion Cost Today",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.today.immersion_cost, 4),
@@ -766,7 +702,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="dry_run_active",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="dry_run_active",
-        name="Dry Run Mode Active",
         icon="mdi:test-tube",
         value_fn=lambda d: d.dry_run,
     ),
@@ -774,7 +709,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="cheap_rate_floor_status",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="cheap_rate_floor_status",
-        name="Cheap Rate Floor",
         icon="mdi:battery-arrow-up",
         value_fn=lambda d: d.cheap_rate_floor_status or "Inactive",
     ),
@@ -804,7 +738,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="carbon_intensity",
         translation_key="carbon_intensity",
-        name="Grid Carbon Intensity",
         native_unit_of_measurement="g CO2/kWh",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:molecule-co2",
@@ -816,7 +749,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="carbon_intensity_status",
         translation_key="carbon_intensity_status",
-        name="Grid Carbon Intensity Status",
         icon="mdi:leaf",
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.carbon_intensity_status
@@ -827,7 +759,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="dry_run_last_skipped",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="dry_run_last_skipped",
-        name="Last Skipped Action (Dry Run)",
         icon="mdi:skip-next-circle-outline",
         value_fn=lambda d: d.dry_run_last_skipped or "No actions skipped yet",
     ),
@@ -835,7 +766,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_kwh_cheap_today",
         translation_key="import_kwh_cheap_today",
-        name="Import at cheap rate",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -846,7 +776,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_kwh_peak_today",
         translation_key="import_kwh_peak_today",
-        name="Import at peak rate",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -857,7 +786,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_cost_cheap_today",
         translation_key="import_cost_cheap_today",
-        name="Import cost at cheap rate",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:cash-minus",
@@ -867,7 +795,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_cost_peak_today",
         translation_key="import_cost_peak_today",
-        name="Import cost at peak rate",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:cash",
@@ -877,7 +804,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="peak_import_fraction_today",
         translation_key="peak_import_fraction_today",
-        name="Peak rate import fraction",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:chart-pie",
@@ -886,7 +812,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="avg_import_rate_today",
         translation_key="avg_import_rate_today",
-        name="Average Import Rate Today",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:cash-clock",
@@ -898,7 +823,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="avg_import_rate_this_week",
         translation_key="avg_import_rate_this_week",
-        name="Average Import Rate This Week",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:cash-clock",
@@ -910,7 +834,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="avg_import_rate_this_month",
         translation_key="avg_import_rate_this_month",
-        name="Average Import Rate This Month",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:cash-clock",
@@ -922,7 +845,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="immersion_savings_today",
         translation_key="immersion_savings_today",
-        name="Immersion solar savings",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:water-boiler",
@@ -932,7 +854,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="immersion_solar_kwh_today",
         translation_key="immersion_solar_kwh_today",
-        name="Immersion solar diverted",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -943,7 +864,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="battery_throughput_kwh_today",
         translation_key="battery_throughput_kwh_today",
-        name="Battery throughput",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -955,7 +875,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="battery_throughput_budget_pct",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="battery_throughput_budget_pct",
-        name="Battery Throughput Budget Used",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:battery-sync",
@@ -968,7 +887,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="battery_throughput_budget_status",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="battery_throughput_budget_status",
-        name="Battery Throughput Budget Status",
         icon="mdi:battery-heart-variant",
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.battery_throughput_budget_status or None,
@@ -976,7 +894,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="battery_charge_kwh_today",
         translation_key="battery_charge_kwh_today",
-        name="Battery Charged Today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -988,7 +905,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="battery_discharge_kwh_today",
         translation_key="battery_discharge_kwh_today",
-        name="Battery Discharged Today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -1000,7 +916,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="house_kwh_today",
         translation_key="house_kwh_today",
-        name="House Load Today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -1021,7 +936,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="solar_capture_efficiency_today",
         translation_key="solar_capture_efficiency_today",
-        name="Solar Capture Efficiency Today",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:solar-power-variant",
@@ -1036,7 +950,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="solar_forecast_kwh_today",
         translation_key="solar_forecast_kwh_today",
-        name="Solar forecast today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=None,
@@ -1047,7 +960,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="solar_actual_vs_forecast_pct",
         translation_key="solar_actual_vs_forecast_pct",
-        name="Solar actual vs forecast",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:weather-sunny-alert",
@@ -1061,7 +973,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="yesterday_forecast_accuracy_pct",
         translation_key="yesterday_forecast_accuracy_pct",
-        name="Forecast accuracy yesterday",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:chart-timeline-variant-shimmer",
@@ -1071,7 +982,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="forecast_accuracy_7day_avg_pct",
         translation_key="forecast_accuracy_7day_avg_pct",
-        name="Forecast accuracy 7-day average",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:chart-bell-curve-cumulative",
@@ -1082,7 +992,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="solar_yesterday",
         translation_key="solar_yesterday",
-        name="Solar generated yesterday",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=None,
@@ -1093,7 +1002,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_yesterday",
         translation_key="import_yesterday",
-        name="Grid import yesterday",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=None,
@@ -1104,7 +1012,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="export_yesterday",
         translation_key="export_yesterday",
-        name="Grid export yesterday",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=None,
@@ -1115,7 +1022,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_cost_yesterday",
         translation_key="import_cost_yesterday",
-        name="Import cost yesterday",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=None,
         icon="mdi:cash-minus",
@@ -1125,7 +1031,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_kwh_cheap_yesterday",
         translation_key="import_kwh_cheap_yesterday",
-        name="Import at cheap rate yesterday",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=None,
@@ -1136,7 +1041,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_kwh_peak_yesterday",
         translation_key="import_kwh_peak_yesterday",
-        name="Import at peak rate yesterday",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=None,
@@ -1147,7 +1051,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="immersion_savings_yesterday",
         translation_key="immersion_savings_yesterday",
-        name="Immersion savings yesterday",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=None,
         icon="mdi:water-boiler",
@@ -1157,7 +1060,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="self_sufficiency_yesterday",
         translation_key="self_sufficiency_yesterday",
-        name="Self-sufficiency yesterday",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:home-battery",
@@ -1168,7 +1070,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="solar_this_week",
         translation_key="solar_this_week",
-        name="Solar generated this week",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -1180,7 +1081,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_this_week",
         translation_key="import_this_week",
-        name="Grid import this week",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -1192,7 +1092,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="export_this_week",
         translation_key="export_this_week",
-        name="Grid export this week",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -1204,7 +1103,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_cost_this_week",
         translation_key="import_cost_this_week",
-        name="Import cost this week",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
         reset_period="week",
@@ -1215,7 +1113,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="export_earnings_this_week",
         translation_key="export_earnings_this_week",
-        name="Export earnings this week",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
         reset_period="week",
@@ -1226,7 +1123,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_kwh_cheap_this_week",
         translation_key="import_kwh_cheap_this_week",
-        name="Import at cheap rate this week",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -1238,7 +1134,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_kwh_peak_this_week",
         translation_key="import_kwh_peak_this_week",
-        name="Import at peak rate this week",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -1250,7 +1145,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="immersion_savings_this_week",
         translation_key="immersion_savings_this_week",
-        name="Immersion savings this week",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
         reset_period="week",
@@ -1261,7 +1155,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="self_sufficiency_this_week",
         translation_key="self_sufficiency_this_week",
-        name="Self-sufficiency this week",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:home-battery",
@@ -1271,7 +1164,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="cheap_import_fraction_this_week",
         translation_key="cheap_import_fraction_this_week",
-        name="Cheap rate import fraction this week",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:chart-pie",
@@ -1284,7 +1176,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="solar_this_month",
         translation_key="solar_this_month",
-        name="Solar generated this month",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -1296,7 +1187,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_this_month",
         translation_key="import_this_month",
-        name="Grid import this month",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -1308,7 +1198,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="export_this_month",
         translation_key="export_this_month",
-        name="Grid export this month",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -1320,7 +1209,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_cost_this_month",
         translation_key="import_cost_this_month",
-        name="Import cost this month",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
         reset_period="month",
@@ -1331,7 +1219,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="export_earnings_this_month",
         translation_key="export_earnings_this_month",
-        name="Export earnings this month",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
         reset_period="month",
@@ -1361,7 +1248,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="export_trailing_12m",
         translation_key="export_trailing_12m",
-        name="Export — trailing 12 months",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=None,
@@ -1383,7 +1269,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="solar_trailing_12m",
         translation_key="solar_trailing_12m",
-        name="Solar — trailing 12 months",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=None,
@@ -1394,7 +1279,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_trailing_12m",
         translation_key="import_trailing_12m",
-        name="Import — trailing 12 months",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=None,
@@ -1405,7 +1289,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_cost_trailing_12m",
         translation_key="import_cost_trailing_12m",
-        name="Import Cost — trailing 12 months",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=None,
@@ -1416,7 +1299,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="export_earnings_trailing_12m",
         translation_key="export_earnings_trailing_12m",
-        name="Export Earnings — trailing 12 months",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=None,
@@ -1427,7 +1309,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_kwh_cheap_this_month",
         translation_key="import_kwh_cheap_this_month",
-        name="Import at cheap rate this month",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -1439,7 +1320,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="import_kwh_peak_this_month",
         translation_key="import_kwh_peak_this_month",
-        name="Import at peak rate this month",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -1451,7 +1331,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="immersion_savings_this_month",
         translation_key="immersion_savings_this_month",
-        name="Immersion savings this month",
         native_unit_of_measurement=_CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
         reset_period="month",
@@ -1462,7 +1341,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="self_sufficiency_this_month",
         translation_key="self_sufficiency_this_month",
-        name="Self-sufficiency this month",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:home-battery",
@@ -1472,7 +1350,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="cheap_import_fraction_this_month",
         translation_key="cheap_import_fraction_this_month",
-        name="Cheap rate import fraction this month",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:chart-pie",
@@ -1485,7 +1362,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="battery_roundtrip_efficiency_today",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="battery_roundtrip_efficiency_today",
-        name="Battery Round-trip Efficiency Today",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:battery-sync",
@@ -1499,7 +1375,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="net_position_this_month",
         translation_key="net_position_this_month",
-        name="Net Financial Position This Month",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -1512,7 +1387,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="today_summary",
         translation_key="today_summary",
-        name="Today's energy summary",
         icon="mdi:newspaper-variant-outline",
         entity_registry_enabled_default=False,
         value_fn=lambda d: build_today_summary_state(d),
@@ -1521,7 +1395,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="charge_plan",
         translation_key="charge_plan",
-        name="Tonight's charge plan",
         icon="mdi:battery-clock-outline",
         entity_registry_enabled_default=False,
         value_fn=lambda d: build_charge_plan_state(d),
@@ -1530,7 +1403,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="week_summary",
         translation_key="week_summary",
-        name="This week's energy summary",
         icon="mdi:calendar-week-outline",
         entity_registry_enabled_default=False,
         value_fn=lambda d: build_week_summary_state(d),
@@ -1539,7 +1411,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="pre_boost_export_recommended",
         translation_key="pre_boost_export_recommended",
-        name="Pre-boost export recommended",
         icon="mdi:transmission-tower-export",
         entity_registry_enabled_default=False,
         value_fn=lambda d: "yes" if d.pre_boost_export_recommended else "no",
@@ -1547,7 +1418,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="pre_boost_export_kwh",
         translation_key="pre_boost_export_kwh",
-        name="Pre-boost exportable kWh",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         icon="mdi:battery-arrow-up",
@@ -1557,7 +1427,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="pre_boost_export_net_gain",
         translation_key="pre_boost_export_net_gain",
-        name="Pre-boost export net gain",
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         icon="mdi:cash-plus",
@@ -1568,7 +1437,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="battery_power_direction",
         translation_key="battery_power_direction",
-        name="Battery Power Direction",
         icon="mdi:battery-charging",
         entity_registry_enabled_default=False,
         value_fn=lambda d: "Charging"
@@ -1579,7 +1447,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="integration_version",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="integration_version",
-        name="Integration Version",
         icon="mdi:information-outline",
         entity_registry_enabled_default=False,
         value_fn=lambda d: INTEGRATION_VERSION,
@@ -1587,7 +1454,6 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     GivEnergyManagerSensorDescription(
         key="days_in_period",
         translation_key="days_in_period",
-        name="Days Elapsed in Bill Period",
         native_unit_of_measurement="days",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:calendar-start",

@@ -58,9 +58,16 @@ class TestStaticIntegrity:
             for kw in _description_kwargs()
             if "translation_key" in kw
             and "name" not in names.get(kw["translation_key"].value, {})
-            and "name" not in kw
         )
         assert missing == []
+
+    def test_translated_sensors_do_not_repeat_the_name_in_code(self):
+        repeated = sorted(
+            kw["key"].value
+            for kw in _description_kwargs()
+            if "translation_key" in kw and "name" in kw
+        )
+        assert repeated == []
 
 
 def _literal_kwarg(kwargs: dict[str, ast.expr], name: str):

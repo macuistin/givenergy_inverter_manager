@@ -1,0 +1,767 @@
+[
+ {
+  "entity_id": "button.givenergy_inverter_manager_refresh_dashboard",
+  "key": "refresh_dashboard",
+  "name": "Refresh Dashboard"
+ },
+ {
+  "entity_id": "number.givenergy_inverter_manager_immersion_minimum_temperature",
+  "key": "immersion_min_temp",
+  "name": "Immersion Minimum Temperature"
+ },
+ {
+  "entity_id": "number.givenergy_inverter_manager_immersion_restart_gap",
+  "key": "immersion_hysteresis",
+  "name": "Immersion Restart Gap"
+ },
+ {
+  "entity_id": "number.givenergy_inverter_manager_immersion_target_temperature",
+  "key": "immersion_target_temp",
+  "name": "Immersion Target Temperature"
+ },
+ {
+  "entity_id": "number.givenergy_inverter_manager_overnight_charge_target_override",
+  "key": "charge_target_override",
+  "name": "Overnight Charge Target Override"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_accrued_bill_this_period",
+  "key": "accrued_bill",
+  "name": "Accrued Bill This Period"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_average_import_rate_this_month",
+  "key": "avg_import_rate_this_month",
+  "name": "Average Import Rate This Month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_average_import_rate_this_week",
+  "key": "avg_import_rate_this_week",
+  "name": "Average Import Rate This Week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_average_import_rate_today",
+  "key": "avg_import_rate_today",
+  "name": "Average Import Rate Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_charged_today",
+  "key": "battery_charge_kwh_today",
+  "name": "Battery Charged Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_cycle_cost_per_kwh",
+  "key": "battery_cycle_cost_per_kwh",
+  "name": "Battery Cycle Cost per kWh"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_discharged_today",
+  "key": "battery_discharge_kwh_today",
+  "name": "Battery Discharged Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_energy_available",
+  "key": "battery_kwh_available",
+  "name": "Battery Energy Available"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_estimated_usable_capacity",
+  "key": "battery_usable_capacity_kwh",
+  "name": "Battery Estimated Usable Capacity"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_life_consumed_today",
+  "key": "battery_life_consumed_today",
+  "name": "Battery Life Consumed Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_night_survival_status",
+  "key": "night_survival_reason",
+  "name": "Battery Night Survival Status"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_power",
+  "key": "battery_power",
+  "name": "Battery Power"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_power_direction",
+  "key": "battery_power_direction",
+  "name": "Battery Power Direction"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_remaining_life",
+  "key": "battery_remaining_life",
+  "name": "Battery Remaining Life"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_round_trip_efficiency_today",
+  "key": "battery_roundtrip_efficiency_today",
+  "name": "Battery Round-trip Efficiency Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_state",
+  "key": "battery_state",
+  "name": "Battery State"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_state_of_charge",
+  "key": "battery_soc",
+  "name": "Battery State of Charge"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_throughput",
+  "key": "battery_throughput_kwh_today",
+  "name": "Battery throughput"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_throughput_budget_status",
+  "key": "battery_throughput_budget_status",
+  "name": "Battery Throughput Budget Status"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_throughput_budget_used",
+  "key": "battery_throughput_budget_pct",
+  "name": "Battery Throughput Budget Used"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_total_cycles",
+  "key": "battery_cycles",
+  "name": "Battery Total Cycles"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_years_remaining_est",
+  "key": "battery_years_remaining",
+  "name": "Battery Years Remaining (est.)"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_cheap_rate_floor",
+  "key": "cheap_rate_floor_status",
+  "name": "Cheap Rate Floor"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_cheap_rate_import_fraction_this_month",
+  "key": "cheap_import_fraction_this_month",
+  "name": "Cheap rate import fraction this month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_cheap_rate_import_fraction_this_week",
+  "key": "cheap_import_fraction_this_week",
+  "name": "Cheap rate import fraction this week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_cheapest_rate_period_name",
+  "key": "cheapest_rate_period",
+  "name": "Cheapest Rate Period Name"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_cheapest_tariff_rate",
+  "key": "cheapest_rate",
+  "name": "Cheapest Tariff Rate"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_current_rate",
+  "key": "current_rate",
+  "name": "Current Rate"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_current_rate_period",
+  "key": "current_rate_period",
+  "name": "Current Rate Period"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_days_elapsed_in_bill_period",
+  "key": "days_in_period",
+  "name": "Days Elapsed in Bill Period"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_days_remaining_in_bill_period",
+  "key": "days_remaining_in_period",
+  "name": "Days Remaining in Bill Period"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_days_since_full_charge",
+  "key": "days_since_full_charge",
+  "name": "Days Since Full Charge"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_dry_run_mode_active",
+  "key": "dry_run_active",
+  "name": "Dry Run Mode Active"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_estimated_overnight_charge_cost",
+  "key": "overnight_charge_cost",
+  "name": "Estimated Overnight Charge Cost"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_estimated_soc_at_sunrise",
+  "key": "estimated_soc_at_sunrise",
+  "name": "Estimated SoC at Sunrise"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_ev_charger_state",
+  "key": "ev_charger_state",
+  "name": "EV Charger State"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_ev_charging_cost_today",
+  "key": "zappi_cost_today",
+  "name": "EV Charging Cost Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_ev_charging_power",
+  "key": "ev_power",
+  "name": "EV Charging Power"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_ev_charging_source",
+  "key": "ev_charging_source",
+  "name": "EV Charging Source"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_ev_charging_today",
+  "key": "zappi_today",
+  "name": "EV Charging Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_ev_cost_per_km_today",
+  "key": "ev_cost_per_km_today",
+  "name": "EV Cost per km Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_ev_draining_battery",
+  "key": "ev_draining_battery",
+  "name": "EV Draining Battery"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_ev_km_charged_today",
+  "key": "ev_km_charged_today",
+  "name": "EV km Charged Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_ev_mode_decision",
+  "key": "ev_protection_reason",
+  "name": "EV Mode Decision"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_ev_session_energy",
+  "key": "ev_session_energy",
+  "name": "EV Session Energy"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_ev_solar_surplus",
+  "key": "ev_solar_surplus_available",
+  "name": "EV Solar Surplus"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_export_earnings_this_month",
+  "key": "export_earnings_this_month",
+  "name": "Export earnings this month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_export_earnings_this_week",
+  "key": "export_earnings_this_week",
+  "name": "Export earnings this week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_export_earnings_this_year",
+  "key": "export_earnings_this_year",
+  "name": "Export earnings this year"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_export_earnings_today",
+  "key": "export_earnings_today",
+  "name": "Export Earnings Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_export_earnings_trailing_12_months",
+  "key": "export_earnings_trailing_12m",
+  "name": "Export Earnings — trailing 12 months"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_export_this_year",
+  "key": "export_this_year",
+  "name": "Export this year"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_export_trailing_12_months",
+  "key": "export_trailing_12m",
+  "name": "Export — trailing 12 months"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_forecast_accuracy_7_day_average",
+  "key": "forecast_accuracy_7day_avg_pct",
+  "name": "Forecast accuracy 7-day average"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_forecast_accuracy_yesterday",
+  "key": "yesterday_forecast_accuracy_pct",
+  "name": "Forecast accuracy yesterday"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_givtcp_register_write_count",
+  "key": "register_write_count",
+  "name": "GivTCP Register Write Count"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_carbon_intensity",
+  "key": "carbon_intensity",
+  "name": "Grid Carbon Intensity"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_carbon_intensity_status",
+  "key": "carbon_intensity_status",
+  "name": "Grid Carbon Intensity Status"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_export_this_month",
+  "key": "export_this_month",
+  "name": "Grid export this month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_export_this_week",
+  "key": "export_this_week",
+  "name": "Grid export this week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_export_today",
+  "key": "export_today",
+  "name": "Grid Export Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_export_yesterday",
+  "key": "export_yesterday",
+  "name": "Grid export yesterday"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_import_this_month",
+  "key": "import_this_month",
+  "name": "Grid import this month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_import_this_week",
+  "key": "import_this_week",
+  "name": "Grid import this week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_import_today",
+  "key": "import_today",
+  "name": "Grid Import Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_import_yesterday",
+  "key": "import_yesterday",
+  "name": "Grid import yesterday"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_power",
+  "key": "grid_power",
+  "name": "Grid Power"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_power_direction",
+  "key": "grid_power_direction",
+  "name": "Grid Power Direction"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_hours_to_cheap_rate",
+  "key": "hours_to_cheap_rate",
+  "name": "Hours to Cheap Rate"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_house_cost_today",
+  "key": "house_cost_today",
+  "name": "House Cost Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_house_load",
+  "key": "house_load",
+  "name": "House Load"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_house_load_today",
+  "key": "house_kwh_today",
+  "name": "House Load Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_cost_today",
+  "key": "immersion_cost_today",
+  "name": "Immersion Cost Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_divert_reason",
+  "key": "immersion_divert_reason",
+  "name": "Immersion Divert Reason"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_heater_power",
+  "key": "immersion_power",
+  "name": "Immersion Heater Power"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_heater_today",
+  "key": "immersion_today",
+  "name": "Immersion Heater Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_savings_this_month",
+  "key": "immersion_savings_this_month",
+  "name": "Immersion savings this month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_savings_this_week",
+  "key": "immersion_savings_this_week",
+  "name": "Immersion savings this week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_savings_yesterday",
+  "key": "immersion_savings_yesterday",
+  "name": "Immersion savings yesterday"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_diverted",
+  "key": "immersion_solar_kwh_today",
+  "name": "Immersion solar diverted"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_savings",
+  "key": "immersion_savings_today",
+  "name": "Immersion solar savings"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_at_cheap_rate",
+  "key": "import_kwh_cheap_today",
+  "name": "Import at cheap rate"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_at_cheap_rate_this_month",
+  "key": "import_kwh_cheap_this_month",
+  "name": "Import at cheap rate this month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_at_cheap_rate_this_week",
+  "key": "import_kwh_cheap_this_week",
+  "name": "Import at cheap rate this week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_at_cheap_rate_yesterday",
+  "key": "import_kwh_cheap_yesterday",
+  "name": "Import at cheap rate yesterday"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_at_peak_rate",
+  "key": "import_kwh_peak_today",
+  "name": "Import at peak rate"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_at_peak_rate_this_month",
+  "key": "import_kwh_peak_this_month",
+  "name": "Import at peak rate this month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_at_peak_rate_this_week",
+  "key": "import_kwh_peak_this_week",
+  "name": "Import at peak rate this week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_at_peak_rate_yesterday",
+  "key": "import_kwh_peak_yesterday",
+  "name": "Import at peak rate yesterday"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_cost_at_cheap_rate",
+  "key": "import_cost_cheap_today",
+  "name": "Import cost at cheap rate"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_cost_at_peak_rate",
+  "key": "import_cost_peak_today",
+  "name": "Import cost at peak rate"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_cost_this_month",
+  "key": "import_cost_this_month",
+  "name": "Import cost this month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_cost_this_week",
+  "key": "import_cost_this_week",
+  "name": "Import cost this week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_cost_today",
+  "key": "import_cost_today",
+  "name": "Import Cost Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_cost_trailing_12_months",
+  "key": "import_cost_trailing_12m",
+  "name": "Import Cost — trailing 12 months"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_cost_yesterday",
+  "key": "import_cost_yesterday",
+  "name": "Import cost yesterday"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_trailing_12_months",
+  "key": "import_trailing_12m",
+  "name": "Import — trailing 12 months"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_integration_version",
+  "key": "integration_version",
+  "name": "Integration Version"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_inverter_clipping",
+  "key": "is_clipping",
+  "name": "Inverter Clipping"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_inverter_derating_today",
+  "key": "inverter_derating_today_minutes",
+  "name": "Inverter Derating Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_inverter_temperature",
+  "key": "inverter_temperature",
+  "name": "Inverter Temperature"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_inverter_temperature_status",
+  "key": "inverter_temperature_status",
+  "name": "Inverter Temperature Status"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_last_skipped_action_dry_run",
+  "key": "dry_run_last_skipped",
+  "name": "Last Skipped Action (Dry Run)"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_live_grid_cost_rate",
+  "key": "live_grid_cost_rate",
+  "name": "Live Grid Cost Rate"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_minutes_remaining_in_rate_period",
+  "key": "minutes_remaining_in_period",
+  "name": "Minutes Remaining in Rate Period"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_missed_solar_today",
+  "key": "missed_solar_today",
+  "name": "Missed solar today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_net_financial_position_this_month",
+  "key": "net_position_this_month",
+  "name": "Net Financial Position This Month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_net_financial_position_today",
+  "key": "net_position_today",
+  "name": "Net Financial Position Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_net_saving_today_inc_battery_wear",
+  "key": "net_saving_today",
+  "name": "Net Saving Today (inc. battery wear)"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_net_solar_surplus",
+  "key": "net_solar_surplus_w",
+  "name": "Net Solar Surplus"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_next_cheap_rate_start",
+  "key": "next_cheap_rate_start",
+  "name": "Next Cheap Rate Start"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_night_survival_confidence",
+  "key": "night_survival_confidence",
+  "name": "Night Survival Confidence"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_on_base_daytime_rate",
+  "key": "is_on_base_rate",
+  "name": "On Base (Daytime) Rate"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_on_cheapest_rate",
+  "key": "is_on_cheapest_rate",
+  "name": "On Cheapest Rate"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_overnight_charge_reason",
+  "key": "overnight_charge_reason",
+  "name": "Overnight Charge Reason"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_peak_rate_import_fraction",
+  "key": "peak_import_fraction_today",
+  "name": "Peak rate import fraction"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_pre_boost_export_net_gain",
+  "key": "pre_boost_export_net_gain",
+  "name": "Pre-boost export net gain"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_pre_boost_export_recommended",
+  "key": "pre_boost_export_recommended",
+  "name": "Pre-boost export recommended"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_pre_boost_exportable_kwh",
+  "key": "pre_boost_export_kwh",
+  "name": "Pre-boost exportable kWh"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_projected_bill_this_period",
+  "key": "projected_bill",
+  "name": "Projected Bill This Period"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_rate_saving_vs_daytime",
+  "key": "rate_savings_vs_daytime",
+  "name": "Rate Saving vs Daytime"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_recommended_overnight_charge_target",
+  "key": "overnight_charge_target",
+  "name": "Recommended Overnight Charge Target"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_rest_of_house_load",
+  "key": "rest_of_house_load",
+  "name": "Rest of House Load"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_saving_vs_grid_today",
+  "key": "saving_vs_grid_today",
+  "name": "Saving vs Grid Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_self_consumed_solar_today",
+  "key": "self_consumed_kwh_today",
+  "name": "Self-consumed Solar Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_self_consumption",
+  "key": "self_consumption",
+  "name": "Self Consumption"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_self_sufficiency",
+  "key": "self_sufficiency",
+  "name": "Self Sufficiency"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_self_sufficiency_this_month",
+  "key": "self_sufficiency_this_month",
+  "name": "Self-sufficiency this month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_self_sufficiency_this_week",
+  "key": "self_sufficiency_this_week",
+  "name": "Self-sufficiency this week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_self_sufficiency_yesterday",
+  "key": "self_sufficiency_yesterday",
+  "name": "Self-sufficiency yesterday"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_actual_vs_forecast",
+  "key": "solar_actual_vs_forecast_pct",
+  "name": "Solar actual vs forecast"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_capture_efficiency_today",
+  "key": "solar_capture_efficiency_today",
+  "name": "Solar Capture Efficiency Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_forecast_today",
+  "key": "solar_forecast_kwh_today",
+  "name": "Solar forecast today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_generated_this_month",
+  "key": "solar_this_month",
+  "name": "Solar generated this month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_generated_this_week",
+  "key": "solar_this_week",
+  "name": "Solar generated this week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_generated_this_year",
+  "key": "solar_this_year",
+  "name": "Solar generated this year"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_generated_yesterday",
+  "key": "solar_yesterday",
+  "name": "Solar generated yesterday"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_generation_today",
+  "key": "solar_today",
+  "name": "Solar Generation Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_output_of_max",
+  "key": "solar_power_pct_of_max",
+  "name": "Solar Output % of Max"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_power",
+  "key": "solar_power",
+  "name": "Solar Power"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_trailing_12_months",
+  "key": "solar_trailing_12m",
+  "name": "Solar — trailing 12 months"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_this_week_s_energy_summary",
+  "key": "week_summary",
+  "name": "This week's energy summary"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_today_s_energy_summary",
+  "key": "today_summary",
+  "name": "Today's energy summary"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_tonight_s_charge_plan",
+  "key": "charge_plan",
+  "name": "Tonight's charge plan"
+ },
+ {
+  "entity_id": "switch.givenergy_inverter_manager_auto_immersion_divert",
+  "key": "auto_immersion",
+  "name": "Auto Immersion Divert"
+ },
+ {
+  "entity_id": "switch.givenergy_inverter_manager_enable_charge_target_override",
+  "key": "charge_target_override_enabled",
+  "name": "Enable Charge Target Override"
+ },
+ {
+  "entity_id": "switch.givenergy_inverter_manager_force_skip_overnight_charge",
+  "key": "skip_charge_override",
+  "name": "Force Skip Overnight Charge"
+ },
+ {
+  "entity_id": "switch.givenergy_inverter_manager_immersion_heater_managed",
+  "key": "immersion_managed",
+  "name": "Immersion Heater (Managed)"
+ }
+]
