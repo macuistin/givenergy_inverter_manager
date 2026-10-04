@@ -345,9 +345,11 @@ def available_surplus_w(
     """
     Solar power left over once the rest of the house and battery charging are served.
 
-    house_load_w already includes the immersion's draw while it is on, so that draw
-    is added back. Without this the surplus collapses as soon as the element starts,
-    and the next cycle switches it off again.
+    house_load_w is the GivTCP load sensor. It is the inverter-side load and already
+    includes the immersion's draw while it is on, so that draw is added back (capped at
+    house_load_w). Without this the surplus collapses as soon as the element starts,
+    and the next cycle switches it off again. Only positive battery_power_w (charging)
+    is subtracted. The EV charger's draw is not added back.
     """
     own_draw_w = min(max(0.0, immersion_power_w), max(0.0, house_load_w)) if immersion_on else 0.0
     return solar_power_w - (house_load_w - own_draw_w) - max(0.0, battery_power_w)

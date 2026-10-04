@@ -579,7 +579,21 @@ def _initialize_coordinator_data(
     yesterday_forecast_accuracy_pct: float,
     forecast_accuracy_7day_avg_pct: float,
 ) -> None:
-    """Initialize CoordinatorData with base values."""
+    """Initialize CoordinatorData with base values.
+
+    Which loads each power figure includes:
+
+    house_load_w: the GivTCP load sensor as read. It is the inverter-side load and
+        includes the immersion while it is on. Loads wired outside the inverter are
+        not in it. The cost split, rest_of_house_w and the per-slot baseline all assume
+        the EV charger's draw is inside it too.
+    immersion_load_w: the configured element wattage while the switch is on, else 0.
+        It is the nameplate figure, not a measurement.
+    rest_of_house_w: house_load_w minus ev_power_w minus immersion_load_w, floored at 0.
+    net_solar_surplus_w: smoothed solar minus house_load_w with the immersion's own
+        draw added back, floored at 0. Battery charging is not subtracted (the immersion
+        rule does subtract it) and the EV draw is not added back.
+    """
     data.last_reset_time = last_reset_time
     data.solar_forecast_kwh_today = solar_forecast_kwh_today
     data.yesterday_forecast_accuracy_pct = yesterday_forecast_accuracy_pct

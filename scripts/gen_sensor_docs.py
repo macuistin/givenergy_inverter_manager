@@ -252,8 +252,8 @@ DESCRIPTIONS: dict[str, str] = {
     "grid_power_direction": "Importing, Exporting or Balanced (within 50 W of zero).",
     "solar_power_pct_of_max": "Solar power as a percentage of the configured inverter maximum.",
     "net_solar_surplus_w": (
-        "Smoothed solar power minus house load minus immersion power, floored at 0. "
-        "Drives the EV signals."
+        "Smoothed solar power minus house load, with the immersion's own draw added back, "
+        "floored at 0. Battery charging is not subtracted. Drives the EV signals."
     ),
     "battery_kwh_available": "Battery state of charge times the configured capacity.",
     "battery_power_direction": "Charging, Discharging or Idle (within 50 W of zero).",

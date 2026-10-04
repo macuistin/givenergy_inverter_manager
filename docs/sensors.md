@@ -28,7 +28,7 @@ Updated every 30 seconds. Power values are in watts. Grid Power is positive when
 | Rest of House Load | `rest_of_house_load` | W | power | measurement | no | yes | House load minus EV charger power and immersion power, floored at 0. |
 | Grid Power Direction | `grid_power_direction` | - | - | none | no | no | Importing, Exporting or Balanced (within 50 W of zero). |
 | Solar Output % of Max | `solar_power_pct_of_max` | % | - | measurement | no | no | Solar power as a percentage of the configured inverter maximum. |
-| Net Solar Surplus | `net_solar_surplus_w` | W | power | measurement | no | no | Smoothed solar power minus house load minus immersion power, floored at 0. Drives the EV signals. |
+| Net Solar Surplus | `net_solar_surplus_w` | W | power | measurement | no | no | Smoothed solar power minus house load, with the immersion's own draw added back, floored at 0. Battery charging is not subtracted. Drives the EV signals. |
 | Inverter Clipping | `is_clipping` | - | - | none | no | yes | `clipping` at or above 95% of the inverter maximum, else `normal`. Diagnostic category. |
 | Inverter Temperature | `inverter_temperature` | °C | temperature | measurement | no | yes | Reading of the GivTCP inverter temperature entity, if set. |
 | Inverter Temperature Status | `inverter_temperature_status` | - | - | none | no | yes | Normal, Warm (60 °C or more), Derating (65 °C or more), Critical (75 °C or more) or Unknown. |

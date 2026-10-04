@@ -1627,6 +1627,18 @@ class TestNetSolarSurplus:
         data, _ = _run(raw=raw)
         assert data.net_solar_surplus_w == pytest.approx(3500.0)
 
+    def test_battery_charging_is_not_subtracted(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=500.0, battery_power_w=2000.0)
+        raw.smoothed_solar_power_w = 4000.0
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == pytest.approx(3500.0)
+
+    def test_ev_draw_is_not_added_back(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=3500.0, ev_power_w=3000.0)
+        raw.smoothed_solar_power_w = 4000.0
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == pytest.approx(500.0)
+
     def test_surplus_unchanged_by_immersion_switching_on(self):
         off = _raw(solar_power_w=4000.0, house_load_w=500.0, immersion_on=False)
         on = _raw(solar_power_w=4000.0, house_load_w=3500.0, immersion_on=True)
