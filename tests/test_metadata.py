@@ -151,3 +151,12 @@ def test_quality_scale_done_claims_hold_in_the_code():
 
     if _quality_status("strict-typing") == "done":
         assert (_PKG / "py.typed").exists()
+
+
+def test_device_manufacturer_is_not_givenergy():
+    """GivEnergy makes the inverter, not this integration, so no platform may claim it."""
+    for path in _PKG.glob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        assert '"manufacturer": "GivEnergy"' not in text, path.name
+    const = (_PKG / "const.py").read_text(encoding="utf-8")
+    assert 'DEVICE_MANUFACTURER = "macuistin"' in const

@@ -36,6 +36,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_IMMERSION_SWITCH,
+    DEVICE_MANUFACTURER,
     DOMAIN,
     IMMERSION_SWITCH_COOLDOWN_MINUTES,
     INTEGRATION_VERSION,
@@ -86,7 +87,7 @@ class GivEnergyAutoImmersionSwitch(
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
             "name": "GivEnergy Inverter Manager",
-            "manufacturer": "GivEnergy",
+            "manufacturer": DEVICE_MANUFACTURER,
             "model": "Inverter Manager",
             "sw_version": INTEGRATION_VERSION,
         }
@@ -126,7 +127,7 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
             "name": "GivEnergy Inverter Manager",
-            "manufacturer": "GivEnergy",
+            "manufacturer": DEVICE_MANUFACTURER,
             "model": "Inverter Manager",
             "sw_version": INTEGRATION_VERSION,
         }
@@ -279,7 +280,7 @@ class GivEnergySkipChargeOverrideSwitch(CoordinatorEntity[GivEnergyCoordinator],
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
             "name": "GivEnergy Inverter Manager",
-            "manufacturer": "GivEnergy",
+            "manufacturer": DEVICE_MANUFACTURER,
             "model": "Inverter Manager",
             "sw_version": INTEGRATION_VERSION,
         }
@@ -324,7 +325,7 @@ class GivEnergyChargeTargetOverrideSwitch(
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
             "name": "GivEnergy Inverter Manager",
-            "manufacturer": "GivEnergy",
+            "manufacturer": DEVICE_MANUFACTURER,
             "model": "Inverter Manager",
             "sw_version": INTEGRATION_VERSION,
         }

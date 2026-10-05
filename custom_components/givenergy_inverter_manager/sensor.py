@@ -50,6 +50,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     BATTERY_RATED_CYCLES,
+    DEVICE_MANUFACTURER,
     DOMAIN,
     INTEGRATION_VERSION,
     NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
@@ -1514,7 +1515,7 @@ class GivEnergyManagerSensor(CoordinatorEntity[GivEnergyCoordinator], SensorEnti
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
             "name": "GivEnergy Inverter Manager",
-            "manufacturer": "GivEnergy",
+            "manufacturer": DEVICE_MANUFACTURER,
             "model": "Inverter Manager",
             "sw_version": INTEGRATION_VERSION,
         }

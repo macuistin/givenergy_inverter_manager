@@ -30,6 +30,7 @@ from .const import (
     DEFAULT_IMMERSION_HYSTERESIS,
     DEFAULT_IMMERSION_MIN_TEMP,
     DEFAULT_IMMERSION_TARGET_TEMP,
+    DEVICE_MANUFACTURER,
     DOMAIN,
     INTEGRATION_VERSION,
 )
@@ -82,7 +83,7 @@ class GivEnergyChargeTargetOverride(CoordinatorEntity[GivEnergyCoordinator], Num
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
             "name": "GivEnergy Inverter Manager",
-            "manufacturer": "GivEnergy",
+            "manufacturer": DEVICE_MANUFACTURER,
             "model": "Inverter Manager",
             "sw_version": INTEGRATION_VERSION,
         }
@@ -105,7 +106,7 @@ def _make_device_info(coordinator: GivEnergyCoordinator) -> dict:
     return {
         "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
         "name": "GivEnergy Inverter Manager",
-        "manufacturer": "GivEnergy",
+        "manufacturer": DEVICE_MANUFACTURER,
         "model": "Inverter Manager",
         "sw_version": INTEGRATION_VERSION,
     }
