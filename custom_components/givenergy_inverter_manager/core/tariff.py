@@ -20,7 +20,7 @@ from __future__ import annotations
 import calendar
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from datetime import time as dtime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
@@ -45,6 +45,7 @@ from ..const import (
     DEFAULT_STANDING_CHARGE,
     DEFAULT_VAT_RATE,
 )
+from .timeutil import elapsed_seconds, local_time_on
 
 _LOG = logging.getLogger(__name__)
 
@@ -175,13 +176,15 @@ class TariffConfig:
             return None
         if any(p.is_active(dt) for p in cheap):
             return 0.0, None
-        now_minutes = dt.hour * 60 + dt.minute
-        soonest = min(
-            cheap,
-            key=lambda p: (p.start.hour * 60 + p.start.minute - now_minutes) % 1440,
-        )
-        delta = (soonest.start.hour * 60 + soonest.start.minute - now_minutes) % 1440
-        return round(delta / 60, 2), soonest.start.strftime("%H:%M")
+        now = dt.replace(second=0, microsecond=0)
+        starts = []
+        for period in cheap:
+            start = local_time_on(now, period.start)
+            if elapsed_seconds(now, start) < 0:
+                start = local_time_on(now + timedelta(days=1), period.start)
+            starts.append((elapsed_seconds(now, start), period))
+        seconds, soonest = min(starts, key=lambda item: item[0])
+        return round(seconds / 3600, 2), soonest.start.strftime("%H:%M")
 
     def get_most_expensive_rate(self) -> RatePeriod:
         """Return the most expensive rate across all periods including the base rate."""
