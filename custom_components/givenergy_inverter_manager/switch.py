@@ -26,23 +26,19 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_ON
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_IMMERSION_SWITCH,
-    DEVICE_MANUFACTURER,
-    DOMAIN,
     IMMERSION_SWITCH_COOLDOWN_MINUTES,
-    INTEGRATION_VERSION,
 )
-from .coordinator import GivEnergyCoordinator
+from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .core.timeutil import real_time_after
+from .entity import GivEnergyEntity
 from .logging import get_logger
 
 _LOG = get_logger(__name__)
@@ -54,11 +50,11 @@ PARALLEL_UPDATES = 0
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: GivEnergyConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up GivEnergy Manager switches."""
-    coordinator: GivEnergyCoordinator = entry.runtime_data
+    coordinator = entry.runtime_data
 
     entities = [
         GivEnergyAutoImmersionSwitch(coordinator),
@@ -74,24 +70,16 @@ async def async_setup_entry(
 
 
 class GivEnergyAutoImmersionSwitch(
-    CoordinatorEntity[GivEnergyCoordinator], RestoreEntity, SwitchEntity
+    GivEnergyEntity, RestoreEntity, SwitchEntity
 ):
     """Switch to enable/disable automatic immersion divert logic."""
 
-    _attr_has_entity_name = True
     _attr_name = "Auto Immersion Divert"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
         self._auto_immersion_enabled: bool = True  # instance variable — not shared across entities
         self._attr_unique_id = f"{coordinator.entry.entry_id}_auto_immersion"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
-            "name": "GivEnergy Inverter Manager",
-            "manufacturer": DEVICE_MANUFACTURER,
-            "model": "Inverter Manager",
-            "sw_version": INTEGRATION_VERSION,
-        }
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -116,22 +104,14 @@ class GivEnergyAutoImmersionSwitch(
         self.async_write_ha_state()
 
 
-class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], SwitchEntity):
+class GivEnergyImmersionControlSwitch(GivEnergyEntity, SwitchEntity):
     """Switch that applies the coordinator's immersion divert decision to the actual switch."""
 
-    _attr_has_entity_name = True
     _attr_name = "Immersion Heater (Managed)"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_immersion_managed"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
-            "name": "GivEnergy Inverter Manager",
-            "manufacturer": DEVICE_MANUFACTURER,
-            "model": "Inverter Manager",
-            "sw_version": INTEGRATION_VERSION,
-        }
 
     @property
     def is_on(self) -> bool:
@@ -252,7 +232,7 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
                     service,
                     self.coordinator.data.divert_reason,
                 )
-                self.hass.async_create_task(
+                self.coordinator._create_task(
                     self.coordinator._call_service(
                         "switch", service, {"entity_id": immersion_switch}, blocking=False
                     )
@@ -265,26 +245,18 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
         self.async_write_ha_state()
 
 
-class GivEnergySkipChargeOverrideSwitch(CoordinatorEntity[GivEnergyCoordinator], SwitchEntity):
+class GivEnergySkipChargeOverrideSwitch(GivEnergyEntity, SwitchEntity):
     """Switch to force skip overnight charging regardless of decision logic.
 
     Stores the override on the coordinator so it is honoured by every future
     engine run, not just the current in-memory snapshot.
     """
 
-    _attr_has_entity_name = True
     _attr_name = "Force Skip Overnight Charge"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_skip_charge_override"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
-            "name": "GivEnergy Inverter Manager",
-            "manufacturer": DEVICE_MANUFACTURER,
-            "model": "Inverter Manager",
-            "sw_version": INTEGRATION_VERSION,
-        }
 
     @property
     def is_on(self) -> bool:
@@ -302,7 +274,7 @@ class GivEnergySkipChargeOverrideSwitch(CoordinatorEntity[GivEnergyCoordinator],
 
 
 class GivEnergyChargeTargetOverrideSwitch(
-    CoordinatorEntity[GivEnergyCoordinator], RestoreEntity, SwitchEntity
+    GivEnergyEntity, RestoreEntity, SwitchEntity
 ):
     """
     Switch to enable or disable the manual charge target override.
@@ -316,20 +288,12 @@ class GivEnergyChargeTargetOverrideSwitch(
     meaningful SoC percentage, never a confusing "0 = auto" sentinel.
     """
 
-    _attr_has_entity_name = True
     _attr_name = "Enable Charge Target Override"
     _attr_icon = "mdi:battery-charging-outline"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_charge_target_override_enabled"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
-            "name": "GivEnergy Inverter Manager",
-            "manufacturer": DEVICE_MANUFACTURER,
-            "model": "Inverter Manager",
-            "sw_version": INTEGRATION_VERSION,
-        }
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
