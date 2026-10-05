@@ -17,7 +17,13 @@ from types import SimpleNamespace
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 
-from tests.dashboard_support import ENTRY_ID, FULL_CONFIG, FakeRegistry, fake_hass
+from tests.dashboard_support import (
+    ENTRY_ID,
+    FULL_CONFIG,
+    FakeRegistry,
+    dashboard_dict,
+    fake_hass,
+)
 
 
 def _strategy():
@@ -121,15 +127,8 @@ class TestDashboardForWebsocket:
             return asyncio.run(_strategy().async_dashboard_for_websocket(hass))
 
     def test_returns_the_dashboard_dict(self):
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
-            build_dashboard,
-        )
-
         result = self._run([_loaded_entry()])
-        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True)) as hass:
-            hass.config_entries.async_entries.return_value = [_loaded_entry()]
-            expected = build_dashboard(hass, ENTRY_ID)
-        assert result == expected
+        assert result == dashboard_dict(ev_brand=None)
         assert [v["path"] for v in result["views"]][:3] == ["power-flow", "today", "bill"]
 
     def test_none_without_a_config_entry(self):
@@ -139,20 +138,13 @@ class TestDashboardForWebsocket:
         assert self._run([_loaded_entry(state=ConfigEntryState.NOT_LOADED)]) is None
 
     def test_uses_the_first_loaded_entry_like_the_action(self):
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
-            build_dashboard,
-        )
-
         result = self._run(
             [
                 _loaded_entry(state=ConfigEntryState.NOT_LOADED, entry_id="other_entry"),
                 _loaded_entry(),
             ]
         )
-        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True)) as hass:
-            hass.config_entries.async_entries.return_value = [_loaded_entry()]
-            expected = build_dashboard(hass, ENTRY_ID)
-        assert result == expected
+        assert result == dashboard_dict(ev_brand=None)
 
 
 class TestRegisterOnce:

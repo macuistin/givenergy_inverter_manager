@@ -118,6 +118,37 @@ class FakeRegistry:
         return self._entries.get(entity_id)
 
 
+def fake_entry(config: dict | None = None, ev_brand: str | None = None):
+    """A config entry double holding this config and the EV charger brand the coordinator found."""
+    entry = MagicMock()
+    entry.entry_id = ENTRY_ID
+    entry.data = dict(config or {})
+    entry.options = {}
+    entry.runtime_data = SimpleNamespace(ev_charger_brand=ev_brand)
+    return entry
+
+
+def fake_states_hass(states: tuple[str, ...] = (), entries: list | None = None):
+    """A hass double whose state machine knows the given entity ids."""
+    hass = MagicMock()
+    hass.config_entries.async_entries.return_value = entries or []
+    hass.states.get = lambda entity_id: MagicMock() if entity_id in states else None
+    hass.states.async_all.return_value = []
+    return hass
+
+
+class RecordingRegistry(FakeRegistry):
+    """A FakeRegistry that remembers every unique ID suffix the generator asked for."""
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.requested: set[str] = set()
+
+    def async_get_entity_id(self, domain, platform, unique_id):
+        self.requested.add(unique_id.removeprefix(f"{ENTRY_ID}_"))
+        return super().async_get_entity_id(domain, platform, unique_id)
+
+
 @contextmanager
 def fake_hass(
     config: dict | None = None,
@@ -125,20 +156,14 @@ def fake_hass(
     states: tuple[str, ...] = (),
     ev_brand: str | None = None,
 ):
-    """Yield a hass double wired to a fake registry, config entry and state machine."""
-    entry = MagicMock()
-    entry.entry_id = ENTRY_ID
-    entry.data = dict(config or {})
-    entry.options = {}
-    entry.runtime_data = SimpleNamespace(ev_charger_brand=ev_brand)
+    """Yield a hass double wired to a fake registry, config entry and state machine.
 
-    hass = MagicMock()
-    hass.config_entries.async_entries.return_value = [entry]
-    hass.states.get = lambda entity_id: MagicMock() if entity_id in states else None
-    hass.states.async_all.return_value = []
-
-    with patch("custom_components.givenergy_inverter_manager.dashboard_builder.er") as er_mock:
-        er_mock.async_get.return_value = registry or FakeRegistry()
+    For code that finds the registry itself, as the dashboard strategy does.
+    """
+    entry = fake_entry(config, ev_brand)
+    hass = fake_states_hass(states, [entry])
+    with patch("homeassistant.helpers.entity_registry.async_get") as async_get:
+        async_get.return_value = registry or FakeRegistry()
         yield hass
 
 
@@ -170,14 +195,11 @@ def dashboard_text(
     states: tuple[str, ...] = (),
 ) -> str:
     """The generated dashboard YAML. Defaults: every feature configured, every sensor enabled."""
-    from custom_components.givenergy_inverter_manager.dashboard_builder import (
-        build_dashboard_yaml,
-    )
+    from custom_components.givenergy_inverter_manager.dashboard_builder import render_dashboard
 
-    config = FULL_CONFIG if config is None else config
+    entry = fake_entry(FULL_CONFIG if config is None else config, ev_brand)
     registry = registry or FakeRegistry(enable_all=True)
-    with fake_hass(config, registry, states, ev_brand) as hass:
-        return build_dashboard_yaml(hass, ENTRY_ID, resources)
+    return render_dashboard(fake_states_hass(states), entry, resources, registry)[0]
 
 
 def dashboard_dict(
@@ -186,11 +208,11 @@ def dashboard_dict(
     *,
     resources: list[str] | None = None,
     ev_brand: str | None = "myenergi",
+    states: tuple[str, ...] = (),
 ) -> dict:
     """The generated dashboard as a dict, before it is serialised."""
     from custom_components.givenergy_inverter_manager.dashboard_builder import build_dashboard
 
-    config = FULL_CONFIG if config is None else config
+    entry = fake_entry(FULL_CONFIG if config is None else config, ev_brand)
     registry = registry or FakeRegistry(enable_all=True)
-    with fake_hass(config, registry, (), ev_brand) as hass:
-        return build_dashboard(hass, ENTRY_ID, resources)
+    return build_dashboard(fake_states_hass(states), entry, resources, registry)

@@ -24,23 +24,21 @@ from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
 
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    SERVICE_COMPARE_TARIFF,
+    SERVICE_EXPORT_ENERGY_DATA,
+    SERVICE_GET_DASHBOARD_YAML,
+    SERVICE_GET_ROI_SUMMARY,
+    SERVICE_SUGGEST_APPLIANCE,
+    SERVICE_YEAR_ON_YEAR,
+)
 from .core.rules import suggest_appliance_run
 from .core.tariff import BillBreakdown, TariffConfig, build_tariff
-from .dashboard_builder import (
-    SERVICE_GET_DASHBOARD_YAML,
-    async_lovelace_resource_urls,
-    render_dashboard,
-)
+from .dashboard_builder import async_lovelace_resource_urls, render_dashboard
 from .logging import get_logger
 
 _LOG = get_logger(__name__)
-
-SERVICE_SUGGEST_APPLIANCE = "suggest_appliance_run"
-SERVICE_COMPARE_TARIFF = "compare_tariff"
-SERVICE_YEAR_ON_YEAR = "year_on_year_summary"
-SERVICE_EXPORT_ENERGY_DATA = "export_energy_data"
-SERVICE_GET_ROI_SUMMARY = "get_roi_summary"
 
 DASHBOARD_FILENAME = "givenergy_dashboard.yaml"
 _EXPORT_FILENAME = "givenergy_energy_export.csv"
@@ -144,7 +142,7 @@ def _make_get_dashboard_yaml_handler(hass: HomeAssistant):
         """Write the generated dashboard to the config directory."""
         entry = primary_entry(hass)
         resources = await async_lovelace_resource_urls(hass)
-        yaml_output, skipped = render_dashboard(hass, entry.entry_id, resources)
+        yaml_output, skipped = render_dashboard(hass, entry, resources)
         file_path = await _write_config_file(hass, DASHBOARD_FILENAME, yaml_output)
         _LOG.info("Dashboard YAML written to %s", file_path)
         await _notification(

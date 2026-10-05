@@ -754,9 +754,12 @@ class TestDashboardSummarySensors:
         assert "entity_registry_enabled_default=False" not in block
 
     def test_dashboard_uses_house_kwh_today(self):
-        dashboard = (_SENSOR_PY.parent / "dashboard_builder.py").read_text()
-        assert 'e("house_kwh_today")' in dashboard
+        from tests.dashboard_support import dashboard_text, default_entity_ids
+
+        dashboard = dashboard_text()
+        assert default_entity_ids()["house_kwh_today"] in dashboard
         assert "house_energy_today" not in dashboard
+
 class TestDailyTotalSensorsUseTotalStateClass:
     """HA raises ValueError from state_attributes when last_reset is set on a non-TOTAL sensor."""
 

@@ -44,7 +44,7 @@ async def async_dashboard_for_websocket(hass: HomeAssistant) -> dict | None:
     if not entries:
         return None
     resources = await async_lovelace_resource_urls(hass)
-    return build_dashboard(hass, entries[0].entry_id, resources)
+    return build_dashboard(hass, entries[0], resources)
 
 
 async def async_register_strategy(hass: HomeAssistant) -> None:
