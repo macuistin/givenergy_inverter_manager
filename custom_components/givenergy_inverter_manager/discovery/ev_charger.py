@@ -354,7 +354,7 @@ def _maybe(ch: EVCharger, attr: str, all_states: dict, eid: str) -> None:
         setattr(ch, attr, eid)
 
 
-def update_charger_state(
+def update_charger_state(  # noqa: C901
     get_state,
     charger: EVCharger,
     battery_power_w: float,

@@ -100,7 +100,12 @@ from .const import (
 )
 from .core.battery import BatteryStats
 from .core.engine import (
+    Accumulators,
     CoordinatorData,
+    CycleInputs,
+    ForecastContext,
+    ManualOverrides,
+    PreviousCycle,
     RawSensorValues,
     build_coordinator_data,
 )
@@ -156,7 +161,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     _create_task so this class is fully testable by subclassing.
     """
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:  # noqa: PLR0915
         super().__init__(
             hass,
             _LOG._logger,
@@ -281,7 +286,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         domain: str,
         service: str,
         data: dict,
-        blocking: bool = True,
+        blocking: bool = True,  # noqa: FBT001, FBT002
     ) -> None:
         """Call an HA service."""
         await self.hass.services.async_call(domain, service, data, blocking=blocking)
@@ -404,7 +409,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return True
         return False
 
-    async def _givtcp_call_service(
+    async def _givtcp_call_service(  # noqa: PLR0913
         self, domain: str, service: str, data: dict, name: str, value
     ) -> bool:
         """Call a write service, returning False and logging if it raises."""
@@ -423,10 +428,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._last_write_time.pop((entity_id, value), None)
         return False
 
-    async def _givtcp_set_switch(
+    async def _givtcp_set_switch(  # noqa: C901
         self,
         entity_id: str | None,
-        state: bool,
+        state: bool,  # noqa: FBT001
         name: str,
         step: int = 0,
     ) -> bool:
@@ -483,7 +488,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
         return True
 
-    async def _givtcp_set_select(
+    async def _givtcp_set_select(  # noqa: C901
         self,
         entity_id: str | None,
         value: str,
@@ -538,7 +543,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
         return True
 
-    async def _givtcp_set_number(
+    async def _givtcp_set_number(  # noqa: C901
         self,
         entity_id: str | None,
         value: int,
@@ -663,7 +668,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         _LOG.debug("Midnight reset: daily, weekly, and monthly accumulators updated")
 
     @callback
-    def _write_charge_target_to_inverter(self, _now: datetime) -> None:
+    def _write_charge_target_to_inverter(self, _now: datetime) -> None:  # noqa: PLR0915
         """
         Write tonight's charge target and charge window to GivTCP entities.
 
@@ -863,7 +868,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw.grid_power_w = -self._read_float(cfg.get(CONF_GRID_POWER))
         raw.house_load_w = self._read_tracked(cfg.get(CONF_HOUSE_LOAD), "house_load", unavailable)
 
-    def _collect_raw(self, cfg: dict) -> RawSensorValues:
+    def _collect_raw(self, cfg: dict) -> RawSensorValues:  # noqa: C901, PLR0915
         """Read all sensor entity states and return as a plain-Python struct."""
         raw = RawSensorValues()
         unavailable: list[str] = []
@@ -1054,7 +1059,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     # ── Main update cycle ─────────────────────────────────────────────────────
 
-    async def _maybe_apply_cheap_rate_floor(
+    async def _maybe_apply_cheap_rate_floor(  # noqa: C901
         self,
         now: datetime,
         raw,
@@ -1140,7 +1145,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         else:
             async_delete_min_soc_issue(self.hass)
 
-    async def _async_update_data(self) -> CoordinatorData:
+    async def _async_update_data(self) -> CoordinatorData:  # noqa: C901, PLR0915
         """
         Called every UPDATE_INTERVAL_SECONDS by the HA coordinator framework.
 
@@ -1218,28 +1223,38 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._acc.record_slot_load(now, slot, (baseline_w / 1000) * elapsed_h, elapsed_h)
 
         data, ev_target_mode = build_coordinator_data(
-            raw=raw,
-            cfg=cfg,
-            acc=self._acc.today,
-            battery_stats=self._battery_stats,
-            last_soc=self._last_soc,
-            last_update_time=self._last_update,
-            now=now,
-            ev_charger=self._ev_charger,
-            override_charge_target=self.override_charge_target,
-            override_immersion=self.override_immersion,
-            override_skip_charge=self.override_skip_charge,
-            solar_fractions=self._solar_fractions,
-            last_reset_time=self._last_reset_time,
-            acc_week=self._acc.week,
-            acc_month=self._acc.month,
-            acc_year=self._acc.year,
-            acc_yesterday=self._acc.yesterday,
-            solar_forecast_kwh_today=self._acc.today_forecast_kwh,
-            yesterday_forecast_accuracy_pct=self._acc.yesterday_forecast_accuracy_pct,
-            forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
-            load_profile=self._acc.slot_load_profile((now + timedelta(days=1)).weekday()),
-            forecast_correction=self._acc.forecast_correction_factor,
+            CycleInputs(
+                raw=raw,
+                cfg=cfg,
+                now=now,
+                ev_charger=self._ev_charger,
+                overrides=ManualOverrides(
+                    charge_target=self.override_charge_target,
+                    immersion=self.override_immersion,
+                    skip_charge=self.override_skip_charge,
+                ),
+            ),
+            Accumulators(
+                today=self._acc.today,
+                week=self._acc.week,
+                month=self._acc.month,
+                year=self._acc.year,
+                yesterday=self._acc.yesterday,
+                last_reset_time=self._last_reset_time,
+            ),
+            PreviousCycle(
+                battery_stats=self._battery_stats,
+                last_soc=self._last_soc,
+                last_update_time=self._last_update,
+            ),
+            ForecastContext(
+                solar_fractions=self._solar_fractions,
+                solar_forecast_kwh_today=self._acc.today_forecast_kwh,
+                yesterday_forecast_accuracy_pct=self._acc.yesterday_forecast_accuracy_pct,
+                forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
+                load_profile=self._acc.slot_load_profile((now + timedelta(days=1)).weekday()),
+                forecast_correction=self._acc.forecast_correction_factor,
+            ),
         )
 
         data.week_start_time = self._acc.state.week_start_iso
@@ -1264,7 +1279,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
 
         self._acc.on_raw_forecast(raw.forecast_kwh_tomorrow)
-        self._acc.note_clipping(data.is_clipping)
+        if data.is_clipping:
+            self._acc.note_clipping()
 
         # 6. Record forecast for accuracy tracking (sets solar_forecast_today sensor)
         if data.charge_decision is not None and data.charge_decision.forecast_kwh > 0:

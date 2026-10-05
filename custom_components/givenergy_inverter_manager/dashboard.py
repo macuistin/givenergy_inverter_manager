@@ -24,7 +24,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
 
 from .const import DOMAIN
-from .core.rules import suggest_appliance_run
+from .core.rules import ApplianceRequest, RateContext, SiteReadings, suggest_appliance_run
 from .core.tariff import BillBreakdown, TariffConfig, build_tariff
 from .dashboard_builder import (
     SERVICE_GET_DASHBOARD_YAML,
@@ -439,7 +439,7 @@ def _make_export_handler(hass: HomeAssistant):
     return handle
 
 
-async def async_register_services(hass: HomeAssistant) -> None:
+async def async_register_services(hass: HomeAssistant) -> None:  # noqa: PLR0915
     """Register the integration's service actions."""
 
     async def handle_get_dashboard_yaml(call: ServiceCall) -> None:
@@ -523,15 +523,18 @@ async def async_register_services(hass: HomeAssistant) -> None:
         data = coordinator.data
 
         recommended, reason = suggest_appliance_run(
-            solar_power_w=data.solar_power_w,
-            house_load_w=data.house_load_w,
-            battery_soc=data.battery_soc,
-            battery_power_w=data.battery_power_w,
-            appliance_power_w=appliance_power_w,
-            appliance_name=appliance_name,
-            rate_period_name=data.current_rate_name,
-            rate=data.current_rate,
-            export_rate=coordinator.export_rate,
+            SiteReadings(
+                solar_power_w=data.solar_power_w,
+                house_load_w=data.house_load_w,
+                battery_soc=data.battery_soc,
+                battery_power_w=data.battery_power_w,
+            ),
+            ApplianceRequest(name=appliance_name, power_w=appliance_power_w),
+            RateContext(
+                period_name=data.current_rate_name,
+                rate=data.current_rate,
+                export_rate=coordinator.export_rate,
+            ),
         )
 
         verdict = "Good time to run" if recommended else "Not recommended right now"

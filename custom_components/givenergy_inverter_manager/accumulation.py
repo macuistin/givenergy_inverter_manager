@@ -340,33 +340,40 @@ class AccumulationStore:
           3. Reset today accumulator
           4. Reset week accumulator if today is Monday (ISO week start)
           5. Reset month accumulator if today is bill_start_day
+          6. Reset year accumulator on 1 January
         """
         today_date = now.date()
-
-        # 1. Snapshot
         self.state.yesterday = self.state.today
-
-        # 2. Forecast accuracy for the completed day
-        if self.state.today_forecast_kwh > 0:
-            actual = self.state.today.solar_kwh
-            accuracy = min(200.0, round(actual / self.state.today_forecast_kwh * 100, 1))
-            self.state.yesterday_forecast_accuracy_pct = accuracy
-            history = self.state.forecast_accuracy_history[-(_FORECAST_HISTORY_DAYS - 1) :]
-            history.append(accuracy)
-            self.state.forecast_accuracy_history = history
-            _LOG.debug(
-                "Forecast accuracy for completed day: %.1f%% (forecast %.1fkWh, actual %.1fkWh)",
-                accuracy,
-                self.state.today_forecast_kwh,
-                actual,
-            )
-
+        self._record_forecast_accuracy()
         self._record_forecast_ratio()
-
         if self.state.slot_load_date and self.state.slot_load_date < today_date.isoformat():
             self._archive_slot_day()
+        self._reset_today(now)
+        if today_date.isoweekday() == 1:
+            self._reset_week(now)
+        if today_date.day == self._bill_start_day:
+            self._reset_month(now)
+        if today_date.month == 1 and today_date.day == 1:
+            self._reset_year(now)
 
-        # 3. Reset today
+    def _record_forecast_accuracy(self) -> None:
+        """Forecast accuracy for the completed day, kept for the last seven days."""
+        if self.state.today_forecast_kwh <= 0:
+            return
+        actual = self.state.today.solar_kwh
+        accuracy = min(200.0, round(actual / self.state.today_forecast_kwh * 100, 1))
+        self.state.yesterday_forecast_accuracy_pct = accuracy
+        history = self.state.forecast_accuracy_history[-(_FORECAST_HISTORY_DAYS - 1) :]
+        history.append(accuracy)
+        self.state.forecast_accuracy_history = history
+        _LOG.debug(
+            "Forecast accuracy for completed day: %.1f%% (forecast %.1fkWh, actual %.1fkWh)",
+            accuracy,
+            self.state.today_forecast_kwh,
+            actual,
+        )
+
+    def _reset_today(self, now: datetime) -> None:
         self.state.today = EnergyAccumulator()
         self.state.today_forecast_kwh = 0.0
         self.state.today_raw_forecast_kwh = self.state.pending_raw_forecast_kwh
@@ -374,35 +381,30 @@ class AccumulationStore:
         self.state.today_clipping = False
         self.state.last_reset_iso = now.isoformat()
 
-        # 4. Weekly reset on Monday
-        if today_date.isoweekday() == 1:
-            self.state.week = EnergyAccumulator()
-            self.state.week_start_iso = now.isoformat()
-            _LOG.debug("Weekly accumulator reset (Monday)")
+    def _reset_week(self, now: datetime) -> None:
+        self.state.week = EnergyAccumulator()
+        self.state.week_start_iso = now.isoformat()
+        _LOG.debug("Weekly accumulator reset (Monday)")
 
-        # 5. Monthly reset on bill start day
-        if today_date.day == self._bill_start_day:
-            # Snapshot completed month's export before clearing
-            snapshots = self.state.monthly_export_snapshots[-11:] + [
-                round(self.state.month.export_kwh, 3)
-            ]
-            self.state.monthly_export_snapshots = snapshots
-            # Snapshot full month dict for trailing 12m calculations
-            full_snapshots = self.state.monthly_snapshots[-11:] + [_acc_to_dict(self.state.month)]
-            self.state.monthly_snapshots = full_snapshots
-            self.state.month = EnergyAccumulator()
-            self.state.month_start_iso = now.isoformat()
-            _LOG.debug(
-                "Monthly accumulator reset (bill day %d) — snapshot saved, %d total",
-                self._bill_start_day,
-                len(full_snapshots),
-            )
+    def _reset_month(self, now: datetime) -> None:
+        """Snapshot the completed month for the trailing 12 month totals, then clear it."""
+        self.state.monthly_export_snapshots = self.state.monthly_export_snapshots[-11:] + [
+            round(self.state.month.export_kwh, 3)
+        ]
+        full_snapshots = self.state.monthly_snapshots[-11:] + [_acc_to_dict(self.state.month)]
+        self.state.monthly_snapshots = full_snapshots
+        self.state.month = EnergyAccumulator()
+        self.state.month_start_iso = now.isoformat()
+        _LOG.debug(
+            "Monthly accumulator reset (bill day %d) — snapshot saved, %d total",
+            self._bill_start_day,
+            len(full_snapshots),
+        )
 
-        # 6. Yearly reset on Jan 1
-        if today_date.month == 1 and today_date.day == 1:
-            self.state.year = EnergyAccumulator()
-            self.state.year_start_iso = now.isoformat()
-            _LOG.debug("Yearly accumulator reset (Jan 1)")
+    def _reset_year(self, now: datetime) -> None:
+        self.state.year = EnergyAccumulator()
+        self.state.year_start_iso = now.isoformat()
+        _LOG.debug("Yearly accumulator reset (Jan 1)")
 
     def roll_forward(self, now: datetime) -> bool:
         """
@@ -493,10 +495,9 @@ class AccumulationStore:
         if forecast_kwh is not None and forecast_kwh > 0:
             self.state.pending_raw_forecast_kwh = forecast_kwh
 
-    def note_clipping(self, clipping: bool) -> None:
+    def note_clipping(self) -> None:
         """Flag today as clipping so it is left out of the forecast correction."""
-        if clipping:
-            self.state.today_clipping = True
+        self.state.today_clipping = True
 
     def _record_forecast_ratio(self) -> None:
         if self.state.today_raw_forecast_kwh <= 0:
@@ -584,13 +585,15 @@ def _serialize(state: AccumulationState) -> dict:
     }
 
 
-def _deserialize(data: dict) -> AccumulationState:
-    state = AccumulationState()
+def _restore_accumulators(state: AccumulationState, data: dict) -> None:
     state.today = _dict_to_acc(data.get("today", {}))
     state.week = _dict_to_acc(data.get("week", {}))
     state.month = _dict_to_acc(data.get("month", {}))
     state.year = _dict_to_acc(data.get("year", {}))
     state.yesterday = _dict_to_acc(data.get("yesterday", {}))
+
+
+def _restore_battery_and_forecast(state: AccumulationState, data: dict) -> None:
     state.today_forecast_kwh = float(data.get("today_forecast_kwh", 0.0))
     state.battery_cycles = float(data.get("battery_cycles", 0.0))
     state.last_full_charge_date = str(data.get("last_full_charge_date", ""))
@@ -605,6 +608,9 @@ def _deserialize(data: dict) -> AccumulationState:
     state.forecast_ratio_history = [
         dict(r) for r in data.get("forecast_ratio_history", []) if isinstance(r, dict)
     ]
+
+
+def _restore_slot_load(state: AccumulationState, data: dict) -> None:
     state.slot_load_history = [
         dict(e) for e in data.get("slot_load_history", []) if isinstance(e, dict)
     ]
@@ -613,6 +619,9 @@ def _deserialize(data: dict) -> AccumulationState:
         values = data.get(key)
         if isinstance(values, list) and len(values) == _SLOTS_PER_DAY:
             setattr(state, key, [float(v) for v in values])
+
+
+def _restore_period_history(state: AccumulationState, data: dict) -> None:
     state.week_start_iso = data.get("week_start_iso", "")
     state.month_start_iso = data.get("month_start_iso", "")
     state.year_start_iso = data.get("year_start_iso", "")
@@ -624,4 +633,12 @@ def _deserialize(data: dict) -> AccumulationState:
         dict(entry) for entry in data.get("monthly_snapshots", [])
         if isinstance(entry, dict)
     ]
+
+
+def _deserialize(data: dict) -> AccumulationState:
+    state = AccumulationState()
+    _restore_accumulators(state, data)
+    _restore_battery_and_forecast(state, data)
+    _restore_slot_load(state, data)
+    _restore_period_history(state, data)
     return state

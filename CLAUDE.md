@@ -167,8 +167,9 @@ source-grep tests are listed for replacement in `ROADMAP.md`.
 
 **Before adding a new sensor:** add tests in `tests/test_sensors.py` covering
 device_class, unit, state_class, and value_fn. The existing battery_power tests
-are the reference pattern. Then run `python scripts/gen_sensor_docs.py` to refresh
-`docs/sensors.md`.
+are the reference pattern. Put any value logic longer than one expression in
+`sensor_values.py` (pure, no HA imports) and test it in `tests/test_sensor_values.py`. Then run
+`python scripts/gen_sensor_docs.py` to refresh `docs/sensors.md`.
 
 **Before changing config flow schemas:** run `tests/test_config_flow_schemas.py` with
 the real HA package, which catches `step` constraints, selector validation, and
@@ -179,6 +180,21 @@ the `Current version:` line in `README.md` and the `This documentation matches v
 `docs/index.md` together. `tests/test_metadata.py` fails if one is missed.
 
 ---
+
+## Code standard (Clean Code)
+
+The code follows Robert C. Martin's *Clean Code*. Ruff enforces the measurable parts in `pyproject.toml`: complexity 8, 30 statements, 4 arguments, no boolean flag parameters. New code must stay inside the limits. An existing offender carries an inline `# noqa: <rule>` marker, and the change that fixes the function deletes the marker.
+
+- A function does one thing at one level of abstraction. Aim for 20 lines or fewer, never more than 40. Extract until each function reads as a short paragraph.
+- Name things for what they mean (`available_surplus_w`, not `calc2`). A comment says why, never what the next line does. Delete commented-out code.
+- Three arguments or fewer is the goal. A longer list becomes a named parameter object (a frozen dataclass). A boolean flag argument means the function does two things: split it, or use an enum.
+- A function either changes state (a command) or returns a value (a query), not both.
+- A class has one reason to change. When a class mixes reading state, deciding and writing to hardware, split it.
+- Prefer raising an exception to returning an error code. Do not return or pass `None` when an empty value or a null object works.
+- Pure logic lives in `core/` and imports nothing from Home Assistant. Home Assistant glue stays thin.
+- No duplication: when you copy a block a second time, extract it.
+- Refactor in small steps with the tests green. For code without tests, pin today's behaviour with a characterisation test first, then change it.
+- Home Assistant schemas and entity description tables are declarative on purpose and may stay long. Keep the logic out of them.
 
 ## Pull requests and branches
 

@@ -152,7 +152,7 @@ class GivEnergyImmersionControlSwitch(GivEnergyEntity, SwitchEntity):
         await self.coordinator.async_request_refresh()
 
     @callback
-    def _handle_coordinator_update(self) -> None:
+    def _handle_coordinator_update(self) -> None:  # noqa: PLR0915
         """Apply immersion decision to the real switch when coordinator updates."""
         if self.coordinator.data is None:
             self.async_write_ha_state()
