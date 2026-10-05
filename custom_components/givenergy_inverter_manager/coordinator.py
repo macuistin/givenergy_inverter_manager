@@ -303,6 +303,14 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         except (ValueError, TypeError):
             return None
 
+    def _read_first_optional_float(self, *entity_ids: str) -> float | None:
+        """Return the first entity id that has a numeric state, else None."""
+        for entity_id in entity_ids:
+            value = self._read_optional_float(entity_id)
+            if value is not None:
+                return value
+        return None
+
     def _read_tracked(self, entity_id: str | None, name: str, unavailable: list[str]) -> float:
         """Read a float state, recording name in unavailable and returning 0.0 if it is missing."""
         value = self._read_optional_float(entity_id)
@@ -810,7 +818,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._smoothed_solar_w = 0.5 * prev_smoothed + 0.5 * raw.solar_power_w
         raw.smoothed_solar_power_w = getattr(self, "_smoothed_solar_w", 0.0)
         raw.battery_soc = self._read_tracked(cfg.get(CONF_BATTERY_SOC), "battery_soc", unavailable)
-        raw.battery_power_w = self._read_tracked(
+        # GivTCP reports battery power as positive=discharging, negative=charging.
+        # Negate to match internal convention (positive=charging, negative=discharging).
+        # Subtracting from 0.0 avoids a -0.0 reading when the sensor is idle or missing.
+        raw.battery_power_w = 0.0 - self._read_tracked(
             cfg.get(CONF_BATTERY_POWER), "battery_power", unavailable
         )
         # GivTCP v3 uses positive=export, negative=import.
@@ -882,11 +893,15 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.export_energy_today_kwh = self._read_optional_float(
                 f"{pfx}_export_energy_today_kwh"
             )
-            raw.charge_energy_today_kwh = self._read_optional_float(
-                f"{pfx}_charge_energy_today_kwh"
+            # GivTCP names these battery_charge_energy_today_kwh and
+            # battery_discharge_energy_today_kwh. The unprefixed names are kept
+            # as a fallback for older GivTCP versions.
+            raw.charge_energy_today_kwh = self._read_first_optional_float(
+                f"{pfx}_battery_charge_energy_today_kwh", f"{pfx}_charge_energy_today_kwh"
             )
-            raw.discharge_energy_today_kwh = self._read_optional_float(
-                f"{pfx}_discharge_energy_today_kwh"
+            raw.discharge_energy_today_kwh = self._read_first_optional_float(
+                f"{pfx}_battery_discharge_energy_today_kwh",
+                f"{pfx}_discharge_energy_today_kwh",
             )
             raw.load_energy_today_kwh = self._read_optional_float(f"{pfx}_load_energy_today_kwh")
 
