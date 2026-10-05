@@ -173,6 +173,7 @@ def _appliance_arguments(coordinator, service_data) -> dict:
         "rate_period_name": data.current_rate_name,
         "rate": data.current_rate,
         "export_rate": coordinator.export_rate,
+        "currency_symbol": data.currency_symbol,
     }
 
 

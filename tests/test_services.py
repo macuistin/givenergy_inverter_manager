@@ -194,6 +194,9 @@ class TestSuggestAppliance:
     def test_export_rate_comes_from_the_coordinator(self, home):
         assert self._call(home).call_args.kwargs["export_rate"] == 0.15
 
+    def test_reply_uses_the_configured_currency_symbol(self, home):
+        assert self._call(home).call_args.kwargs["currency_symbol"] == "£"
+
     def test_notification_carries_the_verdict(self, home):
         self._call(home)
         note = home.notification
