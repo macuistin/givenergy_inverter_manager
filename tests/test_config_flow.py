@@ -824,3 +824,51 @@ class TestRatePeriodErrors:
                 errors = data[scope]["error"]
                 assert "rate_period_zero_length" in errors
                 assert "rate_period_duplicate_name" in errors
+
+
+class TestTariffUpdates:
+    """The three tariff forms (setup, reconfigure, options) share one parser."""
+
+    SUBMITTED = {
+        "base_rate": "0.3334",
+        "base_rate_name": "Day",
+        "export_rate": 0.195,
+        "standing_charge_per_day": 0.8259,
+        "pso_levy_per_month": 1.46,
+        "vat_rate": 9,
+        "discount_rate": 5.5,
+        "bill_start_day": 16.0,
+        "currency": "EUR",
+    }
+
+    def test_values_are_parsed_to_stored_types(self):
+        from custom_components.givenergy_inverter_manager.config_flow import _tariff_updates
+
+        periods = [{"name": "Night", "rate": 0.1, "start": "23:00", "end": "08:00"}]
+        updates = _tariff_updates(self.SUBMITTED, periods)
+        assert updates == {
+            "rate_periods": periods,
+            "base_rate": 0.3334,
+            "base_rate_name": "Day",
+            "export_rate": 0.195,
+            "standing_charge_per_day": 0.8259,
+            "pso_levy_per_month": 1.46,
+            "vat_rate": 9.0,
+            "discount_rate": 5.5,
+            "bill_start_day": 16,
+            "currency": "EUR",
+        }
+        assert isinstance(updates["vat_rate"], float)
+        assert isinstance(updates["bill_start_day"], int)
+
+    def test_missing_name_and_currency_fall_back_to_defaults(self):
+        from custom_components.givenergy_inverter_manager.config_flow import _tariff_updates
+        from custom_components.givenergy_inverter_manager.const import (
+            DEFAULT_BASE_RATE_NAME,
+            DEFAULT_CURRENCY,
+        )
+
+        submitted = {k: v for k, v in self.SUBMITTED.items() if k not in ("base_rate_name", "currency")}
+        updates = _tariff_updates(submitted, [])
+        assert updates["base_rate_name"] == DEFAULT_BASE_RATE_NAME
+        assert updates["currency"] == DEFAULT_CURRENCY
