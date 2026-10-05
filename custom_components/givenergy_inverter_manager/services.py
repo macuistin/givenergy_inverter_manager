@@ -33,7 +33,7 @@ from .const import (
     SERVICE_SUGGEST_APPLIANCE,
     SERVICE_YEAR_ON_YEAR,
 )
-from .core.rules import suggest_appliance_run
+from .core.rules import ApplianceRequest, RateContext, SiteReadings, suggest_appliance_run
 from .core.tariff import BillBreakdown, TariffConfig, build_tariff
 from .dashboard_builder import async_lovelace_resource_urls, render_dashboard
 from .logging import get_logger
@@ -158,21 +158,29 @@ def _make_get_dashboard_yaml_handler(hass: HomeAssistant):
 # ── suggest_appliance_run ────────────────────────────────────────────────────
 
 
-def _appliance_arguments(coordinator, service_data) -> dict:
-    """Return the keyword arguments of suggest_appliance_run for the live readings."""
+def _appliance_arguments(
+    coordinator, service_data
+) -> tuple[SiteReadings, ApplianceRequest, RateContext]:
+    """Return the three arguments of suggest_appliance_run for the live readings."""
     data = coordinator.data
-    return {
-        "solar_power_w": data.solar_power_w,
-        "house_load_w": data.house_load_w,
-        "battery_soc": data.battery_soc,
-        "battery_power_w": data.battery_power_w,
-        "appliance_power_w": float(service_data["appliance_power_w"]),
-        "appliance_name": service_data["appliance_name"],
-        "rate_period_name": data.current_rate_name,
-        "rate": data.current_rate,
-        "export_rate": coordinator.export_rate,
-        "currency_symbol": data.currency_symbol,
-    }
+    return (
+        SiteReadings(
+            solar_power_w=data.solar_power_w,
+            house_load_w=data.house_load_w,
+            battery_soc=data.battery_soc,
+            battery_power_w=data.battery_power_w,
+        ),
+        ApplianceRequest(
+            name=service_data["appliance_name"],
+            power_w=float(service_data["appliance_power_w"]),
+        ),
+        RateContext(
+            period_name=data.current_rate_name,
+            rate=data.current_rate,
+            export_rate=coordinator.export_rate,
+            currency_symbol=data.currency_symbol,
+        ),
+    )
 
 
 def _make_suggest_appliance_handler(hass: HomeAssistant):
@@ -184,7 +192,7 @@ def _make_suggest_appliance_handler(hass: HomeAssistant):
         if coordinator.data is None:
             return
         appliance_name: str = call.data["appliance_name"]
-        recommended, reason = suggest_appliance_run(**_appliance_arguments(coordinator, call.data))
+        recommended, reason = suggest_appliance_run(*_appliance_arguments(coordinator, call.data))
         verdict = "Good time to run" if recommended else "Not recommended right now"
         hass.async_create_task(
             _notification(
