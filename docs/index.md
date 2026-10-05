@@ -30,8 +30,24 @@ This documentation matches version 0.5.1.
 | Page | Contents |
 |---|---|
 | [Troubleshooting](troubleshooting.md) | Fixes listed by symptom |
+| [Upgrade notes for v0.5.0](upgrade-v0.5.0.md) | Battery Power sign change, Home Assistant 2026.2.0 minimum, new dashboard and state class repairs |
 | [Upgrade notes for v0.3.0](upgrade-v0.3.0.md) | What changed since v0.2.1 and what to check |
 | [Uninstall](uninstall.md) | Remove the integration and its files |
+| [Testing](testing.md) | Run the stubbed and the real Home Assistant test suites (for contributors) |
+
+## Diagrams
+
+Mermaid sources. GitHub renders them, or paste one into the [Mermaid live editor](https://mermaid.live).
+
+| Diagram | Shows |
+|---|---|
+| [Module architecture](architecture.mermaid) | Which module calls which, and the line between the Home Assistant layer and the pure logic in `core/` |
+| [30-second update cycle](update-cycle.mermaid) | One coordinator cycle and the nightly charge target write |
+| [Tariff rate precedence](tariff-precedence.mermaid) | How the current rate is chosen |
+| [Immersion decision](immersion-logic.mermaid) | The divert rules, the cooldown and manual overrides |
+| [EV charger decision](ev-charger-logic.mermaid) | When the integration selects Eco+ |
+
+The charge target rules are in [Concepts](concepts.md#overnight-charge-target). A flowchart of them would only duplicate that list.
 
 ## Requirements
 

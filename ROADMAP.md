@@ -4,7 +4,7 @@ Organised by theme and priority.
 
 ---
 
-## Current State (v0.3.0)
+## Current State (v0.5.1)
 
 ### What is built and working
 
@@ -14,7 +14,7 @@ Organised by theme and priority.
 - **EV drain detection** — `ev_draining_battery` sensor detects when the EV charger
   is drawing from the battery rather than solar or grid; `ev_charging_source`
   (Solar/Grid/Battery/Mixed) shows the live source; `ev_solar_surplus_available`
-  triggers Zappi Eco+ automation when surplus exceeds 1,400W
+  triggers Zappi Eco+ automation when surplus reaches 1,380W
 - **Overnight charge calculator** — uses Forecast.Solar or Solcast (or seasonal
   fallback) to decide how much to charge from grid overnight; skips charging entirely
   when battery is high and forecast is strong
@@ -62,24 +62,32 @@ Organised by theme and priority.
   `ev_solar_surplus_available` (Available/Not available) for Zappi Eco+ automation triggers
 - **Missed solar opportunity** — `missed_solar_today` accumulates kWh exported while
   battery is full and no flex load is active (disabled by default)
-- **Predictive immersion scheduling** — runs immersion during cheap rate when tomorrow's
-  forecast is below 5 kWh, ensuring hot water on overcast days
 - **Solar noise floor** — sensor readings below 10W are ignored during accumulation,
   preventing overnight noise from inflating `solar_today`
-- **Solcast multi-array** — optional second forecast entity summed with the first for
-  east/west facing array installations
 - **Live grid cost rate** — `live_grid_cost_rate` sensor (€/hr) shown on the power flow
   card grid node using correct import/export rates; replaces static tariff rate display
-- **About 145 sensors**, most of the newer ones disabled by default
-- **Dashboard generator** — 4-tab dashboard; live cost rate on grid node; new sensors in
-  Battery Health (inverter temp) and Controls EV (charging source, solar surplus)
+- **144 sensors** (85 enabled by default), 4 switches, 4 numbers and a button
+- **Dashboard generator** — sections of tiles with a Now strip, a Bill view and six
+  sub-views (Immersion, EV charger, Cost breakdown, Solar and forecast, Tariff, Battery
+  detail). It lists only entities that are registered and enabled, falls back to built-in
+  cards when `power-flow-card-plus` or `apexcharts-card` is missing, and has an optional
+  Lovelace strategy. Needs Home Assistant 2026.2.0 or later
+- **Charge target uses learned data** — the per-slot load profile, a forecast accuracy
+  correction (clamped 0.6 to 1.2) and the day-after-tomorrow forecast feed the forward
+  simulation (v0.4.0)
+- **Equivalent full cycles** — battery cycles count discharge only and are seeded from the
+  BMS counter when GivTCP publishes one (v0.4.0)
+- **Guarded inverter writes** — read before write, read-back with retries, 5 minute
+  cooldown per entity and value, targets clamped to 4 to 100%, failed target write does not
+  enable the charge target (v0.4.0)
+- **Correct battery power sign** — Battery Power is positive while charging (v0.5.0)
 - **HACS-ready** — `hacs.json`, `manifest.json`, `strings.json`, `translations/en.json`,
   `icons.json` with MDI icons for all entities
 - **Repair issues** — `givtcp_entities_missing` repair issue surfaces in Settings → System
   → Repairs when configured GivTCP entities are absent from HA
 - **Automation examples** — `docs/automations.md` with 10 ready-to-use HA automation
   examples including Zappi Eco+ and inverter derating alert
-- **More than 950 unit tests and 43 real Home Assistant end-to-end tests**
+- **About 2340 unit tests and 190 real Home Assistant end-to-end tests**
 
 ---
 
@@ -90,9 +98,9 @@ Organised by theme and priority.
 A real Home Assistant end-to-end suite (`tests/ha_e2e/`, using
 `pytest-homeassistant-custom-component`) now covers setup, unload, the config and
 options flows, every sensor and midnight `last_reset`. What remains is to measure
-coverage across both suites, raise `config_flow.py` coverage, and replace the
-source-text assertions in `tests/test_swicth.py` and `tests/test_untested_modules.py`
-with behavioural tests.
+coverage across both suites (94% combined at the last measurement), raise
+`config_flow.py` coverage, and replace the remaining source-text assertions with
+behavioural tests (see Engineering backlog).
 
 **Complexity:** Medium.
 
@@ -109,11 +117,9 @@ All of the following were planned as near-term and have shipped:
 | entity-unavailable quality scale | #35 |
 | Reconfiguration flow | #36 |
 | exception-translations and icon-translations | #36–#38 |
-| Solcast multi-array support | #60 |
 | Inverter temperature derating sensors | #50, #56 |
 | EV solar charging signal | #51 |
 | Missed solar opportunity sensor | #52 |
-| Predictive immersion scheduling | #61 |
 | Solar noise floor fix | #56 |
 | Live grid cost rate sensor | #57 |
 | Dashboard file write + auto-init | #49, #59 |
@@ -128,6 +134,11 @@ All of the following were planned as near-term and have shipped:
 | Monthly and annual export volume tracking (12-month snapshots, trailing 12-month sensors) | #90 to #93 |
 | Real Home Assistant end-to-end test suite | #126 |
 
+Two items once listed here never reached `main`: Solcast multi-array support (PR 60, the
+branch `givenergy-solcast-multi-array` is unmerged) and predictive immersion scheduling
+(PR 61). Both are planned work again. The integration reads one forecast sensor, plus the
+optional P10 and day-after-tomorrow sensors.
+
 ---
 
 ## Backlog from external research and bill reconciliation (October 2026)
@@ -136,9 +147,9 @@ Sources: a reconciliation of five real electricity bills against the integration
 a code review of GivTCP, Predbat, the Octopus Energy integration, cdpuk/givenergy-local,
 EMHASS, evcc, OpenEMS, solar_optimizer, PV Excess Control, powercalc and Home Assistant
 core. Only findings checked in code or documentation are listed. Status: **done** means
-merged, **in progress** means a branch exists, **backlog** means not started.
+merged and released, **backlog** means not started.
 
-**Pull requests for the items marked in progress.** They form one stack, merged in this order.
+**Pull requests for the items below.** They merged as a stack and shipped in v0.4.0.
 
 | PR | Covers |
 |---|---|
@@ -152,9 +163,9 @@ merged, **in progress** means a branch exists, **backlog** means not started.
 | 136 | Diagnostics redaction, repair links, services registered once, translation drift, CI and metadata |
 | 138 | Dashboard: Now strip, Bill view, empty states, fallbacks, example, optional strategy |
 
-**Order of work.** The direction of this roadmap is sound, but the accounting and test
-foundations come before new optimisation features. Finish the items under Accuracy and
-Platform quality first, then Forecast and planning, then new hardware support.
+**Order of work.** The accounting and test foundations come before new optimisation
+features. The items marked done shipped in v0.4.0. Finish the remaining Accuracy and
+Platform quality items first, then Forecast and planning, then new hardware support.
 
 ### Accuracy (bill reconciliation)
 
@@ -164,11 +175,11 @@ after the supplier's price change on 1 July.
 
 | Item | Status |
 |---|---|
-| Reject zero-length and duplicate rate periods in setup and options, and skip them when building the tariff (a 00:00 to 00:00 slot with rate 0 became the "cheapest rate") | in progress |
-| PSO levy is a flat monthly amount on the bill, not prorated by days | in progress |
-| Bill start day off by one on the start day; read it from the saved options, not only the setup data; document that it is the first day of the billing period | in progress |
-| `accrued_bill` and `projected_bill` are computed from today's import cost instead of the billing period (live: EUR 21 against EUR 104 for the month) | in progress |
-| `compare_tariff` compared unlike quantities (no supplier saving or VAT on the alternative, standing charge on one side only) | in progress |
+| Reject zero-length and duplicate rate periods in setup and options, and skip them when building the tariff (a 00:00 to 00:00 slot with rate 0 became the "cheapest rate") | done |
+| PSO levy is a flat monthly amount on the bill, not prorated by days | done |
+| Bill start day off by one on the start day; read it from the saved options, not only the setup data; document that it is the first day of the billing period | done |
+| `accrued_bill` and `projected_bill` are computed from today's import cost instead of the billing period (live: EUR 21 against EUR 104 for the month) | done |
+| `compare_tariff` compared unlike quantities (no supplier saving or VAT on the alternative, standing charge on one side only) | done |
 | Dated tariff changes: apply a new rate set from an effective date, with a repair when rates have not been reviewed for a long time | backlog |
 | A calibration service to match the integration's totals to a supplier bill (powercalc `calibrate_cost` is the model) | backlog |
 | Export reads about 2% above the supplier meter (inverter-side measurement); document it | backlog |
@@ -178,19 +189,19 @@ after the supplier's price change on 1 July.
 
 | Item | Status |
 |---|---|
-| Cycle count counts charge and discharge, so it runs about 1.6 times the BMS counter; count discharge only and seed from the GivTCP BMS cycle counter | in progress |
+| Cycle count counts charge and discharge, so it runs about 1.6 times the BMS counter; count discharge only and seed from the GivTCP BMS cycle counter | done |
 | `Battery Life Consumed Today` read twice its real value | done |
 | State of health sensor from the GivTCP calibrated and design capacity, and battery temperature | backlog |
 | Include round-trip efficiency and cycle cost in the pre-boost export gain (evcc uses 0.9 per direction; EOS uses a levelised cost of storage) | backlog |
-| Persist the register write count and read GivTCP's own write count when present | in progress |
+| Persist the register write count (done in v0.4.0); read GivTCP's own write count when present | backlog |
 
 ### Inverter writes
 
 | Item | Status |
 |---|---|
 | Cheap-rate floor write bypassed the cooldown, read-back and write counter | done |
-| A failed service call aborts the five-step charge-target sequence before the enable switch; clamp targets to 4 to 100 (GivTCP's own range); key the cooldown on entity and value | in progress |
-| Zappi mode writes have no cooldown | in progress |
+| A failed service call aborts the five-step charge-target sequence before the enable switch; clamp targets to 4 to 100 (GivTCP's own range); key the cooldown on entity and value | done |
+| Zappi mode writes have no cooldown | done |
 
 ### Control logic
 
@@ -198,10 +209,10 @@ after the supplier's price change on 1 July.
 |---|---|
 | Immersion surplus collapsed once the element switched on, so it flapped | done |
 | Hold or refuse to start on unavailable sensors | done |
-| Bound the hold during a long outage | in progress |
-| EV energy and cost never worked: Zappi discovery assumed the serial was in the myenergi entity ids, and charging was never detected because only the plug status sensor was read (PR 129) | in progress |
+| Bound the hold during a long outage | done |
+| EV energy and cost never worked: Zappi discovery assumed the serial was in the myenergi entity ids, and charging was never detected because only the plug status sensor was read (PR 129) | done |
 | Use the Zappi's own energy counters (`green_energy_today`, `energy_used_today`, `charge_added_session`) as the authority for EV energy, and split EV cost into solar and grid shares; today the cost is the EV's share of inverter-side grid import, so it accrues only while the house imports | backlog |
-| Remove dead EV code and the three overlapping EV thresholds | in progress |
+| Remove dead EV code and the three overlapping EV thresholds | done |
 | On and off delays on sustained conditions rather than only a write lockout (evcc: enable 1 minute, disable 3 minutes; solar_optimizer: minimum on and off durations) | backlog |
 | Smooth the net surplus, not only solar, and seed the average from the first reading | backlog |
 | Periodic pasteurisation cycle for the hot water cylinder, separate from the minimum temperature floor (needs the owner's confirmation of target temperature) | backlog |
@@ -214,9 +225,10 @@ after the supplier's price change on 1 July.
 
 | Item | Status |
 |---|---|
-| The learned per-slot load profile is not used by the charge calculation and is lost on restart; persist it and use it | in progress |
-| Forecast accuracy is measured but never fed back; scale the forecast by a clamped median actual to forecast ratio (evcc `solarScale`; EMHASS adaptive conformal inference) | in progress |
-| The day-after-tomorrow forecast does not reach the engine | in progress |
+| The learned per-slot load profile is not used by the charge calculation and is lost on restart; persist it and use it | done |
+| Forecast accuracy is measured but never fed back; scale the forecast by a clamped median actual to forecast ratio (evcc `solarScale`; EMHASS adaptive conformal inference) | done |
+| The day-after-tomorrow forecast does not reach the engine | done |
+| Solcast multi-array: a second forecast sensor summed with the first for east and west arrays (an unmerged branch, `givenergy-solcast-multi-array`, exists) | backlog |
 | Slot-shaped solar curve from a per-period forecast attribute instead of a fixed bell curve (uncertain: depends on what the Solcast integration exposes) | backlog |
 | Dynamic day-ahead tariffs: the supplier and regulator timeline needs a verified source before this is planned | backlog |
 
@@ -228,10 +240,10 @@ after the supplier's price change on 1 July.
 | Duplicate `export_trailing_12m`, invalid state classes on the pre-boost sensors, missing translations | done |
 | Options form reverted saved zero and cleared values; empty entity selectors blocked saving | done |
 | Manual setup path crashed | done |
-| Week, month and year sensors need `last_reset`; yesterday, rolling and projected sensors should have no state class; persist year totals; flush accumulators on shutdown | in progress |
+| Week, month and year sensors need `last_reset`; yesterday, rolling and projected sensors should have no state class; persist year totals; flush accumulators on shutdown | done |
 | Monetary unit is a currency symbol; Home Assistant expects an ISO 4217 code. Changing it breaks existing statistics, so it needs a migration plan | backlog |
-| Diagnostics redact nothing, repairs have no learn-more link, no `_unrecorded_attributes` for the HTML report sensors, translation drift between `strings.json` and `en.json`, services registered per entry instead of once | in progress |
-| `hacs.json` minimum Home Assistant version, `pyproject.toml` build backend, nightly CI and a Python matrix, untrack `coverage.json` | in progress |
+| Diagnostics redact nothing, repairs have no learn-more link, no `_unrecorded_attributes` for the HTML report sensors, translation drift between `strings.json` and `en.json`, services registered per entry instead of once | done |
+| `hacs.json` minimum Home Assistant version, `pyproject.toml` build backend, nightly CI and a Python matrix, untrack `coverage.json` | done |
 | Issue templates that require a diagnostics download and the GivTCP version; architecture decision records for the cycle definition and the tariff model | backlog |
 
 ### Dashboard and installation
@@ -242,12 +254,12 @@ level, night survival, next cheap window) sit on different tabs.
 
 | Item | Status |
 |---|---|
-| Include rows and cards only for entities that are registered and enabled, or for features that are configured | in progress |
-| "Now" strip on the first view and a "Bill" view built from core cards, so drift against a real bill is visible | in progress |
-| Build the dashboard as a dictionary instead of hand-indented text, with a golden test | in progress |
-| Copy-me example dashboard in `docs/`, kept in step by a test | in progress |
-| Thin Lovelace strategy (`custom:givenergy-manager`) served by the integration, about 30 lines of plain JavaScript, so the dashboard never goes stale (pattern verified in garmin_connect and WebRTC; Mushroom's strategy shows the support cost of cache and registration problems) | in progress, separate commit that can be dropped |
-| Fallback card when `power-flow-card-plus` or `apexcharts-card` is not installed | in progress, if resources can be detected reliably |
+| Include rows and cards only for entities that are registered and enabled, or for features that are configured | done |
+| "Now" strip on the first view and a "Bill" view built from core cards, so drift against a real bill is visible | done |
+| Build the dashboard as a dictionary instead of hand-indented text, with a golden test | done |
+| Copy-me example dashboard in `docs/`, kept in step by a test | done |
+| Thin Lovelace strategy (`custom:givenergy-manager`) served by the integration, about 30 lines of plain JavaScript, so the dashboard never goes stale (pattern verified in garmin_connect and WebRTC; Mushroom's strategy shows the support cost of cache and registration problems) | done in v0.4.0, kept in its own commit |
+| Fallback card when `power-flow-card-plus` or `apexcharts-card` is not installed | done in v0.4.0, when the Lovelace resource list is readable |
 | Charge plan timeline card | backlog, build only if core cards cannot express it |
 | Integration-owned storage dashboard that rewrites the user's Lovelace | not planned: relies on internal Home Assistant APIs and would overwrite user edits |
 | Sidebar panel, a rebuild of power-flow-card-plus or apexcharts, a webpack or TypeScript pipeline | not planned |
@@ -256,10 +268,10 @@ level, night survival, next cheap window) sit on different tabs.
 
 | Item | Status |
 |---|---|
-| Label and one-sentence help for every setup, options and reconfigure field, including what 0 or empty means; "First day of your billing period" wording for the bill start day | in progress |
-| Immersion temperature sliders reload the whole integration on every move | in progress |
-| Reconfigure is overridden by saved options and reloads twice | in progress |
-| Options sections ordered by use, tariff expanded by default | in progress |
+| Label and one-sentence help for every setup, options and reconfigure field, including what 0 or empty means; "First day of your billing period" wording for the bill start day | done |
+| Immersion temperature sliders reload the whole integration on every move | done |
+| Reconfigure is overridden by saved options and reloads twice | done |
+| Options sections ordered by use, tariff expanded by default | done |
 | Stale-tariff prompt and dated rate changes | backlog, see Accuracy |
 
 ### What not to copy
@@ -271,180 +283,31 @@ level, night survival, next cheap window) sit on different tabs.
 
 ---
 
-## Medium-Term (v0.3.0)
+## Engineering backlog
 
-### Solcast P10/P50 conservatism weighting
+Findings from a code review of v0.5.1. None of these change behaviour for users. They make
+the next features cheaper and safer to build.
 
-The overnight charge target currently uses a single forecast value (P50 median).
-Solcast also exposes P10 (pessimistic) and P90 (optimistic) bands. A configurable
-`forecast_conservatism` weight (0.0 = pure P50, 1.0 = pure P10) lets the user
-dial in how aggressively to hedge against cloudy days.
-
-Triangular blend formula (from pv_opt and EMHASS):
-```
-wgt_10 = max(0, 0.5 - conservatism) / 0.4
-wgt_50 = 1 - abs(conservatism - 0.5) / 0.4
-wgt_90 = max(0, conservatism - 0.5) / 0.4
-forecast = wgt_10 * p10 + wgt_50 * p50 + wgt_90 * p90
-```
-
-Exposed as a slider in the Forecast section of the options flow.
-Default: 0.35 (slightly pessimistic, same as PALM default).
-
-**Complexity:** Low — new config key + pass weight through to `rules.py`.
+| Item | Why |
+|---|---|
+| Extract an `ImmersionActuator` and a single serialised `GivTCPWriter` | Register writes (cooldown, read-back, write count) and immersion switching sit inside `coordinator.py` and `switch.py`. One serialised writer gives them one path |
+| Make `CoordinatorData` a slots dataclass and move the fields set after the engine runs into the engine call | `coordinator.py` sets fields such as `divert_reason`, `register_write_count` and `cheap_rate_floor_status` on the data object after the engine returns it. A slots dataclass rejects misspelt fields |
+| Split the sensor description table in `sensor.py` by theme, and drop the duplicated icons | `sensor.py` is about 1,600 lines. Most descriptions set `icon=` while `icons.json` also holds icons |
+| Rename `dashboard.py` to `services.py` and split `dashboard_builder.py` into a package | `dashboard.py` registers the six actions, so the name misleads. `dashboard_builder.py` is about 1,200 lines |
+| Replace the remaining source-grep tests with behavioural ones | About 70 tests read a source file and assert that a string is present: `test_coordinator.py` (about 29), `test_config_flow.py` (about 15), `test_switch.py` (13), `test_sensors.py` (8), `test_logging.py` (4), `test_dashboard.py` (2). They fail on harmless edits and pass on broken behaviour |
+| Decide the self-sufficiency definition | Today it is the share of consumption (house, EV, immersion) covered by solar and battery discharge. Confirm that is the one to keep, document it in `docs/concepts.md` and test it against a known day |
+| Use stdlib logging instead of `logging.py` | `logging.py` (about 350 lines) wraps the logger to add a `verbose` method gated by a config option. Replace it if a logger filter can do the same |
+| Remove the `strings.json` and `translations/en.json` duplication | The two files must stay identical and a test enforces it. Generate one from the other, or keep one |
+| Run mypy in CI | `strict-typing` is `todo` in `quality_scale.yaml`. Fix the existing type errors first, then add the job |
+| Test the Home Assistant floor version nightly | `hacs.json` says 2026.2.0, but the end-to-end suite runs on one pinned, newer release. A nightly run on the floor catches use of an API the floor lacks |
 
 ---
 
-### Forward SoC simulation for overnight charge target
+## Medium-Term
 
-Replace the three-tier lookup (strong/moderate/poor forecast) with a physics-based
-forward simulation over the next 24–48 hours. Directly implements the PALM algorithm:
-
-1. Build a 48-slot (30-min) profile of estimated solar generation using the
-   weighted forecast (P10/P50 blend) and estimated load from historical average.
-2. Simulate battery SoC slot-by-slot from start of cheap-rate window.
-3. Track `max_charge` (battery peak from solar) and `min_charge` (trough before
-   that peak — the worst SoC point during the day).
-4. `target_soc = max(100 - max_charge_pct, (min_reserve - min_charge_pct), min_reserve)`
-
-This answers precisely: "what is the minimum overnight charge that ensures the
-battery never drops below reserve, even at its worst point during the day?"
-
-Add winter bypass: if current month is in `winter_months` config list (default
-Nov–Feb), return 100% immediately without simulation — solar is negligible and
-filling the battery is always correct.
-
-Add shoulder-month floor: raise `min_soc` from `battery_min_soc` to
-`battery_max_soc` during shoulder months (Mar–Apr, Sep–Oct) when heating load
-is variable.
-
-Research source: PALM `compute_tgt_soc()`.
-
-**Complexity:** Medium — requires per-slot load history accumulation (see below);
-the simulation itself is ~50 lines of pure Python in `rules.py`.
-
----
-
-### Per-slot load history accumulation
-
-The forward SoC simulation needs a per-half-hour consumption profile, not just
-a daily average. Accumulate the past 7 days of 48-slot consumption in coordinator
-state. Weight recent days higher (yesterday=1.0, three days ago=0.5, etc.).
-
-Subtract immersion and EV energy from historical load before averaging to avoid
-inflating the baseline with intermittent large loads.
-
-Apply 5% pessimism scaling (`load_scaling = 1.05`) — from Predbat's load scaling.
-
-Apply in-day adjustment: `scale_today = actual_load_so_far / predicted_load_so_far`
-— corrects for days that are running hotter or cooler than the weekly average.
-
-**Complexity:** Medium — new accumulator ring buffer in coordinator state.
-
----
-
-### Overmorrow correction for overnight charge target
-
-After computing tonight's target, simulate two days ahead. If the day-after-tomorrow
-would overflow the battery (solar fills it past 100%), reduce tonight's target
-proportionally — leaving room for extra solar without wasting grid charge.
-
-```python
-if max_charge_pct_day2 > 100 and max_charge_pct_day1 < 100:
-    max_charge_pct += int((max_charge_pct_day2 - 100) / 2)
-```
-
-~15 lines added to `calculate_overnight_charge_target` in `rules.py`.
-Requires two forecast readings (tomorrow + day-after-tomorrow) from Solcast.
-
-Research source: PALM overmorrow function.
-
-**Complexity:** XS (once forward simulation exists).
-
----
-
-### Battery degradation cost in dispatch decisions
-
-Factor battery cycle cost into the dispatch decision threshold. The integration
-currently diverts surplus to immersion and recommends EV charging without
-considering whether the resulting battery cycles are economically worthwhile.
-
-Add `battery_cycle_cost_per_kwh` constant derived from the Predbat formula:
-```python
-cycle_cost_per_kwh = battery_cost / (2 * capacity_kwh * cycle_life)
-# e.g. €4,000 / (2 × 19 × 6,000) = 1.75c/kWh per direction
-```
-
-Use as a minimum threshold in divert and dispatch decisions: only divert if
-the CEG rate foregone exceeds the degradation cost. Exposed as `CONF_BATTERY_COST`
-(install cost in €) — new optional config field.
-
-Research source: arXiv 2606.16051 (cost-only optimisers destroy 3–8 years of
-battery lifespan); Predbat `metric_battery_cycle` parameter.
-
-**Complexity:** Low — new constant + one comparison in `should_divert_to_immersion`.
-
----
-
-### Solar ROI and payback calculator
-
-See `improvement-designs.md` Design 5. Enhanced using research findings:
-
-- Use proper net-gain formula: `saving = self_consume_kwh × (import_rate - export_rate)`
-  (not just `self_consume_kwh × import_rate` — that ignores lost CEG income)
-- Add cycle cost tracking: `battery_life_consumed_pct = total_kwh_cycled / (capacity × rated_cycles)`
-- Surface `arbitrage_efficiency` (€ saved per kWh cycled through the battery)
-- Add `electricity_price_inflation_pct` config input for long-term projection
-
-New service: `givenergy_inverter_manager.get_roi_summary` returning structured data.
-
-**Complexity:** Medium — template sensors + new service, no coordinator changes.
-
----
-
-### Counterfactual cost tracking
-
-See `improvement-designs.md` Design 6. The `daily_cost_without_solar` calculation
-should use:
-```python
-counterfactual = load_energy_today_kwh × import_rate  # what you'd have paid without solar
-actual = (grid_import_kwh × import_rate) - (export_kwh × export_rate)
-saving = counterfactual - actual
-```
-
-Include battery cycle cost in `actual` to give a true net saving:
-```python
-actual_net = actual + total_kwh_cycled_today × cycle_cost_per_kwh
-```
-
-**Complexity:** Medium — template sensors + utility meter helpers.
-
----
-
-### Pre-cheap-rate export opportunity estimator
-
-See `improvement-designs.md` Design 7. Formula refined from research:
-```
-spare_kwh = current_soc_kwh - evening_load_est_kwh - tomorrow_deficit_kwh
-net_gain = spare_kwh × (ceg_rate - boost_rate)
-```
-
-On Night Boost: CEG 19.5c vs Boost 9.94c → 9.56c/kWh net gain per kWh
-exported before 2am and recharged during Boost. Only recommend if
-`net_gain > 0` and `spare_kwh > 1.0`.
-
-**Complexity:** Medium — existing sensor inputs + new binary_sensor + notification.
-
----
-
-### Monthly and annual export volume tracking
-
-Track export kWh per calendar month and rolling 12-month total. Surface an alert
-when export volume justifies renegotiating the CEG rate with the supplier.
-
-**Complexity:** Low — extend the accumulator and add monthly reset logic.
-
----
+The forecast, simulation, ROI, counterfactual, export-tracking, tariff comparison and
+year-on-year items that used to be planned here shipped in v0.3.0 and v0.4.0. See the
+Changelog.
 
 ### Second immersion element / heat pump water cylinder
 
@@ -471,25 +334,6 @@ and estimated heat stored.
 Discover all chargers, track cost per charger, coordinate charging priority.
 
 **Complexity:** Medium.
-
----
-
-### Tariff comparison tool
-
-Use accumulated real consumption data to model what the bill would have been on
-alternative Irish tariffs (Energia, SSE Airtricity, Pinergy). Helps users decide
-whether to switch supplier.
-
-**Complexity:** Medium-high — requires modelling other tariffs and hourly consumption.
-
----
-
-### Year-on-year comparison
-
-Once 12 months of data is collected: compare current month vs same month last year,
-flag whether solar + battery is reducing consumption over time.
-
-**Complexity:** Medium — requires 12 months of persisted monthly totals.
 
 ---
 
@@ -572,14 +416,6 @@ These will not be developed until sensor naming is stable at v1.0.
 
 ## Technical Debt
 
-### Coordinator: energy accumulation precision
-
-The current integration-based accumulation (power × elapsed time) introduces small
-errors vs GivTCP's own energy counters (`pv_energy_today_kwh`, `import_energy_today_kwh`
-etc.) which are more accurate as they come from the inverter itself. A future version
-should prefer GivTCP energy sensors where available, falling back to integration only
-when unavailable.
-
 ### Config flow: multi-step EV charger configuration
 
 The EV step is a single form. Better UX: show discovered chargers, confirm entity
@@ -602,18 +438,77 @@ Home Assistant suite lives in `tests/ha_e2e/` with its own CI job. See `docs/tes
 
 | Limitation | Impact | Status |
 |---|---|---|
-| Only one EV charger tracked for cost | Multi-EV homes show incomplete cost | Planned v0.3.0 |
-| Zappi Eco+ competes with battery for solar | Suboptimal solar allocation | Mitigated by pause/resume; full resolution needs real-time power sharing |
-| Forecast.Solar less accurate for east-west arrays | Charge target may be slightly off | Solcast multi-array planned v0.2.0 |
+| Only one EV charger tracked for cost | Multi-EV homes show incomplete cost | Medium-Term |
+| Zappi Eco+ competes with battery for solar | Suboptimal solar allocation | The integration never pauses the Zappi, because the two systems are separate; full resolution needs real-time power sharing |
+| Forecast.Solar less accurate for east-west arrays | Charge target may be slightly off | One forecast sensor only; summing east and west arrays in a template sensor works. Multi-array support is in the Forecast and planning backlog |
 | Bill prediction assumes constant daily usage | Inaccurate early in billing period | Improves over time as more data is collected |
 | GivTCP must be installed and running | Hard dependency | Documented; detection in place; `givenergy-local` fallback planned v1.0 |
 | Tariff rates are entered by hand | A supplier price change leaves costs low until the options are updated (seen after 1 July 2026) | Dated tariff changes in backlog |
-| Cycle count is an estimate from state of charge | Reads higher than the battery's own counter | Fix in progress |
+| Cycle count is an estimate from state of charge when GivTCP publishes no BMS counter | Can differ from the battery's own counter | Counts discharge only since v0.4.0 |
 | Monetary sensors use a currency symbol as the unit | Long-term statistics for cost sensors may be rejected by newer Home Assistant versions | Migration plan in backlog |
 
 ---
 
 ## Changelog
+
+### v0.5.1
+
+- **Device manufacturer** — the device page shows `macuistin` instead of naming GivEnergy.
+  The device name, model and entity ids are unchanged. (#150)
+
+### v0.5.0
+
+Upgrade notes: [docs/upgrade-v0.5.0.md](docs/upgrade-v0.5.0.md).
+
+**Breaking**
+- **Battery Power changed sign** — the sensor is now positive while charging. It used to copy
+  GivTCP's raw sign. Check any automation, template or card that reads it. (#141)
+- **Home Assistant 2026.2.0 or later** is required for the new dashboard layout.
+- **Regenerate the dashboard** and paste it over the old copy.
+
+**Fixes**
+- Battery charged and discharged energy, round-trip efficiency and self-sufficiency were
+  wrong because the battery power sign was inverted. The managed immersion switch toggling
+  came from the same cause. (#141)
+- Night survival and the overnight charge plan use the same window, and the plan no longer
+  skips a night that survival calls Critical. (#144)
+- A missing Zappi power entity is logged once, not every five minutes. (#143)
+
+**Improvements**
+- Dashboard rebuilt as sections of tiles with six sub-views. (#142)
+- Night Survival Confidence explains its level in its attributes. (#146)
+- Docs explain the state class repairs after an upgrade. (#147)
+
+### v0.4.0
+
+Accuracy, battery, dashboard and quality work from the October 2026 bill reconciliation and
+code review.
+
+**Control and charging**
+- Per-slot load profile, forecast accuracy correction and the day-after-tomorrow forecast
+  feed the charge target. (#131)
+- Zappi discovery works when the myenergi entity ids have no serial, and EV cost is
+  calculated. (#129)
+- Immersion control no longer flaps, the hold during a GivTCP dropout is bounded, and the
+  EV thresholds are one. (#130)
+- Equivalent full cycles seeded from the BMS, write errors handled, charge targets clamped
+  to 4 to 100%, write count saved. (#134)
+
+**Tariff and statistics**
+- Bill sensors, flat PSO levy, billing period days, bill start day from options, rate
+  period validation and `compare_tariff` corrected. (#132)
+- `last_reset` for week, month and year sensors, year totals saved, accumulators stored
+  durably. (#133)
+
+**Configuration and dashboard**
+- Every config field has a label and help, sliders no longer reload the entry, and
+  reconfigure takes effect. (#135)
+- Dashboard v2: Now strip, Bill view, built-in fallbacks and an optional strategy. (#138)
+- Diagnostics redaction, repair links, services registered once and a real Home Assistant
+  end-to-end suite in CI. (#136)
+
+Known issues at release: battery charged and discharged energy could read swapped (fixed in
+v0.5.0), and a missing Zappi power entity was logged every 5 minutes (fixed in v0.5.0).
 
 ### v0.3.0
 

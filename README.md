@@ -56,6 +56,7 @@ Start at the [documentation index](docs/index.md).
 | [Long-term statistics](docs/long-term-statistics.md) | State classes and midnight reset |
 | [Automation examples](docs/automations.md) | Ready-to-use automations |
 | [Troubleshooting](docs/troubleshooting.md) | Fixes by symptom |
+| [Upgrade to v0.5.0](docs/upgrade-v0.5.0.md) | Battery Power sign change, Home Assistant 2026.2.0, new dashboard |
 | [Upgrade to v0.3.0](docs/upgrade-v0.3.0.md) | What changed since v0.2.1 |
 | [Uninstall](docs/uninstall.md) | Remove the integration and its files |
 
@@ -63,10 +64,12 @@ Start at the [documentation index](docs/index.md).
 
 ```bash
 pip install -r requirements-test.txt
-python -m pytest tests/ -q
+python -m pytest tests -q           # stubbed unit suite, about 13 s
 ruff check
 python scripts/gen_sensor_docs.py   # regenerate docs/sensors.md after changing sensor.py
 ```
+
+The real Home Assistant suite (`tests/ha_e2e`) needs its own virtualenv. See [Testing](docs/testing.md).
 
 A test fails when `docs/sensors.md` is out of date.
 

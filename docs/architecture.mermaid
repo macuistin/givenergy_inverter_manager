@@ -4,38 +4,48 @@ title: GivEnergy Inverter Manager — Module Architecture
 graph TD
     subgraph HA["Home Assistant Layer  (HA-dependent)"]
         direction TB
-        INIT["__init__.py\nSetup · Unload\nService registration"]
-        COORD["coordinator.py\nHA proxy\n· reads hass.states → RawSensorValues\n· computes solar_fractions from hass.config.latitude\n· calls build_coordinator_data()\n· applies HA service calls\n· registers time listeners"]
-        SENSOR["sensor.py\n39 read-only sensors\nvalue_fn lambdas on CoordinatorData"]
-        SWITCH["switch.py\nAuto immersion toggle\nImmersion managed switch\nSkip-charge override"]
-        NUMBER["number.py\nOvernight charge\ntarget slider"]
-        DASH["dashboard.py\nget_dashboard_yaml service\nGenerates pre-filled\nLovelace YAML"]
-        CF["config_flow.py\n7-step setup wizard\nOptions flow\nRate period parser"]
+        INIT["__init__.py\nSetup · Unload\nRegisters the strategy"]
+        COORD["coordinator.py\nHA proxy\n· reads hass.states → RawSensorValues\n· computes solar_fractions from hass.config.latitude\n· calls build_coordinator_data()\n· applies GivTCP, EV and immersion service calls\n· registers time listeners"]
+        ACC["accumulation.py\nAccumulationStore\nHA Storage: today · week · month · year\nper-slot load profile"]
+        SENSOR["sensor.py\n144 read-only sensors\nvalue_fn lambdas on CoordinatorData"]
+        SWITCH["switch.py\nAuto immersion divert\nImmersion managed\nForce skip charge\nEnable charge target override"]
+        NUMBER["number.py\nCharge target override\nImmersion target · minimum · restart gap"]
+        BUTTON["button.py\nRefresh dashboard"]
+        DASH["dashboard.py\nSix actions, registered in async_setup\nincluding get_dashboard_yaml"]
+        BUILD["dashboard_builder.py\nBuilds the Lovelace dict\nfrom the entity registry"]
+        STRAT["strategy.py\nOptional Lovelace strategy"]
+        CF["config_flow.py\n7-step setup wizard\nReconfigure · Options flow\nRate period parser"]
+        MISC["repairs.py · diagnostics.py\nlogging.py"]
     end
 
-    subgraph ENGINE["Pure Logic Layer  (no HA imports — 100% testable)"]
+    subgraph ENGINE["Pure Logic Layer  (no HA imports)"]
         direction TB
-        ENG["engine.py\nbuild_coordinator_data()\naccumulate_energy()\nestimate_avg_daily_kwh()\nupdate_battery_stats()"]
-        RULES["rules.py  ← all decisions\nmonthly_solar_fractions(latitude)\ncalculate_overnight_charge_target()\nshould_divert_to_immersion()\nsuggest_appliance_run()\ndecide_ev_charger_action()\nshould_protect_battery_from_charger()"]
-        TARIFF["tariff.py\nRatePeriod  ·  TariffConfig\n  base_rate scalar (e.g. Day)\n  rate_periods list (Night, Nightboost…)\nEnergyAccumulator\nbuild_tariff()  ← factory"]
-        BAT["battery.py\nBatteryStats\ncalculate_cycle_increment()\nestimate_will_survive_night()"]
+        ENG["core/engine.py\nbuild_coordinator_data()\naccumulate_energy()\nestimate_avg_daily_kwh()\nupdate_battery_stats()"]
+        RULES["core/rules.py  ← all decisions\nmonthly_solar_fractions(latitude)\ncalculate_overnight_charge_target()\nshould_divert_to_immersion()\nsuggest_appliance_run()\ndecide_ev_charger_action()\ncalculate_pre_boost_export_opportunity()"]
+        TARIFF["core/tariff.py\nRatePeriod  ·  TariffConfig\n  base_rate scalar (e.g. Day)\n  rate_periods list (Night, Nightboost…)\nEnergyAccumulator\nbuild_tariff()  ← factory"]
+        BAT["core/battery.py\nBatteryStats\ncalculate_cycle_increment()\nestimate_will_survive_night()"]
+        REP["core/reporting.py\nHTML report builders"]
+        TIME["core/timeutil.py\nelapsed_seconds()\nreal_time_after()"]
         DISC_EV["discovery/ev_charger.py\nEVCharger · EVChargerBrand\ndiscover_ev_chargers()\nupdate_charger_state()"]
         DISC_GTC["discovery/givtcp.py\nGivTCPInverter\ndiscover_givtcp_inverters()\nget_suggested_entities()"]
         CONST["const.py\nConfig keys · Defaults\nAlgorithm parameters (CHARGE_*, SOLAR_*, BATTERY_*)\nCurrencies · Thresholds"]
-        OPT["optimizer.py\n(backward-compat shim\n→ re-exports from rules.py)"]
+        OPT["core/optimizer.py\n(backward-compat shim\n→ re-exports from rules.py)"]
     end
 
     %% Coordinator ↔ Engine
-    COORD -->|"RawSensorValues\ncfg dict · overrides\nsolar_fractions"| ENG
+    COORD -->|"RawSensorValues\ncfg dict · overrides\nsolar_fractions · load profile"| ENG
     ENG -->|"CoordinatorData\nev_target_mode"| COORD
+    COORD <-->|"energy totals\nslot loads"| ACC
 
     %% Engine internal deps
     ENG --> TARIFF
     ENG --> RULES
     ENG --> BAT
+    ENG --> TIME
     ENG --> DISC_EV
     ENG --> CONST
     RULES --> CONST
+    RULES --> BAT
     RULES --> DISC_EV
     TARIFF --> CONST
     BAT --> CONST
@@ -44,6 +54,9 @@ graph TD
     COORD -->|"CoordinatorData"| SENSOR
     COORD -->|"CoordinatorData\noverride_*"| SWITCH
     COORD -->|"CoordinatorData\noverride_charge_target"| NUMBER
+    BUTTON -->|"calls get_dashboard_yaml"| DASH
+    SENSOR --> REP
+    DASH --> BUILD
 
     %% Config flow uses discovery at setup time only
     CF --> DISC_GTC
@@ -52,6 +65,7 @@ graph TD
     %% Init wires it all together
     INIT --> COORD
     INIT --> DASH
+    INIT --> STRAT
 
     style HA fill:#e8f4fd,stroke:#2196F3,color:#000
     style ENGINE fill:#e8f5e9,stroke:#4CAF50,color:#000
