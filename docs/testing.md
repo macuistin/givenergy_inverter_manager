@@ -64,8 +64,10 @@ Tests marked `xfail(strict=True)` document real defects in the integration. When
 
 | Job | What it runs |
 |---|---|
-| `tests` | `ruff check`, `bandit` and the stubbed suite on Python 3.13 |
+| `lint` | `ruff check` and `bandit` on Python 3.13 |
 | `Tests (Python 3.13)` and `Tests (Python 3.14)` | One job per Python version in a matrix, running the stubbed suite |
 | `Home Assistant end-to-end` | The real Home Assistant suite on Python 3.14 |
 
-Three more workflows run on every pull request: Hassfest (`validate`), HACS (`HACS Action`) and CodeQL (`Analyze (python)`). `tests.yml` also runs nightly.
+Three more workflows run on every pull request: Hassfest (`validate`), HACS (`HACS Action`) and CodeQL (`Analyze (python)`). All four workflows also run nightly or weekly, so a change in Home Assistant, HACS or a dependency shows up without a pull request.
+
+Every workflow has read-only `contents` permission, and a new push to a pull request cancels the run it supersedes. Dependabot opens a weekly pull request for GitHub Actions and one for the Python test dependencies. It does not touch `homeassistant`, whose floor is set by `hacs.json`.

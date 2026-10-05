@@ -7,6 +7,7 @@ import json
 import re
 import tomllib
 
+import pytest
 import yaml
 
 from tests.helpers import PKG, ROOT
@@ -96,19 +97,60 @@ def test_coverage_report_is_ignored():
     assert "coverage.json" in ignored
 
 
-def _workflow() -> dict:
-    return yaml.safe_load((ROOT / ".github" / "workflows" / "tests.yml").read_text())
+_WORKFLOWS = ROOT / ".github" / "workflows"
 
 
-def test_required_job_names_are_unchanged():
+def _workflow(name: str = "tests.yml") -> dict:
+    return yaml.safe_load((_WORKFLOWS / name).read_text())
+
+
+def test_check_names_are_stable():
+    """Check names appear in the PR check list, so renaming a job is a deliberate change."""
     jobs = _workflow()["jobs"]
 
-    assert "name" not in jobs["tests"]
+    assert set(jobs) == {"lint", "tests-python", "e2e"}
+    assert "name" not in jobs["lint"]
+    assert jobs["tests-python"]["name"] == "Tests (Python ${{ matrix.python-version }})"
     assert jobs["e2e"]["name"] == "Home Assistant end-to-end"
+    assert "name" not in _workflow("hassfest.yml")["jobs"]["validate"]
+    assert _workflow("hacs.yml")["jobs"]["hacs"]["name"] == "HACS Action"
+    assert _workflow("codeql.yml")["jobs"]["analyze"]["name"] == "Analyze (${{ matrix.language }})"
 
 
-def test_workflow_runs_nightly():
-    triggers = _workflow()[True]
+def test_lint_job_does_not_run_the_tests():
+    steps = _workflow()["jobs"]["lint"]["steps"]
+
+    assert not any("pytest" in step.get("run", "") for step in steps)
+
+
+def test_every_workflow_has_read_only_permissions_and_cancels_superseded_pr_runs():
+    for path in sorted(_WORKFLOWS.glob("*.yml")):
+        workflow = yaml.safe_load(path.read_text())
+
+        assert workflow["permissions"] == {"contents": "read"}, path.name
+        assert workflow["concurrency"]["cancel-in-progress"] == (
+            "${{ github.event_name == 'pull_request' }}"
+        ), path.name
+
+
+def test_python_jobs_cache_pip():
+    for job in _workflow()["jobs"].values():
+        setup = next(step for step in job["steps"] if "setup-python" in step.get("uses", ""))
+
+        assert setup["with"]["cache"] == "pip"
+
+
+def test_dependabot_covers_actions_and_pip_weekly():
+    config = yaml.safe_load((ROOT / ".github" / "dependabot.yml").read_text())
+    updates = {item["package-ecosystem"]: item for item in config["updates"]}
+
+    assert set(updates) == {"github-actions", "pip"}
+    assert all(item["schedule"]["interval"] == "weekly" for item in updates.values())
+
+
+@pytest.mark.parametrize("name", ["tests.yml", "hassfest.yml", "hacs.yml"])
+def test_workflow_runs_nightly(name):
+    triggers = _workflow(name)[True]
 
     assert triggers["schedule"]
     assert all(re.fullmatch(r"(\S+ ){4}\S+", item["cron"]) for item in triggers["schedule"])
