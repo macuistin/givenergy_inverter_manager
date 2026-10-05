@@ -13,6 +13,7 @@ from typing import Any
 
 from custom_components.givenergy_inverter_manager.const import (
     DEFAULT_CURRENCY_SYMBOL,
+    SOLAR_NOISE_FLOOR_W,
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
@@ -65,7 +66,7 @@ def calculate_overnight_charge_target(
             average_daily_consumption_kwh=average_daily_consumption_kwh,
             cheapest_rate=cheapest_rate,
             load_profile=load_profile,
-            solar_generating=solar_generating,
+            solar_power_w=SOLAR_NOISE_FLOOR_W if solar_generating else 0.0,
         ),
         SolarForecast(
             forecast_kwh=forecast_kwh,

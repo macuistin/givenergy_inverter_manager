@@ -52,7 +52,7 @@ from .const import (
     NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
 )
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
-from .core.battery import survival_attributes
+from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.reporting import (
     build_charge_plan_html,
@@ -602,11 +602,13 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:moon-waning-crescent",
         entity_registry_enabled_default=False,
         attrs_fn=lambda d: survival_attributes(
-            d.will_survive_night,
-            d.estimated_soc_at_sunrise,
-            d.battery_min_soc,
-            d.battery_soc,
-            d.survival_reason,
+            SurvivalReport(
+                d.will_survive_night,
+                d.estimated_soc_at_sunrise,
+                d.battery_min_soc,
+                d.battery_soc,
+                d.survival_reason,
+            )
         )
         if d.survival_reason
         else None,
