@@ -284,10 +284,17 @@ class TestEvChargerDiscovery:
     def test_wallbox_used_when_no_zappi(self):
         assert self._find(["sensor.wallbox_charging_power"]) == "sensor.wallbox_charging_power"
 
-    def test_no_invert_state_true_in_generated_yaml(self):
-        """invert_state: true causes double negation — Home shows 0W.
-        invert_state: false is explicit but harmless."""
-        assert "invert_state: true" not in _build()
+    def test_only_the_battery_node_is_inverted(self):
+        """Battery Power is positive while charging, but the flow card reads positive as
+        discharging, so the battery node inverts it. Inverting any other node makes Home show 0W."""
+        parsed = yaml.safe_load(_build())
+        pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
+        pf_card = next(c for c in view_cards(pf_view) if "power-flow-card-plus" in c["type"])
+        inverted = {
+            node for node, cfg in pf_card["entities"].items()
+            if isinstance(cfg, dict) and cfg.get("invert_state") is True
+        }
+        assert inverted == {"battery"}
 
 
 class TestSuggestApplianceServiceCall:

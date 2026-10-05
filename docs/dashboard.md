@@ -111,7 +111,7 @@ The links use relative paths, so they work at any dashboard URL.
 ### Power Flow
 
 - **Now**: Battery (state of charge with a bar), Night survival, Rate now, Cost today, Cheap from (Next Cheap Rate Start) and Cheap in (Hours to Cheap Rate). Night Survival Confidence and the two cheap rate sensors are disabled by default, so a new install shows three of the six until you enable them. Night survival reads Safe, Warning or Critical. Tap it to open Battery detail, which says in words why. Tap the Battery tile to open the Battery tab.
-- **Live power flow**: a power-flow-card-plus card with solar, battery, grid, home and two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. The grid node shows the Live Grid Cost Rate.
+- **Live power flow**: a power-flow-card-plus card with solar, battery, grid, home and two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. Battery Power is positive while charging and the card expects the opposite, so the node sets `invert_state: true`. The grid node shows the Live Grid Cost Rate.
 - **Energy today**: Generated, Used (House Load Today), Imported and Exported. Tap the heading to open the Today tab.
 - **Devices**: an Immersion tile (the water temperature) and an EV charger tile (the charger state). Each opens its sub-view.
 

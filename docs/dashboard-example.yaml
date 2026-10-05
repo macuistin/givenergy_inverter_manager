@@ -101,6 +101,7 @@ views:
             template: '{{- "·⚡Clip" if states("sensor.givenergy_inverter_manager_inverter_clipping") == "clipping" else "" }}'
         battery:
           entity: sensor.givenergy_inverter_manager_battery_power
+          invert_state: true
           state_of_charge: sensor.givenergy_inverter_manager_battery_state_of_charge
           show_state_of_charge: true
         grid:

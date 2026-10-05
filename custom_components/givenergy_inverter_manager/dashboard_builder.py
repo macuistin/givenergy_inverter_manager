@@ -579,7 +579,9 @@ class _Builder:
                 }
             out["solar"] = solar
         if battery_power := e("battery_power"):
-            battery: dict = {"entity": battery_power}
+            # The manager's Battery Power is positive while charging. The card reads a
+            # positive value as discharging unless it is told to invert it.
+            battery: dict = {"entity": battery_power, "invert_state": True}
             if battery_soc := e("battery_soc"):
                 battery["state_of_charge"] = battery_soc
                 battery["show_state_of_charge"] = True
