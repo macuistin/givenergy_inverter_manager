@@ -3,7 +3,7 @@ test_coordinator.py — Tests for coordinator.py.
 
 The coordinator's HA surface is proxied through three methods:
   _get_state(entity_id)
-  _call_service(domain, service, data, blocking)
+  _call_service(domain, service, data)
   _create_task(coro)
 
 FakeCoordinator overrides these three methods.  No hass mock, no MagicMock
@@ -238,6 +238,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._inputs_unavailable_since = None
         self.immersion = ImmersionActuator(self._immersion_ports())
         self._dry_run_last_skipped: str = ""
+        self._smoothed_solar_w: float = 0.0
         self._writer = GivTCPWriter(
             get_state=lambda eid: self._get_state(eid),
             call_service=lambda domain, service, data: self._call_service(domain, service, data),
@@ -256,7 +257,7 @@ class FakeCoordinator(GivEnergyCoordinator):
     def _get_all_states(self) -> dict:
         return dict(self._states)
 
-    async def _call_service(self, domain, service, data, blocking=True):
+    async def _call_service(self, domain, service, data):
         self.service_calls.append((domain, service, data))
         # Simulate write-back: set state to what was written
         if "entity_id" in data:
@@ -1380,7 +1381,7 @@ class TestGivtcpWriteHelpers:
         coord.set_state("number.target", "50")  # pre-existing state
 
         # Override _call_service to NOT update state (simulates write that didn't stick)
-        async def stubbed(domain, service, data, blocking=True):
+        async def stubbed(domain, service, data):
             coord.service_calls.append((domain, service, data))
             # Don't update state — the read-back will see the old value
 
@@ -1482,7 +1483,7 @@ _RETRY_CASES = {
 def _settles_on_call(coord, entity_id: str, settle_on: int | None, written: str) -> None:
     """Service calls are recorded. The state reaches `written` only on call number settle_on."""
 
-    async def call(domain, service, data, blocking=True):
+    async def call(domain, service, data):
         coord.service_calls.append((domain, service, data))
         if settle_on is not None and len(coord.service_calls) >= settle_on:
             coord.set_state(entity_id, written)
@@ -1560,7 +1561,7 @@ class TestGivtcpWriteRetryBehaviour:
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_state("select.t", "Other")
 
-        async def call(domain, service, data, blocking=True):
+        async def call(domain, service, data):
             coord.service_calls.append((domain, service, data))
             coord._states.pop("select.t")
 
@@ -1575,7 +1576,7 @@ class TestGivtcpWriteRetryBehaviour:
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_state("number.t", "50")
 
-        async def call(domain, service, data, blocking=True):
+        async def call(domain, service, data):
             coord.service_calls.append((domain, service, data))
             coord._states.pop("number.t", None)
 
@@ -1588,7 +1589,7 @@ class TestGivtcpWriteRetryBehaviour:
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_state("switch.t", "on")
 
-        async def call(domain, service, data, blocking=True):
+        async def call(domain, service, data):
             coord.service_calls.append((domain, service, data))
             coord._states.pop("switch.t")
 
@@ -2082,32 +2083,26 @@ class TestEntityUnavailable:
         src = (PKG / "coordinator.py").read_text()
         assert "UpdateFailed" in src
 
-    def test_check_is_in_update_cycle(self):
-        """UpdateFailed raise must be inside _async_update_data."""
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("stale", ["unavailable", "unknown"])
+    async def test_cycle_fails_when_both_sensors_are_stale(self, stale):
+        from homeassistant.helpers.update_coordinator import UpdateFailed
 
-        src = (PKG / "coordinator.py").read_text()
-        update_fn = src[src.find("async def _async_update_data") :]
-        assert "raise UpdateFailed" in update_fn, (
-            "_async_update_data must raise UpdateFailed when GivTCP is silent."
-        )
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.set_state("sensor.solar", stale)
+        coord.set_state("sensor.battery_soc", stale)
+        with pytest.raises(UpdateFailed):
+            await coord._async_update_data()
 
-    def test_both_sensors_must_be_stale(self):
-        """Guard must use AND — a single stale sensor should not trigger unavailability."""
-
-        src = (PKG / "coordinator.py").read_text()
-        check_block = src[src.find("async def _async_update_data") : src.find("raise UpdateFailed")]
-        assert " and " in check_block, (
-            "Both solar AND battery must be unavailable before raising — "
-            "a single brief interruption should not mark the whole integration unavailable."
-        )
-
-    def test_unavailable_and_unknown_both_treated_as_stale(self):
-        """'unavailable' and 'unknown' must both be considered stale states."""
-
-        src = (PKG / "coordinator.py").read_text()
-        check_block = src[src.find("async def _async_update_data") : src.find("raise UpdateFailed")]
-        assert '"unavailable"' in check_block, "Must treat 'unavailable' state as stale"
-        assert '"unknown"' in check_block, "Must treat 'unknown' state as stale"
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("stale_entity", ["sensor.solar", "sensor.battery_soc"])
+    async def test_one_stale_sensor_does_not_fail_the_cycle(self, stale_entity):
+        """A single brief interruption must not mark the whole integration unavailable."""
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.set_state(stale_entity, "unavailable")
+        assert await coord._async_update_data() is not None
 
     def test_quality_scale_yaml_updated(self):
         """quality_scale.yaml must mark entity-unavailable as done."""
@@ -3234,10 +3229,10 @@ def _write_coord(fail_entities=(), exc=None, **cfg_overrides):
     coord.set_state("number.target_soc", "100")
     original = coord._call_service
 
-    async def call(domain, service, data, blocking=True):
+    async def call(domain, service, data):
         if data.get("entity_id") in fail_entities:
             raise error
-        await original(domain, service, data, blocking)
+        await original(domain, service, data)
 
     coord._call_service = call
     return coord, cfg
@@ -3313,7 +3308,7 @@ class TestWriteCooldownKeyedOnValue:
     def _stuck(coord):
         """Service calls are recorded but the state never changes."""
 
-        async def call(domain, service, data, blocking=True):
+        async def call(domain, service, data):
             coord.service_calls.append((domain, service, data))
 
         coord._call_service = call
