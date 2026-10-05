@@ -40,11 +40,11 @@ views:
       vertical: true
     - type: tile
       entity: sensor.givenergy_inverter_manager_next_cheap_rate_start
-      name: Cheap rate starts
+      name: Cheap from
       vertical: true
     - type: tile
       entity: sensor.givenergy_inverter_manager_hours_to_cheap_rate
-      name: Hours to cheap rate
+      name: Cheap in
       vertical: true
     - type: tile
       entity: sensor.givenergy_inverter_manager_import_cost_today
@@ -113,18 +113,291 @@ views:
     show_state: true
     type: glance
     title: Energy Today
-    columns: 5
+    columns: 4
+    entities:
+    - entity: sensor.givenergy_inverter_manager_solar_generation_today
+      name: Generated
+      tap_action:
+        action: navigate
+        navigation_path: today
+    - entity: sensor.givenergy_inverter_manager_grid_import_today
+      name: Imported
+      tap_action:
+        action: navigate
+        navigation_path: today
+    - entity: sensor.givenergy_inverter_manager_grid_export_today
+      name: Exported
+      tap_action:
+        action: navigate
+        navigation_path: today
+    - entity: sensor.givenergy_inverter_manager_house_load_today
+      name: Used
+      tap_action:
+        action: navigate
+        navigation_path: today
+  - type: grid
+    title: Devices
+    columns: 2
+    square: false
+    cards:
+    - type: tile
+      entity: sensor.hot_water_cylinder_temperature
+      name: Immersion
+      icon: mdi:water-boiler
+      vertical: true
+      tap_action:
+        action: navigate
+        navigation_path: immersion
+      icon_tap_action:
+        action: navigate
+        navigation_path: immersion
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_ev_charger_state
+      name: EV charger
+      icon: mdi:ev-station
+      vertical: true
+      tap_action:
+        action: navigate
+        navigation_path: ev-charger
+      icon_tap_action:
+        action: navigate
+        navigation_path: ev-charger
+- title: Today
+  icon: mdi:calendar-today
+  path: today
+  cards:
+  - show_name: true
+    show_icon: true
+    show_state: true
+    type: glance
+    title: Energy Today
+    columns: 3
     entities:
     - entity: sensor.givenergy_inverter_manager_solar_generation_today
       name: Generated
     - entity: sensor.givenergy_inverter_manager_grid_import_today
-      name: Imported
+      name: Import
     - entity: sensor.givenergy_inverter_manager_grid_export_today
-      name: Exported
-    - entity: sensor.givenergy_inverter_manager_house_load_today
-      name: Used
+      name: Export
+    - entity: sensor.givenergy_inverter_manager_ev_charging_today
+      name: EV
     - entity: sensor.givenergy_inverter_manager_immersion_heater_today
       name: Immersion
+  - type: entities
+    entities:
+    - entity: sensor.givenergy_inverter_manager_current_rate
+      name: Current Rate
+    - entity: sensor.givenergy_inverter_manager_current_rate_period
+      name: Rate Period
+    - type: divider
+    - entity: sensor.givenergy_inverter_manager_import_cost_today
+      name: Import Cost
+    - entity: sensor.givenergy_inverter_manager_export_earnings_today
+      name: Export Earnings
+    title: Cost
+  - square: false
+    type: grid
+    columns: 2
+    cards:
+    - type: gauge
+      entity: sensor.givenergy_inverter_manager_self_sufficiency
+      name: Self-Sufficiency
+      min: 0
+      max: 100
+      severity:
+        green: 60
+        yellow: 30
+        red: 0
+    - type: gauge
+      entity: sensor.givenergy_inverter_manager_self_consumption
+      name: Self-Consumption
+      min: 0
+      max: 100
+      severity:
+        green: 70
+        yellow: 40
+        red: 0
+    title: Self Sufficiency
+  - type: grid
+    title: More detail
+    columns: 2
+    square: false
+    cards:
+    - type: button
+      name: Cost breakdown
+      icon: mdi:cash-multiple
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: cost
+    - type: button
+      name: Solar and forecast
+      icon: mdi:weather-sunny
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: solar
+- title: Bill
+  icon: mdi:receipt-text
+  path: bill
+  cards:
+  - type: entities
+    entities:
+    - entity: sensor.givenergy_inverter_manager_import_cost_this_month
+      name: Import cost this month
+    - entity: sensor.givenergy_inverter_manager_export_earnings_this_month
+      name: Export earnings this month
+    - entity: sensor.givenergy_inverter_manager_accrued_bill_this_period
+      name: Accrued bill this period
+    - entity: sensor.givenergy_inverter_manager_projected_bill_this_period
+      name: Projected bill this period
+    title: Bill so far
+    show_header_toggle: false
+    state_color: false
+  - type: entities
+    entities:
+    - entity: sensor.givenergy_inverter_manager_days_elapsed_in_bill_period
+      name: Days elapsed
+    - entity: sensor.givenergy_inverter_manager_days_remaining_in_bill_period
+      name: Days remaining
+    title: Bill period
+    show_header_toggle: false
+    state_color: false
+  - type: entities
+    entities:
+    - entity: sensor.givenergy_inverter_manager_average_import_rate_this_month
+      name: Average import rate this month
+    - entity: sensor.givenergy_inverter_manager_cheap_rate_import_fraction_this_month
+      name: Cheap rate share of import
+    title: Import mix this month
+    show_header_toggle: false
+    state_color: false
+  - type: grid
+    title: More detail
+    columns: 2
+    square: false
+    cards:
+    - type: button
+      name: Tariff in use
+      icon: mdi:table
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: tariff
+- title: Battery
+  icon: mdi:battery-charging
+  path: battery
+  cards:
+  - type: history-graph
+    title: Battery SoC — 24h
+    hours_to_show: 24
+    entities:
+    - entity: sensor.givenergy_inverter_manager_battery_state_of_charge
+      name: SoC
+    - entity: sensor.givenergy_inverter_manager_battery_power
+      name: Power (W)
+  - type: entities
+    entities:
+    - entity: sensor.givenergy_inverter_manager_battery_power
+      name: Charge / Discharge Power
+    - entity: sensor.givenergy_inverter_manager_recommended_overnight_charge_target
+      name: Recommended Target Tonight
+    - entity: sensor.givenergy_inverter_manager_estimated_overnight_charge_cost
+      name: Estimated Charge Cost
+    - entity: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise
+      name: Estimated SoC at Sunrise
+    - entity: sensor.givenergy_inverter_manager_cheap_rate_floor
+      name: Cheap Rate Floor
+      icon: mdi:floor-plan
+    title: Tonight's Charge Plan
+  - type: grid
+    title: More detail
+    columns: 2
+    square: false
+    cards:
+    - type: button
+      name: Battery detail
+      icon: mdi:battery-heart-variant
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: battery-detail
+- title: Controls
+  icon: mdi:tune
+  path: controls
+  cards:
+  - type: conditional
+    conditions:
+    - condition: state
+      entity: sensor.givenergy_inverter_manager_dry_run_mode_active
+      state: 'True'
+    card:
+      type: markdown
+      content: |-
+        ## ⚠️ Dry Run Mode Active
+
+        This integration is in **simulation mode**. All sensor values update normally and charge decisions are calculated, but **no commands are sent to your inverter or EV charger**.
+
+        To go live, disable Dry Run in Settings → Integrations → GivEnergy Inverter Manager → Configure.
+  - type: conditional
+    conditions:
+    - condition: state
+      entity: sensor.givenergy_inverter_manager_dry_run_mode_active
+      state: 'True'
+    card:
+      type: entities
+      title: Dry Run Status
+      entities:
+      - entity: sensor.givenergy_inverter_manager_dry_run_mode_active
+        name: Dry Run Mode
+        icon: mdi:test-tube
+      - entity: sensor.givenergy_inverter_manager_last_skipped_action_dry_run
+        name: Last Skipped Action
+        icon: mdi:skip-next-circle-outline
+  - type: entities
+    entities:
+    - entity: switch.givenergy_inverter_manager_enable_charge_target_override
+      name: Enable Charge Target Override
+    - entity: number.givenergy_inverter_manager_overnight_charge_target_override
+      name: Charge target
+    - entity: switch.givenergy_inverter_manager_force_skip_overnight_charge
+      name: Force Skip Charge Tonight
+    title: Overnight Charging
+  - type: entities
+    entities:
+    - entity: switch.givenergy_inverter_manager_auto_immersion_divert
+      name: Auto Immersion Divert
+    - entity: switch.givenergy_inverter_manager_immersion_heater_managed
+      name: Immersion Heater (Managed)
+    - entity: sensor.givenergy_inverter_manager_immersion_divert_reason
+      name: Reason
+      icon: mdi:water-boiler
+    - type: divider
+    - entity: number.givenergy_inverter_manager_immersion_target_temperature
+      name: Target temp
+    - entity: number.givenergy_inverter_manager_immersion_minimum_temperature
+      name: Minimum temp
+    - entity: number.givenergy_inverter_manager_immersion_restart_gap
+      name: Restart Gap
+    title: Immersion Heater
+  - type: grid
+    title: Status
+    columns: 2
+    square: false
+    cards:
+    - type: button
+      name: EV charger
+      icon: mdi:ev-station
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: ev-charger
+- title: Immersion
+  icon: mdi:water-boiler
+  path: immersion
+  subview: true
+  back_path: power-flow
+  cards:
   - type: vertical-stack
     cards:
     - type: custom:apexcharts-card
@@ -172,7 +445,7 @@ views:
     - type: custom:apexcharts-card
       header:
         show: true
-        title: Power
+        title: Immersion power (W)
       graph_span: 12h
       yaxis:
       - min: 0
@@ -194,37 +467,53 @@ views:
         legend:
           show: false
       series:
-      - entity: sensor.givenergy_inverter_manager_immersion_heater_today
-        name: Immersion Power Today
-        color: '#03a9f4'
+      - entity: sensor.givenergy_inverter_manager_immersion_heater_power
+        name: Power
+        color: '#ff9800'
         stroke_width: 2
-- title: Today
-  icon: mdi:calendar-today
-  path: today
-  cards:
-  - show_name: true
-    show_icon: true
-    show_state: true
-    type: glance
-    title: Energy Today
-    entities:
-    - entity: sensor.givenergy_inverter_manager_solar_generation_today
-      name: Generated
-    - entity: sensor.givenergy_inverter_manager_grid_import_today
-      name: Import
-    - entity: sensor.givenergy_inverter_manager_grid_export_today
-      name: Export
-    - entity: sensor.givenergy_inverter_manager_ev_charging_today
-      name: EV
-    - entity: sensor.givenergy_inverter_manager_immersion_heater_today
-      name: Immersion
   - type: entities
     entities:
-    - entity: sensor.givenergy_inverter_manager_current_rate
-      name: Current Rate
-    - entity: sensor.givenergy_inverter_manager_current_rate_period
-      name: Rate Period
-    - type: divider
+    - entity: sensor.givenergy_inverter_manager_immersion_heater_today
+      name: Energy today
+    - entity: sensor.givenergy_inverter_manager_immersion_cost_today
+      name: Cost today
+    - entity: sensor.givenergy_inverter_manager_immersion_solar_savings
+      name: Saved by solar
+    title: Immersion today
+- title: EV charger
+  icon: mdi:ev-station
+  path: ev-charger
+  subview: true
+  back_path: power-flow
+  cards:
+  - type: entities
+    entities:
+    - entity: sensor.givenergy_inverter_manager_ev_charger_state
+      name: Charger State
+      icon: mdi:ev-station
+    - entity: sensor.givenergy_inverter_manager_ev_charging_power
+      name: Charge Power
+      icon: mdi:lightning-bolt
+    - entity: sensor.givenergy_inverter_manager_ev_session_energy
+      name: Session Energy
+    - entity: sensor.givenergy_inverter_manager_ev_draining_battery
+      name: Draining Battery
+    - entity: sensor.givenergy_inverter_manager_ev_mode_decision
+      name: Mode Decision
+      icon: mdi:car-electric
+    - entity: sensor.givenergy_inverter_manager_ev_charging_source
+      name: Charging Source
+    - entity: sensor.givenergy_inverter_manager_ev_solar_surplus
+      name: Solar Surplus Available
+    title: EV Charger
+- title: Cost breakdown
+  icon: mdi:cash-multiple
+  path: cost
+  subview: true
+  back_path: today
+  cards:
+  - type: entities
+    entities:
     - entity: sensor.givenergy_inverter_manager_import_cost_today
       name: Import Cost
     - entity: sensor.givenergy_inverter_manager_export_earnings_today
@@ -256,16 +545,12 @@ views:
     days_to_show: 14
     stat_types:
     - change
-  - type: statistics-graph
-    title: Solar generation per hour
-    entities:
-    - entity: sensor.givenergy_inverter_manager_solar_generation_today
-      name: Actual
-    chart_type: bar
-    period: hour
-    days_to_show: 2
-    stat_types:
-    - change
+- title: Solar and forecast
+  icon: mdi:weather-sunny
+  path: solar
+  subview: true
+  back_path: today
+  cards:
   - type: entities
     title: Solar vs Forecast
     entities:
@@ -278,64 +563,22 @@ views:
       icon: mdi:chart-line
     - entity: sensor.givenergy_inverter_manager_forecast_accuracy_yesterday
       name: Yesterday's accuracy
-  - square: false
-    type: grid
-    columns: 2
-    cards:
-    - type: gauge
-      entity: sensor.givenergy_inverter_manager_self_sufficiency
-      name: Self-Sufficiency
-      min: 0
-      max: 100
-      severity:
-        green: 60
-        yellow: 30
-        red: 0
-    - type: gauge
-      entity: sensor.givenergy_inverter_manager_self_consumption
-      name: Self-Consumption
-      min: 0
-      max: 100
-      severity:
-        green: 70
-        yellow: 40
-        red: 0
-    title: Self Sufficiency
-- title: Bill
-  icon: mdi:receipt-text
-  path: bill
+  - type: statistics-graph
+    title: Solar generation per hour
+    entities:
+    - entity: sensor.givenergy_inverter_manager_solar_generation_today
+      name: Actual
+    chart_type: bar
+    period: hour
+    days_to_show: 2
+    stat_types:
+    - change
+- title: Tariff
+  icon: mdi:table
+  path: tariff
+  subview: true
+  back_path: bill
   cards:
-  - type: entities
-    entities:
-    - entity: sensor.givenergy_inverter_manager_import_cost_this_month
-      name: Import cost this month
-    - entity: sensor.givenergy_inverter_manager_export_earnings_this_month
-      name: Export earnings this month
-    - entity: sensor.givenergy_inverter_manager_accrued_bill_this_period
-      name: Accrued bill this period
-    - entity: sensor.givenergy_inverter_manager_projected_bill_this_period
-      name: Projected bill this period
-    title: Bill so far
-    show_header_toggle: false
-    state_color: false
-  - type: entities
-    entities:
-    - entity: sensor.givenergy_inverter_manager_days_elapsed_in_bill_period
-      name: Days elapsed
-    - entity: sensor.givenergy_inverter_manager_days_remaining_in_bill_period
-      name: Days remaining
-    title: Bill period
-    show_header_toggle: false
-    state_color: false
-  - type: entities
-    entities:
-    - entity: sensor.givenergy_inverter_manager_average_import_rate_this_month
-      name: Average import rate this month
-    - entity: sensor.givenergy_inverter_manager_cheap_rate_import_fraction_this_month
-      name: Cheap rate share of import
-    title: Import mix this month
-    show_header_toggle: false
-    state_color: false
   - type: markdown
     title: Tariff in use
     content: |-
@@ -353,42 +596,12 @@ views:
       | Standing charge | €0.8259 per day |
       | PSO levy | €1.46 per bill period |
       | Bill starts on day | 1 |
-- title: Battery
-  icon: mdi:battery-charging
-  path: battery
+- title: Battery detail
+  icon: mdi:battery-heart-variant
+  path: battery-detail
+  subview: true
+  back_path: battery
   cards:
-  - type: gauge
-    entity: sensor.givenergy_inverter_manager_battery_state_of_charge
-    name: Battery SoC
-    min: 0
-    max: 100
-    needle: true
-    severity:
-      green: 50
-      yellow: 20
-      red: 0
-  - type: history-graph
-    title: Battery SoC — 24h
-    hours_to_show: 24
-    entities:
-    - entity: sensor.givenergy_inverter_manager_battery_state_of_charge
-      name: SoC
-    - entity: sensor.givenergy_inverter_manager_battery_power
-      name: Power (W)
-  - type: entities
-    entities:
-    - entity: sensor.givenergy_inverter_manager_battery_power
-      name: Charge / Discharge Power
-    - entity: sensor.givenergy_inverter_manager_recommended_overnight_charge_target
-      name: Recommended Target Tonight
-    - entity: sensor.givenergy_inverter_manager_estimated_overnight_charge_cost
-      name: Estimated Charge Cost
-    - entity: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise
-      name: Estimated SoC at Sunrise
-    - entity: sensor.givenergy_inverter_manager_cheap_rate_floor
-      name: Cheap Rate Floor
-      icon: mdi:floor-plan
-    title: Tonight's Charge Plan
   - type: markdown
     title: Tonight in words
     content: |-
@@ -413,81 +626,3 @@ views:
       name: Inverter Status
       icon: mdi:thermometer-alert
     title: Battery Health
-- title: Controls
-  icon: mdi:tune
-  path: controls
-  cards:
-  - type: conditional
-    conditions:
-    - condition: state
-      entity: sensor.givenergy_inverter_manager_dry_run_mode_active
-      state: 'True'
-    card:
-      type: markdown
-      content: |-
-        ## ⚠️ Dry Run Mode Active
-
-        This integration is in **simulation mode**. All sensor values update normally and charge decisions are calculated, but **no commands are sent to your inverter or EV charger**.
-
-        To go live, disable Dry Run in Settings → Integrations → GivEnergy Inverter Manager → Configure.
-  - type: conditional
-    conditions:
-    - condition: state
-      entity: sensor.givenergy_inverter_manager_dry_run_mode_active
-      state: 'True'
-    card:
-      type: entities
-      title: Dry Run Status
-      entities:
-      - entity: sensor.givenergy_inverter_manager_dry_run_mode_active
-        name: Dry Run Mode
-        icon: mdi:test-tube
-      - entity: sensor.givenergy_inverter_manager_last_skipped_action_dry_run
-        name: Last Skipped Action
-        icon: mdi:skip-next-circle-outline
-  - type: entities
-    entities:
-    - entity: switch.givenergy_inverter_manager_enable_charge_target_override
-      name: Enable Charge Target Override
-    - entity: number.givenergy_inverter_manager_overnight_charge_target_override
-      name: Overnight Charge Target
-    - entity: switch.givenergy_inverter_manager_force_skip_overnight_charge
-      name: Force Skip Charge Tonight
-    title: Overnight Charging
-  - type: entities
-    entities:
-    - entity: switch.givenergy_inverter_manager_auto_immersion_divert
-      name: Auto Immersion Divert
-    - entity: switch.givenergy_inverter_manager_immersion_heater_managed
-      name: Immersion Heater (Managed)
-    - entity: sensor.givenergy_inverter_manager_immersion_divert_reason
-      name: Divert Reason
-      icon: mdi:water-boiler
-    - type: divider
-    - entity: number.givenergy_inverter_manager_immersion_target_temperature
-      name: Target Temperature
-    - entity: number.givenergy_inverter_manager_immersion_minimum_temperature
-      name: Minimum Temperature
-    - entity: number.givenergy_inverter_manager_immersion_restart_gap
-      name: Restart Gap
-    title: Immersion Heater
-  - type: entities
-    entities:
-    - entity: sensor.givenergy_inverter_manager_ev_charger_state
-      name: Charger State
-      icon: mdi:ev-station
-    - entity: sensor.givenergy_inverter_manager_ev_charging_power
-      name: Charge Power
-      icon: mdi:lightning-bolt
-    - entity: sensor.givenergy_inverter_manager_ev_session_energy
-      name: Session Energy
-    - entity: sensor.givenergy_inverter_manager_ev_draining_battery
-      name: Draining Battery
-    - entity: sensor.givenergy_inverter_manager_ev_mode_decision
-      name: Mode Decision
-      icon: mdi:car-electric
-    - entity: sensor.givenergy_inverter_manager_ev_charging_source
-      name: Charging Source
-    - entity: sensor.givenergy_inverter_manager_ev_solar_surplus
-      name: Solar Surplus Available
-    title: EV Charger

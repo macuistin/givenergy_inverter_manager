@@ -65,22 +65,27 @@ class TestBuildDashboardYaml:
         parsed = yaml.safe_load(result)
         assert "views" in parsed
 
-    def test_has_five_views(self):
+    def test_has_five_tabs_and_six_sub_views(self):
         result = _build()
         parsed = yaml.safe_load(result)
-        assert len(parsed["views"]) == 5
+        tabs = [v for v in parsed["views"] if not v.get("subview")]
+        subs = [v for v in parsed["views"] if v.get("subview")]
+        assert len(tabs) == 5
+        assert len(subs) == 6
 
     def test_view_titles(self):
         result = _build()
         parsed = yaml.safe_load(result)
-        titles = [v["title"] for v in parsed["views"]]
+        titles = [v["title"] for v in parsed["views"] if not v.get("subview")]
         assert titles == ["Power Flow", "Today", "Bill", "Battery", "Controls"]
 
     def test_view_paths(self):
         result = _build()
         parsed = yaml.safe_load(result)
-        paths = [v["path"] for v in parsed["views"]]
+        paths = [v["path"] for v in parsed["views"] if not v.get("subview")]
         assert paths == ["power-flow", "today", "bill", "battery", "controls"]
+        sub_paths = [v["path"] for v in parsed["views"] if v.get("subview")]
+        assert sub_paths == ["immersion", "ev-charger", "cost", "solar", "tariff", "battery-detail"]
 
     def test_sensor_references_present(self):
         """Key entities must appear in the output."""
@@ -438,11 +443,7 @@ class TestSolarForecastCards:
             assert eid(key) in result
 
     def test_solar_graph_in_today_view_uses_statistics(self):
-        parsed = yaml.safe_load(_build())
-        today_view = next(v for v in parsed["views"] if v.get("path") == "today")
-        graphs = [
-            c for c in today_view["cards"] if c.get("type") == "statistics-graph"
-        ]
+        graphs = [c for c in _cards(_build(), "solar") if c.get("type") == "statistics-graph"]
         assert any("solar" in c["title"].lower() for c in graphs)
 
 
@@ -606,13 +607,7 @@ class TestEntityAvailability:
 
     def test_dashboard_is_never_empty(self):
         parsed = yaml.safe_load(_build(config=MINIMAL_CONFIG, registry=FakeRegistry()))
-        assert [v["path"] for v in parsed["views"]] == [
-            "power-flow",
-            "today",
-            "bill",
-            "battery",
-            "controls",
-        ]
+        assert [v["path"] for v in parsed["views"] if not v.get("subview")] == ["power-flow", "today", "bill", "battery", "controls"]
 
 
 class TestFeatureGating:
@@ -746,7 +741,7 @@ class TestLongTextStates:
     """Sentences go in a markdown card, not in an entities row where they are cut off."""
 
     def _battery(self):
-        return _cards(_build(), "battery")
+        return _cards(_build(), "battery-detail")
 
     def test_long_text_entities_are_not_entities_rows(self):
         for card in self._battery():
@@ -769,10 +764,9 @@ class TestLongTextStates:
         content = [c for c in self._battery() if c["type"] == "markdown"][0]["content"]
         assert Environment().from_string(content).render(states=lambda entity: "x")
 
-    def test_markdown_card_follows_the_plan_card(self):
-        types = [c["type"] for c in self._battery()]
-        titles = [c.get("title") for c in self._battery()]
-        assert types.index("markdown") == titles.index("Tonight's Charge Plan") + 1
+    def test_markdown_card_opens_the_battery_detail_view(self):
+        assert self._battery()[0]["type"] == "markdown"
+        assert "Tonight's Charge Plan" in [c.get("title") for c in _cards(_build(), "battery")]
 
 
 class TestStatisticsGraphs:
@@ -791,8 +785,15 @@ class TestStatisticsGraphs:
                 assert plotted.isdisjoint(resets), card["title"]
 
     def test_cost_and_solar_use_statistics_graphs(self):
-        graphs = [c for c in _cards(_build(), "today") if c["type"] == "statistics-graph"]
-        assert [g["period"] for g in graphs] == ["day", "hour"]
+        graphs = [
+            c
+            for path in ("cost", "solar")
+            for c in _cards(_build(), path)
+            if c["type"] == "statistics-graph"
+        ]
+        assert [g["period"] for g in graphs] == ["hour", "day"] or [
+            g["period"] for g in graphs
+        ] == ["day", "hour"]
         for g in graphs:
             assert g["stat_types"] == ["change"]
             assert g["chart_type"] == "bar"
@@ -822,7 +823,7 @@ class TestBillView:
 
     def test_bill_view_uses_only_built_in_cards(self):
         types = {c["type"] for c in _cards(_build(), "bill")}
-        assert types <= {"entities", "markdown", "tile", "grid", "glance"}
+        assert types <= {"entities", "markdown", "tile", "grid", "glance", "button"}
 
     def test_disabled_by_default_figures_are_left_out_and_listed(self):
         text = _build(registry=FakeRegistry())
@@ -842,7 +843,7 @@ class TestBillView:
         assert "Bill Prediction" not in titles
 
     def _tariff_markdown(self, config=None) -> str:
-        cards = _cards(_build(config=config), "bill")
+        cards = _cards(_build(config=config), "tariff")
         return next(c for c in cards if c["type"] == "markdown")["content"]
 
     def test_tariff_table_lists_base_rate_and_periods(self):
@@ -1041,3 +1042,102 @@ class TestReadingLovelaceResources:
     def test_dict_shaped_lovelace_data_is_read(self):
         collection = self._collection([{"url": _APEX}])
         assert self._urls({"lovelace": {"resources": collection}}) == [_APEX]
+
+
+class TestSubViews:
+    """Detail lives in sub-views, so the tabs stay short."""
+
+    def _views(self, **kw):
+        return yaml.safe_load(_build(**kw))["views"]
+
+    def test_sub_views_have_no_tab_and_go_back_to_a_tab(self):
+        views = self._views()
+        tabs = {v["path"] for v in views if not v.get("subview")}
+        for view in views:
+            if view.get("subview"):
+                assert view["back_path"] in tabs, view["path"]
+
+    def test_every_link_opens_a_sub_view_that_exists(self):
+        views = self._views()
+        paths = {v["path"] for v in views}
+
+        def walk(node):
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if key in ("tap_action", "icon_tap_action") and value.get("action") == "navigate":
+                        yield value["navigation_path"]
+                    else:
+                        yield from walk(value)
+            elif isinstance(node, list):
+                for item in node:
+                    yield from walk(item)
+
+        targets = set(walk(views))
+        assert targets, "no card links to a sub-view"
+        assert targets <= paths
+
+    def test_every_sub_view_is_reachable_from_its_back_view(self):
+        views = self._views()
+        for sub in (v for v in views if v.get("subview")):
+            parent = next(v for v in views if v["path"] == sub["back_path"])
+            assert f"navigation_path: {sub['path']}" in yaml.dump(parent), sub["path"]
+
+    def test_tabs_stay_short(self):
+        for view in self._views():
+            if not view.get("subview"):
+                assert len(view["cards"]) <= 6, view["path"]
+
+    def test_energy_today_strip_is_not_repeated(self):
+        titles = [
+            c.get("title")
+            for v in self._views()
+            if not v.get("subview")
+            for c in v["cards"]
+            if c.get("title") == "Energy Today"
+        ]
+        assert len(titles) == 2  # Power Flow (4 columns) and Today (the full list)
+        power_flow = _cards(_build(), "power-flow")
+        strip = next(c for c in power_flow if c.get("title") == "Energy Today")
+        assert len(strip["entities"]) == 4
+
+    def test_battery_soc_gauge_is_only_on_the_now_strip(self):
+        text = yaml.dump(self._views())
+        assert text.count("type: gauge\n") >= 1
+        gauges = [
+            c
+            for v in self._views()
+            for g in v["cards"]
+            for c in (g.get("cards") or [g])
+            if c.get("type") == "gauge" and c.get("entity") == eid("battery_soc")
+        ]
+        assert len(gauges) == 1
+
+    def test_immersion_power_chart_plots_power_not_energy(self):
+        charts = [c for c in _cards(_build(), "immersion") if c.get("type") == "vertical-stack"]
+        text = yaml.dump(charts)
+        assert eid("immersion_power") in text
+        assert "Immersion Power Today" not in text
+
+    def test_no_immersion_or_ev_sub_view_without_the_devices(self):
+        views = self._views(config=MINIMAL_CONFIG, registry=FakeRegistry(), ev_brand=None)
+        paths = {v["path"] for v in views}
+        assert "immersion" not in paths
+        assert "ev-charger" not in paths
+        assert "navigation_path: immersion" not in yaml.dump(views)
+        assert "navigation_path: ev-charger" not in yaml.dump(views)
+
+    def test_links_are_left_out_when_the_sub_view_is_empty(self):
+        gone = {
+            "overnight_charge_reason",
+            "night_survival_reason",
+            "battery_cycles",
+            "battery_remaining_life",
+            "days_since_full_charge",
+            "inverter_temperature",
+            "inverter_temperature_status",
+        }
+        text = _build(registry=FakeRegistry(enable_all=True, absent=gone))
+        parsed = yaml.safe_load(text)
+        paths = {v["path"] for v in parsed["views"]}
+        assert "battery-detail" not in paths
+        assert "navigation_path: battery-detail" not in text

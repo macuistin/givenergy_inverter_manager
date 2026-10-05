@@ -4,12 +4,18 @@ dashboard_builder.py - builds the Lovelace dashboard for GivEnergy Inverter Mana
 The dashboard is built as a plain dict, then serialised with PyYAML. The
 get_dashboard_yaml service writes the YAML to a file.
 
-The generated dashboard has five views:
-  1. Power Flow   - a Now strip and the live energy flow (power-flow-card-plus from HACS)
-  2. Today        - daily energy totals, cost breakdown, self-sufficiency
-  3. Bill         - the month so far and the tariff behind it
-  4. Battery      - battery health, charge decision, night survival
-  5. Controls     - charge target slider, switches, EV charger state
+The generated dashboard has five tabs:
+  1. Power Flow   - a Now strip, the live energy flow (power-flow-card-plus from HACS)
+                    and today's totals
+  2. Today        - energy and cost headlines, self-sufficiency
+  3. Bill         - the month so far
+  4. Battery      - charge history and tonight's plan
+  5. Controls     - charge target slider and switches
+
+Detail lives in sub-views, which have no tab. A card on the tab opens each one and the
+sub-view's back arrow returns to it: Immersion and EV charger (from Power Flow), Cost
+breakdown and Solar and forecast (from Today), Tariff (from Bill), Battery detail
+(from Battery).
 
 Power flow view requires power-flow-card-plus from HACS:
   https://github.com/flixlix/power-flow-card-plus
@@ -156,6 +162,26 @@ def _tile(entity: str | None, name: str, **extra) -> dict | None:
     return {"type": "tile", "entity": entity, "name": name, "vertical": True, **extra}
 
 
+def _nav(path: str) -> dict:
+    """A tap action that opens another view of the same dashboard.
+
+    The path is relative, so it works whatever URL the dashboard is served from.
+    """
+    return {"action": "navigate", "navigation_path": path}
+
+
+def _subview(title: str, icon: str, path: str, back: str, cards: list) -> dict:
+    """A view with no tab. Its back arrow returns to the view that opened it."""
+    return {
+        "title": title,
+        "icon": icon,
+        "path": path,
+        "subview": True,
+        "back_path": back,
+        "cards": cards,
+    }
+
+
 def _statistics_graph(rows: list, title: str, period: str, days: int) -> dict | None:
     """Bars of the change in each period, for sensors that reset every day.
 
@@ -187,11 +213,12 @@ def _build_immersion_section(
     num_min: str | None,
     immersion_today: str | None,
     apex: bool = True,
+    immersion_power: str | None = None,
 ) -> dict | None:
-    """Build the immersion block for the power flow view.
+    """Build the charts for the Immersion sub-view.
 
     A vertical-stack of a 12 hour temperature chart (water, target, minimum),
-    a tile with the divert reason and a 12 hour chart of immersion energy today.
+    a tile with the divert reason and a 12 hour chart of the immersion's power.
     Returns None when no immersion temperature sensor is configured.
     Requires apexcharts-card from HACS. With apex=False the charts are built-in
     cards instead: a history graph of the temperatures and a statistics graph of
@@ -236,15 +263,15 @@ def _build_immersion_section(
                 "features_position": "bottom",
             }
         )
-    if immersion_today:
+    if immersion_power:
         cards.append(
             {
                 "type": "custom:apexcharts-card",
-                "header": {"show": True, "title": "Power"},
+                "header": {"show": True, "title": "Immersion power (W)"},
                 "graph_span": "12h",
                 "yaxis": [{"min": 0}],
                 "apex_config": _apex_config(),
-                "series": [series(immersion_today, "Immersion Power Today", "#03a9f4", 2)],
+                "series": [series(immersion_power, "Power", "#ff9800", 2)],
             }
         )
     return {"type": "vertical-stack", "cards": cards}
@@ -380,6 +407,18 @@ def _generate(hass: HomeAssistant, entry_id: str, resources: list[str] | None = 
     temperature, solar forecast) is configured.
     """
     b = _Builder(hass, entry_id, resources)
+    subviews = [
+        _subview("Immersion", "mdi:water-boiler", "immersion", "power-flow", b.immersion_cards()),
+        _subview("EV charger", "mdi:ev-station", "ev-charger", "power-flow", b.ev_cards()),
+        _subview("Cost breakdown", "mdi:cash-multiple", "cost", "today", b.cost_cards()),
+        _subview("Solar and forecast", "mdi:weather-sunny", "solar", "today", b.solar_cards()),
+        _subview("Tariff", "mdi:table", "tariff", "bill", b.tariff_cards()),
+        _subview(
+            "Battery detail", "mdi:battery-heart-variant", "battery-detail", "battery",
+            b.battery_detail_cards(),
+        ),
+    ]
+    b.subviews = {v["path"] for v in subviews if v["cards"]}
     views = [
         {
             "title": "Power Flow",
@@ -413,7 +452,7 @@ def _generate(hass: HomeAssistant, entry_id: str, resources: list[str] | None = 
         },
     ]
     return _Built(
-        {"views": [v for v in views if v["cards"]]},
+        {"views": [v for v in views + subviews if v["cards"]]},
         sorted(b.reg.disabled.values()),
         b.fallbacks,
     )
@@ -428,6 +467,7 @@ class _Builder:
         self.hass = hass
         self.resources = resources
         self.fallbacks: list[str] = []
+        self.subviews: set[str] = set()
         self.reg = _Registry(hass, entry_id)
         self.e = self.reg.get
         cfg = _entry_config(hass, entry_id)
@@ -452,6 +492,38 @@ class _Builder:
 
     def when(self, flag: bool, suffix: str) -> str | None:
         return self.e(suffix) if flag else None
+
+    def link(self, name: str, icon: str, path: str, entity: str | None = None) -> dict | None:
+        """A card that opens the sub-view at path, or None when that sub-view is empty.
+
+        With an entity it is a tile that shows the entity's state, otherwise a button.
+        """
+        if path not in self.subviews:
+            return None
+        if entity:
+            return {
+                "type": "tile",
+                "entity": entity,
+                "name": name,
+                "icon": icon,
+                "vertical": True,
+                "tap_action": _nav(path),
+                "icon_tap_action": _nav(path),
+            }
+        return {
+            "type": "button",
+            "name": name,
+            "icon": icon,
+            "show_state": False,
+            "tap_action": _nav(path),
+        }
+
+    def links(self, cards: list, title: str = "More detail") -> dict | None:
+        """A grid of link cards, or None when none of the sub-views exist."""
+        cards = _present(cards)
+        if not cards:
+            return None
+        return {"type": "grid", "title": title, "columns": 2, "square": False, "cards": cards}
 
     def ev_power(self) -> str | None:
         if not self.has_ev:
@@ -542,8 +614,8 @@ class _Builder:
                 else None,
                 _tile(e("night_survival_confidence"), "Night survival"),
                 _tile(e("current_rate"), "Rate now"),
-                _tile(e("next_cheap_rate_start"), "Cheap rate starts"),
-                _tile(e("hours_to_cheap_rate"), "Hours to cheap rate"),
+                _tile(e("next_cheap_rate_start"), "Cheap from"),
+                _tile(e("hours_to_cheap_rate"), "Cheap in"),
                 _tile(e("import_cost_today"), "Cost today"),
             ]
         )
@@ -553,7 +625,6 @@ class _Builder:
 
     def power_flow_cards(self) -> list:
         flow = self._flow_entities()
-        immersion_today = self.when(self.has_immersion, "immersion_today")
         flow_card = {
             "type": "custom:power-flow-card-plus",
             "entities": flow,
@@ -573,34 +644,22 @@ class _Builder:
             "clickable_entities": True,
             "no_labels": False,
         }
-        use_flow_card = self.has_card("power-flow-card-plus")
-        use_apex = self.has_card("apexcharts-card")
-        immersion_section = _build_immersion_section(
-            self.cfg.get(CONF_IMMERSION_TEMP_SENSOR, ""),
-            self.when(self.has_immersion, "immersion_divert_reason"),
-            self.when(self.has_immersion, "immersion_target_temp"),
-            self.when(self.has_immersion, "immersion_min_temp"),
-            immersion_today,
-            apex=use_apex,
-        )
-        if not use_flow_card:
+        if not self.has_card("power-flow-card-plus"):
             self.fallbacks.append(
                 "power-flow-card-plus: https://github.com/flixlix/power-flow-card-plus"
             )
             flow_card = _flow_fallback(flow)
-        if immersion_section is not None and not use_apex:
-            self.fallbacks.append("apexcharts-card: https://github.com/RomRider/apexcharts-card")
+        today_nav = {"tap_action": _nav("today")}
         return _present(
             [
                 self.now_strip(),
                 flow_card if flow else None,
                 _entity_list_card(
                     [
-                        _row(self.e("solar_today"), "Generated"),
-                        _row(self.e("import_today"), "Imported"),
-                        _row(self.e("export_today"), "Exported"),
-                        _row(self.e("house_kwh_today"), "Used"),
-                        _row(immersion_today, "Immersion"),
+                        _row(self.e("solar_today"), "Generated", **today_nav),
+                        _row(self.e("import_today"), "Imported", **today_nav),
+                        _row(self.e("export_today"), "Exported", **today_nav),
+                        _row(self.e("house_kwh_today"), "Used", **today_nav),
                     ],
                     {
                         "show_name": True,
@@ -608,26 +667,70 @@ class _Builder:
                         "show_state": True,
                         "type": "glance",
                         "title": "Energy Today",
-                        "columns": 5,
+                        "columns": 4,
                     },
                 ),
-                immersion_section,
+                self.links(
+                    [
+                        self.link(
+                            "Immersion",
+                            "mdi:water-boiler",
+                            "immersion",
+                            self.cfg.get(CONF_IMMERSION_TEMP_SENSOR) or None,
+                        ),
+                        self.link(
+                            "EV charger",
+                            "mdi:ev-station",
+                            "ev-charger",
+                            self.when(self.has_ev, "ev_charger_state"),
+                        ),
+                    ],
+                    title="Devices",
+                ),
             ]
         )
 
+    def immersion_cards(self) -> list:
+        """Sub-view: the water temperature and power charts and why the heater is on or off."""
+        if not self.has_immersion:
+            return []
+        section = _build_immersion_section(
+            self.cfg.get(CONF_IMMERSION_TEMP_SENSOR, ""),
+            self.e("immersion_divert_reason"),
+            self.e("immersion_target_temp"),
+            self.e("immersion_min_temp"),
+            self.e("immersion_today"),
+            apex=self.has_card("apexcharts-card"),
+            immersion_power=self.e("immersion_power"),
+        )
+        if section is not None and not self.has_card("apexcharts-card"):
+            self.fallbacks.append("apexcharts-card: https://github.com/RomRider/apexcharts-card")
+        return _present(
+            [
+                section,
+                _entity_list_card(
+                    [
+                        _row(self.e("immersion_today"), "Energy today"),
+                        _row(self.e("immersion_cost_today"), "Cost today"),
+                        _row(self.e("immersion_savings_today"), "Saved by solar"),
+                    ],
+                    {"type": "entities"},
+                    title="Immersion today",
+                ),
+            ]
+        )
+
+    def ev_cards(self) -> list:
+        """Sub-view: the EV charger's state and why it is or is not charging."""
+        return _present([self._ev_card()])
+
     def today_cards(self) -> list:
         e, when = self.e, self.when
-        solar_today = e("solar_today")
-        import_cost_today = e("import_cost_today")
-        export_earnings = e("export_earnings_today")
-        house_cost_today = e("house_cost_today")
-        zappi_cost_today = when(self.has_ev, "zappi_cost_today")
-        immersion_cost_today = when(self.has_immersion, "immersion_cost_today")
         return _present(
             [
                 _entity_list_card(
                     [
-                        _row(solar_today, "Generated"),
+                        _row(e("solar_today"), "Generated"),
                         _row(e("import_today"), "Import"),
                         _row(e("export_today"), "Export"),
                         _row(when(self.has_ev, "zappi_today"), "EV"),
@@ -639,6 +742,7 @@ class _Builder:
                         "show_state": True,
                         "type": "glance",
                         "title": "Energy Today",
+                        "columns": 3,
                     },
                 ),
                 _entity_list_card(
@@ -646,6 +750,47 @@ class _Builder:
                         _row(e("current_rate"), "Current Rate"),
                         _row(e("current_rate_period"), "Rate Period"),
                         {"type": "divider"},
+                        _row(e("import_cost_today"), "Import Cost"),
+                        _row(e("export_earnings_today"), "Export Earnings"),
+                    ],
+                    {"type": "entities"},
+                    title="Cost",
+                ),
+                _grid_of_gauges(
+                    [
+                        (
+                            e("self_sufficiency"),
+                            "Self-Sufficiency",
+                            {"green": 60, "yellow": 30, "red": 0},
+                        ),
+                        (
+                            e("self_consumption"),
+                            "Self-Consumption",
+                            {"green": 70, "yellow": 40, "red": 0},
+                        ),
+                    ]
+                ),
+                self.links(
+                    [
+                        self.link("Cost breakdown", "mdi:cash-multiple", "cost"),
+                        self.link("Solar and forecast", "mdi:weather-sunny", "solar"),
+                    ]
+                ),
+            ]
+        )
+
+    def cost_cards(self) -> list:
+        """Sub-view: every cost line for today and the cost per day for two weeks."""
+        e, when = self.e, self.when
+        import_cost_today = e("import_cost_today")
+        export_earnings = e("export_earnings_today")
+        house_cost_today = e("house_cost_today")
+        zappi_cost_today = when(self.has_ev, "zappi_cost_today")
+        immersion_cost_today = when(self.has_immersion, "immersion_cost_today")
+        return _present(
+            [
+                _entity_list_card(
+                    [
                         _row(import_cost_today, "Import Cost"),
                         _row(export_earnings, "Export Earnings"),
                         _row(zappi_cost_today, "EV Charging Cost"),
@@ -670,26 +815,20 @@ class _Builder:
                     "day",
                     14,
                 ),
+            ]
+        )
+
+    def solar_cards(self) -> list:
+        """Sub-view: solar generation per hour and how it compares with the forecast."""
+        solar_today = self.e("solar_today")
+        return _present(
+            [
+                self._forecast_card(solar_today),
                 _statistics_graph(
                     [_row(solar_today, "Actual")],
                     "Solar generation per hour",
                     "hour",
                     2,
-                ),
-                self._forecast_card(solar_today),
-                _grid_of_gauges(
-                    [
-                        (
-                            e("self_sufficiency"),
-                            "Self-Sufficiency",
-                            {"green": 60, "yellow": 30, "red": 0},
-                        ),
-                        (
-                            e("self_consumption"),
-                            "Self-Consumption",
-                            {"green": 70, "yellow": 40, "red": 0},
-                        ),
-                    ]
                 ),
             ]
         )
@@ -744,31 +883,26 @@ class _Builder:
                     show_header_toggle=False,
                     state_color=False,
                 ),
-                {
-                    "type": "markdown",
-                    "title": "Tariff in use",
-                    "content": _tariff_table(build_tariff(self.cfg), self.cfg),
-                },
+                self.links([self.link("Tariff in use", "mdi:table", "tariff")]),
             ]
         )
 
+    def tariff_cards(self) -> list:
+        """Sub-view: the rates and charges the bill sums use."""
+        return [
+            {
+                "type": "markdown",
+                "title": "Tariff in use",
+                "content": _tariff_table(build_tariff(self.cfg), self.cfg),
+            }
+        ]
+
     def battery_cards(self) -> list:
-        e, when = self.e, self.when
+        e = self.e
         battery_soc = e("battery_soc")
         battery_power = e("battery_power")
-        has_temp = self.has_inverter_temp
-        gauge = {
-            "type": "gauge",
-            "entity": battery_soc,
-            "name": "Battery SoC",
-            "min": 0,
-            "max": 100,
-            "needle": True,
-            "severity": {"green": 50, "yellow": 20, "red": 0},
-        }
         return _present(
             [
-                gauge if battery_soc else None,
                 _entity_list_card(
                     [_row(battery_soc, "SoC"), _row(battery_power, "Power (W)")],
                     {"type": "history-graph", "title": "Battery SoC — 24h", "hours_to_show": 24},
@@ -786,6 +920,18 @@ class _Builder:
                     {"type": "entities"},
                     title="Tonight's Charge Plan",
                 ),
+                self.links(
+                    [self.link("Battery detail", "mdi:battery-heart-variant", "battery-detail")]
+                ),
+            ]
+        )
+
+    def battery_detail_cards(self) -> list:
+        """Sub-view: why tonight's plan is what it is, and the battery's health."""
+        e, when = self.e, self.when
+        has_temp = self.has_inverter_temp
+        return _present(
+            [
                 self._tonight_notes(),
                 _entity_list_card(
                     [
@@ -863,7 +1009,7 @@ class _Builder:
                 _entity_list_card(
                     [
                         _row(e("charge_target_override_enabled"), "Enable Charge Target Override"),
-                        _row(e("charge_target_override"), "Overnight Charge Target"),
+                        _row(e("charge_target_override"), "Charge target"),
                         _row(e("skip_charge_override"), "Force Skip Charge Tonight"),
                     ],
                     {"type": "entities"},
@@ -875,18 +1021,20 @@ class _Builder:
                         _row(when(imm, "immersion_managed"), "Immersion Heater (Managed)"),
                         _row(
                             when(imm, "immersion_divert_reason"),
-                            "Divert Reason",
+                            "Reason",
                             icon="mdi:water-boiler",
                         ),
                         {"type": "divider"},
-                        _row(when(imm, "immersion_target_temp"), "Target Temperature"),
-                        _row(when(imm, "immersion_min_temp"), "Minimum Temperature"),
+                        _row(when(imm, "immersion_target_temp"), "Target temp"),
+                        _row(when(imm, "immersion_min_temp"), "Minimum temp"),
                         _row(when(imm, "immersion_hysteresis"), "Restart Gap"),
                     ],
                     {"type": "entities"},
                     title="Immersion Heater",
                 ),
-                self._ev_card(),
+                self.links(
+                    [self.link("EV charger", "mdi:ev-station", "ev-charger")], title="Status"
+                ),
             ]
         )
 
