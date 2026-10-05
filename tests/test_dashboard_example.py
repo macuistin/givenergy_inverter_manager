@@ -13,21 +13,14 @@ from __future__ import annotations
 
 import os
 
-from tests.dashboard_support import ENTRY_ID, FULL_CONFIG, FakeRegistry, fake_hass
+from tests.dashboard_support import dashboard_text
 from tests.helpers import ROOT
 
 _EXAMPLE = ROOT / "docs" / "dashboard-example.yaml"
 
 
 def generate_example() -> str:
-    from custom_components.givenergy_inverter_manager.dashboard_builder import build_dashboard_yaml
-
-    with fake_hass(
-        FULL_CONFIG,
-        FakeRegistry(enable_all=True),
-        ev_brand="myenergi",
-    ) as hass:
-        return build_dashboard_yaml(hass, ENTRY_ID)
+    return dashboard_text()
 
 
 def test_example_is_up_to_date():
@@ -36,7 +29,7 @@ def test_example_is_up_to_date():
         _EXAMPLE.write_text(expected, encoding="utf-8")
     actual = _EXAMPLE.read_text(encoding="utf-8") if _EXAMPLE.exists() else ""
     assert actual == expected, (
-        "docs/dashboard-example.yaml is out of date against dashboard.py. "
+        "docs/dashboard-example.yaml is out of date against the dashboard package. "
         "Run: UPDATE_DASHBOARD_EXAMPLE=1 python -m pytest tests/test_dashboard_example.py"
     )
 

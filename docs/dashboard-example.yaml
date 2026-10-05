@@ -125,7 +125,7 @@ views:
           name: Car Charger
           icon: mdi:car-electric
           display_zero: false
-          color: '#4CAF50'
+          color: '#009688'
         - entity: sensor.givenergy_inverter_manager_immersion_heater_power
           name: Immersion
           icon: mdi:water-boiler

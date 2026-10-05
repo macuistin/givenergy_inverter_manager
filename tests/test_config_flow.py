@@ -99,36 +99,20 @@ def _get_flow_class(real_ha_selector, real_vol):
 
 
 # ── Sensor default-enabled tests ──────────────────────────────────────────────
-# These tests parse sensor.py via AST rather than importing it, avoiding the
-# need to stub SensorEntityDescription subclassing.
 
 
 def _parse_sensor_enabled_state():
-    """Return {name: enabled_default} by parsing sensor.py with ast."""
-    import ast
+    """Return {name: enabled_default} from the sensor description table."""
     import json
 
-    pkg = PKG
-    tree = ast.parse((pkg / "sensor.py").read_text())
-    translated = json.loads((pkg / "strings.json").read_text())["entity"]["sensor"]
+    from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
 
-    results = {}
-    # Walk all Call nodes looking for GivEnergyManagerSensorDescription(...)
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        name_val = None
-        enabled_val = True  # default per dataclass default
-        for kw in node.keywords:
-            if kw.arg == "translation_key" and isinstance(kw.value, ast.Constant):
-                name_val = translated.get(kw.value.value, {}).get("name", name_val)
-            if kw.arg == "name" and isinstance(kw.value, ast.Constant) and name_val is None:
-                name_val = kw.value.value
-            if kw.arg == "entity_registry_enabled_default" and isinstance(kw.value, ast.Constant):
-                enabled_val = bool(kw.value.value)
-        if name_val is not None:
-            results[name_val] = enabled_val
-    return results
+    translated = json.loads((PKG / "strings.json").read_text())["entity"]["sensor"]
+    return {
+        translated[d.translation_key]["name"]: d.entity_registry_enabled_default
+        for d in SENSOR_DESCRIPTIONS
+        if d.translation_key in translated and "name" in translated[d.translation_key]
+    }
 
 
 class TestSensorDefaultEnabled:
@@ -824,3 +808,51 @@ class TestRatePeriodErrors:
                 errors = data[scope]["error"]
                 assert "rate_period_zero_length" in errors
                 assert "rate_period_duplicate_name" in errors
+
+
+class TestTariffUpdates:
+    """The three tariff forms (setup, reconfigure, options) share one parser."""
+
+    SUBMITTED = {
+        "base_rate": "0.3334",
+        "base_rate_name": "Day",
+        "export_rate": 0.195,
+        "standing_charge_per_day": 0.8259,
+        "pso_levy_per_month": 1.46,
+        "vat_rate": 9,
+        "discount_rate": 5.5,
+        "bill_start_day": 16.0,
+        "currency": "EUR",
+    }
+
+    def test_values_are_parsed_to_stored_types(self):
+        from custom_components.givenergy_inverter_manager.config_flow import _tariff_updates
+
+        periods = [{"name": "Night", "rate": 0.1, "start": "23:00", "end": "08:00"}]
+        updates = _tariff_updates(self.SUBMITTED, periods)
+        assert updates == {
+            "rate_periods": periods,
+            "base_rate": 0.3334,
+            "base_rate_name": "Day",
+            "export_rate": 0.195,
+            "standing_charge_per_day": 0.8259,
+            "pso_levy_per_month": 1.46,
+            "vat_rate": 9.0,
+            "discount_rate": 5.5,
+            "bill_start_day": 16,
+            "currency": "EUR",
+        }
+        assert isinstance(updates["vat_rate"], float)
+        assert isinstance(updates["bill_start_day"], int)
+
+    def test_missing_name_and_currency_fall_back_to_defaults(self):
+        from custom_components.givenergy_inverter_manager.config_flow import _tariff_updates
+        from custom_components.givenergy_inverter_manager.const import (
+            DEFAULT_BASE_RATE_NAME,
+            DEFAULT_CURRENCY,
+        )
+
+        submitted = {k: v for k, v in self.SUBMITTED.items() if k not in ("base_rate_name", "currency")}
+        updates = _tariff_updates(submitted, [])
+        assert updates["base_rate_name"] == DEFAULT_BASE_RATE_NAME
+        assert updates["currency"] == DEFAULT_CURRENCY
