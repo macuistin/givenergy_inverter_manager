@@ -24,7 +24,6 @@ from custom_components.givenergy_inverter_manager.core.engine import (
     DailyEstimateLimits,
     build_tariff,
     estimate_avg_daily_kwh,
-    update_battery_stats,
 )
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.discovery import (
@@ -34,6 +33,7 @@ from custom_components.givenergy_inverter_manager.discovery import (
     EVChargerState,
 )
 from tests.conftest import _nightboost_cfg, _raw, _run
+from tests.core.flat_battery import FROZEN_TODAY, update_battery_stats
 from tests.core.flat_engine import accumulate_energy, build_coordinator_data
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -261,21 +261,19 @@ class TestUpdateBatteryStats:
         assert stats.total_cycles == pytest.approx(0.005)
 
     def test_full_charge_date_set_at_99_pct(self):
-        from datetime import date
 
         stats = BatteryStats()
         update_battery_stats(stats, 99.5, 90.0)
-        assert stats.last_full_charge_date == date.today()
+        assert stats.last_full_charge_date == FROZEN_TODAY
 
     def test_full_charge_date_set_exactly_at_the_full_threshold(self):
-        from datetime import date
 
         from custom_components.givenergy_inverter_manager.const import BATTERY_FULL_SOC_PCT
 
         assert BATTERY_FULL_SOC_PCT == 99.0
         stats = BatteryStats()
         update_battery_stats(stats, BATTERY_FULL_SOC_PCT, 90.0)
-        assert stats.last_full_charge_date == date.today()
+        assert stats.last_full_charge_date == FROZEN_TODAY
 
     def test_full_charge_date_not_set_below_99(self):
         stats = BatteryStats()

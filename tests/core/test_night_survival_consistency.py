@@ -6,6 +6,7 @@ from itertools import product
 import pytest
 
 from custom_components.givenergy_inverter_manager.accumulation import EnergyAccumulator
+from custom_components.givenergy_inverter_manager.const import SOLAR_NOISE_FLOOR_W
 from custom_components.givenergy_inverter_manager.core.battery import hours_until_solar
 from tests.conftest import _nightboost_cfg, _raw, _run
 from tests.core.flat_rules import calculate_overnight_charge_target
@@ -24,7 +25,11 @@ class TestHoursUntilSolar:
         ],
     )
     def test_window(self, hour, solar, expected):
-        assert hours_until_solar(hour, solar) == expected
+        assert hours_until_solar(hour, SOLAR_NOISE_FLOOR_W if solar else 0.0) == expected
+
+    def test_solar_counts_as_generating_from_the_noise_floor_up(self):
+        assert hours_until_solar(11, SOLAR_NOISE_FLOOR_W - 0.1) == 21.0
+        assert hours_until_solar(11, SOLAR_NOISE_FLOOR_W) == 8.0
 
 
 def _plan_and_survival(*, now, soc, capacity, avg_daily, forecast, solar_w):

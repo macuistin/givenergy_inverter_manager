@@ -56,7 +56,7 @@ from ..discovery.ev_charger import (
     EVCharger,
     EVChargerBrand,
 )
-from .battery import estimate_will_survive_night, hours_until_solar
+from .battery import NightEstimateInputs, estimate_will_survive_night, hours_until_solar
 
 # ── Seasonal solar fractions ──────────────────────────────────────────────────
 
@@ -290,7 +290,7 @@ class ChargeInputs:
     average_daily_consumption_kwh: float
     cheapest_rate: float
     load_profile: list[float] | None = None
-    solar_generating: bool = True
+    solar_power_w: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -433,11 +433,13 @@ def _try_skip(tonight: _Tonight, dt: datetime) -> _SkipCheck:
         return _SkipCheck(skips=False)
     inputs = tonight.inputs
     survives, _, survival_note = estimate_will_survive_night(
-        current_soc=inputs.current_soc,
-        battery_capacity_kwh=inputs.battery_capacity_kwh,
-        min_soc=float(inputs.min_soc),
-        hours_until_solar=hours_until_solar(dt.hour, inputs.solar_generating),
-        average_hourly_consumption_kwh=inputs.average_daily_consumption_kwh / 24,
+        NightEstimateInputs(
+            current_soc=inputs.current_soc,
+            battery_capacity_kwh=inputs.battery_capacity_kwh,
+            min_soc=float(inputs.min_soc),
+            hours_until_solar=hours_until_solar(dt.hour, inputs.solar_power_w),
+            average_hourly_consumption_kwh=inputs.average_daily_consumption_kwh / 24,
+        )
     )
     if survives:
         return _SkipCheck(skips=True)
@@ -531,7 +533,7 @@ def calculate_overnight_charge_target(
     Skipping also needs the battery to last until solar starts. That check uses the
     same window, inputs and minimum SoC as the night survival sensor (hours_until_solar
     and estimate_will_survive_night), so the plan never skips a charge the survival
-    sensor calls Critical. inputs.solar_generating tells it whether the sun is still up.
+    sensor calls Critical. inputs.solar_power_w tells it whether the sun is still up.
     """
     if dt.month in CHARGE_WINTER_MONTHS:
         return _build_decision(inputs, _winter_plan(inputs, dt.month))
