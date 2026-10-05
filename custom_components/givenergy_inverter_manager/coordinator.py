@@ -18,7 +18,7 @@ All access to Home Assistant goes through three coordinator methods:
   _get_state(entity_id)           wraps hass.states.get()
   _call_service(domain, service, data, blocking)
                                   wraps hass.services.async_call()
-  _create_task(coro)              wraps hass.async_create_task()
+  _create_task(coro)              wraps entry.async_create_task()
 
 No other method in this class touches hass directly. This means tests
 can subclass GivEnergyCoordinator and override just these three methods
@@ -287,8 +287,24 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         await self.hass.services.async_call(domain, service, data, blocking=blocking)
 
     def _create_task(self, coro) -> None:
-        """Schedule a coroutine as an HA task."""
-        self.hass.async_create_task(coro)
+        """Schedule a fire-and-forget coroutine as a task owned by the config entry.
+
+        Home Assistant tracks the task on the entry and waits for it on unload
+        (up to 10 seconds), so an inverter write sequence is not cut off half way.
+        A failure is logged and never raised, because nothing awaits the task.
+        """
+        self.entry.async_create_task(self.hass, self._run_background(coro))
+
+    async def _run_background(self, coro) -> None:
+        """Await a fire-and-forget coroutine, logging any failure at warning level."""
+        try:
+            await coro
+        except Exception as err:  # noqa: BLE001
+            _LOG.warning(
+                "Background task %s failed: %s",
+                getattr(coro, "__qualname__", "task"),
+                err,
+            )
 
     # ── State read helpers ────────────────────────────────────────────────────
 
@@ -616,6 +632,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Load stored accumulators and apply any resets missed while HA was down."""
         await self._acc.async_load()
         self._acc.restore_battery_stats(self._battery_stats)
+        self._register_write_count = self._acc.state.register_write_count
         now = dt_util.as_local(datetime.now(timezone.utc))
         if self._acc.roll_forward(now):
             await self._acc.async_save()
@@ -687,7 +704,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             if tariff.rate_periods:
                 min_soc = int(cfg.get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC))
                 cheap = min(tariff.rate_periods, key=lambda p: p.rate)
-                if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
+                if self.is_dry_run:
                     _LOG.info(
                         "DRY RUN: skip_charge=True — would write min target %d%% (%s)",
                         min_soc,
@@ -719,7 +736,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         cheap = min(tariff.rate_periods, key=lambda p: p.rate)
 
-        if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
+        if self.is_dry_run:
             action = (
                 f"Would write charge target {target_soc}% for {cheap.name} window "
                 f"{cheap.start.strftime('%H:%M')}–{cheap.end.strftime('%H:%M')} "
@@ -976,11 +993,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if current == target_mode:
             return
 
-        cfg = self._effective_cfg()
         action = (
             f"Would set {self._ev_charger.display_name} → {target_mode} (currently {current!r})"
         )
-        if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
+        if self.is_dry_run:
             _LOG.info("DRY RUN: %s", action)
             self._record_skipped(action)
             return
@@ -1106,7 +1122,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             _LOG.warning("Cheap rate floor triggered but no target SoC entity configured")
             return status
 
-        if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
+        if self.is_dry_run:
             _LOG.info("DRY RUN: %s", status)
             return f"DRY RUN: {status}"
 
@@ -1271,3 +1287,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # recorded in this cycle shows up in this snapshot.
         data.dry_run_last_skipped = self._dry_run_last_skipped
         return data
+
+
+# The config entry type for this integration. Platforms and __init__ use it so
+# entry.runtime_data is typed as the coordinator.
+GivEnergyConfigEntry = ConfigEntry[GivEnergyCoordinator]

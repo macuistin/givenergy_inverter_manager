@@ -805,6 +805,14 @@ def _coord_with_real_store(saved: dict | None, monkeypatch, local_now: datetime)
     return coord, store
 
 
+def _saved_state(last_midnight: datetime) -> dict:
+    from custom_components.givenergy_inverter_manager.accumulation import _serialize
+
+    state = AccumulationState()
+    state.last_reset_iso = last_midnight.isoformat()
+    return _serialize(state)
+
+
 class TestRestoreState:
     def _saved(self, last_midnight: datetime) -> dict:
         from custom_components.givenergy_inverter_manager.accumulation import _serialize
@@ -897,6 +905,39 @@ class TestDurablePersistence:
 
         assert store._store.saved["battery_cycles"] == pytest.approx(3.5)
         assert store._store.saved["month"]["solar_kwh"] == pytest.approx(77.7)
+
+    async def test_restore_seeds_the_write_count_and_battery_stats_in_one_pass(
+        self, monkeypatch
+    ):
+        saved = _saved_state(datetime(2026, 7, 15, tzinfo=timezone.utc))
+        saved["register_write_count"] = 4321
+        saved["battery_cycles"] = 12.5
+        coord, _ = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert coord._register_write_count == 4321
+        assert coord._battery_stats.total_cycles == pytest.approx(12.5)
+
+    async def test_restore_loads_the_store_once(self, monkeypatch):
+        saved = _saved_state(datetime(2026, 7, 15, tzinfo=timezone.utc))
+        coord, store = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+        loads = []
+        original = store._store.async_load
+
+        async def counting_load():
+            loads.append(1)
+            return await original()
+
+        store._store.async_load = counting_load
+
+        await coord.async_restore_state()
+
+        assert len(loads) == 1
 
     async def test_restore_registers_a_flush_for_unload_and_for_home_assistant_stop(
         self, monkeypatch
@@ -3236,3 +3277,52 @@ class TestRegisterWriteCountPersistence:
         with caplog.at_level(logging.WARNING):
             await coord._givtcp_set_number("number.target_soc", 80, "target")
         assert not any("rated lifetime" in r.getMessage() for r in caplog.records)
+
+
+class TestBackgroundTasks:
+    """Fire-and-forget work is owned by the config entry and never raises."""
+
+    def test_create_task_hands_the_work_to_the_config_entry(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.entry.async_create_task = MagicMock()
+        coro = coord._call_service("switch", "turn_on", {"entity_id": "switch.x"})
+
+        GivEnergyCoordinator._create_task(coord, coro)
+
+        coord.entry.async_create_task.assert_called_once()
+        args = coord.entry.async_create_task.call_args.args
+        assert args[0] is coord.hass
+        args[1].close()
+        coro.close()
+
+    async def test_run_background_awaits_the_work(self):
+        coord = FakeCoordinator(cfg=_cfg())
+
+        await GivEnergyCoordinator._run_background(
+            coord, coord._call_service("switch", "turn_on", {"entity_id": "switch.x"})
+        )
+
+        assert coord.service_calls_for("switch", "turn_on") == [{"entity_id": "switch.x"}]
+
+    async def test_run_background_logs_a_failure_and_does_not_raise(self, caplog):
+        coord = FakeCoordinator(cfg=_cfg())
+
+        async def broken():
+            raise RuntimeError("charger offline")
+
+        with caplog.at_level(logging.WARNING):
+            await GivEnergyCoordinator._run_background(coord, broken())
+
+        messages = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("charger offline" in m for m in messages)
+
+    async def test_run_background_lets_cancellation_through(self):
+        import asyncio
+
+        coord = FakeCoordinator(cfg=_cfg())
+
+        async def cancelled():
+            raise asyncio.CancelledError
+
+        with pytest.raises(asyncio.CancelledError):
+            await GivEnergyCoordinator._run_background(coord, cancelled())
