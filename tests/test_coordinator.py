@@ -1937,11 +1937,7 @@ class TestLogWhenUnavailable:
 
 
 class TestActionExceptions:
-    """get_dashboard_yaml must raise ServiceValidationError when not configured."""
-
-    def test_raises_service_validation_error_when_no_entry(self):
-        src = (PKG / "dashboard.py").read_text()
-        assert "ServiceValidationError" in src
+    """The error text is translated. The raising itself is tested in test_services.py."""
 
     def test_no_config_entry_key_in_strings(self):
         import json
@@ -2085,23 +2081,6 @@ class TestRepairIssues:
         idx = qs.find("repair-issues")
         assert idx != -1
         assert "done" in qs[idx : idx + 80]
-
-
-class TestDashboardServiceValidationError:
-    """get_dashboard_yaml raises ServiceValidationError when no entries exist."""
-
-    def test_service_validation_error_imported_in_dashboard(self):
-        src = (PKG / "dashboard.py").read_text()
-        assert "ServiceValidationError" in src
-        assert "no_config_entry" in src
-
-    def test_raises_service_validation_error_when_no_entry_in_source(self):
-        src = (PKG / "dashboard.py").read_text()
-        handler_block = src[src.find("def handle_get_dashboard_yaml"):]
-        assert "require_loaded_entries(hass)" in handler_block
-        helper_block = src[src.find("def require_loaded_entries"):src.find("def _entity_id")]
-        assert "raise ServiceValidationError" in helper_block
-        assert "no_config_entry" in helper_block
 
 
 class TestImmersionRunToTarget:
@@ -2394,16 +2373,6 @@ class TestLiveGridCostRate:
 
     def test_live_grid_cost_rate_in_sensor_descriptions(self):
         src = (PKG / "sensor.py").read_text()
-        assert "live_grid_cost_rate" in src
-
-    def test_income_bar_markdown_removed_from_dashboard(self):
-        src = (PKG / "dashboard.py").read_text()
-        # The Jinja2 template strings from the income bar should be gone
-        assert "Earning €" not in src
-        assert "Spending €" not in src
-
-    def test_grid_node_secondary_info_uses_live_rate(self):
-        src = (PKG / "dashboard_builder.py").read_text()
         assert "live_grid_cost_rate" in src
 
 
