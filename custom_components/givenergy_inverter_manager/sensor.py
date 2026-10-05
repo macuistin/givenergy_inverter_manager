@@ -55,6 +55,7 @@ from .const import (
     NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
 )
 from .coordinator import GivEnergyCoordinator
+from .core.battery import survival_attributes
 from .core.engine import CoordinatorData
 from .core.reporting import (
     build_charge_plan_html,
@@ -82,6 +83,7 @@ class GivEnergyManagerSensorDescription(SensorEntityDescription):
     html_fn: object = (
         None  # Callable[[CoordinatorData], str] | None  # True → expose last_reset_time for HA LTS
     )
+    attrs_fn: object = None  # Callable[[CoordinatorData], dict] | None, extra state attributes
 
 
 _RESET_FIELDS = {
@@ -601,6 +603,15 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="night_survival_confidence",
         icon="mdi:moon-waning-crescent",
         entity_registry_enabled_default=False,
+        attrs_fn=lambda d: survival_attributes(
+            d.will_survive_night,
+            d.estimated_soc_at_sunrise,
+            d.battery_min_soc,
+            d.battery_soc,
+            d.survival_reason,
+        )
+        if d.survival_reason
+        else None,
         value_fn=lambda d: None
         if not d.survival_reason
         else (
@@ -1551,12 +1562,17 @@ class GivEnergyManagerSensor(CoordinatorEntity[GivEnergyCoordinator], SensorEnti
 
     @property
     def extra_state_attributes(self) -> dict | None:
-        """Return html attribute for report sensors (rendered in Markdown/HTML template cards)."""
-        if self.entity_description.html_fn is None:
+        """Return the html attribute of report sensors and any attributes that explain the state."""
+        description = self.entity_description
+        data = self.coordinator.data
+        if data is None:
             return None
-        if self.coordinator.data is None:
-            return None
-        return {"html": self.entity_description.html_fn(self.coordinator.data)}
+        attrs: dict = {}
+        if description.html_fn is not None:
+            attrs["html"] = description.html_fn(data)
+        if description.attrs_fn is not None:
+            attrs.update(description.attrs_fn(data) or {})
+        return attrs or None
 
     @property
     def native_value(self):

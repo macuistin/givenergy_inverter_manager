@@ -190,6 +190,8 @@ async def test_all_sensors_enabled_have_usable_state(hass, loaded_entry, caplog,
             desc.value_fn(data)
             if desc.html_fn is not None:
                 desc.html_fn(data)
+            if desc.attrs_fn is not None:
+                desc.attrs_fn(data)
         except Exception as exc:  # noqa: BLE001
             raising.append(f"{desc.key}: {type(exc).__name__}: {exc}")
 
@@ -248,3 +250,26 @@ async def test_dry_run_sends_no_writes(hass, hass_in_scenario, service_calls, co
 
 def _entity_ids(value) -> list[str]:
     return [value] if isinstance(value, str) else list(value)
+
+
+async def test_night_survival_confidence_explains_its_level(hass, loaded_entry):
+    """The detail view of Night Survival Confidence says why it is Safe, Warning or Critical."""
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{loaded_entry.entry_id}_night_survival_confidence"
+    )
+    assert entity_id
+    registry.async_update_entity(entity_id, disabled_by=None)
+    async_fire_time_changed(
+        hass, dt_util.utcnow() + timedelta(seconds=RELOAD_AFTER_UPDATE_DELAY + 1)
+    )
+    await hass.async_block_till_done()
+    await _refresh(hass, loaded_entry)
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state in ("Safe", "Warning", "Critical")
+    assert state.attributes["explanation"].startswith(state.state)
+    assert state.attributes["minimum_soc"] == loaded_entry.runtime_data.data.battery_min_soc
+    assert state.attributes["warning_below_soc"] > state.attributes["minimum_soc"]
+    assert "estimated_soc_at_sunrise" in state.attributes

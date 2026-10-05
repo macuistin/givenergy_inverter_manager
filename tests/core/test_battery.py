@@ -234,3 +234,37 @@ class TestLifetimeCyclesFromBms:
         update_battery_stats(stats, 80.0, None, lifetime_cycles=500.0)
         assert stats.estimated_remaining_life_pct == pytest.approx((1 - 500 / 6000) * 100)
         assert stats.years_remaining_estimate == pytest.approx((6000 - 500) / ((100 / 70) * 365))
+
+
+class TestSurvivalAttributes:
+    def _attrs(self, survive=True, sunrise=40.0, min_soc=10.0, now=60.0, reason="ok"):
+        from custom_components.givenergy_inverter_manager.core.battery import (
+            survival_attributes,
+        )
+
+        return survival_attributes(survive, sunrise, min_soc, now, reason)
+
+    def test_critical_explains_with_the_shortfall(self):
+        attrs = self._attrs(survive=False, sunrise=10.0, reason="Battery may run low. Shortfall 1.8kWh.")
+        assert attrs["explanation"] == "Critical. Battery may run low. Shortfall 1.8kWh."
+
+    def test_warning_says_it_lasts_but_only_just(self):
+        attrs = self._attrs(sunrise=12.0)
+        assert attrs["explanation"].startswith("Warning. The battery should last")
+        assert "about 12% at sunrise" in attrs["explanation"]
+        assert "within 5 points of the 10% minimum" in attrs["explanation"]
+
+    def test_warning_threshold_is_the_minimum_plus_the_margin(self):
+        assert self._attrs(sunrise=14.9)["explanation"].startswith("Warning")
+        assert self._attrs(sunrise=15.0)["explanation"].startswith("Safe")
+
+    def test_safe_repeats_the_reason(self):
+        attrs = self._attrs(sunrise=40.0, reason="Battery should last until solar.")
+        assert attrs["explanation"] == "Safe. Battery should last until solar."
+
+    def test_numbers_are_included(self):
+        attrs = self._attrs(sunrise=12.34, min_soc=10.0, now=61.26)
+        assert attrs["estimated_soc_at_sunrise"] == 12.3
+        assert attrs["battery_soc"] == 61.3
+        assert attrs["minimum_soc"] == 10.0
+        assert attrs["warning_below_soc"] == 15.0
