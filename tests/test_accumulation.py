@@ -331,12 +331,10 @@ class TestWeekMonthFunctional:
         """Call accumulate_energy on a given accumulator and return it."""
         from datetime import datetime, timezone
 
-        from custom_components.givenergy_inverter_manager.core.engine import (
-            RawSensorValues,
-            accumulate_energy,
-        )
+        from custom_components.givenergy_inverter_manager.core.engine import RawSensorValues
         from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
         from tests.conftest import _nightboost_cfg
+        from tests.core.flat_engine import accumulate_energy
 
         cfg = _nightboost_cfg()
         tariff = build_tariff(cfg)

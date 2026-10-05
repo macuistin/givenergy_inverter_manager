@@ -16,7 +16,7 @@ from .const import (
     BATTERY_RATED_CYCLES,
     NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
 )
-from .core.battery import survival_attributes
+from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.tariff import EnergyAccumulator
 
@@ -195,11 +195,13 @@ def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     if not data.survival_reason:
         return None
     return survival_attributes(
-        data.will_survive_night,
-        data.estimated_soc_at_sunrise,
-        data.battery_min_soc,
-        data.battery_soc,
-        data.survival_reason,
+        SurvivalReport(
+            data.will_survive_night,
+            data.estimated_soc_at_sunrise,
+            data.battery_min_soc,
+            data.battery_soc,
+            data.survival_reason,
+        )
     )
 
 
