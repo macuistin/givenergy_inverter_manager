@@ -6,9 +6,9 @@
 # to the minimum in hacs.json and no ceiling, so the schema tests run against
 # whatever Home Assistant pip resolves for the Python version in use.
 # The end-to-end suite pins exact versions in requirements-test-e2e.txt.
-pytest>=8.0,<10
-pytest-asyncio>=0.23,<2
-pytest-cov>=5.0,<8
+pytest>=9.1.1,<10
+pytest-asyncio>=1.4.0,<2
+pytest-cov>=7.1.0,<8
 homeassistant>=2026.2.0
-bandit>=1.7,<2
-ruff>=0.16,<0.17
+bandit>=1.9.4,<2
+ruff>=0.16.10,<0.17
