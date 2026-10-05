@@ -45,6 +45,7 @@ from ..const import (
     CHARGE_WINTER_MONTHS,
     CHARGE_WINTER_SKIP_SOC_PCT,
     CLIPPING_THRESHOLD_PERCENT,
+    DEFAULT_CURRENCY_SYMBOL,
     EV_CHARGER_MIN_POWER_W,
     SENSOR_OUTAGE_HOLD_LIMIT_S,
     SURPLUS_DIVERT_MIN_POWER_W,
@@ -541,6 +542,7 @@ def should_divert_to_immersion(
     immersion_power_w: float = 0.0,
     immersion_temp_unavailable: bool = False,
     unavailable_for_s: float = 0.0,
+    currency_symbol: str = DEFAULT_CURRENCY_SYMBOL,
 ) -> tuple[bool, str]:
     """
     Decide whether to turn on the immersion heater.
@@ -596,8 +598,8 @@ def should_divert_to_immersion(
 
     if battery_cycle_cost_per_kwh > 0 and 0 < export_rate < battery_cycle_cost_per_kwh:
         return False, (
-            f"Export rate {export_rate:.4f} €/kWh is below battery cycle cost "
-            f"{battery_cycle_cost_per_kwh:.4f} €/kWh — not worth cycling"
+            f"Export rate {export_rate:.4f} {currency_symbol}/kWh is below battery cycle cost "
+            f"{battery_cycle_cost_per_kwh:.4f} {currency_symbol}/kWh — not worth cycling"
         )
 
     # Surplus is available — but only restart if water has cooled enough
@@ -630,6 +632,7 @@ def suggest_appliance_run(
     rate_period_name: str,
     rate: float,
     export_rate: float,
+    currency_symbol: str = DEFAULT_CURRENCY_SYMBOL,
 ) -> tuple[bool, str]:
     """
     Suggest whether now is a good time to run a high-load appliance.
@@ -648,19 +651,19 @@ def suggest_appliance_run(
         saving = (appliance_power_w / 1000) * rate
         return True, (
             f"Good time to run {appliance_name}: {net_surplus_w:.0f}W surplus available. "
-            f"Running now saves ~€{saving:.3f} vs grid rate."
+            f"Running now saves ~{currency_symbol}{saving:.3f} vs grid rate."
         )
 
     if battery_soc >= APPLIANCE_MIN_BATTERY_SOC and rate <= export_rate * APPLIANCE_RATE_THRESHOLD:
         return True, (
             f"Acceptable time to run {appliance_name}: battery at {battery_soc:.0f}%, "
-            f"currently on {rate_period_name} rate (€{rate:.4f}/kWh)."
+            f"currently on {rate_period_name} rate ({currency_symbol}{rate:.4f}/kWh)."
         )
 
     if rate > export_rate * APPLIANCE_RATE_THRESHOLD:
         return False, (
             f"Not recommended: {appliance_name} would cost "
-            f"~€{(appliance_power_w / 1000) * rate:.3f} "
+            f"~{currency_symbol}{(appliance_power_w / 1000) * rate:.3f} "
             f"at current {rate_period_name} rate. Wait for solar surplus or cheap rate."
         )
 
@@ -730,7 +733,8 @@ def calculate_pre_boost_export_opportunity(
     Returns (spare_kwh, net_gain, recommended).
 
     spare_kwh:   kWh available to export before overnight charge (0 if none)
-    net_gain:    estimated € gain from exporting now and recharging at boost rate
+    net_gain:    estimated gain (configured currency) from exporting now and recharging
+                 at the boost rate
     recommended: True when net_gain > 0 and spare_kwh >= min_spare_kwh
 
     Formula:

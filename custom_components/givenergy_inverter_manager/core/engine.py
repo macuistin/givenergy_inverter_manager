@@ -56,6 +56,7 @@ from ..const import (
     DEFAULT_BATTERY_THROUGHPUT_BUDGET,
     DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
     DEFAULT_CURRENCY,
+    DEFAULT_CURRENCY_SYMBOL,
     DEFAULT_DRY_RUN,
     DEFAULT_FORECAST_CONSERVATISM,
     DEFAULT_INVERTER_MAX_OUTPUT,
@@ -269,7 +270,7 @@ class CoordinatorData:
         self.current_rate_name: str = ""
         self.current_rate: float = 0.0
         self.live_grid_cost_rate: float = 0.0  # €/hr, positive=spending, negative=earning
-        self.currency_symbol: str = "€"
+        self.currency_symbol: str = DEFAULT_CURRENCY_SYMBOL
         self.is_clipping: bool = False
         self.charge_decision: ChargeDecision | None = None
         self.should_divert_immersion: bool = False
@@ -648,7 +649,7 @@ def _initialize_coordinator_data(
 
     data.dry_run = bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN))
     currency_code = cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY)
-    data.currency_symbol = CURRENCIES.get(currency_code, "€")
+    data.currency_symbol = CURRENCIES.get(currency_code, DEFAULT_CURRENCY_SYMBOL)
     data.solar_power_w = raw.solar_power_w
     data.battery_soc = raw.battery_soc
     data.battery_power_w = raw.battery_power_w
@@ -791,6 +792,7 @@ def _set_immersion_decision(
             immersion_power_w=raw.immersion_wattage_w,
             immersion_temp_unavailable="immersion_temp" in missing,
             unavailable_for_s=raw.unavailable_for_s,
+            currency_symbol=data.currency_symbol,
         )
 
 
