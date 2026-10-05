@@ -2,7 +2,7 @@
 services.py — service actions for GivEnergy Inverter Manager.
 
 Registers the get_dashboard_yaml action, which writes the generated dashboard
-(see dashboard_builder.py) to givenergy_dashboard.yaml in the config directory,
+(see the dashboard package) to givenergy_dashboard.yaml in the config directory,
 and the appliance, tariff, ROI, year-on-year and export actions.
 
 How to use the dashboard:
@@ -35,7 +35,7 @@ from .const import (
 )
 from .core.rules import suggest_appliance_run
 from .core.tariff import BillBreakdown, TariffConfig, build_tariff
-from .dashboard_builder import async_lovelace_resource_urls, render_dashboard
+from .dashboard import async_lovelace_resource_urls, render_dashboard
 from .logging import get_logger
 
 _LOG = get_logger(__name__)

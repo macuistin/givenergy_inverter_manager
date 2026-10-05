@@ -22,7 +22,7 @@ from pathlib import Path
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN, INTEGRATION_VERSION
-from .dashboard_builder import async_lovelace_resource_urls, build_dashboard
+from .dashboard import async_lovelace_resource_urls, build_dashboard
 from .logging import get_logger
 from .services import loaded_entries
 

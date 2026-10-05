@@ -195,7 +195,7 @@ def dashboard_text(
     states: tuple[str, ...] = (),
 ) -> str:
     """The generated dashboard YAML. Defaults: every feature configured, every sensor enabled."""
-    from custom_components.givenergy_inverter_manager.dashboard_builder import render_dashboard
+    from custom_components.givenergy_inverter_manager.dashboard import render_dashboard
 
     entry = fake_entry(FULL_CONFIG if config is None else config, ev_brand)
     registry = registry or FakeRegistry(enable_all=True)
@@ -211,7 +211,7 @@ def dashboard_dict(
     states: tuple[str, ...] = (),
 ) -> dict:
     """The generated dashboard as a dict, before it is serialised."""
-    from custom_components.givenergy_inverter_manager.dashboard_builder import build_dashboard
+    from custom_components.givenergy_inverter_manager.dashboard import build_dashboard
 
     entry = fake_entry(FULL_CONFIG if config is None else config, ev_brand)
     registry = registry or FakeRegistry(enable_all=True)

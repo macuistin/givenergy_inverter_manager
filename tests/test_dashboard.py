@@ -1,5 +1,5 @@
 """
-test_dashboard.py — Tests for the dashboard generator (dashboard_builder.py).
+test_dashboard.py — Tests for the dashboard generator (the dashboard package).
 
 The service actions that write the generated file are tested in test_services.py.
 
@@ -961,7 +961,7 @@ class TestReadingLovelaceResources:
         import asyncio
         from unittest.mock import MagicMock
 
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
+        from custom_components.givenergy_inverter_manager.dashboard import (
             async_lovelace_resource_urls,
         )
 
