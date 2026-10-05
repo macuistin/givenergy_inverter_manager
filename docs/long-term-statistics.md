@@ -58,7 +58,9 @@ A sensor whose state class does not allow `last_reset` makes Home Assistant refu
 
 ## Upgrading: statistics that change
 
-Existing statistics keep their history. Home Assistant may raise a repair for a sensor whose state class changed. Choose to fix the issue and, for the sensors that now have no state class, delete their statistics. The old sums for the sensors below contain negative steps at every reset.
+Existing statistics keep their history. Home Assistant raises a repair, "no longer has a state class", for each sensor that lost its state class. These repairs have no Fix button. Open **Developer Tools → Statistics**, find the sensor, choose **Fix issue** and delete its old statistics. The repair then closes. Nothing is lost that you need: the old sums for the sensors below contain negative steps at every reset.
+
+Going from v0.3.0 to v0.4.0 raises 13 of these repairs: the seven yesterday sensors, the five trailing 12-month sensors and the solar forecast. Going from v0.2.1 to v0.3.0 raised two more, for the pre-boost export estimates. You can also choose **Ignore** on a repair, which hides it and leaves the old statistics in place.
 
 Gain `last_reset` (state class stays `total`):
 

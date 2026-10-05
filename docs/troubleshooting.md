@@ -71,6 +71,12 @@ The nine sensors are Import at cheap rate, Import at peak rate, Import cost at c
 
 See [Long-term statistics](long-term-statistics.md) and [Upgrade notes](upgrade-v0.3.0.md).
 
+## Repairs say a sensor "no longer has a state class"
+
+After an upgrade, Settings → System → Repairs can list sensors such as `grid_import_yesterday` or `solar_trailing_12_months`. They are snapshot values, not running totals, so the integration no longer gives them a state class. Home Assistant is pointing out that statistics it already holds for them are now stale.
+
+Open **Developer Tools → Statistics**, choose **Fix issue** on each sensor and delete the old statistics. See [Long-term statistics](long-term-statistics.md#upgrading-statistics-that-change) for the full list.
+
 ## Daily totals do not reset at midnight
 
 Solar, import, export, battery charged, battery discharged and house load for today follow the GivTCP daily counters when those exist. The sensor then follows the GivTCP counter, including the moment that counter resets. Compare the six `sensor.givtcp_<serial>_*_energy_today_kwh` entities.
