@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,10 +11,11 @@ import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.exceptions import ServiceValidationError
 
-from custom_components.givenergy_inverter_manager import dashboard as services
+from custom_components.givenergy_inverter_manager import services
 from custom_components.givenergy_inverter_manager.const import DOMAIN
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+from tests.helpers import ROOT
 
 ALL_SERVICES = {
     "get_dashboard_yaml",
@@ -319,3 +321,95 @@ class TestExportCsvHelpers:
         assert "solar_kwh" in fields
         assert "import_cost" in fields
         assert "net_position" in fields
+
+
+GOLDEN = ROOT / "tests" / "golden_services.json"
+
+
+def _filled(scale: float) -> EnergyAccumulator:
+    acc = EnergyAccumulator()
+    acc.solar_kwh = 10.0 * scale
+    acc.import_kwh = 7.0 * scale
+    acc.export_kwh = 3.0 * scale
+    acc.house_kwh = 14.0 * scale
+    acc.battery_throughput_kwh = 4.0 * scale
+    acc.export_earnings = 0.6 * scale
+    acc.import_cost_by_period = {"Day": 1.4 * scale, "Night": 0.5 * scale}
+    return acc
+
+
+def _full_data() -> CoordinatorData:
+    data = _data()
+    data.today = _filled(1.0)
+    data.yesterday = _filled(0.9)
+    data.week = _filled(6.0)
+    data.month = _filled(25.0)
+    data.year = _filled(300.0)
+    data.battery_stats.total_cycles = 123.456
+    data.days_in_period = 12
+    data.days_remaining = 18
+    return data
+
+
+def _snapshots() -> list[dict]:
+    return [
+        {
+            "solar_kwh": 200.0 + month,
+            "import_kwh": 150.0 + month,
+            "export_kwh": 60.0 + month,
+            "house_kwh": 400.0,
+            "battery_throughput_kwh": 80.0 + month,
+            "export_earnings": 12.5,
+            "import_cost_by_period": {"Day": 30.0, "Night": 9.5 + month},
+        }
+        for month in range(12)
+    ]
+
+
+class TestPinnedOutput:
+    """The exact responses and notification text, so a refactor cannot change them."""
+
+    @pytest.fixture(scope="class")
+    def golden(self):
+        return json.loads(GOLDEN.read_text())
+
+    @staticmethod
+    def _home(tmp_path, snapshots=()):
+        coordinator = _coordinator(_full_data(), snapshots)
+        return FakeHass([_entry(coordinator)], tmp_path)
+
+    def test_roi_summary(self, tmp_path, golden):
+        assert self._home(tmp_path).call("get_roi_summary") == golden["roi_summary"]
+
+    def test_year_on_year_without_enough_history(self, tmp_path, golden):
+        home = self._home(tmp_path, _snapshots()[:5])
+        assert home.call("year_on_year_summary") == golden["year_on_year_short"]
+
+    def test_year_on_year_with_a_full_year(self, tmp_path, golden):
+        home = self._home(tmp_path, _snapshots())
+        assert home.call("year_on_year_summary") == golden["year_on_year_full"]
+
+    def test_export_response_and_file(self, tmp_path, golden):
+        home = self._home(tmp_path, _snapshots()[:3])
+        result = home.call("export_energy_data")
+        assert result["file"] == str(tmp_path / "givenergy_energy_export.csv")
+        result["file"] = "<file>"
+        assert result == golden["export_response"]
+        assert (tmp_path / "givenergy_energy_export.csv").read_text() == golden["export_csv"]
+        assert home.notification["message"] == golden["export_message"].replace("<dir>", str(tmp_path))
+
+    def test_dashboard_notification_text(self, tmp_path, golden):
+        home = self._home(tmp_path)
+        with (
+            patch.object(services, "async_lovelace_resource_urls", AsyncMock(return_value=None)),
+            patch.object(services, "render_dashboard", return_value=("views: []\n", ["A", "B"])),
+        ):
+            home.call("get_dashboard_yaml")
+        expected = golden["dashboard_message"].replace("<dir>", str(tmp_path))
+        assert home.notification["message"] == expected
+        assert home.notification["title"] == "GivEnergy Dashboard Ready"
+
+    def test_appliance_suggestion_text(self, tmp_path, golden):
+        home = self._home(tmp_path)
+        home.call("suggest_appliance_run", appliance_name="Heat Pump", appliance_power_w=1500)
+        assert home.notification["message"] == golden["appliance_message"]

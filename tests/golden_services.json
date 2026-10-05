@@ -1,0 +1,110 @@
+{
+  "roi_summary": {
+    "today": {
+      "solar_kwh": 10.0,
+      "export_kwh": 3.0,
+      "import_kwh": 7.0,
+      "self_consumed_kwh": 7.0,
+      "self_consumption_saving": 0.5,
+      "import_cost": 1.9,
+      "export_earnings": 0.6,
+      "net_position": -1.3,
+      "battery_throughput_kwh": 4.0,
+      "self_sufficiency_pct": 71.4
+    },
+    "week": {
+      "solar_kwh": 60.0,
+      "export_kwh": 18.0,
+      "import_kwh": 42.0,
+      "import_cost": 11.4,
+      "export_earnings": 3.6,
+      "net_position": -7.8
+    },
+    "month": {
+      "solar_kwh": 250.0,
+      "export_kwh": 75.0,
+      "import_kwh": 175.0,
+      "import_cost": 47.5,
+      "export_earnings": 15.0,
+      "net_position": -32.5
+    },
+    "year": {
+      "solar_kwh": 3000.0,
+      "export_kwh": 900.0,
+      "import_kwh": 2100.0,
+      "export_earnings": 180.0
+    },
+    "battery": {
+      "total_cycles": 123.46,
+      "remaining_life_pct": 97.9,
+      "throughput_today_kwh": 4.0
+    }
+  },
+  "year_on_year_short": {
+    "snapshots_available": 5,
+    "snapshots_needed": 12,
+    "no_data": true,
+    "message": "Year-on-year comparison requires 12 completed billing months. 5 available. Full comparison will be ready in 7 more billing cycles.",
+    "current_month": {
+      "solar_kwh": 250.0,
+      "import_kwh": 175.0,
+      "export_kwh": 75.0,
+      "import_cost": 47.5,
+      "export_earnings": 15.0,
+      "self_sufficiency_pct": 71.4
+    }
+  },
+  "year_on_year_full": {
+    "snapshots_available": 12,
+    "no_data": false,
+    "current_month": {
+      "solar_kwh": 250.0,
+      "import_kwh": 175.0,
+      "export_kwh": 75.0,
+      "import_cost": 47.5,
+      "export_earnings": 15.0,
+      "self_sufficiency_pct": 71.4
+    },
+    "last_year_same_month": {
+      "solar_kwh": 200.0,
+      "import_kwh": 150.0,
+      "export_kwh": 60.0,
+      "import_cost": 39.5,
+      "export_earnings": 12.5,
+      "self_sufficiency_pct": 50.0
+    },
+    "delta": {
+      "solar_kwh": 50.0,
+      "import_kwh": 25.0,
+      "export_kwh": 15.0,
+      "import_cost": 47.5,
+      "export_earnings": 2.5
+    },
+    "delta_pct": {
+      "solar_kwh": 25.0,
+      "import_kwh": 16.7,
+      "export_kwh": 25.0,
+      "import_cost": null,
+      "export_earnings": 20.0
+    }
+  },
+  "export_csv": "period,solar_kwh,import_kwh,export_kwh,battery_throughput_kwh,import_cost,export_earnings,net_position,self_sufficiency_pct\ntoday,10.0,7.0,3.0,4.0,1.9,0.6,-1.3,71.4\nyesterday,9.0,6.3,2.7,3.6,1.71,0.54,-1.17,71.4\nthis_week,60.0,42.0,18.0,24.0,11.4,3.6,-7.8,71.4\nthis_month,250.0,175.0,75.0,100.0,47.5,15.0,-32.5,71.4\nthis_year,3000.0,2100.0,900.0,1200.0,570.0,180.0,-390.0,71.4\nmonth_snapshot_01,202.0,152.0,62.0,82.0,41.5,12.5,-29.0,50.5\nmonth_snapshot_02,201.0,151.0,61.0,81.0,40.5,12.5,-28.0,50.2\nmonth_snapshot_03,200.0,150.0,60.0,80.0,39.5,12.5,-27.0,50.0\n",
+  "export_message": "Exported 8 rows to `<dir>/givenergy_energy_export.csv`.\n\nRows: today, yesterday, this_week, this_month, this_year, and 3 completed billing months.",
+  "export_response": {
+    "file": "<file>",
+    "rows_written": 8,
+    "header": "period,solar_kwh,import_kwh,export_kwh,battery_throughput_kwh,import_cost,export_earnings,net_position,self_sufficiency_pct",
+    "rows": [
+      "today,10.0,7.0,3.0,4.0,1.9,0.6,-1.3,71.4",
+      "yesterday,9.0,6.3,2.7,3.6,1.71,0.54,-1.17,71.4",
+      "this_week,60.0,42.0,18.0,24.0,11.4,3.6,-7.8,71.4",
+      "this_month,250.0,175.0,75.0,100.0,47.5,15.0,-32.5,71.4",
+      "this_year,3000.0,2100.0,900.0,1200.0,570.0,180.0,-390.0,71.4",
+      "month_snapshot_01,202.0,152.0,62.0,82.0,41.5,12.5,-29.0,50.5",
+      "month_snapshot_02,201.0,151.0,61.0,81.0,40.5,12.5,-28.0,50.2",
+      "month_snapshot_03,200.0,150.0,60.0,80.0,39.5,12.5,-27.0,50.0"
+    ]
+  },
+  "dashboard_message": "Dashboard written to `<dir>/givenergy_dashboard.yaml`.\n\n**To apply (UI mode):**\n1. Settings \u2192 Dashboards \u2192 Add Dashboard \u2192 Blank\n2. Three-dot menu \u2192 Edit dashboard \u2192 Raw configuration editor\n3. Paste the contents of `givenergy_dashboard.yaml`\n\n**To apply (YAML mode):** add to `configuration.yaml`:\n```yaml\nlovelace:\n  dashboards:\n    givenergy:\n      mode: yaml\n      filename: givenergy_dashboard.yaml\n      title: GivEnergy Inverter Manager\n      icon: mdi:solar-power-variant\n      show_in_sidebar: true\n```\n\nRun this action again after reconfiguring to regenerate the file.\n\nLeft out because the sensors are disabled: A, B. Enable them under Settings \u2192 Devices & services \u2192 Entities, then run this action again.",
+  "appliance_message": "**Good time to run**\n\nGood time to run Heat Pump: 2400W surplus available. Running now saves ~\u20ac0.450 vs grid rate."
+}

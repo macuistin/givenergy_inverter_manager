@@ -36,7 +36,7 @@ def test_example_is_up_to_date():
         _EXAMPLE.write_text(expected, encoding="utf-8")
     actual = _EXAMPLE.read_text(encoding="utf-8") if _EXAMPLE.exists() else ""
     assert actual == expected, (
-        "docs/dashboard-example.yaml is out of date against dashboard.py. "
+        "docs/dashboard-example.yaml is out of date against dashboard_builder.py. "
         "Run: UPDATE_DASHBOARD_EXAMPLE=1 python -m pytest tests/test_dashboard_example.py"
     )
 

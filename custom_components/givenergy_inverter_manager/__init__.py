@@ -31,8 +31,8 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
-from .dashboard import async_register_services, async_unregister_services, loaded_entries
 from .logging import get_logger, log_startup
+from .services import async_register_services, async_unregister_services, loaded_entries
 from .strategy import async_register_strategy
 
 _LOG = get_logger(__name__)
