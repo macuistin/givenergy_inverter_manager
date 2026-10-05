@@ -1023,10 +1023,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         Uses the same read-before-write, cooldown, write counting and read-back
         helpers as the overnight charge target so the inverter registers are not
-        written more often than necessary. Returns False, without enabling the
-        charge target, when the target could not be written.
+        written more often than necessary. The floor only raises the target. A
+        higher target already on the inverter, such as the overnight charge
+        target, is kept. Returns False, without enabling the charge target,
+        when the target could not be written.
         """
-        soc = _clamp_charge_target(soc)
+        current = _state_as_int(self._get_state(target_entity))
+        soc = _clamp_charge_target(max(soc, current) if current is not None else soc)
         if not await self._givtcp_set_number(target_entity, soc, "Cheap rate floor target"):
             return False
         return await self._givtcp_set_switch(
