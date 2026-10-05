@@ -108,6 +108,7 @@ CURRENCIES = {
     "ZAR": "R",
 }
 DEFAULT_CURRENCY = "EUR"
+DEFAULT_CURRENCY_SYMBOL = CURRENCIES[DEFAULT_CURRENCY]
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
 DEFAULT_INVERTER_MAX_OUTPUT = 5.0  # kW — GivEnergy GIV-HY-5.0
