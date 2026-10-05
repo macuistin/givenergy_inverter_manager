@@ -29,3 +29,9 @@ class TestEvChargerDiscovery:
 
     def test_wallbox_used_when_no_zappi(self):
         assert _car_charger_entity(WALLBOX) == WALLBOX
+
+    def test_car_charger_row_is_teal_like_the_other_ev_cards(self):
+        views = dashboard_dict()["views"]
+        flow = next(c for c in all_cards(views) if c["type"] == "custom:power-flow-card-plus")
+        row = next(r for r in flow["entities"]["individual"] if r["name"] == "Car Charger")
+        assert row["color"] == "#009688"

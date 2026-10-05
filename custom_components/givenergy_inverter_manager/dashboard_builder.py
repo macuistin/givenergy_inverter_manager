@@ -81,7 +81,7 @@ NIGHT = "indigo"
 
 # The flow card and the charts take hex colours, not the names the tiles use. These are the
 # Home Assistant values of the names above.
-_HEX = {IMMERSION: "#FF9800", EV: "#4CAF50"}
+_HEX = {IMMERSION: "#FF9800", EV: "#009688"}
 
 _BAR = {"type": "bar-gauge", "min": 0, "max": 100}
 _SLIDER = {"type": "numeric-input", "style": "slider"}
