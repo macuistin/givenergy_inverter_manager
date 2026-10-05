@@ -33,7 +33,7 @@ from .const import (
     GIVTCP_WRITE_LIFETIME_WARN,
     GIVTCP_WRITE_RETRY_SLEEP_S,
 )
-from .logging import get_logger, log_givtcp_write
+from .logging import WriteOutcome, get_logger, log_givtcp_write
 
 _LOG = get_logger(__name__)
 
@@ -215,7 +215,10 @@ class GivTCPWriter:
                 return False
             accepted = write.matches(actual)
             log_givtcp_write(
-                _LOG, write.step, write.entity_id, write.shown, _shown_state(actual), accepted
+                _LOG,
+                WriteOutcome(
+                    write.step, write.entity_id, write.shown, _shown_state(actual), accepted
+                ),
             )
             if accepted:
                 return True
@@ -262,7 +265,8 @@ class GivTCPWriter:
             write.name,
             write.entity_id,
         )
-        log_givtcp_write(_LOG, write.step, write.entity_id, write.shown, "unavailable", False)
+        outcome = WriteOutcome(write.step, write.entity_id, write.shown, "unavailable", False)
+        log_givtcp_write(_LOG, outcome)
 
     @staticmethod
     def _warn_mismatch(write: VerifiedWrite, actual: Any, attempt: int) -> None:

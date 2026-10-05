@@ -19,13 +19,30 @@ import pytest
 
 from custom_components.givenergy_inverter_manager.discovery.ev_charger import EVChargerState
 from custom_components.givenergy_inverter_manager.logging import (
+    CycleSnapshot,
+    WriteOutcome,
     log_cycle,
     log_givtcp_write,
     log_startup,
 )
-from tests.test_logging import _ROOT, _enable_verbose, _make_data, _make_log, _make_raw
+from tests.test_logging import (
+    _ROOT,
+    _disable_verbose,
+    _enable_verbose,
+    _make_data,
+    _make_log,
+    _make_raw,
+)
 
 GOLDEN = Path(__file__).parent / "golden_logging.json"
+
+
+@pytest.fixture(autouse=True)
+def _restore_verbose_setting():
+    """The verbose flag is class-level state, so put it back after each test."""
+    yield
+    _disable_verbose()
+
 NOW = datetime(2024, 6, 15, 14, 0, 5)
 
 RAW_EV = {"none": {}, "plugged": {"ev_plugged_in": True, "ev_power_w": 2300.0}}
@@ -61,7 +78,7 @@ def _cycle_lines(caplog, raw, data) -> list[str]:
     _enable_verbose()
     caplog.clear()
     with caplog.at_level(logging.DEBUG, logger=_ROOT):
-        log_cycle(_make_log(), 7, raw, data, NOW)
+        log_cycle(_make_log(), CycleSnapshot(7, NOW, raw, data))
     return [r.getMessage() for r in caplog.records]
 
 
@@ -108,7 +125,7 @@ def _write_lines(caplog, accepted: bool) -> list[str]:
     _enable_verbose()
     caplog.clear()
     with caplog.at_level(logging.DEBUG, logger=_ROOT):
-        log_givtcp_write(_make_log(), 4, "number.target_soc", 85, "100", accepted)
+        log_givtcp_write(_make_log(), WriteOutcome(4, "number.target_soc", 85, "100", accepted))
     return [r.getMessage() for r in caplog.records]
 
 
@@ -130,3 +147,20 @@ def test_verbose_log_lines_are_unchanged(caplog):
         GOLDEN.write_text(json.dumps(current, indent=1, ensure_ascii=False) + "\n")
         pytest.skip("golden file regenerated")
     assert current == json.loads(GOLDEN.read_text())
+
+
+class _Untouchable:
+    """Any attribute read fails, so a test sees whether log text was being built."""
+
+    def __getattr__(self, name):
+        raise AssertionError(f"read {name} while verbose logging is off")
+
+
+def test_nothing_is_built_while_verbose_is_off():
+    from custom_components.givenergy_inverter_manager.logging import GivLogger
+
+    GivLogger.register(lambda: {"verbose_logging": False})
+    log = _make_log()
+    log_cycle(log, CycleSnapshot(1, NOW, _Untouchable(), _Untouchable()))
+    log_startup(log, _Untouchable())
+    log_givtcp_write(log, _Untouchable())

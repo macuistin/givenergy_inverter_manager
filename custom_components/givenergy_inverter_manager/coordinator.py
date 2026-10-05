@@ -110,7 +110,7 @@ from .discovery import (
 )
 from .givtcp_writer import GivTCPWriter, SwitchState, state_as_int
 from .immersion_actuator import ImmersionActuator, ImmersionPorts
-from .logging import GivLogger, get_logger, log_cycle
+from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
     async_create_givtcp_missing_issue,
@@ -981,7 +981,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.immersion.annotate_divert_reason(data, raw.immersion_temp)
         self._record_forecast(raw, data)
         data.cheap_rate_floor_status = await self._maybe_apply_cheap_rate_floor(now, raw, cfg)
-        log_cycle(_LOG, self._update_cycle, raw, data, now)
+        log_cycle(_LOG, CycleSnapshot(self._update_cycle, now, raw, data))
         self._remember_cycle(raw, now)
         self._apply_decisions(data, ev_target_mode, now)
         return data

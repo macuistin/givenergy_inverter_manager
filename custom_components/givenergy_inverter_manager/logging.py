@@ -36,8 +36,36 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime
+from typing import TYPE_CHECKING
 
-from .const import CONF_VERBOSE_LOGGING, DEFAULT_VERBOSE_LOGGING
+from .const import (
+    CONF_BASE_RATE,
+    CONF_BASE_RATE_NAME,
+    CONF_BATTERY_POWER,
+    CONF_BATTERY_SOC,
+    CONF_CHARGE_END_TIME_ENTITY,
+    CONF_CHARGE_START_TIME_ENTITY,
+    CONF_ENABLE_CHARGE_SCHEDULE,
+    CONF_ENABLE_CHARGE_TARGET,
+    CONF_FORECAST_ENTITY,
+    CONF_GRID_POWER,
+    CONF_HOUSE_LOAD,
+    CONF_IMMERSION_SWITCH,
+    CONF_IMMERSION_TEMP_SENSOR,
+    CONF_RATE_PERIODS,
+    CONF_SOLAR_POWER,
+    CONF_TARGET_SOC_ENTITY,
+    CONF_VERBOSE_LOGGING,
+    DEFAULT_BASE_RATE,
+    DEFAULT_BASE_RATE_NAME,
+    DEFAULT_RATE_PERIODS,
+    DEFAULT_VERBOSE_LOGGING,
+)
+
+if TYPE_CHECKING:
+    from .core.engine import CoordinatorData, RawSensorValues
 
 # The single integration-level logger name.
 _ROOT = "custom_components.givenergy_inverter_manager"
@@ -111,6 +139,10 @@ class GivLogger:
         if self._verbose_enabled():
             self._logger.debug(msg, *args, **kwargs)
 
+    def is_verbose(self) -> bool:
+        """True when verbose logging is on. Callers check it before building log text."""
+        return self._verbose_enabled()
+
     def verbose_block(self, lines: list[str]) -> None:
         """
         Emit multiple lines as a single verbose block.
@@ -147,7 +179,27 @@ def get_logger(name: str) -> GivLogger:
 
 # ── Verbose log helpers ───────────────────────────────────────────────────────
 # These are module-level functions rather than methods so they can be imported
-# individually and called without a logger instance.
+# individually and called without a logger instance. Each public one checks
+# is_verbose() first, so nothing is formatted while verbose logging is off.
+
+_SENSOR_ENTITIES = (
+    ("solar_power", CONF_SOLAR_POWER),
+    ("battery_soc", CONF_BATTERY_SOC),
+    ("battery_power", CONF_BATTERY_POWER),
+    ("grid_power", CONF_GRID_POWER),
+    ("house_load", CONF_HOUSE_LOAD),
+    ("immersion_sw", CONF_IMMERSION_SWITCH),
+    ("immersion_tmp", CONF_IMMERSION_TEMP_SENSOR),
+    ("forecast", CONF_FORECAST_ENTITY),
+)
+
+_CONTROL_ENTITIES = (
+    ("target_soc", CONF_TARGET_SOC_ENTITY),
+    ("enable_tgt", CONF_ENABLE_CHARGE_TARGET),
+    ("enable_sched", CONF_ENABLE_CHARGE_SCHEDULE),
+    ("charge_start", CONF_CHARGE_START_TIME_ENTITY),
+    ("charge_end", CONF_CHARGE_END_TIME_ENTITY),
+)
 
 
 def log_startup(log: GivLogger, cfg: dict) -> None:
@@ -156,79 +208,80 @@ def log_startup(log: GivLogger, cfg: dict) -> None:
 
     Called once from async_setup_entry after first coordinator refresh.
     """
-    from .const import (
-        CONF_BASE_RATE,
-        CONF_BASE_RATE_NAME,
-        CONF_BATTERY_POWER,
-        CONF_BATTERY_SOC,
-        CONF_CHARGE_END_TIME_ENTITY,
-        CONF_CHARGE_START_TIME_ENTITY,
-        CONF_ENABLE_CHARGE_SCHEDULE,
-        CONF_ENABLE_CHARGE_TARGET,
-        CONF_FORECAST_ENTITY,
-        CONF_GRID_POWER,
-        CONF_HOUSE_LOAD,
-        CONF_IMMERSION_SWITCH,
-        CONF_IMMERSION_TEMP_SENSOR,
-        CONF_RATE_PERIODS,
-        CONF_SOLAR_POWER,
-        CONF_TARGET_SOC_ENTITY,
-        DEFAULT_BASE_RATE,
-        DEFAULT_BASE_RATE_NAME,
-        DEFAULT_RATE_PERIODS,
+    if not log.is_verbose():
+        return
+    log.verbose_block(
+        [
+            "── Startup entity configuration ────────────────────────────────",
+            "  SENSOR ENTITIES (reads)",
+            *_entity_lines(cfg, _SENSOR_ENTITIES, "(not configured)"),
+            "  GIVTCP CONTROL ENTITIES (writes)",
+            *_entity_lines(cfg, _CONTROL_ENTITIES, "(not configured — write-back disabled)"),
+            "  TARIFF",
+            *_tariff_lines(cfg),
+            "── end startup config ──────────────────────────────────────────",
+        ]
     )
 
-    lines = ["── Startup entity configuration ────────────────────────────────"]
-    lines.append("  SENSOR ENTITIES (reads)")
-    for label, key in [
-        ("solar_power", CONF_SOLAR_POWER),
-        ("battery_soc", CONF_BATTERY_SOC),
-        ("battery_power", CONF_BATTERY_POWER),
-        ("grid_power", CONF_GRID_POWER),
-        ("house_load", CONF_HOUSE_LOAD),
-        ("immersion_sw", CONF_IMMERSION_SWITCH),
-        ("immersion_tmp", CONF_IMMERSION_TEMP_SENSOR),
-        ("forecast", CONF_FORECAST_ENTITY),
-    ]:
-        val = cfg.get(key)
-        lines.append(f"    {label:<14} {val or '(not configured)'}")
 
-    lines.append("  GIVTCP CONTROL ENTITIES (writes)")
-    for label, key in [
-        ("target_soc", CONF_TARGET_SOC_ENTITY),
-        ("enable_tgt", CONF_ENABLE_CHARGE_TARGET),
-        ("enable_sched", CONF_ENABLE_CHARGE_SCHEDULE),
-        ("charge_start", CONF_CHARGE_START_TIME_ENTITY),
-        ("charge_end", CONF_CHARGE_END_TIME_ENTITY),
-    ]:
-        val = cfg.get(key)
-        lines.append(f"    {label:<14} {val or '(not configured — write-back disabled)'}")
+def _entity_lines(cfg: dict, entities: tuple, missing: str) -> list[str]:
+    return [f"    {label:<14} {cfg.get(key) or missing}" for label, key in entities]
 
-    lines.append("  TARIFF")
+
+def _tariff_lines(cfg: dict) -> list[str]:
     base_rate = cfg.get(CONF_BASE_RATE, DEFAULT_BASE_RATE)
     base_name = cfg.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
-    lines.append(f"    base_rate      {base_name!r} = {base_rate:.4f} €/kWh")
+    lines = [f"    base_rate      {base_name!r} = {base_rate:.4f} €/kWh"]
     for p in cfg.get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS):
         lines.append(
             f"    timed          {p.get('name', '?'):<12} {p.get('rate', 0):.4f}"
             f"  {p.get('start', '?')} – {p.get('end', '?')}"
         )
-    lines.append("── end startup config ──────────────────────────────────────────")
-
-    log.verbose_block(lines)
+    return lines
 
 
-def log_cycle(log: GivLogger, cycle: int, raw: object, data: object, now: object) -> None:  # noqa: C901, PLR0913, PLR0915
+@dataclass(frozen=True)
+class CycleSnapshot:
+    """One completed update cycle: what was read and what the engine decided."""
+
+    cycle: int
+    now: datetime
+    raw: RawSensorValues
+    data: CoordinatorData
+
+
+def log_cycle(log: GivLogger, snapshot: CycleSnapshot) -> None:
     """
     Log one structured block for a completed 30-second update cycle.
 
     Builds and emits nothing when verbose is off.
     """
-    cd = data.charge_decision
-    acc = data.today
+    if not log.is_verbose():
+        return
+    log.verbose_block(_cycle_lines(snapshot))
 
-    lines = [
-        f"── Cycle {cycle} @ {now.strftime('%H:%M:%S')} ─────────────────────────────────────────",
+
+def _cycle_lines(snapshot: CycleSnapshot) -> list[str]:
+    raw, data = snapshot.raw, snapshot.data
+    return [
+        *_cycle_header_lines(snapshot),
+        *_raw_extra_lines(raw),
+        *_load_and_tariff_lines(data),
+        *_charge_lines(data),
+        f"  IMMERSION     divert={data.should_divert_immersion}  reason={data.divert_reason!r}",
+        *_ev_lines(data),
+        *_today_lines(data),
+        *_bill_and_night_lines(data),
+        *_dry_run_lines(data),
+        f"── end cycle {snapshot.cycle} ──────────────────────────────────────────────────",
+    ]
+
+
+def _cycle_header_lines(snapshot: CycleSnapshot) -> list[str]:
+    raw = snapshot.raw
+    stamp = snapshot.now.strftime("%H:%M:%S")
+    return [
+        f"── Cycle {snapshot.cycle} @ {stamp} ─────────────────────────────────────────",
         (
             f"  RAW SENSORS  solar={raw.solar_power_w:+.0f}W"
             f"  batt_soc={raw.battery_soc:.1f}%"
@@ -238,6 +291,10 @@ def log_cycle(log: GivLogger, cycle: int, raw: object, data: object, now: object
         ),
     ]
 
+
+def _raw_extra_lines(raw: RawSensorValues) -> list[str]:
+    """The optional raw readings: EV, immersion and forecast, each only when present."""
+    lines = []
     if raw.ev_power_w > 0 or raw.ev_plugged_in:
         lines.append(f"  EV RAW        plugged={raw.ev_plugged_in}  power={raw.ev_power_w:.0f}W")
     if raw.immersion_on or raw.immersion_temp is not None:
@@ -249,46 +306,53 @@ def log_cycle(log: GivLogger, cycle: int, raw: object, data: object, now: object
         )
     if raw.forecast_kwh_tomorrow is not None:
         lines.append(f"  FORECAST      tomorrow={raw.forecast_kwh_tomorrow:.1f} kWh")
+    return lines
 
-    lines.append(
-        f"  LOADS         immersion={data.immersion_load_w:.0f}W"
-        f"  rest_of_house={data.rest_of_house_w:.0f}W"
-        f"  clipping={data.is_clipping}"
-    )
-    lines.append(
-        f"  TARIFF        period={data.current_rate_name!r}"
-        f"  rate={data.current_rate:.4f} {data.currency_symbol}/kWh"
-    )
 
-    if cd is not None:
-        lines.append(
-            f"  CHARGE        target={cd.target_soc}%  skip={cd.skip_charge}  reason={cd.reason!r}"
-        )
-        if cd.cost_to_charge > 0:
-            lines.append(
-                f"  CHARGE COST   estimated={cd.cost_to_charge:.3f} {data.currency_symbol}"
-            )
-    else:
-        lines.append("  CHARGE        no decision yet")
+def _load_and_tariff_lines(data: CoordinatorData) -> list[str]:
+    return [
+        (
+            f"  LOADS         immersion={data.immersion_load_w:.0f}W"
+            f"  rest_of_house={data.rest_of_house_w:.0f}W"
+            f"  clipping={data.is_clipping}"
+        ),
+        (
+            f"  TARIFF        period={data.current_rate_name!r}"
+            f"  rate={data.current_rate:.4f} {data.currency_symbol}/kWh"
+        ),
+    ]
 
-    lines.append(
-        f"  IMMERSION     divert={data.should_divert_immersion}  reason={data.divert_reason!r}"
-    )
 
-    if data.ev_available:
-        ev_state = data.ev_charger_state.value if data.ev_charger_state else "unknown"
-        lines.append(
-            f"  EV CHARGER    {data.ev_charger_name}"
-            f"  state={ev_state}"
-            f"  power={data.ev_power_w:.0f}W"
-            f"  draining={data.ev_draining_battery}"
-        )
-        if data.ev_protection_reason:
-            lines.append(f"  EV MODE       {data.ev_protection_reason!r}")
-    else:
-        lines.append("  EV CHARGER    not discovered")
+def _charge_lines(data: CoordinatorData) -> list[str]:
+    cd = data.charge_decision
+    if cd is None:
+        return ["  CHARGE        no decision yet"]
+    lines = [
+        f"  CHARGE        target={cd.target_soc}%  skip={cd.skip_charge}  reason={cd.reason!r}"
+    ]
+    if cd.cost_to_charge > 0:
+        lines.append(f"  CHARGE COST   estimated={cd.cost_to_charge:.3f} {data.currency_symbol}")
+    return lines
 
-    lines += [
+
+def _ev_lines(data: CoordinatorData) -> list[str]:
+    if not data.ev_available:
+        return ["  EV CHARGER    not discovered"]
+    ev_state = data.ev_charger_state.value if data.ev_charger_state else "unknown"
+    lines = [
+        f"  EV CHARGER    {data.ev_charger_name}"
+        f"  state={ev_state}"
+        f"  power={data.ev_power_w:.0f}W"
+        f"  draining={data.ev_draining_battery}"
+    ]
+    if data.ev_protection_reason:
+        lines.append(f"  EV MODE       {data.ev_protection_reason!r}")
+    return lines
+
+
+def _today_lines(data: CoordinatorData) -> list[str]:
+    acc = data.today
+    return [
         (
             f"  TODAY kWh     solar={acc.solar_kwh:.3f}"
             f"  import={acc.import_kwh:.3f}"
@@ -309,6 +373,11 @@ def log_cycle(log: GivLogger, cycle: int, raw: object, data: object, now: object
             f"  SELF-SUFFIC.  sufficiency={acc.self_sufficiency_pct:.1f}%"
             f"  consumption={acc.self_consumption_pct:.1f}%"
         ),
+    ]
+
+
+def _bill_and_night_lines(data: CoordinatorData) -> list[str]:
+    return [
         (
             f"  BILL          accrued={data.accrued_bill:.2f}"
             f"  projected={data.projected_bill:.2f}"
@@ -322,29 +391,35 @@ def log_cycle(log: GivLogger, cycle: int, raw: object, data: object, now: object
         ),
     ]
 
-    if data.dry_run:
-        lines.append(f"  DRY RUN       ACTIVE — last skipped: {data.dry_run_last_skipped!r}")
 
-    lines.append(f"── end cycle {cycle} ──────────────────────────────────────────────────")
+def _dry_run_lines(data: CoordinatorData) -> list[str]:
+    if not data.dry_run:
+        return []
+    return [f"  DRY RUN       ACTIVE — last skipped: {data.dry_run_last_skipped!r}"]
 
-    log.verbose_block(lines)
+
+@dataclass(frozen=True)
+class WriteOutcome:
+    """One GivTCP write and what the entity read back afterwards."""
+
+    step: int
+    entity_id: str
+    wrote: object
+    read_back: object
+    accepted: bool
 
 
-def log_givtcp_write(  # noqa: PLR0913
-    log: GivLogger,
-    step: int,
-    entity_id: str,
-    value: object,
-    read_back: object,
-    accepted: bool,  # noqa: FBT001
-) -> None:
+def log_givtcp_write(log: GivLogger, outcome: WriteOutcome) -> None:
     """Log one step of the GivTCP charge write-back sequence."""
-    status = "✓ accepted" if accepted else "✗ MISMATCH — wrote but read back different value"
+    if not log.is_verbose():
+        return
+    mismatch = "✗ MISMATCH — wrote but read back different value"
+    status = "✓ accepted" if outcome.accepted else mismatch
     log.verbose(
         "  GIVTCP WRITE  step=%d  entity=%s  wrote=%r  read_back=%r  %s",
-        step,
-        entity_id,
-        value,
-        read_back,
+        outcome.step,
+        outcome.entity_id,
+        outcome.wrote,
+        outcome.read_back,
         status,
     )

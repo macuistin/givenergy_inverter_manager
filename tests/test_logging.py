@@ -226,7 +226,7 @@ class TestVerboseGuard:
 
 class TestLogCycle:
     def _run(self, raw=None, data=None, cycle=1, caplog=None):
-        from custom_components.givenergy_inverter_manager.logging import log_cycle
+        from custom_components.givenergy_inverter_manager.logging import CycleSnapshot, log_cycle
 
         _enable_verbose()
         log = _make_log()
@@ -234,16 +234,16 @@ class TestLogCycle:
         data = data or _make_data()
         now = datetime(2024, 6, 15, 14, 0)
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
-            log_cycle(log, cycle, raw, data, now)
+            log_cycle(log, CycleSnapshot(cycle, now, raw, data))
         return "\n".join(r.message for r in caplog.records)
 
     def test_no_output_when_verbose_off(self, caplog):
-        from custom_components.givenergy_inverter_manager.logging import log_cycle
+        from custom_components.givenergy_inverter_manager.logging import CycleSnapshot, log_cycle
 
         _disable_verbose()
         log = _make_log()
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
-            log_cycle(log, 1, _make_raw(), _make_data(), datetime.now(timezone.utc))
+            log_cycle(log, CycleSnapshot(1, datetime.now(timezone.utc), _make_raw(), _make_data()))
         assert not caplog.records
 
     def test_cycle_number_in_output(self, caplog):
@@ -311,33 +311,42 @@ class TestLogCycle:
 
 class TestLogGivtcpWrite:
     def test_accepted_write_logged(self, caplog):
-        from custom_components.givenergy_inverter_manager.logging import log_givtcp_write
+        from custom_components.givenergy_inverter_manager.logging import (
+            WriteOutcome,
+            log_givtcp_write,
+        )
 
         _enable_verbose()
         log = _make_log()
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
-            log_givtcp_write(log, 4, "number.givtcp_SA123_target_soc", 85, "85", True)
+            log_givtcp_write(log, WriteOutcome(4, "number.givtcp_SA123_target_soc", 85, "85", True))
         output = "\n".join(r.message for r in caplog.records)
         assert "step=4" in output
         assert "target_soc" in output
         assert "accepted" in output
 
     def test_mismatch_logged(self, caplog):
-        from custom_components.givenergy_inverter_manager.logging import log_givtcp_write
+        from custom_components.givenergy_inverter_manager.logging import (
+            WriteOutcome,
+            log_givtcp_write,
+        )
 
         _enable_verbose()
         log = _make_log()
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
-            log_givtcp_write(log, 4, "number.givtcp_SA123_target_soc", 85, "100", False)
+            log_givtcp_write(log, WriteOutcome(4, "number.givtcp_SA123_target_soc", 85, "100", False))
         assert "MISMATCH" in "\n".join(r.message for r in caplog.records)
 
     def test_silent_when_verbose_off(self, caplog):
-        from custom_components.givenergy_inverter_manager.logging import log_givtcp_write
+        from custom_components.givenergy_inverter_manager.logging import (
+            WriteOutcome,
+            log_givtcp_write,
+        )
 
         _disable_verbose()
         log = _make_log()
         with caplog.at_level(logging.DEBUG, logger=_ROOT):
-            log_givtcp_write(log, 4, "number.target_soc", 85, "85", True)
+            log_givtcp_write(log, WriteOutcome(4, "number.target_soc", 85, "85", True))
         assert not caplog.records
 
 
@@ -571,6 +580,7 @@ class TestLogCycleEVBranch:
             EVChargerState,
         )
         from custom_components.givenergy_inverter_manager.logging import (
+            CycleSnapshot,
             get_logger,
             log_cycle,
         )
@@ -587,6 +597,6 @@ class TestLogCycleEVBranch:
         )
         raw = _make_raw(ev_plugged_in=True, ev_power_w=2000.0)
         with caplog.at_level(stdlib_logging.DEBUG, logger=_ROOT):
-            log_cycle(log, 1, raw, data, datetime.now(timezone.utc))
+            log_cycle(log, CycleSnapshot(1, datetime.now(timezone.utc), raw, data))
         assert any("Zappi" in r.message for r in caplog.records)
         _disable_verbose()
