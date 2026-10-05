@@ -218,7 +218,7 @@ def log_startup(log: GivLogger, cfg: dict) -> None:
     log.verbose_block(lines)
 
 
-def log_cycle(log: GivLogger, cycle: int, raw: object, data: object, now: object) -> None:
+def log_cycle(log: GivLogger, cycle: int, raw: object, data: object, now: object) -> None:  # noqa: C901, PLR0913, PLR0915
     """
     Log one structured block for a completed 30-second update cycle.
 
@@ -330,13 +330,13 @@ def log_cycle(log: GivLogger, cycle: int, raw: object, data: object, now: object
     log.verbose_block(lines)
 
 
-def log_givtcp_write(
+def log_givtcp_write(  # noqa: PLR0913
     log: GivLogger,
     step: int,
     entity_id: str,
     value: object,
     read_back: object,
-    accepted: bool,
+    accepted: bool,  # noqa: FBT001
 ) -> None:
     """Log one step of the GivTCP charge write-back sequence."""
     status = "✓ accepted" if accepted else "✗ MISMATCH — wrote but read back different value"

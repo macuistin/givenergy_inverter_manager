@@ -439,7 +439,7 @@ def _make_export_handler(hass: HomeAssistant):
     return handle
 
 
-async def async_register_services(hass: HomeAssistant) -> None:
+async def async_register_services(hass: HomeAssistant) -> None:  # noqa: PLR0915
     """Register the integration's service actions."""
 
     async def handle_get_dashboard_yaml(call: ServiceCall) -> None:

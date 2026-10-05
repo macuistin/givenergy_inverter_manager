@@ -250,7 +250,7 @@ class CoordinatorData:
         "rate_savings_vs_daytime",
     )
 
-    def __init__(self) -> None:
+    def __init__(self) -> None:  # noqa: PLR0915
         self.solar_power_w: float = 0.0
         self.battery_soc: float = 0.0
         self.battery_power_w: float = 0.0
@@ -361,7 +361,7 @@ def _apportion_import_cost(
     acc.house_cost += period_cost * rest_frac
 
 
-def _accumulate_import(
+def _accumulate_import(  # noqa: PLR0913
     acc: EnergyAccumulator,
     raw: RawSensorValues,
     tariff: TariffConfig,
@@ -386,7 +386,7 @@ def _accumulate_import(
     _apportion_import_cost(acc, period_cost, raw, immersion_w)
 
 
-def _accumulate_immersion_savings(
+def _accumulate_immersion_savings(  # noqa: PLR0913
     acc: EnergyAccumulator,
     raw: RawSensorValues,
     tariff: TariffConfig,
@@ -411,7 +411,7 @@ def _accumulate_immersion_savings(
         acc.immersion_savings += solar_diverted_kwh * saving_per_kwh
 
 
-def accumulate_energy(
+def accumulate_energy(  # noqa: C901, PLR0913, PLR0915
     acc: EnergyAccumulator,
     raw: RawSensorValues,
     tariff: TariffConfig,
@@ -488,7 +488,7 @@ def accumulate_energy(
         acc.inverter_derating_minutes += elapsed_h * 60
 
 
-def estimate_avg_daily_kwh(
+def estimate_avg_daily_kwh(  # noqa: PLR0913
     house_kwh_today: float,
     now: datetime,
     fallback_kwh: float = 15.0,
@@ -606,7 +606,7 @@ def _process_ev_charger(
     return ev_target_mode
 
 
-def _initialize_coordinator_data(
+def _initialize_coordinator_data(  # noqa: PLR0913, PLR0915
     data: CoordinatorData,
     raw: RawSensorValues,
     cfg: dict[str, Any],
@@ -681,7 +681,7 @@ def _initialize_coordinator_data(
 
 def _apply_charge_overrides(
     data: CoordinatorData,
-    override_skip_charge: bool,
+    override_skip_charge: bool,  # noqa: FBT001
     override_charge_target: int | None,
     max_target: int,
 ) -> None:
@@ -759,11 +759,11 @@ def _set_throughput_budget(data: CoordinatorData, cfg: dict[str, Any]) -> None:
         data.battery_throughput_budget_status = THROUGHPUT_BUDGET_STATUS_OK
 
 
-def _set_immersion_decision(
+def _set_immersion_decision(  # noqa: PLR0913
     data: CoordinatorData,
     raw: RawSensorValues,
     cfg: dict[str, Any],
-    override_immersion: bool | None,
+    override_immersion: bool | None,  # noqa: FBT001
     export_rate: float,
 ) -> None:
     """Set immersion divert decision."""
@@ -818,7 +818,7 @@ def _minutes_remaining_in_period(
     return round(elapsed_seconds(now, end) / 60, 1)
 
 
-def _calculate_night_survival(
+def _calculate_night_survival(  # noqa: PLR0913
     data: CoordinatorData,
     raw: RawSensorValues,
     now: datetime,
@@ -866,7 +866,7 @@ def _apply_daily_counters(acc: EnergyAccumulator, raw: RawSensorValues) -> None:
         acc.house_kwh = raw.load_energy_today_kwh
 
 
-def build_coordinator_data(
+def build_coordinator_data(  # noqa: C901, PLR0912, PLR0913, PLR0915
     raw: RawSensorValues,
     cfg: dict[str, Any],
     acc: EnergyAccumulator,
@@ -880,8 +880,8 @@ def build_coordinator_data(
     now: datetime | None = None,
     ev_charger: EVCharger | None = None,
     override_charge_target: int | None = None,
-    override_immersion: bool | None = None,
-    override_skip_charge: bool = False,
+    override_immersion: bool | None = None,  # noqa: FBT001
+    override_skip_charge: bool = False,  # noqa: FBT001, FBT002
     solar_fractions: dict[int, float] | None = None,
     last_reset_time: str = "",
     solar_forecast_kwh_today: float = 0.0,

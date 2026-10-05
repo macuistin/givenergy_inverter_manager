@@ -32,15 +32,25 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "B", "N", "C", "I"]
+select = ["E", "F", "W", "B", "N", "C", "I", "C901", "PLR0912", "PLR0913", "PLR0915", "FBT001", "FBT002"]
 # E501 is enforced by line-length above; listing it in ignore would defeat that
 ignore = ["N818"]
+
+# Clean Code limits. New code must stay inside them. Existing offenders carry an inline
+# `# noqa: <rule>` marker that the refactor which fixes the function deletes.
+[tool.ruff.lint.mccabe]
+max-complexity = 8
+
+[tool.ruff.lint.pylint]
+max-args = 4
+max-statements = 30
+max-branches = 10
 
 [tool.ruff.lint.per-file-ignores]
 # HA voluptuous schema definitions are inherently verbose and cannot be
 # split without losing readability — the dict key IS the schema declaration
 "custom_components/*/config_flow.py" = ["E501"]
-"tests/*" = ["E501", "C901"]
+"tests/*" = ["E501", "C901", "PLR0912", "PLR0913", "PLR0915", "FBT001", "FBT002"]
 
 [tool.mypy]
 python_version = "3.11"

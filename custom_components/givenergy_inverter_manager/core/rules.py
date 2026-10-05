@@ -213,7 +213,7 @@ def _slot_loads_kwh(avg_daily_kwh: float, load_profile: list[float] | None) -> l
     return [avg_daily_kwh / 48] * 48
 
 
-def _simulate_min_soc(
+def _simulate_min_soc(  # noqa: PLR0913
     start_soc_pct: float,
     forecast_kwh: float,
     avg_daily_kwh: float,
@@ -231,7 +231,7 @@ def _simulate_min_soc(
     return min_reached
 
 
-def _find_minimum_charge_target(
+def _find_minimum_charge_target(  # noqa: PLR0913
     forecast_kwh: float,
     avg_daily_kwh: float,
     battery_capacity_kwh: float,
@@ -284,13 +284,13 @@ class ChargeDecision:
     cost_to_charge: float
 
 
-def _apply_overmorrow_correction(
+def _apply_overmorrow_correction(  # noqa: PLR0913
     target_soc: int,
     reason: str,
     forecast_kwh_d2: float | None,
     battery_capacity_kwh: float,
     min_soc: int,
-    car_plugged_in: bool,
+    car_plugged_in: bool,  # noqa: FBT001
 ) -> tuple[int, str]:
     """
     PALM overmorrow correction: if d+2 solar would overflow the battery, reduce
@@ -310,12 +310,12 @@ def _apply_overmorrow_correction(
     return target_soc, reason
 
 
-def calculate_overnight_charge_target(
+def calculate_overnight_charge_target(  # noqa: C901, PLR0913, PLR0915
     current_soc: float,
     battery_capacity_kwh: float,
     forecast_kwh: float | None,
     inverter_max_kw: float,
-    car_plugged_in: bool,
+    car_plugged_in: bool,  # noqa: FBT001
     min_soc: int,
     skip_charge_threshold: int,
     average_daily_consumption_kwh: float,
@@ -326,7 +326,7 @@ def calculate_overnight_charge_target(
     forecast_kwh_d2: float | None = None,
     load_profile: list[float] | None = None,
     forecast_correction: float | None = None,
-    solar_generating: bool = True,
+    solar_generating: bool = True,  # noqa: FBT001, FBT002
     *,
     dt: datetime,
 ) -> ChargeDecision:
@@ -468,11 +468,11 @@ def calculate_overnight_charge_target(
 # ── Immersion divert decision ─────────────────────────────────────────────────
 
 
-def available_surplus_w(
+def available_surplus_w(  # noqa: PLR0913
     solar_power_w: float,
     house_load_w: float,
     battery_power_w: float = 0.0,
-    immersion_on: bool = False,
+    immersion_on: bool = False,  # noqa: FBT001, FBT002
     immersion_power_w: float = 0.0,
 ) -> float:
     """
@@ -492,7 +492,7 @@ def _missing_inputs(
     solar_power_w: float | None,
     house_load_w: float | None,
     battery_power_w: float | None,
-    immersion_temp_unavailable: bool,
+    immersion_temp_unavailable: bool,  # noqa: FBT001
 ) -> list[str]:
     """Names of required decision inputs that are unavailable."""
     missing = [
@@ -510,7 +510,7 @@ def _missing_inputs(
 
 
 def _missing_input_decision(
-    missing: list[str], currently_on: bool, unavailable_for_s: float
+    missing: list[str], currently_on: bool, unavailable_for_s: float  # noqa: FBT001
 ) -> tuple[bool, str]:
     """Hold an already-running element for a bounded time, never start on missing data."""
     names = ", ".join(missing)
@@ -524,7 +524,7 @@ def _missing_input_decision(
     )
 
 
-def should_divert_to_immersion(
+def should_divert_to_immersion(  # noqa: C901, PLR0913
     solar_power_w: float | None,
     house_load_w: float | None,
     battery_soc: float,
@@ -534,13 +534,13 @@ def should_divert_to_immersion(
     immersion_target_temp: float,
     immersion_min_temp: float,
     immersion_hysteresis_c: float = 5.0,
-    currently_on: bool = False,
+    currently_on: bool = False,  # noqa: FBT001, FBT002
     soc_threshold: int = SURPLUS_DIVERT_SOC_THRESHOLD,
     min_surplus_w: float = SURPLUS_DIVERT_MIN_POWER_W,
     battery_cycle_cost_per_kwh: float = 0.0,
     export_rate: float = 0.0,
     immersion_power_w: float = 0.0,
-    immersion_temp_unavailable: bool = False,
+    immersion_temp_unavailable: bool = False,  # noqa: FBT001, FBT002
     unavailable_for_s: float = 0.0,
     currency_symbol: str = DEFAULT_CURRENCY_SYMBOL,
 ) -> tuple[bool, str]:
@@ -622,7 +622,7 @@ def should_divert_to_immersion(
 # ── Appliance timing suggestion ───────────────────────────────────────────────
 
 
-def suggest_appliance_run(
+def suggest_appliance_run(  # noqa: PLR0913
     solar_power_w: float,
     house_load_w: float,
     battery_soc: float,
@@ -718,7 +718,7 @@ def decide_ev_charger_action(
 # ── Pre-cheap-rate export opportunity ─────────────────────────────────────────
 
 
-def calculate_pre_boost_export_opportunity(
+def calculate_pre_boost_export_opportunity(  # noqa: PLR0913
     current_soc: float,
     battery_capacity_kwh: float,
     target_soc: int,

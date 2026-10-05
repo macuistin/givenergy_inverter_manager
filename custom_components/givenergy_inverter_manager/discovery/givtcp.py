@@ -76,7 +76,7 @@ class GivTCPInverter:
         return scheduling.issubset(self.entities.keys())
 
 
-def discover_givtcp_inverters(all_states: dict) -> list[GivTCPInverter]:
+def discover_givtcp_inverters(all_states: dict) -> list[GivTCPInverter]:  # noqa: C901, PLR0912
     """
     Scan HA entity states for GivTCP inverters.
 
