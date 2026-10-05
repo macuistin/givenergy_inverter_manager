@@ -83,6 +83,37 @@ def auto_switch(hass, entry):
     return hass.data[DATA_COMPONENT].get_entity(entity_id)
 
 
+class TestIndependenceFromTheEntity:
+    @pytest.fixture
+    def managed_switch_disabled(self, hass, config_entry):
+        """Register the managed switch as disabled before the entry loads."""
+        config_entry.add_to_hass(hass)
+        er.async_get(hass).async_get_or_create(
+            "switch",
+            DOMAIN,
+            f"{config_entry.entry_id}_immersion_managed",
+            config_entry=config_entry,
+            disabled_by=er.RegistryEntryDisabler.USER,
+        )
+
+    async def test_diversion_works_with_the_managed_switch_disabled(
+        self, hass, managed_switch_disabled, loaded_entry, real_switch
+    ):
+        assert managed_switch(hass, loaded_entry) is None
+        water(hass, COLD)
+        await cycle(hass, loaded_entry)
+        assert real_switch.calls == ["turn_on"]
+        water(hass, HOT)
+        await cycle(hass, loaded_entry)
+        assert real_switch.calls == ["turn_on", "turn_off"]
+
+    async def test_the_setup_cycle_only_observes(self, hass, loaded_entry, service_calls):
+        """The water starts cold, so the engine wants the heater on, but nothing is sent yet."""
+        sent = [c for c in service_calls["switch.turn_on"] if c.data["entity_id"] == IMMERSION_SWITCH]
+        assert loaded_entry.runtime_data.data.should_divert_immersion is True
+        assert sent == []
+
+
 class TestAutomaticActuation:
     async def test_decision_on_turns_the_real_switch_on(self, hass, loaded_entry, real_switch):
         water(hass, COLD)

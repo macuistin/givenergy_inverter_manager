@@ -107,6 +107,7 @@ from .discovery import (
     update_charger_state,
 )
 from .givtcp_writer import GivTCPWriter, SwitchState, state_as_int
+from .immersion_actuator import ImmersionActuator, ImmersionPorts
 from .logging import GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
@@ -219,18 +220,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.immersion_hysteresis_c: float = float(
             cfg.get(CONF_IMMERSION_HYSTERESIS, DEFAULT_IMMERSION_HYSTERESIS)
         )
-        self.override_immersion: bool | None = None
         self.override_skip_charge: bool = False
         self._givtcp_was_unavailable: bool = False
         self._inputs_unavailable_since: datetime | None = None
-        # When True, manual override stays on until water reaches target temp, then releases.
-        self._immersion_manual_run_to_target: bool = False
-        # Cooldown: timestamp until which auto switch decisions are suppressed.
-        # Manual on/off via the managed switch bypasses this and resets the timer.
-        self._immersion_cooldown_until: datetime | None = None
-        # Tracks what the coordinator last wrote to the real switch so external
-        # state changes (automation, physical button) can be detected.
-        self._last_immersion_coordinator_write: bool | None = None
+        # Decides when the real immersion switch is turned on or off. Runs every cycle, so
+        # diversion works whether or not the managed switch entity is enabled.
+        self.immersion = ImmersionActuator(self._immersion_ports())
 
         # Register midnight accumulator reset
         entry.async_on_unload(
@@ -263,9 +258,42 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         return self.override_charge_value if self.override_charge_enabled else None
 
     @property
+    def override_immersion(self) -> bool | None:
+        """Manual immersion override: True forces on, False forces off, None is automatic."""
+        return self.immersion.override
+
+    @override_immersion.setter
+    def override_immersion(self, value: bool | None) -> None:
+        self.immersion.override = value
+
+    @property
     def is_dry_run(self) -> bool:
         """True when dry-run mode is active — no commands sent to GivTCP or chargers."""
         return bool(self._effective_cfg().get(CONF_DRY_RUN, DEFAULT_DRY_RUN))
+
+    def _immersion_ports(self) -> ImmersionPorts:
+        """Wire the actuator to this coordinator. Lambdas look the proxies up at call time."""
+        return ImmersionPorts(
+            switch_entity=lambda: self.entry.data.get(CONF_IMMERSION_SWITCH),
+            read_state=lambda entity_id: self._get_state(entity_id),
+            send=lambda service, entity_id: self._call_service(
+                "switch", service, {"entity_id": entity_id}
+            ),
+            send_in_background=self._send_switch_in_background,
+            is_dry_run=lambda: self.is_dry_run,
+            record_skipped=lambda action: self._record_skipped(action),
+            target_temp=lambda: self.immersion_target_temp,
+            now=self._now,
+        )
+
+    def _send_switch_in_background(self, service: str, entity_id: str) -> None:
+        self._create_task(
+            self._call_service("switch", service, {"entity_id": entity_id}, blocking=False)
+        )
+
+    @staticmethod
+    def _now() -> datetime:
+        return dt_util.as_local(datetime.now(timezone.utc))
 
     def _record_skipped(self, action: str) -> None:
         """Remember the action dry run skipped and show it on the current snapshot."""
@@ -811,20 +839,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
         )
 
-    def _maybe_release_immersion_run_to_target(
-        self, immersion_temp: float | None
-    ) -> None:
-        """Release manual run-to-target override once water reaches target temperature."""
-        if not self._immersion_manual_run_to_target:
-            return
-        if immersion_temp is not None and immersion_temp >= self.immersion_target_temp:
-            _LOG.info(
-                "Immersion reached target %.1f°C — releasing manual override",
-                immersion_temp,
-            )
-            self._immersion_manual_run_to_target = False
-            self.override_immersion = None
-
     async def _write_floor_target(self, cfg: dict, target_entity: str, soc: int) -> bool:
         """Write SoC target and enable charge target switch for cheap rate floor top-up.
 
@@ -995,10 +1009,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
         # 5a. Release manual run-to-target override once water reaches target temperature.
-        self._maybe_release_immersion_run_to_target(raw.immersion_temp)
+        self.immersion.release_if_at_target(raw.immersion_temp)
 
         # 5. Run the pure logic engine
-        now = dt_util.as_local(datetime.now(timezone.utc))
+        now = self._now()
 
         self._track_input_outage(raw, now)
 
@@ -1046,15 +1060,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         data.trailing_12m_export_earnings = self._acc.trailing_12m_export_earnings
 
         # 5b. Annotate divert reason when manual run-to-target is still active.
-        if self._immersion_manual_run_to_target and data.should_divert_immersion:
-            data.divert_reason = (
-                f"Manual — running to {self.immersion_target_temp:.0f}°C"
-                + (
-                    f" ({raw.immersion_temp:.1f}°C now)"
-                    if raw.immersion_temp is not None
-                    else ""
-                )
-            )
+        self.immersion.annotate_divert_reason(data, raw.immersion_temp)
 
         self._acc.on_raw_forecast(raw.forecast_kwh_tomorrow)
         self._acc.note_clipping(data.is_clipping)
@@ -1075,9 +1081,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         # 10. Apply HA side-effects requested by the engine
         self._apply_ev_action(ev_target_mode)
+        if self.data is not None:
+            # The first cycle only observes. At startup the real switch may not be up yet.
+            self.immersion.actuate(data, now)
 
-        # The engine's snapshot starts empty. Copy after the EV action so a skip
-        # recorded in this cycle shows up in this snapshot.
+        # The engine's snapshot starts empty. Copy after the EV and immersion actions so a
+        # skip recorded in this cycle shows up in this snapshot.
         data.dry_run_last_skipped = self._dry_run_last_skipped
         return data
 

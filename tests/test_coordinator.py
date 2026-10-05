@@ -43,6 +43,7 @@ from custom_components.givenergy_inverter_manager.core.battery import BatterySta
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter, SwitchState
+from custom_components.givenergy_inverter_manager.immersion_actuator import ImmersionActuator
 from tests.conftest import _nightboost_cfg, _raw
 from tests.helpers import PKG
 
@@ -232,13 +233,10 @@ class FakeCoordinator(GivEnergyCoordinator):
         self.immersion_min_temp: float = 50.0
         self.immersion_hysteresis_c: float = 5.0
         self._floor_top_up_applied: bool = False
-        self.override_immersion = None
         self.override_skip_charge = False
         self._givtcp_was_unavailable: bool = False
         self._inputs_unavailable_since = None
-        self._immersion_manual_run_to_target: bool = False
-        self._immersion_cooldown_until = None
-        self._last_immersion_coordinator_write = None
+        self.immersion = ImmersionActuator(self._immersion_ports())
         self._dry_run_last_skipped: str = ""
         self._writer = GivTCPWriter(
             get_state=lambda eid: self._get_state(eid),
@@ -2308,7 +2306,7 @@ class TestImmersionRunToTarget:
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_states(_default_states())
         coord.override_immersion = True
-        coord._immersion_manual_run_to_target = True
+        coord.immersion.manual_run_to_target = True
         coord.immersion_target_temp = 55.0
         # Simulate immersion temp sensor at target
         from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_TEMP_SENSOR
@@ -2317,7 +2315,7 @@ class TestImmersionRunToTarget:
         # Act
         await coord._async_update_data()
         # Assert — both flags cleared, override released to auto
-        assert coord._immersion_manual_run_to_target is False
+        assert coord.immersion.manual_run_to_target is False
         assert coord.override_immersion is None
 
     @pytest.mark.asyncio
@@ -2326,7 +2324,7 @@ class TestImmersionRunToTarget:
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_states(_default_states())
         coord.override_immersion = True
-        coord._immersion_manual_run_to_target = True
+        coord.immersion.manual_run_to_target = True
         coord.immersion_target_temp = 55.0
         from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_TEMP_SENSOR
         coord.entry.data[CONF_IMMERSION_TEMP_SENSOR] = "sensor.immersion_temp"
@@ -2334,7 +2332,7 @@ class TestImmersionRunToTarget:
         # Act
         await coord._async_update_data()
         # Assert — still active
-        assert coord._immersion_manual_run_to_target is True
+        assert coord.immersion.manual_run_to_target is True
         assert coord.override_immersion is True
 
     @pytest.mark.asyncio
@@ -2343,11 +2341,11 @@ class TestImmersionRunToTarget:
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_states(_default_states())
         coord.override_immersion = True
-        coord._immersion_manual_run_to_target = True
+        coord.immersion.manual_run_to_target = True
         # Act
         await coord._async_update_data()
         # Assert — can't auto-release without temp reading
-        assert coord._immersion_manual_run_to_target is True
+        assert coord.immersion.manual_run_to_target is True
         assert coord.override_immersion is True
 
     @pytest.mark.asyncio
@@ -2356,7 +2354,7 @@ class TestImmersionRunToTarget:
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_states(_default_states())
         coord.override_immersion = True
-        coord._immersion_manual_run_to_target = True
+        coord.immersion.manual_run_to_target = True
         coord.immersion_target_temp = 55.0
         from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_TEMP_SENSOR
         coord.entry.data[CONF_IMMERSION_TEMP_SENSOR] = "sensor.immersion_temp"
