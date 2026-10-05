@@ -24,17 +24,17 @@ def stored_count(hass_storage):
 
 
 async def test_count_is_restored_when_the_entry_loads(hass, stored_count, loaded_entry):
-    assert loaded_entry.runtime_data._register_write_count >= RESTORED
+    assert loaded_entry.runtime_data._writer.write_count >= RESTORED
 
 
 async def test_count_survives_a_reload(hass, stored_count, loaded_entry):
     async_mock_service(hass, "number", "set_value")
     coordinator = loaded_entry.runtime_data
-    coordinator._last_write_time.clear()
+    coordinator._writer.last_write_time.clear()
     hass.states.async_set(TARGET_SOC, 5)
 
     assert await coordinator._givtcp_set_number(TARGET_SOC, 55, "target")
-    count = coordinator._register_write_count
+    count = coordinator._writer.write_count
     assert count > RESTORED
     await coordinator._acc.async_save()
     assert stored_count[_STORAGE_KEY]["data"]["register_write_count"] == count
@@ -43,4 +43,4 @@ async def test_count_survives_a_reload(hass, stored_count, loaded_entry):
     await hass.async_block_till_done()
 
     assert loaded_entry.state is ConfigEntryState.LOADED
-    assert loaded_entry.runtime_data._register_write_count >= count
+    assert loaded_entry.runtime_data._writer.write_count >= count

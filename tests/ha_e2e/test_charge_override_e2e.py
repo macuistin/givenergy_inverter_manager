@@ -59,7 +59,7 @@ async def _written_target(hass, entry) -> int:
     hass.states.async_set(TARGET_SOC, 4, {"min": 4, "max": 100, "step": 1})
     coordinator = entry.runtime_data
     await coordinator.async_refresh()  # a refresh request is debounced, so run the cycle now
-    coordinator._last_write_time.clear()
+    coordinator._writer.last_write_time.clear()
     coordinator._write_charge_target_to_inverter(datetime.now(timezone.utc))
     await hass.async_block_till_done()
     targets = [c.data["value"] for c in writes if c.data["entity_id"] == TARGET_SOC]

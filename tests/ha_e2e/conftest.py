@@ -257,7 +257,7 @@ if not _PLUGIN_MISSING:
     def _no_write_retry_delay(monkeypatch):
         """Skip the real 2 s sleeps in the GivTCP write retry loops."""
         monkeypatch.setattr(
-            "custom_components.givenergy_inverter_manager.coordinator.GIVTCP_WRITE_RETRY_SLEEP_S",
+            "custom_components.givenergy_inverter_manager.givtcp_writer.GIVTCP_WRITE_RETRY_SLEEP_S",
             0,
         )
 

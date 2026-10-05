@@ -38,7 +38,7 @@ def _mock_writes(hass, failing: tuple[str, ...] = ()) -> dict[str, list]:
 
 async def _apply(entry, target_soc: int) -> None:
     coordinator = entry.runtime_data
-    coordinator._last_write_time.clear()
+    coordinator._writer.last_write_time.clear()
     cfg = coordinator._effective_cfg()
     cheap = min(build_tariff(cfg).rate_periods, key=lambda p: p.rate)
     await coordinator._async_apply_charge_target(cfg, target_soc, cheap)
@@ -87,3 +87,15 @@ async def test_error_in_an_earlier_step_does_not_abort_the_sequence(hass, loaded
 
     assert calls["number.set_value"][0].data["value"] == 60
     assert ENABLE_TARGET in _entity_ids(calls["switch.turn_on"])
+
+
+async def test_unexpected_error_in_the_target_write_is_logged_and_contained(
+    hass, loaded_entry, caplog
+):
+    calls = _mock_writes(hass)
+    async_mock_service(hass, "number", "set_value", raise_exception=RuntimeError("boom"))
+
+    await _apply(loaded_entry, 60)
+
+    assert "unexpected error calling number.set_value" in caplog.text
+    assert ENABLE_TARGET not in _entity_ids(calls["switch.turn_on"])
