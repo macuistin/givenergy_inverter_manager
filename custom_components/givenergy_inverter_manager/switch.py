@@ -42,6 +42,7 @@ from .const import (
     INTEGRATION_VERSION,
 )
 from .coordinator import GivEnergyCoordinator
+from .core.timeutil import real_time_after
 from .logging import get_logger
 
 _LOG = get_logger(__name__)
@@ -159,8 +160,8 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
         self.coordinator.override_immersion = None
         self.coordinator._immersion_manual_run_to_target = False
         now = dt_util.as_local(datetime.now(timezone.utc))
-        self.coordinator._immersion_cooldown_until = now + timedelta(
-            minutes=IMMERSION_SWITCH_COOLDOWN_MINUTES
+        self.coordinator._immersion_cooldown_until = real_time_after(
+            now, timedelta(minutes=IMMERSION_SWITCH_COOLDOWN_MINUTES)
         )
         self.coordinator._last_immersion_coordinator_write = False
         immersion_switch = self.coordinator.entry.data.get(CONF_IMMERSION_SWITCH)
@@ -211,8 +212,8 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
                 )
                 self.coordinator.override_immersion = None
                 self.coordinator._immersion_manual_run_to_target = False
-                self.coordinator._immersion_cooldown_until = now + timedelta(
-                    minutes=IMMERSION_SWITCH_COOLDOWN_MINUTES
+                self.coordinator._immersion_cooldown_until = real_time_after(
+                    now, timedelta(minutes=IMMERSION_SWITCH_COOLDOWN_MINUTES)
                 )
             self.coordinator._last_immersion_coordinator_write = current_on
             self.async_write_ha_state()
@@ -256,8 +257,8 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
                         "switch", service, {"entity_id": immersion_switch}, blocking=False
                     )
                 )
-                self.coordinator._immersion_cooldown_until = now + timedelta(
-                    minutes=IMMERSION_SWITCH_COOLDOWN_MINUTES
+                self.coordinator._immersion_cooldown_until = real_time_after(
+                    now, timedelta(minutes=IMMERSION_SWITCH_COOLDOWN_MINUTES)
                 )
                 self.coordinator._last_immersion_coordinator_write = should_be_on
 

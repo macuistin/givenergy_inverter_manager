@@ -97,6 +97,7 @@ from .rules import (
     should_divert_to_immersion,
 )
 from .tariff import EnergyAccumulator, RatePeriod, TariffConfig, build_tariff
+from .timeutil import elapsed_seconds, local_time_on
 
 _LOG = get_logger(__name__)
 
@@ -432,7 +433,7 @@ def accumulate_energy(
     if last_update_time is None:
         return
 
-    elapsed_h = (now - last_update_time).total_seconds() / 3600
+    elapsed_h = elapsed_seconds(last_update_time, now) / 3600
     # Guard against clock skew, HA restart with stale timestamp, or very long gaps
     # (>1 hour implies a restart; don't accumulate a huge energy spike)
     if elapsed_h <= 0 or elapsed_h > 1.0:
@@ -809,13 +810,10 @@ def _minutes_remaining_in_period(
 ) -> float | None:
     if current_period.name == tariff.base_rate_name or not tariff.rate_periods:
         return None
-    today_date = now.date()
-    end = datetime.combine(today_date, current_period.end, tzinfo=now.tzinfo)
-    if end <= now:
-        end = datetime.combine(
-            today_date + timedelta(days=1), current_period.end, tzinfo=now.tzinfo
-        )
-    return round((end - now).total_seconds() / 60, 1)
+    end = local_time_on(now, current_period.end)
+    if elapsed_seconds(now, end) <= 0:
+        end = local_time_on(now + timedelta(days=1), current_period.end)
+    return round(elapsed_seconds(now, end) / 60, 1)
 
 
 def _calculate_night_survival(

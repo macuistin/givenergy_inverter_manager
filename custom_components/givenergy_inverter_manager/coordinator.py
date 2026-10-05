@@ -106,6 +106,7 @@ from .core.engine import (
 )
 from .core.rules import monthly_solar_fractions
 from .core.tariff import build_tariff
+from .core.timeutil import elapsed_seconds
 from .discovery import (
     EVCharger,
     discover_battery_cycle_entities,
@@ -931,7 +932,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         if self._inputs_unavailable_since is None:
             self._inputs_unavailable_since = now
-        raw.unavailable_for_s = max(0.0, (now - self._inputs_unavailable_since).total_seconds())
+        raw.unavailable_for_s = max(0.0, elapsed_seconds(self._inputs_unavailable_since, now))
     def _read_battery_lifetime_cycles(self) -> float | None:
         """Highest BMS cycle counter across the battery packs, None if none is readable.
 
@@ -1191,7 +1192,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         # 5a. Update per-slot baseline load for this 30-min window.
         if self._last_update is not None:
-            elapsed_h = (now - self._last_update).total_seconds() / 3600
+            elapsed_h = elapsed_seconds(self._last_update, now) / 3600
             slot = now.hour * 2 + now.minute // 30
             immersion_w = raw.immersion_wattage_w if raw.immersion_on else 0.0
             baseline_w = max(0.0, raw.house_load_w - immersion_w - raw.ev_power_w)
