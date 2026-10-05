@@ -18,6 +18,11 @@ Provides:
     tomorrow morning, given current SoC, capacity, minimum SoC floor,
     average hourly consumption, and hours until sunrise.
 
+  survival_attributes()
+    Says in words why night survival is Safe, Warning or Critical, with the
+    numbers behind it. Shown in the attributes of the Night Survival Confidence
+    sensor.
+
 Note: BatterySession tracking (per-session energy, depth-of-discharge,
 round-trip efficiency) is planned for v0.2.0 when energy accumulation is
 persisted across HA restarts.
@@ -28,7 +33,7 @@ from dataclasses import dataclass
 from datetime import date
 
 # GivEnergy battery typical rated cycles
-from ..const import BATTERY_LIFE_ESTIMATE_MIN_DAYS
+from ..const import BATTERY_LIFE_ESTIMATE_MIN_DAYS, NIGHT_SURVIVAL_WARNING_MARGIN_PCT
 from ..const import BATTERY_RATED_CYCLES as TYPICAL_RATED_CYCLES
 
 
@@ -123,3 +128,35 @@ def estimate_will_survive_night(
         min_soc,
         f"Battery may run low. Estimated shortfall: {shortfall_kwh:.1f}kWh before solar starts."
     )
+
+
+def survival_attributes(
+    will_survive: bool,
+    estimated_soc: float,
+    min_soc: float,
+    current_soc: float,
+    reason: str,
+) -> dict:
+    """Explain the night survival level and give the numbers it comes from.
+
+    Critical: the battery runs out before solar starts. Warning: it lasts, but is
+    expected to end within the warning margin of the minimum SoC. Safe: otherwise.
+    """
+    margin = NIGHT_SURVIVAL_WARNING_MARGIN_PCT
+    if not will_survive:
+        explanation = f"Critical. {reason}"
+    elif estimated_soc < min_soc + margin:
+        explanation = (
+            "Warning. The battery should last until solar starts, but only just. "
+            f"It is expected to reach about {estimated_soc:.0f}% at sunrise, "
+            f"within {margin:g} points of the {min_soc:g}% minimum."
+        )
+    else:
+        explanation = f"Safe. {reason}"
+    return {
+        "explanation": explanation,
+        "battery_soc": round(current_soc, 1),
+        "estimated_soc_at_sunrise": round(estimated_soc, 1),
+        "minimum_soc": min_soc,
+        "warning_below_soc": min_soc + margin,
+    }

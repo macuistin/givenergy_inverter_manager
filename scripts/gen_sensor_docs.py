@@ -365,7 +365,10 @@ DESCRIPTIONS: dict[str, str] = {
     "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",
     "estimated_soc_at_sunrise": "Projected SoC when solar starts, taken as 08:00.",
     "night_survival_reason": "Whether the battery should last until 08:00, with any shortfall.",
-    "night_survival_confidence": "Safe, Warning (within 5 points of minimum SoC) or Critical.",
+    "night_survival_confidence": (
+        "Safe, Warning (within 5 points of minimum SoC) or Critical. "
+        "The attributes say why and give the numbers."
+    ),
     "cheap_rate_floor_status": "State of the cheap rate floor top-up, or Inactive.",
     "pre_boost_export_recommended": "yes when spare kWh is 1 or more and exporting pays.",
     "pre_boost_export_kwh": (

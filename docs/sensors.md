@@ -148,7 +148,7 @@ Outputs of the overnight charge calculation.
 | Estimated Overnight Charge Cost | `overnight_charge_cost` | currency | monetary | none | no | yes | kWh to charge times the cheapest rate, before discount and VAT. Diagnostic category. |
 | Estimated SoC at Sunrise | `estimated_soc_at_sunrise` | % | - | measurement | no | yes | Projected SoC when solar starts, taken as 08:00. |
 | Battery Night Survival Status | `night_survival_reason` | - | - | none | no | yes | Whether the battery should last until 08:00, with any shortfall. Diagnostic category. |
-| Night Survival Confidence | `night_survival_confidence` | - | - | none | no | no | Safe, Warning (within 5 points of minimum SoC) or Critical. |
+| Night Survival Confidence | `night_survival_confidence` | - | - | none | no | no | Safe, Warning (within 5 points of minimum SoC) or Critical. The attributes say why and give the numbers. |
 | Cheap Rate Floor | `cheap_rate_floor_status` | - | - | none | no | yes | State of the cheap rate floor top-up, or Inactive. Diagnostic category. |
 | Pre-boost export recommended | `pre_boost_export_recommended` | - | - | none | no | no | yes when spare kWh is 1 or more and exporting pays. |
 | Pre-boost exportable kWh | `pre_boost_export_kwh` | kWh | energy | none | no | no | Stored kWh above tonight's charge need and 25% of the average daily load. |
