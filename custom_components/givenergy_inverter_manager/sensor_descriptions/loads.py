@@ -1,0 +1,89 @@
+"""Controllable loads: the EV charger and the immersion heater cost."""
+
+from __future__ import annotations
+
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import EntityCategory, UnitOfEnergy, UnitOfPower
+
+from .. import sensor_values as values
+from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
+
+DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
+    # --- EV charger ---
+    GivEnergyManagerSensorDescription(
+        key="ev_charger_state",
+        translation_key="ev_charger_state",
+        value_fn=lambda d: d.ev_charger_state.value if d.ev_charger_state else None,
+        available_fn=lambda d: d.ev_available,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="ev_power",
+        translation_key="ev_power",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: round(d.ev_power_w, 1),
+        available_fn=lambda d: d.ev_available,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="ev_session_energy",
+        translation_key="ev_session_energy",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: round(d.ev_session_kwh, 3),
+        available_fn=lambda d: d.ev_available,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="ev_km_charged_today",
+        translation_key="ev_km_charged_today",
+        native_unit_of_measurement="km",
+        state_class=SensorStateClass.TOTAL,
+        icon="mdi:car-electric",
+        is_daily_total=True,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.ev_km_charged_today,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="ev_cost_per_km_today",
+        translation_key="ev_cost_per_km_today",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:car-electric",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.ev_cost_per_km_today,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="ev_draining_battery",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="ev_draining_battery",
+        value_fn=lambda d: values.YES if d.ev_draining_battery else values.NO,
+        available_fn=lambda d: d.ev_available,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="ev_protection_reason",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="ev_protection_reason",
+        value_fn=lambda d: d.ev_protection_reason,
+        available_fn=lambda d: d.ev_available,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="ev_charging_source",
+        translation_key="ev_charging_source",
+        value_fn=lambda d: d.ev_charging_source,
+        available_fn=lambda d: d.ev_available,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="ev_solar_surplus_available",
+        translation_key="ev_solar_surplus_available",
+        value_fn=lambda d: "Available" if d.ev_solar_surplus_available else "Not available",
+    ),
+    GivEnergyManagerSensorDescription(
+        key="immersion_cost_today",
+        is_daily_total=True,
+        translation_key="immersion_cost_today",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: round(d.today.immersion_cost, 4),
+    ),
+)
