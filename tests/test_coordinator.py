@@ -2284,15 +2284,15 @@ class TestMissedSolar:
         assert acc.missed_solar_kwh == pytest.approx(0.0)
 
     def test_missed_solar_in_sensor_descriptions(self):
-        src = (PKG / "sensor.py").read_text()
-        assert "missed_solar_today" in src
+        from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
+
+        assert "missed_solar_today" in {d.key for d in SENSOR_DESCRIPTIONS}
 
     def test_missed_solar_disabled_by_default(self):
-        src = (PKG / "sensor.py").read_text()
-        # Find the missed_solar_today block and check it has enabled_default=False
-        idx = src.find('"missed_solar_today"')
-        block = src[idx:idx+400]
-        assert "entity_registry_enabled_default=False" in block
+        from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
+
+        description = next(d for d in SENSOR_DESCRIPTIONS if d.key == "missed_solar_today")
+        assert description.entity_registry_enabled_default is False
 
 
 class TestSolarNoiseFloor:
@@ -2393,8 +2393,9 @@ class TestLiveGridCostRate:
         assert data.live_grid_cost_rate == pytest.approx(0.0)
 
     def test_live_grid_cost_rate_in_sensor_descriptions(self):
-        src = (PKG / "sensor.py").read_text()
-        assert "live_grid_cost_rate" in src
+        from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
+
+        assert "live_grid_cost_rate" in {d.key for d in SENSOR_DESCRIPTIONS}
 
     def test_income_bar_markdown_removed_from_dashboard(self):
         src = (PKG / "dashboard.py").read_text()

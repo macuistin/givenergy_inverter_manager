@@ -99,36 +99,20 @@ def _get_flow_class(real_ha_selector, real_vol):
 
 
 # ── Sensor default-enabled tests ──────────────────────────────────────────────
-# These tests parse sensor.py via AST rather than importing it, avoiding the
-# need to stub SensorEntityDescription subclassing.
 
 
 def _parse_sensor_enabled_state():
-    """Return {name: enabled_default} by parsing sensor.py with ast."""
-    import ast
+    """Return {name: enabled_default} from the sensor description table."""
     import json
 
-    pkg = PKG
-    tree = ast.parse((pkg / "sensor.py").read_text())
-    translated = json.loads((pkg / "strings.json").read_text())["entity"]["sensor"]
+    from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
 
-    results = {}
-    # Walk all Call nodes looking for GivEnergyManagerSensorDescription(...)
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        name_val = None
-        enabled_val = True  # default per dataclass default
-        for kw in node.keywords:
-            if kw.arg == "translation_key" and isinstance(kw.value, ast.Constant):
-                name_val = translated.get(kw.value.value, {}).get("name", name_val)
-            if kw.arg == "name" and isinstance(kw.value, ast.Constant) and name_val is None:
-                name_val = kw.value.value
-            if kw.arg == "entity_registry_enabled_default" and isinstance(kw.value, ast.Constant):
-                enabled_val = bool(kw.value.value)
-        if name_val is not None:
-            results[name_val] = enabled_val
-    return results
+    translated = json.loads((PKG / "strings.json").read_text())["entity"]["sensor"]
+    return {
+        translated[d.translation_key]["name"]: d.entity_registry_enabled_default
+        for d in SENSOR_DESCRIPTIONS
+        if d.translation_key in translated and "name" in translated[d.translation_key]
+    }
 
 
 class TestSensorDefaultEnabled:
