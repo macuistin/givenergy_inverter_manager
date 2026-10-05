@@ -58,14 +58,77 @@ class TestStaticIntegrity:
             for kw in _description_kwargs()
             if "translation_key" in kw
             and "name" not in names.get(kw["translation_key"].value, {})
-            and "name" not in kw
         )
         assert missing == []
+
+    def test_translated_sensors_do_not_repeat_the_name_in_code(self):
+        repeated = sorted(
+            kw["key"].value
+            for kw in _description_kwargs()
+            if "translation_key" in kw and "name" in kw
+        )
+        assert repeated == []
+
+
+def _literal_kwarg(kwargs: dict[str, ast.expr], name: str):
+    node = kwargs.get(name)
+    return None if node is None else ast.literal_eval(node)
+
+
+_PERIOD_KEYS = {
+    "week": {
+        "solar_this_week",
+        "import_this_week",
+        "export_this_week",
+        "import_cost_this_week",
+        "export_earnings_this_week",
+        "import_kwh_cheap_this_week",
+        "import_kwh_peak_this_week",
+        "immersion_savings_this_week",
+    },
+    "month": {
+        "accrued_bill",
+        "solar_this_month",
+        "import_this_month",
+        "export_this_month",
+        "import_cost_this_month",
+        "export_earnings_this_month",
+        "import_kwh_cheap_this_month",
+        "import_kwh_peak_this_month",
+        "immersion_savings_this_month",
+        "net_position_this_month",
+    },
+    "year": {"solar_this_year", "export_this_year", "export_earnings_this_year"},
+}
+
+
+class TestResetPeriods:
+    def test_week_month_and_year_sensors_declare_their_reset_period(self):
+        declared: dict[str, set[str]] = collections.defaultdict(set)
+        for kw in _description_kwargs():
+            period = _literal_kwarg(kw, "reset_period")
+            if period:
+                declared[period].add(kw["key"].value)
+        assert dict(declared) == _PERIOD_KEYS
+
+    def test_period_names_are_known(self):
+        periods = {_literal_kwarg(kw, "reset_period") for kw in _description_kwargs()}
+        assert periods <= {None, "day", "week", "month", "year"}
+
+    def test_yesterday_and_trailing_sensors_have_no_total_state_class(self):
+        wrong = [
+            kw["key"].value
+            for kw in _description_kwargs()
+            if kw["key"].value.endswith(("_yesterday", "_trailing_12m"))
+            and getattr(kw.get("state_class"), "attr", None) in ("TOTAL", "TOTAL_INCREASING")
+        ]
+        assert wrong == []
 
 
 _DYNAMIC_CHECK = textwrap.dedent(
     """
     import json, sys
+    from types import SimpleNamespace
     from datetime import datetime, timedelta, timezone
     sys.path.insert(0, ".")
     from homeassistant.components.sensor.const import DEVICE_CLASS_STATE_CLASSES
@@ -104,6 +167,38 @@ _DYNAMIC_CHECK = textwrap.dedent(
             problems.append(f"{d.key}: state_class {d.state_class} invalid for {d.device_class}")
         if d.is_daily_total and d.state_class != S.SensorStateClass.TOTAL:
             problems.append(f"{d.key}: is_daily_total needs state_class TOTAL")
+    MONOTONIC_TOTALS = {"battery_cycles", "register_write_count"}
+    starts = {
+        "last_reset_time": datetime(2026, 6, 15, tzinfo=timezone.utc).isoformat(),
+        "week_start_time": datetime(2026, 6, 8, tzinfo=timezone.utc).isoformat(),
+        "month_start_time": datetime(2026, 6, 1, tzinfo=timezone.utc).isoformat(),
+        "year_start_time": datetime(2026, 1, 1, tzinfo=timezone.utc).isoformat(),
+    }
+    for name, value in starts.items():
+        setattr(data, name, value)
+    expected_start = {
+        "day": datetime.fromisoformat(starts["last_reset_time"]),
+        "week": datetime.fromisoformat(starts["week_start_time"]),
+        "month": datetime.fromisoformat(starts["month_start_time"]),
+        "year": datetime.fromisoformat(starts["year_start_time"]),
+    }
+    coordinator = SimpleNamespace(data=data, entry=SimpleNamespace(entry_id="entry"))
+    for d in S.SENSOR_DESCRIPTIONS:
+        period = S.reset_period_of(d)
+        total = d.state_class == S.SensorStateClass.TOTAL
+        if period is not None and not total:
+            problems.append(f"{d.key}: reset period {period} needs state_class TOTAL")
+        if period is None and total and d.key not in MONOTONIC_TOTALS:
+            problems.append(f"{d.key}: state_class TOTAL without a reset period or last_reset")
+        last_reset = S.GivEnergyManagerSensor(coordinator, d).last_reset
+        if period is not None and total and last_reset != expected_start[period]:
+            problems.append(f"{d.key}: last_reset {last_reset} is not the {period} start")
+        if (period is None or not total) and last_reset is not None:
+            problems.append(f"{d.key}: reports last_reset without a resetting TOTAL class")
+        if d.key.endswith(("_yesterday", "_trailing_12m")) and d.state_class in (
+            S.SensorStateClass.TOTAL, S.SensorStateClass.TOTAL_INCREASING,
+        ):
+            problems.append(f"{d.key}: not cumulative, state_class must not be a total")
     print(json.dumps(problems))
     """
 )

@@ -11,6 +11,7 @@ Setup wizard steps:
   4. immersion  — optional immersion heater.
   5. ev         — optional EV charger.
   6. battery    — overnight charge thresholds.
+  7. confirm    — read-only summary, submit to create the entry.
 
 Options flow: edit tariff and thresholds without reinstalling.
 """
@@ -105,6 +106,7 @@ from .const import (
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
+from .core.tariff import build_tariff
 from .discovery import discover_ev_chargers, discover_givtcp_inverters
 
 _LOGGER = logging.getLogger(__name__)
@@ -136,6 +138,61 @@ _CHARGE_SCHEDULING_CONF_KEYS = [
 
 
 _MAX_RATE_PERIODS = 5
+
+
+def _saved_values(entry) -> dict:
+    """Return the entry values in force: saved options over setup data."""
+    values = {k: v for k, v in entry.data.items() if v is not None}
+    values.update({k: v for k, v in entry.options.items() if v is not None})
+    return values
+
+
+def _ordinal(day: int) -> str:
+    """Return 1 as '1st', 16 as '16th'."""
+    suffix = "th" if 10 <= day % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+    return f"{day}{suffix}"
+
+
+def _tariff_summary(cfg: dict) -> str:
+    """One paragraph stating the cheapest rate and the billing period for *cfg*."""
+    try:
+        tariff = build_tariff(cfg)
+    except (TypeError, ValueError):
+        return ""
+    cheapest = tariff.get_cheapest_rate()
+    if any(cheapest is p for p in tariff.rate_periods):
+        window = f"{cheapest.start:%H:%M} to {cheapest.end:%H:%M}"
+    else:
+        window = "all day"
+    code = cfg.get(CONF_CURRENCY) or DEFAULT_CURRENCY
+    start = tariff.bill_start_day
+    if start == 1:
+        bill = "Your bill runs from the 1st to the last day of the month."
+    else:
+        bill = f"Your bill runs from the {_ordinal(start)} to the {_ordinal(start - 1)}."
+    return (
+        f"Cheapest rate in your saved tariff: {cheapest.name} at {cheapest.rate:.4f} "
+        f"{code}/kWh, {window}. {bill}"
+    )
+
+
+def _setup_summary(data: dict) -> str:
+    """Bullet list of the choices made so far, shown before the entry is created."""
+    periods = ", ".join(
+        f"{p['name']} {float(p['rate']):.4f} ({p['start']} to {p['end']})"
+        for p in data.get(CONF_RATE_PERIODS) or []
+    )
+    lines = [
+        _tariff_summary(data),
+        f"Base rate: {data.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)} "
+        f"{float(data.get(CONF_BASE_RATE, DEFAULT_BASE_RATE)):.4f}. "
+        f"Timed rates: {periods or 'none'}.",
+        f"Battery {float(data.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY)):g} kWh, "
+        f"inverter {float(data.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)):g} kW.",
+        f"Forecast sensor: {data.get(CONF_FORECAST_ENTITY) or 'none, a seasonal estimate is used'}.",
+        f"Immersion switch: {data.get(CONF_IMMERSION_SWITCH) or 'none'}.",
+    ]
+    return "\n".join(f"- {line}" for line in lines if line)
 
 
 def _hhmmss(hhmm: str) -> str:
@@ -179,6 +236,19 @@ def _slots_to_rate_periods(user_input: dict) -> list[dict]:
             }
         )
     return periods
+
+
+def _rate_period_errors(periods: list[dict], base_rate_name: str = "") -> dict[str, str]:
+    """Return form errors for rate periods that cannot work, or an empty dict."""
+    if any(p["start"] == p["end"] for p in periods):
+        return {"base": "rate_period_zero_length"}
+    names = [p["name"].casefold() for p in periods]
+    base = (base_rate_name or "").strip().casefold()
+    if base:
+        names.append(base)
+    if len(names) != len(set(names)):
+        return {"base": "rate_period_duplicate_name"}
+    return {}
 
 
 def _rate_period_section(slot: dict) -> object:
@@ -423,6 +493,10 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         errors: dict[str, str] = {}
         if user_input is not None:
             periods = _slots_to_rate_periods(user_input)
+            errors = _rate_period_errors(
+                periods, str(user_input.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
+            )
+        if user_input is not None and not errors:
             self._data[CONF_RATE_PERIODS] = periods
             for key in [
                 CONF_EXPORT_RATE,
@@ -441,6 +515,8 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             return await self.async_step_forecast()
 
         schema = self._build_tariff_schema()
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(schema, user_input)
         scheduling_status, scheduling_detail = _build_charge_scheduling_summary(self._data)
         return self.async_show_form(
             step_id="tariff",
@@ -453,46 +529,60 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         )
 
     @staticmethod
-    def _build_tariff_schema(periods: list[dict] | None = None) -> vol.Schema:
+    def _build_tariff_schema(
+        periods: list[dict] | None = None, values: dict | None = None
+    ) -> vol.Schema:
+        values = values or {}
         slots = _periods_to_slot_defaults(periods if periods is not None else DEFAULT_RATE_PERIODS)
         schema_dict: dict = {
-            vol.Required(CONF_BASE_RATE, default=DEFAULT_BASE_RATE): selector.NumberSelector(
+            vol.Required(
+                CONF_BASE_RATE, default=values.get(CONF_BASE_RATE, DEFAULT_BASE_RATE)
+            ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=0, max=5, step=0.001, unit_of_measurement="EUR/kWh"
                 )
             ),
             vol.Optional(
-                CONF_BASE_RATE_NAME, default=DEFAULT_BASE_RATE_NAME
+                CONF_BASE_RATE_NAME, default=values.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
             ): selector.TextSelector(),
-            vol.Required(CONF_EXPORT_RATE, default=DEFAULT_EXPORT_RATE): selector.NumberSelector(
+            vol.Required(
+                CONF_EXPORT_RATE, default=values.get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE)
+            ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=0, max=1, step=0.001, unit_of_measurement="EUR/kWh"
                 )
             ),
             vol.Required(
-                CONF_STANDING_CHARGE, default=DEFAULT_STANDING_CHARGE
+                CONF_STANDING_CHARGE,
+                default=values.get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE),
             ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=0, max=5, step=0.001, unit_of_measurement="EUR/day"
                 )
             ),
-            vol.Required(CONF_PSO_LEVY, default=DEFAULT_PSO_LEVY): selector.NumberSelector(
+            vol.Required(
+                CONF_PSO_LEVY, default=values.get(CONF_PSO_LEVY, DEFAULT_PSO_LEVY)
+            ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=0, max=20, step=0.01, unit_of_measurement="EUR/month"
                 )
             ),
-            vol.Required(CONF_VAT_RATE, default=DEFAULT_VAT_RATE): selector.NumberSelector(
+            vol.Required(
+                CONF_VAT_RATE, default=values.get(CONF_VAT_RATE, DEFAULT_VAT_RATE)
+            ): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0, max=30, step=0.1, unit_of_measurement="%")
             ),
             vol.Required(
-                CONF_DISCOUNT_RATE, default=DEFAULT_DISCOUNT_RATE
+                CONF_DISCOUNT_RATE, default=values.get(CONF_DISCOUNT_RATE, DEFAULT_DISCOUNT_RATE)
             ): selector.NumberSelector(
                 selector.NumberSelectorConfig(min=0, max=20, step=0.1, unit_of_measurement="%")
             ),
             vol.Required(
-                CONF_BILL_START_DAY, default=DEFAULT_BILL_START_DAY
+                CONF_BILL_START_DAY, default=values.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY)
             ): selector.NumberSelector(selector.NumberSelectorConfig(min=1, max=28, step=1)),
-            vol.Required(CONF_CURRENCY, default=DEFAULT_CURRENCY): selector.SelectSelector(
+            vol.Required(
+                CONF_CURRENCY, default=values.get(CONF_CURRENCY, DEFAULT_CURRENCY)
+            ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=[
                         selector.SelectOptionDict(value=code, label=f"{code} ({symbol})")
@@ -624,10 +714,10 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         )
 
     async def async_step_battery(self, user_input=None):
-        """Step 7: Battery management thresholds."""
+        """Step 6: Battery management thresholds."""
         if user_input is not None:
             self._data.update(user_input)
-            return self.async_create_entry(title="GivEnergy Inverter Manager", data=self._data)
+            return await self.async_step_confirm()
         schema = vol.Schema(
             {
                 vol.Optional(
@@ -668,18 +758,35 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         )
         return self.async_show_form(step_id="battery", data_schema=schema)
 
+    async def async_step_confirm(self, user_input=None):
+        """Step 7: Show what will be saved, then create the entry."""
+        if user_input is not None:
+            return self.async_create_entry(title="GivEnergy Inverter Manager", data=self._data)
+        return self.async_show_form(
+            step_id="confirm",
+            data_schema=vol.Schema({}),
+            description_placeholders={"summary": _setup_summary(self._data)},
+        )
+
     async def async_step_reconfigure(self, user_input=None):
         """Allow updating tariff settings without removing the integration.
 
         Shows the same form as the tariff setup step, pre-populated with the
-        current entry values. On submit, updates entry data and reloads.
+        values in force. On submit, writes entry data and drops the saved options
+        for the same keys, because options override data. The entry update listener
+        reloads the integration.
         Inverter entity mappings (set during initial auto-discovery) require a
         full remove-and-re-add to change.
         """
         entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
 
+        errors: dict[str, str] = {}
         if user_input is not None:
             periods = _slots_to_rate_periods(user_input)
+            errors = _rate_period_errors(
+                periods, str(user_input.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
+            )
+        if user_input is not None and not errors:
             updates = {
                 CONF_RATE_PERIODS: periods,
                 CONF_BASE_RATE: float(user_input[CONF_BASE_RATE]),
@@ -694,15 +801,19 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 CONF_BILL_START_DAY: int(user_input[CONF_BILL_START_DAY]),
                 CONF_CURRENCY: user_input.get(CONF_CURRENCY, DEFAULT_CURRENCY),
             }
-            self.hass.config_entries.async_update_entry(entry, data={**entry.data, **updates})
-            await self.hass.config_entries.async_reload(entry.entry_id)
+            options = {k: v for k, v in entry.options.items() if k not in updates}
+            self.hass.config_entries.async_update_entry(
+                entry, data={**entry.data, **updates}, options=options
+            )
             return self.async_abort(reason="reconfigure_successful")
 
-        current_periods = (
-            entry.options.get(CONF_RATE_PERIODS) or entry.data.get(CONF_RATE_PERIODS) or []
+        current = _saved_values(entry)
+        schema = self.__class__._build_tariff_schema(
+            current.get(CONF_RATE_PERIODS) or [], current
         )
-        schema = self.__class__._build_tariff_schema(current_periods)
-        return self.async_show_form(step_id="reconfigure", data_schema=schema)
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(schema, user_input)
+        return self.async_show_form(step_id="reconfigure", data_schema=schema, errors=errors)
 
     @staticmethod
     @callback
@@ -750,47 +861,56 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             return vol.Optional(key, description={"suggested_value": current})
         return vol.Optional(key)
 
+    def _save_options(self, user_input: dict, rate_periods: list[dict]):
+        """Store the submitted options and create the entry."""
+        tariff = user_input.get("tariff_settings", {})
+        thresholds = user_input.get("threshold_settings", {})
+        forecast = user_input.get("forecast_settings", {})
+        hardware = user_input.get("hardware_settings", {})
+        ev_settings = user_input.get("ev_settings", {})
+        self._options[CONF_RATE_PERIODS] = rate_periods
+        for key in [
+            CONF_EXPORT_RATE,
+            CONF_STANDING_CHARGE,
+            CONF_PSO_LEVY,
+            CONF_VAT_RATE,
+            CONF_DISCOUNT_RATE,
+        ]:
+            self._options[key] = float(tariff[key])
+        self._options[CONF_BILL_START_DAY] = int(tariff[CONF_BILL_START_DAY])
+        self._options[CONF_BASE_RATE] = float(tariff[CONF_BASE_RATE])
+        self._options[CONF_BASE_RATE_NAME] = str(
+            tariff.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
+        )
+        self._options[CONF_CURRENCY] = tariff.get(CONF_CURRENCY, DEFAULT_CURRENCY)
+        self._options.update(thresholds)
+        for key in (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT, CONF_IMMERSION_WATTAGE):
+            if key in hardware:
+                self._options[key] = float(hardware[key])
+        for key in _OPTIONAL_FORECAST_KEYS:
+            self._options[key] = forecast.get(key, "")
+        if CONF_FORECAST_CONSERVATISM in forecast:
+            self._options[CONF_FORECAST_CONSERVATISM] = float(
+                forecast[CONF_FORECAST_CONSERVATISM]
+            )
+        if CONF_CAR_EFFICIENCY_KWH_PER_100KM in ev_settings:
+            self._options[CONF_CAR_EFFICIENCY_KWH_PER_100KM] = float(
+                ev_settings[CONF_CAR_EFFICIENCY_KWH_PER_100KM]
+            )
+        return self.async_create_entry(title="", data=self._options)
+
     async def async_step_init(self, user_input=None):
         """Single-page options: tariff, per-period rates, thresholds, forecast."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
             tariff = user_input.get("tariff_settings", {})
-            thresholds = user_input.get("threshold_settings", {})
-            forecast = user_input.get("forecast_settings", {})
-            hardware = user_input.get("hardware_settings", {})
-            ev_settings = user_input.get("ev_settings", {})
-            # Rate periods come from top-level rate_period_N sections
-            self._options[CONF_RATE_PERIODS] = _slots_to_rate_periods(user_input)
-            for key in [
-                CONF_EXPORT_RATE,
-                CONF_STANDING_CHARGE,
-                CONF_PSO_LEVY,
-                CONF_VAT_RATE,
-                CONF_DISCOUNT_RATE,
-            ]:
-                self._options[key] = float(tariff[key])
-            self._options[CONF_BILL_START_DAY] = int(tariff[CONF_BILL_START_DAY])
-            self._options[CONF_BASE_RATE] = float(tariff[CONF_BASE_RATE])
-            self._options[CONF_BASE_RATE_NAME] = str(
-                tariff.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
+            rate_periods = _slots_to_rate_periods(user_input)
+            errors = _rate_period_errors(
+                rate_periods, str(tariff.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
             )
-            self._options[CONF_CURRENCY] = tariff.get(CONF_CURRENCY, DEFAULT_CURRENCY)
-            self._options.update(thresholds)
-            for key in (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT, CONF_IMMERSION_WATTAGE):
-                if key in hardware:
-                    self._options[key] = float(hardware[key])
-            for key in _OPTIONAL_FORECAST_KEYS:
-                self._options[key] = forecast.get(key, "")
-            if CONF_FORECAST_CONSERVATISM in forecast:
-                self._options[CONF_FORECAST_CONSERVATISM] = float(
-                    forecast[CONF_FORECAST_CONSERVATISM]
-                )
-            if CONF_CAR_EFFICIENCY_KWH_PER_100KM in ev_settings:
-                self._options[CONF_CAR_EFFICIENCY_KWH_PER_100KM] = float(
-                    ev_settings[CONF_CAR_EFFICIENCY_KWH_PER_100KM]
-                )
-            return self.async_create_entry(title="", data=self._options)
+        if user_input is not None and not errors:
+            return self._save_options(user_input, rate_periods)
 
         current_periods = self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS)
         slots = _periods_to_slot_defaults(current_periods)
@@ -945,39 +1065,6 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             ),
             {"collapsed": True},
         )
-        schema_dict[vol.Required("hardware_settings")] = section(
-            vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_BATTERY_CAPACITY,
-                        default=float(self._get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY)),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1, max=100, step=0.1, unit_of_measurement="kWh"
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_INVERTER_MAX_OUTPUT,
-                        default=float(
-                            self._get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)
-                        ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1, max=20, step=0.1, unit_of_measurement="kW"
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_IMMERSION_WATTAGE,
-                        default=float(self._get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE)),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=500, max=6000, step=100, unit_of_measurement="W"
-                        )
-                    ),
-                }
-            ),
-            {"collapsed": True},
-        )
         schema_dict[vol.Required("forecast_settings")] = section(
             vol.Schema(
                 {
@@ -1017,6 +1104,39 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             ),
             {"collapsed": True},
         )
+        schema_dict[vol.Required("hardware_settings")] = section(
+            vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_BATTERY_CAPACITY,
+                        default=float(self._get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=100, step=0.1, unit_of_measurement="kWh"
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_INVERTER_MAX_OUTPUT,
+                        default=float(
+                            self._get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=20, step=0.1, unit_of_measurement="kW"
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_IMMERSION_WATTAGE,
+                        default=float(self._get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=500, max=6000, step=100, unit_of_measurement="W"
+                        )
+                    ),
+                }
+            ),
+            {"collapsed": True},
+        )
         schema_dict[vol.Required("ev_settings")] = section(
             vol.Schema(
                 {
@@ -1038,6 +1158,14 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             {"collapsed": True},
         )
 
+        schema = vol.Schema(schema_dict)
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(schema, user_input)
         return self.async_show_form(
-            step_id="init", data_schema=vol.Schema(schema_dict), errors=errors
+            step_id="init",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "tariff_summary": _tariff_summary(_saved_values(self._config_entry))
+            },
         )

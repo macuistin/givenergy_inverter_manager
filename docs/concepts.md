@@ -44,19 +44,25 @@ Three things happen on a clock instead of in the cycle.
 | 00:00:00 local time | Daily reset. Today moves to yesterday. Monday also resets the week. The bill start day also resets the month and saves a snapshot. 1 January also resets the year. |
 | One minute before the cheapest timed rate period starts, once a day | Write the charge target and window to GivTCP |
 | Every tenth cycle (about 5 minutes) and at midnight | Save accumulated energy and battery statistics |
+| Entry unload and Home Assistant stop | Save accumulated energy and battery statistics |
 
 Energy is added using the real time between cycles. The first cycle after a start or a midnight reset adds nothing, and a gap longer than one hour is skipped, so a restart does not create a spike.
 
-Accumulated energy is not saved when Home Assistant stops. A restart, or a reload after saving options, loses up to about 5 minutes of energy. The year totals, Missed Solar Today and Inverter Derating Today are not saved at all and restart from zero.
+Accumulated energy is saved when the integration unloads and when Home Assistant stops, so a restart or a reload after saving options keeps it. A crash can lose up to about 5 minutes. On start-up the integration applies any midnight, Monday, bill start day or 1 January reset that passed while Home Assistant was down.
 
 ### Write protection
 
 GivTCP writes use registers with a limited lifetime. Each write helper:
 
 - reads the entity first and skips the write when it already holds the value;
-- skips the write when the same entity was written in the last 300 seconds;
+- skips the write when the same value was written to the same entity in the last 300 seconds (a different value is still written);
 - reads the entity back after 2 seconds and retries up to 3 times;
-- counts each write in the GivTCP Register Write Count sensor, and logs a warning at 500,000 writes.
+- catches an error from the service call, logs it and carries on instead of stopping the task;
+- counts each write in the GivTCP Register Write Count sensor, and logs a warning at 500,000 writes. The count is saved with the accumulated energy and survives restarts.
+
+If writing the target SoC fails, the charge target is not enabled, so the inverter is not limited to an old target. Charge targets are limited to 4 to 100%, the range GivTCP accepts.
+
+The Zappi mode write skips when the Zappi is already in the target mode and when that select entity was written in the last 300 seconds. It is not read back or counted, because it is not an inverter register.
 
 ## GivTCP sign conventions
 
@@ -81,6 +87,15 @@ When these entities exist, they replace the integration's own sum for today's ph
 
 A missing counter falls back to the integration's own sum, one counter at a time. Week, month and year totals always use the integration's own sum. Costs and earnings are always worked out by the integration, because GivTCP does not know your tariff.
 
+### Battery cycles
+
+One cycle is the battery's full capacity discharged once (an equivalent full cycle), which is how the battery's own BMS counts. Charging does not add cycles.
+
+- **From the BMS.** When GivTCP publishes `sensor.givtcp_<battery serial>_battery_cycles`, that counter is the lifetime count. The integration finds these entities by name every 5 minutes. With several battery packs it uses the highest value, not the sum, because each pack counts its own cycles.
+- **From SoC.** Without a BMS counter, each fall in SoC between two updates adds the fall divided by 100. A missing reading, a reading of 0% after a healthy one, and a step of more than 10% between updates are treated as glitches and add nothing. If the BMS counter goes missing, the estimate carries on from the last BMS value.
+
+Battery Total Cycles, Battery Remaining Life, Battery Years Remaining and Battery Usable Capacity all use this count. Earlier versions counted charge and discharge, which roughly doubled the figure. The saved count is halved once when the integration first loads the new storage format.
+
 ## How decisions are made
 
 ### Overnight charge target
@@ -89,9 +104,9 @@ The calculation runs every cycle. The result is written to GivTCP once a day. Th
 
 1. **Winter, December to February.** The target is 100%. The charge is skipped if SoC is already 95% or more. The forecast is not used.
 2. **Shoulder months, March, April, October and November.** The minimum SoC is raised to at least 70% for the calculation.
-3. **Forecast.** The tomorrow sensor is used when set. Otherwise the integration estimates from your latitude: inverter maximum output in kW times 4 hours times a factor for the month, with 1.0 for the sunniest month. If a Solcast P10 sensor is set and the conservatism is above 0, the forecast becomes `(1 - w) x forecast + w x P10`, where `w` is the conservatism.
+3. **Forecast.** The tomorrow sensor is used when set. Otherwise the integration estimates from your latitude: inverter maximum output in kW times 4 hours times a factor for the month, with 1.0 for the sunniest month. Once five usable days are stored, the sensor forecast is first multiplied by the median of actual solar divided by forecast over recent days, limited to 0.6 to 1.2. Days that clipped or produced under 0.5 kWh are ignored, and the seasonal estimate is never scaled. If a Solcast P10 sensor is set and the conservatism is above 0, the forecast becomes `(1 - w) x forecast + w x P10`, where `w` is the conservatism.
 4. **Skip rule.** The charge is skipped, with a target of minimum SoC plus 10, when SoC is at or above the skip threshold, no EV is plugged in, and the forecast is more than 0.8 times the smaller of 60% of the forecast and the usable battery capacity.
-5. **Simulation.** Otherwise the integration simulates one day in 48 half-hour slots. Solar follows a bell curve centred on 13:00 between 06:30 and 19:30. Load is the average daily load spread evenly. It finds the lowest starting SoC that keeps the battery above the minimum all day.
+5. **Simulation.** Otherwise the integration simulates one day in 48 half-hour slots. Solar follows a bell curve centred on 13:00 between 06:30 and 19:30. Load follows your own per-slot history once two complete days are stored (the same weekday when three or more are available), scaled to the average daily load. Before that it is the average daily load spread evenly. It finds the lowest starting SoC that keeps the battery above the minimum all day.
 6. **Adjustments.** Add 10 points if an EV is plugged in. Never go below minimum SoC plus 5, or above 100.
 7. **Cap.** The target is capped at **Default overnight charge target**, which is 80% unless you change it. The cap also applies to the winter target of 100%.
 8. **Overrides.** Manual overrides replace the result and the cap does not apply to them. See [Entities](entities.md).
@@ -130,7 +145,7 @@ The integration finds Zappi (myenergi), Wallbox, OCPP, Ohme and Easee chargers b
 
 It does three things with the charger:
 
-- **Signals.** EV Solar Surplus reads `Available` at 1400 W of net solar surplus or more. EV Charging Source reports Solar, Grid, Battery or Mixed. EV Draining Battery is `yes` when the charger is charging and the battery discharges over 200 W.
+- **Signals.** EV Solar Surplus reads `Available` at 1380 W of net solar surplus or more. EV Charging Source reports Solar, Grid, Battery or Mixed. EV Draining Battery is `yes` when the charger is charging and the battery discharges over 200 W.
 - **Zappi mode.** For a Zappi with a charge mode entity, with a car plugged in and net surplus of at least 1380 W, the integration selects **Eco+** unless the Zappi is already in it. It never selects Stopped. In dry run it records the action and sends nothing.
 - **Cost and distance.** EV energy, cost and kilometres use the car efficiency from the options.
 

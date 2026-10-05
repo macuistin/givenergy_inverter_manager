@@ -8,7 +8,7 @@
 4. Press **Refresh Dashboard** to regenerate the dashboard.
 5. Check **Developer Tools → Statistics** for the nine sensors in the next section.
 
-No config entry migration runs. Existing setups keep working.
+No config entry migration runs. Existing setups keep working. The saved battery cycle count is halved once on the first start, because cycles now count discharge only. See [Concepts](concepts.md#battery-cycles).
 
 ## Charge calculation
 
@@ -54,7 +54,7 @@ In v0.2.1 they reported `last_reset` with a class that does not allow it, so Hom
 | Solar forecast | Solcast P10 sensor, Day-after-tomorrow sensor, Grid carbon intensity sensor, Forecast conservatism |
 | Electric vehicle (new section) | Car efficiency |
 
-Setup also asks for car efficiency (EV step) and the P10, day-after-tomorrow, carbon and conservatism fields (forecast step). The day-after-tomorrow sensor is read but not used by the charge calculation yet.
+Setup also asks for car efficiency (EV step) and the P10, day-after-tomorrow, carbon and conservatism fields (forecast step). The day-after-tomorrow sensor lowers tonight's target when that day's solar would overfill the battery.
 
 See [Configuration](configuration.md#options).
 

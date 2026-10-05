@@ -13,13 +13,17 @@ and records what the coordinator asked it to do.
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.accumulation import AccumulationState
+from custom_components.givenergy_inverter_manager.accumulation import (
+    AccumulationState,
+    AccumulationStore,
+)
 from custom_components.givenergy_inverter_manager.const import (
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
@@ -183,10 +187,32 @@ class FakeCoordinator(GivEnergyCoordinator):
             def on_midnight(self, now):
                 self.state.yesterday = self.state.today
                 self.state.today = EnergyAccumulator()
+                if self.state.slot_load_date and self.state.slot_load_date < now.date().isoformat():
+                    self._archive_slot_day()
+
+            record_slot_load = AccumulationStore.record_slot_load
+            _archive_slot_day = AccumulationStore._archive_slot_day
+            slot_load_profile = AccumulationStore.slot_load_profile
+            forecast_correction_factor = AccumulationStore.forecast_correction_factor
+            on_raw_forecast = AccumulationStore.on_raw_forecast
+            note_clipping = AccumulationStore.note_clipping
+
+            bill_start_day = 1
+
+            def update_bill_start_day(self, bill_start_day):
+                self.bill_start_day = bill_start_day
 
             def on_charge_decision(self, kwh):
                 if self.state.today_forecast_kwh == 0.0 and kwh > 0:
                     self.state.today_forecast_kwh = kwh
+
+            scheduled_saves = 0
+
+            def schedule_save(self):
+                self.scheduled_saves += 1
+
+            def save_battery_stats(self, stats):
+                pass
 
             async def async_save(self):
                 pass  # no-op in tests
@@ -199,6 +225,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
         self._ev_charger = None
+        self._battery_cycle_entities: list[str] = []
         self.override_charge_target = None
         self.immersion_target_temp: float = 55.0
         self.immersion_min_temp: float = 50.0
@@ -207,10 +234,13 @@ class FakeCoordinator(GivEnergyCoordinator):
         self.override_immersion = None
         self.override_skip_charge = False
         self._givtcp_was_unavailable: bool = False
+        self._inputs_unavailable_since = None
         self._immersion_manual_run_to_target: bool = False
         self._immersion_cooldown_until = None
         self._last_immersion_coordinator_write = None
         self._last_write_time: dict[str, float] = {}
+        self._last_write_time: dict[tuple[str, object], float] = {}
+        self._register_write_count: int = 0
         self._slot_load_today: list[float] = [0.0] * 48
         self._slot_load_history: list[list[float]] = []
 
@@ -412,6 +442,18 @@ class TestCollectRaw:
         # Assert
         assert raw.forecast_kwh_p10 == pytest.approx(6.0)
 
+    def test_reads_forecast_d2_when_configured(self):
+        cfg = _cfg(**{"forecast_entity_d2": "sensor.forecast_d2"})
+        coord = FakeCoordinator(cfg=cfg)
+        coord.set_state("sensor.forecast_d2", "21.5")
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.forecast_kwh_d2 == pytest.approx(21.5)
+
+    def test_forecast_d2_absent_when_not_configured(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.forecast_kwh_d2 is None
+
     def test_forecast_p10_absent_when_not_configured(self):
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
@@ -435,6 +477,39 @@ class TestCollectRaw:
         assert raw.forecast_kwh_p10 is None
 
 
+class TestBillStartDayFromOptions:
+    """The accumulator reset day follows the effective config, options over data."""
+
+    @pytest.mark.asyncio
+    async def test_cycle_applies_bill_start_day_from_options(self):
+        coord = FakeCoordinator(cfg=_cfg(bill_start_day=16))
+        coord.set_states(_default_states())
+        coord.entry.options = {"bill_start_day": 5}
+        await coord.run_cycle()
+        assert coord._acc.bill_start_day == 5
+
+    @pytest.mark.asyncio
+    async def test_cycle_uses_data_when_no_option_set(self):
+        coord = FakeCoordinator(cfg=_cfg(bill_start_day=16))
+        coord.set_states(_default_states())
+        await coord.run_cycle()
+        assert coord._acc.bill_start_day == 16
+
+    @pytest.mark.asyncio
+    async def test_later_option_change_is_picked_up_next_cycle(self):
+        coord = FakeCoordinator(cfg=_cfg(bill_start_day=16))
+        coord.set_states(_default_states())
+        await coord.run_cycle()
+        coord.entry.options = {"bill_start_day": 7}
+        await coord.run_cycle()
+        assert coord._acc.bill_start_day == 7
+
+    def test_configured_bill_start_day_prefers_options(self):
+        coord = FakeCoordinator(cfg=_cfg(bill_start_day=16))
+        coord.entry.options = {"bill_start_day": 28}
+        assert coord._configured_bill_start_day() == 28
+
+
 # ── TestUpdateCycle ───────────────────────────────────────────────────────────
 
 
@@ -447,6 +522,20 @@ class TestUpdateCycle:
         coord.set_states(_default_states())
         data = await coord.run_cycle()
         assert isinstance(data, CoordinatorData)
+
+    @pytest.mark.asyncio
+    async def test_period_start_stamps_reach_the_data(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord._acc.state.week_start_iso = "2026-07-13T00:00:00+00:00"
+        coord._acc.state.month_start_iso = "2026-07-01T00:00:00+00:00"
+        coord._acc.state.year_start_iso = "2026-01-01T00:00:00+00:00"
+        coord._last_reset_time = "2026-07-15T00:00:00+00:00"
+        data = await coord.run_cycle()
+        assert data.week_start_time == "2026-07-13T00:00:00+00:00"
+        assert data.month_start_time == "2026-07-01T00:00:00+00:00"
+        assert data.year_start_time == "2026-01-01T00:00:00+00:00"
+        assert data.last_reset_time == "2026-07-15T00:00:00+00:00"
 
     @pytest.mark.asyncio
     async def test_solar_power_reflected_in_data(self):
@@ -510,6 +599,160 @@ class TestUpdateCycle:
 
 
 # ── TestMidnightReset ─────────────────────────────────────────────────────────
+
+
+class _MemoryStore:
+    """Stands in for homeassistant.helpers.storage.Store."""
+
+    def __init__(self, saved: dict | None = None):
+        self.saved = saved
+        self.saves = 0
+
+    async def async_load(self):
+        return self.saved
+
+    async def async_save(self, data):
+        self.saved = data
+        self.saves += 1
+
+
+def _coord_with_real_store(saved: dict | None, monkeypatch, local_now: datetime):
+    from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+    class _Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return local_now
+
+    monkeypatch.setitem(GivEnergyCoordinator.async_restore_state.__globals__, "datetime", _Clock)
+    coord = FakeCoordinator(cfg=_cfg())
+    store = AccumulationStore.__new__(AccumulationStore)
+    store.state = AccumulationState()
+    store._bill_start_day = 1
+    store._store = _MemoryStore(saved)
+    coord._acc = store
+    return coord, store
+
+
+class TestRestoreState:
+    def _saved(self, last_midnight: datetime) -> dict:
+        from custom_components.givenergy_inverter_manager.accumulation import _serialize
+
+        state = AccumulationState()
+        state.last_reset_iso = last_midnight.isoformat()
+        state.today.solar_kwh = 9.0
+        state.week.solar_kwh = 50.0
+        return _serialize(state)
+
+    async def test_restart_across_midnight_starts_a_new_day(self, monkeypatch):
+        saved = self._saved(datetime(2026, 7, 14, tzinfo=timezone.utc))
+        coord, store = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert store.yesterday.solar_kwh == pytest.approx(9.0)
+        assert store.today.solar_kwh == 0.0
+        assert coord._last_reset_time == "2026-07-15T00:00:00+00:00"
+
+    async def test_restart_after_a_missed_monday_resets_the_week(self, monkeypatch):
+        saved = self._saved(datetime(2026, 7, 11, tzinfo=timezone.utc))
+        coord, store = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 14, 6, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert store.week.solar_kwh == 0.0
+        assert store.state.week_start_iso == "2026-07-13T00:00:00+00:00"
+
+    async def test_rolled_state_is_saved_straight_away(self, monkeypatch):
+        saved = self._saved(datetime(2026, 7, 14, tzinfo=timezone.utc))
+        coord, store = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert store._store.saves == 1
+        assert store._store.saved["last_reset_iso"] == "2026-07-15T00:00:00+00:00"
+
+    async def test_restart_on_the_same_day_keeps_the_day_and_last_reset(self, monkeypatch):
+        saved = self._saved(datetime(2026, 7, 14, tzinfo=timezone.utc))
+        saved["week_start_iso"] = "2026-07-13T00:00:00+00:00"
+        saved["month_start_iso"] = "2026-07-01T00:00:00+00:00"
+        saved["year_start_iso"] = "2026-01-01T00:00:00+00:00"
+        coord, store = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 14, 18, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert store.today.solar_kwh == pytest.approx(9.0)
+        assert coord._last_reset_time == "2026-07-14T00:00:00+00:00"
+        assert store._store.saves == 0
+
+    async def test_fresh_install_stamps_last_reset_with_todays_midnight(self, monkeypatch):
+        coord, store = _coord_with_real_store(
+            None, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert coord._last_reset_time == "2026-07-15T00:00:00+00:00"
+        assert store.state.year_start_iso == "2026-01-01T00:00:00+00:00"
+
+
+class TestDurablePersistence:
+    @pytest.mark.asyncio
+    async def test_tenth_cycle_queues_a_delayed_save(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        for _ in range(9):
+            await coord.run_cycle()
+        assert coord._acc.scheduled_saves == 0
+        await coord.run_cycle()
+        assert coord._acc.scheduled_saves == 1
+
+    async def test_flush_saves_battery_stats_and_accumulators(self, monkeypatch):
+        coord, store = _coord_with_real_store(
+            None, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+        coord._battery_stats.total_cycles = 3.5
+        store.state.month.solar_kwh = 77.7
+
+        await coord.async_flush()
+
+        assert store._store.saved["battery_cycles"] == pytest.approx(3.5)
+        assert store._store.saved["month"]["solar_kwh"] == pytest.approx(77.7)
+
+    async def test_restore_registers_a_flush_for_unload_and_for_home_assistant_stop(
+        self, monkeypatch
+    ):
+        from custom_components.givenergy_inverter_manager.coordinator import (
+            EVENT_HOMEASSISTANT_FINAL_WRITE,
+        )
+
+        coord, store = _coord_with_real_store(
+            None, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+        on_unload = []
+        coord.entry.async_on_unload = on_unload.append
+        stop_remover = MagicMock()
+        coord.hass.bus.async_listen = MagicMock(return_value=stop_remover)
+
+        await coord.async_restore_state()
+
+        assert coord.async_flush in on_unload
+        assert stop_remover in on_unload
+        coord.hass.bus.async_listen.assert_called_once_with(
+            EVENT_HOMEASSISTANT_FINAL_WRITE, coord._async_final_write
+        )
+
+        store.state.week.solar_kwh = 12.0
+        await coord._async_final_write(MagicMock())
+        assert store._store.saved["week"]["solar_kwh"] == pytest.approx(12.0)
 
 
 class TestMidnightReset:
@@ -760,6 +1003,46 @@ class TestApplyEvAction:
         coord._apply_ev_action(None)
         assert len(coord.tasks_created) == 0
 
+    @pytest.mark.asyncio
+    async def test_second_write_within_cooldown_is_skipped(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._ev_charger = self._charger(mode="Fast")
+        coord.data = MagicMock()
+        coord._apply_ev_action("Eco+")
+        await coord.tasks_created[0]
+        coord._ev_charger = self._charger(mode="Fast")
+        coord._apply_ev_action("Eco+")
+        assert len(coord.tasks_created) == 1
+
+    @pytest.mark.asyncio
+    async def test_write_allowed_again_after_cooldown(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            GIVTCP_MIN_WRITE_INTERVAL_S,
+        )
+
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._ev_charger = self._charger(mode="Fast")
+        coord.data = MagicMock()
+        coord._apply_ev_action("Eco+")
+        await coord.tasks_created[0]
+        coord._last_write_time[("select.zappi_mode", "Eco+")] = (
+            time.monotonic() - GIVTCP_MIN_WRITE_INTERVAL_S - 1
+        )
+        coord._ev_charger = self._charger(mode="Fast")
+        coord._apply_ev_action("Eco+")
+        assert len(coord.tasks_created) == 2
+        await coord.tasks_created[1]
+
+    def test_dry_run_does_not_start_the_cooldown(self):
+        cfg = _cfg(**{CONF_DRY_RUN: True})
+        coord = FakeCoordinator(cfg=cfg)
+        coord._ev_charger = self._charger(mode="Fast")
+        from types import SimpleNamespace
+
+        coord.data = SimpleNamespace(dry_run_last_skipped="")
+        coord._apply_ev_action("Eco+")
+        assert "select.zappi_mode" not in coord._last_write_time
+
     def test_dry_run_skips_ev_action(self):
         cfg = _cfg(**{CONF_DRY_RUN: True})
         coord = FakeCoordinator(cfg=cfg)
@@ -845,7 +1128,7 @@ class TestGivtcpWriteHelpers:
     async def test_set_switch_skips_within_cooldown(self):
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
-        coord._last_write_time["switch.target"] = time.monotonic()  # just written
+        coord._last_write_time[("switch.target", True)] = time.monotonic()  # just written
 
         # Act
         await coord._givtcp_set_switch("switch.target", True, "test")
@@ -861,7 +1144,7 @@ class TestGivtcpWriteHelpers:
 
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
-        coord._last_write_time["switch.target"] = (
+        coord._last_write_time[("switch.target", True)] = (
             time.monotonic() - GIVTCP_MIN_WRITE_INTERVAL_S - 1
         )
 
@@ -875,7 +1158,7 @@ class TestGivtcpWriteHelpers:
     async def test_set_select_skips_within_cooldown(self):
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
-        coord._last_write_time["select.target"] = time.monotonic()
+        coord._last_write_time[("select.target", "Eco+")] = time.monotonic()
 
         # Act
         await coord._givtcp_set_select("select.target", "Eco+", "test")
@@ -887,7 +1170,7 @@ class TestGivtcpWriteHelpers:
     async def test_set_number_skips_within_cooldown(self):
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
-        coord._last_write_time["number.target"] = time.monotonic()
+        coord._last_write_time[("number.target", 80)] = time.monotonic()
 
         # Act
         await coord._givtcp_set_number("number.target", 80, "test")
@@ -900,7 +1183,7 @@ class TestGivtcpWriteHelpers:
         # Arrange — entity already at the target value; cooldown is active
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_state("switch.target", "on")
-        coord._last_write_time["switch.target"] = time.monotonic()
+        coord._last_write_time[("switch.target", True)] = time.monotonic()
 
         # Act
         await coord._givtcp_set_switch("switch.target", True, "test")
@@ -912,13 +1195,13 @@ class TestGivtcpWriteHelpers:
     async def test_first_write_sets_cooldown_timestamp(self):
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
-        assert "switch.target" not in coord._last_write_time
+        assert ("switch.target", True) not in coord._last_write_time
 
         # Act
         await coord._givtcp_set_switch("switch.target", True, "test")
 
         # Assert
-        assert "switch.target" in coord._last_write_time
+        assert ("switch.target", True) in coord._last_write_time
 
 
 # ── TestFlatRateTariff ────────────────────────────────────────────────────────
@@ -1474,13 +1757,6 @@ class TestIconTranslations:
         assert "get_dashboard_yaml" in icons.get("services", {})
         assert "suggest_appliance_run" in icons.get("services", {})
 
-    def test_quality_scale_icon_translations_is_done(self):
-        from pathlib import Path
-        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
-        idx = qs.find("icon-translations")
-        assert idx != -1
-        assert "done" in qs[idx : idx + 80]
-
 
 class TestRepairIssues:
     """Repair issue is created when GivTCP entities are completely absent from HA."""
@@ -1583,8 +1859,10 @@ class TestDashboardServiceValidationError:
         from pathlib import Path
         src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
         handler_block = src[src.find("def handle_get_dashboard_yaml"):]
-        assert "raise ServiceValidationError" in handler_block
-        assert "no_config_entry" in handler_block
+        assert "require_loaded_entries(hass)" in handler_block
+        helper_block = src[src.find("def require_loaded_entries"):src.find("def _entity_id")]
+        assert "raise ServiceValidationError" in helper_block
+        assert "no_config_entry" in helper_block
 
 
 class TestImmersionRunToTarget:
@@ -1895,7 +2173,7 @@ class TestLiveGridCostRate:
 
     def test_grid_node_secondary_info_uses_live_rate(self):
         from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        src = Path("custom_components/givenergy_inverter_manager/dashboard_builder.py").read_text()
         assert "live_grid_cost_rate" in src
 
 
@@ -1982,7 +2260,7 @@ class TestCheapRateFloorWriteSafety:
         assert coord.service_calls == []
 
     @pytest.mark.asyncio
-    async def test_cooldown_blocks_a_second_write_within_the_interval(self):
+    async def test_cooldown_does_not_block_a_different_value(self):
         from unittest.mock import AsyncMock, patch
 
         coord, cfg = self._coord(target_now="100")
@@ -1994,7 +2272,7 @@ class TestCheapRateFloorWriteSafety:
             await coord._write_floor_target(cfg, "number.target_soc", 55)
 
         values = [c["value"] for c in coord.service_calls_for("number", "set_value")]
-        assert values == [40]
+        assert values == [40, 55]
 
     @pytest.mark.asyncio
     async def test_counts_register_writes(self):
@@ -2024,6 +2302,7 @@ class TestSensorDropouts:
             ("sensor.house", "house_load"),
             ("sensor.battery_power", "battery_power"),
             ("sensor.solar", "solar_power"),
+            ("sensor.battery_soc", "battery_soc"),
         ],
     )
     @pytest.mark.parametrize("state", ["unavailable", "unknown"])
@@ -2094,3 +2373,556 @@ class TestSensorDropouts:
         coord._smoothed_solar_w = 5000.0
         data = await coord._async_update_data()
         assert data.should_divert_immersion is True
+
+
+class TestInputOutageTracking:
+    """The coordinator measures how long required inputs have been unavailable."""
+
+    def _raw_with(self, *unavailable):
+        raw = _raw()
+        raw.unavailable_inputs = tuple(unavailable)
+        return raw
+
+    def test_no_outage_reports_zero(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = self._raw_with()
+        coord._track_input_outage(raw, datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc))
+        assert raw.unavailable_for_s == 0.0
+        assert coord._inputs_unavailable_since is None
+
+    def test_outage_duration_counts_from_first_cycle(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        start = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
+        for offset in (0, 30, 90):
+            raw = self._raw_with("house_load")
+            coord._track_input_outage(raw, start + timedelta(seconds=offset))
+        assert raw.unavailable_for_s == pytest.approx(90.0)
+
+    def test_recovery_resets_the_clock(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        start = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
+        coord._track_input_outage(self._raw_with("solar_power"), start)
+        coord._track_input_outage(self._raw_with(), start + timedelta(seconds=60))
+        raw = self._raw_with("solar_power")
+        coord._track_input_outage(raw, start + timedelta(seconds=120))
+        assert raw.unavailable_for_s == 0.0
+
+    @pytest.mark.asyncio
+    async def test_running_immersion_turns_off_after_hold_limit(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            GIVTCP_MIN_WRITE_INTERVAL_S,
+        )
+
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_IMMERSION_SWITCH: "switch.immersion"}))
+        coord.set_states(_default_states())
+        coord.set_states({"sensor.solar": "5000", "sensor.battery_soc": "95",
+                          "sensor.battery_power": "0", "sensor.house": "unavailable",
+                          "switch.immersion": "on"})
+        coord._smoothed_solar_w = 5000.0
+        coord._inputs_unavailable_since = datetime.now(timezone.utc) - timedelta(
+            seconds=GIVTCP_MIN_WRITE_INTERVAL_S + 10
+        )
+        data = await coord._async_update_data()
+        assert data.should_divert_immersion is False
+        assert "turning off" in data.divert_reason
+# ── Load profile and forecast correction wiring ───────────────────────────────
+
+
+class _FixedClock(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return datetime(2026, 6, 15, 12, 0, tzinfo=tz or timezone.utc)  # a Monday
+
+
+@pytest.fixture
+def fixed_clock(monkeypatch):
+    monkeypatch.setitem(
+        GivEnergyCoordinator._async_update_data.__globals__, "datetime", _FixedClock
+    )
+
+
+def _history_day(offset_days: int, slots: list[float]) -> dict:
+    day = datetime(2026, 6, 14, tzinfo=timezone.utc) - timedelta(days=offset_days)
+    return {"date": day.date().isoformat(), "slots": slots, "coverage": 1.0}
+
+
+def _evening_heavy_slots() -> list[float]:
+    return [0.1 if slot < 34 else 0.1 + (20 - 0.1 * 48) / 14 for slot in range(48)]
+
+
+def _forecast_coord() -> FakeCoordinator:
+    coord = FakeCoordinator(cfg=_cfg(**{"forecast_entity": "sensor.forecast"}))
+    coord.set_states(_default_states())
+    coord.set_state("sensor.forecast", "14")
+    coord._acc.today.house_kwh = 10.0  # 20 kWh/day pace at noon
+    return coord
+
+
+class TestLoadProfileAndForecastCorrectionWiring:
+    @pytest.mark.asyncio
+    async def test_cycle_records_baseline_load_in_persisted_slot_state(self, fixed_clock):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord._last_update = datetime(2026, 6, 15, 11, 59, 30, tzinfo=timezone.utc)
+        await coord.run_cycle()
+        assert coord._acc.state.slot_load_today[24] == pytest.approx(1.5 * 30 / 3600)
+        assert coord._acc.state.slot_hours_today[24] == pytest.approx(30 / 3600)
+        assert coord._acc.state.slot_load_date == "2026-06-15"
+
+    @pytest.mark.asyncio
+    async def test_stored_profile_changes_the_charge_target(self, fixed_clock):
+        flat = await _forecast_coord().run_cycle()
+        coord = _forecast_coord()
+        coord._acc.state.slot_load_history = [
+            _history_day(1, _evening_heavy_slots()),
+            _history_day(2, _evening_heavy_slots()),
+        ]
+        profiled = await coord.run_cycle()
+        assert profiled.charge_decision.target_soc < flat.charge_decision.target_soc
+        assert "load profile" in profiled.charge_decision.reason
+
+    @pytest.mark.asyncio
+    async def test_no_history_gives_flat_decision(self, fixed_clock):
+        data = await _forecast_coord().run_cycle()
+        assert "load profile" not in data.charge_decision.reason
+        assert "accuracy" not in data.charge_decision.reason
+
+    @pytest.mark.asyncio
+    async def test_recorded_accuracy_scales_the_forecast(self, fixed_clock):
+        coord = _forecast_coord()
+        coord._acc.state.forecast_ratio_history = [
+            {"forecast": 10.0, "actual": 7.0, "clipped": False}
+        ] * 5
+        data = await coord.run_cycle()
+        assert data.charge_decision.forecast_kwh == pytest.approx(14.0 * 0.7)
+
+    @pytest.mark.asyncio
+    async def test_cycle_stores_raw_forecast_and_clipping(self, fixed_clock):
+        coord = _forecast_coord()
+        coord.set_state("sensor.solar", "4900")
+        await coord.run_cycle()
+        assert coord._acc.state.pending_raw_forecast_kwh == pytest.approx(14.0)
+        assert coord._acc.state.today_clipping is True
+
+    @pytest.mark.asyncio
+    async def test_no_clipping_flag_below_threshold(self, fixed_clock):
+        coord = _forecast_coord()
+        await coord.run_cycle()
+        assert coord._acc.state.today_clipping is False
+
+    def test_midnight_reset_archives_the_completed_day(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        for slot in range(48):
+            coord._acc.record_slot_load(
+                datetime(2026, 6, 15, slot // 2, (slot % 2) * 30, tzinfo=timezone.utc),
+                slot,
+                0.4,
+                0.5,
+            )
+        coord._midnight_reset(datetime(2026, 6, 16, 0, 0, tzinfo=timezone.utc))
+        history = coord._acc.state.slot_load_history
+        assert [e["date"] for e in history] == ["2026-06-15"]
+        assert history[0]["coverage"] == pytest.approx(1.0)
+        assert coord._acc.state.slot_load_today == [0.0] * 48
+# ── Battery cycle accounting ──────────────────────────────────────────────────
+
+
+class TestBatteryCycleAccounting:
+    """SoC glitches must not add phantom cycles through the coordinator."""
+
+    async def _run(self, readings):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        for soc in readings:
+            coord.set_state("sensor.battery_soc", soc)
+            await coord.run_cycle()
+        return coord
+
+    @pytest.mark.asyncio
+    async def test_unavailable_soc_between_healthy_readings_adds_no_cycles(self):
+        coord = await self._run(["80", "unavailable", "80"])
+        assert coord._battery_stats.total_cycles == pytest.approx(0.0)
+
+    @pytest.mark.asyncio
+    async def test_unavailable_soc_does_not_become_the_previous_reading(self):
+        coord = await self._run(["80", "unavailable"])
+        assert coord._last_soc is None
+
+    @pytest.mark.asyncio
+    async def test_literal_zero_soc_adds_no_cycles(self):
+        coord = await self._run(["80", "0", "79"])
+        assert coord._battery_stats.total_cycles == pytest.approx(0.0)
+
+    @pytest.mark.asyncio
+    async def test_discharge_between_healthy_readings_is_counted(self):
+        coord = await self._run(["80", "79", "78"])
+        assert coord._battery_stats.total_cycles == pytest.approx(0.02)
+
+    @pytest.mark.asyncio
+    async def test_charging_between_healthy_readings_is_not_counted(self):
+        coord = await self._run(["70", "71", "72"])
+        assert coord._battery_stats.total_cycles == pytest.approx(0.0)
+
+
+# ── BMS lifetime cycle counter ────────────────────────────────────────────────
+
+PACK_1 = "sensor.givtcp_bt2349g123_battery_cycles"
+PACK_2 = "sensor.givtcp_bt2349g456_battery_cycles"
+
+
+class TestBatteryLifetimeCycles:
+    """The GivTCP BMS counter is the authoritative lifetime cycle count."""
+
+    def _coord(self, **states):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.set_states(states)
+        return coord
+
+    def test_reads_the_bms_counter_once_discovered(self):
+        coord = self._coord(**{PACK_1: "38"})
+        coord._update_cycle = 1
+        coord._maybe_rediscover_battery_cycles()
+        assert coord._battery_cycle_entities == [PACK_1]
+        assert coord._read_battery_lifetime_cycles() == pytest.approx(38.0)
+
+    def test_uses_the_highest_pack_not_the_sum(self):
+        coord = self._coord(**{PACK_1: "38", PACK_2: "41"})
+        coord._update_cycle = 1
+        coord._maybe_rediscover_battery_cycles()
+        assert coord._read_battery_lifetime_cycles() == pytest.approx(41.0)
+
+    def test_unavailable_and_zero_packs_are_ignored(self):
+        coord = self._coord(**{PACK_1: "unavailable", PACK_2: "0"})
+        coord._update_cycle = 1
+        coord._maybe_rediscover_battery_cycles()
+        assert coord._read_battery_lifetime_cycles() is None
+
+    def test_none_when_no_counter_exists(self):
+        coord = self._coord()
+        coord._update_cycle = 1
+        coord._maybe_rediscover_battery_cycles()
+        assert coord._read_battery_lifetime_cycles() is None
+
+    def test_rediscovery_only_runs_every_tenth_cycle(self):
+        coord = self._coord(**{PACK_1: "38"})
+        coord._update_cycle = 2
+        coord._maybe_rediscover_battery_cycles()
+        assert coord._battery_cycle_entities == []
+        coord._update_cycle = 11
+        coord._maybe_rediscover_battery_cycles()
+        assert coord._battery_cycle_entities == [PACK_1]
+
+    @pytest.mark.asyncio
+    async def test_total_cycles_is_seeded_from_the_bms_counter(self):
+        coord = self._coord(**{PACK_1: "38"})
+        data = await coord.run_cycle()
+        assert data.battery_stats.total_cycles == pytest.approx(38.0)
+        assert data.battery_stats.estimated_remaining_life_pct == pytest.approx(
+            (1 - 38.0 / 6000) * 100
+        )
+
+    @pytest.mark.asyncio
+    async def test_bms_counter_replaces_a_lower_soc_estimate(self):
+        coord = self._coord(**{PACK_1: "38"})
+        coord._battery_stats.total_cycles = 12.0
+        data = await coord.run_cycle()
+        assert data.battery_stats.total_cycles == pytest.approx(38.0)
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_the_soc_estimate_without_a_counter(self):
+        coord = self._coord()
+        coord.set_state("sensor.battery_soc", "80")
+        await coord.run_cycle()
+        coord.set_state("sensor.battery_soc", "79")
+        data = await coord.run_cycle()
+        assert data.battery_stats.total_cycles == pytest.approx(0.01)
+
+    @pytest.mark.asyncio
+    async def test_soc_estimate_continues_from_the_last_bms_value(self):
+        coord = self._coord(**{PACK_1: "38"})
+        coord.set_state("sensor.battery_soc", "80")
+        await coord.run_cycle()
+        coord.set_state(PACK_1, "unavailable")
+        coord.set_state("sensor.battery_soc", "79")
+        data = await coord.run_cycle()
+        assert data.battery_stats.total_cycles == pytest.approx(38.01)
+
+
+# ── Write safety ──────────────────────────────────────────────────────────────
+
+
+class _Boom(Exception):
+    """Stand-in for an error raised by a service call."""
+
+
+def _write_coord(fail_entities=(), exc=None, **cfg_overrides):
+    """FakeCoordinator whose service calls raise for the listed entities."""
+    from homeassistant.exceptions import HomeAssistantError
+
+    error = exc or HomeAssistantError("service failed")
+    cfg = _cfg(**cfg_overrides)
+    coord = FakeCoordinator(cfg=cfg)
+    coord.set_state("switch.enable_charge_target", "off")
+    coord.set_state("switch.enable_charge_schedule", "off")
+    coord.set_state("select.charge_start", "00:00:00")
+    coord.set_state("select.charge_end", "00:00:00")
+    coord.set_state("number.target_soc", "100")
+    original = coord._call_service
+
+    async def call(domain, service, data, blocking=True):
+        if data.get("entity_id") in fail_entities:
+            raise error
+        await original(domain, service, data, blocking)
+
+    coord._call_service = call
+    return coord, cfg
+
+
+def _cheap_period():
+    from datetime import time as dtime
+    from types import SimpleNamespace
+
+    return SimpleNamespace(name="Night", start=dtime(23, 0), end=dtime(8, 0))
+
+
+class TestWriteHelpersCatchServiceErrors:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("exc", [None, RuntimeError("boom")])
+    async def test_set_number_returns_false_instead_of_raising(self, exc):
+        coord, _ = _write_coord({"number.target_soc"}, exc)
+        assert await coord._givtcp_set_number("number.target_soc", 80, "target") is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("exc", [None, RuntimeError("boom")])
+    async def test_set_switch_returns_false_instead_of_raising(self, exc):
+        coord, _ = _write_coord({"switch.enable_charge_target"}, exc)
+        assert await coord._givtcp_set_switch("switch.enable_charge_target", True, "x") is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("exc", [None, RuntimeError("boom")])
+    async def test_set_select_returns_false_instead_of_raising(self, exc):
+        coord, _ = _write_coord({"select.charge_start"}, exc)
+        assert await coord._givtcp_set_select("select.charge_start", "23:00:00", "x") is False
+
+    @pytest.mark.asyncio
+    async def test_successful_write_returns_true(self):
+        coord, _ = _write_coord()
+        assert await coord._givtcp_set_number("number.target_soc", 80, "target") is True
+        assert await coord._givtcp_set_switch("switch.enable_charge_target", True, "x") is True
+        assert await coord._givtcp_set_select("select.charge_start", "23:00:00", "x") is True
+
+    @pytest.mark.asyncio
+    async def test_already_at_value_returns_true_without_writing(self):
+        coord, _ = _write_coord()
+        coord.set_state("number.target_soc", "80")
+        assert await coord._givtcp_set_number("number.target_soc", 80, "target") is True
+        assert coord.service_calls == []
+
+    @pytest.mark.asyncio
+    async def test_missing_entity_returns_false(self):
+        coord, _ = _write_coord()
+        assert await coord._givtcp_set_number(None, 80, "target") is False
+
+    @pytest.mark.asyncio
+    async def test_failed_write_is_not_counted(self):
+        coord, _ = _write_coord({"number.target_soc"})
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert coord._register_write_count == 0
+
+    @pytest.mark.asyncio
+    async def test_failed_write_does_not_start_a_cooldown(self):
+        coord, _ = _write_coord({"number.target_soc"})
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert ("number.target_soc", 80) not in coord._last_write_time
+
+    @pytest.mark.asyncio
+    async def test_failure_is_logged(self, caplog):
+        coord, _ = _write_coord({"number.target_soc"})
+        with caplog.at_level(logging.WARNING):
+            await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert any("number.target_soc" in r.getMessage() for r in caplog.records)
+
+
+class TestWriteCooldownKeyedOnValue:
+    @staticmethod
+    def _stuck(coord):
+        """Service calls are recorded but the state never changes."""
+
+        async def call(domain, service, data, blocking=True):
+            coord.service_calls.append((domain, service, data))
+
+        coord._call_service = call
+
+    @pytest.mark.asyncio
+    async def test_identical_value_within_cooldown_is_not_rewritten(self):
+        coord, _ = _write_coord()
+        self._stuck(coord)
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        calls_after_first = len(coord.service_calls)
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert len(coord.service_calls) == calls_after_first
+
+    @pytest.mark.asyncio
+    async def test_different_value_within_cooldown_is_written(self):
+        coord, _ = _write_coord()
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        await coord._givtcp_set_number("number.target_soc", 60, "target")
+        values = [c["value"] for c in coord.service_calls_for("number", "set_value")]
+        assert values == [80, 60]
+
+    @pytest.mark.asyncio
+    async def test_cooldown_is_per_value_for_switches(self):
+        coord, _ = _write_coord()
+        await coord._givtcp_set_switch("switch.enable_charge_target", True, "x")
+        await coord._givtcp_set_switch("switch.enable_charge_target", False, "x")
+        assert len(coord.service_calls_for("switch", "turn_on")) == 1
+        assert len(coord.service_calls_for("switch", "turn_off")) == 1
+
+    @pytest.mark.asyncio
+    async def test_cooldown_is_per_value_for_selects(self):
+        coord, _ = _write_coord()
+        await coord._givtcp_set_select("select.charge_start", "23:00:00", "x")
+        await coord._givtcp_set_select("select.charge_start", "01:00:00", "x")
+        options = [c["option"] for c in coord.service_calls_for("select", "select_option")]
+        assert options == ["23:00:00", "01:00:00"]
+
+
+class TestChargeTargetSequenceSafety:
+    @pytest.mark.asyncio
+    async def test_failed_target_write_does_not_enable_the_charge_target(self):
+        coord, cfg = _write_coord({"number.target_soc"})
+        await coord._async_apply_charge_target(cfg, 80, _cheap_period())
+        assert coord.service_calls_for("switch", "turn_on") == [
+            {"entity_id": "switch.enable_charge_schedule"}
+        ]
+        assert {"entity_id": "switch.enable_charge_target"} not in coord.service_calls_for(
+            "switch", "turn_on"
+        )
+
+    @pytest.mark.asyncio
+    async def test_failed_target_write_logs_a_warning(self, caplog):
+        coord, cfg = _write_coord({"number.target_soc"})
+        with caplog.at_level(logging.WARNING):
+            await coord._async_apply_charge_target(cfg, 80, _cheap_period())
+        assert any("not enabling the charge target" in r.getMessage() for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_failed_target_write_still_lets_a_100_percent_target_clear_the_limit(self):
+        coord, cfg = _write_coord({"number.target_soc"})
+        coord.set_state("switch.enable_charge_target", "on")
+        await coord._async_apply_charge_target(cfg, 100, _cheap_period())
+        assert coord.service_calls_for("switch", "turn_off") == [
+            {"entity_id": "switch.enable_charge_target"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_earlier_step_failure_does_not_abort_the_sequence(self):
+        coord, cfg = _write_coord({"switch.enable_charge_schedule", "select.charge_start"})
+        await coord._async_apply_charge_target(cfg, 80, _cheap_period())
+        assert coord.service_calls_for("number", "set_value") == [
+            {"entity_id": "number.target_soc", "value": 80}
+        ]
+        assert {"entity_id": "switch.enable_charge_target"} in coord.service_calls_for(
+            "switch", "turn_on"
+        )
+        assert coord.service_calls_for("select", "select_option") == [
+            {"entity_id": "select.charge_end", "option": "08:00:00"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_generic_exception_in_the_target_write_is_contained(self):
+        coord, cfg = _write_coord({"number.target_soc"}, RuntimeError("boom"))
+        await coord._async_apply_charge_target(cfg, 80, _cheap_period())
+        assert {"entity_id": "switch.enable_charge_target"} not in coord.service_calls_for(
+            "switch", "turn_on"
+        )
+
+    @pytest.mark.asyncio
+    async def test_full_sequence_runs_when_everything_succeeds(self):
+        coord, cfg = _write_coord()
+        await coord._async_apply_charge_target(cfg, 80, _cheap_period())
+        assert {"entity_id": "switch.enable_charge_target"} in coord.service_calls_for(
+            "switch", "turn_on"
+        )
+
+
+class TestChargeTargetClamp:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("requested", "written"), [(0, 4), (2, 4), (3, 4), (4, 4), (150, 100)])
+    async def test_target_is_clamped_to_what_givtcp_accepts(self, requested, written):
+        coord, cfg = _write_coord()
+        coord.set_state("number.target_soc", "50")
+        await coord._async_apply_charge_target(cfg, requested, _cheap_period())
+        assert coord.service_calls_for("number", "set_value") == [
+            {"entity_id": "number.target_soc", "value": written}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_clamped_100_percent_clears_the_charge_target_limit(self):
+        coord, cfg = _write_coord()
+        coord.set_state("switch.enable_charge_target", "on")
+        coord.set_state("number.target_soc", "50")
+        await coord._async_apply_charge_target(cfg, 120, _cheap_period())
+        assert coord.service_calls_for("number", "set_value")[0]["value"] == 100
+        assert coord.service_calls_for("switch", "turn_off") == [
+            {"entity_id": "switch.enable_charge_target"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_clamping_is_logged(self, caplog):
+        coord, cfg = _write_coord()
+        with caplog.at_level(logging.WARNING):
+            await coord._async_apply_charge_target(cfg, 1, _cheap_period())
+        assert any("outside the range" in r.getMessage() for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_floor_target_is_clamped(self):
+        coord, cfg = _write_coord()
+        assert await coord._write_floor_target(cfg, "number.target_soc", 1) is True
+        assert coord.service_calls_for("number", "set_value") == [
+            {"entity_id": "number.target_soc", "value": 4}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_floor_does_not_enable_the_target_when_the_number_write_fails(self):
+        coord, cfg = _write_coord({"number.target_soc"})
+        assert await coord._write_floor_target(cfg, "number.target_soc", 40) is False
+        assert coord.service_calls_for("switch", "turn_on") == []
+
+
+# ── Register write count ──────────────────────────────────────────────────────
+
+
+class TestRegisterWriteCountPersistence:
+    @pytest.mark.asyncio
+    async def test_each_write_updates_the_value_that_gets_saved(self):
+        coord, _ = _write_coord()
+        coord._acc.state.register_write_count = 0
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert coord._acc.state.register_write_count == coord._register_write_count > 0
+
+    @pytest.mark.asyncio
+    async def test_count_continues_from_a_restored_value(self):
+        coord, _ = _write_coord()
+        coord._register_write_count = 1000
+        await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert coord._acc.state.register_write_count == 1001
+
+    @pytest.mark.asyncio
+    async def test_lifetime_warning_fires_when_the_restored_count_reaches_the_limit(self, caplog):
+        from custom_components.givenergy_inverter_manager.const import GIVTCP_WRITE_LIFETIME_WARN
+
+        coord, _ = _write_coord()
+        coord._register_write_count = GIVTCP_WRITE_LIFETIME_WARN - 1
+        with caplog.at_level(logging.WARNING):
+            await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert any("rated lifetime" in r.getMessage() for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_no_lifetime_warning_below_the_limit(self, caplog):
+        coord, _ = _write_coord()
+        coord._register_write_count = 10
+        with caplog.at_level(logging.WARNING):
+            await coord._givtcp_set_number("number.target_soc", 80, "target")
+        assert not any("rated lifetime" in r.getMessage() for r in caplog.records)

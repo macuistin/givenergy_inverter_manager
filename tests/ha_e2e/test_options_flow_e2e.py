@@ -184,3 +184,121 @@ async def test_zero_threshold_survives_reopening_the_form(hass, loaded_entry):
     threshold_section = next(f for f in _serialise(result) if f.get("name") == "threshold_settings")
     defaults = {f["name"]: f.get("default") for f in threshold_section["schema"]}
     assert defaults["cheap_rate_floor_soc"] == 0
+
+
+SLOT_EMPTY = {"name": "Empty", "rate": 0.01, "start": "00:00:00", "end": "00:00:00"}
+
+
+async def test_options_reject_zero_length_rate_period(hass, loaded_entry):
+    before = [dict(p) for p in loaded_entry.data[CONF_RATE_PERIODS]]
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    payload = frontend_payload(
+        result, tariff_settings={"export_rate": 0.21}, rate_period_3=SLOT_EMPTY
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=payload
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "rate_period_zero_length"}
+    assert _serialise(result)
+    tariff_section = next(f for f in _serialise(result) if f.get("name") == "tariff_settings")
+    suggested = {
+        f["name"]: f.get("description", {}).get("suggested_value") for f in tariff_section["schema"]
+    }
+    assert suggested["export_rate"] == pytest.approx(0.21)
+    assert "export_rate" not in loaded_entry.options
+    assert loaded_entry.data[CONF_RATE_PERIODS] == before
+    hass.config_entries.options.async_abort(result["flow_id"])
+
+
+async def test_options_reject_duplicate_rate_period_names(hass, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    slot = {"name": "night", "rate": 0.2, "start": "10:00:00", "end": "11:00:00"}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=frontend_payload(result, rate_period_3=slot)
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "rate_period_duplicate_name"}
+    hass.config_entries.options.async_abort(result["flow_id"])
+
+
+async def test_options_reject_rate_period_named_like_the_base_rate(hass, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    slot = {"name": "Day", "rate": 0.2, "start": "10:00:00", "end": "11:00:00"}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=frontend_payload(result, rate_period_3=slot)
+    )
+    assert result["errors"] == {"base": "rate_period_duplicate_name"}
+    hass.config_entries.options.async_abort(result["flow_id"])
+
+
+async def test_options_accept_a_valid_extra_rate_period(hass, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    slot = {"name": "Evening", "rate": 0.4, "start": "17:00:00", "end": "19:00:00"}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=frontend_payload(result, rate_period_3=slot)
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert [p["name"] for p in loaded_entry.options[CONF_RATE_PERIODS]] == [
+        "Night",
+        "Nightboost",
+        "Evening",
+    ]
+async def test_options_sections_follow_how_often_they_are_used(hass, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    names = [f["name"] for f in _serialise(result)]
+    assert names == [
+        "tariff_settings",
+        "rate_period_1",
+        "rate_period_2",
+        "rate_period_3",
+        "rate_period_4",
+        "rate_period_5",
+        "threshold_settings",
+        "forecast_settings",
+        "hardware_settings",
+        "ev_settings",
+    ]
+
+
+async def test_only_the_tariff_section_is_open_among_the_settings(hass, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    expanded = {
+        f["name"]: f.get("expanded")
+        for f in _serialise(result)
+        if not f["name"].startswith("rate_period_")
+    }
+    assert expanded == {
+        "tariff_settings": True,
+        "threshold_settings": False,
+        "forecast_settings": False,
+        "hardware_settings": False,
+        "ev_settings": False,
+    }
+
+
+async def test_options_form_states_the_cheapest_rate_and_billing_period(hass, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    summary = result["description_placeholders"]["tariff_summary"]
+    assert (
+        "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00."
+        in summary
+    )
+    assert "Your bill runs from the 16th to the 15th." in summary
+
+
+async def test_options_summary_follows_saved_options_over_setup_data(hass, loaded_entry):
+    hass.config_entries.async_update_entry(
+        loaded_entry,
+        options={
+            "rate_periods": [{"name": "Free", "rate": 0.0, "start": "11:00", "end": "14:00"}],
+            "bill_start_day": 1,
+        },
+    )
+    await hass.async_block_till_done()
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    summary = result["description_placeholders"]["tariff_summary"]
+    assert "Free at 0.0000 EUR/kWh, 11:00 to 14:00" in summary
+    assert "from the 1st to the last day of the month" in summary

@@ -173,7 +173,7 @@ The action returns no data, so the verdict appears only in the Home Assistant no
 
 ## Start another EV charger on solar surplus
 
-The integration switches a Zappi to Eco+ by itself. For a charger it cannot control, use the EV Solar Surplus sensor, which reads `Available` at 1400 W of net surplus or more. Replace `switch.your_ev_charger` with your charger's switch.
+The integration switches a Zappi to Eco+ by itself. For a charger it cannot control, use the EV Solar Surplus sensor, which reads `Available` at 1380 W of net surplus or more. Replace `switch.your_ev_charger` with your charger's switch.
 
 ```yaml
 alias: EV charger on solar surplus
@@ -224,7 +224,7 @@ mode: single
 
 ## Daily derating summary
 
-Sends the minutes spent at 65 °C or more, at sunset. Enable the Inverter Derating Today sensor first. It is disabled by default and is not saved over a restart.
+Sends the minutes spent at 65 °C or more, at sunset. Enable the Inverter Derating Today sensor first. It is disabled by default.
 
 ```yaml
 alias: Daily derating summary

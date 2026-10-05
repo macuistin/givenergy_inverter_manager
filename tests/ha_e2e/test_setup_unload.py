@@ -118,3 +118,49 @@ async def test_setup_retries_when_givtcp_is_absent(
     assert not await hass.config_entries.async_setup(config_entry.entry_id)
     assert config_entry.state is ConfigEntryState.SETUP_RETRY
     await hass.config_entries.async_unload(config_entry.entry_id)
+
+
+async def test_bill_start_day_comes_from_options_over_data(hass_in_scenario, service_calls):
+    """The accumulation reset day follows the options flow, which writes entry.options."""
+    from conftest import SERIAL, full_config_data
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.givenergy_inverter_manager.const import CONF_BILL_START_DAY
+
+    hass = hass_in_scenario
+    data = full_config_data()
+    data[CONF_BILL_START_DAY] = 16
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="GivEnergy Inverter Manager",
+        data=data,
+        options={CONF_BILL_START_DAY: 5},
+        unique_id=SERIAL,
+        version=1,
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.runtime_data._acc._bill_start_day == 5
+
+    hass.config_entries.async_update_entry(entry, options={CONF_BILL_START_DAY: 20})
+    await hass.async_block_till_done()
+    assert entry.runtime_data._acc._bill_start_day == 20
+
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_compare_tariff_service_returns_a_like_for_like_bill(hass, loaded_entry):
+    response = await hass.services.async_call(
+        DOMAIN,
+        "compare_tariff",
+        {"rate": 0.25, "standing_charge": 0.6, "vat_rate": 13.5},
+        blocking=True,
+        return_response=True,
+    )
+    assert response["entry_id"] == loaded_entry.entry_id
+    assert response["entries"][0]["entry_id"] == loaded_entry.entry_id
+    assert set(response["current_tariff"]["bill"]) == set(response["comparison_tariff"]["bill"])
+    assert response["comparison_tariff"]["vat_rate"] == 13.5
+    assert response["current_tariff"]["vat_rate"] == 9.0

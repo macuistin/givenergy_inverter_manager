@@ -96,6 +96,8 @@ with behavioural tests.
 
 **Complexity:** Medium.
 
+- **Currency unit as ISO 4217 code:** monetary sensors use the currency symbol as their unit, but Home Assistant expects a code such as `EUR`. Changing it breaks existing long-term statistics, so it needs a one-off statistics repair or migration first. See `docs/long-term-statistics.md`.
+
 ---
 
 ## Near-Term — Completed ✅

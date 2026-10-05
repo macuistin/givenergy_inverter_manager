@@ -208,6 +208,30 @@ class TestSerialisationRoundtrip:
         assert restored.forecast_accuracy_history == [90.0, 85.0, 92.5]
         assert restored.week_start_iso == "2024-07-01T00:00:00+00:00"
 
+    def test_year_and_year_start_survive_a_roundtrip(self):
+        state = AccumulationState()
+        state.year.solar_kwh = 2100.0
+        state.year.export_earnings = 310.5
+        state.year_start_iso = "2026-01-01T00:00:00+00:00"
+
+        restored = _deserialize(_serialize(state))
+
+        assert restored.year.solar_kwh == pytest.approx(2100.0)
+        assert restored.year.export_earnings == pytest.approx(310.5)
+        assert restored.year_start_iso == "2026-01-01T00:00:00+00:00"
+
+    def test_missed_solar_and_derating_minutes_survive_a_roundtrip(self):
+        state = AccumulationState()
+        state.today.missed_solar_kwh = 1.75
+        state.today.inverter_derating_minutes = 42.0
+        state.week.missed_solar_kwh = 4.5
+
+        restored = _deserialize(_serialize(state))
+
+        assert restored.today.missed_solar_kwh == pytest.approx(1.75)
+        assert restored.today.inverter_derating_minutes == pytest.approx(42.0)
+        assert restored.week.missed_solar_kwh == pytest.approx(4.5)
+
     def test_missing_fields_in_stored_data_use_defaults(self):
         """Old stored data without new fields should restore gracefully."""
         minimal_data = {
@@ -783,3 +807,328 @@ class TestMonthlySnapshots:
         restored = _deserialize(_serialize(state))
         assert len(restored.monthly_snapshots) == 1
         assert restored.monthly_snapshots[0]["solar_kwh"] == pytest.approx(30.5)
+
+
+# ── Restart across a reset boundary ──────────────────────────────────────────
+
+
+def _restart(saved: AccumulationState, bill_start_day: int = 1):
+    """A new store holding what a previous run wrote to storage."""
+    from unittest.mock import MagicMock
+
+    from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+    store = AccumulationStore(MagicMock(), bill_start_day=bill_start_day)
+    store.state = _deserialize(_serialize(saved))
+    return store
+
+
+def _stored_run(last_midnight: datetime) -> AccumulationState:
+    """State as left by a run that last passed midnight at *last_midnight*."""
+    state = AccumulationState()
+    state.last_reset_iso = last_midnight.isoformat()
+    state.today.solar_kwh = 9.0
+    state.today.import_kwh = 2.0
+    state.week.solar_kwh = 50.0
+    state.month.solar_kwh = 200.0
+    state.year.solar_kwh = 1500.0
+    return state
+
+
+class TestRollForwardOnRestart:
+    def test_restart_on_the_same_day_changes_nothing(self):
+        store = _restart(_stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)))
+        store.state.week_start_iso = "2026-07-13T00:00:00+00:00"
+        store.state.month_start_iso = "2026-07-01T00:00:00+00:00"
+        store.state.year_start_iso = "2026-01-01T00:00:00+00:00"
+
+        changed = store.roll_forward(datetime(2026, 7, 14, 18, 30, tzinfo=timezone.utc))
+
+        assert changed is False
+        assert store.today.solar_kwh == pytest.approx(9.0)
+        assert store.yesterday.solar_kwh == 0.0
+        assert store.state.last_reset_iso == "2026-07-14T00:00:00+00:00"
+
+    def test_restart_after_one_midnight_moves_today_to_yesterday(self):
+        store = _restart(_stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)))
+
+        changed = store.roll_forward(datetime(2026, 7, 15, 7, 0, tzinfo=timezone.utc))
+
+        assert changed is True
+        assert store.yesterday.solar_kwh == pytest.approx(9.0)
+        assert store.today.solar_kwh == 0.0
+        assert store.today.import_kwh == 0.0
+        assert store.state.last_reset_iso == "2026-07-15T00:00:00+00:00"
+        assert store.week.solar_kwh == pytest.approx(50.0)
+
+    def test_restart_after_several_days_leaves_no_yesterday_data(self):
+        store = _restart(_stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)))
+
+        store.roll_forward(datetime(2026, 7, 17, 7, 0, tzinfo=timezone.utc))
+
+        assert store.today.solar_kwh == 0.0
+        assert store.yesterday.solar_kwh == 0.0
+        assert store.state.last_reset_iso == "2026-07-17T00:00:00+00:00"
+
+    def test_missed_monday_resets_the_week(self):
+        # Last run passed midnight on Saturday 11 July. Restart on Tuesday 14 July.
+        store = _restart(_stored_run(datetime(2026, 7, 11, 0, 0, tzinfo=timezone.utc)))
+
+        store.roll_forward(datetime(2026, 7, 14, 7, 0, tzinfo=timezone.utc))
+
+        assert store.week.solar_kwh == 0.0
+        assert store.state.week_start_iso == "2026-07-13T00:00:00+00:00"
+        assert store.month.solar_kwh == pytest.approx(200.0)
+
+    def test_week_is_kept_when_no_monday_was_missed(self):
+        store = _restart(_stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)))
+        store.state.week_start_iso = "2026-07-13T00:00:00+00:00"
+
+        store.roll_forward(datetime(2026, 7, 16, 7, 0, tzinfo=timezone.utc))
+
+        assert store.week.solar_kwh == pytest.approx(50.0)
+        assert store.state.week_start_iso == "2026-07-13T00:00:00+00:00"
+
+    def test_missed_bill_day_resets_the_month_and_snapshots_it(self):
+        store = _restart(
+            _stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)), bill_start_day=16
+        )
+        store.state.month.export_kwh = 80.0
+
+        store.roll_forward(datetime(2026, 7, 18, 7, 0, tzinfo=timezone.utc))
+
+        assert store.month.solar_kwh == 0.0
+        assert store.state.month_start_iso == "2026-07-16T00:00:00+00:00"
+        assert store.monthly_export_snapshots == [pytest.approx(80.0)]
+        assert store.monthly_snapshots[-1]["solar_kwh"] == pytest.approx(200.0)
+
+    def test_several_missed_bill_days_add_one_snapshot_each(self):
+        store = _restart(_stored_run(datetime(2026, 6, 20, 0, 0, tzinfo=timezone.utc)))
+
+        store.roll_forward(datetime(2026, 8, 5, 7, 0, tzinfo=timezone.utc))
+
+        assert len(store.monthly_snapshots) == 2
+        assert store.monthly_snapshots[0]["solar_kwh"] == pytest.approx(200.0)
+        assert store.monthly_snapshots[1]["solar_kwh"] == 0.0
+        assert store.state.month_start_iso == "2026-08-01T00:00:00+00:00"
+
+    def test_missed_new_year_resets_the_year(self):
+        store = _restart(_stored_run(datetime(2025, 12, 30, 0, 0, tzinfo=timezone.utc)))
+
+        store.roll_forward(datetime(2026, 1, 2, 7, 0, tzinfo=timezone.utc))
+
+        assert store.year.solar_kwh == 0.0
+        assert store.state.year_start_iso == "2026-01-01T00:00:00+00:00"
+
+    def test_year_is_kept_inside_the_same_year(self):
+        store = _restart(_stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc)))
+
+        store.roll_forward(datetime(2026, 7, 20, 7, 0, tzinfo=timezone.utc))
+
+        assert store.year.solar_kwh == pytest.approx(1500.0)
+
+    def test_forecast_accuracy_is_recorded_once_for_the_stored_day(self):
+        saved = _stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc))
+        saved.today_forecast_kwh = 10.0
+        store = _restart(saved)
+
+        store.roll_forward(datetime(2026, 7, 17, 7, 0, tzinfo=timezone.utc))
+
+        assert store.state.forecast_accuracy_history == [90.0]
+        assert store.state.today_forecast_kwh == 0.0
+
+    def test_dst_zone_keeps_local_midnight_stamps(self):
+        from zoneinfo import ZoneInfo
+
+        dublin = ZoneInfo("Europe/Dublin")
+        store = _restart(_stored_run(datetime(2026, 3, 27, 0, 0, tzinfo=dublin)))
+
+        store.roll_forward(datetime(2026, 3, 30, 9, 0, tzinfo=dublin))
+
+        assert store.state.last_reset_iso == "2026-03-30T00:00:00+01:00"
+        assert store.state.week_start_iso == "2026-03-30T00:00:00+01:00"
+
+    def test_first_ever_start_stamps_today_and_keeps_data(self):
+        store = _restart(AccumulationState())
+
+        changed = store.roll_forward(datetime(2026, 7, 15, 7, 0, tzinfo=timezone.utc))
+
+        assert changed is True
+        assert store.state.last_reset_iso == "2026-07-15T00:00:00+00:00"
+        assert store.yesterday.solar_kwh == 0.0
+
+    def test_empty_period_starts_default_to_the_current_period(self):
+        store = _restart(AccumulationState(), bill_start_day=16)
+
+        store.roll_forward(datetime(2026, 7, 15, 7, 0, tzinfo=timezone.utc))
+
+        assert store.state.week_start_iso == "2026-07-13T00:00:00+00:00"
+        assert store.state.month_start_iso == "2026-06-16T00:00:00+00:00"
+        assert store.state.year_start_iso == "2026-01-01T00:00:00+00:00"
+
+    def test_existing_period_starts_are_not_overwritten(self):
+        saved = _stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc))
+        saved.week_start_iso = "2026-07-06T00:00:00+00:00"
+        store = _restart(saved)
+
+        store.roll_forward(datetime(2026, 7, 14, 18, 0, tzinfo=timezone.utc))
+
+        assert store.state.week_start_iso == "2026-07-06T00:00:00+00:00"
+
+
+class TestScheduleSave:
+    def test_delayed_save_serialises_the_state_at_write_time(self):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        store = AccumulationStore(MagicMock(), bill_start_day=1)
+        store._store = MagicMock()
+
+        store.schedule_save()
+        store.state.today.solar_kwh = 7.0
+
+        data_func, delay = store._store.async_delay_save.call_args.args
+        assert delay > 0
+        assert data_func()["today"]["solar_kwh"] == pytest.approx(7.0)
+# ── Storage version migration ─────────────────────────────────────────────────
+
+
+def _v1_payload() -> dict:
+    """A payload as written by storage version 1 (both-directions cycle count)."""
+    payload = _serialize(AccumulationState())
+    payload["version"] = 1
+    payload["battery_cycles"] = 62.6
+    payload["battery_tracking_start"] = "2026-01-10"
+    payload["battery_tracking_start_cycles"] = 10.0
+    payload["last_full_charge_date"] = "2026-10-01"
+    payload["today"]["solar_kwh"] = 7.5
+    return payload
+
+
+class TestStorageMigration:
+    def test_storage_version_is_bumped(self):
+        from custom_components.givenergy_inverter_manager import accumulation
+
+        assert accumulation._STORAGE_VERSION == 2
+
+    def test_version_1_cycle_figures_are_halved(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        migrated = migrate_storage(1, _v1_payload())
+        assert migrated["battery_cycles"] == pytest.approx(31.3)
+        assert migrated["battery_tracking_start_cycles"] == pytest.approx(5.0)
+        assert migrated["version"] == 2
+
+    def test_other_fields_are_left_alone(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        migrated = migrate_storage(1, _v1_payload())
+        assert migrated["today"]["solar_kwh"] == pytest.approx(7.5)
+        assert migrated["battery_tracking_start"] == "2026-01-10"
+        assert migrated["last_full_charge_date"] == "2026-10-01"
+
+    def test_input_payload_is_not_mutated(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v1_payload()
+        migrate_storage(1, payload)
+        assert payload["battery_cycles"] == pytest.approx(62.6)
+
+    def test_current_version_payload_is_not_halved(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _serialize(AccumulationState())
+        payload["battery_cycles"] = 31.3
+        assert migrate_storage(2, payload)["battery_cycles"] == pytest.approx(31.3)
+
+    def test_migrating_twice_halves_only_once(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        once = migrate_storage(1, _v1_payload())
+        twice = migrate_storage(1, once)
+        assert twice["battery_cycles"] == pytest.approx(31.3)
+        assert twice["battery_tracking_start_cycles"] == pytest.approx(5.0)
+
+    def test_missing_or_bad_cycle_fields_become_zero(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v1_payload()
+        del payload["battery_cycles"]
+        payload["battery_tracking_start_cycles"] = "not a number"
+        migrated = migrate_storage(1, payload)
+        assert migrated["battery_cycles"] == 0.0
+        assert migrated["battery_tracking_start_cycles"] == 0.0
+
+    def test_migrated_payload_loads_into_state(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        state = _deserialize(migrate_storage(1, _v1_payload()))
+        assert state.battery_cycles == pytest.approx(31.3)
+        assert state.battery_tracking_start_cycles == pytest.approx(5.0)
+        assert state.today.solar_kwh == pytest.approx(7.5)
+
+    @pytest.mark.asyncio
+    async def test_store_hook_migrates_old_data(self):
+        import sys
+        import types
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager import accumulation
+
+        class _BaseStore:
+            def __init__(self, hass, version, key):
+                self.version = version
+                self.key = key
+
+        storage_mod = types.ModuleType("homeassistant.helpers.storage")
+        storage_mod.Store = _BaseStore
+        saved = {name: sys.modules.get(name) for name in ("homeassistant.helpers.storage",)}
+        sys.modules["homeassistant.helpers.storage"] = storage_mod
+        try:
+            store = accumulation._create_store(MagicMock())
+            migrated = await store._async_migrate_func(1, 1, _v1_payload())
+        finally:
+            if saved["homeassistant.helpers.storage"] is None:
+                del sys.modules["homeassistant.helpers.storage"]
+            else:
+                sys.modules["homeassistant.helpers.storage"] = saved["homeassistant.helpers.storage"]
+
+        assert store.version == 2
+        assert migrated["battery_cycles"] == pytest.approx(31.3)
+
+
+# ── Register write count persistence ──────────────────────────────────────────
+
+
+class TestRegisterWriteCountPersistence:
+    def test_defaults_to_zero(self):
+        assert AccumulationState().register_write_count == 0
+
+    def test_round_trips_through_serialisation(self):
+        state = AccumulationState()
+        state.register_write_count = 4321
+        assert _deserialize(_serialize(state)).register_write_count == 4321
+
+    def test_payload_without_the_field_loads_as_zero(self):
+        payload = _serialize(AccumulationState())
+        del payload["register_write_count"]
+        assert _deserialize(payload).register_write_count == 0
+
+    def test_version_1_payload_loads_as_zero(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v1_payload()
+        del payload["register_write_count"]
+        migrated = migrate_storage(1, payload)
+        assert migrated["register_write_count"] == 0
+        assert _deserialize(migrated).register_write_count == 0
+
+    @pytest.mark.parametrize("bad", ["many", None, -5])
+    def test_bad_values_load_as_zero_without_losing_other_state(self, bad):
+        payload = _serialize(AccumulationState())
+        payload["register_write_count"] = bad
+        payload["today"]["solar_kwh"] = 3.0
+        state = _deserialize(payload)
+        assert state.register_write_count == 0
+        assert state.today.solar_kwh == pytest.approx(3.0)

@@ -11,31 +11,40 @@ What is tested:
   - Dry run sensor entities are included in the Controls view
 """
 
-from unittest.mock import MagicMock
+import re
 
 import pytest
 import yaml
 
+from tests.dashboard_support import (
+    ENTRY_ID,
+    FULL_CONFIG,
+    MINIMAL_CONFIG,
+    FakeRegistry,
+    default_entity_ids,
+    fake_hass,
+)
 
-def _mock_hass_with_registry(entry_id: str) -> MagicMock:
-    """Return a mock HA instance that returns predictable entity IDs."""
-    hass = MagicMock()
-    # entity_registry returns None for all lookups → falls back to default
-    reg = MagicMock()
-    reg.async_get_entity_id = MagicMock(return_value=None)
-    import sys
-
-    er_mod = sys.modules.get("homeassistant.helpers.entity_registry")
-    if er_mod:
-        er_mod.async_get.return_value = reg
-    return hass
+_IDS = default_entity_ids()
 
 
-def _build(entry_id: str = "test_entry_123") -> str:
-    from custom_components.givenergy_inverter_manager.dashboard import _build_dashboard_yaml
+def eid(key: str) -> str:
+    """Entity ID Home Assistant gives the entity with this unique ID suffix."""
+    return _IDS[key]
 
-    hass = _mock_hass_with_registry(entry_id)
-    return _build_dashboard_yaml(hass, entry_id)
+
+def _build(config=None, registry=None, **kw) -> str:
+    """Dashboard YAML. Defaults to every feature configured and every sensor enabled."""
+    from custom_components.givenergy_inverter_manager.dashboard_builder import (
+        build_dashboard_yaml,
+    )
+
+    with fake_hass(
+        FULL_CONFIG if config is None else config,
+        registry or FakeRegistry(enable_all=True),
+        **({"ev_brand": "myenergi"} | kw),
+    ) as hass:
+        return build_dashboard_yaml(hass, ENTRY_ID)
 
 
 class TestBuildDashboardYaml:
@@ -56,31 +65,25 @@ class TestBuildDashboardYaml:
         parsed = yaml.safe_load(result)
         assert "views" in parsed
 
-    def test_has_four_views(self):
+    def test_has_five_views(self):
         result = _build()
         parsed = yaml.safe_load(result)
-        assert len(parsed["views"]) == 4
+        assert len(parsed["views"]) == 5
 
     def test_view_titles(self):
         result = _build()
         parsed = yaml.safe_load(result)
         titles = [v["title"] for v in parsed["views"]]
-        assert "Power Flow" in titles
-        assert "Today" in titles
-        assert "Battery" in titles
-        assert "Controls" in titles
+        assert titles == ["Power Flow", "Today", "Bill", "Battery", "Controls"]
 
     def test_view_paths(self):
         result = _build()
         parsed = yaml.safe_load(result)
         paths = [v["path"] for v in parsed["views"]]
-        assert "power-flow" in paths
-        assert "today" in paths
-        assert "battery" in paths
-        assert "controls" in paths
+        assert paths == ["power-flow", "today", "bill", "battery", "controls"]
 
     def test_sensor_references_present(self):
-        """Key sensor suffixes must appear in the output."""
+        """Key entities must appear in the output."""
         result = _build()
         required = [
             "solar_power",
@@ -100,10 +103,8 @@ class TestBuildDashboardYaml:
             "dry_run_last_skipped",
             "battery_power",
         ]
-        for suffix in required:
-            assert suffix in result, (
-                f"Expected sensor suffix {suffix!r} not found in dashboard YAML"
-            )
+        for key in required:
+            assert eid(key) in result, f"Expected {eid(key)!r} not found in dashboard YAML"
 
     def test_dry_run_sensors_in_controls(self):
         """Controls view must include both dry run sensor references."""
@@ -111,8 +112,8 @@ class TestBuildDashboardYaml:
         parsed = yaml.safe_load(result)
         controls_view = next(v for v in parsed["views"] if v["title"] == "Controls")
         view_yaml = yaml.dump(controls_view)
-        assert "dry_run_active" in view_yaml
-        assert "dry_run_last_skipped" in view_yaml
+        assert eid("dry_run_active") in view_yaml
+        assert eid("dry_run_last_skipped") in view_yaml
 
     def test_conditional_dry_run_warning_present(self):
         """Controls view must have a conditional card for dry run warning."""
@@ -124,16 +125,16 @@ class TestBuildDashboardYaml:
 
     def test_stable_output(self):
         """Same inputs produce identical YAML on multiple calls."""
-        result_a = _build("entry_abc")
-        result_b = _build("entry_abc")
-        assert result_a == result_b
+        assert _build() == _build()
 
-    def test_consistent_fallback_entity_ids(self):
-        """When the entity registry returns None, fallback IDs follow a predictable pattern."""
-        result = _build("any_entry")
-        # Fallback uses sensor.givenergy_inverter_manager_{suffix}
-        assert "sensor.givenergy_inverter_manager_solar_power" in result
-        assert "sensor.givenergy_inverter_manager_battery_soc" in result
+    def test_entity_ids_come_from_the_registry(self):
+        """Entity IDs in the output are the registered ones, not guesses from the key."""
+        registry = FakeRegistry(enable_all=True)
+        registry._by_uid[("sensor", f"{ENTRY_ID}_solar_power")] = "sensor.my_renamed_solar"
+        registry._entries["sensor.my_renamed_solar"] = registry._entries.pop(eid("solar_power"))
+        result = _build(registry=registry)
+        assert "sensor.my_renamed_solar" in result
+        assert eid("solar_power") not in result
 
     def test_power_flow_card_present(self):
         """Power Flow view must include the power-flow-card-plus card type."""
@@ -249,7 +250,7 @@ class TestEvChargerDiscovery:
     def _find(self, states_present=None):
         from unittest.mock import MagicMock
 
-        from custom_components.givenergy_inverter_manager.dashboard import (
+        from custom_components.givenergy_inverter_manager.dashboard_builder import (
             _find_ev_charger_power,
         )
 
@@ -312,8 +313,12 @@ class TestPowerFlowTabChanges:
             "Clipping must be secondary_info_entity on solar — not a separate large card."
         )
 
-    def test_no_three_column_grid(self):
-        assert "columns: 3" not in _build(), "3-column grid must be replaced with compact markdown."
+    def test_only_the_now_strip_is_a_three_column_grid(self):
+        """The old 3-column status grid was replaced by compact markdown. The Now strip is new."""
+        parsed = yaml.safe_load(_build())
+        pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
+        grids = [c for c in pf_view["cards"] if c.get("type") == "grid" and c.get("columns") == 3]
+        assert [g["title"] for g in grids] == ["Now"]
 
     def test_live_cost_rate_shown_as_grid_secondary_info(self):
         """Live €/hr cost rate is secondary_info on the grid entity."""
@@ -332,43 +337,28 @@ class TestPowerFlowTabChanges:
             "Old standalone clipping entity card must be removed."
         )
 
-    def test_immersion_section_absent_when_unconfigured(self):
-        """When no immersion temp sensor is set, section must be a comment not broken YAML."""
-        yaml = _build()
-        # "apexcharts-card" appears in the header comment — check the section itself
-        assert "no temperature sensor configured" in yaml
-        # No functional apexcharts block should appear (only the header comment reference)
-        assert "graph_span: 12h" not in yaml, (
-            "No apexcharts chart should render when temp sensor is unconfigured."
-        )
+    def test_immersion_section_absent_without_temperature_sensor(self):
+        """A switch but no temperature sensor gives the rows but no apexcharts charts."""
+        from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_SWITCH
+
+        text = _build(config={CONF_IMMERSION_SWITCH: "switch.immersion_heater"})
+        parsed = yaml.safe_load(text)
+        pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
+        assert all(c.get("type") != "vertical-stack" for c in pf_view["cards"])
+        assert "graph_span: 12h" not in text
+        assert eid("immersion_today") in text
 
     def test_immersion_section_present_when_configured(self):
-        """When temp sensor is configured, section must include apexcharts + glance."""
-        from unittest.mock import MagicMock, patch
+        """When temp sensor is configured, section must include apexcharts + tile."""
+        yaml_text = _build()
 
-        from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_TEMP_SENSOR
-        from custom_components.givenergy_inverter_manager.dashboard import _build_dashboard_yaml
-
-        fake_entry = MagicMock()
-        fake_entry.entry_id = "test_entry_123"
-        fake_entry.data = {CONF_IMMERSION_TEMP_SENSOR: "sensor.water_temp"}
-        fake_entry.options = {}
-
-        hass = MagicMock()
-        hass.config_entries.async_entries.return_value = [fake_entry]
-        hass.states.get.return_value = None
-
-        with patch("custom_components.givenergy_inverter_manager.dashboard.er") as mock_er:
-            mock_er.async_get.return_value.async_get_entity_id.return_value = None
-            yaml = _build_dashboard_yaml(hass, "test_entry_123")
-
-        assert "apexcharts-card" in yaml, "Immersion section must use apexcharts-card"
-        assert "graph_span: 12h" in yaml, "Must show 12 hours of history"
-        assert "sensor.water_temp" in yaml, "Actual temp sensor entity must appear in YAML"
-        assert yaml.count("apexcharts-card") >= 2, (
+        assert "apexcharts-card" in yaml_text, "Immersion section must use apexcharts-card"
+        assert "graph_span: 12h" in yaml_text, "Must show 12 hours of history"
+        assert "sensor.hot_water_cylinder_temperature" in yaml_text
+        assert yaml_text.count("apexcharts-card") >= 2, (
             "Must have temperature chart and energy/power chart."
         )
-        assert "type: tile" in yaml, "Divert reason must use tile card."
+        assert "type: tile" in yaml_text, "Divert reason must use tile card."
 
 
 class TestDashboardImprovements:
@@ -377,12 +367,12 @@ class TestDashboardImprovements:
     def test_new_sensor_references_present(self):
         """Sensors added in dashboard improvements must appear in the output."""
         result = _build()
-        for suffix in [
+        for key in [
             "current_rate_period",
             "cheap_rate_floor_status",
             "immersion_savings_today",
         ]:
-            assert suffix in result, f"Expected {suffix!r} in dashboard YAML"
+            assert eid(key) in result, f"Expected {eid(key)!r} in dashboard YAML"
 
     def test_immersion_temp_numbers_in_controls(self):
         """Immersion temperature number entities must appear in the Controls view."""
@@ -390,9 +380,9 @@ class TestDashboardImprovements:
         parsed = yaml.safe_load(result)
         controls_view = next(v for v in parsed["views"] if v.get("path") == "controls")
         controls_yaml = yaml.dump(controls_view)
-        assert "immersion_target_temp" in controls_yaml
-        assert "immersion_min_temp" in controls_yaml
-        assert "immersion_hysteresis" in controls_yaml
+        assert eid("immersion_target_temp") in controls_yaml
+        assert eid("immersion_min_temp") in controls_yaml
+        assert eid("immersion_hysteresis") in controls_yaml
 
     def test_no_vertical_stack_in_card(self):
         """vertical-stack-in-card HACS dependency must be removed."""
@@ -440,20 +430,22 @@ class TestSolarForecastCards:
 
     def test_solar_forecast_entities_in_today_view(self):
         result = _build()
-        assert "solar_forecast_kwh_today" in result
-        assert "solar_actual_vs_forecast_pct" in result
-        assert "yesterday_forecast_accuracy_pct" in result
+        for key in (
+            "solar_forecast_kwh_today",
+            "solar_actual_vs_forecast_pct",
+            "yesterday_forecast_accuracy_pct",
+        ):
+            assert eid(key) in result
 
-    def test_solar_history_graph_in_today_view(self):
-        result = _build()
-        parsed = yaml.safe_load(result)
+    def test_solar_graph_in_today_view_uses_statistics(self):
+        parsed = yaml.safe_load(_build())
         today_view = next(v for v in parsed["views"] if v.get("path") == "today")
-        history_titles = [
-            c.get("title", "")
-            for c in today_view.get("cards", [])
-            if c.get("type") == "history-graph"
+        graphs = [
+            c for c in today_view["cards"] if c.get("type") == "statistics-graph"
         ]
-        assert any("solar" in t.lower() for t in history_titles)
+        assert any("solar" in c["title"].lower() for c in graphs)
+
+
 class TestSoCHistoryChart:
     """Battery SoC 24h history graph is present on the Battery tab."""
 
@@ -512,3 +504,540 @@ class TestExportCsvHelpers:
         assert "solar_kwh" in fields
         assert "import_cost" in fields
         assert "net_position" in fields
+
+
+class TestYamlSerialisation:
+    """The dashboard is built as a dict and serialised once."""
+
+    def _dict(self):
+        from custom_components.givenergy_inverter_manager.dashboard_builder import build_dashboard
+
+        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
+            return build_dashboard(hass, ENTRY_ID)
+
+    def test_yaml_round_trips_to_the_dict(self):
+        assert yaml.safe_load(_build()) == self._dict()
+
+    def test_no_anchors_or_aliases(self):
+        """Shared sub-dicts (the apex config) must be written out, not aliased."""
+        import re
+
+        assert not re.search(r"[&*]id\d+", _build())
+
+    def test_multiline_strings_are_literal_blocks(self):
+        text = _build()
+        assert "content: |-\n" in text
+        assert "\\n" not in text
+
+    def test_header_comment_precedes_views(self):
+        text = _build()
+        assert text.startswith("# GivEnergy Inverter Manager")
+        assert text.index("views:") > text.index("power-flow-card-plus")
+
+
+_OUR_ENTITY = re.compile(r"\b(?:sensor|switch|number)\.givenergy_inverter_manager_[a-z0-9_]+")
+
+
+def _referenced(text: str) -> set[str]:
+    return set(_OUR_ENTITY.findall(text))
+
+
+def _titles(text: str) -> list[str]:
+    parsed = yaml.safe_load(text)
+    return [c.get("title", "") for v in parsed["views"] for c in v["cards"]]
+
+
+class TestEntityAvailability:
+    """A row or card appears only when the entity is registered and enabled."""
+
+    @pytest.mark.parametrize(
+        ("label", "config", "registry", "extra"),
+        [
+            ("minimal fresh install", MINIMAL_CONFIG, FakeRegistry(), {"ev_brand": None}),
+            ("full fresh install", FULL_CONFIG, FakeRegistry(), {"ev_brand": "myenergi"}),
+            ("full, all enabled", FULL_CONFIG, FakeRegistry(enable_all=True), {}),
+            (
+                "minimal, switch entities missing",
+                MINIMAL_CONFIG,
+                FakeRegistry(absent={"auto_immersion", "charge_target_override"}),
+                {"ev_brand": None},
+            ),
+        ],
+    )
+    def test_every_referenced_entity_is_registered_and_enabled(
+        self, label, config, registry, extra
+    ):
+        text = _build(config=config, registry=registry, **extra)
+        usable = {
+            entity_id
+            for entity_id in default_entity_ids().values()
+            if (entry := registry.async_get(entity_id)) is not None and entry.disabled_by is None
+        }
+        assert _referenced(text) <= usable, label
+        assert _referenced(text), label
+
+    def test_forecast_accuracy_is_left_out_on_a_fresh_install(self):
+        """Forecast accuracy yesterday is disabled by default, so no row points at it."""
+        text = _build(config=FULL_CONFIG, registry=FakeRegistry())
+        assert eid("yesterday_forecast_accuracy_pct") not in text
+        assert eid("solar_forecast_kwh_today") in text
+
+    def test_forecast_accuracy_appears_once_enabled(self):
+        text = _build(
+            config=FULL_CONFIG,
+            registry=FakeRegistry(enabled={"yesterday_forecast_accuracy_pct"}),
+        )
+        assert eid("yesterday_forecast_accuracy_pct") in text
+
+    def test_disabled_sensors_are_listed_in_the_header(self):
+        text = _build(config=FULL_CONFIG, registry=FakeRegistry())
+        header = text[: text.index("views:")]
+        assert "disabled" in header
+        assert "Forecast accuracy yesterday" in header
+
+    def test_no_header_note_when_nothing_was_left_out(self):
+        text = _build(config=FULL_CONFIG, registry=FakeRegistry(enable_all=True))
+        assert "disabled" not in text[: text.index("views:")]
+
+    def test_unregistered_entity_is_left_out(self):
+        text = _build(registry=FakeRegistry(enable_all=True, absent={"cheap_rate_floor_status"}))
+        assert eid("cheap_rate_floor_status") not in text
+        assert "Cheap Rate Floor" not in text
+
+    def test_dashboard_is_never_empty(self):
+        parsed = yaml.safe_load(_build(config=MINIMAL_CONFIG, registry=FakeRegistry()))
+        assert [v["path"] for v in parsed["views"]] == [
+            "power-flow",
+            "today",
+            "bill",
+            "battery",
+            "controls",
+        ]
+
+
+class TestFeatureGating:
+    """EV, immersion, inverter temperature and forecast rows need the feature configured."""
+
+    def _minimal(self, **kw) -> str:
+        return _build(config=MINIMAL_CONFIG, registry=FakeRegistry(enable_all=True), **kw)
+
+    def test_minimal_config_has_no_ev_rows(self):
+        text = self._minimal(ev_brand=None)
+        assert "EV Charger" not in _titles(text)
+        for key in ("ev_power", "ev_charger_state", "zappi_today", "zappi_cost_today"):
+            assert eid(key) not in text
+        assert "Car Charger" not in text
+
+    def test_minimal_config_has_no_immersion_rows(self):
+        text = self._minimal(ev_brand=None)
+        assert "Immersion Heater" not in _titles(text)
+        for key in (
+            "immersion_power",
+            "immersion_today",
+            "immersion_cost_today",
+            "immersion_savings_today",
+            "immersion_divert_reason",
+            "auto_immersion",
+            "immersion_target_temp",
+        ):
+            assert eid(key) not in text
+        assert "apexcharts" not in text
+
+    def test_minimal_config_has_no_inverter_temperature_rows(self):
+        text = self._minimal(ev_brand=None)
+        assert eid("inverter_temperature") not in text
+        assert eid("inverter_temperature_status") not in text
+
+    def test_minimal_config_has_no_forecast_card(self):
+        text = self._minimal(ev_brand=None)
+        assert "Solar vs Forecast" not in _titles(text)
+        assert eid("solar_forecast_kwh_today") not in text
+
+    def test_full_config_has_every_feature(self):
+        text = _build(config=FULL_CONFIG, registry=FakeRegistry(enable_all=True))
+        titles = _titles(text)
+        for title in ("EV Charger", "Immersion Heater", "Solar vs Forecast"):
+            assert title in titles
+        for key in ("ev_power", "immersion_power", "inverter_temperature", "zappi_today"):
+            assert eid(key) in text
+
+    def test_each_feature_switches_on_independently(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_INVERTER_TEMP_ENTITY,
+        )
+
+        text = _build(
+            config={CONF_INVERTER_TEMP_ENTITY: "sensor.x"},
+            registry=FakeRegistry(enable_all=True),
+            ev_brand=None,
+        )
+        assert eid("inverter_temperature") in text
+        assert eid("immersion_power") not in text
+        assert eid("ev_power") not in text
+
+    def test_external_ev_charger_state_counts_as_configured(self):
+        """An EV charger the coordinator has not discovered yet is still shown if it exists."""
+        text = _build(
+            config=MINIMAL_CONFIG,
+            registry=FakeRegistry(enable_all=True),
+            ev_brand=None,
+            states=("sensor.wallbox_charging_power",),
+        )
+        assert "sensor.wallbox_charging_power" in text
+        assert "EV Charger" in _titles(text)
+
+    def test_immersion_with_only_a_temperature_sensor(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_IMMERSION_TEMP_SENSOR,
+        )
+
+        text = _build(
+            config={CONF_IMMERSION_TEMP_SENSOR: "sensor.t"},
+            registry=FakeRegistry(enable_all=True),
+            ev_brand=None,
+        )
+        assert "Immersion Heater" in _titles(text)
+        assert "sensor.t" in text
+
+
+def _cards(text: str, path: str) -> list[dict]:
+    parsed = yaml.safe_load(text)
+    return next(v for v in parsed["views"] if v["path"] == path)["cards"]
+
+
+class TestNowStrip:
+    """The first card of the first view is a short strip of core cards."""
+
+    def test_now_strip_is_the_first_card_of_the_first_view(self):
+        first = _cards(_build(), "power-flow")[0]
+        assert first["type"] == "grid"
+        assert first["title"] == "Now"
+
+    def test_now_strip_has_the_six_core_entities(self):
+        strip = _cards(_build(), "power-flow")[0]
+        assert [c["entity"] for c in strip["cards"]] == [
+            eid("battery_soc"),
+            eid("night_survival_confidence"),
+            eid("current_rate"),
+            eid("next_cheap_rate_start"),
+            eid("hours_to_cheap_rate"),
+            eid("import_cost_today"),
+        ]
+
+    def test_now_strip_uses_only_built_in_cards(self):
+        strip = _cards(_build(), "power-flow")[0]
+        assert {c["type"] for c in strip["cards"]} <= {"gauge", "tile"}
+
+    def test_now_strip_drops_sensors_that_are_disabled_by_default(self):
+        """Night survival confidence and the cheap rate sensors are off on a fresh install."""
+        text = _build(registry=FakeRegistry())
+        strip = _cards(text, "power-flow")[0]
+        assert [c["entity"] for c in strip["cards"]] == [
+            eid("battery_soc"),
+            eid("current_rate"),
+            eid("import_cost_today"),
+        ]
+        header = text[: text.index("views:")]
+        for name in ("Night Survival Confidence", "Next Cheap Rate Start", "Hours to Cheap Rate"):
+            assert name in header
+
+
+class TestLongTextStates:
+    """Sentences go in a markdown card, not in an entities row where they are cut off."""
+
+    def _battery(self):
+        return _cards(_build(), "battery")
+
+    def test_long_text_entities_are_not_entities_rows(self):
+        for card in self._battery():
+            if card.get("type") != "entities":
+                continue
+            rows = {r.get("entity") for r in card["entities"]}
+            assert eid("overnight_charge_reason") not in rows
+            assert eid("night_survival_reason") not in rows
+
+    def test_markdown_card_renders_both_states(self):
+        markdown = [c for c in self._battery() if c["type"] == "markdown"]
+        assert len(markdown) == 1
+        content = markdown[0]["content"]
+        assert f"{{{{ states('{eid('overnight_charge_reason')}') }}}}" in content
+        assert f"{{{{ states('{eid('night_survival_reason')}') }}}}" in content
+
+    def test_markdown_card_is_valid_jinja(self):
+        from jinja2 import Environment
+
+        content = [c for c in self._battery() if c["type"] == "markdown"][0]["content"]
+        assert Environment().from_string(content).render(states=lambda entity: "x")
+
+    def test_markdown_card_follows_the_plan_card(self):
+        types = [c["type"] for c in self._battery()]
+        titles = [c.get("title") for c in self._battery()]
+        assert types.index("markdown") == titles.index("Tonight's Charge Plan") + 1
+
+
+class TestStatisticsGraphs:
+    """Sensors that reset at midnight draw a sawtooth in a history graph."""
+
+    def test_no_history_graph_plots_a_midnight_reset_sensor(self):
+        from tests.dashboard_support import midnight_reset_ids
+
+        resets = midnight_reset_ids()
+        parsed = yaml.safe_load(_build())
+        for view in parsed["views"]:
+            for card in view["cards"]:
+                if card.get("type") != "history-graph":
+                    continue
+                plotted = {r["entity"] for r in card["entities"]}
+                assert plotted.isdisjoint(resets), card["title"]
+
+    def test_cost_and_solar_use_statistics_graphs(self):
+        graphs = [c for c in _cards(_build(), "today") if c["type"] == "statistics-graph"]
+        assert [g["period"] for g in graphs] == ["day", "hour"]
+        for g in graphs:
+            assert g["stat_types"] == ["change"]
+            assert g["chart_type"] == "bar"
+
+    def test_battery_soc_history_graph_is_kept(self):
+        """SoC and power do not reset, so a line graph is right for them."""
+        graphs = [c for c in _cards(_build(), "battery") if c["type"] == "history-graph"]
+        assert len(graphs) == 1
+
+
+class TestBillView:
+    """A view of the month so far and the tariff behind it, to compare with a real bill."""
+
+    def test_bill_view_has_the_month_figures(self):
+        text = yaml.dump(_cards(_build(), "bill"))
+        for key in (
+            "import_cost_this_month",
+            "export_earnings_this_month",
+            "accrued_bill",
+            "projected_bill",
+            "days_in_period",
+            "days_remaining_in_period",
+            "avg_import_rate_this_month",
+            "cheap_import_fraction_this_month",
+        ):
+            assert eid(key) in text, key
+
+    def test_bill_view_uses_only_built_in_cards(self):
+        types = {c["type"] for c in _cards(_build(), "bill")}
+        assert types <= {"entities", "markdown", "tile", "grid", "glance"}
+
+    def test_disabled_by_default_figures_are_left_out_and_listed(self):
+        text = _build(registry=FakeRegistry())
+        bill = yaml.dump(_cards(text, "bill"))
+        for key in (
+            "days_in_period",
+            "avg_import_rate_this_month",
+            "cheap_import_fraction_this_month",
+        ):
+            assert eid(key) not in bill
+        header = text[: text.index("views:")]
+        assert "Days Elapsed in Bill Period" in header
+        assert "Average Import Rate This Month" in header
+
+    def test_bill_prediction_moved_off_the_today_view(self):
+        titles = [c.get("title") for c in _cards(_build(), "today")]
+        assert "Bill Prediction" not in titles
+
+    def _tariff_markdown(self, config=None) -> str:
+        cards = _cards(_build(config=config), "bill")
+        return next(c for c in cards if c["type"] == "markdown")["content"]
+
+    def test_tariff_table_lists_base_rate_and_periods(self):
+        table = self._tariff_markdown()
+        assert "| Day | all other times | €0.3334 |" in table
+        assert "| Night | 23:00 to 08:00 | €0.1644 |" in table
+        assert "| Nightboost | 02:00 to 04:00 | €0.0965 |" in table
+
+    def test_tariff_table_shows_the_billed_rate(self):
+        """Billed per kWh follows the docs: rate x (1 - discount) x (1 + VAT)."""
+        table = self._tariff_markdown()
+        assert "€0.3334 | €0.3434 |" in table
+        assert "€0.0965 | €0.0994 |" in table
+
+    def test_tariff_table_reads_the_config_entry(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_BASE_RATE,
+            CONF_BASE_RATE_NAME,
+            CONF_BILL_START_DAY,
+            CONF_CURRENCY,
+            CONF_DISCOUNT_RATE,
+            CONF_EXPORT_RATE,
+            CONF_PSO_LEVY,
+            CONF_RATE_PERIODS,
+            CONF_STANDING_CHARGE,
+            CONF_VAT_RATE,
+        )
+
+        table = self._tariff_markdown(
+            {
+                CONF_BASE_RATE: 0.30,
+                CONF_BASE_RATE_NAME: "Standard",
+                CONF_RATE_PERIODS: [
+                    {"name": "Off-peak", "rate": 0.10, "start": "00:30", "end": "05:30"}
+                ],
+                CONF_EXPORT_RATE: 0.15,
+                CONF_STANDING_CHARGE: 0.5,
+                CONF_PSO_LEVY: 0,
+                CONF_VAT_RATE: 20,
+                CONF_DISCOUNT_RATE: 0,
+                CONF_BILL_START_DAY: 12,
+                CONF_CURRENCY: "GBP",
+            }
+        )
+        assert "| Standard | all other times | £0.3000 | £0.3600 |" in table
+        assert "| Off-peak | 00:30 to 05:30 | £0.1000 | £0.1200 |" in table
+        assert "Night" not in table
+        assert "less the 0% discount, plus 20% VAT" in table
+        assert "| Export rate | £0.1500 per kWh |" in table
+        assert "| Standing charge | £0.5000 per day |" in table
+        assert "| PSO levy | £0.00 per bill period |" in table
+        assert "| Bill starts on day | 12 |" in table
+
+    def test_tariff_table_falls_back_to_the_defaults_the_engine_uses(self):
+        table = self._tariff_markdown(config={})
+        assert "| Night | 23:00 to 08:00 | €0.1644 |" in table
+
+
+_PFC = "/hacsfiles/power-flow-card-plus/power-flow-card-plus.js?hacstag=1"
+_APEX = "/hacsfiles/apexcharts-card/apexcharts-card.js?hacstag=2"
+
+
+def _all_cards(text: str) -> list[dict]:
+    parsed = yaml.safe_load(text)
+    out: list[dict] = []
+
+    def walk(cards):
+        for card in cards:
+            out.append(card)
+            walk(card.get("cards", []))
+
+    for view in parsed["views"]:
+        walk(view["cards"])
+    return out
+
+
+class TestMissingHacsCards:
+    """The custom cards are optional: without their resource the view uses built-in cards."""
+
+    def _types(self, resources) -> set[str]:
+        from custom_components.givenergy_inverter_manager.dashboard_builder import (
+            build_dashboard_yaml,
+        )
+
+        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
+            return {c["type"] for c in _all_cards(build_dashboard_yaml(hass, ENTRY_ID, resources))}
+
+    def _text(self, resources) -> str:
+        from custom_components.givenergy_inverter_manager.dashboard_builder import (
+            build_dashboard_yaml,
+        )
+
+        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
+            return build_dashboard_yaml(hass, ENTRY_ID, resources)
+
+    def test_unknown_resources_keep_the_custom_cards(self):
+        types = self._types(None)
+        assert {"custom:power-flow-card-plus", "custom:apexcharts-card"} <= types
+
+    def test_both_installed_keep_the_custom_cards(self):
+        types = self._types([_PFC, _APEX])
+        assert {"custom:power-flow-card-plus", "custom:apexcharts-card"} <= types
+
+    def test_no_resources_means_no_custom_cards(self):
+        types = self._types([])
+        assert not {t for t in types if t.startswith("custom:")}
+
+    def test_power_flow_falls_back_to_an_entities_card(self):
+        text = self._text([_APEX])
+        assert "custom:power-flow-card-plus" not in text
+        card = next(c for c in _all_cards(text) if c.get("title") == "Live Power")
+        assert card["type"] == "entities"
+        rows = [r["entity"] for r in card["entities"]]
+        for key in ("solar_power", "battery_power", "battery_soc", "grid_power", "house_load"):
+            assert eid(key) in rows
+        assert eid("ev_power") in rows
+        assert eid("immersion_power") in rows
+
+    def test_immersion_charts_fall_back_to_built_in_cards(self):
+        text = self._text([_PFC])
+        assert "custom:apexcharts-card" not in text
+        stack = next(c for c in _all_cards(text) if c["type"] == "vertical-stack")
+        assert [c["type"] for c in stack["cards"]] == ["history-graph", "tile", "statistics-graph"]
+        graph = stack["cards"][0]
+        assert [r["entity"] for r in graph["entities"]][0] == "sensor.hot_water_cylinder_temperature"
+
+    def test_matching_ignores_case_and_path(self):
+        types = self._types(["/local/Community/PowerFlowCard/POWER-FLOW-CARD-PLUS.js", _APEX])
+        assert "custom:power-flow-card-plus" in types
+
+    def test_header_names_the_missing_cards(self):
+        header = self._text([])
+        header = header[: header.index("views:")]
+        assert "power-flow-card-plus" in header
+        assert "apexcharts-card" in header
+        assert "not installed" in header
+
+    def test_header_has_no_note_when_cards_are_present(self):
+        header = self._text([_PFC, _APEX])
+        assert "not installed" not in header[: header.index("views:")]
+
+    def test_no_apex_note_without_an_immersion_sensor(self):
+        from custom_components.givenergy_inverter_manager.dashboard_builder import (
+            build_dashboard_yaml,
+        )
+
+        with fake_hass(MINIMAL_CONFIG, FakeRegistry(enable_all=True)) as hass:
+            text = build_dashboard_yaml(hass, ENTRY_ID, [_PFC])
+        assert "not installed" not in text[: text.index("views:")]
+
+    def test_fallback_dashboard_references_only_usable_entities(self):
+        assert _referenced(self._text([])) <= set(default_entity_ids().values())
+
+
+class TestReadingLovelaceResources:
+    """async_lovelace_resource_urls reads hass.data['lovelace'] and fails open."""
+
+    @staticmethod
+    def _urls(data):
+        import asyncio
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.dashboard_builder import (
+            async_lovelace_resource_urls,
+        )
+
+        hass = MagicMock()
+        hass.data = data
+        return asyncio.run(async_lovelace_resource_urls(hass))
+
+    @staticmethod
+    def _collection(items, *, fail=False):
+        from unittest.mock import AsyncMock, MagicMock
+
+        resources = MagicMock()
+        resources.async_get_info = AsyncMock(side_effect=OSError("boom") if fail else None)
+        resources.async_items.return_value = items
+        return resources
+
+    def test_returns_urls_from_the_collection(self):
+        from types import SimpleNamespace
+
+        collection = self._collection([{"url": _PFC, "type": "module"}, {"type": "js"}])
+        assert self._urls({"lovelace": SimpleNamespace(resources=collection)}) == [_PFC, ""]
+        collection.async_get_info.assert_awaited_once()
+
+    def test_not_loaded_returns_none(self):
+        assert self._urls({}) is None
+
+    def test_unreadable_collection_returns_none(self):
+        from types import SimpleNamespace
+
+        collection = self._collection([], fail=True)
+        assert self._urls({"lovelace": SimpleNamespace(resources=collection)}) is None
+
+    def test_dict_shaped_lovelace_data_is_read(self):
+        collection = self._collection([{"url": _APEX}])
+        assert self._urls({"lovelace": {"resources": collection}}) == [_APEX]

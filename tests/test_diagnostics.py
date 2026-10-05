@@ -46,7 +46,29 @@ class TestDiagnostics:
         result = asyncio.run(async_get_config_entry_diagnostics(MagicMock(), entry))
 
         assert "config" in result
-        assert result["config"]["inverter_serial"] == "SN123"
+        assert result["config"]["inverter_serial"] == "**REDACTED**"
+
+    def test_serial_is_absent_from_the_whole_payload(self):
+        from custom_components.givenergy_inverter_manager.diagnostics import (
+            async_get_config_entry_diagnostics,
+        )
+
+        entry = _make_entry(
+            data={
+                "inverter_serial": "SN123",
+                "solar_power": "sensor.givtcp_sn123_pv_power",
+                "battery_soc": "sensor.givtcp_SN123_soc",
+                "rate_periods": [{"name": "Night", "rate": 0.1}],
+                "base_rate": 0.3334,
+            }
+        )
+        result = asyncio.run(async_get_config_entry_diagnostics(MagicMock(), entry))
+
+        assert "sn123" not in repr(result).lower()
+        assert result["config"]["solar_power"] == "sensor.givtcp_**REDACTED**_pv_power"
+        assert result["config"]["rate_periods"] == [{"name": "Night", "rate": 0.1}]
+        assert result["config"]["base_rate"] == 0.3334
+        assert "inverter_serial" not in result["coordinator"]
 
     def test_options_merged_into_config(self):
         from custom_components.givenergy_inverter_manager.diagnostics import (

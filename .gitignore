@@ -31,6 +31,7 @@ ENV/
 .pytest_cache/
 .coverage
 coverage.xml
+coverage.json
 htmlcov/
 *.cover
 .hypothesis/

@@ -62,7 +62,7 @@
       "ev_km_charged_today": {"default": "mdi:car-electric"},
       "ev_cost_per_km_today": {"default": "mdi:car-electric"},
       "ev_draining_battery": {"default": "mdi:battery-arrow-down"},
-      "ev_protection_reason": {"default": "mdi:shield-check"},
+      "ev_protection_reason": {"default": "mdi:car-electric"},
       "ev_charging_source": {"default": "mdi:lightning-bolt-circle"},
       "ev_solar_surplus_available": {"default": "mdi:solar-power-variant"},
       "immersion_cost_today": {"default": "mdi:water-boiler"},

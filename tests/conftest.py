@@ -36,6 +36,7 @@ _HA_SUBMODULES = [
     "homeassistant.components",
     "homeassistant.helpers.issue_registry",
     "homeassistant.helpers.redact",
+    "homeassistant.helpers.typing",
     "homeassistant.components.sensor",
     "homeassistant.components.switch",
     "homeassistant.components.button",
@@ -61,10 +62,12 @@ _const.UnitOfPower = MagicMock()
 _const.UnitOfEnergy = MagicMock()
 _const.UnitOfTemperature = MagicMock()
 _const.EntityCategory = MagicMock()
+_const.EVENT_HOMEASSISTANT_FINAL_WRITE = "homeassistant_final_write"
 
 # --- homeassistant.config_entries ---
 _ce = sys.modules["homeassistant.config_entries"]
 _ce.ConfigEntry = MagicMock
+_ce.ConfigEntryState = MagicMock()
 
 
 class _ConfigFlow:
@@ -90,6 +93,7 @@ _def.FlowResult = dict
 # --- homeassistant.core ---
 _core = sys.modules["homeassistant.core"]
 _core.HomeAssistant = MagicMock
+_core.Event = MagicMock
 _core.callback = lambda f: f
 
 # --- homeassistant.exceptions ---
@@ -197,6 +201,8 @@ for _cls in [
 
 _cv = sys.modules["homeassistant.helpers.config_validation"]
 _cv.string = str
+sys.modules["homeassistant.helpers.typing"].ConfigType = dict
+_cv.config_entry_only_config_schema = lambda domain: {}
 
 _ep = sys.modules["homeassistant.helpers.entity_platform"]
 _ep.AddEntitiesCallback = MagicMock
@@ -210,6 +216,7 @@ sys.modules["homeassistant.helpers.event"].async_track_time_change = lambda *a, 
 # homeassistant.core needs ServiceCall for dashboard.py
 _core = sys.modules["homeassistant.core"]
 _core.ServiceCall = MagicMock
+_core.SupportsResponse = MagicMock()
 
 # homeassistant.helpers.entity_registry (used by dashboard.py)
 if "homeassistant.helpers.entity_registry" not in sys.modules:
@@ -308,6 +315,7 @@ def _run(
         raw=raw,
         cfg=cfg,
         acc=acc,
+        acc_month=kwargs.get("acc_month"),
         battery_stats=battery_stats,
         last_soc=last_soc,
         last_update_time=last_update_time,

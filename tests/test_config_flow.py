@@ -197,12 +197,12 @@ class TestNumberSelectorStepConstraint:
 def _parse_sensor_enabled_state():
     """Return {name: enabled_default} by parsing sensor.py with ast."""
     import ast
+    import json
     from pathlib import Path
 
-    src = (
-        Path(__file__).parent.parent / "custom_components/givenergy_inverter_manager/sensor.py"
-    ).read_text()
-    tree = ast.parse(src)
+    pkg = Path(__file__).parent.parent / "custom_components/givenergy_inverter_manager"
+    tree = ast.parse((pkg / "sensor.py").read_text())
+    translated = json.loads((pkg / "strings.json").read_text())["entity"]["sensor"]
 
     results = {}
     # Walk all Call nodes looking for GivEnergyManagerSensorDescription(...)
@@ -212,7 +212,9 @@ def _parse_sensor_enabled_state():
         name_val = None
         enabled_val = True  # default per dataclass default
         for kw in node.keywords:
-            if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+            if kw.arg == "translation_key" and isinstance(kw.value, ast.Constant):
+                name_val = translated.get(kw.value.value, {}).get("name", name_val)
+            if kw.arg == "name" and isinstance(kw.value, ast.Constant) and name_val is None:
                 name_val = kw.value.value
             if kw.arg == "entity_registry_enabled_default" and isinstance(kw.value, ast.Constant):
                 enabled_val = bool(kw.value.value)
@@ -279,13 +281,18 @@ class TestSensorDefaultEnabled:
         "Night Survival Confidence",
         "Net Solar Surplus",
         "Battery Energy Available",
+        "Solar generated this year",
+        "Export this year",
+        "Export earnings this year",
+        "Missed solar today",
+        "Inverter Derating Today",
     }
 
     def test_exactly_five_sensors_disabled(self):
-        """Exactly 54 sensors should be disabled by default."""
+        """Exactly 59 sensors should be disabled by default."""
         state = _parse_sensor_enabled_state()
         disabled = [n for n, enabled in state.items() if not enabled]
-        assert len(disabled) == 54, f"Expected 54 disabled sensors, got {len(disabled)}: {disabled}"
+        assert len(disabled) == 59, f"Expected 59 disabled sensors, got {len(disabled)}: {disabled}"
 
     def test_disabled_sensors_are_the_expected_ones(self):
         """The disabled sensors must be the HTML reports and forecast accuracy."""
@@ -645,14 +652,15 @@ class TestReconfigureStep:
             "async_step_reconfigure is required for the reconfiguration-flow quality scale item."
         )
 
-    def test_reconfigure_reloads_entry_on_success(self):
+    def test_reconfigure_leaves_the_reload_to_the_update_listener(self):
         from pathlib import Path
 
         src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
         reconf = src[src.find("async def async_step_reconfigure") :]
         reconf = reconf[: reconf.find("\n    async def ")]
-        assert "async_reload" in reconf, (
-            "Reconfigure must reload the entry after updating so new tariff takes effect."
+        assert "async_update_entry" in reconf
+        assert "async_reload" not in reconf, (
+            "The entry update listener already reloads; an explicit reload reloads twice."
         )
 
     def test_reconfigure_uses_abort_reason(self):
@@ -876,3 +884,51 @@ class TestOptionsFlowSavedValues:
         with patch("custom_components.givenergy_inverter_manager.config_flow.vol", real_vol):
             key = flow._optional_key("forecast_entity")
         assert key.description is None
+
+
+class TestRatePeriodErrors:
+    def _errors(self, periods, base="Day"):
+        from custom_components.givenergy_inverter_manager.config_flow import _rate_period_errors
+
+        return _rate_period_errors(periods, base)
+
+    def test_valid_periods_have_no_errors(self):
+        periods = [
+            {"name": "Night", "rate": 0.18, "start": "23:00", "end": "08:00"},
+            {"name": "Nightboost", "rate": 0.1, "start": "02:00", "end": "04:00"},
+        ]
+        assert self._errors(periods) == {}
+
+    def test_no_periods_have_no_errors(self):
+        assert self._errors([]) == {}
+
+    def test_same_start_and_end_is_rejected(self):
+        periods = [{"name": "Empty", "rate": 0.01, "start": "00:00", "end": "00:00"}]
+        assert self._errors(periods) == {"base": "rate_period_zero_length"}
+
+    def test_same_start_and_end_midday_is_rejected(self):
+        periods = [{"name": "Empty", "rate": 0.01, "start": "12:30", "end": "12:30"}]
+        assert self._errors(periods) == {"base": "rate_period_zero_length"}
+
+    def test_duplicate_names_ignore_case_and_are_rejected(self):
+        periods = [
+            {"name": "Night", "rate": 0.18, "start": "23:00", "end": "08:00"},
+            {"name": "night", "rate": 0.1, "start": "02:00", "end": "04:00"},
+        ]
+        assert self._errors(periods) == {"base": "rate_period_duplicate_name"}
+
+    def test_name_matching_base_rate_is_rejected(self):
+        periods = [{"name": "day", "rate": 0.18, "start": "10:00", "end": "11:00"}]
+        assert self._errors(periods) == {"base": "rate_period_duplicate_name"}
+
+    def test_error_keys_exist_in_both_translation_files(self):
+        import json
+        from pathlib import Path
+
+        root = Path("custom_components/givenergy_inverter_manager")
+        for name in ("strings.json", "translations/en.json"):
+            data = json.loads((root / name).read_text())
+            for scope in ("config", "options"):
+                errors = data[scope]["error"]
+                assert "rate_period_zero_length" in errors
+                assert "rate_period_duplicate_name" in errors

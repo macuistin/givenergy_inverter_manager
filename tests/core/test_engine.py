@@ -209,8 +209,57 @@ class TestUpdateBatteryStats:
 
     def test_cycle_increments_on_discharge(self):
         stats = BatteryStats()
-        update_battery_stats(stats, 50.0, 80.0)
-        assert stats.total_cycles == pytest.approx(0.30)
+        update_battery_stats(stats, 75.0, 80.0)
+        assert stats.total_cycles == pytest.approx(0.05)
+
+    def test_charging_does_not_add_cycles(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, 80.0, 75.0)
+        assert stats.total_cycles == pytest.approx(0.0)
+
+    def test_discharge_then_recharge_counts_discharge_only(self):
+        stats = BatteryStats()
+        soc = 100.0
+        for nxt in (95.0, 90.0, 85.0, 90.0, 95.0, 100.0):
+            update_battery_stats(stats, nxt, soc)
+            soc = nxt
+        assert stats.total_cycles == pytest.approx(0.15)
+
+    def test_unavailable_reading_adds_nothing(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, None, 80.0)
+        assert stats.total_cycles == 0.0
+        assert stats.tracking_start_date is None
+
+    def test_zero_reading_after_healthy_reading_adds_nothing(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, 0.0, 80.0)
+        assert stats.total_cycles == 0.0
+
+    def test_recovery_from_zero_reading_adds_nothing(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, 79.0, 0.0)
+        assert stats.total_cycles == 0.0
+
+    def test_jump_above_sane_step_adds_nothing(self):
+        stats = BatteryStats()
+        update_battery_stats(stats, 30.0, 80.0)
+        assert stats.total_cycles == 0.0
+
+    def test_step_at_the_limit_is_counted(self):
+        from custom_components.givenergy_inverter_manager.const import BATTERY_MAX_SOC_STEP_PCT
+
+        stats = BatteryStats()
+        update_battery_stats(stats, 80.0 - BATTERY_MAX_SOC_STEP_PCT, 80.0)
+        assert stats.total_cycles == pytest.approx(BATTERY_MAX_SOC_STEP_PCT / 100)
+
+    def test_glitch_to_zero_and_back_adds_no_phantom_cycles(self):
+        stats = BatteryStats()
+        last = 80.0
+        for reading in (79.5, 0.0, 79.4):
+            update_battery_stats(stats, reading, last)
+            last = reading
+        assert stats.total_cycles == pytest.approx(0.005)
 
     def test_full_charge_date_set_at_99_pct(self):
         from datetime import date
@@ -335,8 +384,8 @@ class TestBuildCoordinatorData:
         )
         assert data.accrued_bill > 0
         assert data.projected_bill > 0
-        assert data.days_in_period == 4
-        assert data.days_remaining > 0
+        assert data.days_in_period == 5
+        assert data.days_remaining == 26
 
     def test_night_survival_positive_case(self):
         """Full battery at day time should survive the night."""
@@ -440,9 +489,19 @@ class TestBuildCoordinatorData:
         data, _ = _run(
             raw=_raw(battery_soc=60.0),
             battery_stats=stats,
-            last_soc=80.0,  # 20% drop
+            last_soc=65.0,  # 5% drop
         )
-        assert data.battery_stats.total_cycles == pytest.approx(0.20)
+        assert data.battery_stats.total_cycles == pytest.approx(0.05)
+
+    def test_unavailable_soc_does_not_add_cycles(self):
+        """A 0.0 placeholder from an unavailable SoC sensor must not count as a discharge."""
+        stats = BatteryStats()
+        data, _ = _run(
+            raw=_raw(battery_soc=0.0, unavailable_inputs=("battery_soc",)),
+            battery_stats=stats,
+            last_soc=80.0,
+        )
+        assert data.battery_stats.total_cycles == 0.0
 
 
 class TestBuildCoordinatorDataNowDefault:
@@ -1332,6 +1391,17 @@ class TestCounterfactualCost:
         # (small positive rounding is acceptable — base rate equals import rate)
         assert data.saving_vs_grid_today >= -0.05
 
+    def test_saving_vs_grid_is_zero_with_no_solar_at_base_rate(self):
+        # Arrange — every kWh of load is imported at the base rate; discount and VAT
+        # apply to the actual cost, so they must apply to the counterfactual too
+        data = self._run_with_energy(
+            house_load_w=2000.0,
+            solar_power_w=0.0,
+            grid_power_w=2000.0,
+        )
+        # Assert
+        assert data.saving_vs_grid_today == pytest.approx(0.0, abs=1e-4)
+
     def test_net_saving_equals_saving_when_no_cycle_cost(self):
         # Arrange — battery_cycle_cost_per_kwh defaults to 0.0
         data = self._run_with_energy()
@@ -1627,6 +1697,18 @@ class TestNetSolarSurplus:
         data, _ = _run(raw=raw)
         assert data.net_solar_surplus_w == pytest.approx(3500.0)
 
+    def test_battery_charging_is_not_subtracted(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=500.0, battery_power_w=2000.0)
+        raw.smoothed_solar_power_w = 4000.0
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == pytest.approx(3500.0)
+
+    def test_ev_draw_is_not_added_back(self):
+        raw = _raw(solar_power_w=4000.0, house_load_w=3500.0, ev_power_w=3000.0)
+        raw.smoothed_solar_power_w = 4000.0
+        data, _ = _run(raw=raw)
+        assert data.net_solar_surplus_w == pytest.approx(500.0)
+
     def test_surplus_unchanged_by_immersion_switching_on(self):
         off = _raw(solar_power_w=4000.0, house_load_w=500.0, immersion_on=False)
         on = _raw(solar_power_w=4000.0, house_load_w=3500.0, immersion_on=True)
@@ -1715,3 +1797,147 @@ class TestUnavailableInputs:
         raw.unavailable_inputs = ("solar_power",)
         data, _ = _run(raw=raw)
         assert data.net_solar_surplus_w == 0.0
+
+
+# ── EV surplus threshold and mode-change flag ───────────────────────────────
+
+
+class TestEVSurplusThreshold:
+    def _zappi(self, mode="Fast"):
+        return EVCharger(
+            brand=EVChargerBrand.ZAPPI,
+            name="Zappi",
+            serial="123",
+            display_name="Zappi (123)",
+            state=EVChargerState.CONNECTED,
+            charge_mode=mode,
+            charge_mode_entity="select.zappi_123_charge_mode",
+        )
+
+    def _run_with_surplus(self, surplus_w, mode="Fast"):
+        raw = _raw(
+            solar_power_w=surplus_w + 500.0,
+            house_load_w=500.0,
+            battery_power_w=0.0,
+            ev_plugged_in=True,
+        )
+        return _run(raw=raw, ev_charger=self._zappi(mode))
+
+    @pytest.mark.parametrize("surplus_w", [1379.0, 1380.0, 1390.0, 1399.0, 1400.0, 1500.0])
+    def test_signal_and_mode_request_switch_at_the_same_surplus(self, surplus_w):
+        data, target = self._run_with_surplus(surplus_w)
+        assert data.ev_solar_surplus_available == (target == ZAPPI_ECO_PLUS_MODE)
+
+    def test_signal_reads_available_at_charger_minimum(self):
+        data, _ = self._run_with_surplus(1380.0)
+        assert data.ev_solar_surplus_available is True
+
+    def test_signal_clear_just_below_charger_minimum(self):
+        data, _ = self._run_with_surplus(1379.0)
+        assert data.ev_solar_surplus_available is False
+
+    def test_mode_change_flag_set_when_switching_to_eco_plus(self):
+        data, target = self._run_with_surplus(3000.0, mode="Fast")
+        assert target == ZAPPI_ECO_PLUS_MODE
+        assert data.ev_mode_change_requested is True
+
+    def test_mode_change_flag_clear_when_already_in_eco_plus(self):
+        data, target = self._run_with_surplus(3000.0, mode="Eco+")
+        assert target is None
+        assert data.ev_mode_change_requested is False
+
+    def test_old_protection_flag_is_gone(self):
+        data, _ = self._run_with_surplus(3000.0)
+        assert not hasattr(data, "ev_protection_active")
+class TestOvermorrowReachesEngine:
+    """forecast_kwh_d2 on RawSensorValues feeds the overmorrow correction."""
+
+    _NOW = datetime(2026, 6, 15, 22, 0)
+
+    def _decision(self, d2):
+        raw = _raw(battery_soc=40.0, battery_capacity_kwh=19.0, forecast_kwh_tomorrow=5.0)
+        raw.forecast_kwh_d2 = d2
+        data, _ = _run(raw=raw, now=self._NOW)
+        return data.charge_decision
+
+    def test_raw_values_declares_d2_field(self):
+        import dataclasses
+
+        from custom_components.givenergy_inverter_manager.core.engine import RawSensorValues
+
+        assert "forecast_kwh_d2" in {f.name for f in dataclasses.fields(RawSensorValues)}
+        assert RawSensorValues().forecast_kwh_d2 is None
+
+    def test_strong_d2_lowers_tonights_target(self):
+        without = self._decision(None)
+        with_d2 = self._decision(25.0)
+        assert with_d2.target_soc < without.target_soc
+        assert "Overmorrow" in with_d2.reason
+
+    def test_weak_d2_leaves_target_unchanged(self):
+        assert self._decision(10.0).target_soc == self._decision(None).target_soc
+# ── Bill sensors use the billing period ───────────────────────────────────────
+
+
+def _month_acc_for_golden_bill() -> EnergyAccumulator:
+    month = EnergyAccumulator()
+    keep = (1 - 0.055) * 1.09
+    month.import_cost_by_period["Nightboost"] = 154 * 0.1056 * keep
+    month.import_cost_by_period["Day"] = 33 * 0.365 * keep
+    month.import_cost_by_period["Night"] = 517 * 0.18 * keep
+    month.export_earnings = 179 * 0.195
+    return month
+
+
+class TestBillSensors:
+    def test_day_one_of_period_is_one_day_elapsed(self):
+        data, _ = _run(cfg={**_nightboost_cfg(), "bill_start_day": 16}, now=datetime(2026, 8, 16, 9))
+        assert data.days_in_period == 1
+        assert data.days_remaining == 30
+
+    def test_elapsed_plus_remaining_is_period_length_in_february(self):
+        data, _ = _run(cfg={**_nightboost_cfg(), "bill_start_day": 1}, now=datetime(2026, 2, 1, 9))
+        assert data.days_in_period == 1
+        assert data.days_remaining == 27
+
+    def test_full_period_reproduces_the_real_bill(self):
+        data, _ = _run(
+            cfg={**_nightboost_cfg(), "bill_start_day": 16},
+            now=datetime(2026, 9, 15, 23, 30),
+            acc_month=_month_acc_for_golden_bill(),
+        )
+        assert data.days_in_period == 31
+        assert data.days_remaining == 0
+        assert data.accrued_bill == pytest.approx(119.60)
+        assert data.projected_bill == pytest.approx(119.60)
+
+    def test_accrued_bill_reads_the_month_not_today(self):
+        today = EnergyAccumulator()
+        today.import_cost_by_period["Day"] = 3.0
+        data, _ = _run(
+            cfg={**_nightboost_cfg(), "bill_start_day": 16},
+            now=datetime(2026, 9, 15, 23, 30),
+            acc=today,
+            acc_month=_month_acc_for_golden_bill(),
+        )
+        assert data.accrued_bill == pytest.approx(119.60, abs=0.02)
+
+    def test_part_period_projects_with_real_period_length(self):
+        cfg = {**_nightboost_cfg(), "bill_start_day": 16}
+        month = EnergyAccumulator()
+        month.import_cost_by_period["Day"] = 50.0
+        data, _ = _run(cfg=cfg, now=datetime(2026, 8, 30, 12), acc_month=month)
+        assert data.days_in_period == 15
+        assert data.days_remaining == 16
+        accrued = 50.0 + (0.8259 * 15 + 1.46 * 15 / 31) * 1.09
+        assert data.accrued_bill == pytest.approx(accrued, abs=0.02)
+        assert data.projected_bill == pytest.approx(accrued / 15 * 31, abs=0.05)
+
+    def test_export_credit_reduces_the_bill(self):
+        cfg = {**_nightboost_cfg(), "bill_start_day": 16}
+        month = EnergyAccumulator()
+        month.import_cost_by_period["Day"] = 50.0
+        base, _ = _run(cfg=cfg, now=datetime(2026, 8, 30, 12), acc_month=month)
+        month.export_earnings = 10.0
+        credited, _ = _run(cfg=cfg, now=datetime(2026, 8, 30, 12), acc_month=month)
+        assert credited.accrued_bill == pytest.approx(base.accrued_bill - 10.0)

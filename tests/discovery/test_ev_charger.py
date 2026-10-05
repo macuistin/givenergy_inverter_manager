@@ -1,19 +1,15 @@
 """
-test_ev_charger.py — Unit tests for multi-brand EV charger discovery and battery protection.
+test_ev_charger.py — Unit tests for multi-brand EV charger discovery and the EV mode decision.
 
 Tests EVCharger state normalisation, brand-specific entity discovery patterns,
-battery drain detection, and the battery protection decision logic — all without
-requiring a running Home Assistant instance.
+battery drain detection, and the EV mode decision, all without requiring a running
+Home Assistant instance.
 """
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.rules import (
-    decide_ev_charger_action,
-    should_protect_battery_from_charger,
-)
+from custom_components.givenergy_inverter_manager.core.rules import decide_ev_charger_action
 from custom_components.givenergy_inverter_manager.discovery import (
-    ZAPPI_BATTERY_DRAINING_MODES,
     ZAPPI_ECO_PLUS_MODE,
     EVCharger,
     EVChargerBrand,
@@ -299,87 +295,6 @@ class TestUpdateChargerState:
         assert ch.state == EVChargerState.UNKNOWN
 
 
-# ── Battery protection ────────────────────────────────────────────────────────
-
-
-class TestShouldProtectBatteryFromCharger:
-    def test_protect_when_zappi_fast_draining_low_battery(self):
-        ch = _make_zappi(mode="Fast")
-        ch.state = EVChargerState.CHARGING
-        ch.is_draining_battery = True
-        should, reason = should_protect_battery_from_charger(
-            ch, battery_soc=15.0, battery_protection_threshold=20.0
-        )
-        assert should is True
-        # Reason should mention the mode and the SoC threshold
-        assert "Fast" in reason
-        assert "15" in reason
-
-    def test_protect_when_zappi_eco_draining_low_battery(self):
-        ch = _make_zappi(mode="Eco")
-        ch.state = EVChargerState.CHARGING
-        ch.is_draining_battery = True
-        should, reason = should_protect_battery_from_charger(
-            ch, battery_soc=10.0, battery_protection_threshold=20.0
-        )
-        assert should is True
-
-    def test_no_protect_when_zappi_eco_plus(self):
-        """Eco+ only charges from solar — no battery risk."""
-        ch = _make_zappi(mode="Eco+")
-        ch.state = EVChargerState.CHARGING
-        ch.is_draining_battery = False  # Eco+ won't drain battery
-        should, reason = should_protect_battery_from_charger(
-            ch, battery_soc=15.0, battery_protection_threshold=20.0
-        )
-        assert should is False
-
-    def test_no_protect_when_battery_high(self):
-        """Battery above threshold — OK to let charger draw from it."""
-        ch = _make_zappi(mode="Fast")
-        ch.state = EVChargerState.CHARGING
-        ch.is_draining_battery = True
-        should, reason = should_protect_battery_from_charger(
-            ch, battery_soc=80.0, battery_protection_threshold=20.0
-        )
-        assert should is False
-
-    def test_no_protect_when_not_charging(self):
-        ch = _make_zappi(mode="Fast")
-        ch.state = EVChargerState.DISCONNECTED
-        ch.is_draining_battery = False
-        should, reason = should_protect_battery_from_charger(
-            ch, battery_soc=10.0, battery_protection_threshold=20.0
-        )
-        assert should is False
-
-    def test_no_protect_when_not_draining(self):
-        """Charging but from solar/grid — no battery drain."""
-        ch = _make_zappi(mode="Fast")
-        ch.state = EVChargerState.CHARGING
-        ch.is_draining_battery = False
-        should, reason = should_protect_battery_from_charger(
-            ch, battery_soc=10.0, battery_protection_threshold=20.0
-        )
-        assert should is False
-
-    def test_reason_string_always_returned(self):
-        ch = _make_zappi(mode="Fast")
-        ch.state = EVChargerState.CHARGING
-        ch.is_draining_battery = True
-        _, reason = should_protect_battery_from_charger(
-            ch, battery_soc=10.0, battery_protection_threshold=20.0
-        )
-        assert isinstance(reason, str) and len(reason) > 0
-
-    def test_zappi_battery_draining_modes_are_correct(self):
-        """Verify the modes that can drain the battery are correctly listed."""
-        assert "fast" in ZAPPI_BATTERY_DRAINING_MODES
-        assert "eco" in ZAPPI_BATTERY_DRAINING_MODES
-        assert "eco+" not in ZAPPI_BATTERY_DRAINING_MODES
-        assert "stopped" not in ZAPPI_BATTERY_DRAINING_MODES
-
-
 # ── decide_ev_charger_action ──────────────────────────────────────────────────
 
 
@@ -496,22 +411,6 @@ class TestEVChargerAdditionalCoverage:
         ch = EVCharger(brand=EVChargerBrand.WALLBOX, name="wb", serial="x", display_name="wb")
         assert ch.can_be_paused is False
 
-    def test_non_zappi_non_draining_protect_returns_false(self):
-        """Non-Zappi charger draining battery without mode select returns True but no Zappi logic."""
-        ch = EVCharger(
-            brand=EVChargerBrand.WALLBOX,
-            name="wb",
-            serial="x",
-            display_name="wb",
-            state=EVChargerState.CHARGING,
-        )
-        ch.is_draining_battery = True
-        should, reason = should_protect_battery_from_charger(
-            ch, battery_soc=10.0, battery_protection_threshold=20.0
-        )
-        assert should is True
-        assert "EV charger" in reason
-
     def test_ohme_current_entity_skipped_in_discovery(self):
         """Ohme sensor with 'current_' in name should not be discovered as a charger."""
         all_states = _states(
@@ -600,3 +499,83 @@ class TestEVPowerEntityWarning:
 
 
 
+
+
+class TestZappiEntityNaming:
+    """The myenergi integration may or may not put the serial in its entity ids."""
+
+    NO_SERIAL = {
+        "sensor.myenergi_zappi_plug_status": "EV Connected",
+        "sensor.myenergi_zappi_status": "Boosting",
+        "sensor.myenergi_zappi_internal_load_ct1": "7200",
+        "sensor.myenergi_zappi_charge_added_session": "3.2",
+        "select.myenergi_zappi_charge_mode": "Fast",
+        "sensor.myenergi_zappi_serial_number": "21637627",
+    }
+    WITH_SERIAL = {
+        "sensor.myenergi_zappi_21637627_plug_status": "EV Connected",
+        "sensor.myenergi_zappi_21637627_status": "Diverting",
+        "sensor.myenergi_zappi_21637627_internal_load_ct1": "3100",
+        "sensor.myenergi_zappi_21637627_charge_added_session": "1.0",
+        "select.myenergi_zappi_21637627_charge_mode": "Eco+",
+    }
+
+    def test_entities_found_without_serial_in_ids(self):
+        (charger,) = discover_ev_chargers(_states(self.NO_SERIAL))
+        assert charger.status_entity == "sensor.myenergi_zappi_plug_status"
+        assert charger.power_entity == "sensor.myenergi_zappi_internal_load_ct1"
+        assert charger.session_energy_entity == "sensor.myenergi_zappi_charge_added_session"
+        assert charger.charge_mode_entity == "select.myenergi_zappi_charge_mode"
+        assert charger.activity_entity == "sensor.myenergi_zappi_status"
+
+    def test_serial_taken_from_serial_number_sensor(self):
+        (charger,) = discover_ev_chargers(_states(self.NO_SERIAL))
+        assert charger.serial == "21637627"
+
+    def test_entities_found_with_serial_in_ids(self):
+        (charger,) = discover_ev_chargers(_states(self.WITH_SERIAL))
+        assert charger.serial == "21637627"
+        assert charger.power_entity == "sensor.myenergi_zappi_21637627_internal_load_ct1"
+        assert charger.charge_mode_entity == "select.myenergi_zappi_21637627_charge_mode"
+        assert charger.activity_entity == "sensor.myenergi_zappi_21637627_status"
+
+    def test_power_flows_into_the_charger_state(self):
+        (charger,) = discover_ev_chargers(_states(self.NO_SERIAL))
+        update_charger_state(_get_state(self.NO_SERIAL), charger, battery_power_w=0.0)
+        assert charger.power_w == 7200.0
+        assert charger.session_kwh == 3.2
+        assert charger.charge_mode == "Fast"
+
+    def test_boosting_status_makes_the_charger_active(self):
+        (charger,) = discover_ev_chargers(_states(self.NO_SERIAL))
+        update_charger_state(_get_state(self.NO_SERIAL), charger, battery_power_w=0.0)
+        assert charger.state is EVChargerState.BOOSTING
+        assert charger.is_active
+
+    def test_diverting_status_counts_as_charging(self):
+        (charger,) = discover_ev_chargers(_states(self.WITH_SERIAL))
+        update_charger_state(_get_state(self.WITH_SERIAL), charger, battery_power_w=0.0)
+        assert charger.state is EVChargerState.CHARGING
+
+    def test_stale_boosting_status_is_ignored_when_unplugged(self):
+        states = {**self.NO_SERIAL, "sensor.myenergi_zappi_plug_status": "EV Disconnected"}
+        (charger,) = discover_ev_chargers(_states(states))
+        update_charger_state(_get_state(states), charger, battery_power_w=0.0)
+        assert charger.state is EVChargerState.DISCONNECTED
+        assert not charger.is_active
+
+    def test_ready_to_charge_is_connected(self):
+        states = {
+            **self.NO_SERIAL,
+            "sensor.myenergi_zappi_plug_status": "EV Ready to Charge",
+            "sensor.myenergi_zappi_status": "Paused",
+        }
+        (charger,) = discover_ev_chargers(_states(states))
+        update_charger_state(_get_state(states), charger, battery_power_w=0.0)
+        assert charger.is_plugged_in
+        assert charger.state is EVChargerState.PAUSED
+
+    def test_battery_drain_detected_while_boosting(self):
+        (charger,) = discover_ev_chargers(_states(self.NO_SERIAL))
+        update_charger_state(_get_state(self.NO_SERIAL), charger, battery_power_w=-2500.0)
+        assert charger.is_draining_battery

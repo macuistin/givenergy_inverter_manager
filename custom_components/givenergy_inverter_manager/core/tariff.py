@@ -20,8 +20,9 @@ from __future__ import annotations
 import calendar
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, time
+from datetime import date, datetime, time
 from datetime import time as dtime
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from ..const import (
@@ -46,6 +47,30 @@ from ..const import (
 )
 
 _LOG = logging.getLogger(__name__)
+
+_AVERAGE_DAYS_PER_MONTH = 30.44
+
+
+def _money(value: float) -> float:
+    """Round to whole cents, halves upward, the way a supplier bill rounds each line."""
+    return float(Decimal(repr(round(value, 8))).quantize(Decimal("0.01"), ROUND_HALF_UP))
+
+
+@dataclass(frozen=True)
+class BillBreakdown:
+    """One bill, line by line. Every figure is rounded to cents as a bill rounds it."""
+
+    energy: float
+    supplier_saving: float
+    standing_charge: float
+    pso_levy: float
+    vat: float
+    export_credit: float
+    total: float
+
+    @property
+    def before_vat(self) -> float:
+        return _money(self.energy - self.supplier_saving + self.standing_charge + self.pso_levy)
 
 
 @dataclass
@@ -169,37 +194,103 @@ class TariffConfig:
         gross = kwh * rate.rate * (1 - self.discount_rate / 100)
         return gross * (1 + self.vat_rate / 100)
 
+    def calculate_base_rate_cost(self, kwh: float) -> float:
+        """Cost of kwh at the base rate with the same discount and VAT as actual imports."""
+        gross = kwh * self.base_rate * (1 - self.discount_rate / 100)
+        return gross * (1 + self.vat_rate / 100)
+
     def calculate_export_earnings(self, kwh: float) -> float:
         """Calculate earnings from exporting energy."""
         return kwh * self.export_rate
 
-    def calculate_standing_charges(self, days: int) -> float:
-        """Calculate standing charges including VAT."""
+    def calculate_standing_charges(self, days: int, period_days: int | None = None) -> float:
+        """Calculate standing charge and PSO levy including VAT.
+
+        The PSO levy is a flat monthly figure. A full billing period charges it
+        once; a part period charges days / period_days of it. Without period_days
+        the share is capped at one levy using an average month length.
+        """
         gross = self.standing_charge * days
-        pso = self.pso_levy * (days / 30.44)  # pro-rated
-        return (gross + pso) * (1 + self.vat_rate / 100)
+        if period_days is not None and period_days > 0:
+            share = min(1.0, days / period_days)
+        else:
+            share = min(1.0, days / _AVERAGE_DAYS_PER_MONTH)
+        return (gross + self.pso_levy * share) * (1 + self.vat_rate / 100)
+
+    def energy_cost_from_import_cost(self, import_cost: float) -> float:
+        """Reverse the discount and VAT applied to accumulated import cost."""
+        factor = (1 - self.discount_rate / 100) * (1 + self.vat_rate / 100)
+        return import_cost / factor if factor > 0 else 0.0
+
+    def calculate_bill(
+        self,
+        energy_cost: float,
+        days: int,
+        period_days: int | None = None,
+        export_credit: float = 0.0,
+    ) -> BillBreakdown:
+        """Build a bill from energy cost (kWh x rate, before discount and VAT).
+
+        The supplier saving applies to energy only. VAT applies to energy less the
+        saving, plus standing charge and PSO levy. The export credit carries no VAT
+        and comes off after VAT.
+        """
+        energy = _money(energy_cost)
+        saving = _money(energy_cost * self.discount_rate / 100)
+        standing = _money(self.standing_charge * days)
+        if period_days is not None and period_days > 0:
+            share = min(1.0, days / period_days)
+        else:
+            share = min(1.0, days / _AVERAGE_DAYS_PER_MONTH)
+        pso = _money(self.pso_levy * share)
+        before_vat = _money(energy - saving + standing + pso)
+        vat = _money(before_vat * self.vat_rate / 100)
+        export = _money(export_credit)
+        return BillBreakdown(
+            energy=energy,
+            supplier_saving=saving,
+            standing_charge=standing,
+            pso_levy=pso,
+            vat=vat,
+            export_credit=export,
+            total=_money(before_vat + vat - export),
+        )
+
+    def _bill_start_date(self, year: int, month: int) -> date:
+        last_day = calendar.monthrange(year, month)[1]
+        return date(year, month, max(1, min(self.bill_start_day, last_day)))
+
+    def _bill_period_bounds(self, dt: datetime) -> tuple[date, date]:
+        """Return (first day of the current period, first day of the next period)."""
+        today = dt.date()
+        this_start = self._bill_start_date(today.year, today.month)
+        if today >= this_start:
+            start = this_start
+            next_year, next_month = (
+                (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
+            )
+            return start, self._bill_start_date(next_year, next_month)
+        prev_year, prev_month = (
+            (today.year - 1, 12) if today.month == 1 else (today.year, today.month - 1)
+        )
+        return self._bill_start_date(prev_year, prev_month), this_start
+
+    def days_in_bill_period(self, dt: datetime) -> int:
+        """Return the total length in days of the billing period containing dt."""
+        start, end = self._bill_period_bounds(dt)
+        return (end - start).days
 
     def days_in_current_bill_period(self, dt: datetime) -> int:
-        """Return number of days elapsed in the current billing period.
+        """Return the day number of dt within its billing period.
 
-        Returns at least 1 — on the billing start day itself, 1 day has elapsed
-        (the period has just begun). This prevents division-by-zero in bill
-        projection calculations.
+        The bill start day is day 1, so the result is always at least 1.
         """
-        if dt.day >= self.bill_start_day:
-            return max(1, dt.day - self.bill_start_day)
-        # We're in the period that started last month
-        last_month = dt.month - 1 if dt.month > 1 else 12
-        last_month_year = dt.year if dt.month > 1 else dt.year - 1
-        days_in_last_month = calendar.monthrange(last_month_year, last_month)[1]
-        return max(1, (days_in_last_month - self.bill_start_day) + dt.day)
+        start, _ = self._bill_period_bounds(dt)
+        return (dt.date() - start).days + 1
 
     def days_remaining_in_bill_period(self, dt: datetime) -> int:
-        """Return days remaining in the current billing period."""
-        days_in_month = calendar.monthrange(dt.year, dt.month)[1]
-        if dt.day < self.bill_start_day:
-            return self.bill_start_day - dt.day
-        return (days_in_month - dt.day) + self.bill_start_day
+        """Return the days left in the billing period after dt's day."""
+        return self.days_in_bill_period(dt) - self.days_in_current_bill_period(dt)
 
 
 @dataclass
@@ -315,16 +406,23 @@ def build_tariff(cfg: dict[str, Any]) -> TariffConfig:
         try:
             s = p["start"].split(":")
             e = p["end"].split(":")
-            periods.append(
-                RatePeriod(
-                    name=p["name"],
-                    rate=float(p["rate"]),
-                    start=dtime(int(s[0]), int(s[1])),
-                    end=dtime(int(e[0]), int(e[1])),
-                )
+            period = RatePeriod(
+                name=p["name"],
+                rate=float(p["rate"]),
+                start=dtime(int(s[0]), int(s[1])),
+                end=dtime(int(e[0]), int(e[1])),
             )
         except (KeyError, ValueError, IndexError) as err:
             _LOG.warning("Skipping malformed rate period %s: %s", p, err)
+            continue
+        if period.start == period.end:
+            _LOG.warning(
+                "Skipping rate period %s: start and end are both %s, so it never applies",
+                p.get("name"),
+                period.start.strftime("%H:%M"),
+            )
+            continue
+        periods.append(period)
 
     return TariffConfig(
         rate_periods=periods,

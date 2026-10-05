@@ -33,14 +33,31 @@ Related behaviour:
 - If only one of the two sensors drops out, the integration keeps running and reads the missing value as 0.
 - The integration judges by the entity's state, not its age. If GivTCP leaves the last value in place when it stops, the integration keeps using it.
 - At startup, a failed first read raises "First data fetch failed" and Home Assistant retries the setup on its own.
-- If both entities are missing from Home Assistant entirely, the repair **GivTCP entities not found** appears in **Settings → System → Repairs**. This usually means GivTCP was reinstalled with another serial. The repair text points to Reconfigure, but Reconfigure only edits the tariff. Remove and re-add the integration instead. Accumulated energy is kept, because the storage file is not deleted.
+- If both entities are missing from Home Assistant entirely, the repair **GivTCP entities not found** appears. See [GivTCP entities not found](#givtcp-entities-not-found).
+
+## GivTCP entities not found
+
+The repair **GivTCP entities not found** appears in **Settings → System → Repairs** when the solar power and battery SoC entities chosen at setup no longer exist in Home Assistant. This usually means GivTCP was reinstalled with another serial, or its entity IDs changed.
+
+1. Open **Developer Tools → States** and search for `givtcp_`. Note the new serial in the entity IDs.
+2. Remove the integration and add it again, picking the new inverter. The repair text points to Reconfigure, but Reconfigure only edits the tariff.
+3. Accumulated energy is kept, because the storage file is not deleted.
+
+The repair clears on its own once both entities exist again.
 
 ## Options form errors
 
 - **"Entity is neither a valid entity ID nor a valid UUID" on save.** This was a bug in v0.2.1 when a forecast or carbon intensity field was empty. Update to v0.3.0. In v0.3.0 an empty field saves as empty, and clearing a saved entity removes it.
-- **Tariff changes made in Reconfigure have no effect.** Once you have saved the Configure page, its saved copy overrides Reconfigure. Change the tariff in Configure.
 - **Battery divert threshold or surplus is not on the page.** They are set at setup only. See [Configuration](configuration.md#step-6-battery).
 - **Entities went unavailable after saving.** Saving reloads the integration. It takes a few seconds. If entities have not recovered after 30 seconds, check the log for errors.
+
+## Battery minimum SoC is set too high
+
+The repair **Battery minimum SoC is set too high** appears when the saved minimum SoC is above 30%. Older versions accepted higher values. On a skip night the integration writes the minimum SoC as the charge target, so a high value holds the battery at that level all night and imports from the grid.
+
+1. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**.
+2. In the Battery & charging thresholds section, set **Minimum battery SoC** to 10 to 20.
+3. Save. The repair clears on the next update cycle after the integration reloads.
 
 ## Daily sensors are frozen after an upgrade
 
@@ -82,7 +99,7 @@ Read **Overnight Charge Reason** first. Then check these:
 - **December to February.** The target is 100% before the cap, whatever the forecast.
 - **March, April, October and November.** The minimum SoC is at least 70% in the calculation.
 - **No forecast.** Without a tomorrow sensor, the integration uses a seasonal estimate from your latitude. The reason says so.
-- **A forecast setting has no effect.** Forecast provider is stored and unused. The day-after-tomorrow sensor is read and unused. The P10 sensor only matters when conservatism is above 0.
+- **A forecast setting has no effect.** Forecast provider is stored and unused. The P10 sensor only matters when conservatism is above 0.
 - **A manual target.** See [Entities](entities.md#manual-charge-target).
 
 To see every reading and decision, turn on both of these:
@@ -115,15 +132,14 @@ If the reason says to heat but the heater stays off, check that an immersion swi
 
 With a Zappi that has a charge mode entity, a car plugged in and net solar surplus of at least 1380 W, the integration selects Eco+. It never selects Stopped. The only way to stop it is dry run. See [Concepts](concepts.md#ev-charger).
 
-## Totals are lower after a restart
+## Totals are lower after a crash
 
-Accumulated energy is saved every 5 minutes and at midnight, not at shutdown. See [Concepts](concepts.md#the-30-second-cycle). Saving the options reloads the integration, which has the same effect. Moving an immersion temperature slider also reloads it.
+Accumulated energy is saved every 5 minutes, at midnight, when the integration unloads and when Home Assistant stops. See [Concepts](concepts.md#the-30-second-cycle). Only a crash or a power cut can lose up to about 5 minutes of energy.
+Accumulated energy is saved every 5 minutes and at midnight, not at shutdown. See [Concepts](concepts.md#the-30-second-cycle). Saving the options reloads the integration, which has the same effect. Moving an immersion temperature slider does not reload it.
 
-The year sensors, Missed Solar Today and Inverter Derating Today are not saved at all.
+## The bill sensors look low early in the period
 
-## The bill sensors look low
-
-Accrued Bill This Period is today's import cost plus standing charges for the days elapsed. It does not add earlier days' import cost. For the month so far, use Import cost this month. See [Tariff](tariff.md#bill-sensors).
+Accrued Bill This Period is built from the month totals, which start again on the bill start day. Early in a period it is low because few days have passed. See [Tariff](tariff.md#bill-sensors).
 
 ## A sensor shows unknown
 
@@ -151,5 +167,5 @@ Open an issue on [GitHub](https://github.com/macuistin/givenergy_inverter_manage
 
 - the log lines from **Settings → System → Logs** that contain `givenergy`;
 - your Home Assistant and GivTCP versions;
-- the diagnostics file, from the integration page, **Download diagnostics**. It holds your configuration, including entity IDs and tariff values, and is not redacted. Read it before you post it;
+- the diagnostics file, from the integration page, **Download diagnostics**. It holds your configuration, including tariff values. The inverter serial and every entity ID that contains it are redacted. Read it before you post it;
 - what you expected and what happened.

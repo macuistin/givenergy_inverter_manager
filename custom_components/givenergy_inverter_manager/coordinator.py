@@ -42,7 +42,9 @@ from datetime import datetime, timedelta, timezone
 from datetime import time as dtime
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.const import EVENT_HOMEASSISTANT_FINAL_WRITE
+from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -87,7 +89,9 @@ from .const import (
     DEFAULT_IMMERSION_WATTAGE,
     DEFAULT_INVERTER_MAX_OUTPUT,
     DOMAIN,
+    GIVTCP_MAX_CHARGE_TARGET_PCT,
     GIVTCP_MAX_WRITE_RETRIES,
+    GIVTCP_MIN_CHARGE_TARGET_PCT,
     GIVTCP_MIN_WRITE_INTERVAL_S,
     GIVTCP_WRITE_LIFETIME_WARN,
     GIVTCP_WRITE_RETRY_SLEEP_S,
@@ -103,6 +107,7 @@ from .core.rules import monthly_solar_fractions
 from .core.tariff import build_tariff
 from .discovery import (
     EVCharger,
+    discover_battery_cycle_entities,
     discover_ev_chargers,
     update_charger_state,
 )
@@ -118,6 +123,21 @@ from .repairs import (
 _LOG = get_logger(__name__)
 
 _REDISCOVER_EVERY_N_CYCLES = 10  # 10 × 30s ≈ 5 minutes
+
+
+def _state_as_int(state) -> int | None:
+    """Return a state object's value as an int, or None if absent or not numeric."""
+    try:
+        return int(float(state.state)) if state else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _clamp_charge_target(target_soc: float) -> int:
+    """Limit a charge target to the range GivTCP accepts."""
+    return max(
+        GIVTCP_MIN_CHARGE_TARGET_PCT, min(GIVTCP_MAX_CHARGE_TARGET_PCT, int(target_soc))
+    )
 
 
 class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
@@ -153,10 +173,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             getattr(hass.config, "latitude", 51.5)  # 51.5N = reasonable mid-Europe fallback
         )
         self._last_reset_time: str = ""
-        from .const import CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY
-
-        _bill_start = int(entry.data.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY))
-        self._acc = AccumulationStore(hass, _bill_start)
+        self._acc = AccumulationStore(hass, self._configured_bill_start_day())
         self._battery_stats = BatteryStats()
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
@@ -164,20 +181,17 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._floor_top_up_applied: bool = False
         self.export_rate: float = 0.0
         self._ev_charger: EVCharger | None = None
+        self._battery_cycle_entities: list[str] = []
 
         # Manual overrides set by switch/number entities
         self.override_charge_target: int | None = None
         # Register write tracking — GivEnergy inverters have ~1M lifetime writes
         self._register_write_count: int = 0
-        # Per-entity timestamp of last write — enforces GIVTCP_MIN_WRITE_INTERVAL_S
-        self._last_write_time: dict[str, float] = {}
+        # Timestamp of last write per (entity, value) — enforces GIVTCP_MIN_WRITE_INTERVAL_S
+        self._last_write_time: dict[tuple[str, object], float] = {}
         # EMA-smoothed solar power (α=0.5) — used for surplus divert decisions
         # to prevent chasing transient cloud gaps. Raw value used for accumulation.
         self._smoothed_solar_w: float = 0.0
-        # Per-slot (30-min) baseline load history — updated each cycle, rotated at midnight.
-        # 48 slots × 7 days (oldest first). Cleared on HA restart; accuracy builds over time.
-        self._slot_load_today: list[float] = [0.0] * 48
-        self._slot_load_history: list[list[float]] = []  # max 7 completed days
         # Immersion temperature controls — set by number entities, read in _collect_raw
         cfg = entry.data
         self.immersion_target_temp: float = float(
@@ -192,6 +206,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.override_immersion: bool | None = None
         self.override_skip_charge: bool = False
         self._givtcp_was_unavailable: bool = False
+        self._inputs_unavailable_since: datetime | None = None
         # When True, manual override stays on until water reaches target temp, then releases.
         self._immersion_manual_run_to_target: bool = False
         # Cooldown: timestamp until which auto switch decisions are suppressed.
@@ -210,26 +225,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # We derive the start time from the configured tariff and register
         # one minute before so the target is set before charging begins.
         self._register_charge_target_listener()
-
-    def _avg_slot_load_kwh(self) -> list[float] | None:
-        """Weighted 7-day average baseline load per 30-min slot (kWh).
-
-        Returns None when fewer than 2 completed days are available — the
-        engine falls back to flat avg_daily_kwh / 48 in that case.
-
-        Weights: yesterday=1.0, 2 days ago=0.85, declining to 0.4 at 7 days.
-        """
-        if len(self._slot_load_history) < 2:
-            return None
-        weights = (1.0, 0.85, 0.7, 0.6, 0.5, 0.45, 0.4)
-        result = [0.0] * 48
-        total_w = 0.0
-        for i, day_profile in enumerate(reversed(self._slot_load_history)):
-            w = weights[i] if i < len(weights) else 0.4
-            for slot_idx in range(48):
-                result[slot_idx] += day_profile[slot_idx] * w
-            total_w += w
-        return [v / total_w for v in result] if total_w > 0 else None
 
     @property
     def update_cycle(self) -> int:
@@ -333,12 +328,18 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     #   2. Writes and retries up to GIVTCP_MAX_WRITE_RETRIES times on failure
     #   3. Increments the register write counter (hardware lifetime tracking)
     #
+    # Each helper returns True when the entity is at, or was sent, the requested
+    # value, and False when the service call raised or the entity is unusable.
+    # A read-back that never matches is logged but still counts as sent, because
+    # GivTCP can be slow to publish the new state.
+    #
     # GivEnergy inverters have ~1M total register write capacity. The counter
     # is surfaced as a diagnostic sensor so users can monitor it.
 
     def _increment_write_count(self) -> None:
         count = getattr(self, "_register_write_count", 0) + 1
         self._register_write_count = count
+        self._acc.state.register_write_count = count
         if count == GIVTCP_WRITE_LIFETIME_WARN:
             _LOG.warning(
                 "GivTCP register write count has reached %d — approximately 50%% of the "
@@ -346,9 +347,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 self._register_write_count,
             )
 
-    def _write_cooldown_active(self, entity_id: str, name: str) -> bool:
-        """Return True if this entity was written within GIVTCP_MIN_WRITE_INTERVAL_S."""
-        last = self._last_write_time.get(entity_id)
+    def _write_cooldown_active(self, entity_id: str, name: str, value) -> bool:
+        """Return True if this value was written to the entity inside the cooldown window."""
+        last = self._last_write_time.get((entity_id, value))
         if last is None:
             return False
         elapsed = time.monotonic() - last
@@ -361,32 +362,53 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return True
         return False
 
+    async def _givtcp_call_service(
+        self, domain: str, service: str, data: dict, name: str, value
+    ) -> bool:
+        """Call a write service, returning False and logging if it raises."""
+        entity_id = data["entity_id"]
+        try:
+            await self._call_service(domain, service, data)
+        except HomeAssistantError as err:
+            _LOG.warning("%s: %s.%s on %s failed: %s", name, domain, service, entity_id, err)
+        except Exception:
+            _LOG.exception(
+                "%s: unexpected error calling %s.%s on %s", name, domain, service, entity_id
+            )
+        else:
+            self._increment_write_count()
+            return True
+        self._last_write_time.pop((entity_id, value), None)
+        return False
+
     async def _givtcp_set_switch(
         self,
         entity_id: str | None,
         state: bool,
         name: str,
         step: int = 0,
-    ) -> None:
+    ) -> bool:
         """Set a GivTCP switch entity with read-before-write and retry."""
         if not entity_id:
-            return
+            return False
         # Read-before-write: skip if already at the desired state
         current = self._get_state(entity_id)
         if current is not None:
             current_on = current.state == "on"
             if current_on == state:
                 _LOG.debug("%s: already %s — skipping write", name, "on" if state else "off")
-                return
-        if self._write_cooldown_active(entity_id, name):
-            return
+                return True
+        if self._write_cooldown_active(entity_id, name, state):
+            return True
 
-        self._last_write_time[entity_id] = time.monotonic()
+        self._last_write_time[(entity_id, state)] = time.monotonic()
         service = "turn_on" if state else "turn_off"
         accepted = False
         for attempt in range(1, GIVTCP_MAX_WRITE_RETRIES + 1):
-            await self._call_service("switch", service, {"entity_id": entity_id})
-            self._increment_write_count()
+            if not await self._givtcp_call_service(
+                "switch", service, {"entity_id": entity_id}, name, state
+            ):
+                return False
             await asyncio.sleep(GIVTCP_WRITE_RETRY_SLEEP_S)
             actual = self._get_state(entity_id)
             actual_on = actual is not None and actual.state == "on"
@@ -417,6 +439,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 "on" if state else "off",
                 GIVTCP_MAX_WRITE_RETRIES,
             )
+        return True
 
     async def _givtcp_set_select(
         self,
@@ -424,25 +447,25 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         value: str,
         name: str,
         step: int = 0,
-    ) -> None:
+    ) -> bool:
         """Set a GivTCP select entity with read-before-write and retry."""
         if not entity_id:
-            return
+            return False
         # Read-before-write: skip if already correct
         current = self._get_state(entity_id)
         if current is not None and current.state == value:
             _LOG.debug("%s: already %r — skipping write", name, value)
-            return
-        if self._write_cooldown_active(entity_id, name):
-            return
+            return True
+        if self._write_cooldown_active(entity_id, name, value):
+            return True
 
-        self._last_write_time[entity_id] = time.monotonic()
+        self._last_write_time[(entity_id, value)] = time.monotonic()
         accepted = False
         for attempt in range(1, GIVTCP_MAX_WRITE_RETRIES + 1):
-            await self._call_service(
-                "select", "select_option", {"entity_id": entity_id, "option": value}
-            )
-            self._increment_write_count()
+            if not await self._givtcp_call_service(
+                "select", "select_option", {"entity_id": entity_id, "option": value}, name, value
+            ):
+                return False
             await asyncio.sleep(GIVTCP_WRITE_RETRY_SLEEP_S)
             actual = self._get_state(entity_id)
             if actual is None:
@@ -450,7 +473,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                     "%s: entity %s vanished from HA state machine after write", name, entity_id
                 )
                 log_givtcp_write(_LOG, step, entity_id, value, "unavailable", False)
-                return
+                return False
             accepted = actual.state == value
             log_givtcp_write(_LOG, step, entity_id, value, actual.state, accepted)
             if accepted:
@@ -471,6 +494,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 value,
                 GIVTCP_MAX_WRITE_RETRIES,
             )
+        return True
 
     async def _givtcp_set_number(
         self,
@@ -478,36 +502,27 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         value: int,
         name: str,
         step: int = 0,
-    ) -> None:
+    ) -> bool:
         """Set a GivTCP number entity with read-before-write and retry."""
         if not entity_id:
-            return
+            return False
         # Read-before-write: skip if already at the target value
-        current = self._get_state(entity_id)
-        try:
-            current_val = int(float(current.state)) if current else None
-        except (ValueError, TypeError):
-            current_val = None
-        if current_val == value:
+        if _state_as_int(self._get_state(entity_id)) == value:
             _LOG.debug("%s: already %d — skipping write", name, value)
-            return
-        if self._write_cooldown_active(entity_id, name):
-            return
+            return True
+        if self._write_cooldown_active(entity_id, name, value):
+            return True
 
-        self._last_write_time[entity_id] = time.monotonic()
+        self._last_write_time[(entity_id, value)] = time.monotonic()
         accepted = False
         for attempt in range(1, GIVTCP_MAX_WRITE_RETRIES + 1):
-            await self._call_service(
-                "number", "set_value", {"entity_id": entity_id, "value": value}
-            )
-            self._increment_write_count()
+            if not await self._givtcp_call_service(
+                "number", "set_value", {"entity_id": entity_id, "value": value}, name, value
+            ):
+                return False
             await asyncio.sleep(GIVTCP_WRITE_RETRY_SLEEP_S)
             actual = self._get_state(entity_id)
-            try:
-                actual_val = int(float(actual.state)) if actual else None
-            except (ValueError, TypeError):
-                actual_val = None
-            accepted = actual_val == value
+            accepted = _state_as_int(actual) == value
             log_givtcp_write(
                 _LOG, step, entity_id, value, actual.state if actual else "unknown", accepted
             )
@@ -529,6 +544,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 value,
                 GIVTCP_MAX_WRITE_RETRIES,
             )
+        return True
 
     # ── Listener registration ─────────────────────────────────────────────────
 
@@ -570,6 +586,27 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         except (ValueError, TypeError, AttributeError) as err:
             _LOG.warning("Could not register charge target listener: %s", err)
 
+    async def async_restore_state(self) -> None:
+        """Load stored accumulators and apply any resets missed while HA was down."""
+        await self._acc.async_load()
+        self._acc.restore_battery_stats(self._battery_stats)
+        now = dt_util.as_local(datetime.now(timezone.utc))
+        if self._acc.roll_forward(now):
+            await self._acc.async_save()
+        self._last_reset_time = self._acc.state.last_reset_iso
+        self.entry.async_on_unload(self.async_flush)
+        self.entry.async_on_unload(
+            self.hass.bus.async_listen(EVENT_HOMEASSISTANT_FINAL_WRITE, self._async_final_write)
+        )
+
+    async def async_flush(self) -> None:
+        """Write the accumulators and battery statistics to storage now."""
+        self._acc.save_battery_stats(self._battery_stats)
+        await self._acc.async_save()
+
+    async def _async_final_write(self, _event: Event) -> None:
+        await self.async_flush()
+
     # ── Time-triggered callbacks ──────────────────────────────────────────────
 
     @callback
@@ -580,9 +617,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._acc.on_midnight(midnight)
         self.hass.async_create_task(self._acc.async_save())
         self._last_update = None
-        # Rotate per-slot load profile: archive today, start fresh
-        self._slot_load_history = (self._slot_load_history + [self._slot_load_today])[-7:]
-        self._slot_load_today = [0.0] * 48
         _LOG.debug("Midnight reset: daily, weekly, and monthly accumulators updated")
 
     @callback
@@ -687,7 +721,19 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         Runs as an async task so it can await each service call.
         Each write is followed by a brief read-back to verify acceptance.
+        The charge target is not enabled when writing the target number failed,
+        because the inverter would then limit charging to a stale target.
         """
+        clamped = _clamp_charge_target(target_soc)
+        if clamped != target_soc:
+            _LOG.warning(
+                "Charge target %s%% is outside the range GivTCP accepts (%d-%d%%), using %d%%",
+                target_soc,
+                GIVTCP_MIN_CHARGE_TARGET_PCT,
+                GIVTCP_MAX_CHARGE_TARGET_PCT,
+                clamped,
+            )
+        target_soc = clamped
         await self._givtcp_set_switch(
             cfg.get(CONF_ENABLE_CHARGE_SCHEDULE),
             True,
@@ -708,13 +754,19 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             "charge_end_time",
             step=3,
         )
-        await self._givtcp_set_number(
+        target_written = await self._givtcp_set_number(
             cfg.get(CONF_TARGET_SOC_ENTITY),
             target_soc,
             "target_soc",
             step=4,
         )
         enable_target = target_soc < 100
+        if enable_target and not target_written:
+            _LOG.warning(
+                "Charge target %d%% could not be written — not enabling the charge target",
+                target_soc,
+            )
+            return
         await self._givtcp_set_switch(
             cfg.get(CONF_ENABLE_CHARGE_TARGET),
             enable_target,
@@ -737,6 +789,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         cfg.update(self.entry.options)
         return cfg
 
+    def _configured_bill_start_day(self, cfg: dict | None = None) -> int:
+        """Return the bill start day from the effective config (options over data)."""
+        from .const import CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY
+
+        cfg = cfg if cfg is not None else self._effective_cfg()
+        return int(cfg.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY))
+
     def _read_power_inputs(self, cfg: dict, raw: RawSensorValues, unavailable: list[str]) -> None:
         """Read solar, battery and house power, recording any unavailable inputs."""
         raw.solar_power_w = self._read_tracked(
@@ -750,7 +809,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if "solar_power" not in unavailable:
             self._smoothed_solar_w = 0.5 * prev_smoothed + 0.5 * raw.solar_power_w
         raw.smoothed_solar_power_w = getattr(self, "_smoothed_solar_w", 0.0)
-        raw.battery_soc = self._read_float(cfg.get(CONF_BATTERY_SOC))
+        raw.battery_soc = self._read_tracked(cfg.get(CONF_BATTERY_SOC), "battery_soc", unavailable)
         raw.battery_power_w = self._read_tracked(
             cfg.get(CONF_BATTERY_POWER), "battery_power", unavailable
         )
@@ -807,6 +866,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.ev_power_w = self._ev_charger.power_w
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
+        raw.battery_lifetime_cycles = self._read_battery_lifetime_cycles()
+
         # GivTCP daily energy counters — present on GivTCP v2.1+ and v3.
         # Entity IDs are derived from the inverter serial stored in config.
         # _read_optional_float returns None for missing/unavailable entities;
@@ -831,6 +892,31 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         return raw
 
+    def _track_input_outage(self, raw: RawSensorValues, now: datetime) -> None:
+        """Record how long the required inputs have been continuously unavailable."""
+        if not raw.unavailable_inputs:
+            self._inputs_unavailable_since = None
+            raw.unavailable_for_s = 0.0
+            return
+        if self._inputs_unavailable_since is None:
+            self._inputs_unavailable_since = now
+        raw.unavailable_for_s = max(0.0, (now - self._inputs_unavailable_since).total_seconds())
+    def _read_battery_lifetime_cycles(self) -> float | None:
+        """Highest BMS cycle counter across the battery packs, None if none is readable.
+
+        Each pack counts its own cycles, so the packs are not summed.
+        """
+        values = [self._read_optional_float(eid) for eid in self._battery_cycle_entities]
+        readable = [v for v in values if v is not None and v > 0]
+        return max(readable) if readable else None
+
+    def _maybe_rediscover_battery_cycles(self) -> None:
+        """Look for GivTCP battery cycle counters every 5 minutes so new packs are picked up."""
+        if self._update_cycle % _REDISCOVER_EVERY_N_CYCLES == 1:
+            self._battery_cycle_entities = discover_battery_cycle_entities(
+                self._get_all_states()
+            )
+
     def _maybe_rediscover_ev(self) -> None:
         """Re-run EV charger discovery every 5 minutes when none is cached."""
         needs_discovery = self._ev_charger is None or self._ev_charger.power_entity is None
@@ -843,7 +929,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 _LOG.debug("No EV charger found (cycle %d)", self._update_cycle)
 
     def _apply_ev_action(self, target_mode: str | None) -> None:
-        """Apply an EV charger mode change via HA service call."""
+        """Apply an EV charger mode change via HA service call.
+
+        Skips the write when the charger is already in the target mode and honours
+        the same per-entity write cooldown as the GivTCP writes.
+        """
         if (
             target_mode is None
             or self._ev_charger is None
@@ -863,6 +953,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             if self.data is not None:
                 self.data.dry_run_last_skipped = action
             return
+
+        entity_id = self._ev_charger.charge_mode_entity
+        if self._write_cooldown_active(entity_id, self._ev_charger.display_name, target_mode):
+            return
+        self._last_write_time[(entity_id, target_mode)] = time.monotonic()
 
         _LOG.info(
             "EV charger action: %s → %s",
@@ -892,15 +987,18 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._immersion_manual_run_to_target = False
             self.override_immersion = None
 
-    async def _write_floor_target(self, cfg: dict, target_entity: str, soc: int) -> None:
+    async def _write_floor_target(self, cfg: dict, target_entity: str, soc: int) -> bool:
         """Write SoC target and enable charge target switch for cheap rate floor top-up.
 
         Uses the same read-before-write, cooldown, write counting and read-back
         helpers as the overnight charge target so the inverter registers are not
-        written more often than necessary.
+        written more often than necessary. Returns False, without enabling the
+        charge target, when the target could not be written.
         """
-        await self._givtcp_set_number(target_entity, soc, "Cheap rate floor target")
-        await self._givtcp_set_switch(
+        soc = _clamp_charge_target(soc)
+        if not await self._givtcp_set_number(target_entity, soc, "Cheap rate floor target"):
+            return False
+        return await self._givtcp_set_switch(
             cfg.get(CONF_ENABLE_CHARGE_TARGET), True, "Cheap rate floor charge target enable"
         )
 
@@ -978,10 +1076,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             _LOG.info("DRY RUN: %s", status)
             return f"DRY RUN: {status}"
 
-        try:
-            await self._write_floor_target(cfg, target_entity, effective_floor)
-        except Exception:
-            _LOG.exception("Cheap rate floor: failed to write target to inverter")
+        if not await self._write_floor_target(cfg, target_entity, effective_floor):
             return f"Error writing floor — {status}"
 
         self._floor_top_up_applied = True
@@ -1004,8 +1099,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._update_cycle += 1
         if self._update_cycle % 10 == 0:
             self._acc.save_battery_stats(self._battery_stats)
-            self.hass.async_create_task(self._acc.async_save())
+            self._acc.schedule_save()
         cfg = self._effective_cfg()
+        self._acc.update_bill_start_day(self._configured_bill_start_day(cfg))
         self.export_rate = float(cfg.get(CONF_EXPORT_RATE, 0.0))
 
         # 0. Validate config — raise repair issues for values that won't self-heal.
@@ -1044,6 +1140,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         # 2. Refresh EV charger discovery
         self._maybe_rediscover_ev()
+        self._maybe_rediscover_battery_cycles()
 
         # 3. Read all sensor values from HA
         raw = self._collect_raw(cfg)
@@ -1060,13 +1157,15 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # 5. Run the pure logic engine
         now = dt_util.as_local(datetime.now(timezone.utc))
 
+        self._track_input_outage(raw, now)
+
         # 5a. Update per-slot baseline load for this 30-min window.
         if self._last_update is not None:
             elapsed_h = (now - self._last_update).total_seconds() / 3600
             slot = now.hour * 2 + now.minute // 30
             immersion_w = raw.immersion_wattage_w if raw.immersion_on else 0.0
             baseline_w = max(0.0, raw.house_load_w - immersion_w - raw.ev_power_w)
-            self._slot_load_today[slot] += (baseline_w / 1000) * elapsed_h
+            self._acc.record_slot_load(now, slot, (baseline_w / 1000) * elapsed_h, elapsed_h)
 
         data, ev_target_mode = build_coordinator_data(
             raw=raw,
@@ -1089,9 +1188,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             solar_forecast_kwh_today=self._acc.today_forecast_kwh,
             yesterday_forecast_accuracy_pct=self._acc.yesterday_forecast_accuracy_pct,
             forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
-            load_profile=self._avg_slot_load_kwh(),
+            load_profile=self._acc.slot_load_profile((now + timedelta(days=1)).weekday()),
+            forecast_correction=self._acc.forecast_correction_factor,
         )
 
+        data.week_start_time = self._acc.state.week_start_iso
+        data.month_start_time = self._acc.state.month_start_iso
+        data.year_start_time = self._acc.state.year_start_iso
         data.register_write_count = getattr(self, "_register_write_count", 0)
         data.trailing_12m_export_kwh = self._acc.trailing_12m_export_kwh
         data.trailing_12m_solar_kwh = self._acc.trailing_12m_solar_kwh
@@ -1110,6 +1213,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 )
             )
 
+        self._acc.on_raw_forecast(raw.forecast_kwh_tomorrow)
+        self._acc.note_clipping(data.is_clipping)
+
         # 6. Record forecast for accuracy tracking (sets solar_forecast_today sensor)
         if data.charge_decision is not None and data.charge_decision.forecast_kwh > 0:
             self._acc.on_charge_decision(data.charge_decision.forecast_kwh)
@@ -1121,7 +1227,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         log_cycle(_LOG, self._update_cycle, raw, data, now)
 
         # 9. Update coordinator state for next cycle
-        self._last_soc = raw.battery_soc
+        self._last_soc = None if "battery_soc" in raw.unavailable_inputs else raw.battery_soc
         self._last_update = now
 
         # 10. Apply HA side-effects requested by the engine

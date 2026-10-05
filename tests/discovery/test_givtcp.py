@@ -195,3 +195,51 @@ class TestGetSuggestedEntities:
         result = get_suggested_entities(inv)
         result["extra"] = "injected"
         assert "extra" not in inv.entities
+
+
+# ── discover_battery_cycle_entities ───────────────────────────────────────────
+
+
+class TestDiscoverBatteryCycleEntities:
+    def test_finds_the_bms_counter_by_naming(self):
+        from custom_components.givenergy_inverter_manager.discovery import (
+            discover_battery_cycle_entities,
+        )
+
+        states = _states("sensor.givtcp_bt2349g123_battery_cycles", "sensor.givtcp_ab1_soc")
+        assert discover_battery_cycle_entities(states) == [
+            "sensor.givtcp_bt2349g123_battery_cycles"
+        ]
+
+    def test_finds_one_entity_per_pack_sorted(self):
+        from custom_components.givenergy_inverter_manager.discovery import (
+            discover_battery_cycle_entities,
+        )
+
+        states = _states(
+            "sensor.givtcp_bt2349g456_battery_cycles",
+            "sensor.givtcp_bt2349g123_battery_cycles",
+        )
+        assert discover_battery_cycle_entities(states) == [
+            "sensor.givtcp_bt2349g123_battery_cycles",
+            "sensor.givtcp_bt2349g456_battery_cycles",
+        ]
+
+    def test_ignores_other_integrations_and_domains(self):
+        from custom_components.givenergy_inverter_manager.discovery import (
+            discover_battery_cycle_entities,
+        )
+
+        states = _states(
+            "sensor.other_battery_cycles",
+            "number.givtcp_bt2349g123_battery_cycles",
+            "sensor.givtcp_bt2349g123_battery_cycles_2",
+        )
+        assert discover_battery_cycle_entities(states) == []
+
+    def test_empty_when_nothing_matches(self):
+        from custom_components.givenergy_inverter_manager.discovery import (
+            discover_battery_cycle_entities,
+        )
+
+        assert discover_battery_cycle_entities({}) == []

@@ -33,6 +33,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from ..const import (
+    BATTERY_MAX_SOC_STEP_PCT,
     BATTERY_RATED_CYCLES,
     CARBON_HIGH_THRESHOLD,
     CARBON_LOW_THRESHOLD,
@@ -62,7 +63,7 @@ from ..const import (
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
-    EV_SOLAR_SURPLUS_THRESHOLD_W,
+    EV_CHARGER_MIN_POWER_W,
     INVERTER_TEMP_CRITICAL,
     INVERTER_TEMP_DERATING,
     INVERTER_TEMP_STATUS_CRITICAL,
@@ -125,12 +126,15 @@ class RawSensorValues:
     immersion_hysteresis_c: float = 5.0
     forecast_kwh_tomorrow: float | None = None
     forecast_kwh_p10: float | None = None
+    forecast_kwh_d2: float | None = None
     carbon_intensity_gco2: float | None = None
     ev_power_w: float = 0.0
     ev_plugged_in: bool = False
     inverter_temp: float | None = None
     # Names of required inputs that were unavailable this cycle (their value is a 0.0 placeholder)
     unavailable_inputs: tuple[str, ...] = ()
+    # Seconds the current unavailable_inputs outage has lasted (0.0 when none)
+    unavailable_for_s: float = 0.0
     # GivTCP daily energy counters — authoritative when present, None → fall back to integration
     solar_energy_today_kwh: float | None = None
     import_energy_today_kwh: float | None = None
@@ -138,6 +142,8 @@ class RawSensorValues:
     charge_energy_today_kwh: float | None = None
     discharge_energy_today_kwh: float | None = None
     load_energy_today_kwh: float | None = None
+    # Lifetime cycle count reported by the battery BMS (highest single pack), None if unknown
+    battery_lifetime_cycles: float | None = None
 
     def __post_init__(self) -> None:
         if self.smoothed_solar_power_w < 0.0:
@@ -180,7 +186,7 @@ class CoordinatorData:
         "ev_charger_state",
         "ev_draining_battery",
         "ev_power_w",
-        "ev_protection_active",
+        "ev_mode_change_requested",
         "ev_protection_reason",
         "ev_charging_source",
         "ev_solar_surplus_available",
@@ -217,6 +223,9 @@ class CoordinatorData:
         "year",
         "yesterday",
         "last_reset_time",
+        "week_start_time",
+        "month_start_time",
+        "year_start_time",
         "solar_forecast_kwh_today",
         "yesterday_forecast_accuracy_pct",
         "forecast_accuracy_7day_avg_pct",
@@ -302,7 +311,7 @@ class CoordinatorData:
         self.ev_power_w: float = 0.0
         self.ev_session_kwh: float = 0.0
         self.ev_draining_battery: bool = False
-        self.ev_protection_active: bool = False
+        self.ev_mode_change_requested: bool = False
         self.ev_protection_reason: str = ""
         self.ev_available: bool = False
         self.ev_charging_source: str = "Not charging"
@@ -313,6 +322,9 @@ class CoordinatorData:
         self.inverter_temperature: float | None = None
         self.inverter_temperature_status: str = "Unknown"
         self.last_reset_time: str = ""
+        self.week_start_time: str = ""
+        self.month_start_time: str = ""
+        self.year_start_time: str = ""
         self.solar_forecast_kwh_today: float = 0.0
         self.yesterday_forecast_accuracy_pct: float = 0.0
         self.forecast_accuracy_7day_avg_pct: float = 0.0
@@ -499,24 +511,48 @@ def estimate_avg_daily_kwh(
 
 def update_battery_stats(
     stats: BatteryStats,
-    current_soc: float,
+    current_soc: float | None,
     last_soc: float | None,
+    lifetime_cycles: float | None = None,
 ) -> BatteryStats:
     """
     Update battery stats for the current SoC reading.
 
-    Tracks cycle increments and records the date of the last full charge.
+    The lifetime cycle count comes from the battery's own BMS counter when it is
+    available (lifetime_cycles above zero) and is otherwise estimated from SoC.
+    The estimate counts equivalent full cycles (discharge only). A missing
+    reading, a reading of 0.0 after a healthy one, or a step above
+    BATTERY_MAX_SOC_STEP_PCT is a sensor glitch and adds nothing.
+    Also records the date of the last full charge.
     Mutates stats in place and also returns it for convenience.
     """
-    if last_soc is not None and current_soc != last_soc:
-        increment = calculate_cycle_increment(current_soc - last_soc)
-        if stats.tracking_start_date is None:
-            stats.tracking_start_date = date.today()
-            stats.tracking_start_cycles = stats.total_cycles
-        stats.total_cycles += increment
-        if current_soc >= 99.0:
-            stats.last_full_charge_date = date.today()
+    soc_changed = current_soc is not None and last_soc is not None and current_soc != last_soc
+    if soc_changed and current_soc >= 99.0:
+        stats.last_full_charge_date = date.today()
+    if lifetime_cycles is not None and lifetime_cycles > 0:
+        _adopt_lifetime_cycles(stats, lifetime_cycles)
+        return stats
+    stats.lifetime_from_bms = False
+    if not soc_changed or last_soc <= 0.0 or current_soc <= 0.0:
+        return stats
+    if abs(current_soc - last_soc) > BATTERY_MAX_SOC_STEP_PCT:
+        return stats
+    if stats.tracking_start_date is None:
+        stats.tracking_start_date = date.today()
+        stats.tracking_start_cycles = stats.total_cycles
+    stats.total_cycles += calculate_cycle_increment(current_soc - last_soc)
     return stats
+
+
+def _adopt_lifetime_cycles(stats: BatteryStats, lifetime_cycles: float) -> None:
+    """Make the BMS cycle counter the lifetime total without distorting the daily rate."""
+    if not stats.lifetime_from_bms and stats.tracking_start_date is not None:
+        stats.tracking_start_cycles += lifetime_cycles - stats.total_cycles
+    stats.total_cycles = lifetime_cycles
+    stats.lifetime_from_bms = True
+    if stats.tracking_start_date is None:
+        stats.tracking_start_date = date.today()
+        stats.tracking_start_cycles = lifetime_cycles
 
 
 def _process_ev_charger(
@@ -542,7 +578,7 @@ def _process_ev_charger(
         solar_surplus_w=solar_surplus_w,
     )
     data.ev_protection_reason = reason
-    data.ev_protection_active = ev_target_mode is not None
+    data.ev_mode_change_requested = ev_target_mode is not None
 
     # EV charging source classification
     ev_w = ev_charger.power_w
@@ -559,7 +595,7 @@ def _process_ev_charger(
     else:
         data.ev_charging_source = "Mixed"
 
-    data.ev_solar_surplus_available = solar_surplus_w >= EV_SOLAR_SURPLUS_THRESHOLD_W
+    data.ev_solar_surplus_available = solar_surplus_w >= EV_CHARGER_MIN_POWER_W
 
     return ev_target_mode
 
@@ -577,7 +613,21 @@ def _initialize_coordinator_data(
     yesterday_forecast_accuracy_pct: float,
     forecast_accuracy_7day_avg_pct: float,
 ) -> None:
-    """Initialize CoordinatorData with base values."""
+    """Initialize CoordinatorData with base values.
+
+    Which loads each power figure includes:
+
+    house_load_w: the GivTCP load sensor as read. It is the inverter-side load and
+        includes the immersion while it is on. Loads wired outside the inverter are
+        not in it. The cost split, rest_of_house_w and the per-slot baseline all assume
+        the EV charger's draw is inside it too.
+    immersion_load_w: the configured element wattage while the switch is on, else 0.
+        It is the nameplate figure, not a measurement.
+    rest_of_house_w: house_load_w minus ev_power_w minus immersion_load_w, floored at 0.
+    net_solar_surplus_w: smoothed solar minus house_load_w with the immersion's own
+        draw added back, floored at 0. Battery charging is not subtracted (the immersion
+        rule does subtract it) and the EV draw is not added back.
+    """
     data.last_reset_time = last_reset_time
     data.solar_forecast_kwh_today = solar_forecast_kwh_today
     data.yesterday_forecast_accuracy_pct = yesterday_forecast_accuracy_pct
@@ -735,6 +785,7 @@ def _set_immersion_decision(
             export_rate=export_rate,
             immersion_power_w=raw.immersion_wattage_w,
             immersion_temp_unavailable="immersion_temp" in missing,
+            unavailable_for_s=raw.unavailable_for_s,
         )
 
 
@@ -836,6 +887,7 @@ def build_coordinator_data(
     yesterday_forecast_accuracy_pct: float = 0.0,
     forecast_accuracy_7day_avg_pct: float = 0.0,
     load_profile: list[float] | None = None,
+    forecast_correction: float | None = None,
 ) -> tuple[CoordinatorData, str | None]:
     """
     Core engine: build a complete CoordinatorData snapshot from raw inputs.
@@ -913,7 +965,12 @@ def build_coordinator_data(
         data.live_grid_cost_rate = round(grid_kw * tariff.export_rate, 4)
 
     # ── Battery stats ─────────────────────────────────────────────────────────
-    update_battery_stats(battery_stats, raw.battery_soc, last_soc)
+    update_battery_stats(
+        battery_stats,
+        None if "battery_soc" in raw.unavailable_inputs else raw.battery_soc,
+        last_soc,
+        raw.battery_lifetime_cycles,
+    )
     data.battery_stats = battery_stats
     data.battery_years_remaining = battery_stats.years_remaining_estimate
 
@@ -947,7 +1004,9 @@ def build_coordinator_data(
         cheapest_rate=tariff.get_cheapest_rate().rate,
         solar_fractions=solar_fractions,
         load_profile=load_profile,
+        forecast_correction=forecast_correction,
         forecast_kwh_p10=raw.forecast_kwh_p10,
+        forecast_kwh_d2=raw.forecast_kwh_d2,
         forecast_conservatism=float(
             cfg.get(CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM)
         ),
@@ -969,16 +1028,21 @@ def build_coordinator_data(
     # ── Bill prediction ───────────────────────────────────────────────────────
     days_in = tariff.days_in_current_bill_period(now)
     days_remaining = tariff.days_remaining_in_bill_period(now)
-    standing = tariff.calculate_standing_charges(days_in)
-    data.accrued_bill = acc.total_import_cost + standing
-    data.projected_bill = (
-        (data.accrued_bill / max(1, days_in)) * (days_in + days_remaining) if days_in > 0 else 0.0
+    period_days = days_in + days_remaining
+    bill_acc = acc_month if acc_month is not None else acc
+    bill = tariff.calculate_bill(
+        tariff.energy_cost_from_import_cost(bill_acc.total_import_cost),
+        days_in,
+        period_days,
+        bill_acc.export_earnings,
     )
+    data.accrued_bill = bill.total
+    data.projected_bill = bill.total / days_in * period_days if days_in > 0 else 0.0
     data.days_in_period = days_in
     data.days_remaining = days_remaining
 
     # ── Counterfactual cost (what you'd have paid without solar/battery) ─────
-    counterfactual_cost = acc.house_kwh * tariff.base_rate
+    counterfactual_cost = tariff.calculate_base_rate_cost(acc.house_kwh)
     actual_net_cost = acc.total_import_cost - acc.export_earnings
     data.saving_vs_grid_today = round(counterfactual_cost - actual_net_cost, 4)
     battery_wear_today = acc.battery_throughput_kwh * data.battery_cycle_cost_per_kwh

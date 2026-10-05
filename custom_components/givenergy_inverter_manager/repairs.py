@@ -34,6 +34,14 @@ from .const import DOMAIN
 ISSUE_GIVTCP_ENTITIES_MISSING = "givtcp_entities_missing"
 ISSUE_MIN_SOC_TOO_HIGH = "min_soc_too_high"
 
+TROUBLESHOOTING_URL = (
+    "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs/troubleshooting.md"
+)
+LEARN_MORE_URLS: dict[str, str] = {
+    ISSUE_GIVTCP_ENTITIES_MISSING: f"{TROUBLESHOOTING_URL}#givtcp-entities-not-found",
+    ISSUE_MIN_SOC_TOO_HIGH: f"{TROUBLESHOOTING_URL}#battery-minimum-soc-is-set-too-high",
+}
+
 # Matches the selector max in config_flow.py. Values above this are legacy
 # configs that were saved before the selector enforced the upper bound.
 MIN_SOC_HIGH_THRESHOLD = 30
@@ -46,6 +54,7 @@ def async_create_givtcp_missing_issue(hass: HomeAssistant) -> None:
         DOMAIN,
         ISSUE_GIVTCP_ENTITIES_MISSING,
         is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_GIVTCP_ENTITIES_MISSING],
         severity=IssueSeverity.WARNING,
         translation_key=ISSUE_GIVTCP_ENTITIES_MISSING,
     )
@@ -63,6 +72,7 @@ def async_create_min_soc_issue(hass: HomeAssistant, min_soc: int) -> None:
         DOMAIN,
         ISSUE_MIN_SOC_TOO_HIGH,
         is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_MIN_SOC_TOO_HIGH],
         severity=IssueSeverity.WARNING,
         translation_key=ISSUE_MIN_SOC_TOO_HIGH,
         translation_placeholders={"min_soc": str(min_soc)},

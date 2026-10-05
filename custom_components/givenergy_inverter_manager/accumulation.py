@@ -20,9 +20,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from .core.rules import build_load_profile, forecast_correction_factor
 from .core.tariff import EnergyAccumulator
 
 if TYPE_CHECKING:
@@ -30,8 +31,16 @@ if TYPE_CHECKING:
 
 _LOG = logging.getLogger(__name__)
 _STORAGE_KEY = "givenergy_inverter_manager.energy"
-_STORAGE_VERSION = 1
+_STORAGE_VERSION = 2
+# Version 1 counted battery cycles in both directions (charge and discharge).
+# Version 2 counts discharge only, so stored cycle figures are halved once.
+_CYCLE_FIELDS_HALVED_AT_V2 = ("battery_cycles", "battery_tracking_start_cycles")
 _FORECAST_HISTORY_DAYS = 7
+_FORECAST_RATIO_HISTORY_DAYS = 14
+_SLOT_HISTORY_DAYS = 28
+_SLOTS_PER_DAY = 48
+_SLOT_HOURS = 0.5
+_SAVE_DELAY_SECONDS = 15
 
 
 # ── Serialisation helpers ─────────────────────────────────────────────────────
@@ -60,6 +69,8 @@ def _acc_to_dict(acc: EnergyAccumulator) -> dict:
         "immersion_solar_kwh": acc.immersion_solar_kwh,
         "immersion_savings": acc.immersion_savings,
         "battery_throughput_kwh": acc.battery_throughput_kwh,
+        "missed_solar_kwh": acc.missed_solar_kwh,
+        "inverter_derating_minutes": acc.inverter_derating_minutes,
     }
 
 
@@ -70,6 +81,57 @@ def _dict_to_acc(d: dict) -> EnergyAccumulator:
         if hasattr(acc, key):
             setattr(acc, key, value)
     return acc
+
+
+def _midnight_of(now: datetime, day: date) -> datetime:
+    """Local midnight at the start of *day*, in the timezone of *now*."""
+    return now.replace(
+        year=day.year, month=day.month, day=day.day, hour=0, minute=0, second=0, microsecond=0
+    )
+
+
+def _stored_date(iso: str) -> date | None:
+    """Date part of a stored ISO timestamp, or None when empty or unreadable."""
+    try:
+        return datetime.fromisoformat(iso).date()
+    except (TypeError, ValueError):
+        return None
+def _as_count(value) -> int:
+    """Return value as a non-negative int, or 0 if it is not a number."""
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return 0
+
+
+def migrate_storage(old_version: int, data: dict) -> dict:
+    """Bring a stored payload up to the current storage version.
+
+    Version 1 -> 2 converts the battery cycle figures from the old both-directions
+    definition to discharge only by halving them. The inner "version" key makes
+    the conversion safe to call twice on the same payload.
+    """
+    migrated = dict(data)
+    if old_version < 2 and int(migrated.get("version", 1)) < 2:
+        for key in _CYCLE_FIELDS_HALVED_AT_V2:
+            try:
+                migrated[key] = float(migrated.get(key, 0.0)) / 2
+            except (TypeError, ValueError):
+                migrated[key] = 0.0
+        migrated.setdefault("register_write_count", 0)
+        migrated["version"] = 2
+    return migrated
+
+
+def _create_store(hass: HomeAssistant):
+    """Build the HA Store with a version migration hook."""
+    from homeassistant.helpers.storage import Store  # lazy — not available in test env
+
+    class _AccumulationStorage(Store):
+        async def _async_migrate_func(self, old_major_version, old_minor_version, old_data):
+            return migrate_storage(old_major_version, old_data)
+
+    return _AccumulationStorage(hass, _STORAGE_VERSION, _STORAGE_KEY)
 
 
 # ── Public state dataclass ────────────────────────────────────────────────────
@@ -91,8 +153,24 @@ class AccumulationState:
     last_full_charge_date: str = ""  # ISO date string, "" = never
     battery_tracking_start: str = ""  # ISO date cycle tracking began, "" = not started
     battery_tracking_start_cycles: float = 0.0
+    register_write_count: int = 0  # lifetime GivTCP register writes made by this integration
     yesterday_forecast_accuracy_pct: float = 0.0
     forecast_accuracy_history: list = field(default_factory=list)  # last 7 days
+
+    # Raw P50 forecast (before P10 blend or seasonal fallback) used for the accuracy
+    # correction. pending is the latest value seen today; at midnight it becomes the
+    # forecast for the new day. ratio history holds {"forecast", "actual", "clipped"}.
+    pending_raw_forecast_kwh: float = 0.0
+    today_raw_forecast_kwh: float = 0.0
+    today_clipping: bool = False
+    forecast_ratio_history: list = field(default_factory=list)
+
+    # Per-slot (30 min) baseline house load. History entries are
+    # {"date", "slots", "coverage"}, oldest first, capped at _SLOT_HISTORY_DAYS.
+    slot_load_today: list = field(default_factory=lambda: [0.0] * _SLOTS_PER_DAY)
+    slot_hours_today: list = field(default_factory=lambda: [0.0] * _SLOTS_PER_DAY)
+    slot_load_date: str = ""
+    slot_load_history: list = field(default_factory=list)
 
     # Rolling 12-month export snapshots — one entry per completed billing month,
     # oldest first, capped at 12. Populated at each monthly reset before clearing.
@@ -131,9 +209,7 @@ class AccumulationStore:
     """
 
     def __init__(self, hass: HomeAssistant, bill_start_day: int) -> None:
-        from homeassistant.helpers.storage import Store  # lazy — not available in test env
-
-        self._store = Store(hass, _STORAGE_VERSION, _STORAGE_KEY)
+        self._store = _create_store(hass)
         self._bill_start_day = bill_start_day
         self.state = AccumulationState()
 
@@ -172,6 +248,15 @@ class AccumulationStore:
         """Rolling 7-day average forecast accuracy (0 if no history)."""
         h = self.state.forecast_accuracy_history
         return round(sum(h) / len(h), 1) if h else 0.0
+
+    @property
+    def forecast_correction_factor(self) -> float | None:
+        """Median actual/forecast ratio of recent days, or None until enough usable days."""
+        return forecast_correction_factor(self.state.forecast_ratio_history)
+
+    def slot_load_profile(self, target_weekday: int) -> list[float] | None:
+        """48-slot baseline load profile for target_weekday (Monday=0), or None."""
+        return build_load_profile(self.state.slot_load_history, target_weekday)
 
     @property
     def trailing_12m_export_kwh(self) -> float:
@@ -239,6 +324,10 @@ class AccumulationStore:
         except Exception as err:
             _LOG.warning("Could not save accumulation state: %s", err)
 
+    def schedule_save(self) -> None:
+        """Queue a save. HA writes it after a short delay, or at shutdown if still pending."""
+        self._store.async_delay_save(lambda: _serialize(self.state), _SAVE_DELAY_SECONDS)
+
     # ── Event handlers ────────────────────────────────────────────────────────
 
     def on_midnight(self, now: datetime) -> None:
@@ -272,9 +361,17 @@ class AccumulationStore:
                 actual,
             )
 
+        self._record_forecast_ratio()
+
+        if self.state.slot_load_date and self.state.slot_load_date < today_date.isoformat():
+            self._archive_slot_day()
+
         # 3. Reset today
         self.state.today = EnergyAccumulator()
         self.state.today_forecast_kwh = 0.0
+        self.state.today_raw_forecast_kwh = self.state.pending_raw_forecast_kwh
+        self.state.pending_raw_forecast_kwh = 0.0
+        self.state.today_clipping = False
         self.state.last_reset_iso = now.isoformat()
 
         # 4. Weekly reset on Monday
@@ -307,10 +404,50 @@ class AccumulationStore:
             self.state.year_start_iso = now.isoformat()
             _LOG.debug("Yearly accumulator reset (Jan 1)")
 
+    def roll_forward(self, now: datetime) -> bool:
+        """
+        Apply the midnight resets that passed while Home Assistant was not running.
+
+        Compares the stored last_reset_iso date with today and runs on_midnight once
+        for every missed day, so the day, week, bill period and year all reset as
+        they would have done live. Also fills empty period start stamps with the
+        start of the current period. Returns True when the state changed.
+        """
+        today = now.date()
+        changed = False
+        last = _stored_date(self.state.last_reset_iso)
+        if last is None:
+            self.state.last_reset_iso = _midnight_of(now, today).isoformat()
+            changed = True
+        else:
+            for offset in range(1, (today - last).days + 1):
+                self.on_midnight(_midnight_of(now, last + timedelta(days=offset)))
+                changed = True
+        return self._fill_period_starts(now) or changed
+
+    def _fill_period_starts(self, now: datetime) -> bool:
+        today = now.date()
+        state = self.state
+        changed = False
+        if not state.week_start_iso:
+            monday = today - timedelta(days=today.isoweekday() - 1)
+            state.week_start_iso = _midnight_of(now, monday).isoformat()
+            changed = True
+        if not state.month_start_iso:
+            if today.day >= self._bill_start_day:
+                bill_day = today.replace(day=self._bill_start_day)
+            else:
+                last_of_previous = today.replace(day=1) - timedelta(days=1)
+                bill_day = last_of_previous.replace(day=self._bill_start_day)
+            state.month_start_iso = _midnight_of(now, bill_day).isoformat()
+            changed = True
+        if not state.year_start_iso:
+            state.year_start_iso = _midnight_of(now, today.replace(month=1, day=1)).isoformat()
+            changed = True
+        return changed
+
     def restore_battery_stats(self, stats) -> None:
         """Restore BatteryStats from persisted state after an HA restart."""
-        from datetime import date
-
         if self.state.battery_cycles > 0:
             stats.total_cycles = self.state.battery_cycles
         if self.state.last_full_charge_date:
@@ -348,6 +485,64 @@ class AccumulationStore:
             self.state.today_forecast_kwh = forecast_kwh
             _LOG.debug("Today's solar forecast recorded: %.1fkWh", forecast_kwh)
 
+    def on_raw_forecast(self, forecast_kwh: float | None) -> None:
+        """Remember the latest raw P50 "tomorrow" forecast from the forecast sensor.
+
+        The value seen last before midnight is the forecast for the day that starts.
+        """
+        if forecast_kwh is not None and forecast_kwh > 0:
+            self.state.pending_raw_forecast_kwh = forecast_kwh
+
+    def note_clipping(self, clipping: bool) -> None:
+        """Flag today as clipping so it is left out of the forecast correction."""
+        if clipping:
+            self.state.today_clipping = True
+
+    def _record_forecast_ratio(self) -> None:
+        if self.state.today_raw_forecast_kwh <= 0:
+            return
+        record = {
+            "forecast": self.state.today_raw_forecast_kwh,
+            "actual": self.state.today.solar_kwh,
+            "clipped": self.state.today_clipping,
+        }
+        self.state.forecast_ratio_history = (
+            self.state.forecast_ratio_history[-(_FORECAST_RATIO_HISTORY_DAYS - 1) :] + [record]
+        )
+
+    def record_slot_load(self, now: datetime, slot: int, kwh: float, hours: float) -> None:
+        """Add baseline house load for the 30-minute slot containing now.
+
+        Intervals longer than one slot are ignored (HA downtime or a stalled update).
+        A new calendar day archives whatever the previous day collected.
+        """
+        if not 0 < hours <= _SLOT_HOURS or not 0 <= slot < _SLOTS_PER_DAY:
+            return
+        day = now.date().isoformat()
+        if self.state.slot_load_date != day:
+            if self.state.slot_load_date:
+                self._archive_slot_day()
+            self.state.slot_load_date = day
+        self.state.slot_load_today[slot] += kwh
+        self.state.slot_hours_today[slot] += hours
+
+    def _archive_slot_day(self) -> None:
+        """Move today's slot data into history with its coverage, then clear it."""
+        hours = self.state.slot_hours_today
+        if self.state.slot_load_date and sum(hours) > 0:
+            coverage = sum(min(h, _SLOT_HOURS) for h in hours) / 24
+            entry = {
+                "date": self.state.slot_load_date,
+                "slots": [round(v, 5) for v in self.state.slot_load_today],
+                "coverage": round(coverage, 3),
+            }
+            self.state.slot_load_history = (
+                self.state.slot_load_history[-(_SLOT_HISTORY_DAYS - 1) :] + [entry]
+            )
+        self.state.slot_load_today = [0.0] * _SLOTS_PER_DAY
+        self.state.slot_hours_today = [0.0] * _SLOTS_PER_DAY
+        self.state.slot_load_date = ""
+
     def update_bill_start_day(self, bill_start_day: int) -> None:
         """Update the bill start day (called when config changes via options flow)."""
         self._bill_start_day = bill_start_day
@@ -362,16 +557,27 @@ def _serialize(state: AccumulationState) -> dict:
         "today": _acc_to_dict(state.today),
         "week": _acc_to_dict(state.week),
         "month": _acc_to_dict(state.month),
+        "year": _acc_to_dict(state.year),
         "yesterday": _acc_to_dict(state.yesterday),
         "today_forecast_kwh": state.today_forecast_kwh,
         "battery_cycles": state.battery_cycles,
         "last_full_charge_date": state.last_full_charge_date,
         "battery_tracking_start": state.battery_tracking_start,
         "battery_tracking_start_cycles": state.battery_tracking_start_cycles,
+        "register_write_count": state.register_write_count,
         "yesterday_forecast_accuracy_pct": state.yesterday_forecast_accuracy_pct,
         "forecast_accuracy_history": list(state.forecast_accuracy_history),
+        "pending_raw_forecast_kwh": state.pending_raw_forecast_kwh,
+        "today_raw_forecast_kwh": state.today_raw_forecast_kwh,
+        "today_clipping": state.today_clipping,
+        "forecast_ratio_history": [dict(r) for r in state.forecast_ratio_history],
+        "slot_load_today": list(state.slot_load_today),
+        "slot_hours_today": list(state.slot_hours_today),
+        "slot_load_date": state.slot_load_date,
+        "slot_load_history": [dict(e) for e in state.slot_load_history],
         "week_start_iso": state.week_start_iso,
         "month_start_iso": state.month_start_iso,
+        "year_start_iso": state.year_start_iso,
         "last_reset_iso": state.last_reset_iso,
         "monthly_export_snapshots": list(state.monthly_export_snapshots),
         "monthly_snapshots": list(state.monthly_snapshots),
@@ -383,16 +589,33 @@ def _deserialize(data: dict) -> AccumulationState:
     state.today = _dict_to_acc(data.get("today", {}))
     state.week = _dict_to_acc(data.get("week", {}))
     state.month = _dict_to_acc(data.get("month", {}))
+    state.year = _dict_to_acc(data.get("year", {}))
     state.yesterday = _dict_to_acc(data.get("yesterday", {}))
     state.today_forecast_kwh = float(data.get("today_forecast_kwh", 0.0))
     state.battery_cycles = float(data.get("battery_cycles", 0.0))
     state.last_full_charge_date = str(data.get("last_full_charge_date", ""))
     state.battery_tracking_start = str(data.get("battery_tracking_start", ""))
     state.battery_tracking_start_cycles = float(data.get("battery_tracking_start_cycles", 0.0))
+    state.register_write_count = _as_count(data.get("register_write_count", 0))
     state.yesterday_forecast_accuracy_pct = float(data.get("yesterday_forecast_accuracy_pct", 0.0))
     state.forecast_accuracy_history = [float(x) for x in data.get("forecast_accuracy_history", [])]
+    state.pending_raw_forecast_kwh = float(data.get("pending_raw_forecast_kwh", 0.0))
+    state.today_raw_forecast_kwh = float(data.get("today_raw_forecast_kwh", 0.0))
+    state.today_clipping = bool(data.get("today_clipping", False))
+    state.forecast_ratio_history = [
+        dict(r) for r in data.get("forecast_ratio_history", []) if isinstance(r, dict)
+    ]
+    state.slot_load_history = [
+        dict(e) for e in data.get("slot_load_history", []) if isinstance(e, dict)
+    ]
+    state.slot_load_date = str(data.get("slot_load_date", ""))
+    for key in ("slot_load_today", "slot_hours_today"):
+        values = data.get(key)
+        if isinstance(values, list) and len(values) == _SLOTS_PER_DAY:
+            setattr(state, key, [float(v) for v in values])
     state.week_start_iso = data.get("week_start_iso", "")
     state.month_start_iso = data.get("month_start_iso", "")
+    state.year_start_iso = data.get("year_start_iso", "")
     state.last_reset_iso = data.get("last_reset_iso", "")
     state.monthly_export_snapshots = [
         float(x) for x in data.get("monthly_export_snapshots", [])

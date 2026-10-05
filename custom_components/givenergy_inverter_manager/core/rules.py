@@ -12,17 +12,25 @@ Sections:
   should_divert_to_immersion()        — whether to run the immersion heater
   suggest_appliance_run()             — whether now is a good time for a high-load appliance
   decide_ev_charger_action()          — what mode the EV charger should be in
-  should_protect_battery_from_charger() — is the EV drawing from the battery?
 """
 
 from __future__ import annotations
 
 import math
+import statistics
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 from ..const import (
     CHARGE_EV_SOC_BONUS,
+    CHARGE_FORECAST_CORRECTION_MAX,
+    CHARGE_FORECAST_CORRECTION_MIN,
+    CHARGE_FORECAST_CORRECTION_MIN_DAYS,
+    CHARGE_FORECAST_CORRECTION_MIN_KWH,
+    CHARGE_LOAD_PROFILE_MIN_COVERAGE,
+    CHARGE_LOAD_PROFILE_MIN_DAYS,
+    CHARGE_LOAD_PROFILE_SAME_WEEKDAY_MIN_DAYS,
     CHARGE_MORNING_LOAD_FRACTION,
     CHARGE_PEAK_SOLAR_HOURS,
     CHARGE_SHOULDER_MIN_SOC,
@@ -33,12 +41,11 @@ from ..const import (
     CHARGE_WINTER_MONTHS,
     CLIPPING_THRESHOLD_PERCENT,
     EV_CHARGER_MIN_POWER_W,
-    EV_SURPLUS_DIVERT_W,
+    GIVTCP_MIN_WRITE_INTERVAL_S,
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
 from ..discovery.ev_charger import (
-    ZAPPI_BATTERY_DRAINING_MODES,
     ZAPPI_ECO_PLUS_MODE,
     EVCharger,
     EVChargerBrand,
@@ -104,17 +111,113 @@ def _make_solar_slot_weights() -> tuple[float, ...]:
 _SOLAR_SLOT_WEIGHTS: tuple[float, ...] = _make_solar_slot_weights()
 
 
+_PROFILE_DAY_WEIGHTS = (1.0, 0.85, 0.7, 0.6, 0.5, 0.45, 0.4)
+
+
+def build_load_profile(
+    history: Sequence[dict],
+    target_weekday: int,
+) -> list[float] | None:
+    """
+    Build a 48-slot baseline load profile (kWh per 30 min) from stored daily records.
+
+    Each record is {"date": ISO date, "slots": 48 kWh values, "coverage": 0-1}, oldest
+    first. Records covering less than CHARGE_LOAD_PROFILE_MIN_COVERAGE of the day are
+    skipped. Returns None when fewer than CHARGE_LOAD_PROFILE_MIN_DAYS complete days
+    remain. When at least CHARGE_LOAD_PROFILE_SAME_WEEKDAY_MIN_DAYS complete days fall
+    on target_weekday (Monday=0), only those are used. Newer days weigh more.
+    """
+    complete: list[tuple[int, list[float]]] = []
+    for entry in history:
+        try:
+            slots = [float(v) for v in entry["slots"]]
+            weekday = date.fromisoformat(entry["date"]).weekday()
+            coverage = float(entry["coverage"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if len(slots) == 48 and coverage >= CHARGE_LOAD_PROFILE_MIN_COVERAGE:
+            complete.append((weekday, slots))
+
+    if len(complete) < CHARGE_LOAD_PROFILE_MIN_DAYS:
+        return None
+
+    same_weekday = [c for c in complete if c[0] == target_weekday]
+    chosen = (
+        same_weekday
+        if len(same_weekday) >= CHARGE_LOAD_PROFILE_SAME_WEEKDAY_MIN_DAYS
+        else complete
+    )
+    newest_first = list(reversed(chosen))[: len(_PROFILE_DAY_WEIGHTS)]
+    total_weight = sum(_PROFILE_DAY_WEIGHTS[: len(newest_first)])
+    return [
+        sum(slots[i] * _PROFILE_DAY_WEIGHTS[n] for n, (_, slots) in enumerate(newest_first))
+        / total_weight
+        for i in range(48)
+    ]
+
+
+def forecast_correction_factor(records: Sequence[dict]) -> float | None:
+    """
+    Median actual/forecast ratio from recent {"forecast", "actual", "clipped"} records.
+
+    Days where the forecast or actual is under CHARGE_FORECAST_CORRECTION_MIN_KWH, or
+    where the inverter was clipping, are ignored. Returns None with fewer than
+    CHARGE_FORECAST_CORRECTION_MIN_DAYS usable days, otherwise the median clamped to
+    CHARGE_FORECAST_CORRECTION_MIN..MAX.
+    """
+    ratios: list[float] = []
+    for record in records:
+        try:
+            forecast = float(record["forecast"])
+            actual = float(record["actual"])
+            clipped = bool(record.get("clipped", False))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if clipped:
+            continue
+        if (
+            forecast < CHARGE_FORECAST_CORRECTION_MIN_KWH
+            or actual < CHARGE_FORECAST_CORRECTION_MIN_KWH
+        ):
+            continue
+        ratios.append(actual / forecast)
+    if len(ratios) < CHARGE_FORECAST_CORRECTION_MIN_DAYS:
+        return None
+    return max(
+        CHARGE_FORECAST_CORRECTION_MIN,
+        min(CHARGE_FORECAST_CORRECTION_MAX, statistics.median(ratios)),
+    )
+
+
+def _profile_usable(load_profile: list[float] | None) -> bool:
+    return (
+        load_profile is not None
+        and len(load_profile) == 48
+        and min(load_profile) >= 0
+        and sum(load_profile) > 0
+    )
+
+
+def _slot_loads_kwh(avg_daily_kwh: float, load_profile: list[float] | None) -> list[float]:
+    """Per-slot load for the simulation: the profile scaled to avg_daily_kwh, else flat."""
+    if load_profile is not None and _profile_usable(load_profile):
+        scale = avg_daily_kwh / sum(load_profile)
+        return [v * scale for v in load_profile]
+    return [avg_daily_kwh / 48] * 48
+
+
 def _simulate_min_soc(
     start_soc_pct: float,
     forecast_kwh: float,
     avg_daily_kwh: float,
     battery_capacity_kwh: float,
+    load_profile: list[float] | None = None,
 ) -> float:
     """Simulate one day starting from start_soc_pct. Return the minimum SoC reached."""
-    slot_load_kwh = avg_daily_kwh / 48
+    slot_loads = _slot_loads_kwh(avg_daily_kwh, load_profile)
     soc_pct = start_soc_pct
     min_reached = start_soc_pct
-    for weight in _SOLAR_SLOT_WEIGHTS:
+    for weight, slot_load_kwh in zip(_SOLAR_SLOT_WEIGHTS, slot_loads, strict=True):
         net_pct = (forecast_kwh * weight - slot_load_kwh) / battery_capacity_kwh * 100
         soc_pct = max(0.0, min(100.0, soc_pct + net_pct))
         min_reached = min(min_reached, soc_pct)
@@ -126,6 +229,7 @@ def _find_minimum_charge_target(
     avg_daily_kwh: float,
     battery_capacity_kwh: float,
     min_soc: int,
+    load_profile: list[float] | None = None,
 ) -> int:
     """
     Binary search for the lowest overnight target SoC that keeps the battery
@@ -136,7 +240,10 @@ def _find_minimum_charge_target(
     lo, hi = min_soc, 100
     while lo < hi:
         mid = (lo + hi) // 2
-        if _simulate_min_soc(mid, forecast_kwh, avg_daily_kwh, battery_capacity_kwh) >= min_soc:
+        if (
+            _simulate_min_soc(mid, forecast_kwh, avg_daily_kwh, battery_capacity_kwh, load_profile)
+            >= min_soc
+        ):
             hi = mid
         else:
             lo = mid + 1
@@ -225,6 +332,7 @@ def calculate_overnight_charge_target(
     forecast_conservatism: float = 0.0,
     forecast_kwh_d2: float | None = None,
     load_profile: list[float] | None = None,
+    forecast_correction: float | None = None,
     *,
     dt: datetime,
 ) -> ChargeDecision:
@@ -272,6 +380,9 @@ def calculate_overnight_charge_target(
         forecast_source = f"seasonal estimate (month={month}, lat-derived)"
     else:
         forecast_source = "forecast integration"
+        if forecast_correction is not None and forecast_correction != 1.0:
+            forecast_kwh *= forecast_correction
+            forecast_source += f", x{forecast_correction:.2f} recent accuracy"
 
     forecast_kwh, blend_suffix = _blend_forecast_p10(
         forecast_kwh, forecast_kwh_p10, forecast_conservatism
@@ -301,12 +412,18 @@ def calculate_overnight_charge_target(
     # Binary-search for the minimum overnight charge that keeps SoC >= min_soc
     # throughout the simulated day (48 half-hour slots, bell-curve solar profile).
     target_soc = _find_minimum_charge_target(
-        forecast_kwh, average_daily_consumption_kwh, battery_capacity_kwh, min_soc
+        forecast_kwh,
+        average_daily_consumption_kwh,
+        battery_capacity_kwh,
+        min_soc,
+        load_profile,
     )
     reason = (
         f"Forward simulation: {forecast_kwh:.1f}kWh forecast ({forecast_source}). "
         f"Target {target_soc}%."
     )
+    if _profile_usable(load_profile):
+        reason += " Per-slot load profile used."
 
     target_soc, reason = _apply_overmorrow_correction(
         target_soc, reason, forecast_kwh_d2, battery_capacity_kwh, min_soc, car_plugged_in
@@ -347,9 +464,11 @@ def available_surplus_w(
     """
     Solar power left over once the rest of the house and battery charging are served.
 
-    house_load_w already includes the immersion's draw while it is on, so that draw
-    is added back. Without this the surplus collapses as soon as the element starts,
-    and the next cycle switches it off again.
+    house_load_w is the GivTCP load sensor. It is the inverter-side load and already
+    includes the immersion's draw while it is on, so that draw is added back (capped at
+    house_load_w). Without this the surplus collapses as soon as the element starts,
+    and the next cycle switches it off again. Only positive battery_power_w (charging)
+    is subtracted. The EV charger's draw is not added back.
     """
     own_draw_w = min(max(0.0, immersion_power_w), max(0.0, house_load_w)) if immersion_on else 0.0
     return solar_power_w - (house_load_w - own_draw_w) - max(0.0, battery_power_w)
@@ -376,6 +495,21 @@ def _missing_inputs(
     return missing
 
 
+def _missing_input_decision(
+    missing: list[str], currently_on: bool, unavailable_for_s: float
+) -> tuple[bool, str]:
+    """Hold an already-running element for a bounded time, never start on missing data."""
+    names = ", ".join(missing)
+    if not currently_on:
+        return False, f"Sensor unavailable ({names}), not starting"
+    if unavailable_for_s < GIVTCP_MIN_WRITE_INTERVAL_S:
+        return True, f"Sensor unavailable ({names}), holding on"
+    return False, (
+        f"Sensor unavailable ({names}) for {unavailable_for_s:.0f}s, "
+        f"hold limit {GIVTCP_MIN_WRITE_INTERVAL_S}s reached, turning off"
+    )
+
+
 def should_divert_to_immersion(
     solar_power_w: float | None,
     house_load_w: float | None,
@@ -393,6 +527,7 @@ def should_divert_to_immersion(
     export_rate: float = 0.0,
     immersion_power_w: float = 0.0,
     immersion_temp_unavailable: bool = False,
+    unavailable_for_s: float = 0.0,
 ) -> tuple[bool, str]:
     """
     Decide whether to turn on the immersion heater.
@@ -402,9 +537,10 @@ def should_divert_to_immersion(
     Algorithm:
       1. Always heat if below legionella minimum temperature (ignores hysteresis)
       2. Turn off when target temperature is reached
-      3. Hold the current state if a required input is missing (None solar, house
-         load or battery power, or immersion_temp_unavailable). Never start on
-         missing data.
+      3. If a required input is missing (None solar, house load or battery power,
+         or immersion_temp_unavailable): never start on missing data. If already on,
+         hold on while unavailable_for_s is below GIVTCP_MIN_WRITE_INTERVAL_S, then
+         turn off. The caller measures unavailable_for_s so this function stays pure.
       4. Hysteresis: if currently off, only restart once water cools to
          (target - hysteresis_c); if currently on, keep running until target
       5. Never heat if battery SoC is below soc_threshold
@@ -430,10 +566,7 @@ def should_divert_to_immersion(
         solar_power_w, house_load_w, battery_power_w, immersion_temp_unavailable
     )
     if missing:
-        return currently_on, (
-            f"Sensor unavailable ({', '.join(missing)}), "
-            f"{'holding on' if currently_on else 'not starting'}"
-        )
+        return _missing_input_decision(missing, currently_on, unavailable_for_s)
 
     if battery_soc < soc_threshold:
         return False, f"Battery SoC {battery_soc:.0f}% below threshold {soc_threshold}%"
@@ -538,8 +671,10 @@ def decide_ev_charger_action(
     Returns (target_mode_or_None, reason).
 
     Rules (in priority order):
-      1. Solar surplus > EV_SURPLUS_DIVERT_W and Zappi → switch to Eco+
-      2. Otherwise → no change
+      1. No plugged-in vehicle → no change
+      2. Surplus below EV_CHARGER_MIN_POWER_W (the charger cannot start) → no change
+      3. Zappi not already in Eco+ → switch to Eco+
+      4. Otherwise → no change
     """
     if not charger.is_plugged_in:
         return None, "EV not connected"
@@ -553,7 +688,7 @@ def decide_ev_charger_action(
             f"not starting"
         )
 
-    if solar_surplus_w > EV_SURPLUS_DIVERT_W and charger.brand == EVChargerBrand.ZAPPI:
+    if charger.brand == EVChargerBrand.ZAPPI:
         current = (charger.charge_mode or "").lower()
         if current not in ("eco+",):
             return ZAPPI_ECO_PLUS_MODE, (
@@ -564,38 +699,6 @@ def decide_ev_charger_action(
 
     return None, (
         f"Battery SoC {battery_soc:.0f}% OK, surplus {solar_surplus_w:.0f}W — no action needed"
-    )
-
-
-def should_protect_battery_from_charger(
-    charger: EVCharger,
-    battery_soc: float,
-    battery_protection_threshold: float,
-) -> tuple[bool, str]:
-    """
-    Determine whether the battery needs protecting from the EV charger.
-
-    Returns (should_protect, reason).
-    Protection is needed when the charger is actively discharging the battery
-    and SoC is below the protection threshold.
-    """
-    if not charger.is_active:
-        return False, "Charger not active"
-    if not charger.is_draining_battery:
-        return False, "Battery not discharging into car"
-    if battery_soc > battery_protection_threshold:
-        return False, (
-            f"Battery SoC {battery_soc:.0f}% above threshold {battery_protection_threshold:.0f}%"
-        )
-    if charger.brand == EVChargerBrand.ZAPPI and charger.charge_mode:
-        if charger.charge_mode.lower() in ZAPPI_BATTERY_DRAINING_MODES:
-            return True, (
-                f"Zappi in {charger.charge_mode!r} mode drawing from battery "
-                f"(SoC {battery_soc:.0f}% <= {battery_protection_threshold:.0f}%)"
-            )
-    return True, (
-        f"EV charger drawing from battery "
-        f"(SoC {battery_soc:.0f}% <= {battery_protection_threshold:.0f}%)"
     )
 
 

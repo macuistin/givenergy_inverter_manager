@@ -17,6 +17,10 @@ python3 -m venv .venv
 
 `tests/conftest.py` replaces `homeassistant` in `sys.modules` before collection. `pyproject.toml` adds `--ignore=tests/ha_e2e` so this suite never imports the real Home Assistant tests.
 
+`tests/test_dashboard_example.py` is a golden test for `docs/dashboard-example.yaml`. After an intended change to the dashboard generator, regenerate the file with `UPDATE_DASHBOARD_EXAMPLE=1 python -m pytest tests/test_dashboard_example.py` and review the diff.
+
+`tests/test_dashboard_strategy.py` runs the strategy JavaScript under `node` when `node` is installed, and skips those tests otherwise.
+
 ## Real Home Assistant suite
 
 Use a separate virtualenv. The plugin pins `homeassistant`, `pytest` and `pytest-asyncio`, and Home Assistant 2026.9 needs Python 3.14.2 or newer.
@@ -40,6 +44,8 @@ If you run `pytest tests/ha_e2e` in the stubbed suite's virtualenv, it reports o
 - Enables every sensor that is disabled by default, reloads, and checks each one has a state.
 - Drives the options flow with the payload the frontend would send, including an empty forecast and carbon selection, and serialises the form schema the way the frontend API does.
 - Walks the config flow for the manual path (no discovered inverters) and the discovered path.
+- Checks that every field in the setup, reconfigure and options forms has a label and help text in `strings.json` and `translations/en.json`.
+- Moves the immersion temperature numbers and checks the integration is not reloaded.
 - Unloads, reloads and removes the entry.
 
 Writes to GivTCP are captured with `async_mock_service` for `number.set_value`, `switch.turn_on`, `switch.turn_off` and `select.select_option`. Nothing talks to a real inverter. The 2 s retry sleep in the coordinator is patched to 0.

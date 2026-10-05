@@ -49,8 +49,8 @@ GROUPS: dict[str, str] = {
     ),
     "Tariff and rate": "Read from the tariff you configured. See [Tariff](tariff.md).",
     "Energy today": (
-        "Accumulated since local midnight. Sensors marked yes in the midnight reset column "
-        "report `last_reset`. See [Long-term statistics](long-term-statistics.md)."
+        "Accumulated since local midnight. They report `last_reset` as the most recent midnight. "
+        "See [Long-term statistics](long-term-statistics.md)."
     ),
     "Cost and savings today": "Money sensors use the currency symbol you chose in the tariff.",
     "Efficiency today": "Percentages worked out from today's totals.",
@@ -64,12 +64,19 @@ GROUPS: dict[str, str] = {
     ),
     "Solar forecast": "Needs a forecast sensor in the options to be meaningful.",
     "Carbon intensity": "Needs a carbon intensity sensor in the options.",
-    "Yesterday": "Yesterday's totals, copied from today's accumulator at midnight.",
-    "This week": "Resets at midnight on Monday.",
-    "This month": "Resets at midnight on the bill start day chosen at setup.",
+    "Yesterday": (
+        "Yesterday's totals, copied from today's accumulator at midnight. They have no state "
+        "class, so Home Assistant keeps no long-term statistics for them."
+    ),
+    "This week": "Resets at midnight on Monday. Reports `last_reset` as the start of the week.",
+    "This month": (
+        "Resets at midnight on the bill start day chosen at setup. Reports `last_reset` as the "
+        "start of the bill period."
+    ),
     "This year and trailing 12 months": (
-        "Year sensors reset on 1 January and are not saved over a restart or reload. "
-        "Trailing 12-month sensors add up the last 12 completed bill periods."
+        "Year sensors reset at midnight on 1 January and report `last_reset` as the start of the "
+        "year. Trailing 12-month sensors add up the last 12 completed bill periods and have no "
+        "state class."
     ),
     "HTML reports": (
         "The state is a one-line summary. The `html` attribute holds a styled report for a "
@@ -252,8 +259,8 @@ DESCRIPTIONS: dict[str, str] = {
     "grid_power_direction": "Importing, Exporting or Balanced (within 50 W of zero).",
     "solar_power_pct_of_max": "Solar power as a percentage of the configured inverter maximum.",
     "net_solar_surplus_w": (
-        "Smoothed solar power minus house load minus immersion power, floored at 0. "
-        "Drives the EV signals."
+        "Smoothed solar power minus house load, with the immersion's own draw added back, "
+        "floored at 0. Battery charging is not subtracted. Drives the EV signals."
     ),
     "battery_kwh_available": "Battery state of charge times the configured capacity.",
     "battery_power_direction": "Charging, Discharging or Idle (within 50 W of zero).",
@@ -301,12 +308,9 @@ DESCRIPTIONS: dict[str, str] = {
     "immersion_solar_kwh_today": "Solar energy that went to the immersion.",
     "self_consumed_kwh_today": "Solar generated minus exported, floored at 0.",
     "missed_solar_today": (
-        "Export while the battery was at 99% or more and no EV or immersion load was on. "
-        "Not saved over a restart."
+        "Export while the battery was at 99% or more and no EV or immersion load was on."
     ),
-    "inverter_derating_today_minutes": (
-        "Minutes with the inverter at 65 °C or more. Not saved over a restart."
-    ),
+    "inverter_derating_today_minutes": "Minutes with the inverter at 65 °C or more.",
     "import_cost_today": "Import cost after the supplier discount and VAT.",
     "export_earnings_today": "Exported kWh times the export rate.",
     "zappi_cost_today": "Import cost attributed to the EV charger.",
@@ -328,12 +332,16 @@ DESCRIPTIONS: dict[str, str] = {
     "solar_capture_efficiency_today": "Solar generated minus missed solar, as a share of solar.",
     "battery_roundtrip_efficiency_today": "Energy out of the battery divided by energy in.",
     "accrued_bill": (
-        "Today's import cost plus standing charge and PSO levy (with VAT) for the days elapsed."
+        "Bill so far this period: energy less the supplier saving, standing charge and PSO levy, "
+        "VAT, minus export earnings."
     ),
     "projected_bill": "Accrued bill spread over the whole bill period.",
-    "days_remaining_in_period": "Days until the next bill start day.",
-    "days_in_period": "Days elapsed in the bill period, minimum 1.",
-    "battery_cycles": "Sum of SoC changes, up and down, divided by 100.",
+    "days_remaining_in_period": "Days left in the bill period after today.",
+    "days_in_period": "Day of the bill period, 1 on the bill start day.",
+    "battery_cycles": (
+        "Equivalent full cycles (capacity discharged once). The GivTCP BMS counter when it "
+        "exists, otherwise falls in SoC divided by 100."
+    ),
     "battery_remaining_life": "100 minus total cycles as a share of 6000 rated cycles.",
     "days_since_full_charge": "Days since the battery last reached 99% or more.",
     "battery_years_remaining": (
@@ -351,7 +359,7 @@ DESCRIPTIONS: dict[str, str] = {
         "Today's throughput as a share of the daily budget. Empty when the budget is 0."
     ),
     "battery_throughput_budget_status": "OK, High (80% or more) or Over budget.",
-    "register_write_count": "Writes sent to GivTCP since the integration was last loaded.",
+    "register_write_count": "Lifetime writes sent to GivTCP. Saved and kept across restarts.",
     "overnight_charge_target": "Tonight's target after overrides and the configured cap.",
     "overnight_charge_reason": "Why that target was chosen.",
     "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",
@@ -375,9 +383,9 @@ DESCRIPTIONS: dict[str, str] = {
     "ev_draining_battery": (
         "yes while the charger is charging and the battery discharges over 200 W."
     ),
-    "ev_protection_reason": "Result of the EV rule check.",
+    "ev_protection_reason": "Reason for the latest EV charge mode decision.",
     "ev_charging_source": "Not charging, Solar, Grid, Battery or Mixed.",
-    "ev_solar_surplus_available": "Available when net solar surplus is 1400 W or more.",
+    "ev_solar_surplus_available": "Available when net solar surplus is 1380 W or more.",
     "solar_forecast_kwh_today": "First forecast value the charge calculation used today.",
     "solar_actual_vs_forecast_pct": "Solar generated today as a share of that forecast.",
     "yesterday_forecast_accuracy_pct": (
@@ -433,7 +441,9 @@ def load_sensors() -> list[dict]:
         unit_node = kw.get("native_unit_of_measurement")
         unit = UNITS.get(_attr(unit_node), _attr(unit_node))
         state_class = _attr(kw.get("state_class")).lower() or "none"
-        daily = bool(_literal(kw.get("is_daily_total"), False))
+        reset_period = _literal(kw.get("reset_period"), None) or (
+            "day" if _literal(kw.get("is_daily_total"), False) else None
+        )
         available_fn = kw.get("available_fn")
         sensors.append(
             {
@@ -443,7 +453,7 @@ def load_sensors() -> list[dict]:
                 "device_class": _attr(kw.get("device_class")).lower(),
                 "state_class": state_class,
                 "enabled": bool(_literal(kw.get("entity_registry_enabled_default"), True)),
-                "midnight_reset": daily and state_class == "total",
+                "last_reset": reset_period if state_class == "total" else None,
                 "diagnostic": _attr(kw.get("entity_category")) == "DIAGNOSTIC",
                 "needs_ev": (
                     available_fn is not None and "ev_available" in ast.unparse(available_fn)
@@ -480,7 +490,7 @@ def _row(sensor: dict) -> str:
         _cell(sensor["unit"]),
         _cell(sensor["device_class"]),
         sensor["state_class"],
-        "yes" if sensor["midnight_reset"] else "no",
+        sensor["last_reset"] or "no",
         "yes" if sensor["enabled"] else "no",
         _cell(text),
     ]
@@ -515,8 +525,9 @@ def generate() -> str:
         "example `sensor.givenergy_inverter_manager_solar_power`. Check yours in "
         "**Settings > Entities**.",
         "- **Unit**: `currency` is the symbol of the currency chosen in the tariff.",
-        "- **Midnight reset**: `yes` means the sensor reports `last_reset` as the most recent "
-        "local midnight. See [Long-term statistics](long-term-statistics.md).",
+        "- **Last reset**: `day`, `week`, `month` or `year` means the sensor reports "
+        "`last_reset` as the start of that period. `no` means it reports none. See "
+        "[Long-term statistics](long-term-statistics.md).",
         "- **Enabled**: whether the sensor is enabled when first created.",
         "",
     ]
@@ -527,7 +538,7 @@ def generate() -> str:
         if GROUPS[group]:
             lines += [GROUPS[group], ""]
         lines += [
-            "| Sensor | Key | Unit | Device class | State class | Midnight reset | Enabled | "
+            "| Sensor | Key | Unit | Device class | State class | Last reset | Enabled | "
             "What it reports |",
             "|---|---|---|---|---|---|---|---|",
         ]

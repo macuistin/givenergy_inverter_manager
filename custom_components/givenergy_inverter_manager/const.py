@@ -125,7 +125,6 @@ DEFAULT_STANDING_CHARGE = 0.8259  # per day
 DEFAULT_PSO_LEVY = 1.46  # per month
 DEFAULT_EXPORT_RATE = 0.195  # per kWh (Irish CEG rate)
 DEFAULT_BILL_START_DAY = 1  # day of month
-EV_SOLAR_SURPLUS_THRESHOLD_W = 1400  # W net surplus needed to flag solar available for EV
 CONF_CAR_EFFICIENCY_KWH_PER_100KM = "car_efficiency_kwh_per_100km"
 DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM = 15.0  # kWh/100km — typical BEV efficiency
 
@@ -202,6 +201,13 @@ CHARGE_POOR_TARGET_SOC = 90  # target SoC for a poor-forecast night
 CHARGE_STRONG_BUFFER = 10  # SoC points added above gap for strong forecast
 CHARGE_MODERATE_BUFFER = 20  # SoC points added above gap for moderate forecast
 CHARGE_EV_SOC_BONUS = 10  # extra SoC percentage added when EV is plugged in
+CHARGE_LOAD_PROFILE_MIN_COVERAGE = 0.9  # fraction of the day a load record must cover
+CHARGE_LOAD_PROFILE_MIN_DAYS = 2  # complete days needed before the per-slot profile is used
+CHARGE_LOAD_PROFILE_SAME_WEEKDAY_MIN_DAYS = 3  # same-weekday days needed to prefer them
+CHARGE_FORECAST_CORRECTION_MIN = 0.6  # lowest factor applied to the P50 forecast
+CHARGE_FORECAST_CORRECTION_MAX = 1.2  # highest factor applied to the P50 forecast
+CHARGE_FORECAST_CORRECTION_MIN_DAYS = 5  # usable days needed before the factor is applied
+CHARGE_FORECAST_CORRECTION_MIN_KWH = 0.5  # days with forecast or actual below this are ignored
 
 # ── Solar / generation parameters ─────────────────────────────────────────────
 SOLAR_SUNRISE_HOUR = 8  # hour of day when solar generation typically starts
@@ -211,6 +217,7 @@ SOLAR_NOISE_FLOOR_W = 10.0  # W — sensor readings below this are treated as ze
 BATTERY_RATED_CYCLES = 6000  # typical LFP rated cycle life (manufacturer spec)
 NIGHT_SURVIVAL_WARNING_MARGIN_PCT = 5.0  # warn within this many SoC points of min SoC
 BATTERY_LIFE_ESTIMATE_MIN_DAYS = 7  # days of cycle data needed before estimating years left
+BATTERY_MAX_SOC_STEP_PCT = 10.0  # SoC change between two updates above this is a sensor glitch
 
 # ── Battery degradation cost ──────────────────────────────────────────────────
 # Install cost of the battery (€). When set, the cycle cost is computed as:
@@ -231,9 +238,10 @@ THROUGHPUT_BUDGET_STATUS_HIGH = "High"
 THROUGHPUT_BUDGET_STATUS_OVER = "Over budget"
 
 # ── EV diversion parameters ───────────────────────────────────────────────────
-EV_SURPLUS_DIVERT_W = 500  # minimum surplus (W) to switch Zappi to Eco+
 # Minimum power for an OCPP EV charger to start — 6A × 230V single-phase.
 # If the available surplus is below this, the charger will refuse to start.
+# This is also the surplus at which the EV Solar Surplus signal reads Available
+# and the Zappi is switched to Eco+.
 # Based on IEC 61851 minimum of 6A (1,380W at 230V). Single-phase assumption.
 EV_CHARGER_MIN_POWER_W = 1380
 
@@ -253,4 +261,6 @@ DEFAULT_CHEAP_RATE_FLOOR_SOC = 40  # % — 0 disables the floor
 GIVTCP_MAX_WRITE_RETRIES = 3          # attempts per write before giving up
 GIVTCP_WRITE_RETRY_SLEEP_S = 2        # seconds between retry attempts
 GIVTCP_WRITE_LIFETIME_WARN = 500_000  # log a warning at this write count (~50% of rated)
-GIVTCP_MIN_WRITE_INTERVAL_S = 300     # minimum seconds between writes to the same entity
+GIVTCP_MIN_WRITE_INTERVAL_S = 300     # minimum seconds before the same value is rewritten
+GIVTCP_MIN_CHARGE_TARGET_PCT = 4      # lowest charge target GivTCP accepts
+GIVTCP_MAX_CHARGE_TARGET_PCT = 100    # highest charge target GivTCP accepts
