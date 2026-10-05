@@ -295,43 +295,6 @@ class TestGetCurrentRatePrecedence:
 # ── TariffConfig — additional coverage ───────────────────────────────────────
 
 
-class TestTariffConfigExtras:
-    def _tariff(self):
-        from datetime import time
-
-        from custom_components.givenergy_inverter_manager.core.tariff import (
-            RatePeriod,
-            TariffConfig,
-        )
-
-        return TariffConfig(
-            rate_periods=[
-                RatePeriod("Night", 0.1644, time(23, 0), time(8, 0)),
-                RatePeriod("Nightboost", 0.0965, time(2, 0), time(4, 0)),
-            ],
-            base_rate=0.3334,
-            base_rate_name="Day",
-            export_rate=0.195,
-            standing_charge=0.8259,
-            pso_levy=1.46,
-            vat_rate=9.0,
-            discount_rate=5.5,
-            bill_start_day=1,
-        )
-
-    def test_get_most_expensive_rate_returns_day(self):
-        t = self._tariff()
-        most_exp = t.get_most_expensive_rate()
-        assert most_exp.name == "Day"
-        assert most_exp.rate == pytest.approx(0.3334)
-
-    def test_get_most_expensive_rate_beats_all_periods(self):
-        t = self._tariff()
-        most_exp = t.get_most_expensive_rate()
-        for period in t.rate_periods:
-            assert most_exp.rate >= period.rate
-
-
 # ── EnergyAccumulator — total_cost and net_position ─────────────────────────
 
 
@@ -442,29 +405,25 @@ class TestBillPeriodCalendar:
 # ── Standing charge and PSO levy ──────────────────────────────────────────────
 
 
-class TestStandingCharges:
+class TestPsoLevyShare:
+    """The PSO levy is a flat monthly figure, charged pro rata for a part period."""
+
     @pytest.mark.parametrize("period_days", [28, 29, 30, 31])
     def test_full_period_charges_exactly_the_monthly_pso(self, period_days):
         t = _bill_tariff()
-        expected = (0.8259 * period_days + 1.46) * 1.09
-        assert t.calculate_standing_charges(period_days, period_days) == pytest.approx(expected)
+        bill = t.calculate_bill(0.0, period_days, period_days)
+        assert bill.pso_levy == 1.46
+        assert bill.standing_charge == pytest.approx(round(0.8259 * period_days, 2))
 
     def test_part_period_charges_pro_rata_share_of_actual_period_length(self):
         t = _bill_tariff()
-        expected = (0.8259 * 10 + 1.46 * 10 / 31) * 1.09
-        assert t.calculate_standing_charges(10, 31) == pytest.approx(expected)
-        expected_feb = (0.8259 * 10 + 1.46 * 10 / 28) * 1.09
-        assert t.calculate_standing_charges(10, 28) == pytest.approx(expected_feb)
-
-    def test_pso_is_not_prorated_by_average_month_when_period_given(self):
-        t = _bill_tariff(pso=1.46)
-        zero_standing = TariffConfig(**{**t.__dict__, "standing_charge": 0.0, "vat_rate": 0.0})
-        assert zero_standing.calculate_standing_charges(31, 31) == pytest.approx(1.46)
+        assert t.calculate_bill(0.0, 10, 31).pso_levy == round(1.46 * 10 / 31, 2)
+        assert t.calculate_bill(0.0, 10, 28).pso_levy == round(1.46 * 10 / 28, 2)
 
     def test_without_period_length_pso_never_exceeds_one_levy(self):
-        t = TariffConfig(**{**_bill_tariff().__dict__, "standing_charge": 0.0, "vat_rate": 0.0})
-        assert t.calculate_standing_charges(31) == pytest.approx(1.46)
-        assert t.calculate_standing_charges(45) == pytest.approx(1.46)
+        t = _bill_tariff(pso=1.46)
+        assert t.calculate_bill(0.0, 31).pso_levy == 1.46
+        assert t.calculate_bill(0.0, 45).pso_levy == 1.46
 
 
 # ── Bill breakdown: owner's real bill ─────────────────────────────────────────

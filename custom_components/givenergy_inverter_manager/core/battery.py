@@ -31,6 +31,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 # GivEnergy battery typical rated cycles
 from ..const import (
@@ -160,7 +161,7 @@ def survival_attributes(
     min_soc: float,
     current_soc: float,
     reason: str,
-) -> dict:
+) -> dict[str, Any]:
     """Explain the night survival level and give the numbers it comes from.
 
     Critical: the battery runs out before solar starts. Warning: it lasts, but is
