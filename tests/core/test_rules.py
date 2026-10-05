@@ -4,10 +4,10 @@ from datetime import datetime
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.rules import (
+from custom_components.givenergy_inverter_manager.core.rules import monthly_solar_fractions
+from tests.core.flat_rules import (
     available_surplus_w,
     calculate_overnight_charge_target,
-    monthly_solar_fractions,
     should_divert_to_immersion,
     suggest_appliance_run,
 )
@@ -355,9 +355,7 @@ class TestImmersionDivertClippingPath:
         threshold, the immersion should activate even if net surplus calculation
         is marginal — the clipping itself signals abundant solar.
         """
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            should_divert_to_immersion,
-        )
+        from tests.core.flat_rules import should_divert_to_immersion
 
         # Solar at 97% of inverter max — definite clipping
         # But house load is high so net_surplus_w < min_surplus_w
@@ -387,7 +385,7 @@ class TestSuggestApplianceRunDayRatePath:
         At peak day rate with no solar surplus, suggestion should be False
         and the reason should include cost information.
         """
-        from custom_components.givenergy_inverter_manager.core.rules import suggest_appliance_run
+        from tests.core.flat_rules import suggest_appliance_run
 
         is_good, reason = suggest_appliance_run(
             solar_power_w=100.0,  # negligible solar
@@ -409,7 +407,7 @@ class TestSuggestApplianceRunDayRatePath:
         Battery is medium SoC and rate is moderate — no strong case either way.
         Should return False with a neutral reason.
         """
-        from custom_components.givenergy_inverter_manager.core.rules import suggest_appliance_run
+        from tests.core.flat_rules import suggest_appliance_run
 
         is_good, reason = suggest_appliance_run(
             solar_power_w=1000.0,
@@ -448,9 +446,7 @@ class TestOvernightChargeEdgeCases:
 
     def test_car_plugged_in_adds_buffer_to_target(self):
         """Car plugged in should result in a higher target than without."""
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            calculate_overnight_charge_target,
-        )
+        from tests.core.flat_rules import calculate_overnight_charge_target
 
         without_car = calculate_overnight_charge_target(
             **self._base(car_plugged_in=False, forecast_kwh=8.0)
@@ -462,9 +458,7 @@ class TestOvernightChargeEdgeCases:
 
     def test_zero_forecast_gives_high_target(self):
         """Zero kWh forecast (e.g. storm warning) should give near-maximum target."""
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            calculate_overnight_charge_target,
-        )
+        from tests.core.flat_rules import calculate_overnight_charge_target
 
         decision = calculate_overnight_charge_target(
             **self._base(
@@ -478,9 +472,7 @@ class TestOvernightChargeEdgeCases:
         """Battery essentially full + excellent summer forecast = skip charge."""
         from datetime import datetime
 
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            calculate_overnight_charge_target,
-        )
+        from tests.core.flat_rules import calculate_overnight_charge_target
 
         decision = calculate_overnight_charge_target(
             **self._base(
@@ -788,14 +780,10 @@ class TestBatteryCycleCostEngine:
 class TestPreBoostExportOpportunity:
     """calculate_pre_boost_export_opportunity in rules.py."""
 
-    from custom_components.givenergy_inverter_manager.core.rules import (
-        calculate_pre_boost_export_opportunity,
-    )
+    from tests.core.flat_rules import calculate_pre_boost_export_opportunity
 
     def _calc(self, **overrides):
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            calculate_pre_boost_export_opportunity,
-        )
+        from tests.core.flat_rules import calculate_pre_boost_export_opportunity
 
         defaults = {
             "current_soc": 70.0,
@@ -851,7 +839,7 @@ class TestForwardSocSimulation:
     """Forward SoC simulation helpers in rules.py."""
 
     def test_simulate_min_soc_decreases_with_low_solar(self):
-        from custom_components.givenergy_inverter_manager.core.rules import _simulate_min_soc
+        from tests.core.flat_rules import _simulate_min_soc
 
         # High load, zero solar → battery drains to 0
         min_soc = _simulate_min_soc(
@@ -863,7 +851,7 @@ class TestForwardSocSimulation:
         assert min_soc == pytest.approx(0.0)
 
     def test_simulate_min_soc_stays_above_zero_with_strong_solar(self):
-        from custom_components.givenergy_inverter_manager.core.rules import _simulate_min_soc
+        from tests.core.flat_rules import _simulate_min_soc
 
         # Even with strong solar, there's a morning trough before solar kicks in;
         # but the battery should stay above 0% (solar eventually refills it)
@@ -876,9 +864,7 @@ class TestForwardSocSimulation:
         assert min_soc >= 20.0  # morning trough before solar kicks in
 
     def test_find_minimum_charge_target_high_solar(self):
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            _find_minimum_charge_target,
-        )
+        from tests.core.flat_rules import _find_minimum_charge_target
 
         # Strong solar → low target (solar will refill the battery)
         target = _find_minimum_charge_target(
@@ -890,9 +876,7 @@ class TestForwardSocSimulation:
         assert target <= 50  # solar-rich day needs less overnight charge
 
     def test_find_minimum_charge_target_poor_solar(self):
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            _find_minimum_charge_target,
-        )
+        from tests.core.flat_rules import _find_minimum_charge_target
 
         # Poor solar → high target
         target = _find_minimum_charge_target(
@@ -904,10 +888,7 @@ class TestForwardSocSimulation:
         assert target >= 80  # poor solar needs high overnight charge
 
     def test_find_minimum_charge_target_never_below_min_soc(self):
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            _find_minimum_charge_target,
-            _simulate_min_soc,
-        )
+        from tests.core.flat_rules import _find_minimum_charge_target, _simulate_min_soc
 
         for forecast in [2.0, 5.0, 10.0, 15.0, 20.0]:
             target = _find_minimum_charge_target(
@@ -922,9 +903,7 @@ class TestForwardSocSimulation:
             )
 
     def test_charge_target_monotone_with_forecast(self):
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            _find_minimum_charge_target,
-        )
+        from tests.core.flat_rules import _find_minimum_charge_target
 
         # More solar → lower or equal target
         prev = 100

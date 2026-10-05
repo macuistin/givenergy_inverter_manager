@@ -197,6 +197,14 @@ def test_quality_scale_uses_known_statuses_and_explains_exemptions():
             assert value["comment"], name
 
 
+def _platform_source(name: str) -> str:
+    """Return a platform's source, including the sensor description modules."""
+    paths = [PKG / f"{name}.py"]
+    if name == "sensor":
+        paths += sorted((PKG / "sensor_descriptions").glob("*.py"))
+    return "\n".join(path.read_text(encoding="utf-8") for path in paths)
+
+
 def test_quality_scale_done_claims_hold_in_the_code():
     init = (PKG / "__init__.py").read_text(encoding="utf-8")
     if _quality_status("action-setup") == "done":
@@ -205,7 +213,7 @@ def test_quality_scale_done_claims_hold_in_the_code():
     untranslated = [
         name
         for name in ("sensor", "switch", "number", "button")
-        if "translation_key" not in (PKG / f"{name}.py").read_text(encoding="utf-8")
+        if "translation_key" not in _platform_source(name)
     ]
     for rule in ("entity-translations", "icon-translations"):
         if _quality_status(rule) == "done":

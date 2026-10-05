@@ -1,0 +1,164 @@
+"""Totals since local midnight: energy, costs, ROI figures and self-sufficiency."""
+
+from __future__ import annotations
+
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfEnergy
+
+from .. import sensor_values as values
+from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
+
+DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
+    # --- Today energy ---
+    GivEnergyManagerSensorDescription(
+        key="solar_today",
+        is_daily_total=True,
+        translation_key="solar_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: round(d.today.solar_kwh, 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="import_today",
+        is_daily_total=True,
+        translation_key="import_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: round(d.today.import_kwh, 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="export_today",
+        is_daily_total=True,
+        translation_key="export_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: round(d.today.export_kwh, 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="zappi_today",
+        is_daily_total=True,
+        translation_key="zappi_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: round(d.today.zappi_kwh, 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="immersion_today",
+        is_daily_total=True,
+        translation_key="immersion_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: round(d.today.immersion_kwh, 3),
+    ),
+    # --- Today costs ---
+    GivEnergyManagerSensorDescription(
+        key="import_cost_today",
+        is_daily_total=True,
+        translation_key="import_cost_today",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: round(d.today.total_import_cost, 4),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="export_earnings_today",
+        is_daily_total=True,
+        translation_key="export_earnings_today",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: round(d.today.export_earnings, 4),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="saving_vs_grid_today",
+        is_daily_total=True,
+        translation_key="saving_vs_grid_today",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.saving_vs_grid_today, 4),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="net_saving_today",
+        is_daily_total=True,
+        translation_key="net_saving_today",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.net_saving_today, 4),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="zappi_cost_today",
+        is_daily_total=True,
+        translation_key="zappi_cost_today",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: round(d.today.zappi_cost, 4),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="house_cost_today",
+        is_daily_total=True,
+        translation_key="house_cost_today",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: round(d.today.house_cost, 4),
+    ),
+    # --- ROI metrics ---
+    GivEnergyManagerSensorDescription(
+        key="self_consumed_kwh_today",
+        is_daily_total=True,
+        translation_key="self_consumed_kwh_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        icon="mdi:solar-panel",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(max(0.0, d.today.solar_kwh - d.today.export_kwh), 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="net_position_today",
+        is_daily_total=True,
+        translation_key="net_position_today",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        icon="mdi:scale-balance",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: round(d.today.net_position, 4),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="battery_life_consumed_today",
+        is_daily_total=True,
+        translation_key="battery_life_consumed_today",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.TOTAL,
+        icon="mdi:battery-minus",
+        entity_registry_enabled_default=False,
+        value_fn=values.battery_life_consumed_today_pct,
+    ),
+    # --- Self-sufficiency ---
+    GivEnergyManagerSensorDescription(
+        key="self_sufficiency",
+        translation_key="self_sufficiency",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: round(d.today.self_sufficiency_pct, 1),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="self_consumption",
+        translation_key="self_consumption",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: round(d.today.self_consumption_pct, 1),
+    ),
+)

@@ -165,10 +165,13 @@ Prefer a test that drives behaviour (a coordinator, entity or flow call and an a
 result) over one that reads a source file and asserts a string is present. The remaining
 source-grep tests are listed for replacement in `ROADMAP.md`.
 
-**Before adding a new sensor:** add tests in `tests/test_sensors.py` covering
+**Before adding a new sensor:** add its description to the matching theme module in
+`custom_components/givenergy_inverter_manager/sensor_descriptions/` (keep the join order in its
+`__init__.py` in step). Add tests in `tests/test_sensors.py` covering
 device_class, unit, state_class, and value_fn. The existing battery_power tests
-are the reference pattern. Then run `python scripts/gen_sensor_docs.py` to refresh
-`docs/sensors.md`.
+are the reference pattern. Put any value logic longer than one expression in
+`sensor_values.py` (pure, no HA imports) and test it in `tests/test_sensor_values.py`. Then run
+`python scripts/gen_sensor_docs.py` to refresh `docs/sensors.md`.
 
 **Before changing config flow schemas:** run `tests/test_config_flow_schemas.py` with
 the real HA package, which catches `step` constraints, selector validation, and

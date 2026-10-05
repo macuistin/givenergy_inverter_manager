@@ -21,11 +21,9 @@ import pytest
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.engine import (
     CoordinatorData,
-    accumulate_energy,
-    build_coordinator_data,
+    DailyEstimateLimits,
     build_tariff,
     estimate_avg_daily_kwh,
-    update_battery_stats,
 )
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.discovery import (
@@ -35,6 +33,8 @@ from custom_components.givenergy_inverter_manager.discovery import (
     EVChargerState,
 )
 from tests.conftest import _nightboost_cfg, _raw, _run
+from tests.core.flat_battery import FROZEN_TODAY, update_battery_stats
+from tests.core.flat_engine import accumulate_energy, build_coordinator_data
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -166,8 +166,7 @@ class TestEstimateAvgDailyKwh:
         result = estimate_avg_daily_kwh(
             house_kwh_today=0.5,
             now=datetime(2024, 6, 15, 0, 15),  # only 15 min elapsed
-            fallback_kwh=15.0,
-            min_minutes=30,
+            limits=DailyEstimateLimits(fallback_kwh=15.0, min_minutes=30),
         )
         assert result == pytest.approx(15.0)
 
@@ -184,7 +183,7 @@ class TestEstimateAvgDailyKwh:
         result = estimate_avg_daily_kwh(
             house_kwh_today=0.0,
             now=datetime(2024, 6, 15, 23, 0),
-            absolute_min=5.0,
+            limits=DailyEstimateLimits(absolute_min=5.0),
         )
         assert result >= 5.0
 
@@ -262,21 +261,19 @@ class TestUpdateBatteryStats:
         assert stats.total_cycles == pytest.approx(0.005)
 
     def test_full_charge_date_set_at_99_pct(self):
-        from datetime import date
 
         stats = BatteryStats()
         update_battery_stats(stats, 99.5, 90.0)
-        assert stats.last_full_charge_date == date.today()
+        assert stats.last_full_charge_date == FROZEN_TODAY
 
     def test_full_charge_date_set_exactly_at_the_full_threshold(self):
-        from datetime import date
 
         from custom_components.givenergy_inverter_manager.const import BATTERY_FULL_SOC_PCT
 
         assert BATTERY_FULL_SOC_PCT == 99.0
         stats = BatteryStats()
         update_battery_stats(stats, BATTERY_FULL_SOC_PCT, 90.0)
-        assert stats.last_full_charge_date == date.today()
+        assert stats.last_full_charge_date == FROZEN_TODAY
 
     def test_full_charge_date_not_set_below_99(self):
         stats = BatteryStats()
@@ -564,11 +561,9 @@ class TestAccumulateEnergyLoadApportionment:
     def _acc_after(self, raw_kwargs, elapsed_minutes=30):
         from datetime import datetime, timedelta
 
-        from custom_components.givenergy_inverter_manager.core.engine import (
-            accumulate_energy,
-            build_tariff,
-        )
+        from custom_components.givenergy_inverter_manager.core.engine import build_tariff
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        from tests.core.flat_engine import accumulate_energy
 
         raw = _raw(**raw_kwargs)
         acc = EnergyAccumulator()
@@ -690,11 +685,9 @@ class TestCostApportionmentNormalisation:
 
     def test_no_overallocation_when_ev_plus_immersion_exceeds_house_load(self):
         """zappi_cost + immersion_cost + house_cost must never exceed period_cost."""
-        from custom_components.givenergy_inverter_manager.core.engine import (
-            accumulate_energy,
-            build_tariff,
-        )
+        from custom_components.givenergy_inverter_manager.core.engine import build_tariff
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        from tests.core.flat_engine import accumulate_energy
 
         acc = EnergyAccumulator()
         # EV 2kW + immersion 2kW = 4kW, but house_load_w = 3kW
@@ -722,11 +715,9 @@ class TestCostApportionmentNormalisation:
 
     def test_fractions_sum_to_one_when_normalised(self):
         """With equal EV and immersion exceeding house load, each gets half."""
-        from custom_components.givenergy_inverter_manager.core.engine import (
-            accumulate_energy,
-            build_tariff,
-        )
+        from custom_components.givenergy_inverter_manager.core.engine import build_tariff
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        from tests.core.flat_engine import accumulate_energy
 
         acc = EnergyAccumulator()
         raw = _raw(
@@ -790,9 +781,7 @@ class TestBillPeriodEdgeCases:
 class TestImmersionMinTemp:
     def test_always_diverts_when_below_min_temp(self):
         """Should divert regardless of surplus when water is below minimum safe temp."""
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            should_divert_to_immersion,
-        )
+        from tests.core.flat_rules import should_divert_to_immersion
 
         should, reason = should_divert_to_immersion(
             solar_power_w=0.0,  # no surplus at all
@@ -810,9 +799,7 @@ class TestImmersionMinTemp:
 
     def test_no_min_temp_trigger_when_above_minimum(self):
         """Should not trigger the minimum-temp path when water is warm enough."""
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            should_divert_to_immersion,
-        )
+        from tests.core.flat_rules import should_divert_to_immersion
 
         should, reason = should_divert_to_immersion(
             solar_power_w=0.0,
@@ -837,8 +824,8 @@ class TestImportRateBreakdown:
     """Import is split into cheap (timed period) vs peak (base rate) buckets."""
 
     def _run_import(self, rate_name: str, grid_w: float = 1000.0) -> EnergyAccumulator:
-        from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        from tests.core.flat_engine import accumulate_energy
 
         acc = EnergyAccumulator()
         raw = _raw(grid_power_w=grid_w, solar_power_w=0.0)
@@ -871,8 +858,8 @@ class TestImmersionSavings:
     """Solar divert to immersion should record kWh and estimated savings."""
 
     def test_saves_when_solar_surplus_covers_immersion(self):
-        from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        from tests.core.flat_engine import accumulate_energy
 
         acc = EnergyAccumulator()
         # Solar 5kW, house load 1kW, battery idle → 4kW surplus
@@ -894,8 +881,8 @@ class TestImmersionSavings:
         assert acc.immersion_savings > 0, "Should have savings when rate > export_rate"
 
     def test_no_savings_when_immersion_importing(self):
-        from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        from tests.core.flat_engine import accumulate_energy
 
         acc = EnergyAccumulator()
         # No solar — immersion purely importing
@@ -916,8 +903,8 @@ class TestImmersionSavings:
         assert acc.immersion_savings == 0.0
 
     def test_house_load_including_immersion_counts_full_diversion(self):
-        from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        from tests.core.flat_engine import accumulate_energy
 
         acc = EnergyAccumulator()
         # 1 kW rest of house + 3 kW element = 4 kW house load, 5 kW solar
@@ -941,8 +928,8 @@ class TestBatteryThroughput:
     """Battery throughput accumulates on both charge and discharge."""
 
     def test_throughput_on_discharge(self):
-        from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        from tests.core.flat_engine import accumulate_energy
 
         acc = EnergyAccumulator()
         raw = _raw(battery_power_w=-2000.0)  # discharging
@@ -954,8 +941,8 @@ class TestBatteryThroughput:
         assert abs(acc.battery_throughput_kwh - acc.battery_discharge_kwh) < 0.001
 
     def test_throughput_on_charge(self):
-        from custom_components.givenergy_inverter_manager.core.engine import accumulate_energy
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        from tests.core.flat_engine import accumulate_energy
 
         acc = EnergyAccumulator()
         raw = _raw(battery_power_w=2000.0)  # charging

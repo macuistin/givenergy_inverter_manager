@@ -7,11 +7,10 @@ from datetime import date, datetime, timedelta
 import pytest
 
 from custom_components.givenergy_inverter_manager.core.rules import (
-    _simulate_min_soc,
     build_load_profile,
-    calculate_overnight_charge_target,
     forecast_correction_factor,
 )
+from tests.core.flat_rules import _simulate_min_soc, calculate_overnight_charge_target
 
 # 2026-06-15 is a Monday.
 _MONDAY = date(2026, 6, 15)

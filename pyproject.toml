@@ -67,6 +67,7 @@ module = [
     "custom_components.givenergy_inverter_manager.coordinator",
     "custom_components.givenergy_inverter_manager.config_flow",
     "custom_components.givenergy_inverter_manager.sensor",
+    "custom_components.givenergy_inverter_manager.sensor_descriptions.*",
     "custom_components.givenergy_inverter_manager.switch",
     "custom_components.givenergy_inverter_manager.number",
     "custom_components.givenergy_inverter_manager.services",
