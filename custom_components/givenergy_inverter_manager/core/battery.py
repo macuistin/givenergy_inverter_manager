@@ -104,7 +104,7 @@ def calculate_cycle_increment(soc_delta: float) -> float:
     return max(0.0, -soc_delta) / 100.0
 
 
-def hours_until_solar(hour: int, solar_generating: bool) -> float:
+def hours_until_solar(hour: int, solar_generating: bool) -> float:  # noqa: FBT001
     """
     Hours of load the battery must cover before tomorrow's solar starts.
 
@@ -124,7 +124,7 @@ def hours_until_solar(hour: int, solar_generating: bool) -> float:
     return float((24 - hour) + SOLAR_SUNRISE_HOUR)
 
 
-def estimate_will_survive_night(
+def estimate_will_survive_night(  # noqa: PLR0913
     current_soc: float,
     battery_capacity_kwh: float,
     min_soc: float,
@@ -155,8 +155,8 @@ def estimate_will_survive_night(
     )
 
 
-def survival_attributes(
-    will_survive: bool,
+def survival_attributes(  # noqa: PLR0913
+    will_survive: bool,  # noqa: FBT001
     estimated_soc: float,
     min_soc: float,
     current_soc: float,

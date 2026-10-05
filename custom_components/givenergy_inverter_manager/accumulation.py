@@ -330,7 +330,7 @@ class AccumulationStore:
 
     # ── Event handlers ────────────────────────────────────────────────────────
 
-    def on_midnight(self, now: datetime) -> None:
+    def on_midnight(self, now: datetime) -> None:  # noqa: PLR0915
         """
         Handle midnight reset.
 
@@ -493,7 +493,7 @@ class AccumulationStore:
         if forecast_kwh is not None and forecast_kwh > 0:
             self.state.pending_raw_forecast_kwh = forecast_kwh
 
-    def note_clipping(self, clipping: bool) -> None:
+    def note_clipping(self, clipping: bool) -> None:  # noqa: FBT001
         """Flag today as clipping so it is left out of the forecast correction."""
         if clipping:
             self.state.today_clipping = True

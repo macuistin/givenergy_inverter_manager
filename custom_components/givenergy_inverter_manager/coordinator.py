@@ -156,7 +156,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     _create_task so this class is fully testable by subclassing.
     """
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:  # noqa: PLR0915
         super().__init__(
             hass,
             _LOG._logger,
@@ -281,7 +281,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         domain: str,
         service: str,
         data: dict,
-        blocking: bool = True,
+        blocking: bool = True,  # noqa: FBT001, FBT002
     ) -> None:
         """Call an HA service."""
         await self.hass.services.async_call(domain, service, data, blocking=blocking)
@@ -404,7 +404,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return True
         return False
 
-    async def _givtcp_call_service(
+    async def _givtcp_call_service(  # noqa: PLR0913
         self, domain: str, service: str, data: dict, name: str, value
     ) -> bool:
         """Call a write service, returning False and logging if it raises."""
@@ -423,10 +423,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._last_write_time.pop((entity_id, value), None)
         return False
 
-    async def _givtcp_set_switch(
+    async def _givtcp_set_switch(  # noqa: C901
         self,
         entity_id: str | None,
-        state: bool,
+        state: bool,  # noqa: FBT001
         name: str,
         step: int = 0,
     ) -> bool:
@@ -483,7 +483,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
         return True
 
-    async def _givtcp_set_select(
+    async def _givtcp_set_select(  # noqa: C901
         self,
         entity_id: str | None,
         value: str,
@@ -538,7 +538,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
         return True
 
-    async def _givtcp_set_number(
+    async def _givtcp_set_number(  # noqa: C901
         self,
         entity_id: str | None,
         value: int,
@@ -663,7 +663,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         _LOG.debug("Midnight reset: daily, weekly, and monthly accumulators updated")
 
     @callback
-    def _write_charge_target_to_inverter(self, _now: datetime) -> None:
+    def _write_charge_target_to_inverter(self, _now: datetime) -> None:  # noqa: PLR0915
         """
         Write tonight's charge target and charge window to GivTCP entities.
 
@@ -863,7 +863,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw.grid_power_w = -self._read_float(cfg.get(CONF_GRID_POWER))
         raw.house_load_w = self._read_tracked(cfg.get(CONF_HOUSE_LOAD), "house_load", unavailable)
 
-    def _collect_raw(self, cfg: dict) -> RawSensorValues:
+    def _collect_raw(self, cfg: dict) -> RawSensorValues:  # noqa: C901, PLR0915
         """Read all sensor entity states and return as a plain-Python struct."""
         raw = RawSensorValues()
         unavailable: list[str] = []
@@ -1054,7 +1054,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     # ── Main update cycle ─────────────────────────────────────────────────────
 
-    async def _maybe_apply_cheap_rate_floor(
+    async def _maybe_apply_cheap_rate_floor(  # noqa: C901
         self,
         now: datetime,
         raw,
@@ -1140,7 +1140,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         else:
             async_delete_min_soc_issue(self.hass)
 
-    async def _async_update_data(self) -> CoordinatorData:
+    async def _async_update_data(self) -> CoordinatorData:  # noqa: C901, PLR0915
         """
         Called every UPDATE_INTERVAL_SECONDS by the HA coordinator framework.
 

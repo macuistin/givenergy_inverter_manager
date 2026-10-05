@@ -183,7 +183,7 @@ def _nav(path: str) -> dict:
     return {"action": "navigate", "navigation_path": path}
 
 
-def _tile(
+def _tile(  # noqa: PLR0913
     entity: str | None,
     name: str,
     *,
@@ -220,7 +220,7 @@ def _tile(
     return card
 
 
-def _heading(
+def _heading(  # noqa: PLR0913
     text: str,
     icon: str | None = None,
     *,
@@ -273,7 +273,7 @@ def _view(title: str, icon: str, path: str, sections: list, **extra) -> dict:
     }
 
 
-def _subview(title: str, icon: str, path: str, back: str, sections: list) -> dict:
+def _subview(title: str, icon: str, path: str, back: str, sections: list) -> dict:  # noqa: PLR0913
     """A view with no tab. Its back arrow returns to the view that opened it."""
     return _view(title, icon, path, sections, subview=True, back_path=back)
 
@@ -308,12 +308,12 @@ def _entity_list_card(rows: list, head: dict, **tail) -> dict | None:
     return {**head, "entities": rows, **tail}
 
 
-def _immersion_charts(
+def _immersion_charts(  # noqa: PLR0913
     immersion_temp_sensor: str,
     num_target: str | None,
     num_min: str | None,
     immersion_today: str | None,
-    apex: bool = True,
+    apex: bool = True,  # noqa: FBT001, FBT002
     immersion_power: str | None = None,
 ) -> tuple[list, list]:
     """Build the temperature cards and the power cards for the Immersion sub-view.
@@ -543,7 +543,7 @@ class _Builder:
             return True
         return any(card in url.lower() for url in self.resources)
 
-    def when(self, flag: bool, suffix: str) -> str | None:
+    def when(self, flag: bool, suffix: str) -> str | None:  # noqa: FBT001
         return self.e(suffix) if flag else None
 
     def go(self, path: str) -> dict | None:
@@ -560,7 +560,7 @@ class _Builder:
             return None
         return _find_ev_charger_power(self.hass, self.e("ev_power"))
 
-    def _flow_entities(self) -> dict:
+    def _flow_entities(self) -> dict:  # noqa: C901
         e = self.e
         out: dict = {}
         if solar_power := e("solar_power"):
