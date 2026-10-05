@@ -16,7 +16,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
-from tests.dashboard_support import default_entity_ids
+from tests.dashboard_support import all_cards, default_entity_ids
 
 
 def _registered_id(registry, entry_id: str, key: str) -> str | None:
@@ -52,6 +52,16 @@ async def _generate(hass) -> tuple[str, list]:
     return text, notifications
 
 
+def _names(text: str) -> list[str]:
+    """Section headings and tile names, which is what a person reads on the dashboard."""
+    cards = all_cards(yaml.safe_load(text)["views"])
+    return [
+        c["heading"] if c["type"] == "heading" else c["name"]
+        for c in cards
+        if c["type"] in {"heading", "tile"}
+    ]
+
+
 def _usable_ids(hass, entry) -> set[str]:
     registry = er.async_get(hass)
     return {
@@ -84,18 +94,17 @@ async def test_fresh_install_leaves_out_forecast_accuracy_and_says_so(hass, load
 async def test_features_from_the_config_entry_show_up(hass, loaded_entry):
     """The full config has immersion, inverter temperature and a forecast, but no EV charger."""
     text, _ = await _generate(hass)
-    titles = [c.get("title") for v in yaml.safe_load(text)["views"] for c in v["cards"]]
-    assert "Immersion Heater" in titles
-    assert "Solar vs Forecast" in titles
-    assert "EV Charger" not in titles
+    names = _names(text)
+    assert "Immersion heater" in names
+    assert "Against the forecast" in names
+    assert "EV charger" not in names
     assert "inverter_temperature" in text
 
 
 async def test_external_ev_charger_adds_the_ev_card(hass, loaded_entry):
     hass.states.async_set("sensor.wallbox_charging_power", "0")
     text, _ = await _generate(hass)
-    titles = [c.get("title") for v in yaml.safe_load(text)["views"] for c in v["cards"]]
-    assert "EV Charger" in titles
+    assert "EV charger" in _names(text)
     assert "sensor.wallbox_charging_power" in text
 
 

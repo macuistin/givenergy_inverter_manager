@@ -46,11 +46,15 @@ GivTCP publishes sensor data with these sign conventions:
 | Sensor | Positive | Negative |
 | --- | --- | --- |
 | `grid_power` | **export** to grid | import from grid |
-| `battery_power` | charging (verify per model) | discharging |
+| `battery_power` | **discharging** | charging |
 | `solar_power` | always positive | n/a |
 
 **GivTCP v3 uses positive=export for grid power.** The coordinator negates this on read
 so that `RawReading.grid_power_w` follows the HA/internal convention (positive=import).
+**GivTCP battery power is positive=discharging.** The coordinator negates it on read too, so
+`battery_power_w` is positive=charging everywhere inside the integration (engine, rules, EV,
+sensors). GivTCP's own `battery_charge_energy_today_kwh` / `battery_discharge_energy_today_kwh`
+counters are read by those names.
 The test `test_reads_grid_power_negative_when_exporting` passes "+1200" from GivTCP
 and asserts raw value is -1200 (after negation).
 
@@ -180,9 +184,10 @@ state, not a `statistic` card: `stat_type: change` gives negative values on a fr
   will appear as grid import even when solar is generating. This is a GivTCP/hardware
   limitation, not an integration bug.
 
-- **Battery power sign:** GivTCP's `battery_power` entity: positive=charging in the
-  GIV-HY-5.0 setup. This was confirmed by test. If a different GivEnergy inverter model
-  uses the opposite convention, the battery charge/discharge accumulation will be wrong.
+- **Battery power sign:** GivTCP's `battery_power` entity is positive=discharging, negative=charging
+  (confirmed live on a GivTCP 3.5 Gen3 hybrid: -3.4 kW during the overnight charge as SoC rose).
+  The coordinator negates it on read, so the **Battery Power** entity of this integration is
+  positive=charging. A card that reads GivTCP's raw entity needs the opposite sign handling.
 
 ---
 

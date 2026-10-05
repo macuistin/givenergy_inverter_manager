@@ -50,6 +50,7 @@ from ..discovery.ev_charger import (
     EVCharger,
     EVChargerBrand,
 )
+from .battery import estimate_will_survive_night, hours_until_solar
 
 # ── Seasonal solar fractions ──────────────────────────────────────────────────
 
@@ -333,6 +334,7 @@ def calculate_overnight_charge_target(
     forecast_kwh_d2: float | None = None,
     load_profile: list[float] | None = None,
     forecast_correction: float | None = None,
+    solar_generating: bool = True,
     *,
     dt: datetime,
 ) -> ChargeDecision:
@@ -348,6 +350,11 @@ def calculate_overnight_charge_target(
       CHARGE_SKIP_HEADROOM         — how far forecast must exceed fill before skipping
       CHARGE_STRONG_BUFFER         — SoC buffer added to skip_charge target
       CHARGE_EV_SOC_BONUS          — extra % added to target when EV is connected
+
+    Skipping also needs the battery to last until solar starts. That check uses the
+    same window, inputs and minimum SoC as the night survival sensor (hours_until_solar
+    and estimate_will_survive_night), so the plan never skips a charge the survival
+    sensor calls Critical. solar_generating tells it whether the sun is still up.
     """
     month = dt.month
 
@@ -366,6 +373,8 @@ def calculate_overnight_charge_target(
             car_plugged_in=car_plugged_in,
             cost_to_charge=kwh_to_charge * cheapest_rate,
         )
+
+    configured_min_soc = min_soc
 
     # Shoulder months: raise the min_soc floor — heating load is more variable
     # and the forecast is less reliable than in peak summer.
@@ -392,8 +401,20 @@ def calculate_overnight_charge_target(
     usable_capacity = battery_capacity_kwh * (1 - min_soc / 100)
     expected_solar_fill = min(forecast_kwh * CHARGE_SOLAR_USABLE_FRACTION, usable_capacity)
 
-    if current_soc >= skip_charge_threshold and not car_plugged_in:
-        if forecast_kwh > expected_solar_fill * CHARGE_SKIP_HEADROOM:
+    skip_blocked_note = ""
+    if (
+        current_soc >= skip_charge_threshold
+        and not car_plugged_in
+        and forecast_kwh > expected_solar_fill * CHARGE_SKIP_HEADROOM
+    ):
+        survives, _, survival_note = estimate_will_survive_night(
+            current_soc=current_soc,
+            battery_capacity_kwh=battery_capacity_kwh,
+            min_soc=float(configured_min_soc),
+            hours_until_solar=hours_until_solar(dt.hour, solar_generating),
+            average_hourly_consumption_kwh=average_daily_consumption_kwh / 24,
+        )
+        if survives:
             return ChargeDecision(
                 target_soc=min_soc + CHARGE_STRONG_BUFFER,
                 skip_charge=True,
@@ -407,6 +428,7 @@ def calculate_overnight_charge_target(
                 car_plugged_in=car_plugged_in,
                 cost_to_charge=0.0,
             )
+        skip_blocked_note = f" Not skipping: {survival_note}"
 
     # Forward SoC simulation (PALM algorithm) — replaces the three-tier lookup.
     # Binary-search for the minimum overnight charge that keeps SoC >= min_soc
@@ -420,7 +442,7 @@ def calculate_overnight_charge_target(
     )
     reason = (
         f"Forward simulation: {forecast_kwh:.1f}kWh forecast ({forecast_source}). "
-        f"Target {target_soc}%."
+        f"Target {target_soc}%.{skip_blocked_note}"
     )
     if _profile_usable(load_profile):
         reason += " Per-slot load profile used."

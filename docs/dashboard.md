@@ -21,13 +21,14 @@ A test regenerates the example and fails when it no longer matches the generator
 
 ## What is left out
 
-The file only contains rows and cards that will show a value.
+The file only contains tiles and cards that will show a value.
 
-- A row is left out when its entity is disabled or not registered. Many sensors are disabled by default. The file header and the **GivEnergy Dashboard Ready** notification list the disabled sensors the dashboard would have used. Enable them in **Settings → Devices & services → Entities**, then generate the file again.
-- EV rows and the EV Charger card need an EV charger. The dashboard counts a charger the integration has discovered, or one of the external power sensors listed under Power Flow.
-- Immersion rows, the Immersion Heater card and the immersion charts need an immersion switch or temperature sensor in the options. The charts need the temperature sensor.
-- Inverter temperature rows need the inverter temperature entity in the options.
-- The Solar vs Forecast card needs a forecast entity in the options.
+- A tile is left out when its entity is disabled or not registered. Many sensors are disabled by default. The file header and the **GivEnergy Dashboard Ready** notification list the disabled sensors the dashboard would have used. Enable them in **Settings → Devices & services → Entities**, then generate the file again.
+- A section with no tiles left is left out too, so there is never a heading on its own.
+- EV tiles and the EV charger sub-view need an EV charger. The dashboard counts a charger the integration has discovered, or one of the external power sensors listed under Power Flow.
+- Immersion tiles, the Immersion heater section and the immersion charts need an immersion switch or temperature sensor in the options. The charts need the temperature sensor.
+- Inverter temperature tiles need the inverter temperature entity in the options.
+- The forecast tiles need a forecast entity in the options.
 
 ## Add the dashboard
 
@@ -78,8 +79,8 @@ The integration serves a small JavaScript file at `/givenergy_inverter_manager/g
 
 | Card | Needed for | Behaviour without it |
 |---|---|---|
-| [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | The live flow card in the Power Flow view | An entities card lists the same values |
-| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The immersion charts in the Power Flow view | A history graph of the temperatures and a statistics graph of immersion energy replace them |
+| [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | The live flow card in the Power Flow tab | An entities card lists the same values |
+| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The immersion charts in the Immersion sub-view | A history graph of the temperatures and a statistics graph of immersion energy replace them |
 
 When you generate the file, the integration reads the Lovelace resource list (**Settings → Dashboards → Resources**). A card whose URL is not in the list is treated as not installed, and the built-in cards are used. The file header names the cards it replaced. Install the card from HACS and generate the file again to get the custom card.
 
@@ -87,47 +88,100 @@ A card loaded some other way, for example by another integration, does not appea
 
 Everything else uses built-in Home Assistant cards.
 
-## The five views
+## Layout
+
+Every view is a Home Assistant **sections** view. Each section is a column of cards that starts with a heading, and the sections sit side by side on a wide screen: one column on a phone, two on a tablet, three on a desktop. Tiles are the main building block. They are all horizontal, two to a row on a phone (six of the twelve grid columns), and use colour the same way everywhere: amber for solar, green for the battery and savings, blue for the grid and money, orange for the immersion, teal for the EV charger and indigo for the night.
+
+Controls use tile features: a slider on the number entities, a toggle on the switches and a bar on state of charge. Charts take the full width of their section.
+
+The dashboard has five tabs. Detail sits in six sub-views that have no tab. A tile or heading on a tab opens each sub-view, and the back arrow at the top of the sub-view returns to that tab. A heading that opens a view shows a chevron.
+
+| Tab | Sub-views it opens |
+|---|---|
+| Power Flow | Immersion and EV charger (the Devices tiles), Battery detail (Night survival tile) |
+| Today | Cost breakdown (Cost heading), Solar and forecast (Solar heading) |
+| Bill | Tariff (the Tariff button in the Bill so far heading) |
+| Battery | Battery detail (Battery heading) |
+| Controls | none |
+
+A sub-view and the tile that opens it are left out when the sub-view would be empty, for example Immersion without an immersion heater.
+
+The links use relative paths, so they work at any dashboard URL.
 
 ### Power Flow
 
-- A **Now** strip at the top with six core cards: Battery state of charge, Night Survival Confidence, Current Rate, Next Cheap Rate Start, Hours to Cheap Rate and Import Cost Today. Night Survival Confidence and the two cheap rate sensors are disabled by default, so a new install shows three of the six until you enable them.
-- A power-flow-card-plus card with solar, battery, grid, home and two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery card reads Battery Power for the flow and Battery State of Charge for the percentage. The grid node shows the Live Grid Cost Rate.
-- An **Energy Today** row: Generated, Imported, Exported, Used (House Load Today) and Immersion.
-- An immersion block, only when an immersion water temperature sensor is configured. It has a 12-hour chart of water temperature with the target and minimum, a tile with the divert reason, and a 12-hour chart of Immersion Heater Today.
+- **Now**: Battery (state of charge with a bar), Night survival, Rate now, Cost today, Cheap from (Next Cheap Rate Start) and Cheap in (Hours to Cheap Rate). Night Survival Confidence and the two cheap rate sensors are disabled by default, so a new install shows three of the six until you enable them. Night survival reads Safe, Warning or Critical. Tap it to open Battery detail, which says in words why. Tap the Battery tile to open the Battery tab.
+- **Live power flow**: a power-flow-card-plus card with solar, battery, grid, home and two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. Battery Power is positive while charging and the card expects the opposite, so the node sets `invert_state: true`. The grid node shows the Live Grid Cost Rate.
+- **Energy today**: Generated, Used (House Load Today), Imported and Exported. Tap the heading to open the Today tab.
+- **Devices**: an Immersion tile (the water temperature) and an EV charger tile (the charger state). Each opens its sub-view.
 
 For the EV load, the dashboard uses the first of these entities that exists, else the integration's own EV Charging Power: `sensor.myenergi_zappi_power_ct_internal_load`, `..._2`, `sensor.myenergi_zappi2_power_ct_internal_load`, `sensor.wallbox_charging_power`, `sensor.ohme_current_power`.
 
+### Immersion (sub-view)
+
+Only when an immersion heater or water temperature sensor is configured.
+
+- **Water temperature**: a 12-hour chart of water temperature with the target and minimum, and the divert reason under it in words.
+- **Heater power**: a 12-hour step chart of the immersion's power in watts.
+- **Today**: energy, cost and what solar saved.
+
+The charts need a water temperature sensor.
+
+### EV charger (sub-view)
+
+- **Charging now**: charger state, charge power, session energy and charging source.
+- **Why**: whether the EV is draining the battery, the solar surplus available and the mode decision in words.
+
 ### Today
 
-Energy totals, current rate and rate period, a cost breakdown (import, export, EV, immersion, immersion savings, rest of house), a bar graph of cost per day over 14 days, a bar graph of solar generation per hour over 2 days, a solar against forecast card, and self-sufficiency and self-consumption gauges.
+- **Energy**: Generated, Used, Imported, Exported, EV and Immersion.
+- **Cost**: Import cost, Export earnings, Rate now and Rate period. The heading opens Cost breakdown.
+- **Solar**: Self-sufficiency and Self-consumption, each with a bar. The heading opens Solar and forecast.
 
-The two graphs are statistics graphs, not history graphs. The daily sensors fall to zero at midnight, so a history graph of them draws a sawtooth. The graphs plot the change in each period instead, from the long-term statistics. They stay empty until Home Assistant has compiled statistics for the sensors, which takes up to an hour.
+### Cost breakdown (sub-view)
+
+A tile for every cost line today (grid import, export earnings, rest of house, EV charging, immersion and what solar saved the immersion) and a bar graph of cost per day over 14 days.
+
+### Solar and forecast (sub-view)
+
+Generated today, today's forecast, how generation tracks the forecast and yesterday's accuracy, when a forecast is configured, and a bar graph of solar generation per hour over 2 days.
+
+The two graphs on the sub-views are statistics graphs, not history graphs. The daily sensors fall to zero at midnight, so a history graph of them draws a sawtooth. The graphs plot the change in each period instead, from the long-term statistics. They stay empty until Home Assistant has compiled statistics for the sensors, which takes up to an hour.
 
 ### Bill
 
-Figures for the current bill period, next to the tariff they were worked out from, so you can hold them against a real bill.
+Figures for the current bill period, so you can hold them against a real bill.
 
-- **Bill so far**: Import cost this month, Export earnings this month, Accrued Bill This Period and Projected Bill This Period.
-- **Bill period**: Days Elapsed in Bill Period and Days Remaining in Bill Period.
-- **Import mix this month**: Average Import Rate This Month and Cheap rate import fraction this month.
-- **Tariff in use**: a table of the base rate and each timed rate period with its window, the rate, and the rate billed per kWh after the supplier discount and VAT. It also lists the export rate, standing charge, PSO levy and bill start day.
+- **Bill so far**: Accrued bill, Projected bill, Import cost and Export credit. A **Tariff** button in the heading opens the Tariff sub-view.
+- **This bill period**: Days elapsed, Days left, Avg import rate and Cheap share (the cheap rate share of import).
 
-The tariff table is read from your options when the file is generated, so generate the file again after you change the tariff. It uses the same defaults as the integration for any field you have not set.
-
-Days Elapsed in Bill Period, Average Import Rate This Month and Cheap rate import fraction this month are disabled by default. Enable them to see those rows.
+Days Elapsed in Bill Period, Average Import Rate This Month and Cheap rate import fraction this month are disabled by default. Enable them to see those tiles.
 
 Accrued Bill This Period is worked out line by line from the month totals: energy less the supplier saving, standing charge, PSO levy and VAT, minus the export credit. Projected Bill This Period scales it to the whole period. See [Tariff](tariff.md#bill-sensors). Import cost this month is the import energy for the period after discount and VAT. It leaves out the standing charge, the PSO levy and the export credit.
 
+### Tariff (sub-view)
+
+A table of the base rate and each timed rate period with its window, the rate, and the rate billed per kWh after the supplier discount and VAT. It also lists the export rate, standing charge, PSO levy and bill start day.
+
+The table is read from your options when the file is generated, so generate the file again after you change the tariff. It uses the same defaults as the integration for any field you have not set.
+
 ### Battery
 
-A SoC gauge, a 24-hour history of SoC and power, **Tonight's Charge Plan** (target, estimated cost, SoC at sunrise, cheap rate floor), a **Tonight in words** card with the overnight charge reason and the night survival status, and battery health (cycles, remaining life, days since full charge, inverter temperature and status).
+- **Battery**: state of charge with a bar, battery power with a 24-hour trend, and a 24-hour history of state of charge. The heading opens Battery detail.
+- **Tonight's charge plan**: Target tonight, Est. cost, At sunrise (estimated state of charge) and Rate floor (the cheap rate floor).
 
-The charge reason and the night survival status are sentences. An entities row cuts them off, so they sit in a Markdown card.
+State of charge and power are not drawn on one graph, because a percentage and watts share no scale.
+
+### Battery detail (sub-view)
+
+- **Night survival**: the level in bold, then why. Where the Night Survival Confidence sensor has an `explanation` attribute, that is shown. Otherwise a Warning is explained from the estimated state of charge at sunrise ("about 14% at sunrise, close to your minimum charge"), and Safe and Critical show the Battery Night Survival Status text, which carries any kWh shortfall. Without the confidence sensor, which is disabled by default, only the status text is shown. Under it, the reason for tonight's charge target. Both are sentences, and a tile cuts them off, so they sit in Markdown cards.
+- **Battery health**: total cycles, life remaining, days since full charge, and the inverter temperature and status.
 
 ### Controls
 
-The charge target override switch and slider, Force Skip Charge Tonight, the immersion switches, divert reason and the three temperature numbers, and the EV charger card. A dry run banner and a dry run status card appear only while Dry Run Mode Active is true.
+- **Overnight charging**: a slider for the charge target, and the Use target and Skip tonight switches.
+- **Immersion heater**: the Auto divert and Managed switches, the divert reason in words and sliders for the target temperature, the minimum temperature and the restart gap.
+- **Dry run is on**: a banner with the last skipped action. It appears only while Dry Run Mode Active is true.
 
 There is no Refresh Dashboard card. Use the button on the device page.
 

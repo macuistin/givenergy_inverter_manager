@@ -9,6 +9,6 @@
 pytest>=8.0,<10
 pytest-asyncio>=0.23,<2
 pytest-cov>=5.0,<8
-homeassistant>=2024.11.0
+homeassistant>=2026.2.0
 bandit>=1.7,<2
 ruff>=0.16,<0.17

@@ -140,3 +140,22 @@ def fake_hass(
     with patch("custom_components.givenergy_inverter_manager.dashboard_builder.er") as er_mock:
         er_mock.async_get.return_value = registry or FakeRegistry()
         yield hass
+
+
+def view_cards(view: dict) -> list[dict]:
+    """Every card of a sections view, in order, including cards nested in other cards."""
+    out: list[dict] = []
+
+    def walk(cards):
+        for card in cards:
+            out.append(card)
+            walk(card.get("cards", []))
+
+    for section in view.get("sections", []):
+        walk(section["cards"])
+    return out
+
+
+def all_cards(views: list[dict]) -> list[dict]:
+    """Every card of every view."""
+    return [card for view in views for card in view_cards(view)]
