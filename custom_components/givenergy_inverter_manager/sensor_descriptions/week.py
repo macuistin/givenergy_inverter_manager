@@ -1,0 +1,116 @@
+"""Weekly accumulation sensors."""
+
+from __future__ import annotations
+
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import PERCENTAGE, UnitOfEnergy
+
+from .. import sensor_values as values
+from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
+
+DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
+    # ── Weekly accumulations (disabled by default) ────────────────────────────
+    GivEnergyManagerSensorDescription(
+        key="solar_this_week",
+        translation_key="solar_this_week",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        reset_period="week",
+        icon="mdi:solar-power",
+        entity_registry_enabled_default=True,
+        value_fn=lambda d: round(d.week.solar_kwh, 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="import_this_week",
+        translation_key="import_this_week",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        reset_period="week",
+        icon="mdi:transmission-tower-import",
+        entity_registry_enabled_default=True,
+        value_fn=lambda d: round(d.week.import_kwh, 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="export_this_week",
+        translation_key="export_this_week",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        reset_period="week",
+        icon="mdi:transmission-tower-export",
+        entity_registry_enabled_default=True,
+        value_fn=lambda d: round(d.week.export_kwh, 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="import_cost_this_week",
+        translation_key="import_cost_this_week",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        state_class=SensorStateClass.TOTAL,
+        reset_period="week",
+        icon="mdi:cash-minus",
+        entity_registry_enabled_default=True,
+        value_fn=lambda d: round(d.week.total_import_cost, 4),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="export_earnings_this_week",
+        translation_key="export_earnings_this_week",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        state_class=SensorStateClass.TOTAL,
+        reset_period="week",
+        icon="mdi:cash-plus",
+        entity_registry_enabled_default=True,
+        value_fn=lambda d: round(d.week.export_earnings, 4),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="import_kwh_cheap_this_week",
+        translation_key="import_kwh_cheap_this_week",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        reset_period="week",
+        icon="mdi:lightning-bolt-circle",
+        entity_registry_enabled_default=True,
+        value_fn=lambda d: round(d.week.import_kwh_cheap, 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="import_kwh_peak_this_week",
+        translation_key="import_kwh_peak_this_week",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        reset_period="week",
+        icon="mdi:lightning-bolt",
+        entity_registry_enabled_default=True,
+        value_fn=lambda d: round(d.week.import_kwh_peak, 3),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="immersion_savings_this_week",
+        translation_key="immersion_savings_this_week",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        state_class=SensorStateClass.TOTAL,
+        reset_period="week",
+        icon="mdi:water-boiler",
+        entity_registry_enabled_default=True,
+        value_fn=lambda d: round(d.week.immersion_savings, 4),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="self_sufficiency_this_week",
+        translation_key="self_sufficiency_this_week",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:home-battery",
+        entity_registry_enabled_default=True,
+        value_fn=lambda d: round(d.week.self_sufficiency_pct, 1),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="cheap_import_fraction_this_week",
+        translation_key="cheap_import_fraction_this_week",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:chart-pie",
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: values.cheap_import_percentage(d.week),
+    ),
+)

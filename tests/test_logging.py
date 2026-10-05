@@ -502,8 +502,9 @@ class TestCheapRateFloorPlumbing:
 
     def test_sensor_key_registered(self):
 
-        src = (PKG / "sensor.py").read_text()
-        assert 'key="cheap_rate_floor_status"' in src, (
+        from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
+
+        assert "cheap_rate_floor_status" in {d.key for d in SENSOR_DESCRIPTIONS}, (
             "cheap_rate_floor_status sensor must be registered in sensor.py — "
             "without it the floor status is calculated but never surfaced in HA."
         )

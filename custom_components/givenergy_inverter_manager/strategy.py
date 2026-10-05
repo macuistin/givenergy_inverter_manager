@@ -22,9 +22,9 @@ from pathlib import Path
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN, INTEGRATION_VERSION
-from .dashboard import loaded_entries
-from .dashboard_builder import async_lovelace_resource_urls, build_dashboard
+from .dashboard import async_lovelace_resource_urls, build_dashboard
 from .logging import get_logger
+from .services import loaded_entries
 
 _LOG = get_logger(__name__)
 
@@ -44,7 +44,7 @@ async def async_dashboard_for_websocket(hass: HomeAssistant) -> dict | None:
     if not entries:
         return None
     resources = await async_lovelace_resource_urls(hass)
-    return build_dashboard(hass, entries[0].entry_id, resources)
+    return build_dashboard(hass, entries[0], resources)
 
 
 async def async_register_strategy(hass: HomeAssistant) -> None:

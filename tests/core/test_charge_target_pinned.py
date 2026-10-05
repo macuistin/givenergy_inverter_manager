@@ -13,10 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.rules import (
-    calculate_overnight_charge_target,
-    monthly_solar_fractions,
-)
+from custom_components.givenergy_inverter_manager.core.rules import monthly_solar_fractions
+from tests.core.flat_rules import calculate_overnight_charge_target
 
 _ROWS = json.loads((Path(__file__).parent / "golden_charge_targets.json").read_text())
 

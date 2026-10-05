@@ -19,6 +19,14 @@ INTEGRATION_VERSION = "0.5.1"  # keep in sync with manifest.json
 NAME = "GivEnergy Inverter Manager"
 DEVICE_MANUFACTURER = "macuistin"  # shown on the device page; GivEnergy does not make this
 
+# ── Service actions ──────────────────────────────────────────────────────────
+SERVICE_GET_DASHBOARD_YAML = "get_dashboard_yaml"
+SERVICE_SUGGEST_APPLIANCE = "suggest_appliance_run"
+SERVICE_COMPARE_TARIFF = "compare_tariff"
+SERVICE_YEAR_ON_YEAR = "year_on_year_summary"
+SERVICE_EXPORT_ENERGY_DATA = "export_energy_data"
+SERVICE_GET_ROI_SUMMARY = "get_roi_summary"
+
 # ── GivTCP inverter entities ────────────────────────────────────────────────
 CONF_INVERTER_SERIAL = "inverter_serial"  # persisted serial — used as unique_id
 CONF_SOLAR_POWER = "solar_power_entity"

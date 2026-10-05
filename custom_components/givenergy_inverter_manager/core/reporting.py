@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .engine import CoordinatorData
+    from .rules import ChargeDecision
 
 
 # ── Style constants — inline, HA-CSS-variable-aware ──────────────────────────
@@ -80,12 +81,11 @@ def _section(title: str) -> str:
 # ── Daily summary ─────────────────────────────────────────────────────────────
 
 
-def build_today_summary_html(data: "CoordinatorData") -> str:
-    """
-    Inline-styled HTML summary of today's energy flows, costs, and savings.
+def _table(rows: list[str]) -> str:
+    return f'<table style="{_S["table"]}">' + "".join(rows) + "</table>"
 
-    Renders in HA Markdown card, html-template-card, and button-card.
-    """
+
+def _today_energy_rows(data: "CoordinatorData") -> list[str]:
     t = data.today
     sym = data.currency_symbol
 
@@ -95,12 +95,7 @@ def build_today_summary_html(data: "CoordinatorData") -> str:
         accuracy_str = f"Forecast: {data.solar_forecast_kwh_today:.1f}kWh ({pct:.0f}%)"
 
     peak_frac = f"{t.peak_import_fraction * 100:.0f}% at peak rate" if t.import_kwh > 0 else ""
-
-    net = t.export_earnings - t.total_import_cost
-    net_style = _S["positive"] if net >= 0 else _S["negative"]
-    net_str = f"{sym}{abs(net):.2f} {'earned' if net >= 0 else 'net cost'}"
-
-    rows = [
+    return [
         _section("⚡ Today's Energy"),
         _row("☀️ Solar", f"{t.solar_kwh:.2f} kWh", accuracy_str, _S["highlight"]),
         _row("⬇️ Import", f"{t.import_kwh:.2f} kWh", peak_frac),
@@ -110,6 +105,16 @@ def build_today_summary_html(data: "CoordinatorData") -> str:
             f"{data.battery_soc:.0f}% SoC",
             f"↕ {t.battery_throughput_kwh:.1f} kWh cycled",
         ),
+    ]
+
+
+def _today_cost_rows(data: "CoordinatorData") -> list[str]:
+    t = data.today
+    sym = data.currency_symbol
+    net = t.export_earnings - t.total_import_cost
+    net_style = _S["positive"] if net >= 0 else _S["negative"]
+    net_str = f"{sym}{abs(net):.2f} {'earned' if net >= 0 else 'net cost'}"
+    return [
         _section("💰 Today's Costs"),
         _row(
             "Import cost",
@@ -118,6 +123,13 @@ def build_today_summary_html(data: "CoordinatorData") -> str:
         ),
         _row("Export earnings", f"{sym}{t.export_earnings:.2f}", "", _S["positive"]),
         _row("Net position", net_str, "", net_style),
+    ]
+
+
+def _today_savings_rows(data: "CoordinatorData") -> list[str]:
+    t = data.today
+    sym = data.currency_symbol
+    return [
         _section("💡 Integration Savings"),
         _row(
             "Immersion divert",
@@ -133,7 +145,16 @@ def build_today_summary_html(data: "CoordinatorData") -> str:
         ),
     ]
 
-    return f'<table style="{_S["table"]}">' + "".join(rows) + "</table>"
+
+def build_today_summary_html(data: "CoordinatorData") -> str:
+    """
+    Inline-styled HTML summary of today's energy flows, costs, and savings.
+
+    Renders in HA Markdown card, html-template-card, and button-card.
+    """
+    return _table(
+        _today_energy_rows(data) + _today_cost_rows(data) + _today_savings_rows(data)
+    )
 
 
 def build_today_summary_state(data: "CoordinatorData") -> str:
@@ -151,39 +172,35 @@ def build_today_summary_state(data: "CoordinatorData") -> str:
 # ── Charge plan ───────────────────────────────────────────────────────────────
 
 
-def build_charge_plan_html(data: "CoordinatorData") -> str:
-    """
-    Inline-styled HTML card showing tonight's charge decision and reasoning.
-    """
-    sym = data.currency_symbol
-    cd = data.charge_decision
+def _no_decision_rows() -> list[str]:
+    return [
+        _section("🔋 Tonight's Charge Plan"),
+        _row("Status", "No charge decision yet", "Calculated before cheap rate window opens"),
+    ]
 
-    if cd is None:
-        return (
-            f'<table style="{_S["table"]}">'
-            + _section("🔋 Tonight's Charge Plan")
-            + _row("Status", "No charge decision yet", "Calculated before cheap rate window opens")
-            + "</table>"
-        )
 
+def _plan_target_row(cd: "ChargeDecision") -> str:
+    soc_delta = max(0, cd.target_soc - cd.current_soc)
+    return _row(
+        "Target SoC",
+        f"{cd.target_soc}%" if not cd.skip_charge else "—",
+        f"Add {soc_delta:.0f}% ({soc_delta / 100 * cd.battery_capacity:.1f} kWh)"
+        if not cd.skip_charge
+        else "Skipping overnight charge",
+    )
+
+
+def _plan_rows(cd: "ChargeDecision", sym: str) -> list[str]:
     decision_str = (
         "✅ Skip charge — solar will cover demand"
         if cd.skip_charge
         else f"🔌 Charge to {cd.target_soc}%"
     )
-    soc_delta = max(0, cd.target_soc - cd.current_soc)
-
-    rows = [
+    return [
         _section("🔋 Tonight's Charge Plan"),
         _row("Decision", decision_str, "", _S["highlight"]),
         _row("Current SoC", f"{cd.current_soc:.0f}%"),
-        _row(
-            "Target SoC",
-            f"{cd.target_soc}%" if not cd.skip_charge else "—",
-            f"Add {soc_delta:.0f}% ({soc_delta / 100 * cd.battery_capacity:.1f} kWh)"
-            if not cd.skip_charge
-            else "Skipping overnight charge",
-        ),
+        _plan_target_row(cd),
         _row("Solar forecast", f"{cd.forecast_kwh:.1f} kWh"),
         _row("Battery", f"{cd.battery_capacity:.1f} kWh capacity"),
         _row("EV plugged in", "Yes" if cd.car_plugged_in else "No"),
@@ -197,7 +214,15 @@ def build_charge_plan_html(data: "CoordinatorData") -> str:
         _row("", cd.reason),
     ]
 
-    return f'<table style="{_S["table"]}">' + "".join(rows) + "</table>"
+
+def build_charge_plan_html(data: "CoordinatorData") -> str:
+    """
+    Inline-styled HTML card showing tonight's charge decision and reasoning.
+    """
+    cd = data.charge_decision
+    if cd is None:
+        return _table(_no_decision_rows())
+    return _table(_plan_rows(cd, data.currency_symbol))
 
 
 def build_charge_plan_state(data: "CoordinatorData") -> str:
@@ -218,24 +243,20 @@ def build_charge_plan_state(data: "CoordinatorData") -> str:
 # ── Weekly summary ────────────────────────────────────────────────────────────
 
 
-def build_week_summary_html(data: "CoordinatorData") -> str:
-    """
-    Inline-styled HTML comparing this week's totals against yesterday,
-    with forecast accuracy if available.
-    """
+def _delta(today_val: float, yday_val: float) -> str:
+    """How today compares with yesterday, or nothing when yesterday has no figure."""
+    if yday_val == 0:
+        return ""
+    d = today_val - yday_val
+    return f"({'+' if d > 0 else ''}{d:.1f} vs yday)"
+
+
+def _week_rows(data: "CoordinatorData") -> list[str]:
     sym = data.currency_symbol
     w = data.week
     y = data.yesterday
-
-    def _delta(today_val: float, yday_val: float) -> str:
-        if yday_val == 0:
-            return ""
-        d = today_val - yday_val
-        return f"({'+' if d > 0 else ''}{d:.1f} vs yday)"
-
     peak_style = _S["negative"] if w.import_kwh_peak > 2 else _S["normal"]
-
-    rows = [
+    return [
         _section("📅 This Week"),
         _row(
             "☀️ Solar",
@@ -264,6 +285,13 @@ def build_week_summary_html(data: "CoordinatorData") -> str:
             _S["positive"],
         ),
         _row("Self-sufficiency", f"{w.self_sufficiency_pct:.1f}%", "", _S["highlight"]),
+    ]
+
+
+def _yesterday_rows(data: "CoordinatorData") -> list[str]:
+    sym = data.currency_symbol
+    y = data.yesterday
+    return [
         _section("📆 Yesterday"),
         _row("Solar", f"{y.solar_kwh:.2f} kWh"),
         _row(
@@ -274,6 +302,9 @@ def build_week_summary_html(data: "CoordinatorData") -> str:
         _row("Net cost", f"{sym}{max(0, y.total_import_cost - y.export_earnings):.2f}"),
     ]
 
+
+def _forecast_accuracy_rows(data: "CoordinatorData") -> list[str]:
+    rows = []
     if data.yesterday_forecast_accuracy_pct > 0:
         pct = data.yesterday_forecast_accuracy_pct
         acc_style = _S["positive"] if 80 <= pct <= 120 else _S["negative"]
@@ -287,8 +318,15 @@ def build_week_summary_html(data: "CoordinatorData") -> str:
         )
     if data.forecast_accuracy_7day_avg_pct > 0:
         rows.append(_row("7-day avg accuracy", f"{data.forecast_accuracy_7day_avg_pct:.0f}%"))
+    return rows
 
-    return f'<table style="{_S["table"]}">' + "".join(rows) + "</table>"
+
+def build_week_summary_html(data: "CoordinatorData") -> str:
+    """
+    Inline-styled HTML comparing this week's totals against yesterday,
+    with forecast accuracy if available.
+    """
+    return _table(_week_rows(data) + _yesterday_rows(data) + _forecast_accuracy_rows(data))
 
 
 def build_week_summary_state(data: "CoordinatorData") -> str:

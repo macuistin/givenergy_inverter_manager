@@ -36,7 +36,7 @@ rules:
   reauthentication-flow:
     status: exempt
     comment: No authentication required — local integration via GivTCP
-  test-coverage: todo          # 94% combined across the stubbed and end-to-end suites; the rule needs above 95%. Weakest: switch.py 67%, dashboard.py 83%, sensor.py 87%
+  test-coverage: todo          # 94% combined across the stubbed and end-to-end suites; the rule needs above 95%. Weakest: switch.py 67%, services.py 83%, sensor.py 87%
 
   # ── Gold ─────────────────────────────────────────────────────────────────────
   devices: done                # device_info with identifiers on all entities

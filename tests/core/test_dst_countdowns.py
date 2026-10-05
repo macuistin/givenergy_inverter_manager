@@ -16,16 +16,14 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.engine import (
-    _minutes_remaining_in_period,
-    accumulate_energy,
-)
+from custom_components.givenergy_inverter_manager.core.engine import _minutes_remaining_in_period
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator, build_tariff
 from custom_components.givenergy_inverter_manager.core.timeutil import (
     elapsed_seconds,
     real_time_after,
 )
 from tests.conftest import _nightboost_cfg, _raw
+from tests.core.flat_engine import accumulate_energy
 
 DUBLIN = ZoneInfo("Europe/Dublin")
 
