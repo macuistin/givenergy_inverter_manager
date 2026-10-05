@@ -18,6 +18,17 @@ from custom_components.givenergy_inverter_manager.discovery import (
     update_charger_state,
 )
 
+
+@pytest.fixture(autouse=True)
+def _reset_missing_power_warnings():
+    """The missing power warning is logged once per charger, so isolate each test."""
+    from custom_components.givenergy_inverter_manager.discovery import ev_charger
+
+    ev_charger._WARNED_MISSING_POWER.clear()
+    yield
+    ev_charger._WARNED_MISSING_POWER.clear()
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
@@ -579,3 +590,52 @@ class TestZappiEntityNaming:
         (charger,) = discover_ev_chargers(_states(self.NO_SERIAL))
         update_charger_state(_get_state(self.NO_SERIAL), charger, battery_power_w=-2500.0)
         assert charger.is_draining_battery
+
+
+class TestZappiWithoutSerialInEntityIds:
+    """Entity ids as the myenergi integration publishes them when the device name has no serial."""
+
+    REAL_IDS = {
+        "sensor.myenergi_zappi_plug_status": "EV Disconnected",
+        "sensor.myenergi_zappi_status": "Boosting",
+        "sensor.myenergi_zappi_internal_load_ct1": "0",
+        "sensor.myenergi_zappi_charge_added_session": "33.58",
+        "sensor.myenergi_zappi_serial_number": "21637627",
+        "select.myenergi_zappi_charge_mode": "Fast",
+    }
+
+    def test_finds_every_entity(self):
+        (ch,) = discover_ev_chargers(_states(self.REAL_IDS))
+        assert ch.display_name == "Zappi (21637627)"
+        assert ch.power_entity == "sensor.myenergi_zappi_internal_load_ct1"
+        assert ch.session_energy_entity == "sensor.myenergi_zappi_charge_added_session"
+        assert ch.charge_mode_entity == "select.myenergi_zappi_charge_mode"
+        assert ch.activity_entity == "sensor.myenergi_zappi_status"
+
+    def test_no_warning_when_all_entities_exist(self, caplog):
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            discover_ev_chargers(_states(self.REAL_IDS))
+        assert not any("power entity" in r.message for r in caplog.records)
+
+    def test_missing_power_warns_once_across_rediscoveries(self, caplog):
+        import logging
+
+        ids = {k: v for k, v in self.REAL_IDS.items() if "internal_load_ct1" not in k}
+        with caplog.at_level(logging.WARNING):
+            for _ in range(5):
+                discover_ev_chargers(_states(ids))
+        warnings = [r for r in caplog.records if "power entity not found" in r.message]
+        assert len(warnings) == 1
+
+    def test_warns_again_after_the_power_entity_has_come_and_gone(self, caplog):
+        import logging
+
+        ids = {k: v for k, v in self.REAL_IDS.items() if "internal_load_ct1" not in k}
+        with caplog.at_level(logging.WARNING):
+            discover_ev_chargers(_states(ids))
+            discover_ev_chargers(_states(self.REAL_IDS))
+            discover_ev_chargers(_states(ids))
+        warnings = [r for r in caplog.records if "power entity not found" in r.message]
+        assert len(warnings) == 2
