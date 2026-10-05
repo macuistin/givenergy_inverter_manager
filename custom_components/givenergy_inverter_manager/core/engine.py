@@ -83,6 +83,7 @@ from ..discovery import EVCharger, EVChargerState
 from ..logging import get_logger
 from .battery import (
     BatteryStats,
+    NightEstimateInputs,
     calculate_cycle_increment,
     estimate_will_survive_night,
     hours_until_solar,
@@ -484,55 +485,67 @@ def estimate_avg_daily_kwh(
     return max(limits.absolute_min, estimated)
 
 
-def update_battery_stats(
-    stats: BatteryStats,
-    current_soc: float | None,
-    last_soc: float | None,
-    lifetime_cycles: float | None = None,
-) -> BatteryStats:
+@dataclass(frozen=True)
+class BatteryReading:
+    """This cycle's SoC, the previous cycle's, and the BMS lifetime cycle count if reported."""
+
+    current_soc: float | None
+    last_soc: float | None
+    lifetime_cycles: float | None = None
+
+
+def _soc_step(reading: BatteryReading) -> tuple[float, float] | None:
+    """(previous, new) SoC when both readings exist and differ, else None."""
+    current_soc, last_soc = reading.current_soc, reading.last_soc
+    if current_soc is not None and last_soc is not None and current_soc != last_soc:
+        return (last_soc, current_soc)
+    return None
+
+
+def update_battery_stats(stats: BatteryStats, reading: BatteryReading, today: date) -> None:
     """
-    Update battery stats for the current SoC reading.
+    Update battery stats in place for the current SoC reading.
 
     The lifetime cycle count comes from the battery's own BMS counter when it is
     available (lifetime_cycles above zero) and is otherwise estimated from SoC.
     The estimate counts equivalent full cycles (discharge only). A missing
     reading, a reading of 0.0 after a healthy one, or a step above
     BATTERY_MAX_SOC_STEP_PCT is a sensor glitch and adds nothing.
-    Also records the date of the last full charge.
-    Mutates stats in place and also returns it for convenience.
+    Also records the date of the last full charge. today is the local date.
     """
-    step: tuple[float, float] | None = None
-    if current_soc is not None and last_soc is not None and current_soc != last_soc:
-        step = (last_soc, current_soc)
+    step = _soc_step(reading)
     if step is not None and step[1] >= BATTERY_FULL_SOC_PCT:
-        stats.last_full_charge_date = date.today()
-    if lifetime_cycles is not None and lifetime_cycles > 0:
-        _adopt_lifetime_cycles(stats, lifetime_cycles)
-        return stats
+        stats.last_full_charge_date = today
+    if reading.lifetime_cycles is not None and reading.lifetime_cycles > 0:
+        _adopt_lifetime_cycles(stats, reading.lifetime_cycles, today)
+        return
     stats.lifetime_from_bms = False
-    if step is None:
-        return stats
+    if step is not None:
+        _count_estimated_cycles(stats, step, today)
+
+
+def _count_estimated_cycles(stats: BatteryStats, step: tuple[float, float], today: date) -> None:
     previous_soc, new_soc = step
     if previous_soc <= 0.0 or new_soc <= 0.0:
-        return stats
+        return
     if abs(new_soc - previous_soc) > BATTERY_MAX_SOC_STEP_PCT:
-        return stats
+        return
     if stats.tracking_start_date is None:
-        stats.tracking_start_date = date.today()
+        stats.tracking_start_date = today
         stats.tracking_start_cycles = stats.total_cycles
     stats.total_cycles += calculate_cycle_increment(new_soc - previous_soc)
-    return stats
 
 
-def _adopt_lifetime_cycles(stats: BatteryStats, lifetime_cycles: float) -> None:
+def _adopt_lifetime_cycles(stats: BatteryStats, lifetime_cycles: float, today: date) -> None:
     """Make the BMS cycle counter the lifetime total without distorting the daily rate."""
     if not stats.lifetime_from_bms and stats.tracking_start_date is not None:
         stats.tracking_start_cycles += lifetime_cycles - stats.total_cycles
     stats.total_cycles = lifetime_cycles
     stats.lifetime_from_bms = True
     if stats.tracking_start_date is None:
-        stats.tracking_start_date = date.today()
+        stats.tracking_start_date = today
         stats.tracking_start_cycles = lifetime_cycles
+
 
 def _ev_charging_source(ev_w: float, grid_w: float, batt_w: float) -> str:
     """Where the EV's energy comes from. Positive grid_w is import, positive batt_w is charging."""
@@ -873,7 +886,7 @@ def _charge_inputs(cycle: _Cycle, avg_daily_kwh: float) -> ChargeInputs:
         average_daily_consumption_kwh=avg_daily_kwh,
         cheapest_rate=cycle.tariff.get_cheapest_rate().rate,
         load_profile=cycle.forecast.load_profile,
-        solar_generating=raw.solar_power_w >= SOLAR_NOISE_FLOOR_W,
+        solar_power_w=raw.solar_power_w,
     )
 
 
@@ -962,18 +975,18 @@ def _calculate_night_survival(data: CoordinatorData, cycle: _Cycle, avg_daily_kw
     raw = cycle.raw
     min_soc = _configured_min_soc(cycle.cfg)
     data.battery_min_soc = min_soc
-    hours = hours_until_solar(cycle.now.hour, raw.solar_power_w >= SOLAR_NOISE_FLOOR_W)
-    avg_hourly = avg_daily_kwh / 24
     (
         data.will_survive_night,
         data.estimated_soc_at_sunrise,
         data.survival_reason,
     ) = estimate_will_survive_night(
-        current_soc=raw.battery_soc,
-        battery_capacity_kwh=raw.battery_capacity_kwh,
-        min_soc=float(min_soc),
-        hours_until_solar=hours,
-        average_hourly_consumption_kwh=avg_hourly,
+        NightEstimateInputs(
+            current_soc=raw.battery_soc,
+            battery_capacity_kwh=raw.battery_capacity_kwh,
+            min_soc=float(min_soc),
+            hours_until_solar=hours_until_solar(cycle.now.hour, raw.solar_power_w),
+            average_hourly_consumption_kwh=avg_daily_kwh / 24,
+        )
     )
 
 
@@ -1004,14 +1017,15 @@ def _set_tariff_fields(data: CoordinatorData, cycle: _Cycle) -> None:
 
 def _set_battery_stats(data: CoordinatorData, cycle: _Cycle, previous: PreviousCycle) -> None:
     raw = cycle.raw
-    update_battery_stats(
-        previous.battery_stats,
+    today = cycle.now.date()
+    reading = BatteryReading(
         None if "battery_soc" in raw.unavailable_inputs else raw.battery_soc,
         previous.last_soc,
         raw.battery_lifetime_cycles,
     )
+    update_battery_stats(previous.battery_stats, reading, today)
     data.battery_stats = previous.battery_stats
-    data.battery_years_remaining = previous.battery_stats.years_remaining_estimate
+    data.battery_years_remaining = previous.battery_stats.years_remaining_estimate(today)
 
 
 def _accumulate_energy_today(

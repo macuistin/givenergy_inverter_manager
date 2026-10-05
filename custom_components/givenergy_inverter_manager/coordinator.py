@@ -1279,7 +1279,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
 
         self._acc.on_raw_forecast(raw.forecast_kwh_tomorrow)
-        self._acc.note_clipping(data.is_clipping)
+        if data.is_clipping:
+            self._acc.note_clipping()
 
         # 6. Record forecast for accuracy tracking (sets solar_forecast_today sensor)
         if data.charge_decision is not None and data.charge_decision.forecast_kwh > 0:
