@@ -118,7 +118,8 @@ class TestRawForecastHistory:
     def _day(self, store, day, raw_forecast_tomorrow, solar_kwh, clipping=False):
         store.on_raw_forecast(raw_forecast_tomorrow)
         store.state.today.solar_kwh = solar_kwh
-        store.note_clipping(clipping)
+        if clipping:
+            store.note_clipping()
         store.on_midnight(_at(day, 0, 0))
 
     def test_forecast_seen_before_midnight_pairs_with_the_day_that_follows(self):
@@ -171,7 +172,7 @@ class TestRawForecastHistory:
         self._day(store, 16, 12.0, 0.0)
         self._day(store, 17, 12.0, 9.0)
         store.on_raw_forecast(7.0)
-        store.note_clipping(True)
+        store.note_clipping()
         restored = _deserialize(_serialize(store.state))
         assert restored.forecast_ratio_history == store.state.forecast_ratio_history
         assert restored.pending_raw_forecast_kwh == 7.0

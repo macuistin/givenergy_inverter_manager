@@ -3,11 +3,8 @@
 import pytest
 
 from custom_components.givenergy_inverter_manager.core import reporting
-from custom_components.givenergy_inverter_manager.core.rules import (
-    should_divert_to_immersion,
-    suggest_appliance_run,
-)
 from tests.conftest import _nightboost_cfg, _raw, _run
+from tests.core.flat_rules import should_divert_to_immersion, suggest_appliance_run
 
 
 def _appliance(**overrides):

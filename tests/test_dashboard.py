@@ -199,11 +199,9 @@ class TestDryRunEngine:
         from datetime import datetime
 
         from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
-        from custom_components.givenergy_inverter_manager.core.engine import (
-            RawSensorValues,
-            build_coordinator_data,
-        )
+        from custom_components.givenergy_inverter_manager.core.engine import RawSensorValues
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+        from tests.core.flat_engine import build_coordinator_data
 
         cfg = {
             "rate_periods": [
