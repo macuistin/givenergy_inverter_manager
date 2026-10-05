@@ -46,6 +46,7 @@ async def test_websocket_command_returns_the_dashboard(hass, loaded_entry, hass_
         "battery",
         "controls",
     ]
+    assert {v["type"] for v in views} == {"sections"}
     sub_views = {v["path"] for v in views if v.get("subview")}
     assert sub_views <= {"immersion", "ev-charger", "cost", "solar", "tariff", "battery-detail"}
     assert {"cost", "tariff", "battery-detail"} <= sub_views
@@ -81,7 +82,8 @@ async def test_websocket_command_sees_changed_options_without_regenerating(
     response = await client.receive_json()
 
     tariff = next(v for v in response["result"]["views"] if v["path"] == "tariff")
-    table = next(c for c in tariff["cards"] if c["type"] == "markdown")["content"]
+    cards = [card for section in tariff["sections"] for card in section["cards"]]
+    table = next(c for c in cards if c["type"] == "markdown")["content"]
     assert "€0.4321" in table
 
 
