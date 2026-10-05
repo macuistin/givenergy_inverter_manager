@@ -73,7 +73,6 @@ from ..const import (
     INVERTER_TEMP_STATUS_WARM,
     INVERTER_TEMP_WARM,
     SOLAR_NOISE_FLOOR_W,
-    SOLAR_SUNRISE_HOUR,
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
     THROUGHPUT_BUDGET_HIGH_PCT,
@@ -83,7 +82,12 @@ from ..const import (
 )
 from ..discovery import EVCharger, EVChargerState
 from ..logging import get_logger
-from .battery import BatteryStats, calculate_cycle_increment, estimate_will_survive_night
+from .battery import (
+    BatteryStats,
+    calculate_cycle_increment,
+    estimate_will_survive_night,
+    hours_until_solar,
+)
 from .rules import (
     ChargeDecision,
     available_surplus_w,
@@ -823,10 +827,7 @@ def _calculate_night_survival(
 ) -> None:
     """Calculate night survival metrics."""
     data.battery_min_soc = min_soc
-    if now.hour < SOLAR_SUNRISE_HOUR:
-        hours_until_solar = max(1, SOLAR_SUNRISE_HOUR - now.hour)
-    else:
-        hours_until_solar = (24 - now.hour) + SOLAR_SUNRISE_HOUR
+    hours = hours_until_solar(now.hour, raw.solar_power_w >= SOLAR_NOISE_FLOOR_W)
     avg_hourly = avg_daily_kwh / 24
     (
         data.will_survive_night,
@@ -836,7 +837,7 @@ def _calculate_night_survival(
         current_soc=raw.battery_soc,
         battery_capacity_kwh=raw.battery_capacity_kwh,
         min_soc=float(min_soc),
-        hours_until_solar=float(hours_until_solar),
+        hours_until_solar=hours,
         average_hourly_consumption_kwh=avg_hourly,
     )
 
@@ -1007,6 +1008,7 @@ def build_coordinator_data(
         forecast_correction=forecast_correction,
         forecast_kwh_p10=raw.forecast_kwh_p10,
         forecast_kwh_d2=raw.forecast_kwh_d2,
+        solar_generating=raw.solar_power_w >= SOLAR_NOISE_FLOOR_W,
         forecast_conservatism=float(
             cfg.get(CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM)
         ),
