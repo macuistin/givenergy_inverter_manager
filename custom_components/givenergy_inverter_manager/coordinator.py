@@ -88,6 +88,7 @@ from .const import (
     DEFAULT_IMMERSION_TARGET_TEMP,
     DEFAULT_IMMERSION_WATTAGE,
     DEFAULT_INVERTER_MAX_OUTPUT,
+    DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DOMAIN,
     GIVTCP_MAX_CHARGE_TARGET_PCT,
     GIVTCP_MAX_WRITE_RETRIES,
@@ -183,8 +184,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._ev_charger: EVCharger | None = None
         self._battery_cycle_entities: list[str] = []
 
-        # Manual overrides set by switch/number entities
-        self.override_charge_target: int | None = None
+        # Manual charge target override. The switch sets the flag, the number sets the
+        # value. override_charge_target (property) is the only thing the engine sees.
+        self.override_charge_enabled: bool = False
+        self.override_charge_value: int = DEFAULT_OVERNIGHT_CHARGE_TARGET
         # Register write tracking — GivEnergy inverters have ~1M lifetime writes
         self._register_write_count: int = 0
         # Timestamp of last write per (entity, value) — enforces GIVTCP_MIN_WRITE_INTERVAL_S
@@ -243,6 +246,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     def ev_charger_brand(self) -> str | None:
         """Brand name of the discovered EV charger, or None if no charger configured."""
         return self._ev_charger.brand.value if self._ev_charger else None
+
+    @property
+    def override_charge_target(self) -> int | None:
+        """Effective charge target override: the value while enabled, else None (automatic)."""
+        return self.override_charge_value if self.override_charge_enabled else None
 
     @property
     def is_dry_run(self) -> bool:
