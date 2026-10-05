@@ -11,8 +11,7 @@ HA's NumberSelectorConfig enforces:
 
 SelectSelectorConfig and TextSelectorConfig are also validated at construction time.
 
-The test_config_flow.py file uses MagicMock stubs for speed and isolation; this file
-is the dedicated contract test for selector-level constraints.
+This file is the dedicated contract test for selector-level constraints.
 """
 
 import importlib
@@ -24,8 +23,8 @@ import pytest
 # conftest.py installs stubs into sys.modules before collection.
 # We must temporarily replace them with real modules for these tests.
 #
-# NOTE: homeassistant must be installed in the test environment.
-# Run:  pip install "homeassistant==2024.12.5" --break-system-packages
+# NOTE: homeassistant must be installed in the test environment, at the floor in
+# hacs.json (2026.2.0). Run:  pip install -r requirements-test.txt
 # ───────────────────────────────────────────────────────────────────────────────
 
 _HA_MODULES_TO_RESTORE = [
@@ -126,7 +125,7 @@ class TestTariffSchemaConstruction:
         assert isinstance(schema, vol.Schema)
 
     def test_tariff_schema_accepts_valid_defaults(self, real_ha_selector, real_vol):
-        """Schema must accept a dict of all default values without raising."""
+        """Schema must accept a dict including rate period sections without raising."""
         from custom_components.givenergy_inverter_manager.config_flow import (
             _periods_to_slot_defaults,
         )
@@ -187,3 +186,93 @@ class TestNumberSelectorStepConstraint:
             real_ha_selector.NumberSelector(
                 real_ha_selector.NumberSelectorConfig(min=0, max=10, step=step)
             )
+
+
+# ── Currency units follow the selected currency ───────────────────────────────
+
+
+def _selector_units(schema):
+    """Return {field name: unit} for every NumberSelector, descending into sections."""
+    units = {}
+    for key, validator in schema.schema.items():
+        name = str(getattr(key, "schema", key))
+        inner = getattr(validator, "schema", None)
+        if inner is not None and hasattr(inner, "schema"):
+            units.update({f"{name}.{k}": v for k, v in _selector_units(inner).items()})
+        elif hasattr(validator, "config") and "unit_of_measurement" in validator.config:
+            units[name] = validator.config["unit_of_measurement"]
+    return units
+
+
+_MONEY_FIELDS = {
+    "base_rate": "kWh",
+    "export_rate": "kWh",
+    "standing_charge_per_day": "day",
+    "pso_levy_per_month": "month",
+}
+
+
+class TestTariffSchemaCurrencyUnits:
+    def test_default_is_eur(self, real_ha_selector, real_vol):
+        flow_class = _get_flow_class(real_ha_selector, real_vol)
+        units = _selector_units(flow_class._build_tariff_schema())
+        assert units["base_rate"] == "EUR/kWh"
+        assert units["export_rate"] == "EUR/kWh"
+        assert units["standing_charge_per_day"] == "EUR/day"
+        assert units["pso_levy_per_month"] == "EUR/month"
+        assert units["rate_period_1.rate"] == "EUR/kWh"
+
+    @pytest.mark.parametrize("code", ["GBP", "USD", "SEK"])
+    def test_saved_currency_sets_every_money_unit(self, real_ha_selector, real_vol, code):
+        flow_class = _get_flow_class(real_ha_selector, real_vol)
+        units = _selector_units(flow_class._build_tariff_schema(values={"currency": code}))
+        for field, per in _MONEY_FIELDS.items():
+            assert units[field] == f"{code}/{per}"
+        assert units["rate_period_1.rate"] == f"{code}/kWh"
+        assert units["rate_period_2.rate"] == f"{code}/kWh"
+
+    def test_explicit_currency_wins_over_saved_values(self, real_ha_selector, real_vol):
+        flow_class = _get_flow_class(real_ha_selector, real_vol)
+        schema = flow_class._build_tariff_schema(values={"currency": "EUR"}, currency="GBP")
+        assert _selector_units(schema)["base_rate"] == "GBP/kWh"
+
+    def test_unknown_currency_falls_back_to_eur(self, real_ha_selector, real_vol):
+        flow_class = _get_flow_class(real_ha_selector, real_vol)
+        units = _selector_units(flow_class._build_tariff_schema(values={"currency": "XYZ"}))
+        assert units["base_rate"] == "EUR/kWh"
+
+
+class TestOptionsFlowCurrencyUnits:
+    @staticmethod
+    def _form_schema(real_ha_selector, real_vol, data):
+        import asyncio
+        from unittest.mock import MagicMock
+
+        _get_flow_class(real_ha_selector, real_vol)
+        config_flow = importlib.import_module(
+            "custom_components.givenergy_inverter_manager.config_flow"
+        )
+        entry = MagicMock()
+        entry.options = {}
+        entry.data = data
+        flow = config_flow.GivEnergyOptionsFlow(entry)
+        flow.async_show_form = MagicMock(return_value={"type": "form"})
+        asyncio.run(flow.async_step_init(None))
+        return flow.async_show_form.call_args.kwargs["data_schema"]
+
+    def test_gbp_entry_shows_gbp_units(self, real_ha_selector, real_vol):
+        schema = self._form_schema(real_ha_selector, real_vol, {"currency": "GBP"})
+        units = _selector_units(schema)
+        assert units["tariff_settings.base_rate"] == "GBP/kWh"
+        assert units["tariff_settings.export_rate"] == "GBP/kWh"
+        assert units["tariff_settings.standing_charge_per_day"] == "GBP/day"
+        assert units["tariff_settings.pso_levy_per_month"] == "GBP/month"
+        assert units["rate_period_1.rate"] == "GBP/kWh"
+        assert units["threshold_settings.battery_cost_eur"] == "£"
+
+    def test_eur_entry_is_unchanged(self, real_ha_selector, real_vol):
+        schema = self._form_schema(real_ha_selector, real_vol, {"currency": "EUR"})
+        units = _selector_units(schema)
+        assert units["tariff_settings.base_rate"] == "EUR/kWh"
+        assert units["rate_period_1.rate"] == "EUR/kWh"
+        assert units["threshold_settings.battery_cost_eur"] == "€"

@@ -12,11 +12,11 @@ Regenerate with:
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 from tests.dashboard_support import ENTRY_ID, FULL_CONFIG, FakeRegistry, fake_hass
+from tests.helpers import ROOT
 
-_EXAMPLE = Path(__file__).parent.parent / "docs" / "dashboard-example.yaml"
+_EXAMPLE = ROOT / "docs" / "dashboard-example.yaml"
 
 
 def generate_example() -> str:

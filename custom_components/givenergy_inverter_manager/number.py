@@ -17,11 +17,9 @@ Provides one number entity:
 from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity, NumberMode, RestoreNumber
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     CONF_IMMERSION_HYSTERESIS,
@@ -30,11 +28,9 @@ from .const import (
     DEFAULT_IMMERSION_HYSTERESIS,
     DEFAULT_IMMERSION_MIN_TEMP,
     DEFAULT_IMMERSION_TARGET_TEMP,
-    DEVICE_MANUFACTURER,
-    DOMAIN,
-    INTEGRATION_VERSION,
 )
-from .coordinator import GivEnergyCoordinator
+from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
+from .entity import GivEnergyEntity
 from .logging import get_logger
 
 _LOG = get_logger(__name__)
@@ -44,11 +40,11 @@ PARALLEL_UPDATES = 0
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: GivEnergyConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up GivEnergy Manager number entities."""
-    coordinator: GivEnergyCoordinator = entry.runtime_data
+    coordinator = entry.runtime_data
     async_add_entities(
         [
             GivEnergyChargeTargetOverride(coordinator),
@@ -59,16 +55,19 @@ async def async_setup_entry(
     )
 
 
-class GivEnergyChargeTargetOverride(CoordinatorEntity[GivEnergyCoordinator], NumberEntity):
+class GivEnergyChargeTargetOverride(
+    GivEnergyEntity, RestoreNumber, NumberEntity
+):
     """
     Manual override for tonight's charge target SoC.
 
     Pair with the "Enable charge target override" switch in switch.py.
-    This entity holds the value; the switch determines whether it is used.
+    This entity sets coordinator.override_charge_value; the switch sets
+    coordinator.override_charge_enabled. The coordinator derives the effective
+    target from both, so moving the slider never enables the override.
     Range 10-100% — no zero sentinel, no hidden mode logic.
     """
 
-    _attr_has_entity_name = True
     _attr_name = "Overnight Charge Target Override"
     _attr_native_min_value = 10
     _attr_native_max_value = 100
@@ -80,42 +79,33 @@ class GivEnergyChargeTargetOverride(CoordinatorEntity[GivEnergyCoordinator], Num
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_charge_target_override"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
-            "name": "GivEnergy Inverter Manager",
-            "manufacturer": DEVICE_MANUFACTURER,
-            "model": "Inverter Manager",
-            "sw_version": INTEGRATION_VERSION,
-        }
-        self._value: float = 80  # sensible default; only applied when the switch is on
 
     @property
     def native_value(self) -> float:
-        return self._value
+        return self.coordinator.override_charge_value
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last_number = await self.async_get_last_number_data()
+        if last_number and last_number.native_value is not None:
+            restored = int(last_number.native_value)
+            self.coordinator.override_charge_value = int(
+                min(self._attr_native_max_value, max(self._attr_native_min_value, restored))
+            )
+            if self.coordinator.override_charge_enabled:
+                await self.coordinator.async_request_refresh()
 
     async def async_set_native_value(self, value: float) -> None:
-        """Store the override target. The coordinator reads this when override is enabled."""
-        self._value = value
-        self.coordinator.override_charge_target = int(value)
+        """Store the override value. It only takes effect while the switch is on."""
+        self.coordinator.override_charge_value = int(value)
         _LOG.info("Charge target override value set to %d%%", int(value))
         self.async_write_ha_state()
         await self.coordinator.async_request_refresh()
 
 
-def _make_device_info(coordinator: GivEnergyCoordinator) -> dict:
-    return {
-        "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
-        "name": "GivEnergy Inverter Manager",
-        "manufacturer": DEVICE_MANUFACTURER,
-        "model": "Inverter Manager",
-        "sw_version": INTEGRATION_VERSION,
-    }
-
-
-class _ImmersionNumberBase(CoordinatorEntity[GivEnergyCoordinator], RestoreNumber, NumberEntity):
+class _ImmersionNumberBase(GivEnergyEntity, RestoreNumber, NumberEntity):
     """Base for immersion temperature number controls."""
 
-    _attr_has_entity_name = True
     _attr_mode = NumberMode.SLIDER
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_icon = "mdi:thermometer"
@@ -129,7 +119,6 @@ class _ImmersionNumberBase(CoordinatorEntity[GivEnergyCoordinator], RestoreNumbe
     ) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{key}"
-        self._attr_device_info = _make_device_info(coordinator)
         self._config_key = config_key
         self._value: float = default
 

@@ -20,8 +20,7 @@ from __future__ import annotations
 import calendar
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime, time
-from datetime import time as dtime
+from datetime import date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -45,6 +44,7 @@ from ..const import (
     DEFAULT_STANDING_CHARGE,
     DEFAULT_VAT_RATE,
 )
+from .timeutil import elapsed_seconds, local_time_on
 
 _LOG = logging.getLogger(__name__)
 
@@ -175,18 +175,15 @@ class TariffConfig:
             return None
         if any(p.is_active(dt) for p in cheap):
             return 0.0, None
-        now_minutes = dt.hour * 60 + dt.minute
-        soonest = min(
-            cheap,
-            key=lambda p: (p.start.hour * 60 + p.start.minute - now_minutes) % 1440,
-        )
-        delta = (soonest.start.hour * 60 + soonest.start.minute - now_minutes) % 1440
-        return round(delta / 60, 2), soonest.start.strftime("%H:%M")
-
-    def get_most_expensive_rate(self) -> RatePeriod:
-        """Return the most expensive rate across all periods including the base rate."""
-        candidates = list(self.rate_periods) + [self._base_rate_period]
-        return max(candidates, key=lambda p: p.rate)
+        now = dt.replace(second=0, microsecond=0)
+        starts = []
+        for period in cheap:
+            start = local_time_on(now, period.start)
+            if elapsed_seconds(now, start) < 0:
+                start = local_time_on(now + timedelta(days=1), period.start)
+            starts.append((elapsed_seconds(now, start), period))
+        seconds, soonest = min(starts, key=lambda item: item[0])
+        return round(seconds / 3600, 2), soonest.start.strftime("%H:%M")
 
     def calculate_import_cost(self, kwh: float, dt: datetime) -> float:
         """Calculate cost of importing energy at the current rate."""
@@ -202,20 +199,6 @@ class TariffConfig:
     def calculate_export_earnings(self, kwh: float) -> float:
         """Calculate earnings from exporting energy."""
         return kwh * self.export_rate
-
-    def calculate_standing_charges(self, days: int, period_days: int | None = None) -> float:
-        """Calculate standing charge and PSO levy including VAT.
-
-        The PSO levy is a flat monthly figure. A full billing period charges it
-        once; a part period charges days / period_days of it. Without period_days
-        the share is capped at one levy using an average month length.
-        """
-        gross = self.standing_charge * days
-        if period_days is not None and period_days > 0:
-            share = min(1.0, days / period_days)
-        else:
-            share = min(1.0, days / _AVERAGE_DAYS_PER_MONTH)
-        return (gross + self.pso_levy * share) * (1 + self.vat_rate / 100)
 
     def energy_cost_from_import_cost(self, import_cost: float) -> float:
         """Reverse the discount and VAT applied to accumulated import cost."""
@@ -409,8 +392,8 @@ def build_tariff(cfg: dict[str, Any]) -> TariffConfig:
             period = RatePeriod(
                 name=p["name"],
                 rate=float(p["rate"]),
-                start=dtime(int(s[0]), int(s[1])),
-                end=dtime(int(e[0]), int(e[1])),
+                start=time(int(s[0]), int(s[1])),
+                end=time(int(e[0]), int(e[1])),
             )
         except (KeyError, ValueError, IndexError) as err:
             _LOG.warning("Skipping malformed rate period %s: %s", p, err)

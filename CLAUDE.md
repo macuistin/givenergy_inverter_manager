@@ -11,7 +11,10 @@ A Home Assistant custom integration for GivEnergy inverters. It reads sensor dat
 GivTCP over MQTT, calculates overnight charge targets, manages solar surplus diversion
 to immersion and EV, and tracks energy costs across tariff periods.
 
-The integration is distributed via HACS and targets HA quality scale Silver.
+The integration is distributed via HACS. It works towards the HA quality scale Silver tier
+but does not meet it yet: `quality_scale.yaml` has Bronze `config-flow-test-coverage` and Silver
+`test-coverage` as `todo` (94% combined coverage against the 95% the rule needs). Every other
+Bronze and Silver rule is `done` or exempt.
 
 ---
 
@@ -132,24 +135,62 @@ HA 2026.7+ rejects `state_class=MEASUREMENT` on monetary or certain energy senso
 
 ## Testing approach
 
+Two suites, two virtualenvs. Run both before pushing.
+
 ```bash
-pip install -r requirements-test.txt
-python -m pytest tests/ -q          # full suite (~400 tests)
-ruff check custom_components/ tests/
+# Stubbed unit suite: about 2340 tests in about 13 s
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-test.txt
+.venv/bin/python -m pytest tests -q          # pyproject.toml skips tests/ha_e2e
+.venv/bin/python -m ruff check .
+
+# Real Home Assistant suite (tests/ha_e2e): about 190 tests in about 17 s
+python3 -m venv .venv-e2e                    # needs Python 3.14.2 or newer
+.venv-e2e/bin/pip install -r requirements-test-e2e.txt
+.venv-e2e/bin/python -m pytest tests/ha_e2e -q
 ```
 
-Tests use MagicMock stubs for most HA imports (see `tests/conftest.py`). A real
-`homeassistant` package is installed for schema validation tests in
-`tests/test_config_flow_schemas.py` — these catch selector constraint violations that
+The unit tests use MagicMock stubs for most HA imports (see `tests/conftest.py`) and run from
+any directory. Use `ROOT` and `PKG` from `tests/helpers.py` for source paths, never a path
+relative to the working directory. A real `homeassistant` package is installed for the schema
+tests in `tests/test_config_flow_schemas.py`, which catch selector constraint violations that
 MagicMock stubs would silently pass.
+
+The e2e suite needs its own virtualenv because `pytest-homeassistant-custom-component` pins
+`homeassistant`, `pytest` and `pytest-asyncio`. Run it from the repo root. `tests/ha_e2e/pytest.ini`
+is the closest ini file, so `tests/conftest.py` (the stubs) never loads. `docs/testing.md` has
+the detail. The test counts above drift, so re-measure before quoting them.
+
+Prefer a test that drives behaviour (a coordinator, entity or flow call and an assertion on the
+result) over one that reads a source file and asserts a string is present. The remaining
+source-grep tests are listed for replacement in `ROADMAP.md`.
 
 **Before adding a new sensor:** add tests in `tests/test_sensors.py` covering
 device_class, unit, state_class, and value_fn. The existing battery_power tests
-are the reference pattern.
+are the reference pattern. Then run `python scripts/gen_sensor_docs.py` to refresh
+`docs/sensors.md`.
 
 **Before changing config flow schemas:** run `tests/test_config_flow_schemas.py` with
-the real HA package — this catches `step` constraints, selector validation, and
-section nesting issues.
+the real HA package, which catches `step` constraints, selector validation, and
+section nesting issues, then the e2e config flow tests.
+
+**Version bumps** must change `manifest.json`, `const.INTEGRATION_VERSION`, `pyproject.toml`,
+the `Current version:` line in `README.md` and the `This documentation matches version` line in
+`docs/index.md` together. `tests/test_metadata.py` fails if one is missed.
+
+---
+
+## Pull requests and branches
+
+- Titles and commits follow Conventional Commits (`fix(sensor): ...`).
+- The PR description uses `.github/PULL_REQUEST_TEMPLATE.md`: Summary, Changes, Testing,
+  Impact, Checklist. This repo does not use a BRAVE section.
+- Work is often stacked: each PR is based on the branch below it (`--base <previous-branch>`),
+  not on `main`. To take changes from a lower branch, merge it in. Do not rebase or force-push a
+  branch that has an open PR. When a lower PR merges, retarget the next one to `main`.
+- Address review feedback with new commits on top, so reviewers see only what changed.
+- CI runs on every PR: lint and unit tests, the real Home Assistant suite, Hassfest, HACS and
+  CodeQL. See `docs/testing.md`.
 
 ---
 

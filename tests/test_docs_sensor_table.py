@@ -11,11 +11,12 @@ Fix a failure with: python scripts/gen_sensor_docs.py
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 
 import pytest
 
-_ROOT = Path(__file__).parent.parent
+from tests.helpers import ROOT
+
+_ROOT = ROOT
 _SCRIPT = _ROOT / "scripts" / "gen_sensor_docs.py"
 _DOC = _ROOT / "docs" / "sensors.md"
 

@@ -15,7 +15,6 @@ from __future__ import annotations
 import importlib.util
 import re
 from contextlib import contextmanager
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -25,9 +24,10 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_INVERTER_TEMP_ENTITY,
 )
+from tests.helpers import ROOT
 
 ENTRY_ID = "test_entry_123"
-_SCRIPT = Path(__file__).parent.parent / "scripts" / "gen_sensor_docs.py"
+_SCRIPT = ROOT / "scripts" / "gen_sensor_docs.py"
 _DEVICE_SLUG = "givenergy_inverter_manager"
 
 # Switch and number entities set _attr_name on the class, so the name is in code.

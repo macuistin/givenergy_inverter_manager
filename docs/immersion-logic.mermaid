@@ -20,15 +20,17 @@ flowchart TD
     AUTOPATH[Compute should_be_on\nfrom auto-divert logic] --> CHECKEXT
 
     subgraph AUTO [Auto-divert logic — rules.py]
-        AUTOPATH --> LEGIONELLA{Temp below\nmin_temp?}
-        LEGIONELLA -- Yes → force on --> OVRIDE[override = True]
-        LEGIONELLA -- No --> TARGTEMP{Temp ≥\ntarget_temp?}
+        AUTOPATH --> BELOWMIN{Temp below\nmin_temp?}
+        BELOWMIN -- Yes → force on --> OVRIDE[override = True]
+        BELOWMIN -- No --> TARGTEMP{Temp ≥\ntarget_temp?}
         TARGTEMP -- Yes → force off --> OVRIDE2[should_be_on = False]
         TARGTEMP -- No --> BATT{Battery SoC\n< threshold?}
         BATT -- Yes → no divert --> OVRIDE2
         BATT -- No --> SURPLUS{Net solar surplus\n≥ min_surplus\nOR clipping?}
         SURPLUS -- No --> OVRIDE2
-        SURPLUS -- Yes --> HYST{Currently OFF AND\ntemp ≥ target − hysteresis?}
+        SURPLUS -- Yes --> CYCLE{Battery cycle cost\n> export rate?}
+        CYCLE -- Yes → no divert --> OVRIDE2
+        CYCLE -- No --> HYST{Currently OFF AND\ntemp ≥ target − hysteresis?}
         HYST -- Yes → wait to cool --> OVRIDE2
         HYST -- No --> OVRIDE3[should_be_on = True]
     end

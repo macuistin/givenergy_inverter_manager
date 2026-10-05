@@ -18,7 +18,7 @@ All access to Home Assistant goes through three coordinator methods:
   _get_state(entity_id)           wraps hass.states.get()
   _call_service(domain, service, data, blocking)
                                   wraps hass.services.async_call()
-  _create_task(coro)              wraps hass.async_create_task()
+  _create_task(coro)              wraps entry.async_create_task()
 
 No other method in this class touches hass directly. This means tests
 can subclass GivEnergyCoordinator and override just these three methods
@@ -88,6 +88,7 @@ from .const import (
     DEFAULT_IMMERSION_TARGET_TEMP,
     DEFAULT_IMMERSION_WATTAGE,
     DEFAULT_INVERTER_MAX_OUTPUT,
+    DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DOMAIN,
     GIVTCP_MAX_CHARGE_TARGET_PCT,
     GIVTCP_MAX_WRITE_RETRIES,
@@ -105,6 +106,7 @@ from .core.engine import (
 )
 from .core.rules import monthly_solar_fractions
 from .core.tariff import build_tariff
+from .core.timeutil import elapsed_seconds
 from .discovery import (
     EVCharger,
     discover_battery_cycle_entities,
@@ -183,12 +185,17 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._ev_charger: EVCharger | None = None
         self._battery_cycle_entities: list[str] = []
 
-        # Manual overrides set by switch/number entities
-        self.override_charge_target: int | None = None
+        # Manual charge target override. The switch sets the flag, the number sets the
+        # value. override_charge_target (property) is the only thing the engine sees.
+        self.override_charge_enabled: bool = False
+        self.override_charge_value: int = DEFAULT_OVERNIGHT_CHARGE_TARGET
         # Register write tracking — GivEnergy inverters have ~1M lifetime writes
         self._register_write_count: int = 0
         # Timestamp of last write per (entity, value) — enforces GIVTCP_MIN_WRITE_INTERVAL_S
         self._last_write_time: dict[tuple[str, object], float] = {}
+        # Last action dry run skipped. The engine builds a fresh snapshot each cycle,
+        # so the value lives here and is copied onto every new snapshot.
+        self._dry_run_last_skipped: str = ""
         # EMA-smoothed solar power (α=0.5) — used for surplus divert decisions
         # to prevent chasing transient cloud gaps. Raw value used for accumulation.
         self._smoothed_solar_w: float = 0.0
@@ -242,9 +249,20 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         return self._ev_charger.brand.value if self._ev_charger else None
 
     @property
+    def override_charge_target(self) -> int | None:
+        """Effective charge target override: the value while enabled, else None (automatic)."""
+        return self.override_charge_value if self.override_charge_enabled else None
+
+    @property
     def is_dry_run(self) -> bool:
         """True when dry-run mode is active — no commands sent to GivTCP or chargers."""
         return bool(self._effective_cfg().get(CONF_DRY_RUN, DEFAULT_DRY_RUN))
+
+    def _record_skipped(self, action: str) -> None:
+        """Remember the action dry run skipped and show it on the current snapshot."""
+        self._dry_run_last_skipped = action
+        if self.data is not None:
+            self.data.dry_run_last_skipped = action
 
     # ── HA surface proxies ────────────────────────────────────────────────────
     # All Home Assistant access goes through these three methods.
@@ -269,8 +287,24 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         await self.hass.services.async_call(domain, service, data, blocking=blocking)
 
     def _create_task(self, coro) -> None:
-        """Schedule a coroutine as an HA task."""
-        self.hass.async_create_task(coro)
+        """Schedule a fire-and-forget coroutine as a task owned by the config entry.
+
+        Home Assistant tracks the task on the entry and waits for it on unload
+        (up to 10 seconds), so an inverter write sequence is not cut off half way.
+        A failure is logged and never raised, because nothing awaits the task.
+        """
+        self.entry.async_create_task(self.hass, self._run_background(coro))
+
+    async def _run_background(self, coro) -> None:
+        """Await a fire-and-forget coroutine, logging any failure at warning level."""
+        try:
+            await coro
+        except Exception as err:  # noqa: BLE001
+            _LOG.warning(
+                "Background task %s failed: %s",
+                getattr(coro, "__qualname__", "task"),
+                err,
+            )
 
     # ── State read helpers ────────────────────────────────────────────────────
 
@@ -598,6 +632,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Load stored accumulators and apply any resets missed while HA was down."""
         await self._acc.async_load()
         self._acc.restore_battery_stats(self._battery_stats)
+        self._register_write_count = self._acc.state.register_write_count
         now = dt_util.as_local(datetime.now(timezone.utc))
         if self._acc.roll_forward(now):
             await self._acc.async_save()
@@ -669,7 +704,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             if tariff.rate_periods:
                 min_soc = int(cfg.get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC))
                 cheap = min(tariff.rate_periods, key=lambda p: p.rate)
-                if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
+                if self.is_dry_run:
                     _LOG.info(
                         "DRY RUN: skip_charge=True — would write min target %d%% (%s)",
                         min_soc,
@@ -701,15 +736,14 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         cheap = min(tariff.rate_periods, key=lambda p: p.rate)
 
-        if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
+        if self.is_dry_run:
             action = (
                 f"Would write charge target {target_soc}% for {cheap.name} window "
                 f"{cheap.start.strftime('%H:%M')}–{cheap.end.strftime('%H:%M')} "
                 f"({decision.reason})"
             )
             _LOG.info("DRY RUN: %s", action)
-            if self.data is not None:
-                self.data.dry_run_last_skipped = action
+            self._record_skipped(action)
             return
 
         _LOG.info(
@@ -915,7 +949,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         if self._inputs_unavailable_since is None:
             self._inputs_unavailable_since = now
-        raw.unavailable_for_s = max(0.0, (now - self._inputs_unavailable_since).total_seconds())
+        raw.unavailable_for_s = max(0.0, elapsed_seconds(self._inputs_unavailable_since, now))
     def _read_battery_lifetime_cycles(self) -> float | None:
         """Highest BMS cycle counter across the battery packs, None if none is readable.
 
@@ -959,14 +993,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if current == target_mode:
             return
 
-        cfg = self._effective_cfg()
         action = (
             f"Would set {self._ev_charger.display_name} → {target_mode} (currently {current!r})"
         )
-        if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
+        if self.is_dry_run:
             _LOG.info("DRY RUN: %s", action)
-            if self.data is not None:
-                self.data.dry_run_last_skipped = action
+            self._record_skipped(action)
             return
 
         entity_id = self._ev_charger.charge_mode_entity
@@ -1007,10 +1039,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         Uses the same read-before-write, cooldown, write counting and read-back
         helpers as the overnight charge target so the inverter registers are not
-        written more often than necessary. Returns False, without enabling the
-        charge target, when the target could not be written.
+        written more often than necessary. The floor only raises the target. A
+        higher target already on the inverter, such as the overnight charge
+        target, is kept. Returns False, without enabling the charge target,
+        when the target could not be written.
         """
-        soc = _clamp_charge_target(soc)
+        current = _state_as_int(self._get_state(target_entity))
+        soc = _clamp_charge_target(max(soc, current) if current is not None else soc)
         if not await self._givtcp_set_number(target_entity, soc, "Cheap rate floor target"):
             return False
         return await self._givtcp_set_switch(
@@ -1087,7 +1122,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             _LOG.warning("Cheap rate floor triggered but no target SoC entity configured")
             return status
 
-        if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
+        if self.is_dry_run:
             _LOG.info("DRY RUN: %s", status)
             return f"DRY RUN: {status}"
 
@@ -1176,7 +1211,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         # 5a. Update per-slot baseline load for this 30-min window.
         if self._last_update is not None:
-            elapsed_h = (now - self._last_update).total_seconds() / 3600
+            elapsed_h = elapsed_seconds(self._last_update, now) / 3600
             slot = now.hour * 2 + now.minute // 30
             immersion_w = raw.immersion_wattage_w if raw.immersion_on else 0.0
             baseline_w = max(0.0, raw.house_load_w - immersion_w - raw.ev_power_w)
@@ -1248,4 +1283,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # 10. Apply HA side-effects requested by the engine
         self._apply_ev_action(ev_target_mode)
 
+        # The engine's snapshot starts empty. Copy after the EV action so a skip
+        # recorded in this cycle shows up in this snapshot.
+        data.dry_run_last_skipped = self._dry_run_last_skipped
         return data
+
+
+# The config entry type for this integration. Platforms and __init__ use it so
+# entry.runtime_data is typed as the coordinator.
+GivEnergyConfigEntry = ConfigEntry[GivEnergyCoordinator]

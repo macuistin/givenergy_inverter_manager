@@ -12,6 +12,8 @@ import logging
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
+from tests.helpers import PKG
+
 _ROOT = "custom_components.givenergy_inverter_manager"
 
 
@@ -405,10 +407,9 @@ class TestManifest:
 
     def _manifest(self):
         import json
-        from pathlib import Path
 
         return json.loads(
-            Path("custom_components/givenergy_inverter_manager/manifest.json").read_text()
+            (PKG / "manifest.json").read_text()
         )
 
     def test_import_executor_is_true(self):
@@ -491,18 +492,16 @@ class TestCheapRateFloorPlumbing:
         assert data.cheap_rate_floor_status == "", "Should default to empty string"
 
     def test_sensor_key_registered(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        src = (PKG / "sensor.py").read_text()
         assert 'key="cheap_rate_floor_status"' in src, (
             "cheap_rate_floor_status sensor must be registered in sensor.py — "
             "without it the floor status is calculated but never surfaced in HA."
         )
 
     def test_config_option_in_options_flow(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        src = (PKG / "config_flow.py").read_text()
         assert "CONF_CHEAP_RATE_FLOOR_SOC" in src, (
             "cheap_rate_floor_soc must appear in the options flow — "
             "without it the floor is fixed at 40% with no way to change it."
@@ -510,10 +509,9 @@ class TestCheapRateFloorPlumbing:
 
     def test_strings_have_floor_label(self):
         import json
-        from pathlib import Path
 
         data = json.loads(
-            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+            (PKG / "strings.json").read_text()
         )
         thresh_data = (
             data.get("options", {})

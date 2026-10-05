@@ -12,6 +12,7 @@ Modules:
   engine    — CoordinatorData, build_coordinator_data(), accumulate_energy()
   reporting — HTML report generators for dashboard sensors
   optimizer — Backward-compat shim re-exporting from rules
+  timeutil  — Elapsed-time maths that stays correct across a clock change
 
 The HA integration layer (coordinator.py, sensor.py, etc.) imports from here.
 """

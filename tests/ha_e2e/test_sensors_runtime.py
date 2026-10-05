@@ -21,7 +21,11 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
-from custom_components.givenergy_inverter_manager.const import CONF_DRY_RUN, DOMAIN
+from custom_components.givenergy_inverter_manager.const import (
+    CONF_DRY_RUN,
+    CONF_IMMERSION_SWITCH,
+    DOMAIN,
+)
 from custom_components.givenergy_inverter_manager.sensor import (
     SENSOR_DESCRIPTIONS,
     reset_period_of,
@@ -243,6 +247,41 @@ async def test_dry_run_sends_no_writes(hass, hass_in_scenario, service_calls, co
             "switch.turn_off": 0,
             "select.select_option": 0,
         }
+    finally:
+        await hass.config_entries.async_unload(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+
+async def test_dry_run_last_skipped_sensor_keeps_its_value_across_refreshes(
+    hass, hass_in_scenario, service_calls, config_entry
+):
+    """The skipped action is still shown after later refreshes, not reset every cycle."""
+    config_entry.add_to_hass(hass)
+    # No immersion switch, so no other dry-run decision overwrites the charge target one.
+    data = {**full_config_data(), CONF_DRY_RUN: True}
+    del data[CONF_IMMERSION_SWITCH]
+    hass.config_entries.async_update_entry(config_entry, data=data)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    try:
+        coordinator = config_entry.runtime_data
+        entity_id = er.async_get(hass).async_get_entity_id(
+            "sensor", DOMAIN, f"{config_entry.entry_id}_dry_run_last_skipped"
+        )
+        assert entity_id
+        await _refresh(hass, config_entry, times=1)
+        assert hass.states.get(entity_id).state == "No actions skipped yet"
+
+        # The nightly charge target write is the decision a live run would send.
+        coordinator._write_charge_target_to_inverter(dt_util.now())
+        await _refresh(hass, config_entry, times=1)
+        skipped = hass.states.get(entity_id).state
+        assert skipped.startswith("Would write charge target")
+
+        await _refresh(hass, config_entry, times=2)
+        assert hass.states.get(entity_id).state == skipped
+        assert all(not calls for calls in service_calls.values())
     finally:
         await hass.config_entries.async_unload(config_entry.entry_id)
         await hass.async_block_till_done()

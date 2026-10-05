@@ -14,11 +14,12 @@ import json
 import subprocess
 import sys
 import textwrap
-from pathlib import Path
 
 import pytest
 
-_PKG = Path(__file__).parent.parent / "custom_components" / "givenergy_inverter_manager"
+from tests.helpers import PKG
+
+_PKG = PKG
 _SENSOR_TREE = ast.parse((_PKG / "sensor.py").read_text())
 _JSON_FILES = ["strings.json", "translations/en.json", "icons.json"]
 

@@ -65,8 +65,6 @@ The defaults are Electric Ireland Home Electric with Nightboost. Replace all of 
 | Tomorrow's forecast sensor | `forecast_entity` | A sensor giving tomorrow's expected energy in kWh |
 | Solcast P10 sensor | `forecast_entity_p10` | Optional. A pessimistic forecast in kWh, blended in when conservatism is above 0 |
 | Day-after-tomorrow sensor | `forecast_entity_d2` | Optional. When it exceeds the battery capacity, tonight's target is lowered to leave room for that day's solar |
-| Pessimistic (P10) forecast sensor | `forecast_entity_p10` | Optional. A pessimistic forecast in kWh, blended in when conservatism is above 0 |
-| Day-after-tomorrow forecast sensor | `forecast_entity_d2` | Optional. Read each cycle but not used by the charge calculation in v0.3.0 |
 | Grid carbon intensity sensor | `carbon_intensity_entity` | Optional. g CO2/kWh. Feeds the two carbon sensors |
 | Forecast conservatism | `forecast_conservatism` | Slider 0 to 1 in steps of 0.05, default 0.35. 0 is the plain forecast, 1 is the P10 value |
 
@@ -174,8 +172,6 @@ Details as in setup step 3. Clear an entity field to remove the saved entity.
 ## Things to know
 
 - **Bill start day.** The month totals reset at midnight on the bill start day. A day saved on the options page takes precedence over the one saved at setup or in Reconfigure, and applies from the next 30-second cycle.
-- **Immersion temperatures.** Target, minimum and restart gap are changed with number entities, not the options page. See [Entities](entities.md).
-- **Bill start day.** The month totals reset on the bill start day saved at setup or in Reconfigure. A different day saved on the options page changes the day counts in the bill sensors but not the month reset.
 - **Immersion temperatures.** Target, minimum and restart gap are changed with number entities, not the options page. Moving one updates the running integration without a reload. See [Entities](entities.md).
 - **Forecast provider.** The choice is stored and not used. Set the sensors.
 

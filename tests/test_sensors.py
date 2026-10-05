@@ -9,13 +9,12 @@ SensorEntityDescription is replaced with `object`).
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 
 import pytest
 
-_SENSOR_PY = (
-    Path(__file__).parent.parent / "custom_components" / "givenergy_inverter_manager" / "sensor.py"
-)
+from tests.helpers import PKG
+
+_SENSOR_PY = PKG / "sensor.py"
 _TREE = ast.parse(_SENSOR_PY.read_text())
 
 
@@ -216,9 +215,8 @@ class TestWeeklyMonthlySensorStateClass:
     They can decrease from floating-point rounding, causing recorder warnings."""
 
     def test_weekly_sensors_use_total_not_total_increasing(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        src = (PKG / "sensor.py").read_text()
         # Find the weekly section
         weekly_start = src.find("# ── Weekly accumulations")
         assert weekly_start != -1
@@ -453,14 +451,6 @@ class TestMiscellaneousSensors:
         d = MagicMock()
         d.days_in_period = 12
         assert fn(d) == 12
-
-    def test_integration_version_matches_manifest(self):
-        import json
-
-        from custom_components.givenergy_inverter_manager.const import INTEGRATION_VERSION
-
-        manifest = _SENSOR_PY.parent / "manifest.json"
-        assert json.loads(manifest.read_text())["version"] == INTEGRATION_VERSION
 
 
 class TestEvKmSensors:

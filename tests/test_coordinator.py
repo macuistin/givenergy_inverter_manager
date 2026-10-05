@@ -43,6 +43,7 @@ from custom_components.givenergy_inverter_manager.core.battery import BatterySta
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from tests.conftest import _nightboost_cfg, _raw
+from tests.helpers import PKG
 
 # ── Minimal HA state stub ─────────────────────────────────────────────────────
 
@@ -226,7 +227,8 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._update_cycle: int = 0
         self._ev_charger = None
         self._battery_cycle_entities: list[str] = []
-        self.override_charge_target = None
+        self.override_charge_enabled = False
+        self.override_charge_value = 80
         self.immersion_target_temp: float = 55.0
         self.immersion_min_temp: float = 50.0
         self.immersion_hysteresis_c: float = 5.0
@@ -240,6 +242,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._last_immersion_coordinator_write = None
         self._last_write_time: dict[str, float] = {}
         self._last_write_time: dict[tuple[str, object], float] = {}
+        self._dry_run_last_skipped: str = ""
         self._register_write_count: int = 0
         self._slot_load_today: list[float] = [0.0] * 48
         self._slot_load_history: list[list[float]] = []
@@ -698,9 +701,73 @@ class TestUpdateCycle:
     async def test_override_charge_target_respected(self):
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_states(_default_states())
-        coord.override_charge_target = 55
+        coord.override_charge_value = 55
+        coord.override_charge_enabled = True
         data = await coord.run_cycle()
         assert data.charge_decision.target_soc == 55
+
+
+class TestChargeTargetOverrideState:
+    """The coordinator owns the override. The effective target is derived from it."""
+
+    def test_disabled_by_default_with_the_default_value(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        assert coord.override_charge_enabled is False
+        assert coord.override_charge_value == 80
+        assert coord.override_charge_target is None
+
+    def test_enabling_without_touching_the_value_uses_the_default(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.override_charge_enabled = True
+        assert coord.override_charge_target == 80
+
+    def test_setting_the_value_while_disabled_does_not_take_effect(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.override_charge_value = 65
+        assert coord.override_charge_target is None
+
+    def test_enabling_after_setting_the_value_uses_the_value(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.override_charge_value = 65
+        coord.override_charge_enabled = True
+        assert coord.override_charge_target == 65
+
+    def test_disabling_returns_to_automatic_and_keeps_the_value(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.override_charge_value = 65
+        coord.override_charge_enabled = True
+        coord.override_charge_enabled = False
+        assert coord.override_charge_target is None
+        assert coord.override_charge_value == 65
+
+    @pytest.mark.asyncio
+    async def test_enabled_override_with_untouched_value_reaches_the_decision(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.override_charge_enabled = True
+        data = await coord.run_cycle()
+        assert data.charge_decision.target_soc == 80
+        assert data.charge_decision.reason == "Manual override: charge to 80%"
+
+    @pytest.mark.asyncio
+    async def test_value_set_while_disabled_leaves_the_decision_automatic(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.override_charge_value = 65
+        data = await coord.run_cycle()
+        assert not data.charge_decision.reason.startswith("Manual override")
+
+    @pytest.mark.asyncio
+    async def test_disabling_returns_the_decision_to_automatic(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.override_charge_value = 65
+        coord.override_charge_enabled = True
+        overridden = await coord.run_cycle()
+        coord.override_charge_enabled = False
+        automatic = await coord.run_cycle()
+        assert overridden.charge_decision.target_soc == 65
+        assert not automatic.charge_decision.reason.startswith("Manual override")
 
 
 # ── TestMidnightReset ─────────────────────────────────────────────────────────
@@ -737,6 +804,14 @@ def _coord_with_real_store(saved: dict | None, monkeypatch, local_now: datetime)
     store._store = _MemoryStore(saved)
     coord._acc = store
     return coord, store
+
+
+def _saved_state(last_midnight: datetime) -> dict:
+    from custom_components.givenergy_inverter_manager.accumulation import _serialize
+
+    state = AccumulationState()
+    state.last_reset_iso = last_midnight.isoformat()
+    return _serialize(state)
 
 
 class TestRestoreState:
@@ -831,6 +906,39 @@ class TestDurablePersistence:
 
         assert store._store.saved["battery_cycles"] == pytest.approx(3.5)
         assert store._store.saved["month"]["solar_kwh"] == pytest.approx(77.7)
+
+    async def test_restore_seeds_the_write_count_and_battery_stats_in_one_pass(
+        self, monkeypatch
+    ):
+        saved = _saved_state(datetime(2026, 7, 15, tzinfo=timezone.utc))
+        saved["register_write_count"] = 4321
+        saved["battery_cycles"] = 12.5
+        coord, _ = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert coord._register_write_count == 4321
+        assert coord._battery_stats.total_cycles == pytest.approx(12.5)
+
+    async def test_restore_loads_the_store_once(self, monkeypatch):
+        saved = _saved_state(datetime(2026, 7, 15, tzinfo=timezone.utc))
+        coord, store = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+        loads = []
+        original = store._store.async_load
+
+        async def counting_load():
+            loads.append(1)
+            return await original()
+
+        store._store.async_load = counting_load
+
+        await coord.async_restore_state()
+
+        assert len(loads) == 1
 
     async def test_restore_registers_a_flush_for_unload_and_for_home_assistant_stop(
         self, monkeypatch
@@ -1161,6 +1269,59 @@ class TestApplyEvAction:
         assert "Stopped" in coord.data.dry_run_last_skipped
 
 
+# ── TestDryRunLastSkippedSurvivesCycles ───────────────────────────────────────
+
+
+class TestDryRunLastSkippedSurvivesCycles:
+    """The engine builds a fresh snapshot each cycle, so the coordinator must carry the value."""
+
+    @pytest.mark.asyncio
+    async def test_charge_target_skip_survives_two_cycles(self):
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_DRY_RUN: True}))
+        coord.set_states(_default_states())
+        await coord.run_cycle()
+        assert coord.data.dry_run_last_skipped == ""
+
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        recorded = coord.data.dry_run_last_skipped
+        assert recorded.startswith("Would write charge target")
+        assert len(coord.tasks_created) == 0
+
+        await coord.run_cycle()
+        assert coord.data.dry_run_last_skipped == recorded
+        await coord.run_cycle()
+        assert coord.data.dry_run_last_skipped == recorded
+
+    @pytest.mark.asyncio
+    async def test_ev_skip_survives_a_cycle(self):
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_DRY_RUN: True}))
+        coord.set_states(_default_states())
+        coord._ev_charger = TestApplyEvAction()._charger(mode="Fast")
+        await coord.run_cycle()
+
+        coord._apply_ev_action("Stopped")
+        recorded = coord.data.dry_run_last_skipped
+        assert "Stopped" in recorded
+
+        await coord.run_cycle()
+        assert coord.data.dry_run_last_skipped == recorded
+
+    @pytest.mark.asyncio
+    async def test_newest_skip_replaces_the_previous_one(self):
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_DRY_RUN: True}))
+        coord.set_states(_default_states())
+        coord._ev_charger = TestApplyEvAction()._charger(mode="Fast")
+        await coord.run_cycle()
+
+        coord._apply_ev_action("Stopped")
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        latest = coord.data.dry_run_last_skipped
+        assert latest.startswith("Would write charge target")
+
+        await coord.run_cycle()
+        assert coord.data.dry_run_last_skipped == latest
+
+
 # ── TestGivtcpWriteHelpers ────────────────────────────────────────────────────
 
 
@@ -1420,12 +1581,8 @@ class TestInvertedRateTariff:
     def test_empty_rate_periods_returns_early(self):
         """Coordinator must return early with a warning when no timed periods are
         configured, rather than crashing or writing a zero-window."""
-        from pathlib import Path
 
-        src = (
-            Path(__file__).parent.parent
-            / "custom_components/givenergy_inverter_manager/coordinator.py"
-        ).read_text()
+        src = (PKG / "coordinator.py").read_text()
         guard_idx = src.index("if not tariff.rate_periods:")
         min_idx = src.index("min(tariff.rate_periods, key=lambda p: p.rate)")
         assert guard_idx < min_idx, "Empty list guard must appear before the min() call"
@@ -1455,18 +1612,16 @@ class TestTimezoneHandling:
         )
 
     def test_coordinator_uses_local_time(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         assert "dt_util.as_local(datetime.now" in src, (
             "coordinator must use dt_util.as_local() — without this, rate periods "
             "activate 1h late in summer (Ireland GMT+1)."
         )
 
     def test_midnight_reset_uses_local_midnight(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         assert "dt_util.as_local(now).replace(hour=0" in src, (
             "_midnight_reset must use as_local — without this, daily accumulators "
             "reset at UTC midnight (01:00 local in summer)."
@@ -1517,9 +1672,8 @@ class TestImmersionNumberGuards:
 
     def test_persist_writes_to_entry_data(self):
         """_persist must call async_update_entry so values survive HA restart."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/number.py").read_text()
+        src = (PKG / "number.py").read_text()
         assert "async_update_entry" in src, (
             "Number entities must persist values to entry.data via async_update_entry. "
             "Without this, coordinator reads stale config defaults on the first cycle "
@@ -1621,9 +1775,8 @@ class TestCheapRateFloor:
 
     def test_floor_resets_at_midnight(self):
         """_floor_top_up_applied flag must reset at midnight so next night works."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         assert "_floor_top_up_applied = False" in src
 
 
@@ -1658,9 +1811,8 @@ class TestEVRediscoveryNullPowerEntity:
     """Coordinator must retry EV discovery when power_entity is None."""
 
     def test_retry_condition_in_source(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         assert "self._ev_charger.power_entity is None" in src, (
             "Without this, a charger cached on boot with no power entity "
             "never gets updated even after the entity appears in HA."
@@ -1676,16 +1828,14 @@ class TestEntityUnavailable:
 
     def test_update_failed_imported(self):
         """UpdateFailed must be imported to signal entity unavailability."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         assert "UpdateFailed" in src
 
     def test_check_is_in_update_cycle(self):
         """UpdateFailed raise must be inside _async_update_data."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         update_fn = src[src.find("async def _async_update_data") :]
         assert "raise UpdateFailed" in update_fn, (
             "_async_update_data must raise UpdateFailed when GivTCP is silent."
@@ -1693,9 +1843,8 @@ class TestEntityUnavailable:
 
     def test_both_sensors_must_be_stale(self):
         """Guard must use AND — a single stale sensor should not trigger unavailability."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         check_block = src[src.find("async def _async_update_data") : src.find("raise UpdateFailed")]
         assert " and " in check_block, (
             "Both solar AND battery must be unavailable before raising — "
@@ -1704,18 +1853,16 @@ class TestEntityUnavailable:
 
     def test_unavailable_and_unknown_both_treated_as_stale(self):
         """'unavailable' and 'unknown' must both be considered stale states."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         check_block = src[src.find("async def _async_update_data") : src.find("raise UpdateFailed")]
         assert '"unavailable"' in check_block, "Must treat 'unavailable' state as stale"
         assert '"unknown"' in check_block, "Must treat 'unknown' state as stale"
 
     def test_quality_scale_yaml_updated(self):
         """quality_scale.yaml must mark entity-unavailable as done."""
-        from pathlib import Path
 
-        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        qs = (PKG / "quality_scale.yaml").read_text()
         # Find the entity-unavailable entry
         idx = qs.find("entity-unavailable")
         assert idx != -1, "entity-unavailable must exist in quality_scale.yaml"
@@ -1783,8 +1930,7 @@ class TestLogWhenUnavailable:
         assert coord._givtcp_was_unavailable is False
 
     def test_quality_scale_log_when_unavailable_is_done(self):
-        from pathlib import Path
-        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        qs = (PKG / "quality_scale.yaml").read_text()
         idx = qs.find("log-when-unavailable")
         assert idx != -1
         assert "done" in qs[idx : idx + 60]
@@ -1794,29 +1940,25 @@ class TestActionExceptions:
     """get_dashboard_yaml must raise ServiceValidationError when not configured."""
 
     def test_raises_service_validation_error_when_no_entry(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        src = (PKG / "dashboard.py").read_text()
         assert "ServiceValidationError" in src
 
     def test_no_config_entry_key_in_strings(self):
         import json
-        from pathlib import Path
         strings = json.loads(
-            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+            (PKG / "strings.json").read_text()
         )
         assert "no_config_entry" in strings["exceptions"]
 
     def test_no_config_entry_key_in_translations(self):
         import json
-        from pathlib import Path
         translations = json.loads(
-            Path("custom_components/givenergy_inverter_manager/translations/en.json").read_text()
+            (PKG / "translations/en.json").read_text()
         )
         assert "no_config_entry" in translations["exceptions"]
 
     def test_quality_scale_action_exceptions_is_done(self):
-        from pathlib import Path
-        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        qs = (PKG / "quality_scale.yaml").read_text()
         idx = qs.find("action-exceptions")
         assert idx != -1
         assert "done" in qs[idx : idx + 80]
@@ -1827,16 +1969,14 @@ class TestIconTranslations:
 
     def _load_icons(self):
         import json
-        from pathlib import Path
-        path = Path("custom_components/givenergy_inverter_manager/icons.json")
+        path = (PKG / "icons.json")
         assert path.exists(), "icons.json must exist"
         return json.loads(path.read_text())
 
     def _load_strings(self):
         import json
-        from pathlib import Path
         return json.loads(
-            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+            (PKG / "strings.json").read_text()
         )
 
     def test_icons_json_is_valid_json(self):
@@ -1938,14 +2078,10 @@ class TestRepairIssues:
         assert any("min_soc_too_high" in call for call in calls)
 
     def test_repairs_module_exists(self):
-        from pathlib import Path
-        assert Path(
-            "custom_components/givenergy_inverter_manager/repairs.py"
-        ).exists()
+        assert (PKG / "repairs.py").exists()
 
     def test_quality_scale_repair_issues_is_done(self):
-        from pathlib import Path
-        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        qs = (PKG / "quality_scale.yaml").read_text()
         idx = qs.find("repair-issues")
         assert idx != -1
         assert "done" in qs[idx : idx + 80]
@@ -1955,14 +2091,12 @@ class TestDashboardServiceValidationError:
     """get_dashboard_yaml raises ServiceValidationError when no entries exist."""
 
     def test_service_validation_error_imported_in_dashboard(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        src = (PKG / "dashboard.py").read_text()
         assert "ServiceValidationError" in src
         assert "no_config_entry" in src
 
     def test_raises_service_validation_error_when_no_entry_in_source(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        src = (PKG / "dashboard.py").read_text()
         handler_block = src[src.find("def handle_get_dashboard_yaml"):]
         assert "require_loaded_entries(hass)" in handler_block
         helper_block = src[src.find("def require_loaded_entries"):src.find("def _entity_id")]
@@ -2100,16 +2234,12 @@ class TestInverterTemperature:
         assert data.inverter_temperature_status == INVERTER_TEMP_STATUS_UNKNOWN
 
     def test_inverter_temp_in_discovery_map(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        src = (PKG / "config_flow.py").read_text()
         assert "inverter_temp" in src
         assert "CONF_INVERTER_TEMP_ENTITY" in src
 
     def test_inverter_temp_suffix_in_givtcp_discovery(self):
-        from pathlib import Path
-        src = Path(
-            "custom_components/givenergy_inverter_manager/discovery/givtcp.py"
-        ).read_text()
+        src = (PKG / "discovery/givtcp.py").read_text()
         assert "_invertor_temperature" in src
 class TestMissedSolar:
     """Missed solar accumulates when battery full, exporting, no flex load active."""
@@ -2154,13 +2284,11 @@ class TestMissedSolar:
         assert acc.missed_solar_kwh == pytest.approx(0.0)
 
     def test_missed_solar_in_sensor_descriptions(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        src = (PKG / "sensor.py").read_text()
         assert "missed_solar_today" in src
 
     def test_missed_solar_disabled_by_default(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        src = (PKG / "sensor.py").read_text()
         # Find the missed_solar_today block and check it has enabled_default=False
         idx = src.find('"missed_solar_today"')
         block = src[idx:idx+400]
@@ -2265,20 +2393,17 @@ class TestLiveGridCostRate:
         assert data.live_grid_cost_rate == pytest.approx(0.0)
 
     def test_live_grid_cost_rate_in_sensor_descriptions(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        src = (PKG / "sensor.py").read_text()
         assert "live_grid_cost_rate" in src
 
     def test_income_bar_markdown_removed_from_dashboard(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        src = (PKG / "dashboard.py").read_text()
         # The Jinja2 template strings from the income bar should be gone
         assert "Earning €" not in src
         assert "Spending €" not in src
 
     def test_grid_node_secondary_info_uses_live_rate(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/dashboard_builder.py").read_text()
+        src = (PKG / "dashboard_builder.py").read_text()
         assert "live_grid_cost_rate" in src
 
 
@@ -2336,7 +2461,7 @@ class TestCheapRateFloorWriteSafety:
     async def test_writes_integer_target_and_enables_switch(self):
         from unittest.mock import AsyncMock, patch
 
-        coord, cfg = self._coord(target_now="100")
+        coord, cfg = self._coord(target_now="20")
         with patch(
             "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
             new=AsyncMock(),
@@ -2368,7 +2493,7 @@ class TestCheapRateFloorWriteSafety:
     async def test_cooldown_does_not_block_a_different_value(self):
         from unittest.mock import AsyncMock, patch
 
-        coord, cfg = self._coord(target_now="100")
+        coord, cfg = self._coord(target_now="20")
         with patch(
             "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
             new=AsyncMock(),
@@ -2383,7 +2508,7 @@ class TestCheapRateFloorWriteSafety:
     async def test_counts_register_writes(self):
         from unittest.mock import AsyncMock, patch
 
-        coord, cfg = self._coord(target_now="100")
+        coord, cfg = self._coord(target_now="20")
         with patch(
             "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
             new=AsyncMock(),
@@ -2391,6 +2516,90 @@ class TestCheapRateFloorWriteSafety:
             await coord._write_floor_target(cfg, "number.target_soc", 40)
 
         assert coord._register_write_count == 2
+
+
+class TestCheapRateFloorNeverLowersTarget:
+    """The floor top-up raises a low charge target. It never lowers a higher one."""
+
+    @staticmethod
+    def _now():
+        from zoneinfo import ZoneInfo
+
+        return datetime(2024, 7, 10, 2, 30, tzinfo=ZoneInfo("Europe/Dublin"))
+
+    @staticmethod
+    def _coord(target_now: str | None):
+        cfg = _cfg()
+        coord = FakeCoordinator(cfg=cfg)
+        if target_now is not None:
+            coord.set_state("number.target_soc", target_now)
+        coord.set_state("switch.enable_charge_target", "off")
+        return coord, cfg
+
+    @staticmethod
+    def _target_writes(coord):
+        return [c["value"] for c in coord.service_calls_for("number", "set_value")]
+
+    async def _run(self, coord, cfg, soc=30.0):
+        from unittest.mock import AsyncMock, patch
+
+        with patch(
+            "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
+            new=AsyncMock(),
+        ):
+            return await coord._maybe_apply_cheap_rate_floor(self._now(), _raw(battery_soc=soc), cfg)
+
+    @pytest.mark.asyncio
+    async def test_overnight_target_of_80_is_not_lowered_to_the_floor(self):
+        coord, cfg = self._coord("80")
+        result = await self._run(coord, cfg)
+        assert "topping up" in result.lower()
+        assert 40 not in self._target_writes(coord)
+        assert coord._states["number.target_soc"].state == "80"
+
+    @pytest.mark.asyncio
+    async def test_target_below_the_floor_is_raised_to_the_floor(self):
+        coord, cfg = self._coord("20")
+        await self._run(coord, cfg)
+        assert self._target_writes(coord) == [40]
+
+    @pytest.mark.asyncio
+    async def test_target_equal_to_the_floor_is_left_alone(self):
+        coord, cfg = self._coord("40")
+        await self._run(coord, cfg)
+        assert self._target_writes(coord) == []
+
+    @pytest.mark.asyncio
+    async def test_unreadable_target_falls_back_to_the_floor(self):
+        coord, cfg = self._coord("unavailable")
+        await self._run(coord, cfg)
+        assert self._target_writes(coord) == [40]
+
+    @pytest.mark.asyncio
+    async def test_missing_target_state_falls_back_to_the_floor(self):
+        coord, cfg = self._coord(None)
+        await self._run(coord, cfg)
+        assert self._target_writes(coord) == [40]
+
+    @pytest.mark.asyncio
+    async def test_floor_never_writes_above_the_cap(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            GIVTCP_MAX_CHARGE_TARGET_PCT,
+        )
+
+        coord, cfg = self._coord("20")
+        cfg["cheap_rate_floor_soc"] = 150
+        await self._run(coord, cfg)
+        assert self._target_writes(coord) == [GIVTCP_MAX_CHARGE_TARGET_PCT]
+
+    @pytest.mark.asyncio
+    async def test_higher_target_still_enables_the_charge_target_and_sets_the_flag(self):
+        coord, cfg = self._coord("80")
+        await self._run(coord, cfg)
+        assert coord.service_calls_for("switch", "turn_on") == [
+            {"entity_id": "switch.enable_charge_target"}
+        ]
+        assert coord._floor_top_up_applied is True
 
 
 class TestSensorDropouts:
@@ -2984,6 +3193,7 @@ class TestChargeTargetClamp:
     @pytest.mark.asyncio
     async def test_floor_target_is_clamped(self):
         coord, cfg = _write_coord()
+        coord.set_state("number.target_soc", "2")
         assert await coord._write_floor_target(cfg, "number.target_soc", 1) is True
         assert coord.service_calls_for("number", "set_value") == [
             {"entity_id": "number.target_soc", "value": 4}
@@ -2992,6 +3202,7 @@ class TestChargeTargetClamp:
     @pytest.mark.asyncio
     async def test_floor_does_not_enable_the_target_when_the_number_write_fails(self):
         coord, cfg = _write_coord({"number.target_soc"})
+        coord.set_state("number.target_soc", "20")
         assert await coord._write_floor_target(cfg, "number.target_soc", 40) is False
         assert coord.service_calls_for("switch", "turn_on") == []
 
@@ -3031,3 +3242,52 @@ class TestRegisterWriteCountPersistence:
         with caplog.at_level(logging.WARNING):
             await coord._givtcp_set_number("number.target_soc", 80, "target")
         assert not any("rated lifetime" in r.getMessage() for r in caplog.records)
+
+
+class TestBackgroundTasks:
+    """Fire-and-forget work is owned by the config entry and never raises."""
+
+    def test_create_task_hands_the_work_to_the_config_entry(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.entry.async_create_task = MagicMock()
+        coro = coord._call_service("switch", "turn_on", {"entity_id": "switch.x"})
+
+        GivEnergyCoordinator._create_task(coord, coro)
+
+        coord.entry.async_create_task.assert_called_once()
+        args = coord.entry.async_create_task.call_args.args
+        assert args[0] is coord.hass
+        args[1].close()
+        coro.close()
+
+    async def test_run_background_awaits_the_work(self):
+        coord = FakeCoordinator(cfg=_cfg())
+
+        await GivEnergyCoordinator._run_background(
+            coord, coord._call_service("switch", "turn_on", {"entity_id": "switch.x"})
+        )
+
+        assert coord.service_calls_for("switch", "turn_on") == [{"entity_id": "switch.x"}]
+
+    async def test_run_background_logs_a_failure_and_does_not_raise(self, caplog):
+        coord = FakeCoordinator(cfg=_cfg())
+
+        async def broken():
+            raise RuntimeError("charger offline")
+
+        with caplog.at_level(logging.WARNING):
+            await GivEnergyCoordinator._run_background(coord, broken())
+
+        messages = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("charger offline" in m for m in messages)
+
+    async def test_run_background_lets_cancellation_through(self):
+        import asyncio
+
+        coord = FakeCoordinator(cfg=_cfg())
+
+        async def cancelled():
+            raise asyncio.CancelledError
+
+        with pytest.raises(asyncio.CancelledError):
+            await GivEnergyCoordinator._run_background(coord, cancelled())
