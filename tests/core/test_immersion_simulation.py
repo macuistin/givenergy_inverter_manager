@@ -7,7 +7,7 @@ import math
 import pytest
 
 from custom_components.givenergy_inverter_manager.const import GIVTCP_MIN_WRITE_INTERVAL_S
-from custom_components.givenergy_inverter_manager.core.rules import should_divert_to_immersion
+from tests.core.flat_rules import should_divert_to_immersion
 
 CYCLES = 200
 CYCLE_S = 30
