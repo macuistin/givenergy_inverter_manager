@@ -89,6 +89,15 @@ from .battery import (
 )
 from .rules import (
     ChargeDecision,
+    ChargeInputs,
+    DivertPolicy,
+    ImmersionInputs,
+    ImmersionRun,
+    PowerReadings,
+    PreBoostInputs,
+    SolarForecast,
+    SurplusInputs,
+    WaterState,
     available_surplus_w,
     calculate_overnight_charge_target,
     calculate_pre_boost_export_opportunity,
@@ -400,7 +409,9 @@ def _accumulate_immersion_savings(  # noqa: PLR0913
     solar_surplus_w = max(
         0.0,
         available_surplus_w(
-            raw.solar_power_w, raw.house_load_w, raw.battery_power_w, True, immersion_w
+            SurplusInputs(
+                raw.solar_power_w, raw.house_load_w, raw.battery_power_w, True, immersion_w
+            )
         ),
     )
     solar_to_immersion_w = min(immersion_w, solar_surplus_w)
@@ -665,11 +676,13 @@ def _initialize_coordinator_data(  # noqa: PLR0913, PLR0915
         data.net_solar_surplus_w = max(
             0.0,
             available_surplus_w(
-                raw.smoothed_solar_power_w,
-                raw.house_load_w,
-                0.0,
-                raw.immersion_on,
-                raw.immersion_wattage_w,
+                SurplusInputs(
+                    raw.smoothed_solar_power_w,
+                    raw.house_load_w,
+                    0.0,
+                    raw.immersion_on,
+                    raw.immersion_wattage_w,
+                )
             ),
         )
     data.rest_of_house_w = max(
@@ -775,24 +788,38 @@ def _set_immersion_decision(  # noqa: PLR0913
     else:
         missing = set(raw.unavailable_inputs)
         data.should_divert_immersion, data.divert_reason = should_divert_to_immersion(
-            solar_power_w=None if "solar_power" in missing else raw.smoothed_solar_power_w,
-            house_load_w=None if "house_load" in missing else raw.house_load_w,
-            battery_soc=raw.battery_soc,
-            battery_power_w=None if "battery_power" in missing else raw.battery_power_w,
-            inverter_max_w=raw.inverter_max_w,
-            immersion_temp=raw.immersion_temp,
-            immersion_target_temp=raw.immersion_target_temp,
-            immersion_min_temp=raw.immersion_min_temp,
-            immersion_hysteresis_c=raw.immersion_hysteresis_c,
-            currently_on=raw.immersion_on,
-            soc_threshold=int(cfg.get(CONF_SURPLUS_DIVERT_SOC, SURPLUS_DIVERT_SOC_THRESHOLD)),
-            min_surplus_w=float(cfg.get(CONF_SURPLUS_DIVERT_MIN_W, SURPLUS_DIVERT_MIN_POWER_W)),
-            battery_cycle_cost_per_kwh=cycle_cost,
-            export_rate=export_rate,
-            immersion_power_w=raw.immersion_wattage_w,
-            immersion_temp_unavailable="immersion_temp" in missing,
-            unavailable_for_s=raw.unavailable_for_s,
-            currency_symbol=data.currency_symbol,
+            ImmersionInputs(
+                power=PowerReadings(
+                    solar_power_w=None if "solar_power" in missing else raw.smoothed_solar_power_w,
+                    house_load_w=None if "house_load" in missing else raw.house_load_w,
+                    battery_power_w=None if "battery_power" in missing else raw.battery_power_w,
+                    battery_soc=raw.battery_soc,
+                    inverter_max_w=raw.inverter_max_w,
+                    immersion_power_w=raw.immersion_wattage_w,
+                ),
+                water=WaterState(
+                    temp=raw.immersion_temp,
+                    target_temp=raw.immersion_target_temp,
+                    min_temp=raw.immersion_min_temp,
+                    hysteresis_c=raw.immersion_hysteresis_c,
+                    temp_unavailable="immersion_temp" in missing,
+                ),
+                policy=DivertPolicy(
+                    soc_threshold=int(
+                        cfg.get(CONF_SURPLUS_DIVERT_SOC, SURPLUS_DIVERT_SOC_THRESHOLD)
+                    ),
+                    min_surplus_w=float(
+                        cfg.get(CONF_SURPLUS_DIVERT_MIN_W, SURPLUS_DIVERT_MIN_POWER_W)
+                    ),
+                    battery_cycle_cost_per_kwh=cycle_cost,
+                    export_rate=export_rate,
+                    currency_symbol=data.currency_symbol,
+                ),
+                run=ImmersionRun(
+                    currently_on=raw.immersion_on,
+                    unavailable_for_s=raw.unavailable_for_s,
+                ),
+            )
         )
 
 
@@ -994,25 +1021,29 @@ def build_coordinator_data(  # noqa: C901, PLR0912, PLR0913, PLR0915
     skip_threshold = int(cfg.get(CONF_SKIP_CHARGE_SOC_THRESHOLD, DEFAULT_SKIP_CHARGE_SOC_THRESHOLD))
 
     data.charge_decision = calculate_overnight_charge_target(
-        current_soc=raw.battery_soc,
-        battery_capacity_kwh=raw.battery_capacity_kwh,
-        forecast_kwh=raw.forecast_kwh_tomorrow,
-        inverter_max_kw=raw.inverter_max_w / 1000,
-        car_plugged_in=raw.ev_plugged_in,
-        min_soc=min_soc,
-        skip_charge_threshold=skip_threshold,
-        average_daily_consumption_kwh=avg_daily_kwh,
-        cheapest_rate=tariff.get_cheapest_rate().rate,
-        solar_fractions=solar_fractions,
-        load_profile=load_profile,
-        forecast_correction=forecast_correction,
-        forecast_kwh_p10=raw.forecast_kwh_p10,
-        forecast_kwh_d2=raw.forecast_kwh_d2,
-        solar_generating=raw.solar_power_w >= SOLAR_NOISE_FLOOR_W,
-        forecast_conservatism=float(
-            cfg.get(CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM)
+        ChargeInputs(
+            current_soc=raw.battery_soc,
+            battery_capacity_kwh=raw.battery_capacity_kwh,
+            min_soc=min_soc,
+            skip_charge_threshold=skip_threshold,
+            car_plugged_in=raw.ev_plugged_in,
+            inverter_max_kw=raw.inverter_max_w / 1000,
+            average_daily_consumption_kwh=avg_daily_kwh,
+            cheapest_rate=tariff.get_cheapest_rate().rate,
+            load_profile=load_profile,
+            solar_generating=raw.solar_power_w >= SOLAR_NOISE_FLOOR_W,
         ),
-        dt=now,
+        SolarForecast(
+            forecast_kwh=raw.forecast_kwh_tomorrow,
+            solar_fractions=solar_fractions,
+            forecast_kwh_p10=raw.forecast_kwh_p10,
+            forecast_conservatism=float(
+                cfg.get(CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM)
+            ),
+            forecast_kwh_d2=raw.forecast_kwh_d2,
+            forecast_correction=forecast_correction,
+        ),
+        now,
     )
 
     max_target = int(cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
@@ -1058,12 +1089,14 @@ def build_coordinator_data(  # noqa: C901, PLR0912, PLR0913, PLR0915
             data.pre_boost_export_net_gain,
             data.pre_boost_export_recommended,
         ) = calculate_pre_boost_export_opportunity(
-            current_soc=raw.battery_soc,
-            battery_capacity_kwh=raw.battery_capacity_kwh,
-            target_soc=data.charge_decision.target_soc,
-            avg_daily_kwh=avg_daily_kwh,
-            ceg_rate=tariff.export_rate,
-            cheapest_rate=tariff.get_cheapest_rate().rate,
+            PreBoostInputs(
+                current_soc=raw.battery_soc,
+                battery_capacity_kwh=raw.battery_capacity_kwh,
+                target_soc=data.charge_decision.target_soc,
+                avg_daily_kwh=avg_daily_kwh,
+                ceg_rate=tariff.export_rate,
+                cheapest_rate=tariff.get_cheapest_rate().rate,
+            )
         )
 
     # ── EV km charged today ──────────────────────────────────────────────────

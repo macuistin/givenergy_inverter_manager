@@ -7,10 +7,8 @@ import pytest
 
 from custom_components.givenergy_inverter_manager.accumulation import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.core.battery import hours_until_solar
-from custom_components.givenergy_inverter_manager.core.optimizer import (
-    calculate_overnight_charge_target,
-)
 from tests.conftest import _nightboost_cfg, _raw, _run
+from tests.core.flat_rules import calculate_overnight_charge_target
 
 
 class TestHoursUntilSolar:

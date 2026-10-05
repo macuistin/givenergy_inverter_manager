@@ -2,9 +2,9 @@
 
 from datetime import datetime
 
-from custom_components.givenergy_inverter_manager.core.optimizer import (
+from custom_components.givenergy_inverter_manager.core.optimizer import monthly_solar_fractions
+from tests.core.flat_rules import (
     calculate_overnight_charge_target,
-    monthly_solar_fractions,
     should_divert_to_immersion,
     suggest_appliance_run,
 )
@@ -272,9 +272,7 @@ class TestImmersionDivertClippingPath:
         threshold, the immersion should activate even if net surplus calculation
         is marginal — the clipping itself signals abundant solar.
         """
-        from custom_components.givenergy_inverter_manager.core.optimizer import (
-            should_divert_to_immersion,
-        )
+        from tests.core.flat_rules import should_divert_to_immersion
 
         # Solar at 97% of inverter max — definite clipping
         # But house load is high so net_surplus_w < min_surplus_w
@@ -304,9 +302,7 @@ class TestSuggestApplianceRunDayRatePath:
         At peak day rate with no solar surplus, suggestion should be False
         and the reason should include cost information.
         """
-        from custom_components.givenergy_inverter_manager.core.optimizer import (
-            suggest_appliance_run,
-        )
+        from tests.core.flat_rules import suggest_appliance_run
 
         is_good, reason = suggest_appliance_run(
             solar_power_w=100.0,  # negligible solar
@@ -328,9 +324,7 @@ class TestSuggestApplianceRunDayRatePath:
         Battery is medium SoC and rate is moderate — no strong case either way.
         Should return False with a neutral reason.
         """
-        from custom_components.givenergy_inverter_manager.core.optimizer import (
-            suggest_appliance_run,
-        )
+        from tests.core.flat_rules import suggest_appliance_run
 
         is_good, reason = suggest_appliance_run(
             solar_power_w=1000.0,
@@ -369,9 +363,7 @@ class TestOvernightChargeEdgeCases:
 
     def test_car_plugged_in_adds_buffer_to_target(self):
         """Car plugged in should result in a higher target than without."""
-        from custom_components.givenergy_inverter_manager.core.optimizer import (
-            calculate_overnight_charge_target,
-        )
+        from tests.core.flat_rules import calculate_overnight_charge_target
 
         without_car = calculate_overnight_charge_target(
             **self._base(car_plugged_in=False, forecast_kwh=8.0)
@@ -383,9 +375,7 @@ class TestOvernightChargeEdgeCases:
 
     def test_zero_forecast_gives_high_target(self):
         """Zero kWh forecast (e.g. storm warning) should give near-maximum target."""
-        from custom_components.givenergy_inverter_manager.core.optimizer import (
-            calculate_overnight_charge_target,
-        )
+        from tests.core.flat_rules import calculate_overnight_charge_target
 
         decision = calculate_overnight_charge_target(
             **self._base(
@@ -399,9 +389,7 @@ class TestOvernightChargeEdgeCases:
         """Battery essentially full + excellent summer forecast = skip charge."""
         from datetime import datetime
 
-        from custom_components.givenergy_inverter_manager.core.optimizer import (
-            calculate_overnight_charge_target,
-        )
+        from tests.core.flat_rules import calculate_overnight_charge_target
 
         decision = calculate_overnight_charge_target(
             **self._base(
