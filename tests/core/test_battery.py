@@ -1,16 +1,18 @@
 """Unit tests for the battery module."""
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
 from custom_components.givenergy_inverter_manager.core.battery import (
     TYPICAL_RATED_CYCLES,
     BatteryStats,
+    SurvivalReport,
     calculate_cycle_increment,
-    estimate_will_survive_night,
 )
-from custom_components.givenergy_inverter_manager.core.engine import update_battery_stats
+from tests.core.flat_battery import FROZEN_TODAY, estimate_will_survive_night, update_battery_stats
+
+TODAY = FROZEN_TODAY
 
 
 class TestBatteryStats:
@@ -36,20 +38,24 @@ class TestBatteryStats:
 
     def test_days_since_full_charge(self):
         """Days since full charge calculated correctly."""
-        stats = BatteryStats(last_full_charge_date=date(2024, 6, 1))
-        # This will vary by test run date, just check it's a non-negative int
-        assert isinstance(stats.days_since_full_charge, int)
-        assert stats.days_since_full_charge >= 0
+        stats = BatteryStats(last_full_charge_date=date(2026, 6, 1))
+        assert stats.days_since_full_charge_on(TODAY) == 14
+        assert stats.days_since_full_charge_on(date(2026, 6, 1)) == 0
+
+    def test_days_since_full_charge_property_counts_to_the_wall_clock_date(self):
+        stats = BatteryStats(last_full_charge_date=date.today() - timedelta(days=3))
+        assert stats.days_since_full_charge == 3
 
     def test_days_since_full_charge_none(self):
         """Returns None if never fully charged."""
         stats = BatteryStats(last_full_charge_date=None)
         assert stats.days_since_full_charge is None
+        assert stats.days_since_full_charge_on(TODAY) is None
 
     def test_average_daily_cycles_empty(self):
         """Returns 0 if no cycle history."""
         stats = BatteryStats()
-        assert stats.average_daily_cycles == 0.0
+        assert stats.average_daily_cycles(TODAY) == 0.0
 
     def test_full_cycle(self):
         """A 100% fall in SoC = 1.0 cycle."""
@@ -131,31 +137,29 @@ class TestYearsRemainingEstimate:
 
     @staticmethod
     def _stats(total, start_cycles, days_ago):
-        from datetime import date, timedelta
-
         return BatteryStats(
             total_cycles=total,
-            tracking_start_date=date.today() - timedelta(days=days_ago),
+            tracking_start_date=TODAY - timedelta(days=days_ago),
             tracking_start_cycles=start_cycles,
         )
 
     def test_none_when_tracking_not_started(self):
-        assert BatteryStats(total_cycles=100.0).years_remaining_estimate is None
+        assert BatteryStats(total_cycles=100.0).years_remaining_estimate(TODAY) is None
 
     def test_none_before_minimum_days(self):
-        assert self._stats(total=85.0, start_cycles=79.0, days_ago=6).years_remaining_estimate is None
+        assert self._stats(total=85.0, start_cycles=79.0, days_ago=6).years_remaining_estimate(TODAY) is None
 
     def test_none_when_no_new_cycles(self):
-        assert self._stats(total=79.0, start_cycles=79.0, days_ago=30).years_remaining_estimate is None
+        assert self._stats(total=79.0, start_cycles=79.0, days_ago=30).years_remaining_estimate(TODAY) is None
 
     def test_average_ignores_cycles_before_tracking_started(self):
         stats = self._stats(total=179.0, start_cycles=79.0, days_ago=50)
-        assert stats.average_daily_cycles == pytest.approx(2.0)
+        assert stats.average_daily_cycles(TODAY) == pytest.approx(2.0)
 
     def test_years_remaining_from_rate(self):
         stats = self._stats(total=179.0, start_cycles=79.0, days_ago=50)
         expected = (6000 - 179.0) / (2.0 * 365)
-        assert stats.years_remaining_estimate == pytest.approx(expected)
+        assert stats.years_remaining_estimate(TODAY) == pytest.approx(expected)
 
     def test_first_soc_change_starts_tracking_at_current_total(self):
         stats = BatteryStats(total_cycles=79.0)
@@ -186,29 +190,25 @@ class TestLifetimeCyclesFromBms:
         assert stats.tracking_start_cycles == pytest.approx(38.0)
 
     def test_switching_to_bms_keeps_the_daily_rate(self):
-        from datetime import date, timedelta
-
         stats = BatteryStats(
             total_cycles=10.0,
-            tracking_start_date=date.today() - timedelta(days=10),
+            tracking_start_date=TODAY - timedelta(days=10),
             tracking_start_cycles=0.0,
         )
-        assert stats.average_daily_cycles == pytest.approx(1.0)
+        assert stats.average_daily_cycles(TODAY) == pytest.approx(1.0)
         update_battery_stats(stats, 80.0, None, lifetime_cycles=50.0)
         assert stats.total_cycles == pytest.approx(50.0)
-        assert stats.average_daily_cycles == pytest.approx(1.0)
+        assert stats.average_daily_cycles(TODAY) == pytest.approx(1.0)
 
     def test_later_bms_growth_raises_the_daily_rate(self):
-        from datetime import date, timedelta
-
         stats = BatteryStats(
             total_cycles=10.0,
-            tracking_start_date=date.today() - timedelta(days=10),
+            tracking_start_date=TODAY - timedelta(days=10),
             tracking_start_cycles=0.0,
         )
         update_battery_stats(stats, 80.0, None, lifetime_cycles=50.0)
         update_battery_stats(stats, 80.0, 80.0, lifetime_cycles=55.0)
-        assert stats.average_daily_cycles == pytest.approx(1.5)
+        assert stats.average_daily_cycles(TODAY) == pytest.approx(1.5)
 
     def test_zero_bms_counter_falls_back_to_the_estimate(self):
         stats = BatteryStats(total_cycles=3.0)
@@ -224,16 +224,14 @@ class TestLifetimeCyclesFromBms:
         assert stats.lifetime_from_bms is False
 
     def test_remaining_life_and_years_use_the_bms_total(self):
-        from datetime import date, timedelta
-
         stats = BatteryStats(
             total_cycles=100.0,
-            tracking_start_date=date.today() - timedelta(days=70),
+            tracking_start_date=TODAY - timedelta(days=70),
             tracking_start_cycles=0.0,
         )
         update_battery_stats(stats, 80.0, None, lifetime_cycles=500.0)
         assert stats.estimated_remaining_life_pct == pytest.approx((1 - 500 / 6000) * 100)
-        assert stats.years_remaining_estimate == pytest.approx((6000 - 500) / ((100 / 70) * 365))
+        assert stats.years_remaining_estimate(TODAY) == pytest.approx((6000 - 500) / ((100 / 70) * 365))
 
 
 class TestSurvivalAttributes:
@@ -242,7 +240,7 @@ class TestSurvivalAttributes:
             survival_attributes,
         )
 
-        return survival_attributes(survive, sunrise, min_soc, now, reason)
+        return survival_attributes(SurvivalReport(survive, sunrise, min_soc, now, reason))
 
     def test_critical_explains_with_the_shortfall(self):
         attrs = self._attrs(survive=False, sunrise=10.0, reason="Battery may run low. Shortfall 1.8kWh.")

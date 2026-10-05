@@ -133,7 +133,7 @@ async def _setup_lovelace(hass):
 
 
 async def test_resources_are_read_from_a_real_lovelace(hass, loaded_entry):
-    from custom_components.givenergy_inverter_manager.dashboard_builder import (
+    from custom_components.givenergy_inverter_manager.dashboard import (
         async_lovelace_resource_urls,
     )
 
@@ -148,7 +148,7 @@ async def test_resources_are_read_from_a_real_lovelace(hass, loaded_entry):
 
 
 async def test_resources_are_none_without_lovelace(hass, loaded_entry):
-    from custom_components.givenergy_inverter_manager.dashboard_builder import (
+    from custom_components.givenergy_inverter_manager.dashboard import (
         async_lovelace_resource_urls,
     )
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate docs/sensors.md from the sensor descriptions in sensor.py.
+"""Generate docs/sensors.md from the sensor descriptions in sensor_descriptions/.
 
 The sensor facts (name, key, unit, device class, state class, enabled by
 default, midnight reset) are read from the source with ``ast`` and from
@@ -26,18 +26,19 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PKG = ROOT / "custom_components" / "givenergy_inverter_manager"
-SENSOR_PY = PKG / "sensor.py"
+DESCRIPTIONS_DIR = PKG / "sensor_descriptions"
 EN_JSON = PKG / "translations" / "en.json"
 OUTPUT = ROOT / "docs" / "sensors.md"
 
 DESCRIPTION_CLASS = "GivEnergyManagerSensorDescription"
+TABLE_NAME = "SENSOR_DESCRIPTIONS"
 
 UNITS = {
     "WATT": "W",
     "KILO_WATT_HOUR": "kWh",
     "PERCENTAGE": "%",
     "CELSIUS": "°C",
-    "_CURRENCY_UNIT": "currency",
+    "CURRENCY_UNIT": "currency",
 }
 
 # Group order. Each sensor lands in the first group that claims it: an exact
@@ -432,17 +433,32 @@ def _literal(node: ast.expr | None, default):
     return ast.literal_eval(node)
 
 
-def load_sensors() -> list[dict]:
-    """Read every sensor description from sensor.py, in source order."""
-    tree = ast.parse(SENSOR_PY.read_text(encoding="utf-8"))
-    names = json.loads(EN_JSON.read_text(encoding="utf-8"))["entity"]["sensor"]
+def description_files() -> list[Path]:
+    """Return the theme modules in the order sensor_descriptions/__init__.py joins them."""
+    tree = ast.parse((DESCRIPTIONS_DIR / "__init__.py").read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == TABLE_NAME:
+            return [DESCRIPTIONS_DIR / f"{part.value.value.id}.py" for part in node.value.elts]
+    raise SystemExit(f"{TABLE_NAME} not found in sensor_descriptions/__init__.py")
+
+
+def _description_calls(path: Path) -> list[ast.Call]:
+    """Return the description constructor calls of one module, in source order."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     calls = [
         n
         for n in ast.walk(tree)
         if isinstance(n, ast.Call) and getattr(n.func, "id", "") == DESCRIPTION_CLASS
     ]
+    return sorted(calls, key=lambda n: n.lineno)
+
+
+def load_sensors() -> list[dict]:
+    """Read every sensor description from sensor_descriptions/, in table order."""
+    names = json.loads(EN_JSON.read_text(encoding="utf-8"))["entity"]["sensor"]
+    calls = [call for path in description_files() for call in _description_calls(path)]
     sensors = []
-    for call in sorted(calls, key=lambda n: n.lineno):
+    for call in calls:
         kw = {k.arg: k.value for k in call.keywords}
         key = ast.literal_eval(kw["key"])
         tkey = _literal(kw.get("translation_key"), key)

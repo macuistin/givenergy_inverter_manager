@@ -31,8 +31,13 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
-from .dashboard import async_register_services, async_unregister_services, loaded_entries
 from .logging import get_logger, log_startup
+from .services import (
+    DASHBOARD_FILENAME,
+    async_register_services,
+    async_unregister_services,
+    loaded_entries,
+)
 from .strategy import async_register_strategy
 
 _LOG = get_logger(__name__)
@@ -116,7 +121,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
 
     # Create a placeholder dashboard file so YAML-mode lovelace can reference it
     # immediately without requiring the user to run Refresh Dashboard first.
-    dashboard_path = os.path.join(hass.config.config_dir, "givenergy_dashboard.yaml")
+    dashboard_path = os.path.join(hass.config.config_dir, DASHBOARD_FILENAME)
 
     def _write_placeholder() -> bool:
         if os.path.exists(dashboard_path):

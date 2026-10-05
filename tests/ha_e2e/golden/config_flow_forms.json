@@ -1,0 +1,7247 @@
+{
+ "setup_manual.inverter": {
+  "step_id": "inverter",
+  "errors": {},
+  "placeholders": {
+   "discovered_count": "0"
+  },
+  "fields": [
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "__manual__",
+        "label": "Manual entry"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "discovered_inverter",
+    "required": false,
+    "optional": true,
+    "default": "__manual__"
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "solar_power_entity",
+    "required": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "battery_soc_entity",
+    "required": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "battery_power_entity",
+    "required": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "grid_power_entity",
+    "required": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "house_load_entity",
+    "required": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 100.0,
+      "step": 0.1,
+      "unit_of_measurement": "kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "battery_capacity_kwh",
+    "required": true,
+    "default": 10.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 20.0,
+      "step": 0.1,
+      "unit_of_measurement": "kW",
+      "mode": "slider"
+     }
+    },
+    "name": "inverter_max_output_kw",
+    "required": false,
+    "optional": true,
+    "default": 5.0
+   }
+  ]
+ },
+ "setup_manual.tariff": {
+  "step_id": "tariff",
+  "errors": {},
+  "placeholders": {
+   "scheduling_status": "[--] No scheduling entities detected - manual charging only",
+   "scheduling_detail": "-- target_soc_entity: not found\n-- enable_charge_target_entity: not found\n-- enable_charge_schedule_entity: not found\n-- charge_start_time_entity: not found\n-- charge_end_time_entity: not found"
+  },
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "base_rate",
+    "required": true,
+    "default": 0.3334
+   },
+   {
+    "selector": {
+     "text": {
+      "multiline": false,
+      "multiple": false
+     }
+    },
+    "name": "base_rate_name",
+    "required": false,
+    "optional": true,
+    "default": "Day"
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "export_rate",
+    "required": true,
+    "default": 0.195
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/day",
+      "mode": "slider"
+     }
+    },
+    "name": "standing_charge_per_day",
+    "required": true,
+    "default": 0.8259
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.01,
+      "unit_of_measurement": "EUR/month",
+      "mode": "slider"
+     }
+    },
+    "name": "pso_levy_per_month",
+    "required": true,
+    "default": 1.46
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 30.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "vat_rate",
+    "required": true,
+    "default": 9.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "discount_rate",
+    "required": true,
+    "default": 5.5
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 28.0,
+      "step": 1.0,
+      "mode": "slider"
+     }
+    },
+    "name": "bill_start_day",
+    "required": true,
+    "default": 1
+   },
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "EUR",
+        "label": "EUR (€)"
+       },
+       {
+        "value": "GBP",
+        "label": "GBP (£)"
+       },
+       {
+        "value": "USD",
+        "label": "USD ($)"
+       },
+       {
+        "value": "SEK",
+        "label": "SEK (kr)"
+       },
+       {
+        "value": "NOK",
+        "label": "NOK (kr)"
+       },
+       {
+        "value": "DKK",
+        "label": "DKK (kr)"
+       },
+       {
+        "value": "AUD",
+        "label": "AUD (A$)"
+       },
+       {
+        "value": "CAD",
+        "label": "CAD (C$)"
+       },
+       {
+        "value": "NZD",
+        "label": "NZD (NZ$)"
+       },
+       {
+        "value": "ZAR",
+        "label": "ZAR (R)"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "currency",
+    "required": true,
+    "default": "EUR"
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Night"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.1644
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "23:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "08:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Nightboost"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0965
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "02:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "04:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_3",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_4",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "setup_manual.tariff_with_error": {
+  "step_id": "tariff",
+  "errors": {
+   "base": "rate_period_zero_length"
+  },
+  "placeholders": {
+   "scheduling_status": "[--] No scheduling entities detected - manual charging only",
+   "scheduling_detail": "-- target_soc_entity: not found\n-- enable_charge_target_entity: not found\n-- enable_charge_schedule_entity: not found\n-- charge_start_time_entity: not found\n-- charge_end_time_entity: not found"
+  },
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "base_rate",
+    "description": {
+     "suggested_value": 0.3334
+    },
+    "required": true,
+    "default": 0.3334
+   },
+   {
+    "selector": {
+     "text": {
+      "multiline": false,
+      "multiple": false
+     }
+    },
+    "name": "base_rate_name",
+    "description": {
+     "suggested_value": "Day"
+    },
+    "required": false,
+    "optional": true,
+    "default": "Day"
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "export_rate",
+    "description": {
+     "suggested_value": 0.195
+    },
+    "required": true,
+    "default": 0.195
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/day",
+      "mode": "slider"
+     }
+    },
+    "name": "standing_charge_per_day",
+    "description": {
+     "suggested_value": 0.8259
+    },
+    "required": true,
+    "default": 0.8259
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.01,
+      "unit_of_measurement": "EUR/month",
+      "mode": "slider"
+     }
+    },
+    "name": "pso_levy_per_month",
+    "description": {
+     "suggested_value": 1.46
+    },
+    "required": true,
+    "default": 1.46
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 30.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "vat_rate",
+    "description": {
+     "suggested_value": 9.0
+    },
+    "required": true,
+    "default": 9.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "discount_rate",
+    "description": {
+     "suggested_value": 5.5
+    },
+    "required": true,
+    "default": 5.5
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 28.0,
+      "step": 1.0,
+      "mode": "slider"
+     }
+    },
+    "name": "bill_start_day",
+    "description": {
+     "suggested_value": 1.0
+    },
+    "required": true,
+    "default": 1
+   },
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "EUR",
+        "label": "EUR (€)"
+       },
+       {
+        "value": "GBP",
+        "label": "GBP (£)"
+       },
+       {
+        "value": "USD",
+        "label": "USD ($)"
+       },
+       {
+        "value": "SEK",
+        "label": "SEK (kr)"
+       },
+       {
+        "value": "NOK",
+        "label": "NOK (kr)"
+       },
+       {
+        "value": "DKK",
+        "label": "DKK (kr)"
+       },
+       {
+        "value": "AUD",
+        "label": "AUD (A$)"
+       },
+       {
+        "value": "CAD",
+        "label": "CAD (C$)"
+       },
+       {
+        "value": "NZD",
+        "label": "NZD (NZ$)"
+       },
+       {
+        "value": "ZAR",
+        "label": "ZAR (R)"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "currency",
+    "description": {
+     "suggested_value": "EUR"
+    },
+    "required": true,
+    "default": "EUR"
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Night"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.1644
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "23:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "08:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Nightboost"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0965
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "02:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "04:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": "Empty"
+      },
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.01
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_3",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_4",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "setup_manual.forecast": {
+  "step_id": "forecast",
+  "errors": null,
+  "placeholders": null,
+  "fields": [
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "forecast_solar",
+        "label": "Forecast.Solar"
+       },
+       {
+        "value": "solcast",
+        "label": "Solcast"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "forecast_provider",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "forecast_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "forecast_entity_p10",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "forecast_entity_d2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "carbon_intensity_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.05,
+      "mode": "slider"
+     }
+    },
+    "name": "forecast_conservatism",
+    "required": false,
+    "optional": true,
+    "default": 0.35
+   }
+  ]
+ },
+ "setup_manual.immersion": {
+  "step_id": "immersion",
+  "errors": null,
+  "placeholders": null,
+  "fields": [
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "switch"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_switch_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 500.0,
+      "max": 6000.0,
+      "step": 100.0,
+      "unit_of_measurement": "W",
+      "mode": "slider"
+     }
+    },
+    "name": "immersion_wattage_w",
+    "required": false,
+    "optional": true,
+    "default": 3000
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_temp_sensor_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 40.0,
+      "max": 75.0,
+      "step": 1.0,
+      "unit_of_measurement": "°C",
+      "mode": "slider"
+     }
+    },
+    "name": "immersion_target_temp_c",
+    "required": false,
+    "optional": true,
+    "default": 55
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 30.0,
+      "max": 60.0,
+      "step": 1.0,
+      "unit_of_measurement": "°C",
+      "mode": "slider"
+     }
+    },
+    "name": "immersion_min_temp_c",
+    "required": false,
+    "optional": true,
+    "default": 50
+   }
+  ]
+ },
+ "setup_manual.ev": {
+  "step_id": "ev",
+  "errors": {},
+  "placeholders": {
+   "discovered_count": "0"
+  },
+  "fields": [
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "__manual_ev__",
+        "label": "None / Manual entry"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "discovered_charger",
+    "required": false,
+    "optional": true,
+    "default": "__manual_ev__"
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 5.0,
+      "max": 40.0,
+      "step": 0.1,
+      "unit_of_measurement": "kWh/100km",
+      "mode": "slider"
+     }
+    },
+    "name": "car_efficiency_kwh_per_100km",
+    "required": false,
+    "optional": true,
+    "default": 15.0
+   }
+  ]
+ },
+ "setup_manual.battery": {
+  "step_id": "battery",
+  "errors": null,
+  "placeholders": null,
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 5.0,
+      "max": 30.0,
+      "step": 1.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "battery_min_soc_pct",
+    "required": false,
+    "optional": true,
+    "default": 10
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 80.0,
+      "step": 5.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "cheap_rate_floor_soc",
+    "required": false,
+    "optional": true,
+    "default": 40
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 20.0,
+      "max": 100.0,
+      "step": 1.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "overnight_charge_target_pct",
+    "required": false,
+    "optional": true,
+    "default": 80
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 20.0,
+      "max": 100.0,
+      "step": 1.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "skip_charge_soc_threshold_pct",
+    "required": false,
+    "optional": true,
+    "default": 75
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 50.0,
+      "max": 100.0,
+      "step": 5.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "surplus_divert_soc_pct",
+    "required": false,
+    "optional": true,
+    "default": 80
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 100.0,
+      "max": 2000.0,
+      "step": 100.0,
+      "unit_of_measurement": "W",
+      "mode": "slider"
+     }
+    },
+    "name": "surplus_divert_min_power_w",
+    "required": false,
+    "optional": true,
+    "default": 500
+   }
+  ]
+ },
+ "setup_manual.confirm": {
+  "step_id": "confirm",
+  "errors": null,
+  "placeholders": {
+   "summary": "- Cheapest rate in your saved tariff: Day at 0.3334 EUR/kWh, all day. Your bill runs from the 1st to the last day of the month.\n- Base rate: Day 0.3334. Timed rates: none.\n- Battery 9.5 kWh, inverter 5 kW.\n- Forecast sensor: none, a seasonal estimate is used.\n- Immersion switch: none."
+  },
+  "fields": []
+ },
+ "setup_auto.inverter": {
+  "step_id": "inverter",
+  "errors": {},
+  "placeholders": {
+   "status": "All sensors detected for GivTCP ab1234g567",
+   "discovered_count": "1"
+  },
+  "fields": [
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "__manual__",
+        "label": "Manual entry"
+       },
+       {
+        "value": "ab1234g567",
+        "label": "GivTCP ab1234g567"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "discovered_inverter",
+    "required": false,
+    "optional": true,
+    "default": "ab1234g567"
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 100.0,
+      "step": 0.1,
+      "unit_of_measurement": "kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "battery_capacity_kwh",
+    "required": true,
+    "default": 9.5
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 20.0,
+      "step": 0.1,
+      "unit_of_measurement": "kW",
+      "mode": "slider"
+     }
+    },
+    "name": "inverter_max_output_kw",
+    "required": false,
+    "optional": true,
+    "default": 5.0
+   }
+  ]
+ },
+ "setup_auto.tariff": {
+  "step_id": "tariff",
+  "errors": {},
+  "placeholders": {
+   "scheduling_status": "[OK] All 5 scheduling entities detected - automatic overnight charging enabled",
+   "scheduling_detail": "OK target_soc_entity: number.givtcp_ab1234g567_target_soc\nOK enable_charge_target_entity: switch.givtcp_ab1234g567_enable_charge_target\nOK enable_charge_schedule_entity: switch.givtcp_ab1234g567_enable_charge_schedule\nOK charge_start_time_entity: select.givtcp_ab1234g567_charge_start_time_slot_1\nOK charge_end_time_entity: select.givtcp_ab1234g567_charge_end_time_slot_1"
+  },
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "base_rate",
+    "required": true,
+    "default": 0.3334
+   },
+   {
+    "selector": {
+     "text": {
+      "multiline": false,
+      "multiple": false
+     }
+    },
+    "name": "base_rate_name",
+    "required": false,
+    "optional": true,
+    "default": "Day"
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "export_rate",
+    "required": true,
+    "default": 0.195
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/day",
+      "mode": "slider"
+     }
+    },
+    "name": "standing_charge_per_day",
+    "required": true,
+    "default": 0.8259
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.01,
+      "unit_of_measurement": "EUR/month",
+      "mode": "slider"
+     }
+    },
+    "name": "pso_levy_per_month",
+    "required": true,
+    "default": 1.46
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 30.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "vat_rate",
+    "required": true,
+    "default": 9.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "discount_rate",
+    "required": true,
+    "default": 5.5
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 28.0,
+      "step": 1.0,
+      "mode": "slider"
+     }
+    },
+    "name": "bill_start_day",
+    "required": true,
+    "default": 1
+   },
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "EUR",
+        "label": "EUR (€)"
+       },
+       {
+        "value": "GBP",
+        "label": "GBP (£)"
+       },
+       {
+        "value": "USD",
+        "label": "USD ($)"
+       },
+       {
+        "value": "SEK",
+        "label": "SEK (kr)"
+       },
+       {
+        "value": "NOK",
+        "label": "NOK (kr)"
+       },
+       {
+        "value": "DKK",
+        "label": "DKK (kr)"
+       },
+       {
+        "value": "AUD",
+        "label": "AUD (A$)"
+       },
+       {
+        "value": "CAD",
+        "label": "CAD (C$)"
+       },
+       {
+        "value": "NZD",
+        "label": "NZD (NZ$)"
+       },
+       {
+        "value": "ZAR",
+        "label": "ZAR (R)"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "currency",
+    "required": true,
+    "default": "EUR"
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Night"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.1644
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "23:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "08:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Nightboost"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0965
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "02:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "04:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_3",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_4",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "setup_auto.tariff_with_error": {
+  "step_id": "tariff",
+  "errors": {
+   "base": "rate_period_zero_length"
+  },
+  "placeholders": {
+   "scheduling_status": "[OK] All 5 scheduling entities detected - automatic overnight charging enabled",
+   "scheduling_detail": "OK target_soc_entity: number.givtcp_ab1234g567_target_soc\nOK enable_charge_target_entity: switch.givtcp_ab1234g567_enable_charge_target\nOK enable_charge_schedule_entity: switch.givtcp_ab1234g567_enable_charge_schedule\nOK charge_start_time_entity: select.givtcp_ab1234g567_charge_start_time_slot_1\nOK charge_end_time_entity: select.givtcp_ab1234g567_charge_end_time_slot_1"
+  },
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "base_rate",
+    "description": {
+     "suggested_value": 0.3334
+    },
+    "required": true,
+    "default": 0.3334
+   },
+   {
+    "selector": {
+     "text": {
+      "multiline": false,
+      "multiple": false
+     }
+    },
+    "name": "base_rate_name",
+    "description": {
+     "suggested_value": "Day"
+    },
+    "required": false,
+    "optional": true,
+    "default": "Day"
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "export_rate",
+    "description": {
+     "suggested_value": 0.195
+    },
+    "required": true,
+    "default": 0.195
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/day",
+      "mode": "slider"
+     }
+    },
+    "name": "standing_charge_per_day",
+    "description": {
+     "suggested_value": 0.8259
+    },
+    "required": true,
+    "default": 0.8259
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.01,
+      "unit_of_measurement": "EUR/month",
+      "mode": "slider"
+     }
+    },
+    "name": "pso_levy_per_month",
+    "description": {
+     "suggested_value": 1.46
+    },
+    "required": true,
+    "default": 1.46
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 30.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "vat_rate",
+    "description": {
+     "suggested_value": 9.0
+    },
+    "required": true,
+    "default": 9.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "discount_rate",
+    "description": {
+     "suggested_value": 5.5
+    },
+    "required": true,
+    "default": 5.5
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 28.0,
+      "step": 1.0,
+      "mode": "slider"
+     }
+    },
+    "name": "bill_start_day",
+    "description": {
+     "suggested_value": 1.0
+    },
+    "required": true,
+    "default": 1
+   },
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "EUR",
+        "label": "EUR (€)"
+       },
+       {
+        "value": "GBP",
+        "label": "GBP (£)"
+       },
+       {
+        "value": "USD",
+        "label": "USD ($)"
+       },
+       {
+        "value": "SEK",
+        "label": "SEK (kr)"
+       },
+       {
+        "value": "NOK",
+        "label": "NOK (kr)"
+       },
+       {
+        "value": "DKK",
+        "label": "DKK (kr)"
+       },
+       {
+        "value": "AUD",
+        "label": "AUD (A$)"
+       },
+       {
+        "value": "CAD",
+        "label": "CAD (C$)"
+       },
+       {
+        "value": "NZD",
+        "label": "NZD (NZ$)"
+       },
+       {
+        "value": "ZAR",
+        "label": "ZAR (R)"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "currency",
+    "description": {
+     "suggested_value": "EUR"
+    },
+    "required": true,
+    "default": "EUR"
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Night"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.1644
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "23:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "08:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Nightboost"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0965
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "02:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "04:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": "Empty"
+      },
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.01
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_3",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_4",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "setup_auto.forecast": {
+  "step_id": "forecast",
+  "errors": null,
+  "placeholders": null,
+  "fields": [
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "forecast_solar",
+        "label": "Forecast.Solar"
+       },
+       {
+        "value": "solcast",
+        "label": "Solcast"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "forecast_provider",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "forecast_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "forecast_entity_p10",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "forecast_entity_d2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "carbon_intensity_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.05,
+      "mode": "slider"
+     }
+    },
+    "name": "forecast_conservatism",
+    "required": false,
+    "optional": true,
+    "default": 0.35
+   }
+  ]
+ },
+ "setup_auto.immersion": {
+  "step_id": "immersion",
+  "errors": null,
+  "placeholders": null,
+  "fields": [
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "switch"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_switch_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 500.0,
+      "max": 6000.0,
+      "step": 100.0,
+      "unit_of_measurement": "W",
+      "mode": "slider"
+     }
+    },
+    "name": "immersion_wattage_w",
+    "required": false,
+    "optional": true,
+    "default": 3000
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_temp_sensor_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 40.0,
+      "max": 75.0,
+      "step": 1.0,
+      "unit_of_measurement": "°C",
+      "mode": "slider"
+     }
+    },
+    "name": "immersion_target_temp_c",
+    "required": false,
+    "optional": true,
+    "default": 55
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 30.0,
+      "max": 60.0,
+      "step": 1.0,
+      "unit_of_measurement": "°C",
+      "mode": "slider"
+     }
+    },
+    "name": "immersion_min_temp_c",
+    "required": false,
+    "optional": true,
+    "default": 50
+   }
+  ]
+ },
+ "setup_auto.ev": {
+  "step_id": "ev",
+  "errors": {},
+  "placeholders": {
+   "discovered_count": "0"
+  },
+  "fields": [
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "__manual_ev__",
+        "label": "None / Manual entry"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "discovered_charger",
+    "required": false,
+    "optional": true,
+    "default": "__manual_ev__"
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 5.0,
+      "max": 40.0,
+      "step": 0.1,
+      "unit_of_measurement": "kWh/100km",
+      "mode": "slider"
+     }
+    },
+    "name": "car_efficiency_kwh_per_100km",
+    "required": false,
+    "optional": true,
+    "default": 15.0
+   }
+  ]
+ },
+ "setup_auto.battery": {
+  "step_id": "battery",
+  "errors": null,
+  "placeholders": null,
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 5.0,
+      "max": 30.0,
+      "step": 1.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "battery_min_soc_pct",
+    "required": false,
+    "optional": true,
+    "default": 10
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 80.0,
+      "step": 5.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "cheap_rate_floor_soc",
+    "required": false,
+    "optional": true,
+    "default": 40
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 20.0,
+      "max": 100.0,
+      "step": 1.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "overnight_charge_target_pct",
+    "required": false,
+    "optional": true,
+    "default": 80
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 20.0,
+      "max": 100.0,
+      "step": 1.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "skip_charge_soc_threshold_pct",
+    "required": false,
+    "optional": true,
+    "default": 75
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 50.0,
+      "max": 100.0,
+      "step": 5.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "surplus_divert_soc_pct",
+    "required": false,
+    "optional": true,
+    "default": 80
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 100.0,
+      "max": 2000.0,
+      "step": 100.0,
+      "unit_of_measurement": "W",
+      "mode": "slider"
+     }
+    },
+    "name": "surplus_divert_min_power_w",
+    "required": false,
+    "optional": true,
+    "default": 500
+   }
+  ]
+ },
+ "setup_auto.confirm": {
+  "step_id": "confirm",
+  "errors": null,
+  "placeholders": {
+   "summary": "- Cheapest rate in your saved tariff: Day at 0.3334 EUR/kWh, all day. Your bill runs from the 1st to the last day of the month.\n- Base rate: Day 0.3334. Timed rates: none.\n- Battery 9.5 kWh, inverter 5 kW.\n- Forecast sensor: none, a seasonal estimate is used.\n- Immersion switch: none."
+  },
+  "fields": []
+ },
+ "reconfigure_data_only": {
+  "step_id": "reconfigure",
+  "errors": {},
+  "placeholders": null,
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "base_rate",
+    "required": true,
+    "default": 0.3334
+   },
+   {
+    "selector": {
+     "text": {
+      "multiline": false,
+      "multiple": false
+     }
+    },
+    "name": "base_rate_name",
+    "required": false,
+    "optional": true,
+    "default": "Day"
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "export_rate",
+    "required": true,
+    "default": 0.195
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/day",
+      "mode": "slider"
+     }
+    },
+    "name": "standing_charge_per_day",
+    "required": true,
+    "default": 0.8259
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.01,
+      "unit_of_measurement": "EUR/month",
+      "mode": "slider"
+     }
+    },
+    "name": "pso_levy_per_month",
+    "required": true,
+    "default": 1.46
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 30.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "vat_rate",
+    "required": true,
+    "default": 9.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "discount_rate",
+    "required": true,
+    "default": 5.5
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 28.0,
+      "step": 1.0,
+      "mode": "slider"
+     }
+    },
+    "name": "bill_start_day",
+    "required": true,
+    "default": 16
+   },
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "EUR",
+        "label": "EUR (€)"
+       },
+       {
+        "value": "GBP",
+        "label": "GBP (£)"
+       },
+       {
+        "value": "USD",
+        "label": "USD ($)"
+       },
+       {
+        "value": "SEK",
+        "label": "SEK (kr)"
+       },
+       {
+        "value": "NOK",
+        "label": "NOK (kr)"
+       },
+       {
+        "value": "DKK",
+        "label": "DKK (kr)"
+       },
+       {
+        "value": "AUD",
+        "label": "AUD (A$)"
+       },
+       {
+        "value": "CAD",
+        "label": "CAD (C$)"
+       },
+       {
+        "value": "NZD",
+        "label": "NZD (NZ$)"
+       },
+       {
+        "value": "ZAR",
+        "label": "ZAR (R)"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "currency",
+    "required": true,
+    "default": "EUR"
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Night"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.1644
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "23:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "08:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Nightboost"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0965
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "02:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "04:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_3",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_4",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "reconfigure_with_options": {
+  "step_id": "reconfigure",
+  "errors": {},
+  "placeholders": null,
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "GBP/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "base_rate",
+    "required": true,
+    "default": 0.3334
+   },
+   {
+    "selector": {
+     "text": {
+      "multiline": false,
+      "multiple": false
+     }
+    },
+    "name": "base_rate_name",
+    "required": false,
+    "optional": true,
+    "default": "Standard"
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.001,
+      "unit_of_measurement": "GBP/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "export_rate",
+    "required": true,
+    "default": 0.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "GBP/day",
+      "mode": "slider"
+     }
+    },
+    "name": "standing_charge_per_day",
+    "required": true,
+    "default": 0.8259
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.01,
+      "unit_of_measurement": "GBP/month",
+      "mode": "slider"
+     }
+    },
+    "name": "pso_levy_per_month",
+    "required": true,
+    "default": 1.46
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 30.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "vat_rate",
+    "required": true,
+    "default": 9.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "discount_rate",
+    "required": true,
+    "default": 5.5
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 28.0,
+      "step": 1.0,
+      "mode": "slider"
+     }
+    },
+    "name": "bill_start_day",
+    "required": true,
+    "default": 16
+   },
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "EUR",
+        "label": "EUR (€)"
+       },
+       {
+        "value": "GBP",
+        "label": "GBP (£)"
+       },
+       {
+        "value": "USD",
+        "label": "USD ($)"
+       },
+       {
+        "value": "SEK",
+        "label": "SEK (kr)"
+       },
+       {
+        "value": "NOK",
+        "label": "NOK (kr)"
+       },
+       {
+        "value": "DKK",
+        "label": "DKK (kr)"
+       },
+       {
+        "value": "AUD",
+        "label": "AUD (A$)"
+       },
+       {
+        "value": "CAD",
+        "label": "CAD (C$)"
+       },
+       {
+        "value": "NZD",
+        "label": "NZD (NZ$)"
+       },
+       {
+        "value": "ZAR",
+        "label": "ZAR (R)"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "currency",
+    "required": true,
+    "default": "GBP"
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_3",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_4",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "reconfigure_with_error": {
+  "step_id": "reconfigure",
+  "errors": {
+   "base": "rate_period_zero_length"
+  },
+  "placeholders": null,
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "GBP/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "base_rate",
+    "description": {
+     "suggested_value": 0.3334
+    },
+    "required": true,
+    "default": 0.3334
+   },
+   {
+    "selector": {
+     "text": {
+      "multiline": false,
+      "multiple": false
+     }
+    },
+    "name": "base_rate_name",
+    "description": {
+     "suggested_value": "Standard"
+    },
+    "required": false,
+    "optional": true,
+    "default": "Standard"
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.001,
+      "unit_of_measurement": "GBP/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "export_rate",
+    "description": {
+     "suggested_value": 0.0
+    },
+    "required": true,
+    "default": 0.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "GBP/day",
+      "mode": "slider"
+     }
+    },
+    "name": "standing_charge_per_day",
+    "description": {
+     "suggested_value": 0.8259
+    },
+    "required": true,
+    "default": 0.8259
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.01,
+      "unit_of_measurement": "GBP/month",
+      "mode": "slider"
+     }
+    },
+    "name": "pso_levy_per_month",
+    "description": {
+     "suggested_value": 1.46
+    },
+    "required": true,
+    "default": 1.46
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 30.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "vat_rate",
+    "description": {
+     "suggested_value": 9.0
+    },
+    "required": true,
+    "default": 9.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 20.0,
+      "step": 0.1,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "discount_rate",
+    "description": {
+     "suggested_value": 5.5
+    },
+    "required": true,
+    "default": 5.5
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 28.0,
+      "step": 1.0,
+      "mode": "slider"
+     }
+    },
+    "name": "bill_start_day",
+    "description": {
+     "suggested_value": 16.0
+    },
+    "required": true,
+    "default": 16
+   },
+   {
+    "selector": {
+     "select": {
+      "options": [
+       {
+        "value": "EUR",
+        "label": "EUR (€)"
+       },
+       {
+        "value": "GBP",
+        "label": "GBP (£)"
+       },
+       {
+        "value": "USD",
+        "label": "USD ($)"
+       },
+       {
+        "value": "SEK",
+        "label": "SEK (kr)"
+       },
+       {
+        "value": "NOK",
+        "label": "NOK (kr)"
+       },
+       {
+        "value": "DKK",
+        "label": "DKK (kr)"
+       },
+       {
+        "value": "AUD",
+        "label": "AUD (A$)"
+       },
+       {
+        "value": "CAD",
+        "label": "CAD (C$)"
+       },
+       {
+        "value": "NZD",
+        "label": "NZD (NZ$)"
+       },
+       {
+        "value": "ZAR",
+        "label": "ZAR (R)"
+       }
+      ],
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "currency",
+    "description": {
+     "suggested_value": "GBP"
+    },
+    "required": true,
+    "default": "GBP"
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": ""
+      },
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": "Empty"
+      },
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.01
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": ""
+      },
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_3",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": ""
+      },
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_4",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": ""
+      },
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "options_data_only": {
+  "step_id": "init",
+  "errors": {},
+  "placeholders": {
+   "tariff_summary": "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00. Your bill runs from the 16th to the 15th."
+  },
+  "fields": [
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "base_rate",
+      "required": true,
+      "default": 0.3334
+     },
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "base_rate_name",
+      "required": false,
+      "optional": true,
+      "default": "Day"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "export_rate",
+      "required": true,
+      "default": 0.195
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/day",
+        "mode": "slider"
+       }
+      },
+      "name": "standing_charge_per_day",
+      "required": true,
+      "default": 0.8259
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.01,
+        "unit_of_measurement": "EUR/month",
+        "mode": "slider"
+       }
+      },
+      "name": "pso_levy_per_month",
+      "required": true,
+      "default": 1.46
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 30.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "vat_rate",
+      "required": true,
+      "default": 9.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "discount_rate",
+      "required": true,
+      "default": 5.5
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 28.0,
+        "step": 1.0,
+        "mode": "slider"
+       }
+      },
+      "name": "bill_start_day",
+      "required": true,
+      "default": 16
+     },
+     {
+      "selector": {
+       "select": {
+        "options": [
+         {
+          "value": "EUR",
+          "label": "EUR (€)"
+         },
+         {
+          "value": "GBP",
+          "label": "GBP (£)"
+         },
+         {
+          "value": "USD",
+          "label": "USD ($)"
+         },
+         {
+          "value": "SEK",
+          "label": "SEK (kr)"
+         },
+         {
+          "value": "NOK",
+          "label": "NOK (kr)"
+         },
+         {
+          "value": "DKK",
+          "label": "DKK (kr)"
+         },
+         {
+          "value": "AUD",
+          "label": "AUD (A$)"
+         },
+         {
+          "value": "CAD",
+          "label": "CAD (C$)"
+         },
+         {
+          "value": "NZD",
+          "label": "NZD (NZ$)"
+         },
+         {
+          "value": "ZAR",
+          "label": "ZAR (R)"
+         }
+        ],
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "currency",
+      "required": true,
+      "default": "EUR"
+     }
+    ],
+    "expanded": true,
+    "name": "tariff_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Night"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.1644
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "23:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "08:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Nightboost"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0965
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "02:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "04:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_3",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_4",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 5.0,
+        "max": 30.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_min_soc_pct",
+      "required": false,
+      "optional": true,
+      "default": 10
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 80.0,
+        "step": 5.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "cheap_rate_floor_soc",
+      "required": false,
+      "optional": true,
+      "default": 40
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 20.0,
+        "max": 100.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "overnight_charge_target_pct",
+      "required": false,
+      "optional": true,
+      "default": 80
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 20.0,
+        "max": 100.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "skip_charge_soc_threshold_pct",
+      "required": false,
+      "optional": true,
+      "default": 75
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20000.0,
+        "step": 100.0,
+        "unit_of_measurement": "€",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_cost_eur",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 50.0,
+        "step": 0.5,
+        "unit_of_measurement": "kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_throughput_budget_kwh",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "boolean": {}
+      },
+      "name": "dry_run",
+      "required": false,
+      "optional": true,
+      "default": false
+     },
+     {
+      "selector": {
+       "boolean": {}
+      },
+      "name": "verbose_logging",
+      "required": false,
+      "optional": true,
+      "default": false
+     }
+    ],
+    "expanded": false,
+    "name": "threshold_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "select": {
+        "options": [
+         {
+          "value": "forecast_solar",
+          "label": "Forecast.Solar"
+         },
+         {
+          "value": "solcast",
+          "label": "Solcast"
+         }
+        ],
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "forecast_provider",
+      "description": {
+       "suggested_value": "solcast"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "forecast_entity",
+      "description": {
+       "suggested_value": "sensor.energy_production_tomorrow"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "forecast_entity_p10",
+      "description": {
+       "suggested_value": "sensor.solcast_pv_forecast_forecast_tomorrow_10"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "forecast_entity_d2",
+      "description": {
+       "suggested_value": "sensor.solcast_pv_forecast_forecast_day_3"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "carbon_intensity_entity",
+      "description": {
+       "suggested_value": "sensor.grid_carbon_intensity"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.05,
+        "mode": "slider"
+       }
+      },
+      "name": "forecast_conservatism",
+      "required": false,
+      "optional": true,
+      "default": 0.35
+     }
+    ],
+    "expanded": false,
+    "name": "forecast_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 100.0,
+        "step": 0.1,
+        "unit_of_measurement": "kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_capacity_kwh",
+      "required": false,
+      "optional": true,
+      "default": 9.5
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 20.0,
+        "step": 0.1,
+        "unit_of_measurement": "kW",
+        "mode": "slider"
+       }
+      },
+      "name": "inverter_max_output_kw",
+      "required": false,
+      "optional": true,
+      "default": 5.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 500.0,
+        "max": 6000.0,
+        "step": 100.0,
+        "unit_of_measurement": "W",
+        "mode": "slider"
+       }
+      },
+      "name": "immersion_wattage_w",
+      "required": false,
+      "optional": true,
+      "default": 3000.0
+     }
+    ],
+    "expanded": false,
+    "name": "hardware_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 5.0,
+        "max": 40.0,
+        "step": 0.1,
+        "unit_of_measurement": "kWh/100km",
+        "mode": "slider"
+       }
+      },
+      "name": "car_efficiency_kwh_per_100km",
+      "required": false,
+      "optional": true,
+      "default": 15.0
+     }
+    ],
+    "expanded": false,
+    "name": "ev_settings",
+    "required": true
+   }
+  ]
+ },
+ "options_no_optional_data": {
+  "step_id": "init",
+  "errors": {},
+  "placeholders": {
+   "tariff_summary": "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00. Your bill runs from the 16th to the 15th."
+  },
+  "fields": [
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "base_rate",
+      "required": true,
+      "default": 0.3334
+     },
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "base_rate_name",
+      "required": false,
+      "optional": true,
+      "default": "Day"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "export_rate",
+      "required": true,
+      "default": 0.195
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/day",
+        "mode": "slider"
+       }
+      },
+      "name": "standing_charge_per_day",
+      "required": true,
+      "default": 0.8259
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.01,
+        "unit_of_measurement": "EUR/month",
+        "mode": "slider"
+       }
+      },
+      "name": "pso_levy_per_month",
+      "required": true,
+      "default": 1.46
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 30.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "vat_rate",
+      "required": true,
+      "default": 9.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "discount_rate",
+      "required": true,
+      "default": 5.5
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 28.0,
+        "step": 1.0,
+        "mode": "slider"
+       }
+      },
+      "name": "bill_start_day",
+      "required": true,
+      "default": 16
+     },
+     {
+      "selector": {
+       "select": {
+        "options": [
+         {
+          "value": "EUR",
+          "label": "EUR (€)"
+         },
+         {
+          "value": "GBP",
+          "label": "GBP (£)"
+         },
+         {
+          "value": "USD",
+          "label": "USD ($)"
+         },
+         {
+          "value": "SEK",
+          "label": "SEK (kr)"
+         },
+         {
+          "value": "NOK",
+          "label": "NOK (kr)"
+         },
+         {
+          "value": "DKK",
+          "label": "DKK (kr)"
+         },
+         {
+          "value": "AUD",
+          "label": "AUD (A$)"
+         },
+         {
+          "value": "CAD",
+          "label": "CAD (C$)"
+         },
+         {
+          "value": "NZD",
+          "label": "NZD (NZ$)"
+         },
+         {
+          "value": "ZAR",
+          "label": "ZAR (R)"
+         }
+        ],
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "currency",
+      "required": true,
+      "default": "EUR"
+     }
+    ],
+    "expanded": true,
+    "name": "tariff_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Night"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.1644
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "23:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "08:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": "Nightboost"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0965
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "02:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "04:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_3",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_4",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 5.0,
+        "max": 30.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_min_soc_pct",
+      "required": false,
+      "optional": true,
+      "default": 10
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 80.0,
+        "step": 5.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "cheap_rate_floor_soc",
+      "required": false,
+      "optional": true,
+      "default": 40
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 20.0,
+        "max": 100.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "overnight_charge_target_pct",
+      "required": false,
+      "optional": true,
+      "default": 80
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 20.0,
+        "max": 100.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "skip_charge_soc_threshold_pct",
+      "required": false,
+      "optional": true,
+      "default": 75
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20000.0,
+        "step": 100.0,
+        "unit_of_measurement": "€",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_cost_eur",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 50.0,
+        "step": 0.5,
+        "unit_of_measurement": "kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_throughput_budget_kwh",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "boolean": {}
+      },
+      "name": "dry_run",
+      "required": false,
+      "optional": true,
+      "default": false
+     },
+     {
+      "selector": {
+       "boolean": {}
+      },
+      "name": "verbose_logging",
+      "required": false,
+      "optional": true,
+      "default": false
+     }
+    ],
+    "expanded": false,
+    "name": "threshold_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "select": {
+        "options": [
+         {
+          "value": "forecast_solar",
+          "label": "Forecast.Solar"
+         },
+         {
+          "value": "solcast",
+          "label": "Solcast"
+         }
+        ],
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "forecast_provider",
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "forecast_entity",
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "forecast_entity_p10",
+      "description": {
+       "suggested_value": "sensor.solcast_pv_forecast_forecast_tomorrow_10"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "forecast_entity_d2",
+      "description": {
+       "suggested_value": "sensor.solcast_pv_forecast_forecast_day_3"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "carbon_intensity_entity",
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.05,
+        "mode": "slider"
+       }
+      },
+      "name": "forecast_conservatism",
+      "required": false,
+      "optional": true,
+      "default": 0.35
+     }
+    ],
+    "expanded": false,
+    "name": "forecast_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 100.0,
+        "step": 0.1,
+        "unit_of_measurement": "kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_capacity_kwh",
+      "required": false,
+      "optional": true,
+      "default": 9.5
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 20.0,
+        "step": 0.1,
+        "unit_of_measurement": "kW",
+        "mode": "slider"
+       }
+      },
+      "name": "inverter_max_output_kw",
+      "required": false,
+      "optional": true,
+      "default": 5.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 500.0,
+        "max": 6000.0,
+        "step": 100.0,
+        "unit_of_measurement": "W",
+        "mode": "slider"
+       }
+      },
+      "name": "immersion_wattage_w",
+      "required": false,
+      "optional": true,
+      "default": 3000.0
+     }
+    ],
+    "expanded": false,
+    "name": "hardware_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 5.0,
+        "max": 40.0,
+        "step": 0.1,
+        "unit_of_measurement": "kWh/100km",
+        "mode": "slider"
+       }
+      },
+      "name": "car_efficiency_kwh_per_100km",
+      "required": false,
+      "optional": true,
+      "default": 15.0
+     }
+    ],
+    "expanded": false,
+    "name": "ev_settings",
+    "required": true
+   }
+  ]
+ },
+ "options_with_overrides": {
+  "step_id": "init",
+  "errors": {},
+  "placeholders": {
+   "tariff_summary": "Cheapest rate in your saved tariff: Standard at 0.3334 GBP/kWh, all day. Your bill runs from the 16th to the 15th."
+  },
+  "fields": [
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "base_rate",
+      "required": true,
+      "default": 0.3334
+     },
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "base_rate_name",
+      "required": false,
+      "optional": true,
+      "default": "Standard"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "export_rate",
+      "required": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/day",
+        "mode": "slider"
+       }
+      },
+      "name": "standing_charge_per_day",
+      "required": true,
+      "default": 0.8259
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.01,
+        "unit_of_measurement": "GBP/month",
+        "mode": "slider"
+       }
+      },
+      "name": "pso_levy_per_month",
+      "required": true,
+      "default": 1.46
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 30.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "vat_rate",
+      "required": true,
+      "default": 9.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "discount_rate",
+      "required": true,
+      "default": 5.5
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 28.0,
+        "step": 1.0,
+        "mode": "slider"
+       }
+      },
+      "name": "bill_start_day",
+      "required": true,
+      "default": 16
+     },
+     {
+      "selector": {
+       "select": {
+        "options": [
+         {
+          "value": "EUR",
+          "label": "EUR (€)"
+         },
+         {
+          "value": "GBP",
+          "label": "GBP (£)"
+         },
+         {
+          "value": "USD",
+          "label": "USD ($)"
+         },
+         {
+          "value": "SEK",
+          "label": "SEK (kr)"
+         },
+         {
+          "value": "NOK",
+          "label": "NOK (kr)"
+         },
+         {
+          "value": "DKK",
+          "label": "DKK (kr)"
+         },
+         {
+          "value": "AUD",
+          "label": "AUD (A$)"
+         },
+         {
+          "value": "CAD",
+          "label": "CAD (C$)"
+         },
+         {
+          "value": "NZD",
+          "label": "NZD (NZ$)"
+         },
+         {
+          "value": "ZAR",
+          "label": "ZAR (R)"
+         }
+        ],
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "currency",
+      "required": true,
+      "default": "GBP"
+     }
+    ],
+    "expanded": true,
+    "name": "tariff_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_3",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_4",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 5.0,
+        "max": 30.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_min_soc_pct",
+      "required": false,
+      "optional": true,
+      "default": 10
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 80.0,
+        "step": 5.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "cheap_rate_floor_soc",
+      "required": false,
+      "optional": true,
+      "default": 0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 20.0,
+        "max": 100.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "overnight_charge_target_pct",
+      "required": false,
+      "optional": true,
+      "default": 80
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 20.0,
+        "max": 100.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "skip_charge_soc_threshold_pct",
+      "required": false,
+      "optional": true,
+      "default": 75
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20000.0,
+        "step": 100.0,
+        "unit_of_measurement": "£",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_cost_eur",
+      "required": false,
+      "optional": true,
+      "default": 4500.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 50.0,
+        "step": 0.5,
+        "unit_of_measurement": "kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_throughput_budget_kwh",
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "boolean": {}
+      },
+      "name": "dry_run",
+      "required": false,
+      "optional": true,
+      "default": true
+     },
+     {
+      "selector": {
+       "boolean": {}
+      },
+      "name": "verbose_logging",
+      "required": false,
+      "optional": true,
+      "default": true
+     }
+    ],
+    "expanded": false,
+    "name": "threshold_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "select": {
+        "options": [
+         {
+          "value": "forecast_solar",
+          "label": "Forecast.Solar"
+         },
+         {
+          "value": "solcast",
+          "label": "Solcast"
+         }
+        ],
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "forecast_provider",
+      "description": {
+       "suggested_value": "forecast_solar"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "forecast_entity",
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "forecast_entity_p10",
+      "description": {
+       "suggested_value": "sensor.solcast_pv_forecast_forecast_tomorrow_10"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "forecast_entity_d2",
+      "description": {
+       "suggested_value": "sensor.solcast_pv_forecast_forecast_day_3"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "carbon_intensity_entity",
+      "description": {
+       "suggested_value": "sensor.grid_carbon_intensity"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.05,
+        "mode": "slider"
+       }
+      },
+      "name": "forecast_conservatism",
+      "required": false,
+      "optional": true,
+      "default": 0.35
+     }
+    ],
+    "expanded": false,
+    "name": "forecast_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 100.0,
+        "step": 0.1,
+        "unit_of_measurement": "kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_capacity_kwh",
+      "required": false,
+      "optional": true,
+      "default": 13.5
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 20.0,
+        "step": 0.1,
+        "unit_of_measurement": "kW",
+        "mode": "slider"
+       }
+      },
+      "name": "inverter_max_output_kw",
+      "required": false,
+      "optional": true,
+      "default": 5.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 500.0,
+        "max": 6000.0,
+        "step": 100.0,
+        "unit_of_measurement": "W",
+        "mode": "slider"
+       }
+      },
+      "name": "immersion_wattage_w",
+      "required": false,
+      "optional": true,
+      "default": 3000.0
+     }
+    ],
+    "expanded": false,
+    "name": "hardware_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 5.0,
+        "max": 40.0,
+        "step": 0.1,
+        "unit_of_measurement": "kWh/100km",
+        "mode": "slider"
+       }
+      },
+      "name": "car_efficiency_kwh_per_100km",
+      "required": false,
+      "optional": true,
+      "default": 15.0
+     }
+    ],
+    "expanded": false,
+    "name": "ev_settings",
+    "required": true
+   }
+  ]
+ },
+ "options_with_error": {
+  "step_id": "init",
+  "errors": {
+   "base": "rate_period_zero_length"
+  },
+  "placeholders": {
+   "tariff_summary": "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00. Your bill runs from the 16th to the 15th."
+  },
+  "fields": [
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "base_rate",
+      "description": {
+       "suggested_value": 0.3334
+      },
+      "required": true,
+      "default": 0.3334
+     },
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "base_rate_name",
+      "description": {
+       "suggested_value": "Day"
+      },
+      "required": false,
+      "optional": true,
+      "default": "Day"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "export_rate",
+      "description": {
+       "suggested_value": 0.195
+      },
+      "required": true,
+      "default": 0.195
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/day",
+        "mode": "slider"
+       }
+      },
+      "name": "standing_charge_per_day",
+      "description": {
+       "suggested_value": 0.8259
+      },
+      "required": true,
+      "default": 0.8259
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.01,
+        "unit_of_measurement": "EUR/month",
+        "mode": "slider"
+       }
+      },
+      "name": "pso_levy_per_month",
+      "description": {
+       "suggested_value": 1.46
+      },
+      "required": true,
+      "default": 1.46
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 30.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "vat_rate",
+      "description": {
+       "suggested_value": 9.0
+      },
+      "required": true,
+      "default": 9.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "discount_rate",
+      "description": {
+       "suggested_value": 5.5
+      },
+      "required": true,
+      "default": 5.5
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 28.0,
+        "step": 1.0,
+        "mode": "slider"
+       }
+      },
+      "name": "bill_start_day",
+      "description": {
+       "suggested_value": 16.0
+      },
+      "required": true,
+      "default": 16
+     },
+     {
+      "selector": {
+       "select": {
+        "options": [
+         {
+          "value": "EUR",
+          "label": "EUR (€)"
+         },
+         {
+          "value": "GBP",
+          "label": "GBP (£)"
+         },
+         {
+          "value": "USD",
+          "label": "USD ($)"
+         },
+         {
+          "value": "SEK",
+          "label": "SEK (kr)"
+         },
+         {
+          "value": "NOK",
+          "label": "NOK (kr)"
+         },
+         {
+          "value": "DKK",
+          "label": "DKK (kr)"
+         },
+         {
+          "value": "AUD",
+          "label": "AUD (A$)"
+         },
+         {
+          "value": "CAD",
+          "label": "CAD (C$)"
+         },
+         {
+          "value": "NZD",
+          "label": "NZD (NZ$)"
+         },
+         {
+          "value": "ZAR",
+          "label": "ZAR (R)"
+         }
+        ],
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "currency",
+      "description": {
+       "suggested_value": "EUR"
+      },
+      "required": true,
+      "default": "EUR"
+     }
+    ],
+    "expanded": true,
+    "name": "tariff_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": "Empty"
+      },
+      "required": false,
+      "optional": true,
+      "default": "Night"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.01
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.1644
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "23:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "08:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": "Nightboost"
+      },
+      "required": false,
+      "optional": true,
+      "default": "Nightboost"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.0965
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0965
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "02:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "02:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "04:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "04:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": ""
+      },
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_3",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": ""
+      },
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_4",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": ""
+      },
+      "required": false,
+      "optional": true,
+      "default": ""
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": false,
+      "optional": true,
+      "default": "00:00:00"
+     }
+    ],
+    "expanded": false,
+    "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 5.0,
+        "max": 30.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_min_soc_pct",
+      "description": {
+       "suggested_value": 10.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 10
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 80.0,
+        "step": 5.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "cheap_rate_floor_soc",
+      "description": {
+       "suggested_value": 40.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 40
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 20.0,
+        "max": 100.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "overnight_charge_target_pct",
+      "description": {
+       "suggested_value": 80.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 80
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 20.0,
+        "max": 100.0,
+        "step": 1.0,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "skip_charge_soc_threshold_pct",
+      "description": {
+       "suggested_value": 75.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 75
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20000.0,
+        "step": 100.0,
+        "unit_of_measurement": "€",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_cost_eur",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 50.0,
+        "step": 0.5,
+        "unit_of_measurement": "kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_throughput_budget_kwh",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "boolean": {}
+      },
+      "name": "dry_run",
+      "description": {
+       "suggested_value": false
+      },
+      "required": false,
+      "optional": true,
+      "default": false
+     },
+     {
+      "selector": {
+       "boolean": {}
+      },
+      "name": "verbose_logging",
+      "description": {
+       "suggested_value": false
+      },
+      "required": false,
+      "optional": true,
+      "default": false
+     }
+    ],
+    "expanded": false,
+    "name": "threshold_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "select": {
+        "options": [
+         {
+          "value": "forecast_solar",
+          "label": "Forecast.Solar"
+         },
+         {
+          "value": "solcast",
+          "label": "Solcast"
+         }
+        ],
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "forecast_provider",
+      "description": {
+       "suggested_value": "solcast"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "forecast_entity",
+      "description": {
+       "suggested_value": "sensor.energy_production_tomorrow"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "forecast_entity_p10",
+      "description": {
+       "suggested_value": "sensor.solcast_pv_forecast_forecast_tomorrow_10"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "forecast_entity_d2",
+      "description": {
+       "suggested_value": "sensor.solcast_pv_forecast_forecast_day_3"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "carbon_intensity_entity",
+      "description": {
+       "suggested_value": "sensor.grid_carbon_intensity"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.05,
+        "mode": "slider"
+       }
+      },
+      "name": "forecast_conservatism",
+      "description": {
+       "suggested_value": 0.35
+      },
+      "required": false,
+      "optional": true,
+      "default": 0.35
+     }
+    ],
+    "expanded": false,
+    "name": "forecast_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 100.0,
+        "step": 0.1,
+        "unit_of_measurement": "kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "battery_capacity_kwh",
+      "description": {
+       "suggested_value": 9.5
+      },
+      "required": false,
+      "optional": true,
+      "default": 9.5
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 20.0,
+        "step": 0.1,
+        "unit_of_measurement": "kW",
+        "mode": "slider"
+       }
+      },
+      "name": "inverter_max_output_kw",
+      "description": {
+       "suggested_value": 5.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 5.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 500.0,
+        "max": 6000.0,
+        "step": 100.0,
+        "unit_of_measurement": "W",
+        "mode": "slider"
+       }
+      },
+      "name": "immersion_wattage_w",
+      "description": {
+       "suggested_value": 3000.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 3000.0
+     }
+    ],
+    "expanded": false,
+    "name": "hardware_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 5.0,
+        "max": 40.0,
+        "step": 0.1,
+        "unit_of_measurement": "kWh/100km",
+        "mode": "slider"
+       }
+      },
+      "name": "car_efficiency_kwh_per_100km",
+      "description": {
+       "suggested_value": 15.0
+      },
+      "required": false,
+      "optional": true,
+      "default": 15.0
+     }
+    ],
+    "expanded": false,
+    "name": "ev_settings",
+    "required": true
+   }
+  ]
+ }
+}

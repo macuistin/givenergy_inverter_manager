@@ -93,7 +93,12 @@ from .const import (
 )
 from .core.battery import BatteryStats
 from .core.engine import (
+    Accumulators,
     CoordinatorData,
+    CycleInputs,
+    ForecastContext,
+    ManualOverrides,
+    PreviousCycle,
     RawSensorValues,
     build_coordinator_data,
 )
@@ -1025,28 +1030,38 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._acc.record_slot_load(now, slot, (baseline_w / 1000) * elapsed_h, elapsed_h)
 
         data, ev_target_mode = build_coordinator_data(
-            raw=raw,
-            cfg=cfg,
-            acc=self._acc.today,
-            battery_stats=self._battery_stats,
-            last_soc=self._last_soc,
-            last_update_time=self._last_update,
-            now=now,
-            ev_charger=self._ev_charger,
-            override_charge_target=self.override_charge_target,
-            override_immersion=self.override_immersion,
-            override_skip_charge=self.override_skip_charge,
-            solar_fractions=self._solar_fractions,
-            last_reset_time=self._last_reset_time,
-            acc_week=self._acc.week,
-            acc_month=self._acc.month,
-            acc_year=self._acc.year,
-            acc_yesterday=self._acc.yesterday,
-            solar_forecast_kwh_today=self._acc.today_forecast_kwh,
-            yesterday_forecast_accuracy_pct=self._acc.yesterday_forecast_accuracy_pct,
-            forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
-            load_profile=self._acc.slot_load_profile((now + timedelta(days=1)).weekday()),
-            forecast_correction=self._acc.forecast_correction_factor,
+            CycleInputs(
+                raw=raw,
+                cfg=cfg,
+                now=now,
+                ev_charger=self._ev_charger,
+                overrides=ManualOverrides(
+                    charge_target=self.override_charge_target,
+                    immersion=self.override_immersion,
+                    skip_charge=self.override_skip_charge,
+                ),
+            ),
+            Accumulators(
+                today=self._acc.today,
+                week=self._acc.week,
+                month=self._acc.month,
+                year=self._acc.year,
+                yesterday=self._acc.yesterday,
+                last_reset_time=self._last_reset_time,
+            ),
+            PreviousCycle(
+                battery_stats=self._battery_stats,
+                last_soc=self._last_soc,
+                last_update_time=self._last_update,
+            ),
+            ForecastContext(
+                solar_fractions=self._solar_fractions,
+                solar_forecast_kwh_today=self._acc.today_forecast_kwh,
+                yesterday_forecast_accuracy_pct=self._acc.yesterday_forecast_accuracy_pct,
+                forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
+                load_profile=self._acc.slot_load_profile((now + timedelta(days=1)).weekday()),
+                forecast_correction=self._acc.forecast_correction_factor,
+            ),
         )
 
         data.week_start_time = self._acc.state.week_start_iso
@@ -1063,7 +1078,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.immersion.annotate_divert_reason(data, raw.immersion_temp)
 
         self._acc.on_raw_forecast(raw.forecast_kwh_tomorrow)
-        self._acc.note_clipping(data.is_clipping)
+        if data.is_clipping:
+            self._acc.note_clipping()
 
         # 6. Record forecast for accuracy tracking (sets solar_forecast_today sensor)
         if data.charge_decision is not None and data.charge_decision.forecast_kwh > 0:

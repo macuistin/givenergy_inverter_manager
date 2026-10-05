@@ -10,7 +10,7 @@ from homeassistant.exceptions import ServiceValidationError
 
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
-from custom_components.givenergy_inverter_manager.dashboard import _make_compare_tariff_handler
+from custom_components.givenergy_inverter_manager.services import _make_compare_tariff_handler
 
 KEEP = (1 - 0.055) * 1.09
 CFG = {
