@@ -183,6 +183,27 @@ class EVCharger:
         return self.brand == EVChargerBrand.ZAPPI and self.charge_mode_entity is not None
 
 
+# Status entities already warned about. Discovery repeats every 5 minutes while the
+# power entity is missing, so the warning is logged once per entity, not every cycle.
+_WARNED_MISSING_POWER: set[str] = set()
+
+
+def _warn_if_power_missing(ch: EVCharger) -> None:
+    """Log once per charger when its power entity was not found."""
+    key = ch.status_entity or ch.display_name
+    if ch.power_entity is not None:
+        _WARNED_MISSING_POWER.discard(key)
+        return
+    if key in _WARNED_MISSING_POWER:
+        return
+    _WARNED_MISSING_POWER.add(key)
+    _LOG.warning(
+        "%s discovered but power entity not found "
+        "— EV kWh will not be tracked until the entity appears.",
+        ch.display_name,
+    )
+
+
 def _discover_zappi(all_states: dict) -> list[EVCharger]:
     """Discover myenergi Zappi chargers from HA entity states.
 
@@ -222,12 +243,7 @@ def _discover_zappi(all_states: dict) -> list[EVCharger]:
             prefix.replace("sensor.", "select.", 1) + "charge_mode",
         )
         _maybe(ch, "activity_entity", all_states, f"{prefix.rstrip('_')}_status".replace("__", "_"))
-        if ch.power_entity is None:
-            _LOG.warning(
-                "%s discovered but power entity not found "
-                "— EV kWh will not be tracked until the entity appears.",
-                ch.display_name,
-            )
+        _warn_if_power_missing(ch)
         chargers.append(ch)
     return chargers
 
@@ -248,12 +264,7 @@ def _discover_wallbox(all_states: dict) -> list[EVCharger]:
         )
         _maybe(ch, "power_entity", all_states, f"sensor.wallbox_{serial}_charging_power")
         _maybe(ch, "session_energy_entity", all_states, f"sensor.wallbox_{serial}_added_energy")
-        if ch.power_entity is None:
-            _LOG.warning(
-                "%s discovered but power entity not found "
-                "— EV kWh will not be tracked until the entity appears.",
-                ch.display_name,
-            )
+        _warn_if_power_missing(ch)
         chargers.append(ch)
     return chargers
 
@@ -273,12 +284,7 @@ def _discover_ocpp(all_states: dict) -> list[EVCharger]:
             status_entity=eid,
         )
         _maybe(ch, "power_entity", all_states, f"sensor.ocpp_{serial}_current_power_import")
-        if ch.power_entity is None:
-            _LOG.warning(
-                "%s discovered but power entity not found "
-                "— EV kWh will not be tracked until the entity appears.",
-                ch.display_name,
-            )
+        _warn_if_power_missing(ch)
         chargers.append(ch)
     return chargers
 
@@ -300,12 +306,7 @@ def _discover_ohme(all_states: dict) -> list[EVCharger]:
             status_entity=eid,
         )
         _maybe(ch, "power_entity", all_states, f"sensor.ohme_{serial}_power")
-        if ch.power_entity is None:
-            _LOG.warning(
-                "%s discovered but power entity not found "
-                "— EV kWh will not be tracked until the entity appears.",
-                ch.display_name,
-            )
+        _warn_if_power_missing(ch)
         chargers.append(ch)
     return chargers
 
@@ -325,12 +326,7 @@ def _discover_easee(all_states: dict) -> list[EVCharger]:
             status_entity=eid,
         )
         _maybe(ch, "power_entity", all_states, f"sensor.easee_{serial}_power")
-        if ch.power_entity is None:
-            _LOG.warning(
-                "%s discovered but power entity not found "
-                "— EV kWh will not be tracked until the entity appears.",
-                ch.display_name,
-            )
+        _warn_if_power_missing(ch)
         chargers.append(ch)
     return chargers
 
