@@ -87,7 +87,7 @@ def build_today_summary_html(data: "CoordinatorData") -> str:
     Renders in HA Markdown card, html-template-card, and button-card.
     """
     t = data.today
-    sym = data.currency_symbol or "€"
+    sym = data.currency_symbol
 
     accuracy_str = ""
     if data.solar_forecast_kwh_today > 0:
@@ -138,7 +138,7 @@ def build_today_summary_html(data: "CoordinatorData") -> str:
 
 def build_today_summary_state(data: "CoordinatorData") -> str:
     """Short sensor state string (≤255 chars) — useful in automations."""
-    sym = data.currency_symbol or "€"
+    sym = data.currency_symbol
     t = data.today
     return (
         f"Solar {t.solar_kwh:.1f} kWh · "
@@ -155,7 +155,7 @@ def build_charge_plan_html(data: "CoordinatorData") -> str:
     """
     Inline-styled HTML card showing tonight's charge decision and reasoning.
     """
-    sym = data.currency_symbol or "€"
+    sym = data.currency_symbol
     cd = data.charge_decision
 
     if cd is None:
@@ -203,7 +203,7 @@ def build_charge_plan_html(data: "CoordinatorData") -> str:
 def build_charge_plan_state(data: "CoordinatorData") -> str:
     """Short sensor state string (≤255 chars)."""
     cd = data.charge_decision
-    sym = data.currency_symbol or "€"
+    sym = data.currency_symbol
     if cd is None:
         return "No charge decision yet"
     if cd.skip_charge:
@@ -223,7 +223,7 @@ def build_week_summary_html(data: "CoordinatorData") -> str:
     Inline-styled HTML comparing this week's totals against yesterday,
     with forecast accuracy if available.
     """
-    sym = data.currency_symbol or "€"
+    sym = data.currency_symbol
     w = data.week
     y = data.yesterday
 
@@ -293,7 +293,7 @@ def build_week_summary_html(data: "CoordinatorData") -> str:
 
 def build_week_summary_state(data: "CoordinatorData") -> str:
     """Short sensor state string (≤255 chars)."""
-    sym = data.currency_symbol or "€"
+    sym = data.currency_symbol
     w = data.week
     return (
         f"Solar {w.solar_kwh:.1f} kWh · "

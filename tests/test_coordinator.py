@@ -806,6 +806,14 @@ def _coord_with_real_store(saved: dict | None, monkeypatch, local_now: datetime)
     return coord, store
 
 
+def _saved_state(last_midnight: datetime) -> dict:
+    from custom_components.givenergy_inverter_manager.accumulation import _serialize
+
+    state = AccumulationState()
+    state.last_reset_iso = last_midnight.isoformat()
+    return _serialize(state)
+
+
 class TestRestoreState:
     def _saved(self, last_midnight: datetime) -> dict:
         from custom_components.givenergy_inverter_manager.accumulation import _serialize
@@ -898,6 +906,39 @@ class TestDurablePersistence:
 
         assert store._store.saved["battery_cycles"] == pytest.approx(3.5)
         assert store._store.saved["month"]["solar_kwh"] == pytest.approx(77.7)
+
+    async def test_restore_seeds_the_write_count_and_battery_stats_in_one_pass(
+        self, monkeypatch
+    ):
+        saved = _saved_state(datetime(2026, 7, 15, tzinfo=timezone.utc))
+        saved["register_write_count"] = 4321
+        saved["battery_cycles"] = 12.5
+        coord, _ = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+
+        await coord.async_restore_state()
+
+        assert coord._register_write_count == 4321
+        assert coord._battery_stats.total_cycles == pytest.approx(12.5)
+
+    async def test_restore_loads_the_store_once(self, monkeypatch):
+        saved = _saved_state(datetime(2026, 7, 15, tzinfo=timezone.utc))
+        coord, store = _coord_with_real_store(
+            saved, monkeypatch, datetime(2026, 7, 15, 6, 0, tzinfo=timezone.utc)
+        )
+        loads = []
+        original = store._store.async_load
+
+        async def counting_load():
+            loads.append(1)
+            return await original()
+
+        store._store.async_load = counting_load
+
+        await coord.async_restore_state()
+
+        assert len(loads) == 1
 
     async def test_restore_registers_a_flush_for_unload_and_for_home_assistant_stop(
         self, monkeypatch
@@ -2420,7 +2461,7 @@ class TestCheapRateFloorWriteSafety:
     async def test_writes_integer_target_and_enables_switch(self):
         from unittest.mock import AsyncMock, patch
 
-        coord, cfg = self._coord(target_now="100")
+        coord, cfg = self._coord(target_now="20")
         with patch(
             "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
             new=AsyncMock(),
@@ -2452,7 +2493,7 @@ class TestCheapRateFloorWriteSafety:
     async def test_cooldown_does_not_block_a_different_value(self):
         from unittest.mock import AsyncMock, patch
 
-        coord, cfg = self._coord(target_now="100")
+        coord, cfg = self._coord(target_now="20")
         with patch(
             "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
             new=AsyncMock(),
@@ -2467,7 +2508,7 @@ class TestCheapRateFloorWriteSafety:
     async def test_counts_register_writes(self):
         from unittest.mock import AsyncMock, patch
 
-        coord, cfg = self._coord(target_now="100")
+        coord, cfg = self._coord(target_now="20")
         with patch(
             "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
             new=AsyncMock(),
@@ -2475,6 +2516,90 @@ class TestCheapRateFloorWriteSafety:
             await coord._write_floor_target(cfg, "number.target_soc", 40)
 
         assert coord._register_write_count == 2
+
+
+class TestCheapRateFloorNeverLowersTarget:
+    """The floor top-up raises a low charge target. It never lowers a higher one."""
+
+    @staticmethod
+    def _now():
+        from zoneinfo import ZoneInfo
+
+        return datetime(2024, 7, 10, 2, 30, tzinfo=ZoneInfo("Europe/Dublin"))
+
+    @staticmethod
+    def _coord(target_now: str | None):
+        cfg = _cfg()
+        coord = FakeCoordinator(cfg=cfg)
+        if target_now is not None:
+            coord.set_state("number.target_soc", target_now)
+        coord.set_state("switch.enable_charge_target", "off")
+        return coord, cfg
+
+    @staticmethod
+    def _target_writes(coord):
+        return [c["value"] for c in coord.service_calls_for("number", "set_value")]
+
+    async def _run(self, coord, cfg, soc=30.0):
+        from unittest.mock import AsyncMock, patch
+
+        with patch(
+            "custom_components.givenergy_inverter_manager.coordinator.asyncio.sleep",
+            new=AsyncMock(),
+        ):
+            return await coord._maybe_apply_cheap_rate_floor(self._now(), _raw(battery_soc=soc), cfg)
+
+    @pytest.mark.asyncio
+    async def test_overnight_target_of_80_is_not_lowered_to_the_floor(self):
+        coord, cfg = self._coord("80")
+        result = await self._run(coord, cfg)
+        assert "topping up" in result.lower()
+        assert 40 not in self._target_writes(coord)
+        assert coord._states["number.target_soc"].state == "80"
+
+    @pytest.mark.asyncio
+    async def test_target_below_the_floor_is_raised_to_the_floor(self):
+        coord, cfg = self._coord("20")
+        await self._run(coord, cfg)
+        assert self._target_writes(coord) == [40]
+
+    @pytest.mark.asyncio
+    async def test_target_equal_to_the_floor_is_left_alone(self):
+        coord, cfg = self._coord("40")
+        await self._run(coord, cfg)
+        assert self._target_writes(coord) == []
+
+    @pytest.mark.asyncio
+    async def test_unreadable_target_falls_back_to_the_floor(self):
+        coord, cfg = self._coord("unavailable")
+        await self._run(coord, cfg)
+        assert self._target_writes(coord) == [40]
+
+    @pytest.mark.asyncio
+    async def test_missing_target_state_falls_back_to_the_floor(self):
+        coord, cfg = self._coord(None)
+        await self._run(coord, cfg)
+        assert self._target_writes(coord) == [40]
+
+    @pytest.mark.asyncio
+    async def test_floor_never_writes_above_the_cap(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            GIVTCP_MAX_CHARGE_TARGET_PCT,
+        )
+
+        coord, cfg = self._coord("20")
+        cfg["cheap_rate_floor_soc"] = 150
+        await self._run(coord, cfg)
+        assert self._target_writes(coord) == [GIVTCP_MAX_CHARGE_TARGET_PCT]
+
+    @pytest.mark.asyncio
+    async def test_higher_target_still_enables_the_charge_target_and_sets_the_flag(self):
+        coord, cfg = self._coord("80")
+        await self._run(coord, cfg)
+        assert coord.service_calls_for("switch", "turn_on") == [
+            {"entity_id": "switch.enable_charge_target"}
+        ]
+        assert coord._floor_top_up_applied is True
 
 
 class TestSensorDropouts:
@@ -3068,6 +3193,7 @@ class TestChargeTargetClamp:
     @pytest.mark.asyncio
     async def test_floor_target_is_clamped(self):
         coord, cfg = _write_coord()
+        coord.set_state("number.target_soc", "2")
         assert await coord._write_floor_target(cfg, "number.target_soc", 1) is True
         assert coord.service_calls_for("number", "set_value") == [
             {"entity_id": "number.target_soc", "value": 4}
@@ -3076,6 +3202,7 @@ class TestChargeTargetClamp:
     @pytest.mark.asyncio
     async def test_floor_does_not_enable_the_target_when_the_number_write_fails(self):
         coord, cfg = _write_coord({"number.target_soc"})
+        coord.set_state("number.target_soc", "20")
         assert await coord._write_floor_target(cfg, "number.target_soc", 40) is False
         assert coord.service_calls_for("switch", "turn_on") == []
 
@@ -3115,3 +3242,52 @@ class TestRegisterWriteCountPersistence:
         with caplog.at_level(logging.WARNING):
             await coord._givtcp_set_number("number.target_soc", 80, "target")
         assert not any("rated lifetime" in r.getMessage() for r in caplog.records)
+
+
+class TestBackgroundTasks:
+    """Fire-and-forget work is owned by the config entry and never raises."""
+
+    def test_create_task_hands_the_work_to_the_config_entry(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.entry.async_create_task = MagicMock()
+        coro = coord._call_service("switch", "turn_on", {"entity_id": "switch.x"})
+
+        GivEnergyCoordinator._create_task(coord, coro)
+
+        coord.entry.async_create_task.assert_called_once()
+        args = coord.entry.async_create_task.call_args.args
+        assert args[0] is coord.hass
+        args[1].close()
+        coro.close()
+
+    async def test_run_background_awaits_the_work(self):
+        coord = FakeCoordinator(cfg=_cfg())
+
+        await GivEnergyCoordinator._run_background(
+            coord, coord._call_service("switch", "turn_on", {"entity_id": "switch.x"})
+        )
+
+        assert coord.service_calls_for("switch", "turn_on") == [{"entity_id": "switch.x"}]
+
+    async def test_run_background_logs_a_failure_and_does_not_raise(self, caplog):
+        coord = FakeCoordinator(cfg=_cfg())
+
+        async def broken():
+            raise RuntimeError("charger offline")
+
+        with caplog.at_level(logging.WARNING):
+            await GivEnergyCoordinator._run_background(coord, broken())
+
+        messages = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("charger offline" in m for m in messages)
+
+    async def test_run_background_lets_cancellation_through(self):
+        import asyncio
+
+        coord = FakeCoordinator(cfg=_cfg())
+
+        async def cancelled():
+            raise asyncio.CancelledError
+
+        with pytest.raises(asyncio.CancelledError):
+            await GivEnergyCoordinator._run_background(coord, cancelled())
