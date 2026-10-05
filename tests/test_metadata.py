@@ -15,11 +15,13 @@ _PKG = _ROOT / "custom_components" / "givenergy_inverter_manager"
 # Source text that needs a minimum Home Assistant release, checked against the
 # released Home Assistant wheels: ConfigEntry.runtime_data first ships in 2024.6,
 # config flow sections in 2024.7 and the DataUpdateCoordinator config_entry
-# argument in 2024.11.
+# argument in 2024.11. The generated dashboard puts button badges on heading cards,
+# which first ship in 2026.2.
 _HA_FLOOR_RULES = (
     ("runtime_data", (2024, 6, 0)),
     ("section(", (2024, 7, 0)),
     ("config_entry=entry", (2024, 11, 0)),
+    ('card["badges"]', (2026, 2, 0)),
 )
 
 
