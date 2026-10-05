@@ -137,7 +137,8 @@ _DYNAMIC_CHECK = textwrap.dedent(
     from custom_components.givenergy_inverter_manager.const import DEFAULT_RATE_PERIODS
     from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
     from custom_components.givenergy_inverter_manager.core.engine import (
-        CoordinatorData, RawSensorValues, build_coordinator_data)
+        CoordinatorData, RawSensorValues)
+    from tests.core.flat_engine import build_coordinator_data
     from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 
     cfg = {"base_rate": 0.3334, "base_rate_name": "Day", "rate_periods": DEFAULT_RATE_PERIODS,
