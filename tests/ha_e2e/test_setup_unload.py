@@ -164,3 +164,15 @@ async def test_compare_tariff_service_returns_a_like_for_like_bill(hass, loaded_
     assert set(response["current_tariff"]["bill"]) == set(response["comparison_tariff"]["bill"])
     assert response["comparison_tariff"]["vat_rate"] == 13.5
     assert response["current_tariff"]["vat_rate"] == 9.0
+
+
+async def test_every_entity_reports_this_project_as_the_manufacturer(hass, loaded_entry):
+    """The device page must not say GivEnergy made the integration."""
+    from homeassistant.helpers import device_registry as dr
+
+    from custom_components.givenergy_inverter_manager.const import DEVICE_MANUFACTURER
+
+    registry = dr.async_get(hass)
+    devices = dr.async_entries_for_config_entry(registry, loaded_entry.entry_id)
+    assert devices
+    assert {device.manufacturer for device in devices} == {DEVICE_MANUFACTURER}

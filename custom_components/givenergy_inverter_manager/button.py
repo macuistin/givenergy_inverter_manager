@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, INTEGRATION_VERSION
+from .const import DEVICE_MANUFACTURER, DOMAIN, INTEGRATION_VERSION
 from .coordinator import GivEnergyCoordinator
 from .logging import get_logger
 
@@ -38,7 +38,7 @@ class GivEnergyRefreshDashboardButton(ButtonEntity):
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
             "name": "GivEnergy Inverter Manager",
-            "manufacturer": "GivEnergy",
+            "manufacturer": DEVICE_MANUFACTURER,
             "model": "Inverter Manager",
             "sw_version": INTEGRATION_VERSION,
         }

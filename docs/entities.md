@@ -2,7 +2,7 @@
 
 Everything except sensors. For sensors, see [Sensors](sensors.md).
 
-All entities belong to one device, **GivEnergy Inverter Manager** (manufacturer GivEnergy, model Inverter Manager). Home Assistant builds entity IDs from the device name and the entity name, for example `switch.givenergy_inverter_manager_force_skip_overnight_charge`. Check yours in **Settings → Entities**.
+All entities belong to one device, **GivEnergy Inverter Manager** (manufacturer macuistin, model Inverter Manager). Home Assistant builds entity IDs from the device name and the entity name, for example `switch.givenergy_inverter_manager_force_skip_overnight_charge`. Check yours in **Settings → Entities**.
 
 ## Switches
 

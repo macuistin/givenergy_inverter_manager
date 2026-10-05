@@ -17,6 +17,7 @@ GivTCP entity naming convention (all prefixed with serial number):
 DOMAIN = "givenergy_inverter_manager"
 INTEGRATION_VERSION = "0.5.0"  # keep in sync with manifest.json
 NAME = "GivEnergy Inverter Manager"
+DEVICE_MANUFACTURER = "macuistin"  # shown on the device page; GivEnergy does not make this
 
 # ── GivTCP inverter entities ────────────────────────────────────────────────
 CONF_INVERTER_SERIAL = "inverter_serial"  # persisted serial — used as unique_id
