@@ -458,7 +458,7 @@ views:
           shared: true
           followCursor: true
         stroke:
-          curve: smooth
+          curve: stepline
           width: 2
         markers:
           size: 0

@@ -1118,6 +1118,12 @@ class TestSubViews:
         assert eid("immersion_power") in text
         assert "Immersion Power Today" not in text
 
+    def test_immersion_power_chart_is_a_step_line(self):
+        """The sensor only updates on change, so a smooth line draws false ramps."""
+        stack = next(c for c in _cards(_build(), "immersion") if c.get("type") == "vertical-stack")
+        power = next(c for c in stack["cards"] if "power" in c.get("header", {}).get("title", "").lower())
+        assert power["apex_config"]["stroke"]["curve"] == "stepline"
+
     def test_no_immersion_or_ev_sub_view_without_the_devices(self):
         views = self._views(config=MINIMAL_CONFIG, registry=FakeRegistry(), ev_brand=None)
         paths = {v["path"] for v in views}

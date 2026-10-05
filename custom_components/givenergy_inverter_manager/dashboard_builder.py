@@ -270,7 +270,7 @@ def _build_immersion_section(
                 "header": {"show": True, "title": "Immersion power (W)"},
                 "graph_span": "12h",
                 "yaxis": [{"min": 0}],
-                "apex_config": _apex_config(),
+                "apex_config": {**_apex_config(), "stroke": {"curve": "stepline", "width": 2}},
                 "series": [series(immersion_power, "Power", "#ff9800", 2)],
             }
         )
