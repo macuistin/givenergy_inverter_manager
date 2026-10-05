@@ -4,8 +4,8 @@ There are two test suites. They need different virtualenvs because one stubs Hom
 
 | Suite | Path | What it covers | Time |
 | --- | --- | --- | --- |
-| Stubbed unit suite | `tests/` (excluding `tests/ha_e2e`) | Core logic, sensors, coordinator and config flow against `MagicMock` stubs of `homeassistant` | about 3 s |
-| Real Home Assistant suite | `tests/ha_e2e/` | Setting up, reloading and unloading the integration in a real `hass`, the entity registry, and the config and options flows | about 4 s |
+| Stubbed unit suite | `tests/` (excluding `tests/ha_e2e`) | Core logic, sensors, coordinator and config flow against `MagicMock` stubs of `homeassistant` | about 13 s for about 2340 tests |
+| Real Home Assistant suite | `tests/ha_e2e/` | Setting up, reloading and unloading the integration in a real `hass`, the entity registry, the config and options flows, charge target writes, diagnostics and the dashboard | about 17 s for about 190 tests |
 
 ## Stubbed suite
 
@@ -15,7 +15,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest tests -q
 ```
 
-`tests/conftest.py` replaces `homeassistant` in `sys.modules` before collection. `pyproject.toml` adds `--ignore=tests/ha_e2e` so this suite never imports the real Home Assistant tests.
+`tests/conftest.py` replaces `homeassistant` in `sys.modules` before collection. The tests run from any directory. Source paths come from `ROOT` and `PKG` in `tests/helpers.py`, never from the working directory. `pyproject.toml` adds `--ignore=tests/ha_e2e` so this suite never imports the real Home Assistant tests.
 
 `tests/test_dashboard_example.py` is a golden test for `docs/dashboard-example.yaml`. After an intended change to the dashboard generator, regenerate the file with `UPDATE_DASHBOARD_EXAMPLE=1 python -m pytest tests/test_dashboard_example.py` and review the diff.
 
@@ -60,4 +60,12 @@ Tests marked `xfail(strict=True)` document real defects in the integration. When
 
 ## CI
 
-`.github/workflows/tests.yml` has two jobs: `tests` for the stubbed suite and `e2e` for the real Home Assistant suite.
+`.github/workflows/tests.yml` has three jobs:
+
+| Job | What it runs |
+|---|---|
+| `tests` | `ruff check`, `bandit` and the stubbed suite on Python 3.13 |
+| `Tests (Python 3.13)` and `Tests (Python 3.14)` | One job per Python version in a matrix, running the stubbed suite |
+| `Home Assistant end-to-end` | The real Home Assistant suite on Python 3.14 |
+
+Three more workflows run on every pull request: Hassfest (`validate`), HACS (`HACS Action`) and CodeQL (`Analyze (python)`). `tests.yml` also runs nightly.
