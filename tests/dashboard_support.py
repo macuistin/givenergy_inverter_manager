@@ -159,3 +159,38 @@ def view_cards(view: dict) -> list[dict]:
 def all_cards(views: list[dict]) -> list[dict]:
     """Every card of every view."""
     return [card for view in views for card in view_cards(view)]
+
+
+def dashboard_text(
+    config: dict | None = None,
+    registry: FakeRegistry | None = None,
+    *,
+    resources: list[str] | None = None,
+    ev_brand: str | None = "myenergi",
+    states: tuple[str, ...] = (),
+) -> str:
+    """The generated dashboard YAML. Defaults: every feature configured, every sensor enabled."""
+    from custom_components.givenergy_inverter_manager.dashboard_builder import (
+        build_dashboard_yaml,
+    )
+
+    config = FULL_CONFIG if config is None else config
+    registry = registry or FakeRegistry(enable_all=True)
+    with fake_hass(config, registry, states, ev_brand) as hass:
+        return build_dashboard_yaml(hass, ENTRY_ID, resources)
+
+
+def dashboard_dict(
+    config: dict | None = None,
+    registry: FakeRegistry | None = None,
+    *,
+    resources: list[str] | None = None,
+    ev_brand: str | None = "myenergi",
+) -> dict:
+    """The generated dashboard as a dict, before it is serialised."""
+    from custom_components.givenergy_inverter_manager.dashboard_builder import build_dashboard
+
+    config = FULL_CONFIG if config is None else config
+    registry = registry or FakeRegistry(enable_all=True)
+    with fake_hass(config, registry, (), ev_brand) as hass:
+        return build_dashboard(hass, ENTRY_ID, resources)

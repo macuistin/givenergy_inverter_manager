@@ -21,8 +21,9 @@ from tests.dashboard_support import (
     MINIMAL_CONFIG,
     FakeRegistry,
     all_cards,
+    dashboard_dict,
+    dashboard_text,
     default_entity_ids,
-    fake_hass,
     view_cards,
 )
 
@@ -36,16 +37,7 @@ def eid(key: str) -> str:
 
 def _build(config=None, registry=None, **kw) -> str:
     """Dashboard YAML. Defaults to every feature configured and every sensor enabled."""
-    from custom_components.givenergy_inverter_manager.dashboard_builder import (
-        build_dashboard_yaml,
-    )
-
-    with fake_hass(
-        FULL_CONFIG if config is None else config,
-        registry or FakeRegistry(enable_all=True),
-        **({"ev_brand": "myenergi"} | kw),
-    ) as hass:
-        return build_dashboard_yaml(hass, ENTRY_ID)
+    return dashboard_text(config, registry, **kw)
 
 
 class TestBuildDashboardYaml:
@@ -366,10 +358,7 @@ class TestYamlSerialisation:
     """The dashboard is built as a dict and serialised once."""
 
     def _dict(self):
-        from custom_components.givenergy_inverter_manager.dashboard_builder import build_dashboard
-
-        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
-            return build_dashboard(hass, ENTRY_ID)
+        return dashboard_dict()
 
     def test_yaml_round_trips_to_the_dict(self):
         assert yaml.safe_load(_build()) == self._dict()
@@ -899,20 +888,10 @@ class TestMissingHacsCards:
     """The custom cards are optional: without their resource the view uses built-in cards."""
 
     def _types(self, resources) -> set[str]:
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
-            build_dashboard_yaml,
-        )
-
-        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
-            return {c["type"] for c in _all_cards(build_dashboard_yaml(hass, ENTRY_ID, resources))}
+        return {c["type"] for c in _all_cards(self._text(resources))}
 
     def _text(self, resources) -> str:
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
-            build_dashboard_yaml,
-        )
-
-        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
-            return build_dashboard_yaml(hass, ENTRY_ID, resources)
+        return dashboard_text(resources=resources)
 
     def test_unknown_resources_keep_the_custom_cards(self):
         types = self._types(None)
@@ -967,12 +946,7 @@ class TestMissingHacsCards:
         assert "not installed" not in header[: header.index("views:")]
 
     def test_no_apex_note_without_an_immersion_sensor(self):
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
-            build_dashboard_yaml,
-        )
-
-        with fake_hass(MINIMAL_CONFIG, FakeRegistry(enable_all=True)) as hass:
-            text = build_dashboard_yaml(hass, ENTRY_ID, [_PFC])
+        text = dashboard_text(MINIMAL_CONFIG, resources=[_PFC], ev_brand=None)
         assert "not installed" not in text[: text.index("views:")]
 
     def test_fallback_dashboard_references_only_usable_entities(self):
@@ -1254,12 +1228,7 @@ class TestSectionsLayout:
     def test_only_built_in_card_types_without_the_hacs_cards(self):
         text = _build()
         parsed = yaml.safe_load(text)
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
-            build_dashboard_yaml,
-        )
-
-        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
-            built = yaml.safe_load(build_dashboard_yaml(hass, ENTRY_ID, []))
+        built = yaml.safe_load(dashboard_text(resources=[]))
         types = {c["type"] for c in all_cards(built["views"])}
         assert not {t for t in types if t.startswith("custom:")}
         assert types <= {"heading", "tile", "markdown", "entities", "history-graph", "statistics-graph"}
