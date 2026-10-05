@@ -71,11 +71,11 @@ The integration was written against GivTCP v3 on a GIV-HY-5.0.
 | GivTCP entity | GivTCP sign | In this integration |
 |---|---|---|
 | Grid power | Positive is export, negative is import | The integration negates it. **Grid Power** is positive when importing and negative when exporting |
-| Battery power | Positive is charging, negative is discharging (confirmed on a GIV-HY-5.0) | Unchanged. **Battery Power** is positive when charging |
+| Battery power | Positive is discharging, negative is charging | The integration negates it. **Battery Power** is positive when charging and negative when discharging |
 | Solar power | Always positive | Unchanged. Readings under 10 W count as zero in the solar energy total |
 | Load power | Inverter-side load | Unchanged. **House Load** |
 
-To check your own setup, export to the grid on a sunny day and compare **Developer Tools → States** for the GivTCP grid power entity and **Grid Power**. They must have opposite signs. If they do not, grid import and export are swapped in every cost sensor. Battery power is not negated, so a model that reports charging as negative would be accumulated the wrong way round.
+To check your own setup, export to the grid on a sunny day and compare **Developer Tools → States** for the GivTCP grid power entity and **Grid Power**. They must have opposite signs. If they do not, grid import and export are swapped in every cost sensor. Do the same for battery power: the GivTCP entity and **Battery Power** must have opposite signs. If they do not, charge and discharge are swapped in the battery energy totals.
 
 GivTCP measures at the inverter. A load wired directly to the consumer unit, bypassing the inverter, appears as grid import even while the sun is shining.
 

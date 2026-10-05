@@ -124,7 +124,7 @@ class Scenario:
     frozen_utc: str
     solar_w: float
     battery_soc: float
-    battery_w: float  # GivTCP convention: positive = charging
+    battery_w: float  # GivTCP convention: positive = discharging, negative = charging
     grid_w: float  # GivTCP convention: positive = export
     load_w: float
     states: dict[str, Any] = field(default_factory=dict)
@@ -136,7 +136,7 @@ MIDDAY = Scenario(
     frozen_utc="2026-06-15 12:00:00+00:00",
     solar_w=3200.0,
     battery_soc=62.0,
-    battery_w=1300.0,
+    battery_w=-1300.0,
     grid_w=400.0,
     load_w=1500.0,
 )
@@ -222,8 +222,8 @@ def set_givtcp_states(hass, scenario: Scenario) -> None:
         ("pv_energy_today_kwh", 12.4),
         ("import_energy_today_kwh", 3.1),
         ("export_energy_today_kwh", 4.6),
-        ("charge_energy_today_kwh", 5.2),
-        ("discharge_energy_today_kwh", 2.2),
+        ("battery_charge_energy_today_kwh", 5.2),
+        ("battery_discharge_energy_today_kwh", 2.2),
         ("load_energy_today_kwh", 9.8),
     ):
         s(

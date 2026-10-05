@@ -404,16 +404,16 @@ class TestCollectRaw:
         assert raw.forecast_kwh_tomorrow == pytest.approx(12.5)
 
     def test_reads_battery_power_charging(self):
-        """Positive battery_power_w means charging (internal convention)."""
+        """GivTCP reports charging as negative. The internal value is positive."""
         coord = FakeCoordinator(cfg=_cfg())
-        coord.set_state("sensor.battery_power", "2500")
+        coord.set_state("sensor.battery_power", "-2500")
         raw = coord._collect_raw(coord._effective_cfg())
         assert raw.battery_power_w == pytest.approx(2500.0)
 
     def test_reads_battery_power_discharging(self):
-        """Negative battery_power_w means discharging (internal convention)."""
+        """GivTCP reports discharging as positive. The internal value is negative."""
         coord = FakeCoordinator(cfg=_cfg())
-        coord.set_state("sensor.battery_power", "-1800")
+        coord.set_state("sensor.battery_power", "1800")
         raw = coord._collect_raw(coord._effective_cfg())
         assert raw.battery_power_w == pytest.approx(-1800.0)
 
@@ -422,6 +422,73 @@ class TestCollectRaw:
         coord.set_state("sensor.battery_power", "0")
         raw = coord._collect_raw(coord._effective_cfg())
         assert raw.battery_power_w == pytest.approx(0.0)
+        assert str(raw.battery_power_w) == "0.0"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("givtcp_w", "power_w", "label"),
+        [("-2200", 2200.0, "Charging"), ("1800", -1800.0, "Discharging")],
+    )
+    async def test_cycle_reports_direction_from_givtcp_sign(self, givtcp_w, power_w, label):
+        """Live reading: GivTCP -2200 W while the battery charges from solar."""
+        from tests.test_sensors import _lambda_for
+
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states({**_default_states(), "sensor.battery_power": givtcp_w})
+        data = await coord.run_cycle()
+        assert data.battery_power_w == pytest.approx(power_w)
+        assert _lambda_for("battery_power")(data) == pytest.approx(power_w)
+        assert _lambda_for("battery_state")(data) == label
+        assert _lambda_for("battery_power_direction")(data) == label
+
+    @pytest.mark.parametrize(
+        ("givtcp_w", "charge_kwh", "discharge_kwh"),
+        [("-3600", 0.3, 0.0), ("3600", 0.0, 0.3)],
+    )
+    def test_accumulation_lands_in_the_right_direction(self, givtcp_w, charge_kwh, discharge_kwh):
+        """5 minutes at 3.6 kW is 0.3 kWh. Each GivTCP sign fills its own counter."""
+        from tests.conftest import _nightboost_cfg, _run
+
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states({**_default_states(), "sensor.battery_power": givtcp_w})
+        raw = coord._collect_raw(coord._effective_cfg())
+        now = datetime(2026, 6, 15, 14, 0, tzinfo=timezone.utc)
+        data, _ = _run(
+            raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=now - timedelta(minutes=5)
+        )
+        assert data.today.battery_charge_kwh == pytest.approx(charge_kwh)
+        assert data.today.battery_discharge_kwh == pytest.approx(discharge_kwh)
+
+    def test_daily_counters_use_the_battery_prefixed_givtcp_ids(self):
+        """Real GivTCP names: battery_charge_energy_today_kwh, not charge_energy_today_kwh."""
+        from custom_components.givenergy_inverter_manager.const import CONF_INVERTER_SERIAL
+
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_INVERTER_SERIAL: "fd2309f069"}))
+        coord.set_states(
+            {
+                **_default_states(),
+                "sensor.givtcp_fd2309f069_battery_charge_energy_today_kwh": "18.8",
+                "sensor.givtcp_fd2309f069_battery_discharge_energy_today_kwh": "1.3",
+            }
+        )
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.charge_energy_today_kwh == pytest.approx(18.8)
+        assert raw.discharge_energy_today_kwh == pytest.approx(1.3)
+
+    def test_daily_counters_fall_back_to_unprefixed_ids(self):
+        from custom_components.givenergy_inverter_manager.const import CONF_INVERTER_SERIAL
+
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_INVERTER_SERIAL: "fd2309f069"}))
+        coord.set_states(
+            {
+                **_default_states(),
+                "sensor.givtcp_fd2309f069_charge_energy_today_kwh": "4.0",
+                "sensor.givtcp_fd2309f069_discharge_energy_today_kwh": "2.0",
+            }
+        )
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.charge_energy_today_kwh == pytest.approx(4.0)
+        assert raw.discharge_energy_today_kwh == pytest.approx(2.0)
 
     def test_negative_forecast_treated_as_none(self):
         cfg = _cfg(**{"forecast_entity": "sensor.forecast"})
