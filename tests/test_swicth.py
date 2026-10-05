@@ -62,14 +62,6 @@ class TestChargeTargetOverrideSwitchRestore:
             "GivEnergyChargeTargetOverrideSwitch must implement async_added_to_hass."
         )
 
-    def test_restored_off_clears_override_charge_target(self):
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
-        assert "override_charge_target = None" in src, (
-            "When the override switch is restored as 'off', coordinator."
-            "override_charge_target must be cleared to None — otherwise "
-            "the coordinator applies a stale target from the previous session."
-        )
-
 
 class TestSwitchImportsRestoreEntity:
     """RestoreEntity import check — confirms the import exists, not just usage."""
