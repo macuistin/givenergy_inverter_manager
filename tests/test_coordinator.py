@@ -453,9 +453,7 @@ class TestCollectRaw:
 
         Discharging must not be subtracted from the surplus. Charging must.
         """
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            should_divert_to_immersion,
-        )
+        from tests.core.flat_rules import should_divert_to_immersion
 
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_states(
