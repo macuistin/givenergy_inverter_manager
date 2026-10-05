@@ -36,7 +36,6 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     PERCENTAGE,
     EntityCategory,
@@ -46,16 +45,13 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     BATTERY_RATED_CYCLES,
-    DEVICE_MANUFACTURER,
-    DOMAIN,
     INTEGRATION_VERSION,
     NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
 )
-from .coordinator import GivEnergyCoordinator
+from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .core.battery import survival_attributes
 from .core.engine import CoordinatorData
 from .core.reporting import (
@@ -66,6 +62,7 @@ from .core.reporting import (
     build_week_summary_html,
     build_week_summary_state,
 )
+from .entity import GivEnergyEntity
 
 # Sentinel for monetary sensors — actual symbol (€, £, $) resolved at runtime.
 _CURRENCY_UNIT = "DYNAMIC_CURRENCY"
@@ -1483,21 +1480,20 @@ PARALLEL_UPDATES = 0
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: GivEnergyConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up GivEnergy Manager sensors."""
-    coordinator: GivEnergyCoordinator = entry.runtime_data
+    coordinator = entry.runtime_data
     async_add_entities(
         GivEnergyManagerSensor(coordinator, description) for description in SENSOR_DESCRIPTIONS
     )
 
 
-class GivEnergyManagerSensor(CoordinatorEntity[GivEnergyCoordinator], SensorEntity):
+class GivEnergyManagerSensor(GivEnergyEntity, SensorEntity):
     """A sensor entity for GivEnergy Inverter Manager."""
 
     entity_description: GivEnergyManagerSensorDescription
-    _attr_has_entity_name = True
     _unrecorded_attributes = frozenset({"html"})
 
     def __init__(
@@ -1512,13 +1508,6 @@ class GivEnergyManagerSensor(CoordinatorEntity[GivEnergyCoordinator], SensorEnti
             self._attr_entity_category = description.entity_category
         self._reset_period = reset_period_of(description)
         self._attr_entity_registry_enabled_default = description.entity_registry_enabled_default
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
-            "name": "GivEnergy Inverter Manager",
-            "manufacturer": DEVICE_MANUFACTURER,
-            "model": "Inverter Manager",
-            "sw_version": INTEGRATION_VERSION,
-        }
 
     @property
     def native_unit_of_measurement(self) -> str | None:

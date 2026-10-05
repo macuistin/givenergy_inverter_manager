@@ -251,7 +251,17 @@ def _rate_period_errors(periods: list[dict], base_rate_name: str = "") -> dict[s
     return {}
 
 
-def _rate_period_section(slot: dict) -> object:
+def _currency_code(code: object) -> str:
+    """Return *code* when it is an offered currency, else the default currency."""
+    return code if isinstance(code, str) and code in CURRENCIES else DEFAULT_CURRENCY
+
+
+def _money_unit(code: object, per: str) -> str:
+    """Unit text for a price field, such as GBP/kWh."""
+    return f"{_currency_code(code)}/{per}"
+
+
+def _rate_period_section(slot: dict, currency: object = DEFAULT_CURRENCY) -> object:
     """Return a section() for one rate-period slot pre-filled from *slot*."""
     return section(
         vol.Schema(
@@ -259,7 +269,7 @@ def _rate_period_section(slot: dict) -> object:
                 vol.Optional("name", default=slot["name"]): selector.TextSelector(),
                 vol.Optional("rate", default=slot["rate"]): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=0, max=5, step=0.001, unit_of_measurement="EUR/kWh"
+                        min=0, max=5, step=0.001, unit_of_measurement=_money_unit(currency, "kWh")
                     )
                 ),
                 vol.Optional("start", default=slot["start"]): selector.TimeSelector(),
@@ -514,7 +524,8 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             self._data[CONF_CURRENCY] = user_input.get(CONF_CURRENCY, DEFAULT_CURRENCY)
             return await self.async_step_forecast()
 
-        schema = self._build_tariff_schema()
+        currency = (user_input or {}).get(CONF_CURRENCY) or self._data.get(CONF_CURRENCY)
+        schema = self._build_tariff_schema(currency=currency)
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
         scheduling_status, scheduling_detail = _build_charge_scheduling_summary(self._data)
@@ -530,16 +541,20 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
 
     @staticmethod
     def _build_tariff_schema(
-        periods: list[dict] | None = None, values: dict | None = None
+        periods: list[dict] | None = None,
+        values: dict | None = None,
+        currency: str | None = None,
     ) -> vol.Schema:
+        """Build the tariff form. Price units follow *currency*, else the saved currency."""
         values = values or {}
+        currency = currency or values.get(CONF_CURRENCY)
         slots = _periods_to_slot_defaults(periods if periods is not None else DEFAULT_RATE_PERIODS)
         schema_dict: dict = {
             vol.Required(
                 CONF_BASE_RATE, default=values.get(CONF_BASE_RATE, DEFAULT_BASE_RATE)
             ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
-                    min=0, max=5, step=0.001, unit_of_measurement="EUR/kWh"
+                    min=0, max=5, step=0.001, unit_of_measurement=_money_unit(currency, "kWh")
                 )
             ),
             vol.Optional(
@@ -549,7 +564,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 CONF_EXPORT_RATE, default=values.get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE)
             ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
-                    min=0, max=1, step=0.001, unit_of_measurement="EUR/kWh"
+                    min=0, max=1, step=0.001, unit_of_measurement=_money_unit(currency, "kWh")
                 )
             ),
             vol.Required(
@@ -557,14 +572,14 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 default=values.get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE),
             ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
-                    min=0, max=5, step=0.001, unit_of_measurement="EUR/day"
+                    min=0, max=5, step=0.001, unit_of_measurement=_money_unit(currency, "day")
                 )
             ),
             vol.Required(
                 CONF_PSO_LEVY, default=values.get(CONF_PSO_LEVY, DEFAULT_PSO_LEVY)
             ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
-                    min=0, max=20, step=0.01, unit_of_measurement="EUR/month"
+                    min=0, max=20, step=0.01, unit_of_measurement=_money_unit(currency, "month")
                 )
             ),
             vol.Required(
@@ -592,7 +607,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             ),
         }
         for i, slot in enumerate(slots, 1):
-            schema_dict[vol.Optional(f"rate_period_{i}")] = _rate_period_section(slot)
+            schema_dict[vol.Optional(f"rate_period_{i}")] = _rate_period_section(slot, currency)
         return vol.Schema(schema_dict)
 
     async def async_step_forecast(self, user_input=None):
@@ -809,7 +824,9 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
 
         current = _saved_values(entry)
         schema = self.__class__._build_tariff_schema(
-            current.get(CONF_RATE_PERIODS) or [], current
+            current.get(CONF_RATE_PERIODS) or [],
+            current,
+            currency=(user_input or {}).get(CONF_CURRENCY),
         )
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
@@ -914,6 +931,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
 
         current_periods = self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS)
         slots = _periods_to_slot_defaults(current_periods)
+        currency = self._get(CONF_CURRENCY, DEFAULT_CURRENCY)
 
         schema_dict: dict = {
             vol.Required("tariff_settings"): section(
@@ -924,7 +942,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                             default=float(self._get(CONF_BASE_RATE, DEFAULT_BASE_RATE)),
                         ): selector.NumberSelector(
                             selector.NumberSelectorConfig(
-                                min=0, max=5, step=0.001, unit_of_measurement="EUR/kWh"
+                                min=0, max=5, step=0.001, unit_of_measurement=_money_unit(currency, "kWh")
                             )
                         ),
                         vol.Optional(
@@ -936,7 +954,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                             default=self._get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE),
                         ): selector.NumberSelector(
                             selector.NumberSelectorConfig(
-                                min=0, max=1, step=0.001, unit_of_measurement="EUR/kWh"
+                                min=0, max=1, step=0.001, unit_of_measurement=_money_unit(currency, "kWh")
                             )
                         ),
                         vol.Required(
@@ -944,14 +962,14 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                             default=self._get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE),
                         ): selector.NumberSelector(
                             selector.NumberSelectorConfig(
-                                min=0, max=5, step=0.001, unit_of_measurement="EUR/day"
+                                min=0, max=5, step=0.001, unit_of_measurement=_money_unit(currency, "day")
                             )
                         ),
                         vol.Required(
                             CONF_PSO_LEVY, default=self._get(CONF_PSO_LEVY, DEFAULT_PSO_LEVY)
                         ): selector.NumberSelector(
                             selector.NumberSelectorConfig(
-                                min=0, max=20, step=0.01, unit_of_measurement="EUR/month"
+                                min=0, max=20, step=0.01, unit_of_measurement=_money_unit(currency, "month")
                             )
                         ),
                         vol.Required(
@@ -993,7 +1011,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             ),
         }
         for i, slot in enumerate(slots, 1):
-            schema_dict[vol.Optional(f"rate_period_{i}")] = _rate_period_section(slot)
+            schema_dict[vol.Optional(f"rate_period_{i}")] = _rate_period_section(slot, currency)
 
         schema_dict[vol.Required("threshold_settings")] = section(
             vol.Schema(
@@ -1039,7 +1057,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                         default=float(self._get(CONF_BATTERY_COST, DEFAULT_BATTERY_COST)),
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
-                            min=0, max=20000, step=100, unit_of_measurement="€"
+                            min=0, max=20000, step=100, unit_of_measurement=CURRENCIES[_currency_code(currency)]
                         )
                     ),
                     vol.Optional(
