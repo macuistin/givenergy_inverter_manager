@@ -1,14 +1,13 @@
 """
 Integrity checks for sensor descriptions and translation files.
 
-The dynamic checks run in a subprocess against the real Home Assistant package,
-because the test suite stubs Home Assistant and sensor.py cannot be imported
-under those stubs.
+The static checks read SENSOR_DESCRIPTIONS under the conftest Home Assistant stubs.
+The dynamic checks run in a subprocess against the real Home Assistant package, so
+state classes and last_reset are validated by the real enums.
 """
 
 from __future__ import annotations
 
-import ast
 import collections
 import json
 import subprocess
@@ -16,22 +15,13 @@ import sys
 import textwrap
 
 import pytest
+from homeassistant.components.sensor import SensorStateClass
 
+from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
 from tests.helpers import PKG
 
 _PKG = PKG
-_SENSOR_TREE = ast.parse((_PKG / "sensor.py").read_text())
 _JSON_FILES = ["strings.json", "translations/en.json", "icons.json"]
-
-
-def _description_kwargs() -> list[dict[str, ast.expr]]:
-    found = []
-    for node in ast.walk(_SENSOR_TREE):
-        if isinstance(node, ast.Call) and getattr(node.func, "id", "") == (
-            "GivEnergyManagerSensorDescription"
-        ):
-            found.append({kw.arg: kw.value for kw in node.keywords})
-    return found
 
 
 def _reject_duplicate_keys(pairs):
@@ -43,7 +33,7 @@ def _reject_duplicate_keys(pairs):
 
 class TestStaticIntegrity:
     def test_description_keys_are_unique(self):
-        keys = [kw["key"].value for kw in _description_kwargs()]
+        keys = [d.key for d in SENSOR_DESCRIPTIONS]
         duplicates = [k for k, n in collections.Counter(keys).items() if n > 1]
         assert duplicates == []
 
@@ -55,25 +45,17 @@ class TestStaticIntegrity:
         data = json.loads((_PKG / "strings.json").read_text())
         names = data["entity"]["sensor"]
         missing = sorted(
-            kw["translation_key"].value
-            for kw in _description_kwargs()
-            if "translation_key" in kw
-            and "name" not in names.get(kw["translation_key"].value, {})
+            d.key
+            for d in SENSOR_DESCRIPTIONS
+            if d.translation_key is not None and "name" not in names.get(d.translation_key, {})
         )
         assert missing == []
 
     def test_translated_sensors_do_not_repeat_the_name_in_code(self):
         repeated = sorted(
-            kw["key"].value
-            for kw in _description_kwargs()
-            if "translation_key" in kw and "name" in kw
+            d.key for d in SENSOR_DESCRIPTIONS if d.translation_key is not None and d.name
         )
         assert repeated == []
-
-
-def _literal_kwarg(kwargs: dict[str, ast.expr], name: str):
-    node = kwargs.get(name)
-    return None if node is None else ast.literal_eval(node)
 
 
 _PERIOD_KEYS = {
@@ -106,22 +88,21 @@ _PERIOD_KEYS = {
 class TestResetPeriods:
     def test_week_month_and_year_sensors_declare_their_reset_period(self):
         declared: dict[str, set[str]] = collections.defaultdict(set)
-        for kw in _description_kwargs():
-            period = _literal_kwarg(kw, "reset_period")
-            if period:
-                declared[period].add(kw["key"].value)
+        for d in SENSOR_DESCRIPTIONS:
+            if d.reset_period:
+                declared[d.reset_period].add(d.key)
         assert dict(declared) == _PERIOD_KEYS
 
     def test_period_names_are_known(self):
-        periods = {_literal_kwarg(kw, "reset_period") for kw in _description_kwargs()}
+        periods = {d.reset_period for d in SENSOR_DESCRIPTIONS}
         assert periods <= {None, "day", "week", "month", "year"}
 
     def test_yesterday_and_trailing_sensors_have_no_total_state_class(self):
+        totals = (SensorStateClass.TOTAL, SensorStateClass.TOTAL_INCREASING)
         wrong = [
-            kw["key"].value
-            for kw in _description_kwargs()
-            if kw["key"].value.endswith(("_yesterday", "_trailing_12m"))
-            and getattr(kw.get("state_class"), "attr", None) in ("TOTAL", "TOTAL_INCREASING")
+            d.key
+            for d in SENSOR_DESCRIPTIONS
+            if d.key.endswith(("_yesterday", "_trailing_12m")) and d.state_class in totals
         ]
         assert wrong == []
 

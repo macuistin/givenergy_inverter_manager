@@ -1,76 +1,43 @@
 """
-Tests for sensor entity descriptions.
+Tests for the sensor description table and the sensor entity.
 
-Uses AST analysis to validate sensor keys, metadata, and value_fn lambdas
-without importing sensor.py (which fails under conftest stubs because
-SensorEntityDescription is replaced with `object`).
+sensor.py imports under the conftest Home Assistant stubs, so the tests read the
+real SENSOR_DESCRIPTIONS and call each description's value_fn directly. The
+decision logic behind the extracted value functions is tested in
+test_sensor_values.py.
 """
 
 from __future__ import annotations
 
-import ast
+import logging
+from dataclasses import replace
+from datetime import datetime, timezone
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import UnitOfPower
 
+from custom_components.givenergy_inverter_manager.const import DEFAULT_CURRENCY_SYMBOL
+from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+from custom_components.givenergy_inverter_manager.sensor import (
+    SENSOR_DESCRIPTIONS,
+    GivEnergyManagerSensor,
+)
 from tests.helpers import PKG
 
-_SENSOR_PY = PKG / "sensor.py"
-_TREE = ast.parse(_SENSOR_PY.read_text())
+_BY_KEY = {d.key: d for d in SENSOR_DESCRIPTIONS}
 
 
 def _sensor_keys() -> set[str]:
-    """All key= values in SENSOR_DESCRIPTIONS."""
-    keys = set()
-    for node in ast.walk(_TREE):
-        if isinstance(node, ast.Call):
-            for kw in node.keywords:
-                if kw.arg == "key" and isinstance(kw.value, ast.Constant):
-                    keys.add(kw.value.value)
-    return keys
+    """All keys in SENSOR_DESCRIPTIONS."""
+    return set(_BY_KEY)
 
 
-def _sensor_kwarg(key: str, attr: str) -> str | None:
-    """Return the Attribute.attr (or Constant value) of a kwarg for the given sensor key."""
-    for node in ast.walk(_TREE):
-        if not isinstance(node, ast.Call):
-            continue
-        has_key = any(
-            kw.arg == "key" and isinstance(kw.value, ast.Constant) and kw.value.value == key
-            for kw in node.keywords
-        )
-        if not has_key:
-            continue
-        for kw in node.keywords:
-            if kw.arg != attr:
-                continue
-            if isinstance(kw.value, ast.Constant):
-                return str(kw.value.value)
-            if isinstance(kw.value, ast.Attribute):
-                return kw.value.attr  # e.g. SensorStateClass.MEASUREMENT → "MEASUREMENT"
-    return None
-
-
-def _value_fn_source(key: str) -> str | None:
-    """Return the source text of the value_fn lambda for the given sensor key."""
-    src = _SENSOR_PY.read_text()
-    for node in ast.walk(_TREE):
-        if not isinstance(node, ast.Call):
-            continue
-        has_key = any(
-            kw.arg == "key" and isinstance(kw.value, ast.Constant) and kw.value.value == key
-            for kw in node.keywords
-        )
-        if not has_key:
-            continue
-        for kw in node.keywords:
-            if kw.arg == "value_fn" and isinstance(kw.value, ast.Lambda):
-                # Extract source text using line/col offsets
-                lines = src.splitlines()
-                lam = kw.value
-                start_line = lam.lineno - 1
-                line = lines[start_line]
-                return line[lam.col_offset :].split("\n")[0].strip().rstrip(",")
-    return None
+def _lambda_for(key: str):
+    """Return the value_fn of the description with the given key."""
+    return _BY_KEY[key].value_fn
 
 
 class TestSensorKeysExist:
@@ -93,82 +60,50 @@ class TestSensorKeysExist:
 
 
 class TestBatteryPowerMetadata:
-    """battery_power must be a watts power sensor — the power-flow-card depends on it."""
+    """battery_power must be a watts power sensor, the power-flow-card depends on it."""
 
     def test_unit_is_watt(self):
-        unit = _sensor_kwarg("battery_power", "native_unit_of_measurement")
-        assert unit is not None, "native_unit_of_measurement not set on battery_power"
-        assert "WATT" in unit.upper() or unit == "W", (
-            f"battery_power unit should be watts, got {unit!r}"
-        )
+        assert _BY_KEY["battery_power"].native_unit_of_measurement is UnitOfPower.WATT
 
     def test_device_class_is_power(self):
-        dc = _sensor_kwarg("battery_power", "device_class")
-        assert dc is not None, "device_class not set on battery_power"
-        assert "POWER" in dc.upper(), f"battery_power device_class should be POWER, got {dc!r}"
+        assert _BY_KEY["battery_power"].device_class is SensorDeviceClass.POWER
 
     def test_state_class_is_measurement(self):
-        sc = _sensor_kwarg("battery_power", "state_class")
-        assert sc is not None, "state_class not set on battery_power"
-        assert "MEASUREMENT" in sc.upper(), (
-            f"battery_power state_class should be MEASUREMENT, got {sc!r}"
-        )
+        assert _BY_KEY["battery_power"].state_class is SensorStateClass.MEASUREMENT
 
 
 class TestBatteryPowerValueFn:
-    """value_fn lambda must read battery_power_w, not some other attribute."""
+    """value_fn must read battery_power_w, not some other attribute."""
 
-    def test_references_battery_power_w(self):
-        src = _value_fn_source("battery_power")
-        assert src is not None, "value_fn not found for battery_power"
-        assert "battery_power_w" in src, (
-            f"value_fn for battery_power should access d.battery_power_w, got: {src!r}"
-        )
-
-    def test_does_not_reference_battery_soc(self):
-        src = _value_fn_source("battery_power")
-        assert src is not None
-        assert "battery_soc" not in src, (
-            f"value_fn for battery_power must not read battery_soc: {src!r}"
-        )
-
-    def test_lambda_is_callable_charging(self):
-        """Eval the lambda with a mock object to confirm it returns the right value."""
-        from unittest.mock import MagicMock
-
-        src = _value_fn_source("battery_power")
-        assert src is not None
-        fn = eval(src)  # noqa: S307 — test only, evaluating our own source
+    @staticmethod
+    def _data(power_w):
         d = MagicMock()
-        d.battery_power_w = 2500.0
-        assert fn(d) == pytest.approx(2500.0)
+        d.battery_power_w = power_w
+        d.battery_soc = 77.0
+        return d
 
-    def test_lambda_is_callable_discharging(self):
-        from unittest.mock import MagicMock
+    def test_reads_battery_power_w_not_battery_soc(self):
+        assert _lambda_for("battery_power")(self._data(2500.0)) == pytest.approx(2500.0)
 
-        fn = eval(_value_fn_source("battery_power"))  # noqa: S307
-        d = MagicMock()
-        d.battery_power_w = -1800.0
-        assert fn(d) == pytest.approx(-1800.0)
+    def test_charging(self):
+        assert _lambda_for("battery_power")(self._data(2500.0)) == pytest.approx(2500.0)
 
-    def test_lambda_rounds_to_one_decimal(self):
-        from unittest.mock import MagicMock
+    def test_discharging(self):
+        assert _lambda_for("battery_power")(self._data(-1800.0)) == pytest.approx(-1800.0)
 
-        fn = eval(_value_fn_source("battery_power"))  # noqa: S307
-        d = MagicMock()
-        d.battery_power_w = 2500.456
-        assert fn(d) == pytest.approx(2500.5)
+    def test_rounds_to_one_decimal(self):
+        assert _lambda_for("battery_power")(self._data(2500.456)) == pytest.approx(2500.5)
 
 
 class TestGridPowerMetadata:
     def test_device_class_is_power(self):
-        assert "POWER" in _sensor_kwarg("grid_power", "device_class").upper()
+        assert _BY_KEY["grid_power"].device_class is SensorDeviceClass.POWER
 
     def test_unit_is_watt(self):
-        assert "WATT" in _sensor_kwarg("grid_power", "native_unit_of_measurement").upper()
+        assert _BY_KEY["grid_power"].native_unit_of_measurement is UnitOfPower.WATT
 
     def test_state_class_is_measurement(self):
-        assert "MEASUREMENT" in _sensor_kwarg("grid_power", "state_class").upper()
+        assert _BY_KEY["grid_power"].state_class is SensorStateClass.MEASUREMENT
 
 
 class TestImmersionPowerMetadata:
@@ -178,85 +113,63 @@ class TestImmersionPowerMetadata:
         assert "immersion_power" in _sensor_keys()
 
     def test_unit_is_watt(self):
-        unit = _sensor_kwarg("immersion_power", "native_unit_of_measurement")
-        assert unit is not None and "WATT" in unit.upper()
+        assert _BY_KEY["immersion_power"].native_unit_of_measurement is UnitOfPower.WATT
 
     def test_device_class_is_power(self):
-        dc = _sensor_kwarg("immersion_power", "device_class")
-        assert dc is not None and "POWER" in dc.upper()
+        assert _BY_KEY["immersion_power"].device_class is SensorDeviceClass.POWER
 
     def test_state_class_is_measurement(self):
-        sc = _sensor_kwarg("immersion_power", "state_class")
-        assert sc is not None and "MEASUREMENT" in sc.upper()
+        assert _BY_KEY["immersion_power"].state_class is SensorStateClass.MEASUREMENT
 
     def test_value_fn_uses_immersion_load_w(self):
-        src = _value_fn_source("immersion_power")
-        assert src is not None and "immersion_load_w" in src
+        d = MagicMock()
+        d.immersion_load_w = 1234.0
+        d.battery_power_w = 1.0
+        assert _lambda_for("immersion_power")(d) == pytest.approx(1234.0)
 
-    def test_lambda_on_when_running(self):
-        from unittest.mock import MagicMock
-
-        fn = eval(_value_fn_source("immersion_power").rstrip(","))  # noqa: S307
+    def test_on_when_running(self):
         d = MagicMock()
         d.immersion_load_w = 3000.0
-        assert fn(d) == pytest.approx(3000.0)
+        assert _lambda_for("immersion_power")(d) == pytest.approx(3000.0)
 
-    def test_lambda_off_is_zero(self):
-        from unittest.mock import MagicMock
-
-        fn = eval(_value_fn_source("immersion_power").rstrip(","))  # noqa: S307
+    def test_off_is_zero(self):
         d = MagicMock()
         d.immersion_load_w = 0.0
-        assert fn(d) == pytest.approx(0.0)
+        assert _lambda_for("immersion_power")(d) == pytest.approx(0.0)
 
 
 class TestWeeklyMonthlySensorStateClass:
     """Weekly and monthly sensors must use TOTAL not TOTAL_INCREASING.
     They can decrease from floating-point rounding, causing recorder warnings."""
 
-    def test_weekly_sensors_use_total_not_total_increasing(self):
-
-        src = (PKG / "sensor.py").read_text()
-        # Find the weekly section
-        weekly_start = src.find("# ── Weekly accumulations")
-        assert weekly_start != -1
-        weekly_section = src[weekly_start:]
-        assert "TOTAL_INCREASING" not in weekly_section, (
-            "Weekly/monthly sensors must use SensorStateClass.TOTAL not TOTAL_INCREASING — "
+    def test_period_sensors_use_total_not_total_increasing(self):
+        period_sensors = [
+            d
+            for d in SENSOR_DESCRIPTIONS
+            if d.reset_period is not None or d.key.endswith(("_this_week", "_this_month"))
+        ]
+        assert period_sensors
+        assert [
+            d.key for d in period_sensors if d.state_class is SensorStateClass.TOTAL_INCREASING
+        ] == [], (
+            "Weekly/monthly sensors must use SensorStateClass.TOTAL not TOTAL_INCREASING, "
             "float rounding can cause micro-decreases that trigger HA recorder warnings."
         )
 
-
-def _lambda_for(key: str):
-    """Compile the full (possibly multi-line) value_fn lambda for the given sensor key."""
-    src = _SENSOR_PY.read_text()
-    for node in ast.walk(_TREE):
-        if not isinstance(node, ast.Call):
-            continue
-        if not any(
-            kw.arg == "key" and isinstance(kw.value, ast.Constant) and kw.value.value == key
-            for kw in node.keywords
-        ):
-            continue
-        for kw in node.keywords:
-            if kw.arg == "value_fn":
-                from custom_components.givenergy_inverter_manager import const
-
-                return eval(  # noqa: S307
-                    f"({ast.get_source_segment(src, kw.value)})", dict(vars(const))
-                )
-    raise AssertionError(f"value_fn not found for {key}")
+    def test_only_the_ev_session_counter_is_total_increasing(self):
+        increasing = {
+            d.key for d in SENSOR_DESCRIPTIONS if d.state_class is SensorStateClass.TOTAL_INCREASING
+        }
+        assert increasing == {"ev_session_energy"}
 
 
 class TestThroughputBudgetSensors:
     """Budget sensors are disabled diagnostics that read the engine fields."""
 
     def test_pct_sensor_state_class_is_measurement(self):
-        assert _sensor_kwarg("battery_throughput_budget_pct", "state_class") == "MEASUREMENT"
+        assert _BY_KEY["battery_throughput_budget_pct"].state_class is SensorStateClass.MEASUREMENT
 
     def test_pct_value_fn_rounds_and_handles_none(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("battery_throughput_budget_pct")
         d = MagicMock()
         d.battery_throughput_budget_pct = 83.456
@@ -265,8 +178,6 @@ class TestThroughputBudgetSensors:
         assert fn(d) is None
 
     def test_status_value_fn_returns_none_when_unset(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("battery_throughput_budget_status")
         d = MagicMock()
         d.battery_throughput_budget_status = ""
@@ -277,8 +188,6 @@ class TestThroughputBudgetSensors:
 
 class TestBatteryYearsRemainingSensor:
     def test_value_fn_rounds_and_handles_none(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("battery_years_remaining")
         d = MagicMock()
         d.battery_years_remaining = 12.345
@@ -299,8 +208,6 @@ class TestAvgImportRateSensors:
         ],
     )
     def test_value_fn(self, key, period):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for(key)
         d = MagicMock()
         acc = getattr(d, period)
@@ -315,7 +222,7 @@ class TestAvgImportRateSensors:
         ["avg_import_rate_today", "avg_import_rate_this_week", "avg_import_rate_this_month"],
     )
     def test_state_class_is_measurement(self, key):
-        assert _sensor_kwarg(key, "state_class") == "MEASUREMENT"
+        assert _BY_KEY[key].state_class is SensorStateClass.MEASUREMENT
 
 
 class TestEfficiencySensors:
@@ -327,8 +234,6 @@ class TestEfficiencySensors:
         ],
     )
     def test_cheap_import_fraction(self, key, period):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for(key)
         d = MagicMock()
         acc = getattr(d, period)
@@ -339,8 +244,6 @@ class TestEfficiencySensors:
         assert fn(d) is None
 
     def test_roundtrip_efficiency_value(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("battery_roundtrip_efficiency_today")
         d = MagicMock()
         d.today.battery_charge_kwh = 10.0
@@ -350,22 +253,11 @@ class TestEfficiencySensors:
         assert fn(d) is None
 
     def test_roundtrip_efficiency_is_not_a_daily_total(self):
-        for node in ast.walk(_TREE):
-            if isinstance(node, ast.Call) and any(
-                kw.arg == "key"
-                and isinstance(kw.value, ast.Constant)
-                and kw.value.value == "battery_roundtrip_efficiency_today"
-                for kw in node.keywords
-            ):
-                assert not any(kw.arg == "is_daily_total" for kw in node.keywords), (
-                    "MEASUREMENT sensors must not set last_reset"
-                )
+        assert not _BY_KEY["battery_roundtrip_efficiency_today"].is_daily_total, "MEASUREMENT sensors must not set last_reset"
 
 
 class TestNextCheapRateSensors:
     def test_start_shows_time_when_known(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("next_cheap_rate_start")
         d = MagicMock()
         d.next_cheap_rate_start = "23:00"
@@ -373,8 +265,6 @@ class TestNextCheapRateSensors:
         assert fn(d) == "23:00"
 
     def test_start_shows_now_when_active(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("next_cheap_rate_start")
         d = MagicMock()
         d.next_cheap_rate_start = None
@@ -382,8 +272,6 @@ class TestNextCheapRateSensors:
         assert fn(d) == "Now"
 
     def test_start_is_none_on_flat_tariff(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("next_cheap_rate_start")
         d = MagicMock()
         d.next_cheap_rate_start = None
@@ -391,8 +279,6 @@ class TestNextCheapRateSensors:
         assert fn(d) is None
 
     def test_hours_value_fn(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("hours_to_cheap_rate")
         d = MagicMock()
         d.hours_to_cheap_rate = 9.0
@@ -409,8 +295,6 @@ class TestBatteryEnergySensors:
         ],
     )
     def test_value_fn_rounds_to_three_places(self, key, attr, section):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for(key)
         d = MagicMock()
         setattr(getattr(d, section), attr, 4.56789)
@@ -420,7 +304,7 @@ class TestBatteryEnergySensors:
         "key", ["battery_charge_kwh_today", "battery_discharge_kwh_today", "house_kwh_today"]
     )
     def test_daily_energy_sensors_are_total(self, key):
-        assert _sensor_kwarg(key, "state_class") == "TOTAL"
+        assert _BY_KEY[key].state_class is SensorStateClass.TOTAL
 
 
 class TestMiscellaneousSensors:
@@ -437,16 +321,12 @@ class TestMiscellaneousSensors:
         ],
     )
     def test_battery_power_direction(self, power_w, expected):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("battery_power_direction")
         d = MagicMock()
         d.battery_power_w = power_w
         assert fn(d) == expected
 
     def test_days_in_period_value_fn(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("days_in_period")
         d = MagicMock()
         d.days_in_period = 12
@@ -455,34 +335,21 @@ class TestMiscellaneousSensors:
 
 class TestEvKmSensors:
     def test_km_value_fn(self):
-        from unittest.mock import MagicMock
-
         d = MagicMock()
         d.ev_km_charged_today = 42.5
         assert _lambda_for("ev_km_charged_today")(d) == 42.5
 
     def test_cost_per_km_value_fn(self):
-        from unittest.mock import MagicMock
-
         d = MagicMock()
         d.ev_cost_per_km_today = None
         assert _lambda_for("ev_cost_per_km_today")(d) is None
 
     def test_cost_per_km_is_not_a_daily_total(self):
-        for node in ast.walk(_TREE):
-            if isinstance(node, ast.Call) and any(
-                kw.arg == "key"
-                and isinstance(kw.value, ast.Constant)
-                and kw.value.value == "ev_cost_per_km_today"
-                for kw in node.keywords
-            ):
-                assert not any(kw.arg == "is_daily_total" for kw in node.keywords)
+        assert not _BY_KEY["ev_cost_per_km_today"].is_daily_total, "MEASUREMENT sensors must not set last_reset"
 
 
 class TestDerivedSensors:
     def test_solar_capture_excludes_missed_solar_once(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("solar_capture_efficiency_today")
         d = MagicMock()
         d.today.solar_kwh = 20.0
@@ -490,8 +357,6 @@ class TestDerivedSensors:
         assert fn(d) == pytest.approx(75.0)
 
     def test_solar_capture_full_when_nothing_missed(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("solar_capture_efficiency_today")
         d = MagicMock()
         d.today.solar_kwh = 12.0
@@ -499,8 +364,6 @@ class TestDerivedSensors:
         assert fn(d) == pytest.approx(100.0)
 
     def test_solar_capture_never_negative(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("solar_capture_efficiency_today")
         d = MagicMock()
         d.today.solar_kwh = 4.0
@@ -508,8 +371,6 @@ class TestDerivedSensors:
         assert fn(d) == pytest.approx(0.0)
 
     def test_solar_capture_none_without_solar(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("solar_capture_efficiency_today")
         d = MagicMock()
         d.today.solar_kwh = 0.0
@@ -517,18 +378,9 @@ class TestDerivedSensors:
         assert fn(d) is None
 
     def test_solar_capture_is_not_a_daily_total(self):
-        for node in ast.walk(_TREE):
-            if isinstance(node, ast.Call) and any(
-                kw.arg == "key"
-                and isinstance(kw.value, ast.Constant)
-                and kw.value.value == "solar_capture_efficiency_today"
-                for kw in node.keywords
-            ):
-                assert not any(kw.arg == "is_daily_total" for kw in node.keywords)
+        assert not _BY_KEY["solar_capture_efficiency_today"].is_daily_total, "MEASUREMENT sensors must not set last_reset"
 
     def test_usable_capacity_scales_with_remaining_life(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("battery_usable_capacity_kwh")
         d = MagicMock()
         d.battery_capacity_kwh = 10.0
@@ -538,8 +390,6 @@ class TestDerivedSensors:
         assert fn(d) is None
 
     def test_net_position_this_month_rounds(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("net_position_this_month")
         d = MagicMock()
         d.month.net_position = 3.141592
@@ -548,8 +398,6 @@ class TestDerivedSensors:
 
 class TestCheapestRateSensors:
     def test_zero_rate_is_reported(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("cheapest_rate")
         d = MagicMock()
         d.cheapest_rate = 0.0
@@ -557,8 +405,6 @@ class TestCheapestRateSensors:
         assert fn(d) == 0.0
 
     def test_none_before_first_cycle(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("cheapest_rate")
         d = MagicMock()
         d.cheapest_rate = 0.0
@@ -566,8 +412,6 @@ class TestCheapestRateSensors:
         assert fn(d) is None
 
     def test_rate_rounds_to_four_places(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("cheapest_rate")
         d = MagicMock()
         d.cheapest_rate = 0.096512
@@ -575,8 +419,6 @@ class TestCheapestRateSensors:
         assert fn(d) == pytest.approx(0.0965)
 
     def test_period_name(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("cheapest_rate_period")
         d = MagicMock()
         d.cheapest_rate_name = "Nightboost"
@@ -591,8 +433,6 @@ class TestRateStatusSensors:
         [("is_on_cheapest_rate", "is_on_cheapest_rate"), ("is_on_base_rate", "is_on_base_rate")],
     )
     def test_yes_no(self, key, attr):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for(key)
         d = MagicMock()
         setattr(d, attr, True)
@@ -603,8 +443,6 @@ class TestRateStatusSensors:
 
 class TestPeriodTimeSensors:
     def test_minutes_remaining_passthrough(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("minutes_remaining_in_period")
         d = MagicMock()
         d.minutes_remaining_in_period = 60.0
@@ -613,8 +451,6 @@ class TestPeriodTimeSensors:
         assert fn(d) is None
 
     def test_rate_saving_reports_zero_at_base_rate(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("rate_savings_vs_daytime")
         d = MagicMock()
         d.rate_savings_vs_daytime = 0.0
@@ -637,16 +473,12 @@ class TestGridSolarStatusSensors:
         ],
     )
     def test_grid_power_direction(self, grid_w, expected):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("grid_power_direction")
         d = MagicMock()
         d.grid_power_w = grid_w
         assert fn(d) == expected
 
     def test_solar_pct_of_max(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("solar_power_pct_of_max")
         d = MagicMock()
         d.solar_power_w = 2500.0
@@ -654,8 +486,6 @@ class TestGridSolarStatusSensors:
         assert fn(d) == pytest.approx(50.0)
 
     def test_solar_pct_of_max_none_without_inverter_limit(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("solar_power_pct_of_max")
         d = MagicMock()
         d.solar_power_w = 2500.0
@@ -666,8 +496,6 @@ class TestGridSolarStatusSensors:
 class TestStatusSensors:
     @staticmethod
     def _battery(soc, power):
-        from unittest.mock import MagicMock
-
         d = MagicMock()
         d.battery_soc = soc
         d.battery_power_w = power
@@ -692,8 +520,6 @@ class TestStatusSensors:
 
     @staticmethod
     def _night(reason="ok", survive=True, sunrise_soc=50.0, min_soc=10):
-        from unittest.mock import MagicMock
-
         d = MagicMock()
         d.survival_reason = reason
         d.will_survive_night = survive
@@ -724,16 +550,12 @@ class TestStatusSensors:
 
 class TestPowerBalanceSensors:
     def test_net_solar_surplus_rounds(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("net_solar_surplus_w")
         d = MagicMock()
         d.net_solar_surplus_w = 1234.56
         assert fn(d) == pytest.approx(1234.6)
 
     def test_battery_kwh_available(self):
-        from unittest.mock import MagicMock
-
         fn = _lambda_for("battery_kwh_available")
         d = MagicMock()
         d.battery_soc = 50.0
@@ -748,52 +570,50 @@ class TestDashboardSummarySensors:
         assert "house_energy_today" not in _sensor_keys()
 
     def test_house_load_today_is_enabled_by_default(self):
-        src = _SENSOR_PY.read_text()
-        start = src.index('key="house_kwh_today"')
-        block = src[start : src.index("\n    ),", start)]
-        assert "entity_registry_enabled_default=False" not in block
+        assert _BY_KEY["house_kwh_today"].entity_registry_enabled_default is True
 
     def test_dashboard_uses_house_kwh_today(self):
-        dashboard = (_SENSOR_PY.parent / "dashboard_builder.py").read_text()
+        dashboard = (PKG / "dashboard_builder.py").read_text()
         assert 'e("house_kwh_today")' in dashboard
         assert "house_energy_today" not in dashboard
+
+
 class TestDailyTotalSensorsUseTotalStateClass:
     """HA raises ValueError from state_attributes when last_reset is set on a non-TOTAL sensor."""
 
     @staticmethod
-    def _daily_total_keys():
-        keys = []
-        for node in ast.walk(_TREE):
-            if not isinstance(node, ast.Call):
-                continue
-            kws = {kw.arg: kw.value for kw in node.keywords}
-            flag = kws.get("is_daily_total")
-            if isinstance(flag, ast.Constant) and flag.value is True:
-                keys.append((kws["key"].value, kws.get("state_class")))
-        return keys
+    def _daily_totals():
+        return [d for d in SENSOR_DESCRIPTIONS if d.is_daily_total]
 
     def test_found_daily_total_sensors(self):
-        assert len(self._daily_total_keys()) >= 20
+        assert len(self._daily_totals()) >= 20
 
     def test_every_daily_total_sensor_is_state_class_total(self):
-        wrong = [
-            key
-            for key, state_class in self._daily_total_keys()
-            if not (isinstance(state_class, ast.Attribute) and state_class.attr == "TOTAL")
-        ]
+        wrong = [d.key for d in self._daily_totals() if d.state_class is not SensorStateClass.TOTAL]
         assert wrong == []
 
+    @staticmethod
+    def _sensor_with(description, **data_fields):
+        data = CoordinatorData()
+        data.last_reset_time = "2026-06-15T00:00:00+00:00"
+        for name, value in data_fields.items():
+            setattr(data, name, value)
+        coordinator = SimpleNamespace(data=data, entry=SimpleNamespace(entry_id="entry"))
+        return GivEnergyManagerSensor(coordinator, description)
+
+    def test_last_reset_is_reported_for_a_total_sensor(self):
+        sensor = self._sensor_with(_BY_KEY["solar_today"])
+        assert sensor.last_reset == datetime(2026, 6, 15, tzinfo=timezone.utc)
+
     def test_last_reset_guards_on_state_class(self):
-        src = _SENSOR_PY.read_text()
-        assert "state_class != SensorStateClass.TOTAL" in src
+        measurement = replace(_BY_KEY["solar_today"], state_class=SensorStateClass.MEASUREMENT)
+        assert self._sensor_with(measurement).last_reset is None
 
 
 class TestBatteryWearFormulaAgreement:
     """Throughput counts charge plus discharge, so one rated cycle is 2 x capacity of throughput."""
 
     def test_life_consumed_matches_engine_cycle_cost(self):
-        from unittest.mock import MagicMock
-
         from custom_components.givenergy_inverter_manager.const import (
             BATTERY_RATED_CYCLES,
             CONF_BATTERY_COST,
@@ -808,23 +628,7 @@ class TestBatteryWearFormulaAgreement:
         d.battery_capacity_kwh = capacity
         d.today.battery_throughput_kwh = throughput
 
-        from custom_components.givenergy_inverter_manager import const
-
-        src = _SENSOR_PY.read_text()
-        fn = None
-        for node in ast.walk(_TREE):
-            if isinstance(node, ast.Call) and any(
-                kw.arg == "key"
-                and isinstance(kw.value, ast.Constant)
-                and kw.value.value == "battery_life_consumed_today"
-                for kw in node.keywords
-            ):
-                for kw in node.keywords:
-                    if kw.arg == "value_fn":
-                        fn = eval(  # noqa: S307
-                            f"({ast.get_source_segment(src, kw.value)})", dict(vars(const))
-                        )
-        life_pct = fn(d)
+        life_pct = _lambda_for("battery_life_consumed_today")(d)
         assert life_pct == pytest.approx(100 / BATTERY_RATED_CYCLES, rel=1e-3)
 
         cost_per_kwh = _battery_cycle_cost({CONF_BATTERY_COST: 3000.0}, capacity)
@@ -832,17 +636,65 @@ class TestBatteryWearFormulaAgreement:
 
 
 def test_html_attribute_is_not_recorded():
-    sensor_class = next(
-        node
-        for node in ast.walk(_TREE)
-        if isinstance(node, ast.ClassDef) and node.name == "GivEnergyManagerSensor"
-    )
-    assigned = {
-        target.id: node.value
-        for node in sensor_class.body
-        if isinstance(node, ast.Assign)
-        for target in node.targets
-        if isinstance(target, ast.Name)
-    }
-    value = assigned["_unrecorded_attributes"]
-    assert ast.literal_eval(value.args[0]) == {"html"}
+    assert GivEnergyManagerSensor._unrecorded_attributes == frozenset({"html"})
+
+
+class TestSensorEntity:
+    @staticmethod
+    def _sensor(description, data):
+        coordinator = SimpleNamespace(data=data, entry=SimpleNamespace(entry_id="entry"))
+        return GivEnergyManagerSensor(coordinator, description)
+
+    def test_a_failing_value_fn_is_reported_once_at_warning(self, caplog):
+        def boom(_data):
+            raise ValueError("bad reading")
+
+        sensor = self._sensor(replace(_BY_KEY["solar_power"], value_fn=boom), CoordinatorData())
+        with caplog.at_level(logging.DEBUG, logger="custom_components.givenergy_inverter_manager"):
+            assert [sensor.native_value for _ in range(3)] == [None, None, None]
+
+        records = [r for r in caplog.records if "value_fn raised" in r.getMessage()]
+        assert [r.levelno for r in records] == [logging.WARNING]
+        assert "solar_power" in records[0].getMessage()
+
+    def test_each_sensor_warns_for_itself(self, caplog):
+        def boom(_data):
+            raise ValueError("bad reading")
+
+        first = self._sensor(replace(_BY_KEY["solar_power"], value_fn=boom), CoordinatorData())
+        second = self._sensor(replace(_BY_KEY["battery_soc"], value_fn=boom), CoordinatorData())
+        with caplog.at_level(logging.WARNING, logger="custom_components.givenergy_inverter_manager"):
+            assert first.native_value is None
+            assert second.native_value is None
+        assert len([r for r in caplog.records if "value_fn raised" in r.getMessage()]) == 2
+
+    def test_value_comes_from_the_coordinator_data(self):
+        data = CoordinatorData()
+        data.solar_power_w = 1234.56
+        assert self._sensor(_BY_KEY["solar_power"], data).native_value == 1234.6
+
+    def test_no_value_before_the_first_update(self):
+        assert self._sensor(_BY_KEY["solar_power"], None).native_value is None
+
+    def test_currency_unit_falls_back_to_the_default_symbol_before_the_first_update(self):
+        sensor = self._sensor(_BY_KEY["current_rate"], None)
+        assert sensor.native_unit_of_measurement == DEFAULT_CURRENCY_SYMBOL
+
+    def test_currency_unit_follows_the_configured_symbol(self):
+        data = CoordinatorData()
+        data.currency_symbol = "£"
+        assert self._sensor(_BY_KEY["current_rate"], data).native_unit_of_measurement == "£"
+
+    def test_html_and_attribute_functions_feed_the_state_attributes(self):
+        def html(_data):
+            return "<b>x</b>"
+
+        def attrs(_data):
+            return {"k": 1}
+
+        description = replace(_BY_KEY["solar_power"], html_fn=html, attrs_fn=attrs)
+        sensor = self._sensor(description, CoordinatorData())
+        assert sensor.extra_state_attributes == {"html": "<b>x</b>", "k": 1}
+
+    def test_no_state_attributes_without_html_or_attribute_functions(self):
+        assert self._sensor(_BY_KEY["solar_power"], CoordinatorData()).extra_state_attributes is None

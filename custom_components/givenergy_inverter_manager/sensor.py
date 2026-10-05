@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -46,13 +47,9 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import (
-    BATTERY_RATED_CYCLES,
-    INTEGRATION_VERSION,
-    NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
-)
+from . import sensor_values as values
+from .const import DEFAULT_CURRENCY_SYMBOL, INTEGRATION_VERSION
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
-from .core.battery import survival_attributes
 from .core.engine import CoordinatorData
 from .core.reporting import (
     build_charge_plan_html,
@@ -74,14 +71,10 @@ class GivEnergyManagerSensorDescription(SensorEntityDescription):
 
     value_fn: Callable[[CoordinatorData], Any] = lambda d: None
     available_fn: Callable[[CoordinatorData], bool] = lambda d: True
-    entity_category: EntityCategory | None = None
-    is_daily_total: bool = False
-    reset_period: str | None = None
-    entity_registry_enabled_default: bool = True
-    html_fn: object = (
-        None  # Callable[[CoordinatorData], str] | None  # True → expose last_reset_time for HA LTS
-    )
-    attrs_fn: object = None  # Callable[[CoordinatorData], dict] | None, extra state attributes
+    is_daily_total: bool = False  # True: resets at local midnight and exposes last_reset
+    reset_period: str | None = None  # "week", "month" or "year" for a longer reset period
+    html_fn: Callable[[CoordinatorData], str] | None = None  # the "html" state attribute
+    attrs_fn: Callable[[CoordinatorData], dict[str, Any] | None] | None = None  # extra attributes
 
 
 _RESET_FIELDS = {
@@ -162,9 +155,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="grid_power_direction",
         icon="mdi:transmission-tower",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: "Importing"
-        if d.grid_power_w > 50
-        else ("Exporting" if d.grid_power_w < -50 else "Balanced"),
+        value_fn=values.grid_power_direction,
     ),
     GivEnergyManagerSensorDescription(
         key="solar_power_pct_of_max",
@@ -173,9 +164,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:solar-power-variant",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.solar_power_w / d.inverter_max_w * 100, 1)
-        if d.inverter_max_w > 0
-        else None,
+        value_fn=values.solar_power_pct_of_max,
     ),
     GivEnergyManagerSensorDescription(
         key="net_solar_surplus_w",
@@ -195,9 +184,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:battery",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.battery_soc / 100 * d.battery_capacity_kwh, 2)
-        if d.battery_capacity_kwh > 0
-        else None,
+        value_fn=values.battery_kwh_available,
     ),
     # --- Current tariff ---
     GivEnergyManagerSensorDescription(
@@ -224,9 +211,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="next_cheap_rate_start",
         icon="mdi:clock-time-four-outline",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: d.next_cheap_rate_start
-        if d.next_cheap_rate_start is not None
-        else ("Now" if d.hours_to_cheap_rate == 0.0 else None),
+        value_fn=values.next_cheap_rate_start,
     ),
     GivEnergyManagerSensorDescription(
         key="hours_to_cheap_rate",
@@ -258,14 +243,14 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="is_on_cheapest_rate",
         icon="mdi:cash-check",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: "yes" if d.is_on_cheapest_rate else "no",
+        value_fn=lambda d: values.YES if d.is_on_cheapest_rate else values.NO,
     ),
     GivEnergyManagerSensorDescription(
         key="is_on_base_rate",
         translation_key="is_on_base_rate",
         icon="mdi:cash",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: "yes" if d.is_on_base_rate else "no",
+        value_fn=lambda d: values.YES if d.is_on_base_rate else values.NO,
     ),
     GivEnergyManagerSensorDescription(
         key="minutes_remaining_in_period",
@@ -420,14 +405,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
         icon="mdi:battery-minus",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(
-            d.today.battery_throughput_kwh
-            / (2 * d.battery_capacity_kwh * BATTERY_RATED_CYCLES)
-            * 100,
-            6,
-        )
-        if d.battery_capacity_kwh > 0
-        else 0.0,
+        value_fn=values.battery_life_consumed_today_pct,
     ),
     # --- Self-sufficiency ---
     GivEnergyManagerSensorDescription(
@@ -490,9 +468,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="battery_cycle_cost_per_kwh",
         native_unit_of_measurement=_CURRENCY_UNIT,
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.battery_cycle_cost_per_kwh, 5)
-        if d.battery_cycle_cost_per_kwh
-        else None,
+        value_fn=values.battery_cycle_cost_per_kwh,
     ),
     GivEnergyManagerSensorDescription(
         key="battery_remaining_life",
@@ -518,9 +494,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:battery-clock",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.battery_years_remaining, 1)
-        if d.battery_years_remaining is not None
-        else None,
+        value_fn=values.battery_years_remaining,
     ),
     GivEnergyManagerSensorDescription(
         key="battery_usable_capacity_kwh",
@@ -531,24 +505,14 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:battery-heart-outline",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(
-            d.battery_capacity_kwh * d.battery_stats.estimated_remaining_life_pct / 100, 2
-        )
-        if d.battery_capacity_kwh > 0
-        else None,
+        value_fn=values.battery_usable_capacity_kwh,
     ),
     GivEnergyManagerSensorDescription(
         key="battery_state",
         translation_key="battery_state",
         icon="mdi:battery-charging-80",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: "Discharging"
-        if d.battery_power_w < -50
-        else (
-            "Full"
-            if d.battery_soc >= 99
-            else ("Charging" if d.battery_power_w > 50 else "Idle")
-        ),
+        value_fn=values.battery_state,
     ),
     # --- Overnight charge decision ---
     GivEnergyManagerSensorDescription(
@@ -571,9 +535,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=_CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=None,
-        value_fn=lambda d: (
-            round(d.charge_decision.cost_to_charge, 3) if d.charge_decision else None
-        ),
+        value_fn=values.overnight_charge_cost,
     ),
     # --- Immersion divert ---
     GivEnergyManagerSensorDescription(
@@ -601,27 +563,8 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="night_survival_confidence",
         icon="mdi:moon-waning-crescent",
         entity_registry_enabled_default=False,
-        attrs_fn=lambda d: survival_attributes(
-            d.will_survive_night,
-            d.estimated_soc_at_sunrise,
-            d.battery_min_soc,
-            d.battery_soc,
-            d.survival_reason,
-        )
-        if d.survival_reason
-        else None,
-        value_fn=lambda d: None
-        if not d.survival_reason
-        else (
-            "Critical"
-            if not d.will_survive_night
-            else (
-                "Warning"
-                if d.estimated_soc_at_sunrise
-                < d.battery_min_soc + NIGHT_SURVIVAL_WARNING_MARGIN_PCT
-                else "Safe"
-            )
-        ),
+        attrs_fn=values.night_survival_attributes,
+        value_fn=values.night_survival_confidence,
     ),
     # --- Clipping ---
     GivEnergyManagerSensorDescription(
@@ -678,7 +621,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="ev_draining_battery",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="ev_draining_battery",
-        value_fn=lambda d: "yes" if d.ev_draining_battery else "no",
+        value_fn=lambda d: values.YES if d.ev_draining_battery else values.NO,
         available_fn=lambda d: d.ev_available,
     ),
     GivEnergyManagerSensorDescription(
@@ -727,9 +670,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value_fn=lambda d: round(d.inverter_temperature, 1)
-        if d.inverter_temperature is not None
-        else None,
+        value_fn=values.inverter_temperature,
     ),
     GivEnergyManagerSensorDescription(
         key="inverter_temperature_status",
@@ -751,18 +692,14 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:molecule-co2",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.carbon_intensity_gco2, 1)
-        if d.carbon_intensity_gco2 is not None
-        else None,
+        value_fn=values.carbon_intensity,
     ),
     GivEnergyManagerSensorDescription(
         key="carbon_intensity_status",
         translation_key="carbon_intensity_status",
         icon="mdi:leaf",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: d.carbon_intensity_status
-        if d.carbon_intensity_gco2 is not None
-        else None,
+        value_fn=values.carbon_intensity_status,
     ),
     GivEnergyManagerSensorDescription(
         key="dry_run_last_skipped",
@@ -825,9 +762,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:cash-clock",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.today.total_import_cost / d.today.import_kwh, 4)
-        if d.today.import_kwh > 0
-        else None,
+        value_fn=lambda d: values.average_import_rate(d.today),
     ),
     GivEnergyManagerSensorDescription(
         key="avg_import_rate_this_week",
@@ -836,9 +771,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:cash-clock",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.week.total_import_cost / d.week.import_kwh, 4)
-        if d.week.import_kwh > 0
-        else None,
+        value_fn=lambda d: values.average_import_rate(d.week),
     ),
     GivEnergyManagerSensorDescription(
         key="avg_import_rate_this_month",
@@ -847,9 +780,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:cash-clock",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.month.total_import_cost / d.month.import_kwh, 4)
-        if d.month.import_kwh > 0
-        else None,
+        value_fn=lambda d: values.average_import_rate(d.month),
     ),
     GivEnergyManagerSensorDescription(
         key="immersion_savings_today",
@@ -888,9 +819,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:battery-sync",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.battery_throughput_budget_pct, 1)
-        if d.battery_throughput_budget_pct is not None
-        else None,
+        value_fn=values.battery_throughput_budget_pct,
     ),
     GivEnergyManagerSensorDescription(
         key="battery_throughput_budget_status",
@@ -949,11 +878,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:solar-power-variant",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(
-            max(0.0, d.today.solar_kwh - d.today.missed_solar_kwh) / d.today.solar_kwh * 100, 1
-        )
-        if d.today.solar_kwh > 0
-        else None,
+        value_fn=values.solar_capture_efficiency_today,
     ),
     # ── Solar forecast and accuracy ───────────────────────────────────────────
     GivEnergyManagerSensorDescription(
@@ -973,11 +898,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:weather-sunny-alert",
         entity_registry_enabled_default=True,
-        value_fn=lambda d: (
-            round(d.today.solar_kwh / d.solar_forecast_kwh_today * 100, 1)
-            if d.solar_forecast_kwh_today > 0
-            else None
-        ),
+        value_fn=values.solar_actual_vs_forecast_pct,
     ),
     GivEnergyManagerSensorDescription(
         key="yesterday_forecast_accuracy_pct",
@@ -1177,9 +1098,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:chart-pie",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.week.cheap_import_fraction * 100, 1)
-        if d.week.import_kwh > 0
-        else None,
+        value_fn=lambda d: values.cheap_import_percentage(d.week),
     ),
     # ── Monthly accumulations (disabled by default) ───────────────────────────
     GivEnergyManagerSensorDescription(
@@ -1363,9 +1282,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:chart-pie",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(d.month.cheap_import_fraction * 100, 1)
-        if d.month.import_kwh > 0
-        else None,
+        value_fn=lambda d: values.cheap_import_percentage(d.month),
     ),
     GivEnergyManagerSensorDescription(
         key="battery_roundtrip_efficiency_today",
@@ -1375,11 +1292,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:battery-sync",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: round(
-            d.today.battery_discharge_kwh / d.today.battery_charge_kwh * 100, 1
-        )
-        if d.today.battery_charge_kwh > 0
-        else None,
+        value_fn=values.battery_roundtrip_efficiency_today,
     ),
     GivEnergyManagerSensorDescription(
         key="net_position_this_month",
@@ -1398,7 +1311,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="today_summary",
         icon="mdi:newspaper-variant-outline",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: build_today_summary_state(d),
+        value_fn=build_today_summary_state,
         html_fn=build_today_summary_html,
     ),
     GivEnergyManagerSensorDescription(
@@ -1406,7 +1319,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="charge_plan",
         icon="mdi:battery-clock-outline",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: build_charge_plan_state(d),
+        value_fn=build_charge_plan_state,
         html_fn=build_charge_plan_html,
     ),
     GivEnergyManagerSensorDescription(
@@ -1414,7 +1327,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="week_summary",
         icon="mdi:calendar-week-outline",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: build_week_summary_state(d),
+        value_fn=build_week_summary_state,
         html_fn=build_week_summary_html,
     ),
     GivEnergyManagerSensorDescription(
@@ -1422,7 +1335,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="pre_boost_export_recommended",
         icon="mdi:transmission-tower-export",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: "yes" if d.pre_boost_export_recommended else "no",
+        value_fn=lambda d: values.YES if d.pre_boost_export_recommended else values.NO,
     ),
     GivEnergyManagerSensorDescription(
         key="pre_boost_export_kwh",
@@ -1448,9 +1361,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="battery_power_direction",
         icon="mdi:battery-charging",
         entity_registry_enabled_default=False,
-        value_fn=lambda d: "Charging"
-        if d.battery_power_w > 50
-        else ("Discharging" if d.battery_power_w < -50 else "Idle"),
+        value_fn=values.battery_power_direction,
     ),
     GivEnergyManagerSensorDescription(
         key="integration_version",
@@ -1504,10 +1415,8 @@ class GivEnergyManagerSensor(GivEnergyEntity, SensorEntity):
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{description.key}"
-        if description.entity_category is not None:
-            self._attr_entity_category = description.entity_category
         self._reset_period = reset_period_of(description)
-        self._attr_entity_registry_enabled_default = description.entity_registry_enabled_default
+        self._value_error_logged = False
 
     @property
     def native_unit_of_measurement(self) -> str | None:
@@ -1522,11 +1431,11 @@ class GivEnergyManagerSensor(GivEnergyEntity, SensorEntity):
         if declared == _CURRENCY_UNIT:
             if self.coordinator.data is not None:
                 return self.coordinator.data.currency_symbol
-            return "€"  # safe fallback before first update
+            return DEFAULT_CURRENCY_SYMBOL  # safe fallback before first update
         return declared
 
     @property
-    def last_reset(self):
+    def last_reset(self) -> datetime | None:
         """Return when the sensor's accumulation period started (enables HA long-term stats)."""
         if self._reset_period is None:
             return None
@@ -1538,8 +1447,6 @@ class GivEnergyManagerSensor(GivEnergyEntity, SensorEntity):
         iso = getattr(data, _RESET_FIELDS[self._reset_period], "")
         if not iso:
             return None
-        from datetime import datetime, timezone
-
         try:
             dt = datetime.fromisoformat(iso)
             # Stored as local timezone since coordinator fix; old UTC values
@@ -1565,15 +1472,21 @@ class GivEnergyManagerSensor(GivEnergyEntity, SensorEntity):
         return attrs or None
 
     @property
-    def native_value(self):
+    def native_value(self) -> Any:
         """Return sensor value from coordinator data."""
         if self.coordinator.data is None:
             return None
         try:
             return self.entity_description.value_fn(self.coordinator.data)
         except Exception as exc:  # noqa: BLE001
-            _LOG.debug("Sensor %s value_fn raised: %s", self.entity_description.key, exc)
+            self._warn_once_value_fn_raised(exc)
             return None
+
+    def _warn_once_value_fn_raised(self, exc: Exception) -> None:
+        """Log the first value_fn failure of this sensor, then stay quiet."""
+        if not self._value_error_logged:
+            self._value_error_logged = True
+            _LOG.warning("Sensor %s value_fn raised: %s", self.entity_description.key, exc)
 
     @property
     def available(self) -> bool:

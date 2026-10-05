@@ -14,6 +14,7 @@ a proper Generic so coordinator.py's type annotation compiles cleanly.
 import os
 import sys
 import types
+from dataclasses import dataclass
 from typing import Generic, TypeVar
 from unittest.mock import MagicMock
 
@@ -180,7 +181,24 @@ _issue_reg.IssueSeverity.WARNING = "warning"
 # --- sensor ---
 _sensor = sys.modules["homeassistant.components.sensor"]
 _sensor.SensorEntity = object
-_sensor.SensorEntityDescription = object
+
+
+@dataclass(frozen=True, kw_only=True)
+class _SensorEntityDescription:
+    """Stub of the description fields sensor.py sets, so its table can be imported."""
+
+    key: str
+    device_class: object = None
+    entity_category: object = None
+    entity_registry_enabled_default: bool = True
+    icon: str | None = None
+    name: object = None
+    native_unit_of_measurement: str | None = None
+    state_class: object = None
+    translation_key: str | None = None
+
+
+_sensor.SensorEntityDescription = _SensorEntityDescription
 _sensor.SensorDeviceClass = MagicMock()
 _sensor.SensorStateClass = MagicMock()
 

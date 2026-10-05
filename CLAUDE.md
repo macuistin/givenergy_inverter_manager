@@ -167,8 +167,9 @@ source-grep tests are listed for replacement in `ROADMAP.md`.
 
 **Before adding a new sensor:** add tests in `tests/test_sensors.py` covering
 device_class, unit, state_class, and value_fn. The existing battery_power tests
-are the reference pattern. Then run `python scripts/gen_sensor_docs.py` to refresh
-`docs/sensors.md`.
+are the reference pattern. Put any value logic longer than one expression in
+`sensor_values.py` (pure, no HA imports) and test it in `tests/test_sensor_values.py`. Then run
+`python scripts/gen_sensor_docs.py` to refresh `docs/sensors.md`.
 
 **Before changing config flow schemas:** run `tests/test_config_flow_schemas.py` with
 the real HA package, which catches `step` constraints, selector validation, and
