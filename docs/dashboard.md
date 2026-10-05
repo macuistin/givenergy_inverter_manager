@@ -174,7 +174,7 @@ State of charge and power are not drawn on one graph, because a percentage and w
 
 ### Battery detail (sub-view)
 
-- **Tonight in words**: the overnight charge reason and the night survival status. They are sentences, and a tile cuts them off, so they sit in a Markdown card.
+- **Night survival**: the level in bold, then why. Where the Night Survival Confidence sensor has an `explanation` attribute, that is shown. Otherwise a Warning is explained from the estimated state of charge at sunrise ("about 14% at sunrise, close to your minimum charge"), and Safe and Critical show the Battery Night Survival Status text, which carries any kWh shortfall. Without the confidence sensor, which is disabled by default, only the status text is shown. Under it, the reason for tonight's charge target. Both are sentences, and a tile cuts them off, so they sit in Markdown cards.
 - **Battery health**: total cycles, life remaining, days since full charge, and the inverter temperature and status.
 
 ### Controls

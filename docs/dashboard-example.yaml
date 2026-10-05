@@ -930,18 +930,28 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: Tonight in words
+      heading: Night survival
       heading_style: title
-      icon: mdi:text-box-outline
+      icon: mdi:weather-night
     - type: markdown
       content: |-
-        **Why this charge target**
+        {% set level = states('sensor.givenergy_inverter_manager_night_survival_confidence') %}**Night survival: {{ level }}**
 
-        {{ states('sensor.givenergy_inverter_manager_overnight_charge_reason') }}
-
-        **Night survival**
-
+        {% if state_attr('sensor.givenergy_inverter_manager_night_survival_confidence', 'explanation') -%}
+        {{ state_attr('sensor.givenergy_inverter_manager_night_survival_confidence', 'explanation') }}
+        {%- elif level | lower == 'warning' -%}
+        The battery should last until solar starts, but only just. It is expected to reach {% if has_value('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') %}about {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') | float(0) | round(0) | int }}% at sunrise{% else %}the minimum at sunrise{% endif %}, close to your minimum charge. A warning shows when the estimate is within 5 points of the minimum.
+        {%- else -%}
         {{ states('sensor.givenergy_inverter_manager_battery_night_survival_status') }}
+        {%- endif %}
+      grid_options:
+        columns: full
+    - type: heading
+      heading: Tonight's charge target
+      heading_style: subtitle
+      icon: mdi:battery-charging
+    - type: markdown
+      content: '{{ states(''sensor.givenergy_inverter_manager_overnight_charge_reason'') }}'
       grid_options:
         columns: full
   - type: grid

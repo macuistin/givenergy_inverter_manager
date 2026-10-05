@@ -795,19 +795,20 @@ class TestLongTextStates:
         for key in self._SENTENCES:
             assert f"{{{{ states('{eid(key)}') }}}}" in markdown, key
 
-    def test_markdown_card_renders_both_states(self):
+    def test_battery_detail_leads_with_night_survival_then_the_charge_reason(self):
         markdown = [c for c in self._battery() if c["type"] == "markdown"]
-        assert len(markdown) == 1
-        content = markdown[0]["content"]
-        assert f"{{{{ states('{eid('overnight_charge_reason')}') }}}}" in content
-        assert f"{{{{ states('{eid('night_survival_reason')}') }}}}" in content
+        assert len(markdown) == 2
+        assert self._battery()[0]["heading"] == "Night survival"
+        assert self._battery()[1] == markdown[0]
+        assert f"{{{{ states('{eid('overnight_charge_reason')}') }}}}" == markdown[1]["content"]
+        night = markdown[0]["content"]
+        for key in ("night_survival_confidence", "estimated_soc_at_sunrise", "night_survival_reason"):
+            assert eid(key) in night, key
 
     def test_markdown_cards_are_valid_jinja(self):
-        from jinja2 import Environment
-
         for card in all_cards(yaml.safe_load(_build())["views"]):
             if card["type"] == "markdown":
-                assert Environment().from_string(card["content"]).render(states=lambda entity: "x")
+                assert _render(card["content"], lambda entity: "x")
 
     def test_battery_heading_opens_the_battery_detail_view(self):
         heading = next(c for c in _cards(_build(), "battery") if c["type"] == "heading")
@@ -815,6 +816,88 @@ class TestLongTextStates:
         assert "Tonight's charge plan" in [
             c["heading"] for c in _cards(_build(), "battery") if c["type"] == "heading"
         ]
+
+
+def _render(content: str, states, attrs=None) -> str:
+    """Render a markdown card the way the frontend does, with the template functions we use."""
+    from jinja2 import Environment
+
+    attrs = attrs or {}
+    return Environment().from_string(content).render(
+        states=states,
+        state_attr=lambda entity, name: attrs.get((entity, name)),
+        has_value=lambda entity: states(entity) not in ("unknown", "unavailable", ""),
+    )
+
+
+class TestNightSurvivalCard:
+    """The reason behind the level is shown today, from entities that exist today."""
+
+    _CONF = eid("night_survival_confidence")
+    _SUNRISE = eid("estimated_soc_at_sunrise")
+    _STATUS = eid("night_survival_reason")
+
+    def _card(self, **kw) -> str:
+        cards = _cards(_build(**kw), "battery-detail")
+        return next(c for c in cards if c["type"] == "markdown")["content"]
+
+    def _text(self, level, *, sunrise="13.6", status="Battery should last.", explanation=None):
+        states = {self._CONF: level, self._SUNRISE: sunrise, self._STATUS: status}
+        attrs = {(self._CONF, "explanation"): explanation} if explanation else {}
+        return _render(self._card(), lambda e: states.get(e, "unknown"), attrs).strip()
+
+    def test_the_level_is_bold_and_comes_first(self):
+        text = self._text("Warning")
+        assert text.startswith("**Night survival: Warning**")
+
+    def test_warning_is_explained_from_the_sunrise_estimate(self):
+        text = self._text("Warning")
+        assert text.endswith(
+            "The battery should last until solar starts, but only just. It is expected to "
+            "reach about 14% at sunrise, close to your minimum charge. A warning shows when "
+            "the estimate is within 5 points of the minimum."
+        )
+
+    def test_warning_rounds_the_sunrise_estimate_to_whole_percent(self):
+        assert "about 16% at sunrise" in self._text("Warning", sunrise="15.8")
+        assert "about 13% at sunrise" in self._text("Warning", sunrise="12.6000001")
+
+    def test_warning_copes_with_an_unavailable_estimate(self):
+        text = self._text("Warning", sunrise="unavailable")
+        assert "the minimum at sunrise" in text
+        assert "0%" not in text
+
+    def test_the_explanation_attribute_wins_when_present(self):
+        text = self._text("Warning", explanation="Short by 1.2 kWh before 08:00.")
+        assert text.endswith("Short by 1.2 kWh before 08:00.")
+        assert "only just" not in text
+
+    def test_critical_shows_the_status_text_with_the_shortfall(self):
+        text = self._text("Critical", status="Short by 2.1 kWh before 08:00.")
+        assert text == "**Night survival: Critical**\n\nShort by 2.1 kWh before 08:00."
+
+    def test_safe_shows_the_status_text(self):
+        text = self._text("Safe", status="Battery should last until solar.")
+        assert text == "**Night survival: Safe**\n\nBattery should last until solar."
+
+    def test_without_the_confidence_sensor_only_the_status_text_is_shown(self):
+        """Night Survival Confidence is disabled by default."""
+        card = self._card(registry=FakeRegistry())
+        assert self._CONF not in card
+        text = _render(card, lambda e: "Battery should last.").strip()
+        assert text == "**Night survival**\n\nBattery should last."
+
+    def test_every_night_survival_tile_opens_the_explanation(self):
+        tiles = [
+            c
+            for c in all_cards(yaml.safe_load(_build())["views"])
+            if c["type"] == "tile" and c["entity"] == self._CONF
+        ]
+        assert tiles
+        go = {"action": "navigate", "navigation_path": "battery-detail"}
+        for tile in tiles:
+            assert tile["tap_action"] == go
+            assert tile["icon_tap_action"] == go
 
 
 class TestStatisticsGraphs:
@@ -1194,6 +1277,7 @@ class TestSubViews:
         gone = {
             "overnight_charge_reason",
             "night_survival_reason",
+            "night_survival_confidence",
             "battery_cycles",
             "battery_remaining_life",
             "days_since_full_charge",

@@ -1002,7 +1002,13 @@ class _Builder:
         e, when = self.e, self.when
         has_temp = self.has_inverter_temp
         return [
-            _section(_block(_heading("Tonight in words", "mdi:text-box-outline"), self._notes())),
+            _section(
+                _block(_heading("Night survival", "mdi:weather-night"), self._night_survival()),
+                _block(
+                    _heading("Tonight's charge target", "mdi:battery-charging", subtitle=True),
+                    self._charge_reason(),
+                ),
+            ),
             _section(
                 _block(
                     _heading("Battery health", "mdi:battery-heart-variant"),
@@ -1027,22 +1033,52 @@ class _Builder:
             ),
         ]
 
-    def _notes(self) -> list:
-        """The charge reason and night survival status are sentences, so they get a card."""
-        sections = [
-            (name, entity)
-            for name, entity in (
-                ("Why this charge target", self.e("overnight_charge_reason")),
-                ("Night survival", self.e("night_survival_reason")),
+    def _night_survival(self) -> list:
+        """The night survival level in bold, then why, in words.
+
+        The confidence sensor carries the level. Its explanation attribute is used when
+        it has one. Without it a sentence is chosen by level: Warning is explained from
+        the estimated state of charge at sunrise, and Safe and Critical show the status
+        sensor's text, which carries any kWh shortfall.
+        """
+        level = self.e("night_survival_confidence")
+        status = self.e("night_survival_reason")
+        sunrise = self.e("estimated_soc_at_sunrise")
+        if not level:
+            if not status:
+                return []
+            return [_markdown(f"**Night survival**\n\n{{{{ states('{status}') }}}}")]
+        status_text = f"{{{{ states('{status}') }}}}" if status else ""
+        if sunrise:
+            reached = (
+                f"{{% if has_value('{sunrise}') %}}about "
+                f"{{{{ states('{sunrise}') | float(0) | round(0) | int }}}}% at sunrise"
+                "{% else %}the minimum at sunrise{% endif %}"
             )
-            if entity
-        ]
-        if not sections:
-            return []
-        content = "\n\n".join(
-            f"**{name}**\n\n{{{{ states('{entity}') }}}}" for name, entity in sections
+        else:
+            reached = "the minimum at sunrise"
+        warning = (
+            "The battery should last until solar starts, but only just. "
+            f"It is expected to reach {reached}, close to your minimum charge. "
+            "A warning shows when the estimate is within 5 points of the minimum."
+        )
+        content = (
+            f"{{% set level = states('{level}') %}}"
+            "**Night survival: {{ level }}**\n\n"
+            f"{{% if state_attr('{level}', 'explanation') -%}}\n"
+            f"{{{{ state_attr('{level}', 'explanation') }}}}\n"
+            "{%- elif level | lower == 'warning' -%}\n"
+            f"{warning}\n"
+            "{%- else -%}\n"
+            f"{status_text}\n"
+            "{%- endif %}"
         )
         return [_markdown(content)]
+
+    def _charge_reason(self) -> list:
+        """The reason for tonight's charge target is a sentence, so it gets a markdown card."""
+        reason = self.e("overnight_charge_reason")
+        return [_markdown(f"{{{{ states('{reason}') }}}}")] if reason else []
 
     def _dry_run_section(self) -> dict | None:
         """A banner, shown only while Dry Run Mode Active is true."""
