@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from tests.helpers import PKG
 
 # Reuse the stub setup from conftest
 
@@ -13,16 +13,15 @@ class TestAutoImmersionSwitchRestore:
     re-enables it — the immersion heater starts being controlled again."""
 
     def test_inherits_restore_entity(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        src = (PKG / "switch.py").read_text()
         assert "RestoreEntity" in src, (
             "GivEnergyAutoImmersionSwitch must inherit RestoreEntity to persist "
             "its on/off state across HA restarts."
         )
 
     def test_auto_immersion_has_async_added_to_hass(self):
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        src = (PKG / "switch.py").read_text()
         # Both switch classes must implement async_added_to_hass
         auto_section = src[src.index("class GivEnergyAutoImmersionSwitch") :]
         # Find the next class boundary
@@ -35,7 +34,7 @@ class TestAutoImmersionSwitchRestore:
 
     def test_restored_off_state_sets_coordinator_override(self):
         """When restored as 'off', coordinator.override_immersion must be set to False."""
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        src = (PKG / "switch.py").read_text()
         # Check that the restore logic updates coordinator
         assert "coordinator.override_immersion" in src, (
             "async_added_to_hass must push the restored state to "
@@ -50,13 +49,13 @@ class TestChargeTargetOverrideSwitchRestore:
     switching back to auto-calculated charge targets."""
 
     def test_inherits_restore_entity(self):
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        src = (PKG / "switch.py").read_text()
         assert "RestoreEntity" in src, (
             "GivEnergyChargeTargetOverrideSwitch must inherit RestoreEntity."
         )
 
     def test_override_switch_has_async_added_to_hass(self):
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        src = (PKG / "switch.py").read_text()
         override_section = src[src.index("class GivEnergyChargeTargetOverrideSwitch") :]
         assert "async_added_to_hass" in override_section, (
             "GivEnergyChargeTargetOverrideSwitch must implement async_added_to_hass."
@@ -67,7 +66,7 @@ class TestSwitchImportsRestoreEntity:
     """RestoreEntity import check — confirms the import exists, not just usage."""
 
     def test_restore_entity_imported(self):
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        src = (PKG / "switch.py").read_text()
         assert (
             "from homeassistant.helpers.entity import RestoreEntity" in src
             or "RestoreEntity" in src
@@ -84,19 +83,16 @@ class TestImmersionCooldown:
         assert IMMERSION_SWITCH_COOLDOWN_MINUTES > 0
 
     def test_cooldown_attribute_on_coordinator(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         assert "_immersion_cooldown_until" in src
 
     def test_cooldown_checked_in_handle_update(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        src = (PKG / "switch.py").read_text()
         update_fn = src[src.find("def _handle_coordinator_update"):]
         assert "_immersion_cooldown_until" in update_fn
 
     def test_manual_on_clears_cooldown(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        src = (PKG / "switch.py").read_text()
         # Search within GivEnergyImmersionControlSwitch only
         control_cls = src[src.find("class GivEnergyImmersionControlSwitch"):]
         next_cls = control_cls.find("\nclass ", 10)
@@ -104,16 +100,14 @@ class TestImmersionCooldown:
         assert "_immersion_cooldown_until = None" in control_cls
 
     def test_manual_off_clears_cooldown(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        src = (PKG / "switch.py").read_text()
         control_cls = src[src.find("class GivEnergyImmersionControlSwitch"):]
         next_cls = control_cls.find("\nclass ", 10)
         control_cls = control_cls[:next_cls] if next_cls != -1 else control_cls
         assert control_cls.count("_immersion_cooldown_until = None") >= 2
 
     def test_cooldown_bypassed_when_water_above_target(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        src = (PKG / "switch.py").read_text()
         update_fn = src[src.find("def _handle_coordinator_update"):]
         # The bypass condition must check both temp and target
         assert "water_above_target" in update_fn
@@ -121,15 +115,13 @@ class TestImmersionCooldown:
         assert "not water_above_target" in update_fn
 
     def test_external_turnon_tracked_in_coordinator(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        src = (PKG / "switch.py").read_text()
         # External turn-on should trigger run-to-target flag
         handle_fn = src[src.find("def _handle_coordinator_update"):]
         assert "_immersion_manual_run_to_target = True" in handle_fn
 
     def test_external_turnoff_applies_cooldown(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/switch.py").read_text()
+        src = (PKG / "switch.py").read_text()
         handle_fn = src[src.find("def _handle_coordinator_update"):]
         # External turn-off should start a cooldown
         assert "_immersion_manual_run_to_target = False" in handle_fn

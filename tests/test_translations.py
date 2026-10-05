@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
-_COMPONENT = Path(__file__).resolve().parents[1] / "custom_components" / "givenergy_inverter_manager"
+from tests.helpers import PKG
+
+_COMPONENT = PKG
 
 
 def _shape(node):

@@ -1,24 +1,18 @@
 """
-test_config_flow_schemas.py — Integration tests for config flow schema construction.
+test_config_flow.py - Config flow, options flow and sensor-default tests.
 
-These tests use the REAL homeassistant selector module (not the MagicMock stubs in
-conftest.py) to catch selector validation failures that would be silently swallowed
-by HA's flow manager at runtime.
-
-HA's NumberSelectorConfig enforces:
-  - step must be a float >= 1e-3 OR the literal string "any"
-  - min/max must be valid floats when provided
-
-SelectSelectorConfig and TextSelectorConfig are also validated at construction time.
-
-The test_config_flow.py file uses MagicMock stubs for speed and isolation; this file
-is the dedicated contract test for selector-level constraints.
+The fixtures below swap the conftest stubs for the REAL homeassistant selector module,
+so selector validation failures surface here instead of being swallowed by the flow
+manager at runtime. The selector-level contract tests (step >= 1e-3 and the tariff
+schema) live in test_config_flow_schemas.py.
 """
 
 import importlib
 import sys
 
 import pytest
+
+from tests.helpers import PKG
 
 # ── Ensure the real homeassistant is used, not the stub from conftest ──────────
 # conftest.py installs stubs into sys.modules before collection.
@@ -104,91 +98,6 @@ def _get_flow_class(real_ha_selector, real_vol):
     return GivEnergyInverterManagerConfigFlow
 
 
-# ── Tests ─────────────────────────────────────────────────────────────────────
-
-
-class TestTariffSchemaConstruction:
-    """The tariff schema must build without raising under real HA selectors."""
-
-    def test_build_tariff_schema_does_not_raise(self, real_ha_selector, real_vol):
-        """_build_tariff_schema() must succeed — catches step < 1e-3 etc."""
-        flow_class = _get_flow_class(real_ha_selector, real_vol)
-        # staticmethod — call on class directly
-        schema = flow_class._build_tariff_schema()
-        assert schema is not None
-
-    def test_tariff_schema_is_vol_schema(self, real_ha_selector, real_vol):
-        """Result must be a voluptuous Schema."""
-        import voluptuous as vol
-
-        flow_class = _get_flow_class(real_ha_selector, real_vol)
-        schema = flow_class._build_tariff_schema()
-        assert isinstance(schema, vol.Schema)
-
-    def test_tariff_schema_accepts_valid_defaults(self, real_ha_selector, real_vol):
-        """Schema must accept a dict including rate period sections without raising."""
-        from custom_components.givenergy_inverter_manager.config_flow import (
-            _periods_to_slot_defaults,
-        )
-        from custom_components.givenergy_inverter_manager.const import (
-            DEFAULT_BASE_RATE,
-            DEFAULT_BASE_RATE_NAME,
-            DEFAULT_BILL_START_DAY,
-            DEFAULT_CURRENCY,
-            DEFAULT_DISCOUNT_RATE,
-            DEFAULT_EXPORT_RATE,
-            DEFAULT_PSO_LEVY,
-            DEFAULT_RATE_PERIODS,
-            DEFAULT_STANDING_CHARGE,
-            DEFAULT_VAT_RATE,
-        )
-
-        flow_class = _get_flow_class(real_ha_selector, real_vol)
-        schema = flow_class._build_tariff_schema()
-
-        slots = _periods_to_slot_defaults(DEFAULT_RATE_PERIODS)
-        valid_data = {
-            "base_rate": DEFAULT_BASE_RATE,
-            "base_rate_name": DEFAULT_BASE_RATE_NAME,
-            "export_rate": DEFAULT_EXPORT_RATE,
-            "standing_charge_per_day": DEFAULT_STANDING_CHARGE,
-            "pso_levy_per_month": DEFAULT_PSO_LEVY,
-            "vat_rate": DEFAULT_VAT_RATE,
-            "discount_rate": DEFAULT_DISCOUNT_RATE,
-            "bill_start_day": DEFAULT_BILL_START_DAY,
-            "currency": DEFAULT_CURRENCY,
-            "rate_period_1": slots[0],
-            "rate_period_2": slots[1],
-        }
-        # Should not raise
-        result = schema(valid_data)
-        assert result is not None
-
-
-class TestNumberSelectorStepConstraint:
-    """Document and enforce HA's step >= 1e-3 constraint directly."""
-
-    @pytest.mark.parametrize("step", [0.001, 0.01, 0.1, 1.0, "any"])
-    def test_valid_steps_accepted(self, real_ha_selector, step):
-        """Steps >= 0.001 and 'any' must be accepted by NumberSelectorConfig."""
-        kwargs = {"min": 0, "max": 10}
-        if step != "any":
-            kwargs["step"] = step
-        else:
-            kwargs["step"] = "any"
-        # Must not raise
-        sel = real_ha_selector.NumberSelector(real_ha_selector.NumberSelectorConfig(**kwargs))
-        assert sel is not None
-
-    @pytest.mark.parametrize("step", [0.0001, 0.00001, 0.0009])
-    def test_sub_minimum_steps_rejected(self, real_ha_selector, real_vol, step):
-        """Steps < 0.001 must be rejected by HA's selector validation."""
-        with pytest.raises(real_vol.error.MultipleInvalid):
-            real_ha_selector.NumberSelector(
-                real_ha_selector.NumberSelectorConfig(min=0, max=10, step=step)
-            )
-
-
 # ── Sensor default-enabled tests ──────────────────────────────────────────────
 # These tests parse sensor.py via AST rather than importing it, avoiding the
 # need to stub SensorEntityDescription subclassing.
@@ -198,9 +107,8 @@ def _parse_sensor_enabled_state():
     """Return {name: enabled_default} by parsing sensor.py with ast."""
     import ast
     import json
-    from pathlib import Path
 
-    pkg = Path(__file__).parent.parent / "custom_components/givenergy_inverter_manager"
+    pkg = PKG
     tree = ast.parse((pkg / "sensor.py").read_text())
     translated = json.loads((pkg / "strings.json").read_text())["entity"]["sensor"]
 
@@ -522,9 +430,8 @@ class TestOptionsFlowSections:
 
     def test_ev_settings_section_has_labels(self):
         import json
-        from pathlib import Path
 
-        base = Path("custom_components/givenergy_inverter_manager")
+        base = PKG
         for name in ("strings.json", "translations/en.json"):
             data = json.loads((base / name).read_text())
             sections = data["options"]["step"]["init"]["sections"]
@@ -555,14 +462,11 @@ class TestOptionsFlowSections:
     def test_selectors_have_no_empty_string_default(self):
         """An empty-string default fails EntitySelector validation in the HA frontend."""
         import re
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        src = (PKG / "config_flow.py").read_text()
         assert not re.findall(r"default=self\._get\(\w+,\s*\"\"\)", src)
 
-    def test_optional_key_prefills_saved_value_without_default(self):
-        import voluptuous as real_vol
-
+    def test_optional_key_prefills_saved_value_without_default(self, real_vol):
         flow = self._make_flow()
         flow._config_entry.options = {"forecast_entity": "sensor.forecast_today"}
         from unittest.mock import patch
@@ -593,9 +497,8 @@ class TestOptionsFlowSections:
         The existing test mocks vol.Optional so it cannot catch this class of bug.
         """
         import re
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        src = (PKG / "config_flow.py").read_text()
         # Find every vol.Optional( call and check that the first positional arg
         # is not followed by another CONF_ constant before the default= keyword
         bad = re.findall(
@@ -610,9 +513,8 @@ class TestOptionsFlowSections:
     def test_cheap_rate_floor_is_separate_schema_key(self):
         """CONF_CHEAP_RATE_FLOOR_SOC must be its own vol.Optional entry,
         not a positional argument inside another key's vol.Optional call."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        src = (PKG / "config_flow.py").read_text()
         # Find the threshold_settings section
         section_start = src.find("threshold_settings")
         section_end = src.find(")", src.find("vol.Schema", section_start))
@@ -645,17 +547,15 @@ class TestReconfigureStep:
     """Config flow must expose async_step_reconfigure for the HA quality scale."""
 
     def test_reconfigure_step_exists(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        src = (PKG / "config_flow.py").read_text()
         assert "async def async_step_reconfigure" in src, (
             "async_step_reconfigure is required for the reconfiguration-flow quality scale item."
         )
 
     def test_reconfigure_leaves_the_reload_to_the_update_listener(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        src = (PKG / "config_flow.py").read_text()
         reconf = src[src.find("async def async_step_reconfigure") :]
         reconf = reconf[: reconf.find("\n    async def ")]
         assert "async_update_entry" in reconf
@@ -664,9 +564,8 @@ class TestReconfigureStep:
         )
 
     def test_reconfigure_uses_abort_reason(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        src = (PKG / "config_flow.py").read_text()
         reconf = src[src.find("async def async_step_reconfigure") :]
         reconf = reconf[: reconf.find("\n    async def ")]
         assert "reconfigure_successful" in reconf, (
@@ -675,10 +574,9 @@ class TestReconfigureStep:
 
     def test_abort_reason_in_strings(self):
         import json
-        from pathlib import Path
 
         s = json.loads(
-            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+            (PKG / "strings.json").read_text()
         )
         assert "reconfigure_successful" in s.get("config", {}).get("abort", {}), (
             "strings.json must define the reconfigure_successful abort reason."
@@ -686,19 +584,17 @@ class TestReconfigureStep:
 
     def test_reconfigure_step_in_strings(self):
         import json
-        from pathlib import Path
 
         s = json.loads(
-            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+            (PKG / "strings.json").read_text()
         )
         assert "reconfigure" in s.get("config", {}).get("step", {}), (
             "strings.json must define the reconfigure step."
         )
 
     def test_quality_scale_reconfiguration_done(self):
-        from pathlib import Path
 
-        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        qs = (PKG / "quality_scale.yaml").read_text()
         idx = qs.find("reconfiguration-flow")
         assert idx != -1
         assert "done" in qs[idx : idx + 60]
@@ -708,17 +604,15 @@ class TestExceptionTranslations:
     """Exceptions must use translation_key for the HA quality scale."""
 
     def test_config_entry_not_ready_uses_translation_key(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/__init__.py").read_text()
+        src = (PKG / "__init__.py").read_text()
         assert "translation_key" in src and "config_entry_not_ready" in src, (
             "ConfigEntryNotReady must use translation_key for exception-translations."
         )
 
     def test_update_failed_uses_translation_key(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         raise_block = src[src.find("raise UpdateFailed") :][:200]
         assert "translation_key" in raise_block, (
             "UpdateFailed must use translation_key for exception-translations."
@@ -726,10 +620,9 @@ class TestExceptionTranslations:
 
     def test_exception_keys_in_strings(self):
         import json
-        from pathlib import Path
 
         s = json.loads(
-            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+            (PKG / "strings.json").read_text()
         )
         exc = s.get("exceptions", {})
         assert "config_entry_not_ready" in exc
@@ -737,22 +630,20 @@ class TestExceptionTranslations:
 
     def test_exceptions_mirrored_in_translations(self):
         import json
-        from pathlib import Path
 
         s = json.loads(
-            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+            (PKG / "strings.json").read_text()
         )
         e = json.loads(
-            Path("custom_components/givenergy_inverter_manager/translations/en.json").read_text()
+            (PKG / "translations/en.json").read_text()
         )
         assert e.get("exceptions") == s.get("exceptions"), (
             "translations/en.json exceptions must mirror strings.json."
         )
 
     def test_quality_scale_exception_translations_done(self):
-        from pathlib import Path
 
-        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        qs = (PKG / "quality_scale.yaml").read_text()
         idx = qs.find("exception-translations")
         assert idx != -1
         assert "done" in qs[idx : idx + 60]
@@ -923,9 +814,8 @@ class TestRatePeriodErrors:
 
     def test_error_keys_exist_in_both_translation_files(self):
         import json
-        from pathlib import Path
 
-        root = Path("custom_components/givenergy_inverter_manager")
+        root = PKG
         for name in ("strings.json", "translations/en.json"):
             data = json.loads((root / name).read_text())
             for scope in ("config", "options"):

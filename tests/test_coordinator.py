@@ -43,6 +43,7 @@ from custom_components.givenergy_inverter_manager.core.battery import BatterySta
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from tests.conftest import _nightboost_cfg, _raw
+from tests.helpers import PKG
 
 # ── Minimal HA state stub ─────────────────────────────────────────────────────
 
@@ -1539,12 +1540,8 @@ class TestInvertedRateTariff:
     def test_empty_rate_periods_returns_early(self):
         """Coordinator must return early with a warning when no timed periods are
         configured, rather than crashing or writing a zero-window."""
-        from pathlib import Path
 
-        src = (
-            Path(__file__).parent.parent
-            / "custom_components/givenergy_inverter_manager/coordinator.py"
-        ).read_text()
+        src = (PKG / "coordinator.py").read_text()
         guard_idx = src.index("if not tariff.rate_periods:")
         min_idx = src.index("min(tariff.rate_periods, key=lambda p: p.rate)")
         assert guard_idx < min_idx, "Empty list guard must appear before the min() call"
@@ -1574,18 +1571,16 @@ class TestTimezoneHandling:
         )
 
     def test_coordinator_uses_local_time(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         assert "dt_util.as_local(datetime.now" in src, (
             "coordinator must use dt_util.as_local() — without this, rate periods "
             "activate 1h late in summer (Ireland GMT+1)."
         )
 
     def test_midnight_reset_uses_local_midnight(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         assert "dt_util.as_local(now).replace(hour=0" in src, (
             "_midnight_reset must use as_local — without this, daily accumulators "
             "reset at UTC midnight (01:00 local in summer)."
@@ -1636,9 +1631,8 @@ class TestImmersionNumberGuards:
 
     def test_persist_writes_to_entry_data(self):
         """_persist must call async_update_entry so values survive HA restart."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/number.py").read_text()
+        src = (PKG / "number.py").read_text()
         assert "async_update_entry" in src, (
             "Number entities must persist values to entry.data via async_update_entry. "
             "Without this, coordinator reads stale config defaults on the first cycle "
@@ -1740,9 +1734,8 @@ class TestCheapRateFloor:
 
     def test_floor_resets_at_midnight(self):
         """_floor_top_up_applied flag must reset at midnight so next night works."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         assert "_floor_top_up_applied = False" in src
 
 
@@ -1777,9 +1770,8 @@ class TestEVRediscoveryNullPowerEntity:
     """Coordinator must retry EV discovery when power_entity is None."""
 
     def test_retry_condition_in_source(self):
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         assert "self._ev_charger.power_entity is None" in src, (
             "Without this, a charger cached on boot with no power entity "
             "never gets updated even after the entity appears in HA."
@@ -1795,16 +1787,14 @@ class TestEntityUnavailable:
 
     def test_update_failed_imported(self):
         """UpdateFailed must be imported to signal entity unavailability."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         assert "UpdateFailed" in src
 
     def test_check_is_in_update_cycle(self):
         """UpdateFailed raise must be inside _async_update_data."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         update_fn = src[src.find("async def _async_update_data") :]
         assert "raise UpdateFailed" in update_fn, (
             "_async_update_data must raise UpdateFailed when GivTCP is silent."
@@ -1812,9 +1802,8 @@ class TestEntityUnavailable:
 
     def test_both_sensors_must_be_stale(self):
         """Guard must use AND — a single stale sensor should not trigger unavailability."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         check_block = src[src.find("async def _async_update_data") : src.find("raise UpdateFailed")]
         assert " and " in check_block, (
             "Both solar AND battery must be unavailable before raising — "
@@ -1823,18 +1812,16 @@ class TestEntityUnavailable:
 
     def test_unavailable_and_unknown_both_treated_as_stale(self):
         """'unavailable' and 'unknown' must both be considered stale states."""
-        from pathlib import Path
 
-        src = Path("custom_components/givenergy_inverter_manager/coordinator.py").read_text()
+        src = (PKG / "coordinator.py").read_text()
         check_block = src[src.find("async def _async_update_data") : src.find("raise UpdateFailed")]
         assert '"unavailable"' in check_block, "Must treat 'unavailable' state as stale"
         assert '"unknown"' in check_block, "Must treat 'unknown' state as stale"
 
     def test_quality_scale_yaml_updated(self):
         """quality_scale.yaml must mark entity-unavailable as done."""
-        from pathlib import Path
 
-        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        qs = (PKG / "quality_scale.yaml").read_text()
         # Find the entity-unavailable entry
         idx = qs.find("entity-unavailable")
         assert idx != -1, "entity-unavailable must exist in quality_scale.yaml"
@@ -1902,8 +1889,7 @@ class TestLogWhenUnavailable:
         assert coord._givtcp_was_unavailable is False
 
     def test_quality_scale_log_when_unavailable_is_done(self):
-        from pathlib import Path
-        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        qs = (PKG / "quality_scale.yaml").read_text()
         idx = qs.find("log-when-unavailable")
         assert idx != -1
         assert "done" in qs[idx : idx + 60]
@@ -1913,29 +1899,25 @@ class TestActionExceptions:
     """get_dashboard_yaml must raise ServiceValidationError when not configured."""
 
     def test_raises_service_validation_error_when_no_entry(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        src = (PKG / "dashboard.py").read_text()
         assert "ServiceValidationError" in src
 
     def test_no_config_entry_key_in_strings(self):
         import json
-        from pathlib import Path
         strings = json.loads(
-            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+            (PKG / "strings.json").read_text()
         )
         assert "no_config_entry" in strings["exceptions"]
 
     def test_no_config_entry_key_in_translations(self):
         import json
-        from pathlib import Path
         translations = json.loads(
-            Path("custom_components/givenergy_inverter_manager/translations/en.json").read_text()
+            (PKG / "translations/en.json").read_text()
         )
         assert "no_config_entry" in translations["exceptions"]
 
     def test_quality_scale_action_exceptions_is_done(self):
-        from pathlib import Path
-        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        qs = (PKG / "quality_scale.yaml").read_text()
         idx = qs.find("action-exceptions")
         assert idx != -1
         assert "done" in qs[idx : idx + 80]
@@ -1946,16 +1928,14 @@ class TestIconTranslations:
 
     def _load_icons(self):
         import json
-        from pathlib import Path
-        path = Path("custom_components/givenergy_inverter_manager/icons.json")
+        path = (PKG / "icons.json")
         assert path.exists(), "icons.json must exist"
         return json.loads(path.read_text())
 
     def _load_strings(self):
         import json
-        from pathlib import Path
         return json.loads(
-            Path("custom_components/givenergy_inverter_manager/strings.json").read_text()
+            (PKG / "strings.json").read_text()
         )
 
     def test_icons_json_is_valid_json(self):
@@ -2057,14 +2037,10 @@ class TestRepairIssues:
         assert any("min_soc_too_high" in call for call in calls)
 
     def test_repairs_module_exists(self):
-        from pathlib import Path
-        assert Path(
-            "custom_components/givenergy_inverter_manager/repairs.py"
-        ).exists()
+        assert (PKG / "repairs.py").exists()
 
     def test_quality_scale_repair_issues_is_done(self):
-        from pathlib import Path
-        qs = Path("custom_components/givenergy_inverter_manager/quality_scale.yaml").read_text()
+        qs = (PKG / "quality_scale.yaml").read_text()
         idx = qs.find("repair-issues")
         assert idx != -1
         assert "done" in qs[idx : idx + 80]
@@ -2074,14 +2050,12 @@ class TestDashboardServiceValidationError:
     """get_dashboard_yaml raises ServiceValidationError when no entries exist."""
 
     def test_service_validation_error_imported_in_dashboard(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        src = (PKG / "dashboard.py").read_text()
         assert "ServiceValidationError" in src
         assert "no_config_entry" in src
 
     def test_raises_service_validation_error_when_no_entry_in_source(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        src = (PKG / "dashboard.py").read_text()
         handler_block = src[src.find("def handle_get_dashboard_yaml"):]
         assert "require_loaded_entries(hass)" in handler_block
         helper_block = src[src.find("def require_loaded_entries"):src.find("def _entity_id")]
@@ -2219,16 +2193,12 @@ class TestInverterTemperature:
         assert data.inverter_temperature_status == INVERTER_TEMP_STATUS_UNKNOWN
 
     def test_inverter_temp_in_discovery_map(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/config_flow.py").read_text()
+        src = (PKG / "config_flow.py").read_text()
         assert "inverter_temp" in src
         assert "CONF_INVERTER_TEMP_ENTITY" in src
 
     def test_inverter_temp_suffix_in_givtcp_discovery(self):
-        from pathlib import Path
-        src = Path(
-            "custom_components/givenergy_inverter_manager/discovery/givtcp.py"
-        ).read_text()
+        src = (PKG / "discovery/givtcp.py").read_text()
         assert "_invertor_temperature" in src
 class TestMissedSolar:
     """Missed solar accumulates when battery full, exporting, no flex load active."""
@@ -2273,13 +2243,11 @@ class TestMissedSolar:
         assert acc.missed_solar_kwh == pytest.approx(0.0)
 
     def test_missed_solar_in_sensor_descriptions(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        src = (PKG / "sensor.py").read_text()
         assert "missed_solar_today" in src
 
     def test_missed_solar_disabled_by_default(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        src = (PKG / "sensor.py").read_text()
         # Find the missed_solar_today block and check it has enabled_default=False
         idx = src.find('"missed_solar_today"')
         block = src[idx:idx+400]
@@ -2384,20 +2352,17 @@ class TestLiveGridCostRate:
         assert data.live_grid_cost_rate == pytest.approx(0.0)
 
     def test_live_grid_cost_rate_in_sensor_descriptions(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/sensor.py").read_text()
+        src = (PKG / "sensor.py").read_text()
         assert "live_grid_cost_rate" in src
 
     def test_income_bar_markdown_removed_from_dashboard(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/dashboard.py").read_text()
+        src = (PKG / "dashboard.py").read_text()
         # The Jinja2 template strings from the income bar should be gone
         assert "Earning €" not in src
         assert "Spending €" not in src
 
     def test_grid_node_secondary_info_uses_live_rate(self):
-        from pathlib import Path
-        src = Path("custom_components/givenergy_inverter_manager/dashboard_builder.py").read_text()
+        src = (PKG / "dashboard_builder.py").read_text()
         assert "live_grid_cost_rate" in src
 
 

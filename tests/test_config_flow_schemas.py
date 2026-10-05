@@ -11,8 +11,7 @@ HA's NumberSelectorConfig enforces:
 
 SelectSelectorConfig and TextSelectorConfig are also validated at construction time.
 
-The test_config_flow.py file uses MagicMock stubs for speed and isolation; this file
-is the dedicated contract test for selector-level constraints.
+This file is the dedicated contract test for selector-level constraints.
 """
 
 import importlib
@@ -24,8 +23,8 @@ import pytest
 # conftest.py installs stubs into sys.modules before collection.
 # We must temporarily replace them with real modules for these tests.
 #
-# NOTE: homeassistant must be installed in the test environment.
-# Run:  pip install "homeassistant==2024.12.5" --break-system-packages
+# NOTE: homeassistant must be installed in the test environment, at the floor in
+# hacs.json (2026.2.0). Run:  pip install -r requirements-test.txt
 # ───────────────────────────────────────────────────────────────────────────────
 
 _HA_MODULES_TO_RESTORE = [
@@ -126,7 +125,7 @@ class TestTariffSchemaConstruction:
         assert isinstance(schema, vol.Schema)
 
     def test_tariff_schema_accepts_valid_defaults(self, real_ha_selector, real_vol):
-        """Schema must accept a dict of all default values without raising."""
+        """Schema must accept a dict including rate period sections without raising."""
         from custom_components.givenergy_inverter_manager.config_flow import (
             _periods_to_slot_defaults,
         )
