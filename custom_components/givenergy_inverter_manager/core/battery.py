@@ -33,7 +33,11 @@ from dataclasses import dataclass
 from datetime import date
 
 # GivEnergy battery typical rated cycles
-from ..const import BATTERY_LIFE_ESTIMATE_MIN_DAYS, NIGHT_SURVIVAL_WARNING_MARGIN_PCT
+from ..const import (
+    BATTERY_LIFE_ESTIMATE_MIN_DAYS,
+    NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
+    SOLAR_SUNRISE_HOUR,
+)
 from ..const import BATTERY_RATED_CYCLES as TYPICAL_RATED_CYCLES
 
 
@@ -97,6 +101,26 @@ def calculate_cycle_increment(soc_delta: float) -> float:
     a battery BMS reports. A rising SoC adds nothing.
     """
     return max(0.0, -soc_delta) / 100.0
+
+
+def hours_until_solar(hour: int, solar_generating: bool) -> float:
+    """
+    Hours of load the battery must cover before tomorrow's solar starts.
+
+    Night survival and the overnight charge skip use this one window, so they
+    cannot disagree about how long "the night" is.
+
+      Before sunrise          — the hours left until SOLAR_SUNRISE_HOUR.
+      After sunrise, solar on — tonight's pre-solar window, SOLAR_SUNRISE_HOUR hours,
+                                the same 00:00 to sunrise window the charge plan models.
+                                Today's remaining daylight is not a night hour.
+      After sunrise, solar off — from now to tomorrow's sunrise.
+    """
+    if hour < SOLAR_SUNRISE_HOUR:
+        return float(max(1, SOLAR_SUNRISE_HOUR - hour))
+    if solar_generating:
+        return float(SOLAR_SUNRISE_HOUR)
+    return float((24 - hour) + SOLAR_SUNRISE_HOUR)
 
 
 def estimate_will_survive_night(
