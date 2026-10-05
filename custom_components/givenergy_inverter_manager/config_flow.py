@@ -19,6 +19,7 @@ Options flow: edit tariff and thresholds without reinstalling.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 import voluptuous as vol
@@ -27,6 +28,7 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 
+from .config_helpers import effective_config
 from .const import (
     CONF_BASE_RATE,
     CONF_BASE_RATE_NAME,
@@ -140,11 +142,94 @@ _CHARGE_SCHEDULING_CONF_KEYS = [
 _MAX_RATE_PERIODS = 5
 
 
-def _saved_values(entry) -> dict:
-    """Return the entry values in force: saved options over setup data."""
-    values = {k: v for k, v in entry.data.items() if v is not None}
-    values.update({k: v for k, v in entry.options.items() if v is not None})
-    return values
+@dataclass(frozen=True)
+class _Bounds:
+    """Range, step and unit of one number field."""
+
+    low: float
+    high: float
+    step: float
+    unit: str | None = None
+    mode: str | None = None
+
+
+# Shared by the setup wizard and the options form, so a bound changes in one place.
+_NUMBER_BOUNDS: dict[str, _Bounds] = {
+    CONF_BASE_RATE: _Bounds(0, 5, 0.001),
+    CONF_EXPORT_RATE: _Bounds(0, 1, 0.001),
+    CONF_STANDING_CHARGE: _Bounds(0, 5, 0.001),
+    CONF_PSO_LEVY: _Bounds(0, 20, 0.01),
+    CONF_VAT_RATE: _Bounds(0, 30, 0.1, "%"),
+    CONF_DISCOUNT_RATE: _Bounds(0, 20, 0.1, "%"),
+    CONF_BILL_START_DAY: _Bounds(1, 28, 1),
+    CONF_BATTERY_MIN_SOC: _Bounds(5, 30, 1, "%"),
+    CONF_CHEAP_RATE_FLOOR_SOC: _Bounds(0, 80, 5, "%"),
+    CONF_OVERNIGHT_CHARGE_TARGET: _Bounds(20, 100, 1, "%"),
+    CONF_SKIP_CHARGE_SOC_THRESHOLD: _Bounds(20, 100, 1, "%"),
+    CONF_SURPLUS_DIVERT_SOC: _Bounds(50, 100, 5, "%"),
+    CONF_SURPLUS_DIVERT_MIN_W: _Bounds(100, 2000, 100, "W"),
+    CONF_BATTERY_COST: _Bounds(0, 20000, 100),
+    CONF_BATTERY_THROUGHPUT_BUDGET: _Bounds(0, 50, 0.5, "kWh"),
+    CONF_FORECAST_CONSERVATISM: _Bounds(0.0, 1.0, 0.05, mode="slider"),
+    CONF_BATTERY_CAPACITY: _Bounds(1, 100, 0.1, "kWh"),
+    CONF_INVERTER_MAX_OUTPUT: _Bounds(1, 20, 0.1, "kW"),
+    CONF_IMMERSION_WATTAGE: _Bounds(500, 6000, 100, "W"),
+    CONF_IMMERSION_TARGET_TEMP: _Bounds(40, 75, 1, "°C"),
+    CONF_IMMERSION_MIN_TEMP: _Bounds(30, 60, 1, "°C"),
+    CONF_CAR_EFFICIENCY_KWH_PER_100KM: _Bounds(5, 40, 0.1, "kWh/100km"),
+}
+
+# What each price field is quoted per. The currency code comes from the form.
+_PRICE_PER: dict[str, str] = {
+    CONF_BASE_RATE: "kWh",
+    CONF_EXPORT_RATE: "kWh",
+    CONF_STANDING_CHARGE: "day",
+    CONF_PSO_LEVY: "month",
+}
+
+
+def _number_selector(key: str, unit: str | None = None) -> selector.NumberSelector:
+    """Number selector for *key*, using *unit* in place of the table unit when given."""
+    bounds = _NUMBER_BOUNDS[key]
+    config: dict[str, Any] = {"min": bounds.low, "max": bounds.high, "step": bounds.step}
+    if unit or bounds.unit:
+        config["unit_of_measurement"] = unit or bounds.unit
+    if bounds.mode:
+        config["mode"] = bounds.mode
+    return selector.NumberSelector(selector.NumberSelectorConfig(**config))
+
+
+def _price_selector(key: str, currency: object) -> selector.NumberSelector:
+    """Number selector for a price field, with the unit following *currency*."""
+    return _number_selector(key, _money_unit(currency, _PRICE_PER[key]))
+
+
+def _entity_selector(domain: str = "sensor") -> selector.EntitySelector:
+    return selector.EntitySelector(selector.EntitySelectorConfig(domain=domain))
+
+
+def _forecast_provider_selector() -> selector.SelectSelector:
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[
+                selector.SelectOptionDict(
+                    value=FORECAST_PROVIDER_FORECAST_SOLAR, label="Forecast.Solar"
+                ),
+                selector.SelectOptionDict(value=FORECAST_PROVIDER_SOLCAST, label="Solcast"),
+            ]
+        )
+    )
+
+
+def _currency_selector() -> selector.SelectSelector:
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[
+                selector.SelectOptionDict(value=code, label=f"{code} ({symbol})")
+                for code, symbol in CURRENCIES.items()
+            ]
+        )
+    )
 
 
 def _ordinal(day: int) -> str:
@@ -251,6 +336,27 @@ def _rate_period_errors(periods: list[dict], base_rate_name: str = "") -> dict[s
     return {}
 
 
+def _base_rate_name(values: dict) -> str:
+    """The base rate name submitted in a tariff form."""
+    return str(values.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
+
+
+def _tariff_updates(values: dict, rate_periods: list[dict]) -> dict[str, Any]:
+    """Parse a submitted tariff form into the values that are stored."""
+    return {
+        CONF_RATE_PERIODS: rate_periods,
+        CONF_BASE_RATE: float(values[CONF_BASE_RATE]),
+        CONF_BASE_RATE_NAME: _base_rate_name(values),
+        CONF_EXPORT_RATE: float(values[CONF_EXPORT_RATE]),
+        CONF_STANDING_CHARGE: float(values[CONF_STANDING_CHARGE]),
+        CONF_PSO_LEVY: float(values[CONF_PSO_LEVY]),
+        CONF_VAT_RATE: float(values[CONF_VAT_RATE]),
+        CONF_DISCOUNT_RATE: float(values[CONF_DISCOUNT_RATE]),
+        CONF_BILL_START_DAY: int(values[CONF_BILL_START_DAY]),
+        CONF_CURRENCY: values.get(CONF_CURRENCY, DEFAULT_CURRENCY),
+    }
+
+
 def _currency_code(code: object) -> str:
     """Return *code* when it is an offered currency, else the default currency."""
     return code if isinstance(code, str) and code in CURRENCIES else DEFAULT_CURRENCY
@@ -267,10 +373,9 @@ def _rate_period_section(slot: dict, currency: object = DEFAULT_CURRENCY) -> obj
         vol.Schema(
             {
                 vol.Optional("name", default=slot["name"]): selector.TextSelector(),
-                vol.Optional("rate", default=slot["rate"]): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0, max=5, step=0.001, unit_of_measurement=_money_unit(currency, "kWh")
-                    )
+                # A timed rate is bounded like the base rate.
+                vol.Optional("rate", default=slot["rate"]): _price_selector(
+                    CONF_BASE_RATE, currency
                 ),
                 vol.Optional("start", default=slot["start"]): selector.TimeSelector(),
                 vol.Optional("end", default=slot["end"]): selector.TimeSelector(),
@@ -319,7 +424,9 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         is_auto_detected = best_inverter is not None and best_inverter.is_fully_configured
         return best_inverter, is_auto_detected
 
-    def _build_inverter_options(self, best_inverter):
+    def _build_inverter_options(
+        self, best_inverter: object | None
+    ) -> tuple[list[selector.SelectOptionDict], str]:
         options = [selector.SelectOptionDict(value=_MANUAL, label="Manual entry")]
         for inv in self._discovered_inverters:
             label = inv.display_name
@@ -329,10 +436,12 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         default_inverter = best_inverter.serial if best_inverter else _MANUAL
         return options, default_inverter
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input=None) -> config_entries.ConfigFlowResult:
         return await self.async_step_inverter(user_input)
 
-    async def _handle_fully_configured_inverter(self, inverter, user_input):
+    async def _handle_fully_configured_inverter(
+        self, inverter, user_input
+    ) -> config_entries.ConfigFlowResult:
         """Handle fully configured inverter selection."""
         for disc_key, conf_key in _DISCOVERY_TO_CONF.items():
             if disc_key in inverter.entities:
@@ -351,7 +460,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         self._abort_if_unique_id_configured()
         return await self.async_step_tariff()
 
-    def _handle_partial_inverter(self, inverter, user_input):
+    def _handle_partial_inverter(self, inverter, user_input) -> None:
         """Fill partial inverter discovery results."""
         for disc_key, conf_key in _DISCOVERY_TO_CONF.items():
             if disc_key in inverter.entities:
@@ -371,7 +480,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             return {"base": "missing_entities"}
         return {}
 
-    async def _finish_manual_path(self, user_input):
+    async def _finish_manual_path(self, user_input) -> config_entries.ConfigFlowResult:
         """Store the manually selected entities and move to the tariff step."""
         self._data.update(user_input)
         serial = user_input.get("discovered_inverter", "manual")
@@ -381,7 +490,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
 
         return await self.async_step_tariff()
 
-    def _build_auto_detected_schema(self, best_inverter, inverter_options):
+    def _build_auto_detected_schema(self, best_inverter, inverter_options) -> vol.Schema:
         """Build schema for auto-detected inverter."""
         default_capacity = best_inverter.battery_capacity_kwh or DEFAULT_BATTERY_CAPACITY
         return vol.Schema(
@@ -391,57 +500,35 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 ): selector.SelectSelector(selector.SelectSelectorConfig(options=inverter_options)),
                 vol.Required(
                     CONF_BATTERY_CAPACITY, default=default_capacity
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=1, max=100, step=0.1, unit_of_measurement="kWh"
-                    )
-                ),
+                ): _number_selector(CONF_BATTERY_CAPACITY),
                 vol.Optional(
                     CONF_INVERTER_MAX_OUTPUT, default=DEFAULT_INVERTER_MAX_OUTPUT
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=1, max=20, step=0.1, unit_of_measurement="kW")
-                ),
+                ): _number_selector(CONF_INVERTER_MAX_OUTPUT),
             }
         )
 
-    def _build_manual_schema(self, default_capacity, inverter_options):
+    def _build_manual_schema(self, default_capacity, inverter_options) -> vol.Schema:
         """Build schema for manual entity selection."""
         return vol.Schema(
             {
                 vol.Optional(
                     "discovered_inverter", default=inverter_options[0]["value"]
                 ): selector.SelectSelector(selector.SelectSelectorConfig(options=inverter_options)),
-                vol.Required(CONF_SOLAR_POWER): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="sensor")
-                ),
-                vol.Required(CONF_BATTERY_SOC): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="sensor")
-                ),
-                vol.Required(CONF_BATTERY_POWER): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="sensor")
-                ),
-                vol.Required(CONF_GRID_POWER): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="sensor")
-                ),
-                vol.Required(CONF_HOUSE_LOAD): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="sensor")
-                ),
+                vol.Required(CONF_SOLAR_POWER): _entity_selector(),
+                vol.Required(CONF_BATTERY_SOC): _entity_selector(),
+                vol.Required(CONF_BATTERY_POWER): _entity_selector(),
+                vol.Required(CONF_GRID_POWER): _entity_selector(),
+                vol.Required(CONF_HOUSE_LOAD): _entity_selector(),
                 vol.Required(
                     CONF_BATTERY_CAPACITY, default=default_capacity
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=1, max=100, step=0.1, unit_of_measurement="kWh"
-                    )
-                ),
+                ): _number_selector(CONF_BATTERY_CAPACITY),
                 vol.Optional(
                     CONF_INVERTER_MAX_OUTPUT, default=DEFAULT_INVERTER_MAX_OUTPUT
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=1, max=20, step=0.1, unit_of_measurement="kW")
-                ),
+                ): _number_selector(CONF_INVERTER_MAX_OUTPUT),
             }
         )
 
-    async def async_step_inverter(self, user_input=None):
+    async def async_step_inverter(self, user_input=None) -> config_entries.ConfigFlowResult:
         """
         Step 1: Inverter selection.
 
@@ -472,58 +559,55 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             if not errors:
                 return await self._finish_manual_path(user_input)
 
-        # ── Build the form ────────────────────────────────────────────────────
-        inverter_options, default_inverter = self._build_inverter_options(best_inverter)
-
         if is_auto_detected:
-            schema = self._build_auto_detected_schema(best_inverter, inverter_options)
-            return self.async_show_form(
-                step_id="inverter",
-                data_schema=schema,
-                errors=errors,
-                description_placeholders={
-                    "status": f"All sensors detected for {best_inverter.display_name}",
-                    "discovered_count": str(len(self._discovered_inverters)),
-                },
-            )
+            return self._show_auto_detected_form(best_inverter, errors)
+        return self._show_manual_form(best_inverter, errors)
 
+    def _show_auto_detected_form(
+        self, best_inverter, errors: dict[str, str]
+    ) -> config_entries.ConfigFlowResult:
+        """Show the confirm form for an inverter whose sensors were all detected."""
+        inverter_options, _default = self._build_inverter_options(best_inverter)
+        return self.async_show_form(
+            step_id="inverter",
+            data_schema=self._build_auto_detected_schema(best_inverter, inverter_options),
+            errors=errors,
+            description_placeholders={
+                "status": f"All sensors detected for {best_inverter.display_name}",
+                "discovered_count": str(len(self._discovered_inverters)),
+            },
+        )
+
+    def _show_manual_form(
+        self, best_inverter, errors: dict[str, str]
+    ) -> config_entries.ConfigFlowResult:
+        """Show the entity-selector form, used when discovery found nothing complete."""
+        inverter_options, _default = self._build_inverter_options(best_inverter)
         default_capacity = (
             best_inverter.battery_capacity_kwh if best_inverter else None
         ) or DEFAULT_BATTERY_CAPACITY
-        schema = self._build_manual_schema(default_capacity, inverter_options)
         return self.async_show_form(
             step_id="inverter",
-            data_schema=schema,
+            data_schema=self._build_manual_schema(default_capacity, inverter_options),
             errors=errors,
             description_placeholders={"discovered_count": str(len(self._discovered_inverters))},
         )
 
-    async def async_step_tariff(self, user_input=None):
+    async def async_step_tariff(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Step 2: Tariff configuration, with scheduling discovery summary."""
         errors: dict[str, str] = {}
         if user_input is not None:
             periods = _slots_to_rate_periods(user_input)
-            errors = _rate_period_errors(
-                periods, str(user_input.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
-            )
-        if user_input is not None and not errors:
-            self._data[CONF_RATE_PERIODS] = periods
-            for key in [
-                CONF_EXPORT_RATE,
-                CONF_STANDING_CHARGE,
-                CONF_PSO_LEVY,
-                CONF_VAT_RATE,
-                CONF_DISCOUNT_RATE,
-            ]:
-                self._data[key] = float(user_input[key])
-            self._data[CONF_BILL_START_DAY] = int(user_input[CONF_BILL_START_DAY])
-            self._data[CONF_BASE_RATE] = float(user_input[CONF_BASE_RATE])
-            self._data[CONF_BASE_RATE_NAME] = str(
-                user_input.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
-            )
-            self._data[CONF_CURRENCY] = user_input.get(CONF_CURRENCY, DEFAULT_CURRENCY)
-            return await self.async_step_forecast()
+            errors = _rate_period_errors(periods, _base_rate_name(user_input))
+            if not errors:
+                self._data.update(_tariff_updates(user_input, periods))
+                return await self.async_step_forecast()
+        return self._show_tariff_form(user_input, errors)
 
+    def _show_tariff_form(
+        self, user_input: dict | None, errors: dict[str, str]
+    ) -> config_entries.ConfigFlowResult:
+        """Show the tariff form, re-suggesting the submitted values after an error."""
         currency = (user_input or {}).get(CONF_CURRENCY) or self._data.get(CONF_CURRENCY)
         schema = self._build_tariff_schema(currency=currency)
         if user_input is not None:
@@ -552,141 +636,80 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         schema_dict: dict = {
             vol.Required(
                 CONF_BASE_RATE, default=values.get(CONF_BASE_RATE, DEFAULT_BASE_RATE)
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=0, max=5, step=0.001, unit_of_measurement=_money_unit(currency, "kWh")
-                )
-            ),
+            ): _price_selector(CONF_BASE_RATE, currency),
             vol.Optional(
                 CONF_BASE_RATE_NAME, default=values.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
             ): selector.TextSelector(),
             vol.Required(
                 CONF_EXPORT_RATE, default=values.get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE)
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=0, max=1, step=0.001, unit_of_measurement=_money_unit(currency, "kWh")
-                )
-            ),
+            ): _price_selector(CONF_EXPORT_RATE, currency),
             vol.Required(
                 CONF_STANDING_CHARGE,
                 default=values.get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=0, max=5, step=0.001, unit_of_measurement=_money_unit(currency, "day")
-                )
-            ),
+            ): _price_selector(CONF_STANDING_CHARGE, currency),
             vol.Required(
                 CONF_PSO_LEVY, default=values.get(CONF_PSO_LEVY, DEFAULT_PSO_LEVY)
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=0, max=20, step=0.01, unit_of_measurement=_money_unit(currency, "month")
-                )
-            ),
+            ): _price_selector(CONF_PSO_LEVY, currency),
             vol.Required(
                 CONF_VAT_RATE, default=values.get(CONF_VAT_RATE, DEFAULT_VAT_RATE)
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=0, max=30, step=0.1, unit_of_measurement="%")
-            ),
+            ): _number_selector(CONF_VAT_RATE),
             vol.Required(
                 CONF_DISCOUNT_RATE, default=values.get(CONF_DISCOUNT_RATE, DEFAULT_DISCOUNT_RATE)
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=0, max=20, step=0.1, unit_of_measurement="%")
-            ),
+            ): _number_selector(CONF_DISCOUNT_RATE),
             vol.Required(
                 CONF_BILL_START_DAY, default=values.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY)
-            ): selector.NumberSelector(selector.NumberSelectorConfig(min=1, max=28, step=1)),
+            ): _number_selector(CONF_BILL_START_DAY),
             vol.Required(
                 CONF_CURRENCY, default=values.get(CONF_CURRENCY, DEFAULT_CURRENCY)
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[
-                        selector.SelectOptionDict(value=code, label=f"{code} ({symbol})")
-                        for code, symbol in CURRENCIES.items()
-                    ]
-                )
-            ),
+            ): _currency_selector(),
         }
         for i, slot in enumerate(slots, 1):
             schema_dict[vol.Optional(f"rate_period_{i}")] = _rate_period_section(slot, currency)
         return vol.Schema(schema_dict)
 
-    async def async_step_forecast(self, user_input=None):
+    async def async_step_forecast(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Step 3: Solar forecast integration (optional)."""
         if user_input is not None:
             self._data.update(user_input)
             return await self.async_step_immersion()
         schema = vol.Schema(
             {
-                vol.Optional(CONF_FORECAST_PROVIDER): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[
-                            selector.SelectOptionDict(
-                                value=FORECAST_PROVIDER_FORECAST_SOLAR, label="Forecast.Solar"
-                            ),
-                            selector.SelectOptionDict(
-                                value=FORECAST_PROVIDER_SOLCAST, label="Solcast"
-                            ),
-                        ]
-                    )
-                ),
-                vol.Optional(CONF_FORECAST_ENTITY): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="sensor")
-                ),
-                vol.Optional(CONF_FORECAST_ENTITY_P10): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="sensor")
-                ),
-                vol.Optional(CONF_FORECAST_ENTITY_D2): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="sensor")
-                ),
-                vol.Optional(CONF_CARBON_INTENSITY_ENTITY): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="sensor")
-                ),
+                vol.Optional(CONF_FORECAST_PROVIDER): _forecast_provider_selector(),
+                vol.Optional(CONF_FORECAST_ENTITY): _entity_selector(),
+                vol.Optional(CONF_FORECAST_ENTITY_P10): _entity_selector(),
+                vol.Optional(CONF_FORECAST_ENTITY_D2): _entity_selector(),
+                vol.Optional(CONF_CARBON_INTENSITY_ENTITY): _entity_selector(),
                 vol.Optional(
                     CONF_FORECAST_CONSERVATISM, default=DEFAULT_FORECAST_CONSERVATISM
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=0.0, max=1.0, step=0.05, mode="slider")
-                ),
+                ): _number_selector(CONF_FORECAST_CONSERVATISM),
             }
         )
         return self.async_show_form(step_id="forecast", data_schema=schema)
 
-    async def async_step_immersion(self, user_input=None):
-        """Step 5: Immersion heater (optional)."""
+    async def async_step_immersion(self, user_input=None) -> config_entries.ConfigFlowResult:
+        """Step 4: Immersion heater (optional)."""
         if user_input is not None:
             self._data.update(user_input)
             return await self.async_step_ev()
         schema = vol.Schema(
             {
-                vol.Optional(CONF_IMMERSION_SWITCH): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="switch")
-                ),
+                vol.Optional(CONF_IMMERSION_SWITCH): _entity_selector("switch"),
                 vol.Optional(
                     CONF_IMMERSION_WATTAGE, default=DEFAULT_IMMERSION_WATTAGE
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=500, max=6000, step=100, unit_of_measurement="W"
-                    )
-                ),
-                vol.Optional(CONF_IMMERSION_TEMP_SENSOR): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="sensor")
-                ),
+                ): _number_selector(CONF_IMMERSION_WATTAGE),
+                vol.Optional(CONF_IMMERSION_TEMP_SENSOR): _entity_selector(),
                 vol.Optional(
                     CONF_IMMERSION_TARGET_TEMP, default=DEFAULT_IMMERSION_TARGET_TEMP
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=40, max=75, step=1, unit_of_measurement="°C")
-                ),
+                ): _number_selector(CONF_IMMERSION_TARGET_TEMP),
                 vol.Optional(
                     CONF_IMMERSION_MIN_TEMP, default=DEFAULT_IMMERSION_MIN_TEMP
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=30, max=60, step=1, unit_of_measurement="°C")
-                ),
+                ): _number_selector(CONF_IMMERSION_MIN_TEMP),
             }
         )
         return self.async_show_form(step_id="immersion", data_schema=schema)
 
-    async def async_step_ev(self, user_input=None):
-        """Step 6: EV charger (optional). Auto-discovers Zappi, Wallbox, OCPP, Ohme, Easee."""
-        errors: dict[str, str] = {}
+    async def async_step_ev(self, user_input=None) -> config_entries.ConfigFlowResult:
+        """Step 5: EV charger (optional). Auto-discovers Zappi, Wallbox, OCPP, Ohme, Easee."""
         all_states = {s.entity_id: s for s in self.hass.states.async_all()}
         self._discovered_chargers = discover_ev_chargers(all_states)
 
@@ -694,18 +717,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             self._data.update(user_input)
             return await self.async_step_battery()
 
-        manual_ev = "__manual_ev__"
-        charger_options = [selector.SelectOptionDict(value=manual_ev, label="None / Manual entry")]
-        for ch in self._discovered_chargers:
-            charger_options.append(
-                selector.SelectOptionDict(value=ch.serial, label=ch.display_name)
-            )
-        default_charger = (
-            self._discovered_chargers[0].serial
-            if len(self._discovered_chargers) == 1
-            else manual_ev
-        )
-
+        charger_options, default_charger = self._build_charger_options()
         schema = vol.Schema(
             {
                 vol.Optional(
@@ -714,21 +726,28 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 vol.Optional(
                     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
                     default=DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=5, max=40, step=0.1, unit_of_measurement="kWh/100km"
-                    )
-                ),
+                ): _number_selector(CONF_CAR_EFFICIENCY_KWH_PER_100KM),
             }
         )
         return self.async_show_form(
             step_id="ev",
             data_schema=schema,
-            errors=errors,
+            errors={},
             description_placeholders={"discovered_count": str(len(self._discovered_chargers))},
         )
 
-    async def async_step_battery(self, user_input=None):
+    def _build_charger_options(self) -> tuple[list[selector.SelectOptionDict], str]:
+        """Return the charger choices and the one preselected."""
+        manual_ev = "__manual_ev__"
+        options = [selector.SelectOptionDict(value=manual_ev, label="None / Manual entry")]
+        for charger in self._discovered_chargers:
+            options.append(
+                selector.SelectOptionDict(value=charger.serial, label=charger.display_name)
+            )
+        only_charger = len(self._discovered_chargers) == 1
+        return options, self._discovered_chargers[0].serial if only_charger else manual_ev
+
+    async def async_step_battery(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Step 6: Battery management thresholds."""
         if user_input is not None:
             self._data.update(user_input)
@@ -736,44 +755,28 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         schema = vol.Schema(
             {
                 vol.Optional(
-                    CONF_BATTERY_MIN_SOC,
-                    default=DEFAULT_BATTERY_MIN_SOC,
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=5, max=30, step=1, unit_of_measurement="%")
-                ),
+                    CONF_BATTERY_MIN_SOC, default=DEFAULT_BATTERY_MIN_SOC
+                ): _number_selector(CONF_BATTERY_MIN_SOC),
                 vol.Optional(
-                    CONF_CHEAP_RATE_FLOOR_SOC,
-                    default=DEFAULT_CHEAP_RATE_FLOOR_SOC,
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=0, max=80, step=5, unit_of_measurement="%")
-                ),
+                    CONF_CHEAP_RATE_FLOOR_SOC, default=DEFAULT_CHEAP_RATE_FLOOR_SOC
+                ): _number_selector(CONF_CHEAP_RATE_FLOOR_SOC),
                 vol.Optional(
                     CONF_OVERNIGHT_CHARGE_TARGET, default=DEFAULT_OVERNIGHT_CHARGE_TARGET
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=20, max=100, step=1, unit_of_measurement="%")
-                ),
+                ): _number_selector(CONF_OVERNIGHT_CHARGE_TARGET),
                 vol.Optional(
                     CONF_SKIP_CHARGE_SOC_THRESHOLD, default=DEFAULT_SKIP_CHARGE_SOC_THRESHOLD
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=20, max=100, step=1, unit_of_measurement="%")
-                ),
+                ): _number_selector(CONF_SKIP_CHARGE_SOC_THRESHOLD),
                 vol.Optional(
                     CONF_SURPLUS_DIVERT_SOC, default=SURPLUS_DIVERT_SOC_THRESHOLD
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(min=50, max=100, step=5, unit_of_measurement="%")
-                ),
+                ): _number_selector(CONF_SURPLUS_DIVERT_SOC),
                 vol.Optional(
                     CONF_SURPLUS_DIVERT_MIN_W, default=SURPLUS_DIVERT_MIN_POWER_W
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=100, max=2000, step=100, unit_of_measurement="W"
-                    )
-                ),
+                ): _number_selector(CONF_SURPLUS_DIVERT_MIN_W),
             }
         )
         return self.async_show_form(step_id="battery", data_schema=schema)
 
-    async def async_step_confirm(self, user_input=None):
+    async def async_step_confirm(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Step 7: Show what will be saved, then create the entry."""
         if user_input is not None:
             return self.async_create_entry(title="GivEnergy Inverter Manager", data=self._data)
@@ -783,7 +786,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
             description_placeholders={"summary": _setup_summary(self._data)},
         )
 
-    async def async_step_reconfigure(self, user_input=None):
+    async def async_step_reconfigure(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Allow updating tariff settings without removing the integration.
 
         Shows the same form as the tariff setup step, pre-populated with the
@@ -798,31 +801,24 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         errors: dict[str, str] = {}
         if user_input is not None:
             periods = _slots_to_rate_periods(user_input)
-            errors = _rate_period_errors(
-                periods, str(user_input.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
-            )
-        if user_input is not None and not errors:
-            updates = {
-                CONF_RATE_PERIODS: periods,
-                CONF_BASE_RATE: float(user_input[CONF_BASE_RATE]),
-                CONF_BASE_RATE_NAME: str(
-                    user_input.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
-                ),
-                CONF_EXPORT_RATE: float(user_input[CONF_EXPORT_RATE]),
-                CONF_STANDING_CHARGE: float(user_input[CONF_STANDING_CHARGE]),
-                CONF_PSO_LEVY: float(user_input[CONF_PSO_LEVY]),
-                CONF_VAT_RATE: float(user_input[CONF_VAT_RATE]),
-                CONF_DISCOUNT_RATE: float(user_input[CONF_DISCOUNT_RATE]),
-                CONF_BILL_START_DAY: int(user_input[CONF_BILL_START_DAY]),
-                CONF_CURRENCY: user_input.get(CONF_CURRENCY, DEFAULT_CURRENCY),
-            }
-            options = {k: v for k, v in entry.options.items() if k not in updates}
-            self.hass.config_entries.async_update_entry(
-                entry, data={**entry.data, **updates}, options=options
-            )
-            return self.async_abort(reason="reconfigure_successful")
+            errors = _rate_period_errors(periods, _base_rate_name(user_input))
+            if not errors:
+                self._store_reconfigured_tariff(entry, _tariff_updates(user_input, periods))
+                return self.async_abort(reason="reconfigure_successful")
+        return self._show_reconfigure_form(entry, user_input, errors)
 
-        current = _saved_values(entry)
+    def _store_reconfigured_tariff(self, entry, updates: dict[str, Any]) -> None:
+        """Write *updates* to the entry data and drop the saved options that would override them."""
+        options = {k: v for k, v in entry.options.items() if k not in updates}
+        self.hass.config_entries.async_update_entry(
+            entry, data={**entry.data, **updates}, options=options
+        )
+
+    def _show_reconfigure_form(
+        self, entry, user_input: dict | None, errors: dict[str, str]
+    ) -> config_entries.ConfigFlowResult:
+        """Show the tariff form filled with the values in force."""
+        current = effective_config(entry)
         schema = self.__class__._build_tariff_schema(
             current.get(CONF_RATE_PERIODS) or [],
             current,
@@ -834,7 +830,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(config_entry) -> GivEnergyOptionsFlow:
         return GivEnergyOptionsFlow(config_entry)
 
 
@@ -854,21 +850,15 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         self._config_entry = config_entry
         self._options: dict[str, Any] = dict(config_entry.options)
 
-    def _get(self, key, default):
+    def _get(self, key, default) -> Any:
         """Return the saved option, else the setup value, else the default.
 
         A saved falsy option (0, an empty string, an empty list) is a real choice
         and must not fall back to the setup value.
         """
-        options = self._config_entry.options
-        if options.get(key) is not None:
-            return options[key]
-        data = self._config_entry.data
-        if data.get(key) is not None:
-            return data[key]
-        return default
+        return effective_config(self._config_entry).get(key, default)
 
-    def _optional_key(self, key):
+    def _optional_key(self, key) -> vol.Optional:
         """Optional schema key that pre-fills a saved value but has no default when empty.
 
         An empty-string default fails EntitySelector and SelectSelector validation.
@@ -878,46 +868,33 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             return vol.Optional(key, description={"suggested_value": current})
         return vol.Optional(key)
 
-    def _save_options(self, user_input: dict, rate_periods: list[dict]):
+    def _save_options(
+        self, user_input: dict, rate_periods: list[dict]
+    ) -> config_entries.ConfigFlowResult:
         """Store the submitted options and create the entry."""
         tariff = user_input.get("tariff_settings", {})
-        thresholds = user_input.get("threshold_settings", {})
-        forecast = user_input.get("forecast_settings", {})
-        hardware = user_input.get("hardware_settings", {})
-        ev_settings = user_input.get("ev_settings", {})
-        self._options[CONF_RATE_PERIODS] = rate_periods
-        for key in [
-            CONF_EXPORT_RATE,
-            CONF_STANDING_CHARGE,
-            CONF_PSO_LEVY,
-            CONF_VAT_RATE,
-            CONF_DISCOUNT_RATE,
-        ]:
-            self._options[key] = float(tariff[key])
-        self._options[CONF_BILL_START_DAY] = int(tariff[CONF_BILL_START_DAY])
-        self._options[CONF_BASE_RATE] = float(tariff[CONF_BASE_RATE])
-        self._options[CONF_BASE_RATE_NAME] = str(
-            tariff.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
+        self._options.update(_tariff_updates(tariff, rate_periods))
+        self._options.update(user_input.get("threshold_settings", {}))
+        self._store_floats(
+            user_input.get("hardware_settings", {}),
+            (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT, CONF_IMMERSION_WATTAGE),
         )
-        self._options[CONF_CURRENCY] = tariff.get(CONF_CURRENCY, DEFAULT_CURRENCY)
-        self._options.update(thresholds)
-        for key in (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT, CONF_IMMERSION_WATTAGE):
-            if key in hardware:
-                self._options[key] = float(hardware[key])
+        forecast = user_input.get("forecast_settings", {})
         for key in _OPTIONAL_FORECAST_KEYS:
             self._options[key] = forecast.get(key, "")
-        if CONF_FORECAST_CONSERVATISM in forecast:
-            self._options[CONF_FORECAST_CONSERVATISM] = float(
-                forecast[CONF_FORECAST_CONSERVATISM]
-            )
-        if CONF_CAR_EFFICIENCY_KWH_PER_100KM in ev_settings:
-            self._options[CONF_CAR_EFFICIENCY_KWH_PER_100KM] = float(
-                ev_settings[CONF_CAR_EFFICIENCY_KWH_PER_100KM]
-            )
+        self._store_floats(forecast, (CONF_FORECAST_CONSERVATISM,))
+        self._store_floats(
+            user_input.get("ev_settings", {}), (CONF_CAR_EFFICIENCY_KWH_PER_100KM,)
+        )
         return self.async_create_entry(title="", data=self._options)
 
+    def _store_floats(self, submitted: dict, keys: tuple[str, ...]) -> None:
+        """Store each of *keys* that the form submitted, as a float."""
+        for key in keys:
+            if key in submitted:
+                self._options[key] = float(submitted[key])
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Single-page options: tariff, per-period rates, thresholds, forecast."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -931,10 +908,11 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
     def _submission_errors(user_input: dict, rate_periods: list[dict]) -> dict[str, str]:
         """Return form errors for a submitted options form, or an empty dict."""
         tariff = user_input.get("tariff_settings", {})
-        base_rate_name = str(tariff.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
-        return _rate_period_errors(rate_periods, base_rate_name)
+        return _rate_period_errors(rate_periods, _base_rate_name(tariff))
 
-    def _show_form(self, user_input: dict | None, errors: dict[str, str]):
+    def _show_form(
+        self, user_input: dict | None, errors: dict[str, str]
+    ) -> config_entries.ConfigFlowResult:
         """Show the options form, re-suggesting the submitted values after an error."""
         schema = vol.Schema(self._form_fields())
         if user_input is not None:
@@ -944,7 +922,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             data_schema=schema,
             errors=errors,
             description_placeholders={
-                "tariff_summary": _tariff_summary(_saved_values(self._config_entry))
+                "tariff_summary": _tariff_summary(effective_config(self._config_entry))
             },
         )
 
@@ -975,14 +953,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         CONF_BASE_RATE,
                         default=float(self._get(CONF_BASE_RATE, DEFAULT_BASE_RATE)),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=0,
-                            max=5,
-                            step=0.001,
-                            unit_of_measurement=_money_unit(currency, "kWh"),
-                        )
-                    ),
+                    ): _price_selector(CONF_BASE_RATE, currency),
                     vol.Optional(
                         CONF_BASE_RATE_NAME,
                         default=str(self._get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)),
@@ -990,64 +961,28 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         CONF_EXPORT_RATE,
                         default=self._get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=0,
-                            max=1,
-                            step=0.001,
-                            unit_of_measurement=_money_unit(currency, "kWh"),
-                        )
-                    ),
+                    ): _price_selector(CONF_EXPORT_RATE, currency),
                     vol.Required(
                         CONF_STANDING_CHARGE,
                         default=self._get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=0,
-                            max=5,
-                            step=0.001,
-                            unit_of_measurement=_money_unit(currency, "day"),
-                        )
-                    ),
+                    ): _price_selector(CONF_STANDING_CHARGE, currency),
                     vol.Required(
                         CONF_PSO_LEVY, default=self._get(CONF_PSO_LEVY, DEFAULT_PSO_LEVY)
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=0,
-                            max=20,
-                            step=0.01,
-                            unit_of_measurement=_money_unit(currency, "month"),
-                        )
-                    ),
+                    ): _price_selector(CONF_PSO_LEVY, currency),
                     vol.Required(
                         CONF_VAT_RATE, default=self._get(CONF_VAT_RATE, DEFAULT_VAT_RATE)
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=0, max=30, step=0.1, unit_of_measurement="%"
-                        )
-                    ),
+                    ): _number_selector(CONF_VAT_RATE),
                     vol.Required(
                         CONF_DISCOUNT_RATE,
                         default=self._get(CONF_DISCOUNT_RATE, DEFAULT_DISCOUNT_RATE),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=0, max=20, step=0.1, unit_of_measurement="%"
-                        )
-                    ),
+                    ): _number_selector(CONF_DISCOUNT_RATE),
                     vol.Required(
                         CONF_BILL_START_DAY,
                         default=self._get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY),
-                    ): selector.NumberSelector(selector.NumberSelectorConfig(min=1, max=28, step=1)),
+                    ): _number_selector(CONF_BILL_START_DAY),
                     vol.Required(
                         CONF_CURRENCY, default=self._get(CONF_CURRENCY, DEFAULT_CURRENCY)
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=[
-                                selector.SelectOptionDict(value=code, label=f"{code} ({symbol})")
-                                for code, symbol in CURRENCIES.items()
-                            ]
-                        )
-                    ),
+                    ): _currency_selector(),
                 }
             ),
             {"collapsed": False},
@@ -1061,50 +996,27 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_BATTERY_MIN_SOC,
                         default=self._get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=5, max=30, step=1, unit_of_measurement="%"
-                        )
-                    ),
+                    ): _number_selector(CONF_BATTERY_MIN_SOC),
                     vol.Optional(
                         CONF_CHEAP_RATE_FLOOR_SOC,
                         default=self._get(CONF_CHEAP_RATE_FLOOR_SOC, DEFAULT_CHEAP_RATE_FLOOR_SOC),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=0, max=80, step=5, unit_of_measurement="%"
-                        )
-                    ),
+                    ): _number_selector(CONF_CHEAP_RATE_FLOOR_SOC),
                     vol.Optional(
                         CONF_OVERNIGHT_CHARGE_TARGET,
                         default=self._get(
                             CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET
                         ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=20, max=100, step=1, unit_of_measurement="%"
-                        )
-                    ),
+                    ): _number_selector(CONF_OVERNIGHT_CHARGE_TARGET),
                     vol.Optional(
                         CONF_SKIP_CHARGE_SOC_THRESHOLD,
                         default=self._get(
                             CONF_SKIP_CHARGE_SOC_THRESHOLD, DEFAULT_SKIP_CHARGE_SOC_THRESHOLD
                         ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=20, max=100, step=1, unit_of_measurement="%"
-                        )
-                    ),
+                    ): _number_selector(CONF_SKIP_CHARGE_SOC_THRESHOLD),
                     vol.Optional(
                         CONF_BATTERY_COST,
                         default=float(self._get(CONF_BATTERY_COST, DEFAULT_BATTERY_COST)),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=0,
-                            max=20000,
-                            step=100,
-                            unit_of_measurement=CURRENCIES[_currency_code(currency)],
-                        )
-                    ),
+                    ): _number_selector(CONF_BATTERY_COST, CURRENCIES[_currency_code(currency)]),
                     vol.Optional(
                         CONF_BATTERY_THROUGHPUT_BUDGET,
                         default=float(
@@ -1112,11 +1024,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                                 CONF_BATTERY_THROUGHPUT_BUDGET, DEFAULT_BATTERY_THROUGHPUT_BUDGET
                             )
                         ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=0, max=50, step=0.5, unit_of_measurement="kWh"
-                        )
-                    ),
+                    ): _number_selector(CONF_BATTERY_THROUGHPUT_BUDGET),
                     vol.Optional(
                         CONF_DRY_RUN, default=bool(self._get(CONF_DRY_RUN, DEFAULT_DRY_RUN))
                     ): selector.BooleanSelector(),
@@ -1134,38 +1042,17 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         return section(
             vol.Schema(
                 {
-                    self._optional_key(CONF_FORECAST_PROVIDER): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=[
-                                selector.SelectOptionDict(
-                                    value=FORECAST_PROVIDER_FORECAST_SOLAR, label="Forecast.Solar"
-                                ),
-                                selector.SelectOptionDict(
-                                    value=FORECAST_PROVIDER_SOLCAST, label="Solcast"
-                                ),
-                            ]
-                        )
-                    ),
-                    self._optional_key(CONF_FORECAST_ENTITY): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain="sensor")
-                    ),
-                    self._optional_key(CONF_FORECAST_ENTITY_P10): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain="sensor")
-                    ),
-                    self._optional_key(CONF_FORECAST_ENTITY_D2): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain="sensor")
-                    ),
-                    self._optional_key(CONF_CARBON_INTENSITY_ENTITY): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain="sensor")
-                    ),
+                    self._optional_key(CONF_FORECAST_PROVIDER): _forecast_provider_selector(),
+                    self._optional_key(CONF_FORECAST_ENTITY): _entity_selector(),
+                    self._optional_key(CONF_FORECAST_ENTITY_P10): _entity_selector(),
+                    self._optional_key(CONF_FORECAST_ENTITY_D2): _entity_selector(),
+                    self._optional_key(CONF_CARBON_INTENSITY_ENTITY): _entity_selector(),
                     vol.Optional(
                         CONF_FORECAST_CONSERVATISM,
                         default=float(
                             self._get(CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM)
                         ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(min=0.0, max=1.0, step=0.05, mode="slider")
-                    ),
+                    ): _number_selector(CONF_FORECAST_CONSERVATISM),
                 }
             ),
             {"collapsed": True},
@@ -1179,29 +1066,17 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_BATTERY_CAPACITY,
                         default=float(self._get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY)),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1, max=100, step=0.1, unit_of_measurement="kWh"
-                        )
-                    ),
+                    ): _number_selector(CONF_BATTERY_CAPACITY),
                     vol.Optional(
                         CONF_INVERTER_MAX_OUTPUT,
                         default=float(
                             self._get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)
                         ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1, max=20, step=0.1, unit_of_measurement="kW"
-                        )
-                    ),
+                    ): _number_selector(CONF_INVERTER_MAX_OUTPUT),
                     vol.Optional(
                         CONF_IMMERSION_WATTAGE,
                         default=float(self._get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE)),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=500, max=6000, step=100, unit_of_measurement="W"
-                        )
-                    ),
+                    ): _number_selector(CONF_IMMERSION_WATTAGE),
                 }
             ),
             {"collapsed": True},
@@ -1220,11 +1095,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                                 DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
                             )
                         ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=5, max=40, step=0.1, unit_of_measurement="kWh/100km"
-                        )
-                    ),
+                    ): _number_selector(CONF_CAR_EFFICIENCY_KWH_PER_100KM),
                 }
             ),
             {"collapsed": True},
