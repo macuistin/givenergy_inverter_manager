@@ -790,9 +790,7 @@ class TestBillPeriodEdgeCases:
 class TestImmersionMinTemp:
     def test_always_diverts_when_below_min_temp(self):
         """Should divert regardless of surplus when water is below minimum safe temp."""
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            should_divert_to_immersion,
-        )
+        from tests.core.flat_rules import should_divert_to_immersion
 
         should, reason = should_divert_to_immersion(
             solar_power_w=0.0,  # no surplus at all
@@ -810,9 +808,7 @@ class TestImmersionMinTemp:
 
     def test_no_min_temp_trigger_when_above_minimum(self):
         """Should not trigger the minimum-temp path when water is warm enough."""
-        from custom_components.givenergy_inverter_manager.core.rules import (
-            should_divert_to_immersion,
-        )
+        from tests.core.flat_rules import should_divert_to_immersion
 
         should, reason = should_divert_to_immersion(
             solar_power_w=0.0,
