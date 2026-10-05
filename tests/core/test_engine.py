@@ -268,6 +268,16 @@ class TestUpdateBatteryStats:
         update_battery_stats(stats, 99.5, 90.0)
         assert stats.last_full_charge_date == date.today()
 
+    def test_full_charge_date_set_exactly_at_the_full_threshold(self):
+        from datetime import date
+
+        from custom_components.givenergy_inverter_manager.const import BATTERY_FULL_SOC_PCT
+
+        assert BATTERY_FULL_SOC_PCT == 99.0
+        stats = BatteryStats()
+        update_battery_stats(stats, BATTERY_FULL_SOC_PCT, 90.0)
+        assert stats.last_full_charge_date == date.today()
+
     def test_full_charge_date_not_set_below_99(self):
         stats = BatteryStats()
         update_battery_stats(stats, 98.9, 90.0)
@@ -309,6 +319,15 @@ class TestBuildCoordinatorData:
         raw = _raw(solar_power_w=4800.0, inverter_max_w=5000.0)  # 96%
         data, _ = _run(raw=raw)
         assert data.is_clipping is True
+
+    def test_clipping_boundary_follows_the_named_threshold(self):
+        from custom_components.givenergy_inverter_manager.const import CLIPPING_THRESHOLD_PERCENT
+
+        assert CLIPPING_THRESHOLD_PERCENT == 95
+        at = _run(raw=_raw(solar_power_w=4750.0, inverter_max_w=5000.0))[0]
+        below = _run(raw=_raw(solar_power_w=4749.0, inverter_max_w=5000.0))[0]
+        assert at.is_clipping is True
+        assert below.is_clipping is False
 
     def test_no_clipping_below_threshold(self):
         raw = _raw(solar_power_w=4000.0, inverter_max_w=5000.0)  # 80%

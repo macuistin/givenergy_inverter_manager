@@ -108,6 +108,7 @@ CURRENCIES = {
     "ZAR": "R",
 }
 DEFAULT_CURRENCY = "EUR"
+DEFAULT_CURRENCY_SYMBOL = CURRENCIES[DEFAULT_CURRENCY]
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
 DEFAULT_INVERTER_MAX_OUTPUT = 5.0  # kW — GivEnergy GIV-HY-5.0
@@ -169,6 +170,12 @@ SURPLUS_DIVERT_SOC_THRESHOLD = 80  # %
 SURPLUS_DIVERT_MIN_POWER_W = 500  # W
 # Inverter output as % of max that signals clipping
 CLIPPING_THRESHOLD_PERCENT = 95  # %
+# Battery SoC (%) at or above which the battery counts as full
+BATTERY_FULL_SOC_PCT = 99.0  # %
+
+# ── Appliance timing suggestion ──────────────────────────────────────────────
+APPLIANCE_MIN_BATTERY_SOC = 80  # % — battery charge needed to run an appliance from the battery
+APPLIANCE_RATE_THRESHOLD = 1.5  # × export rate — above this the grid rate is too high to suggest
 
 # ── Coordinator ──────────────────────────────────────────────────────────────
 UPDATE_INTERVAL_SECONDS = 30
@@ -188,19 +195,16 @@ CHARGE_WINTER_MONTHS: tuple[int, ...] = (12, 1, 2)
 CHARGE_SHOULDER_MONTHS: tuple[int, ...] = (3, 4, 10, 11)
 # Shoulder month min SoC floor (% of battery) — more conservative than summer floor.
 CHARGE_SHOULDER_MIN_SOC = 70  # % — applied instead of battery_min_soc in shoulder months
+# Winter months: the charge is skipped once the battery is at or above this SoC.
+CHARGE_WINTER_SKIP_SOC_PCT = 95  # %
+# The overnight target is never planned closer than this to the minimum SoC.
+CHARGE_MIN_TARGET_HEADROOM_PCT = 5  # SoC points above min SoC
 
 CHARGE_PEAK_SOLAR_HOURS = 4.0  # peak-output hours assumed when no forecast available
 CHARGE_MORNING_LOAD_FRACTION = 0.25  # fraction of daily load consumed before solar starts
 CHARGE_SOLAR_USABLE_FRACTION = 0.6  # fraction of forecast kWh we can realistically charge from
-CHARGE_EV_BUFFER_KWH = 5.0  # extra kWh reserved overnight when EV is plugged in
 CHARGE_SKIP_HEADROOM = 0.8  # forecast/fill headroom needed to justify skipping charge
-CHARGE_STRONG_FRACTION = 0.8  # forecast >= battery_capacity * this → "strong" tier
-CHARGE_MODERATE_FRACTION = 0.5  # forecast >= battery_capacity * this → "moderate" tier
-CHARGE_STRONG_BASE_SOC = 50  # minimum target SoC for a strong-forecast night
-CHARGE_MODERATE_BASE_SOC = 70  # minimum target SoC for a moderate-forecast night
-CHARGE_POOR_TARGET_SOC = 90  # target SoC for a poor-forecast night
 CHARGE_STRONG_BUFFER = 10  # SoC points added above gap for strong forecast
-CHARGE_MODERATE_BUFFER = 20  # SoC points added above gap for moderate forecast
 CHARGE_EV_SOC_BONUS = 10  # extra SoC percentage added when EV is plugged in
 CHARGE_LOAD_PROFILE_MIN_COVERAGE = 0.9  # fraction of the day a load record must cover
 CHARGE_LOAD_PROFILE_MIN_DAYS = 2  # complete days needed before the per-slot profile is used
@@ -263,5 +267,8 @@ GIVTCP_MAX_WRITE_RETRIES = 3          # attempts per write before giving up
 GIVTCP_WRITE_RETRY_SLEEP_S = 2        # seconds between retry attempts
 GIVTCP_WRITE_LIFETIME_WARN = 500_000  # log a warning at this write count (~50% of rated)
 GIVTCP_MIN_WRITE_INTERVAL_S = 300     # minimum seconds before the same value is rewritten
+# How long a running element stays on while a required sensor is unavailable.
+# Same value as the write interval, but a separate setting.
+SENSOR_OUTAGE_HOLD_LIMIT_S = 300
 GIVTCP_MIN_CHARGE_TARGET_PCT = 4      # lowest charge target GivTCP accepts
 GIVTCP_MAX_CHARGE_TARGET_PCT = 100    # highest charge target GivTCP accepts
