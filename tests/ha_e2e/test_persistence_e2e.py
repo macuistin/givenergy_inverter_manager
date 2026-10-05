@@ -135,4 +135,8 @@ async def test_tenth_cycle_saves_after_the_delay(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
 
-    assert hass_storage[_STORAGE_KEY]["data"]["year"]["solar_kwh"] == pytest.approx(1234.5)
+    # The 30 s tick also fires the coordinator's own 30 s update. Depending on which callback
+    # runs first, the save holds 1234.5 or 1234.5 plus one step of the 3.2 kW MIDDAY solar
+    # (3.2 kW x 30 s = 0.0267 kWh). Either proves the delayed save ran.
+    saved = hass_storage[_STORAGE_KEY]["data"]["year"]["solar_kwh"]
+    assert saved == pytest.approx(1234.5, abs=0.05)
