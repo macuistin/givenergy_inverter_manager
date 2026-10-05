@@ -916,104 +916,146 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             )
         return self.async_create_entry(title="", data=self._options)
 
+
     async def async_step_init(self, user_input=None):
         """Single-page options: tariff, per-period rates, thresholds, forecast."""
         errors: dict[str, str] = {}
-
         if user_input is not None:
-            tariff = user_input.get("tariff_settings", {})
             rate_periods = _slots_to_rate_periods(user_input)
-            errors = _rate_period_errors(
-                rate_periods, str(tariff.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
-            )
-        if user_input is not None and not errors:
-            return self._save_options(user_input, rate_periods)
+            errors = self._submission_errors(user_input, rate_periods)
+            if not errors:
+                return self._save_options(user_input, rate_periods)
+        return self._show_form(user_input, errors)
 
-        current_periods = self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS)
-        slots = _periods_to_slot_defaults(current_periods)
+    @staticmethod
+    def _submission_errors(user_input: dict, rate_periods: list[dict]) -> dict[str, str]:
+        """Return form errors for a submitted options form, or an empty dict."""
+        tariff = user_input.get("tariff_settings", {})
+        base_rate_name = str(tariff.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME))
+        return _rate_period_errors(rate_periods, base_rate_name)
+
+    def _show_form(self, user_input: dict | None, errors: dict[str, str]):
+        """Show the options form, re-suggesting the submitted values after an error."""
+        schema = vol.Schema(self._form_fields())
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(schema, user_input)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "tariff_summary": _tariff_summary(_saved_values(self._config_entry))
+            },
+        )
+
+    def _form_fields(self) -> dict:
+        """Return the options form fields in display order."""
         currency = self._get(CONF_CURRENCY, DEFAULT_CURRENCY)
+        fields: dict = {vol.Required("tariff_settings"): self._tariff_section(currency)}
+        fields.update(self._rate_period_sections(currency))
+        fields[vol.Required("threshold_settings")] = self._threshold_section(currency)
+        fields[vol.Required("forecast_settings")] = self._forecast_section()
+        fields[vol.Required("hardware_settings")] = self._hardware_section()
+        fields[vol.Required("ev_settings")] = self._ev_section()
+        return fields
 
-        schema_dict: dict = {
-            vol.Required("tariff_settings"): section(
-                vol.Schema(
-                    {
-                        vol.Required(
-                            CONF_BASE_RATE,
-                            default=float(self._get(CONF_BASE_RATE, DEFAULT_BASE_RATE)),
-                        ): selector.NumberSelector(
-                            selector.NumberSelectorConfig(
-                                min=0, max=5, step=0.001, unit_of_measurement=_money_unit(currency, "kWh")
-                            )
-                        ),
-                        vol.Optional(
-                            CONF_BASE_RATE_NAME,
-                            default=str(self._get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)),
-                        ): selector.TextSelector(),
-                        vol.Required(
-                            CONF_EXPORT_RATE,
-                            default=self._get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE),
-                        ): selector.NumberSelector(
-                            selector.NumberSelectorConfig(
-                                min=0, max=1, step=0.001, unit_of_measurement=_money_unit(currency, "kWh")
-                            )
-                        ),
-                        vol.Required(
-                            CONF_STANDING_CHARGE,
-                            default=self._get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE),
-                        ): selector.NumberSelector(
-                            selector.NumberSelectorConfig(
-                                min=0, max=5, step=0.001, unit_of_measurement=_money_unit(currency, "day")
-                            )
-                        ),
-                        vol.Required(
-                            CONF_PSO_LEVY, default=self._get(CONF_PSO_LEVY, DEFAULT_PSO_LEVY)
-                        ): selector.NumberSelector(
-                            selector.NumberSelectorConfig(
-                                min=0, max=20, step=0.01, unit_of_measurement=_money_unit(currency, "month")
-                            )
-                        ),
-                        vol.Required(
-                            CONF_VAT_RATE, default=self._get(CONF_VAT_RATE, DEFAULT_VAT_RATE)
-                        ): selector.NumberSelector(
-                            selector.NumberSelectorConfig(
-                                min=0, max=30, step=0.1, unit_of_measurement="%"
-                            )
-                        ),
-                        vol.Required(
-                            CONF_DISCOUNT_RATE,
-                            default=self._get(CONF_DISCOUNT_RATE, DEFAULT_DISCOUNT_RATE),
-                        ): selector.NumberSelector(
-                            selector.NumberSelectorConfig(
-                                min=0, max=20, step=0.1, unit_of_measurement="%"
-                            )
-                        ),
-                        vol.Required(
-                            CONF_BILL_START_DAY,
-                            default=self._get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY),
-                        ): selector.NumberSelector(
-                            selector.NumberSelectorConfig(min=1, max=28, step=1)
-                        ),
-                        vol.Required(
-                            CONF_CURRENCY, default=self._get(CONF_CURRENCY, DEFAULT_CURRENCY)
-                        ): selector.SelectSelector(
-                            selector.SelectSelectorConfig(
-                                options=[
-                                    selector.SelectOptionDict(
-                                        value=code, label=f"{code} ({symbol})"
-                                    )
-                                    for code, symbol in CURRENCIES.items()
-                                ]
-                            )
-                        ),
-                    }
-                ),
-                {"collapsed": False},
-            ),
+    def _rate_period_sections(self, currency: object) -> dict:
+        """Return one collapsible section per rate-period slot, filled from the saved periods."""
+        slots = _periods_to_slot_defaults(self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS))
+        return {
+            vol.Optional(f"rate_period_{i}"): _rate_period_section(slot, currency)
+            for i, slot in enumerate(slots, 1)
         }
-        for i, slot in enumerate(slots, 1):
-            schema_dict[vol.Optional(f"rate_period_{i}")] = _rate_period_section(slot, currency)
 
-        schema_dict[vol.Required("threshold_settings")] = section(
+    def _tariff_section(self, currency: object) -> object:
+        """Return the tariff section: base rate, export rate, charges, billing and currency."""
+        return section(
+            vol.Schema(
+                {
+                    vol.Required(
+                        CONF_BASE_RATE,
+                        default=float(self._get(CONF_BASE_RATE, DEFAULT_BASE_RATE)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=5,
+                            step=0.001,
+                            unit_of_measurement=_money_unit(currency, "kWh"),
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_BASE_RATE_NAME,
+                        default=str(self._get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)),
+                    ): selector.TextSelector(),
+                    vol.Required(
+                        CONF_EXPORT_RATE,
+                        default=self._get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=1,
+                            step=0.001,
+                            unit_of_measurement=_money_unit(currency, "kWh"),
+                        )
+                    ),
+                    vol.Required(
+                        CONF_STANDING_CHARGE,
+                        default=self._get(CONF_STANDING_CHARGE, DEFAULT_STANDING_CHARGE),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=5,
+                            step=0.001,
+                            unit_of_measurement=_money_unit(currency, "day"),
+                        )
+                    ),
+                    vol.Required(
+                        CONF_PSO_LEVY, default=self._get(CONF_PSO_LEVY, DEFAULT_PSO_LEVY)
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=20,
+                            step=0.01,
+                            unit_of_measurement=_money_unit(currency, "month"),
+                        )
+                    ),
+                    vol.Required(
+                        CONF_VAT_RATE, default=self._get(CONF_VAT_RATE, DEFAULT_VAT_RATE)
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0, max=30, step=0.1, unit_of_measurement="%"
+                        )
+                    ),
+                    vol.Required(
+                        CONF_DISCOUNT_RATE,
+                        default=self._get(CONF_DISCOUNT_RATE, DEFAULT_DISCOUNT_RATE),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0, max=20, step=0.1, unit_of_measurement="%"
+                        )
+                    ),
+                    vol.Required(
+                        CONF_BILL_START_DAY,
+                        default=self._get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY),
+                    ): selector.NumberSelector(selector.NumberSelectorConfig(min=1, max=28, step=1)),
+                    vol.Required(
+                        CONF_CURRENCY, default=self._get(CONF_CURRENCY, DEFAULT_CURRENCY)
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                selector.SelectOptionDict(value=code, label=f"{code} ({symbol})")
+                                for code, symbol in CURRENCIES.items()
+                            ]
+                        )
+                    ),
+                }
+            ),
+            {"collapsed": False},
+        )
+
+    def _threshold_section(self, currency: object) -> object:
+        """Return the battery threshold section, plus battery cost, dry run and logging."""
+        return section(
             vol.Schema(
                 {
                     vol.Optional(
@@ -1057,7 +1099,10 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                         default=float(self._get(CONF_BATTERY_COST, DEFAULT_BATTERY_COST)),
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
-                            min=0, max=20000, step=100, unit_of_measurement=CURRENCIES[_currency_code(currency)]
+                            min=0,
+                            max=20000,
+                            step=100,
+                            unit_of_measurement=CURRENCIES[_currency_code(currency)],
                         )
                     ),
                     vol.Optional(
@@ -1083,7 +1128,10 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             ),
             {"collapsed": True},
         )
-        schema_dict[vol.Required("forecast_settings")] = section(
+
+    def _forecast_section(self) -> object:
+        """Return the forecast section: provider, forecast and carbon sensors, conservatism."""
+        return section(
             vol.Schema(
                 {
                     self._optional_key(CONF_FORECAST_PROVIDER): selector.SelectSelector(
@@ -1122,7 +1170,10 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             ),
             {"collapsed": True},
         )
-        schema_dict[vol.Required("hardware_settings")] = section(
+
+    def _hardware_section(self) -> object:
+        """Return the hardware section: battery capacity, inverter output, immersion wattage."""
+        return section(
             vol.Schema(
                 {
                     vol.Optional(
@@ -1155,7 +1206,10 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             ),
             {"collapsed": True},
         )
-        schema_dict[vol.Required("ev_settings")] = section(
+
+    def _ev_section(self) -> object:
+        """Return the EV section: car efficiency."""
+        return section(
             vol.Schema(
                 {
                     vol.Optional(
@@ -1174,16 +1228,4 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                 }
             ),
             {"collapsed": True},
-        )
-
-        schema = vol.Schema(schema_dict)
-        if user_input is not None:
-            schema = self.add_suggested_values_to_schema(schema, user_input)
-        return self.async_show_form(
-            step_id="init",
-            data_schema=schema,
-            errors=errors,
-            description_placeholders={
-                "tariff_summary": _tariff_summary(_saved_values(self._config_entry))
-            },
         )
