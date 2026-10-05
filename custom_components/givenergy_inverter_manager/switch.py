@@ -244,7 +244,7 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
                     f"(reason: {self.coordinator.data.divert_reason})"
                 )
                 _LOG.info("DRY RUN: %s", action)
-                self.coordinator.data.dry_run_last_skipped = action
+                self.coordinator._record_skipped(action)
             else:
                 _LOG.debug(
                     "Immersion: %s (reason: %s)",
