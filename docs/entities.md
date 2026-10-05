@@ -11,13 +11,13 @@ All entities belong to one device, **GivEnergy Inverter Manager** (manufacturer 
 | Auto Immersion Divert | on | yes | On: the immersion rule runs. Off: the rule is bypassed and the managed switch asks for the real immersion switch to be off. The minimum temperature rule does not run while it is off. See [Concepts](concepts.md#immersion-divert) |
 | Immersion Heater (Managed) | follows the decision | no | Only created when an immersion switch was set at setup. Shows whether the integration wants the heater on. Turning it on starts a run to target temperature. Turning it off switches the heater off and holds off automatic control for 10 minutes |
 | Force Skip Overnight Charge | off | no | On: tonight's decision becomes skip, with the reason `Manual override: skip overnight charge`. At the write time the minimum SoC is written as the target. It is off again after a restart |
-| Enable Charge Target Override | off | yes | Turning it off clears the manual target. See the note below |
+| Enable Charge Target Override | off | yes | On: tonight's target is the Overnight Charge Target Override value. Off: the automatic target. See the note below |
 
 ### Manual charge target
 
-Use the **Overnight Charge Target Override** number to set a target yourself. Moving the slider applies the override straight away, and the Overnight Charge Reason sensor reads `Manual override: charge to <n>%`. Turning **Enable Charge Target Override** off clears it and returns to the automatic target.
+Use the **Overnight Charge Target Override** number to set a target yourself, then turn on **Enable Charge Target Override**. The Overnight Charge Reason sensor reads `Manual override: charge to <n>%`. Turning the switch off returns to the automatic target.
 
-Turning the switch on does not apply the slider's value by itself. Move the slider after turning the switch on. The slider starts at 80 after every restart, and a switch restored as on does not re-apply a target, so set the slider again after a restart.
+The switch decides whether the override applies and the slider holds the value. Turning the switch on uses the slider's current value, which is 80 until you move it. Moving the slider while the switch is off changes nothing until you turn the switch on. Both are restored after a restart, so what the two entities show is what the integration applies.
 
 The configured cap does not limit a manual target. Force Skip takes priority over a manual target.
 
@@ -25,7 +25,7 @@ The configured cap does not limit a manual target. Force Skip takes priority ove
 
 | Entity | Range | Default | What it does |
 |---|---|---|---|
-| Overnight Charge Target Override | 10 to 100, step 5 | 80 | The manual charge target. See above |
+| Overnight Charge Target Override | 10 to 100, step 5 | 80 | The manual charge target. Restored after a restart. See above |
 | Immersion Target Temperature | 40 to 75 °C, step 1 | 55 | The immersion stops heating at this temperature. Kept at least 1 °C above the minimum |
 | Immersion Minimum Temperature | 30 to 60 °C, step 1 | 50 | Below this the immersion heats whatever the surplus. Kept at least 1 °C below the target |
 | Immersion Restart Gap | 1 to 15 °C, step 1 | 5 | After reaching the target, the heater restarts only once the water is this far below it |

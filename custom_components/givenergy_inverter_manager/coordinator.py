@@ -88,6 +88,7 @@ from .const import (
     DEFAULT_IMMERSION_TARGET_TEMP,
     DEFAULT_IMMERSION_WATTAGE,
     DEFAULT_INVERTER_MAX_OUTPUT,
+    DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DOMAIN,
     GIVTCP_MAX_CHARGE_TARGET_PCT,
     GIVTCP_MAX_WRITE_RETRIES,
@@ -184,12 +185,17 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._ev_charger: EVCharger | None = None
         self._battery_cycle_entities: list[str] = []
 
-        # Manual overrides set by switch/number entities
-        self.override_charge_target: int | None = None
+        # Manual charge target override. The switch sets the flag, the number sets the
+        # value. override_charge_target (property) is the only thing the engine sees.
+        self.override_charge_enabled: bool = False
+        self.override_charge_value: int = DEFAULT_OVERNIGHT_CHARGE_TARGET
         # Register write tracking — GivEnergy inverters have ~1M lifetime writes
         self._register_write_count: int = 0
         # Timestamp of last write per (entity, value) — enforces GIVTCP_MIN_WRITE_INTERVAL_S
         self._last_write_time: dict[tuple[str, object], float] = {}
+        # Last action dry run skipped. The engine builds a fresh snapshot each cycle,
+        # so the value lives here and is copied onto every new snapshot.
+        self._dry_run_last_skipped: str = ""
         # EMA-smoothed solar power (α=0.5) — used for surplus divert decisions
         # to prevent chasing transient cloud gaps. Raw value used for accumulation.
         self._smoothed_solar_w: float = 0.0
@@ -243,9 +249,20 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         return self._ev_charger.brand.value if self._ev_charger else None
 
     @property
+    def override_charge_target(self) -> int | None:
+        """Effective charge target override: the value while enabled, else None (automatic)."""
+        return self.override_charge_value if self.override_charge_enabled else None
+
+    @property
     def is_dry_run(self) -> bool:
         """True when dry-run mode is active — no commands sent to GivTCP or chargers."""
         return bool(self._effective_cfg().get(CONF_DRY_RUN, DEFAULT_DRY_RUN))
+
+    def _record_skipped(self, action: str) -> None:
+        """Remember the action dry run skipped and show it on the current snapshot."""
+        self._dry_run_last_skipped = action
+        if self.data is not None:
+            self.data.dry_run_last_skipped = action
 
     # ── HA surface proxies ────────────────────────────────────────────────────
     # All Home Assistant access goes through these three methods.
@@ -709,8 +726,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 f"({decision.reason})"
             )
             _LOG.info("DRY RUN: %s", action)
-            if self.data is not None:
-                self.data.dry_run_last_skipped = action
+            self._record_skipped(action)
             return
 
         _LOG.info(
@@ -966,8 +982,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         )
         if bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)):
             _LOG.info("DRY RUN: %s", action)
-            if self.data is not None:
-                self.data.dry_run_last_skipped = action
+            self._record_skipped(action)
             return
 
         entity_id = self._ev_charger.charge_mode_entity
@@ -1249,4 +1264,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # 10. Apply HA side-effects requested by the engine
         self._apply_ev_action(ev_target_mode)
 
+        # The engine's snapshot starts empty. Copy after the EV action so a skip
+        # recorded in this cycle shows up in this snapshot.
+        data.dry_run_last_skipped = self._dry_run_last_skipped
         return data

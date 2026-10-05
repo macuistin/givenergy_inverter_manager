@@ -226,7 +226,8 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._update_cycle: int = 0
         self._ev_charger = None
         self._battery_cycle_entities: list[str] = []
-        self.override_charge_target = None
+        self.override_charge_enabled = False
+        self.override_charge_value = 80
         self.immersion_target_temp: float = 55.0
         self.immersion_min_temp: float = 50.0
         self.immersion_hysteresis_c: float = 5.0
@@ -240,6 +241,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._last_immersion_coordinator_write = None
         self._last_write_time: dict[str, float] = {}
         self._last_write_time: dict[tuple[str, object], float] = {}
+        self._dry_run_last_skipped: str = ""
         self._register_write_count: int = 0
         self._slot_load_today: list[float] = [0.0] * 48
         self._slot_load_history: list[list[float]] = []
@@ -698,9 +700,73 @@ class TestUpdateCycle:
     async def test_override_charge_target_respected(self):
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_states(_default_states())
-        coord.override_charge_target = 55
+        coord.override_charge_value = 55
+        coord.override_charge_enabled = True
         data = await coord.run_cycle()
         assert data.charge_decision.target_soc == 55
+
+
+class TestChargeTargetOverrideState:
+    """The coordinator owns the override. The effective target is derived from it."""
+
+    def test_disabled_by_default_with_the_default_value(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        assert coord.override_charge_enabled is False
+        assert coord.override_charge_value == 80
+        assert coord.override_charge_target is None
+
+    def test_enabling_without_touching_the_value_uses_the_default(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.override_charge_enabled = True
+        assert coord.override_charge_target == 80
+
+    def test_setting_the_value_while_disabled_does_not_take_effect(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.override_charge_value = 65
+        assert coord.override_charge_target is None
+
+    def test_enabling_after_setting_the_value_uses_the_value(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.override_charge_value = 65
+        coord.override_charge_enabled = True
+        assert coord.override_charge_target == 65
+
+    def test_disabling_returns_to_automatic_and_keeps_the_value(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.override_charge_value = 65
+        coord.override_charge_enabled = True
+        coord.override_charge_enabled = False
+        assert coord.override_charge_target is None
+        assert coord.override_charge_value == 65
+
+    @pytest.mark.asyncio
+    async def test_enabled_override_with_untouched_value_reaches_the_decision(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.override_charge_enabled = True
+        data = await coord.run_cycle()
+        assert data.charge_decision.target_soc == 80
+        assert data.charge_decision.reason == "Manual override: charge to 80%"
+
+    @pytest.mark.asyncio
+    async def test_value_set_while_disabled_leaves_the_decision_automatic(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.override_charge_value = 65
+        data = await coord.run_cycle()
+        assert not data.charge_decision.reason.startswith("Manual override")
+
+    @pytest.mark.asyncio
+    async def test_disabling_returns_the_decision_to_automatic(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.override_charge_value = 65
+        coord.override_charge_enabled = True
+        overridden = await coord.run_cycle()
+        coord.override_charge_enabled = False
+        automatic = await coord.run_cycle()
+        assert overridden.charge_decision.target_soc == 65
+        assert not automatic.charge_decision.reason.startswith("Manual override")
 
 
 # ── TestMidnightReset ─────────────────────────────────────────────────────────
@@ -1159,6 +1225,59 @@ class TestApplyEvAction:
         coord._apply_ev_action("Stopped")
         assert len(coord.tasks_created) == 0
         assert "Stopped" in coord.data.dry_run_last_skipped
+
+
+# ── TestDryRunLastSkippedSurvivesCycles ───────────────────────────────────────
+
+
+class TestDryRunLastSkippedSurvivesCycles:
+    """The engine builds a fresh snapshot each cycle, so the coordinator must carry the value."""
+
+    @pytest.mark.asyncio
+    async def test_charge_target_skip_survives_two_cycles(self):
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_DRY_RUN: True}))
+        coord.set_states(_default_states())
+        await coord.run_cycle()
+        assert coord.data.dry_run_last_skipped == ""
+
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        recorded = coord.data.dry_run_last_skipped
+        assert recorded.startswith("Would write charge target")
+        assert len(coord.tasks_created) == 0
+
+        await coord.run_cycle()
+        assert coord.data.dry_run_last_skipped == recorded
+        await coord.run_cycle()
+        assert coord.data.dry_run_last_skipped == recorded
+
+    @pytest.mark.asyncio
+    async def test_ev_skip_survives_a_cycle(self):
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_DRY_RUN: True}))
+        coord.set_states(_default_states())
+        coord._ev_charger = TestApplyEvAction()._charger(mode="Fast")
+        await coord.run_cycle()
+
+        coord._apply_ev_action("Stopped")
+        recorded = coord.data.dry_run_last_skipped
+        assert "Stopped" in recorded
+
+        await coord.run_cycle()
+        assert coord.data.dry_run_last_skipped == recorded
+
+    @pytest.mark.asyncio
+    async def test_newest_skip_replaces_the_previous_one(self):
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_DRY_RUN: True}))
+        coord.set_states(_default_states())
+        coord._ev_charger = TestApplyEvAction()._charger(mode="Fast")
+        await coord.run_cycle()
+
+        coord._apply_ev_action("Stopped")
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        latest = coord.data.dry_run_last_skipped
+        assert latest.startswith("Would write charge target")
+
+        await coord.run_cycle()
+        assert coord.data.dry_run_last_skipped == latest
 
 
 # ── TestGivtcpWriteHelpers ────────────────────────────────────────────────────

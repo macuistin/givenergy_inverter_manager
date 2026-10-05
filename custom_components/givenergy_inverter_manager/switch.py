@@ -245,7 +245,7 @@ class GivEnergyImmersionControlSwitch(CoordinatorEntity[GivEnergyCoordinator], S
                     f"(reason: {self.coordinator.data.divert_reason})"
                 )
                 _LOG.info("DRY RUN: %s", action)
-                self.coordinator.data.dry_run_last_skipped = action
+                self.coordinator._record_skipped(action)
             else:
                 _LOG.debug(
                     "Immersion: %s (reason: %s)",
@@ -330,31 +330,28 @@ class GivEnergyChargeTargetOverrideSwitch(
             "model": "Inverter Manager",
             "sw_version": INTEGRATION_VERSION,
         }
-        self._enabled: bool = False
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         last = await self.async_get_last_state()
-        if last is not None:
-            self._enabled = last.state == STATE_ON
-            if not self._enabled:
-                self.coordinator.override_charge_target = None
+        if last is not None and last.state == STATE_ON:
+            self.coordinator.override_charge_enabled = True
+            await self.coordinator.async_request_refresh()
 
     @property
     def is_on(self) -> bool:
-        return self._enabled
+        return self.coordinator.override_charge_enabled
 
     async def async_turn_on(self, **kwargs) -> None:
-        """Activate override — coordinator will now use override_charge_target."""
-        self._enabled = True
+        """Activate the override. The coordinator applies the number's current value."""
+        self.coordinator.override_charge_enabled = True
         _LOG.info("Charge target override enabled")
         self.async_write_ha_state()
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs) -> None:
         """Deactivate override — coordinator returns to automatic calculation."""
-        self._enabled = False
-        self.coordinator.override_charge_target = None
+        self.coordinator.override_charge_enabled = False
         _LOG.info("Charge target override disabled — returning to auto mode")
         self.async_write_ha_state()
         await self.coordinator.async_request_refresh()

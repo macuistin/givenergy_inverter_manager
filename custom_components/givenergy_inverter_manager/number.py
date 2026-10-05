@@ -59,12 +59,16 @@ async def async_setup_entry(
     )
 
 
-class GivEnergyChargeTargetOverride(CoordinatorEntity[GivEnergyCoordinator], NumberEntity):
+class GivEnergyChargeTargetOverride(
+    CoordinatorEntity[GivEnergyCoordinator], RestoreNumber, NumberEntity
+):
     """
     Manual override for tonight's charge target SoC.
 
     Pair with the "Enable charge target override" switch in switch.py.
-    This entity holds the value; the switch determines whether it is used.
+    This entity sets coordinator.override_charge_value; the switch sets
+    coordinator.override_charge_enabled. The coordinator derives the effective
+    target from both, so moving the slider never enables the override.
     Range 10-100% — no zero sentinel, no hidden mode logic.
     """
 
@@ -87,16 +91,25 @@ class GivEnergyChargeTargetOverride(CoordinatorEntity[GivEnergyCoordinator], Num
             "model": "Inverter Manager",
             "sw_version": INTEGRATION_VERSION,
         }
-        self._value: float = 80  # sensible default; only applied when the switch is on
 
     @property
     def native_value(self) -> float:
-        return self._value
+        return self.coordinator.override_charge_value
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last_number = await self.async_get_last_number_data()
+        if last_number and last_number.native_value is not None:
+            restored = int(last_number.native_value)
+            self.coordinator.override_charge_value = int(
+                min(self._attr_native_max_value, max(self._attr_native_min_value, restored))
+            )
+            if self.coordinator.override_charge_enabled:
+                await self.coordinator.async_request_refresh()
 
     async def async_set_native_value(self, value: float) -> None:
-        """Store the override target. The coordinator reads this when override is enabled."""
-        self._value = value
-        self.coordinator.override_charge_target = int(value)
+        """Store the override value. It only takes effect while the switch is on."""
+        self.coordinator.override_charge_value = int(value)
         _LOG.info("Charge target override value set to %d%%", int(value))
         self.async_write_ha_state()
         await self.coordinator.async_request_refresh()
