@@ -603,11 +603,13 @@ class TestReconfigureStep:
 class TestExceptionTranslations:
     """Exceptions must use translation_key for the HA quality scale."""
 
-    def test_config_entry_not_ready_uses_translation_key(self):
-
+    def test_first_refresh_failure_is_left_to_home_assistant(self):
+        """HA turns a failed first refresh into ConfigEntryNotReady, with the
+        translation carried by the UpdateFailed raised in the coordinator."""
         src = (PKG / "__init__.py").read_text()
-        assert "translation_key" in src and "config_entry_not_ready" in src, (
-            "ConfigEntryNotReady must use translation_key for exception-translations."
+        assert "async_config_entry_first_refresh()" in src
+        assert "raise ConfigEntryNotReady" not in src, (
+            "Do not wrap the first refresh. HA already raises ConfigEntryNotReady."
         )
 
     def test_update_failed_uses_translation_key(self):

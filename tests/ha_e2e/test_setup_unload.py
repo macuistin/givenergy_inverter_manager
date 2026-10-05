@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from conftest import SOLAR, TARGET_SOC
@@ -176,3 +177,58 @@ async def test_every_entity_reports_this_project_as_the_manufacturer(hass, loade
     devices = dr.async_entries_for_config_entry(registry, loaded_entry.entry_id)
     assert devices
     assert {device.manufacturer for device in devices} == {DEVICE_MANUFACTURER}
+
+
+async def test_all_entities_share_one_device_with_the_original_identifiers(hass, loaded_entry):
+    """The shared entity base must keep the device identifiers and name existing installs use."""
+    from homeassistant.helpers import device_registry as dr
+
+    registry = dr.async_get(hass)
+    devices = dr.async_entries_for_config_entry(registry, loaded_entry.entry_id)
+    assert len(devices) == 1
+    device = devices[0]
+    assert device.identifiers == {(DOMAIN, loaded_entry.entry_id)}
+    assert device.name == "GivEnergy Inverter Manager"
+    assert device.model == "Inverter Manager"
+
+    entity_registry = er.async_get(hass)
+    entities = er.async_entries_for_config_entry(entity_registry, loaded_entry.entry_id)
+    assert {e.device_id for e in entities} == {device.id}
+
+
+async def test_unload_waits_for_pending_background_tasks(hass, loaded_entry):
+    """Fire-and-forget tasks belong to the entry. Unload waits for them to finish."""
+    coordinator = loaded_entry.runtime_data
+    release = asyncio.Event()
+    finished = asyncio.Event()
+
+    async def short_write() -> None:
+        await release.wait()
+        finished.set()
+
+    coordinator._create_task(short_write())
+    assert loaded_entry._tasks, "the task must be tracked on the config entry"
+
+    # The clock is frozen, so yield to the loop instead of sleeping.
+    unload = hass.async_create_task(hass.config_entries.async_unload(loaded_entry.entry_id))
+    for _ in range(10):
+        await asyncio.sleep(0)
+    assert not unload.done(), "unload must wait for the pending task"
+
+    release.set()
+    assert await unload
+    assert finished.is_set()
+    assert not loaded_entry._tasks
+
+
+async def test_failed_background_task_is_logged_not_raised(hass, loaded_entry, caplog):
+    """A failing fire-and-forget service call logs a warning and raises nothing."""
+    caplog.set_level(logging.WARNING)
+    coordinator = loaded_entry.runtime_data
+
+    coordinator._create_task(
+        coordinator._call_service("switch", "no_such_service", {"entity_id": "switch.nothing"})
+    )
+    await hass.async_block_till_done()
+
+    assert any("Background task" in r.getMessage() for r in caplog.records)

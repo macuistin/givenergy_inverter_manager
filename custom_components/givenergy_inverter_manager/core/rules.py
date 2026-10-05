@@ -21,8 +21,11 @@ import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Any
 
 from ..const import (
+    APPLIANCE_MIN_BATTERY_SOC,
+    APPLIANCE_RATE_THRESHOLD,
     CHARGE_EV_SOC_BONUS,
     CHARGE_FORECAST_CORRECTION_MAX,
     CHARGE_FORECAST_CORRECTION_MIN,
@@ -31,6 +34,7 @@ from ..const import (
     CHARGE_LOAD_PROFILE_MIN_COVERAGE,
     CHARGE_LOAD_PROFILE_MIN_DAYS,
     CHARGE_LOAD_PROFILE_SAME_WEEKDAY_MIN_DAYS,
+    CHARGE_MIN_TARGET_HEADROOM_PCT,
     CHARGE_MORNING_LOAD_FRACTION,
     CHARGE_PEAK_SOLAR_HOURS,
     CHARGE_SHOULDER_MIN_SOC,
@@ -39,9 +43,11 @@ from ..const import (
     CHARGE_SOLAR_USABLE_FRACTION,
     CHARGE_STRONG_BUFFER,
     CHARGE_WINTER_MONTHS,
+    CHARGE_WINTER_SKIP_SOC_PCT,
     CLIPPING_THRESHOLD_PERCENT,
+    DEFAULT_CURRENCY_SYMBOL,
     EV_CHARGER_MIN_POWER_W,
-    GIVTCP_MIN_WRITE_INTERVAL_S,
+    SENSOR_OUTAGE_HOLD_LIMIT_S,
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
@@ -116,7 +122,7 @@ _PROFILE_DAY_WEIGHTS = (1.0, 0.85, 0.7, 0.6, 0.5, 0.45, 0.4)
 
 
 def build_load_profile(
-    history: Sequence[dict],
+    history: Sequence[dict[str, Any]],
     target_weekday: int,
 ) -> list[float] | None:
     """
@@ -157,7 +163,7 @@ def build_load_profile(
     ]
 
 
-def forecast_correction_factor(records: Sequence[dict]) -> float | None:
+def forecast_correction_factor(records: Sequence[dict[str, Any]]) -> float | None:
     """
     Median actual/forecast ratio from recent {"forecast", "actual", "clipped"} records.
 
@@ -278,20 +284,6 @@ class ChargeDecision:
     cost_to_charge: float
 
 
-def _estimate_morning_load(
-    average_daily_consumption_kwh: float,
-    load_profile: list[float] | None,
-) -> float:
-    """Estimate load in the 00:00-08:00 window (slots 0-15) before solar starts.
-
-    Uses per-slot history when available; falls back to CHARGE_MORNING_LOAD_FRACTION
-    × avg_daily when fewer than 2 completed days have been accumulated.
-    """
-    if load_profile is not None and len(load_profile) == 48:
-        return sum(load_profile[0:16])
-    return average_daily_consumption_kwh * CHARGE_MORNING_LOAD_FRACTION
-
-
 def _apply_overmorrow_correction(
     target_soc: int,
     reason: str,
@@ -365,7 +357,7 @@ def calculate_overnight_charge_target(
         kwh_to_charge = max(0.0, battery_capacity_kwh * (100 - current_soc) / 100)
         return ChargeDecision(
             target_soc=100,
-            skip_charge=current_soc >= 95,
+            skip_charge=current_soc >= CHARGE_WINTER_SKIP_SOC_PCT,
             reason=f"Winter month ({month}) — charging to 100%.",
             forecast_kwh=0.0,
             current_soc=current_soc,
@@ -455,7 +447,7 @@ def calculate_overnight_charge_target(
         target_soc = min(100, target_soc + CHARGE_EV_SOC_BONUS)
         reason += " Car plugged in — added buffer."
 
-    target_soc = max(target_soc, min_soc + 5)
+    target_soc = max(target_soc, min_soc + CHARGE_MIN_TARGET_HEADROOM_PCT)
     target_soc = min(target_soc, 100)
 
     kwh_to_charge = max(0, battery_capacity_kwh * (target_soc - current_soc) / 100)
@@ -524,11 +516,11 @@ def _missing_input_decision(
     names = ", ".join(missing)
     if not currently_on:
         return False, f"Sensor unavailable ({names}), not starting"
-    if unavailable_for_s < GIVTCP_MIN_WRITE_INTERVAL_S:
+    if unavailable_for_s < SENSOR_OUTAGE_HOLD_LIMIT_S:
         return True, f"Sensor unavailable ({names}), holding on"
     return False, (
         f"Sensor unavailable ({names}) for {unavailable_for_s:.0f}s, "
-        f"hold limit {GIVTCP_MIN_WRITE_INTERVAL_S}s reached, turning off"
+        f"hold limit {SENSOR_OUTAGE_HOLD_LIMIT_S}s reached, turning off"
     )
 
 
@@ -550,6 +542,7 @@ def should_divert_to_immersion(
     immersion_power_w: float = 0.0,
     immersion_temp_unavailable: bool = False,
     unavailable_for_s: float = 0.0,
+    currency_symbol: str = DEFAULT_CURRENCY_SYMBOL,
 ) -> tuple[bool, str]:
     """
     Decide whether to turn on the immersion heater.
@@ -561,7 +554,7 @@ def should_divert_to_immersion(
       2. Turn off when target temperature is reached
       3. If a required input is missing (None solar, house load or battery power,
          or immersion_temp_unavailable): never start on missing data. If already on,
-         hold on while unavailable_for_s is below GIVTCP_MIN_WRITE_INTERVAL_S, then
+         hold on while unavailable_for_s is below SENSOR_OUTAGE_HOLD_LIMIT_S, then
          turn off. The caller measures unavailable_for_s so this function stays pure.
       4. Hysteresis: if currently off, only restart once water cools to
          (target - hysteresis_c); if currently on, keep running until target
@@ -587,7 +580,7 @@ def should_divert_to_immersion(
     missing = _missing_inputs(
         solar_power_w, house_load_w, battery_power_w, immersion_temp_unavailable
     )
-    if missing:
+    if missing or solar_power_w is None or house_load_w is None or battery_power_w is None:
         return _missing_input_decision(missing, currently_on, unavailable_for_s)
 
     if battery_soc < soc_threshold:
@@ -605,8 +598,8 @@ def should_divert_to_immersion(
 
     if battery_cycle_cost_per_kwh > 0 and 0 < export_rate < battery_cycle_cost_per_kwh:
         return False, (
-            f"Export rate {export_rate:.4f} €/kWh is below battery cycle cost "
-            f"{battery_cycle_cost_per_kwh:.4f} €/kWh — not worth cycling"
+            f"Export rate {export_rate:.4f} {currency_symbol}/kWh is below battery cycle cost "
+            f"{battery_cycle_cost_per_kwh:.4f} {currency_symbol}/kWh — not worth cycling"
         )
 
     # Surplus is available — but only restart if water has cooled enough
@@ -639,6 +632,7 @@ def suggest_appliance_run(
     rate_period_name: str,
     rate: float,
     export_rate: float,
+    currency_symbol: str = DEFAULT_CURRENCY_SYMBOL,
 ) -> tuple[bool, str]:
     """
     Suggest whether now is a good time to run a high-load appliance.
@@ -647,32 +641,29 @@ def suggest_appliance_run(
 
     Recommends if:
       - There is enough solar surplus to power the appliance (free to run)
-      - Battery is at SOLAR_APPLIANCE_MIN_BATTERY_SOC and rate is near export rate
-    Does not recommend if the current rate is more than 1.5× the export rate.
+      - Battery is at APPLIANCE_MIN_BATTERY_SOC and rate is near export rate
+    Does not recommend if the current rate is more than APPLIANCE_RATE_THRESHOLD
+    times the export rate.
     """
-    min_battery_soc = 80  # % — sufficient charge to run appliance from battery
-    rate_threshold = 1.5  # × export rate — above this it's not worth running
-
-    battery_charging_w = max(0, battery_power_w)
-    net_surplus_w = solar_power_w - house_load_w - battery_charging_w
+    net_surplus_w = available_surplus_w(solar_power_w, house_load_w, battery_power_w)
 
     if net_surplus_w >= appliance_power_w:
         saving = (appliance_power_w / 1000) * rate
         return True, (
             f"Good time to run {appliance_name}: {net_surplus_w:.0f}W surplus available. "
-            f"Running now saves ~€{saving:.3f} vs grid rate."
+            f"Running now saves ~{currency_symbol}{saving:.3f} vs grid rate."
         )
 
-    if battery_soc >= min_battery_soc and rate <= export_rate * rate_threshold:
+    if battery_soc >= APPLIANCE_MIN_BATTERY_SOC and rate <= export_rate * APPLIANCE_RATE_THRESHOLD:
         return True, (
             f"Acceptable time to run {appliance_name}: battery at {battery_soc:.0f}%, "
-            f"currently on {rate_period_name} rate (€{rate:.4f}/kWh)."
+            f"currently on {rate_period_name} rate ({currency_symbol}{rate:.4f}/kWh)."
         )
 
-    if rate > export_rate * rate_threshold:
+    if rate > export_rate * APPLIANCE_RATE_THRESHOLD:
         return False, (
             f"Not recommended: {appliance_name} would cost "
-            f"~€{(appliance_power_w / 1000) * rate:.3f} "
+            f"~{currency_symbol}{(appliance_power_w / 1000) * rate:.3f} "
             f"at current {rate_period_name} rate. Wait for solar surplus or cheap rate."
         )
 
@@ -742,10 +733,11 @@ def calculate_pre_boost_export_opportunity(
     Returns (spare_kwh, net_gain, recommended).
 
     spare_kwh:   kWh available to export before overnight charge (0 if none)
-    net_gain:    estimated € gain from exporting now and recharging at boost rate
+    net_gain:    estimated gain (configured currency) from exporting now and recharging
+                 at the boost rate
     recommended: True when net_gain > 0 and spare_kwh >= min_spare_kwh
 
-    Formula (from improvement-designs.md Design 7):
+    Formula:
       spare_kwh = current_soc_kwh - overnight_deficit_kwh - evening_load_est_kwh
       net_gain  = spare_kwh × (ceg_rate - cheapest_rate)
 

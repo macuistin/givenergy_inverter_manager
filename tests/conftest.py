@@ -29,6 +29,8 @@ _HA_SUBMODULES = [
     "homeassistant.const",
     "homeassistant.helpers",
     "homeassistant.helpers.update_coordinator",
+    "homeassistant.helpers.device_registry",
+    "homeassistant.helpers.restore_state",
     "homeassistant.helpers.entity_platform",
     "homeassistant.helpers.entity_registry",
     "homeassistant.helpers.selector",
@@ -58,6 +60,7 @@ sys.modules["homeassistant.util"].dt = _dt_util
 _const = sys.modules["homeassistant.const"]
 _const.Platform = MagicMock()
 _const.PERCENTAGE = "%"
+_const.STATE_ON = "on"
 _const.UnitOfPower = MagicMock()
 _const.UnitOfEnergy = MagicMock()
 _const.UnitOfTemperature = MagicMock()
@@ -66,7 +69,13 @@ _const.EVENT_HOMEASSISTANT_FINAL_WRITE = "homeassistant_final_write"
 
 # --- homeassistant.config_entries ---
 _ce = sys.modules["homeassistant.config_entries"]
-_ce.ConfigEntry = MagicMock
+class _ConfigEntry(MagicMock):
+    """Stub that supports ConfigEntry[Coordinator] subscripting like the generic HA class."""
+
+    __class_getitem__ = classmethod(lambda cls, item: cls)
+
+
+_ce.ConfigEntry = _ConfigEntry
 _ce.ConfigEntryState = MagicMock()
 
 
@@ -150,6 +159,12 @@ class _UpdateFailed(Exception):
 
 
 _coord.UpdateFailed = _UpdateFailed
+
+# --- helpers.device_registry (DeviceInfo is a TypedDict, so a dict stands in) ---
+sys.modules["homeassistant.helpers.device_registry"].DeviceInfo = dict
+
+# --- helpers.restore_state ---
+sys.modules["homeassistant.helpers.restore_state"].RestoreEntity = type("RestoreEntity", (), {})
 
 # --- helpers.redact (used by diagnostics.py) ---
 _redact = sys.modules["homeassistant.helpers.redact"]

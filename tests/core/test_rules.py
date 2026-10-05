@@ -89,6 +89,33 @@ class TestCalculateOvernightChargeTarget:
         assert decision.target_soc == 100
         assert "Winter month" in decision.reason
 
+    @pytest.mark.parametrize(("soc", "skip"), [(94.9, False), (95.0, True), (100.0, True)])
+    def test_winter_charge_is_skipped_from_the_named_soc(self, soc, skip):
+        from custom_components.givenergy_inverter_manager.const import CHARGE_WINTER_SKIP_SOC_PCT
+
+        assert CHARGE_WINTER_SKIP_SOC_PCT == 95
+        decision = calculate_overnight_charge_target(
+            **self._base_kwargs(current_soc=soc, dt=datetime(2024, 1, 15, 22, 0))
+        )
+        assert decision.skip_charge is skip
+
+    def test_target_stays_the_named_headroom_above_min_soc(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            CHARGE_MIN_TARGET_HEADROOM_PCT,
+        )
+
+        assert CHARGE_MIN_TARGET_HEADROOM_PCT == 5
+        decision = calculate_overnight_charge_target(
+            **self._base_kwargs(
+                current_soc=100.0,
+                forecast_kwh=60.0,
+                average_daily_consumption_kwh=1.0,
+                min_soc=40,
+                skip_charge_threshold=101,
+            )
+        )
+        assert decision.target_soc >= 40 + CHARGE_MIN_TARGET_HEADROOM_PCT
+
     def test_seasonal_fallback_summer(self):
         """Uses high seasonal estimate in summer with no forecast."""
         decision_summer = calculate_overnight_charge_target(
@@ -266,6 +293,59 @@ class TestSuggestApplianceRun:
 
 
 # ── Additional optimizer coverage ────────────────────────────────────────────
+
+
+class TestApplianceSuggestionMatchesSurplusHelper:
+    """suggest_appliance_run uses available_surplus_w and the named appliance thresholds."""
+
+    @staticmethod
+    def _reference(solar, house, soc, battery_w, appliance_w, rate, export_rate):
+        """The pre-refactor logic, with its inline constants."""
+        net_surplus = solar - house - max(0, battery_w)
+        if net_surplus >= appliance_w:
+            return True, "surplus"
+        if soc >= 80 and rate <= export_rate * 1.5:
+            return True, "battery"
+        if rate > export_rate * 1.5:
+            return False, "expensive"
+        return False, "no reason"
+
+    @pytest.mark.parametrize("solar", [0.0, 1200.0, 3000.0, 5200.0])
+    @pytest.mark.parametrize("house", [0.0, 400.0, 1500.0])
+    @pytest.mark.parametrize("battery_w", [-1500.0, 0.0, 800.0])
+    @pytest.mark.parametrize("soc", [10.0, 79.9, 80.0, 100.0])
+    @pytest.mark.parametrize("rate", [0.1, 0.2925, 0.2926, 0.4])
+    def test_same_verdict_as_inline_formula(self, solar, house, battery_w, soc, rate):
+        export_rate = 0.195
+        recommended, reason = suggest_appliance_run(
+            solar_power_w=solar,
+            house_load_w=house,
+            battery_soc=soc,
+            battery_power_w=battery_w,
+            appliance_power_w=2000.0,
+            appliance_name="Dishwasher",
+            rate_period_name="Day",
+            rate=rate,
+            export_rate=export_rate,
+        )
+        expected, kind = self._reference(solar, house, soc, battery_w, 2000.0, rate, export_rate)
+        assert recommended is expected
+        markers = {
+            "surplus": "surplus available",
+            "battery": "Acceptable time",
+            "expensive": "Not recommended",
+            "no reason": "No strong reason",
+        }
+        assert markers[kind] in reason
+
+    def test_thresholds_keep_their_values(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            APPLIANCE_MIN_BATTERY_SOC,
+            APPLIANCE_RATE_THRESHOLD,
+        )
+
+        assert APPLIANCE_MIN_BATTERY_SOC == 80
+        assert APPLIANCE_RATE_THRESHOLD == 1.5
 
 
 class TestImmersionDivertClippingPath:
@@ -1137,6 +1217,11 @@ class TestImmersionSensorDropouts:
         )
         assert should is False
         assert "turning off" in reason
+
+    def test_hold_limit_is_its_own_setting_of_five_minutes(self):
+        from custom_components.givenergy_inverter_manager.const import SENSOR_OUTAGE_HOLD_LIMIT_S
+
+        assert SENSOR_OUTAGE_HOLD_LIMIT_S == 300
 
     def test_holds_on_just_under_hold_limit(self):
         from custom_components.givenergy_inverter_manager.const import (

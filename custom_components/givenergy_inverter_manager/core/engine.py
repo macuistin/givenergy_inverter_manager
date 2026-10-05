@@ -14,16 +14,12 @@ The coordinator (coordinator.py) is the only caller. It:
   3. Applies any HA-side effects (service calls, time listeners) based on the result
 
 Separation of concerns:
-  ┌─────────────────────────────────────────────────────────────┐
-  │  coordinator.py  (HA wiring — thin, ~80 lines)              │
-  │    reads hass.states → calls engine → calls hass.services   │
-  ├─────────────────────────────────────────────────────────────┤
-  │  engine.py  (pure logic — fully testable, ~300 lines)       │
-  │    all accumulation, decisions, predictions, derived values  │
-  ├─────────────────────────────────────────────────────────────┤
-  │  optimizer.py / tariff.py / battery.py / ev_charger_...     │
-  │    individual algorithms, independently tested               │
-  └─────────────────────────────────────────────────────────────┘
+  coordinator.py  HA wiring and side effects. Reads hass.states, calls the engine,
+                  calls hass.services, owns timers, persistence and write safety.
+  engine.py       Pure logic. Accumulation, decisions, predictions and derived values.
+  rules.py        Decision functions: charge target, immersion divert, EV charger mode.
+  tariff.py       Rate periods and energy accumulators.
+  battery.py      Cycle tracking and night survival.
 """
 
 from __future__ import annotations
@@ -33,6 +29,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from ..const import (
+    BATTERY_FULL_SOC_PCT,
     BATTERY_MAX_SOC_STEP_PCT,
     BATTERY_RATED_CYCLES,
     CARBON_HIGH_THRESHOLD,
@@ -41,6 +38,7 @@ from ..const import (
     CARBON_STATUS_LOW,
     CARBON_STATUS_MEDIUM,
     CARBON_STATUS_UNKNOWN,
+    CLIPPING_THRESHOLD_PERCENT,
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_THROUGHPUT_BUDGET,
@@ -58,6 +56,7 @@ from ..const import (
     DEFAULT_BATTERY_THROUGHPUT_BUDGET,
     DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
     DEFAULT_CURRENCY,
+    DEFAULT_CURRENCY_SYMBOL,
     DEFAULT_DRY_RUN,
     DEFAULT_FORECAST_CONSERVATISM,
     DEFAULT_INVERTER_MAX_OUTPUT,
@@ -157,10 +156,11 @@ class RawSensorValues:
 
 class CoordinatorData:
     """
-    Immutable-style snapshot produced by the engine each update cycle.
+    Mutable snapshot of one update cycle, built by the engine.
 
-    Sensor entities read from this via value_fn lambdas. Using __slots__
-    prevents accidental attribute creation and makes the data footprint clear.
+    The engine fills it in place during a cycle. After the cycle, sensor entities
+    read from it via value_fn lambdas. Using __slots__ prevents accidental
+    attribute creation and makes the data footprint clear.
     """
 
     __slots__ = (
@@ -235,7 +235,6 @@ class CoordinatorData:
         "yesterday_forecast_accuracy_pct",
         "forecast_accuracy_7day_avg_pct",
         "will_survive_night",
-        "battery_cycle_cost_per_kwh",
         "saving_vs_grid_today",
         "net_saving_today",
         "pre_boost_export_kwh",
@@ -271,7 +270,7 @@ class CoordinatorData:
         self.current_rate_name: str = ""
         self.current_rate: float = 0.0
         self.live_grid_cost_rate: float = 0.0  # €/hr, positive=spending, negative=earning
-        self.currency_symbol: str = "€"
+        self.currency_symbol: str = DEFAULT_CURRENCY_SYMBOL
         self.is_clipping: bool = False
         self.charge_decision: ChargeDecision | None = None
         self.should_divert_immersion: bool = False
@@ -334,7 +333,6 @@ class CoordinatorData:
         self.yesterday_forecast_accuracy_pct: float = 0.0
         self.forecast_accuracy_7day_avg_pct: float = 0.0
         self.register_write_count: int = 0
-        self.battery_cycle_cost_per_kwh: float = 0.0
         self.carbon_intensity_gco2: float | None = None
         self.carbon_intensity_status: str = "Unknown"
 
@@ -455,7 +453,6 @@ def accumulate_energy(
     acc.house_kwh += (raw.house_load_w / 1000) * elapsed_h
 
     # Battery discharge/charge tracking (for self-sufficiency calculation)
-    # Battery discharge/charge tracking (for self-sufficiency calculation)
     if raw.battery_power_w != 0:
         battery_kwh_this_step = abs(raw.battery_power_w / 1000) * elapsed_h
         acc.battery_throughput_kwh += battery_kwh_this_step
@@ -476,7 +473,7 @@ def accumulate_energy(
     # Missed solar: kWh exported while battery is full and no flex load is active.
     # Represents solar that could have been self-consumed (EV charging or a larger
     # immersion divert window would have captured this).
-    battery_full = raw.battery_soc >= 99.0
+    battery_full = raw.battery_soc >= BATTERY_FULL_SOC_PCT
     exporting = raw.grid_power_w < 0
     no_flex_load = immersion_w <= 0 and raw.ev_power_w <= 0
     if battery_full and exporting and no_flex_load and elapsed_h > 0:
@@ -531,21 +528,26 @@ def update_battery_stats(
     Also records the date of the last full charge.
     Mutates stats in place and also returns it for convenience.
     """
-    soc_changed = current_soc is not None and last_soc is not None and current_soc != last_soc
-    if soc_changed and current_soc >= 99.0:
+    step: tuple[float, float] | None = None
+    if current_soc is not None and last_soc is not None and current_soc != last_soc:
+        step = (last_soc, current_soc)
+    if step is not None and step[1] >= BATTERY_FULL_SOC_PCT:
         stats.last_full_charge_date = date.today()
     if lifetime_cycles is not None and lifetime_cycles > 0:
         _adopt_lifetime_cycles(stats, lifetime_cycles)
         return stats
     stats.lifetime_from_bms = False
-    if not soc_changed or last_soc <= 0.0 or current_soc <= 0.0:
+    if step is None:
         return stats
-    if abs(current_soc - last_soc) > BATTERY_MAX_SOC_STEP_PCT:
+    previous_soc, new_soc = step
+    if previous_soc <= 0.0 or new_soc <= 0.0:
+        return stats
+    if abs(new_soc - previous_soc) > BATTERY_MAX_SOC_STEP_PCT:
         return stats
     if stats.tracking_start_date is None:
         stats.tracking_start_date = date.today()
         stats.tracking_start_cycles = stats.total_cycles
-    stats.total_cycles += calculate_cycle_increment(current_soc - last_soc)
+    stats.total_cycles += calculate_cycle_increment(new_soc - previous_soc)
     return stats
 
 
@@ -564,7 +566,6 @@ def _process_ev_charger(
     data: CoordinatorData,
     ev_charger: EVCharger,
     raw: RawSensorValues,
-    cfg: dict[str, Any],
 ) -> str | None:
     """Process EV charger state and return target mode."""
     data.ev_available = True
@@ -648,7 +649,7 @@ def _initialize_coordinator_data(
 
     data.dry_run = bool(cfg.get(CONF_DRY_RUN, DEFAULT_DRY_RUN))
     currency_code = cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY)
-    data.currency_symbol = CURRENCIES.get(currency_code, "€")
+    data.currency_symbol = CURRENCIES.get(currency_code, DEFAULT_CURRENCY_SYMBOL)
     data.solar_power_w = raw.solar_power_w
     data.battery_soc = raw.battery_soc
     data.battery_power_w = raw.battery_power_w
@@ -675,7 +676,7 @@ def _initialize_coordinator_data(
         0.0,
         raw.house_load_w - raw.ev_power_w - data.immersion_load_w,
     )
-    data.is_clipping = raw.solar_power_w >= (raw.inverter_max_w * 0.95)
+    data.is_clipping = raw.solar_power_w >= (raw.inverter_max_w * CLIPPING_THRESHOLD_PERCENT / 100)
 
 
 def _apply_charge_overrides(
@@ -791,6 +792,7 @@ def _set_immersion_decision(
             immersion_power_w=raw.immersion_wattage_w,
             immersion_temp_unavailable="immersion_temp" in missing,
             unavailable_for_s=raw.unavailable_for_s,
+            currency_symbol=data.currency_symbol,
         )
 
 
@@ -1084,6 +1086,6 @@ def build_coordinator_data(
     # ── EV charger state ─────────────────────────────────────────────────────
     ev_target_mode: str | None = None
     if ev_charger is not None:
-        ev_target_mode = _process_ev_charger(data, ev_charger, raw, cfg)
+        ev_target_mode = _process_ev_charger(data, ev_charger, raw)
 
     return data, ev_target_mode
