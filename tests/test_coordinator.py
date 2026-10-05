@@ -1973,6 +1973,63 @@ class TestCheapRateFloor:
         assert "_floor_top_up_applied = False" in src
 
 
+class TestCheapRateFloorOutcomes:
+    """What the floor reports and writes once a top-up is due (battery 20%, Nightboost)."""
+
+    TOPPING_UP = "Battery at 20% during Nightboost — topping up to 40%"
+
+    @staticmethod
+    def _at_0230():
+        from zoneinfo import ZoneInfo
+
+        return datetime(2024, 7, 10, 2, 30, tzinfo=ZoneInfo("Europe/Dublin"))
+
+    @pytest.mark.asyncio
+    async def test_successful_top_up_writes_target_and_sets_the_flag(self):
+        coord, cfg = _write_coord()
+        coord.set_state("number.target_soc", "20")
+        result = await coord._maybe_apply_cheap_rate_floor(
+            self._at_0230(), _raw(battery_soc=20.0), cfg
+        )
+        assert result == self.TOPPING_UP
+        assert coord.service_calls_for("number", "set_value") == [
+            {"entity_id": "number.target_soc", "value": 40}
+        ]
+        assert coord._floor_top_up_applied is True
+
+    @pytest.mark.asyncio
+    async def test_dry_run_reports_without_writing(self):
+        coord, cfg = _write_coord(**{CONF_DRY_RUN: True})
+        result = await coord._maybe_apply_cheap_rate_floor(
+            self._at_0230(), _raw(battery_soc=20.0), cfg
+        )
+        assert result == f"DRY RUN: {self.TOPPING_UP}"
+        assert coord.service_calls == []
+        assert coord._floor_top_up_applied is False
+
+    @pytest.mark.asyncio
+    async def test_failed_write_reports_the_error_and_leaves_the_flag_clear(self):
+        coord, cfg = _write_coord({"number.target_soc"})
+        coord.set_state("number.target_soc", "20")
+        result = await coord._maybe_apply_cheap_rate_floor(
+            self._at_0230(), _raw(battery_soc=20.0), cfg
+        )
+        assert result == f"Error writing floor — {self.TOPPING_UP}"
+        assert coord._floor_top_up_applied is False
+
+    @pytest.mark.asyncio
+    async def test_no_target_entity_reports_the_status_and_warns(self, caplog):
+        coord, cfg = _write_coord()
+        cfg = {**cfg, CONF_TARGET_SOC_ENTITY: None}
+        with caplog.at_level(logging.WARNING):
+            result = await coord._maybe_apply_cheap_rate_floor(
+                self._at_0230(), _raw(battery_soc=20.0), cfg
+            )
+        assert result == self.TOPPING_UP
+        assert coord.service_calls == []
+        assert any("no target SoC entity" in r.getMessage() for r in caplog.records)
+
+
 class TestReadOptionalFloatProxy:
     """_read_optional_float must use _get_state proxy, not hass.states.get directly."""
 
