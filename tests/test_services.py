@@ -180,22 +180,21 @@ class TestSuggestAppliance:
         return engine
 
     def test_passes_the_live_readings_to_the_rule(self, home):
-        engine = self._call(home)
-        kwargs = engine.call_args.kwargs
-        assert kwargs["solar_power_w"] == 3000.0
-        assert kwargs["house_load_w"] == 500.0
-        assert kwargs["battery_soc"] == 80.0
-        assert kwargs["battery_power_w"] == 100.0
-        assert kwargs["appliance_power_w"] == 2000.0
-        assert kwargs["appliance_name"] == "Dishwasher"
-        assert kwargs["rate_period_name"] == "Day"
-        assert kwargs["rate"] == 0.3
+        site, appliance, rates = self._call(home).call_args.args
+        assert site.solar_power_w == 3000.0
+        assert site.house_load_w == 500.0
+        assert site.battery_soc == 80.0
+        assert site.battery_power_w == 100.0
+        assert appliance.power_w == 2000.0
+        assert appliance.name == "Dishwasher"
+        assert rates.period_name == "Day"
+        assert rates.rate == 0.3
 
     def test_export_rate_comes_from_the_coordinator(self, home):
-        assert self._call(home).call_args.kwargs["export_rate"] == 0.15
+        assert self._call(home).call_args.args[2].export_rate == 0.15
 
     def test_reply_uses_the_configured_currency_symbol(self, home):
-        assert self._call(home).call_args.kwargs["currency_symbol"] == "£"
+        assert self._call(home).call_args.args[2].currency_symbol == "£"
 
     def test_notification_carries_the_verdict(self, home):
         self._call(home)

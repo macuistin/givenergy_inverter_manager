@@ -57,7 +57,7 @@ def _slug(text: str) -> str:
 
 
 def _sensors() -> list[dict]:
-    """Sensor facts read from sensor.py by the docs generator (sensor.py cannot be imported)."""
+    """Sensor facts read from sensor_descriptions/ by the docs generator."""
     spec = importlib.util.spec_from_file_location("gen_sensor_docs", _SCRIPT)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
