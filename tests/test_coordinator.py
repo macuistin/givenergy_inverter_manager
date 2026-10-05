@@ -442,6 +442,44 @@ class TestCollectRaw:
         assert _lambda_for("battery_power_direction")(data) == label
 
     @pytest.mark.parametrize(
+        ("givtcp_w", "keeps_heating"),
+        [("2166", True), ("-2166", False)],
+    )
+    def test_immersion_surplus_subtracts_charging_not_discharging(self, givtcp_w, keeps_heating):
+        """Live 10:38: cloud cover, battery discharging 2.2 kW, 3 kW element on.
+
+        Discharging must not be subtracted from the surplus. Charging must.
+        """
+        from custom_components.givenergy_inverter_manager.core.rules import (
+            should_divert_to_immersion,
+        )
+
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(
+            {
+                **_default_states(),
+                "sensor.solar": "1800",
+                "sensor.house": "3768",
+                "sensor.battery_soc": "86",
+                "sensor.battery_power": givtcp_w,
+            }
+        )
+        raw = coord._collect_raw(coord._effective_cfg())
+        on, _ = should_divert_to_immersion(
+            solar_power_w=raw.solar_power_w,
+            house_load_w=raw.house_load_w,
+            battery_soc=raw.battery_soc,
+            battery_power_w=raw.battery_power_w,
+            inverter_max_w=5000.0,
+            immersion_temp=50.0,
+            immersion_target_temp=55.0,
+            immersion_min_temp=45.0,
+            currently_on=True,
+            immersion_power_w=3000.0,
+        )
+        assert on is keeps_heating
+
+    @pytest.mark.parametrize(
         ("givtcp_w", "charge_kwh", "discharge_kwh"),
         [("-3600", 0.3, 0.0), ("3600", 0.0, 0.3)],
     )
