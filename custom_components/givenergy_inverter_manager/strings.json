@@ -23,7 +23,7 @@
           "discovered_inverter": "The GivTCP inverter to manage. Choose Manual entry to pick the sensors yourself.",
           "solar_power_entity": "Sensor reporting solar generation in watts.",
           "battery_soc_entity": "Sensor reporting battery charge in %.",
-          "battery_power_entity": "Sensor reporting battery power in watts. Positive means charging.",
+          "battery_power_entity": "Sensor reporting battery power in watts. GivTCP reports positive for discharging.",
           "grid_power_entity": "Sensor reporting grid power in watts. GivTCP reports positive for export.",
           "house_load_entity": "Sensor reporting house load in watts.",
           "battery_capacity_kwh": "Usable capacity of all battery modules in kWh.",

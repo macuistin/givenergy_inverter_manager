@@ -35,7 +35,7 @@ This documentation matches version 0.4.0.
 
 ## Requirements
 
-- Home Assistant 2024.11.0 or later. This is the minimum declared in `hacs.json`.
+- Home Assistant 2026.2.0 or later. This is the minimum declared in `hacs.json`.
 - [GivTCP](https://github.com/britkat1980/giv_tcp) publishing your inverter to Home Assistant over MQTT. Discovery accepts the GivTCP v3 and v2 battery SoC entity names.
 - A GivEnergy hybrid inverter with a battery.
 
