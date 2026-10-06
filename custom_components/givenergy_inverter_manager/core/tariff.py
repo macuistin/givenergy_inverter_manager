@@ -376,6 +376,25 @@ class EnergyAccumulator:
         return max(0.0, min(100.0, (1 - self.import_kwh / self.house_kwh) * 100))
 
     @property
+    def solar_share_pct(self) -> float:
+        """Percentage of the house's consumption met by solar generated and kept on site.
+
+        Solar kept on site is generation less export. It includes solar stored in the
+        battery, which counts when it is generated, not when it is later discharged.
+        It does not count battery discharge, so energy the battery took from the grid
+        never raises the figure. It ignores grid import, so buying cheap energy does not
+        lower it. Compare self_sufficiency_pct, which counts everything not imported.
+
+        house_kwh is the whole load, EV and immersion included, so they are not added again.
+        With no consumption the share is 0, not 100 as for self-sufficiency: no solar was
+        used, and a day with nothing to power should not read as fully solar powered.
+        """
+        if self.house_kwh <= 0:
+            return 0.0
+        solar_kept_kwh = max(0.0, self.solar_kwh - self.export_kwh)
+        return min(100.0, solar_kept_kwh / self.house_kwh * 100)
+
+    @property
     def self_consumption_pct(self) -> float:
         """Percentage of solar generation consumed on-site."""
         if self.solar_kwh == 0:

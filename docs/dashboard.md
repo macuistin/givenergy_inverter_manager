@@ -162,7 +162,7 @@ The charts need a water temperature sensor.
 
 - **Energy**: Generated, Used, Imported, Exported, EV and Immersion.
 - **Cost**: Import cost, Export earnings, Rate now and Rate period. The heading opens Cost breakdown.
-- **Solar**: Self-sufficiency and Self-consumption, each with a bar. The heading opens Solar and forecast.
+- **Solar**: Self-sufficiency, Solar share and Self-consumption, each with a bar. The heading opens Solar and forecast.
 
 ### Cost breakdown (sub-view)
 

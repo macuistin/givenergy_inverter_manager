@@ -165,6 +165,7 @@ KEY_GROUPS: dict[str, str] = {
     **dict.fromkeys(
         (
             "self_sufficiency",
+            "solar_share",
             "self_consumption",
             "peak_import_fraction_today",
             "solar_capture_efficiency_today",
@@ -328,6 +329,11 @@ DESCRIPTIONS: dict[str, str] = {
     "net_position_today": "Export earnings minus import cost.",
     "self_sufficiency": (
         "Share of consumption, EV and immersion included, that was not bought from the grid."
+    ),
+    "solar_share": (
+        "Share of consumption met by solar generated and kept on site (generation minus export, "
+        "battery storage included). Grid import and battery discharge do not count. "
+        "0 with no consumption."
     ),
     "self_consumption": "Share of today's solar that was not exported. 0 with no solar.",
     "peak_import_fraction_today": "Share of today's import that was at the base rate.",

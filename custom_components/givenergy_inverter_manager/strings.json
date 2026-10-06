@@ -632,6 +632,9 @@
       "self_sufficiency": {
         "name": "Self Sufficiency"
       },
+      "solar_share": {
+        "name": "Solar Share"
+      },
       "self_consumption": {
         "name": "Self Consumption"
       },
@@ -800,6 +803,9 @@
       "self_sufficiency_yesterday": {
         "name": "Self-sufficiency yesterday"
       },
+      "solar_share_yesterday": {
+        "name": "Solar share yesterday"
+      },
       "solar_this_week": {
         "name": "Solar generated this week"
       },
@@ -826,6 +832,9 @@
       },
       "self_sufficiency_this_week": {
         "name": "Self-sufficiency this week"
+      },
+      "solar_share_this_week": {
+        "name": "Solar share this week"
       },
       "cheap_import_fraction_this_week": {
         "name": "Cheap rate import fraction this week"
@@ -886,6 +895,9 @@
       },
       "self_sufficiency_this_month": {
         "name": "Self-sufficiency this month"
+      },
+      "solar_share_this_month": {
+        "name": "Solar share this month"
       },
       "cheap_import_fraction_this_month": {
         "name": "Cheap rate import fraction this month"
