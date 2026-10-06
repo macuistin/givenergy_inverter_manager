@@ -53,8 +53,9 @@ from tests.helpers import PKG
 class FakeState:
     """Minimal stub for an HA state object."""
 
-    def __init__(self, state: str):
+    def __init__(self, state: str, attributes: dict | None = None):
         self.state = state
+        self.attributes = attributes or {}
 
 
 # ── FakeCoordinator ───────────────────────────────────────────────────────────
@@ -278,9 +279,9 @@ class FakeCoordinator(GivEnergyCoordinator):
 
     # ── Test helpers ──────────────────────────────────────────────────────────
 
-    def set_state(self, entity_id: str, value: str) -> None:
+    def set_state(self, entity_id: str, value: str, attributes: dict | None = None) -> None:
         """Set a fake entity state."""
-        self._states[entity_id] = FakeState(value)
+        self._states[entity_id] = FakeState(value, attributes)
 
     def set_states(self, states: dict[str, str]) -> None:
         """Set multiple fake entity states at once."""
@@ -407,6 +408,36 @@ class TestCollectRaw:
         coord.set_state("sensor.forecast", "12.5")
         raw = coord._collect_raw(coord._effective_cfg())
         assert raw.forecast_kwh_tomorrow == pytest.approx(12.5)
+
+    def _p10(self, forecast_attributes=None, p10_state=None):
+        cfg = _cfg(**{"forecast_entity": "sensor.forecast"})
+        if p10_state is not None:
+            cfg["forecast_entity_p10"] = "sensor.p10"
+        coord = FakeCoordinator(cfg=cfg)
+        coord.set_state("sensor.forecast", "38.1", forecast_attributes)
+        if p10_state is not None:
+            coord.set_state("sensor.p10", p10_state)
+        return coord._collect_raw(coord._effective_cfg()).forecast_kwh_p10
+
+    def test_p10_is_read_from_the_forecast_sensors_estimate10_attribute(self):
+        assert self._p10({"estimate10": 19.29}) == pytest.approx(19.29)
+
+    def test_a_configured_p10_sensor_wins_over_the_attribute(self):
+        assert self._p10({"estimate10": 19.29}, p10_state="15.0") == pytest.approx(15.0)
+
+    def test_an_unavailable_p10_sensor_falls_back_to_the_attribute(self):
+        assert self._p10({"estimate10": 19.29}, p10_state="unavailable") == pytest.approx(19.29)
+
+    def test_no_p10_without_the_attribute_or_a_sensor(self):
+        assert self._p10({"estimate": 38.1}) is None
+
+    @pytest.mark.parametrize("value", ["n/a", None, -3.0])
+    def test_an_unusable_attribute_is_no_p10(self, value):
+        assert self._p10({"estimate10": value}) is None
+
+    def test_no_p10_without_a_forecast_entity(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        assert coord._collect_raw(coord._effective_cfg()).forecast_kwh_p10 is None
 
     def test_reads_battery_power_charging(self):
         """GivTCP reports charging as negative. The internal value is positive."""

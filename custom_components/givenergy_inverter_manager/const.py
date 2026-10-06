@@ -64,6 +64,8 @@ CONF_FORECAST_ENTITY = "forecast_entity"
 CONF_FORECAST_PROVIDER = "forecast_provider"
 FORECAST_PROVIDER_FORECAST_SOLAR = "forecast_solar"
 FORECAST_PROVIDER_SOLCAST = "solcast"
+# Attribute of a Solcast forecast sensor holding that period's P10 total in kWh.
+FORECAST_P10_ATTRIBUTE = "estimate10"
 # Solcast P10/P50 conservatism blend (0.0 = pure P50, 1.0 = pure P10).
 # When Solcast is configured as the forecast provider and exposes separate P10/P90
 # entities, this weight controls how pessimistic the forecast is.

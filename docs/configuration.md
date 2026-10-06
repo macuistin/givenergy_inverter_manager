@@ -63,10 +63,10 @@ The defaults are placeholders taken from an Irish domestic tariff. Replace all o
 |---|---|---|
 | Forecast provider | `forecast_provider` | Forecast.Solar or Solcast. Stored, but nothing reads it. The integration uses the sensors below |
 | Tomorrow's forecast sensor | `forecast_entity` | A sensor giving tomorrow's expected energy in kWh |
-| Pessimistic (P10) sensor | `forecast_entity_p10` | Optional. A sensor whose state is a pessimistic forecast for tomorrow in kWh, blended in when conservatism is above 0. [How to find one](#finding-a-p10-source) |
+| Pessimistic (P10) sensor | `forecast_entity_p10` | Optional. Leave empty with Solcast, which is read automatically. For another service, a sensor whose state is a pessimistic forecast for tomorrow in kWh, blended in when conservatism is above 0. [Where the P10 comes from](#where-the-p10-comes-from) |
 | Day-after-tomorrow sensor | `forecast_entity_d2` | Optional. When it exceeds the battery capacity, tonight's target is lowered to leave room for that day's solar |
 | Grid carbon intensity sensor | `carbon_intensity_entity` | Optional. g CO2/kWh. Feeds the two carbon sensors |
-| Forecast conservatism | `forecast_conservatism` | Slider 0 to 1 in steps of 0.05, default 0.35. 0 is the plain forecast, 1 is the P10 value. Does nothing without a P10 sensor |
+| Forecast conservatism | `forecast_conservatism` | Slider 0 to 1 in steps of 0.05, default 0.35. 0 is the plain forecast, 1 is the P10 value. Does nothing without a P10 forecast |
 
 With no forecast sensor, the charge calculation uses a seasonal estimate from your latitude.
 
@@ -85,7 +85,7 @@ The correction applies to the main forecast sensor only. The P10 sensor is read 
 
 #### The P10 blend
 
-When a P10 sensor is set and `forecast_conservatism` is above 0, the forecast used for the charge target is:
+When a P10 forecast is available and `forecast_conservatism` is above 0, the forecast used for the charge target is:
 
 ```
 forecast = (1 - w) x corrected forecast + w x P10
@@ -97,35 +97,20 @@ Both adjustments pull the forecast down. If your forecast runs high and the accu
 
 Without a P10 sensor, or while it reads unavailable or unknown, the blend is skipped and the charge reason says `no P10 forecast so conservatism is unused`. With conservatism at 0 the blend is off whatever the sensor says. The note only shows when a forecast sensor is set.
 
-#### Finding a P10 source
+#### Where the P10 comes from
 
-`forecast_entity_p10` takes a sensor whose **state** is a number of kWh. It cannot read an attribute. Most forecast integrations keep the P10 total in an attribute, so you make a sensor for it with a Template Helper.
+The integration looks for a P10 in this order:
 
-**Solcast PV Forecast.** The tomorrow sensor (named `Forecast Tomorrow`, entity id typically `sensor.solcast_pv_forecast_forecast_tomorrow`) has these attributes, all in kWh for the whole day:
+1. **The P10 sensor you chose**, if it has a number in kWh as its state.
+2. **The `estimate10` attribute of the tomorrow forecast sensor.** The Solcast PV Forecast integration puts the P10 total in this attribute, in kWh for the whole day, next to `estimate` (the P50, the same as the sensor state) and `estimate90`. With Solcast there is nothing to set up. If you have several sites, `estimate10` is already the total.
 
-- `estimate`: the main (P50) forecast, the same as the sensor state.
-- `estimate10`: the pessimistic (P10) forecast.
-- `estimate90`: the optimistic (P90) forecast.
+If neither is found, the blend is skipped.
 
-`detailedForecast` also holds `pv_estimate10` for each 30 minute period in kW. Half the sum of that field over the day equals `estimate10`, so the attribute is all you need. Check the names on your install in **Developer Tools > States** first. If you have several sites, `estimate10` is already the total, and each site has its own `estimate10_<site id>`.
+**Another service.** `forecast_entity_p10` takes a sensor whose **state** is a number of kWh and cannot read an attribute. If your service keeps its pessimistic total in an attribute with another name, make a Template Helper (**Settings > Devices & services > Helpers > Create helper > Template > Template a sensor**) with a state template such as `{{ state_attr('sensor.your_forecast', 'your_attribute') | float }}`, unit `kWh`, device class `Energy`, and pick it as the P10 sensor. Leave the filter without a default, so a missing attribute reads unavailable and the blend is skipped, not read as a P10 of zero.
 
-1. Go to **Settings > Devices & services > Helpers > Create helper > Template > Template a sensor**.
-2. Name it, for example `Solcast P10 tomorrow`.
-3. Enter this as the state template, with your own entity id:
-   ```
-   {{ state_attr('sensor.solcast_pv_forecast_forecast_tomorrow', 'estimate10') | float }}
-   ```
-4. Set the unit of measurement to `kWh` and the device class to `Energy`. Leave the state class empty.
-5. Check the preview in the dialog shows a number close to the sensor's own `estimate10`, then submit.
-6. Pick the new sensor as the pessimistic (P10) sensor in this integration's options.
+**Forecast.Solar.** The Home Assistant integration publishes a single estimate and no P10 or other range. Forecast conservatism then does nothing, and the accuracy correction is the way this integration adjusts a forecast that runs high or low.
 
-The filter has no default on purpose. If the attribute is missing, the helper turns unavailable and the blend is skipped. A default of 0 would read as a P10 of zero and pull the forecast down.
-
-Do not use Solcast's **Use Forecast Field** select for this. It changes the field every Solcast sensor reports, including the main forecast, so you would lose the P50.
-
-**Forecast.Solar.** The Home Assistant integration publishes a single estimate and no P10 or other range. Leave the P10 sensor empty. Forecast conservatism then does nothing, and the accuracy correction is the way this integration adjusts a forecast that runs high or low.
-
-**Other services.** Look in **Developer Tools > States** for an attribute with `p10`, `pessimistic`, `low` or `10` in the name on the tomorrow sensor, and use the same template with that attribute name.
+Do not use Solcast's **Use Forecast Field** select to reach the P10. It changes the field every Solcast sensor reports, including the main forecast, so you would lose the P50.
 
 ### Step 4: Immersion (optional)
 
