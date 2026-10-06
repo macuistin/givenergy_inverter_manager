@@ -1,43 +1,35 @@
-# GivEnergy Inverter Manager — Goals & Requirements
+# GivEnergy Inverter Manager: Goals and Requirements
 
-This document captures the goals, design constraints, and known limitations of the integration. It exists to keep future development focused and to prevent features or refactors from drifting away from the actual use case.
+This document captures the goals, design constraints, and known limitations of the integration. It exists to keep future development focused and to prevent features or refactors from drifting away from its purpose.
 
 ---
 
-## The system this was built for
+## Scope and tested setup
 
-- **Inverter:** GivEnergy GIV-HY-5.0 (5kW hybrid), serial via GivTCP
-- **Solar:** 8.4kWp — 20 × 420W JA Solar panels, east (92°) and west (272°) facing arrays
-- **Battery:** 19kWh usable, GivEnergy battery stack
-- **GivTCP:** Running as a Home Assistant add-on; provides all inverter entity states and write access
-- **EV charger:** Zappi (myenergi integration), controlled via select entity for charge mode
-- **Immersion:** WiFi-enabled immersion heater with a HA switch entity and optional temperature sensor
-- **Tariff:** Electric Ireland Home Electric + Nightboost
-  - Day (base): €0.3334/kWh
-  - Night: €0.1644/kWh (23:00–08:00)
-  - Nightboost: €0.0965/kWh (02:00–04:00) — cheapest active timed period wins
-  - Export (CEG): €0.195/kWh
-  - Standing charge: €0.8259/day
-  - PSO levy: €1.46/month
-  - VAT: 9%
-  - Direct debit discount: 5.5%
-  - Billing period: starts 16th of each month
-- **Location:** Ireland (~52°N)
+The integration must work for any GivTCP user: any supplier, any tariff (timed rates or flat), any country, any battery size, with or without an EV charger or an immersion heater.
 
-The integration must work correctly for this specific setup. It must also be general enough to work for any GivTCP user with a different tariff, battery size, or without a Zappi or immersion.
+It has been tested on this setup:
+
+- **Inverter:** GivEnergy GIV-HY-5.0 (5 kW hybrid) with a GivEnergy battery
+- **GivTCP:** v3, running as a Home Assistant add-on. It provides all inverter entity states and write access
+- **EV charger:** Zappi (myenergi integration), controlled through its charge mode select entity
+- **Immersion:** a WiFi-enabled immersion heater with a Home Assistant switch entity and an optional temperature sensor
+- **Tariff:** a base rate plus a night period and a shorter, cheaper boost period inside it (Electric Ireland Home Electric with Nightboost)
+
+Other setups are expected to work. Report any that do not.
 
 ---
 
 ## Primary goals
 
 **1. Automate overnight battery charging**
-Decide how much to charge the battery from the grid each night, during the cheapest available rate window. The decision should account for tomorrow's solar forecast (if available), today's consumption, whether the car is plugged in, and the current battery SoC. The target is written to the GivTCP inverter entities once per night, one minute before the cheap window opens.
+Decide how much to charge the battery from the grid each night, during the cheapest available rate window of your tariff. The decision should account for tomorrow's solar forecast (if available), today's consumption, whether the car is plugged in, and the current battery SoC. The target is written to the GivTCP inverter entities once per night, one minute before the cheap window opens.
 
 **2. Divert solar surplus to the immersion heater**
-When solar output exceeds house load and the battery is sufficiently charged, turn on the immersion heater rather than exporting at a lower rate. Turn it off when surplus drops. Never activate if water is already at target temperature.
+When solar output exceeds house load and the battery is sufficiently charged, turn on the immersion heater rather than exporting at the export rate. Turn it off when surplus drops. Never activate if water is already at target temperature.
 
 **3. Move the Zappi to Eco+ and signal solar surplus availability for EV charging**
-The Zappi (myenergi) and GivEnergy inverter are separate systems — the integration cannot control battery discharge. It switches a Zappi with a charge mode select to Eco+ when a car is plugged in and surplus is at least 1,380W, and never stops it. It also surfaces `ev_solar_surplus_available` (Available when surplus >= 1,380W) so users can build automations for chargers it cannot control. Also surface `ev_charging_source` (Solar/Grid/Battery/Mixed) and `ev_draining_battery` for monitoring.
+The Zappi (myenergi) and GivEnergy inverter are separate systems, so the integration cannot control battery discharge. It switches a Zappi with a charge mode select to Eco+ when a car is plugged in and surplus is at least 1,380W, and never stops it. It also surfaces `ev_solar_surplus_available` (Available when surplus >= 1,380W) so users can build automations for chargers it cannot control. Also surface `ev_charging_source` (Solar/Grid/Battery/Mixed) and `ev_draining_battery` for monitoring.
 
 **4. Surface useful energy information as HA sensors**
 Expose real-time and accumulated energy data as first-class HA sensors so users can build dashboards, automations, and energy-cost tracking without any additional configuration.
@@ -52,7 +44,7 @@ Track daily import cost, export earnings, and standing charges. Project the curr
 - **Not a GivTCP replacement.** This integration reads and writes GivTCP entities; it does not communicate directly with the inverter.
 - **Not a real-time energy monitor.** The update cycle is 30 seconds. This is appropriate for overnight charge planning; it is not a substitute for a dedicated energy monitor at sub-second resolution.
 - **Not a general home energy management system.** It does not control HVAC, manage time-of-use tariff switching, or integrate with smart meters directly. Those are separate concerns.
-- **Not a cloud integration.** The `iot_class` is `local_push` (GivTCP pushes state via MQTT; HA reads the pushed state). No cloud API calls are made. GivEnergy entered administration in April 2026; the local GivTCP path remains fully functional.
+- **Not a cloud integration.** The `iot_class` is `local_push` (GivTCP pushes state via MQTT; HA reads the pushed state). No cloud API calls are made. GivEnergy entered administration in April 2026. The local GivTCP path remains fully functional.
 
 ---
 
@@ -74,20 +66,20 @@ Track daily import cost, export earnings, and standing charges. Project the curr
 
 ```
 TariffConfig
-├── base_rate: float          # €/kWh — applies when no timed period is active
+├── base_rate: float          # currency per kWh, applies when no timed period is active
 ├── base_rate_name: str       # display name (e.g. "Day")
-├── rate_periods: list        # timed overrides — cheapest active wins
+├── rate_periods: list        # timed overrides, cheapest active wins
 │   ├── RatePeriod(name, rate, start, end)
 │   └── ...
-├── export_rate: float        # €/kWh CEG
-├── standing_charge: float    # €/day
-├── pso_levy: float           # €/month
-├── vat_rate: float           # %
-├── discount_rate: float      # % applied before VAT
+├── export_rate: float        # currency per kWh paid for export
+├── standing_charge: float    # currency per day
+├── pso_levy: float           # flat charge per bill period (any flat per-period charge, or 0)
+├── vat_rate: float           # %, 0 for none
+├── discount_rate: float      # % applied before VAT, 0 for none
 └── bill_start_day: int       # day of month billing starts
 ```
 
-Precedence: among all timed periods active at the current time, the cheapest wins. If none are active, the base rate applies. This means Nightboost (02:00–04:00) automatically overrides Night (23:00–08:00) without any special-casing.
+Precedence: among all timed periods active at the current time, the cheapest wins. If none are active, the base rate applies. This means a boost period (for example 02:00–04:00) automatically overrides a night period (for example 23:00–08:00) without any special-casing.
 
 ---
 
@@ -135,13 +127,15 @@ Supported charger brands for monitoring: Zappi (myenergi), Wallbox, OCPP, Ohme, 
 
 **Average daily consumption is estimated from today's partial data until history builds up.** Before 30 minutes of data have accumulated after midnight a fallback of 15 kWh/day is used, which makes the first decision of a day conservative. Once two complete days of per-slot history are stored, the forward simulation uses that history instead. Accumulated energy and the per-slot profile are saved with Home Assistant storage and survive restarts. A crash can lose up to about 5 minutes.
 
-**Only one EV charger is supported.** Multi-charger households are not handled. The coordinator takes the first discovered charger.
+**Only one EV charger is supported.** Homes with several chargers are not handled. The coordinator takes the first discovered charger.
 
-**Solcast multi-array is not supported.** The integration reads a single `forecast_entity` sensor, plus the optional P10 and day-after-tomorrow sensors. Users with separate east and west array forecasts need to sum them (for example with a template sensor) and point the integration at the combined sensor.
+**Solcast multi-array is not supported.** The integration reads a single `forecast_entity` sensor, plus the optional P10 and day-after-tomorrow sensors. Users with separate forecasts for several arrays need to sum them (for example with a template sensor) and point the integration at the combined sensor.
 
 **The write-back fires once per day.** If GivTCP or the inverter is unavailable at the trigger time (one minute before the cheapest period starts), the write for that night is missed and not retried. The previous night's target stays set in the inverter.
 
 **Flat-rate tariff users get no write-back.** If `rate_periods` is empty, no overnight charge listener is registered. The integration still calculates a charge decision and surfaces it as a sensor, but it cannot write it to the inverter without a time window to target. Users with flat-rate tariffs can write an HA automation that reads the `overnight_charge_target` sensor.
+
+**The season rules use northern hemisphere months.** Winter is December to February, and the shoulder months are March, April, October and November. These are fixed calendar months. The seasonal solar estimate uses your latitude.
 
 ---
 

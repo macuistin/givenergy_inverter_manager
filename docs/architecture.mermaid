@@ -22,7 +22,7 @@ graph TD
         direction TB
         ENG["core/engine.py\nbuild_coordinator_data()\naccumulate_energy()\nestimate_avg_daily_kwh()\nupdate_battery_stats()"]
         RULES["core/rules.py  ← all decisions\nmonthly_solar_fractions(latitude)\ncalculate_overnight_charge_target()\nshould_divert_to_immersion()\nsuggest_appliance_run()\ndecide_ev_charger_action()\ncalculate_pre_boost_export_opportunity()"]
-        TARIFF["core/tariff.py\nRatePeriod  ·  TariffConfig\n  base_rate scalar (e.g. Day)\n  rate_periods list (Night, Nightboost…)\nEnergyAccumulator\nbuild_tariff()  ← factory"]
+        TARIFF["core/tariff.py\nRatePeriod  ·  TariffConfig\n  base_rate scalar (e.g. Day)\n  rate_periods list (timed rates)\nEnergyAccumulator\nbuild_tariff()  ← factory"]
         BAT["core/battery.py\nBatteryStats\ncalculate_cycle_increment()\nestimate_will_survive_night()"]
         REP["core/reporting.py\nHTML report builders"]
         TIME["core/timeutil.py\nelapsed_seconds()\nreal_time_after()"]

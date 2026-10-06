@@ -113,7 +113,7 @@ Everything that changes a setting is in the **Settings** sub-view. A small **Set
 
 Home Assistant has no admin option for a dashboard. A view takes a list of users in `visible`, and a card or heading button takes a user condition. So the generator reads the IDs of the active administrators from Home Assistant and writes them into the Settings view and into the button.
 
-- **No administrator found.** The Settings view and its button are left out for everyone. Home Assistant always has an owner, so this only happens when the user list could not be read.
+- **No administrator found.** The Settings view and its button are left out for everyone. Home Assistant always has at least one administrator, so this only happens when the user list could not be read.
 - **Administrator roles change.** The IDs are read when the dashboard is generated. For a file, press **Refresh Dashboard** or run `get_dashboard_yaml` after you promote or demote a user, then paste the file over the old dashboard again. A dashboard that uses the [strategy](#dashboard-strategy-optional) reads the list each time it opens, so a reload of the page is enough.
 - **A copied example.** The user ID in [`dashboard-example.yaml`](dashboard-example.yaml) is a placeholder. Generate your own file.
 
@@ -164,7 +164,7 @@ The two graphs on the sub-views are statistics graphs, not history graphs. The d
 
 ### Bill
 
-Figures for the current bill period, so you can hold them against a real bill.
+Figures for the current bill period, so you can hold them against your supplier bill.
 
 - **Bill so far**: Accrued bill, Projected bill, Import cost and Export credit. A **Tariff** button in the heading opens the Tariff sub-view.
 - **This bill period**: Days elapsed, Days left, Avg import rate and Cheap share (the cheap rate share of import).
