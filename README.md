@@ -61,7 +61,8 @@ Start at the [documentation index](docs/index.md).
 | [Upgrade to v0.5.0](docs/upgrade-v0.5.0.md) | Battery Power sign change, Home Assistant 2026.2.0, new dashboard |
 | [Upgrade to v0.3.0](docs/upgrade-v0.3.0.md) | What changed since v0.2.1 |
 | [Uninstall](docs/uninstall.md) | Remove the integration and its files |
-| [Roadmap](ROADMAP.md) | Planned work by priority, and what each release shipped |
+| [Roadmap](ROADMAP.md) | Planned work by priority |
+| [Changelog](CHANGELOG.md) | What each release shipped |
 
 ## Development
 
