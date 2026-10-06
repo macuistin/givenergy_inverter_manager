@@ -25,6 +25,7 @@ Each item has a short title, what and why, the evidence, an indicative value per
 
 | Release | Theme |
 |---|---|
+| v0.8.2 | Solar share sensors (today, yesterday, week, month) and a Solar share bar on the Today tab. A shutdown error from the storage final write is gone |
 | v0.8.1 | Self-sufficiency is the share of consumption not imported. The options form keeps the saved rate periods when a submission has no period sections |
 | v0.8.0 | Charge decision reads the right day's forecast after midnight. Saving sensors price load at the grid rate in force. A repair, with a one-click fix, for other active charge slots. Settings controls move to an administrators-only sub-view. MoSCoW roadmap |
 | v0.7.0 | Clean Code limits enforced in ruff. One verified GivTCP writer, an immersion actuator, the coordinator update as named steps, the dashboard builder as a package, and golden snapshot tests. No entity id or option changed |
@@ -195,6 +196,21 @@ Comment on a GitHub issue to weigh in.
 ---
 
 ## Changelog
+
+### v0.8.2
+
+Small release. No entity id or option name changes.
+
+**New**
+- Solar share sensors for today, yesterday, this week and this month, and a Solar share bar in
+  the Today tab's Solar section. Solar share is the share of the house's consumption met by
+  solar kept on site. It ignores grid import, so it still shows what solar did on days when
+  the battery charges from the grid. (#199)
+
+**Fixes**
+- Restarting Home Assistant no longer sometimes logs "Unable to remove unknown job listener"
+  from the integration's storage. The integration now queues its shutdown write with the
+  store, which writes at the final-write stage. (#198)
 
 ### v0.8.1
 
