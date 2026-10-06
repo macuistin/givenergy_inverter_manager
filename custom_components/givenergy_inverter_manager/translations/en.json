@@ -972,12 +972,11 @@
     },
     "other_charge_slots_active": {
       "title": "Other charge slots are active",
-      "description": "The integration manages charge slot 1 only. These other slots also have a charge window: {slots}.\n\nThe inverter charges in every active slot, so a leftover slot can charge the battery at a dearer rate than the cheapest period. Fix it here to set each of them to 00:00 to 00:00, or clear them yourself in GivTCP.",
       "fix_flow": {
         "step": {
           "confirm": {
             "title": "Clear the other charge slots",
-            "description": "This sets the start and end time of each of these slots to 00:00: {slots}.\n\nSlot 1 is not changed. Select **Submit** to clear them."
+            "description": "The integration manages charge slot 1 only. These other slots also have a charge window: {slots}.\n\nThe inverter charges in every active slot, so a leftover slot can charge the battery at a dearer rate than the cheapest period.\n\nSelecting **Submit** sets the start and end time of each of them to 00:00. Slot 1 is not changed. You can also clear them yourself in GivTCP."
           }
         },
         "abort": {
