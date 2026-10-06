@@ -59,6 +59,27 @@ The repair **Battery minimum SoC is set too high** appears when the saved minimu
 2. In the Battery & charging thresholds section, set **Minimum battery SoC** to 10 to 20.
 3. Save. The repair clears on the next update cycle after the integration reloads.
 
+## Other charge slots are active
+
+The repair **Other charge slots are active** appears when a GivTCP charge slot other than the one the integration writes has a window set. The integration writes slot 1 only, and the inverter charges in every active slot. A leftover slot 2 from 00:00 to 08:00 starts charging at midnight, at a dearer rate than a Nightboost window from 02:00 to 04:00.
+
+A slot counts as active when its start time differs from its end time. 00:00 to 00:00 means unused. Slots 2 to 10 are checked on every update cycle, and a slot whose entities are missing or unavailable is ignored.
+
+To clear the slots in one step:
+
+1. Open **Settings → System → Repairs** and open **Other charge slots are active**.
+2. Check the slots named in the text, then select **Submit**.
+3. The integration sets the start and end time of each named slot to 00:00. Each change is read back and counted as an inverter register write. The repair clears on the next update cycle.
+
+With **Dry run mode** on, nothing is changed. **Last Skipped Action (Dry Run)** shows what would have been cleared, and the repair stays.
+
+To clear a slot by hand:
+
+1. Open **Developer Tools → States** and search for `charge_start_time_slot_`.
+2. For each active slot, call `select.select_option` with option `00:00:00` on both its `charge_start_time_slot_N` and `charge_end_time_slot_N` entities.
+
+Slot 1 is never changed by this repair.
+
 ## Daily sensors are frozen after an upgrade
 
 Version 0.2.1 gave nine daily sensors the state class `total_increasing` together with `last_reset`. Home Assistant refuses that combination, so the sensors stopped updating until the integration reloaded. In one install, battery throughput stayed at one value for about 46 hours.

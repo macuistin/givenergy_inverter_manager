@@ -969,6 +969,23 @@
     "min_soc_too_high": {
       "title": "Battery minimum SoC is set too high",
       "description": "**Battery minimum SoC** is currently {min_soc}%. On nights when charging is skipped, the integration writes this value as the inverter's charge target. A value this high causes the inverter to hold the battery at {min_soc}% all night, importing from the grid instead of discharging.\n\nRecommended value: 10–20%. Go to **Settings → Integrations → GivEnergy Inverter Manager → Configure → Battery** and lower Battery minimum SoC."
+    },
+    "other_charge_slots_active": {
+      "title": "Other charge slots are active",
+      "description": "The integration manages charge slot 1 only. These other slots also have a charge window: {slots}.\n\nThe inverter charges in every active slot, so a leftover slot can charge the battery at a dearer rate than the cheapest period. Fix it here to set each of them to 00:00 to 00:00, or clear them yourself in GivTCP.",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Clear the other charge slots",
+            "description": "This sets the start and end time of each of these slots to 00:00: {slots}.\n\nSlot 1 is not changed. Select **Submit** to clear them."
+          }
+        },
+        "abort": {
+          "dry_run": "Dry run is on, so nothing was changed. Turn it off in the integration options to clear the slots.",
+          "write_failed": "GivTCP did not accept every write. The slots that are still active stay listed. Check that GivTCP is running, then try again.",
+          "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
+        }
+      }
     }
   },
   "exceptions": {
