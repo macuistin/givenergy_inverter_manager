@@ -203,9 +203,6 @@ KEY_GROUPS: dict[str, str] = {
             "night_survival_reason",
             "night_survival_confidence",
             "cheap_rate_floor_status",
-            "pre_boost_export_recommended",
-            "pre_boost_export_kwh",
-            "pre_boost_export_net_gain",
         ),
         "Charge plan and night survival",
     ),
@@ -384,11 +381,6 @@ DESCRIPTIONS: dict[str, str] = {
         "The attributes say why and give the numbers."
     ),
     "cheap_rate_floor_status": "State of the cheap rate floor top-up, or Inactive.",
-    "pre_boost_export_recommended": "yes when spare kWh is 1 or more and exporting pays.",
-    "pre_boost_export_kwh": (
-        "Stored kWh above tonight's charge need and 25% of the average daily load."
-    ),
-    "pre_boost_export_net_gain": "Spare kWh times (export rate minus cheapest rate).",
     "immersion_divert_reason": "Why the immersion is on or off.",
     "ev_charger_state": (
         "disconnected, connected, charging, paused, boosting, completed or unknown. "
@@ -419,6 +411,19 @@ DESCRIPTIONS: dict[str, str] = {
     "dry_run_last_skipped": "The last action dry run mode held back.",
     "integration_version": "Installed integration version.",
 }
+
+
+RETIRED_SENSORS: tuple[tuple[str, str], ...] = (
+    ("pre_boost_export_recommended", "Pre-boost export recommended"),
+    ("pre_boost_export_kwh", "Pre-boost exportable kWh"),
+    ("pre_boost_export_net_gain", "Pre-boost export net gain"),
+)
+RETIRED_NOTE = (
+    "These sensors were removed. The integration never writes or advises forced battery "
+    "export, and the gain figure was wrong. Setup deletes their entries from the entity "
+    "registry. A dashboard card or automation that still uses one shows `unavailable` or "
+    "`unknown` until you remove the reference."
+)
 
 
 def _attr(node: ast.expr | None) -> str:
@@ -530,6 +535,12 @@ def _row(sensor: dict) -> str:
     return "| " + " | ".join(cells) + " |"
 
 
+def _retired_section() -> list[str]:
+    """The table of sensors the integration no longer creates."""
+    rows = [f"| {name} | `{key}` |" for key, name in RETIRED_SENSORS]
+    return ["## Removed sensors", "", RETIRED_NOTE, "", "| Sensor | Key |", "|---|---|", *rows, ""]
+
+
 def generate() -> str:
     """Return the full text of docs/sensors.md."""
     sensors = load_sensors()
@@ -577,6 +588,7 @@ def generate() -> str:
         ]
         lines += [_row(s) for s in members]
         lines.append("")
+    lines += _retired_section()
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
