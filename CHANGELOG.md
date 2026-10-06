@@ -2,6 +2,32 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## v0.9.0
+
+Removes three disabled sensors. No option name changes.
+
+**Removed**
+- The `pre_boost_export_recommended`, `pre_boost_export_kwh` and `pre_boost_export_net_gain`
+  sensors. They advised exporting stored energy before the cheap charge, and their gain figure
+  ignored round-trip loss and wear. All three were disabled by default. Setup removes their
+  registry entries. A dashboard card or automation that still uses one shows unavailable until
+  you remove the reference. (#205)
+
+**Fixes**
+- An EV charger counts as active only while it draws power. A Zappi keeps a Boosting status
+  while its plug status reads Waiting for EV, so a car that was plugged in but not charging
+  showed as boosting and, with the battery discharging to the house, as draining the battery.
+  (#204)
+- The Solcast P10 forecast is read from the `estimate10` attribute of the forecast sensor, so
+  forecast conservatism works with no setup. A P10 sensor chosen in the options still wins.
+  With conservatism above 0 and no P10 available, the charge reason says so. With Solcast and
+  the default conservatism of 0.35, the forecast behind the charge target is now blended toward
+  the P10, which lowers it. Set conservatism to 0 for the plain forecast. (#208)
+
+**Docs**
+- The forecast accuracy correction and the P10 blend are explained, and so are days where a
+  sensor's daily change reads 0, which came from a defect fixed in v0.3.0. (#208, #206)
+
 ## v0.8.2
 
 Small release. No entity id or option name changes.

@@ -2,7 +2,7 @@
 
 Home Assistant integration for GivEnergy inverters. It reads inverter data from GivTCP over MQTT, sets the overnight charge target, diverts spare solar to an immersion heater, and tracks energy costs across your tariff periods. Nothing leaves your network: the integration only reads and writes Home Assistant entities.
 
-This documentation matches version 0.8.2.
+This documentation matches version 0.9.0.
 
 ## Start here
 
