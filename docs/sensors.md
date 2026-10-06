@@ -101,7 +101,7 @@ Percentages worked out from today's totals.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Self Sufficiency | `self_sufficiency` | % | - | measurement | no | yes | Share of consumption (house, EV, immersion) covered by solar and battery discharge. |
+| Self Sufficiency | `self_sufficiency` | % | - | measurement | no | yes | Share of consumption, EV and immersion included, that was not bought from the grid. |
 | Self Consumption | `self_consumption` | % | - | measurement | no | yes | Share of today's solar that was not exported. 0 with no solar. |
 | Peak rate import fraction | `peak_import_fraction_today` | % | - | measurement | no | yes | Share of today's import that was at the base rate. |
 | Solar Capture Efficiency Today | `solar_capture_efficiency_today` | % | - | measurement | no | no | Solar generated minus missed solar, as a share of solar. |
