@@ -7,6 +7,8 @@ never holds a card that points at nothing.
 
 from __future__ import annotations
 
+from typing import Any
+
 # ── Colours ──────────────────────────────────────────────────────────────────
 # A few, used the same way on every view: amber for solar, green for the battery,
 # blue for the grid and money, orange for the immersion, teal for the EV charger and indigo
@@ -63,6 +65,21 @@ def navigate_action(path: str) -> dict:
     return {"action": "navigate", "navigation_path": path}
 
 
+def admin_condition(admin_ids: tuple[str, ...]) -> dict[str, Any]:
+    """A visibility condition that is met only by these Home Assistant users."""
+    return {"condition": "user", "users": list(admin_ids)}
+
+
+def button_badge(
+    icon: str, text: str, nav: dict[str, Any], visibility: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
+    """A small button in a heading. With visibility, only the users it names see it."""
+    badge: dict[str, Any] = {"type": "button", "icon": icon, "text": text, "tap_action": nav}
+    if visibility:
+        badge["visibility"] = visibility
+    return badge
+
+
 def tile_card(  # noqa: PLR0913
     entity: str | None,
     name: str,
@@ -103,6 +120,15 @@ def tile_card(  # noqa: PLR0913
 def toggle_tile(entity: str | None, name: str, color: str) -> dict | None:
     """A tile with an on/off switch beside the name."""
     return tile_card(entity, name, color=color, features=[TOGGLE], inline=True)
+
+
+def readonly_tile(entity: str | None, name: str, color: str) -> dict[str, Any] | None:
+    """A tile that shows a switch or number and does nothing when tapped.
+
+    A tile toggles a switch when its icon is tapped. Tapping this one does nothing, so the
+    value can be read but not changed from the tile.
+    """
+    return tile_card(entity, name, color=color, nav={"action": "none"})
 
 
 def slider_tile(entity: str | None, name: str, color: str) -> dict | None:

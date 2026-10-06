@@ -16,7 +16,8 @@ The integration may have changed these GivTCP entities, and removing it does not
 - enable charge schedule, set to on;
 - charge start time and end time, slot 1;
 - target SoC;
-- enable charge target.
+- enable charge target;
+- charge start time and end time of any other slot, if you used the repair **Other charge slots are active**. They were set to 00:00.
 
 They keep the last values written. Open them in **Developer Tools → States** and set them the way you want before you rely on your own schedule. The immersion switch and the EV charger mode also stay in whatever state they were last left.
 

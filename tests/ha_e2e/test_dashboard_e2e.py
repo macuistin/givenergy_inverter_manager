@@ -7,6 +7,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import yaml
+from homeassistant.auth.const import GROUP_ID_ADMIN, GROUP_ID_USER
 from homeassistant.config_entries import RELOAD_AFTER_UPDATE_DELAY, ConfigEntryState
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
@@ -16,7 +17,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
-from tests.dashboard_support import all_cards, default_entity_ids
+from tests.dashboard_support import ADMIN_ID, all_cards, default_entity_ids
 
 
 def _registered_id(registry, entry_id: str, key: str) -> str | None:
@@ -95,7 +96,7 @@ async def test_features_from_the_config_entry_show_up(hass, loaded_entry):
     """The full config has immersion, inverter temperature and a forecast, but no EV charger."""
     text, _ = await _generate(hass)
     names = _names(text)
-    assert "Immersion heater" in names
+    assert "Water temperature" in names
     assert "Against the forecast" in names
     assert "EV charger" not in names
     assert "inverter_temperature" in text
@@ -177,8 +178,35 @@ async def test_generated_file_keeps_the_cards_that_are_registered(hass, loaded_e
     assert "not installed" not in text
 
 
+async def test_settings_are_visible_to_the_real_administrators_only(hass, loaded_entry):
+    admin = await hass.auth.async_create_user("Admin", group_ids=[GROUP_ID_ADMIN])
+    other = await hass.auth.async_create_user("Other admin", group_ids=[GROUP_ID_ADMIN])
+    resident = await hass.auth.async_create_user("Resident", group_ids=[GROUP_ID_USER])
+    await hass.auth.async_update_user(other, is_active=False)
+
+    views = yaml.safe_load((await _generate(hass))[0])["views"]
+
+    settings = next(v for v in views if v["path"] == "settings")
+    assert settings["visible"] == [{"user": admin.id}]
+    assert resident.id not in str((await _generate(hass))[0])
+    [button] = [
+        b
+        for card in all_cards(views)
+        for b in card.get("badges", [])
+        if b["tap_action"]["navigation_path"] == "settings"
+    ]
+    assert button["visibility"] == [{"condition": "user", "users": [admin.id]}]
+
+
+async def test_without_an_administrator_there_is_no_settings_view(hass, loaded_entry):
+    views = yaml.safe_load((await _generate(hass))[0])["views"]
+    assert "settings" not in {v["path"] for v in views}
+    assert "navigation_path: settings" not in (await _generate(hass))[0]
+
+
 async def test_live_dashboard_matches_the_docs_example(hass, loaded_entry):
     """Full config, every sensor enabled and an EV charger: the output is the docs example."""
+    admin = await hass.auth.async_create_user("Admin", group_ids=[GROUP_ID_ADMIN])
     from types import SimpleNamespace
 
     from custom_components.givenergy_inverter_manager.const import CONF_BILL_START_DAY
@@ -202,4 +230,4 @@ async def test_live_dashboard_matches_the_docs_example(hass, loaded_entry):
     text, _ = await _generate(hass)
 
     example = Path(__file__).parents[2] / "docs" / "dashboard-example.yaml"
-    assert text == example.read_text(encoding="utf-8")
+    assert text.replace(admin.id, ADMIN_ID) == example.read_text(encoding="utf-8")

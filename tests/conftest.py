@@ -355,4 +355,6 @@ def _run(
         override_charge_target=kwargs.get("override_charge_target"),
         override_immersion=kwargs.get("override_immersion"),
         override_skip_charge=kwargs.get("override_skip_charge", False),
+        today_raw_forecast_kwh=kwargs.get("today_raw_forecast_kwh"),
+        today_raw_forecast_p10_kwh=kwargs.get("today_raw_forecast_p10_kwh"),
     )

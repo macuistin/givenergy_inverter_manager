@@ -6,10 +6,25 @@ Also reads what the dashboard needs to know about the config entry and the EV ch
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from ..const import DOMAIN
+
+
+@dataclass(frozen=True)
+class HostFacts:
+    """What Home Assistant tells the generator that is not in the config entry.
+
+    resources are the Lovelace resource URLs, or None when they could not be read.
+    admin_ids are the IDs of the administrators who may see the Settings view. With none,
+    the Settings view and its button are left out, so no one sees them.
+    """
+
+    resources: list[str] | None = None
+    admin_ids: tuple[str, ...] = ()
 
 
 class Registry:
@@ -71,3 +86,12 @@ def entry_config(entry: ConfigEntry) -> dict:
 def ev_charger_brand(entry: ConfigEntry) -> str | None:
     """Brand of the EV charger the coordinator discovered, if any."""
     return getattr(getattr(entry, "runtime_data", None), "ev_charger_brand", None)
+
+
+async def async_admin_user_ids(hass: HomeAssistant) -> tuple[str, ...]:
+    """The IDs of the active administrators, as the dashboard's user conditions name them.
+
+    System users, such as the Supervisor, never open a dashboard, so they are left out.
+    """
+    users = await hass.auth.async_get_users()
+    return tuple(user.id for user in users if user.is_admin and not user.system_generated)

@@ -152,6 +152,25 @@ class TestRawForecastHistory:
         store.on_raw_forecast(None)
         assert store.state.pending_raw_forecast_kwh == 0.0
 
+    def test_p10_forecast_follows_the_same_path_as_the_p50(self):
+        store = _store()
+        store.on_raw_forecast(12.0, 4.0)
+        assert store.today_raw_forecast_p10_kwh is None
+        store.on_midnight(_at(16, 0, 0))
+        assert store.today_raw_forecast_kwh == 12.0
+        assert store.today_raw_forecast_p10_kwh == 4.0
+        assert store.state.pending_raw_forecast_p10_kwh == 0.0
+
+    def test_missing_p10_keeps_the_last_good_value(self):
+        store = _store()
+        store.on_raw_forecast(12.0, 4.0)
+        store.on_raw_forecast(12.0, None)
+        store.on_raw_forecast(12.0, 0.0)
+        assert store.state.pending_raw_forecast_p10_kwh == 4.0
+
+    def test_today_forecast_is_none_until_one_is_remembered(self):
+        assert _store().today_raw_forecast_kwh is None
+
     def test_correction_factor_needs_five_usable_days(self):
         store = _store()
         self._day(store, 10, 10.0, 0.0)
@@ -178,6 +197,15 @@ class TestRawForecastHistory:
         assert restored.pending_raw_forecast_kwh == 7.0
         assert restored.today_raw_forecast_kwh == 12.0
         assert restored.today_clipping is True
+
+    def test_p10_forecast_survives_save_and_load(self):
+        store = _store()
+        store.on_raw_forecast(12.0, 4.0)
+        store.on_midnight(_at(16, 0, 0))
+        store.on_raw_forecast(9.0, 3.0)
+        restored = _deserialize(_serialize(store.state))
+        assert restored.today_raw_forecast_p10_kwh == 4.0
+        assert restored.pending_raw_forecast_p10_kwh == 3.0
 
     def test_state_default_is_independent_per_instance(self):
         a, b = AccumulationState(), AccumulationState()

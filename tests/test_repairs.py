@@ -58,3 +58,32 @@ def test_created_issues_carry_learn_more_url():
         ir.async_create_issue.call_args.kwargs["learn_more_url"]
         == repairs.LEARN_MORE_URLS[repairs.ISSUE_MIN_SOC_TOO_HIGH]
     )
+
+
+def test_other_charge_slots_issue_is_fixable_and_names_the_slots():
+    from custom_components.givenergy_inverter_manager.discovery import ActiveChargeSlot
+
+    ir.async_create_issue.reset_mock()
+    slot = ActiveChargeSlot(2, "select.start_2", "select.end_2", "00:00", "08:00")
+
+    repairs.async_create_other_charge_slots_issue(MagicMock(), [slot])
+
+    kwargs = ir.async_create_issue.call_args.kwargs
+    assert kwargs["is_fixable"] is True
+    assert kwargs["translation_placeholders"] == {"slots": "Slot 2 (00:00 to 08:00)"}
+    assert kwargs["learn_more_url"] == repairs.LEARN_MORE_URLS[repairs.ISSUE_OTHER_CHARGE_SLOTS_ACTIVE]
+
+
+def test_fixable_issues_have_no_issue_level_description():
+    """hassfest rejects a description beside a fix_flow; the confirm step holds the text."""
+    import json
+
+    strings = json.loads(
+        (_DOC.parents[1] / "custom_components/givenergy_inverter_manager/strings.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for key, issue in strings["issues"].items():
+        if "fix_flow" in issue:
+            assert "description" not in issue, key
+            assert issue["fix_flow"]["step"], key

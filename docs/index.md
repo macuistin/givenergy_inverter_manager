@@ -33,6 +33,7 @@ This documentation matches version 0.7.0.
 | [Upgrade notes for v0.5.0](upgrade-v0.5.0.md) | Battery Power sign change, Home Assistant 2026.2.0 minimum, new dashboard and state class repairs |
 | [Upgrade notes for v0.3.0](upgrade-v0.3.0.md) | What changed since v0.2.1 and what to check |
 | [Uninstall](uninstall.md) | Remove the integration and its files |
+| [Roadmap](../ROADMAP.md) | Planned work by priority, and what each release shipped |
 | [Testing](testing.md) | Run the stubbed and the real Home Assistant test suites (for contributors) |
 
 ## Diagrams

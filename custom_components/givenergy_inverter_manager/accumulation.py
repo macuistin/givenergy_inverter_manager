@@ -66,6 +66,7 @@ def _acc_to_dict(acc: EnergyAccumulator) -> dict:
         "zappi_cost": acc.zappi_cost,
         "immersion_cost": acc.immersion_cost,
         "house_cost": acc.house_cost,
+        "grid_equivalent_load_cost": acc.grid_equivalent_load_cost,
         "immersion_solar_kwh": acc.immersion_solar_kwh,
         "immersion_savings": acc.immersion_savings,
         "battery_throughput_kwh": acc.battery_throughput_kwh,
@@ -80,7 +81,19 @@ def _dict_to_acc(d: dict) -> EnergyAccumulator:
     for key, value in d.items():
         if hasattr(acc, key):
             setattr(acc, key, value)
+    if "grid_equivalent_load_cost" not in d:
+        acc.grid_equivalent_load_cost = _estimated_grid_equivalent_load_cost(acc)
     return acc
+
+
+def _estimated_grid_equivalent_load_cost(acc: EnergyAccumulator) -> float:
+    """Price data saved before the cost was tracked at the average rate actually paid.
+
+    Without it the saving would read low until the day the cost starts accumulating ends.
+    """
+    if acc.import_kwh <= 0:
+        return 0.0
+    return acc.house_kwh * acc.total_import_cost / acc.import_kwh
 
 
 def _midnight_of(now: datetime, day: date) -> datetime:
@@ -160,8 +173,12 @@ class AccumulationState:
     # Raw P50 forecast (before P10 blend or seasonal fallback) used for the accuracy
     # correction. pending is the latest value seen today; at midnight it becomes the
     # forecast for the new day. ratio history holds {"forecast", "actual", "clipped"}.
+    # The P10 pair follows the same path so a charge decision made after midnight can
+    # still read the forecast for the day it serves.
     pending_raw_forecast_kwh: float = 0.0
     today_raw_forecast_kwh: float = 0.0
+    pending_raw_forecast_p10_kwh: float = 0.0
+    today_raw_forecast_p10_kwh: float = 0.0
     today_clipping: bool = False
     forecast_ratio_history: list = field(default_factory=list)
 
@@ -238,6 +255,16 @@ class AccumulationStore:
     @property
     def today_forecast_kwh(self) -> float:
         return self.state.today_forecast_kwh
+
+    @property
+    def today_raw_forecast_kwh(self) -> float | None:
+        """Today's raw P50 forecast as it stood before midnight, None when none was seen."""
+        return self.state.today_raw_forecast_kwh or None
+
+    @property
+    def today_raw_forecast_p10_kwh(self) -> float | None:
+        """Today's raw P10 forecast as it stood before midnight, None when none was seen."""
+        return self.state.today_raw_forecast_p10_kwh or None
 
     @property
     def yesterday_forecast_accuracy_pct(self) -> float:
@@ -378,6 +405,8 @@ class AccumulationStore:
         self.state.today_forecast_kwh = 0.0
         self.state.today_raw_forecast_kwh = self.state.pending_raw_forecast_kwh
         self.state.pending_raw_forecast_kwh = 0.0
+        self.state.today_raw_forecast_p10_kwh = self.state.pending_raw_forecast_p10_kwh
+        self.state.pending_raw_forecast_p10_kwh = 0.0
         self.state.today_clipping = False
         self.state.last_reset_iso = now.isoformat()
 
@@ -487,13 +516,15 @@ class AccumulationStore:
             self.state.today_forecast_kwh = forecast_kwh
             _LOG.debug("Today's solar forecast recorded: %.1fkWh", forecast_kwh)
 
-    def on_raw_forecast(self, forecast_kwh: float | None) -> None:
-        """Remember the latest raw P50 "tomorrow" forecast from the forecast sensor.
+    def on_raw_forecast(self, forecast_kwh: float | None, p10_kwh: float | None = None) -> None:
+        """Remember the latest raw "tomorrow" forecasts (P50 and P10) from the forecast sensors.
 
-        The value seen last before midnight is the forecast for the day that starts.
+        The values seen last before midnight are the forecasts for the day that starts.
         """
         if forecast_kwh is not None and forecast_kwh > 0:
             self.state.pending_raw_forecast_kwh = forecast_kwh
+        if p10_kwh is not None and p10_kwh > 0:
+            self.state.pending_raw_forecast_p10_kwh = p10_kwh
 
     def note_clipping(self) -> None:
         """Flag today as clipping so it is left out of the forecast correction."""
@@ -570,6 +601,8 @@ def _serialize(state: AccumulationState) -> dict:
         "forecast_accuracy_history": list(state.forecast_accuracy_history),
         "pending_raw_forecast_kwh": state.pending_raw_forecast_kwh,
         "today_raw_forecast_kwh": state.today_raw_forecast_kwh,
+        "pending_raw_forecast_p10_kwh": state.pending_raw_forecast_p10_kwh,
+        "today_raw_forecast_p10_kwh": state.today_raw_forecast_p10_kwh,
         "today_clipping": state.today_clipping,
         "forecast_ratio_history": [dict(r) for r in state.forecast_ratio_history],
         "slot_load_today": list(state.slot_load_today),
@@ -604,6 +637,8 @@ def _restore_battery_and_forecast(state: AccumulationState, data: dict) -> None:
     state.forecast_accuracy_history = [float(x) for x in data.get("forecast_accuracy_history", [])]
     state.pending_raw_forecast_kwh = float(data.get("pending_raw_forecast_kwh", 0.0))
     state.today_raw_forecast_kwh = float(data.get("today_raw_forecast_kwh", 0.0))
+    state.pending_raw_forecast_p10_kwh = float(data.get("pending_raw_forecast_p10_kwh", 0.0))
+    state.today_raw_forecast_p10_kwh = float(data.get("today_raw_forecast_p10_kwh", 0.0))
     state.today_clipping = bool(data.get("today_clipping", False))
     state.forecast_ratio_history = [
         dict(r) for r in data.get("forecast_ratio_history", []) if isinstance(r, dict)

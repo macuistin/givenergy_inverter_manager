@@ -191,11 +191,6 @@ class TariffConfig:
         gross = kwh * rate.rate * (1 - self.discount_rate / 100)
         return gross * (1 + self.vat_rate / 100)
 
-    def calculate_base_rate_cost(self, kwh: float) -> float:
-        """Cost of kwh at the base rate with the same discount and VAT as actual imports."""
-        gross = kwh * self.base_rate * (1 - self.discount_rate / 100)
-        return gross * (1 + self.vat_rate / 100)
-
     def calculate_export_earnings(self, kwh: float) -> float:
         """Calculate earnings from exporting energy."""
         return kwh * self.export_rate
@@ -313,6 +308,11 @@ class EnergyAccumulator:
     zappi_cost: float = 0.0
     immersion_cost: float = 0.0  # import cost attributable to immersion heater
     house_cost: float = 0.0  # import cost attributable to rest-of-house load
+
+    # ── Counterfactual ────────────────────────────────────────────────────────
+    # What the house load would have cost bought from the grid at the rate in force
+    # when it ran. The saving from solar and battery is this minus what was paid.
+    grid_equivalent_load_cost: float = 0.0
 
     # ── Integration savings ───────────────────────────────────────────────────
     # immersion_solar_kwh: solar kWh diverted to immersion that would otherwise

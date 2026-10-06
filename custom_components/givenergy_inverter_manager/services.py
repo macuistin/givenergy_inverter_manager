@@ -35,7 +35,7 @@ from .const import (
 )
 from .core.rules import ApplianceRequest, RateContext, SiteReadings, suggest_appliance_run
 from .core.tariff import BillBreakdown, TariffConfig, build_tariff
-from .dashboard import async_lovelace_resource_urls, render_dashboard
+from .dashboard import async_host_facts, render_dashboard
 from .logging import get_logger
 
 _LOG = get_logger(__name__)
@@ -141,8 +141,8 @@ def _make_get_dashboard_yaml_handler(hass: HomeAssistant):
     async def handle(call: ServiceCall) -> None:
         """Write the generated dashboard to the config directory."""
         entry = primary_entry(hass)
-        resources = await async_lovelace_resource_urls(hass)
-        yaml_output, skipped = render_dashboard(hass, entry, resources)
+        facts = await async_host_facts(hass)
+        yaml_output, skipped = render_dashboard(hass, entry, facts)
         file_path = await _write_config_file(hass, DASHBOARD_FILENAME, yaml_output)
         _LOG.info("Dashboard YAML written to %s", file_path)
         await _notification(

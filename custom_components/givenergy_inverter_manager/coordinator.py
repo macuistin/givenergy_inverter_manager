@@ -40,6 +40,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from datetime import time as dtime
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_FINAL_WRITE
@@ -108,9 +109,13 @@ from .core.rules import monthly_solar_fractions
 from .core.tariff import build_tariff
 from .core.timeutil import elapsed_seconds
 from .discovery import (
+    UNUSED_SLOT_TIME,
+    ActiveChargeSlot,
     EVCharger,
+    describe_charge_slots,
     discover_battery_cycle_entities,
     discover_ev_chargers,
+    find_other_active_charge_slots,
     update_charger_state,
 )
 from .givtcp_writer import GivTCPWriter, SwitchState, state_as_int
@@ -118,10 +123,13 @@ from .immersion_actuator import ImmersionActuator, ImmersionPorts
 from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
+    ClearOutcome,
     async_create_givtcp_missing_issue,
     async_create_min_soc_issue,
+    async_create_other_charge_slots_issue,
     async_delete_givtcp_missing_issue,
     async_delete_min_soc_issue,
+    async_delete_other_charge_slots_issue,
 )
 
 _LOG = get_logger(__name__)
@@ -950,6 +958,50 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             async_create_min_soc_issue(self.hass, min_soc)
         else:
             async_delete_min_soc_issue(self.hass)
+        self._check_other_charge_slots(cfg)
+
+    def _other_charge_slots(self, cfg: dict[str, Any]) -> list[ActiveChargeSlot]:
+        """Charge slots other than the managed one that have a window set. Reads only."""
+        start_entity = cfg.get(CONF_CHARGE_START_TIME_ENTITY)
+        end_entity = cfg.get(CONF_CHARGE_END_TIME_ENTITY)
+        if not (start_entity and end_entity):
+            return []
+        return find_other_active_charge_slots(start_entity, end_entity, self._get_state)
+
+    def _check_other_charge_slots(self, cfg: dict[str, Any]) -> None:
+        """Raise the repair issue while another slot can charge the battery, else clear it."""
+        slots = self._other_charge_slots(cfg)
+        if slots:
+            async_create_other_charge_slots_issue(self.hass, slots)
+        else:
+            async_delete_other_charge_slots_issue(self.hass)
+
+    async def async_clear_other_charge_slots(self) -> ClearOutcome:
+        """Set each other active charge slot back to 00:00 to 00:00, then re-check the issue.
+
+        Called by the repair fix flow. The integration owns one slot, and a leftover
+        slot charges the battery outside the cheapest period. Dry run only records
+        what it would have cleared.
+        """
+        cfg = self._effective_cfg()
+        slots = self._other_charge_slots(cfg)
+        if slots and self.is_dry_run:
+            self._record_skipped(f"Would clear other charge slots: {describe_charge_slots(slots)}")
+            return ClearOutcome.DRY_RUN
+        if slots:
+            _LOG.info("Clearing other charge slots: %s", describe_charge_slots(slots))
+        results = [await self._clear_charge_slot(slot) for slot in slots]
+        self._check_other_charge_slots(cfg)
+        return ClearOutcome.CLEARED if all(results) else ClearOutcome.FAILED
+
+    async def _clear_charge_slot(self, slot: ActiveChargeSlot) -> bool:
+        """Write 00:00:00 to the slot's start, then its end. Stops at the first failed write."""
+        name = f"slot_{slot.number}"
+        return await self._givtcp_set_select(
+            slot.start_entity_id, UNUSED_SLOT_TIME, f"{name}_start_time"
+        ) and await self._givtcp_set_select(
+            slot.end_entity_id, UNUSED_SLOT_TIME, f"{name}_end_time"
+        )
 
     async def _async_update_data(self) -> CoordinatorData:
         """Run one cycle: read inputs, build the snapshot, apply decisions, persist."""
@@ -990,6 +1042,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
                 load_profile=self._acc.slot_load_profile((now + timedelta(days=1)).weekday()),
                 forecast_correction=self._acc.forecast_correction_factor,
+                today_raw_forecast_kwh=self._acc.today_raw_forecast_kwh,
+                today_raw_forecast_p10_kwh=self._acc.today_raw_forecast_p10_kwh,
             ),
         )
         self._attach_stored_totals(data)
@@ -1085,7 +1139,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     def _record_forecast(self, raw: RawSensorValues, data: CoordinatorData) -> None:
         """Feed the forecast accuracy tracking and note whether the inverter is clipping."""
-        self._acc.on_raw_forecast(raw.forecast_kwh_tomorrow)
+        self._acc.on_raw_forecast(raw.forecast_kwh_tomorrow, raw.forecast_kwh_p10)
         if data.is_clipping:
             self._acc.note_clipping()
         if data.charge_decision is not None and data.charge_decision.forecast_kwh > 0:
