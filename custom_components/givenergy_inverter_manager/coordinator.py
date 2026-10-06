@@ -43,7 +43,7 @@ from datetime import time as dtime
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EVENT_HOMEASSISTANT_FINAL_WRITE
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -514,7 +514,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._last_reset_time = self._acc.state.last_reset_iso
         self.entry.async_on_unload(self.async_flush)
         self.entry.async_on_unload(
-            self.hass.bus.async_listen(EVENT_HOMEASSISTANT_FINAL_WRITE, self._async_final_write)
+            self.hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, self._queue_final_write)
         )
 
     async def async_flush(self) -> None:
@@ -522,8 +522,16 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._acc.save_battery_stats(self._battery_stats)
         await self._acc.async_save()
 
-    async def _async_final_write(self, _event: Event) -> None:
-        await self.async_flush()
+    @callback
+    def _queue_final_write(self, _event: Event) -> None:
+        """Hand the shutdown write to the store, which runs it at the final-write stage.
+
+        Writing from our own final-write listener cancels the store's pending listener while
+        HA is still dispatching it, and HA logs an error. The store serialises the state lazily,
+        so energy added between stop and final write is still saved.
+        """
+        self._acc.save_battery_stats(self._battery_stats)
+        self._acc.schedule_save()
 
     # ── Time-triggered callbacks ──────────────────────────────────────────────
 
