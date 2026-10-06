@@ -25,6 +25,7 @@ Each item has a short title, what and why, the evidence, an indicative value per
 
 | Release | Theme |
 |---|---|
+| v0.8.1 | Self-sufficiency is the share of consumption not imported. The options form keeps the saved rate periods when a submission has no period sections |
 | v0.8.0 | Charge decision reads the right day's forecast after midnight. Saving sensors price load at the grid rate in force. A repair, with a one-click fix, for other active charge slots. Settings controls move to an administrators-only sub-view. MoSCoW roadmap |
 | v0.7.0 | Clean Code limits enforced in ruff. One verified GivTCP writer, an immersion actuator, the coordinator update as named steps, the dashboard builder as a package, and golden snapshot tests. No entity id or option changed |
 | v0.6.0 | One source of truth for the charge target override. Dry-run last skipped action kept. Countdowns correct across clock changes. The floor top-up never lowers a higher target. Configured currency in reasons and reports. Shared entity base class. CI runs on every pull request |
@@ -47,7 +48,6 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 | **M4 Correct forecast bias and make the P10 blend work** | Forecast services often run high or low against actual solar. Scale the forecast by the measured actual to forecast ratio. When `forecast_entity_p10` is blank, `forecast_conservatism` (0.35) does nothing. Document how to pick the P10 attribute of your forecast service. The v0.4.0 accuracy correction (clamped 0.6 to 1.2) exists, but its input compared against the wrong day until v0.8.0 | One install: actual output was about 70% of the forecast over a month, and the forecast was too high on most days. Scaling by the measured ratio cut the mean absolute error by more than half | About 35 (low to medium) | M |
 | **M5 Put loss, wear and the window cap into `pre_boost_export_net_gain`** | The gain ignores round-trip loss and wear. It assumes the exported energy can be bought back at the cheap rate, though the cheap window can only deliver the charge rate times its length. `pre_boost_export_recommended` says yes on that basis. Whether battery export earns the export rate is unconfirmed | One install: the shown gain was about four times the realistic one on the nights that qualified, and about 40% of nights qualified | 25 to 35 once correct (low) | S |
 | **M6 Find why band import statistics read 0** | `import_kwh_cheap_today` and `import_kwh_peak_today` show a daily change of 0 on many days although GivTCP shows import, so a band split built from long-term statistics is wrong. Trace the accumulator and the recorder path, then add a test that fails on a zero day | One install: a daily change of 0 on more than half of the days in a month. `grid_import_today` statistics also read 0 on some days while the cost sensor showed spend | Not applicable (accuracy) | M |
-| **M8 Keep stored rate periods when the options form omits them** | `_slots_to_rate_periods` in `config_flow.py` builds the list only from the `rate_period_N` sections it receives and skips any with no name. An options form submitted through the API without them replaces the tariff with an empty list, which means a flat tariff and no charge write-back. Keep the stored periods when a section is missing | Found by reading the options flow. No loss has been reported | Not applicable (data loss) | S |
 
 ---
 
@@ -68,7 +68,6 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 
 | Item | What and why | Evidence | Indicative value per year | Size |
 |---|---|---|---|---|
-| **S7 Fix the self-sufficiency definition** | `self_sufficiency_pct` in `core/tariff.py` subtracts all solar and battery discharge from house, EV and immersion consumption, so exported solar counts as self-used. Use (self-consumed solar + battery discharge) / house load. Document it in `docs/concepts.md` and pin it with a test on a known day. Golden files change | Code review of v0.5.1 | Not applicable | S |
 | **S8 Prompt for the battery cost** | `battery_cost_eur` is 0 by default, so wear is 0 and `net_saving_today` equals `saving_vs_grid_today`. Ask for it in setup, or raise a repair. Wear per kWh delivered is cost / (usable capacity x rated cycles) | With a battery cost of 0 both sensors read the same value | Not applicable (wear sets the margin per kWh) | S |
 | **S9 Define or rename the "peak" import sensors** | `import_kwh_peak_*`, `import_cost_peak_*` and `peak_import_fraction_today` measure the base rate. No peak band is configured. Change the display names and docs to base-rate wording and keep the entity ids, so statistics stay intact | `docs/sensors.md` | Not applicable | S |
 | **S10 Surface tariff mismatches** | GivTCP can hold its own import and export rates. Show the difference in a repair or a diagnostic attribute when they disagree with the tariff entered here, and when a configured value looks implausible, such as a VAT rate that disagrees with the one on the bill. A wrong rate or VAT value scales every cost figure. See open question 2 | Seen on one install: GivTCP and the manager held different rates, which moved total cost by about 5% | Not applicable | S |
@@ -162,7 +161,7 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 2. **One writer for the charge schedule.** S1 and S5 write it. Both go through `GivTCPWriter`, so the verified read-back and write counting apply.
 3. **M3 before S2, S3, S5 and C1.** They need real EV power, and the baseline must exclude the EV.
 4. **M2 before S6 and C5, with S8.** A recommendation or a daily review needs a trustworthy saving. S8 makes net saving include wear.
-5. **S10 settles the tariff.** Do it before trusting any money figure on this page. M8 stops the options form wiping the tariff while you edit it.
+5. **S10 settles the tariff.** Do it before trusting any money figure on this page.
 6. **S17 before C1 to C4, N6 and N7.** The device list is the foundation. C1 comes before C3. C2 comes before N7. C17 comes before N8. S4 comes before N4.
 7. **S1, S2 and S4 share the cheapest window.** The battery, the EV and the immersion can together draw more than the supply allows. Do C19 or add a supply limit check before enabling more than one by default.
 8. **C12 between stacks, then C11.** The layout move touches `coordinator.py`. Fix the types after the move, so each error is fixed once at its final path.
@@ -196,6 +195,17 @@ Comment on a GitHub issue to weigh in.
 ---
 
 ## Changelog
+
+### v0.8.1
+
+Small fixes. No entity id or option name changes.
+
+**Fixes**
+- Self-sufficiency read 100% on days with grid import. It is now one minus import over house
+  load, clamped to 0 to 100%. Energy the battery took from the grid counts as import, so
+  charging from the grid lowers the figure on the day it is bought. (#194)
+- Saving the options with only the fields that changed no longer clears the timed rate
+  periods. The options form in the UI was not affected. (#195)
 
 ### v0.8.0
 
