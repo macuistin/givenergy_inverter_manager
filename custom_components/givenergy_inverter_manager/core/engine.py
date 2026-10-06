@@ -96,13 +96,11 @@ from .rules import (
     ImmersionInputs,
     ImmersionRun,
     PowerReadings,
-    PreBoostInputs,
     SolarForecast,
     SurplusInputs,
     WaterState,
     available_surplus_w,
     calculate_overnight_charge_target,
-    calculate_pre_boost_export_opportunity,
     decide_ev_charger_action,
     should_divert_to_immersion,
 )
@@ -222,9 +220,6 @@ class CoordinatorData:
     battery_throughput_budget_status: str = ""
     saving_vs_grid_today: float = 0.0
     net_saving_today: float = 0.0
-    pre_boost_export_kwh: float = 0.0
-    pre_boost_export_net_gain: float = 0.0
-    pre_boost_export_recommended: bool = False
     ev_km_charged_today: float | None = None
     ev_cost_per_km_today: float | None = None
     cheapest_rate: float = 0.0
@@ -1095,25 +1090,6 @@ def _set_savings_fields(data: CoordinatorData) -> None:
     data.net_saving_today = round(data.saving_vs_grid_today - battery_wear_today, 4)
 
 
-def _set_pre_boost_export(data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float) -> None:
-    if data.charge_decision is None:
-        return
-    (
-        data.pre_boost_export_kwh,
-        data.pre_boost_export_net_gain,
-        data.pre_boost_export_recommended,
-    ) = calculate_pre_boost_export_opportunity(
-        PreBoostInputs(
-            current_soc=cycle.raw.battery_soc,
-            battery_capacity_kwh=cycle.raw.battery_capacity_kwh,
-            target_soc=data.charge_decision.target_soc,
-            avg_daily_kwh=avg_daily_kwh,
-            ceg_rate=cycle.tariff.export_rate,
-            cheapest_rate=cycle.tariff.get_cheapest_rate().rate,
-        )
-    )
-
-
 def _carbon_intensity_status(intensity_gco2: float | None) -> str:
     if intensity_gco2 is None:
         return CARBON_STATUS_UNKNOWN
@@ -1174,14 +1150,11 @@ def _set_decisions(data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float) -
     _set_inverter_temperature(data, cycle.raw.inverter_temp)
 
 
-def _set_money_fields(
-    data: CoordinatorData, cycle: _Cycle, accumulators: Accumulators, avg_daily_kwh: float
-) -> None:
-    """Bill, savings, battery budget and the pre-boost export; they read the decisions above."""
+def _set_money_fields(data: CoordinatorData, cycle: _Cycle, accumulators: Accumulators) -> None:
+    """Bill, savings and battery budget; they read the decisions above."""
     _set_bill_fields(data, cycle, accumulators)
     _set_savings_fields(data)
     _set_throughput_budget(data, cycle.cfg)
-    _set_pre_boost_export(data, cycle, avg_daily_kwh)
 
 
 def build_coordinator_data(
@@ -1211,7 +1184,7 @@ def build_coordinator_data(
     avg_daily_kwh = estimate_avg_daily_kwh(data.today.house_kwh, now)
 
     _set_decisions(data, cycle, avg_daily_kwh)
-    _set_money_fields(data, cycle, accumulators, avg_daily_kwh)
+    _set_money_fields(data, cycle, accumulators)
     _calculate_ev_km(data, accumulators.today, inputs.cfg)
     _calculate_night_survival(data, cycle, avg_daily_kwh)
     _set_carbon_intensity(data, inputs.raw)

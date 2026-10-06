@@ -2,7 +2,7 @@
 
 golden_rules_grid.json was generated from the rules before they were split into small
 steps. Inputs were drawn at random (fixed seed) from edge-heavy value sets, so every
-branch of the charge target, immersion divert, appliance, surplus and pre-boost rules
+branch of the charge target, immersion divert, appliance and surplus rules
 is hit. Each row holds the flat inputs and the exact output. A refactor must reproduce
 every row, including the reason strings.
 """
@@ -19,7 +19,6 @@ from custom_components.givenergy_inverter_manager.core.rules import monthly_sola
 from tests.core.flat_rules import (
     available_surplus_w,
     calculate_overnight_charge_target,
-    calculate_pre_boost_export_opportunity,
     should_divert_to_immersion,
     suggest_appliance_run,
 )
@@ -60,8 +59,3 @@ def test_appliance_run_grid(row):
 @pytest.mark.parametrize("row", _GRID["surplus"])
 def test_available_surplus_grid(row):
     assert available_surplus_w(**row["in"]) == row["out"]
-
-
-@pytest.mark.parametrize("row", _GRID["pre_boost"])
-def test_pre_boost_export_grid(row):
-    assert list(calculate_pre_boost_export_opportunity(**row["in"])) == row["out"]

@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 148 sensors. 89 are enabled by default and 59 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 145 sensors. 89 are enabled by default and 56 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches, numbers and the button, see [Entities](entities.md).
 
@@ -151,9 +151,6 @@ Outputs of the overnight charge calculation.
 | Battery Night Survival Status | `night_survival_reason` | - | - | none | no | yes | Whether the battery should last until 08:00, with any shortfall. The charge plan does not skip a night this sensor calls Critical. Diagnostic category. |
 | Night Survival Confidence | `night_survival_confidence` | - | - | none | no | no | Safe, Warning (within 5 points of minimum SoC) or Critical. The attributes say why and give the numbers. |
 | Cheap Rate Floor | `cheap_rate_floor_status` | - | - | none | no | yes | State of the cheap rate floor top-up, or Inactive. Diagnostic category. |
-| Pre-boost export recommended | `pre_boost_export_recommended` | - | - | none | no | no | yes when spare kWh is 1 or more and exporting pays. |
-| Pre-boost exportable kWh | `pre_boost_export_kwh` | kWh | energy | none | no | no | Stored kWh above tonight's charge need and 25% of the average daily load. |
-| Pre-boost export net gain | `pre_boost_export_net_gain` | currency | monetary | none | no | no | Spare kWh times (export rate minus cheapest rate). |
 
 ## Immersion
 
@@ -284,3 +281,13 @@ The state is a one-line summary. The `html` attribute holds a styled report for 
 | Dry Run Mode Active | `dry_run_active` | - | - | none | no | yes | True when dry run mode is on. Diagnostic category. |
 | Last Skipped Action (Dry Run) | `dry_run_last_skipped` | - | - | none | no | yes | The last action dry run mode held back. Diagnostic category. |
 | Integration Version | `integration_version` | - | - | none | no | no | Installed integration version. Diagnostic category. |
+
+## Removed sensors
+
+These sensors were removed. The integration never writes or advises forced battery export, and the gain figure was wrong. Setup deletes their entries from the entity registry. A dashboard card or automation that still uses one shows `unavailable` or `unknown` until you remove the reference.
+
+| Sensor | Key |
+|---|---|
+| Pre-boost export recommended | `pre_boost_export_recommended` |
+| Pre-boost exportable kWh | `pre_boost_export_kwh` |
+| Pre-boost export net gain | `pre_boost_export_net_gain` |

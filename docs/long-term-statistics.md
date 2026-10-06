@@ -36,7 +36,7 @@ Other classes in use:
 | `measurement` | Power, SoC, rates, percentages and other values that move up and down freely |
 | `total`, no `last_reset` | Battery Total Cycles and GivTCP Register Write Count, which only go up |
 | `total_increasing` | EV Session Energy. Home Assistant detects the drop when a new session starts |
-| none | Yesterday values, trailing 12-month sensors, estimates such as Projected Bill This Period, the solar forecast, text sensors and the pre-boost export estimates |
+| none | Yesterday values, trailing 12-month sensors, estimates such as Projected Bill This Period, the solar forecast and text sensors |
 
 Yesterday and trailing 12-month values are not cumulative. They are a snapshot that is replaced once a day or once a bill period, so they have no state class and Home Assistant keeps no statistics for them.
 
@@ -70,7 +70,7 @@ To check a sensor, compare the daily change in Statistics with its Yesterday sen
 
 Existing statistics keep their history. Home Assistant raises a repair, "no longer has a state class", for each sensor that lost its state class. These repairs have no Fix button. Open **Developer Tools → Statistics**, find the sensor, choose **Fix issue** and delete its old statistics. The repair then closes. Nothing is lost that you need: the old sums for the sensors below contain negative steps at every reset.
 
-Going from v0.3.0 to v0.4.0 raises 13 of these repairs: the seven yesterday sensors, the five trailing 12-month sensors and the solar forecast. Going from v0.2.1 to v0.3.0 raised two more, for the pre-boost export estimates. You can also choose **Ignore** on a repair, which hides it and leaves the old statistics in place.
+Going from v0.3.0 to v0.4.0 raises 13 of these repairs: the seven yesterday sensors, the five trailing 12-month sensors and the solar forecast. You can also choose **Ignore** on a repair, which hides it and leaves the old statistics in place.
 
 Gain `last_reset` (state class stays `total`):
 
