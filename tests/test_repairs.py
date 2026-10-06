@@ -72,3 +72,18 @@ def test_other_charge_slots_issue_is_fixable_and_names_the_slots():
     assert kwargs["is_fixable"] is True
     assert kwargs["translation_placeholders"] == {"slots": "Slot 2 (00:00 to 08:00)"}
     assert kwargs["learn_more_url"] == repairs.LEARN_MORE_URLS[repairs.ISSUE_OTHER_CHARGE_SLOTS_ACTIVE]
+
+
+def test_fixable_issues_have_no_issue_level_description():
+    """hassfest rejects a description beside a fix_flow; the confirm step holds the text."""
+    import json
+
+    strings = json.loads(
+        (_DOC.parents[1] / "custom_components/givenergy_inverter_manager/strings.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for key, issue in strings["issues"].items():
+        if "fix_flow" in issue:
+            assert "description" not in issue, key
+            assert issue["fix_flow"]["step"], key
