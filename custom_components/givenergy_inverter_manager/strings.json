@@ -152,10 +152,10 @@
         "data_description": {
           "forecast_provider": "Which integration supplies your forecast. This is a note only, the sensors below are what the integration reads.",
           "forecast_entity": "Sensor giving tomorrow's expected solar energy in kWh. Empty means a seasonal estimate from your latitude is used.",
-          "forecast_entity_p10": "Optional sensor giving a pessimistic forecast for tomorrow in kWh. Empty means forecast conservatism has no effect.",
+          "forecast_entity_p10": "Optional. A sensor whose state is the pessimistic (P10) forecast for tomorrow in kWh. A sensor attribute cannot be picked here, so with Solcast create a Template Helper that reads the estimate10 attribute of the tomorrow sensor (see the configuration docs). Empty means forecast conservatism has no effect.",
           "forecast_entity_d2": "Optional sensor giving the forecast for the day after tomorrow in kWh. It is read but does not change the charge target yet.",
           "carbon_intensity_entity": "Optional sensor in g CO2/kWh that feeds the carbon sensors. Empty means those sensors have no data.",
-          "forecast_conservatism": "How far to lean on the pessimistic forecast, from 0 to 1. 0 uses the plain forecast, 1 uses the pessimistic one. Needs the pessimistic sensor."
+          "forecast_conservatism": "How far to lean on the pessimistic forecast, from 0 to 1. 0 uses the plain forecast, 1 uses the pessimistic one. Does nothing until the pessimistic sensor above is set and has a value."
         }
       },
       "immersion": {
@@ -482,10 +482,10 @@
             "data_description": {
               "forecast_provider": "Which integration supplies your forecast. This is a note only, the sensors below are what the integration reads.",
               "forecast_entity": "Sensor giving tomorrow's expected solar energy in kWh. Empty means a seasonal estimate from your latitude is used.",
-              "forecast_entity_p10": "Optional sensor giving a pessimistic forecast for tomorrow in kWh. Empty means forecast conservatism has no effect.",
+              "forecast_entity_p10": "Optional. A sensor whose state is the pessimistic (P10) forecast for tomorrow in kWh. A sensor attribute cannot be picked here, so with Solcast create a Template Helper that reads the estimate10 attribute of the tomorrow sensor (see the configuration docs). Empty means forecast conservatism has no effect.",
               "forecast_entity_d2": "Optional sensor giving the forecast for the day after tomorrow in kWh. It is read but does not change the charge target yet.",
               "carbon_intensity_entity": "Optional sensor in g CO2/kWh that feeds the carbon sensors. Empty means those sensors have no data.",
-              "forecast_conservatism": "How far to lean on the pessimistic forecast, from 0 to 1. 0 uses the plain forecast, 1 uses the pessimistic one. Needs the pessimistic sensor."
+              "forecast_conservatism": "How far to lean on the pessimistic forecast, from 0 to 1. 0 uses the plain forecast, 1 uses the pessimistic one. Does nothing until the pessimistic sensor above is set and has a value."
             }
           },
           "hardware_settings": {

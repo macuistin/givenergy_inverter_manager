@@ -402,6 +402,15 @@ def _integration_forecast(forecast_kwh: float, correction: float | None) -> _Res
     return _ResolvedForecast(kwh=forecast_kwh, source=source)
 
 
+def _missing_p10_note(forecast: SolarForecast) -> str:
+    """Say so when conservatism is set but the integration forecast has no P10 to blend with."""
+    if forecast.forecast_kwh is None or forecast.forecast_kwh_p10 is not None:
+        return ""
+    if forecast.forecast_conservatism <= 0.0:
+        return ""
+    return ", no P10 forecast so conservatism is unused"
+
+
 def _resolve_forecast(
     inputs: ChargeInputs, forecast: SolarForecast, month: int
 ) -> _ResolvedForecast:
@@ -412,7 +421,9 @@ def _resolve_forecast(
     blended_kwh, blend_suffix = _blend_forecast_p10(
         base.kwh, forecast.forecast_kwh_p10, forecast.forecast_conservatism
     )
-    return _ResolvedForecast(kwh=blended_kwh, source=base.source + blend_suffix)
+    return _ResolvedForecast(
+        kwh=blended_kwh, source=base.source + blend_suffix + _missing_p10_note(forecast)
+    )
 
 
 def _is_skip_candidate(tonight: _Tonight) -> bool:
