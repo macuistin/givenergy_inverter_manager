@@ -155,6 +155,13 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: round(d.today.self_sufficiency_pct, 1),
     ),
     GivEnergyManagerSensorDescription(
+        key="solar_share",
+        translation_key="solar_share",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: round(d.today.solar_share_pct, 1),
+    ),
+    GivEnergyManagerSensorDescription(
         key="self_consumption",
         translation_key="self_consumption",
         native_unit_of_measurement=PERCENTAGE,

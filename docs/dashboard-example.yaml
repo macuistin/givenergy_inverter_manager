@@ -341,6 +341,16 @@ views:
       grid_options:
         columns: full
     - type: tile
+      entity: sensor.givenergy_inverter_manager_solar_share
+      name: Solar share
+      color: amber
+      features:
+      - type: bar-gauge
+        min: 0
+        max: 100
+      grid_options:
+        columns: full
+    - type: tile
       entity: sensor.givenergy_inverter_manager_self_consumption
       name: Self-consumption
       color: amber

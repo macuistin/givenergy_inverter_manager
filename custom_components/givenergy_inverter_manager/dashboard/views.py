@@ -482,6 +482,7 @@ class Builder:
             heading_card("Solar", "mdi:weather-sunny", nav=self.go(SUB_SOLAR)),
             [
                 self.tile("self_sufficiency", "Self-sufficiency", **share),
+                self.tile("solar_share", "Solar share", **share),
                 self.tile("self_consumption", "Self-consumption", **share),
             ],
         )

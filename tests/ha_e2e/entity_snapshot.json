@@ -725,6 +725,26 @@
   "name": "Solar Power"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_share",
+  "key": "solar_share",
+  "name": "Solar Share"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_share_this_month",
+  "key": "solar_share_this_month",
+  "name": "Solar share this month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_share_this_week",
+  "key": "solar_share_this_week",
+  "name": "Solar share this week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_share_yesterday",
+  "key": "solar_share_yesterday",
+  "name": "Solar share yesterday"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_solar_trailing_12_months",
   "key": "solar_trailing_12m",
   "name": "Solar — trailing 12 months"

@@ -86,4 +86,13 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.self_sufficiency_pct, 1),
     ),
+    GivEnergyManagerSensorDescription(
+        key="solar_share_yesterday",
+        translation_key="solar_share_yesterday",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:solar-power",
+        entity_registry_enabled_default=True,
+        value_fn=lambda d: round(d.yesterday.solar_share_pct, 1),
+    ),
 )

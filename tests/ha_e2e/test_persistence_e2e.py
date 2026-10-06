@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import pytest
 from conftest import MIDDAY
-from homeassistant.const import EVENT_HOMEASSISTANT_FINAL_WRITE
+from homeassistant.const import EVENT_HOMEASSISTANT_FINAL_WRITE, EVENT_HOMEASSISTANT_STOP
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
@@ -111,6 +111,8 @@ async def test_home_assistant_stop_writes_the_accumulators_to_storage(
     await hass.async_block_till_done()
     config_entry.runtime_data._acc.state.week.solar_kwh = 31.5
 
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_STOP)
+    await hass.async_block_till_done()
     hass.bus.async_fire(EVENT_HOMEASSISTANT_FINAL_WRITE)
     await hass.async_block_till_done()
 

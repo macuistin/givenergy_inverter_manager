@@ -156,6 +156,12 @@ Other brands get the signals only.
 
 Every cycle the grid import is priced at the current rate, after supplier discount and VAT, and split between the EV, the immersion and the rest of the house by their share of the house load. Export earns the export rate. See [Tariff](tariff.md#bill-line-items).
 
+### Self-sufficiency, solar share and self-consumption
+
+Three percentages answer three questions. **Self-sufficiency** is the share of what the house used that you did not buy from the grid. It counts any import, so charging the battery from the grid overnight lowers it. **Solar share** is the share of what the house used that your own solar covered: solar generated minus exported, over the house load. Grid import does not change it. **Self-consumption** is the share of your solar that you used on site rather than exported. The house load includes the EV charger and the immersion in all three.
+
+Example: the house uses 10 kWh, generates 8 kWh of solar, exports 2 kWh and imports 5 kWh (3 kWh of it to charge the battery overnight). Self-sufficiency is 50% (5 kWh of 10 kWh not bought). Solar share is 60% (6 kWh of solar kept, over 10 kWh used). Self-consumption is 75% (6 kWh of 8 kWh kept). Use self-sufficiency to see how much you bought, solar share to see how much your own solar covered, and self-consumption to see how much of your solar you used.
+
 ### Dry run
 
 With dry run on, all decisions and sensors update. No charge target, floor, EV mode or immersion command is sent. The Last Skipped Action sensor shows the latest charge target, EV mode or automatic immersion command held back. The cheap rate floor reports through the Cheap Rate Floor sensor. The log carries a `DRY RUN` line for each one. Manual presses of the managed immersion switch also skip the real switch.

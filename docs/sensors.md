@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 144 sensors. 85 are enabled by default and 59 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 148 sensors. 89 are enabled by default and 59 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches, numbers and the button, see [Entities](entities.md).
 
@@ -102,6 +102,7 @@ Percentages worked out from today's totals.
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Self Sufficiency | `self_sufficiency` | % | - | measurement | no | yes | Share of consumption, EV and immersion included, that was not bought from the grid. |
+| Solar Share | `solar_share` | % | - | measurement | no | yes | Share of consumption met by solar generated and kept on site (generation minus export, battery storage included). Grid import and battery discharge do not count. 0 with no consumption. |
 | Self Consumption | `self_consumption` | % | - | measurement | no | yes | Share of today's solar that was not exported. 0 with no solar. |
 | Peak rate import fraction | `peak_import_fraction_today` | % | - | measurement | no | yes | Share of today's import that was at the base rate. |
 | Solar Capture Efficiency Today | `solar_capture_efficiency_today` | % | - | measurement | no | no | Solar generated minus missed solar, as a share of solar. |
@@ -212,6 +213,7 @@ Yesterday's totals, copied from today's accumulator at midnight. They have no st
 | Import at peak rate yesterday | `import_kwh_peak_yesterday` | kWh | energy | none | no | yes | - |
 | Immersion savings yesterday | `immersion_savings_yesterday` | currency | - | none | no | yes | - |
 | Self-sufficiency yesterday | `self_sufficiency_yesterday` | % | - | measurement | no | yes | - |
+| Solar share yesterday | `solar_share_yesterday` | % | - | measurement | no | yes | - |
 
 ## This week
 
@@ -228,6 +230,7 @@ Resets at midnight on Monday. Reports `last_reset` as the start of the week.
 | Import at peak rate this week | `import_kwh_peak_this_week` | kWh | energy | total | week | yes | - |
 | Immersion savings this week | `immersion_savings_this_week` | currency | - | total | week | yes | - |
 | Self-sufficiency this week | `self_sufficiency_this_week` | % | - | measurement | no | yes | - |
+| Solar share this week | `solar_share_this_week` | % | - | measurement | no | yes | - |
 | Cheap rate import fraction this week | `cheap_import_fraction_this_week` | % | - | measurement | no | no | - |
 
 ## This month
@@ -245,6 +248,7 @@ Resets at midnight on the bill start day chosen at setup. Reports `last_reset` a
 | Import at peak rate this month | `import_kwh_peak_this_month` | kWh | energy | total | month | yes | - |
 | Immersion savings this month | `immersion_savings_this_month` | currency | - | total | month | yes | - |
 | Self-sufficiency this month | `self_sufficiency_this_month` | % | - | measurement | no | yes | - |
+| Solar share this month | `solar_share_this_month` | % | - | measurement | no | yes | - |
 | Cheap rate import fraction this month | `cheap_import_fraction_this_month` | % | - | measurement | no | no | - |
 | Net Financial Position This Month | `net_position_this_month` | currency | monetary | total | month | no | - |
 

@@ -779,6 +779,10 @@ class _MemoryStore:
     def __init__(self, saved: dict | None = None):
         self.saved = saved
         self.saves = 0
+        self.pending_data_func = None
+
+    def async_delay_save(self, data_func, delay=0):
+        self.pending_data_func = data_func
 
     async def async_load(self):
         return self.saved
@@ -944,7 +948,7 @@ class TestDurablePersistence:
         self, monkeypatch
     ):
         from custom_components.givenergy_inverter_manager.coordinator import (
-            EVENT_HOMEASSISTANT_FINAL_WRITE,
+            EVENT_HOMEASSISTANT_STOP,
         )
 
         coord, store = _coord_with_real_store(
@@ -960,12 +964,14 @@ class TestDurablePersistence:
         assert coord.async_flush in on_unload
         assert stop_remover in on_unload
         coord.hass.bus.async_listen.assert_called_once_with(
-            EVENT_HOMEASSISTANT_FINAL_WRITE, coord._async_final_write
+            EVENT_HOMEASSISTANT_STOP, coord._queue_final_write
         )
 
         store.state.week.solar_kwh = 12.0
-        await coord._async_final_write(MagicMock())
-        assert store._store.saved["week"]["solar_kwh"] == pytest.approx(12.0)
+        coord._battery_stats.total_cycles = 3.5
+        coord._queue_final_write(MagicMock())
+        assert store._store.pending_data_func()["week"]["solar_kwh"] == pytest.approx(12.0)
+        assert store._store.pending_data_func()["battery_cycles"] == pytest.approx(3.5)
 
 
 class TestMidnightReset:

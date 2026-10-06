@@ -224,6 +224,47 @@ class TestAvgImportRateSensors:
         assert _BY_KEY[key].state_class is SensorStateClass.MEASUREMENT
 
 
+class TestSolarShareSensors:
+    """Solar share reads solar_share_pct of the matching period, to one decimal place."""
+
+    _PERIODS = (
+        ("solar_share", "today"),
+        ("solar_share_yesterday", "yesterday"),
+        ("solar_share_this_week", "week"),
+        ("solar_share_this_month", "month"),
+    )
+
+    @pytest.mark.parametrize(("key", "period"), _PERIODS)
+    def test_value_fn_reads_the_period_and_rounds(self, key, period):
+        data = CoordinatorData()
+        acc = getattr(data, period)
+        acc.house_kwh = 30.0
+        acc.solar_kwh = 12.0
+        acc.export_kwh = 1.0
+        assert _lambda_for(key)(data) == pytest.approx(36.7)
+
+    @pytest.mark.parametrize(("key", "period"), _PERIODS)
+    def test_value_fn_is_zero_with_no_consumption(self, key, period):
+        assert _lambda_for(key)(CoordinatorData()) == 0.0
+
+    @pytest.mark.parametrize(("key", "period"), _PERIODS)
+    def test_percentage_measurement_enabled_by_default(self, key, period):
+        description = _BY_KEY[key]
+        assert description.native_unit_of_measurement == "%"
+        assert description.state_class is SensorStateClass.MEASUREMENT
+        assert description.entity_registry_enabled_default is True
+
+    @pytest.mark.parametrize(("key", "period"), _PERIODS)
+    def test_matches_the_self_sufficiency_sibling_declaration(self, key, period):
+        sibling = _BY_KEY[key.replace("solar_share", "self_sufficiency")]
+        description = _BY_KEY[key]
+        assert description.entity_registry_enabled_default == (
+            sibling.entity_registry_enabled_default
+        )
+        assert description.state_class is sibling.state_class
+        assert description.native_unit_of_measurement == sibling.native_unit_of_measurement
+
+
 class TestEfficiencySensors:
     @pytest.mark.parametrize(
         ("key", "period"),

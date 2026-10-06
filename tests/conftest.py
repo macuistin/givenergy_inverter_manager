@@ -66,7 +66,7 @@ _const.UnitOfPower = MagicMock()
 _const.UnitOfEnergy = MagicMock()
 _const.UnitOfTemperature = MagicMock()
 _const.EntityCategory = MagicMock()
-_const.EVENT_HOMEASSISTANT_FINAL_WRITE = "homeassistant_final_write"
+_const.EVENT_HOMEASSISTANT_STOP = "homeassistant_stop"
 
 # --- homeassistant.config_entries ---
 _ce = sys.modules["homeassistant.config_entries"]
