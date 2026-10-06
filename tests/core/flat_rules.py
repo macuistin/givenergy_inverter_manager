@@ -9,7 +9,6 @@ no logic of their own, so a test through here exercises exactly the production p
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
 from custom_components.givenergy_inverter_manager.const import (
     DEFAULT_CURRENCY_SYMBOL,
@@ -26,7 +25,6 @@ from custom_components.givenergy_inverter_manager.core.rules import (
     ImmersionInputs,
     ImmersionRun,
     PowerReadings,
-    PreBoostInputs,
     RateContext,
     SiteReadings,
     SolarForecast,
@@ -160,10 +158,6 @@ def available_surplus_w(
             solar_power_w, house_load_w, battery_power_w, immersion_on, immersion_power_w
         )
     )
-
-
-def calculate_pre_boost_export_opportunity(**kwargs: Any) -> tuple[float, float, bool]:
-    return rules.calculate_pre_boost_export_opportunity(PreBoostInputs(**kwargs))
 
 
 def _simulate_min_soc(

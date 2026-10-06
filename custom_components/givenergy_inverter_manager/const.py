@@ -209,7 +209,6 @@ CHARGE_WINTER_SKIP_SOC_PCT = 95  # %
 CHARGE_MIN_TARGET_HEADROOM_PCT = 5  # SoC points above min SoC
 
 CHARGE_PEAK_SOLAR_HOURS = 4.0  # peak-output hours assumed when no forecast available
-CHARGE_MORNING_LOAD_FRACTION = 0.25  # fraction of daily load consumed before solar starts
 CHARGE_SOLAR_USABLE_FRACTION = 0.6  # fraction of forecast kWh we can realistically charge from
 CHARGE_SKIP_HEADROOM = 0.8  # forecast/fill headroom needed to justify skipping charge
 CHARGE_STRONG_BUFFER = 10  # SoC points added above gap for strong forecast
