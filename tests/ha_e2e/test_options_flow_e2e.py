@@ -147,6 +147,23 @@ async def test_options_save_tariff_change_takes_effect(hass, loaded_entry):
     assert loaded_entry.state is ConfigEntryState.LOADED
 
 
+async def test_options_saved_without_rate_period_sections_keep_the_tariff(hass, loaded_entry):
+    """A client that sends only the fields it changes must not clear the timed rates."""
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    user_input = frontend_payload(result, tariff_settings={"vat_rate": 13.5})
+    for slot in [name for name in user_input if name.startswith("rate_period_")]:
+        del user_input[slot]
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=user_input
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert loaded_entry.options["vat_rate"] == pytest.approx(13.5)
+    assert [p["name"] for p in loaded_entry.options[CONF_RATE_PERIODS]] == ["Night", "Nightboost"]
+    assert loaded_entry.state is ConfigEntryState.LOADED
+
+
 async def test_cleared_forecast_stays_cleared_when_form_reopens(hass, loaded_entry):
     """After clearing the forecast entity, the next options form must not suggest the old one."""
     # Select a forecast entity through the options flow.

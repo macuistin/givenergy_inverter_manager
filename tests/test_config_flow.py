@@ -744,6 +744,25 @@ class TestOptionsFlowSavedValues:
         flow = self._flow({"rate_periods": []}, {"rate_periods": [{"name": "Night"}]})
         assert flow._get("rate_periods", [{"name": "default"}]) == []
 
+    def test_a_submission_without_rate_period_sections_keeps_the_saved_periods(self):
+        saved = [{"name": "Night", "rate": 0.18, "start": "23:00", "end": "08:00"}]
+        flow = self._flow({"rate_periods": saved}, {})
+        assert flow._submitted_rate_periods({"tariff_settings": {}}) == saved
+
+    def test_a_submission_with_empty_sections_clears_the_periods(self):
+        saved = [{"name": "Night", "rate": 0.18, "start": "23:00", "end": "08:00"}]
+        flow = self._flow({"rate_periods": saved}, {})
+        empty = {"name": "", "rate": 0.0, "start": "00:00:00", "end": "00:00:00"}
+        assert flow._submitted_rate_periods({"rate_period_1": empty}) == []
+
+    def test_a_submission_with_a_section_replaces_the_saved_periods(self):
+        saved = [{"name": "Night", "rate": 0.18, "start": "23:00", "end": "08:00"}]
+        flow = self._flow({"rate_periods": saved}, {})
+        section = {"name": "Boost", "rate": 0.1, "start": "02:00:00", "end": "04:00:00"}
+        assert flow._submitted_rate_periods({"rate_period_1": section}) == [
+            {"name": "Boost", "rate": 0.1, "start": "02:00", "end": "04:00"}
+        ]
+
     def test_unset_option_uses_setup_value(self):
         flow = self._flow({}, {"base_rate": 0.31})
         assert flow._get("base_rate", 0.2) == 0.31
