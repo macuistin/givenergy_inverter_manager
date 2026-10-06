@@ -27,6 +27,7 @@ from custom_components.givenergy_inverter_manager.const import (
 from tests.helpers import ROOT
 
 ENTRY_ID = "test_entry_123"
+ADMIN_ID = "a0b1c2d3e4f5061728394a5b6c7d8e9f"
 _SCRIPT = ROOT / "scripts" / "gen_sensor_docs.py"
 _DEVICE_SLUG = "givenergy_inverter_manager"
 
@@ -191,15 +192,16 @@ def dashboard_text(
     registry: FakeRegistry | None = None,
     *,
     resources: list[str] | None = None,
+    admin_ids: tuple[str, ...] = (ADMIN_ID,),
     ev_brand: str | None = "myenergi",
     states: tuple[str, ...] = (),
 ) -> str:
     """The generated dashboard YAML. Defaults: every feature configured, every sensor enabled."""
-    from custom_components.givenergy_inverter_manager.dashboard import render_dashboard
+    from custom_components.givenergy_inverter_manager.dashboard import HostFacts, render_dashboard
 
     entry = fake_entry(FULL_CONFIG if config is None else config, ev_brand)
     registry = registry or FakeRegistry(enable_all=True)
-    return render_dashboard(fake_states_hass(states), entry, resources, registry)[0]
+    return render_dashboard(fake_states_hass(states), entry, HostFacts(resources, admin_ids), registry)[0]
 
 
 def dashboard_dict(
@@ -207,12 +209,13 @@ def dashboard_dict(
     registry: FakeRegistry | None = None,
     *,
     resources: list[str] | None = None,
+    admin_ids: tuple[str, ...] = (ADMIN_ID,),
     ev_brand: str | None = "myenergi",
     states: tuple[str, ...] = (),
 ) -> dict:
     """The generated dashboard as a dict, before it is serialised."""
-    from custom_components.givenergy_inverter_manager.dashboard import build_dashboard
+    from custom_components.givenergy_inverter_manager.dashboard import HostFacts, build_dashboard
 
     entry = fake_entry(FULL_CONFIG if config is None else config, ev_brand)
     registry = registry or FakeRegistry(enable_all=True)
-    return build_dashboard(fake_states_hass(states), entry, resources, registry)
+    return build_dashboard(fake_states_hass(states), entry, HostFacts(resources, admin_ids), registry)

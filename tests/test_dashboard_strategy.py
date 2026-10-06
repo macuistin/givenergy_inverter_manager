@@ -13,11 +13,13 @@ import json
 import shutil
 import subprocess
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 
 from tests.dashboard_support import (
+    ADMIN_ID,
     ENTRY_ID,
     FULL_CONFIG,
     FakeRegistry,
@@ -119,12 +121,35 @@ def _loaded_entry(state=ConfigEntryState.LOADED, entry_id=ENTRY_ID):
     )
 
 
+def _user(user_id, *, admin, system=False):
+    return SimpleNamespace(id=user_id, is_admin=admin, system_generated=system)
+
+
 class TestDashboardForWebsocket:
-    def _run(self, entries):
+    def _run(self, entries, users=None):
+        users = [_user(ADMIN_ID, admin=True)] if users is None else users
         with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True)) as hass:
             hass.config_entries.async_entries.return_value = entries
             hass.data = {}
+            hass.auth.async_get_users = AsyncMock(return_value=users)
             return asyncio.run(_strategy().async_dashboard_for_websocket(hass))
+
+    def _settings(self, result):
+        return next((v for v in result["views"] if v["path"] == "settings"), None)
+
+    def test_settings_view_is_visible_to_the_administrators_only(self):
+        users = [
+            _user("owner-id", admin=True),
+            _user("child-id", admin=False),
+            _user("supervisor-id", admin=True, system=True),
+            _user("second-admin-id", admin=True),
+        ]
+        settings = self._settings(self._run([_loaded_entry()], users))
+        assert settings["visible"] == [{"user": "owner-id"}, {"user": "second-admin-id"}]
+
+    def test_no_settings_view_when_no_user_is_an_administrator(self):
+        result = self._run([_loaded_entry()], [_user("child-id", admin=False)])
+        assert self._settings(result) is None
 
     def test_returns_the_dashboard_dict(self):
         result = self._run([_loaded_entry()])

@@ -58,27 +58,35 @@ class TestBuildDashboardYaml:
         parsed = yaml.safe_load(result)
         assert "views" in parsed
 
-    def test_has_five_tabs_and_six_sub_views(self):
+    def test_has_four_tabs_and_seven_sub_views(self):
         result = _build()
         parsed = yaml.safe_load(result)
         tabs = [v for v in parsed["views"] if not v.get("subview")]
         subs = [v for v in parsed["views"] if v.get("subview")]
-        assert len(tabs) == 5
-        assert len(subs) == 6
+        assert len(tabs) == 4
+        assert len(subs) == 7
 
     def test_view_titles(self):
         result = _build()
         parsed = yaml.safe_load(result)
         titles = [v["title"] for v in parsed["views"] if not v.get("subview")]
-        assert titles == ["Power Flow", "Today", "Bill", "Battery", "Controls"]
+        assert titles == ["Power Flow", "Today", "Bill", "Battery"]
 
     def test_view_paths(self):
         result = _build()
         parsed = yaml.safe_load(result)
         paths = [v["path"] for v in parsed["views"] if not v.get("subview")]
-        assert paths == ["power-flow", "today", "bill", "battery", "controls"]
+        assert paths == ["power-flow", "today", "bill", "battery"]
         sub_paths = [v["path"] for v in parsed["views"] if v.get("subview")]
-        assert sub_paths == ["immersion", "ev-charger", "cost", "solar", "tariff", "battery-detail"]
+        assert sub_paths == [
+            "immersion",
+            "ev-charger",
+            "cost",
+            "solar",
+            "tariff",
+            "battery-detail",
+            "settings",
+        ]
 
     def test_sensor_references_present(self):
         """Key entities must appear in the output."""
@@ -104,20 +112,19 @@ class TestBuildDashboardYaml:
         for key in required:
             assert eid(key) in result, f"Expected {eid(key)!r} not found in dashboard YAML"
 
-    def test_dry_run_sensors_in_controls(self):
-        """Controls view must include both dry run sensor references."""
+    def test_dry_run_sensors_on_power_flow(self):
+        """The Power Flow tab shows the dry run state, which anyone may read."""
         result = _build()
         parsed = yaml.safe_load(result)
-        controls_view = next(v for v in parsed["views"] if v["title"] == "Controls")
-        view_yaml = yaml.dump(controls_view)
+        view_yaml = yaml.dump(next(v for v in parsed["views"] if v["path"] == "power-flow"))
         assert eid("dry_run_active") in view_yaml
         assert eid("dry_run_last_skipped") in view_yaml
 
     def test_dry_run_warning_is_only_shown_while_dry_run_is_active(self):
         """The dry run section carries a visibility condition on the dry run sensor."""
         parsed = yaml.safe_load(_build())
-        controls_view = next(v for v in parsed["views"] if v["title"] == "Controls")
-        hidden = [s for s in controls_view["sections"] if "visibility" in s]
+        power_flow = next(v for v in parsed["views"] if v["path"] == "power-flow")
+        hidden = [s for s in power_flow["sections"] if "visibility" in s]
         assert len(hidden) == 1
         assert hidden[0]["visibility"] == [
             {"condition": "state", "entity": eid("dry_run_active"), "state": "True"}
@@ -209,6 +216,7 @@ class TestPowerFlowTabChanges:
         pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
         assert [s["cards"][0]["heading"] for s in pf_view["sections"]] == [
             "Now",
+            "Dry run is on",
             "Live power flow",
             "Energy today",
         ]
@@ -268,11 +276,11 @@ class TestDashboardImprovements:
         ]:
             assert eid(key) in result, f"Expected {eid(key)!r} in dashboard YAML"
 
-    def test_immersion_temp_numbers_in_controls(self):
-        """Immersion temperature number entities must appear in the Controls view."""
+    def test_immersion_temp_numbers_in_settings(self):
+        """Immersion temperature number entities must appear in the Settings view."""
         result = _build()
         parsed = yaml.safe_load(result)
-        controls_view = next(v for v in parsed["views"] if v.get("path") == "controls")
+        controls_view = next(v for v in parsed["views"] if v.get("path") == "settings")
         controls_yaml = yaml.dump(controls_view)
         assert eid("immersion_target_temp") in controls_yaml
         assert eid("immersion_min_temp") in controls_yaml
@@ -304,9 +312,9 @@ class TestIncomeBar:
     """Live cost rate is embedded in the grid node secondary_info (no separate markdown card)."""
 
     def test_no_income_markdown_card_on_power_flow(self):
-        card_types = [c["type"] for c in _cards(_build(), "power-flow")]
-        assert "markdown" not in card_types, (
-            "Income bar is now on the grid node — no separate markdown card needed"
+        markdown = [c for c in _cards(_build(), "power-flow") if c["type"] == "markdown"]
+        assert all("Dry Run" in c["content"] for c in markdown), (
+            "Income bar is now on the grid node — only the dry run banner is markdown"
         )
 
     def test_income_bar_references_grid_power(self):
@@ -458,7 +466,7 @@ class TestEntityAvailability:
 
     def test_dashboard_is_never_empty(self):
         parsed = yaml.safe_load(_build(config=MINIMAL_CONFIG, registry=FakeRegistry()))
-        assert [v["path"] for v in parsed["views"] if not v.get("subview")] == ["power-flow", "today", "bill", "battery", "controls"]
+        assert [v["path"] for v in parsed["views"] if not v.get("subview")] == ["power-flow", "today", "bill", "battery"]
 
 
 class TestFeatureGating:
@@ -1199,8 +1207,8 @@ class TestSectionsLayout:
             if card["type"] == "markdown":
                 assert card["grid_options"]["columns"] == "full"
 
-    def test_controls_use_tile_features(self):
-        tiles = [c for c in _cards(_build(), "controls") if c["type"] == "tile"]
+    def test_settings_use_tile_features(self):
+        tiles = [c for c in _cards(_build(), "settings") if c["type"] == "tile"]
         by_domain = {}
         for tile in tiles:
             by_domain.setdefault(tile["entity"].split(".")[0], []).append(tile)
@@ -1216,8 +1224,8 @@ class TestSectionsLayout:
             eid("immersion_hysteresis"),
         }
 
-    def test_controls_have_no_entities_lists(self):
-        assert "entities" not in {c["type"] for c in _cards(_build(), "controls")}
+    def test_settings_have_no_entities_lists(self):
+        assert "entities" not in {c["type"] for c in _cards(_build(), "settings")}
 
     def test_every_headed_section_opens_a_view_that_exists_when_it_has_a_tap_action(self):
         paths = {v["path"] for v in self._views()}
@@ -1237,7 +1245,7 @@ class TestSectionsLayout:
     def test_minimal_install_still_has_every_tab_with_headed_sections(self):
         views = yaml.safe_load(_build(config=MINIMAL_CONFIG, registry=FakeRegistry(), ev_brand=None))["views"]
         tabs = [v for v in views if not v.get("subview")]
-        assert [v["path"] for v in tabs] == ["power-flow", "today", "bill", "battery", "controls"]
+        assert [v["path"] for v in tabs] == ["power-flow", "today", "bill", "battery"]
         for view in views:
             for section in view["sections"]:
                 assert section["cards"][0]["type"] == "heading"

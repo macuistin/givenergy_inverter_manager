@@ -14,7 +14,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from ..const import DOMAIN, SERVICE_GET_DASHBOARD_YAML
-from .hacs import HACS_CARDS, HacsCard, HacsCards
+from .hacs import HACS_CARDS, HacsCard, HacsCards, async_lovelace_resource_urls
+from .registry import HostFacts, async_admin_user_ids
 from .views import TAB_VIEWS, Builder
 
 # ── YAML ─────────────────────────────────────────────────────────────────────
@@ -72,26 +73,36 @@ class _Built:
 def render_dashboard(
     hass: HomeAssistant,
     entry: ConfigEntry,
-    resources: list[str] | None = None,
+    facts: HostFacts,
     registry=None,
 ) -> tuple[str, list[str]]:
     """Return the dashboard YAML text and the names of disabled sensors it left out.
 
+    *facts* is what Home Assistant says about the Lovelace resources and the administrators.
     *registry* answers the two entity registry calls the builder makes. It defaults to the
     registry of *hass*.
     """
-    built = _generate(hass, entry, resources, registry)
+    built = _generate(hass, entry, facts, registry)
     return _header(built) + _dump_yaml(built.config), built.skipped
 
 
 def build_dashboard(
     hass: HomeAssistant,
     entry: ConfigEntry,
-    resources: list[str] | None = None,
+    facts: HostFacts,
     registry=None,
 ) -> dict:
     """Return the dashboard as a dict, for the Lovelace strategy."""
-    return _generate(hass, entry, resources, registry).config
+    return _generate(hass, entry, facts, registry).config
+
+
+async def async_host_facts(hass: HomeAssistant) -> HostFacts:
+    """Read the Lovelace resources and the administrators the generator needs.
+
+    The administrators are read now, so a role change shows once the dashboard is generated
+    again: press Refresh Dashboard, or reload the page of a strategy dashboard.
+    """
+    return HostFacts(await async_lovelace_resource_urls(hass), await async_admin_user_ids(hass))
 
 
 def _fallback_note(cards: list[HacsCard]) -> str:
@@ -129,7 +140,7 @@ def _header(built: _Built) -> str:
 def _generate(
     hass: HomeAssistant,
     entry: ConfigEntry,
-    resources: list[str] | None = None,
+    facts: HostFacts,
     registry=None,
 ) -> _Built:
     """Build the Lovelace configuration as a dict.
@@ -139,7 +150,7 @@ def _generate(
     enabled, and the feature behind it (EV charger, immersion heater, inverter
     temperature, solar forecast) is configured.
     """
-    builder = Builder(hass, entry, resources, registry)
+    builder = Builder(hass, entry, facts, registry)
     subviews = builder.build_subviews()
     tabs = [spec.build(builder) for spec in TAB_VIEWS]
     views = [view for view in tabs + subviews if view["sections"]]

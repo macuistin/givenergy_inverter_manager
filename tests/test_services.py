@@ -15,6 +15,7 @@ from custom_components.givenergy_inverter_manager import services
 from custom_components.givenergy_inverter_manager.const import DOMAIN
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+from custom_components.givenergy_inverter_manager.dashboard import HostFacts
 from tests.helpers import ROOT
 
 ALL_SERVICES = {
@@ -143,7 +144,7 @@ class TestNoLoadedEntry:
 class TestGetDashboardYaml:
     def _call(self, home, skipped=()):
         with (
-            patch.object(services, "async_lovelace_resource_urls", AsyncMock(return_value=None)),
+            patch.object(services, "async_host_facts", AsyncMock(return_value=HostFacts())),
             patch.object(services, "render_dashboard", return_value=("views: []\n", list(skipped))),
         ):
             home.call("get_dashboard_yaml")
@@ -403,7 +404,7 @@ class TestPinnedOutput:
     def test_dashboard_notification_text(self, tmp_path, golden):
         home = self._home(tmp_path)
         with (
-            patch.object(services, "async_lovelace_resource_urls", AsyncMock(return_value=None)),
+            patch.object(services, "async_host_facts", AsyncMock(return_value=HostFacts())),
             patch.object(services, "render_dashboard", return_value=("views: []\n", ["A", "B"])),
         ):
             home.call("get_dashboard_yaml")
