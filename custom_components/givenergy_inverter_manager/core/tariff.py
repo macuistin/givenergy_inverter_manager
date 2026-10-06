@@ -364,12 +364,16 @@ class EnergyAccumulator:
 
     @property
     def self_sufficiency_pct(self) -> float:
-        """Percentage of consumption met without grid import."""
-        total_consumption = self.house_kwh + self.zappi_kwh + self.immersion_kwh
-        if total_consumption == 0:
+        """Percentage of the house's consumption that was not bought from the grid.
+
+        house_kwh is the whole load, EV and immersion included, so they are not added again.
+        Solar, and battery discharge of stored solar, appear as import that did not happen.
+        Energy the battery took from the grid counts as import, so charging from the grid
+        lowers the figure on the day it is bought.
+        """
+        if self.house_kwh <= 0:
             return 100.0
-        grid_dependent = max(0, total_consumption - self.solar_kwh - self.battery_discharge_kwh)
-        return max(0.0, (1 - grid_dependent / total_consumption) * 100)
+        return max(0.0, min(100.0, (1 - self.import_kwh / self.house_kwh) * 100))
 
     @property
     def self_consumption_pct(self) -> float:

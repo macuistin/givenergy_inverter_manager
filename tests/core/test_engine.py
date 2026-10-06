@@ -663,17 +663,16 @@ class TestAccumulateEnergyLoadApportionment:
         )
         assert acc.battery_discharge_kwh == pytest.approx(0.0)
 
-    def test_self_sufficiency_with_battery_discharge(self):
-        """Self-sufficiency should count battery discharge as local generation."""
+    def test_self_sufficiency_is_the_share_of_load_not_imported(self):
         from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 
-        acc = EnergyAccumulator(
-            house_kwh=20.0,
-            solar_kwh=12.0,
-            battery_discharge_kwh=8.0,
-            import_kwh=0.0,
-        )
-        # solar + battery discharge = 20kWh = 100% of consumption
+        acc = EnergyAccumulator(house_kwh=20.0, solar_kwh=12.0, battery_discharge_kwh=8.0, import_kwh=5.0)
+        assert acc.self_sufficiency_pct == pytest.approx(75.0)
+
+    def test_self_sufficiency_is_full_when_nothing_was_imported(self):
+        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+
+        acc = EnergyAccumulator(house_kwh=20.0, solar_kwh=12.0, battery_discharge_kwh=8.0, import_kwh=0.0)
         assert acc.self_sufficiency_pct == pytest.approx(100.0)
 
 

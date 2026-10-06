@@ -327,7 +327,7 @@ DESCRIPTIONS: dict[str, str] = {
     "net_saving_today": "Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set.",
     "net_position_today": "Export earnings minus import cost.",
     "self_sufficiency": (
-        "Share of consumption (house, EV, immersion) covered by solar and battery discharge."
+        "Share of consumption, EV and immersion included, that was not bought from the grid."
     ),
     "self_consumption": "Share of today's solar that was not exported. 0 with no solar.",
     "peak_import_fraction_today": "Share of today's import that was at the base rate.",
