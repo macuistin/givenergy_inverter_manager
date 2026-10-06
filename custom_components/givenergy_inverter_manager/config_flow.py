@@ -323,6 +323,11 @@ def _slots_to_rate_periods(user_input: dict) -> list[dict]:
     return periods
 
 
+def _has_rate_period_sections(user_input: dict) -> bool:
+    """True when the submission carries any rate_period_N section, filled in or empty."""
+    return any(f"rate_period_{i}" in user_input for i in range(1, _MAX_RATE_PERIODS + 1))
+
+
 def _rate_period_errors(periods: list[dict], base_rate_name: str = "") -> dict[str, str]:
     """Return form errors for rate periods that cannot work, or an empty dict."""
     if any(p["start"] == p["end"] for p in periods):
@@ -898,11 +903,21 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         """Single-page options: tariff, per-period rates, thresholds, forecast."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            rate_periods = _slots_to_rate_periods(user_input)
+            rate_periods = self._submitted_rate_periods(user_input)
             errors = self._submission_errors(user_input, rate_periods)
             if not errors:
                 return self._save_options(user_input, rate_periods)
         return self._show_form(user_input, errors)
+
+    def _submitted_rate_periods(self, user_input: dict) -> list[dict]:
+        """The submitted rate periods, or the saved ones when the submission has no section.
+
+        The form always sends the sections. A client that sends only the fields it changes
+        would otherwise clear the tariff's timed rates.
+        """
+        if _has_rate_period_sections(user_input):
+            return _slots_to_rate_periods(user_input)
+        return list(self._get(CONF_RATE_PERIODS, DEFAULT_RATE_PERIODS))
 
     @staticmethod
     def _submission_errors(user_input: dict, rate_periods: list[dict]) -> dict[str, str]:
