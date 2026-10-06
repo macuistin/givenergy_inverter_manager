@@ -92,25 +92,38 @@ Everything else uses built-in Home Assistant cards.
 
 Every view is a Home Assistant **sections** view. Each section is a column of cards that starts with a heading, and the sections sit side by side on a wide screen: one column on a phone, two on a tablet, three on a desktop. Tiles are the main building block. They are all horizontal, two to a row on a phone (six of the twelve grid columns), and use colour the same way everywhere: amber for solar, green for the battery and savings, blue for the grid and money, orange for the immersion, teal for the EV charger and indigo for the night.
 
-Controls use tile features: a slider on the number entities, a toggle on the switches and a bar on state of charge. Charts take the full width of their section.
+The controls use tile features: a slider on the number entities and a toggle on the switches. They sit in the Settings sub-view, which only administrators see. Everywhere else a tile shows a setting's value and does nothing when tapped. A bar shows state of charge. Charts take the full width of their section.
 
-The dashboard has five tabs. Detail sits in six sub-views that have no tab. A tile or heading on a tab opens each sub-view, and the back arrow at the top of the sub-view returns to that tab. A heading that opens a view shows a chevron.
+The dashboard has four tabs. Detail sits in seven sub-views that have no tab. A tile, heading or button on a tab opens each sub-view, and the back arrow at the top of the sub-view returns to that tab. A heading that opens a view shows a chevron.
 
 | Tab | Sub-views it opens |
 |---|---|
-| Power Flow | Immersion and EV charger (the Devices tiles), Battery detail (Night survival tile) |
+| Power Flow | Immersion and EV charger (the Devices tiles), Battery detail (Night survival tile), Settings (the Settings button in the Now heading, administrators only) |
 | Today | Cost breakdown (Cost heading), Solar and forecast (Solar heading) |
 | Bill | Tariff (the Tariff button in the Bill so far heading) |
 | Battery | Battery detail (Battery heading) |
-| Controls | none |
 
 A sub-view and the tile that opens it are left out when the sub-view would be empty, for example Immersion without an immersion heater.
 
 The links use relative paths, so they work at any dashboard URL.
 
+### Settings and administrators
+
+Everything that changes a setting is in the **Settings** sub-view. A small **Settings** button in the Now heading of the Power Flow tab opens it. Both are for Home Assistant administrators only. Everyone else sees neither, and the rest of the dashboard only shows state.
+
+Home Assistant has no admin option for a dashboard. A view takes a list of users in `visible`, and a card or heading button takes a user condition. So the generator reads the IDs of the active administrators from Home Assistant and writes them into the Settings view and into the button.
+
+- **No administrator found.** The Settings view and its button are left out for everyone. Home Assistant always has an owner, so this only happens when the user list could not be read.
+- **Administrator roles change.** The IDs are read when the dashboard is generated. For a file, press **Refresh Dashboard** or run `get_dashboard_yaml` after you promote or demote a user, then paste the file over the old dashboard again. A dashboard that uses the [strategy](#dashboard-strategy-optional) reads the list each time it opens, so a reload of the page is enough.
+- **A copied example.** The user ID in [`dashboard-example.yaml`](dashboard-example.yaml) is a placeholder. Generate your own file.
+
+This hides the controls. It is not security. Home Assistant has no permissions for single entities, so a user who is not an administrator can still change the switches and numbers from the entity page, the Entities list, another dashboard, an automation or the API. The Settings view is also still reachable by its URL (`/settings` under the dashboard), as Home Assistant only hides the tab. Use it to keep a shared wall tablet or a family dashboard tidy, not to protect the inverter.
+
 ### Power Flow
 
 - **Now**: Battery (state of charge with a bar), Night survival, Rate now, Cost today, Cheap from (Next Cheap Rate Start) and Cheap in (Hours to Cheap Rate). Night Survival Confidence and the two cheap rate sensors are disabled by default, so a new install shows three of the six until you enable them. Night survival reads Safe, Warning or Critical. Tap it to open Battery detail, which says in words why. Tap the Battery tile to open the Battery tab.
+For administrators the heading also holds a **Settings** button.
+- **Dry run is on**: a banner with the last skipped action, below Now. It appears only while Dry Run Mode Active is true.
 - **Live power flow**: a power-flow-card-plus card with solar, battery, grid, home and two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. Battery Power is positive while charging and the card expects the opposite, so the node sets `invert_state: true`. The grid node shows the Live Grid Cost Rate.
 - **Energy today**: Generated, Used (House Load Today), Imported and Exported. Tap the heading to open the Today tab.
 - **Devices**: an Immersion tile (the water temperature) and an EV charger tile (the charger state). Each opens its sub-view.
@@ -124,6 +137,7 @@ Only when an immersion heater or water temperature sensor is configured.
 - **Water temperature**: a 12-hour chart of water temperature with the target and minimum, and the divert reason under it in words.
 - **Heater power**: a 12-hour step chart of the immersion's power in watts.
 - **Today**: energy, cost and what solar saved.
+- **Settings in force**: Auto divert, Managed, Target temp, Minimum temp and Restart gap, to read. Change them in Settings.
 
 The charts need a water temperature sensor.
 
@@ -169,6 +183,7 @@ The table is read from your options when the file is generated, so generate the 
 
 - **Battery**: state of charge with a bar, battery power with a 24-hour trend, and a 24-hour history of state of charge. The heading opens Battery detail.
 - **Tonight's charge plan**: Target tonight, Est. cost, At sunrise (estimated state of charge) and Rate floor (the cheap rate floor).
+- **Charge settings in force**: the charge target override (Target override and Override on), Skip tonight and Dry run, to read. Change the first three in Settings. Dry run is an option of the integration.
 
 State of charge and power are not drawn on one graph, because a percentage and watts share no scale.
 
@@ -177,11 +192,12 @@ State of charge and power are not drawn on one graph, because a percentage and w
 - **Night survival**: the level in bold, then why. Where the Night Survival Confidence sensor has an `explanation` attribute, that is shown. Otherwise a Warning is explained from the estimated state of charge at sunrise ("about 14% at sunrise, close to your minimum charge"), and Safe and Critical show the Battery Night Survival Status text, which carries any kWh shortfall. Without the confidence sensor, which is disabled by default, only the status text is shown. Under it, the reason for tonight's charge target. Both are sentences, and a tile cuts them off, so they sit in Markdown cards.
 - **Battery health**: total cycles, life remaining, days since full charge, and the inverter temperature and status.
 
-### Controls
+### Settings (sub-view, administrators only)
 
 - **Overnight charging**: a slider for the charge target, and the Use target and Skip tonight switches.
 - **Immersion heater**: the Auto divert and Managed switches, the divert reason in words and sliders for the target temperature, the minimum temperature and the restart gap.
-- **Dry run is on**: a banner with the last skipped action. It appears only while Dry Run Mode Active is true.
+
+The view is left out when there is no administrator to show it to, and the immersion section when no immersion heater is configured. The dry run banner is not here. It sits on the Power Flow tab, below Now, and appears only while Dry Run Mode Active is true.
 
 There is no Refresh Dashboard card. Use the button on the device page.
 

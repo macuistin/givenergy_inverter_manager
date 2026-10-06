@@ -10,6 +10,10 @@ fields the other tests happen to read.
 The 26 cases made before 08:00 were regenerated when the charge decision started reading
 the forecast remembered before midnight, so only their charge_decision changed. The new
 behaviour is pinned in test_forecast_day.py.
+
+148 cases were regenerated when the saving started pricing the load at the rate in force when
+it ran. Only grid_equivalent_load_cost on the accumulators, saving_vs_grid_today and
+net_saving_today moved. The new behaviour is pinned in test_saving_counterfactual.py.
 """
 
 from __future__ import annotations

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -29,6 +30,8 @@ from .cards import (
     NIGHT,
     SOLAR,
     TREND,
+    admin_condition,
+    button_badge,
     entity_list_card,
     entity_row,
     graph_card,
@@ -39,6 +42,7 @@ from .cards import (
     markdown_card,
     navigate_action,
     present,
+    readonly_tile,
     slider_tile,
     state_markdown,
     state_ref,
@@ -56,24 +60,24 @@ from .charts import (
     flow_fallback,
 )
 from .hacs import APEX_CARD, POWER_FLOW_CARD, HacsCards
-from .registry import Registry, entry_config, ev_charger_brand, external_ev_power
+from .registry import HostFacts, Registry, entry_config, ev_charger_brand, external_ev_power
 from .templates import survival_template, tariff_table
 
 # ── View paths ───────────────────────────────────────────────────────────────
-# A tab is a view with a tab. A sub-view has none: a tile or heading on a tab opens it and
-# its back arrow returns to that tab.
+# A tab is a view with a tab. A sub-view has none: a tile, heading or button on a tab opens it
+# and its back arrow returns to that tab. Settings is the one sub-view only administrators see.
 TAB_POWER_FLOW = "power-flow"
 TAB_TODAY = "today"
 TAB_BILL = "bill"
 TAB_BATTERY = "battery"
-TAB_CONTROLS = "controls"
 SUB_IMMERSION = "immersion"
 SUB_EV = "ev-charger"
 SUB_COST = "cost"
 SUB_SOLAR = "solar"
 SUB_TARIFF = "tariff"
 SUB_BATTERY = "battery-detail"
-TABS = frozenset({TAB_POWER_FLOW, TAB_TODAY, TAB_BILL, TAB_BATTERY, TAB_CONTROLS})
+SUB_SETTINGS = "settings"
+TABS = frozenset({TAB_POWER_FLOW, TAB_TODAY, TAB_BILL, TAB_BATTERY})
 
 
 # ── Views ────────────────────────────────────────────────────────────────────
@@ -116,10 +120,11 @@ class Builder:
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
-        resources: list[str] | None,
+        facts: HostFacts,
         registry,
     ) -> None:
-        self.cards = HacsCards(resources)
+        self.cards = HacsCards(facts.resources)
+        self.admin_ids = facts.admin_ids
         self.reg = Registry(er.async_get(hass) if registry is None else registry, entry.entry_id)
         self.cfg = entry_config(entry)
         self.external_ev = external_ev_power(hass)
@@ -183,6 +188,18 @@ class Builder:
         if path in TABS or self.has_subview(path):
             return navigate_action(path)
         return None
+
+    def admin_view_users(self) -> list[dict[str, str]]:
+        """The `visible` list of a view only administrators see."""
+        return [{"user": admin_id} for admin_id in self.admin_ids]
+
+    def _settings_badges(self) -> list[dict[str, Any]] | None:
+        """The Settings button of the Now heading, or None when no one may open Settings."""
+        nav = self.go(SUB_SETTINGS)
+        if not nav:
+            return None
+        visibility = [admin_condition(self.admin_ids)]
+        return [button_badge("mdi:tune", "Settings", nav, visibility)]
 
     # -- Power Flow --
 
@@ -278,7 +295,7 @@ class Builder:
     def _now(self) -> list:
         """The numbers worth a glance: charge first, then outlook, rate, cost, cheap rate."""
         return heading_block(
-            heading_card("Now", "mdi:clock-outline"),
+            heading_card("Now", "mdi:clock-outline", badges=self._settings_badges()),
             [
                 self.tile(
                     "battery_soc",
@@ -346,6 +363,7 @@ class Builder:
         return present(
             [
                 grid_section(self._now()),
+                self._dry_run_section(),
                 grid_section(self._flow()),
                 grid_section([*self._totals(), *self._devices()]),
             ]
@@ -391,7 +409,21 @@ class Builder:
                     self.tile("immersion_savings_today", "Saved by solar", color=BATTERY),
                 ],
             ),
+            self._immersion_settings_in_force(),
         ]
+
+    def _immersion_settings_in_force(self) -> dict[str, Any] | None:
+        """The immersion settings as they stand, to read. Administrators change them."""
+        return group(
+            heading_card("Settings in force", "mdi:tune"),
+            [
+                readonly_tile(self.immersion("auto_immersion"), "Auto divert", IMMERSION),
+                readonly_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
+                readonly_tile(self.immersion("immersion_target_temp"), "Target temp", IMMERSION),
+                readonly_tile(self.immersion("immersion_min_temp"), "Minimum temp", IMMERSION),
+                readonly_tile(self.immersion("immersion_hysteresis"), "Restart gap", IMMERSION),
+            ],
+        )
 
     # -- EV charger sub-view --
 
@@ -513,11 +545,7 @@ class Builder:
 
     def _bill_so_far(self) -> dict | None:
         tariff = self.go(SUB_TARIFF)
-        badges = (
-            [{"type": "button", "icon": "mdi:table", "text": "Tariff", "tap_action": tariff}]
-            if tariff
-            else None
-        )
+        badges = [button_badge("mdi:table", "Tariff", tariff)] if tariff else None
         return group(
             heading_card("Bill so far", "mdi:receipt-text", badges=badges),
             [
@@ -577,8 +605,24 @@ class Builder:
             ],
         )
 
+    def _charge_settings_in_force(self) -> dict[str, Any] | None:
+        """The charge settings as they stand, to read. Administrators change them."""
+        return group(
+            heading_card("Charge settings in force", "mdi:tune"),
+            [
+                readonly_tile(
+                    self.entity("charge_target_override"), "Target override", BATTERY
+                ),
+                readonly_tile(
+                    self.entity("charge_target_override_enabled"), "Override on", BATTERY
+                ),
+                readonly_tile(self.entity("skip_charge_override"), "Skip tonight", BATTERY),
+                self.tile("dry_run_active", "Dry run", color=GRID, icon="mdi:test-tube"),
+            ],
+        )
+
     def battery_sections(self) -> list:
-        return [self._battery_now(), self._charge_plan()]
+        return [self._battery_now(), self._charge_plan(), self._charge_settings_in_force()]
 
     def _battery_health(self) -> dict | None:
         return group(
@@ -631,7 +675,7 @@ class Builder:
             return [markdown_card(f"**Night survival**\n\n{state_ref(status)}")]
         return []
 
-    # -- Controls --
+    # -- Settings --
 
     def _dry_run_section(self) -> dict | None:
         """A banner, shown only while Dry Run Mode Active is true."""
@@ -674,15 +718,22 @@ class Builder:
             ],
         )
 
-    def controls_sections(self) -> list:
-        return [self._dry_run_section(), self._charging_controls(), self._immersion_controls()]
+    def settings_sections(self) -> list[Any]:
+        """Sub-view, for administrators only: every switch and slider that changes behaviour.
+
+        Empty without an administrator ID, so the view is left out and no one sees it.
+        """
+        if not self.admin_ids:
+            return []
+        return [self._charging_controls(), self._immersion_controls()]
 
 
 @dataclass(frozen=True)
 class ViewSpec:
     """A view of the dashboard: its title and icon, and the builder method for its sections.
 
-    A sub-view names the tab its back arrow returns to. A tab has no back.
+    A sub-view names the tab its back arrow returns to. A tab has no back. An admin_only view
+    is visible to the administrators the builder was given, and to no one else.
     """
 
     title: str
@@ -690,9 +741,12 @@ class ViewSpec:
     path: str
     sections: Callable[[Builder], list]
     back: str | None = None
+    admin_only: bool = False
 
     def build(self, builder: Builder) -> dict:
         extra = {} if self.back is None else {"subview": True, "back_path": self.back}
+        if self.admin_only:
+            extra["visible"] = builder.admin_view_users()
         return view_config(self.title, self.icon, self.path, self.sections(builder), **extra)
 
 
@@ -703,7 +757,6 @@ TAB_VIEWS = (
     ViewSpec("Today", "mdi:calendar-today", TAB_TODAY, Builder.today_sections),
     ViewSpec("Bill", "mdi:receipt-text", TAB_BILL, Builder.bill_sections),
     ViewSpec("Battery", "mdi:battery-charging", TAB_BATTERY, Builder.battery_sections),
-    ViewSpec("Controls", "mdi:tune", TAB_CONTROLS, Builder.controls_sections),
 )
 SUBVIEWS = (
     ViewSpec(
@@ -721,5 +774,13 @@ SUBVIEWS = (
         SUB_BATTERY,
         Builder.battery_detail_sections,
         TAB_BATTERY,
+    ),
+    ViewSpec(
+        "Settings",
+        "mdi:tune",
+        SUB_SETTINGS,
+        Builder.settings_sections,
+        TAB_POWER_FLOW,
+        admin_only=True,
     ),
 )

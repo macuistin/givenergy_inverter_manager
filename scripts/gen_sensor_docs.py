@@ -321,7 +321,8 @@ DESCRIPTIONS: dict[str, str] = {
     "import_cost_peak_today": "Import cost at the base rate.",
     "immersion_savings_today": "Diverted solar kWh times (current rate minus export rate).",
     "saving_vs_grid_today": (
-        "House kWh at the base rate minus net import cost (import cost minus export earnings)."
+        "House load priced at the rate in force when it ran, minus net import cost "
+        "(import cost minus export earnings)."
     ),
     "net_saving_today": "Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set.",
     "net_position_today": "Export earnings minus import cost.",

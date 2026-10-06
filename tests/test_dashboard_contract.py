@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from custom_components.givenergy_inverter_manager.dashboard.registry import HostFacts
 from custom_components.givenergy_inverter_manager.dashboard.views import Builder
 from tests.dashboard_support import (
     FULL_CONFIG,
@@ -26,7 +27,7 @@ def test_every_unique_id_suffix_the_generator_asks_for_exists():
 
 class TestBuildOrder:
     def _builder(self):
-        return Builder(fake_states_hass(), fake_entry(FULL_CONFIG), None, RecordingRegistry())
+        return Builder(fake_states_hass(), fake_entry(FULL_CONFIG), HostFacts(), RecordingRegistry())
 
     def test_tabs_can_be_linked_before_the_sub_views_are_built(self):
         assert self._builder().go("today") == {"action": "navigate", "navigation_path": "today"}
@@ -36,7 +37,7 @@ class TestBuildOrder:
             self._builder().go("immersion")
 
     def test_an_empty_sub_view_gets_no_link(self):
-        builder = Builder(fake_states_hass(), fake_entry({}), None, RecordingRegistry())
+        builder = Builder(fake_states_hass(), fake_entry({}), HostFacts(), RecordingRegistry())
         builder.build_subviews()
         assert builder.go("immersion") is None
         assert builder.go("tariff") is not None

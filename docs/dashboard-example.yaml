@@ -23,6 +23,17 @@ views:
       heading: Now
       heading_style: title
       icon: mdi:clock-outline
+      badges:
+      - type: button
+        icon: mdi:tune
+        text: Settings
+        tap_action:
+          action: navigate
+          navigation_path: settings
+        visibility:
+        - condition: user
+          users:
+          - a0b1c2d3e4f5061728394a5b6c7d8e9f
     - type: tile
       entity: sensor.givenergy_inverter_manager_battery_state_of_charge
       name: Battery
@@ -83,6 +94,23 @@ views:
       color: blue
       grid_options:
         columns: 6
+  - type: grid
+    visibility:
+    - condition: state
+      entity: sensor.givenergy_inverter_manager_dry_run_mode_active
+      state: 'True'
+    cards:
+    - type: heading
+      heading: Dry run is on
+      heading_style: title
+      icon: mdi:test-tube
+    - type: markdown
+      content: |-
+        No commands are sent to your inverter or EV charger. Sensors and charge decisions still update. To go live, turn off Dry Run in Settings, Devices & services, GivEnergy Inverter Manager, Configure.
+
+        **Last skipped action:** {{ states('sensor.givenergy_inverter_manager_last_skipped_action_dry_run') }}
+      grid_options:
+        columns: full
   - type: grid
     cards:
     - type: heading
@@ -466,117 +494,49 @@ views:
       color: blue
       grid_options:
         columns: 6
-- title: Controls
-  icon: mdi:tune
-  path: controls
-  type: sections
-  max_columns: 3
-  sections:
-  - type: grid
-    visibility:
-    - condition: state
-      entity: sensor.givenergy_inverter_manager_dry_run_mode_active
-      state: 'True'
-    cards:
-    - type: heading
-      heading: Dry run is on
-      heading_style: title
-      icon: mdi:test-tube
-    - type: markdown
-      content: |-
-        No commands are sent to your inverter or EV charger. Sensors and charge decisions still update. To go live, turn off Dry Run in Settings, Devices & services, GivEnergy Inverter Manager, Configure.
-
-        **Last skipped action:** {{ states('sensor.givenergy_inverter_manager_last_skipped_action_dry_run') }}
-      grid_options:
-        columns: full
   - type: grid
     cards:
     - type: heading
-      heading: Overnight charging
+      heading: Charge settings in force
       heading_style: title
-      icon: mdi:battery-charging
+      icon: mdi:tune
     - type: tile
       entity: number.givenergy_inverter_manager_overnight_charge_target_override
-      name: Charge target
+      name: Target override
       color: green
-      features:
-      - type: numeric-input
-        style: slider
+      tap_action:
+        action: none
+      icon_tap_action:
+        action: none
       grid_options:
-        columns: full
+        columns: 6
     - type: tile
       entity: switch.givenergy_inverter_manager_enable_charge_target_override
-      name: Use target
+      name: Override on
       color: green
-      features:
-      - type: toggle
-      features_position: inline
+      tap_action:
+        action: none
+      icon_tap_action:
+        action: none
       grid_options:
         columns: 6
     - type: tile
       entity: switch.givenergy_inverter_manager_force_skip_overnight_charge
       name: Skip tonight
       color: green
-      features:
-      - type: toggle
-      features_position: inline
-      grid_options:
-        columns: 6
-  - type: grid
-    cards:
-    - type: heading
-      heading: Immersion heater
-      heading_style: title
-      icon: mdi:water-boiler
-    - type: tile
-      entity: switch.givenergy_inverter_manager_auto_immersion_divert
-      name: Auto divert
-      color: orange
-      features:
-      - type: toggle
-      features_position: inline
+      tap_action:
+        action: none
+      icon_tap_action:
+        action: none
       grid_options:
         columns: 6
     - type: tile
-      entity: switch.givenergy_inverter_manager_immersion_heater_managed
-      name: Managed
-      color: orange
-      features:
-      - type: toggle
-      features_position: inline
+      entity: sensor.givenergy_inverter_manager_dry_run_mode_active
+      name: Dry run
+      icon: mdi:test-tube
+      color: blue
       grid_options:
         columns: 6
-    - type: markdown
-      content: '{{ states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
-      grid_options:
-        columns: full
-    - type: tile
-      entity: number.givenergy_inverter_manager_immersion_target_temperature
-      name: Target temp
-      color: orange
-      features:
-      - type: numeric-input
-        style: slider
-      grid_options:
-        columns: full
-    - type: tile
-      entity: number.givenergy_inverter_manager_immersion_minimum_temperature
-      name: Minimum temp
-      color: orange
-      features:
-      - type: numeric-input
-        style: slider
-      grid_options:
-        columns: full
-    - type: tile
-      entity: number.givenergy_inverter_manager_immersion_restart_gap
-      name: Restart gap
-      color: orange
-      features:
-      - type: numeric-input
-        style: slider
-      grid_options:
-        columns: full
 - title: Immersion
   icon: mdi:water-boiler
   path: immersion
@@ -694,6 +654,62 @@ views:
       entity: sensor.givenergy_inverter_manager_immersion_solar_savings
       name: Saved by solar
       color: green
+      grid_options:
+        columns: 6
+  - type: grid
+    cards:
+    - type: heading
+      heading: Settings in force
+      heading_style: title
+      icon: mdi:tune
+    - type: tile
+      entity: switch.givenergy_inverter_manager_auto_immersion_divert
+      name: Auto divert
+      color: orange
+      tap_action:
+        action: none
+      icon_tap_action:
+        action: none
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: switch.givenergy_inverter_manager_immersion_heater_managed
+      name: Managed
+      color: orange
+      tap_action:
+        action: none
+      icon_tap_action:
+        action: none
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: number.givenergy_inverter_manager_immersion_target_temperature
+      name: Target temp
+      color: orange
+      tap_action:
+        action: none
+      icon_tap_action:
+        action: none
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: number.givenergy_inverter_manager_immersion_minimum_temperature
+      name: Minimum temp
+      color: orange
+      tap_action:
+        action: none
+      icon_tap_action:
+        action: none
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: number.givenergy_inverter_manager_immersion_restart_gap
+      name: Restart gap
+      color: orange
+      tap_action:
+        action: none
+      icon_tap_action:
+        action: none
       grid_options:
         columns: 6
 - title: EV charger
@@ -993,3 +1009,101 @@ views:
       color: blue
       grid_options:
         columns: 6
+- title: Settings
+  icon: mdi:tune
+  path: settings
+  type: sections
+  max_columns: 3
+  subview: true
+  back_path: power-flow
+  visible:
+  - user: a0b1c2d3e4f5061728394a5b6c7d8e9f
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Overnight charging
+      heading_style: title
+      icon: mdi:battery-charging
+    - type: tile
+      entity: number.givenergy_inverter_manager_overnight_charge_target_override
+      name: Charge target
+      color: green
+      features:
+      - type: numeric-input
+        style: slider
+      grid_options:
+        columns: full
+    - type: tile
+      entity: switch.givenergy_inverter_manager_enable_charge_target_override
+      name: Use target
+      color: green
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: switch.givenergy_inverter_manager_force_skip_overnight_charge
+      name: Skip tonight
+      color: green
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: 6
+  - type: grid
+    cards:
+    - type: heading
+      heading: Immersion heater
+      heading_style: title
+      icon: mdi:water-boiler
+    - type: tile
+      entity: switch.givenergy_inverter_manager_auto_immersion_divert
+      name: Auto divert
+      color: orange
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: switch.givenergy_inverter_manager_immersion_heater_managed
+      name: Managed
+      color: orange
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: 6
+    - type: markdown
+      content: '{{ states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
+      grid_options:
+        columns: full
+    - type: tile
+      entity: number.givenergy_inverter_manager_immersion_target_temperature
+      name: Target temp
+      color: orange
+      features:
+      - type: numeric-input
+        style: slider
+      grid_options:
+        columns: full
+    - type: tile
+      entity: number.givenergy_inverter_manager_immersion_minimum_temperature
+      name: Minimum temp
+      color: orange
+      features:
+      - type: numeric-input
+        style: slider
+      grid_options:
+        columns: full
+    - type: tile
+      entity: number.givenergy_inverter_manager_immersion_restart_gap
+      name: Restart gap
+      color: orange
+      features:
+      - type: numeric-input
+        style: slider
+      grid_options:
+        columns: full
