@@ -63,12 +63,69 @@ The defaults are placeholders taken from an Irish domestic tariff. Replace all o
 |---|---|---|
 | Forecast provider | `forecast_provider` | Forecast.Solar or Solcast. Stored, but nothing reads it. The integration uses the sensors below |
 | Tomorrow's forecast sensor | `forecast_entity` | A sensor giving tomorrow's expected energy in kWh |
-| Solcast P10 sensor | `forecast_entity_p10` | Optional. A pessimistic forecast in kWh, blended in when conservatism is above 0 |
+| Pessimistic (P10) sensor | `forecast_entity_p10` | Optional. A sensor whose state is a pessimistic forecast for tomorrow in kWh, blended in when conservatism is above 0. [How to find one](#finding-a-p10-source) |
 | Day-after-tomorrow sensor | `forecast_entity_d2` | Optional. When it exceeds the battery capacity, tonight's target is lowered to leave room for that day's solar |
 | Grid carbon intensity sensor | `carbon_intensity_entity` | Optional. g CO2/kWh. Feeds the two carbon sensors |
-| Forecast conservatism | `forecast_conservatism` | Slider 0 to 1 in steps of 0.05, default 0.35. 0 is the plain forecast, 1 is the P10 value |
+| Forecast conservatism | `forecast_conservatism` | Slider 0 to 1 in steps of 0.05, default 0.35. 0 is the plain forecast, 1 is the P10 value. Does nothing without a P10 sensor |
 
 With no forecast sensor, the charge calculation uses a seasonal estimate from your latitude.
+
+#### Forecast accuracy correction
+
+The integration measures how far your forecast service is off and scales it. No setting is needed.
+
+- At midnight it stores the tomorrow forecast it last saw and the solar your inverter then produced that day. The ratio of the two is one data point. The last 14 days are kept.
+- With **5 usable days**, the forecast is multiplied by the median ratio. The factor is limited to **0.6 to 1.2**. A median of 0.7 means the forecast is multiplied by 0.7. A median below 0.6 is treated as 0.6.
+- A day is ignored when the inverter clipped at any point that day, or when the forecast or the solar produced was under 0.5 kWh. A clipped day understates what the panels could make, and a near-zero day gives an unstable ratio.
+- Until 5 usable days exist, the forecast is used as given. The charge reason then shows no accuracy factor. Once the correction is active, the reason reads, for example, `forecast integration, x0.70 recent accuracy`.
+- The seasonal estimate, used when no forecast sensor is set, is never scaled.
+- A new install, a restored backup without the stored history, or a run of cloudy or clipped days delays the correction. Expect the first factor about a week after install.
+
+The correction applies to the main forecast sensor only. The P10 sensor is read as given.
+
+#### The P10 blend
+
+When a P10 sensor is set and `forecast_conservatism` is above 0, the forecast used for the charge target is:
+
+```
+forecast = (1 - w) x corrected forecast + w x P10
+```
+
+`w` is the conservatism. The corrected forecast is the main forecast after the accuracy factor above. For example, a main forecast of 30 kWh, an accuracy factor of 0.7, a P10 of 15 kWh and a conservatism of 0.35 give `0.65 x 21 + 0.35 x 15 = 18.9` kWh.
+
+Both adjustments pull the forecast down. If your forecast runs high and the accuracy factor is active, a lower conservatism avoids charging the battery more than the day needs.
+
+Without a P10 sensor, or while it reads unavailable or unknown, the blend is skipped and the charge reason says `no P10 forecast so conservatism is unused`. With conservatism at 0 the blend is off whatever the sensor says. The note only shows when a forecast sensor is set.
+
+#### Finding a P10 source
+
+`forecast_entity_p10` takes a sensor whose **state** is a number of kWh. It cannot read an attribute. Most forecast integrations keep the P10 total in an attribute, so you make a sensor for it with a Template Helper.
+
+**Solcast PV Forecast.** The tomorrow sensor (named `Forecast Tomorrow`, entity id typically `sensor.solcast_pv_forecast_forecast_tomorrow`) has these attributes, all in kWh for the whole day:
+
+- `estimate`: the main (P50) forecast, the same as the sensor state.
+- `estimate10`: the pessimistic (P10) forecast.
+- `estimate90`: the optimistic (P90) forecast.
+
+`detailedForecast` also holds `pv_estimate10` for each 30 minute period in kW. Half the sum of that field over the day equals `estimate10`, so the attribute is all you need. Check the names on your install in **Developer Tools > States** first. If you have several sites, `estimate10` is already the total, and each site has its own `estimate10_<site id>`.
+
+1. Go to **Settings > Devices & services > Helpers > Create helper > Template > Template a sensor**.
+2. Name it, for example `Solcast P10 tomorrow`.
+3. Enter this as the state template, with your own entity id:
+   ```
+   {{ state_attr('sensor.solcast_pv_forecast_forecast_tomorrow', 'estimate10') | float }}
+   ```
+4. Set the unit of measurement to `kWh` and the device class to `Energy`. Leave the state class empty.
+5. Check the preview in the dialog shows a number close to the sensor's own `estimate10`, then submit.
+6. Pick the new sensor as the pessimistic (P10) sensor in this integration's options.
+
+The filter has no default on purpose. If the attribute is missing, the helper turns unavailable and the blend is skipped. A default of 0 would read as a P10 of zero and pull the forecast down.
+
+Do not use Solcast's **Use Forecast Field** select for this. It changes the field every Solcast sensor reports, including the main forecast, so you would lose the P50.
+
+**Forecast.Solar.** The Home Assistant integration publishes a single estimate and no P10 or other range. Leave the P10 sensor empty. Forecast conservatism then does nothing, and the accuracy correction is the way this integration adjusts a forecast that runs high or low.
+
+**Other services.** Look in **Developer Tools > States** for an attribute with `p10`, `pessimistic`, `low` or `10` in the name on the tomorrow sensor, and use the same template with that attribute name.
 
 ### Step 4: Immersion (optional)
 
@@ -192,7 +249,7 @@ These are the fields that are easiest to enter wrongly. The same wording is in t
 | Cheap rate floor (%) | During the cheapest rate window the battery is topped up if it falls below this. 0 turns it off. |
 | Battery cost (EUR) | Used to put a wear cost on each kWh cycled. Enter the amount in your own currency, as the field does not convert it. 0 turns the wear check off. |
 | Daily battery throughput budget (kWh) | A cap on kWh charged plus discharged per day. 0 turns the budget sensors off. |
-| Forecast sensors | An empty tomorrow sensor means a seasonal estimate is used. An empty pessimistic sensor means conservatism has no effect. An empty carbon sensor means the carbon sensors have no data. |
+| Forecast sensors | An empty tomorrow sensor means a seasonal estimate is used. An empty pessimistic sensor means conservatism has no effect, and the charge reason says so. An empty carbon sensor means the carbon sensors have no data. |
 | Water temperature sensor | Empty means the heater is not started or stopped by temperature. |
 
 Rates and charges are entered before VAT. VAT is added on top, as set in the VAT rate field.
