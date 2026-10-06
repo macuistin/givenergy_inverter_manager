@@ -24,20 +24,12 @@ Each item has a short title, what and why, the evidence, a rough value in EUR pe
 
 | Release | Theme |
 |---|---|
+| v0.8.0 | Charge decision reads the right day's forecast after midnight. Saving sensors price load at the grid rate in force. A repair, with a one-click fix, for other active charge slots. Settings controls move to an administrators-only sub-view. MoSCoW roadmap |
 | v0.7.0 | Clean Code limits enforced in ruff. One verified GivTCP writer, an immersion actuator, the coordinator update as named steps, the dashboard builder as a package, and golden snapshot tests. No entity id or option changed |
 | v0.6.0 | One owner for the charge target override. Dry-run last skipped action kept. Countdowns correct across clock changes. The floor top-up never lowers a higher target. Configured currency in reasons and reports. Shared entity base class. CI runs on every pull request |
 | v0.5.0, v0.5.1 | Battery Power positive while charging. Dashboard rebuilt as sections of tiles with six sub-views, Home Assistant 2026.2.0 or later. Night survival confidence explains itself. Device manufacturer shows `macuistin` |
 | v0.4.0 | Bill reconciliation fixes (flat PSO levy, bill start day, `compare_tariff`). Per-slot load profile, forecast accuracy correction and the day-after-tomorrow forecast feed the charge target. Equivalent full cycles seeded from the BMS. Guarded inverter writes. Zappi discovery and EV cost. `last_reset` on week, month and year sensors. Config field help. Dashboard v2 with an optional strategy. Diagnostics redaction. A real Home Assistant end-to-end suite |
 | v0.1.0 to v0.3.0 | First release, the forward SoC simulation, ROI and tariff services, the immersion run-to-target, HACS packaging and the first quality scale rules |
-
-**In review:**
-
-- After-midnight forecast read the wrong day (#184, branch `fix/forecast-day-after-midnight`). Since the charge write moved to 01:59, the decision read the day after the one it served (34.8 kWh instead of 7.1 kWh on 6 October).
-- Saving sensors priced all load at the Day rate (#185, branch `fix/saving-and-ev-sensors`). `saving_vs_grid_today` read about double.
-- A repair, with a one-click fix, for any other active charge slot (#187, branch `feat/charge-slot-repair`). It covers S1.
-- Settings controls move to a Settings sub-view that only administrators see, with the settings still shown read-only on the main dashboard (#188, branch `feat/dashboard-admin-settings`).
-
-They move to Shipped when merged.
 
 **Closed after review.** M1 in the first draft, the cheap-rate floor overwriting the charge target, was already fixed. The 3 and 4 October nights ran on a version older than v0.4.0, as the stray zero-length period shows. #156 (v0.6.0) stops the floor lowering a higher target, and since v0.4.0 a rate period whose start equals its end is skipped. That stray "Night 2 00:00 to 00:00" period had made the charge window 00:00 to 00:00.
 
@@ -65,7 +57,7 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 
 | Item | What and why | Evidence | EUR per year | Size |
 |---|---|---|---|---|
-| **S1 Take over charge schedules** (in review, #187) | Raise a repair when any other charge slot is active in GivTCP. Offer a one-click fix in the repair that clears the conflicting slots, so grid charging happens in Nightboost, with no new option. Slot 1 stayed 00:00 to 00:00 until 5 October, and a leftover slot 2 (00:00 to 08:00) charged at the Night rate. Charging is capped at 7.4 kWh a night in the window (3.7 kW for 2 h) | Tariff review: 114.9 kWh of grid charge landed in the Night band, 88 kWh shiftable. Household review: 9.1 of 62.1 kWh landed in 02:00 to 04:00 | 75 to 100 (medium) | M |
+| **S1 Take over charge schedules** (repair and one-click fix shipped in v0.8.0; what is left is below) | Raise a repair when any other charge slot is active in GivTCP. Offer a one-click fix in the repair that clears the conflicting slots, so grid charging happens in Nightboost, with no new option. Slot 1 stayed 00:00 to 00:00 until 5 October, and a leftover slot 2 (00:00 to 08:00) charged at the Night rate. Charging is capped at 7.4 kWh a night in the window (3.7 kW for 2 h) | Tariff review: 114.9 kWh of grid charge landed in the Night band, 88 kWh shiftable. Household review: 9.1 of 62.1 kWh landed in 02:00 to 04:00 | 75 to 100 (medium) | M |
 | **S2 Add a nightly EV top-up and an EV charge window in Nightboost** | Notify at about 21:00 to plug in, then cap each session to 02:00 to 04:00 plus a small top-up, through `select.myenergi_zappi_charge_mode` or a Zappi schedule. The gain needs a plug-in most nights. On session nights the window is already full | Household review: 176.6 kWh in 10.4 days cost EUR 27.47, re-priced EUR 20.78. Tariff review: every overnight session in 30 days already spans 02:00 to 04:00 | 115 to 235 (low to medium) | L |
 | **S3 Alert when the EV charges at the Day rate** | Notify when the car draws from the grid in the Day band, so the session can move to Night. 54 kWh in 30 days: 26 kWh on 19 Sep at midday, 9 kWh on 11 Sep before 23:00, 7.5 kWh on 20 Sep after 07:00 | Tariff review: moving them to the Night rate saves EUR 9.5 per 30 days | About 115 (medium). Overlaps the low end of S2 | S |
 | **S4 Schedule immersion heating into Nightboost** | Heat in 02:00 to 04:00 through the managed switch (`immersion_heater_managed`, off today), with surplus-only top-ups by day. Also covers the old predictive immersion item, which runs in Nightboost when the forecast is low. The divert rule compares solar with the import rate, but export pays 0.195, above Nightboost at 0.1056, so review the rule as part of this | Tariff review: 127 kWh in 30 days, about 60 kWh in Night and Day bands. Household review: 27.4 of 42.4 kWh in 10.4 days was not solar. Hot water timing and tank loss are unmeasured | 25 to 150 (low). Tariff review 25 to 70, household review 70 to 150 | M |
@@ -166,7 +158,7 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 
 ## Dependencies and order
 
-1. **Merge #184 first.** M4, S11 and the forecast accuracy figures all read from it.
+1. **The forecast day fix is in v0.8.0.** M4, S11 and the forecast accuracy figures read from it.
 2. **One writer for the charge schedule.** S1 and S5 write it. Both go through `GivTCPWriter`, so the verified read-back and write counting apply.
 3. **M3 before S2, S3, S5 and C1.** They need real EV power, and the baseline must exclude the EV.
 4. **M2 before S6 and C5, with S8.** A recommendation or a daily review needs a trustworthy saving. S8 makes net saving include wear.
@@ -202,6 +194,27 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 ---
 
 ## Changelog
+
+### v0.8.0
+
+Savings and correctness release. No entity id or option name changes. The Controls tab is now a
+Settings sub-view, so a bookmarked `/controls` URL becomes `/settings`.
+
+**Fixes**
+- After midnight the overnight charge decision read the forecast for the day after the one it
+  was charging for, because the forecast sensor moves on a day at midnight. It now reads the
+  forecast remembered before midnight, with its P10, until 08:00. (#184)
+- `saving_vs_grid_today` and `net_saving_today` priced all load at the day rate, so they read
+  about double. Each step of load is now priced at the grid rate in force when it ran. (#185)
+
+**New**
+- A repair, with a one-click fix, when a charge slot other than the one the integration writes
+  has a window set. A leftover slot charged the battery at the Night rate instead of
+  Nightboost. (#187)
+- The dashboard Settings sub-view, opened by a button in the Now heading, is shown to
+  administrators only. The settings stay visible as read-only tiles for everyone. This is a
+  display control, not security. (#188)
+- The roadmap ranks planned work as Must, Should, Could and Nice. (#189)
 
 ### v0.7.0
 
