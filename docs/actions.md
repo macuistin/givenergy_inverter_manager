@@ -84,7 +84,9 @@ Compares this bill period against a flat-rate alternative, using the kWh importe
 | `export_rate` | no | 0 | Export rate per kWh of the alternative |
 | `discount_rate` | no | your tariff's | Supplier discount of the alternative, in percent |
 | `vat_rate` | no | your tariff's | VAT of the alternative, in percent |
-| `pso_levy` | no | your tariff's | PSO levy of the alternative for a whole bill period |
+| `pso_levy` | no | your tariff's | Flat levy (the PSO levy field) of the alternative for a whole bill period |
+
+The values below are examples. Use the rates of the tariff you want to compare.
 
 ```yaml
 action: givenergy_inverter_manager.compare_tariff

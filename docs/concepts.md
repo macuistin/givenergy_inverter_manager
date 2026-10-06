@@ -65,7 +65,7 @@ The Zappi mode write skips when the Zappi is already in the target mode and when
 
 ## GivTCP sign conventions
 
-The integration was written against GivTCP v3 on a GIV-HY-5.0.
+The integration is tested against GivTCP v3 on a GIV-HY-5.0.
 
 | GivTCP entity | GivTCP sign | In this integration |
 |---|---|---|
@@ -109,6 +109,8 @@ The calculation runs every cycle. The result is written to GivTCP once a day. Th
 6. **Adjustments.** Add 10 points if an EV is plugged in. Never go below minimum SoC plus 5, or above 100.
 7. **Cap.** The target is capped at **Default overnight charge target**, which is 80% unless you change it. The cap also applies to the winter target of 100%.
 8. **Overrides.** Manual overrides replace the result and the cap does not apply to them. See [Entities](entities.md).
+
+The winter and shoulder month lists are fixed calendar months. They follow northern hemisphere seasons. The seasonal solar estimate does use your latitude.
 
 The average daily load is today's house energy so far, scaled up to 24 hours. It is at least 5 kWh, and 15 kWh in the first 30 minutes after midnight.
 

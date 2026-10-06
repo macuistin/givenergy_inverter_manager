@@ -5,7 +5,7 @@ Ten minutes from install to a working dashboard. Start with dry run on, so the i
 ## Before you begin
 
 - GivTCP is running and its entities appear in Home Assistant. Open **Developer Tools → States** and search for `givtcp_`. You should see entities such as `sensor.givtcp_<serial>_pv_power`.
-- You know your unit rates, standing charge and bill start day. They are on your electricity bill.
+- You know your unit rates, standing charge, VAT rate (if any), discount (if any) and bill start day. They are on your electricity bill or tariff sheet.
 
 ## Steps
 
@@ -13,7 +13,7 @@ Ten minutes from install to a working dashboard. Start with dry run on, so the i
 2. Restart Home Assistant.
 3. Open **Settings → Devices & Services → Add Integration** and search for **GivEnergy Inverter Manager**.
 4. **Inverter.** Confirm the detected inverter, battery capacity and maximum inverter output. If nothing is detected, see [Troubleshooting](troubleshooting.md#setup-finds-no-inverter).
-5. **Tariff.** The form is pre-filled with Electric Ireland Home Electric with Nightboost rates. Replace every value with your own. See [Tariff](tariff.md).
+5. **Tariff.** The form is pre-filled with placeholder values. Replace every one with the values from your own bill or tariff sheet. Any tariff with timed rates works, and so does a flat rate. See [Tariff](tariff.md).
 6. **Forecast, immersion, EV charger, battery.** Fill in what you have and submit the rest as is. Each step can stay at its defaults. See [Configuration](configuration.md).
 7. Turn on dry run. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**, expand **Battery & charging thresholds**, switch on **Dry run mode** and submit. The integration reloads.
 8. Check the readings (next section).

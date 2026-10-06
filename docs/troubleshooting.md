@@ -61,7 +61,7 @@ The repair **Battery minimum SoC is set too high** appears when the saved minimu
 
 ## Other charge slots are active
 
-The repair **Other charge slots are active** appears when a GivTCP charge slot other than the one the integration writes has a window set. The integration writes slot 1 only, and the inverter charges in every active slot. A leftover slot 2 from 00:00 to 08:00 starts charging at midnight, at a dearer rate than a Nightboost window from 02:00 to 04:00.
+The repair **Other charge slots are active** appears when a GivTCP charge slot other than the one the integration writes has a window set. The integration writes slot 1 only, and the inverter charges in every active slot. For example, a leftover slot 2 from 00:00 to 08:00 starts charging at midnight, which can be a dearer rate than a cheaper window later in the night.
 
 A slot counts as active when its start time differs from its end time. 00:00 to 00:00 means unused. Slots 2 to 10 are checked on every update cycle, and a slot whose entities are missing or unavailable is ignored.
 
@@ -82,7 +82,7 @@ Slot 1 is never changed by this repair.
 
 ## Daily sensors are frozen after an upgrade
 
-Version 0.2.1 gave nine daily sensors the state class `total_increasing` together with `last_reset`. Home Assistant refuses that combination, so the sensors stopped updating until the integration reloaded. In one install, battery throughput stayed at one value for about 46 hours.
+Version 0.2.1 gave nine daily sensors the state class `total_increasing` together with `last_reset`. Home Assistant refuses that combination, so the sensors stopped updating until the integration reloaded. Battery throughput, for example, stayed at one value until the integration reloaded.
 
 The nine sensors are Import at cheap rate, Import at peak rate, Import cost at cheap rate, Import cost at peak rate, Immersion solar savings, Immersion solar diverted, Battery throughput, Missed solar today and Inverter Derating Today.
 
@@ -113,7 +113,7 @@ Work through this list.
 1. Is **Dry run mode** on? Then nothing is sent. **Last Skipped Action (Dry Run)** shows what would have been written.
 2. Were the charge control entities detected? Without a target SoC entity nothing is written. The tariff step of setup shows how many of the five were found.
 3. Does the tariff have at least one timed rate period? With a flat tariff there is no cheap window and no write.
-4. The write happens once a day, one minute before the cheapest timed period starts. With the default tariff that is 01:59. With debug logging on (see the next section), search the log for `Writing charge target`.
+4. The write happens once a day, one minute before the cheapest timed period starts. If your cheapest period starts at 02:00, that is 01:59. With debug logging on (see the next section), search the log for `Writing charge target`.
 5. Is **Force Skip Overnight Charge** on? Then the minimum SoC is written as the target.
 6. Was the same entity written in the last 5 minutes? The write is skipped. With debug logging on, the log says `write cooldown active`.
 7. Check GivTCP's own log for rejected writes.
@@ -162,7 +162,6 @@ With a Zappi that has a charge mode entity, a car plugged in and net solar surpl
 ## Totals are lower after a crash
 
 Accumulated energy is saved every 5 minutes, at midnight, when the integration unloads and when Home Assistant stops. See [Concepts](concepts.md#the-30-second-cycle). Only a crash or a power cut can lose up to about 5 minutes of energy.
-Accumulated energy is saved every 5 minutes and at midnight, not at shutdown. See [Concepts](concepts.md#the-30-second-cycle). Saving the options reloads the integration, which has the same effect. Moving an immersion temperature slider does not reload it.
 
 ## The bill sensors look low early in the period
 

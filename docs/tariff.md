@@ -25,85 +25,87 @@ Rules for windows:
 
 The cheapest timed period also sets when the overnight charge is written and which window is sent to the inverter. If the tariff has no timed period, no charge target is written.
 
-## Worked example: Electric Ireland Night and Nightboost
+## Worked example
 
-These are the defaults pre-filled at setup.
+The numbers below are made up so the arithmetic is easy to follow. They are not a real tariff. Use your own values.
 
 | Name | Rate per kWh | Window |
 |---|---|---|
-| Day (base rate) | 0.3334 | when nothing else applies |
-| Night | 0.1644 | 23:00 to 08:00 |
-| Nightboost | 0.0965 | 02:00 to 04:00 |
+| Day (base rate) | 0.30 | when nothing else applies |
+| Night | 0.15 | 23:00 to 08:00 |
+| Boost | 0.10 | 02:00 to 04:00 |
 
-Enter the base rate `0.3334` named `Day`. Put Night in rate period 1 and Nightboost in rate period 2.
+Enter the base rate `0.30` named `Day`. Put Night in rate period 1 and Boost in rate period 2.
 
 | Time | Active periods | Rate that applies |
 |---|---|---|
-| 00:00 to 01:59 | Night | Night, 0.1644 |
-| 02:00 to 03:59 | Night and Nightboost | Nightboost, 0.0965 |
-| 04:00 to 07:59 | Night | Night, 0.1644 |
-| 08:00 to 22:59 | none | Day, 0.3334 |
-| 23:00 to 23:59 | Night | Night, 0.1644 |
+| 00:00 to 01:59 | Night | Night, 0.15 |
+| 02:00 to 03:59 | Night and Boost | Boost, 0.10 |
+| 04:00 to 07:59 | Night | Night, 0.15 |
+| 08:00 to 22:59 | none | Day, 0.30 |
+| 23:00 to 23:59 | Night | Night, 0.15 |
 
-What follows from this tariff:
+What follows from this sample tariff:
 
-- The cheapest timed period is Nightboost, so the charge target and window `02:00` to `04:00` are written to the inverter at 01:59.
-- Both Night and Nightboost count as cheap. The Import at cheap rate sensors count energy imported in either. Import at peak rate counts the base rate only.
+- The cheapest timed period is Boost, so the charge target and window `02:00` to `04:00` are written to the inverter at 01:59.
+- Both Night and Boost count as cheap. The Import at cheap rate sensors count energy imported in either. Import at peak rate counts the base rate only.
 - The Next Cheap Rate Start sensor shows the start of the next period priced below the base rate. At noon it shows `23:00`.
-- On Cheapest Rate is `yes` only during Nightboost.
+- On Cheapest Rate is `yes` only during Boost.
+
+Any tariff with timed rates works the same way, whatever the supplier or country: two periods that do not overlap, three that do, or a single overnight window. A tariff with no timed rates is a flat tariff. Leave every rate period name empty.
 
 ## Bill line items
 
-All amounts use your tariff values. The percentages are the VAT rate and the supplier discount.
+All amounts use your tariff values. The percentages are the VAT rate and the supplier discount. Set either to 0 if your tariff has none.
 
 | Line | Formula |
 |---|---|
 | Import energy | kWh x rate x (1 - discount) x (1 + VAT) |
 | Export earnings | kWh x export rate. No discount, no VAT |
-| Standing charge and PSO levy | (daily standing charge x days + PSO levy x days / days in the bill period) x (1 + VAT). No discount. The PSO levy is one flat amount per bill period, so a full period charges it once |
+| Standing charge and flat levy | (daily standing charge x days + levy x days / days in the bill period) x (1 + VAT). No discount. The levy is one flat amount per bill period, so a full period charges it once |
 
-With the default tariff and 10 kWh:
+With the sample tariff above, a 5% discount, 10% VAT, a standing charge of 0.60 a day, a flat levy of 1.50 and an export rate of 0.15, the cost of 10 kWh is:
 
 | Case | Calculation | Result |
 |---|---|---|
-| Import at 03:00 (Nightboost) | 10 x 0.0965 x 0.945 x 1.09 | 0.9940 |
-| Import at 12:00 (Day) | 10 x 0.3334 x 0.945 x 1.09 | 3.4342 |
-| Import at 23:30 (Night) | 10 x 0.1644 x 0.945 x 1.09 | 1.6934 |
-| Export | 10 x 0.195 | 1.9500 |
-| Standing charge and PSO for 10 days of a 31 day period | (0.8259 x 10 + 1.46 x 10 / 31) x 1.09 | 9.5157 |
+| Import at 03:00 (Boost) | 10 x 0.10 x 0.95 x 1.10 | 1.0450 |
+| Import at 12:00 (Day) | 10 x 0.30 x 0.95 x 1.10 | 3.1350 |
+| Import at 23:30 (Night) | 10 x 0.15 x 0.95 x 1.10 | 1.5675 |
+| Export | 10 x 0.15 | 1.5000 |
+| Standing charge and levy for 10 days of a 31 day period | (0.60 x 10 + 1.50 x 10 / 31) x 1.10 | 7.1323 |
 
 ### Bill sensors
 
-Accrued Bill This Period is the bill so far, worked out the way the supplier works it out. Each line is rounded to cents.
+Accrued Bill This Period is the bill so far, worked out the way a supplier works it out. Each line is rounded to the smallest currency unit, such as cents.
 
 | Line | Formula |
 |---|---|
 | Energy | kWh x rate for each rate period, summed over the bill period |
 | Supplier saving | Discount % of the energy line. Energy only |
 | Standing charge | Daily standing charge x days elapsed |
-| PSO levy | One flat amount per bill period, charged in proportion to the days elapsed |
-| VAT | VAT % of energy less saving, plus standing charge, plus PSO levy |
+| Flat levy | One flat amount per bill period, charged in proportion to the days elapsed |
+| VAT | VAT % of energy less saving, plus standing charge, plus levy |
 | Export credit | Export kWh x export rate. No VAT, and taken off after VAT |
 
-The accrued bill is energy less saving, plus standing charge, PSO levy and VAT, minus the export credit. It reads the month totals, which reset on the bill start day.
+The accrued bill is energy less saving, plus standing charge, levy and VAT, minus the export credit. It reads the month totals, which reset on the bill start day.
 
 Projected Bill This Period is the accrued bill divided by the days elapsed, times the days in the whole period.
 
 Days elapsed is the day of the bill period: the bill start day is day 1. Days remaining is the days left after today, so elapsed plus remaining is the length of the period (28 to 31 days).
 
-Example from a real bill, 16 August to 15 September, 31 days, bill start day 16:
+Example with the sample tariff: a 31 day period from the 16th to the 15th, bill start day 16, with 150 kWh at Boost, 40 kWh at Day and 500 kWh at Night, and 180 kWh exported.
 
 | Line | Calculation | Amount |
 |---|---|---|
-| Energy | 154 kWh x 0.1056 + 33 kWh x 0.365 + 517 kWh x 0.18 | 121.37 |
-| Supplier saving | 5.5% of 121.37 | -6.68 |
-| Standing charge | 31 x 0.8259 | 25.60 |
-| PSO levy | flat, full period | 1.46 |
-| VAT | 9% of 141.75 | 12.76 |
-| Export credit | 179 kWh x 0.195 | -34.91 |
-| Bill | | 119.60 |
+| Energy | 150 x 0.10 + 40 x 0.30 + 500 x 0.15 | 102.00 |
+| Supplier saving | 5% of 102.00 | -5.10 |
+| Standing charge | 31 x 0.60 | 18.60 |
+| Flat levy | flat, full period | 1.50 |
+| VAT | 10% of 117.00 | 11.70 |
+| Export credit | 180 x 0.15 | -27.00 |
+| Bill | | 101.70 |
 
-On 15 September the accrued and projected bill are both 119.60.
+On the last day of the period the accrued and projected bill are both 101.70.
 
 ### Where costs go
 
@@ -111,14 +113,17 @@ Each cycle's import cost is split between the EV charger, the immersion and the 
 
 ## Other fields
 
-| Field | Notes |
-|---|---|
-| Export / CEG rate | Paid per kWh exported. Default 0.195 |
-| Standing charge | Fixed daily charge. Default 0.8259 |
-| PSO levy | One flat amount per bill period. A part period is charged in proportion to its days. Default 1.46. Set 0 if you have none |
-| VAT rate | Default 9.0 |
-| Supplier discount | Default 5.5. Applied to import energy only |
-| Bill start day | 1 to 28. See the note on the month reset in [Configuration](configuration.md#things-to-know) |
-| Currency | Changes the symbol on money sensors. The rate fields always say EUR/kWh |
+Take every value from your supplier bill or tariff sheet. The form is pre-filled with placeholder defaults taken from an Irish domestic tariff. They are not a recommendation, so replace all of them.
 
-Take every value from your bill. The defaults are in `const.py` and match an Irish domestic tariff.
+| Field | What it is and where to find it | Effect of a wrong value |
+|---|---|---|
+| Base rate | Price per kWh outside every timed period, before VAT. Default 0.3334 | Every import cost outside the timed windows is wrong by the same factor |
+| Export rate | Amount paid per kWh sent to the grid. Called CEG in Ireland, and a feed-in or export tariff elsewhere. Default 0.195 | Export earnings, the immersion and battery export checks and the appliance advice use it |
+| Standing charge | Fixed daily charge, before VAT. Default 0.8259. Enter 0 if you have none | The bill sensors are off by the difference times the days elapsed |
+| Flat levy (PSO levy) | One flat amount per bill period, before VAT. Named after the Irish public service obligation levy. Enter any flat per-period charge here, or 0. Default 1.46 | The bill sensors are off by that amount, spread over the days |
+| VAT rate | Percentage added to energy, the standing charge and the levy. Read it from your bill. If your rates already include tax, enter 0. Default 9.0 | Every import cost and the bill scale by the same factor. An error of a few points shifts every cost figure by that many percent |
+| Supplier discount | Percentage taken off the energy rate only, before VAT, for example for paying by direct debit. Enter 0 if you have none. Default 5.5 | Import costs and the bill energy line are off by the difference |
+| Bill start day | The day your bill period starts, 1 to 28. See the note on the month reset in [Configuration](configuration.md#things-to-know) | The month totals reset on the wrong day and the projected bill uses the wrong period length |
+| Currency | Sets the symbol on money sensors. It does not convert any amounts | Only the symbol is wrong |
+
+Check the values against your latest bill whenever your supplier changes its prices. Costs stay wrong until you update them, because the integration does not read your supplier's rates.

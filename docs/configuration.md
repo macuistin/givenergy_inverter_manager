@@ -53,9 +53,9 @@ The charge control entities are never asked for. They come from discovery only. 
 | Supplier discount (%) | 5.5 | 0 to 20 |
 | First day of your billing period | 1 | 1 to 28 |
 | Currency | EUR | EUR, GBP, USD, SEK, NOK, DKK, AUD, CAD, NZD, ZAR |
-| Rate period 1 to 5 | Night and Nightboost in slots 1 and 2 | name, rate, window start, window end. An empty name removes the slot |
+| Rate period 1 to 5 | Placeholder periods named Night and Nightboost in slots 1 and 2 | name, rate, window start, window end. An empty name removes the slot |
 
-The defaults are Electric Ireland Home Electric with Nightboost. Replace all of them. The rate fields say EUR/kWh whatever currency you pick. The currency only changes the symbol on money sensors. See [Tariff](tariff.md) for how periods and bill figures work.
+The defaults are placeholders taken from an Irish domestic tariff. Replace all of them with the values from your own bill or tariff sheet, whatever your supplier or country. Any tariff with timed rates works, and so does a flat rate. The currency sets the symbol on money sensors and the unit shown beside the rate fields. It does not convert any amounts. See [Tariff](tariff.md) for how periods and bill figures work, and where to find each value.
 
 ### Step 3: Forecast and carbon (optional)
 
@@ -177,19 +177,20 @@ Details as in setup step 3. Clear an entity field to remove the saved entity.
 
 ## Field meanings
 
-These are the fields that have been entered wrongly. The same wording is in the forms.
+These are the fields that are easiest to enter wrongly. The same wording is in the forms.
 
 | Field | Meaning |
 |---|---|
 | First day of your billing period | The day your bill starts. If your bill runs from the 16th to the 15th, enter 16. The Configure and confirmation pages repeat it back as "Your bill runs from the 16th to the 15th." |
-| Base rate | The rate per kWh, before VAT, outside the timed rate periods. |
+| Base rate | The rate per kWh, before VAT, outside the timed rate periods. It is on your tariff sheet. |
 | Rate period 1 to 5 | An optional timed rate that overrides the base rate inside its window. Leave the name empty to remove the slot. The cheapest active period wins. A window that ends before it starts runs overnight, for example 23:00 to 08:00. Start and end must be different times. A rate of 0 means free electricity, so do not use it as a placeholder. |
+| VAT rate (%) | The percentage added to energy, the standing charge and the levy. Read it from your bill. Enter 0 if your rates already include tax. A wrong value scales every cost figure. |
 | Supplier discount (%) | Taken off the energy rate only, before VAT. It does not apply to the standing charge or the levy. 0 means no discount. |
-| PSO levy per billing period | A flat amount, before VAT, charged once per billing period. The bill sensors spread it evenly across the days. 0 means no levy. |
+| PSO levy per billing period | A flat amount, before VAT, charged once per billing period. It is named after the Irish public service obligation levy. Use it for any flat per-period charge. The bill sensors spread it evenly across the days. 0 means no levy. |
 | Standing charge per day | A fixed charge per day, before VAT. 0 means none. |
-| Export / CEG rate | Paid per kWh sent to the grid. No VAT or discount applies. |
+| Export / CEG rate | Paid per kWh sent to the grid, such as a feed-in or export guarantee rate. No VAT or discount applies. |
 | Cheap rate floor (%) | During the cheapest rate window the battery is topped up if it falls below this. 0 turns it off. |
-| Battery cost (EUR) | Used to put a wear cost on each kWh cycled. 0 turns the wear check off. |
+| Battery cost (EUR) | Used to put a wear cost on each kWh cycled. Enter the amount in your own currency, as the field does not convert it. 0 turns the wear check off. |
 | Daily battery throughput budget (kWh) | A cap on kWh charged plus discharged per day. 0 turns the budget sensors off. |
 | Forecast sensors | An empty tomorrow sensor means a seasonal estimate is used. An empty pessimistic sensor means conservatism has no effect. An empty carbon sensor means the carbon sensors have no data. |
 | Water temperature sensor | Empty means the heater is not started or stopped by temperature. |

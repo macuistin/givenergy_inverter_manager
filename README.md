@@ -8,14 +8,14 @@
 
 A Home Assistant integration for GivEnergy inverters. It sets the overnight charge target, diverts spare solar to an immersion heater, and tracks energy costs across your tariff periods. It reads and writes Home Assistant entities published by GivTCP over MQTT. No cloud account is needed.
 
-Tested on a GivEnergy GIV-HY-5.0 on the Electric Ireland Nightboost tariff. Current version: 0.8.0.
+Works with any supplier and any tariff: timed rates (two or three rate periods, or a single overnight window) or a flat rate. Tested on a GivEnergy GIV-HY-5.0 with the Electric Ireland Nightboost tariff. Current version: 0.8.0.
 
 ## What it does
 
 - **Overnight charge target.** Works out how much to charge tonight from tomorrow's solar forecast and your usage, and writes it to GivTCP once a day, just before your cheapest rate period.
 - **Immersion divert.** Heats water from spare solar, with a minimum temperature, a target and a restart gap.
 - **EV signals.** Reports when solar surplus is available and where the car's power comes from. A Zappi is set to Eco+ when there is enough surplus.
-- **Cost tracking.** Import cost, export earnings and per-load costs across cheap and base rates, with daily, weekly, monthly and yearly totals.
+- **Cost tracking.** Import cost, export earnings and per-load costs across your timed and base rates, with daily, weekly, monthly and yearly totals.
 - **Bill estimate, battery health and ROI figures.** Plus a large set of sensors and six actions.
 
 ## Requirements
@@ -36,7 +36,7 @@ Tested on a GivEnergy GIV-HY-5.0 on the Electric Ireland Nightboost tariff. Curr
 
 [![Open your Home Assistant instance and start setting up this integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=givenergy_inverter_manager)
 
-Go to **Settings → Devices & Services → Add Integration** and search for **GivEnergy Inverter Manager**. The wizard finds your GivTCP inverter and asks for your tariff. Turn on dry run first, so nothing is written to the inverter until you have checked the decisions. The [quick start](docs/quick-start.md) has the steps.
+Go to **Settings → Devices & Services → Add Integration** and search for **GivEnergy Inverter Manager**. The wizard finds your GivTCP inverter and asks for your tariff, taken from your bill. Turn on dry run first, so nothing is written to the inverter until you have checked the decisions. The [quick start](docs/quick-start.md) has the steps.
 
 ## Documentation
 

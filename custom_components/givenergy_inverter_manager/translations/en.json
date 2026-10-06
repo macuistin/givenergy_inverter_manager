@@ -47,10 +47,10 @@
         "data_description": {
           "base_rate": "Rate per kWh, before VAT, that applies outside the timed rate periods.",
           "base_rate_name": "Name shown on the rate sensors while the base rate applies, for example Day.",
-          "export_rate": "Amount per kWh paid for energy sent to the grid. VAT and the supplier discount are not applied to it.",
+          "export_rate": "Amount per kWh paid for energy sent to the grid, such as a feed-in or export guarantee rate. VAT and the supplier discount are not applied to it.",
           "standing_charge_per_day": "Fixed charge per day, before VAT. 0 means no standing charge.",
-          "pso_levy_per_month": "Flat amount charged once per billing period, before VAT. The bill sensors spread it evenly across the days. 0 means no levy.",
-          "vat_rate": "Percentage added to energy, the standing charge and the levy. 0 means no VAT.",
+          "pso_levy_per_month": "Flat amount charged once per billing period, before VAT. It is named after the Irish public service obligation levy. Use it for any flat per-period charge. The bill sensors spread it evenly across the days. 0 means no levy.",
+          "vat_rate": "Percentage added to energy, the standing charge and the levy. Read it from your bill. 0 means no VAT.",
           "discount_rate": "Percentage taken off the energy rate only, before VAT is added. It does not apply to the standing charge or the levy. 0 means no discount.",
           "bill_start_day": "If your bill runs from the 16th to the 15th, enter 16.",
           "currency": "Symbol used on cost sensors. It does not convert any amounts."
@@ -229,10 +229,10 @@
         "data_description": {
           "base_rate": "Rate per kWh, before VAT, that applies outside the timed rate periods.",
           "base_rate_name": "Name shown on the rate sensors while the base rate applies, for example Day.",
-          "export_rate": "Amount per kWh paid for energy sent to the grid. VAT and the supplier discount are not applied to it.",
+          "export_rate": "Amount per kWh paid for energy sent to the grid, such as a feed-in or export guarantee rate. VAT and the supplier discount are not applied to it.",
           "standing_charge_per_day": "Fixed charge per day, before VAT. 0 means no standing charge.",
-          "pso_levy_per_month": "Flat amount charged once per billing period, before VAT. The bill sensors spread it evenly across the days. 0 means no levy.",
-          "vat_rate": "Percentage added to energy, the standing charge and the levy. 0 means no VAT.",
+          "pso_levy_per_month": "Flat amount charged once per billing period, before VAT. It is named after the Irish public service obligation levy. Use it for any flat per-period charge. The bill sensors spread it evenly across the days. 0 means no levy.",
+          "vat_rate": "Percentage added to energy, the standing charge and the levy. Read it from your bill. 0 means no VAT.",
           "discount_rate": "Percentage taken off the energy rate only, before VAT is added. It does not apply to the standing charge or the levy. 0 means no discount.",
           "bill_start_day": "If your bill runs from the 16th to the 15th, enter 16.",
           "currency": "Symbol used on cost sensors. It does not convert any amounts."
@@ -355,10 +355,10 @@
             "data_description": {
               "base_rate": "Rate per kWh, before VAT, that applies outside the timed rate periods.",
               "base_rate_name": "Name shown on the rate sensors while the base rate applies, for example Day.",
-              "export_rate": "Amount per kWh paid for energy sent to the grid. VAT and the supplier discount are not applied to it.",
+              "export_rate": "Amount per kWh paid for energy sent to the grid, such as a feed-in or export guarantee rate. VAT and the supplier discount are not applied to it.",
               "standing_charge_per_day": "Fixed charge per day, before VAT. 0 means no standing charge.",
-              "pso_levy_per_month": "Flat amount charged once per billing period, before VAT. The bill sensors spread it evenly across the days. 0 means no levy.",
-              "vat_rate": "Percentage added to energy, the standing charge and the levy. 0 means no VAT.",
+              "pso_levy_per_month": "Flat amount charged once per billing period, before VAT. It is named after the Irish public service obligation levy. Use it for any flat per-period charge. The bill sensors spread it evenly across the days. 0 means no levy.",
+              "vat_rate": "Percentage added to energy, the standing charge and the levy. Read it from your bill. 0 means no VAT.",
               "discount_rate": "Percentage taken off the energy rate only, before VAT is added. It does not apply to the standing charge or the levy. 0 means no discount.",
               "bill_start_day": "If your bill runs from the 16th to the 15th, enter 16.",
               "currency": "Symbol used on cost sensors. It does not convert any amounts."
