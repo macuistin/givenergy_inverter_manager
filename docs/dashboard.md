@@ -90,6 +90,8 @@ Everything else uses built-in Home Assistant cards.
 
 ## Layout
 
+The screenshots in this section use the dark theme. The values are from a working install and will differ on yours.
+
 Every view is a Home Assistant **sections** view. Each section is a column of cards that starts with a heading, and the sections sit side by side on a wide screen: one column on a phone, two on a tablet, three on a desktop. Tiles are the main building block. They are all horizontal, two to a row on a phone (six of the twelve grid columns), and use colour the same way everywhere: amber for solar, green for the battery and savings, blue for the grid and money, orange for the immersion, teal for the EV charger and indigo for the night.
 
 The controls use tile features: a slider on the number entities and a toggle on the switches. They sit in the Settings sub-view, which only administrators see. Everywhere else a tile shows a setting's value and does nothing when tapped. A bar shows state of charge. Charts take the full width of their section.
@@ -107,6 +109,10 @@ A sub-view and the tile that opens it are left out when the sub-view would be em
 
 The links use relative paths, so they work at any dashboard URL.
 
+On a phone the sections stack in one column:
+
+![Power Flow view on a phone, with the cards stacked in one column.](images/dashboard-power-flow-mobile.png)
+
 ### Settings and administrators
 
 Everything that changes a setting is in the **Settings** sub-view. A small **Settings** button in the Now heading of the Power Flow tab opens it. Both are for Home Assistant administrators only. Everyone else sees neither, and the rest of the dashboard only shows state.
@@ -121,6 +127,8 @@ This hides the controls. It is not security. Home Assistant has no permissions f
 
 ### Power Flow
 
+![Power Flow view with battery at 73%, live solar, grid, home and battery flow, and today's energy totals.](images/dashboard-power-flow.png)
+
 - **Now**: Battery (state of charge with a bar), Night survival, Rate now, Cost today, Cheap from (Next Cheap Rate Start) and Cheap in (Hours to Cheap Rate). Night Survival Confidence and the two cheap rate sensors are disabled by default, so a new install shows three of the six until you enable them. Night survival reads Safe, Warning or Critical. Tap it to open Battery detail, which says in words why. Tap the Battery tile to open the Battery tab.
 For administrators the heading also holds a **Settings** button.
 - **Dry run is on**: a banner with the last skipped action, below Now. It appears only while Dry Run Mode Active is true.
@@ -131,6 +139,8 @@ For administrators the heading also holds a **Settings** button.
 For the EV load, the dashboard uses the first of these entities that exists, else the integration's own EV Charging Power: `sensor.myenergi_zappi_power_ct_internal_load`, `..._2`, `sensor.myenergi_zappi2_power_ct_internal_load`, `sensor.wallbox_charging_power`, `sensor.ohme_current_power`.
 
 ### Immersion (sub-view)
+
+![Immersion view with water temperature and heater power charts and the reason for the divert decision.](images/dashboard-immersion.png)
 
 Only when an immersion heater or water temperature sensor is configured.
 
@@ -148,11 +158,15 @@ The charts need a water temperature sensor.
 
 ### Today
 
+![Today view with energy generated, used, imported and exported, cost tiles, and self-sufficiency gauges.](images/dashboard-today.png)
+
 - **Energy**: Generated, Used, Imported, Exported, EV and Immersion.
 - **Cost**: Import cost, Export earnings, Rate now and Rate period. The heading opens Cost breakdown.
 - **Solar**: Self-sufficiency and Self-consumption, each with a bar. The heading opens Solar and forecast.
 
 ### Cost breakdown (sub-view)
+
+![Cost breakdown view with grid import, house, EV and immersion costs and a 14 day bar chart.](images/dashboard-cost-breakdown.png)
 
 A tile for every cost line today (grid import, export earnings, rest of house, EV charging, immersion and what solar saved the immersion) and a bar graph of cost per day over 14 days.
 
@@ -163,6 +177,8 @@ Generated today, today's forecast, how generation tracks the forecast and yester
 The two graphs on the sub-views are statistics graphs, not history graphs. The daily sensors fall to zero at midnight, so a history graph of them draws a sawtooth. The graphs plot the change in each period instead, from the long-term statistics. They stay empty until Home Assistant has compiled statistics for the sensors, which takes up to an hour.
 
 ### Bill
+
+![Bill view with accrued and projected bill, import cost, export credit and days left in the period.](images/dashboard-bill.png)
 
 Figures for the current bill period, so you can hold them against your supplier bill.
 
@@ -181,6 +197,8 @@ The table is read from your options when the file is generated, so generate the 
 
 ### Battery
 
+![Battery view with state of charge graph, tonight's charge plan and the charge settings in force.](images/dashboard-battery.png)
+
 - **Battery**: state of charge with a bar, battery power with a 24-hour trend, and a 24-hour history of state of charge. The heading opens Battery detail.
 - **Tonight's charge plan**: Target tonight, Est. cost, At sunrise (estimated state of charge) and Rate floor (the cheap rate floor).
 - **Charge settings in force**: the charge target override (Target override and Override on), Skip tonight and Dry run, to read. Change the first three in Settings. Dry run is an option of the integration.
@@ -193,6 +211,8 @@ State of charge and power are not drawn on one graph, because a percentage and w
 - **Battery health**: total cycles, life remaining, days since full charge, and the inverter temperature and status.
 
 ### Settings (sub-view, administrators only)
+
+![Settings view with the charge target slider, the skip tonight toggle and the immersion heater controls.](images/dashboard-settings.png)
 
 - **Overnight charging**: a slider for the charge target, and the Use target and Skip tonight switches.
 - **Immersion heater**: the Auto divert and Managed switches, the divert reason in words and sliders for the target temperature, the minimum temperature and the restart gap.
