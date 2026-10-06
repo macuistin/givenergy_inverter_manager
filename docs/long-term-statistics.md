@@ -56,6 +56,16 @@ On a fresh install the period start is set to the start of the current day, week
 
 A sensor whose state class does not allow `last_reset` makes Home Assistant refuse to write its state, and the value stays frozen until the integration reloads. Version 0.2.1 had nine such sensors. See [Troubleshooting](troubleshooting.md#daily-sensors-are-frozen-after-an-upgrade).
 
+## Days where the daily change reads 0
+
+A daily change of 0 in Statistics means the sensor's state did not move that day. Two things can cause it.
+
+**History recorded on v0.2.1.** Nine daily sensors, including Import at cheap rate and Import at peak rate, froze at their first midnight after each restart, because Home Assistant refused to write their state (see [If daily sensors stop moving](#if-daily-sensors-stop-moving)). The frozen value was never reset, so Statistics show a change of 0 on every day until the next restart. The restart day then carries the difference between the old and new value. Daily totals for those days are wrong in the recorded history, and an upgrade does not rewrite history.
+
+**Band sensors and the day's import.** The band sensors add up power readings, while Grid Import Today follows the GivTCP counter. The two agree to within a fraction of a percent on a normal day. Treat the bands as a split of the day's import, not as a second meter.
+
+To check a sensor, compare the daily change in Statistics with its Yesterday sensor the next morning. They match on v0.3.0 and later. For days recorded before the upgrade, use Grid Import Today or the GivTCP import counter for the total, and start any band chart on the day you upgraded.
+
 ## Upgrading: statistics that change
 
 Existing statistics keep their history. Home Assistant raises a repair, "no longer has a state class", for each sensor that lost its state class. These repairs have no Fix button. Open **Developer Tools → Statistics**, find the sensor, choose **Fix issue** and delete its old statistics. The repair then closes. Nothing is lost that you need: the old sums for the sensors below contain negative steps at every reset.
