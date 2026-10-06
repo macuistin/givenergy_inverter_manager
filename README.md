@@ -66,7 +66,7 @@ Start at the [documentation index](docs/index.md).
 pip install -r requirements-test.txt
 python -m pytest tests -q           # stubbed unit suite, about 13 s
 ruff check
-python scripts/gen_sensor_docs.py   # regenerate docs/sensors.md after changing sensor.py
+python scripts/gen_sensor_docs.py   # regenerate docs/sensors.md after changing the sensor descriptions
 ```
 
 The real Home Assistant suite (`tests/ha_e2e`) needs its own virtualenv. See [Testing](docs/testing.md).

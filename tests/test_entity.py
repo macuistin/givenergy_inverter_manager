@@ -78,25 +78,3 @@ def test_refresh_button_stays_available_when_the_coordinator_fails():
     coord.last_update_success = False
 
     assert button.GivEnergyRefreshDashboardButton(coord).available is True
-
-
-async def test_immersion_switch_service_call_runs_as_a_coordinator_task():
-    """The non-blocking switch call goes through the coordinator's task wrapper."""
-    from types import SimpleNamespace
-
-    from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_SWITCH
-
-    coord = FakeCoordinator(cfg=_cfg(**{CONF_IMMERSION_SWITCH: "switch.immersion"}))
-    coord.set_state("switch.immersion", "off")
-    coord.data = SimpleNamespace(
-        should_divert_immersion=True,
-        immersion_temp=40.0,
-        divert_reason="surplus",
-    )
-    entity = switch.GivEnergyImmersionControlSwitch(coord)
-
-    entity._handle_coordinator_update()
-
-    assert len(coord.tasks_created) == 1
-    await coord.tasks_created[0]
-    assert coord.service_calls_for("switch", "turn_on") == [{"entity_id": "switch.immersion"}]

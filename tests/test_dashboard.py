@@ -1,8 +1,7 @@
 """
-test_dashboard.py — Tests for dashboard.py pure logic.
+test_dashboard.py — Tests for the dashboard generator (the dashboard package).
 
-The HA-dependent parts (service registration, persistent_notification call)
-are not tested here — they require a running HA instance.
+The service actions that write the generated file are tested in test_services.py.
 
 What is tested:
   - _build_dashboard_yaml produces syntactically valid YAML
@@ -22,11 +21,11 @@ from tests.dashboard_support import (
     MINIMAL_CONFIG,
     FakeRegistry,
     all_cards,
+    dashboard_dict,
+    dashboard_text,
     default_entity_ids,
-    fake_hass,
     view_cards,
 )
-from tests.helpers import PKG
 
 _IDS = default_entity_ids()
 
@@ -38,16 +37,7 @@ def eid(key: str) -> str:
 
 def _build(config=None, registry=None, **kw) -> str:
     """Dashboard YAML. Defaults to every feature configured and every sensor enabled."""
-    from custom_components.givenergy_inverter_manager.dashboard_builder import (
-        build_dashboard_yaml,
-    )
-
-    with fake_hass(
-        FULL_CONFIG if config is None else config,
-        registry or FakeRegistry(enable_all=True),
-        **({"ev_brand": "myenergi"} | kw),
-    ) as hass:
-        return build_dashboard_yaml(hass, ENTRY_ID)
+    return dashboard_text(config, registry, **kw)
 
 
 class TestBuildDashboardYaml:
@@ -192,96 +182,8 @@ class TestBuildDashboardYaml:
         assert not unresolved, f"Unresolved placeholders in dashboard YAML: {unresolved}"
 
 
-class TestDryRunEngine:
-    """Tests that dry_run flag is correctly threaded through engine output."""
-
-    def _run_with_dry_run(self, dry_run: bool):
-        from datetime import datetime
-
-        from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
-        from custom_components.givenergy_inverter_manager.core.engine import RawSensorValues
-        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
-        from tests.core.flat_engine import build_coordinator_data
-
-        cfg = {
-            "rate_periods": [
-                {"name": "Day", "rate": 0.3334, "start": "08:00", "end": "23:00"},
-                {"name": "Night", "rate": 0.1644, "start": "23:00", "end": "08:00"},
-            ],
-            "dry_run": dry_run,
-            "currency": "EUR",
-        }
-        raw = RawSensorValues(solar_power_w=1000.0, battery_soc=70.0)
-        data, _ = build_coordinator_data(
-            raw=raw,
-            cfg=cfg,
-            acc=EnergyAccumulator(),
-            battery_stats=BatteryStats(),
-            last_soc=None,
-            last_update_time=None,
-            now=datetime(2024, 6, 15, 14, 0),
-        )
-        return data
-
-    def test_dry_run_false_by_default(self):
-        data = self._run_with_dry_run(False)
-        assert data.dry_run is False
-
-    def test_dry_run_true_when_configured(self):
-        data = self._run_with_dry_run(True)
-        assert data.dry_run is True
-
-    def test_dry_run_last_skipped_empty_on_init(self):
-        data = self._run_with_dry_run(True)
-        assert data.dry_run_last_skipped == ""
-
-    def test_dry_run_does_not_affect_sensor_values(self):
-        """dry_run=True must not change any sensor readings."""
-        live = self._run_with_dry_run(False)
-        dry = self._run_with_dry_run(True)
-        assert dry.solar_power_w == live.solar_power_w
-        assert dry.battery_soc == live.battery_soc
-        assert dry.charge_decision is not None
-
-    def test_dry_run_flag_not_exposed_as_charge_skip(self):
-        """dry_run mode must not force skip_charge."""
-        data = self._run_with_dry_run(True)
-        # dry_run should not interfere with the charge decision logic
-        assert isinstance(data.charge_decision.skip_charge, bool)
-
-
-class TestEvChargerDiscovery:
-    """_find_ev_charger_power prefers known external EV integrations over the
-    integration's own sensor, which reads from GivTCP and may show 0W."""
-
-    def _find(self, states_present=None):
-        from unittest.mock import MagicMock
-
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
-            _find_ev_charger_power,
-        )
-
-        hass = MagicMock()
-        hass.states.get = lambda eid: MagicMock() if eid in (states_present or []) else None
-        return _find_ev_charger_power(hass, "sensor.givenergy_inverter_manager_ev_charging_power")
-
-    def test_falls_back_to_integration_sensor_when_no_external_charger(self):
-        assert self._find([]) == "sensor.givenergy_inverter_manager_ev_charging_power"
-
-    def test_prefers_myenergi_zappi_when_present(self):
-        assert (
-            self._find(["sensor.myenergi_zappi_power_ct_internal_load"])
-            == "sensor.myenergi_zappi_power_ct_internal_load"
-        )
-
-    def test_prefers_first_candidate_found(self):
-        result = self._find(
-            ["sensor.myenergi_zappi_power_ct_internal_load", "sensor.wallbox_charging_power"]
-        )
-        assert result == "sensor.myenergi_zappi_power_ct_internal_load"
-
-    def test_wallbox_used_when_no_zappi(self):
-        assert self._find(["sensor.wallbox_charging_power"]) == "sensor.wallbox_charging_power"
+class TestPowerFlowTabChanges:
+    """Verify the power flow tab layout improvements."""
 
     def test_only_the_battery_node_is_inverted(self):
         """Battery Power is positive while charging, but the flow card reads positive as
@@ -294,29 +196,6 @@ class TestEvChargerDiscovery:
             if isinstance(cfg, dict) and cfg.get("invert_state") is True
         }
         assert inverted == {"battery"}
-
-
-class TestSuggestApplianceServiceCall:
-    """suggest_appliance_run service handler must pass all required arguments."""
-
-    def test_battery_power_w_in_call(self):
-
-        src = (PKG / "dashboard.py").read_text()
-        assert "battery_power_w=data.battery_power_w" in src, (
-            "Missing battery_power_w causes TypeError on every service invocation."
-        )
-
-    def test_export_rate_from_coordinator_not_data(self):
-
-        src = (PKG / "dashboard.py").read_text()
-        assert "coordinator.export_rate" in src
-        assert 'hasattr(data, "export_rate")' not in src, (
-            "hasattr guard always returned False — CoordinatorData has no export_rate."
-        )
-
-
-class TestPowerFlowTabChanges:
-    """Verify the power flow tab layout improvements."""
 
     def test_clipping_as_secondary_info_on_solar(self):
         yaml = _build()
@@ -438,6 +317,12 @@ class TestIncomeBar:
         result = _build()
         assert "live_grid_cost_rate" in result
 
+    def test_grid_node_shows_the_live_cost_rate(self):
+        parsed = yaml.safe_load(_build())
+        pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
+        pf_card = next(c for c in view_cards(pf_view) if "power-flow-card-plus" in c["type"])
+        assert pf_card["entities"]["grid"]["secondary_info"]["entity"] == eid("live_grid_cost_rate")
+
 
 class TestSolarForecastCards:
     """Solar vs forecast section is present on the Today tab."""
@@ -469,59 +354,11 @@ class TestSoCHistoryChart:
             assert len(graph["entities"]) == 1
 
 
-class TestExportCsvHelpers:
-    """Unit tests for the CSV export helper functions in dashboard.py."""
-
-    def test_acc_to_csv_row_format(self):
-        from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
-        from custom_components.givenergy_inverter_manager.dashboard import _acc_to_csv_row
-
-        acc = EnergyAccumulator()
-        acc.solar_kwh = 12.5
-        acc.import_kwh = 3.2
-        acc.export_kwh = 2.1
-        row = _acc_to_csv_row("today", acc)
-        parts = row.split(",")
-        assert parts[0] == "today"
-        assert float(parts[1]) == pytest.approx(12.5)
-        assert float(parts[2]) == pytest.approx(3.2)
-        assert float(parts[3]) == pytest.approx(2.1)
-
-    def test_snapshot_to_csv_row_format(self):
-        from custom_components.givenergy_inverter_manager.dashboard import _snapshot_to_csv_row
-
-        snap = {
-            "solar_kwh": 45.0,
-            "import_kwh": 20.0,
-            "export_kwh": 10.0,
-            "battery_throughput_kwh": 8.0,
-            "export_earnings": 1.95,
-            "import_cost_by_period": {"Night": 1.5, "Day": 2.0},
-        }
-        row = _snapshot_to_csv_row(1, snap)
-        parts = row.split(",")
-        assert parts[0] == "month_snapshot_01"
-        assert float(parts[1]) == pytest.approx(45.0)  # solar_kwh
-        assert float(parts[5]) == pytest.approx(3.5)   # import_cost (1.5 + 2.0)
-
-    def test_csv_header_fields(self):
-        from custom_components.givenergy_inverter_manager.dashboard import _CSV_HEADER
-
-        fields = _CSV_HEADER.split(",")
-        assert fields[0] == "period"
-        assert "solar_kwh" in fields
-        assert "import_cost" in fields
-        assert "net_position" in fields
-
-
 class TestYamlSerialisation:
     """The dashboard is built as a dict and serialised once."""
 
     def _dict(self):
-        from custom_components.givenergy_inverter_manager.dashboard_builder import build_dashboard
-
-        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
-            return build_dashboard(hass, ENTRY_ID)
+        return dashboard_dict()
 
     def test_yaml_round_trips_to_the_dict(self):
         assert yaml.safe_load(_build()) == self._dict()
@@ -1051,20 +888,10 @@ class TestMissingHacsCards:
     """The custom cards are optional: without their resource the view uses built-in cards."""
 
     def _types(self, resources) -> set[str]:
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
-            build_dashboard_yaml,
-        )
-
-        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
-            return {c["type"] for c in _all_cards(build_dashboard_yaml(hass, ENTRY_ID, resources))}
+        return {c["type"] for c in _all_cards(self._text(resources))}
 
     def _text(self, resources) -> str:
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
-            build_dashboard_yaml,
-        )
-
-        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
-            return build_dashboard_yaml(hass, ENTRY_ID, resources)
+        return dashboard_text(resources=resources)
 
     def test_unknown_resources_keep_the_custom_cards(self):
         types = self._types(None)
@@ -1119,12 +946,7 @@ class TestMissingHacsCards:
         assert "not installed" not in header[: header.index("views:")]
 
     def test_no_apex_note_without_an_immersion_sensor(self):
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
-            build_dashboard_yaml,
-        )
-
-        with fake_hass(MINIMAL_CONFIG, FakeRegistry(enable_all=True)) as hass:
-            text = build_dashboard_yaml(hass, ENTRY_ID, [_PFC])
+        text = dashboard_text(MINIMAL_CONFIG, resources=[_PFC], ev_brand=None)
         assert "not installed" not in text[: text.index("views:")]
 
     def test_fallback_dashboard_references_only_usable_entities(self):
@@ -1139,7 +961,7 @@ class TestReadingLovelaceResources:
         import asyncio
         from unittest.mock import MagicMock
 
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
+        from custom_components.givenergy_inverter_manager.dashboard import (
             async_lovelace_resource_urls,
         )
 
@@ -1406,12 +1228,7 @@ class TestSectionsLayout:
     def test_only_built_in_card_types_without_the_hacs_cards(self):
         text = _build()
         parsed = yaml.safe_load(text)
-        from custom_components.givenergy_inverter_manager.dashboard_builder import (
-            build_dashboard_yaml,
-        )
-
-        with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True), ev_brand="myenergi") as hass:
-            built = yaml.safe_load(build_dashboard_yaml(hass, ENTRY_ID, []))
+        built = yaml.safe_load(dashboard_text(resources=[]))
         types = {c["type"] for c in all_cards(built["views"])}
         assert not {t for t in types if t.startswith("custom:")}
         assert types <= {"heading", "tile", "markdown", "entities", "history-graph", "statistics-graph"}

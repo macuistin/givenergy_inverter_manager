@@ -3,8 +3,8 @@ sensor_values.py — Pure value functions behind the sensor descriptions.
 
 Each function takes a CoordinatorData snapshot (or one of its energy accumulators) and
 returns the value a sensor reports. Nothing here imports Home Assistant, so every
-rule can be unit tested directly. sensor.py holds the description table and
-references these functions by name.
+rule can be unit tested directly. The sensor_descriptions package holds the description
+table and references these functions by name.
 """
 
 from __future__ import annotations

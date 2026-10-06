@@ -246,12 +246,12 @@ if "homeassistant.helpers.event" not in sys.modules:
 sys.modules["homeassistant.helpers.event"].async_track_time_change = lambda *a, **kw: lambda: None
 
 
-# homeassistant.core needs ServiceCall for dashboard.py
+# homeassistant.core needs ServiceCall for services.py
 _core = sys.modules["homeassistant.core"]
 _core.ServiceCall = MagicMock
 _core.SupportsResponse = MagicMock()
 
-# homeassistant.helpers.entity_registry (used by dashboard.py)
+# homeassistant.helpers.entity_registry (used by the dashboard package)
 if "homeassistant.helpers.entity_registry" not in sys.modules:
     sys.modules["homeassistant.helpers.entity_registry"] = types.ModuleType(
         "homeassistant.helpers.entity_registry"

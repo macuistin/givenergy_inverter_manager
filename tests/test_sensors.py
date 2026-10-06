@@ -25,7 +25,6 @@ from custom_components.givenergy_inverter_manager.sensor import (
     SENSOR_DESCRIPTIONS,
     GivEnergyManagerSensor,
 )
-from tests.helpers import PKG
 
 _BY_KEY = {d.key: d for d in SENSOR_DESCRIPTIONS}
 
@@ -573,8 +572,10 @@ class TestDashboardSummarySensors:
         assert _BY_KEY["house_kwh_today"].entity_registry_enabled_default is True
 
     def test_dashboard_uses_house_kwh_today(self):
-        dashboard = (PKG / "dashboard_builder.py").read_text()
-        assert 'e("house_kwh_today")' in dashboard
+        from tests.dashboard_support import dashboard_text, default_entity_ids
+
+        dashboard = dashboard_text()
+        assert default_entity_ids()["house_kwh_today"] in dashboard
         assert "house_energy_today" not in dashboard
 
 

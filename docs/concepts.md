@@ -34,8 +34,7 @@ Every 30 seconds the coordinator runs these steps in order.
 7. Record the day's first forecast value, for the forecast accuracy sensors.
 8. Apply the cheap rate floor, if it is due.
 9. Apply the EV mode change, if one was requested.
-
-The managed immersion switch applies the immersion decision each time the coordinator publishes new data.
+10. Apply the immersion decision to your real immersion switch. The first cycle after a start or reload skips this step, because the real switch may not be up yet. It runs even when the managed switch entity is disabled. The managed switch shows the decision and lets you override it.
 
 Three things happen on a clock instead of in the cycle.
 
@@ -133,7 +132,7 @@ Rules 1, 2 and 6 need a water temperature sensor. Without one, the immersion run
 
 Solar power is smoothed with an average of the last smoothed value and the new reading, which stops the divert chasing a passing cloud.
 
-The managed switch writes to your real immersion switch. After each automatic on or off it waits 10 minutes before the next automatic change. It turns off at once when the water is at or above the target.
+The integration writes to your real immersion switch. After each automatic on or off it waits 10 minutes before the next automatic change. It turns off at once when the water is at or above the target.
 
 When **Auto Immersion Divert** is off, the rule above is bypassed. The decision becomes off with the reason `Manual override`, and the managed switch asks for the real switch to be off. The minimum temperature rule does not run either.
 
