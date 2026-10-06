@@ -66,6 +66,7 @@ def _acc_to_dict(acc: EnergyAccumulator) -> dict:
         "zappi_cost": acc.zappi_cost,
         "immersion_cost": acc.immersion_cost,
         "house_cost": acc.house_cost,
+        "grid_equivalent_load_cost": acc.grid_equivalent_load_cost,
         "immersion_solar_kwh": acc.immersion_solar_kwh,
         "immersion_savings": acc.immersion_savings,
         "battery_throughput_kwh": acc.battery_throughput_kwh,
@@ -80,7 +81,19 @@ def _dict_to_acc(d: dict) -> EnergyAccumulator:
     for key, value in d.items():
         if hasattr(acc, key):
             setattr(acc, key, value)
+    if "grid_equivalent_load_cost" not in d:
+        acc.grid_equivalent_load_cost = _estimated_grid_equivalent_load_cost(acc)
     return acc
+
+
+def _estimated_grid_equivalent_load_cost(acc: EnergyAccumulator) -> float:
+    """Price data saved before the cost was tracked at the average rate actually paid.
+
+    Without it the saving would read low until the day the cost starts accumulating ends.
+    """
+    if acc.import_kwh <= 0:
+        return 0.0
+    return acc.house_kwh * acc.total_import_cost / acc.import_kwh
 
 
 def _midnight_of(now: datetime, day: date) -> datetime:

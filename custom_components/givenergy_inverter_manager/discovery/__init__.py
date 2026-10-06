@@ -10,21 +10,29 @@ from .ev_charger import (
     update_charger_state,
 )
 from .givtcp import (
+    UNUSED_SLOT_TIME,
+    ActiveChargeSlot,
     GivTCPInverter,
+    describe_charge_slots,
     discover_battery_cycle_entities,
     discover_givtcp_inverters,
+    find_other_active_charge_slots,
     get_suggested_entities,
 )
 
 __all__ = [
+    "UNUSED_SLOT_TIME",
     "ZAPPI_ECO_PLUS_MODE",
+    "ActiveChargeSlot",
     "EVCharger",
     "EVChargerBrand",
     "EVChargerState",
     "GivTCPInverter",
+    "describe_charge_slots",
     "discover_battery_cycle_entities",
     "discover_ev_chargers",
     "discover_givtcp_inverters",
+    "find_other_active_charge_slots",
     "get_suggested_entities",
     "update_charger_state",
 ]

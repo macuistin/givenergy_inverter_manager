@@ -18,9 +18,20 @@ Issues raised:
     charge target, so a high value causes the inverter to hold the battery
     at that level all night and import from the grid.
     Fix: lower Battery minimum SoC in the integration options.
+
+  other_charge_slots_active
+    A charge slot other than the one the integration writes has a charge
+    window set (start differs from end). The inverter charges in every
+    active slot, so a leftover slot can charge the battery at a dearer rate
+    than the cheapest period. Fixable: the repair clears each such slot to
+    00:00 to 00:00 through the coordinator's verified writer.
 """
 
 from __future__ import annotations
+
+from collections.abc import Sequence
+from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.issue_registry import (
@@ -30,9 +41,14 @@ from homeassistant.helpers.issue_registry import (
 )
 
 from .const import DOMAIN
+from .discovery import ActiveChargeSlot, describe_charge_slots
+
+if TYPE_CHECKING:
+    from homeassistant.components.repairs import RepairsFlow
 
 ISSUE_GIVTCP_ENTITIES_MISSING = "givtcp_entities_missing"
 ISSUE_MIN_SOC_TOO_HIGH = "min_soc_too_high"
+ISSUE_OTHER_CHARGE_SLOTS_ACTIVE = "other_charge_slots_active"
 
 TROUBLESHOOTING_URL = (
     "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs/troubleshooting.md"
@@ -40,6 +56,7 @@ TROUBLESHOOTING_URL = (
 LEARN_MORE_URLS: dict[str, str] = {
     ISSUE_GIVTCP_ENTITIES_MISSING: f"{TROUBLESHOOTING_URL}#givtcp-entities-not-found",
     ISSUE_MIN_SOC_TOO_HIGH: f"{TROUBLESHOOTING_URL}#battery-minimum-soc-is-set-too-high",
+    ISSUE_OTHER_CHARGE_SLOTS_ACTIVE: f"{TROUBLESHOOTING_URL}#other-charge-slots-are-active",
 }
 
 # Matches the selector max in config_flow.py. Values above this are legacy
@@ -82,3 +99,42 @@ def async_create_min_soc_issue(hass: HomeAssistant, min_soc: int) -> None:
 def async_delete_min_soc_issue(hass: HomeAssistant) -> None:
     """Clear the min-SoC-too-high repair issue once the value is within range."""
     async_delete_issue(hass, DOMAIN, ISSUE_MIN_SOC_TOO_HIGH)
+
+
+class ClearOutcome(StrEnum):
+    """How an attempt to clear the other charge slots ended."""
+
+    CLEARED = "cleared"
+    DRY_RUN = "dry_run"
+    FAILED = "write_failed"
+
+
+def async_create_other_charge_slots_issue(
+    hass: HomeAssistant, slots: Sequence[ActiveChargeSlot]
+) -> None:
+    """Surface a fixable repair issue naming each other charge slot that is active."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_OTHER_CHARGE_SLOTS_ACTIVE,
+        is_fixable=True,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_OTHER_CHARGE_SLOTS_ACTIVE],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_OTHER_CHARGE_SLOTS_ACTIVE,
+        translation_placeholders={"slots": describe_charge_slots(slots)},
+    )
+
+
+def async_delete_other_charge_slots_issue(hass: HomeAssistant) -> None:
+    """Clear the other-charge-slots repair issue once no other slot is active."""
+    async_delete_issue(hass, DOMAIN, ISSUE_OTHER_CHARGE_SLOTS_ACTIVE)
+
+
+async def async_create_fix_flow(
+    hass: HomeAssistant, issue_id: str, data: dict[str, str | int | float | None] | None
+) -> RepairsFlow:
+    """Home Assistant calls this to fix a fixable issue. Only one issue here is fixable."""
+    # Imported here because the repairs integration is not available to the unit test stub.
+    from .repair_flows import ClearOtherChargeSlotsFlow
+
+    return ClearOtherChargeSlotsFlow()

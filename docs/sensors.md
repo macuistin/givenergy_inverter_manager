@@ -85,7 +85,7 @@ Money sensors use the currency symbol you chose in the tariff.
 |---|---|---|---|---|---|---|---|
 | Import Cost Today | `import_cost_today` | currency | monetary | total | day | yes | Import cost after the supplier discount and VAT. |
 | Export Earnings Today | `export_earnings_today` | currency | monetary | total | day | yes | Exported kWh times the export rate. |
-| Saving vs Grid Today | `saving_vs_grid_today` | currency | monetary | total | day | no | House kWh at the base rate minus net import cost (import cost minus export earnings). |
+| Saving vs Grid Today | `saving_vs_grid_today` | currency | monetary | total | day | no | House load priced at the rate in force when it ran, minus net import cost (import cost minus export earnings). |
 | Net Saving Today (inc. battery wear) | `net_saving_today` | currency | monetary | total | day | no | Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. |
 | EV Charging Cost Today | `zappi_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the EV charger. |
 | House Cost Today | `house_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the rest of the house. |
