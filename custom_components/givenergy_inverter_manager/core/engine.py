@@ -72,6 +72,7 @@ from ..const import (
     INVERTER_TEMP_STATUS_WARM,
     INVERTER_TEMP_WARM,
     SOLAR_NOISE_FLOOR_W,
+    SOLAR_SUNRISE_HOUR,
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
     THROUGHPUT_BUDGET_HIGH_PCT,
@@ -634,6 +635,10 @@ class ForecastContext:
     forecast_accuracy_7day_avg_pct: float = 0.0
     load_profile: list[float] | None = None
     forecast_correction: float | None = None
+    # Today's P50 and P10 forecasts as the sensors read before midnight. After midnight the
+    # sensors report the next day, so the charge decision reads these for the day it serves.
+    today_raw_forecast_kwh: float | None = None
+    today_raw_forecast_p10_kwh: float | None = None
 
 
 @dataclass(frozen=True)
@@ -891,15 +896,29 @@ def _charge_inputs(cycle: _Cycle, avg_daily_kwh: float) -> ChargeInputs:
 
 
 def _solar_forecast(cycle: _Cycle) -> SolarForecast:
+    """The forecasts for the solar day the charge decision serves.
+
+    Until sunrise that day is today and the sensors, which moved on at midnight, now report
+    tomorrow. Today's forecast is the one remembered before midnight, and tomorrow's reading
+    becomes the day after the one being charged for.
+    """
     raw, forecast = cycle.raw, cycle.forecast
+    if cycle.now.hour < SOLAR_SUNRISE_HOUR:
+        forecast_kwh = forecast.today_raw_forecast_kwh
+        forecast_kwh_p10 = forecast.today_raw_forecast_p10_kwh
+        forecast_kwh_d2 = raw.forecast_kwh_tomorrow
+    else:
+        forecast_kwh = raw.forecast_kwh_tomorrow
+        forecast_kwh_p10 = raw.forecast_kwh_p10
+        forecast_kwh_d2 = raw.forecast_kwh_d2
     return SolarForecast(
-        forecast_kwh=raw.forecast_kwh_tomorrow,
+        forecast_kwh=forecast_kwh,
         solar_fractions=forecast.solar_fractions,
-        forecast_kwh_p10=raw.forecast_kwh_p10,
+        forecast_kwh_p10=forecast_kwh_p10,
         forecast_conservatism=float(
             cycle.cfg.get(CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM)
         ),
-        forecast_kwh_d2=raw.forecast_kwh_d2,
+        forecast_kwh_d2=forecast_kwh_d2,
         forecast_correction=forecast.forecast_correction,
     )
 

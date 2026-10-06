@@ -295,7 +295,7 @@ class ChargeInputs:
 
 @dataclass(frozen=True)
 class SolarForecast:
-    """The solar forecasts for tomorrow (p50 and p10) and the day after, plus corrections."""
+    """The solar forecasts (p50 and p10) for the day the charge serves and the day after it."""
 
     forecast_kwh: float | None
     solar_fractions: dict[int, float] | None = None

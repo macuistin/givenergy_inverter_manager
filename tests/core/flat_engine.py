@@ -49,6 +49,8 @@ def build_coordinator_data(
     forecast_accuracy_7day_avg_pct: float = 0.0,
     load_profile: list[float] | None = None,
     forecast_correction: float | None = None,
+    today_raw_forecast_kwh: float | None = None,
+    today_raw_forecast_p10_kwh: float | None = None,
 ) -> tuple[CoordinatorData, str | None]:
     return engine.build_coordinator_data(
         CycleInputs(
@@ -78,6 +80,8 @@ def build_coordinator_data(
             forecast_accuracy_7day_avg_pct=forecast_accuracy_7day_avg_pct,
             load_profile=load_profile,
             forecast_correction=forecast_correction,
+            today_raw_forecast_kwh=today_raw_forecast_kwh,
+            today_raw_forecast_p10_kwh=today_raw_forecast_p10_kwh,
         ),
     )
 

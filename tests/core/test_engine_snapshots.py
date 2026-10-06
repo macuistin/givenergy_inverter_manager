@@ -6,6 +6,10 @@ seeded random cases over tariffs, config, EV chargers, overrides, forecasts and 
 state. Each case stores the call's inputs and every CoordinatorData field that differs from
 a fresh CoordinatorData(), so a refactor must reproduce the whole snapshot, not just the
 fields the other tests happen to read.
+
+The 26 cases made before 08:00 were regenerated when the charge decision started reading
+the forecast remembered before midnight, so only their charge_decision changed. The new
+behaviour is pinned in test_forecast_day.py.
 """
 
 from __future__ import annotations

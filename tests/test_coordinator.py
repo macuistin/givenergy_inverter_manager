@@ -196,6 +196,8 @@ class FakeCoordinator(GivEnergyCoordinator):
             slot_load_profile = AccumulationStore.slot_load_profile
             forecast_correction_factor = AccumulationStore.forecast_correction_factor
             on_raw_forecast = AccumulationStore.on_raw_forecast
+            today_raw_forecast_kwh = AccumulationStore.today_raw_forecast_kwh
+            today_raw_forecast_p10_kwh = AccumulationStore.today_raw_forecast_p10_kwh
             note_clipping = AccumulationStore.note_clipping
 
             bill_start_day = 1

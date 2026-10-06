@@ -990,6 +990,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
                 load_profile=self._acc.slot_load_profile((now + timedelta(days=1)).weekday()),
                 forecast_correction=self._acc.forecast_correction_factor,
+                today_raw_forecast_kwh=self._acc.today_raw_forecast_kwh,
+                today_raw_forecast_p10_kwh=self._acc.today_raw_forecast_p10_kwh,
             ),
         )
         self._attach_stored_totals(data)
@@ -1085,7 +1087,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     def _record_forecast(self, raw: RawSensorValues, data: CoordinatorData) -> None:
         """Feed the forecast accuracy tracking and note whether the inverter is clipping."""
-        self._acc.on_raw_forecast(raw.forecast_kwh_tomorrow)
+        self._acc.on_raw_forecast(raw.forecast_kwh_tomorrow, raw.forecast_kwh_p10)
         if data.is_clipping:
             self._acc.note_clipping()
         if data.charge_decision is not None and data.charge_decision.forecast_kwh > 0:
