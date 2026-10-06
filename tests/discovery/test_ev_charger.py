@@ -119,11 +119,25 @@ class TestEVChargerStateNormalisation:
     def test_is_active_when_charging(self):
         ch = _make_zappi()
         ch.state = EVChargerState.CHARGING
+        ch.power_w = 7000.0
         assert ch.is_active is True
 
     def test_is_active_when_boosting(self):
         ch = _make_zappi()
         ch.state = EVChargerState.BOOSTING
+        ch.power_w = 7000.0
+        assert ch.is_active is True
+
+    def test_not_active_when_the_state_says_charging_but_no_power_is_drawn(self):
+        ch = _make_zappi()
+        ch.state = EVChargerState.BOOSTING
+        ch.power_w = 0.0
+        assert ch.is_active is False
+
+    def test_active_without_a_power_entity_follows_the_state(self):
+        ch = _make_zappi()
+        ch.power_entity = None
+        ch.state = EVChargerState.CHARGING
         assert ch.is_active is True
 
     def test_not_active_when_paused(self):
@@ -639,3 +653,50 @@ class TestZappiWithoutSerialInEntityIds:
             discover_ev_chargers(_states(ids))
         warnings = [r for r in caplog.records if "power entity not found" in r.message]
         assert len(warnings) == 2
+
+
+class TestZappiSessionAsPublished:
+    """The plug and status values a Zappi publishes through one evening, plug-in to completion.
+
+    The status stays Boosting while the plug reads Waiting for EV, so the status alone would
+    call a car that is not charging active.
+    """
+
+    @staticmethod
+    def _charger(plug, status, power):
+        states = {
+            "sensor.myenergi_zappi_plug_status": plug,
+            "sensor.myenergi_zappi_status": status,
+            "sensor.myenergi_zappi_internal_load_ct1": power,
+            "sensor.myenergi_zappi_charge_added_session": "0.0",
+            "select.myenergi_zappi_charge_mode": "Fast",
+            "sensor.myenergi_zappi_serial_number": "21637627",
+        }
+        (charger,) = discover_ev_chargers(_states(states))
+        update_charger_state(_get_state(states), charger, battery_power_w=-2500.0)
+        return charger
+
+    def test_unplugged_with_a_stale_status(self):
+        charger = self._charger("EV Disconnected", "Boosting", "0")
+        assert charger.state is EVChargerState.DISCONNECTED
+        assert not charger.is_active
+        assert not charger.is_draining_battery
+
+    def test_plugged_in_and_waiting_with_a_stale_boosting_status(self):
+        charger = self._charger("Waiting for EV", "Boosting", "0")
+        assert charger.state is EVChargerState.CONNECTED
+        assert charger.is_plugged_in
+        assert not charger.is_active
+        assert not charger.is_draining_battery
+
+    def test_charging_at_full_power(self):
+        charger = self._charger("Charging", "Boosting", "7084")
+        assert charger.state is EVChargerState.BOOSTING
+        assert charger.is_active
+        assert charger.power_w == 7084.0
+        assert charger.is_draining_battery
+
+    def test_waiting_after_completion(self):
+        charger = self._charger("Waiting for EV", "Completed", "0")
+        assert charger.state is EVChargerState.COMPLETED
+        assert not charger.is_active

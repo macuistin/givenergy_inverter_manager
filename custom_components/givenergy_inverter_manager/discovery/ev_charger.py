@@ -56,6 +56,8 @@ import logging
 from dataclasses import dataclass
 from enum import StrEnum
 
+from ..const import EV_CHARGER_MIN_POWER_W
+
 _LOG = logging.getLogger(__name__)
 
 
@@ -77,6 +79,8 @@ class EVChargerState(StrEnum):
     COMPLETED = "completed"
     UNKNOWN = "unknown"
 
+
+_ACTIVE_STATES = (EVChargerState.CHARGING, EVChargerState.BOOSTING)
 
 # Maps raw entity states → normalised EVChargerState, per brand
 _STATE_MAP: dict[EVChargerBrand, dict[str, EVChargerState]] = {
@@ -165,8 +169,21 @@ class EVCharger:
         return brand_map.get(raw_state.strip().lower(), EVChargerState.UNKNOWN)
 
     @property
+    def is_drawing_power(self) -> bool:
+        """True when the charger reports at least a charging session's minimum power.
+
+        A charger with no power entity cannot say, so it is taken to be drawing.
+        """
+        return self.power_entity is None or self.power_w >= EV_CHARGER_MIN_POWER_W
+
+    @property
     def is_active(self) -> bool:
-        return self.state in (EVChargerState.CHARGING, EVChargerState.BOOSTING)
+        """Delivering energy: the state says so and the charger is drawing power.
+
+        A Zappi keeps a Boosting status while its plug status reads Waiting for EV, so the
+        state alone would call a car that is not charging active.
+        """
+        return self.state in _ACTIVE_STATES and self.is_drawing_power
 
     @property
     def is_plugged_in(self) -> bool:
@@ -392,14 +409,16 @@ def update_charger_state(  # noqa: C901
     if raw is not None:
         charger.state = charger.normalise_state(raw)
 
+    charger.power_w = _read_float(charger.power_entity)
+    charger.session_kwh = _read_float(charger.session_energy_entity)
+
     activity = _read_state(charger.activity_entity)
     if activity is not None and charger.is_plugged_in:
         activity_state = charger.normalise_state(activity)
-        if activity_state is not EVChargerState.UNKNOWN:
+        if activity_state is not EVChargerState.UNKNOWN and not (
+            activity_state in _ACTIVE_STATES and not charger.is_drawing_power
+        ):
             charger.state = activity_state
-
-    charger.power_w = _read_float(charger.power_entity)
-    charger.session_kwh = _read_float(charger.session_energy_entity)
 
     raw_mode = _read_state(charger.charge_mode_entity)
     if raw_mode is not None:

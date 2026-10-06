@@ -169,12 +169,12 @@ Sensors marked `EV charger needed` are unavailable until a supported charger is 
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| EV Charger State | `ev_charger_state` | - | - | none | no | yes | disconnected, connected, charging, paused, boosting, completed or unknown. EV charger needed. |
+| EV Charger State | `ev_charger_state` | - | - | none | no | yes | disconnected, connected, charging, paused, boosting, completed or unknown. Charging and boosting need the charger to be drawing power. EV charger needed. |
 | EV Charging Power | `ev_power` | W | power | measurement | no | yes | EV charger power. EV charger needed. |
 | EV Session Energy | `ev_session_energy` | kWh | energy | total_increasing | no | yes | Energy of the current session, as reported by the charger. EV charger needed. |
 | EV km Charged Today | `ev_km_charged_today` | km | - | total | day | no | EV energy today divided by car efficiency. Empty with no EV energy. |
 | EV Cost per km Today | `ev_cost_per_km_today` | currency | - | measurement | no | no | EV cost today divided by km charged. |
-| EV Draining Battery | `ev_draining_battery` | - | - | none | no | yes | yes while the charger is charging and the battery discharges over 200 W. EV charger needed. Diagnostic category. |
+| EV Draining Battery | `ev_draining_battery` | - | - | none | no | yes | yes while the charger is charging, drawing power, and the battery discharges over 200 W. EV charger needed. Diagnostic category. |
 | EV Mode Decision | `ev_protection_reason` | - | - | none | no | yes | Reason for the latest EV charge mode decision. EV charger needed. Diagnostic category. |
 | EV Charging Source | `ev_charging_source` | - | - | none | no | yes | Not charging, Solar, Grid, Battery or Mixed. EV charger needed. |
 | EV Solar Surplus | `ev_solar_surplus_available` | - | - | none | no | yes | Available when net solar surplus is 1380 W or more. |

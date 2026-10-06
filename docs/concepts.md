@@ -146,7 +146,7 @@ The integration finds Zappi (myenergi), Wallbox, OCPP, Ohme and Easee chargers b
 
 It does three things with the charger:
 
-- **Signals.** EV Solar Surplus reads `Available` at 1380 W of net solar surplus or more. EV Charging Source reports Solar, Grid, Battery or Mixed. EV Draining Battery is `yes` when the charger is charging and the battery discharges over 200 W.
+- **Signals.** EV Solar Surplus reads `Available` at 1380 W of net solar surplus or more. EV Charging Source reports Solar, Grid, Battery or Mixed. EV Draining Battery is `yes` when the charger is charging, is drawing power, and the battery discharges over 200 W. A charger that reports a charging status but draws no power, such as a Zappi waiting for the car, does not count.
 - **Zappi mode.** For a Zappi with a charge mode entity, with a car plugged in and net surplus of at least 1380 W, the integration selects **Eco+** unless the Zappi is already in it. It never selects Stopped. In dry run it records the action and sends nothing.
 - **Cost and distance.** EV energy, cost and kilometres use the car efficiency from the options.
 

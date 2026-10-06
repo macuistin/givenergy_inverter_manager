@@ -391,14 +391,15 @@ DESCRIPTIONS: dict[str, str] = {
     "pre_boost_export_net_gain": "Spare kWh times (export rate minus cheapest rate).",
     "immersion_divert_reason": "Why the immersion is on or off.",
     "ev_charger_state": (
-        "disconnected, connected, charging, paused, boosting, completed or unknown."
+        "disconnected, connected, charging, paused, boosting, completed or unknown. "
+        "Charging and boosting need the charger to be drawing power."
     ),
     "ev_power": "EV charger power.",
     "ev_session_energy": "Energy of the current session, as reported by the charger.",
     "ev_km_charged_today": "EV energy today divided by car efficiency. Empty with no EV energy.",
     "ev_cost_per_km_today": "EV cost today divided by km charged.",
     "ev_draining_battery": (
-        "yes while the charger is charging and the battery discharges over 200 W."
+        "yes while the charger is charging, drawing power, and the battery discharges over 200 W."
     ),
     "ev_protection_reason": "Reason for the latest EV charge mode decision.",
     "ev_charging_source": "Not charging, Solar, Grid, Battery or Mixed.",
