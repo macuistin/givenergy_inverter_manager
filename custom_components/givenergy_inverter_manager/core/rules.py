@@ -35,7 +35,6 @@ from ..const import (
     CHARGE_LOAD_PROFILE_MIN_DAYS,
     CHARGE_LOAD_PROFILE_SAME_WEEKDAY_MIN_DAYS,
     CHARGE_MIN_TARGET_HEADROOM_PCT,
-    CHARGE_MORNING_LOAD_FRACTION,
     CHARGE_PEAK_SOLAR_HOURS,
     CHARGE_SHOULDER_MIN_SOC,
     CHARGE_SHOULDER_MONTHS,
@@ -402,6 +401,15 @@ def _integration_forecast(forecast_kwh: float, correction: float | None) -> _Res
     return _ResolvedForecast(kwh=forecast_kwh, source=source)
 
 
+def _missing_p10_note(forecast: SolarForecast) -> str:
+    """Say so when conservatism is set but the integration forecast has no P10 to blend with."""
+    if forecast.forecast_kwh is None or forecast.forecast_kwh_p10 is not None:
+        return ""
+    if forecast.forecast_conservatism <= 0.0:
+        return ""
+    return ", no P10 forecast so conservatism is unused"
+
+
 def _resolve_forecast(
     inputs: ChargeInputs, forecast: SolarForecast, month: int
 ) -> _ResolvedForecast:
@@ -412,7 +420,9 @@ def _resolve_forecast(
     blended_kwh, blend_suffix = _blend_forecast_p10(
         base.kwh, forecast.forecast_kwh_p10, forecast.forecast_conservatism
     )
-    return _ResolvedForecast(kwh=blended_kwh, source=base.source + blend_suffix)
+    return _ResolvedForecast(
+        kwh=blended_kwh, source=base.source + blend_suffix + _missing_p10_note(forecast)
+    )
 
 
 def _is_skip_candidate(tonight: _Tonight) -> bool:
@@ -935,49 +945,3 @@ def decide_ev_charger_action(
     return None, (
         f"Battery SoC {battery_soc:.0f}% OK, surplus {solar_surplus_w:.0f}W — no action needed"
     )
-
-
-
-# ── Pre-cheap-rate export opportunity ─────────────────────────────────────────
-
-
-@dataclass(frozen=True)
-class PreBoostInputs:
-    """Battery state, tonight's target and the two rates that decide an early export."""
-
-    current_soc: float
-    battery_capacity_kwh: float
-    target_soc: int
-    avg_daily_kwh: float
-    ceg_rate: float
-    cheapest_rate: float
-    min_spare_kwh: float = 1.0
-
-
-def calculate_pre_boost_export_opportunity(inputs: PreBoostInputs) -> tuple[float, float, bool]:
-    """
-    Calculate whether it's worth exporting before the cheap rate window.
-
-    Returns (spare_kwh, net_gain, recommended).
-
-    spare_kwh:   kWh available to export before overnight charge (0 if none)
-    net_gain:    estimated gain (configured currency) from exporting now and recharging
-                 at the boost rate
-    recommended: True when net_gain > 0 and spare_kwh >= inputs.min_spare_kwh
-
-    Formula:
-      spare_kwh = current_soc_kwh - overnight_deficit_kwh - evening_load_est_kwh
-      net_gain  = spare_kwh × (ceg_rate - cheapest_rate)
-
-    The evening load estimate uses CHARGE_MORNING_LOAD_FRACTION (25% of daily avg)
-    as a conservative proxy for evening consumption before the cheap window opens.
-    """
-    capacity_kwh = inputs.battery_capacity_kwh
-    current_soc_kwh = capacity_kwh * (inputs.current_soc / 100)
-    target_soc_kwh = capacity_kwh * (inputs.target_soc / 100)
-    overnight_deficit_kwh = max(0.0, target_soc_kwh - current_soc_kwh)
-    evening_load_est_kwh = inputs.avg_daily_kwh * CHARGE_MORNING_LOAD_FRACTION
-    spare_kwh = max(0.0, current_soc_kwh - overnight_deficit_kwh - evening_load_est_kwh)
-    net_gain = spare_kwh * (inputs.ceg_rate - inputs.cheapest_rate)
-    recommended = net_gain > 0.0 and spare_kwh >= inputs.min_spare_kwh
-    return round(spare_kwh, 3), round(net_gain, 4), recommended

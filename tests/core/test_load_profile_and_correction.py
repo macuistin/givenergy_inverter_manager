@@ -6,6 +6,10 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
+from custom_components.givenergy_inverter_manager.const import (
+    CHARGE_FORECAST_CORRECTION_MAX,
+    CHARGE_FORECAST_CORRECTION_MIN,
+)
 from custom_components.givenergy_inverter_manager.core.rules import (
     build_load_profile,
     forecast_correction_factor,
@@ -183,6 +187,45 @@ class TestForecastCorrectionApplied:
         with_factor = _decide(forecast_kwh=None, forecast_correction=0.6)
         without = _decide(forecast_kwh=None)
         assert with_factor == without
+
+
+class TestConservatismWithoutP10:
+    def test_reason_says_conservatism_is_unused(self):
+        decision = _decide(forecast_conservatism=0.35)
+        assert "no P10 forecast so conservatism is unused" in decision.reason
+
+    def test_note_comes_after_the_accuracy_factor(self):
+        decision = _decide(forecast_conservatism=0.35, forecast_correction=0.7)
+        assert "x0.70 recent accuracy, no P10 forecast so conservatism is unused" in (
+            decision.reason
+        )
+
+    def test_forecast_is_not_changed_by_the_note(self):
+        assert _decide(forecast_conservatism=0.35).forecast_kwh == pytest.approx(14.0)
+
+    def test_no_note_when_conservatism_is_zero(self):
+        assert "conservatism" not in _decide(forecast_conservatism=0.0).reason
+
+    def test_no_note_when_a_p10_forecast_is_present(self):
+        decision = _decide(forecast_kwh_p10=8.0, forecast_conservatism=0.35)
+        assert "conservatism is unused" not in decision.reason
+        assert "P10/P50 blend" in decision.reason
+
+    def test_no_note_for_the_seasonal_estimate(self):
+        decision = _decide(forecast_kwh=None, forecast_conservatism=0.35)
+        assert "conservatism" not in decision.reason
+
+
+class TestMeasuredBias:
+    """A forecast that ran about 30% high is corrected without reaching the 0.6 floor."""
+
+    RATIOS = (0.62, 0.88, 1.13, 0.69, 0.66, 0.71, 0.71, 0.61, 1.07, 0.85, 0.79, 0.64, 0.45, 0.53)
+
+    def test_median_of_a_high_bias_install_sits_inside_the_limits(self):
+        records = [{"forecast": 20.0, "actual": 20.0 * ratio} for ratio in self.RATIOS]
+        factor = forecast_correction_factor(records)
+        assert factor == pytest.approx(0.70)
+        assert CHARGE_FORECAST_CORRECTION_MIN < factor < CHARGE_FORECAST_CORRECTION_MAX
 
 
 class TestChargeScenarios:

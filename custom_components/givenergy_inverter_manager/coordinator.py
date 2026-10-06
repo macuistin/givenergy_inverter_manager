@@ -90,6 +90,7 @@ from .const import (
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DOMAIN,
+    FORECAST_P10_ATTRIBUTE,
     GIVTCP_MAX_CHARGE_TARGET_PCT,
     GIVTCP_MIN_CHARGE_TARGET_PCT,
     UPDATE_INTERVAL_SECONDS,
@@ -165,6 +166,15 @@ class _FloorCheck:
     status: str
     # The SoC to write, or None when no write is due.
     top_up_to: int | None = None
+
+
+def _non_negative_float(value: object) -> float | None:
+    """A number of zero or more from a state attribute, else None."""
+    try:
+        number = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return number if number >= 0 else None
 
 
 def _waiting_for_cheapest_text(soc: float, period, cheapest) -> str:
@@ -766,8 +776,22 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     def _read_forecasts(self, cfg: dict, raw: RawSensorValues) -> None:
         raw.forecast_kwh_tomorrow = self._read_forecast_kwh(cfg.get(CONF_FORECAST_ENTITY))
-        raw.forecast_kwh_p10 = self._read_forecast_kwh(cfg.get(CONF_FORECAST_ENTITY_P10))
+        raw.forecast_kwh_p10 = self._read_p10_forecast(cfg)
         raw.forecast_kwh_d2 = self._read_forecast_kwh(cfg.get(CONF_FORECAST_ENTITY_D2))
+
+    def _read_p10_forecast(self, cfg: dict) -> float | None:
+        """The pessimistic forecast: the configured P10 sensor, else the forecast sensor's own.
+
+        Solcast puts the P10 total in an attribute of its forecast sensors, so it needs no
+        setup. A sensor chosen in the options takes precedence.
+        """
+        configured = self._read_forecast_kwh(cfg.get(CONF_FORECAST_ENTITY_P10))
+        if configured is not None:
+            return configured
+        state = self._get_optional_state(cfg.get(CONF_FORECAST_ENTITY))
+        if state is None:
+            return None
+        return _non_negative_float(state.attributes.get(FORECAST_P10_ATTRIBUTE))
 
     def _read_forecast_kwh(self, entity_id: str | None) -> float | None:
         """A forecast reading in kWh, or None when it is missing or negative."""

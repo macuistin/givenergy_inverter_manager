@@ -22,6 +22,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
@@ -45,6 +46,14 @@ _LOG = get_logger(__name__)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH, Platform.NUMBER, Platform.BUTTON]
+
+# Sensors removed from the integration. Their registry entries stay behind as
+# "no longer provided" until something deletes them, so setup does.
+_RETIRED_SENSOR_KEYS: tuple[str, ...] = (
+    "pre_boost_export_recommended",
+    "pre_boost_export_kwh",
+    "pre_boost_export_net_gain",
+)
 
 _LIVE_SETTINGS: dict[str, str] = {
     CONF_IMMERSION_TARGET_TEMP: "immersion_target_temp",
@@ -86,6 +95,18 @@ def _make_update_listener(entry: GivEnergyConfigEntry):
     return _on_entry_updated
 
 
+def _remove_retired_sensors(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Delete the registry entries of retired sensors that belong to this config entry."""
+    registry = er.async_get(hass)
+    for key in _RETIRED_SENSOR_KEYS:
+        entity_id = registry.async_get_entity_id(
+            Platform.SENSOR, DOMAIN, f"{entry.entry_id}_{key}"
+        )
+        if entity_id is not None:
+            registry.async_remove(entity_id)
+            _LOG.info("Removed the retired sensor %s", entity_id)
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the service actions once, independent of any config entry."""
     await async_register_services(hass)
@@ -106,6 +127,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator
+
+    _remove_retired_sensors(hass, entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

@@ -14,6 +14,9 @@ behaviour is pinned in test_forecast_day.py.
 148 cases were regenerated when the saving started pricing the load at the rate in force when
 it ran. Only grid_equivalent_load_cost on the accumulators, saving_vs_grid_today and
 net_saving_today moved. The new behaviour is pinned in test_saving_counterfactual.py.
+
+189 cases were regenerated when the pre-boost export fields left CoordinatorData. Only the three
+pre_boost_export_* leaves were removed, from those cases and from the fresh snapshot.
 """
 
 from __future__ import annotations

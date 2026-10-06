@@ -605,21 +605,6 @@
   "name": "Peak rate import fraction"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_pre_boost_export_net_gain",
-  "key": "pre_boost_export_net_gain",
-  "name": "Pre-boost export net gain"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_pre_boost_export_recommended",
-  "key": "pre_boost_export_recommended",
-  "name": "Pre-boost export recommended"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_pre_boost_exportable_kwh",
-  "key": "pre_boost_export_kwh",
-  "name": "Pre-boost exportable kWh"
- },
- {
   "entity_id": "sensor.givenergy_inverter_manager_projected_bill_this_period",
   "key": "projected_bill",
   "name": "Projected Bill This Period"

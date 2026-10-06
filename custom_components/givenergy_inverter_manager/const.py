@@ -64,6 +64,8 @@ CONF_FORECAST_ENTITY = "forecast_entity"
 CONF_FORECAST_PROVIDER = "forecast_provider"
 FORECAST_PROVIDER_FORECAST_SOLAR = "forecast_solar"
 FORECAST_PROVIDER_SOLCAST = "solcast"
+# Attribute of a Solcast forecast sensor holding that period's P10 total in kWh.
+FORECAST_P10_ATTRIBUTE = "estimate10"
 # Solcast P10/P50 conservatism blend (0.0 = pure P50, 1.0 = pure P10).
 # When Solcast is configured as the forecast provider and exposes separate P10/P90
 # entities, this weight controls how pessimistic the forecast is.
@@ -209,7 +211,6 @@ CHARGE_WINTER_SKIP_SOC_PCT = 95  # %
 CHARGE_MIN_TARGET_HEADROOM_PCT = 5  # SoC points above min SoC
 
 CHARGE_PEAK_SOLAR_HOURS = 4.0  # peak-output hours assumed when no forecast available
-CHARGE_MORNING_LOAD_FRACTION = 0.25  # fraction of daily load consumed before solar starts
 CHARGE_SOLAR_USABLE_FRACTION = 0.6  # fraction of forecast kWh we can realistically charge from
 CHARGE_SKIP_HEADROOM = 0.8  # forecast/fill headroom needed to justify skipping charge
 CHARGE_STRONG_BUFFER = 10  # SoC points added above gap for strong forecast
