@@ -357,7 +357,9 @@ def _accumulate_loads(acc: EnergyAccumulator, step: _Step) -> None:
     acc.solar_kwh += (solar_w / 1000) * step.elapsed_h
     acc.zappi_kwh += (raw.ev_power_w / 1000) * step.elapsed_h
     acc.immersion_kwh += (step.immersion_w / 1000) * step.elapsed_h
-    acc.house_kwh += (raw.house_load_w / 1000) * step.elapsed_h
+    house_step_kwh = (raw.house_load_w / 1000) * step.elapsed_h
+    acc.house_kwh += house_step_kwh
+    acc.grid_equivalent_load_cost += step.tariff.calculate_import_cost(house_step_kwh, step.now)
 
 
 def _accumulate_battery_flow(acc: EnergyAccumulator, step: _Step) -> None:
@@ -1084,12 +1086,11 @@ def _set_bill_fields(data: CoordinatorData, cycle: _Cycle, accumulators: Accumul
     data.days_remaining = days_remaining
 
 
-def _set_savings_fields(data: CoordinatorData, tariff: TariffConfig) -> None:
-    """Counterfactual cost: what you'd have paid without solar/battery."""
+def _set_savings_fields(data: CoordinatorData) -> None:
+    """The saving is what the load would have cost from the grid at the time, less what was paid."""
     acc = data.today
-    counterfactual_cost = tariff.calculate_base_rate_cost(acc.house_kwh)
     actual_net_cost = acc.total_import_cost - acc.export_earnings
-    data.saving_vs_grid_today = round(counterfactual_cost - actual_net_cost, 4)
+    data.saving_vs_grid_today = round(acc.grid_equivalent_load_cost - actual_net_cost, 4)
     battery_wear_today = acc.battery_throughput_kwh * data.battery_cycle_cost_per_kwh
     data.net_saving_today = round(data.saving_vs_grid_today - battery_wear_today, 4)
 
@@ -1178,7 +1179,7 @@ def _set_money_fields(
 ) -> None:
     """Bill, savings, battery budget and the pre-boost export; they read the decisions above."""
     _set_bill_fields(data, cycle, accumulators)
-    _set_savings_fields(data, cycle.tariff)
+    _set_savings_fields(data)
     _set_throughput_budget(data, cycle.cfg)
     _set_pre_boost_export(data, cycle, avg_daily_kwh)
 
