@@ -192,4 +192,4 @@ Example from a real day: 12.1 kWh imported, 7.5 kWh of it into the battery, and 
 
 ### Dry run
 
-With dry run on, all decisions and sensors update. No charge target, floor, EV mode or immersion command is sent. The Last Skipped Action sensor shows the latest charge target, EV mode or automatic immersion command held back. The cheap rate floor reports through the Cheap Rate Floor sensor. The log carries a `DRY RUN` line for each one. Manual presses of the managed immersion switch also skip the real switch.
+With dry run on, all decisions and sensors update. No charge target, floor, EV mode or immersion command is sent. The Last Skipped Action sensor shows the latest charge target, EV mode or automatic immersion command held back. The cheap rate floor reports through the Cheap Rate Floor sensor. The log carries a `DRY RUN` line for each one. A press of the managed immersion switch is recorded the same way and also leaves the real switch alone.

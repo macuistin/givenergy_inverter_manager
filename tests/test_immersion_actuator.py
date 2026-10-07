@@ -154,6 +154,52 @@ class TestDryRun:
         await actuator.manual_off()
         assert world.sent == []
 
+    async def test_manual_commands_are_recorded_as_skipped(self, actuator, world):
+        world.dry_run = True
+        await actuator.manual_on()
+        await actuator.manual_off()
+        assert world.skipped == [
+            "Would turn_on immersion heater (reason: manual press)",
+            "Would turn_off immersion heater (reason: manual press)",
+        ]
+
+    async def test_manual_commands_without_a_switch_record_nothing(self, actuator, world):
+        world.dry_run = True
+        world.entity = None
+        await actuator.manual_on()
+        assert world.skipped == []
+
+    async def test_manual_on_remembers_no_command(self, actuator, world):
+        world.dry_run = True
+        await actuator.manual_on()
+        assert actuator.last_commanded_on is None
+
+    async def test_manual_off_remembers_no_command_and_starts_no_cooldown(self, actuator, world):
+        world.dry_run = True
+        await actuator.manual_off()
+        assert actuator.last_commanded_on is None
+        assert actuator.cooldown_until is None
+
+    async def test_a_manual_run_survives_the_next_cycle(self, actuator, world):
+        """The real switch stayed off because nothing was sent. That is not an external toggle."""
+        world.dry_run = True
+        await actuator.manual_on()
+        world.clock = T0 + COOLDOWN + timedelta(minutes=1)
+        actuator.actuate(decision(on=True), world.clock)
+        assert actuator.manual_run_to_target is True
+        assert actuator.override is True
+
+    async def test_a_manual_off_does_not_turn_the_next_cycle_into_an_external_turn_on(
+        self, actuator, world
+    ):
+        world.dry_run = True
+        world.switch_state = "on"
+        await actuator.manual_off()
+        world.clock = T0 + COOLDOWN + timedelta(minutes=1)
+        actuator.actuate(decision(on=False), world.clock)
+        assert actuator.manual_run_to_target is False
+        assert actuator.override is None
+
 
 class TestManual:
     async def test_manual_on_sends_and_runs_to_target(self, actuator, world):
