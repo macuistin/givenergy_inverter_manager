@@ -10,6 +10,7 @@ What is tested:
   - Dry run sensor entities are included in the Controls view
 """
 
+import math
 import re
 
 import pytest
@@ -667,7 +668,16 @@ def _render(content: str, states, attrs=None) -> str:
         states=states,
         state_attr=lambda entity, name: attrs.get((entity, name)),
         has_value=lambda entity: states(entity) not in ("unknown", "unavailable", ""),
+        is_number=_is_number,
     )
+
+
+def _is_number(value) -> bool:
+    """Home Assistant's is_number: true for a finite number or a string that holds one."""
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
 
 
 class TestNightSurvivalCard:
@@ -1055,11 +1065,13 @@ class TestSubViews:
                     return [c["name"] for c in section["cards"][1:] if c["type"] == "tile"]
             raise AssertionError(heading)
 
-        assert tiles_after("power-flow", "Energy today")[:4] == [
+        assert tiles_after("power-flow", "Energy today")[:6] == [
             "Generated",
             "Used",
             "Imported",
             "Exported",
+            "Self-sufficient",
+            "Solar share",
         ]
         assert tiles_after("today", "Energy") == [
             "Generated",

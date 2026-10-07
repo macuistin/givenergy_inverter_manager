@@ -2,6 +2,21 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Features**
+- The Energy today section of the Power Flow tab has two more tiles, Self-sufficient and Solar
+  share, so the share of the day's use that did not come from the grid is on the first screen.
+- The Today tab has a Where today's energy came from group. It says in plain words what the
+  house used (solar, battery and grid, in kWh), what came in from the grid (the part the house
+  used and the part that went into the battery) and what self-sufficiency means. A line for the
+  EV and one for the immersion show only while that device exists, and follow a device added or
+  removed later with no new file. The card reads the Self Sufficiency sensor's attributes
+  `house_load_kwh`, `from_grid_kwh`, `grid_to_battery_kwh` and `basis`, and uses the House Load
+  Today and Grid Import Today totals where one is missing. Solar and battery show as one figure
+  until the Battery Discharged Today sensor, which is disabled by default, is enabled. Generate
+  the dashboard again to get the group and the tiles. See [Dashboard](docs/dashboard.md).
+
 ## v0.10.0
 
 Sizes the overnight charge window to the plan, lets the immersion devices be added later,

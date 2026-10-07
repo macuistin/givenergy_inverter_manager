@@ -163,7 +163,7 @@ This hides the controls. It is not security. Home Assistant has no permissions f
 For administrators the heading also holds a **Settings** button.
 - **Dry run is on**: a banner with the last skipped action, below Now. It appears only while Dry Run Mode Active is true.
 - **Live power flow**: a power-flow-card-plus card with solar, battery, grid, home and, when they exist, two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. Battery Power is positive while charging and the card expects the opposite, so the node sets `invert_state: true`. The grid node shows the Live Grid Cost Rate.
-- **Energy today**: Generated, Used (House Load Today), Imported and Exported. Tap the heading to open the Today tab.
+- **Energy today**: Generated, Used (House Load Today), Imported, Exported, Self-sufficient and Solar share. Self-sufficient is the share of what the house used that did not come from the grid. Solar share is the share that came from solar kept on site. Tap the heading to open the Today tab, which shows where the energy came from.
 - **Devices**: an Immersion tile (the water temperature, or the heater power when there is no sensor) and an EV charger tile (the charger state). Each opens its sub-view. The heading and each tile show only while their device exists.
 
 For the EV load, the dashboard uses the first of these entities that exists, else the integration's own EV Charging Power: `sensor.myenergi_zappi_power_ct_internal_load`, `..._2`, `sensor.myenergi_zappi2_power_ct_internal_load`, `sensor.wallbox_charging_power`, `sensor.ohme_current_power`.
@@ -188,8 +188,14 @@ Each section shows only while the device it needs exists.
 ### Today
 
 ![Today view with energy generated, used, imported and exported, cost tiles, and self-sufficiency gauges.](images/dashboard-today.png)
-
 - **Energy**: Generated, Used, Imported, Exported, EV and Immersion.
+- **Where today's energy came from**: three lines in plain words, then one line for each of the EV and the immersion that exists.
+  - House used: what the house used, split into solar, battery and grid. Solar and battery show as one figure until you enable the Battery Discharged Today sensor, which is disabled by default.
+  - Grid import: what came in from the grid, split into the part the house used and the part that went into the battery. The split needs the inverter's AC charge counter. Without it the card says the split is not known and counts all of the import as used by the house.
+  - Self-sufficiency: the share of what the house used that did not come from the grid.
+  - EV and immersion: how much of the house use went to each. They are part of the house use, not added to it. A line shows only while its device exists.
+
+  The card reads four attributes of the Self Sufficiency sensor: `house_load_kwh`, `from_grid_kwh`, `grid_to_battery_kwh` and `basis`. Where one is missing it uses the House Load Today and Grid Import Today totals. The whole group is left out when Self Sufficiency, House Load Today or Grid Import Today is missing.
 - **Cost**: Import cost, Export earnings, Rate now and Rate period. The heading opens Cost breakdown.
 - **Solar**: Self-sufficiency, Solar share and Self-consumption, each with a bar. The heading opens Solar and forecast.
 
