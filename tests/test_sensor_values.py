@@ -204,7 +204,7 @@ class TestCheapRateSummary:
     @staticmethod
     def _summary(start, hours, remaining=None):
         data = make_data(
-            next_cheap_rate_start=start, hours_to_cheap_rate=hours, minutes_remaining_in_period=remaining
+            next_cheap_rate_start=start, hours_to_cheap_rate=hours, cheap_run_remaining_minutes=remaining
         )
         return values.cheap_rate_summary(data)
 
@@ -245,7 +245,7 @@ class TestCheapRateSummary:
             (0.0, "Now (ends in 0 min)"),
         ],
     )
-    def test_says_when_the_active_period_ends(self, remaining, expected):
+    def test_says_when_the_cheap_run_ends(self, remaining, expected):
         assert self._summary(None, 0.0, remaining) == expected
 
     def test_now_alone_when_the_end_is_unknown(self):

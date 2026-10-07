@@ -164,19 +164,19 @@ def _duration_text(minutes: float) -> str:
 
 
 def cheap_rate_summary(data: CoordinatorData) -> str | None:
-    """Return "23:00 (in 8 h 56 min)", "Now (ends in 1 h 12 min)", or None without a cheap rate."""
+    """Return "23:00 (in 8 h 56 min)", "Now (ends in 5 h 30 min)", or None without a cheap rate."""
     start = next_cheap_rate_start(data)
     if start is None:
         return None
     if start == RATE_NOW:
-        return _now_summary(data.minutes_remaining_in_period)
+        return _now_summary(data.cheap_run_remaining_minutes)
     if data.hours_to_cheap_rate is None:
         return start
     return f"{start} (in {_duration_text(data.hours_to_cheap_rate * 60)})"
 
 
 def _now_summary(minutes_remaining: float | None) -> str:
-    """Return "Now", with how long the active period has left when that is known."""
+    """Return "Now", with how long the cheap run has left when that is known."""
     if minutes_remaining is None:
         return RATE_NOW
     return f"{RATE_NOW} (ends in {_duration_text(minutes_remaining)})"

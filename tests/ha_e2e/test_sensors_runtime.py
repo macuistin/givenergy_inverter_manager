@@ -316,7 +316,7 @@ async def test_night_survival_confidence_explains_its_level(hass, loaded_entry):
 
 _CHEAP_FROM_SUMMARY = {
     "midday_surplus": "23:00 (in 10 h)",
-    "winter_cheap_night": "Now (ends in 1 h 30 min)",
+    "winter_cheap_night": "Now (ends in 5 h 30 min)",
 }
 
 

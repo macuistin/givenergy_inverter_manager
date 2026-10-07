@@ -45,7 +45,7 @@ Read from the tariff you configured. See [Tariff](tariff.md).
 | Current Rate | `current_rate` | currency | - | measurement | no | yes | Unit import rate in force now. |
 | Current Rate Period | `current_rate_period` | - | - | none | no | yes | Name of the active period, or the base rate name. |
 | Live Grid Cost Rate | `live_grid_cost_rate` | currency | - | measurement | no | yes | Cost per hour of the current grid flow. Positive when spending, negative when earning. |
-| Next Cheap Rate Start | `next_cheap_rate_start` | - | - | none | no | no | Start time (HH:MM) of the next period cheaper than the base rate, or Now. The `summary` attribute adds the wait, such as `23:00 (in 8 h 56 min)`, or the time left, such as `Now (ends in 1 h 12 min)`. Absent on a tariff with no cheap period. |
+| Next Cheap Rate Start | `next_cheap_rate_start` | - | - | none | no | no | Start time (HH:MM) of the next period cheaper than the base rate, or Now. The `summary` attribute adds the wait, such as `23:00 (in 8 h 56 min)`, or the time until cheap rates end, such as `Now (ends in 5 h 30 min)`. The end is that of the whole run of periods cheaper than the base rate, so a cheaper period inside a longer one does not cut it short. Absent on a tariff with no cheap period. |
 | Hours to Cheap Rate | `hours_to_cheap_rate` | h | - | measurement | no | no | Hours until a period cheaper than the base rate starts. 0 while one is active. |
 | Cheapest Tariff Rate | `cheapest_rate` | currency | - | measurement | no | no | Lowest rate across the base rate and all periods. |
 | Cheapest Rate Period Name | `cheapest_rate_period` | - | - | none | no | no | Name of the cheapest rate. |

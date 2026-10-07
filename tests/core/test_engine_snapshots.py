@@ -26,6 +26,9 @@ The charge_window leaf was added when the charge window was sized to the plan: 2
 cases gained it, and the fresh snapshot gained it as None. Nothing else moved. Those cases have no
 battery charge rate, so every window is the cheapest period. The sizing is pinned in
 tests/core/test_charge_window.py.
+
+The cheap_run_remaining_minutes leaf was added for the Cheap from tile: 49 of the 255 cases gained
+it, and the fresh snapshot gained it as None. Nothing else moved.
 """
 
 from __future__ import annotations

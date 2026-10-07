@@ -284,7 +284,9 @@ DESCRIPTIONS: dict[str, str] = {
     "next_cheap_rate_start": (
         "Start time (HH:MM) of the next period cheaper than the base rate, or Now. "
         "The `summary` attribute adds the wait, such as `23:00 (in 8 h 56 min)`, or the time "
-        "left, such as `Now (ends in 1 h 12 min)`. Absent on a tariff with no cheap period."
+        "until cheap rates end, such as `Now (ends in 5 h 30 min)`. The end is that of the whole "
+        "run of periods cheaper than the base rate, so a cheaper period inside a longer one does "
+        "not cut it short. Absent on a tariff with no cheap period."
     ),
     "hours_to_cheap_rate": (
         "Hours until a period cheaper than the base rate starts. 0 while one is active."

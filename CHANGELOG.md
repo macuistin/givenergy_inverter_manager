@@ -6,7 +6,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 **Changes**
 - The Now strip on the Power Flow tab has one Cheap from tile in place of Cheap from and Cheap in.
-  It reads `23:00 (in 8 h 56 min)` before a cheap period, and `Now (ends in 1 h 12 min)` during one.
+  It reads `23:00 (in 8 h 56 min)` before a cheap period, and `Now (ends in 5 h 30 min)` during
+  one. The end is where the whole run of periods cheaper than the base rate stops, so a Nightboost
+  period inside Night does not cut it short.
   The tile is full width and shows the new `summary` attribute of Next Cheap Rate Start. The state
   of that sensor is unchanged, and so is the Hours to Cheap Rate sensor, which no longer has a tile.
   A stored dashboard picks this up when you regenerate it.
