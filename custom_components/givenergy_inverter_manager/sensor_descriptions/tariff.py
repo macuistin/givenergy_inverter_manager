@@ -32,7 +32,6 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="next_cheap_rate_start",
         translation_key="next_cheap_rate_start",
         icon="mdi:clock-time-four-outline",
-        entity_registry_enabled_default=False,
         value_fn=values.next_cheap_rate_start,
         attrs_fn=values.cheap_rate_attributes,
     ),

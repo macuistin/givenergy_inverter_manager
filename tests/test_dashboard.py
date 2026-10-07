@@ -635,17 +635,18 @@ class TestNowSection:
         assert tile["tap_action"] == {"action": "navigate", "navigation_path": "battery-detail"}
 
     def test_now_drops_sensors_that_are_disabled_by_default(self):
-        """Night survival confidence and the next cheap rate start are off on a fresh install."""
+        """Night survival confidence is off on a fresh install."""
         text = _build(registry=FakeRegistry())
         assert [c["entity"] for c in self._now(text)["cards"][1:]] == [
             eid("battery_soc"),
             eid("current_rate"),
             eid("import_cost_today"),
+            eid("next_cheap_rate_start"),
         ]
         header = text[: text.index("views:")]
-        for name in ("Night Survival Confidence", "Next Cheap Rate Start"):
-            assert name in header
-        assert "Hours to Cheap Rate" not in header
+        assert "Night Survival Confidence" in header
+        for name in ("Hours to Cheap Rate", "Next Cheap Rate Start"):
+            assert name not in header
 
 
 class TestLongTextStates:
