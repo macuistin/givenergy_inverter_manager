@@ -2,12 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.12.0
 
-Four more sensors are enabled by default, so Home Assistant keeps history for them and the
-dashboard shows more on a fresh install.
-The Immersion sub-view shows the water temperature and the heater on one chart. Generate the
-dashboard file again to get it.
+Four more sensors are enabled by default, the Now strip has one Cheap from tile, the Immersion
+chart shows when the heater was on, and the reports use the forecast service's own figure.
+Generate the dashboard file again to get the dashboard changes.
 
 **Changes**
 - **Saving vs Grid Today** (`saving_vs_grid_today`) and **Net Saving Today (inc. battery wear)**
