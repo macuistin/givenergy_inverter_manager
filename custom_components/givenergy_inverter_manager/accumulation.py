@@ -23,8 +23,10 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.rules import build_load_profile, forecast_correction_factor
 from .core.tariff import EnergyAccumulator
+from .core.write_log import restore_entries
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -167,6 +169,8 @@ class AccumulationState:
     battery_tracking_start: str = ""  # ISO date cycle tracking began, "" = not started
     battery_tracking_start_cycles: float = 0.0
     register_write_count: int = 0  # lifetime GivTCP register writes made by this integration
+    # Newest-last log of recent writes and outside changes, see core/write_log.py.
+    register_write_log: list = field(default_factory=list)
     yesterday_forecast_accuracy_pct: float = 0.0
     forecast_accuracy_history: list = field(default_factory=list)  # last 7 days
 
@@ -597,6 +601,7 @@ def _serialize(state: AccumulationState) -> dict:
         "battery_tracking_start": state.battery_tracking_start,
         "battery_tracking_start_cycles": state.battery_tracking_start_cycles,
         "register_write_count": state.register_write_count,
+        "register_write_log": [dict(e) for e in state.register_write_log],
         "yesterday_forecast_accuracy_pct": state.yesterday_forecast_accuracy_pct,
         "forecast_accuracy_history": list(state.forecast_accuracy_history),
         "pending_raw_forecast_kwh": state.pending_raw_forecast_kwh,
@@ -633,6 +638,9 @@ def _restore_battery_and_forecast(state: AccumulationState, data: dict) -> None:
     state.battery_tracking_start = str(data.get("battery_tracking_start", ""))
     state.battery_tracking_start_cycles = float(data.get("battery_tracking_start_cycles", 0.0))
     state.register_write_count = _as_count(data.get("register_write_count", 0))
+    state.register_write_log = restore_entries(
+        data.get("register_write_log"), REGISTER_WRITE_LOG_MAX_ENTRIES
+    )
     state.yesterday_forecast_accuracy_pct = float(data.get("yesterday_forecast_accuracy_pct", 0.0))
     state.forecast_accuracy_history = [float(x) for x in data.get("forecast_accuracy_history", [])]
     state.pending_raw_forecast_kwh = float(data.get("pending_raw_forecast_kwh", 0.0))

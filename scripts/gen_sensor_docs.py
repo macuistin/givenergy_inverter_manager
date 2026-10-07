@@ -364,7 +364,10 @@ DESCRIPTIONS: dict[str, str] = {
         "Today's throughput as a share of the daily budget. Empty when the budget is 0."
     ),
     "battery_throughput_budget_status": "OK, High (80% or more) or Over budget.",
-    "register_write_count": "Lifetime writes sent to GivTCP. Saved and kept across restarts.",
+    "register_write_count": (
+        "Lifetime writes sent to GivTCP. Saved and kept across restarts. The `recent_writes` "
+        "attribute lists the latest writes and outside changes to the charge target and window."
+    ),
     "overnight_charge_target": "Tonight's target after overrides and the configured cap.",
     "overnight_charge_reason": "Why that target was chosen.",
     "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",

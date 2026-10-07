@@ -57,7 +57,7 @@ GivTCP writes use registers with a limited lifetime. Each write helper:
 - skips the write when the same value was written to the same entity in the last 300 seconds (a different value is still written);
 - reads the entity back after 2 seconds and retries up to 3 times;
 - catches an error from the service call, logs it and carries on instead of stopping the task;
-- counts each write in the GivTCP Register Write Count sensor, and logs a warning at 500,000 writes. The count is saved with the accumulated energy and survives restarts.
+- counts each write in the GivTCP Register Write Count sensor, and logs a warning at 500,000 writes. The count is saved with the accumulated energy and survives restarts. It counts writes that were sent. A write skipped because the entity already holds the value is not counted, so a night where only the charge target changed adds 1. Each write is also listed, with its reason, in the sensor's `recent_writes` attribute. See [Find out what changed the charge target](troubleshooting.md#find-out-what-changed-the-charge-target).
 
 If writing the target SoC fails, the charge target is not enabled, so the inverter is not limited to an old target. Charge targets are limited to 4 to 100%, the range GivTCP accepts.
 

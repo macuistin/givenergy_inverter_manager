@@ -1130,3 +1130,48 @@ class TestRegisterWriteCountPersistence:
         state = _deserialize(payload)
         assert state.register_write_count == 0
         assert state.today.solar_kwh == pytest.approx(3.0)
+
+
+class TestRegisterWriteLogPersistence:
+    @staticmethod
+    def _entry(n: int) -> dict:
+        return {
+            "time": f"2026-10-07T01:{n:02d}:00+01:00",
+            "entity_id": "number.target_soc",
+            "value": str(n),
+            "reason": "charge target",
+        }
+
+    def test_defaults_to_empty(self):
+        assert AccumulationState().register_write_log == []
+
+    def test_round_trips_through_serialisation(self):
+        state = AccumulationState()
+        state.register_write_log = [self._entry(1), {**self._entry(2), "reason": "external",
+                                                     "user_id": "u", "parent_id": "p"}]
+        assert _deserialize(_serialize(state)).register_write_log == state.register_write_log
+
+    def test_payload_without_the_field_loads_empty(self):
+        payload = _serialize(AccumulationState())
+        del payload["register_write_log"]
+        assert _deserialize(payload).register_write_log == []
+
+    def test_a_stored_log_longer_than_the_bound_loads_trimmed_to_the_newest(self):
+        from custom_components.givenergy_inverter_manager.const import (
+            REGISTER_WRITE_LOG_MAX_ENTRIES,
+        )
+
+        state = AccumulationState()
+        state.register_write_log = [self._entry(n) for n in range(REGISTER_WRITE_LOG_MAX_ENTRIES + 7)]
+        loaded = _deserialize(_serialize(state)).register_write_log
+        assert len(loaded) == REGISTER_WRITE_LOG_MAX_ENTRIES
+        assert loaded[-1] == state.register_write_log[-1]
+
+    def test_a_damaged_log_loads_empty_without_losing_other_state(self):
+        payload = _serialize(AccumulationState())
+        payload["register_write_log"] = "not a list"
+        payload["today"]["solar_kwh"] = 3.0
+        state = _deserialize(payload)
+        assert state.register_write_log == []
+        assert state.today.solar_kwh == pytest.approx(3.0)
+

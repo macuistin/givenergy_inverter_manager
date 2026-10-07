@@ -2,6 +2,20 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Features**
+- The **GivTCP Register Write Count** sensor has a `recent_writes` attribute: the last 20 writes
+  the integration made to the charge target, the charge window and the charge switches, each with
+  its time, entity, value and reason. A change to the charge target, window start or window end
+  that the integration did not make is added as `external`, with the Home Assistant `user_id` and
+  `parent_id` when there are any, and one INFO log line. Nothing is reverted and no option is
+  added. The log is saved with the other stored data.
+
+**Fixes**
+- The write count and the write log are queued for saving as soon as a write is sent. They used
+  to wait for the next periodic save, so a crash soon after a write could lose it.
+
 ## v0.9.0
 
 Removes three disabled sensors. No option name changes.

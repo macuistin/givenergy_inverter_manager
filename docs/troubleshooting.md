@@ -118,6 +118,18 @@ Work through this list.
 6. Was the same entity written in the last 5 minutes? The write is skipped. With debug logging on, the log says `write cooldown active`.
 7. Check GivTCP's own log for rejected writes.
 
+## Find out what changed the charge target
+
+The charge target, the charge window start and the charge window end can be changed by the integration, by you, by an automation, by GivTCP or by the inverter app. The integration keeps a log of the last 20 changes to these entities, plus the switches it turns on and off with them.
+
+1. Open **Developer Tools → States** and search for `register_write_count`. The **GivTCP Register Write Count** sensor holds the log in its `recent_writes` attribute, newest first.
+2. Read each entry. `time`, `entity_id` and `value` say what changed and when. `reason` says why: `charge target`, `charge window start`, `charge window end`, `floor top-up`, `clear other slot` and similar mean the integration wrote it. `external` means something else changed it.
+3. For an `external` entry, look at `user_id` and `parent_id`. A `user_id` is the Home Assistant user who made the change, for example from a dashboard card. Look it up under **Settings → People**. A `parent_id` is the context of the automation or script that made the change. Search your automation traces for it.
+4. If `user_id` and `parent_id` are both empty, the change did not come through a Home Assistant service call. GivTCP, the inverter app or the inverter itself made it.
+5. Search **Settings → System → Logs** for `outside the manager` to see the same entries as log lines, with the old and new value.
+
+The integration only records these changes. It does not undo them. The log is saved with the integration's other stored data, so it survives restarts. The `external` entries cover the charge target, window start and window end entities only.
+
 ## A charge decision looks wrong
 
 Read **Overnight Charge Reason** first. Then check these:

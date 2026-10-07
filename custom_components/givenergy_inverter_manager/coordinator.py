@@ -132,6 +132,7 @@ from .repairs import (
     async_delete_min_soc_issue,
     async_delete_other_charge_slots_issue,
 )
+from .write_audit import WriteAudit
 
 _LOG = get_logger(__name__)
 
@@ -276,10 +277,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # Every inverter register write goes through the writer: read-before-write, cooldown,
         # retry, write counting and one lock so writes never interleave. The lambdas look the
         # proxies up at call time so a test that swaps _call_service takes effect.
+        self._audit = WriteAudit(self._acc, now=lambda: self._now())
         self._writer = GivTCPWriter(
             get_state=lambda entity_id: self._get_state(entity_id),
             call_service=lambda domain, service, data: self._call_service(domain, service, data),
             on_count_change=self._save_register_write_count,
+            observer=self._audit,
         )
 
     def _register_time_listeners(self) -> None:
@@ -289,6 +292,15 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # Cheap-rate start listener (writes charge target to GivTCP). The start time comes
         # from the configured tariff, one minute before, so the target is set before charging.
         self._register_charge_target_listener()
+        self._watch_managed_entities()
+
+    def _watch_managed_entities(self) -> None:
+        """Log any change to the charge target or window that the manager did not send."""
+        cfg = self._effective_cfg()
+        keys = (CONF_TARGET_SOC_ENTITY, CONF_CHARGE_START_TIME_ENTITY, CONF_CHARGE_END_TIME_ENTITY)
+        watched = [cfg[key] for key in keys if cfg.get(key)]
+        if watched:
+            self.entry.async_on_unload(self._audit.watch(self.hass, watched))
 
     @property
     def update_cycle(self) -> int:
@@ -659,12 +671,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         await self._givtcp_set_switch(
             cfg.get(CONF_ENABLE_CHARGE_SCHEDULE),
             SwitchState.ON,
-            "enable_charge_schedule",
+            "enable charge schedule",
             step=1,
         )
         start_str, end_str = await self._write_charge_window(cfg, cheap_period)
         target_written = await self._givtcp_set_number(
-            cfg.get(CONF_TARGET_SOC_ENTITY), target_soc, "target_soc", step=4
+            cfg.get(CONF_TARGET_SOC_ENTITY), target_soc, "charge target", step=4
         )
         enable_target = target_soc < 100
         if enable_target and not target_written:
@@ -676,7 +688,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         await self._givtcp_set_switch(
             cfg.get(CONF_ENABLE_CHARGE_TARGET),
             SwitchState.ON if enable_target else SwitchState.OFF,
-            "enable_charge_target",
+            "enable charge target",
             step=5,
         )
         _LOG.info(
@@ -692,10 +704,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         start_str = cheap_period.start.strftime("%H:%M:%S")
         end_str = cheap_period.end.strftime("%H:%M:%S")
         await self._givtcp_set_select(
-            cfg.get(CONF_CHARGE_START_TIME_ENTITY), start_str, "charge_start_time", step=2
+            cfg.get(CONF_CHARGE_START_TIME_ENTITY), start_str, "charge window start", step=2
         )
         await self._givtcp_set_select(
-            cfg.get(CONF_CHARGE_END_TIME_ENTITY), end_str, "charge_end_time", step=3
+            cfg.get(CONF_CHARGE_END_TIME_ENTITY), end_str, "charge window end", step=3
         )
         return start_str, end_str
 
@@ -910,12 +922,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """
         current = state_as_int(self._get_state(target_entity))
         soc = _clamp_charge_target(max(soc, current) if current is not None else soc)
-        if not await self._givtcp_set_number(target_entity, soc, "Cheap rate floor target"):
+        if not await self._givtcp_set_number(target_entity, soc, "floor top-up"):
             return False
         return await self._givtcp_set_switch(
             cfg.get(CONF_ENABLE_CHARGE_TARGET),
             SwitchState.ON,
-            "Cheap rate floor charge target enable",
+            "floor top-up enable",
         )
 
     # ── Main update cycle ─────────────────────────────────────────────────────
@@ -1028,12 +1040,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     async def _clear_charge_slot(self, slot: ActiveChargeSlot) -> bool:
         """Write 00:00:00 to the slot's start, then its end. Stops at the first failed write."""
-        name = f"slot_{slot.number}"
+        name = f"clear other slot {slot.number}"
         return await self._givtcp_set_select(
-            slot.start_entity_id, UNUSED_SLOT_TIME, f"{name}_start_time"
-        ) and await self._givtcp_set_select(
-            slot.end_entity_id, UNUSED_SLOT_TIME, f"{name}_end_time"
-        )
+            slot.start_entity_id, UNUSED_SLOT_TIME, f"{name} start"
+        ) and await self._givtcp_set_select(slot.end_entity_id, UNUSED_SLOT_TIME, f"{name} end")
 
     async def _async_update_data(self) -> CoordinatorData:
         """Run one cycle: read inputs, build the snapshot, apply decisions, persist."""
@@ -1163,6 +1173,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         data.month_start_time = self._acc.state.month_start_iso
         data.year_start_time = self._acc.state.year_start_iso
         data.register_write_count = self._writer.write_count
+        data.register_write_log = list(self._acc.state.register_write_log)
         data.trailing_12m_export_kwh = self._acc.trailing_12m_export_kwh
         data.trailing_12m_solar_kwh = self._acc.trailing_12m_solar_kwh
         data.trailing_12m_import_kwh = self._acc.trailing_12m_import_kwh
