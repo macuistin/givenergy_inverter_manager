@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 145 sensors. 89 are enabled by default and 56 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 146 sensors. 90 are enabled by default and 56 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches, numbers and the button, see [Entities](entities.md).
 
@@ -146,6 +146,7 @@ Outputs of the overnight charge calculation.
 |---|---|---|---|---|---|---|---|
 | Recommended Overnight Charge Target | `overnight_charge_target` | % | - | measurement | no | yes | Tonight's target after overrides and the configured cap. |
 | Overnight Charge Reason | `overnight_charge_reason` | - | - | none | no | yes | Why that target was chosen. Diagnostic category. |
+| Overnight Charge Window | `overnight_charge_window` | - | - | none | no | yes | The charge window written to slot 1, sized to the plan. Attributes: `window_start`, `window_end`, `window_extended`, `expected_kwh` and `expected_finish`. Diagnostic category. |
 | Estimated Overnight Charge Cost | `overnight_charge_cost` | currency | monetary | none | no | yes | kWh to charge times the cheapest rate, before discount and VAT. Diagnostic category. |
 | Estimated SoC at Sunrise | `estimated_soc_at_sunrise` | % | - | measurement | no | yes | Projected SoC when solar starts, taken as 08:00. While solar is generating it covers tonight's 8 hour pre-solar window from the current SoC. |
 | Battery Night Survival Status | `night_survival_reason` | - | - | none | no | yes | Whether the battery should last until 08:00, with any shortfall. The charge plan does not skip a night this sensor calls Critical. Diagnostic category. |

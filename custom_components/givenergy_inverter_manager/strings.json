@@ -677,6 +677,9 @@
       "overnight_charge_reason": {
         "name": "Overnight Charge Reason"
       },
+      "overnight_charge_window": {
+        "name": "Overnight Charge Window"
+      },
       "overnight_charge_cost": {
         "name": "Estimated Overnight Charge Cost"
       },

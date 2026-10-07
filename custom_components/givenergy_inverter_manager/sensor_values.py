@@ -176,6 +176,26 @@ def overnight_charge_cost(data: CoordinatorData) -> float | None:
     return None
 
 
+def overnight_charge_window(data: CoordinatorData) -> str | None:
+    """Return the charge window to write, for example "02:00 to 06:30", None before a decision."""
+    return data.charge_window.text if data.charge_window else None
+
+
+def overnight_charge_window_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Return what the window is sized for, None when there is no window."""
+    window = data.charge_window
+    if window is None:
+        return None
+    finish = window.finish_time
+    return {
+        "window_start": window.start.strftime("%H:%M"),
+        "window_end": window.end.strftime("%H:%M"),
+        "window_extended": window.extended,
+        "expected_kwh": window.expected_kwh,
+        "expected_finish": finish.strftime("%H:%M") if finish else None,
+    }
+
+
 def night_survival_confidence(data: CoordinatorData) -> str | None:
     """Return Critical, Warning or Safe for tonight, None before the first cycle.
 

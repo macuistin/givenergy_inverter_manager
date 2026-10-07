@@ -89,6 +89,7 @@ from .battery import (
     estimate_will_survive_night,
     hours_until_solar,
 )
+from .charge_window import ChargeNeed, ChargeWindow, plan_charge_window
 from .rules import (
     ChargeDecision,
     ChargeInputs,
@@ -157,6 +158,8 @@ class RawSensorValues:
     load_energy_today_kwh: float | None = None
     # Lifetime cycle count reported by the battery BMS (highest single pack), None if unknown
     battery_lifetime_cycles: float | None = None
+    # The GivTCP battery charge rate setting in W, None when the entity is not readable
+    battery_charge_rate_w: float | None = None
 
     def __post_init__(self) -> None:
         if self.smoothed_solar_power_w < 0.0:
@@ -197,6 +200,7 @@ class CoordinatorData:
     currency_symbol: str = DEFAULT_CURRENCY_SYMBOL
     is_clipping: bool = False
     charge_decision: ChargeDecision | None = None
+    charge_window: ChargeWindow | None = None
     should_divert_immersion: bool = False
     divert_reason: str = ""
     today: EnergyAccumulator = field(default_factory=EnergyAccumulator)
@@ -962,6 +966,23 @@ def _set_overnight_charge(data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: f
     data.charge_decision = _overnight_charge_decision(cycle, avg_daily_kwh)
     max_target = int(cycle.cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
     _apply_charge_overrides(data, cycle.overrides, max_target)
+    data.charge_window = _plan_charge_window(data, cycle)
+
+
+def _plan_charge_window(data: CoordinatorData, cycle: _Cycle) -> ChargeWindow | None:
+    """The window sized to the charge decision, None when the tariff has no timed period."""
+    decision = data.charge_decision
+    if decision is None or not cycle.tariff.rate_periods:
+        return None
+    # A skipped night charges nothing, so the window stays the cheapest period.
+    target = decision.current_soc if decision.skip_charge else decision.target_soc
+    need = ChargeNeed(
+        soc=decision.current_soc,
+        target_soc=target,
+        capacity_kwh=decision.battery_capacity,
+        charge_power_w=cycle.raw.battery_charge_rate_w,
+    )
+    return plan_charge_window(cycle.tariff, need)
 
 
 def _calculate_ev_km(data: CoordinatorData, acc: EnergyAccumulator, cfg: dict[str, Any]) -> None:

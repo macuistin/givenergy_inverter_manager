@@ -37,7 +37,7 @@ current charge decision, and calls number.set_value on the GivTCP entity.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from datetime import time as dtime
 from typing import Any
@@ -619,7 +619,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         )
 
     def _write_overnight_target(self, cfg: dict, decision) -> None:
-        """Write the calculated charge target and the cheapest window to GivTCP."""
+        """Write the calculated charge target and the planned charge window to GivTCP."""
         tariff = build_tariff(cfg)
         if not tariff.rate_periods:
             _LOG.warning(
@@ -627,7 +627,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 "Add at least one rate period (e.g. Night) in Settings → Configure."
             )
             return
-        cheap = _cheapest_period(tariff)
+        cheap = self._planned_window_period(tariff)
         window = f"{cheap.start.strftime('%H:%M')}–{cheap.end.strftime('%H:%M')}"
         if self.is_dry_run:
             action = (
@@ -645,6 +645,18 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             decision.reason,
         )
         self._create_task(self._async_apply_charge_target(cfg, decision.target_soc, cheap))
+
+    def _planned_window_period(self, tariff):
+        """The cheapest period with its end moved to the planned window end.
+
+        The window comes from the same cycle as the charge decision, so it matches the
+        target written with it.
+        """
+        cheap = _cheapest_period(tariff)
+        window = self.data.charge_window if self.data is not None else None
+        if window is None or not window.extended:
+            return cheap
+        return replace(cheap, end=window.end)
 
     async def _async_apply_charge_target(self, cfg: dict, target_soc: int, cheap_period) -> None:
         """
@@ -753,6 +765,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._copy_ev_state(raw)
         raw.battery_lifetime_cycles = self._read_battery_lifetime_cycles()
         self._read_daily_counters(cfg, raw)
+        raw.battery_charge_rate_w = self._read_charge_rate_w(cfg)
         return raw
 
     @staticmethod
@@ -826,6 +839,18 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             f"{pfx}_battery_discharge_energy_today_kwh", f"{pfx}_discharge_energy_today_kwh"
         )
         raw.load_energy_today_kwh = self._read_optional_float(f"{pfx}_load_energy_today_kwh")
+
+    def _read_charge_rate_w(self, cfg: dict) -> float | None:
+        """The battery charge rate setting GivTCP exposes, derived from the inverter serial.
+
+        None when the serial is unknown or the entity is missing, unavailable or not above
+        zero. The charge window is then left as the cheapest period.
+        """
+        serial = cfg.get(CONF_INVERTER_SERIAL)
+        if not serial:
+            return None
+        rate = self._read_optional_float(f"number.givtcp_{serial}_battery_charge_rate")
+        return rate if rate is not None and rate > 0 else None
 
     def _track_input_outage(self, raw: RawSensorValues, now: datetime) -> None:
         """Record how long the required inputs have been continuously unavailable."""

@@ -198,6 +198,7 @@ KEY_GROUPS: dict[str, str] = {
         (
             "overnight_charge_target",
             "overnight_charge_reason",
+            "overnight_charge_window",
             "overnight_charge_cost",
             "estimated_soc_at_sunrise",
             "night_survival_reason",
@@ -367,6 +368,10 @@ DESCRIPTIONS: dict[str, str] = {
     "register_write_count": "Lifetime writes sent to GivTCP. Saved and kept across restarts.",
     "overnight_charge_target": "Tonight's target after overrides and the configured cap.",
     "overnight_charge_reason": "Why that target was chosen.",
+    "overnight_charge_window": (
+        "The charge window written to slot 1, sized to the plan. Attributes: `window_start`, "
+        "`window_end`, `window_extended`, `expected_kwh` and `expected_finish`."
+    ),
     "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",
     "estimated_soc_at_sunrise": (
         "Projected SoC when solar starts, taken as 08:00. While solar is generating "

@@ -222,6 +222,10 @@ CHARGE_FORECAST_CORRECTION_MIN = 0.6  # lowest factor applied to the P50 forecas
 CHARGE_FORECAST_CORRECTION_MAX = 1.2  # highest factor applied to the P50 forecast
 CHARGE_FORECAST_CORRECTION_MIN_DAYS = 5  # usable days needed before the factor is applied
 CHARGE_FORECAST_CORRECTION_MIN_KWH = 0.5  # days with forecast or actual below this are ignored
+# Charge window sizing (core/charge_window.py). The charge time the plan needs is stretched by
+# this fraction, because the battery slows near full and the real rate sits below the setting.
+CHARGE_WINDOW_MARGIN = 0.15
+CHARGE_WINDOW_ROUND_MINUTES = 5  # the window end is rounded up to a multiple of this
 
 # ── Solar / generation parameters ─────────────────────────────────────────────
 SOLAR_SUNRISE_HOUR = 8  # hour of day when solar generation typically starts

@@ -1946,3 +1946,40 @@ class TestBillSensors:
         month.export_earnings = 10.0
         credited, _ = _run(cfg=cfg, now=datetime(2026, 8, 30, 12), acc_month=month)
         assert credited.accrued_bill == pytest.approx(base.accrued_bill - 10.0)
+
+
+class TestChargeWindowInEngine:
+    """The window is sized to the charge decision from the battery charge rate."""
+
+    @staticmethod
+    def _deep_night(**raw_fields):
+        raw = _raw(battery_soc=20.0, battery_capacity_kwh=19.0, **raw_fields)
+        data, _ = _run(raw=raw, override_charge_target=88)
+        return data
+
+    def test_a_known_charge_rate_extends_the_window_into_the_night_band(self):
+        data = self._deep_night(battery_charge_rate_w=3600.0)
+
+        assert data.charge_window.extended is True
+        assert data.charge_window.text == "02:00 to 06:10"
+
+    def test_an_unknown_charge_rate_keeps_the_cheapest_period(self):
+        data = self._deep_night()
+
+        assert data.charge_window.extended is False
+        assert data.charge_window.text == "02:00 to 04:00"
+
+    def test_a_skipped_night_keeps_the_cheapest_period(self):
+        raw = _raw(battery_soc=20.0, battery_capacity_kwh=19.0, battery_charge_rate_w=3600.0)
+        data, _ = _run(raw=raw, override_skip_charge=True)
+
+        assert data.charge_window.extended is False
+        assert data.charge_window.expected_kwh == 0.0
+
+    def test_a_flat_rate_tariff_has_no_window(self):
+        cfg = _nightboost_cfg()
+        cfg["rate_periods"] = []
+        raw = _raw(battery_soc=20.0, battery_charge_rate_w=3600.0)
+        data, _ = _run(raw=raw, cfg=cfg)
+
+        assert data.charge_window is None

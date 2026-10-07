@@ -235,6 +235,54 @@ class TestOvernightChargeCost:
         assert values.overnight_charge_cost(data) == pytest.approx(1.235)
 
 
+class TestOvernightChargeWindow:
+    @staticmethod
+    def _window(**fields):
+        from datetime import time
+
+        from custom_components.givenergy_inverter_manager.core.charge_window import ChargeWindow
+
+        defaults = {
+            "start": time(2, 0),
+            "end": time(6, 10),
+            "extended": True,
+            "expected_kwh": 12.92,
+            "finish_time": time(5, 36),
+        }
+        return ChargeWindow(**{**defaults, **fields})
+
+    def test_none_without_a_window(self):
+        data = make_data(charge_window=None)
+
+        assert values.overnight_charge_window(data) is None
+        assert values.overnight_charge_window_attributes(data) is None
+
+    def test_state_is_the_written_window(self):
+        data = make_data(charge_window=self._window())
+
+        assert values.overnight_charge_window(data) == "02:00 to 06:10"
+
+    def test_attributes_explain_the_window(self):
+        data = make_data(charge_window=self._window())
+
+        assert values.overnight_charge_window_attributes(data) == {
+            "window_start": "02:00",
+            "window_end": "06:10",
+            "window_extended": True,
+            "expected_kwh": 12.92,
+            "expected_finish": "05:36",
+        }
+
+    def test_attributes_leave_out_what_is_not_known(self):
+        window = self._window(extended=False, expected_kwh=None, finish_time=None)
+
+        attributes = values.overnight_charge_window_attributes(make_data(charge_window=window))
+
+        assert attributes["window_extended"] is False
+        assert attributes["expected_kwh"] is None
+        assert attributes["expected_finish"] is None
+
+
 class TestNightSurvivalConfidence:
     @staticmethod
     def _night(reason="ok", survive=True, sunrise_soc=50.0, min_soc=10):
