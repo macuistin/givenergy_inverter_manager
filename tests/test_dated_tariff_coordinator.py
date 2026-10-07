@@ -107,6 +107,17 @@ class TestChargeTargetListener:
         assert listeners.registered == [(1, 59), (23, 29)]
         assert listeners.cancelled == [(1, 59)]
 
+    def test_the_midnight_reset_registers_the_trigger_for_the_new_day(self, monkeypatch, listeners):
+        _set_today(monkeypatch, DAY)
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.entry.options = {CONF_TARIFF_CHANGES: [_change(LATE_NIGHT)]}
+        coord._register_charge_target_listener()
+        _set_today(monkeypatch, CHANGE_DAY)
+
+        coord._midnight_reset(_local(CHANGE_DAY))
+
+        assert listeners.registered == [(1, 59), (23, 29)]
+
     def test_an_unchanged_trigger_is_not_registered_again(self, monkeypatch, listeners):
         _set_today(monkeypatch, DAY)
         coord = FakeCoordinator(cfg=_cfg())
