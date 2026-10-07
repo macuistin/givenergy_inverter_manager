@@ -490,15 +490,27 @@
           },
           "hardware_settings": {
             "name": "Hardware",
-            "description": "Update these when you add battery modules, change the inverter or replace the immersion element.",
+            "description": "Update these when you add battery modules or change the inverter.",
             "data": {
               "battery_capacity_kwh": "Battery capacity (kWh)",
-              "inverter_max_output_kw": "Inverter max output (kW)",
-              "immersion_wattage_w": "Immersion element power (W)"
+              "inverter_max_output_kw": "Inverter max output (kW)"
             },
             "data_description": {
               "battery_capacity_kwh": "Usable capacity of all battery modules in kWh.",
-              "inverter_max_output_kw": "Maximum AC output of the inverter in kW.",
+              "inverter_max_output_kw": "Maximum AC output of the inverter in kW."
+            }
+          },
+          "immersion_settings": {
+            "name": "Immersion heater",
+            "description": "Add, change or clear the immersion heater at any time. Saving reloads the integration and the heater controls and the Immersion dashboard view appear or disappear. The target and minimum temperatures are changed with the Immersion Target Temperature and Immersion Minimum Temperature numbers.",
+            "data": {
+              "immersion_switch_entity": "Immersion switch",
+              "immersion_temp_sensor_entity": "Water temperature sensor",
+              "immersion_wattage_w": "Element power (W)"
+            },
+            "data_description": {
+              "immersion_switch_entity": "Switch that turns the immersion heater on and off. Empty means the heater is not controlled.",
+              "immersion_temp_sensor_entity": "Optional water temperature sensor in °C. Empty means the heater is not stopped or started by temperature.",
               "immersion_wattage_w": "Power of the heating element in watts, used to judge how much solar surplus it needs."
             }
           },

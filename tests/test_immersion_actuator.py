@@ -15,6 +15,7 @@ import pytest
 from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_SWITCH,
     IMMERSION_SWITCH_COOLDOWN_MINUTES,
+    SENSOR_OUTAGE_HOLD_LIMIT_S,
 )
 from custom_components.givenergy_inverter_manager.immersion_actuator import (
     ImmersionActuator,
@@ -258,6 +259,71 @@ class TestRunToTarget:
         off = decision(on=False, reason="full")
         actuator.annotate_divert_reason(off, 48.0)
         assert (data.divert_reason, off.divert_reason) == ("surplus", "full")
+
+
+HOLD = timedelta(seconds=SENSOR_OUTAGE_HOLD_LIMIT_S)
+
+
+class TestRunWithoutATemperature:
+    """No reading means no target to reach, so a manual or external run is bounded in time."""
+
+    def _after(self, world, delta: timedelta) -> None:
+        world.clock = T0 + delta
+
+    async def test_a_manual_run_ends_after_the_outage_hold_limit(self, actuator, world):
+        await actuator.manual_on()
+        actuator.release_if_at_target(None)
+        self._after(world, HOLD)
+        actuator.release_if_at_target(None)
+        assert actuator.override is None
+        assert actuator.manual_run_to_target is False
+
+    async def test_a_manual_run_continues_until_the_hold_limit(self, actuator, world):
+        await actuator.manual_on()
+        actuator.release_if_at_target(None)
+        self._after(world, HOLD - timedelta(seconds=1))
+        actuator.release_if_at_target(None)
+        assert actuator.override is True
+        assert actuator.manual_run_to_target is True
+
+    def test_an_external_turn_on_ends_after_the_outage_hold_limit(self, actuator, world):
+        actuator.last_commanded_on = False
+        world.switch_state = "on"
+        actuator.actuate(decision(on=False, temp=None), T0)
+        actuator.release_if_at_target(None)
+        self._after(world, HOLD)
+        actuator.release_if_at_target(None)
+        assert actuator.override is None
+        assert actuator.manual_run_to_target is False
+
+    async def test_a_reading_that_returns_restarts_the_count(self, actuator, world):
+        await actuator.manual_on()
+        actuator.release_if_at_target(None)
+        self._after(world, HOLD - timedelta(seconds=30))
+        actuator.release_if_at_target(50.0)
+        self._after(world, HOLD)
+        actuator.release_if_at_target(None)
+        self._after(world, HOLD + HOLD - timedelta(seconds=1))
+        actuator.release_if_at_target(None)
+        assert actuator.manual_run_to_target is True
+
+    async def test_a_new_manual_run_restarts_the_count(self, actuator, world):
+        await actuator.manual_on()
+        actuator.release_if_at_target(None)
+        self._after(world, HOLD - timedelta(seconds=30))
+        await actuator.manual_on()
+        actuator.release_if_at_target(None)
+        self._after(world, HOLD)
+        actuator.release_if_at_target(None)
+        assert actuator.manual_run_to_target is True
+
+    async def test_nothing_runs_on_after_a_manual_off(self, actuator, world):
+        await actuator.manual_on()
+        actuator.release_if_at_target(None)
+        await actuator.manual_off()
+        self._after(world, HOLD)
+        actuator.release_if_at_target(None)
+        assert actuator.override is None
 
 
 async def test_the_coordinator_sends_the_switch_call_as_a_task():

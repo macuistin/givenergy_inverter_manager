@@ -75,7 +75,7 @@ Accumulated since local midnight. They report `last_reset` as the most recent mi
 | Battery Charged Today | `battery_charge_kwh_today` | kWh | energy | total | day | no | Energy into the battery. Uses the GivTCP counter when present. |
 | Battery Discharged Today | `battery_discharge_kwh_today` | kWh | energy | total | day | no | Energy out of the battery. Uses the GivTCP counter when present. |
 | House Load Today | `house_kwh_today` | kWh | energy | total | day | yes | House consumption. Uses the GivTCP load counter when present. |
-| Missed solar today | `missed_solar_today` | kWh | energy | total | day | no | Export while the battery was at 99% or more and no EV or immersion load was on. |
+| Missed solar today | `missed_solar_today` | kWh | energy | total | day | no | Export while the battery was at 99% or more and no EV or immersion load was on. Stays 0 until an immersion switch is set or an EV charger is found. |
 
 ## Cost and savings today
 
@@ -175,7 +175,7 @@ Sensors marked `EV charger needed` are unavailable until a supported charger is 
 | EV Draining Battery | `ev_draining_battery` | - | - | none | no | yes | yes while the charger is charging, drawing power, and the battery discharges over 200 W. EV charger needed. Diagnostic category. |
 | EV Mode Decision | `ev_protection_reason` | - | - | none | no | yes | Reason for the latest EV charge mode decision. EV charger needed. Diagnostic category. |
 | EV Charging Source | `ev_charging_source` | - | - | none | no | yes | Not charging, Solar, Grid, Battery or Mixed. EV charger needed. |
-| EV Solar Surplus | `ev_solar_surplus_available` | - | - | none | no | yes | Available when net solar surplus is 1380 W or more. |
+| EV Solar Surplus | `ev_solar_surplus_available` | - | - | none | no | yes | Available when net solar surplus is 1380 W or more. EV charger needed. |
 
 ## Solar forecast
 

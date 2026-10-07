@@ -155,7 +155,7 @@ A read-only summary lists the cheapest rate, the billing period (for example "Yo
 
 Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. Saving reloads the integration, so entities are unavailable for a few seconds. Saved options override the values entered at setup.
 
-The sections run in the order they are used most: Tariff, the five rate periods, Battery & charging thresholds, Solar forecast, Hardware, Electric vehicle. Only Tariff opens expanded, and a rate period opens expanded when it has a name. The first line of the page states the cheapest rate in the saved tariff and the billing period, so a wrong rate slot or bill start day shows before you save.
+The sections run in the order they are used most: Tariff, the five rate periods, Battery & charging thresholds, Solar forecast, Hardware, Immersion heater, Electric vehicle. Only Tariff opens expanded, and a rate period opens expanded when it has a name. The first line of the page states the cheapest rate in the saved tariff and the billing period, so a wrong rate slot or bill start day shows before you save.
 
 ### Tariff
 
@@ -185,9 +185,20 @@ Same fields as setup step 2. Rate periods 1 to 5 sit in their own sections below
 |---|---|---|---|
 | Battery capacity | `battery_capacity_kwh` | from setup | 1 to 100 kWh |
 | Inverter max output | `inverter_max_output_kw` | from setup | 1 to 20 kW |
-| Immersion element power | `immersion_wattage_w` | from setup | 500 to 6000 W |
 
-Update these when you add battery modules, change the inverter, or replace the element.
+Update these when you add battery modules or change the inverter.
+
+### Immersion heater
+
+| Field | Key | Default | Range |
+|---|---|---|---|
+| Immersion switch | `immersion_switch_entity` | from setup, else none | a `switch` entity |
+| Water temperature sensor | `immersion_temp_sensor_entity` | from setup, else none | a `sensor` entity |
+| Element power | `immersion_wattage_w` | from setup | 500 to 6000 W |
+
+Both devices are optional and can be added, changed or cleared at any time, without a restart. Saving reloads the integration. The Immersion Heater (Managed) switch is created while an immersion switch is set and removed when it is cleared. The Immersion view and tiles of the dashboard follow the same two fields. A heater with no temperature sensor is switched on and off by solar surplus alone, and the target and minimum temperatures have no effect without a sensor.
+
+Leave a field empty to clear it. The values saved here override the ones entered at setup. The target, minimum and restart gap temperatures are not on this page. Change them with the Immersion number entities, see [Entities](entities.md).
 
 ### Solar forecast
 
