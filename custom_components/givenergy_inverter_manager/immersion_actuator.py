@@ -75,20 +75,30 @@ class ImmersionActuator:
     async def manual_on(self) -> None:
         """Force the heater on and run until the water reaches the target temperature."""
         self._start_manual_run()
-        self.last_commanded_on = True
         await self._send_manual("turn_on")
 
     async def manual_off(self) -> None:
         """Turn the heater off now. Automatic control resumes after the cooldown."""
         self._end_manual_run()
-        self._start_cooldown(self._ports.now())
-        self.last_commanded_on = False
         await self._send_manual("turn_off")
 
     async def _send_manual(self, service: str) -> None:
+        """Send a manual command. In dry run, record it instead and change no sent state.
+
+        The cooldown and the last command describe writes to the real switch. Dry run
+        sends none, so it leaves them alone. Otherwise the next cycle would read the
+        unchanged switch as an external toggle.
+        """
         switch = self._ports.switch_entity()
-        if switch and not self._ports.is_dry_run():
-            await self._ports.send(service, switch)
+        if not switch:
+            return
+        if self._ports.is_dry_run():
+            self._record_dry_run(service, "manual press")
+            return
+        if service == "turn_off":
+            self._start_cooldown(self._ports.now())
+        self.last_commanded_on = service == "turn_on"
+        await self._ports.send(service, switch)
 
     # ── Steps of the update cycle ─────────────────────────────────────────────
 
@@ -200,7 +210,7 @@ class ImmersionActuator:
             return
         service = "turn_on" if data.should_divert_immersion else "turn_off"
         if self._ports.is_dry_run():
-            self._record_dry_run(service, data)
+            self._record_dry_run(service, data.divert_reason)
             return
         _LOG.debug("Immersion: %s (reason: %s)", service, data.divert_reason)
         self._ports.send_in_background(service, switch)
@@ -223,8 +233,8 @@ class ImmersionActuator:
             self.cooldown_until.strftime("%H:%M:%S") if self.cooldown_until else "",
         )
 
-    def _record_dry_run(self, service: str, data: CoordinatorData) -> None:
-        action = f"Would {service} immersion heater (reason: {data.divert_reason})"
+    def _record_dry_run(self, service: str, reason: str) -> None:
+        action = f"Would {service} immersion heater (reason: {reason})"
         _LOG.info("DRY RUN: %s", action)
         self._ports.record_skipped(action)
 

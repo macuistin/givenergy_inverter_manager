@@ -213,6 +213,14 @@ def _price_selector(key: str, currency: object) -> selector.NumberSelector:
     return _number_selector(key, _money_unit(currency, _PRICE_PER[key]))
 
 
+def battery_cost_selector(currency: object) -> selector.NumberSelector:
+    """Number selector for the battery cost, in the symbol of *currency*.
+
+    Shared by the options form and the repair that asks for the cost.
+    """
+    return _number_selector(CONF_BATTERY_COST, CURRENCIES[_currency_code(currency)])
+
+
 def _entity_selector(domain: str = "sensor") -> selector.EntitySelector:
     return selector.EntitySelector(selector.EntitySelectorConfig(domain=domain))
 
@@ -1143,7 +1151,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_BATTERY_COST,
                         default=float(self._get(CONF_BATTERY_COST, DEFAULT_BATTERY_COST)),
-                    ): _number_selector(CONF_BATTERY_COST, CURRENCIES[_currency_code(currency)]),
+                    ): battery_cost_selector(currency),
                     vol.Optional(
                         CONF_BATTERY_THROUGHPUT_BUDGET,
                         default=float(

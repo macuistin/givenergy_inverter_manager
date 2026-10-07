@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from .const import (
+    BATTERY_EFFICIENCY_MIN_KWH,
     BATTERY_FULL_SOC_PCT,
     BATTERY_RATED_CYCLES,
     NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
@@ -142,8 +143,17 @@ def battery_throughput_budget_pct(data: CoordinatorData) -> float | None:
 
 
 def battery_roundtrip_efficiency_today(data: CoordinatorData) -> float | None:
-    """Return today's discharge as a percentage of charge, None before any charging."""
-    return _percentage(data.today.battery_discharge_kwh, data.today.battery_charge_kwh, 1)
+    """Return today's discharge as a percentage of charge, None until enough has moved.
+
+    Early in the day the battery still holds energy charged overnight, so a small
+    discharge over a large charge reads far below the real efficiency. The figure
+    stays unknown until both directions reach BATTERY_EFFICIENCY_MIN_KWH.
+    """
+    charge = data.today.battery_charge_kwh
+    discharge = data.today.battery_discharge_kwh
+    if min(charge, discharge) < BATTERY_EFFICIENCY_MIN_KWH:
+        return None
+    return _percentage(discharge, charge, 1)
 
 
 # ── Tariff ───────────────────────────────────────────────────────────────────

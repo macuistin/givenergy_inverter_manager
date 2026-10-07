@@ -52,6 +52,7 @@ from homeassistant.util import dt as dt_util
 from .accumulation import AccumulationStore
 from .const import (
     CONF_BATTERY_CAPACITY,
+    CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
@@ -81,6 +82,7 @@ from .const import (
     CONF_TARGET_SOC_ENTITY,
     CONF_TARIFF_REVIEWED_ON,
     DEFAULT_BATTERY_CAPACITY,
+    DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_DRY_RUN,
@@ -94,9 +96,10 @@ from .const import (
     FORECAST_P10_ATTRIBUTE,
     GIVTCP_MAX_CHARGE_TARGET_PCT,
     GIVTCP_MIN_CHARGE_TARGET_PCT,
+    GIVTCP_RATE_TOLERANCE_PCT,
     UPDATE_INTERVAL_SECONDS,
 )
-from .core.battery import BatteryStats
+from .core.battery import BatteryStats, battery_cost_prompt_due
 from .core.charge_hold import HeldCharge
 from .core.engine import (
     Accumulators,
@@ -115,6 +118,7 @@ from .core.tariff import (
     stale_tariff_age_days,
     tariff_in_force,
 )
+from .core.tariff_check import GivTCPRates, find_rate_mismatches
 from .core.timeutil import elapsed_seconds
 from .discovery import (
     UNUSED_SLOT_TIME,
@@ -124,21 +128,27 @@ from .discovery import (
     discover_battery_cycle_entities,
     discover_ev_chargers,
     find_other_active_charge_slots,
+    givtcp_rate_entity_ids,
     update_charger_state,
 )
+from .forecast_seeding import async_seed_forecast_accuracy
 from .givtcp_writer import GivTCPWriter, SwitchState, state_as_int
 from .immersion_actuator import ImmersionActuator, ImmersionPorts
 from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
     ClearOutcome,
+    async_create_battery_cost_issue,
     async_create_givtcp_missing_issue,
     async_create_min_soc_issue,
     async_create_other_charge_slots_issue,
+    async_create_rates_differ_issue,
     async_create_tariff_review_issue,
+    async_delete_battery_cost_issue,
     async_delete_givtcp_missing_issue,
     async_delete_min_soc_issue,
     async_delete_other_charge_slots_issue,
+    async_delete_rates_differ_issue,
     async_delete_tariff_review_issue,
 )
 from .write_audit import WriteAudit
@@ -557,10 +567,30 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._acc.roll_forward(now):
             await self._acc.async_save()
         self._last_reset_time = self._acc.state.last_reset_iso
+        self._start_forecast_seeding()
         self.entry.async_on_unload(self.async_flush)
         self.entry.async_on_unload(
             self.hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, self._queue_final_write)
         )
+
+    def _start_forecast_seeding(self) -> None:
+        """On a new install, rebuild the forecast accuracy history from the recorder.
+
+        Runs in the background so a slow recorder never holds up setup.
+        """
+        sources = self._forecast_seed_sources()
+        if self._acc.forecast_history_is_empty and all(sources):
+            self._create_task(self._seed_forecast_accuracy(sources))
+
+    def _forecast_seed_sources(self) -> tuple[str | None, str | None]:
+        """The tomorrow forecast sensor and the GivTCP daily solar counter."""
+        cfg = self._effective_cfg()
+        return cfg.get(CONF_FORECAST_ENTITY), self._solar_counter_entity(cfg)
+
+    async def _seed_forecast_accuracy(self, sources: tuple[str | None, str | None]) -> None:
+        now = dt_util.as_local(datetime.now(timezone.utc))
+        if await async_seed_forecast_accuracy(self.hass, self._acc, sources, now):
+            await self._acc.async_save()
 
     async def async_flush(self) -> None:
         """Write the accumulators and battery statistics to storage now."""
@@ -860,6 +890,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.ev_power_w = self._ev_charger.power_w
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
+    def _solar_counter_entity(self, cfg: dict) -> str | None:
+        """GivTCP's daily solar total, derived from the inverter serial."""
+        serial = cfg.get(CONF_INVERTER_SERIAL)
+        return f"sensor.givtcp_{serial}_pv_energy_today_kwh" if serial else None
+
     def _read_daily_counters(self, cfg: dict, raw: RawSensorValues) -> None:
         """GivTCP daily energy counters, present on GivTCP v2.1+ and v3.
 
@@ -870,7 +905,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if not serial:
             return
         pfx = f"sensor.givtcp_{serial}"
-        raw.solar_energy_today_kwh = self._read_optional_float(f"{pfx}_pv_energy_today_kwh")
+        raw.solar_energy_today_kwh = self._read_optional_float(self._solar_counter_entity(cfg))
         raw.import_energy_today_kwh = self._read_optional_float(f"{pfx}_import_energy_today_kwh")
         raw.export_energy_today_kwh = self._read_optional_float(f"{pfx}_export_energy_today_kwh")
         # GivTCP names these battery_charge_energy_today_kwh and
@@ -1090,7 +1125,44 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         else:
             async_delete_min_soc_issue(self.hass)
         self._check_other_charge_slots(cfg)
+        self._check_battery_cost(cfg)
+        self._check_givtcp_rates(cfg)
         self._check_tariff_review(cfg)
+
+    def _check_battery_cost(self, cfg: dict) -> None:
+        """Ask for the battery cost while it is 0 after the integration has run a while."""
+        cost = float(cfg.get(CONF_BATTERY_COST, DEFAULT_BATTERY_COST))
+        if battery_cost_prompt_due(cost, self._battery_stats, self._now().date()):
+            async_create_battery_cost_issue(self.hass)
+        else:
+            async_delete_battery_cost_issue(self.hass)
+
+    def _read_givtcp_rates(self, cfg: dict) -> GivTCPRates:
+        """GivTCP's day, night and export rates. A rate that is not readable above zero is None."""
+        serial = cfg.get(CONF_INVERTER_SERIAL)
+        if not serial:
+            return GivTCPRates()
+        values = {
+            name: self._read_optional_float(entity_id)
+            for name, entity_id in givtcp_rate_entity_ids(serial).items()
+        }
+        held = {name: v for name, v in values.items() if v is not None and v > 0}
+        return GivTCPRates(day=held.get("day"), night=held.get("night"), export=held.get("export"))
+
+    def _check_givtcp_rates(self, cfg: dict) -> None:
+        """Show the rates GivTCP holds when they differ from the tariff entered here.
+
+        With no readable GivTCP rate the issue is left as it is, so a GivTCP restart does
+        not clear a dismissed issue and raise it again.
+        """
+        rates = self._read_givtcp_rates(cfg)
+        if not rates.any_held:
+            return
+        mismatches = find_rate_mismatches(build_tariff(cfg), rates, GIVTCP_RATE_TOLERANCE_PCT)
+        if mismatches:
+            async_create_rates_differ_issue(self.hass, mismatches)
+        else:
+            async_delete_rates_differ_issue(self.hass)
 
     def _check_tariff_review(self, cfg: dict[str, Any]) -> None:
         """Raise the repair issue once the tariff has gone unreviewed for too long, else clear it.

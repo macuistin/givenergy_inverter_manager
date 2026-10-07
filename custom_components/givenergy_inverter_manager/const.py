@@ -253,6 +253,7 @@ BATTERY_RATED_CYCLES = 6000  # typical LFP rated cycle life (manufacturer spec)
 NIGHT_SURVIVAL_WARNING_MARGIN_PCT = 5.0  # warn within this many SoC points of min SoC
 BATTERY_LIFE_ESTIMATE_MIN_DAYS = 7  # days of cycle data needed before estimating years left
 BATTERY_MAX_SOC_STEP_PCT = 10.0  # SoC change between two updates above this is a sensor glitch
+BATTERY_EFFICIENCY_MIN_KWH = 2.0  # kWh in and out today before round-trip efficiency is reported
 
 # ── Battery degradation cost ──────────────────────────────────────────────────
 # Install cost of the battery (€). When set, the cycle cost is computed as:
@@ -262,6 +263,12 @@ BATTERY_MAX_SOC_STEP_PCT = 10.0  # SoC change between two updates above this is 
 # Set to 0 to disable (default — behaves identically to previous versions).
 CONF_BATTERY_COST = "battery_cost_eur"
 DEFAULT_BATTERY_COST = 0.0  # € — 0 disables the degradation cost check
+
+# ── GivTCP tariff comparison ──────────────────────────────────────────────────
+# GivTCP can hold its own day, night and export rates. A rate that differs from the one
+# entered here by more than this share of the value here raises a repair. The rates entered
+# here always win. GivTCP's are shown for comparison only.
+GIVTCP_RATE_TOLERANCE_PCT = 2.0  # % of the rate entered here
 
 # ── Battery throughput budget ─────────────────────────────────────────────────
 # Optional daily cycling budget (kWh charged plus discharged). 0 disables it.

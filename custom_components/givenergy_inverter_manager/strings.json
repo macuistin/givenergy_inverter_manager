@@ -763,16 +763,16 @@
         "name": "Import at cheap rate"
       },
       "import_kwh_peak_today": {
-        "name": "Import at peak rate"
+        "name": "Import at base rate"
       },
       "import_cost_cheap_today": {
         "name": "Import cost at cheap rate"
       },
       "import_cost_peak_today": {
-        "name": "Import cost at peak rate"
+        "name": "Import cost at base rate"
       },
       "peak_import_fraction_today": {
-        "name": "Peak rate import fraction"
+        "name": "Base rate import fraction"
       },
       "avg_import_rate_today": {
         "name": "Average Import Rate Today"
@@ -829,7 +829,7 @@
         "name": "Import at cheap rate yesterday"
       },
       "import_kwh_peak_yesterday": {
-        "name": "Import at peak rate yesterday"
+        "name": "Import at base rate yesterday"
       },
       "immersion_savings_yesterday": {
         "name": "Immersion savings yesterday"
@@ -859,7 +859,7 @@
         "name": "Import at cheap rate this week"
       },
       "import_kwh_peak_this_week": {
-        "name": "Import at peak rate this week"
+        "name": "Import at base rate this week"
       },
       "immersion_savings_this_week": {
         "name": "Immersion savings this week"
@@ -922,7 +922,7 @@
         "name": "Import at cheap rate this month"
       },
       "import_kwh_peak_this_month": {
-        "name": "Import at peak rate this month"
+        "name": "Import at base rate this month"
       },
       "immersion_savings_this_month": {
         "name": "Immersion savings this month"
@@ -1025,6 +1025,33 @@
           "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
         }
       }
+    },
+    "battery_cost_not_set": {
+      "title": "Battery cost is not set",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Set the battery cost",
+            "description": "**Battery cost** is 0, so battery wear is not counted and Net Saving Today equals Saving vs Grid Today. Enter what the battery cost to put a wear cost on each kWh cycled.\n\nThe value is saved to the integration options, and the integration reloads. Every other saved option stays as it is. Dismiss this repair if you do not want wear counted.",
+            "data": {
+              "battery_cost_eur": "Battery cost"
+            },
+            "data_description": {
+              "battery_cost_eur": "What the battery cost, including installation. Must be above 0."
+            }
+          }
+        },
+        "error": {
+          "cost_required": "Enter a cost above 0, or dismiss this repair."
+        },
+        "abort": {
+          "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
+        }
+      }
+    },
+    "givtcp_rates_differ": {
+      "title": "GivTCP rates differ from your tariff",
+      "description": "GivTCP holds rates that disagree with the tariff entered in this integration:\n\n{rates}\n\nThis integration uses the rates entered here for every cost figure. GivTCP's own cost sensors use its rates. If the rates here are wrong, correct them under **Configure**. If GivTCP's are wrong, correct them in GivTCP. The repair clears once they agree."
     },
     "tariff_review_due": {
       "title": "Tariff rates have not been reviewed",
