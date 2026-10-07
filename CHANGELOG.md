@@ -2,37 +2,12 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## v0.10.0
-
-Sizes the overnight charge window to the plan, lets the immersion devices be added later,
-and fixes forecast accuracy. Stored data moves to version 3 on first start, with no action needed.
+## Unreleased
 
 The EV charger, the immersion switch and the immersion temperature sensor are optional, and
 an install can add or remove any of them at any time. Entities and the dashboard now follow.
 
 **Features**
-- The immersion switch and water temperature sensor can be added, changed or cleared under
-  Configure, Immersion heater, at any time. Saving reloads the integration, so there is no
-  restart and no reinstall. The Immersion Heater (Managed) switch and the Immersion dashboard
-  view appear or disappear to match. The element power moved from the Hardware section to the
-  new section. The target and minimum temperatures stay with their number entities.
-- The **GivTCP Register Write Count** sensor has a `recent_writes` attribute: the last 20 writes
-  the integration made to the charge target, the charge window and the charge switches, each with
-  its time, entity, value and reason. A change to the charge target, window start or window end
-  that the integration did not make is added as `external`, with the Home Assistant `user_id` and
-  `parent_id` when there are any, and one INFO log line. Nothing is reverted and no option is
-  added. The log is saved with the other stored data.
-- The charge window is sized to the plan. The window start is still the cheapest rate period.
-  The end moves later when the plan needs more time than that period has, up to the end of the
-  run of rate periods cheaper than the base rate that follows it. The time needed is the deficit
-  from the current SoC to the target, times the battery capacity, divided by the GivTCP battery
-  charge rate (`number..._battery_charge_rate`), plus a 15% margin, rounded up to 5 minutes. If
-  the plan fits the cheapest period, or the charge rate cannot be read, the window is unchanged.
-  The inverter stops at the target, so the cheapest hours still come first. Only slot 1 is
-  written.
-- An Overnight Charge Window sensor shows the window to be written, with attributes for the
-  start, end, whether it was extended, the energy it should deliver and the expected finish.
-  Dry run shows the extended window in the "would write" text.
 - The sensors, numbers and switches that need an EV charger or an immersion are created only
   while the device exists. Before, an install without them held 11 EV sensors (6 of them never
   available), 8 immersion sensors that always read 0, 3 temperature numbers and the Auto
@@ -61,6 +36,35 @@ an install can add or remove any of them at any time. Entities and the dashboard
   the device exists.
 - The dashboard strategy is unchanged and is still the one dashboard that is always current.
   See [Dashboard](docs/dashboard.md#devices-you-add-or-remove-later).
+
+## v0.10.0
+
+Sizes the overnight charge window to the plan, lets the immersion devices be added later,
+and fixes forecast accuracy. Stored data moves to version 3 on first start, with no action needed.
+
+**Features**
+- The immersion switch and water temperature sensor can be added, changed or cleared under
+  Configure, Immersion heater, at any time. Saving reloads the integration, so there is no
+  restart and no reinstall. The Immersion Heater (Managed) switch and the Immersion dashboard
+  view appear or disappear to match. The element power moved from the Hardware section to the
+  new section. The target and minimum temperatures stay with their number entities.
+- The **GivTCP Register Write Count** sensor has a `recent_writes` attribute: the last 20 writes
+  the integration made to the charge target, the charge window and the charge switches, each with
+  its time, entity, value and reason. A change to the charge target, window start or window end
+  that the integration did not make is added as `external`, with the Home Assistant `user_id` and
+  `parent_id` when there are any, and one INFO log line. Nothing is reverted and no option is
+  added. The log is saved with the other stored data.
+- The charge window is sized to the plan. The window start is still the cheapest rate period.
+  The end moves later when the plan needs more time than that period has, up to the end of the
+  run of rate periods cheaper than the base rate that follows it. The time needed is the deficit
+  from the current SoC to the target, times the battery capacity, divided by the GivTCP battery
+  charge rate (`number..._battery_charge_rate`), plus a 15% margin, rounded up to 5 minutes. If
+  the plan fits the cheapest period, or the charge rate cannot be read, the window is unchanged.
+  The inverter stops at the target, so the cheapest hours still come first. Only slot 1 is
+  written.
+- An Overnight Charge Window sensor shows the window to be written, with attributes for the
+  start, end, whether it was extended, the energy it should deliver and the expected finish.
+  Dry run shows the extended window in the "would write" text.
 
 **Fixes**
 - A switch or sensor saved in the options is now used. The managed switch and the heater
