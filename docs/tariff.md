@@ -25,6 +25,29 @@ Rules for windows:
 
 The cheapest timed period also sets when the overnight charge is written and which window is sent to the inverter. If the tariff has no timed period, no charge target is written.
 
+## Change the rates from a date
+
+When your supplier changes its prices from a set date, record the new rates with that date. You do not need to be at the screen on the day.
+
+1. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**.
+2. Enter the new base rate, base rate name, export rate and timed rate periods in the Tariff and Rate period sections.
+3. Open **Dated rate change** and choose the date in **Rates start on**.
+4. Save. The page opens with a line that lists the change, and the current rates stay in force until the date.
+
+From the first update cycle on the chosen date, the new rates apply. Before it, the old rates apply. The date is the day in Home Assistant's time zone, so a cheap window that crosses midnight on the day before uses the old rates up to midnight and the new rates after it.
+
+What a dated change covers and does not cover:
+
+- **Covered:** the base rate and its name, the timed rate periods and the export rate.
+- **Not dated:** the standing charge, the flat levy, VAT, the supplier discount, the bill start day and the currency. They apply as soon as you save, because the bill sensors work out one bill from one value of each. Change them on the day, or on the day you notice.
+- **Nothing is recalculated.** Costs and totals already recorded keep the rates that applied when the energy was used. The date cannot be in the past. If your supplier changed prices before you updated the rates, save the new rates without a date. They apply from that moment, and the costs recorded in between stay as they are.
+- **Several changes** can wait at once, one for each date. Recording a second change for the same date replaces the first. Select **Cancel scheduled rate changes** to remove every change that has not started.
+- **Later edits.** Once a change has started, its rates are the ones shown in the form. Saving the form without a date sets the rates from now on. A change that has not started yet is kept.
+
+## Stale tariff repair
+
+The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. A supplier price change leaves every cost figure wrong until the rates are updated, and nothing in Home Assistant tells you. The date counts from the last time you saved a different tariff in Configure or Reconfigure, recorded a dated change or confirmed the rates in the repair. The first time the integration runs with this feature, it records that day, so an upgrade never raises the repair at once. The first repair comes 365 days later at the earliest. See [Troubleshooting](troubleshooting.md#the-tariff-has-not-been-reviewed).
+
 ## Worked example
 
 The numbers below are made up so the arithmetic is easy to follow. They are not a real tariff. Use your own values.
@@ -48,7 +71,7 @@ Enter the base rate `0.30` named `Day`. Put Night in rate period 1 and Boost in 
 What follows from this sample tariff:
 
 - The cheapest timed period is Boost, so the charge target and window `02:00` to `04:00` are written to the inverter at 01:59.
-- Both Night and Boost count as cheap. The Import at cheap rate sensors count energy imported in either. Import at peak rate counts the base rate only.
+- Both Night and Boost count as cheap. The Import at cheap rate sensors count energy imported in either. Import at base rate counts the base rate only.
 - The Next Cheap Rate Start sensor shows the start of the next period priced below the base rate. At noon it shows `23:00`.
 - On Cheapest Rate is `yes` only during Boost.
 

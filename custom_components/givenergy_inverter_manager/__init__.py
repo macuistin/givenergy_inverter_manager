@@ -29,6 +29,7 @@ from .const import (
     CONF_IMMERSION_HYSTERESIS,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_TARGET_TEMP,
+    CONF_TARIFF_REVIEWED_ON,
     DOMAIN,
 )
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
@@ -67,7 +68,9 @@ _LIVE_SETTINGS: dict[str, str] = {
 def _reload_relevant(entry: GivEnergyConfigEntry) -> tuple[dict, dict]:
     """Return the entry contents that need a reload when they change."""
     data = {k: v for k, v in entry.data.items() if k not in _LIVE_SETTINGS}
-    return copy.deepcopy(data), copy.deepcopy(dict(entry.options))
+    # The review date only feeds the tariff repair, which reads it every cycle.
+    options = {k: v for k, v in entry.options.items() if k != CONF_TARIFF_REVIEWED_ON}
+    return copy.deepcopy(data), copy.deepcopy(options)
 
 
 def _apply_live_settings(coordinator: GivEnergyCoordinator, entry: GivEnergyConfigEntry) -> None:

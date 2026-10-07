@@ -444,6 +444,18 @@
               "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
             }
           },
+          "tariff_change": {
+            "name": "Dated rate change",
+            "description": "Start the rates in the Tariff and Rate period sections on a later date. Energy recorded before the date keeps the old rates, and nothing already recorded is recalculated. The standing charge, levy, VAT, discount and currency apply as soon as you save.",
+            "data": {
+              "effective_from": "Rates start on",
+              "cancel_scheduled": "Cancel scheduled rate changes"
+            },
+            "data_description": {
+              "effective_from": "Choose a date after today to schedule the base rate, its name, the timed rate periods and the export rate. Leave it empty to apply them now. The date cannot be in the past.",
+              "cancel_scheduled": "Remove every rate change that has not started yet. Rates already in force stay as they are."
+            }
+          },
           "threshold_settings": {
             "name": "Battery & charging thresholds",
             "description": "Charging behaviour, battery protection, and advanced options.",
@@ -529,7 +541,8 @@
     },
     "error": {
       "rate_period_zero_length": "A rate period cannot start and end at the same time. Change its start or end time, or clear its name to remove it.",
-      "rate_period_duplicate_name": "Rate period names must be different from each other and from the base rate name."
+      "rate_period_duplicate_name": "Rate period names must be different from each other and from the base rate name.",
+      "tariff_change_date_in_past": "The rates cannot start in the past, because costs already recorded are not recalculated. Clear the date to apply the rates now, or choose a later date."
     }
   },
   "entity": {
@@ -750,16 +763,16 @@
         "name": "Import at cheap rate"
       },
       "import_kwh_peak_today": {
-        "name": "Import at peak rate"
+        "name": "Import at base rate"
       },
       "import_cost_cheap_today": {
         "name": "Import cost at cheap rate"
       },
       "import_cost_peak_today": {
-        "name": "Import cost at peak rate"
+        "name": "Import cost at base rate"
       },
       "peak_import_fraction_today": {
-        "name": "Peak rate import fraction"
+        "name": "Base rate import fraction"
       },
       "avg_import_rate_today": {
         "name": "Average Import Rate Today"
@@ -816,7 +829,7 @@
         "name": "Import at cheap rate yesterday"
       },
       "import_kwh_peak_yesterday": {
-        "name": "Import at peak rate yesterday"
+        "name": "Import at base rate yesterday"
       },
       "immersion_savings_yesterday": {
         "name": "Immersion savings yesterday"
@@ -846,7 +859,7 @@
         "name": "Import at cheap rate this week"
       },
       "import_kwh_peak_this_week": {
-        "name": "Import at peak rate this week"
+        "name": "Import at base rate this week"
       },
       "immersion_savings_this_week": {
         "name": "Immersion savings this week"
@@ -909,7 +922,7 @@
         "name": "Import at cheap rate this month"
       },
       "import_kwh_peak_this_month": {
-        "name": "Import at peak rate this month"
+        "name": "Import at base rate this month"
       },
       "immersion_savings_this_month": {
         "name": "Immersion savings this month"
@@ -1009,6 +1022,47 @@
         "abort": {
           "dry_run": "Dry run is on, so nothing was changed. Turn it off in the integration options to clear the slots.",
           "write_failed": "GivTCP did not accept every write. The slots that are still active stay listed. Check that GivTCP is running, then try again.",
+          "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
+        }
+      }
+    },
+    "battery_cost_not_set": {
+      "title": "Battery cost is not set",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Set the battery cost",
+            "description": "**Battery cost** is 0, so battery wear is not counted and Net Saving Today equals Saving vs Grid Today. Enter what the battery cost to put a wear cost on each kWh cycled.\n\nThe value is saved to the integration options, and the integration reloads. Every other saved option stays as it is. Dismiss this repair if you do not want wear counted.",
+            "data": {
+              "battery_cost_eur": "Battery cost"
+            },
+            "data_description": {
+              "battery_cost_eur": "What the battery cost, including installation. Must be above 0."
+            }
+          }
+        },
+        "error": {
+          "cost_required": "Enter a cost above 0, or dismiss this repair."
+        },
+        "abort": {
+          "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
+        }
+      }
+    },
+    "givtcp_rates_differ": {
+      "title": "GivTCP rates differ from your tariff",
+      "description": "GivTCP holds rates that disagree with the tariff entered in this integration:\n\n{rates}\n\nThis integration uses the rates entered here for every cost figure. GivTCP's own cost sensors use its rates. If the rates here are wrong, correct them under **Configure**. If GivTCP's are wrong, correct them in GivTCP. The repair clears once they agree."
+    },
+    "tariff_review_due": {
+      "title": "Tariff rates have not been reviewed",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Confirm the tariff rates",
+            "description": "The tariff rates were last saved or confirmed on {last_reviewed}, {days} days ago. A supplier price change leaves every cost figure wrong until the rates here are updated.\n\nCheck the rates against your latest bill. If a rate changed, go to **Settings → Integrations → GivEnergy Inverter Manager → Configure** and save the new rates, or give them a start date. If the rates are correct, select **Submit** to confirm them."
+          }
+        },
+        "abort": {
           "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
         }
       }

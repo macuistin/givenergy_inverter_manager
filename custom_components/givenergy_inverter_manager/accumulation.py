@@ -24,7 +24,12 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
-from .core.rules import build_load_profile, forecast_correction_factor
+from .core.rules import (
+    ForecastAccuracy,
+    build_load_profile,
+    forecast_accuracy,
+    forecast_correction_factor,
+)
 from .core.tariff import CounterMemory, EnergyAccumulator
 from .core.write_log import restore_entries
 
@@ -175,8 +180,8 @@ def _add_grid_to_battery(payload: dict) -> None:
 
 
 def _forecast_accuracy_pct(forecast_kwh: float, actual_kwh: float) -> float:
-    """Actual solar as a percentage of the forecast, capped at 200."""
-    return min(200.0, round(actual_kwh / forecast_kwh * 100, 1))
+    """Actual solar as a percentage of the forecast. It has no upper limit."""
+    return round(actual_kwh / forecast_kwh * 100, 1)
 
 
 def _rebuild_forecast_accuracy(payload: dict) -> None:
@@ -352,6 +357,20 @@ class AccumulationStore:
     def forecast_correction_factor(self) -> float | None:
         """Median actual/forecast ratio of recent days, or None until enough usable days."""
         return forecast_correction_factor(self.state.forecast_ratio_history)
+
+    @property
+    def forecast_history_days(self) -> int:
+        """How many days of forecast and solar pairs the store keeps."""
+        return _FORECAST_RATIO_HISTORY_DAYS
+
+    @property
+    def forecast_history_is_empty(self) -> bool:
+        return not self.state.forecast_ratio_history
+
+    @property
+    def forecast_accuracy(self) -> ForecastAccuracy:
+        """The measured correction, its usable days and whether it is applied yet."""
+        return forecast_accuracy(self.state.forecast_ratio_history)
 
     def slot_load_profile(self, target_weekday: int) -> list[float] | None:
         """48-slot baseline load profile for target_weekday (Monday=0), or None."""
@@ -604,6 +623,18 @@ class AccumulationStore:
             self.state.pending_raw_forecast_kwh = forecast_kwh
         if p10_kwh is not None and p10_kwh > 0:
             self.state.pending_raw_forecast_p10_kwh = p10_kwh
+
+    def seed_forecast_history(self, records: list[dict]) -> None:
+        """Fill an empty forecast history with days rebuilt from the recorder.
+
+        Does nothing once the history holds a day, so a night recorded in the meantime is
+        never overwritten.
+        """
+        if self.state.forecast_ratio_history:
+            return
+        self.state.forecast_ratio_history = [
+            dict(r) for r in records[-_FORECAST_RATIO_HISTORY_DAYS:]
+        ]
 
     def note_clipping(self) -> None:
         """Flag today as clipping so it is left out of the forecast correction."""

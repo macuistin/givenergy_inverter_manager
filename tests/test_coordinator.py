@@ -121,6 +121,8 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._held_charge = HeldCharge()
         self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""
+        self._unsub_charge_target = None
+        self._charge_target_trigger_at = None
 
         class _FakeAccStore:
             """Minimal AccumulationStore stub for testing — no HA Storage."""
@@ -203,6 +205,7 @@ class FakeCoordinator(GivEnergyCoordinator):
             _archive_slot_day = AccumulationStore._archive_slot_day
             slot_load_profile = AccumulationStore.slot_load_profile
             forecast_correction_factor = AccumulationStore.forecast_correction_factor
+            forecast_accuracy = AccumulationStore.forecast_accuracy
             on_raw_forecast = AccumulationStore.on_raw_forecast
             today_raw_forecast_kwh = AccumulationStore.today_raw_forecast_kwh
             today_raw_forecast_p10_kwh = AccumulationStore.today_raw_forecast_p10_kwh

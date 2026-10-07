@@ -29,6 +29,9 @@ tests/core/test_charge_window.py.
 
 The cheap_run_remaining_minutes leaf was added for the Cheap from tile: 49 of the 255 cases gained
 it, and the fresh snapshot gained it as None. Nothing else moved.
+
+The forecast_accuracy leaf was added for the accuracy diagnostics on the charge reason sensor. The
+fresh snapshot gained it as None. No case moved, because none passes a forecast accuracy.
 """
 
 from __future__ import annotations

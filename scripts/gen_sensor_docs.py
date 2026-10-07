@@ -318,7 +318,10 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "battery_throughput_kwh_today": "Battery energy in plus out.",
     "import_kwh_cheap_today": "Energy imported while a timed rate period was active.",
-    "import_kwh_peak_today": "Energy imported at the base rate.",
+    "import_kwh_peak_today": (
+        "Energy imported while no timed rate period was active, so at the base rate. "
+        "With no timed rate period set, all import."
+    ),
     "immersion_solar_kwh_today": "Solar energy that went to the immersion.",
     "self_consumed_kwh_today": "Solar generated minus exported, floored at 0.",
     "missed_solar_today": (
@@ -332,7 +335,10 @@ DESCRIPTIONS: dict[str, str] = {
     "house_cost_today": "Import cost attributed to the rest of the house.",
     "immersion_cost_today": "Import cost attributed to the immersion.",
     "import_cost_cheap_today": "Import cost while a timed rate period was active.",
-    "import_cost_peak_today": "Import cost at the base rate.",
+    "import_cost_peak_today": (
+        "Import cost while no timed rate period was active, so at the base rate. "
+        "With no timed rate period set, all import cost."
+    ),
     "immersion_savings_today": "Diverted solar kWh times (current rate minus export rate).",
     "saving_vs_grid_today": (
         "House load priced at the rate in force when it ran, minus net import cost "
@@ -351,9 +357,16 @@ DESCRIPTIONS: dict[str, str] = {
         "0 with no consumption."
     ),
     "self_consumption": "Share of today's solar that was not exported. 0 with no solar.",
-    "peak_import_fraction_today": "Share of today's import that was at the base rate.",
+    "peak_import_fraction_today": (
+        "Share of today's import that was at the base rate. 100 once anything is imported "
+        "with no timed rate period set."
+    ),
     "solar_capture_efficiency_today": "Solar generated minus missed solar, as a share of solar.",
-    "battery_roundtrip_efficiency_today": "Energy out of the battery divided by energy in.",
+    "battery_roundtrip_efficiency_today": (
+        "Energy out of the battery divided by energy in. Unknown until at least 2 kWh has gone "
+        "both in and out today, because earlier in the day the battery still holds energy "
+        "charged overnight."
+    ),
     "accrued_bill": (
         "Bill so far this period: energy less the supplier saving, standing charge and PSO levy, "
         "VAT, minus export earnings."
@@ -390,7 +403,12 @@ DESCRIPTIONS: dict[str, str] = {
         "Tonight's target after overrides and the configured cap. Holds its value until the "
         "calculated target moves 5 points or more."
     ),
-    "overnight_charge_reason": "Why that target was chosen. Changes only when the target does.",
+    "overnight_charge_reason": (
+        "Why that target was chosen. Changes only when the target does. Attributes report the "
+        "forecast accuracy correction: `accuracy_status` (for example `Waiting for data: 3 of 5 "
+        "days`), `accuracy_applied`, `accuracy_measured_factor`, `accuracy_applied_factor`, "
+        "`accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`."
+    ),
     "overnight_charge_window": (
         "The charge window written to slot 1, sized to the plan. Attributes: `window_start`, "
         "`window_end`, `window_extended`, `expected_kwh` and `expected_finish`."
@@ -441,7 +459,8 @@ DESCRIPTIONS: dict[str, str] = {
         " (Solar forecast today (provider)). Empty without one."
     ),
     "yesterday_forecast_accuracy_pct": (
-        "Yesterday's actual solar as a share of the forecast for that day, capped at 200."
+        "Yesterday's actual solar as a share of the forecast for that day."
+        " A day that beats the forecast reads above 100, with no upper limit."
     ),
     "forecast_accuracy_7day_avg_pct": "Average of the last 7 daily accuracy values.",
     "carbon_intensity": "Value of the carbon intensity entity you set.",
@@ -467,6 +486,26 @@ RETIRED_SENSORS: tuple[tuple[str, str], ...] = (
     ("pre_boost_export_recommended", "Pre-boost export recommended"),
     ("pre_boost_export_kwh", "Pre-boost exportable kWh"),
     ("pre_boost_export_net_gain", "Pre-boost export net gain"),
+)
+# (key, name before, name now). The key and the entity ID of an existing install do not change.
+RENAMED_SENSORS: tuple[tuple[str, str, str], ...] = (
+    ("import_kwh_peak_today", "Import at peak rate", "Import at base rate"),
+    ("import_kwh_peak_yesterday", "Import at peak rate yesterday", "Import at base rate yesterday"),
+    ("import_kwh_peak_this_week", "Import at peak rate this week", "Import at base rate this week"),
+    (
+        "import_kwh_peak_this_month",
+        "Import at peak rate this month",
+        "Import at base rate this month",
+    ),
+    ("import_cost_peak_today", "Import cost at peak rate", "Import cost at base rate"),
+    ("peak_import_fraction_today", "Peak rate import fraction", "Base rate import fraction"),
+)
+RENAMED_NOTE = (
+    "These sensors were renamed because they measure the base rate, the rate that applies "
+    "while no timed rate period is active. They are not a peak band, and no peak band is "
+    "configured. The key and the unique ID did not change, so history, statistics and "
+    "automations carry on. An install made before the rename keeps its old entity IDs, "
+    "which still contain `peak`. A new install builds entity IDs from the new names."
 )
 RETIRED_NOTE = (
     "These sensors were removed. The integration never writes or advises forced battery "
@@ -588,6 +627,21 @@ def _row(sensor: dict) -> str:
     return "| " + " | ".join(cells) + " |"
 
 
+def _renamed_section() -> list[str]:
+    """The table of sensors whose display name changed."""
+    rows = [f"| `{key}` | {old} | {new} |" for key, old, new in RENAMED_SENSORS]
+    return [
+        "## Renamed sensors",
+        "",
+        RENAMED_NOTE,
+        "",
+        "| Key | Previous name | Name now |",
+        "|---|---|---|",
+        *rows,
+        "",
+    ]
+
+
 def _retired_section() -> list[str]:
     """The table of sensors the integration no longer creates."""
     rows = [f"| {name} | `{key}` |" for key, name in RETIRED_SENSORS]
@@ -652,6 +706,7 @@ def generate() -> str:
         ]
         lines += [_row(s) for s in members]
         lines.append("")
+    lines += _renamed_section()
     lines += _retired_section()
     return "\n".join(lines).rstrip("\n") + "\n"
 

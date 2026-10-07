@@ -158,6 +158,24 @@ def get_suggested_entities(inverter: GivTCPInverter) -> dict[str, str]:
     return dict(inverter.entities)
 
 
+# ── Rates GivTCP holds ───────────────────────────────────────────────────────
+
+# GivTCP keeps its own day, night and export rates as sensors named by the inverter serial.
+GIVTCP_RATE_SUFFIXES: dict[str, str] = {
+    "day": "_day_rate",
+    "night": "_night_rate",
+    "export": "_export_rate",
+}
+
+
+def givtcp_rate_entity_ids(serial: str) -> dict[str, str]:
+    """The entity ids of GivTCP's day, night and export rate sensors for this inverter."""
+    return {
+        name: f"sensor.{GIVTCP_PREFIX}{serial}{suffix}"
+        for name, suffix in GIVTCP_RATE_SUFFIXES.items()
+    }
+
+
 # ── Charge slots the integration does not manage ─────────────────────────────
 
 _TRAILING_NUMBER = re.compile(r"^(?P<stem>.*?)(?P<number>\d+)$")

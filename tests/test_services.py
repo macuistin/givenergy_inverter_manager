@@ -246,6 +246,20 @@ class TestYearOnYear:
         assert result["delta_pct"]["solar_kwh"] == 25.0
         assert result["last_year_same_month"]["self_sufficiency_pct"] == 50.0
 
+    def test_import_cost_delta_reads_the_stored_cost_by_period(self, tmp_path):
+        data = _data()
+        data.month.import_cost_by_period = {"Day": 35.0, "Night": 15.0}
+        snapshot = {
+            "solar_kwh": 80.0,
+            "house_kwh": 160.0,
+            "import_cost_by_period": {"Day": 30.0, "Night": 10.0},
+        }
+        home = FakeHass([_entry(_coordinator(data, [snapshot] * 12))], tmp_path)
+        result = home.call("year_on_year_summary")
+        assert result["last_year_same_month"]["import_cost"] == 40.0
+        assert result["delta"]["import_cost"] == 10.0
+        assert result["delta_pct"]["import_cost"] == 25.0
+
 
 class TestExportEnergyData:
     def test_writes_one_row_per_period_and_per_snapshot(self, tmp_path):

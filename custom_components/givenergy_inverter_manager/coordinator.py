@@ -36,9 +36,9 @@ current charge decision, and calls number.set_value on the GivTCP entity.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from datetime import time as dtime
 from typing import Any
 
@@ -52,6 +52,7 @@ from homeassistant.util import dt as dt_util
 from .accumulation import AccumulationStore
 from .const import (
     CONF_BATTERY_CAPACITY,
+    CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
@@ -79,7 +80,9 @@ from .const import (
     CONF_INVERTER_TEMP_ENTITY,
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
+    CONF_TARIFF_REVIEWED_ON,
     DEFAULT_BATTERY_CAPACITY,
+    DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_DRY_RUN,
@@ -93,9 +96,10 @@ from .const import (
     FORECAST_P10_ATTRIBUTE,
     GIVTCP_MAX_CHARGE_TARGET_PCT,
     GIVTCP_MIN_CHARGE_TARGET_PCT,
+    GIVTCP_RATE_TOLERANCE_PCT,
     UPDATE_INTERVAL_SECONDS,
 )
-from .core.battery import BatteryStats
+from .core.battery import BatteryStats, battery_cost_prompt_due
 from .core.charge_hold import HeldCharge
 from .core.engine import (
     Accumulators,
@@ -108,7 +112,13 @@ from .core.engine import (
     build_coordinator_data,
 )
 from .core.rules import monthly_solar_fractions
-from .core.tariff import build_tariff
+from .core.tariff import (
+    build_tariff,
+    last_tariff_review,
+    stale_tariff_age_days,
+    tariff_in_force,
+)
+from .core.tariff_check import GivTCPRates, find_rate_mismatches
 from .core.timeutil import elapsed_seconds
 from .discovery import (
     UNUSED_SLOT_TIME,
@@ -118,20 +128,28 @@ from .discovery import (
     discover_battery_cycle_entities,
     discover_ev_chargers,
     find_other_active_charge_slots,
+    givtcp_rate_entity_ids,
     update_charger_state,
 )
+from .forecast_seeding import async_seed_forecast_accuracy
 from .givtcp_writer import GivTCPWriter, SwitchState, state_as_int
 from .immersion_actuator import ImmersionActuator, ImmersionPorts
 from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
     ClearOutcome,
+    async_create_battery_cost_issue,
     async_create_givtcp_missing_issue,
     async_create_min_soc_issue,
     async_create_other_charge_slots_issue,
+    async_create_rates_differ_issue,
+    async_create_tariff_review_issue,
+    async_delete_battery_cost_issue,
     async_delete_givtcp_missing_issue,
     async_delete_min_soc_issue,
     async_delete_other_charge_slots_issue,
+    async_delete_rates_differ_issue,
+    async_delete_tariff_review_issue,
 )
 from .write_audit import WriteAudit
 
@@ -241,6 +259,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._update_cycle: int = 0
         self._floor_top_up_applied: bool = False
         self.export_rate: float = 0.0
+        self._unsub_charge_target: Callable[[], None] | None = None
+        self._charge_target_trigger_at: tuple[int, int] | None = None
         self._ev_charger: EVCharger | None = None
         self._battery_cycle_entities: list[str] = []
         self._givtcp_was_unavailable: bool = False
@@ -293,6 +313,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         )
         # Cheap-rate start listener (writes charge target to GivTCP). The start time comes
         # from the configured tariff, one minute before, so the target is set before charging.
+        self.entry.async_on_unload(self._cancel_charge_target_listener)
         self._register_charge_target_listener()
         self._watch_managed_entities()
 
@@ -494,38 +515,48 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         Only registers when there is at least one timed rate period configured.
         A flat-rate tariff has no cheap window to target — no write-back needed.
+        Runs again at midnight, so a dated rate change that moves the cheap window takes
+        effect without a reload.
         """
-        cfg = self._effective_cfg()
         try:
-            tariff = build_tariff(cfg)
-            if not tariff.rate_periods:
-                _LOG.debug(
-                    "No timed rate periods configured — skipping charge target "
-                    "write-back listener (flat-rate tariff)"
-                )
+            trigger = self._charge_target_trigger()
+            if trigger == self._charge_target_trigger_at:
                 return
-            cheap_start: dtime = tariff.get_cheapest_rate_start()
-            trigger_minute = (cheap_start.minute - 1) % 60
-            trigger_hour = (
-                cheap_start.hour if cheap_start.minute > 0 else (cheap_start.hour - 1) % 24
-            )
-            _LOG.debug(
-                "Registering charge target write-back at %02d:%02d (cheap rate starts %s)",
-                trigger_hour,
-                trigger_minute,
-                cheap_start.strftime("%H:%M"),
-            )
-            self.entry.async_on_unload(
-                async_track_time_change(
-                    self.hass,
-                    self._write_charge_target_to_inverter,
-                    hour=trigger_hour,
-                    minute=trigger_minute,
-                    second=0,
-                )
+            self._cancel_charge_target_listener()
+            self._charge_target_trigger_at = trigger
+            if trigger is None:
+                return
+            hour, minute = trigger
+            _LOG.debug("Registering charge target write-back at %02d:%02d", hour, minute)
+            self._unsub_charge_target = async_track_time_change(
+                self.hass,
+                self._write_charge_target_to_inverter,
+                hour=hour,
+                minute=minute,
+                second=0,
             )
         except (ValueError, TypeError, AttributeError) as err:
             _LOG.warning("Could not register charge target listener: %s", err)
+
+    def _charge_target_trigger(self) -> tuple[int, int] | None:
+        """Hour and minute one minute before the cheapest rate starts, or None when flat."""
+        tariff = build_tariff(self._effective_cfg())
+        if not tariff.rate_periods:
+            _LOG.debug(
+                "No timed rate periods configured — skipping charge target "
+                "write-back listener (flat-rate tariff)"
+            )
+            return None
+        cheap_start: dtime = tariff.get_cheapest_rate_start()
+        minute = (cheap_start.minute - 1) % 60
+        hour = cheap_start.hour if cheap_start.minute > 0 else (cheap_start.hour - 1) % 24
+        return hour, minute
+
+    def _cancel_charge_target_listener(self) -> None:
+        if self._unsub_charge_target is not None:
+            self._unsub_charge_target()
+            self._unsub_charge_target = None
+        self._charge_target_trigger_at = None
 
     async def async_restore_state(self) -> None:
         """Load stored accumulators and apply any resets missed while HA was down."""
@@ -536,10 +567,30 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._acc.roll_forward(now):
             await self._acc.async_save()
         self._last_reset_time = self._acc.state.last_reset_iso
+        self._start_forecast_seeding()
         self.entry.async_on_unload(self.async_flush)
         self.entry.async_on_unload(
             self.hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, self._queue_final_write)
         )
+
+    def _start_forecast_seeding(self) -> None:
+        """On a new install, rebuild the forecast accuracy history from the recorder.
+
+        Runs in the background so a slow recorder never holds up setup.
+        """
+        sources = self._forecast_seed_sources()
+        if self._acc.forecast_history_is_empty and all(sources):
+            self._create_task(self._seed_forecast_accuracy(sources))
+
+    def _forecast_seed_sources(self) -> tuple[str | None, str | None]:
+        """The tomorrow forecast sensor and the GivTCP daily solar counter."""
+        cfg = self._effective_cfg()
+        return cfg.get(CONF_FORECAST_ENTITY), self._solar_counter_entity(cfg)
+
+    async def _seed_forecast_accuracy(self, sources: tuple[str | None, str | None]) -> None:
+        now = dt_util.as_local(datetime.now(timezone.utc))
+        if await async_seed_forecast_accuracy(self.hass, self._acc, sources, now):
+            await self._acc.async_save()
 
     async def async_flush(self) -> None:
         """Write the accumulators and battery statistics to storage now."""
@@ -565,6 +616,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._last_reset_time = midnight.isoformat()
         self._floor_top_up_applied = False
         self._acc.on_midnight(midnight)
+        self._register_charge_target_listener()
         self.hass.async_create_task(self._acc.async_save())
         self._last_update = None
         _LOG.debug("Midnight reset: daily, weekly, and monthly accumulators updated")
@@ -730,10 +782,14 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _effective_cfg(self) -> dict:
-        """Merge options over data so tariff edits take immediate effect."""
+        """Merge options over data so tariff edits take immediate effect.
+
+        The unit rates are those in force today: the saved ones, or the latest dated change
+        on or before today. With no dated change the merge is returned as is.
+        """
         cfg = dict(self.entry.data)
         cfg.update(self.entry.options)
-        return cfg
+        return tariff_in_force(cfg, self._now().date())
 
     def _configured_bill_start_day(self, cfg: dict | None = None) -> int:
         """Return the bill start day from the effective config (options over data)."""
@@ -834,6 +890,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.ev_power_w = self._ev_charger.power_w
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
+    def _solar_counter_entity(self, cfg: dict) -> str | None:
+        """GivTCP's daily solar total, derived from the inverter serial."""
+        serial = cfg.get(CONF_INVERTER_SERIAL)
+        return f"sensor.givtcp_{serial}_pv_energy_today_kwh" if serial else None
+
     def _read_daily_counters(self, cfg: dict, raw: RawSensorValues) -> None:
         """GivTCP daily energy counters, present on GivTCP v2.1+ and v3.
 
@@ -844,7 +905,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if not serial:
             return
         pfx = f"sensor.givtcp_{serial}"
-        raw.solar_energy_today_kwh = self._read_optional_float(f"{pfx}_pv_energy_today_kwh")
+        raw.solar_energy_today_kwh = self._read_optional_float(self._solar_counter_entity(cfg))
         raw.import_energy_today_kwh = self._read_optional_float(f"{pfx}_import_energy_today_kwh")
         raw.export_energy_today_kwh = self._read_optional_float(f"{pfx}_export_energy_today_kwh")
         # GivTCP names these battery_charge_energy_today_kwh and
@@ -1064,6 +1125,66 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         else:
             async_delete_min_soc_issue(self.hass)
         self._check_other_charge_slots(cfg)
+        self._check_battery_cost(cfg)
+        self._check_givtcp_rates(cfg)
+        self._check_tariff_review(cfg)
+
+    def _check_battery_cost(self, cfg: dict) -> None:
+        """Ask for the battery cost while it is 0 after the integration has run a while."""
+        cost = float(cfg.get(CONF_BATTERY_COST, DEFAULT_BATTERY_COST))
+        if battery_cost_prompt_due(cost, self._battery_stats, self._now().date()):
+            async_create_battery_cost_issue(self.hass)
+        else:
+            async_delete_battery_cost_issue(self.hass)
+
+    def _read_givtcp_rates(self, cfg: dict) -> GivTCPRates:
+        """GivTCP's day, night and export rates. A rate that is not readable above zero is None."""
+        serial = cfg.get(CONF_INVERTER_SERIAL)
+        if not serial:
+            return GivTCPRates()
+        values = {
+            name: self._read_optional_float(entity_id)
+            for name, entity_id in givtcp_rate_entity_ids(serial).items()
+        }
+        held = {name: v for name, v in values.items() if v is not None and v > 0}
+        return GivTCPRates(day=held.get("day"), night=held.get("night"), export=held.get("export"))
+
+    def _check_givtcp_rates(self, cfg: dict) -> None:
+        """Show the rates GivTCP holds when they differ from the tariff entered here.
+
+        With no readable GivTCP rate the issue is left as it is, so a GivTCP restart does
+        not clear a dismissed issue and raise it again.
+        """
+        rates = self._read_givtcp_rates(cfg)
+        if not rates.any_held:
+            return
+        mismatches = find_rate_mismatches(build_tariff(cfg), rates, GIVTCP_RATE_TOLERANCE_PCT)
+        if mismatches:
+            async_create_rates_differ_issue(self.hass, mismatches)
+        else:
+            async_delete_rates_differ_issue(self.hass)
+
+    def _check_tariff_review(self, cfg: dict[str, Any]) -> None:
+        """Raise the repair issue once the tariff has gone unreviewed for too long, else clear it.
+
+        The review date is the last saved tariff change or confirmation. The first run
+        records today when there is none, so an upgrade never raises the issue at once.
+        """
+        today = self._now().date()
+        if last_tariff_review(cfg) is None:
+            self._record_first_tariff_review(today)
+            return
+        age = stale_tariff_age_days(cfg, today)
+        if age is None:
+            async_delete_tariff_review_issue(self.hass)
+        else:
+            async_create_tariff_review_issue(self.hass, today - timedelta(days=age), age)
+
+    def _record_first_tariff_review(self, today: date) -> None:
+        """Save today as the review date. The options update listener ignores this key."""
+        options = {**self.entry.options, CONF_TARIFF_REVIEWED_ON: today.isoformat()}
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
+        async_delete_tariff_review_issue(self.hass)
 
     def _other_charge_slots(self, cfg: dict[str, Any]) -> list[ActiveChargeSlot]:
         """Charge slots other than the managed one that have a window set. Reads only."""
@@ -1147,6 +1268,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,
                 load_profile=self._acc.slot_load_profile((now + timedelta(days=1)).weekday()),
                 forecast_correction=self._acc.forecast_correction_factor,
+                forecast_accuracy=self._acc.forecast_accuracy,
                 today_raw_forecast_kwh=self._acc.today_raw_forecast_kwh,
                 today_raw_forecast_p10_kwh=self._acc.today_raw_forecast_p10_kwh,
             ),

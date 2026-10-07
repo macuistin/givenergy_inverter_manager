@@ -322,3 +322,16 @@ class TestDryRun:
         await managed_switch(hass, loaded_entry).async_turn_on()
         await hass.async_block_till_done()
         assert real_switch.calls == []
+
+    async def test_manual_turn_on_is_recorded_and_the_run_survives_the_next_cycle(
+        self, hass, loaded_entry, real_switch, freezer
+    ):
+        water(hass, WARM)
+        await managed_switch(hass, loaded_entry).async_turn_on()
+        await hass.async_block_till_done()
+        coordinator = loaded_entry.runtime_data
+        assert "Would turn_on immersion heater" in coordinator.data.dry_run_last_skipped
+        freezer.tick(PAST_COOLDOWN)
+        await cycle(hass, loaded_entry)
+        assert real_switch.calls == []
+        assert coordinator.immersion.manual_run_to_target is True

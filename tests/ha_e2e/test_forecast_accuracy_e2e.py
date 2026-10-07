@@ -149,3 +149,83 @@ async def test_tracking_is_unknown_without_a_provider_forecast_for_today(hass, l
     assert _state(hass, loaded_entry, "solar_forecast_raw_today") == "unknown"
     assert _state(hass, loaded_entry, "solar_actual_vs_forecast_pct") == "unknown"
     assert float(_state(hass, loaded_entry, "solar_forecast_kwh_today")) == pytest.approx(35.0)
+
+
+def _reason_attributes(hass, entry) -> dict:
+    entity_id = er.async_get(hass).async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.entry_id}_overnight_charge_reason"
+    )
+    assert entity_id
+    return dict(hass.states.get(entity_id).attributes)
+
+
+def _days(count: int, actual: float, forecast: float = 10.0) -> list[dict]:
+    return [{"forecast": forecast, "actual": actual, "clipped": False}] * count
+
+
+async def test_a_new_install_shows_the_correction_is_waiting_for_data(hass, loaded_entry):
+    await _refresh(hass, loaded_entry)
+
+    attributes = _reason_attributes(hass, loaded_entry)
+
+    assert attributes["accuracy_status"] == "Waiting for data: 0 of 5 days"
+    assert attributes["accuracy_applied"] is False
+    assert attributes["accuracy_usable_days"] == 0
+    assert attributes["accuracy_days_needed"] == 5
+    assert attributes["accuracy_measured_factor"] is None
+    assert attributes["accuracy_applied_factor"] is None
+
+
+async def test_a_few_usable_days_show_the_measured_factor_but_no_applied_one(hass, loaded_entry):
+    acc = loaded_entry.runtime_data._acc
+    acc.state.forecast_ratio_history = _days(3, 7.0) + [
+        {"forecast": 10.0, "actual": 2.0, "clipped": True}
+    ]
+
+    await _refresh(hass, loaded_entry)
+
+    attributes = _reason_attributes(hass, loaded_entry)
+    assert attributes["accuracy_status"] == "Waiting for data: 3 of 5 days"
+    assert attributes["accuracy_applied"] is False
+    assert attributes["accuracy_usable_days"] == 3
+    assert attributes["accuracy_days_stored"] == 4
+    assert attributes["accuracy_measured_factor"] == pytest.approx(0.7)
+    assert attributes["accuracy_applied_factor"] is None
+    assert "recent accuracy" not in loaded_entry.runtime_data.data.charge_decision.reason
+
+
+async def test_enough_usable_days_show_the_factor_the_charge_reason_applies(hass, loaded_entry):
+    acc = loaded_entry.runtime_data._acc
+    acc.state.forecast_ratio_history = _days(6, 8.0)
+
+    await _refresh(hass, loaded_entry)
+
+    attributes = _reason_attributes(hass, loaded_entry)
+    assert attributes["accuracy_status"] == "Applied: x0.80 from 6 usable days"
+    assert attributes["accuracy_applied"] is True
+    assert attributes["accuracy_applied_factor"] == pytest.approx(0.8)
+    assert attributes["accuracy_usable_days"] == 6
+    assert "x0.80 recent accuracy" in loaded_entry.runtime_data.data.charge_decision.reason
+
+
+async def test_a_factor_below_the_limit_shows_both_the_measured_and_applied_values(
+    hass, loaded_entry
+):
+    acc = loaded_entry.runtime_data._acc
+    acc.state.forecast_ratio_history = _days(5, 4.5)
+
+    await _refresh(hass, loaded_entry)
+
+    attributes = _reason_attributes(hass, loaded_entry)
+    assert attributes["accuracy_measured_factor"] == pytest.approx(0.45)
+    assert attributes["accuracy_applied_factor"] == pytest.approx(0.6)
+    assert "measured 0.45, limited to 0.6 to 1.2" in attributes["accuracy_status"]
+
+
+async def test_the_reason_state_does_not_carry_the_accuracy_text(hass, loaded_entry):
+    acc = loaded_entry.runtime_data._acc
+    acc.state.forecast_ratio_history = _days(3, 7.0)
+
+    await _refresh(hass, loaded_entry)
+
+    assert "Waiting for data" not in _state(hass, loaded_entry, "overnight_charge_reason")

@@ -58,6 +58,18 @@ CONF_VAT_RATE = "vat_rate"
 CONF_DISCOUNT_RATE = "discount_rate"
 CONF_BILL_START_DAY = "bill_start_day"
 CONF_CURRENCY = "currency"  # symbol used in cost sensor units
+# Dated rate changes: a list of dicts, each an "effective" date (YYYY-MM-DD) plus a full set of
+# the TARIFF_RATE_KEYS values. The latest change on or before today replaces those saved values.
+CONF_TARIFF_CHANGES = "tariff_changes"
+# The only values a dated change carries. Standing charge, levy, VAT and discount are not dated:
+# the bill estimate reverses them from the stored import cost, which needs one value per period.
+TARIFF_RATE_KEYS = (CONF_BASE_RATE, CONF_BASE_RATE_NAME, CONF_EXPORT_RATE, CONF_RATE_PERIODS)
+# Date (YYYY-MM-DD) the user last saved a changed tariff or confirmed it in the repair.
+# The first run records today when it is missing, so an upgrade never raises the repair at once.
+CONF_TARIFF_REVIEWED_ON = "tariff_reviewed_on"
+# Days without a tariff review before the repair appears. Suppliers change prices about once a
+# year, and no existing constant measures time since a user action.
+TARIFF_REVIEW_STALE_DAYS = 365
 
 # ── Solar forecast ───────────────────────────────────────────────────────────
 CONF_FORECAST_ENTITY = "forecast_entity"
@@ -241,6 +253,7 @@ BATTERY_RATED_CYCLES = 6000  # typical LFP rated cycle life (manufacturer spec)
 NIGHT_SURVIVAL_WARNING_MARGIN_PCT = 5.0  # warn within this many SoC points of min SoC
 BATTERY_LIFE_ESTIMATE_MIN_DAYS = 7  # days of cycle data needed before estimating years left
 BATTERY_MAX_SOC_STEP_PCT = 10.0  # SoC change between two updates above this is a sensor glitch
+BATTERY_EFFICIENCY_MIN_KWH = 2.0  # kWh in and out today before round-trip efficiency is reported
 
 # ── Battery degradation cost ──────────────────────────────────────────────────
 # Install cost of the battery (€). When set, the cycle cost is computed as:
@@ -250,6 +263,12 @@ BATTERY_MAX_SOC_STEP_PCT = 10.0  # SoC change between two updates above this is 
 # Set to 0 to disable (default — behaves identically to previous versions).
 CONF_BATTERY_COST = "battery_cost_eur"
 DEFAULT_BATTERY_COST = 0.0  # € — 0 disables the degradation cost check
+
+# ── GivTCP tariff comparison ──────────────────────────────────────────────────
+# GivTCP can hold its own day, night and export rates. A rate that differs from the one
+# entered here by more than this share of the value here raises a repair. The rates entered
+# here always win. GivTCP's are shown for comparison only.
+GIVTCP_RATE_TOLERANCE_PCT = 2.0  # % of the rate entered here
 
 # ── Battery throughput budget ─────────────────────────────────────────────────
 # Optional daily cycling budget (kWh charged plus discharged). 0 disables it.

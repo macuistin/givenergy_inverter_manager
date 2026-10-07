@@ -6,7 +6,7 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import DOMAIN, SERVICE_GET_DASHBOARD_YAML
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .entity import GivEnergyEntity
 from .logging import get_logger
@@ -43,6 +43,6 @@ class GivEnergyRefreshDashboardButton(GivEnergyEntity, ButtonEntity):
     async def async_press(self) -> None:
         await self.coordinator.hass.services.async_call(
             DOMAIN,
-            "get_dashboard_yaml",
+            SERVICE_GET_DASHBOARD_YAML,
             blocking=True,
         )

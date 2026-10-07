@@ -189,6 +189,19 @@ class TestRawForecastHistory:
         self._day(store, 15, 10.0, 8.0)
         assert store.forecast_correction_factor == pytest.approx(0.8)
 
+    def test_accuracy_counts_the_usable_days_stored(self):
+        store = _store()
+        self._day(store, 10, 10.0, 0.0)  # first forecast seen, nothing to pair it with
+        self._day(store, 11, 10.0, 0.0)  # forecast and no solar: stored, not usable
+        for day in range(12, 15):
+            self._day(store, day, 10.0, 8.0)
+        accuracy = store.forecast_accuracy
+        assert (accuracy.days_stored, accuracy.usable_days) == (4, 3)
+        assert accuracy.status == "Waiting for data: 3 of 5 days"
+        for day in range(15, 17):
+            self._day(store, day, 10.0, 8.0)
+        assert store.forecast_accuracy.status == "Applied: x0.80 from 5 usable days"
+
     def test_history_capped_at_14_days(self):
         store = _store()
         for day in range(1, 25):

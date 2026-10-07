@@ -21,6 +21,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="overnight_charge_reason",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="overnight_charge_reason",
+        attrs_fn=values.forecast_accuracy_attributes,
         value_fn=values.overnight_charge_reason,
     ),
     GivEnergyManagerSensorDescription(

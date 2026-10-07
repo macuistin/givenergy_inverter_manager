@@ -6,12 +6,14 @@ import pytest
 
 from custom_components.givenergy_inverter_manager import sensor_values as values
 from custom_components.givenergy_inverter_manager.const import (
+    BATTERY_EFFICIENCY_MIN_KWH,
     BATTERY_FULL_SOC_PCT,
     BATTERY_RATED_CYCLES,
     NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
 )
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+from custom_components.givenergy_inverter_manager.core.rules import forecast_accuracy
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 
 
@@ -184,6 +186,24 @@ class TestRoundtripEfficiency:
         data.today.battery_charge_kwh = 0.0
         data.today.battery_discharge_kwh = 1.0
         assert values.battery_roundtrip_efficiency_today(data) is None
+
+    def test_none_early_in_the_day_after_an_overnight_charge(self):
+        data = make_data()
+        data.today.battery_charge_kwh = 6.0
+        data.today.battery_discharge_kwh = 0.8
+        assert values.battery_roundtrip_efficiency_today(data) is None
+
+    def test_none_while_the_charge_is_under_the_minimum(self):
+        data = make_data()
+        data.today.battery_charge_kwh = BATTERY_EFFICIENCY_MIN_KWH - 0.1
+        data.today.battery_discharge_kwh = BATTERY_EFFICIENCY_MIN_KWH + 1.0
+        assert values.battery_roundtrip_efficiency_today(data) is None
+
+    def test_reported_once_both_directions_reach_the_minimum(self):
+        data = make_data()
+        data.today.battery_charge_kwh = BATTERY_EFFICIENCY_MIN_KWH
+        data.today.battery_discharge_kwh = BATTERY_EFFICIENCY_MIN_KWH
+        assert values.battery_roundtrip_efficiency_today(data) == pytest.approx(100.0)
 
 
 class TestNextCheapRateStart:
@@ -380,6 +400,44 @@ class TestOvernightChargeWindow:
         assert attributes["window_extended"] is False
         assert attributes["expected_kwh"] is None
         assert attributes["expected_finish"] is None
+
+
+class TestForecastAccuracyAttributes:
+    def test_none_before_the_first_cycle(self):
+        assert values.forecast_accuracy_attributes(make_data()) is None
+
+    def test_waiting_for_data(self):
+        accuracy = forecast_accuracy([{"forecast": 10.0, "actual": 7.0, "clipped": False}] * 3)
+
+        attributes = values.forecast_accuracy_attributes(make_data(forecast_accuracy=accuracy))
+
+        assert attributes == {
+            "accuracy_status": "Waiting for data: 3 of 5 days",
+            "accuracy_applied": False,
+            "accuracy_measured_factor": 0.7,
+            "accuracy_applied_factor": None,
+            "accuracy_usable_days": 3,
+            "accuracy_days_needed": 5,
+            "accuracy_days_stored": 3,
+        }
+
+    def test_applied(self):
+        accuracy = forecast_accuracy([{"forecast": 10.0, "actual": 8.0, "clipped": False}] * 7)
+
+        attributes = values.forecast_accuracy_attributes(make_data(forecast_accuracy=accuracy))
+
+        assert attributes["accuracy_applied"] is True
+        assert attributes["accuracy_applied_factor"] == 0.8
+        assert attributes["accuracy_status"] == "Applied: x0.80 from 7 usable days"
+
+    def test_the_reason_sensor_publishes_them(self):
+        from custom_components.givenergy_inverter_manager.sensor_descriptions.decisions import (
+            DESCRIPTIONS,
+        )
+
+        reason = next(d for d in DESCRIPTIONS if d.key == "overnight_charge_reason")
+
+        assert reason.attrs_fn is values.forecast_accuracy_attributes
 
 
 class TestNightSurvivalConfidence:

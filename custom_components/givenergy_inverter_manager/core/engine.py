@@ -100,6 +100,7 @@ from .rules import (
     ChargeDecision,
     ChargeInputs,
     DivertPolicy,
+    ForecastAccuracy,
     ImmersionInputs,
     ImmersionRun,
     PowerReadings,
@@ -111,7 +112,14 @@ from .rules import (
     decide_ev_charger_action,
     should_divert_to_immersion,
 )
-from .tariff import CounterMemory, EnergyAccumulator, RatePeriod, TariffConfig, build_tariff
+from .tariff import (
+    CounterMemory,
+    EnergyAccumulator,
+    RatePeriod,
+    TariffConfig,
+    build_tariff,
+    tariff_in_force,
+)
 from .timeutil import elapsed_seconds, local_time_on
 
 _LOG = get_logger(__name__)
@@ -282,6 +290,8 @@ class CoordinatorData:
     solar_forecast_raw_kwh_today: float | None = None
     yesterday_forecast_accuracy_pct: float = 0.0
     forecast_accuracy_7day_avg_pct: float = 0.0
+    # The measured accuracy correction and its usable days, None before the first cycle.
+    forecast_accuracy: ForecastAccuracy | None = None
     register_write_count: int = 0
     register_write_log: list[dict] = field(default_factory=list)  # oldest first
     carbon_intensity_gco2: float | None = None
@@ -666,6 +676,7 @@ class ForecastContext:
     forecast_accuracy_7day_avg_pct: float = 0.0
     load_profile: list[float] | None = None
     forecast_correction: float | None = None
+    forecast_accuracy: ForecastAccuracy | None = None
     # Today's P50 and P10 forecasts as the sensors read before midnight. After midnight the
     # sensors report the next day, so the charge decision reads these for the day it serves.
     today_raw_forecast_kwh: float | None = None
@@ -715,6 +726,7 @@ def _apply_history(
     data.solar_forecast_raw_kwh_today = forecast.today_raw_forecast_kwh
     data.yesterday_forecast_accuracy_pct = forecast.yesterday_forecast_accuracy_pct
     data.forecast_accuracy_7day_avg_pct = forecast.forecast_accuracy_7day_avg_pct
+    data.forecast_accuracy = forecast.forecast_accuracy
     if accumulators.week is not None:
         data.week = accumulators.week
     if accumulators.month is not None:
@@ -1219,7 +1231,7 @@ def _carry_grid_to_battery(accumulators: Accumulators, raw: RawSensorValues) -> 
 
 
 def _start_cycle(inputs: CycleInputs, forecast: ForecastContext, now: datetime) -> _Cycle:
-    tariff = build_tariff(inputs.cfg)
+    tariff = build_tariff(tariff_in_force(inputs.cfg, now.date()))
     return _Cycle(
         inputs.raw,
         inputs.cfg,
