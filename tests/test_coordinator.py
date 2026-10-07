@@ -1203,6 +1203,25 @@ class TestEffectiveCfg:
         assert cfg["base_rate"] == pytest.approx(0.33)
 
 
+class TestImmersionSwitchFromOptions:
+    """The actuator reads the immersion switch from options over data, like everything else."""
+
+    def test_switch_saved_only_in_options_is_used(self):
+        coord = FakeCoordinator(cfg={})
+        coord.entry.options = {"immersion_switch_entity": "switch.heater"}
+        assert coord.immersion._ports.switch_entity() == "switch.heater"
+
+    def test_option_replaces_the_setup_switch(self):
+        coord = FakeCoordinator(cfg={"immersion_switch_entity": "switch.old"})
+        coord.entry.options = {"immersion_switch_entity": "switch.new"}
+        assert coord.immersion._ports.switch_entity() == "switch.new"
+
+    def test_cleared_option_hides_the_setup_switch(self):
+        coord = FakeCoordinator(cfg={"immersion_switch_entity": "switch.old"})
+        coord.entry.options = {"immersion_switch_entity": ""}
+        assert not coord.immersion._ports.switch_entity()
+
+
 # ── TestApplyEvAction ─────────────────────────────────────────────────────────
 
 
@@ -3543,3 +3562,4 @@ class TestBackgroundTasks:
 
         with pytest.raises(asyncio.CancelledError):
             await GivEnergyCoordinator._run_background(coord, cancelled())
+

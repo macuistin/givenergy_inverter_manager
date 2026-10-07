@@ -31,6 +31,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
+from .config_helpers import effective_config
 from .const import CONF_IMMERSION_SWITCH
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .entity import GivEnergyEntity
@@ -58,7 +59,7 @@ async def async_setup_entry(
     ]
 
     # Only add immersion control switch if an immersion entity is configured
-    if entry.data.get(CONF_IMMERSION_SWITCH):
+    if effective_config(entry).get(CONF_IMMERSION_SWITCH):
         entities.append(GivEnergyImmersionControlSwitch(coordinator))
 
     async_add_entities(entities)
