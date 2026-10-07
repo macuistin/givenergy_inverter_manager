@@ -1,153 +1,172 @@
-"""Installs with no immersion switch or EV charger, and ones that gain a device later."""
+"""Devices that are optional, or that arrive after the integration: end to end in real Home Assistant.
+
+* An EV charger whose integration publishes its entities in stages is completed by the
+  five-minute rediscovery, with no reload.
+* A manual immersion run with no temperature sensor ends by itself, instead of heating for ever.
+"""
 
 from __future__ import annotations
 
-from dataclasses import replace
 from datetime import timedelta
 
 import pytest
 from conftest import IMMERSION_SWITCH, MIDDAY, SERIAL, full_config_data
+from homeassistant.components.switch import DATA_COMPONENT
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import (
-    CONF_IMMERSION_MIN_TEMP,
-    CONF_IMMERSION_SWITCH,
-    CONF_IMMERSION_TARGET_TEMP,
     CONF_IMMERSION_TEMP_SENSOR,
-    CONF_IMMERSION_WATTAGE,
     DOMAIN,
-)
-from custom_components.givenergy_inverter_manager.core.reporting import (
-    build_today_summary_html,
-    build_today_summary_state,
-    build_week_summary_html,
+    SENSOR_OUTAGE_HOLD_LIMIT_S,
 )
 
-NO_SWITCH_REASON = "No immersion switch configured"
+CYCLE = timedelta(seconds=30)
+CYCLES_PER_REDISCOVERY = 10  # the coordinator rescans every tenth cycle
 
-# Battery full, solar well above the house load, all the surplus exported.
-FULL_AND_EXPORTING = replace(
-    MIDDAY,
-    name="full_and_exporting",
-    battery_soc=100.0,
-    battery_w=0.0,
-    grid_w=3000.0,
-    solar_w=5000.0,
-)
-
-ZAPPI = {
-    "sensor.myenergi_zappi_plug_status": "EV Connected",
-    "sensor.myenergi_zappi_status": "Paused",
-    "sensor.myenergi_zappi_internal_load_ct1": "0",
-    "sensor.myenergi_zappi_charge_added_session": "0.0",
-    "sensor.myenergi_zappi_serial_number": "21637627",
-    "select.myenergi_zappi_charge_mode": "Eco+",
-}
+ZAPPI_PLUG = "sensor.myenergi_zappi_plug_status"
+ZAPPI_POWER = "sensor.myenergi_zappi_internal_load_ct1"
+ZAPPI_SESSION = "sensor.myenergi_zappi_charge_added_session"
+ZAPPI_MODE = "select.myenergi_zappi_charge_mode"
 
 
 @pytest.fixture
 def scenario():
-    return FULL_AND_EXPORTING
+    return MIDDAY
 
 
-def _entry_without_immersion() -> MockConfigEntry:
-    data = full_config_data()
-    for key in (
-        CONF_IMMERSION_SWITCH,
-        CONF_IMMERSION_TEMP_SENSOR,
-        CONF_IMMERSION_WATTAGE,
-        CONF_IMMERSION_TARGET_TEMP,
-        CONF_IMMERSION_MIN_TEMP,
-    ):
-        data.pop(key)
-    return MockConfigEntry(
-        domain=DOMAIN, title="GivEnergy Inverter Manager", data=data, unique_id=SERIAL, version=1
-    )
-
-
-async def _set_up(hass, entry) -> None:
+async def set_up(hass, entry) -> None:
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.LOADED
 
 
-async def _run_cycles(hass, entry, freezer, count: int) -> None:
+async def cycles(hass, entry, freezer, count: int) -> None:
     for _ in range(count):
-        freezer.tick(timedelta(seconds=30))
+        freezer.tick(CYCLE)
         await entry.runtime_data.async_refresh()
         await hass.async_block_till_done()
 
 
-def _sensor_state(hass, entry, key: str) -> str:
-    entity_id = er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{key}")
-    assert entity_id, f"no sensor registered for {key}"
-    return hass.states.get(entity_id).state
-
-
-async def test_no_devices_means_no_immersion_claims(hass_in_scenario, service_calls, freezer):
-    hass = hass_in_scenario
-    entry = _entry_without_immersion()
-    await _set_up(hass, entry)
-    await _run_cycles(hass, entry, freezer, 4)
-
-    data = entry.runtime_data.data
-    assert data.should_divert_immersion is False
-    assert _sensor_state(hass, entry, "immersion_divert_reason") == NO_SWITCH_REASON
-    assert data.today.missed_solar_kwh == 0.0
-    assert _sensor_state(hass, entry, "ev_solar_surplus_available") == "unavailable"
-    for text in (
-        build_today_summary_html(data),
-        build_today_summary_state(data),
-        build_week_summary_html(data),
-    ):
-        assert "Immersion" not in text
-        assert "Saved" not in text
-    assert not service_calls["switch.turn_on"]
-
-
-async def test_an_immersion_switch_added_later_takes_effect_without_a_restart(
-    hass_in_scenario, service_calls, freezer
-):
-    hass = hass_in_scenario
-    hass.states.async_set(IMMERSION_SWITCH, "off")
-    entry = _entry_without_immersion()
-    await _set_up(hass, entry)
-    await _run_cycles(hass, entry, freezer, 2)
-    assert _sensor_state(hass, entry, "immersion_divert_reason") == NO_SWITCH_REASON
-
-    hass.config_entries.async_update_entry(
-        entry, data={**entry.data, CONF_IMMERSION_SWITCH: IMMERSION_SWITCH}
+def make_entry(data: dict) -> MockConfigEntry:
+    return MockConfigEntry(
+        domain=DOMAIN,
+        title="GivEnergy Inverter Manager",
+        data=data,
+        unique_id=SERIAL,
+        version=1,
     )
-    await hass.async_block_till_done()
-    await _run_cycles(hass, entry, freezer, 4)
-
-    assert entry.state is ConfigEntryState.LOADED
-    data = entry.runtime_data.data
-    assert _sensor_state(hass, entry, "immersion_divert_reason") != NO_SWITCH_REASON
-    assert data.today.missed_solar_kwh > 0.0
-    assert "Immersion" in build_today_summary_html(data)
 
 
-async def test_an_ev_charger_added_later_is_found_and_its_sensor_comes_alive(
-    hass_in_scenario, service_calls, freezer
-):
-    hass = hass_in_scenario
-    entry = _entry_without_immersion()
-    await _set_up(hass, entry)
-    await _run_cycles(hass, entry, freezer, 2)
-    assert _sensor_state(hass, entry, "ev_solar_surplus_available") == "unavailable"
-    assert entry.runtime_data.data.today.missed_solar_kwh == 0.0
+class TestEvChargerPublishedInStages:
+    @pytest.fixture
+    async def entry(self, hass_in_scenario, service_calls):
+        """Set up while the charger has a status and a power entity but nothing else."""
+        hass = hass_in_scenario
+        hass.states.async_set(ZAPPI_PLUG, "EV Connected")
+        hass.states.async_set(ZAPPI_POWER, "0")
+        entry = make_entry(full_config_data())
+        await set_up(hass, entry)
+        return entry
 
-    for entity_id, value in ZAPPI.items():
-        hass.states.async_set(entity_id, value)
-    await _run_cycles(hass, entry, freezer, 12)
+    async def test_the_charge_mode_and_session_entities_are_found_when_they_appear(
+        self, hass_in_scenario, entry, freezer
+    ):
+        hass = hass_in_scenario
+        await cycles(hass, entry, freezer, 3)
+        charger = entry.runtime_data._ev_charger
+        assert charger is not None
+        assert charger.power_entity == ZAPPI_POWER
+        assert charger.charge_mode_entity is None
+        assert charger.session_energy_entity is None
 
-    assert entry.runtime_data._ev_charger is not None
-    assert _sensor_state(hass, entry, "ev_solar_surplus_available") in {
-        "Available",
-        "Not available",
-    }
-    assert entry.runtime_data.data.today.missed_solar_kwh > 0.0
+        hass.states.async_set(ZAPPI_SESSION, "1.5")
+        hass.states.async_set(ZAPPI_MODE, "Fast")
+        await cycles(hass, entry, freezer, CYCLES_PER_REDISCOVERY)
+
+        assert charger.charge_mode_entity == ZAPPI_MODE
+        assert charger.session_energy_entity == ZAPPI_SESSION
+        assert charger.session_kwh == pytest.approx(1.5)
+        assert charger.charge_mode == "Fast"
+        assert entry.runtime_data._ev_charger is charger
+
+    async def test_the_integration_is_not_reloaded_to_find_them(
+        self, hass_in_scenario, entry, freezer
+    ):
+        hass = hass_in_scenario
+        coordinator = entry.runtime_data
+        hass.states.async_set(ZAPPI_MODE, "Fast")
+        await cycles(hass, entry, freezer, CYCLES_PER_REDISCOVERY)
+        assert entry.state is ConfigEntryState.LOADED
+        assert entry.runtime_data is coordinator
+
+
+class TestImmersionWithoutATemperatureSensor:
+    @pytest.fixture
+    async def entry(self, hass_in_scenario, service_calls):
+        hass = hass_in_scenario
+        data = full_config_data()
+        data.pop(CONF_IMMERSION_TEMP_SENSOR)
+        entry = make_entry(data)
+        await set_up(hass, entry)
+        return entry
+
+    @pytest.fixture
+    def switch_calls(self, hass_in_scenario, entry) -> list[str]:
+        """The real immersion switch: records each call and follows it."""
+        hass = hass_in_scenario
+        calls: list[str] = []
+
+        def handler(service: str, state: str):
+            async def handle(call) -> None:
+                if call.data["entity_id"] == IMMERSION_SWITCH:
+                    calls.append(service)
+                    hass.states.async_set(IMMERSION_SWITCH, state)
+
+            return handle
+
+        for service, state in (("turn_on", "on"), ("turn_off", "off")):
+            hass.services.async_register("switch", service, handler(service, state))
+        return calls
+
+    async def press_managed_switch_on(self, hass, entry) -> None:
+        entity_id = er.async_get(hass).async_get_entity_id(
+            "switch", DOMAIN, f"{entry.entry_id}_immersion_managed"
+        )
+        await hass.data[DATA_COMPONENT].get_entity(entity_id).async_turn_on()
+        await hass.async_block_till_done()
+
+    async def test_a_manual_run_ends_after_the_outage_hold_limit(
+        self, hass_in_scenario, entry, switch_calls, freezer
+    ):
+        hass = hass_in_scenario
+        immersion = entry.runtime_data.immersion
+        await self.press_managed_switch_on(hass, entry)
+        assert switch_calls == ["turn_on"]
+
+        held_for = timedelta(seconds=SENSOR_OUTAGE_HOLD_LIMIT_S)
+        await cycles(hass, entry, freezer, int(held_for / CYCLE) - 2)
+        assert immersion.override is True
+        assert switch_calls == ["turn_on"]
+
+        await cycles(hass, entry, freezer, 4)
+        assert immersion.override is None
+        assert switch_calls == ["turn_on", "turn_off"]
+        assert hass.states.get(IMMERSION_SWITCH).state == "off"
+
+    async def test_an_external_turn_on_ends_after_the_outage_hold_limit(
+        self, hass_in_scenario, entry, switch_calls, freezer
+    ):
+        hass = hass_in_scenario
+        immersion = entry.runtime_data.immersion
+        await cycles(hass, entry, freezer, 2)
+        immersion.last_commanded_on = False
+        hass.states.async_set(IMMERSION_SWITCH, "on")  # a wall button or another automation
+        await cycles(hass, entry, freezer, 2)
+        assert immersion.override is True
+
+        await cycles(hass, entry, freezer, int(timedelta(seconds=SENSOR_OUTAGE_HOLD_LIMIT_S) / CYCLE) + 2)
+        assert immersion.override is None
+        assert switch_calls == ["turn_off"]

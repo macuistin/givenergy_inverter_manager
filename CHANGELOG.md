@@ -4,7 +4,24 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+**Features**
+- The immersion switch and water temperature sensor can be added, changed or cleared under
+  Configure, Immersion heater, at any time. Saving reloads the integration, so there is no
+  restart and no reinstall. The Immersion Heater (Managed) switch and the Immersion dashboard
+  view appear or disappear to match. The element power moved from the Hardware section to the
+  new section. The target and minimum temperatures stay with their number entities.
+
 **Fixes**
+- A switch or sensor saved in the options is now used. The managed switch and the heater
+  controller read the setup data only, so an immersion switch set after setup was ignored.
+- Clearing the forecast section's entities no longer happens when a submission leaves the
+  section out.
+- A manual or external immersion turn-on with no readable water temperature no longer heats
+  for ever. With no temperature sensor set, or one that is unavailable, the run lasts 5
+  minutes (the existing sensor outage hold limit) and then automatic control resumes.
+- EV charger discovery repeats every 5 minutes until the power, session and charge mode
+  entities are all found, not only the power entity. A charger found before its integration
+  finished loading is completed with no reload.
 - With no immersion switch set, Immersion Divert Reason reads `No immersion switch configured`
   and the divert decision stays off. It used to say the heater was diverting or heating.
 - Missed Solar Today counts export only once an immersion switch is set or an EV charger is

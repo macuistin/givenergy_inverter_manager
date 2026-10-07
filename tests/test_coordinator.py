@@ -1225,6 +1225,25 @@ class TestEffectiveCfg:
         assert cfg["base_rate"] == pytest.approx(0.33)
 
 
+class TestImmersionSwitchFromOptions:
+    """The actuator reads the immersion switch from options over data, like everything else."""
+
+    def test_switch_saved_only_in_options_is_used(self):
+        coord = FakeCoordinator(cfg={})
+        coord.entry.options = {"immersion_switch_entity": "switch.heater"}
+        assert coord.immersion._ports.switch_entity() == "switch.heater"
+
+    def test_option_replaces_the_setup_switch(self):
+        coord = FakeCoordinator(cfg={"immersion_switch_entity": "switch.old"})
+        coord.entry.options = {"immersion_switch_entity": "switch.new"}
+        assert coord.immersion._ports.switch_entity() == "switch.new"
+
+    def test_cleared_option_hides_the_setup_switch(self):
+        coord = FakeCoordinator(cfg={"immersion_switch_entity": "switch.old"})
+        coord.entry.options = {"immersion_switch_entity": ""}
+        assert not coord.immersion._ports.switch_entity()
+
+
 # ── TestApplyEvAction ─────────────────────────────────────────────────────────
 
 
@@ -2117,16 +2136,91 @@ class TestReadOptionalFloatProxy:
         coord._read_optional_float("sensor.temp")  # must not raise
 
 
-class TestEVRediscoveryNullPowerEntity:
-    """Coordinator must retry EV discovery when power_entity is None."""
+ZAPPI_PLUG = "sensor.myenergi_zappi_plug_status"
+ZAPPI_POWER = "sensor.myenergi_zappi_internal_load_ct1"
+ZAPPI_SESSION = "sensor.myenergi_zappi_charge_added_session"
+ZAPPI_MODE = "select.myenergi_zappi_charge_mode"
 
-    def test_retry_condition_in_source(self):
 
-        src = (PKG / "coordinator.py").read_text()
-        assert "self._ev_charger.power_entity is None" in src, (
-            "Without this, a charger cached on boot with no power entity "
-            "never gets updated even after the entity appears in HA."
-        )
+class TestEVRediscovery:
+    """Discovery repeats every fifth minute until power, session and charge mode are found."""
+
+    def _coord(self, *entities):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.set_states(dict.fromkeys((ZAPPI_PLUG, *entities), "1"))
+        return coord
+
+    def _discover_at(self, coord, cycle):
+        coord._update_cycle = cycle
+        coord._maybe_rediscover_ev()
+
+    def test_a_charger_with_no_power_entity_is_completed_when_it_appears(self):
+        coord = self._coord()
+        self._discover_at(coord, 1)
+        assert coord._ev_charger.power_entity is None
+        coord.set_state(ZAPPI_POWER, "0")
+        self._discover_at(coord, 11)
+        assert coord._ev_charger.power_entity == ZAPPI_POWER
+
+    def test_a_charger_missing_only_its_charge_mode_is_completed_when_it_appears(self):
+        coord = self._coord(ZAPPI_POWER, ZAPPI_SESSION)
+        self._discover_at(coord, 1)
+        assert coord._ev_charger.charge_mode_entity is None
+        coord.set_state(ZAPPI_MODE, "Fast")
+        self._discover_at(coord, 11)
+        assert coord._ev_charger.charge_mode_entity == ZAPPI_MODE
+
+    def test_a_charger_missing_only_its_session_entity_is_completed_when_it_appears(self):
+        coord = self._coord(ZAPPI_POWER, ZAPPI_MODE)
+        self._discover_at(coord, 1)
+        assert coord._ev_charger.session_energy_entity is None
+        coord.set_state(ZAPPI_SESSION, "2.5")
+        self._discover_at(coord, 11)
+        assert coord._ev_charger.session_energy_entity == ZAPPI_SESSION
+
+    def test_the_charger_object_and_its_state_survive_completion(self):
+        coord = self._coord(ZAPPI_POWER)
+        self._discover_at(coord, 1)
+        charger = coord._ev_charger
+        charger.power_w = 7200.0
+        coord.set_states({ZAPPI_SESSION: "2.5", ZAPPI_MODE: "Fast"})
+        self._discover_at(coord, 11)
+        assert coord._ev_charger is charger
+        assert charger.power_w == pytest.approx(7200.0)
+
+    def test_scanning_waits_for_the_fifth_minute(self):
+        coord = self._coord(ZAPPI_POWER)
+        self._discover_at(coord, 1)
+        coord.set_state(ZAPPI_MODE, "Fast")
+        self._discover_at(coord, 5)
+        assert coord._ev_charger.charge_mode_entity is None
+
+    def test_a_complete_charger_is_not_scanned_again(self):
+        coord = self._coord(ZAPPI_POWER, ZAPPI_SESSION, ZAPPI_MODE)
+        self._discover_at(coord, 1)
+        coord._get_all_states = lambda: pytest.fail("a complete charger must not be rescanned")
+        self._discover_at(coord, 11)
+
+    def test_a_charger_without_a_mode_select_keeps_being_scanned_without_changing(self, caplog):
+        import logging
+
+        coord = self._coord(ZAPPI_POWER, ZAPPI_SESSION)
+        self._discover_at(coord, 1)
+        charger = coord._ev_charger
+        with caplog.at_level(logging.INFO):
+            self._discover_at(coord, 11)
+        assert coord._ev_charger is charger
+        assert not [r for r in caplog.records if r.levelno >= logging.INFO]
+
+    def test_no_charger_yet_is_found_when_it_appears(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        self._discover_at(coord, 1)
+        assert coord._ev_charger is None
+        coord.set_states({ZAPPI_PLUG: "EV Connected", ZAPPI_POWER: "0"})
+        self._discover_at(coord, 11)
+        assert coord._ev_charger is not None
 
 
 class TestEntityUnavailable:
@@ -3565,3 +3659,4 @@ class TestBackgroundTasks:
 
         with pytest.raises(asyncio.CancelledError):
             await GivEnergyCoordinator._run_background(coord, cancelled())
+

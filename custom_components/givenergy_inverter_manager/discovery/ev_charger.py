@@ -82,6 +82,13 @@ class EVChargerState(StrEnum):
 
 _ACTIVE_STATES = (EVChargerState.CHARGING, EVChargerState.BOOSTING)
 
+_DISCOVERED_ENTITY_ATTRS = (
+    "power_entity",
+    "session_energy_entity",
+    "charge_mode_entity",
+    "activity_entity",
+)
+
 # Maps raw entity states → normalised EVChargerState, per brand
 _STATE_MAP: dict[EVChargerBrand, dict[str, EVChargerState]] = {
     EVChargerBrand.ZAPPI: {
@@ -188,6 +195,24 @@ class EVCharger:
     @property
     def is_plugged_in(self) -> bool:
         return self.state not in (EVChargerState.DISCONNECTED, EVChargerState.UNKNOWN)
+
+    @property
+    def is_fully_discovered(self) -> bool:
+        """True once the power, session and charge-mode entities have all been found."""
+        return None not in (self.power_entity, self.session_energy_entity, self.charge_mode_entity)
+
+    def fill_missing_entities(self, other: EVCharger) -> list[str]:
+        """Adopt the entities this charger lacks from a fresh scan of the same charger.
+
+        Keeps the runtime state. Returns the names of the attributes that were filled.
+        """
+        filled = []
+        for attr in _DISCOVERED_ENTITY_ATTRS:
+            found = getattr(other, attr)
+            if getattr(self, attr) is None and found is not None:
+                setattr(self, attr, found)
+                filled.append(attr)
+        return filled
 
     @property
     def can_be_paused(self) -> bool:

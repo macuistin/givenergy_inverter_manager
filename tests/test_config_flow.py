@@ -385,14 +385,68 @@ class TestOptionsFlowSections:
         user_input["hardware_settings"] = {
             CONF_BATTERY_CAPACITY: 18.6,
             CONF_INVERTER_MAX_OUTPUT: 5.0,
-            CONF_IMMERSION_WATTAGE: 2800,
         }
         asyncio.run(flow.async_step_init(user_input))
 
         data = flow.async_create_entry.call_args.kwargs["data"]
         assert data[CONF_BATTERY_CAPACITY] == pytest.approx(18.6)
         assert data[CONF_INVERTER_MAX_OUTPUT] == pytest.approx(5.0)
-        assert data[CONF_IMMERSION_WATTAGE] == pytest.approx(2800.0)
+        assert CONF_IMMERSION_WATTAGE not in data
+
+    def _submit(self, flow, **sections) -> dict:
+        import asyncio
+
+        asyncio.run(flow.async_step_init({**self._tariff_input(), **sections}))
+        return flow.async_create_entry.call_args.kwargs["data"]
+
+    def test_immersion_section_is_saved_to_options(self):
+        flow = self._make_flow()
+        data = self._submit(
+            flow,
+            immersion_settings={
+                "immersion_switch_entity": "switch.heater",
+                "immersion_temp_sensor_entity": "sensor.cylinder",
+                "immersion_wattage_w": 2800,
+            },
+        )
+        assert data["immersion_switch_entity"] == "switch.heater"
+        assert data["immersion_temp_sensor_entity"] == "sensor.cylinder"
+        assert data["immersion_wattage_w"] == pytest.approx(2800.0)
+
+    def test_left_out_immersion_entities_are_saved_as_cleared(self):
+        """The frontend omits a cleared selector. An empty string beats the setup value."""
+        flow = self._make_flow()
+        flow._options = {
+            "immersion_switch_entity": "switch.heater",
+            "immersion_temp_sensor_entity": "sensor.cylinder",
+        }
+        data = self._submit(flow, immersion_settings={"immersion_wattage_w": 3000})
+        assert data["immersion_switch_entity"] == ""
+        assert data["immersion_temp_sensor_entity"] == ""
+
+    def test_unsent_immersion_section_leaves_the_saved_devices(self):
+        """A client that sends only the sections it changed must not clear the heater."""
+        flow = self._make_flow()
+        flow._options = {
+            "immersion_switch_entity": "switch.heater",
+            "immersion_temp_sensor_entity": "sensor.cylinder",
+            "immersion_wattage_w": 2800.0,
+        }
+        data = self._submit(flow)
+        assert data["immersion_switch_entity"] == "switch.heater"
+        assert data["immersion_temp_sensor_entity"] == "sensor.cylinder"
+        assert data["immersion_wattage_w"] == pytest.approx(2800.0)
+
+    def test_unsent_forecast_section_leaves_the_saved_forecast(self):
+        import asyncio
+
+        flow = self._make_flow()
+        flow._options = {"forecast_entity": "sensor.forecast"}
+        user_input = self._tariff_input()
+        del user_input["forecast_settings"]
+        asyncio.run(flow.async_step_init(user_input))
+        data = flow.async_create_entry.call_args.kwargs["data"]
+        assert data["forecast_entity"] == "sensor.forecast"
 
     def test_ev_efficiency_is_saved_to_options(self):
         import asyncio
