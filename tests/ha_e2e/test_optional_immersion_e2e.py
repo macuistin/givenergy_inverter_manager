@@ -23,6 +23,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_TEMP_SENSOR,
     DOMAIN,
 )
+from tests.dashboard_visibility import seen
 
 MANAGED = "immersion_managed"
 OTHER_SWITCH = "switch.second_heater"
@@ -91,12 +92,18 @@ def managed_switch_id(hass, entry) -> str | None:
 
 
 async def dashboard_paths(hass) -> set[str]:
-    """Paths of the views the generated dashboard has right now."""
+    """Paths of the views the generated dashboard shows right now.
+
+    A device's view is always in the file, with its sections hidden by visibility conditions
+    until the device exists, so a view counts when something in it is shown.
+    """
     async_mock_service(hass, "persistent_notification", "create")
     await hass.services.async_call(DOMAIN, "get_dashboard_yaml", blocking=True)
     await hass.async_block_till_done()
     text = (Path(hass.config.config_dir) / "givenergy_dashboard.yaml").read_text(encoding="utf-8")
-    return {view["path"] for view in yaml.safe_load(text)["views"]}
+    states = {state.entity_id: state.state for state in hass.states.async_all()}
+    shown = seen(yaml.safe_load(text), states)
+    return {view["path"] for view in shown["views"] if view["sections"]}
 
 
 class TestSwitchSavedInOptions:

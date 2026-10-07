@@ -22,7 +22,13 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
 )
-from tests.dashboard_support import FULL_CONFIG, MINIMAL_CONFIG, FakeRegistry, dashboard_text
+from tests.dashboard_support import (
+    FULL_CONFIG,
+    MINIMAL_CONFIG,
+    FakeRegistry,
+    dashboard_text,
+    devices_of,
+)
 from tests.helpers import ROOT
 
 FIXTURE = ROOT / "tests" / "golden_dashboard_matrix.json"
@@ -38,10 +44,11 @@ CONFIGS = {
     "immersion_switch": {CONF_IMMERSION_SWITCH: "switch.heater"},
 }
 REGISTRIES = {
-    "all": lambda: FakeRegistry(enable_all=True),
-    "fresh": lambda: FakeRegistry(),
-    "sparse": lambda: FakeRegistry(
+    "all": lambda devices: FakeRegistry(enable_all=True, devices=devices),
+    "fresh": lambda devices: FakeRegistry(devices=devices),
+    "sparse": lambda devices: FakeRegistry(
         enable_all=True,
+        devices=devices,
         absent={"solar_power", "battery_soc", "ev_power", "night_survival_reason", "dry_run_active"},
     ),
 }
@@ -49,7 +56,7 @@ RESOURCES = {"unknown": None, "none": [], "flow": [_PFC], "apex": [_APEX], "both
 CHARGERS = {
     "no_ev": {"ev_brand": None, "states": ()},
     "myenergi": {"ev_brand": "myenergi", "states": ()},
-    "wallbox": {"ev_brand": None, "states": ("sensor.wallbox_charging_power",)},
+    "wallbox": {"ev_brand": "wallbox", "states": ("sensor.wallbox_charging_power",)},
 }
 
 
@@ -60,9 +67,10 @@ def scenario_ids() -> list[str]:
 
 def render_scenario(scenario: str) -> str:
     config, registry, resources, charger = scenario.split("/")
+    devices = devices_of(CONFIGS[config], CHARGERS[charger]["ev_brand"])
     return dashboard_text(
         CONFIGS[config],
-        REGISTRIES[registry](),
+        REGISTRIES[registry](devices),
         resources=RESOURCES[resources],
         **CHARGERS[charger],
     )

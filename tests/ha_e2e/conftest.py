@@ -115,6 +115,24 @@ FORECAST_P10 = "sensor.solcast_pv_forecast_forecast_tomorrow_10"
 FORECAST_D2 = "sensor.solcast_pv_forecast_forecast_day_3"
 CARBON = "sensor.grid_carbon_intensity"
 
+# The entities the myenergi integration creates for a Zappi. Their presence is what makes
+# the integration discover an EV charger, so a test that wants one publishes these.
+ZAPPI_STATES = {
+    "sensor.myenergi_zappi_plug_status": "EV Disconnected",
+    "sensor.myenergi_zappi_status": "Paused",
+    "sensor.myenergi_zappi_internal_load_ct1": "0",
+    "sensor.myenergi_zappi_charge_added_session": "0",
+    "sensor.myenergi_zappi_serial_number": "21637627",
+    "select.myenergi_zappi_charge_mode": "Eco+",
+}
+
+
+async def discover_the_charger(hass, entry) -> None:
+    """Run the coordinator's next update as a rediscovery cycle, so it finds a charger."""
+    entry.runtime_data._update_cycle = 0
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+
 
 @dataclass(frozen=True)
 class Scenario:
@@ -314,6 +332,23 @@ if not _PLUGIN_MISSING:
         await hass.async_block_till_done()
         yield config_entry
         # Unload so the coordinator timers do not outlive the test.
+        if config_entry.state is ConfigEntryState.LOADED:
+            await hass.config_entries.async_unload(config_entry.entry_id)
+            await hass.async_block_till_done()
+
+    @pytest.fixture
+    async def loaded_entry_with_charger(
+        hass_in_scenario, service_calls, config_entry
+    ) -> AsyncGenerator[Any]:
+        """Like loaded_entry, on an install whose Zappi is already there to be discovered."""
+        hass = hass_in_scenario
+        for entity_id, state in ZAPPI_STATES.items():
+            hass.states.async_set(entity_id, state)
+        config_entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+        await discover_the_charger(hass, config_entry)
+        yield config_entry
         if config_entry.state is ConfigEntryState.LOADED:
             await hass.config_entries.async_unload(config_entry.entry_id)
             await hass.async_block_till_done()

@@ -24,6 +24,10 @@ the sub-view's back arrow returns to it: Immersion, EV charger and Settings (fro
 Cost breakdown and Solar and forecast (from Today), Tariff (from Bill), Battery detail (from
 Battery).
 
+The EV charger, the immersion switch and the immersion temperature sensor are optional. Every
+card that needs one is hidden by a visibility condition until the device exists (devices.py),
+so a stored dashboard follows a device that comes or goes with no new file.
+
 Power flow view requires power-flow-card-plus from HACS:
   https://github.com/flixlix/power-flow-card-plus
 
@@ -34,6 +38,7 @@ All other views use only built-in HA Lovelace cards.
 
 The package is split by what changes together:
   registry.py   finds our entities in the entity registry
+  devices.py    which optional devices exist, and the conditions that hide their cards
   cards.py      colours, layout and card primitives
   hacs.py       the optional HACS cards and their fallbacks
   charts.py     the immersion charts and the power flow card

@@ -698,6 +698,9 @@
       "immersion_divert_reason": {
         "name": "Immersion Divert Reason"
       },
+      "immersion_water_temperature": {
+        "name": "Immersion Water Temperature"
+      },
       "estimated_soc_at_sunrise": {
         "name": "Estimated SoC at Sunrise"
       },

@@ -10,6 +10,7 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.givenergy_inverter_manager import _RETIRED_SENSOR_KEYS
 from custom_components.givenergy_inverter_manager.const import DOMAIN
+from custom_components.givenergy_inverter_manager.core.devices import Device
 from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
 
 RETIRED_KEYS = (
@@ -85,7 +86,10 @@ async def test_setup_removes_an_existing_entry_for_each_retired_sensor(
         for e in er.async_entries_for_config_entry(registry, config_entry.entry_id)
         if e.domain == "sensor"
     ]
-    assert len(sensors) == len(SENSOR_DESCRIPTIONS)
+    # No EV charger is discoverable here, so the sensors that need one are not created.
+    assert len(sensors) == len(
+        [d for d in SENSOR_DESCRIPTIONS if d.requires is not Device.EV_CHARGER]
+    )
     await _unload(hass, config_entry)
 
 

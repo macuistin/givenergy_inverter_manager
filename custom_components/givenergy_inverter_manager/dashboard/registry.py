@@ -1,7 +1,7 @@
 """
 registry.py - finds our entities in the Home Assistant entity registry.
 
-Also reads what the dashboard needs to know about the config entry and the EV charger.
+Also reads what the dashboard needs to know about the config entry and the external EV charger.
 """
 
 from __future__ import annotations
@@ -81,11 +81,6 @@ def external_ev_power(hass: HomeAssistant) -> str | None:
 def entry_config(entry: ConfigEntry) -> dict:
     """Return the config entry's data with options layered over it."""
     return {**entry.data, **entry.options}
-
-
-def ev_charger_brand(entry: ConfigEntry) -> str | None:
-    """Brand of the EV charger the coordinator discovered, if any."""
-    return getattr(getattr(entry, "runtime_data", None), "ev_charger_brand", None)
 
 
 async def async_admin_user_ids(hass: HomeAssistant) -> tuple[str, ...]:

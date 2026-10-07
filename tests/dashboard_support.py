@@ -24,6 +24,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_INVERTER_TEMP_ENTITY,
 )
+from custom_components.givenergy_inverter_manager.core.devices import Device, installed_devices
 from tests.helpers import ROOT
 
 ENTRY_ID = "test_entry_123"
@@ -42,6 +43,7 @@ _OTHER_ENTITIES = {
     "immersion_min_temp": ("number", "Immersion Minimum Temperature"),
     "immersion_hysteresis": ("number", "Immersion Restart Gap"),
 }
+ALL_DEVICES = frozenset(Device)
 
 MINIMAL_CONFIG: dict = {}
 
@@ -83,6 +85,29 @@ def disabled_by_default() -> set[str]:
     return {s["key"] for s in _sensors() if not s["enabled"]}
 
 
+def keys_needing_devices() -> dict[str, str]:
+    """{unique id suffix: the device it needs} for every entity that needs one."""
+    from custom_components.givenergy_inverter_manager.optional_devices import DEVICE_ENTITIES
+    from custom_components.givenergy_inverter_manager.sensor_descriptions import (
+        SENSOR_DESCRIPTIONS,
+    )
+
+    needs = {d.key: d.requires.name for d in SENSOR_DESCRIPTIONS if d.requires is not None}
+    needs.update({e.key: e.requires.name for e in DEVICE_ENTITIES})
+    return needs
+
+
+def keys_without_devices(devices: frozenset[Device]) -> set[str]:
+    """The entities Home Assistant would not have created, given only these devices."""
+    present = {d.name for d in devices}
+    return {key for key, needed in keys_needing_devices().items() if needed not in present}
+
+
+def devices_of(config: dict, ev_brand: str | None) -> frozenset[Device]:
+    """The devices an install with this config and discovered charger has."""
+    return installed_devices(config, ev_charger_found=ev_brand is not None)
+
+
 class FakeRegistry:
     """The two entity registry calls the dashboard generator makes."""
 
@@ -93,7 +118,10 @@ class FakeRegistry:
         enable_all: bool = False,
         enabled: set[str] = frozenset(),
         absent: set[str] = frozenset(),
+        devices: frozenset[Device] = ALL_DEVICES,
     ) -> None:
+        """A registry holding what Home Assistant creates: only the entities of these devices."""
+        absent = set(absent) | keys_without_devices(devices)
         disabled = set() if enable_all else disabled_by_default() - set(enabled)
         names = {s["key"]: s["name"] for s in _sensors()} | {
             key: name for key, (_, name) in _OTHER_ENTITIES.items()
@@ -199,8 +227,9 @@ def dashboard_text(
     """The generated dashboard YAML. Defaults: every feature configured, every sensor enabled."""
     from custom_components.givenergy_inverter_manager.dashboard import HostFacts, render_dashboard
 
-    entry = fake_entry(FULL_CONFIG if config is None else config, ev_brand)
-    registry = registry or FakeRegistry(enable_all=True)
+    config = FULL_CONFIG if config is None else config
+    entry = fake_entry(config, ev_brand)
+    registry = registry or FakeRegistry(enable_all=True, devices=devices_of(config, ev_brand))
     return render_dashboard(fake_states_hass(states), entry, HostFacts(resources, admin_ids), registry)[0]
 
 
@@ -216,6 +245,7 @@ def dashboard_dict(
     """The generated dashboard as a dict, before it is serialised."""
     from custom_components.givenergy_inverter_manager.dashboard import HostFacts, build_dashboard
 
-    entry = fake_entry(FULL_CONFIG if config is None else config, ev_brand)
-    registry = registry or FakeRegistry(enable_all=True)
+    config = FULL_CONFIG if config is None else config
+    entry = fake_entry(config, ev_brand)
+    registry = registry or FakeRegistry(enable_all=True, devices=devices_of(config, ev_brand))
     return build_dashboard(fake_states_hass(states), entry, HostFacts(resources, admin_ids), registry)

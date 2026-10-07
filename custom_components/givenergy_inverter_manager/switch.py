@@ -1,16 +1,16 @@
 """
 switch.py — Switch platform for GivEnergy Inverter Manager.
 
-Provides three switches:
+Provides four switches, two of them only with an immersion switch:
 
   Auto Immersion Divert (GivEnergyAutoImmersionSwitch)
-    Master on/off for the automatic immersion divert logic. When off, the
-    coordinator's override_immersion is set to False and the immersion will
-    not be turned on automatically regardless of solar surplus.
+    Created only while an immersion switch is configured. Master on/off for the
+    automatic immersion divert logic. When off, the coordinator's override_immersion
+    is set to False and the immersion will not be turned on automatically regardless
+    of solar surplus.
 
   Immersion Heater Managed (GivEnergyImmersionControlSwitch)
-    Only created while an immersion switch entity is configured, and removed when it is
-    cleared in the options. It shows the
+    Created only while an immersion switch is configured. It shows the
     coordinator's divert decision. The coordinator's ImmersionActuator applies
     that decision to the real switch on every update, whether or not this
     entity is enabled. Turning this switch on runs the heater until the water
@@ -33,11 +33,17 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .config_helpers import effective_config
-from .const import CONF_IMMERSION_SWITCH, DOMAIN
+from .const import DOMAIN
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
+from .core.devices import Device
 from .entity import GivEnergyEntity
 from .logging import get_logger
+from .optional_devices import (
+    AUTO_IMMERSION,
+    IMMERSION_MANAGED,
+    async_add_entities_per_device,
+    present_devices,
+)
 
 _LOG = get_logger(__name__)
 
@@ -54,19 +60,25 @@ async def async_setup_entry(
     """Set up GivEnergy Manager switches."""
     coordinator = entry.runtime_data
 
-    entities = [
-        GivEnergyAutoImmersionSwitch(coordinator),
-        GivEnergySkipChargeOverrideSwitch(coordinator),
-        GivEnergyChargeTargetOverrideSwitch(coordinator),
-    ]
+    async_add_entities(
+        [
+            GivEnergySkipChargeOverrideSwitch(coordinator),
+            GivEnergyChargeTargetOverrideSwitch(coordinator),
+        ]
+    )
 
-    # Only add immersion control switch if an immersion entity is configured
-    if effective_config(entry).get(CONF_IMMERSION_SWITCH):
-        entities.append(GivEnergyImmersionControlSwitch(coordinator))
-    else:
+    def _switches_of(device: Device) -> list[SwitchEntity]:
+        if device is not Device.IMMERSION_SWITCH:
+            return []
+        return [
+            GivEnergyAutoImmersionSwitch(coordinator),
+            GivEnergyImmersionControlSwitch(coordinator),
+        ]
+
+    if Device.IMMERSION_SWITCH not in present_devices(entry):
         _remove_managed_switch(hass, entry)
 
-    async_add_entities(entities)
+    async_add_entities_per_device(entry, async_add_entities, _switches_of)
 
 
 def _managed_switch_unique_id(entry: GivEnergyConfigEntry) -> str:
@@ -89,7 +101,7 @@ class GivEnergyAutoImmersionSwitch(
 ):
     """Switch to enable/disable automatic immersion divert logic."""
 
-    _attr_name = "Auto Immersion Divert"
+    _attr_name = AUTO_IMMERSION.name
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
@@ -126,7 +138,7 @@ class GivEnergyImmersionControlSwitch(GivEnergyEntity, SwitchEntity):
     lets the user override it.
     """
 
-    _attr_name = "Immersion Heater (Managed)"
+    _attr_name = IMMERSION_MANAGED.name
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)

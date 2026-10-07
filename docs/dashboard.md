@@ -11,7 +11,9 @@ Either:
 
 A notification, **GivEnergy Dashboard Ready**, confirms the write. The first time the integration is set up it also creates a placeholder file containing `views: []`, so a YAML-mode dashboard can point at the file straight away.
 
-Generate the file again after you change the options, rename entities, or add or remove an immersion switch or temperature sensor. The file is overwritten. The dashboard strategy below needs no regenerating.
+Generate the file again after you change the tariff, rename entities, enable a sensor that is disabled by default, or install a HACS card. The file is overwritten. You do not need to generate it again when you add or remove an EV charger, an immersion switch or an immersion temperature sensor. See [Devices you add or remove later](#devices-you-add-or-remove-later).
+
+The integration writes the file only when you ask. It never rewrites it on its own, because you may have edited it. A dashboard you pasted into the raw editor is stored by Home Assistant, and an integration cannot change a stored dashboard. The [dashboard strategy](#dashboard-strategy-optional) is the only dashboard that is always current, so it is the one to use if you add or remove devices often.
 
 ## Example
 
@@ -25,10 +27,38 @@ The file only contains tiles and cards that will show a value.
 
 - A tile is left out when its entity is disabled or not registered. Many sensors are disabled by default. The file header and the **GivEnergy Dashboard Ready** notification list the disabled sensors the dashboard would have used. Enable them in **Settings → Devices & services → Entities**, then generate the file again.
 - A section with no tiles left is left out too, so there is never a heading on its own.
-- EV tiles and the EV charger sub-view need an EV charger. The dashboard counts a charger the integration has discovered, or one of the external power sensors listed under Power Flow.
-- Immersion tiles, the Immersion heater section and the immersion charts need an immersion switch or temperature sensor, set at setup or later under Configure, Immersion heater. The charts need the temperature sensor.
+- EV tiles and the EV charger sub-view need an EV charger the integration has discovered. They are hidden until it has, and shown when it does. See [Devices you add or remove later](#devices-you-add-or-remove-later).
+- The heater tiles, the heater power chart and the divert reason need an immersion switch. The water temperature tile and chart need an immersion temperature sensor. The Target, Minimum and Restart gap tiles and sliders need both, because they act on nothing without a sensor to read.
 - Inverter temperature tiles need the inverter temperature entity in the options.
 - The forecast tiles need a forecast entity in the options.
+
+## Devices you add or remove later
+
+The EV charger, the immersion switch and the immersion temperature sensor are optional, and you can add or remove any of them at any time. The dashboard follows, with no step from you.
+
+- **A card for a device is hidden until the device exists.** Each card, tile, chart and section that needs a device carries a Lovelace visibility condition on one entity of that device. The condition hides the card while the entity is missing or unavailable. It shows the card as soon as the entity exists, and hides it again when the entity goes.
+- **The file already holds those cards.** Without a device, the file points them at the entity IDs Home Assistant will give the device's entities, which follow from the entity names. When the device arrives, the cards show. The file is not generated again and nothing is pasted again.
+- **The power flow card and the cost chart are built once for each combination of devices** and the condition shows the one that matches, as a card cannot hide a single row.
+- **The Immersion and EV charger sub-views are always in the file.** They have no tab, and nothing opens them while their tiles are hidden.
+
+What each device brings:
+
+| Device | How the integration knows | Shown when it is there |
+|---|---|---|
+| EV charger | Discovery finds a supported charger. This runs again every five minutes until one is found | Car charger on the flow card, the EV charger tile and sub-view, EV energy and cost tiles |
+| Immersion switch | The switch is set under Configure, Immersion heater (or at setup) | Heater power, energy, cost and savings, the divert reason, the Auto divert and Managed settings, the immersion node on the flow card |
+| Immersion temperature sensor | The sensor is set under Configure, Immersion heater (or at setup) | The Immersion tile with the water temperature, the water temperature chart |
+| Switch and sensor together | Both are set | The Target, Minimum and Restart gap tiles and sliders, and the target and minimum lines on the chart |
+
+With only a switch, the Immersion tile shows the heater power and the sub-view has no temperature chart. With only a sensor, it shows the water temperature and nothing about a heater.
+
+The integration creates the entities of a device only while the device exists. See [Sensors](sensors.md). So the sensor the dashboard hides on is not a dead entity. It is the entity that arrives with the device. The water temperature sensor mirrors the sensor you set, so the dashboard has a stable entity to chart.
+
+What still needs a new file or a reload of the strategy dashboard:
+
+- an entity you renamed after you generated the file, and a sensor you enabled
+- the Tariff table, the administrator list and the HACS card choice, which are read when the file is generated
+- a charger whose entity IDs differ from the ones Home Assistant assigns by default, for example because an entity with that ID already existed
 
 ## Add the dashboard
 
@@ -40,7 +70,7 @@ The file only contains tiles and cards that will show a value.
 4. Open the new dashboard, then the three-dot menu, **Edit dashboard**, then the three-dot menu again and **Raw configuration editor**.
 5. Replace the content with the copied YAML and save.
 
-After regenerating, repeat steps 1 to 5.
+After regenerating, repeat steps 1 to 5. A device added or removed does not need this.
 
 ### YAML mode
 
@@ -57,7 +87,7 @@ lovelace:
       show_in_sidebar: true
 ```
 
-After regenerating, reload the dashboard or restart Home Assistant.
+After regenerating, reload the dashboard or restart Home Assistant. A device added or removed does not need this.
 
 ## Dashboard strategy (optional)
 
@@ -68,7 +98,7 @@ strategy:
   type: custom:givenergy-manager
 ```
 
-The integration serves a small JavaScript file at `/givenergy_inverter_manager/givenergy-manager-strategy.js` and adds it to the frontend as a module. The file asks Home Assistant for the dashboard over a websocket command, `givenergy_inverter_manager/dashboard`, which returns the same dashboard as the action, built from the current entity registry, options and Lovelace resources. Changing the tariff, enabling a sensor or installing a HACS card shows up on the next page load, with no file to regenerate.
+The integration serves a small JavaScript file at `/givenergy_inverter_manager/givenergy-manager-strategy.js` and adds it to the frontend as a module. The file asks Home Assistant for the dashboard over a websocket command, `givenergy_inverter_manager/dashboard`, which returns the same dashboard as the action, built from the current entity registry, options and Lovelace resources. Changing the tariff, enabling a sensor, installing a HACS card, or adding or removing a device shows up on the next page load, with no file to regenerate. This is the dashboard to use if your devices change. A file or a pasted dashboard hides the cards of a missing device but is otherwise fixed until you generate it again.
 
 - Reload the browser tab after you first set up or upgrade the integration, so the frontend loads the file.
 - The strategy needs a loaded config entry. Without one the dashboard shows a short message instead.
@@ -105,7 +135,7 @@ The dashboard has four tabs. Detail sits in seven sub-views that have no tab. A 
 | Bill | Tariff (the Tariff button in the Bill so far heading) |
 | Battery | Battery detail (Battery heading) |
 
-A sub-view and the tile that opens it are left out when the sub-view would be empty, for example Immersion without an immersion heater.
+A sub-view and the tile that opens it are left out when the sub-view would be empty. The Immersion and EV charger sub-views are the exception: they stay in the file so a device added later has somewhere to show, and their tiles are hidden until the device exists.
 
 The links use relative paths, so they work at any dashboard URL.
 
@@ -132,9 +162,9 @@ This hides the controls. It is not security. Home Assistant has no permissions f
 - **Now**: Battery (state of charge with a bar), Night survival, Rate now, Cost today, Cheap from (Next Cheap Rate Start) and Cheap in (Hours to Cheap Rate). Night Survival Confidence and the two cheap rate sensors are disabled by default, so a new install shows three of the six until you enable them. Night survival reads Safe, Warning or Critical. Tap it to open Battery detail, which says in words why. Tap the Battery tile to open the Battery tab.
 For administrators the heading also holds a **Settings** button.
 - **Dry run is on**: a banner with the last skipped action, below Now. It appears only while Dry Run Mode Active is true.
-- **Live power flow**: a power-flow-card-plus card with solar, battery, grid, home and two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. Battery Power is positive while charging and the card expects the opposite, so the node sets `invert_state: true`. The grid node shows the Live Grid Cost Rate.
+- **Live power flow**: a power-flow-card-plus card with solar, battery, grid, home and, when they exist, two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. Battery Power is positive while charging and the card expects the opposite, so the node sets `invert_state: true`. The grid node shows the Live Grid Cost Rate.
 - **Energy today**: Generated, Used (House Load Today), Imported and Exported. Tap the heading to open the Today tab.
-- **Devices**: an Immersion tile (the water temperature) and an EV charger tile (the charger state). Each opens its sub-view.
+- **Devices**: an Immersion tile (the water temperature, or the heater power when there is no sensor) and an EV charger tile (the charger state). Each opens its sub-view. The heading and each tile show only while their device exists.
 
 For the EV load, the dashboard uses the first of these entities that exists, else the integration's own EV Charging Power: `sensor.myenergi_zappi_power_ct_internal_load`, `..._2`, `sensor.myenergi_zappi2_power_ct_internal_load`, `sensor.wallbox_charging_power`, `sensor.ohme_current_power`.
 
@@ -142,14 +172,13 @@ For the EV load, the dashboard uses the first of these entities that exists, els
 
 ![Immersion view with water temperature and heater power charts and the reason for the divert decision.](images/dashboard-immersion.png)
 
-Only when an immersion heater or water temperature sensor is configured.
+Each section shows only while the device it needs exists.
 
-- **Water temperature**: a 12-hour chart of water temperature with the target and minimum, and the divert reason under it in words.
-- **Heater power**: a 12-hour step chart of the immersion's power in watts.
-- **Today**: energy, cost and what solar saved.
-- **Settings in force**: Auto divert, Managed, Target temp, Minimum temp and Restart gap, to read. Change them in Settings.
-
-The charts need a water temperature sensor.
+- **Water temperature** (needs the sensor): a 12-hour chart of water temperature. With a switch as well, it also draws the target and minimum.
+- **Why** (needs the switch): the divert reason in words.
+- **Heater power** (needs the switch): a 12-hour step chart of the immersion's power in watts.
+- **Today** (needs the switch): energy, cost and what solar saved.
+- **Settings in force** (needs the switch): Auto divert and Managed, to read. With a sensor as well it adds Target temp, Minimum temp and Restart gap. Change them in Settings.
 
 ### EV charger (sub-view)
 
@@ -215,9 +244,9 @@ State of charge and power are not drawn on one graph, because a percentage and w
 ![Settings view with the charge target slider, the skip tonight toggle and the immersion heater controls.](images/dashboard-settings.png)
 
 - **Overnight charging**: a slider for the charge target, and the Use target and Skip tonight switches.
-- **Immersion heater**: the Auto divert and Managed switches, the divert reason in words and sliders for the target temperature, the minimum temperature and the restart gap.
+- **Immersion heater**: the Auto divert and Managed switches and the divert reason in words. With a temperature sensor as well, sliders for the target temperature, the minimum temperature and the restart gap.
 
-The view is left out when there is no administrator to show it to, and the immersion section when no immersion heater is configured. The dry run banner is not here. It sits on the Power Flow tab, below Now, and appears only while Dry Run Mode Active is true.
+The view is left out when there is no administrator to show it to, and the immersion section is hidden while there is no immersion switch. The dry run banner is not here. It sits on the Power Flow tab, below Now, and appears only while Dry Run Mode Active is true.
 
 There is no Refresh Dashboard card. Use the button on the device page.
 

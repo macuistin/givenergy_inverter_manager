@@ -12,6 +12,7 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
+from custom_components.givenergy_inverter_manager.core.devices import Device
 from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
 
 PLATFORMS = ("sensor", "switch", "number", "button")
@@ -32,11 +33,20 @@ async def test_platforms_register_expected_entities(hass, loaded_entry):
     entries = er.async_entries_for_config_entry(registry, loaded_entry.entry_id)
     by_domain = {d: [e for e in entries if e.domain == d] for d in PLATFORMS}
 
-    assert len(by_domain["sensor"]) == len(SENSOR_DESCRIPTIONS)
+    # The full config has an immersion switch and sensor but no EV charger to discover.
+    assert len(by_domain["sensor"]) == len(
+        [d for d in SENSOR_DESCRIPTIONS if d.requires is not Device.EV_CHARGER]
+    )
     assert len(by_domain["switch"]) == 4  # includes the immersion control switch
     assert len(by_domain["number"]) == 4
     assert len(by_domain["button"]) == 1
     assert hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+
+
+async def test_every_entity_exists_once_a_charger_is_discovered(hass, loaded_entry_with_charger):
+    registry = er.async_get(hass)
+    entries = er.async_entries_for_config_entry(registry, loaded_entry_with_charger.entry_id)
+    assert len([e for e in entries if e.domain == "sensor"]) == len(SENSOR_DESCRIPTIONS)
 
 
 async def test_unique_ids_are_unique(hass, loaded_entry):

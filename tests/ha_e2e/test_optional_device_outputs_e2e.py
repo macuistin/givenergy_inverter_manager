@@ -81,6 +81,12 @@ async def _run_cycles(hass, entry, freezer, count: int) -> None:
         await hass.async_block_till_done()
 
 
+def _sensor_registered(hass, entry, key: str) -> bool:
+    """True when the sensor exists. EV sensors are created only once a charger is found."""
+    registry = er.async_get(hass)
+    return registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{key}") is not None
+
+
 def _sensor_state(hass, entry, key: str) -> str:
     entity_id = er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{key}")
     assert entity_id, f"no sensor registered for {key}"
@@ -97,7 +103,7 @@ async def test_no_devices_means_no_immersion_claims(hass_in_scenario, service_ca
     assert data.should_divert_immersion is False
     assert _sensor_state(hass, entry, "immersion_divert_reason") == NO_SWITCH_REASON
     assert data.today.missed_solar_kwh == 0.0
-    assert _sensor_state(hass, entry, "ev_solar_surplus_available") == "unavailable"
+    assert not _sensor_registered(hass, entry, "ev_solar_surplus_available")
     for text in (
         build_today_summary_html(data),
         build_today_summary_state(data),
@@ -138,7 +144,7 @@ async def test_an_ev_charger_added_later_is_found_and_its_sensor_comes_alive(
     entry = _entry_without_immersion()
     await _set_up(hass, entry)
     await _run_cycles(hass, entry, freezer, 2)
-    assert _sensor_state(hass, entry, "ev_solar_surplus_available") == "unavailable"
+    assert not _sensor_registered(hass, entry, "ev_solar_surplus_available")
     assert entry.runtime_data.data.today.missed_solar_kwh == 0.0
 
     for entity_id, value in ZAPPI.items():

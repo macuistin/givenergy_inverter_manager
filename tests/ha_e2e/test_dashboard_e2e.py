@@ -7,6 +7,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import yaml
+from conftest import ZAPPI_STATES, discover_the_charger
 from homeassistant.auth.const import GROUP_ID_ADMIN, GROUP_ID_USER
 from homeassistant.config_entries import RELOAD_AFTER_UPDATE_DELAY, ConfigEntryState
 from homeassistant.helpers import entity_registry as er
@@ -17,7 +18,16 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
-from tests.dashboard_support import ADMIN_ID, all_cards, default_entity_ids
+from custom_components.givenergy_inverter_manager.dashboard.devices import (
+    expected_entity_id,
+)
+from tests.dashboard_support import (
+    ADMIN_ID,
+    all_cards,
+    default_entity_ids,
+    keys_needing_devices,
+)
+from tests.dashboard_visibility import seen
 
 
 def _registered_id(registry, entry_id: str, key: str) -> str | None:
@@ -28,15 +38,25 @@ def _registered_id(registry, entry_id: str, key: str) -> str | None:
     return None
 
 
-async def test_default_entity_ids_match_the_live_registry(hass, loaded_entry):
+async def test_default_entity_ids_match_the_live_registry(hass, loaded_entry_with_charger):
     """The IDs in docs/dashboard-example.yaml are the ones Home Assistant really assigns."""
     registry = er.async_get(hass)
     wrong = {}
     for key, expected in default_entity_ids().items():
-        actual = _registered_id(registry, loaded_entry.entry_id, key)
+        actual = _registered_id(registry, loaded_entry_with_charger.entry_id, key)
         if actual != expected:
             wrong[key] = (expected, actual)
     assert wrong == {}
+
+
+async def test_the_ids_a_stored_file_waits_on_are_the_ones_the_devices_get(
+    hass, loaded_entry_with_charger
+):
+    """A card for a device that is not there yet names the ID Home Assistant will assign."""
+    registry = er.async_get(hass)
+    entry_id = loaded_entry_with_charger.entry_id
+    for key in keys_needing_devices():
+        assert expected_entity_id(key) == _registered_id(registry, entry_id, key), key
 
 
 # ── generated dashboard against the real registry ────────────────────────────
@@ -53,9 +73,19 @@ async def _generate(hass) -> tuple[str, list]:
     return text, notifications
 
 
-def _names(text: str) -> list[str]:
-    """Section headings and tile names, which is what a person reads on the dashboard."""
-    cards = all_cards(yaml.safe_load(text)["views"])
+def _shown(hass, text: str) -> dict:
+    """The dashboard as the frontend would draw it now: hidden sections and cards left out."""
+    states = {state.entity_id: state.state for state in hass.states.async_all()}
+    return seen(yaml.safe_load(text), states)
+
+
+def _names(text: str, hass=None) -> list[str]:
+    """Section headings and tile names, which is what a person reads on the dashboard.
+
+    With *hass*, only those the frontend would show against its current states.
+    """
+    config = yaml.safe_load(text) if hass is None else _shown(hass, text)
+    cards = all_cards(config["views"])
     return [
         c["heading"] if c["type"] == "heading" else c["name"]
         for c in cards
@@ -77,7 +107,10 @@ async def test_fresh_install_dashboard_points_only_at_enabled_entities(hass, loa
     text, notifications = await _generate(hass)
     referenced = set(_OURS.findall(text))
     assert referenced
-    assert referenced <= _usable_ids(hass, loaded_entry)
+    waiting = referenced - _usable_ids(hass, loaded_entry)
+    # Only the cards of the one device this install lacks, hidden until it arrives.
+    ev_keys = [k for k, device in keys_needing_devices().items() if device == "EV_CHARGER"]
+    assert waiting <= {expected_entity_id(key) for key in ev_keys}
 
 
 async def test_fresh_install_leaves_out_forecast_accuracy_and_says_so(hass, loaded_entry):
@@ -95,18 +128,46 @@ async def test_fresh_install_leaves_out_forecast_accuracy_and_says_so(hass, load
 async def test_features_from_the_config_entry_show_up(hass, loaded_entry):
     """The full config has immersion, inverter temperature and a forecast, but no EV charger."""
     text, _ = await _generate(hass)
-    names = _names(text)
+    names = _names(text, hass)
     assert "Water temperature" in names
     assert "Against the forecast" in names
     assert "EV charger" not in names
     assert "inverter_temperature" in text
 
 
-async def test_external_ev_charger_adds_the_ev_card(hass, loaded_entry):
-    hass.states.async_set("sensor.wallbox_charging_power", "0")
+async def test_a_charger_found_after_the_file_was_written_shows_up_with_no_regeneration(
+    hass, loaded_entry
+):
+    """The stored file waits for the EV cards, and shows them when discovery finds a charger."""
     text, _ = await _generate(hass)
-    assert "EV charger" in _names(text)
-    assert "sensor.wallbox_charging_power" in text
+    assert "EV charger" not in _names(text, hass)
+    assert "EV charger" in _names(text)  # the cards are in the file, hidden
+
+    for entity_id, state in ZAPPI_STATES.items():
+        hass.states.async_set(entity_id, state)
+    await discover_the_charger(hass, loaded_entry)
+
+    assert "EV charger" in _names(text, hass)  # the same file, not generated again
+    registry = er.async_get(hass)
+    ev_state = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{loaded_entry.entry_id}_ev_charger_state"
+    )
+    assert ev_state is not None
+    assert ev_state in text
+
+
+async def test_a_charger_that_goes_away_hides_its_cards_again(hass, loaded_entry_with_charger):
+    text, _ = await _generate(hass)
+    assert "EV charger" in _names(text, hass)
+
+    registry = er.async_get(hass)
+    ev_state = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{loaded_entry_with_charger.entry_id}_ev_charger_state"
+    )
+    registry.async_remove(ev_state)
+    await hass.async_block_till_done()
+
+    assert "EV charger" not in _names(text, hass)
 
 
 async def test_enabling_a_sensor_puts_it_back_in_the_dashboard(hass, loaded_entry):
@@ -204,10 +265,10 @@ async def test_without_an_administrator_there_is_no_settings_view(hass, loaded_e
     assert "navigation_path: settings" not in (await _generate(hass))[0]
 
 
-async def test_live_dashboard_matches_the_docs_example(hass, loaded_entry):
+async def test_live_dashboard_matches_the_docs_example(hass, loaded_entry_with_charger):
     """Full config, every sensor enabled and an EV charger: the output is the docs example."""
+    loaded_entry = loaded_entry_with_charger
     admin = await hass.auth.async_create_user("Admin", group_ids=[GROUP_ID_ADMIN])
-    from types import SimpleNamespace
 
     from custom_components.givenergy_inverter_manager.const import CONF_BILL_START_DAY
 
@@ -225,7 +286,7 @@ async def test_live_dashboard_matches_the_docs_example(hass, loaded_entry):
     )
     await hass.async_block_till_done()
     assert loaded_entry.state is ConfigEntryState.LOADED
-    loaded_entry.runtime_data._ev_charger = SimpleNamespace(brand=SimpleNamespace(value="myenergi"))
+    await discover_the_charger(hass, loaded_entry)
 
     text, _ = await _generate(hass)
 

@@ -10,7 +10,11 @@ from homeassistant.helpers import entity_registry as er
 _SNAPSHOT = Path(__file__).with_name("entity_snapshot.json")
 
 
-async def test_entity_ids_keys_and_names_match_the_recorded_snapshot(hass, loaded_entry):
+async def test_entity_ids_keys_and_names_match_the_recorded_snapshot(
+    hass, loaded_entry_with_charger
+):
+    """The full install: every optional device present, so every entity exists."""
+    loaded_entry = loaded_entry_with_charger
     registry = er.async_get(hass)
     prefix = f"{loaded_entry.entry_id}_"
     actual = sorted(

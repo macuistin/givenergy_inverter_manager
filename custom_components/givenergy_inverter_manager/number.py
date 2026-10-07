@@ -1,7 +1,7 @@
 """
 number.py — Number platform for GivEnergy Inverter Manager.
 
-Provides one number entity:
+Provides one number entity, plus three immersion temperature controls:
 
   Overnight Charge Target Override (GivEnergyChargeTargetOverride)
     A 10-100% slider representing the manual override SoC target.
@@ -12,6 +12,10 @@ Provides one number entity:
     Deliberately has no 0 or "auto" sentinel — 0% is not a meaningful
     charge target and using it as a mode flag is confusing. The switch
     carries the mode; the number carries only the value.
+
+  Immersion target, minimum and restart gap (ImmersionTargetTempNumber and its siblings)
+    Created only while the immersion switch and its temperature sensor are both set, as
+    the thermostat acts on no less.
 """
 
 from __future__ import annotations
@@ -30,8 +34,15 @@ from .const import (
     DEFAULT_IMMERSION_TARGET_TEMP,
 )
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
+from .core.devices import Device
 from .entity import GivEnergyEntity
 from .logging import get_logger
+from .optional_devices import (
+    IMMERSION_MINIMUM,
+    IMMERSION_RESTART_GAP,
+    IMMERSION_TARGET,
+    async_add_entities_per_device,
+)
 
 _LOG = get_logger(__name__)
 
@@ -45,14 +56,18 @@ async def async_setup_entry(
 ) -> None:
     """Set up GivEnergy Manager number entities."""
     coordinator = entry.runtime_data
-    async_add_entities(
-        [
-            GivEnergyChargeTargetOverride(coordinator),
+    async_add_entities([GivEnergyChargeTargetOverride(coordinator)])
+
+    def _numbers_of(device: Device) -> list[NumberEntity]:
+        if device is not Device.IMMERSION_THERMOSTAT:
+            return []
+        return [
             ImmersionTargetTempNumber(coordinator),
             ImmersionMinTempNumber(coordinator),
             ImmersionHysteresisNumber(coordinator),
         ]
-    )
+
+    async_add_entities_per_device(entry, async_add_entities, _numbers_of)
 
 
 class GivEnergyChargeTargetOverride(
@@ -153,7 +168,7 @@ class _ImmersionNumberBase(GivEnergyEntity, RestoreNumber, NumberEntity):
 class ImmersionTargetTempNumber(_ImmersionNumberBase):
     """Upper temperature — immersion turns off when water reaches this."""
 
-    _attr_name = "Immersion Target Temperature"
+    _attr_name = IMMERSION_TARGET.name
     _attr_native_min_value = 40.0
     _attr_native_max_value = 75.0
     _attr_native_step = 1.0
@@ -177,7 +192,7 @@ class ImmersionTargetTempNumber(_ImmersionNumberBase):
 class ImmersionMinTempNumber(_ImmersionNumberBase):
     """Lower temperature — immersion forced on below this (legionella / restart threshold)."""
 
-    _attr_name = "Immersion Minimum Temperature"
+    _attr_name = IMMERSION_MINIMUM.name
     _attr_native_min_value = 30.0
     _attr_native_max_value = 60.0
     _attr_native_step = 1.0
@@ -198,7 +213,7 @@ class ImmersionMinTempNumber(_ImmersionNumberBase):
 class ImmersionHysteresisNumber(_ImmersionNumberBase):
     """Restart gap — how many degrees below target before restarting is allowed."""
 
-    _attr_name = "Immersion Restart Gap"
+    _attr_name = IMMERSION_RESTART_GAP.name
     _attr_native_min_value = 1.0
     _attr_native_max_value = 15.0
     _attr_native_step = 1.0

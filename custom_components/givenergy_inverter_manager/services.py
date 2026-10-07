@@ -118,7 +118,8 @@ _APPLY_STEPS = (
     "      icon: mdi:solar-power-variant\n"
     "      show_in_sidebar: true\n"
     "```\n\n"
-    "Run this action again after reconfiguring to regenerate the file."
+    "Run this action again after you change the tariff or rename entities. "
+    "Adding or removing an EV charger or immersion device needs no new file."
 )
 
 
