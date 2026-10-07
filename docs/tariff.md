@@ -48,7 +48,7 @@ Enter the base rate `0.30` named `Day`. Put Night in rate period 1 and Boost in 
 What follows from this sample tariff:
 
 - The cheapest timed period is Boost, so the charge target and window `02:00` to `04:00` are written to the inverter at 01:59.
-- Both Night and Boost count as cheap. The Import at cheap rate sensors count energy imported in either. Import at peak rate counts the base rate only.
+- Both Night and Boost count as cheap. The Import at cheap rate sensors count energy imported in either. Import at base rate counts the base rate only.
 - The Next Cheap Rate Start sensor shows the start of the next period priced below the base rate. At noon it shows `23:00`.
 - On Cheapest Rate is `yes` only during Boost.
 

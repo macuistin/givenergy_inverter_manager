@@ -118,7 +118,7 @@ The repair clears on the next update cycle once the rates agree. It appears once
 
 Version 0.2.1 gave nine daily sensors the state class `total_increasing` together with `last_reset`. Home Assistant refuses that combination, so the sensors stopped updating until the integration reloaded. Battery throughput, for example, stayed at one value until the integration reloaded.
 
-The nine sensors are Import at cheap rate, Import at peak rate, Import cost at cheap rate, Import cost at peak rate, Immersion solar savings, Immersion solar diverted, Battery throughput, Missed solar today and Inverter Derating Today.
+The nine sensors are Import at cheap rate, Import at base rate, Import cost at cheap rate, Import cost at base rate, Immersion solar savings, Immersion solar diverted, Battery throughput, Missed solar today and Inverter Derating Today. The two base rate sensors were called Import at peak rate and Import cost at peak rate before they were renamed (see [Renamed sensors](sensors.md#renamed-sensors)).
 
 1. Update to v0.3.0 or later, where they use state class `total`.
 2. Restart Home Assistant, or reload the integration.
@@ -174,7 +174,7 @@ Read **Overnight Charge Reason** first. Then check these:
 - **March, April, October and November.** The minimum SoC is at least 70% in the calculation.
 - **No forecast.** Without a tomorrow sensor, the integration uses a seasonal estimate from your latitude. The reason says so.
 - **A forecast setting has no effect.** Forecast provider is stored and unused. A P10 forecast only matters when conservatism is above 0, and conservatism only matters when a P10 forecast exists. Solcast provides one automatically. The charge reason says `no P10 forecast so conservatism is unused` otherwise. See [Where the P10 comes from](configuration.md#where-the-p10-comes-from).
-- **The charge reason shows no `recent accuracy` factor.** The correction needs 5 usable days. Days with clipping, or under 0.5 kWh of forecast or solar, do not count. The attributes of **Overnight Charge Reason** show how many days are usable (`accuracy_status`, for example `Waiting for data: 3 of 5 days`). A new install shows 0 until the second midnight, because the first midnight only remembers the forecast. See [Forecast accuracy correction](configuration.md#forecast-accuracy-correction).
+- **The charge reason shows no `recent accuracy` factor.** The correction needs 5 usable days. Days with clipping, or under 0.5 kWh of forecast or solar, do not count. The attributes of **Overnight Charge Reason** show how many days are usable (`accuracy_status`, for example `Waiting for data: 3 of 5 days`). A new install reads earlier days from the recorder when it first loads, so it shows up to 9 usable days at once. It shows 0 when the recorder is not running, holds no history for the forecast sensor or the GivTCP daily solar counter, or those sensors are new. Then it fills one night at a time, and the first midnight only remembers the forecast. See [Forecast accuracy correction](configuration.md#forecast-accuracy-correction).
 - **A manual target.** See [Entities](entities.md#manual-charge-target).
 
 To see every reading and decision, turn on both of these:

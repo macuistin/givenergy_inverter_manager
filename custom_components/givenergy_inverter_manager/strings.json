@@ -750,16 +750,16 @@
         "name": "Import at cheap rate"
       },
       "import_kwh_peak_today": {
-        "name": "Import at peak rate"
+        "name": "Import at base rate"
       },
       "import_cost_cheap_today": {
         "name": "Import cost at cheap rate"
       },
       "import_cost_peak_today": {
-        "name": "Import cost at peak rate"
+        "name": "Import cost at base rate"
       },
       "peak_import_fraction_today": {
-        "name": "Peak rate import fraction"
+        "name": "Base rate import fraction"
       },
       "avg_import_rate_today": {
         "name": "Average Import Rate Today"
@@ -816,7 +816,7 @@
         "name": "Import at cheap rate yesterday"
       },
       "import_kwh_peak_yesterday": {
-        "name": "Import at peak rate yesterday"
+        "name": "Import at base rate yesterday"
       },
       "immersion_savings_yesterday": {
         "name": "Immersion savings yesterday"
@@ -846,7 +846,7 @@
         "name": "Import at cheap rate this week"
       },
       "import_kwh_peak_this_week": {
-        "name": "Import at peak rate this week"
+        "name": "Import at base rate this week"
       },
       "immersion_savings_this_week": {
         "name": "Immersion savings this week"
@@ -909,7 +909,7 @@
         "name": "Import at cheap rate this month"
       },
       "import_kwh_peak_this_month": {
-        "name": "Import at peak rate this month"
+        "name": "Import at base rate this month"
       },
       "immersion_savings_this_month": {
         "name": "Immersion savings this month"

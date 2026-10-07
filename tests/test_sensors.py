@@ -317,6 +317,13 @@ class TestEfficiencySensors:
         d.today.battery_charge_kwh = 0.0
         assert fn(d) is None
 
+    def test_roundtrip_efficiency_is_unknown_before_enough_energy_has_moved(self):
+        fn = _lambda_for("battery_roundtrip_efficiency_today")
+        d = MagicMock()
+        d.today.battery_charge_kwh = 6.0
+        d.today.battery_discharge_kwh = 0.8
+        assert fn(d) is None
+
     def test_roundtrip_efficiency_is_not_a_daily_total(self):
         assert not _BY_KEY["battery_roundtrip_efficiency_today"].is_daily_total, "MEASUREMENT sensors must not set last_reset"
 

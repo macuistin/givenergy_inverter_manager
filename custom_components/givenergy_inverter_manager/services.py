@@ -470,12 +470,12 @@ def _year_on_year(d, snapshots: list[dict]) -> dict:
     current = _current_month(d)
     if len(snapshots) < _MONTHS_NEEDED:
         return _not_enough_history(len(snapshots), current)
-    last_year = snapshots[-_MONTHS_NEEDED]
+    last_year = _same_month_last_year(snapshots[-_MONTHS_NEEDED])
     return {
         "snapshots_available": len(snapshots),
         "no_data": False,
         "current_month": current,
-        "last_year_same_month": _same_month_last_year(last_year),
+        "last_year_same_month": last_year,
         "delta": {key: _delta(current, last_year, key) for key in _COMPARED_KEYS},
         "delta_pct": {key: _delta_pct(current, last_year, key) for key in _COMPARED_KEYS},
     }

@@ -6,6 +6,7 @@ import pytest
 
 from custom_components.givenergy_inverter_manager import sensor_values as values
 from custom_components.givenergy_inverter_manager.const import (
+    BATTERY_EFFICIENCY_MIN_KWH,
     BATTERY_FULL_SOC_PCT,
     BATTERY_RATED_CYCLES,
     NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
@@ -185,6 +186,24 @@ class TestRoundtripEfficiency:
         data.today.battery_charge_kwh = 0.0
         data.today.battery_discharge_kwh = 1.0
         assert values.battery_roundtrip_efficiency_today(data) is None
+
+    def test_none_early_in_the_day_after_an_overnight_charge(self):
+        data = make_data()
+        data.today.battery_charge_kwh = 6.0
+        data.today.battery_discharge_kwh = 0.8
+        assert values.battery_roundtrip_efficiency_today(data) is None
+
+    def test_none_while_the_charge_is_under_the_minimum(self):
+        data = make_data()
+        data.today.battery_charge_kwh = BATTERY_EFFICIENCY_MIN_KWH - 0.1
+        data.today.battery_discharge_kwh = BATTERY_EFFICIENCY_MIN_KWH + 1.0
+        assert values.battery_roundtrip_efficiency_today(data) is None
+
+    def test_reported_once_both_directions_reach_the_minimum(self):
+        data = make_data()
+        data.today.battery_charge_kwh = BATTERY_EFFICIENCY_MIN_KWH
+        data.today.battery_discharge_kwh = BATTERY_EFFICIENCY_MIN_KWH
+        assert values.battery_roundtrip_efficiency_today(data) == pytest.approx(100.0)
 
 
 class TestNextCheapRateStart:

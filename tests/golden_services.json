@@ -77,14 +77,14 @@
       "solar_kwh": 50.0,
       "import_kwh": 25.0,
       "export_kwh": 15.0,
-      "import_cost": 47.5,
+      "import_cost": 8.0,
       "export_earnings": 2.5
     },
     "delta_pct": {
       "solar_kwh": 25.0,
       "import_kwh": 16.7,
       "export_kwh": 25.0,
-      "import_cost": null,
+      "import_cost": 20.3,
       "export_earnings": 20.0
     }
   },

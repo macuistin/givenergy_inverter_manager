@@ -72,7 +72,7 @@ Accumulated since local midnight. They report `last_reset` as the most recent mi
 | Self-consumed Solar Today | `self_consumed_kwh_today` | kWh | energy | total | day | no | Solar generated minus exported, floored at 0. |
 | Inverter Derating Today | `inverter_derating_today_minutes` | - | - | total | day | no | Minutes with the inverter at 65 °C or more. |
 | Import at cheap rate | `import_kwh_cheap_today` | kWh | energy | total | day | yes | Energy imported while a timed rate period was active. |
-| Import at peak rate | `import_kwh_peak_today` | kWh | energy | total | day | yes | Energy imported at the base rate. |
+| Import at base rate | `import_kwh_peak_today` | kWh | energy | total | day | yes | Energy imported while no timed rate period was active, so at the base rate. With no timed rate period set, all import. |
 | Immersion solar diverted | `immersion_solar_kwh_today` | kWh | energy | total | day | yes | Solar energy that went to the immersion. Created only with an immersion switch. |
 | Battery throughput | `battery_throughput_kwh_today` | kWh | energy | total | day | yes | Battery energy in plus out. |
 | Battery Charged Today | `battery_charge_kwh_today` | kWh | energy | total | day | no | Energy into the battery. Uses the GivTCP counter when present. |
@@ -95,7 +95,7 @@ Money sensors use the currency symbol you chose in the tariff.
 | Net Financial Position Today | `net_position_today` | currency | monetary | total | day | no | Export earnings minus import cost. |
 | Immersion Cost Today | `immersion_cost_today` | currency | - | total | day | yes | Import cost attributed to the immersion. Created only with an immersion switch. |
 | Import cost at cheap rate | `import_cost_cheap_today` | currency | - | total | day | yes | Import cost while a timed rate period was active. |
-| Import cost at peak rate | `import_cost_peak_today` | currency | - | total | day | yes | Import cost at the base rate. |
+| Import cost at base rate | `import_cost_peak_today` | currency | - | total | day | yes | Import cost while no timed rate period was active, so at the base rate. With no timed rate period set, all import cost. |
 | Immersion solar savings | `immersion_savings_today` | currency | - | total | day | yes | Diverted solar kWh times (current rate minus export rate). Created only with an immersion switch. |
 
 ## Efficiency today
@@ -107,9 +107,9 @@ Percentages worked out from today's totals.
 | Self Sufficiency | `self_sufficiency` | % | - | measurement | no | yes | Share of the house load, EV and immersion included, that did not come from the grid at the time. Grid energy stored in the battery is not counted against it. Attributes show the kWh behind the figure and the `basis`. |
 | Solar Share | `solar_share` | % | - | measurement | no | yes | Share of consumption met by solar generated and kept on site (generation minus export, battery storage included). Grid import and battery discharge do not count. 0 with no consumption. |
 | Self Consumption | `self_consumption` | % | - | measurement | no | yes | Share of today's solar that was not exported. 0 with no solar. |
-| Peak rate import fraction | `peak_import_fraction_today` | % | - | measurement | no | yes | Share of today's import that was at the base rate. |
+| Base rate import fraction | `peak_import_fraction_today` | % | - | measurement | no | yes | Share of today's import that was at the base rate. 100 once anything is imported with no timed rate period set. |
 | Solar Capture Efficiency Today | `solar_capture_efficiency_today` | % | - | measurement | no | no | Solar generated minus missed solar, as a share of solar. |
-| Battery Round-trip Efficiency Today | `battery_roundtrip_efficiency_today` | % | - | measurement | no | no | Energy out of the battery divided by energy in. Diagnostic category. |
+| Battery Round-trip Efficiency Today | `battery_roundtrip_efficiency_today` | % | - | measurement | no | no | Energy out of the battery divided by energy in. Unknown until at least 2 kWh has gone both in and out today, because earlier in the day the battery still holds energy charged overnight. Diagnostic category. |
 
 ## Bill
 
@@ -190,7 +190,7 @@ Needs a forecast sensor in the options to be meaningful.
 | Solar forecast today (charge plan) | `solar_forecast_kwh_today` | kWh | energy | none | no | yes | The charge plan's forecast for today, blended toward the pessimistic estimate and scaled by the accuracy correction. Not the provider's figure. |
 | Solar forecast today (provider) | `solar_forecast_raw_today` | kWh | energy | none | no | yes | The forecast provider's own figure for today, as it stood just before midnight. Empty when none was seen then. |
 | Solar vs provider forecast | `solar_actual_vs_forecast_pct` | % | - | measurement | no | yes | Solar generated today as a share of the provider's forecast for today (Solar forecast today (provider)). Empty without one. |
-| Forecast accuracy yesterday | `yesterday_forecast_accuracy_pct` | % | - | measurement | no | no | Yesterday's actual solar as a share of the forecast for that day, capped at 200. |
+| Forecast accuracy yesterday | `yesterday_forecast_accuracy_pct` | % | - | measurement | no | no | Yesterday's actual solar as a share of the forecast for that day. A day that beats the forecast reads above 100, with no upper limit. |
 | Forecast accuracy 7-day average | `forecast_accuracy_7day_avg_pct` | % | - | measurement | no | no | Average of the last 7 daily accuracy values. |
 
 ## Carbon intensity
@@ -213,7 +213,7 @@ Yesterday's totals, copied from today's accumulator at midnight. They have no st
 | Grid export yesterday | `export_yesterday` | kWh | energy | none | no | yes | - |
 | Import cost yesterday | `import_cost_yesterday` | currency | - | none | no | yes | - |
 | Import at cheap rate yesterday | `import_kwh_cheap_yesterday` | kWh | energy | none | no | yes | - |
-| Import at peak rate yesterday | `import_kwh_peak_yesterday` | kWh | energy | none | no | yes | - |
+| Import at base rate yesterday | `import_kwh_peak_yesterday` | kWh | energy | none | no | yes | - |
 | Immersion savings yesterday | `immersion_savings_yesterday` | currency | - | none | no | yes | Created only with an immersion switch. |
 | Self-sufficiency yesterday | `self_sufficiency_yesterday` | % | - | measurement | no | yes | - |
 | Solar share yesterday | `solar_share_yesterday` | % | - | measurement | no | yes | - |
@@ -230,7 +230,7 @@ Resets at midnight on Monday. Reports `last_reset` as the start of the week.
 | Import cost this week | `import_cost_this_week` | currency | - | total | week | yes | - |
 | Export earnings this week | `export_earnings_this_week` | currency | - | total | week | yes | - |
 | Import at cheap rate this week | `import_kwh_cheap_this_week` | kWh | energy | total | week | yes | - |
-| Import at peak rate this week | `import_kwh_peak_this_week` | kWh | energy | total | week | yes | - |
+| Import at base rate this week | `import_kwh_peak_this_week` | kWh | energy | total | week | yes | - |
 | Immersion savings this week | `immersion_savings_this_week` | currency | - | total | week | yes | Created only with an immersion switch. |
 | Self-sufficiency this week | `self_sufficiency_this_week` | % | - | measurement | no | yes | - |
 | Solar share this week | `solar_share_this_week` | % | - | measurement | no | yes | - |
@@ -248,7 +248,7 @@ Resets at midnight on the bill start day chosen at setup. Reports `last_reset` a
 | Import cost this month | `import_cost_this_month` | currency | - | total | month | yes | - |
 | Export earnings this month | `export_earnings_this_month` | currency | - | total | month | yes | - |
 | Import at cheap rate this month | `import_kwh_cheap_this_month` | kWh | energy | total | month | yes | - |
-| Import at peak rate this month | `import_kwh_peak_this_month` | kWh | energy | total | month | yes | - |
+| Import at base rate this month | `import_kwh_peak_this_month` | kWh | energy | total | month | yes | - |
 | Immersion savings this month | `immersion_savings_this_month` | currency | - | total | month | yes | Created only with an immersion switch. |
 | Self-sufficiency this month | `self_sufficiency_this_month` | % | - | measurement | no | yes | - |
 | Solar share this month | `solar_share_this_month` | % | - | measurement | no | yes | - |
@@ -287,6 +287,19 @@ The state is a one-line summary. The `html` attribute holds a styled report for 
 | Dry Run Mode Active | `dry_run_active` | - | - | none | no | yes | True when dry run mode is on. Diagnostic category. |
 | Last Skipped Action (Dry Run) | `dry_run_last_skipped` | - | - | none | no | yes | The last action dry run mode held back. Diagnostic category. |
 | Integration Version | `integration_version` | - | - | none | no | no | Installed integration version. Diagnostic category. |
+
+## Renamed sensors
+
+These sensors were renamed because they measure the base rate, the rate that applies while no timed rate period is active. They are not a peak band, and no peak band is configured. The key and the unique ID did not change, so history, statistics and automations carry on. An install made before the rename keeps its old entity IDs, which still contain `peak`. A new install builds entity IDs from the new names.
+
+| Key | Previous name | Name now |
+|---|---|---|
+| `import_kwh_peak_today` | Import at peak rate | Import at base rate |
+| `import_kwh_peak_yesterday` | Import at peak rate yesterday | Import at base rate yesterday |
+| `import_kwh_peak_this_week` | Import at peak rate this week | Import at base rate this week |
+| `import_kwh_peak_this_month` | Import at peak rate this month | Import at base rate this month |
+| `import_cost_peak_today` | Import cost at peak rate | Import cost at base rate |
+| `peak_import_fraction_today` | Peak rate import fraction | Base rate import fraction |
 
 ## Removed sensors
 

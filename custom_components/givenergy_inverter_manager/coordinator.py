@@ -125,6 +125,7 @@ from .discovery import (
     givtcp_rate_entity_ids,
     update_charger_state,
 )
+from .forecast_seeding import async_seed_forecast_accuracy
 from .givtcp_writer import GivTCPWriter, SwitchState, state_as_int
 from .immersion_actuator import ImmersionActuator, ImmersionPorts
 from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
@@ -545,10 +546,30 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._acc.roll_forward(now):
             await self._acc.async_save()
         self._last_reset_time = self._acc.state.last_reset_iso
+        self._start_forecast_seeding()
         self.entry.async_on_unload(self.async_flush)
         self.entry.async_on_unload(
             self.hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, self._queue_final_write)
         )
+
+    def _start_forecast_seeding(self) -> None:
+        """On a new install, rebuild the forecast accuracy history from the recorder.
+
+        Runs in the background so a slow recorder never holds up setup.
+        """
+        sources = self._forecast_seed_sources()
+        if self._acc.forecast_history_is_empty and all(sources):
+            self._create_task(self._seed_forecast_accuracy(sources))
+
+    def _forecast_seed_sources(self) -> tuple[str | None, str | None]:
+        """The tomorrow forecast sensor and the GivTCP daily solar counter."""
+        cfg = self._effective_cfg()
+        return cfg.get(CONF_FORECAST_ENTITY), self._solar_counter_entity(cfg)
+
+    async def _seed_forecast_accuracy(self, sources: tuple[str | None, str | None]) -> None:
+        now = dt_util.as_local(datetime.now(timezone.utc))
+        if await async_seed_forecast_accuracy(self.hass, self._acc, sources, now):
+            await self._acc.async_save()
 
     async def async_flush(self) -> None:
         """Write the accumulators and battery statistics to storage now."""
@@ -843,6 +864,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.ev_power_w = self._ev_charger.power_w
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 
+    def _solar_counter_entity(self, cfg: dict) -> str | None:
+        """GivTCP's daily solar total, derived from the inverter serial."""
+        serial = cfg.get(CONF_INVERTER_SERIAL)
+        return f"sensor.givtcp_{serial}_pv_energy_today_kwh" if serial else None
+
     def _read_daily_counters(self, cfg: dict, raw: RawSensorValues) -> None:
         """GivTCP daily energy counters, present on GivTCP v2.1+ and v3.
 
@@ -853,7 +879,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if not serial:
             return
         pfx = f"sensor.givtcp_{serial}"
-        raw.solar_energy_today_kwh = self._read_optional_float(f"{pfx}_pv_energy_today_kwh")
+        raw.solar_energy_today_kwh = self._read_optional_float(self._solar_counter_entity(cfg))
         raw.import_energy_today_kwh = self._read_optional_float(f"{pfx}_import_energy_today_kwh")
         raw.export_energy_today_kwh = self._read_optional_float(f"{pfx}_export_energy_today_kwh")
         # GivTCP names these battery_charge_energy_today_kwh and
