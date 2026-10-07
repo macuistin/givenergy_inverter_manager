@@ -18,6 +18,7 @@ from custom_components.givenergy_inverter_manager.const import (
     GIVTCP_MIN_WRITE_INTERVAL_S,
     GIVTCP_WRITE_LIFETIME_WARN,
 )
+from custom_components.givenergy_inverter_manager.core.write_log import WriteRecord
 from custom_components.givenergy_inverter_manager.givtcp_writer import (
     GivTCPWriter,
     SwitchState,
@@ -256,6 +257,59 @@ class TestCounting:
             await writer.set_number("number.n", 60, "n")
         warnings = [r for r in caplog.records if "rated lifetime" in r.getMessage()]
         assert len(warnings) == 1
+
+
+class _Observer:
+    """Records what the writer reports and where in the call it did so."""
+
+    def __init__(self, bus: _Bus) -> None:
+        self._bus = bus
+        self.events: list[tuple[str, WriteRecord, int]] = []
+
+    def before_write(self, record: WriteRecord) -> None:
+        self.events.append(("before", record, len(self._bus.calls)))
+
+    def after_write(self, record: WriteRecord) -> None:
+        self.events.append(("after", record, len(self._bus.calls)))
+
+    def write_failed(self, record: WriteRecord) -> None:
+        self.events.append(("failed", record, len(self._bus.calls)))
+
+
+class TestObserver:
+    @pytest.fixture
+    def observer(self, bus) -> _Observer:
+        return _Observer(bus)
+
+    @pytest.fixture
+    def observed(self, bus, observer) -> GivTCPWriter:
+        return GivTCPWriter(bus.get_state, bus.call_service, bus.counts.append, observer)
+
+    async def test_it_hears_about_the_call_before_and_after_it_is_sent(
+        self, observed, observer
+    ):
+        await observed.set_number("number.n", 62, "charge target")
+        record = WriteRecord("number.n", "62", "charge target")
+        assert observer.events == [("before", record, 0), ("after", record, 1)]
+
+    async def test_a_switch_is_reported_with_its_state_as_the_value(self, observed, observer):
+        await observed.set_switch("switch.s", SwitchState.ON, "enable charge target")
+        assert observer.events[-1][1] == WriteRecord("switch.s", "on", "enable charge target")
+
+    async def test_a_failed_call_is_reported_as_failed_not_written(self, observed, observer, bus):
+        bus.error = RuntimeError("rejected")
+        await observed.set_number("number.n", 62, "charge target")
+        assert [kind for kind, _, _ in observer.events] == ["before", "failed"]
+
+    async def test_a_write_skipped_because_the_entity_is_already_there_is_not_reported(
+        self, observed, observer, bus
+    ):
+        bus.states["number.n"] = _State("62")
+        await observed.set_number("number.n", 62, "charge target")
+        assert observer.events == []
+
+    async def test_a_writer_with_no_observer_still_writes(self, writer, bus):
+        assert await writer.set_number("number.n", 62, "charge target") is True
 
 
 class TestSerialisation:

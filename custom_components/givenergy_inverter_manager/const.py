@@ -209,6 +209,11 @@ CHARGE_SHOULDER_MIN_SOC = 70  # % — applied instead of battery_min_soc in shou
 CHARGE_WINTER_SKIP_SOC_PCT = 95  # %
 # The overnight target is never planned closer than this to the minimum SoC.
 CHARGE_MIN_TARGET_HEADROOM_PCT = 5  # SoC points above min SoC
+# The published recommendation holds until the fresh target moves this far from it. Overnight
+# readings jitter by ten points or more (early-morning load extrapolation), so a step this size
+# keeps the sensor steady while a change worth acting on still shows. The write uses the fresh
+# target, never the held one.
+CHARGE_TARGET_HOLD_STEP_PCT = 5  # SoC points
 
 CHARGE_PEAK_SOLAR_HOURS = 4.0  # peak-output hours assumed when no forecast available
 CHARGE_SOLAR_USABLE_FRACTION = 0.6  # fraction of forecast kWh we can realistically charge from
@@ -280,6 +285,7 @@ GIVTCP_MAX_WRITE_RETRIES = 3          # attempts per write before giving up
 GIVTCP_WRITE_RETRY_SLEEP_S = 2        # seconds between retry attempts
 GIVTCP_WRITE_LIFETIME_WARN = 500_000  # log a warning at this write count (~50% of rated)
 GIVTCP_MIN_WRITE_INTERVAL_S = 300     # minimum seconds before the same value is rewritten
+REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept in the write log
 # How long a running element stays on while a required sensor is unavailable.
 # Same value as the write interval, but a separate setting.
 SENSOR_OUTAGE_HOLD_LIMIT_S = 300

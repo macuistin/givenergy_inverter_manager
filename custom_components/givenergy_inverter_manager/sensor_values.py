@@ -19,6 +19,7 @@ from .const import (
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.tariff import EnergyAccumulator
+from .core.write_log import newest_first
 
 # Power inside this band either side of zero counts as no flow.
 POWER_DIRECTION_BAND_W = 50
@@ -169,10 +170,24 @@ def cheap_import_percentage(accumulator: EnergyAccumulator) -> float | None:
 # ── Overnight charge and night survival ──────────────────────────────────────
 
 
+def overnight_charge_target(data: CoordinatorData) -> int | None:
+    """Return the published recommended target, None before the first decision."""
+    if data.published_charge_decision:
+        return data.published_charge_decision.target_soc
+    return None
+
+
+def overnight_charge_reason(data: CoordinatorData) -> str | None:
+    """Return why the published target was recommended, None before the first decision."""
+    if data.published_charge_decision:
+        return data.published_charge_decision.reason
+    return None
+
+
 def overnight_charge_cost(data: CoordinatorData) -> float | None:
     """Return the cost of tonight's planned charge, None before the first decision."""
-    if data.charge_decision:
-        return round(data.charge_decision.cost_to_charge, 3)
+    if data.published_charge_decision:
+        return round(data.published_charge_decision.cost_to_charge, 3)
     return None
 
 
@@ -223,6 +238,11 @@ def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
             data.survival_reason,
         )
     )
+
+
+def register_write_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """The recent writes and outside changes to the charge entities, newest first."""
+    return {"recent_writes": newest_first(data.register_write_log)}
 
 
 # ── Inverter and carbon ──────────────────────────────────────────────────────

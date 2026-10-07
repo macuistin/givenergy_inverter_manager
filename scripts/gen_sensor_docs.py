@@ -365,9 +365,15 @@ DESCRIPTIONS: dict[str, str] = {
         "Today's throughput as a share of the daily budget. Empty when the budget is 0."
     ),
     "battery_throughput_budget_status": "OK, High (80% or more) or Over budget.",
-    "register_write_count": "Lifetime writes sent to GivTCP. Saved and kept across restarts.",
-    "overnight_charge_target": "Tonight's target after overrides and the configured cap.",
-    "overnight_charge_reason": "Why that target was chosen.",
+    "register_write_count": (
+        "Lifetime writes sent to GivTCP. Saved and kept across restarts. The `recent_writes` "
+        "attribute lists the latest writes and outside changes to the charge target and window."
+    ),
+    "overnight_charge_target": (
+        "Tonight's target after overrides and the configured cap. Holds its value until the "
+        "calculated target moves 5 points or more."
+    ),
+    "overnight_charge_reason": "Why that target was chosen. Changes only when the target does.",
     "overnight_charge_window": (
         "The charge window written to slot 1, sized to the plan. Attributes: `window_start`, "
         "`window_end`, `window_extended`, `expected_kwh` and `expected_finish`."
@@ -404,7 +410,7 @@ DESCRIPTIONS: dict[str, str] = {
     "solar_forecast_kwh_today": "First forecast value the charge calculation used today.",
     "solar_actual_vs_forecast_pct": "Solar generated today as a share of that forecast.",
     "yesterday_forecast_accuracy_pct": (
-        "Yesterday's actual solar as a share of its forecast, capped at 200."
+        "Yesterday's actual solar as a share of the forecast for that day, capped at 200."
     ),
     "forecast_accuracy_7day_avg_pct": "Average of the last 7 daily accuracy values.",
     "carbon_intensity": "Value of the carbon intensity entity you set.",

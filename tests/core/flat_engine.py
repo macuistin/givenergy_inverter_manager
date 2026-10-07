@@ -12,6 +12,7 @@ from typing import Any
 
 from custom_components.givenergy_inverter_manager.core import engine
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.engine import (
     AccumulationWindow,
     Accumulators,
@@ -51,6 +52,7 @@ def build_coordinator_data(
     forecast_correction: float | None = None,
     today_raw_forecast_kwh: float | None = None,
     today_raw_forecast_p10_kwh: float | None = None,
+    held_charge: HeldCharge | None = None,
 ) -> tuple[CoordinatorData, str | None]:
     return engine.build_coordinator_data(
         CycleInputs(
@@ -72,7 +74,12 @@ def build_coordinator_data(
             yesterday=acc_yesterday,
             last_reset_time=last_reset_time,
         ),
-        PreviousCycle(battery_stats, last_soc, last_update_time),
+        PreviousCycle(
+            battery_stats,
+            last_soc,
+            last_update_time,
+            held_charge if held_charge is not None else HeldCharge(),
+        ),
         ForecastContext(
             solar_fractions=solar_fractions,
             solar_forecast_kwh_today=solar_forecast_kwh_today,

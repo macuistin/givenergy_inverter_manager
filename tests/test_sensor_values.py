@@ -223,15 +223,48 @@ class TestImportFigures:
         assert values.cheap_import_percentage(self._accumulator(0.0)) is None
 
 
+class TestPublishedChargeRecommendation:
+    """The target and reason sensors read the held copy, never the fresh decision."""
+
+    @staticmethod
+    def _decision(target_soc, reason):
+        class Decision:
+            pass
+
+        decision = Decision()
+        decision.target_soc = target_soc
+        decision.reason = reason
+        return decision
+
+    def test_none_before_the_first_decision(self):
+        data = make_data(charge_decision=self._decision(90, "fresh"))
+        assert values.overnight_charge_target(data) is None
+        assert values.overnight_charge_reason(data) is None
+
+    def test_target_and_reason_come_from_the_published_decision(self):
+        data = make_data(
+            charge_decision=self._decision(90, "fresh"),
+            published_charge_decision=self._decision(87, "held"),
+        )
+        assert values.overnight_charge_target(data) == 87
+        assert values.overnight_charge_reason(data) == "held"
+
+    def test_cost_comes_from_the_published_decision(self):
+        fresh, held = self._decision(90, "fresh"), self._decision(87, "held")
+        fresh.cost_to_charge, held.cost_to_charge = 2.0, 1.0
+        data = make_data(charge_decision=fresh, published_charge_decision=held)
+        assert values.overnight_charge_cost(data) == pytest.approx(1.0)
+
+
 class TestOvernightChargeCost:
     def test_none_before_the_first_decision(self):
-        assert values.overnight_charge_cost(make_data(charge_decision=None)) is None
+        assert values.overnight_charge_cost(make_data(published_charge_decision=None)) is None
 
     def test_rounds_to_three_places(self):
         class Decision:
             cost_to_charge = 1.23456
 
-        data = make_data(charge_decision=Decision())
+        data = make_data(published_charge_decision=Decision())
         assert values.overnight_charge_cost(data) == pytest.approx(1.235)
 
 
@@ -323,6 +356,19 @@ class TestNightSurvivalConfidence:
     def test_attributes_explain_the_level(self):
         attrs = values.night_survival_attributes(self._night(survive=False, reason="Runs out"))
         assert attrs["explanation"].startswith("Critical")
+
+
+class TestRegisterWriteAttributes:
+    def test_recent_writes_are_listed_newest_first(self):
+        log = [
+            {"time": "t1", "entity_id": "number.t", "value": "55", "reason": "charge target"},
+            {"time": "t2", "entity_id": "number.t", "value": "60", "reason": "external"},
+        ]
+        attrs = values.register_write_attributes(make_data(register_write_log=log))
+        assert [w["time"] for w in attrs["recent_writes"]] == ["t2", "t1"]
+
+    def test_an_empty_log_gives_an_empty_list(self):
+        assert values.register_write_attributes(make_data()) == {"recent_writes": []}
 
 
 class TestInverterAndCarbon:
