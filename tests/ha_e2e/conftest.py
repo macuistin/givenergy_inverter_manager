@@ -239,6 +239,7 @@ def set_givtcp_states(hass, scenario: Scenario) -> None:
     for suffix, value in (
         ("pv_energy_today_kwh", 12.4),
         ("import_energy_today_kwh", 3.1),
+        ("ac_charge_energy_today_kwh", 1.4),
         ("export_energy_today_kwh", 4.6),
         ("battery_charge_energy_today_kwh", 5.2),
         ("battery_discharge_energy_today_kwh", 2.2),

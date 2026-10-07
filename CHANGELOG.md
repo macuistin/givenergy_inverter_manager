@@ -4,7 +4,33 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+Self-sufficiency no longer reads 0% on the morning after a cheap overnight charge. Stored data
+moves to version 4 on first start, with no action needed.
+
+**Fixes**
+- Self-sufficiency counts grid energy that went into the battery separately. It read 0% when
+  the import was larger than the house load, because the energy that charged the battery counted
+  as grid supply. It now answers "how much of the house load did the grid not have to supply at
+  the time": `1 - (import - grid to battery) / house load`. A day with 12.1 kWh imported, 7.5 kWh
+  of it into the battery and an 11.3 kWh load reads 59%, not 0%. The week, month and yesterday
+  sensors use the same figure, and so do the reports and the ROI and monthly comparison actions.
+  Battery discharge of energy that came from the grid counts as supplied from storage. EV and
+  immersion energy bought from the grid still counts as grid, because the house load includes
+  both.
+- The figure comes from GivTCP's `sensor.givtcp_<serial>_ac_charge_energy_today_kwh`, found from
+  the inverter serial like the other daily counters, so there is nothing to set up. Without that
+  counter (older firmware, or a counter that is not GivTCP's) all import counts as grid, as
+  before. The `basis` attribute says which.
+- Week, month and year figures start from the day of the upgrade. Earlier days have no
+  grid-to-battery figure, so a period that began before it reads lower until it ends.
+
 **Features**
+- The four Self-sufficiency sensors (today, yesterday, this week, this month) have the
+  attributes `house_load_kwh`, `from_grid_kwh`, `grid_to_battery_kwh`,
+  `from_solar_and_battery_kwh` and `basis` (`ac_charge_counter` or `import_only`), so the
+  percentage can be checked by hand. See [Concepts](docs/concepts.md#self-sufficiency-solar-share-and-self-consumption).
+- Grid to Battery Today sensor: the part of Grid Import Today that charged the battery. A daily
+  energy total with long-term statistics. Unavailable while the GivTCP counter is missing.
 - The Energy today section of the Power Flow tab has two more tiles, Self-sufficient and Solar
   share, so the share of the day's use that did not come from the grid is on the first screen.
 - The Today tab has a Where today's energy came from group. It says in plain words what the

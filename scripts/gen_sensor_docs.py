@@ -134,6 +134,7 @@ KEY_GROUPS: dict[str, str] = {
         (
             "solar_today",
             "import_today",
+            "grid_to_battery_today",
             "export_today",
             "house_kwh_today",
             "zappi_today",
@@ -298,6 +299,10 @@ DESCRIPTIONS: dict[str, str] = {
     "avg_import_rate_this_month": "Import cost divided by imported kWh this month.",
     "solar_today": "Solar generated. Uses the GivTCP daily counter when present.",
     "import_today": "Grid import. Uses the GivTCP daily counter when present.",
+    "grid_to_battery_today": (
+        "Part of Grid Import Today that charged the battery. Uses GivTCP's AC charge counter. "
+        "Unavailable when that counter is missing."
+    ),
     "export_today": "Grid export. Uses the GivTCP daily counter when present.",
     "house_kwh_today": "House consumption. Uses the GivTCP load counter when present.",
     "zappi_today": "Energy delivered to the EV charger, from charger power.",
@@ -331,7 +336,9 @@ DESCRIPTIONS: dict[str, str] = {
     "net_saving_today": "Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set.",
     "net_position_today": "Export earnings minus import cost.",
     "self_sufficiency": (
-        "Share of consumption, EV and immersion included, that was not bought from the grid."
+        "Share of the house load, EV and immersion included, that did not come from the grid "
+        "at the time. Grid energy stored in the battery is not counted against it. Attributes "
+        "show the kWh behind the figure and the `basis`."
     ),
     "solar_share": (
         "Share of consumption met by solar generated and kept on site (generation minus export, "

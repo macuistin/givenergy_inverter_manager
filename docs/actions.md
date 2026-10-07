@@ -124,7 +124,7 @@ With 12 or more, the response has `no_data: false`, `snapshots_available`, `curr
 
 - `current_month` and `last_year_same_month` hold `solar_kwh`, `import_kwh`, `export_kwh`, `import_cost`, `export_earnings` and `self_sufficiency_pct`.
 - `delta` and `delta_pct` cover the first five of those. `delta_pct` is empty where last year's value was 0.
-- For the current month, `self_sufficiency_pct` is the share of house kWh that was not imported. For last year it is solar kWh divided by house kWh, a simpler measure, so the two are not directly comparable.
+- For the current month, `self_sufficiency_pct` is the share of house kWh that was not drawn from the grid, with grid energy stored in the battery left out of the import. For last year it is solar kWh divided by house kWh, a simpler measure, so the two are not directly comparable.
 
 ## export_energy_data
 

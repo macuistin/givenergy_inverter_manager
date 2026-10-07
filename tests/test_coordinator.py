@@ -149,6 +149,10 @@ class FakeCoordinator(GivEnergyCoordinator):
                 return self.state.yesterday
 
             @property
+            def counters(self):
+                return self.state.counters
+
+            @property
             def today_forecast_kwh(self):
                 return self.state.today_forecast_kwh
 
@@ -3790,3 +3794,73 @@ class TestChargeWindowSizing:
 
         assert coord.tasks_created == []
         assert "Nightboost window 02:00–06:10" in coord.data.dry_run_last_skipped
+
+
+# ── TestAcChargeCounter ───────────────────────────────────────────────────────
+
+_AC_CHARGE = f"sensor.givtcp_{_SERIAL}_ac_charge_energy_today_kwh"
+
+
+class TestAcChargeCounter:
+    """GivTCP's AC charge counter is found from the inverter serial, like the other daily counters."""
+
+    @staticmethod
+    def _coord(**states: str) -> FakeCoordinator:
+        from custom_components.givenergy_inverter_manager.const import CONF_INVERTER_SERIAL
+
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_INVERTER_SERIAL: _SERIAL}))
+        coord.set_states({**_default_states(), **states})
+        return coord
+
+    @pytest.mark.parametrize(
+        ("state", "expected"),
+        [("7.5", 7.5), ("0", 0.0), ("unavailable", None), ("unknown", None)],
+    )
+    def test_reads_the_counter_from_the_serial_derived_entity(self, state, expected):
+        coord = self._coord(**{_AC_CHARGE: state})
+
+        raw = coord._collect_raw(coord._effective_cfg())
+
+        assert raw.ac_charge_energy_today_kwh == expected
+
+    def test_a_missing_entity_reads_as_unknown(self):
+        coord = self._coord()
+
+        assert coord._collect_raw(coord._effective_cfg()).ac_charge_energy_today_kwh is None
+
+    def test_no_inverter_serial_reads_as_unknown(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states({**_default_states(), _AC_CHARGE: "7.5"})
+
+        assert coord._collect_raw(coord._effective_cfg()).ac_charge_energy_today_kwh is None
+
+    @pytest.mark.asyncio
+    async def test_a_cycle_with_the_live_counters_reads_59_percent(self):
+        """12.1 kWh imported, 7.5 kWh of it into the battery, 11.3 kWh of load."""
+        coord = self._coord(
+            **{
+                _AC_CHARGE: "7.5",
+                f"sensor.givtcp_{_SERIAL}_import_energy_today_kwh": "12.1",
+                f"sensor.givtcp_{_SERIAL}_load_energy_today_kwh": "11.3",
+            }
+        )
+
+        data = await coord.run_cycle()
+
+        assert data.today.self_sufficiency_pct == pytest.approx(59.3, abs=0.05)
+        assert data.week.grid_to_battery_kwh == pytest.approx(7.5)
+        assert data.grid_to_battery_counter_available is True
+
+    @pytest.mark.asyncio
+    async def test_a_cycle_without_the_counter_reads_zero_and_says_so(self):
+        coord = self._coord(
+            **{
+                f"sensor.givtcp_{_SERIAL}_import_energy_today_kwh": "12.1",
+                f"sensor.givtcp_{_SERIAL}_load_energy_today_kwh": "11.3",
+            }
+        )
+
+        data = await coord.run_cycle()
+
+        assert data.today.self_sufficiency_pct == 0.0
+        assert data.grid_to_battery_counter_available is False
