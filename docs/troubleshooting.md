@@ -84,7 +84,7 @@ Slot 1 is never changed by this repair.
 
 Version 0.2.1 gave nine daily sensors the state class `total_increasing` together with `last_reset`. Home Assistant refuses that combination, so the sensors stopped updating until the integration reloaded. Battery throughput, for example, stayed at one value until the integration reloaded.
 
-The nine sensors are Import at cheap rate, Import at peak rate, Import cost at cheap rate, Import cost at peak rate, Immersion solar savings, Immersion solar diverted, Battery throughput, Missed solar today and Inverter Derating Today.
+The nine sensors are Import at cheap rate, Import at base rate, Import cost at cheap rate, Import cost at base rate, Immersion solar savings, Immersion solar diverted, Battery throughput, Missed solar today and Inverter Derating Today. The two base rate sensors were called Import at peak rate and Import cost at peak rate before they were renamed (see [Renamed sensors](sensors.md#renamed-sensors)).
 
 1. Update to v0.3.0 or later, where they use state class `total`.
 2. Restart Home Assistant, or reload the integration.
