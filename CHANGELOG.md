@@ -2,7 +2,7 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.13.0
 
 Shows how the forecast accuracy correction is doing and starts it from recorded history. Adds
 dated rate changes and three repairs. Fixes a year-on-year cost delta and two misleading
@@ -55,6 +55,14 @@ readings, and renames the base-rate import sensors.
   both into and out of the battery today. It read far too low early in the day.
 - Pressing the managed immersion switch in dry run is recorded as a skipped action (Last Skipped
   Action). It no longer ends or starts a manual run on the next cycle.
+
+**Upgrading**
+- Nothing to do by hand. The first start after the upgrade records today's date as the tariff
+  review date, so the stale tariff repair cannot appear for 365 days.
+- You may see one or two new repairs. Battery cost not set appears after seven days of battery
+  tracking while the cost is 0. GivTCP rates differ from the tariff appears if GivTCP holds
+  different rates. Both can be ignored.
+- Existing installs keep the entity ids of the renamed base-rate import sensors.
 
 ## v0.12.0
 
