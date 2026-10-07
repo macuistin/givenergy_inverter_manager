@@ -450,7 +450,8 @@ DESCRIPTIONS: dict[str, str] = {
         " (Solar forecast today (provider)). Empty without one."
     ),
     "yesterday_forecast_accuracy_pct": (
-        "Yesterday's actual solar as a share of the forecast for that day, capped at 200."
+        "Yesterday's actual solar as a share of the forecast for that day."
+        " A day that beats the forecast reads above 100, with no upper limit."
     ),
     "forecast_accuracy_7day_avg_pct": "Average of the last 7 daily accuracy values.",
     "carbon_intensity": "Value of the carbon intensity entity you set.",

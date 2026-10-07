@@ -180,8 +180,8 @@ def _add_grid_to_battery(payload: dict) -> None:
 
 
 def _forecast_accuracy_pct(forecast_kwh: float, actual_kwh: float) -> float:
-    """Actual solar as a percentage of the forecast, capped at 200."""
-    return min(200.0, round(actual_kwh / forecast_kwh * 100, 1))
+    """Actual solar as a percentage of the forecast. It has no upper limit."""
+    return round(actual_kwh / forecast_kwh * 100, 1)
 
 
 def _rebuild_forecast_accuracy(payload: dict) -> None:

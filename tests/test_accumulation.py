@@ -144,10 +144,11 @@ class TestForecastAccuracy:
         _finish_day(store, 10.0, 10.0, _tuesday())
         assert store.state.yesterday_forecast_accuracy_pct == pytest.approx(100.0, rel=0.01)
 
-    def test_accuracy_capped_at_200_pct(self):
+    def test_a_day_far_above_the_forecast_is_not_capped(self):
         store = _accuracy_store()
-        _finish_day(store, 5.0, 20.0, _tuesday())  # way above forecast
-        assert store.state.yesterday_forecast_accuracy_pct == 200.0
+        _finish_day(store, 5.0, 20.0, _tuesday())
+        assert store.state.yesterday_forecast_accuracy_pct == 400.0
+        assert store.state.forecast_accuracy_history == [400.0]
 
     def test_no_accuracy_calculated_when_no_raw_forecast(self):
         store = _accuracy_store()
@@ -1218,11 +1219,11 @@ class TestForecastAccuracyMigration:
         migrated = migrate_storage(2, _v2_payload(records))
         assert migrated["forecast_accuracy_history"] == [90.0]
 
-    def test_accuracy_is_capped_at_200(self):
+    def test_accuracy_is_not_capped(self):
         from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
 
         migrated = migrate_storage(2, _v2_payload([_ratio(2.0, 9.0)]))
-        assert migrated["forecast_accuracy_history"] == [200.0]
+        assert migrated["forecast_accuracy_history"] == [450.0]
 
     def test_a_version_3_payload_keeps_its_accuracy_history(self):
         from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
