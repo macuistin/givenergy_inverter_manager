@@ -343,6 +343,16 @@ class TestNextCheapRateSensors:
         d.hours_to_cheap_rate = None
         assert fn(d) is None
 
+    def test_start_exposes_the_summary_attribute(self):
+        attrs_fn = _BY_KEY["next_cheap_rate_start"].attrs_fn
+        d = MagicMock()
+        d.next_cheap_rate_start = "23:00"
+        d.hours_to_cheap_rate = 8.93
+        assert attrs_fn(d) == {"summary": "23:00 (in 8 h 56 min)"}
+
+    def test_hours_sensor_has_no_attributes(self):
+        assert _BY_KEY["hours_to_cheap_rate"].attrs_fn is None
+
     def test_hours_value_fn(self):
         fn = _lambda_for("hours_to_cheap_rate")
         d = MagicMock()

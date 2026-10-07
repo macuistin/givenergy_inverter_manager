@@ -136,6 +136,33 @@ async def test_features_from_the_config_entry_show_up(hass, loaded_entry):
     assert "inverter_temperature" in text
 
 
+async def test_the_heater_is_shaded_on_the_water_temperature_chart(hass, loaded_entry):
+    """With a switch and a sensor, one chart draws the registered entities and the heater band."""
+    text, _ = await _generate(hass)
+    registry = er.async_get(hass)
+    entry_id = loaded_entry.entry_id
+    real = [
+        _registered_id(registry, entry_id, key)
+        for key in (
+            "immersion_water_temperature",
+            "immersion_target_temp",
+            "immersion_min_temp",
+            "immersion_power",
+        )
+    ]
+    view = next(v for v in _shown(hass, text)["views"] if v["path"] == "immersion")
+    charts = [c for c in view_cards(view) if c["type"] == "custom:apexcharts-card"]
+    headings = [c["heading"] for c in view_cards(view) if c["type"] == "heading"]
+
+    assert len(charts) == 1
+    assert [s["entity"] for s in charts[0]["series"]] == real
+    assert charts[0]["series"][-1]["name"] == "Heater on"
+    assert charts[0]["series"][-1]["curve"] == "stepline"
+    assert "stroke" not in charts[0]["apex_config"]
+    assert "Heater power" not in headings
+    assert "Heater on or off" not in headings
+
+
 async def test_energy_today_tiles_point_at_the_registered_forecast_sensors(hass, loaded_entry):
     """Forecast and % of forecast sit in Energy today and name the IDs Home Assistant assigned."""
     text, _ = await _generate(hass)
@@ -350,15 +377,31 @@ _SPLIT_ATTRIBUTES = {
 
 
 async def test_the_sources_card_is_in_the_file_and_reads_in_plain_words(hass, loaded_entry):
-    """A fresh install has the battery discharge sensor disabled, so solar and battery are one."""
+    """A fresh install has the battery discharge sensor enabled, so solar and battery are split."""
     text, _ = await _generate(hass)
     _set_the_live_day(hass, default_entity_ids(), _SPLIT_ATTRIBUTES)
 
     assert _render(hass, _sources_card(text)) == (
-        "House used **11.3 kWh**: solar and battery 6.7 + grid 4.6.\n\n"
+        "House used **11.3 kWh**: solar 4.9 + battery 1.8 + grid 4.6.\n\n"
         "Grid import **12.1 kWh**: 4.6 for the house + 7.5 into the battery.\n\n"
         "**Self-sufficiency 59%** is the share of what the house used that did not come from "
         "the grid."
+    )
+
+
+async def test_the_sources_card_shows_one_figure_when_the_user_disabled_the_discharge_sensor(
+    hass, loaded_entry
+):
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{loaded_entry.entry_id}_battery_discharge_kwh_today"
+    )
+    registry.async_update_entity(entity_id, disabled_by=er.RegistryEntryDisabler.USER)
+    text, _ = await _generate(hass)
+    _set_the_live_day(hass, default_entity_ids(), _SPLIT_ATTRIBUTES)
+
+    assert _render(hass, _sources_card(text)).startswith(
+        "House used **11.3 kWh**: solar and battery 6.7 + grid 4.6."
     )
 
 
@@ -386,7 +429,7 @@ async def test_the_sources_card_falls_back_to_the_totals_without_the_attributes(
     text, _ = await _generate(hass)
     _set_the_live_day(hass, default_entity_ids(), {})
     rendered = _render(hass, _sources_card(text))
-    assert rendered.startswith("House used **11.3 kWh**: solar and battery 0.0 + grid 11.3.")
+    assert rendered.startswith("House used **11.3 kWh**: solar 0.0 + battery 0.0 + grid 11.3.")
     assert "is not known" in rendered
 
 

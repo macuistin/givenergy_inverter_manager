@@ -312,3 +312,31 @@ async def test_night_survival_confidence_explains_its_level(hass, loaded_entry):
     assert state.attributes["minimum_soc"] == loaded_entry.runtime_data.data.battery_min_soc
     assert state.attributes["warning_below_soc"] > state.attributes["minimum_soc"]
     assert "estimated_soc_at_sunrise" in state.attributes
+
+
+_CHEAP_FROM_SUMMARY = {
+    "midday_surplus": "23:00 (in 10 h)",
+    "winter_cheap_night": "Now (ends in 5 h 30 min)",
+}
+
+
+async def test_next_cheap_rate_start_carries_the_countdown_the_dashboard_tile_shows(
+    hass, loaded_entry, scenario
+):
+    """The tile reads the summary attribute, and the state stays the bare start time."""
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{loaded_entry.entry_id}_next_cheap_rate_start"
+    )
+    assert entity_id
+    registry.async_update_entity(entity_id, disabled_by=None)
+    async_fire_time_changed(
+        hass, dt_util.utcnow() + timedelta(seconds=RELOAD_AFTER_UPDATE_DELAY + 1)
+    )
+    await hass.async_block_till_done()
+    await _refresh(hass, loaded_entry)
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.attributes["summary"] == _CHEAP_FROM_SUMMARY[scenario.name]
+    assert state.state == ("23:00" if scenario.name == "midday_surplus" else "Now")

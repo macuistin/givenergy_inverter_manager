@@ -85,19 +85,27 @@ def _table(rows: list[str]) -> str:
     return f'<table style="{_S["table"]}">' + "".join(rows) + "</table>"
 
 
+def _provider_forecast_detail(data: "CoordinatorData") -> str:
+    """Today's solar against the provider's own forecast, or nothing without one.
+
+    This is the figure of the Solar forecast today (provider) and Solar vs provider forecast
+    sensors. The charge plan's forecast is blended toward the pessimistic estimate and scaled
+    by the accuracy correction, so it is not the figure to judge the day against.
+    """
+    forecast = data.solar_forecast_raw_kwh_today
+    if forecast is None or forecast <= 0:
+        return ""
+    pct = data.today.solar_kwh / forecast * 100
+    return f"Forecast: {forecast:.1f}kWh ({pct:.0f}%)"
+
+
 def _today_energy_rows(data: "CoordinatorData") -> list[str]:
     t = data.today
     sym = data.currency_symbol
-
-    accuracy_str = ""
-    if data.solar_forecast_kwh_today > 0:
-        pct = min(200.0, t.solar_kwh / data.solar_forecast_kwh_today * 100)
-        accuracy_str = f"Forecast: {data.solar_forecast_kwh_today:.1f}kWh ({pct:.0f}%)"
-
     peak_frac = f"{t.peak_import_fraction * 100:.0f}% at peak rate" if t.import_kwh > 0 else ""
     return [
         _section("⚡ Today's Energy"),
-        _row("☀️ Solar", f"{t.solar_kwh:.2f} kWh", accuracy_str, _S["highlight"]),
+        _row("☀️ Solar", f"{t.solar_kwh:.2f} kWh", _provider_forecast_detail(data), _S["highlight"]),
         _row("⬇️ Import", f"{t.import_kwh:.2f} kWh", peak_frac),
         _row("⬆️ Export", f"{t.export_kwh:.2f} kWh", f"{sym}{t.export_earnings:.2f} earned"),
         _row(
@@ -213,7 +221,7 @@ def _plan_rows(cd: "ChargeDecision", sym: str) -> list[str]:
         _row("Decision", decision_str, "", _S["highlight"]),
         _row("Current SoC", f"{cd.current_soc:.0f}%"),
         _plan_target_row(cd),
-        _row("Solar forecast", f"{cd.forecast_kwh:.1f} kWh"),
+        _row("Plan forecast", f"{cd.forecast_kwh:.1f} kWh"),
         _row("Battery", f"{cd.battery_capacity:.1f} kWh capacity"),
         _row("EV plugged in", "Yes" if cd.car_plugged_in else "No"),
         _row(
@@ -244,7 +252,7 @@ def build_charge_plan_state(data: "CoordinatorData") -> str:
     if cd is None:
         return "No charge decision yet"
     if cd.skip_charge:
-        return f"Skip charge · Forecast {cd.forecast_kwh:.1f} kWh · SoC {cd.current_soc:.0f}%"
+        return f"Skip charge · Plan forecast {cd.forecast_kwh:.1f} kWh · SoC {cd.current_soc:.0f}%"
     return (
         f"Target {cd.target_soc}% · "
         f"Add {max(0, cd.target_soc - cd.current_soc):.0f}% · "

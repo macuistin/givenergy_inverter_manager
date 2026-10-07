@@ -8,11 +8,11 @@ Home Assistant's Energy dashboard needs sensors with device class `energy`, a to
 | Grid consumption | Grid Import Today | yes |
 | Return to grid | Grid Export Today | yes |
 | Home battery storage, energy going in | Battery Charged Today | no |
-| Home battery storage, energy coming out | Battery Discharged Today | no |
+| Home battery storage, energy coming out | Battery Discharged Today | yes |
 | Individual device | EV Charging Today | yes |
 | Individual device | Immersion Heater Today | yes |
 
-Enable the two battery sensors in **Settings → Devices & Services → GivEnergy Inverter Manager → entities** before you pick them.
+Enable Battery Charged Today in **Settings → Devices & Services → GivEnergy Inverter Manager → entities** before you pick it.
 
 ## Why these sensors
 

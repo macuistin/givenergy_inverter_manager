@@ -37,10 +37,14 @@ MAX_COLUMNS = 3
 
 
 def apex_config(height: int = 180) -> dict:
+    """The apexcharts options shared by the charts.
+
+    It sets no stroke. A global stroke curve or width overrides the per-series ones, so each
+    series carries its own stroke_width and curve.
+    """
     return {
         "chart": {"height": height, "zoom": {"enabled": False}},
         "tooltip": {"shared": True, "followCursor": True},
-        "stroke": {"curve": "smooth", "width": 2},
         "markers": {"size": 0, "hover": {"size": 5}},
         "legend": {"show": False},
     }
@@ -80,6 +84,11 @@ def button_badge(
     return badge
 
 
+def _given(options: dict[str, Any]) -> dict[str, Any]:
+    """The options that were given: those with a value."""
+    return {key: value for key, value in options.items() if value}
+
+
 def tile_card(  # noqa: PLR0913
     entity: str | None,
     name: str,
@@ -91,6 +100,7 @@ def tile_card(  # noqa: PLR0913
     inline: bool = False,
     nav: dict | None = None,
     rows: int | None = None,
+    state_content: list[str] | None = None,
 ) -> dict | None:
     """A tile card, or None when the entity is unusable.
 
@@ -99,10 +109,7 @@ def tile_card(  # noqa: PLR0913
     if not entity:
         return None
     card: dict = {"type": "tile", "entity": entity, "name": name}
-    if icon:
-        card["icon"] = icon
-    if color:
-        card["color"] = color
+    card.update(_given({"icon": icon, "color": color, "state_content": state_content}))
     if features:
         card["features"] = features
         if inline:

@@ -102,8 +102,9 @@ class TestEveryCombination:
     def test_the_heater_cards_need_the_switch(self, combination):
         _, switch, _ = combination
         titles = _titles(_view(self._seen(combination), "immersion"))
-        for heading in ("Why", "Heater power", "Today", "Settings in force"):
+        for heading in ("Why", "Today", "Settings in force"):
             assert (heading in titles) == switch, heading
+        assert "Heater power" not in titles
 
     def test_the_why_text_is_not_shown_without_a_switch(self, combination):
         """The reason says the heater is on or off, so it only makes sense with a heater."""
