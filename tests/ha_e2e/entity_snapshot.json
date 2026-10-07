@@ -600,6 +600,11 @@
   "name": "Overnight Charge Reason"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_overnight_charge_window",
+  "key": "overnight_charge_window",
+  "name": "Overnight Charge Window"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_peak_rate_import_fraction",
   "key": "peak_import_fraction_today",
   "name": "Peak rate import fraction"

@@ -10,6 +10,23 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   restart and no reinstall. The Immersion Heater (Managed) switch and the Immersion dashboard
   view appear or disappear to match. The element power moved from the Hardware section to the
   new section. The target and minimum temperatures stay with their number entities.
+- The **GivTCP Register Write Count** sensor has a `recent_writes` attribute: the last 20 writes
+  the integration made to the charge target, the charge window and the charge switches, each with
+  its time, entity, value and reason. A change to the charge target, window start or window end
+  that the integration did not make is added as `external`, with the Home Assistant `user_id` and
+  `parent_id` when there are any, and one INFO log line. Nothing is reverted and no option is
+  added. The log is saved with the other stored data.
+- The charge window is sized to the plan. The window start is still the cheapest rate period.
+  The end moves later when the plan needs more time than that period has, up to the end of the
+  run of rate periods cheaper than the base rate that follows it. The time needed is the deficit
+  from the current SoC to the target, times the battery capacity, divided by the GivTCP battery
+  charge rate (`number..._battery_charge_rate`), plus a 15% margin, rounded up to 5 minutes. If
+  the plan fits the cheapest period, or the charge rate cannot be read, the window is unchanged.
+  The inverter stops at the target, so the cheapest hours still come first. Only slot 1 is
+  written.
+- An Overnight Charge Window sensor shows the window to be written, with attributes for the
+  start, end, whether it was extended, the energy it should deliver and the expected finish.
+  Dry run shows the extended window in the "would write" text.
 
 **Fixes**
 - A switch or sensor saved in the options is now used. The managed switch and the heater
@@ -30,6 +47,29 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 - The today and week reports leave out the immersion saving lines when there is no immersion
   switch. They showed a permanent zero.
 - EV Solar Surplus is unavailable until an EV charger is found, like the other EV sensors.
+- Forecast accuracy yesterday and its 7-day average divide actual solar by the forecast for that
+  day. They used the first forecast the charge calculation saw, which could be blended toward
+  the P10 or belong to another day, so the figure read far too low (19% on a day the forecast
+  provider had forecast 7.54 kWh and the site made 6.64 kWh, about 88%). A day with no
+  remembered forecast, or with no data because Home Assistant was down, is skipped. On upgrade
+  the stored history is rebuilt from the daily forecast and solar pairs the integration already
+  keeps, up to the last 7 days, so the sensors show corrected values straight away. With no
+  pairs stored they read 0 until the next midnight. The Solar forecast today sensor still shows
+  the first forecast value the charge calculation used.
+- The write count and the write log are queued for saving as soon as a write is sent. They used
+  to wait for the next periodic save, so a crash soon after a write could lose it.
+- The Recommended Overnight Charge Target sensor no longer jitters. The calculated target moves
+  by several points between cycles in the small hours, so the sensor and its reason text
+  changed dozens of times overnight. The sensors now hold their value
+  until the calculated target is 5 points or more away, or the plan changes between charging and
+  skipping. The value written to the inverter at the start of the charge window always comes from
+  the latest calculation, never from the held value. Manual overrides and the configured cap show
+  at once.
+
+**Docs**
+- The window sizing is described in Concepts and the charge rate entity in Configuration. The
+  roadmap item for a second charge slot is removed, and a lower-priority item for tariffs with no
+  cheaper period after the cheapest is added.
 
 ## v0.9.0
 

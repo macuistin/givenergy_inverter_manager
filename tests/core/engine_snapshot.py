@@ -11,7 +11,7 @@ from __future__ import annotations
 import dataclasses
 import enum
 import importlib
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Any
 
 
@@ -85,7 +85,7 @@ def snapshot(obj: Any) -> Any:
         return {name: snapshot(getattr(obj, name)) for name in sorted(type(obj).__slots__)}
     if isinstance(obj, enum.Enum):
         return obj.value
-    if isinstance(obj, datetime):
+    if isinstance(obj, (datetime, time)):
         return obj.isoformat()
     if isinstance(obj, date):
         # BatteryStats dates come from the wall clock, so only whether one is set is pinned.

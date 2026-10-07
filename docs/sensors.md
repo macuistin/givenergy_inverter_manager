@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 145 sensors. 89 are enabled by default and 56 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 146 sensors. 90 are enabled by default and 56 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches, numbers and the button, see [Entities](entities.md).
 
@@ -128,7 +128,7 @@ Health, wear and state of the battery.
 | Battery Energy Available | `battery_kwh_available` | kWh | energy_storage | measurement | no | no | Battery state of charge times the configured capacity. |
 | Battery Life Consumed Today | `battery_life_consumed_today` | % | - | total | day | no | Today's throughput as a share of (2 x capacity x 6000 cycles). Diagnostic category. |
 | Battery Total Cycles | `battery_cycles` | - | - | total | no | yes | Equivalent full cycles (capacity discharged once). The GivTCP BMS counter when it exists, otherwise falls in SoC divided by 100. Diagnostic category. |
-| GivTCP Register Write Count | `register_write_count` | - | - | total | no | yes | Lifetime writes sent to GivTCP. Saved and kept across restarts. Diagnostic category. |
+| GivTCP Register Write Count | `register_write_count` | - | - | total | no | yes | Lifetime writes sent to GivTCP. Saved and kept across restarts. The `recent_writes` attribute lists the latest writes and outside changes to the charge target and window. Diagnostic category. |
 | Battery Cycle Cost per kWh | `battery_cycle_cost_per_kwh` | currency | - | none | no | no | Battery cost divided by (2 x capacity x 6000). Empty when battery cost is 0. Diagnostic category. |
 | Battery Remaining Life | `battery_remaining_life` | % | - | measurement | no | yes | 100 minus total cycles as a share of 6000 rated cycles. Diagnostic category. |
 | Days Since Full Charge | `days_since_full_charge` | days | - | measurement | no | yes | Days since the battery last reached 99% or more. Diagnostic category. |
@@ -144,8 +144,9 @@ Outputs of the overnight charge calculation.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Recommended Overnight Charge Target | `overnight_charge_target` | % | - | measurement | no | yes | Tonight's target after overrides and the configured cap. |
-| Overnight Charge Reason | `overnight_charge_reason` | - | - | none | no | yes | Why that target was chosen. Diagnostic category. |
+| Recommended Overnight Charge Target | `overnight_charge_target` | % | - | measurement | no | yes | Tonight's target after overrides and the configured cap. Holds its value until the calculated target moves 5 points or more. |
+| Overnight Charge Reason | `overnight_charge_reason` | - | - | none | no | yes | Why that target was chosen. Changes only when the target does. Diagnostic category. |
+| Overnight Charge Window | `overnight_charge_window` | - | - | none | no | yes | The charge window written to slot 1, sized to the plan. Attributes: `window_start`, `window_end`, `window_extended`, `expected_kwh` and `expected_finish`. Diagnostic category. |
 | Estimated Overnight Charge Cost | `overnight_charge_cost` | currency | monetary | none | no | yes | kWh to charge times the cheapest rate, before discount and VAT. Diagnostic category. |
 | Estimated SoC at Sunrise | `estimated_soc_at_sunrise` | % | - | measurement | no | yes | Projected SoC when solar starts, taken as 08:00. While solar is generating it covers tonight's 8 hour pre-solar window from the current SoC. |
 | Battery Night Survival Status | `night_survival_reason` | - | - | none | no | yes | Whether the battery should last until 08:00, with any shortfall. The charge plan does not skip a night this sensor calls Critical. Diagnostic category. |
@@ -184,7 +185,7 @@ Needs a forecast sensor in the options to be meaningful.
 |---|---|---|---|---|---|---|---|
 | Solar forecast today | `solar_forecast_kwh_today` | kWh | energy | none | no | yes | First forecast value the charge calculation used today. |
 | Solar actual vs forecast | `solar_actual_vs_forecast_pct` | % | - | measurement | no | yes | Solar generated today as a share of that forecast. |
-| Forecast accuracy yesterday | `yesterday_forecast_accuracy_pct` | % | - | measurement | no | no | Yesterday's actual solar as a share of its forecast, capped at 200. |
+| Forecast accuracy yesterday | `yesterday_forecast_accuracy_pct` | % | - | measurement | no | no | Yesterday's actual solar as a share of the forecast for that day, capped at 200. |
 | Forecast accuracy 7-day average | `forecast_accuracy_7day_avg_pct` | % | - | measurement | no | no | Average of the last 7 daily accuracy values. |
 
 ## Carbon intensity

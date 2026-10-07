@@ -223,16 +223,97 @@ class TestImportFigures:
         assert values.cheap_import_percentage(self._accumulator(0.0)) is None
 
 
+class TestPublishedChargeRecommendation:
+    """The target and reason sensors read the held copy, never the fresh decision."""
+
+    @staticmethod
+    def _decision(target_soc, reason):
+        class Decision:
+            pass
+
+        decision = Decision()
+        decision.target_soc = target_soc
+        decision.reason = reason
+        return decision
+
+    def test_none_before_the_first_decision(self):
+        data = make_data(charge_decision=self._decision(90, "fresh"))
+        assert values.overnight_charge_target(data) is None
+        assert values.overnight_charge_reason(data) is None
+
+    def test_target_and_reason_come_from_the_published_decision(self):
+        data = make_data(
+            charge_decision=self._decision(90, "fresh"),
+            published_charge_decision=self._decision(87, "held"),
+        )
+        assert values.overnight_charge_target(data) == 87
+        assert values.overnight_charge_reason(data) == "held"
+
+    def test_cost_comes_from_the_published_decision(self):
+        fresh, held = self._decision(90, "fresh"), self._decision(87, "held")
+        fresh.cost_to_charge, held.cost_to_charge = 2.0, 1.0
+        data = make_data(charge_decision=fresh, published_charge_decision=held)
+        assert values.overnight_charge_cost(data) == pytest.approx(1.0)
+
+
 class TestOvernightChargeCost:
     def test_none_before_the_first_decision(self):
-        assert values.overnight_charge_cost(make_data(charge_decision=None)) is None
+        assert values.overnight_charge_cost(make_data(published_charge_decision=None)) is None
 
     def test_rounds_to_three_places(self):
         class Decision:
             cost_to_charge = 1.23456
 
-        data = make_data(charge_decision=Decision())
+        data = make_data(published_charge_decision=Decision())
         assert values.overnight_charge_cost(data) == pytest.approx(1.235)
+
+
+class TestOvernightChargeWindow:
+    @staticmethod
+    def _window(**fields):
+        from datetime import time
+
+        from custom_components.givenergy_inverter_manager.core.charge_window import ChargeWindow
+
+        defaults = {
+            "start": time(2, 0),
+            "end": time(6, 10),
+            "extended": True,
+            "expected_kwh": 12.92,
+            "finish_time": time(5, 36),
+        }
+        return ChargeWindow(**{**defaults, **fields})
+
+    def test_none_without_a_window(self):
+        data = make_data(charge_window=None)
+
+        assert values.overnight_charge_window(data) is None
+        assert values.overnight_charge_window_attributes(data) is None
+
+    def test_state_is_the_written_window(self):
+        data = make_data(charge_window=self._window())
+
+        assert values.overnight_charge_window(data) == "02:00 to 06:10"
+
+    def test_attributes_explain_the_window(self):
+        data = make_data(charge_window=self._window())
+
+        assert values.overnight_charge_window_attributes(data) == {
+            "window_start": "02:00",
+            "window_end": "06:10",
+            "window_extended": True,
+            "expected_kwh": 12.92,
+            "expected_finish": "05:36",
+        }
+
+    def test_attributes_leave_out_what_is_not_known(self):
+        window = self._window(extended=False, expected_kwh=None, finish_time=None)
+
+        attributes = values.overnight_charge_window_attributes(make_data(charge_window=window))
+
+        assert attributes["window_extended"] is False
+        assert attributes["expected_kwh"] is None
+        assert attributes["expected_finish"] is None
 
 
 class TestNightSurvivalConfidence:
@@ -275,6 +356,19 @@ class TestNightSurvivalConfidence:
     def test_attributes_explain_the_level(self):
         attrs = values.night_survival_attributes(self._night(survive=False, reason="Runs out"))
         assert attrs["explanation"].startswith("Critical")
+
+
+class TestRegisterWriteAttributes:
+    def test_recent_writes_are_listed_newest_first(self):
+        log = [
+            {"time": "t1", "entity_id": "number.t", "value": "55", "reason": "charge target"},
+            {"time": "t2", "entity_id": "number.t", "value": "60", "reason": "external"},
+        ]
+        attrs = values.register_write_attributes(make_data(register_write_log=log))
+        assert [w["time"] for w in attrs["recent_writes"]] == ["t2", "t1"]
+
+    def test_an_empty_log_gives_an_empty_list(self):
+        assert values.register_write_attributes(make_data()) == {"recent_writes": []}
 
 
 class TestInverterAndCarbon:

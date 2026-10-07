@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
@@ -40,6 +41,7 @@ from custom_components.givenergy_inverter_manager.const import (
 )
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter, SwitchState
@@ -116,6 +118,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         from custom_components.givenergy_inverter_manager.logging import GivLogger
 
         self._battery_stats = BatteryStats()
+        self._held_charge = HeldCharge()
         self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""
 
@@ -1096,6 +1099,21 @@ class TestWriteChargeTarget:
         number_calls = coord.service_calls_for("number", "set_value")
         assert len(number_calls) == 1
         assert number_calls[0]["value"] == 75
+
+    @pytest.mark.asyncio
+    async def test_the_write_uses_the_fresh_decision_not_the_published_one(self):
+        coord = self._coord_with_decision(target_soc=91)
+        coord.data.published_charge_decision = replace(coord.data.charge_decision, target_soc=87)
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        await coord.tasks_created[0]
+        assert coord.service_calls_for("number", "set_value")[0]["value"] == 91
+
+    def test_the_write_releases_the_held_recommendation(self):
+        coord = self._coord_with_decision(target_soc=91)
+        coord._held_charge.decision = replace(coord.data.charge_decision, target_soc=87)
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        coord.tasks_created[0].close()
+        assert coord._held_charge.decision is None
 
     @pytest.mark.asyncio
     async def test_enable_charge_target_on_below_100(self):
@@ -3660,3 +3678,115 @@ class TestBackgroundTasks:
         with pytest.raises(asyncio.CancelledError):
             await GivEnergyCoordinator._run_background(coord, cancelled())
 
+
+
+
+# ── TestChargeWindowSizing ────────────────────────────────────────────────────
+
+_SERIAL = "fd2309f069"
+_CHARGE_RATE = f"number.givtcp_{_SERIAL}_battery_charge_rate"
+
+
+class TestChargeWindowSizing:
+    """The charge window end is sized to the plan from the GivTCP battery charge rate."""
+
+    @staticmethod
+    def _coord(soc: str = "20", charge_rate: str | None = "3600", **cfg_extra) -> FakeCoordinator:
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_BATTERY_CAPACITY,
+            CONF_INVERTER_SERIAL,
+        )
+
+        coord = FakeCoordinator(
+            cfg=_cfg(**{CONF_INVERTER_SERIAL: _SERIAL, CONF_BATTERY_CAPACITY: 19.0, **cfg_extra})
+        )
+        coord.set_states({**_default_states(), "sensor.battery_soc": soc})
+        if charge_rate is not None:
+            coord.set_state(_CHARGE_RATE, charge_rate)
+        coord.override_charge_enabled = True
+        coord.override_charge_value = 88
+        return coord
+
+    @staticmethod
+    def _written_times(coord: FakeCoordinator) -> dict[str, str]:
+        calls = coord.service_calls_for("select", "select_option")
+        return {c["entity_id"]: c["option"] for c in calls}
+
+    async def _write(self, coord: FakeCoordinator) -> None:
+        await coord.run_cycle()
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        await coord.tasks_created[0]
+
+    @pytest.mark.parametrize(
+        ("rate_state", "expected"),
+        [
+            ("3600", 3600.0),
+            ("2600.0", 2600.0),
+            ("0", None),
+            ("unavailable", None),
+            ("unknown", None),
+        ],
+    )
+    def test_reads_the_charge_rate_from_the_serial_derived_entity(self, rate_state, expected):
+        coord = self._coord(charge_rate=rate_state)
+
+        raw = coord._collect_raw(coord._effective_cfg())
+
+        assert raw.battery_charge_rate_w == expected
+
+    def test_a_missing_charge_rate_entity_reads_as_unknown(self):
+        coord = self._coord(charge_rate=None)
+
+        assert coord._collect_raw(coord._effective_cfg()).battery_charge_rate_w is None
+
+    def test_no_inverter_serial_reads_as_unknown(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states({**_default_states(), _CHARGE_RATE: "3600"})
+
+        assert coord._collect_raw(coord._effective_cfg()).battery_charge_rate_w is None
+
+    @pytest.mark.asyncio
+    async def test_a_deep_deficit_writes_the_extended_end(self):
+        coord = self._coord()
+
+        await self._write(coord)
+
+        written = self._written_times(coord)
+        assert written["select.charge_start"] == "02:00:00"
+        assert written["select.charge_end"] == "06:10:00"
+
+    @pytest.mark.asyncio
+    async def test_a_shallow_deficit_writes_the_cheapest_period_end(self):
+        coord = self._coord(soc="75")
+
+        await self._write(coord)
+
+        assert self._written_times(coord)["select.charge_end"] == "04:00:00"
+
+    @pytest.mark.asyncio
+    async def test_an_unreadable_charge_rate_writes_the_cheapest_period_end(self):
+        coord = self._coord(charge_rate=None)
+
+        await self._write(coord)
+
+        assert self._written_times(coord)["select.charge_end"] == "04:00:00"
+
+    @pytest.mark.asyncio
+    async def test_a_skipped_night_resets_the_window_to_the_cheapest_period(self):
+        coord = self._coord()
+        coord.override_charge_enabled = False
+        coord.override_skip_charge = True
+
+        await self._write(coord)
+
+        assert self._written_times(coord)["select.charge_end"] == "04:00:00"
+
+    @pytest.mark.asyncio
+    async def test_dry_run_shows_the_extended_window(self):
+        coord = self._coord(**{CONF_DRY_RUN: True})
+        await coord.run_cycle()
+
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+
+        assert coord.tasks_created == []
+        assert "Nightboost window 02:00–06:10" in coord.data.dry_run_last_skipped

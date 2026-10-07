@@ -51,6 +51,7 @@
       "battery_state": {"default": "mdi:battery-charging-80"},
       "overnight_charge_target": {"default": "mdi:battery-charging-80"},
       "overnight_charge_reason": {"default": "mdi:information-outline"},
+      "overnight_charge_window": {"default": "mdi:clock-time-four-outline"},
       "overnight_charge_cost": {"default": "mdi:currency-eur"},
       "immersion_divert_reason": {"default": "mdi:water-boiler"},
       "estimated_soc_at_sunrise": {"default": "mdi:weather-sunny"},

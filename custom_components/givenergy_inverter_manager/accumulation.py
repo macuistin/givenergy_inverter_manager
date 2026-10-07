@@ -23,18 +23,23 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.rules import build_load_profile, forecast_correction_factor
 from .core.tariff import EnergyAccumulator
+from .core.write_log import restore_entries
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
 _LOG = logging.getLogger(__name__)
 _STORAGE_KEY = "givenergy_inverter_manager.energy"
-_STORAGE_VERSION = 2
+_STORAGE_VERSION = 3
 # Version 1 counted battery cycles in both directions (charge and discharge).
 # Version 2 counts discharge only, so stored cycle figures are halved once.
 _CYCLE_FIELDS_HALVED_AT_V2 = ("battery_cycles", "battery_tracking_start_cycles")
+# Version 2 divided actual solar by the blended forecast the first charge decision of the day
+# used, which can be for another day. Version 3 divides by the raw forecast for the day, so the
+# stored accuracy history is rebuilt from forecast_ratio_history, which holds that pair.
 _FORECAST_HISTORY_DAYS = 7
 _FORECAST_RATIO_HISTORY_DAYS = 14
 _SLOT_HISTORY_DAYS = 28
@@ -133,7 +138,35 @@ def migrate_storage(old_version: int, data: dict) -> dict:
                 migrated[key] = 0.0
         migrated.setdefault("register_write_count", 0)
         migrated["version"] = 2
+    if old_version < 3 and int(migrated.get("version", 1)) < 3:
+        _rebuild_forecast_accuracy(migrated)
+        migrated["version"] = 3
     return migrated
+
+
+def _forecast_accuracy_pct(forecast_kwh: float, actual_kwh: float) -> float:
+    """Actual solar as a percentage of the forecast, capped at 200."""
+    return min(200.0, round(actual_kwh / forecast_kwh * 100, 1))
+
+
+def _rebuild_forecast_accuracy(payload: dict) -> None:
+    """Replace the stored accuracy figures with ones measured against the raw forecast.
+
+    forecast_ratio_history holds the raw forecast and the actual solar of each completed day.
+    A day with no actual solar is skipped, because it can be a day Home Assistant was down.
+    With no usable days the history starts empty and the sensors read 0 until the next midnight.
+    """
+    records = payload.get("forecast_ratio_history", [])
+    history = []
+    for record in records if isinstance(records, list) else []:
+        try:
+            forecast, actual = float(record["forecast"]), float(record["actual"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if forecast > 0 and actual > 0:
+            history.append(_forecast_accuracy_pct(forecast, actual))
+    payload["forecast_accuracy_history"] = history[-_FORECAST_HISTORY_DAYS:]
+    payload["yesterday_forecast_accuracy_pct"] = history[-1] if history else 0.0
 
 
 def _create_store(hass: HomeAssistant):
@@ -160,19 +193,22 @@ class AccumulationState:
     year: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     yesterday: EnergyAccumulator = field(default_factory=EnergyAccumulator)
 
-    # Forecast accuracy — recorded at midnight from the previous charge decision
+    # First forecast the charge decision used today. Feeds the "Solar forecast today" sensor
+    # and today's solar against forecast, not the accuracy history.
     today_forecast_kwh: float = 0.0
     battery_cycles: float = 0.0
     last_full_charge_date: str = ""  # ISO date string, "" = never
     battery_tracking_start: str = ""  # ISO date cycle tracking began, "" = not started
     battery_tracking_start_cycles: float = 0.0
     register_write_count: int = 0  # lifetime GivTCP register writes made by this integration
+    # Newest-last log of recent writes and outside changes, see core/write_log.py.
+    register_write_log: list = field(default_factory=list)
     yesterday_forecast_accuracy_pct: float = 0.0
     forecast_accuracy_history: list = field(default_factory=list)  # last 7 days
 
-    # Raw P50 forecast (before P10 blend or seasonal fallback) used for the accuracy
-    # correction. pending is the latest value seen today; at midnight it becomes the
-    # forecast for the new day. ratio history holds {"forecast", "actual", "clipped"}.
+    # Raw P50 forecast (before P10 blend or seasonal fallback) used for the forecast accuracy
+    # and its correction. pending is the latest value seen today; at midnight it becomes
+    # the forecast for the new day. ratio history holds {"forecast", "actual", "clipped"}.
     # The P10 pair follows the same path so a charge decision made after midnight can
     # still read the forecast for the day it serves.
     pending_raw_forecast_kwh: float = 0.0
@@ -384,11 +420,16 @@ class AccumulationStore:
             self._reset_year(now)
 
     def _record_forecast_accuracy(self) -> None:
-        """Forecast accuracy for the completed day, kept for the last seven days."""
-        if self.state.today_forecast_kwh <= 0:
+        """Forecast accuracy for the completed day, kept for the last seven days.
+
+        Measured against the raw forecast remembered for that day, the figure the accuracy
+        correction uses. A day with no raw forecast, or with nothing accumulated, is skipped.
+        """
+        forecast = self.state.today_raw_forecast_kwh
+        if forecast <= 0 or self.state.today == EnergyAccumulator():
             return
         actual = self.state.today.solar_kwh
-        accuracy = min(200.0, round(actual / self.state.today_forecast_kwh * 100, 1))
+        accuracy = _forecast_accuracy_pct(forecast, actual)
         self.state.yesterday_forecast_accuracy_pct = accuracy
         history = self.state.forecast_accuracy_history[-(_FORECAST_HISTORY_DAYS - 1) :]
         history.append(accuracy)
@@ -396,7 +437,7 @@ class AccumulationStore:
         _LOG.debug(
             "Forecast accuracy for completed day: %.1f%% (forecast %.1fkWh, actual %.1fkWh)",
             accuracy,
-            self.state.today_forecast_kwh,
+            forecast,
             actual,
         )
 
@@ -506,11 +547,10 @@ class AccumulationStore:
 
     def on_charge_decision(self, forecast_kwh: float) -> None:
         """
-        Record the forecast kWh from tonight's charge decision.
+        Record the forecast kWh from the first charge decision of the day.
 
-        Called once per day when the charge decision is first made.
-        The forecast is compared against actual solar at the next midnight
-        to produce the accuracy metric.
+        It feeds the "Solar forecast today" sensor. Forecast accuracy does not use it,
+        because it can be blended toward the P10 or belong to another day.
         """
         if self.state.today_forecast_kwh == 0.0 and forecast_kwh > 0:
             self.state.today_forecast_kwh = forecast_kwh
@@ -597,6 +637,7 @@ def _serialize(state: AccumulationState) -> dict:
         "battery_tracking_start": state.battery_tracking_start,
         "battery_tracking_start_cycles": state.battery_tracking_start_cycles,
         "register_write_count": state.register_write_count,
+        "register_write_log": [dict(e) for e in state.register_write_log],
         "yesterday_forecast_accuracy_pct": state.yesterday_forecast_accuracy_pct,
         "forecast_accuracy_history": list(state.forecast_accuracy_history),
         "pending_raw_forecast_kwh": state.pending_raw_forecast_kwh,
@@ -633,6 +674,9 @@ def _restore_battery_and_forecast(state: AccumulationState, data: dict) -> None:
     state.battery_tracking_start = str(data.get("battery_tracking_start", ""))
     state.battery_tracking_start_cycles = float(data.get("battery_tracking_start_cycles", 0.0))
     state.register_write_count = _as_count(data.get("register_write_count", 0))
+    state.register_write_log = restore_entries(
+        data.get("register_write_log"), REGISTER_WRITE_LOG_MAX_ENTRIES
+    )
     state.yesterday_forecast_accuracy_pct = float(data.get("yesterday_forecast_accuracy_pct", 0.0))
     state.forecast_accuracy_history = [float(x) for x in data.get("forecast_accuracy_history", [])]
     state.pending_raw_forecast_kwh = float(data.get("pending_raw_forecast_kwh", 0.0))

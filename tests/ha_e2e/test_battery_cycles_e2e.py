@@ -6,7 +6,10 @@ import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import entity_registry as er
 
-from custom_components.givenergy_inverter_manager.accumulation import _STORAGE_KEY
+from custom_components.givenergy_inverter_manager.accumulation import (
+    _STORAGE_KEY,
+    _STORAGE_VERSION,
+)
 from custom_components.givenergy_inverter_manager.const import DOMAIN
 
 V1_CYCLES = 62.6
@@ -39,7 +42,7 @@ async def test_version_1_cycles_are_halved_on_load(hass, v1_storage, loaded_entr
 
 
 async def test_migrated_store_is_saved_at_the_new_version(hass, v1_storage, loaded_entry):
-    assert v1_storage[_STORAGE_KEY]["version"] == 2
+    assert v1_storage[_STORAGE_KEY]["version"] == _STORAGE_VERSION
     assert v1_storage[_STORAGE_KEY]["data"]["battery_cycles"] == pytest.approx(V1_CYCLES / 2)
 
 

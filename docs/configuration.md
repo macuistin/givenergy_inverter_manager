@@ -27,6 +27,7 @@ The integration looks for a GivTCP inverter by its `sensor.givtcp_<id>_invertor_
 | Enable charge target | `switch..._enable_charge_target` | no, needed to write charge targets |
 | Enable charge schedule | `switch..._enable_charge_schedule` | no, needed to write charge targets |
 | Charge start and end, slot 1 | `select..._charge_start_time_slot_1` and `..._charge_end_time_slot_1` | no, needed to write charge targets |
+| Battery charge rate | `number..._battery_charge_rate` | no, read at the pre-window write to size the charge window. Not stored in the configuration. Without it the window is the cheapest period |
 
 If the five required power sensors are found, the form shows only three fields and fills the entity IDs itself.
 

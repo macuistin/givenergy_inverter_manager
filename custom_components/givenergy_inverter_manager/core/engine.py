@@ -89,6 +89,8 @@ from .battery import (
     estimate_will_survive_night,
     hours_until_solar,
 )
+from .charge_hold import HeldCharge, next_held_recommendation
+from .charge_window import ChargeNeed, ChargeWindow, plan_charge_window
 from .rules import (
     ChargeDecision,
     ChargeInputs,
@@ -163,6 +165,8 @@ class RawSensorValues:
     load_energy_today_kwh: float | None = None
     # Lifetime cycle count reported by the battery BMS (highest single pack), None if unknown
     battery_lifetime_cycles: float | None = None
+    # The GivTCP battery charge rate setting in W, None when the entity is not readable
+    battery_charge_rate_w: float | None = None
 
     def __post_init__(self) -> None:
         if self.smoothed_solar_power_w < 0.0:
@@ -203,6 +207,9 @@ class CoordinatorData:
     currency_symbol: str = DEFAULT_CURRENCY_SYMBOL
     is_clipping: bool = False
     charge_decision: ChargeDecision | None = None
+    charge_window: ChargeWindow | None = None
+    # The held copy of charge_decision the sensors publish. The write uses charge_decision.
+    published_charge_decision: ChargeDecision | None = None
     should_divert_immersion: bool = False
     divert_reason: str = ""
     today: EnergyAccumulator = field(default_factory=EnergyAccumulator)
@@ -262,6 +269,7 @@ class CoordinatorData:
     yesterday_forecast_accuracy_pct: float = 0.0
     forecast_accuracy_7day_avg_pct: float = 0.0
     register_write_count: int = 0
+    register_write_log: list[dict] = field(default_factory=list)  # oldest first
     carbon_intensity_gco2: float | None = None
     carbon_intensity_status: str = "Unknown"
 
@@ -651,11 +659,12 @@ class ForecastContext:
 
 @dataclass(frozen=True)
 class PreviousCycle:
-    """State carried over from the previous update. battery_stats is mutated in place."""
+    """State carried over from the previous update. battery_stats and held_charge are mutated."""
 
     battery_stats: BatteryStats
     last_soc: float | None
     last_update_time: datetime | None
+    held_charge: HeldCharge = field(default_factory=HeldCharge)
 
 
 @dataclass(frozen=True)
@@ -941,40 +950,68 @@ def _overnight_charge_decision(cycle: _Cycle, avg_daily_kwh: float) -> ChargeDec
     )
 
 
-def _apply_charge_overrides(
-    data: CoordinatorData,
+def _with_charge_overrides(
+    decision: ChargeDecision,
     overrides: ManualOverrides,
     max_target: int,
-) -> None:
-    """Apply charge target overrides to charge decision."""
-    if data.charge_decision is None:
-        return
+) -> ChargeDecision:
+    """The decision with any manual override and the configured maximum applied."""
     if overrides.skip_charge:
-        data.charge_decision = replace(
-            data.charge_decision,
+        return replace(
+            decision,
             skip_charge=True,
             reason="Manual override: skip overnight charge",
         )
-    elif overrides.charge_target is not None:
-        data.charge_decision = replace(
-            data.charge_decision,
+    if overrides.charge_target is not None:
+        return replace(
+            decision,
             target_soc=overrides.charge_target,
             skip_charge=False,
             reason=f"Manual override: charge to {overrides.charge_target}%",
         )
-    elif data.charge_decision.target_soc > max_target and not data.charge_decision.skip_charge:
-        data.charge_decision = replace(
-            data.charge_decision,
+    if decision.target_soc > max_target and not decision.skip_charge:
+        return replace(
+            decision,
             target_soc=max_target,
-            reason=data.charge_decision.reason + f" (capped at configured max {max_target}%)",
+            reason=decision.reason + f" (capped at configured max {max_target}%)",
         )
+    return decision
 
 
-def _set_overnight_charge(data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float) -> None:
-    """Work out tonight's charge target, then apply any manual override and the cap."""
-    data.charge_decision = _overnight_charge_decision(cycle, avg_daily_kwh)
+def _set_overnight_charge(
+    data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float, held: HeldCharge
+) -> None:
+    """
+    Work out tonight's charge target, then apply any manual override and the cap.
+
+    charge_decision is the fresh result and is what gets written to the inverter. The
+    sensors read published_charge_decision, built from the held calculation so it only
+    moves once the fresh target is a clear step away. Overrides and the cap apply to both.
+    """
+    fresh = _overnight_charge_decision(cycle, avg_daily_kwh)
+    held.decision = next_held_recommendation(held.decision, fresh)
     max_target = int(cycle.cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
-    _apply_charge_overrides(data, cycle.overrides, max_target)
+    data.charge_decision = _with_charge_overrides(fresh, cycle.overrides, max_target)
+    data.published_charge_decision = _with_charge_overrides(
+        held.decision, cycle.overrides, max_target
+    )
+    data.charge_window = _plan_charge_window(data, cycle)
+
+
+def _plan_charge_window(data: CoordinatorData, cycle: _Cycle) -> ChargeWindow | None:
+    """The window sized to the charge decision, None when the tariff has no timed period."""
+    decision = data.charge_decision
+    if decision is None or not cycle.tariff.rate_periods:
+        return None
+    # A skipped night charges nothing, so the window stays the cheapest period.
+    target = decision.current_soc if decision.skip_charge else decision.target_soc
+    need = ChargeNeed(
+        soc=decision.current_soc,
+        target_soc=target,
+        capacity_kwh=decision.battery_capacity,
+        charge_power_w=cycle.raw.battery_charge_rate_w,
+    )
+    return plan_charge_window(cycle.tariff, need)
 
 
 def _calculate_ev_km(data: CoordinatorData, acc: EnergyAccumulator, cfg: dict[str, Any]) -> None:
@@ -1156,9 +1193,11 @@ def _start_cycle(inputs: CycleInputs, forecast: ForecastContext, now: datetime) 
     )
 
 
-def _set_decisions(data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float) -> None:
+def _set_decisions(
+    data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float, held: HeldCharge
+) -> None:
     """The charge target and the immersion divert, both of which honour manual overrides."""
-    _set_overnight_charge(data, cycle, avg_daily_kwh)
+    _set_overnight_charge(data, cycle, avg_daily_kwh, held)
     _set_immersion_decision(data, cycle)
     _set_inverter_temperature(data, cycle.raw.inverter_temp)
 
@@ -1196,7 +1235,7 @@ def build_coordinator_data(
     _accumulate_energy_today(data, cycle, accumulators, previous.last_update_time)
     avg_daily_kwh = estimate_avg_daily_kwh(data.today.house_kwh, now)
 
-    _set_decisions(data, cycle, avg_daily_kwh)
+    _set_decisions(data, cycle, avg_daily_kwh, previous.held_charge)
     _set_money_fields(data, cycle, accumulators)
     _calculate_ev_km(data, accumulators.today, inputs.cfg)
     _calculate_night_survival(data, cycle, avg_daily_kwh)

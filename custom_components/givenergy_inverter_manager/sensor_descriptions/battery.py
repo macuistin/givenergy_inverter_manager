@@ -23,6 +23,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="register_write_count",
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: d.register_write_count,
+        attrs_fn=values.register_write_attributes,
     ),
     GivEnergyManagerSensorDescription(
         key="battery_cycle_cost_per_kwh",
