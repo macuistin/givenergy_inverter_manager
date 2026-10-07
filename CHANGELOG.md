@@ -2,6 +2,23 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+The Immersion sub-view shows the water temperature and the heater on one chart. Generate the
+dashboard file again to get it.
+
+**Changes**
+- The heater's power is a fixed number, so the Heater power chart is gone. The water temperature
+  chart shades the times the heater was on instead, in a pale red band. With a switch and no
+  temperature sensor, a small Heater on or off chart shows the same band. The Today tiles for
+  energy, cost and saved by solar stay.
+- The immersion charts no longer set a stroke curve or width for the whole chart. Each series
+  sets its own, so the band steps between on and off without ramps, and draws no line when the
+  heater is off.
+- Without apexcharts-card, the built-in history graph adds the heater's power as a line. It
+  cannot shade the band. The hourly immersion energy graph is removed with the Heater power
+  section.
+
 ## v0.11.0
 
 Self-sufficiency no longer reads 0% on the morning after a cheap overnight charge. The dashboard

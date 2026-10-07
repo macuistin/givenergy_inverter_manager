@@ -199,7 +199,7 @@ Many sensors are disabled by default. See [Sensors](sensors.md).
 ## Dashboard cards show errors
 
 - The live flow card in the Power Flow view needs power-flow-card-plus. Install it from HACS if the card shows an error.
-- The immersion charts need apexcharts-card.
+- The immersion chart needs apexcharts-card. Without it the sub-view uses a built-in history graph, which draws the heater's power as a line and cannot shade the times it was on.
 - HTML report cards that show plain text: use a built-in `markdown` card and enable the report sensor. See [Dashboard](dashboard.md#html-report-cards).
 
 ## Getting help

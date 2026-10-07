@@ -28,7 +28,7 @@ The file only contains tiles and cards that will show a value.
 - A tile is left out when its entity is disabled or not registered. Many sensors are disabled by default. The file header and the **GivEnergy Dashboard Ready** notification list the disabled sensors the dashboard would have used. Enable them in **Settings → Devices & services → Entities**, then generate the file again.
 - A section with no tiles left is left out too, so there is never a heading on its own.
 - EV tiles and the EV charger sub-view need an EV charger the integration has discovered. They are hidden until it has, and shown when it does. See [Devices you add or remove later](#devices-you-add-or-remove-later).
-- The heater tiles, the heater power chart and the divert reason need an immersion switch. The water temperature tile and chart need an immersion temperature sensor. The Target, Minimum and Restart gap tiles and sliders need both, because they act on nothing without a sensor to read.
+- The heater tiles, the heater on or off band and the divert reason need an immersion switch. The water temperature tile and chart need an immersion temperature sensor. The Target, Minimum and Restart gap tiles and sliders need both, because they act on nothing without a sensor to read.
 - Inverter temperature tiles need the inverter temperature entity in the options.
 - The forecast tiles need a forecast entity in the options.
 
@@ -46,11 +46,11 @@ What each device brings:
 | Device | How the integration knows | Shown when it is there |
 |---|---|---|
 | EV charger | Discovery finds a supported charger. This runs again every five minutes until one is found | Car charger on the flow card, the EV charger tile and sub-view, EV energy and cost tiles |
-| Immersion switch | The switch is set under Configure, Immersion heater (or at setup) | Heater power, energy, cost and savings, the divert reason, the Auto divert and Managed settings, the immersion node on the flow card |
+| Immersion switch | The switch is set under Configure, Immersion heater (or at setup) | Heater power, energy, cost and savings, the heater on or off band, the divert reason, the Auto divert and Managed settings, the immersion node on the flow card |
 | Immersion temperature sensor | The sensor is set under Configure, Immersion heater (or at setup) | The Immersion tile with the water temperature, the water temperature chart |
 | Switch and sensor together | Both are set | The Target, Minimum and Restart gap tiles and sliders, and the target and minimum lines on the chart |
 
-With only a switch, the Immersion tile shows the heater power and the sub-view has no temperature chart. With only a sensor, it shows the water temperature and nothing about a heater.
+With only a switch, the Immersion tile shows the heater power and the sub-view has a small chart of when the heater was on. With only a sensor, it shows the water temperature and nothing about a heater. With both, the water temperature chart also shades the times the heater was on.
 
 The integration creates the entities of a device only while the device exists. See [Sensors](sensors.md). So the sensor the dashboard hides on is not a dead entity. It is the entity that arrives with the device. The water temperature sensor mirrors the sensor you set, so the dashboard has a stable entity to chart.
 
@@ -110,7 +110,7 @@ The integration serves a small JavaScript file at `/givenergy_inverter_manager/g
 | Card | Needed for | Behaviour without it |
 |---|---|---|
 | [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | The live flow card in the Power Flow tab | An entities card lists the same values |
-| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The immersion charts in the Immersion sub-view | A history graph of the temperatures and a statistics graph of immersion energy replace them |
+| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The immersion charts in the Immersion sub-view | A history graph replaces the chart. It draws the temperatures and the heater's power as a line, so the heater is not shaded and has no on or off band |
 
 When you generate the file, the integration reads the Lovelace resource list (**Settings → Dashboards → Resources**). A card whose URL is not in the list is treated as not installed, and the built-in cards are used. The file header names the cards it replaced. Install the card from HACS and generate the file again to get the custom card.
 
@@ -170,13 +170,13 @@ For the EV load, the dashboard uses the first of these entities that exists, els
 
 ### Immersion (sub-view)
 
-![Immersion view with water temperature and heater power charts and the reason for the divert decision.](images/dashboard-immersion.png)
+![Immersion view with the water temperature chart, the heater shaded while it is on, and the reason for the divert decision.](images/dashboard-immersion.png)
 
 Each section shows only while the device it needs exists.
 
-- **Water temperature** (needs the sensor): a 12-hour chart of water temperature. With a switch as well, it also draws the target and minimum.
+- **Water temperature** (needs the sensor): a 12-hour chart of water temperature. With a switch as well, it also draws the target and minimum, and shades the chart in pale red while the heater is on. The heater's power is a fixed number, so the chart shows on or off and not watts. There is no separate heater power chart.
+- **Heater on or off** (needs the switch and no sensor): a small 12-hour chart of the same shaded band, for an install with a switch but no temperature sensor. It hides itself when a sensor is set, as the water temperature chart then carries the band.
 - **Why** (needs the switch): the divert reason in words.
-- **Heater power** (needs the switch): a 12-hour step chart of the immersion's power in watts.
 - **Today** (needs the switch): energy, cost and what solar saved.
 - **Settings in force** (needs the switch): Auto divert and Managed, to read. With a sensor as well it adds Target temp, Minimum temp and Restart gap. Change them in Settings.
 

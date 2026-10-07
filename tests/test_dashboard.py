@@ -251,18 +251,15 @@ class TestPowerFlowTabChanges:
         assert eid("immersion_today") in text
 
     def test_immersion_section_present_when_configured(self):
-        """When temp sensor is configured, the sub-view has the two apexcharts charts."""
+        """With a temperature sensor and a switch, the sub-view has one apexcharts chart."""
         yaml_text = shown_text()
 
         assert "apexcharts-card" in yaml_text, "Immersion section must use apexcharts-card"
         assert "graph_span: 12h" in yaml_text, "Must show 12 hours of history"
         assert eid("immersion_water_temperature") in yaml_text
-        assert yaml_text.count("apexcharts-card") >= 2, (
-            "Must have temperature chart and energy/power chart."
-        )
         charts = [c for c in _cards(yaml_text, "immersion") if c["type"].startswith("custom:")]
-        assert len(charts) == 2
-        assert all(c["header"] == {"show": False} for c in charts)
+        assert len(charts) == 1
+        assert charts[0]["header"] == {"show": False}
 
 
 class TestDashboardImprovements:
@@ -965,9 +962,11 @@ class TestMissingHacsCards:
         assert "custom:apexcharts-card" not in text
         cards = _cards(text, "immersion")
         charts = [c["type"] for c in cards if c["type"].endswith("graph")]
-        assert charts == ["history-graph", "statistics-graph"]
+        assert charts == ["history-graph"]
         graph = next(c for c in cards if c["type"] == "history-graph")
-        assert [r["entity"] for r in graph["entities"]][0] == eid("immersion_water_temperature")
+        rows = [r["entity"] for r in graph["entities"]]
+        assert rows[0] == eid("immersion_water_temperature")
+        assert rows[-1] == eid("immersion_power")
         assert all(c["type"] != "vertical-stack" for c in cards)
 
     def test_matching_ignores_case_and_path(self):
@@ -1123,17 +1122,13 @@ class TestSubViews:
         ]
         assert len(bars) == 2  # the Now section and the Battery tab
 
-    def test_immersion_power_chart_plots_power_not_energy(self):
+    def test_the_heater_is_a_stepped_band_on_the_temperature_chart(self):
+        """The sensor only updates on change, so a smooth line would draw false ramps."""
         charts = [c for c in _cards(_build(), "immersion") if c["type"] == "custom:apexcharts-card"]
-        text = yaml.dump(charts)
-        assert eid("immersion_power") in text
-        assert "Immersion Power Today" not in text
-
-    def test_immersion_power_chart_is_a_step_line(self):
-        """The sensor only updates on change, so a smooth line draws false ramps."""
-        charts = [c for c in _cards(_build(), "immersion") if c["type"] == "custom:apexcharts-card"]
-        power = next(c for c in charts if c["series"][0]["entity"] == eid("immersion_power"))
-        assert power["apex_config"]["stroke"]["curve"] == "stepline"
+        heater = [s for c in charts for s in c["series"] if s["entity"] == eid("immersion_power")]
+        assert heater
+        assert {s["curve"] for s in heater} == {"stepline"}
+        assert "Immersion Power Today" not in yaml.dump(charts)
 
     def test_no_immersion_or_ev_view_is_shown_without_the_devices(self):
         """The views stay in a stored file, so a device added later has somewhere to show."""

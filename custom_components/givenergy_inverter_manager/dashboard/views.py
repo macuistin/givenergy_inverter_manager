@@ -50,8 +50,8 @@ from .cards import (
 )
 from .charts import (
     ImmersionEntities,
-    apex_immersion_charts,
-    builtin_immersion_charts,
+    apex_immersion_chart,
+    builtin_immersion_chart,
     flow_card,
     flow_fallback,
 )
@@ -416,8 +416,8 @@ class Builder:
 
     # -- Immersion sub-view --
 
-    def _immersion_charts(self, entities: ImmersionEntities, device: Device) -> tuple[list, list]:
-        """The immersion charts in apexcharts-card, or built-in cards when it is not installed.
+    def _immersion_chart(self, entities: ImmersionEntities, device: Device) -> dict | None:
+        """An immersion chart in apexcharts-card, or a built-in card when it is not installed.
 
         Only a device that exists makes the file ask for apexcharts-card. A chart that waits
         for a device that is not there yet still picks its card, but adds no note about it.
@@ -426,32 +426,23 @@ class Builder:
             use_apex = self.cards.use(APEX_CARD)
         else:
             use_apex = self.cards.installed(APEX_CARD)
-        build = apex_immersion_charts if use_apex else builtin_immersion_charts
+        build = apex_immersion_chart if use_apex else builtin_immersion_chart
         return build(entities)
 
     def _temperature_card(self, shown: frozenset[Device]) -> dict | None:
-        """The water temperature chart, with the target and minimum lines when they exist."""
-        thermostat = Device.IMMERSION_THERMOSTAT in shown
-        entities = ImmersionEntities(
-            self.water_sensor("immersion_water_temperature") or "",
-            self.thermostat("immersion_target_temp") if thermostat else None,
-            self.thermostat("immersion_min_temp") if thermostat else None,
-            None,
-            None,
-        )
-        temps, _ = self._immersion_charts(entities, Device.IMMERSION_SENSOR)
-        return temps[0] if temps else None
+        """The water temperature chart.
 
-    def _power_cards(self) -> list:
-        """The heater power chart. It follows the switch, so it needs no sensor."""
+        With the thermostat (the switch and the sensor together) it adds the target and minimum
+        lines, and the heater shaded while it is on.
+        """
+        both = Device.IMMERSION_THERMOSTAT in shown
         entities = ImmersionEntities(
-            "",
-            None,
-            None,
-            self.immersion("immersion_today"),
-            self.immersion("immersion_power"),
+            self.water_sensor("immersion_water_temperature"),
+            self.thermostat("immersion_target_temp") if both else None,
+            self.thermostat("immersion_min_temp") if both else None,
+            self.immersion("immersion_power") if both else None,
         )
-        return self._immersion_charts(entities, Device.IMMERSION_SWITCH)[1]
+        return self._immersion_chart(entities, Device.IMMERSION_SENSOR)
 
     def _water_temperature(self) -> dict | None:
         """The water temperature chart, while there is a sensor. Not drawn without one."""
@@ -461,22 +452,35 @@ class Builder:
             [self.devices.show_with(card, Device.IMMERSION_SENSOR) for card in cards],
         )
 
+    def _heater_on_off(self) -> dict | None:
+        """The heater on or off, for a switch with no temperature sensor.
+
+        With a sensor the temperature chart shades the heater, so this section hides itself.
+        """
+        entities = ImmersionEntities(None, None, None, self.immersion("immersion_power"))
+        chart = self._immersion_chart(entities, Device.IMMERSION_SWITCH)
+        return group(
+            heading_card("Heater on or off", "mdi:flash"),
+            [chart],
+            visibility=[
+                *self.devices.visible_with(Device.IMMERSION_SWITCH),
+                *self.devices.visible_without(Device.IMMERSION_SENSOR),
+            ],
+        )
+
     def immersion_sections(self) -> list:
         """Sub-view: the water temperature, why the heater is on or off, and what it used.
 
-        Each section follows its own device, so a switch with no sensor shows no temperature
-        chart, and a sensor with no switch shows no heater power or reason.
+        Each section follows its own device. A sensor with a switch shades the heater on the
+        temperature chart. A switch with no sensor gets a small heater chart instead, and a
+        sensor with no switch shows no heater or reason.
         """
         switch = Device.IMMERSION_SWITCH
         reason = state_markdown(self.entity("immersion_divert_reason"))
         return [
             self._water_temperature(),
+            self._heater_on_off(),
             group(heading_card("Why", "mdi:help-circle-outline"), [reason], **self._when(switch)),
-            group(
-                heading_card("Heater power", "mdi:flash"),
-                self._power_cards(),
-                **self._when(switch),
-            ),
             group(
                 heading_card("Today", "mdi:calendar-today"),
                 [

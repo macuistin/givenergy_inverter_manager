@@ -136,6 +136,33 @@ async def test_features_from_the_config_entry_show_up(hass, loaded_entry):
     assert "inverter_temperature" in text
 
 
+async def test_the_heater_is_shaded_on_the_water_temperature_chart(hass, loaded_entry):
+    """With a switch and a sensor, one chart draws the registered entities and the heater band."""
+    text, _ = await _generate(hass)
+    registry = er.async_get(hass)
+    entry_id = loaded_entry.entry_id
+    real = [
+        _registered_id(registry, entry_id, key)
+        for key in (
+            "immersion_water_temperature",
+            "immersion_target_temp",
+            "immersion_min_temp",
+            "immersion_power",
+        )
+    ]
+    view = next(v for v in _shown(hass, text)["views"] if v["path"] == "immersion")
+    charts = [c for c in view_cards(view) if c["type"] == "custom:apexcharts-card"]
+    headings = [c["heading"] for c in view_cards(view) if c["type"] == "heading"]
+
+    assert len(charts) == 1
+    assert [s["entity"] for s in charts[0]["series"]] == real
+    assert charts[0]["series"][-1]["name"] == "Heater on"
+    assert charts[0]["series"][-1]["curve"] == "stepline"
+    assert "stroke" not in charts[0]["apex_config"]
+    assert "Heater power" not in headings
+    assert "Heater on or off" not in headings
+
+
 async def test_energy_today_tiles_point_at_the_registered_forecast_sensors(hass, loaded_entry):
     """Forecast and % of forecast sit in Energy today and name the IDs Home Assistant assigned."""
     text, _ = await _generate(hass)
