@@ -144,6 +144,23 @@ class TestEveryCombination:
         assert ("EV" in names) == ev
         assert ("Immersion" in names) == switch
 
+    def test_the_sources_card_names_the_ev_and_immersion_energy_for_the_devices_present(
+        self, combination
+    ):
+        ev, switch, _ = combination
+        cards = view_cards(_view(self._seen(combination), "today"))
+        lines = [c["content"] for c in cards if c["type"] == "markdown" and "Of the house use" in c["content"]]
+        assert len(lines) == (1 if ev or switch else 0)
+        text = " ".join(lines)
+        assert ("the EV took" in text) == ev
+        assert ("the immersion took" in text) == switch
+        assert (IDS["zappi_today"] in text) == ev
+        assert (IDS["immersion_today"] in text) == switch
+
+    def test_the_sources_card_is_shown_whatever_the_devices(self, combination):
+        today = _view(self._seen(combination), "today")
+        assert "Where today's energy came from" in _titles(today)
+
     def test_the_cost_view_lists_the_ev_and_immersion_costs_for_the_devices_present(self, combination):
         ev, switch, _ = combination
         names = [

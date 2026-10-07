@@ -318,6 +318,19 @@ def solar_capture_efficiency_today(data: CoordinatorData) -> float | None:
     return _percentage(captured, data.today.solar_kwh, 1)
 
 
+def solar_forecast_raw_today(data: CoordinatorData) -> float | None:
+    """Return the provider's own forecast for today, None when none was seen before midnight."""
+    return _round_or_none(data.solar_forecast_raw_kwh_today, 3)
+
+
 def solar_actual_vs_forecast_pct(data: CoordinatorData) -> float | None:
-    """Return today's solar as a percentage of the forecast, None without a forecast."""
-    return _percentage(data.today.solar_kwh, data.solar_forecast_kwh_today, 1)
+    """Return today's solar as a percentage of the provider's forecast for today.
+
+    The charge plan's own forecast is blended toward the pessimistic estimate and scaled by
+    the accuracy correction, so it is not the figure to judge the day against. None when no
+    provider forecast was seen before midnight.
+    """
+    forecast = data.solar_forecast_raw_kwh_today
+    if forecast is None:
+        return None
+    return _percentage(data.today.solar_kwh, forecast, 1)

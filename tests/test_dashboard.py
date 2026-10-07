@@ -10,11 +10,13 @@ What is tested:
   - Dry run sensor entities are included in the Controls view
 """
 
+import math
 import re
 
 import pytest
 import yaml
 
+from custom_components.givenergy_inverter_manager.const import CONF_FORECAST_ENTITY
 from tests.dashboard_support import (
     ENTRY_ID,
     FULL_CONFIG,
@@ -339,10 +341,37 @@ class TestSolarForecastCards:
         result = _build()
         for key in (
             "solar_forecast_kwh_today",
+            "solar_forecast_raw_today",
             "solar_actual_vs_forecast_pct",
             "yesterday_forecast_accuracy_pct",
         ):
             assert eid(key) in result
+
+    @staticmethod
+    def _tiles(text: str, path: str, heading: str) -> dict[str, str]:
+        """{tile name: entity} of the section of the view at path that starts with heading."""
+        view = next(v for v in yaml.safe_load(text)["views"] if v["path"] == path)
+        section = next(s for s in view["sections"] if s["cards"][0].get("heading") == heading)
+        return {c["name"]: c["entity"] for c in section["cards"][1:] if c["type"] == "tile"}
+
+    def test_energy_today_shows_the_provider_forecast_and_the_share_generated(self):
+        tiles = self._tiles(_build(), "power-flow", "Energy today")
+        assert tiles["Forecast"] == eid("solar_forecast_raw_today")
+        assert tiles["% of forecast"] == eid("solar_actual_vs_forecast_pct")
+        assert list(tiles)[:3] == ["Generated", "Forecast", "% of forecast"]
+
+    def test_energy_today_has_no_forecast_tiles_without_a_forecast_sensor(self):
+        without_forecast = {k: v for k, v in FULL_CONFIG.items() if k != CONF_FORECAST_ENTITY}
+        for config in (MINIMAL_CONFIG, without_forecast):
+            tiles = self._tiles(_build(config=config), "power-flow", "Energy today")
+            assert list(tiles)[:4] == ["Generated", "Used", "Imported", "Exported"]
+            assert "Forecast" not in tiles and "% of forecast" not in tiles
+
+    def test_the_sub_view_tells_the_provider_forecast_from_the_plan_forecast(self):
+        tiles = self._tiles(_build(), "solar", "Against the forecast")
+        assert tiles["Forecast"] == eid("solar_forecast_raw_today")
+        assert tiles["% of forecast"] == eid("solar_actual_vs_forecast_pct")
+        assert tiles["Plan forecast"] == eid("solar_forecast_kwh_today")
 
     def test_solar_graph_in_today_view_uses_statistics(self):
         graphs = [c for c in _cards(_build(), "solar") if c.get("type") == "statistics-graph"]
@@ -667,7 +696,16 @@ def _render(content: str, states, attrs=None) -> str:
         states=states,
         state_attr=lambda entity, name: attrs.get((entity, name)),
         has_value=lambda entity: states(entity) not in ("unknown", "unavailable", ""),
+        is_number=_is_number,
     )
+
+
+def _is_number(value) -> bool:
+    """Home Assistant's is_number: true for a finite number or a string that holds one."""
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
 
 
 class TestNightSurvivalCard:
@@ -1055,11 +1093,14 @@ class TestSubViews:
                     return [c["name"] for c in section["cards"][1:] if c["type"] == "tile"]
             raise AssertionError(heading)
 
-        assert tiles_after("power-flow", "Energy today")[:4] == [
+        assert tiles_after("power-flow", "Energy today")[:7] == [
             "Generated",
+            "Forecast",
+            "% of forecast",
             "Used",
             "Imported",
             "Exported",
+            "Self-sufficient",
         ]
         assert tiles_after("today", "Energy") == [
             "Generated",

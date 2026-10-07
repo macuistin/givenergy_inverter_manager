@@ -171,6 +171,15 @@ class TestRawForecastHistory:
     def test_today_forecast_is_none_until_one_is_remembered(self):
         assert _store().today_raw_forecast_kwh is None
 
+    def test_a_forecast_that_arrives_after_midnight_belongs_to_tomorrow(self):
+        """A forecast first seen at 06:00 leaves today without a provider forecast."""
+        store = _store()
+        store.on_midnight(_at(16, 0, 0))  # no forecast seen before midnight
+        store.on_raw_forecast(30.0)  # the sensor wakes up at 06:00 and reports tomorrow
+        assert store.today_raw_forecast_kwh is None
+        store.on_midnight(_at(17, 0, 0))
+        assert store.today_raw_forecast_kwh == 30.0
+
     def test_correction_factor_needs_five_usable_days(self):
         store = _store()
         self._day(store, 10, 10.0, 0.0)

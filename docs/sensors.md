@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 148 sensors. 92 are enabled by default and 56 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 149 sensors. 93 are enabled by default and 56 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches, numbers and the button, see [Entities](entities.md).
 
@@ -187,8 +187,9 @@ Needs a forecast sensor in the options to be meaningful.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Solar forecast today | `solar_forecast_kwh_today` | kWh | energy | none | no | yes | First forecast value the charge calculation used today. |
-| Solar actual vs forecast | `solar_actual_vs_forecast_pct` | % | - | measurement | no | yes | Solar generated today as a share of that forecast. |
+| Solar forecast today (charge plan) | `solar_forecast_kwh_today` | kWh | energy | none | no | yes | The charge plan's forecast for today, blended toward the pessimistic estimate and scaled by the accuracy correction. Not the provider's figure. |
+| Solar forecast today (provider) | `solar_forecast_raw_today` | kWh | energy | none | no | yes | The forecast provider's own figure for today, as it stood just before midnight. Empty when none was seen then. |
+| Solar vs provider forecast | `solar_actual_vs_forecast_pct` | % | - | measurement | no | yes | Solar generated today as a share of the provider's forecast for today (Solar forecast today (provider)). Empty without one. |
 | Forecast accuracy yesterday | `yesterday_forecast_accuracy_pct` | % | - | measurement | no | no | Yesterday's actual solar as a share of the forecast for that day, capped at 200. |
 | Forecast accuracy 7-day average | `forecast_accuracy_7day_avg_pct` | % | - | measurement | no | no | Average of the last 7 daily accuracy values. |
 

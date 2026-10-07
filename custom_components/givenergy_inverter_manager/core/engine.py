@@ -271,6 +271,8 @@ class CoordinatorData:
     month_start_time: str = ""
     year_start_time: str = ""
     solar_forecast_kwh_today: float = 0.0
+    # The provider's own forecast for today, as it stood before midnight. None when none was seen.
+    solar_forecast_raw_kwh_today: float | None = None
     yesterday_forecast_accuracy_pct: float = 0.0
     forecast_accuracy_7day_avg_pct: float = 0.0
     register_write_count: int = 0
@@ -703,6 +705,7 @@ def _apply_history(
     """Copy the restored accumulators and the forecast accuracy figures onto the snapshot."""
     data.last_reset_time = accumulators.last_reset_time
     data.solar_forecast_kwh_today = forecast.solar_forecast_kwh_today
+    data.solar_forecast_raw_kwh_today = forecast.today_raw_forecast_kwh
     data.yesterday_forecast_accuracy_pct = forecast.yesterday_forecast_accuracy_pct
     data.forecast_accuracy_7day_avg_pct = forecast.forecast_accuracy_7day_avg_pct
     if accumulators.week is not None:

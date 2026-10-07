@@ -31,6 +31,33 @@ moves to version 4 on first start, with no action needed.
   percentage can be checked by hand. See [Concepts](docs/concepts.md#self-sufficiency-solar-share-and-self-consumption).
 - Grid to Battery Today sensor: the part of Grid Import Today that charged the battery. A daily
   energy total with long-term statistics. Unavailable while the GivTCP counter is missing.
+- The Energy today section of the Power Flow tab has a Self-sufficient tile, so the share of the
+  day's use that did not come from the grid is on the first screen.
+- The Today tab has a Where today's energy came from group. It says in plain words what the
+  house used (solar, battery and grid, in kWh), what came in from the grid (the part the house
+  used and the part that went into the battery) and what self-sufficiency means. A line for the
+  EV and one for the immersion show only while that device exists, and follow a device added or
+  removed later with no new file. The card reads the Self Sufficiency sensor's attributes
+  `house_load_kwh`, `from_grid_kwh`, `grid_to_battery_kwh` and `basis`, and uses the House Load
+  Today and Grid Import Today totals where one is missing. Solar and battery show as one figure
+  until the Battery Discharged Today sensor, which is disabled by default, is enabled. Generate
+  the dashboard again to get the group and the tiles. See [Dashboard](docs/dashboard.md).
+- New sensor **Solar forecast today (provider)** (`solar_forecast_raw_today`): the forecast
+  service's own figure for today, as it stood just before midnight. It is empty when none was
+  seen then, such as on the first day of a new install.
+- The **Energy today** section of the dashboard gains Forecast and % of forecast tiles when a
+  forecast sensor is set. The Solar and forecast sub-view shows Forecast, % of forecast, Plan forecast
+  (the charge plan's figure) and Yesterday (accuracy).
+
+**Changes**
+- **Solar vs provider forecast** (`solar_actual_vs_forecast_pct`) now compares solar generated
+  today with the provider's forecast for today. It compared with the charge plan's forecast,
+  which is blended toward the pessimistic estimate and scaled by the accuracy correction, so it
+  read higher than the day deserved. It is empty without a provider forecast, where it used to
+  fall back to the seasonal estimate. Its entity ID on an existing install is unchanged.
+- **Solar forecast today** (`solar_forecast_kwh_today`) is renamed **Solar forecast today (charge
+  plan)** to say what it holds. Its value is unchanged and so is its entity ID on an existing
+  install. A new install gets entity IDs from the new names.
 
 ## v0.10.0
 

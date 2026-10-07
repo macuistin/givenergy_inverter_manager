@@ -230,6 +230,7 @@ KEY_GROUPS: dict[str, str] = {
     **dict.fromkeys(
         (
             "solar_forecast_kwh_today",
+            "solar_forecast_raw_today",
             "solar_actual_vs_forecast_pct",
             "yesterday_forecast_accuracy_pct",
             "forecast_accuracy_7day_avg_pct",
@@ -423,8 +424,18 @@ DESCRIPTIONS: dict[str, str] = {
     "ev_protection_reason": "Reason for the latest EV charge mode decision.",
     "ev_charging_source": "Not charging, Solar, Grid, Battery or Mixed.",
     "ev_solar_surplus_available": "Available when net solar surplus is 1380 W or more.",
-    "solar_forecast_kwh_today": "First forecast value the charge calculation used today.",
-    "solar_actual_vs_forecast_pct": "Solar generated today as a share of that forecast.",
+    "solar_forecast_kwh_today": (
+        "The charge plan's forecast for today, blended toward the pessimistic estimate and"
+        " scaled by the accuracy correction. Not the provider's figure."
+    ),
+    "solar_forecast_raw_today": (
+        "The forecast provider's own figure for today, as it stood just before midnight."
+        " Empty when none was seen then."
+    ),
+    "solar_actual_vs_forecast_pct": (
+        "Solar generated today as a share of the provider's forecast for today"
+        " (Solar forecast today (provider)). Empty without one."
+    ),
     "yesterday_forecast_accuracy_pct": (
         "Yesterday's actual solar as a share of the forecast for that day, capped at 200."
     ),

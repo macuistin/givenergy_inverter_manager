@@ -31,7 +31,7 @@ Every 30 seconds the coordinator runs these steps in order.
 4. Look for an EV charger. Until one is found with its power, session and charge mode entities, discovery repeats about every 5 minutes (every tenth cycle). Entities that appear later are added with no reload.
 5. Read the sensors: solar power, battery SoC, battery power, grid power, house load, the optional immersion temperature, forecasts, carbon intensity and inverter temperature, the EV charger, and the GivTCP daily energy counters.
 6. Run the engine. It finds the current rate, adds the time since the last cycle to the today, week, month and year totals, applies the GivTCP daily counters to today's totals, and works out the charge target, immersion decision, bill figures, night survival and EV signals.
-7. Record the day's first forecast value, for the Solar forecast today sensor, and the latest forecast for tomorrow, which the forecast accuracy sensors and the accuracy correction measure the next day against.
+7. Record the day's first forecast value, for the Solar forecast today (charge plan) sensor, and the latest forecast for tomorrow. At midnight that tomorrow forecast becomes today's provider forecast, which the Solar forecast today (provider) and Solar vs provider forecast sensors, the forecast accuracy sensors and the accuracy correction measure against.
 8. Apply the cheap rate floor, if it is due.
 9. Apply the EV mode change, if one was requested.
 10. Apply the immersion decision to your real immersion switch. The first cycle after a start or reload skips this step, because the real switch may not be up yet. It runs even when the managed switch entity is disabled. The managed switch shows the decision and lets you override it.

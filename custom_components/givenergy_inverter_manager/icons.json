@@ -127,6 +127,7 @@
       "battery_roundtrip_efficiency_today": {"default": "mdi:battery-sync"},
       "net_position_this_month": {"default": "mdi:scale-balance"},
       "solar_forecast_kwh_today": {"default": "mdi:weather-partly-cloudy"},
+      "solar_forecast_raw_today": {"default": "mdi:weather-partly-cloudy"},
       "solar_actual_vs_forecast_pct": {"default": "mdi:chart-line"},
       "yesterday_forecast_accuracy_pct": {"default": "mdi:bullseye-arrow"},
       "forecast_accuracy_7day_avg_pct": {"default": "mdi:bullseye-arrow"},

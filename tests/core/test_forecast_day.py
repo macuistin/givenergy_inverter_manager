@@ -74,3 +74,19 @@ class TestOvermorrowAfterMidnight:
         strong_next_day = _decision(AFTER_MIDNIGHT, tomorrow=25.0, remembered=5.0)
         assert strong_next_day.target_soc < without.target_soc
         assert "Overmorrow" in strong_next_day.reason
+
+
+class TestProviderForecastForToday:
+    """The snapshot carries the forecast remembered before midnight next to the plan's blend."""
+
+    def _data(self, remembered):
+        raw = _raw(battery_soc=40.0, battery_capacity_kwh=19.0, forecast_kwh_tomorrow=WRONG_DAY_KWH)
+        data, _ = _run(raw=raw, now=AFTER_SUNRISE, today_raw_forecast_kwh=remembered)
+        return data
+
+    def test_publishes_the_remembered_forecast_not_the_tomorrow_sensor(self):
+        data = self._data(TODAY_KWH)
+        assert data.solar_forecast_raw_kwh_today == pytest.approx(TODAY_KWH)
+
+    def test_is_none_when_nothing_was_remembered(self):
+        assert self._data(None).solar_forecast_raw_kwh_today is None

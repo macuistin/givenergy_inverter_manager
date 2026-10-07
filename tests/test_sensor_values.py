@@ -407,15 +407,43 @@ class TestSolarFigures:
     def test_capture_none_without_solar(self):
         assert values.solar_capture_efficiency_today(self._solar(0.0, 0.0)) is None
 
-    def test_actual_vs_forecast(self):
-        data = make_data(solar_forecast_kwh_today=10.0)
-        data.today.solar_kwh = 7.5
+    def _forecasts(self, raw: float | None, plan: float, solar: float) -> CoordinatorData:
+        data = make_data(solar_forecast_raw_kwh_today=raw, solar_forecast_kwh_today=plan)
+        data.today.solar_kwh = solar
+        return data
+
+    def test_actual_vs_forecast_uses_the_provider_forecast(self):
+        data = self._forecasts(raw=10.0, plan=4.0, solar=7.5)
         assert values.solar_actual_vs_forecast_pct(data) == pytest.approx(75.0)
 
-    def test_actual_vs_forecast_none_without_a_forecast(self):
-        data = make_data(solar_forecast_kwh_today=0.0)
-        data.today.solar_kwh = 7.5
+    def test_actual_vs_forecast_ignores_the_blended_charge_plan_forecast(self):
+        """Live case: the plan held 31.5 kWh against the provider's 38.96, which flattered the day."""
+        data = self._forecasts(raw=38.96, plan=31.5, solar=20.0)
+        assert values.solar_actual_vs_forecast_pct(data) == pytest.approx(51.3)
+
+    def test_actual_vs_forecast_passes_100_when_the_day_beats_the_forecast(self):
+        data = self._forecasts(raw=38.96, plan=31.5, solar=45.0)
+        assert values.solar_actual_vs_forecast_pct(data) == pytest.approx(115.5)
+
+    def test_actual_vs_forecast_is_zero_before_any_solar(self):
+        data = self._forecasts(raw=38.96, plan=31.5, solar=0.0)
+        assert values.solar_actual_vs_forecast_pct(data) == 0.0
+
+    def test_actual_vs_forecast_none_without_a_provider_forecast(self):
+        """A plan forecast alone, such as the seasonal estimate, is not a provider forecast."""
+        data = self._forecasts(raw=None, plan=31.5, solar=7.5)
         assert values.solar_actual_vs_forecast_pct(data) is None
+
+    def test_actual_vs_forecast_none_for_a_zero_forecast(self):
+        data = self._forecasts(raw=0.0, plan=31.5, solar=7.5)
+        assert values.solar_actual_vs_forecast_pct(data) is None
+
+    def test_forecast_raw_today_reports_the_provider_figure(self):
+        data = self._forecasts(raw=38.9649, plan=31.5, solar=0.0)
+        assert values.solar_forecast_raw_today(data) == 38.965
+
+    def test_forecast_raw_today_none_when_none_was_seen(self):
+        assert values.solar_forecast_raw_today(self._forecasts(None, 31.5, 0.0)) is None
 
 
 def test_yes_and_no_strings_are_unchanged():
