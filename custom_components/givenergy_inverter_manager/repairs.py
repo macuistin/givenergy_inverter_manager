@@ -25,6 +25,20 @@ Issues raised:
     active slot, so a leftover slot can charge the battery at a dearer rate
     than the cheapest period. Fixable: the repair clears each such slot to
     00:00 to 00:00 through the coordinator's verified writer.
+
+  battery_cost_not_set
+    Battery cost is 0 after the integration has run for a while, so battery wear is
+    0 and Net Saving Today equals Saving vs Grid Today. Fixable: the repair asks for
+    the cost and saves it to the options, keeping every other saved option. Dismiss it
+    if the battery has no cost to count.
+
+  givtcp_rates_differ
+    GivTCP holds a day, night or export rate that differs from the tariff entered here
+    by more than GIVTCP_RATE_TOLERANCE_PCT. Not fixable, because the rates entered here
+    win and GivTCP's are shown for comparison. Shows both values. Chosen over a
+    diagnostic attribute because a wrong rate scales every cost figure and nobody opens
+    an attribute to look for it. It does not repeat: the issue is created once and
+    dismissing it keeps it dismissed until the rates agree again.
 """
 
 from __future__ import annotations
@@ -41,6 +55,7 @@ from homeassistant.helpers.issue_registry import (
 )
 
 from .const import DOMAIN
+from .core.tariff_check import RateMismatch, describe_rate_mismatches
 from .discovery import ActiveChargeSlot, describe_charge_slots
 
 if TYPE_CHECKING:
@@ -49,6 +64,8 @@ if TYPE_CHECKING:
 ISSUE_GIVTCP_ENTITIES_MISSING = "givtcp_entities_missing"
 ISSUE_MIN_SOC_TOO_HIGH = "min_soc_too_high"
 ISSUE_OTHER_CHARGE_SLOTS_ACTIVE = "other_charge_slots_active"
+ISSUE_BATTERY_COST_NOT_SET = "battery_cost_not_set"
+ISSUE_GIVTCP_RATES_DIFFER = "givtcp_rates_differ"
 
 TROUBLESHOOTING_URL = (
     "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs/troubleshooting.md"
@@ -57,6 +74,8 @@ LEARN_MORE_URLS: dict[str, str] = {
     ISSUE_GIVTCP_ENTITIES_MISSING: f"{TROUBLESHOOTING_URL}#givtcp-entities-not-found",
     ISSUE_MIN_SOC_TOO_HIGH: f"{TROUBLESHOOTING_URL}#battery-minimum-soc-is-set-too-high",
     ISSUE_OTHER_CHARGE_SLOTS_ACTIVE: f"{TROUBLESHOOTING_URL}#other-charge-slots-are-active",
+    ISSUE_BATTERY_COST_NOT_SET: f"{TROUBLESHOOTING_URL}#battery-cost-is-not-set",
+    ISSUE_GIVTCP_RATES_DIFFER: f"{TROUBLESHOOTING_URL}#givtcp-rates-differ-from-the-tariff",
 }
 
 # Matches the selector max in config_flow.py. Values above this are legacy
@@ -130,11 +149,52 @@ def async_delete_other_charge_slots_issue(hass: HomeAssistant) -> None:
     async_delete_issue(hass, DOMAIN, ISSUE_OTHER_CHARGE_SLOTS_ACTIVE)
 
 
+def async_create_battery_cost_issue(hass: HomeAssistant) -> None:
+    """Surface a fixable repair issue asking for the battery cost."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_BATTERY_COST_NOT_SET,
+        is_fixable=True,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_BATTERY_COST_NOT_SET],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_BATTERY_COST_NOT_SET,
+    )
+
+
+def async_delete_battery_cost_issue(hass: HomeAssistant) -> None:
+    """Clear the battery-cost repair issue once a cost is set."""
+    async_delete_issue(hass, DOMAIN, ISSUE_BATTERY_COST_NOT_SET)
+
+
+def async_create_rates_differ_issue(
+    hass: HomeAssistant, mismatches: Sequence[RateMismatch]
+) -> None:
+    """Surface a repair issue listing each rate that differs, with both values."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_GIVTCP_RATES_DIFFER,
+        is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_GIVTCP_RATES_DIFFER],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_GIVTCP_RATES_DIFFER,
+        translation_placeholders={"rates": describe_rate_mismatches(mismatches)},
+    )
+
+
+def async_delete_rates_differ_issue(hass: HomeAssistant) -> None:
+    """Clear the rates-differ repair issue once GivTCP's rates agree with the tariff."""
+    async_delete_issue(hass, DOMAIN, ISSUE_GIVTCP_RATES_DIFFER)
+
+
 async def async_create_fix_flow(
     hass: HomeAssistant, issue_id: str, data: dict[str, str | int | float | None] | None
 ) -> RepairsFlow:
-    """Home Assistant calls this to fix a fixable issue. Only one issue here is fixable."""
+    """Home Assistant calls this to fix a fixable issue."""
     # Imported here because the repairs integration is not available to the unit test stub.
-    from .repair_flows import ClearOtherChargeSlotsFlow
+    from .repair_flows import ClearOtherChargeSlotsFlow, SetBatteryCostFlow
 
+    if issue_id == ISSUE_BATTERY_COST_NOT_SET:
+        return SetBatteryCostFlow()
     return ClearOtherChargeSlotsFlow()

@@ -75,13 +75,14 @@ With no forecast sensor, the charge calculation uses a seasonal estimate from yo
 
 The integration measures how far your forecast service is off and scales it. No setting is needed.
 
-- At midnight it stores the tomorrow forecast it last saw and the solar your inverter then produced that day. The ratio of the two is one data point. The last 14 days are kept.
+- At midnight it stores the tomorrow forecast it last saw and the solar your inverter then produced that day. The ratio of the two is one data point. The last 14 days are kept. On a new install the first days come from the recorder, see below.
 - With **5 usable days**, the forecast is multiplied by the median ratio. The factor is limited to **0.6 to 1.2**. A median of 0.7 means the forecast is multiplied by 0.7. A median below 0.6 is treated as 0.6.
 - A day is ignored when the inverter clipped at any point that day, or when the forecast or the solar produced was under 0.5 kWh. A clipped day understates what the panels could make, and a near-zero day gives an unstable ratio.
 - Until 5 usable days exist, the forecast is used as given. The charge reason then shows no accuracy factor. Once the correction is active, the reason reads, for example, `forecast integration, x0.70 recent accuracy`.
 - To see where it stands, open the attributes of **Overnight Charge Reason**. `accuracy_status` reads `Waiting for data: 3 of 5 days` until 5 usable days exist, then `Applied: x0.70 from 7 usable days`. `accuracy_measured_factor` is the median ratio so far, `accuracy_applied_factor` is the factor after the 0.6 to 1.2 limit (empty while waiting), and `accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored` give the counts. A day stored but not usable, for example one that clipped, adds to `accuracy_days_stored` only. The correction has no switch. It is either waiting for data or applied.
 - The seasonal estimate, used when no forecast sensor is set, is never scaled.
-- A new install, a restored backup without the stored history, or a run of cloudy or clipped days delays the correction. Expect the first factor about a week after install.
+- A run of cloudy or clipped days delays the correction.
+- **A new install does not start empty.** The first time it loads with no stored history, the integration reads the Home Assistant recorder in the background. For each of the last 14 days it pairs the last value the tomorrow forecast sensor held before that midnight with the largest value of the GivTCP daily solar counter (`pv_energy_today_kwh`) that day. Home Assistant keeps states for 10 days by default (`purge_keep_days` of the recorder), so expect about 9 days, and the correction applies at once when at least 5 are usable. The recorder cannot say whether the inverter clipped, so seeded days count as not clipped. A day with no recorded forecast or solar value is skipped. Without the recorder, or with no history for the forecast sensor, the integration waits for 5 nights as before. Nothing needs setting up, and a history that is already stored is never replaced.
 
 The correction applies to the main forecast sensor only. The P10 sensor is read as given.
 
@@ -160,7 +161,7 @@ The sections run in the order they are used most: Tariff, the five rate periods,
 
 ### Tariff
 
-Same fields as setup step 2. Rate periods 1 to 5 sit in their own sections below the tariff section. Check the rates against your latest bill whenever your supplier changes its prices. See [Tariff](tariff.md).
+Same fields as setup step 2. Rate periods 1 to 5 sit in their own sections below the tariff section. Check the rates against your latest bill whenever your supplier changes its prices. See [Tariff](tariff.md). If GivTCP holds day, night or export rates that differ from these, the repair **GivTCP rates differ from your tariff** shows both values. The rates here always win. See [Troubleshooting](troubleshooting.md#givtcp-rates-differ-from-the-tariff).
 
 ### Battery & charging thresholds
 
@@ -176,6 +177,7 @@ Same fields as setup step 2. Rate periods 1 to 5 sit in their own sections below
 | Verbose logging | `verbose_logging` | off | Detailed per-cycle log lines |
 
 - **Battery cost** sets a wear cost per kWh: cost divided by (2 x capacity x 6000 rated cycles). The immersion rule then refuses to divert when the export rate is lower than that wear cost. It also feeds Net Saving Today and Battery Cycle Cost per kWh.
+- A battery cost of 0 means wear is not counted, so Net Saving Today equals Saving vs Grid Today. After 7 days of battery tracking the repair **Battery cost is not set** asks for the value. See [Troubleshooting](troubleshooting.md#battery-cost-is-not-set).
 - **Throughput budget** drives Battery Throughput Budget Used and Status. Status is OK below 80% of the budget, High from 80%, and Over budget above 100%.
 - **Verbose logging** writes at debug level. Also enable debug logging for the integration, or the lines will not appear. See [Troubleshooting](troubleshooting.md#a-charge-decision-looks-wrong).
 - A minimum SoC above 30 (possible only from older saved values) raises a repair issue, because on skip nights that value is written as the charge target.

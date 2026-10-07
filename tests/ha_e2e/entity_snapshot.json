@@ -45,6 +45,11 @@
   "name": "Average Import Rate Today"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_base_rate_import_fraction",
+  "key": "peak_import_fraction_today",
+  "name": "Base rate import fraction"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_battery_charged_today",
   "key": "battery_charge_kwh_today",
   "name": "Battery Charged Today"
@@ -440,6 +445,26 @@
   "name": "Immersion Water Temperature"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_import_at_base_rate",
+  "key": "import_kwh_peak_today",
+  "name": "Import at base rate"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_at_base_rate_this_month",
+  "key": "import_kwh_peak_this_month",
+  "name": "Import at base rate this month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_at_base_rate_this_week",
+  "key": "import_kwh_peak_this_week",
+  "name": "Import at base rate this week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_import_at_base_rate_yesterday",
+  "key": "import_kwh_peak_yesterday",
+  "name": "Import at base rate yesterday"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_import_at_cheap_rate",
   "key": "import_kwh_cheap_today",
   "name": "Import at cheap rate"
@@ -460,34 +485,14 @@
   "name": "Import at cheap rate yesterday"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_import_at_peak_rate",
-  "key": "import_kwh_peak_today",
-  "name": "Import at peak rate"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_import_at_peak_rate_this_month",
-  "key": "import_kwh_peak_this_month",
-  "name": "Import at peak rate this month"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_import_at_peak_rate_this_week",
-  "key": "import_kwh_peak_this_week",
-  "name": "Import at peak rate this week"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_import_at_peak_rate_yesterday",
-  "key": "import_kwh_peak_yesterday",
-  "name": "Import at peak rate yesterday"
+  "entity_id": "sensor.givenergy_inverter_manager_import_cost_at_base_rate",
+  "key": "import_cost_peak_today",
+  "name": "Import cost at base rate"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_import_cost_at_cheap_rate",
   "key": "import_cost_cheap_today",
   "name": "Import cost at cheap rate"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_import_cost_at_peak_rate",
-  "key": "import_cost_peak_today",
-  "name": "Import cost at peak rate"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_import_cost_this_month",
@@ -613,11 +618,6 @@
   "entity_id": "sensor.givenergy_inverter_manager_overnight_charge_window",
   "key": "overnight_charge_window",
   "name": "Overnight Charge Window"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_peak_rate_import_fraction",
-  "key": "peak_import_fraction_today",
-  "name": "Peak rate import fraction"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_projected_bill_this_period",

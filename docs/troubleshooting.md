@@ -80,11 +80,45 @@ To clear a slot by hand:
 
 Slot 1 is never changed by this repair.
 
+## Battery cost is not set
+
+The repair **Battery cost is not set** appears when **Battery cost** is 0 and the integration has been tracking the battery for 7 days. With no cost, battery wear is 0, so **Net Saving Today** equals **Saving vs Grid Today**. A battery cost also feeds **Battery Cycle Cost per kWh** and the immersion divert rule. See [Configuration](configuration.md#battery--charging-thresholds).
+
+To set it from the repair:
+
+1. Open **Settings → System → Repairs** and open **Battery cost is not set**.
+2. Enter what the battery cost, then select **Submit**.
+3. The value is saved to the integration options and the integration reloads. Every other saved option is kept. The repair clears on the next update cycle.
+
+You can also set **Battery cost** under **Configure**, in the Battery & charging thresholds section.
+
+The repair appears once. If you do not want wear counted, select **Ignore** and it stays out of the way. It is raised again only if the cost is set and then set back to 0.
+
+## GivTCP rates differ from the tariff
+
+The repair **GivTCP rates differ from your tariff** appears when GivTCP holds a day, night or export rate that disagrees with the tariff entered in this integration. A wrong rate scales every cost figure, so both values are shown, for example `Day rate: 0.3334 here, 0.395 in GivTCP`.
+
+The integration reads these GivTCP sensors for your inverter serial: `day_rate`, `night_rate` and `export_rate`. Nothing is set up for this. If the sensors are missing, unavailable or 0, nothing is shown.
+
+How the rates are compared:
+
+- The GivTCP day rate is compared with the base rate, and the export rate with the export rate.
+- GivTCP has one night rate. It agrees when it matches any timed rate period, so a tariff with a night and a boost period is not flagged for either. A tariff with no timed period has no night rate to compare.
+- A rate counts as different when it is more than 2% away from the rate entered here.
+
+The rates entered here always win. Every cost figure in this integration uses them, and GivTCP's rates are shown for comparison only. The repair does not change either side. To clear it:
+
+1. Decide which rate is right, using your latest bill.
+2. If the rate here is wrong, open **Configure** and correct it. See [Tariff](tariff.md).
+3. If the GivTCP rate is wrong, correct it in GivTCP. This only affects GivTCP's own cost sensors.
+
+The repair clears on the next update cycle once the rates agree. It appears once, and **Ignore** keeps it out of the way until the rates agree and then differ again. While GivTCP is unavailable, the repair is left as it is.
+
 ## Daily sensors are frozen after an upgrade
 
 Version 0.2.1 gave nine daily sensors the state class `total_increasing` together with `last_reset`. Home Assistant refuses that combination, so the sensors stopped updating until the integration reloaded. Battery throughput, for example, stayed at one value until the integration reloaded.
 
-The nine sensors are Import at cheap rate, Import at peak rate, Import cost at cheap rate, Import cost at peak rate, Immersion solar savings, Immersion solar diverted, Battery throughput, Missed solar today and Inverter Derating Today.
+The nine sensors are Import at cheap rate, Import at base rate, Import cost at cheap rate, Import cost at base rate, Immersion solar savings, Immersion solar diverted, Battery throughput, Missed solar today and Inverter Derating Today. The two base rate sensors were called Import at peak rate and Import cost at peak rate before they were renamed (see [Renamed sensors](sensors.md#renamed-sensors)).
 
 1. Update to v0.3.0 or later, where they use state class `total`.
 2. Restart Home Assistant, or reload the integration.
@@ -140,7 +174,7 @@ Read **Overnight Charge Reason** first. Then check these:
 - **March, April, October and November.** The minimum SoC is at least 70% in the calculation.
 - **No forecast.** Without a tomorrow sensor, the integration uses a seasonal estimate from your latitude. The reason says so.
 - **A forecast setting has no effect.** Forecast provider is stored and unused. A P10 forecast only matters when conservatism is above 0, and conservatism only matters when a P10 forecast exists. Solcast provides one automatically. The charge reason says `no P10 forecast so conservatism is unused` otherwise. See [Where the P10 comes from](configuration.md#where-the-p10-comes-from).
-- **The charge reason shows no `recent accuracy` factor.** The correction needs 5 usable days. Days with clipping, or under 0.5 kWh of forecast or solar, do not count. The attributes of **Overnight Charge Reason** show how many days are usable (`accuracy_status`, for example `Waiting for data: 3 of 5 days`). A new install shows 0 until the second midnight, because the first midnight only remembers the forecast. See [Forecast accuracy correction](configuration.md#forecast-accuracy-correction).
+- **The charge reason shows no `recent accuracy` factor.** The correction needs 5 usable days. Days with clipping, or under 0.5 kWh of forecast or solar, do not count. The attributes of **Overnight Charge Reason** show how many days are usable (`accuracy_status`, for example `Waiting for data: 3 of 5 days`). A new install reads earlier days from the recorder when it first loads, so it shows up to 9 usable days at once. It shows 0 when the recorder is not running, holds no history for the forecast sensor or the GivTCP daily solar counter, or those sensors are new. Then it fills one night at a time, and the first midnight only remembers the forecast. See [Forecast accuracy correction](configuration.md#forecast-accuracy-correction).
 - **A manual target.** See [Entities](entities.md#manual-charge-target).
 
 To see every reading and decision, turn on both of these:
