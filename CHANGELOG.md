@@ -2,6 +2,26 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**New**
+- The charge window is sized to the plan. The window start is still the cheapest rate period.
+  The end moves later when the plan needs more time than that period has, up to the end of the
+  run of rate periods cheaper than the base rate that follows it. The time needed is the deficit
+  from the current SoC to the target, times the battery capacity, divided by the GivTCP battery
+  charge rate (`number..._battery_charge_rate`), plus a 15% margin, rounded up to 5 minutes. If
+  the plan fits the cheapest period, or the charge rate cannot be read, the window is unchanged.
+  The inverter stops at the target, so the cheapest hours still come first. Only slot 1 is
+  written.
+- An Overnight Charge Window sensor shows the window to be written, with attributes for the
+  start, end, whether it was extended, the energy it should deliver and the expected finish.
+  Dry run shows the extended window in the "would write" text.
+
+**Docs**
+- The window sizing is described in Concepts and the charge rate entity in Configuration. The
+  roadmap item for a second charge slot is removed, and a lower-priority item for tariffs with no
+  cheaper period after the cheapest is added.
+
 ## v0.9.0
 
 Removes three disabled sensors. No option name changes.
