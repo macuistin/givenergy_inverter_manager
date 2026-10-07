@@ -359,6 +359,15 @@ class AccumulationStore:
         return forecast_correction_factor(self.state.forecast_ratio_history)
 
     @property
+    def forecast_history_days(self) -> int:
+        """How many days of forecast and solar pairs the store keeps."""
+        return _FORECAST_RATIO_HISTORY_DAYS
+
+    @property
+    def forecast_history_is_empty(self) -> bool:
+        return not self.state.forecast_ratio_history
+
+    @property
     def forecast_accuracy(self) -> ForecastAccuracy:
         """The measured correction, its usable days and whether it is applied yet."""
         return forecast_accuracy(self.state.forecast_ratio_history)
@@ -614,6 +623,18 @@ class AccumulationStore:
             self.state.pending_raw_forecast_kwh = forecast_kwh
         if p10_kwh is not None and p10_kwh > 0:
             self.state.pending_raw_forecast_p10_kwh = p10_kwh
+
+    def seed_forecast_history(self, records: list[dict]) -> None:
+        """Fill an empty forecast history with days rebuilt from the recorder.
+
+        Does nothing once the history holds a day, so a night recorded in the meantime is
+        never overwritten.
+        """
+        if self.state.forecast_ratio_history:
+            return
+        self.state.forecast_ratio_history = [
+            dict(r) for r in records[-_FORECAST_RATIO_HISTORY_DAYS:]
+        ]
 
     def note_clipping(self) -> None:
         """Flag today as clipping so it is left out of the forecast correction."""
