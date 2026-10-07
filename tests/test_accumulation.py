@@ -1076,7 +1076,7 @@ class TestStorageMigration:
     def test_storage_version_is_bumped(self):
         from custom_components.givenergy_inverter_manager import accumulation
 
-        assert accumulation._STORAGE_VERSION == 3
+        assert accumulation._STORAGE_VERSION == 4
 
     def test_version_1_cycle_figures_are_halved(self):
         from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
@@ -1084,7 +1084,7 @@ class TestStorageMigration:
         migrated = migrate_storage(1, _v1_payload())
         assert migrated["battery_cycles"] == pytest.approx(31.3)
         assert migrated["battery_tracking_start_cycles"] == pytest.approx(5.0)
-        assert migrated["version"] == 3
+        assert migrated["version"] == 4
 
     def test_other_fields_are_left_alone(self):
         from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
@@ -1160,7 +1160,7 @@ class TestStorageMigration:
             else:
                 sys.modules["homeassistant.helpers.storage"] = saved["homeassistant.helpers.storage"]
 
-        assert store.version == 3
+        assert store.version == 4
         assert migrated["battery_cycles"] == pytest.approx(31.3)
 
 
@@ -1188,7 +1188,7 @@ class TestForecastAccuracyMigration:
         migrated = migrate_storage(2, payload)
         assert migrated["forecast_accuracy_history"] == [80.0, 88.1]
         assert migrated["yesterday_forecast_accuracy_pct"] == pytest.approx(88.1)
-        assert migrated["version"] == 3
+        assert migrated["version"] == 4
 
     def test_old_blended_figures_are_not_kept(self):
         from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
@@ -1246,7 +1246,7 @@ class TestForecastAccuracyMigration:
         migrated = migrate_storage(1, payload)
         assert migrated["battery_cycles"] == pytest.approx(31.3)
         assert migrated["forecast_accuracy_history"] == [80.0]
-        assert migrated["version"] == 3
+        assert migrated["version"] == 4
 
     def test_migrated_payload_loads_into_state(self):
         from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
@@ -1335,3 +1335,164 @@ class TestRegisterWriteLogPersistence:
         assert state.register_write_log == []
         assert state.today.solar_kwh == pytest.approx(3.0)
 
+
+
+# ── Grid energy stored in the battery ────────────────────────────────────────
+
+
+def _v3_payload() -> dict:
+    """A payload as written by storage version 3, before grid_to_battery_kwh existed."""
+    payload = _serialize(AccumulationState())
+    payload["version"] = 3
+    del payload["ac_charge_counter_kwh"]
+    for period in ("today", "week", "month", "year", "yesterday"):
+        del payload[period]["grid_to_battery_kwh"]
+        payload[period]["import_kwh"] = 12.1
+        payload[period]["house_kwh"] = 11.3
+    payload["monthly_snapshots"] = [{"solar_kwh": 30.5, "import_kwh": 20.0}]
+    return payload
+
+
+class TestGridToBatteryPersistence:
+    def test_every_period_round_trips_its_figure(self):
+        state = AccumulationState()
+        for index, period in enumerate((state.today, state.week, state.month, state.year)):
+            period.grid_to_battery_kwh = 1.5 + index
+        state.yesterday.grid_to_battery_kwh = 7.5
+        restored = _deserialize(_serialize(state))
+        assert restored.today.grid_to_battery_kwh == pytest.approx(1.5)
+        assert restored.week.grid_to_battery_kwh == pytest.approx(2.5)
+        assert restored.month.grid_to_battery_kwh == pytest.approx(3.5)
+        assert restored.year.grid_to_battery_kwh == pytest.approx(4.5)
+        assert restored.yesterday.grid_to_battery_kwh == pytest.approx(7.5)
+
+    def test_the_counter_memory_round_trips(self):
+        state = AccumulationState()
+        state.counters.ac_charge_kwh = 7.5
+        assert _deserialize(_serialize(state)).counters.ac_charge_kwh == pytest.approx(7.5)
+
+    def test_a_payload_without_the_figure_loads_as_zero(self):
+        state = _deserialize(_v3_payload())
+        assert state.today.grid_to_battery_kwh == 0.0
+        assert state.counters.ac_charge_kwh == 0.0
+
+    def test_midnight_moves_the_figure_to_yesterday_and_keeps_the_counter_memory(self):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        store = AccumulationStore(MagicMock(), bill_start_day=1)
+        store.state.today.grid_to_battery_kwh = 7.5
+        store.state.counters.ac_charge_kwh = 7.5
+        store.on_midnight(_tuesday())
+        assert store.yesterday.grid_to_battery_kwh == pytest.approx(7.5)
+        assert store.today.grid_to_battery_kwh == 0.0
+        assert store.counters.ac_charge_kwh == pytest.approx(7.5)
+
+    def test_a_restart_across_midnight_forgets_the_counter_memory(self):
+        """The remembered reading belongs to a day that ended while Home Assistant was down."""
+        saved = _stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc))
+        saved.counters.ac_charge_kwh = 7.5
+        store = _restart(saved)
+        store.roll_forward(datetime(2026, 7, 15, 7, 0, tzinfo=timezone.utc))
+        assert store.counters.ac_charge_kwh == 0.0
+
+    def test_a_restart_on_the_same_day_keeps_the_counter_memory(self):
+        saved = _stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc))
+        saved.counters.ac_charge_kwh = 7.5
+        store = _restart(saved)
+        store.state.week_start_iso = "2026-07-13T00:00:00+00:00"
+        store.state.month_start_iso = "2026-07-01T00:00:00+00:00"
+        store.state.year_start_iso = "2026-01-01T00:00:00+00:00"
+        store.roll_forward(datetime(2026, 7, 14, 18, 30, tzinfo=timezone.utc))
+        assert store.counters.ac_charge_kwh == pytest.approx(7.5)
+
+    def test_the_month_snapshot_carries_the_figure(self):
+        from unittest.mock import MagicMock
+
+        from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+        store = AccumulationStore(MagicMock(), bill_start_day=15)
+        store.state.month.grid_to_battery_kwh = 140.0
+        store.on_midnight(_bill_day_15())
+        assert store.monthly_snapshots[-1]["grid_to_battery_kwh"] == pytest.approx(140.0)
+
+
+class TestGridToBatteryMigration:
+    def test_a_version_3_payload_gets_zero_in_every_period(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        migrated = migrate_storage(3, _v3_payload())
+        for period in ("today", "week", "month", "year", "yesterday"):
+            assert migrated[period]["grid_to_battery_kwh"] == 0.0
+        assert migrated["version"] == 4
+
+    def test_stored_monthly_snapshots_get_zero_too(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        migrated = migrate_storage(3, _v3_payload())
+        assert migrated["monthly_snapshots"] == [
+            {"solar_kwh": 30.5, "import_kwh": 20.0, "grid_to_battery_kwh": 0.0}
+        ]
+
+    def test_the_other_stored_figures_are_left_alone(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        migrated = migrate_storage(3, _v3_payload())
+        assert migrated["today"]["import_kwh"] == pytest.approx(12.1)
+        assert migrated["week"]["house_kwh"] == pytest.approx(11.3)
+
+    def test_migrating_twice_gives_the_same_result(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        once = migrate_storage(3, _v3_payload())
+        assert migrate_storage(3, once) == once
+
+    def test_a_figure_already_stored_is_kept(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v3_payload()
+        payload["week"]["grid_to_battery_kwh"] = 4.5
+        assert migrate_storage(3, payload)["week"]["grid_to_battery_kwh"] == pytest.approx(4.5)
+
+    def test_the_payload_passed_in_is_not_mutated(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v3_payload()
+        migrate_storage(3, payload)
+        assert "grid_to_battery_kwh" not in payload["today"]
+        assert "grid_to_battery_kwh" not in payload["monthly_snapshots"][0]
+        assert payload["version"] == 3
+
+    def test_a_current_payload_is_not_changed(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _serialize(AccumulationState())
+        payload["week"]["grid_to_battery_kwh"] = 4.5
+        assert migrate_storage(3, payload) == payload
+
+    def test_damaged_periods_are_skipped_not_fatal(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v3_payload()
+        payload["year"] = "damaged"
+        payload["monthly_snapshots"] = ["junk", {"solar_kwh": 1.0}]
+        migrated = migrate_storage(3, payload)
+        assert migrated["year"] == "damaged"
+        assert migrated["monthly_snapshots"] == ["junk", {"solar_kwh": 1.0, "grid_to_battery_kwh": 0.0}]
+
+    def test_a_version_1_payload_goes_through_every_step(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v1_payload()
+        del payload["today"]["grid_to_battery_kwh"]
+        migrated = migrate_storage(1, payload)
+        assert migrated["version"] == 4
+        assert migrated["today"]["grid_to_battery_kwh"] == 0.0
+
+    def test_the_migrated_payload_loads_and_reads_as_import_only(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        state = _deserialize(migrate_storage(3, _v3_payload()))
+        assert state.today.grid_to_battery_kwh == 0.0
+        assert state.today.self_sufficiency_pct == 0.0

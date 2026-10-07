@@ -39,6 +39,9 @@ NIGHT_SAFE = "Safe"
 
 RATE_NOW = "Now"
 
+SUFFICIENCY_BASIS_AC_CHARGE = "ac_charge_counter"
+SUFFICIENCY_BASIS_IMPORT_ONLY = "import_only"
+
 YES = "yes"
 NO = "no"
 
@@ -243,6 +246,47 @@ def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
 def register_write_attributes(data: CoordinatorData) -> dict[str, Any]:
     """The recent writes and outside changes to the charge entities, newest first."""
     return {"recent_writes": newest_first(data.register_write_log)}
+
+
+# ── Self-sufficiency ─────────────────────────────────────────────────────────
+
+
+def _sufficiency_basis(acc: EnergyAccumulator, data: CoordinatorData) -> str:
+    """Say whether the grid-to-battery figure was measured, or all import counted as grid.
+
+    The figure is measured when GivTCP's AC charge counter is readable now or the period
+    already holds energy from it. Otherwise nothing can be subtracted from import.
+    """
+    if data.grid_to_battery_counter_available or acc.grid_to_battery_kwh > 0:
+        return SUFFICIENCY_BASIS_AC_CHARGE
+    return SUFFICIENCY_BASIS_IMPORT_ONLY
+
+
+def _sufficiency_attributes(acc: EnergyAccumulator, data: CoordinatorData) -> dict[str, Any]:
+    """Where the period's energy came from, so the percentage can be checked by hand."""
+    return {
+        "house_load_kwh": round(acc.house_kwh, 3),
+        "from_grid_kwh": round(acc.grid_to_house_kwh, 3),
+        "grid_to_battery_kwh": round(acc.grid_to_battery_kwh, 3),
+        "from_solar_and_battery_kwh": round(acc.supplied_without_grid_kwh, 3),
+        "basis": _sufficiency_basis(acc, data),
+    }
+
+
+def self_sufficiency_attributes_today(data: CoordinatorData) -> dict[str, Any]:
+    return _sufficiency_attributes(data.today, data)
+
+
+def self_sufficiency_attributes_yesterday(data: CoordinatorData) -> dict[str, Any]:
+    return _sufficiency_attributes(data.yesterday, data)
+
+
+def self_sufficiency_attributes_week(data: CoordinatorData) -> dict[str, Any]:
+    return _sufficiency_attributes(data.week, data)
+
+
+def self_sufficiency_attributes_month(data: CoordinatorData) -> dict[str, Any]:
+    return _sufficiency_attributes(data.month, data)
 
 
 # ── Inverter and carbon ──────────────────────────────────────────────────────
