@@ -162,37 +162,84 @@ def build_load_profile(
     ]
 
 
-def forecast_correction_factor(records: Sequence[dict[str, Any]]) -> float | None:
+@dataclass(frozen=True)
+class ForecastAccuracy:
+    """What the accuracy correction has measured and whether it is applied yet.
+
+    measured_factor is the median actual/forecast ratio of the usable days, None with none.
+    applied_factor is that median limited to CHARGE_FORECAST_CORRECTION_MIN..MAX, None until
+    days_needed usable days exist.
     """
-    Median actual/forecast ratio from recent {"forecast", "actual", "clipped"} records.
+
+    days_stored: int
+    usable_days: int
+    days_needed: int
+    measured_factor: float | None
+    applied_factor: float | None
+
+    @property
+    def applied(self) -> bool:
+        return self.applied_factor is not None
+
+    @property
+    def status(self) -> str:
+        """The state of the correction in plain words."""
+        if self.applied_factor is None:
+            return f"Waiting for data: {self.usable_days} of {self.days_needed} days"
+        text = f"Applied: x{self.applied_factor:.2f} from {self.usable_days} usable days"
+        if self.measured_factor is not None and round(self.measured_factor, 2) != round(
+            self.applied_factor, 2
+        ):
+            text += (
+                f" (measured {self.measured_factor:.2f}, limited to "
+                f"{CHARGE_FORECAST_CORRECTION_MIN} to {CHARGE_FORECAST_CORRECTION_MAX})"
+            )
+        return text
+
+
+def _usable_ratio(record: dict[str, Any]) -> float | None:
+    """actual/forecast of one stored day, None when the day does not count."""
+    try:
+        forecast = float(record["forecast"])
+        actual = float(record["actual"])
+        clipped = bool(record.get("clipped", False))
+    except (KeyError, TypeError, ValueError):
+        return None
+    if clipped:
+        return None
+    if forecast < CHARGE_FORECAST_CORRECTION_MIN_KWH or actual < CHARGE_FORECAST_CORRECTION_MIN_KWH:
+        return None
+    return actual / forecast
+
+
+def forecast_accuracy(records: Sequence[dict[str, Any]]) -> ForecastAccuracy:
+    """
+    Measure the correction from recent {"forecast", "actual", "clipped"} records.
 
     Days where the forecast or actual is under CHARGE_FORECAST_CORRECTION_MIN_KWH, or
-    where the inverter was clipping, are ignored. Returns None with fewer than
-    CHARGE_FORECAST_CORRECTION_MIN_DAYS usable days, otherwise the median clamped to
-    CHARGE_FORECAST_CORRECTION_MIN..MAX.
+    where the inverter was clipping, are ignored. The factor is applied only with
+    CHARGE_FORECAST_CORRECTION_MIN_DAYS usable days.
     """
-    ratios: list[float] = []
-    for record in records:
-        try:
-            forecast = float(record["forecast"])
-            actual = float(record["actual"])
-            clipped = bool(record.get("clipped", False))
-        except (KeyError, TypeError, ValueError):
-            continue
-        if clipped:
-            continue
-        if (
-            forecast < CHARGE_FORECAST_CORRECTION_MIN_KWH
-            or actual < CHARGE_FORECAST_CORRECTION_MIN_KWH
-        ):
-            continue
-        ratios.append(actual / forecast)
-    if len(ratios) < CHARGE_FORECAST_CORRECTION_MIN_DAYS:
-        return None
-    return max(
-        CHARGE_FORECAST_CORRECTION_MIN,
-        min(CHARGE_FORECAST_CORRECTION_MAX, statistics.median(ratios)),
+    ratios = [r for r in map(_usable_ratio, records) if r is not None]
+    median = statistics.median(ratios) if ratios else None
+    enough = len(ratios) >= CHARGE_FORECAST_CORRECTION_MIN_DAYS
+    applied = (
+        max(CHARGE_FORECAST_CORRECTION_MIN, min(CHARGE_FORECAST_CORRECTION_MAX, median))
+        if enough and median is not None
+        else None
     )
+    return ForecastAccuracy(
+        days_stored=len(records),
+        usable_days=len(ratios),
+        days_needed=CHARGE_FORECAST_CORRECTION_MIN_DAYS,
+        measured_factor=median,
+        applied_factor=applied,
+    )
+
+
+def forecast_correction_factor(records: Sequence[dict[str, Any]]) -> float | None:
+    """The factor to scale the forecast by, None until enough days are usable."""
+    return forecast_accuracy(records).applied_factor
 
 
 def _profile_usable(load_profile: list[float] | None) -> bool:

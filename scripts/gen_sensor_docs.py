@@ -390,7 +390,12 @@ DESCRIPTIONS: dict[str, str] = {
         "Tonight's target after overrides and the configured cap. Holds its value until the "
         "calculated target moves 5 points or more."
     ),
-    "overnight_charge_reason": "Why that target was chosen. Changes only when the target does.",
+    "overnight_charge_reason": (
+        "Why that target was chosen. Changes only when the target does. Attributes report the "
+        "forecast accuracy correction: `accuracy_status` (for example `Waiting for data: 3 of 5 "
+        "days`), `accuracy_applied`, `accuracy_measured_factor`, `accuracy_applied_factor`, "
+        "`accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`."
+    ),
     "overnight_charge_window": (
         "The charge window written to slot 1, sized to the plan. Attributes: `window_start`, "
         "`window_end`, `window_extended`, `expected_kwh` and `expected_finish`."

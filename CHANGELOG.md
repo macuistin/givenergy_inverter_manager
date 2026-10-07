@@ -2,6 +2,19 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+The overnight charge reason sensor now says whether the forecast accuracy correction is waiting
+for data or applied.
+
+**Changes**
+- **Overnight Charge Reason** (`overnight_charge_reason`) has new attributes: `accuracy_status`
+  (for example `Waiting for data: 3 of 5 days` or `Applied: x0.80 from 7 usable days`),
+  `accuracy_applied`, `accuracy_measured_factor` (the median actual to forecast ratio so far),
+  `accuracy_applied_factor` (that ratio after the 0.6 to 1.2 limit, empty until 5 usable days),
+  `accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`. The state of the
+  sensor and the text of the charge reason are unchanged.
+
 ## v0.12.0
 
 Four more sensors are enabled by default, the Now strip has one Cheap from tile, the Immersion

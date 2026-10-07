@@ -140,7 +140,7 @@ Read **Overnight Charge Reason** first. Then check these:
 - **March, April, October and November.** The minimum SoC is at least 70% in the calculation.
 - **No forecast.** Without a tomorrow sensor, the integration uses a seasonal estimate from your latitude. The reason says so.
 - **A forecast setting has no effect.** Forecast provider is stored and unused. A P10 forecast only matters when conservatism is above 0, and conservatism only matters when a P10 forecast exists. Solcast provides one automatically. The charge reason says `no P10 forecast so conservatism is unused` otherwise. See [Where the P10 comes from](configuration.md#where-the-p10-comes-from).
-- **The charge reason shows no `recent accuracy` factor.** The correction needs 5 usable days. Days with clipping, or under 0.5 kWh of forecast or solar, do not count. See [Forecast accuracy correction](configuration.md#forecast-accuracy-correction).
+- **The charge reason shows no `recent accuracy` factor.** The correction needs 5 usable days. Days with clipping, or under 0.5 kWh of forecast or solar, do not count. The attributes of **Overnight Charge Reason** show how many days are usable (`accuracy_status`, for example `Waiting for data: 3 of 5 days`). A new install shows 0 until the second midnight, because the first midnight only remembers the forecast. See [Forecast accuracy correction](configuration.md#forecast-accuracy-correction).
 - **A manual target.** See [Entities](entities.md#manual-charge-target).
 
 To see every reading and decision, turn on both of these:

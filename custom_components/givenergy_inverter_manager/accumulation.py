@@ -24,7 +24,12 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
-from .core.rules import build_load_profile, forecast_correction_factor
+from .core.rules import (
+    ForecastAccuracy,
+    build_load_profile,
+    forecast_accuracy,
+    forecast_correction_factor,
+)
 from .core.tariff import CounterMemory, EnergyAccumulator
 from .core.write_log import restore_entries
 
@@ -352,6 +357,11 @@ class AccumulationStore:
     def forecast_correction_factor(self) -> float | None:
         """Median actual/forecast ratio of recent days, or None until enough usable days."""
         return forecast_correction_factor(self.state.forecast_ratio_history)
+
+    @property
+    def forecast_accuracy(self) -> ForecastAccuracy:
+        """The measured correction, its usable days and whether it is applied yet."""
+        return forecast_accuracy(self.state.forecast_ratio_history)
 
     def slot_load_profile(self, target_weekday: int) -> list[float] | None:
         """48-slot baseline load profile for target_weekday (Monday=0), or None."""

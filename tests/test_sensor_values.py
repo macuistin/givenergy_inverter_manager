@@ -12,6 +12,7 @@ from custom_components.givenergy_inverter_manager.const import (
 )
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+from custom_components.givenergy_inverter_manager.core.rules import forecast_accuracy
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 
 
@@ -380,6 +381,44 @@ class TestOvernightChargeWindow:
         assert attributes["window_extended"] is False
         assert attributes["expected_kwh"] is None
         assert attributes["expected_finish"] is None
+
+
+class TestForecastAccuracyAttributes:
+    def test_none_before_the_first_cycle(self):
+        assert values.forecast_accuracy_attributes(make_data()) is None
+
+    def test_waiting_for_data(self):
+        accuracy = forecast_accuracy([{"forecast": 10.0, "actual": 7.0, "clipped": False}] * 3)
+
+        attributes = values.forecast_accuracy_attributes(make_data(forecast_accuracy=accuracy))
+
+        assert attributes == {
+            "accuracy_status": "Waiting for data: 3 of 5 days",
+            "accuracy_applied": False,
+            "accuracy_measured_factor": 0.7,
+            "accuracy_applied_factor": None,
+            "accuracy_usable_days": 3,
+            "accuracy_days_needed": 5,
+            "accuracy_days_stored": 3,
+        }
+
+    def test_applied(self):
+        accuracy = forecast_accuracy([{"forecast": 10.0, "actual": 8.0, "clipped": False}] * 7)
+
+        attributes = values.forecast_accuracy_attributes(make_data(forecast_accuracy=accuracy))
+
+        assert attributes["accuracy_applied"] is True
+        assert attributes["accuracy_applied_factor"] == 0.8
+        assert attributes["accuracy_status"] == "Applied: x0.80 from 7 usable days"
+
+    def test_the_reason_sensor_publishes_them(self):
+        from custom_components.givenergy_inverter_manager.sensor_descriptions.decisions import (
+            DESCRIPTIONS,
+        )
+
+        reason = next(d for d in DESCRIPTIONS if d.key == "overnight_charge_reason")
+
+        assert reason.attrs_fn is values.forecast_accuracy_attributes
 
 
 class TestNightSurvivalConfidence:

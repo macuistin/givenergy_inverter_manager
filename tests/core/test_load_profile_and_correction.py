@@ -12,6 +12,7 @@ from custom_components.givenergy_inverter_manager.const import (
 )
 from custom_components.givenergy_inverter_manager.core.rules import (
     build_load_profile,
+    forecast_accuracy,
     forecast_correction_factor,
 )
 from tests.core.flat_rules import _simulate_min_soc, calculate_overnight_charge_target
@@ -163,6 +164,54 @@ class TestForecastCorrectionFactor:
     def test_median_resists_one_outlier(self):
         recs = [self._rec(10, 9)] * 4 + [self._rec(10, 1)]
         assert forecast_correction_factor(recs) == pytest.approx(0.9)
+
+
+class TestForecastAccuracy:
+    @staticmethod
+    def _rec(forecast, actual, clipped=False):
+        return {"forecast": forecast, "actual": actual, "clipped": clipped}
+
+    def test_no_history_is_waiting_with_nothing_measured(self):
+        accuracy = forecast_accuracy([])
+
+        assert accuracy.usable_days == 0
+        assert accuracy.days_stored == 0
+        assert accuracy.days_needed == 5
+        assert accuracy.measured_factor is None
+        assert accuracy.applied_factor is None
+        assert not accuracy.applied
+        assert accuracy.status == "Waiting for data: 0 of 5 days"
+
+    def test_below_five_usable_days_measures_but_does_not_apply(self):
+        accuracy = forecast_accuracy([self._rec(10, 7)] * 3 + [self._rec(10, 2, clipped=True)])
+
+        assert accuracy.days_stored == 4
+        assert accuracy.usable_days == 3
+        assert accuracy.measured_factor == pytest.approx(0.7)
+        assert accuracy.applied_factor is None
+        assert accuracy.status == "Waiting for data: 3 of 5 days"
+
+    def test_five_usable_days_apply_the_median(self):
+        accuracy = forecast_accuracy([self._rec(10, a) for a in (7, 8, 9, 6, 8)])
+
+        assert accuracy.applied
+        assert accuracy.measured_factor == pytest.approx(0.8)
+        assert accuracy.applied_factor == pytest.approx(0.8)
+        assert accuracy.status == "Applied: x0.80 from 5 usable days"
+
+    def test_a_measured_factor_outside_the_limits_is_clamped_and_says_so(self):
+        accuracy = forecast_accuracy([self._rec(10, 4.5)] * 6)
+
+        assert accuracy.measured_factor == pytest.approx(0.45)
+        assert accuracy.applied_factor == pytest.approx(CHARGE_FORECAST_CORRECTION_MIN)
+        assert accuracy.status == (
+            "Applied: x0.60 from 6 usable days (measured 0.45, limited to 0.6 to 1.2)"
+        )
+
+    def test_the_correction_factor_is_the_applied_factor(self):
+        recs = [self._rec(10, a) for a in (7, 8, 9, 6, 8)]
+
+        assert forecast_correction_factor(recs) == forecast_accuracy(recs).applied_factor
 
 
 class TestForecastCorrectionApplied:

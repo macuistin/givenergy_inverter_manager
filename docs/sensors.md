@@ -148,7 +148,7 @@ Outputs of the overnight charge calculation.
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Recommended Overnight Charge Target | `overnight_charge_target` | % | - | measurement | no | yes | Tonight's target after overrides and the configured cap. Holds its value until the calculated target moves 5 points or more. |
-| Overnight Charge Reason | `overnight_charge_reason` | - | - | none | no | yes | Why that target was chosen. Changes only when the target does. Diagnostic category. |
+| Overnight Charge Reason | `overnight_charge_reason` | - | - | none | no | yes | Why that target was chosen. Changes only when the target does. Attributes report the forecast accuracy correction: `accuracy_status` (for example `Waiting for data: 3 of 5 days`), `accuracy_applied`, `accuracy_measured_factor`, `accuracy_applied_factor`, `accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`. Diagnostic category. |
 | Overnight Charge Window | `overnight_charge_window` | - | - | none | no | yes | The charge window written to slot 1, sized to the plan. Attributes: `window_start`, `window_end`, `window_extended`, `expected_kwh` and `expected_finish`. Diagnostic category. |
 | Estimated Overnight Charge Cost | `overnight_charge_cost` | currency | monetary | none | no | yes | kWh to charge times the cheapest rate, before discount and VAT. Diagnostic category. |
 | Estimated SoC at Sunrise | `estimated_soc_at_sunrise` | % | - | measurement | no | yes | Projected SoC when solar starts, taken as 08:00. While solar is generating it covers tonight's 8 hour pre-solar window from the current SoC. |

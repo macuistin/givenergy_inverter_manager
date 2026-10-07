@@ -219,6 +219,22 @@ def overnight_charge_reason(data: CoordinatorData) -> str | None:
     return None
 
 
+def forecast_accuracy_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Return the measured accuracy factor and its usable days, None before the first cycle."""
+    accuracy = data.forecast_accuracy
+    if accuracy is None:
+        return None
+    return {
+        "accuracy_status": accuracy.status,
+        "accuracy_applied": accuracy.applied,
+        "accuracy_measured_factor": _round_or_none(accuracy.measured_factor, 2),
+        "accuracy_applied_factor": _round_or_none(accuracy.applied_factor, 2),
+        "accuracy_usable_days": accuracy.usable_days,
+        "accuracy_days_needed": accuracy.days_needed,
+        "accuracy_days_stored": accuracy.days_stored,
+    }
+
+
 def overnight_charge_cost(data: CoordinatorData) -> float | None:
     """Return the cost of tonight's planned charge, None before the first decision."""
     if data.published_charge_decision:
