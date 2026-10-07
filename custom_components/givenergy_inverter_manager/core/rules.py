@@ -637,10 +637,12 @@ class DivertPolicy:
 
 @dataclass(frozen=True)
 class ImmersionRun:
-    """Whether the element is on now, and how long its inputs have been unavailable."""
+    """Whether the element is on now, how long its inputs have been unavailable, and whether
+    a switch to drive it is configured."""
 
     currently_on: bool = False
     unavailable_for_s: float = 0.0
+    switch_configured: bool = True
 
 
 @dataclass(frozen=True)
@@ -795,6 +797,7 @@ def should_divert_to_immersion(inputs: ImmersionInputs) -> Verdict:
     Returns (should_divert, reason).
 
     Algorithm:
+      0. Never divert when there is no switch to drive the element
       1. Always heat if below legionella minimum temperature (ignores hysteresis)
       2. Turn off when target temperature is reached
       3. If a required input is missing (None solar, house load or battery power,
@@ -813,6 +816,8 @@ def should_divert_to_immersion(inputs: ImmersionInputs) -> Verdict:
     With defaults of target=55°C and hysteresis=5°C: turns off at 55°C and will
     not restart until water drops below 50°C.
     """
+    if not inputs.run.switch_configured:
+        return False, "No immersion switch configured"
     temperature_decision = _water_temperature_decision(inputs.water)
     if temperature_decision is not None:
         return temperature_decision

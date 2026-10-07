@@ -4811,6 +4811,48 @@
       "required": false,
       "optional": true,
       "default": 5.0
+     }
+    ],
+    "expanded": false,
+    "name": "hardware_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "switch"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "immersion_switch_entity",
+      "description": {
+       "suggested_value": "switch.immersion_heater"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "immersion_temp_sensor_entity",
+      "description": {
+       "suggested_value": "sensor.hot_water_cylinder_temperature"
+      },
+      "required": false,
+      "optional": true
      },
      {
       "selector": {
@@ -4829,8 +4871,9 @@
      }
     ],
     "expanded": false,
-    "name": "hardware_settings",
-    "required": true
+    "name": "immersion_settings",
+    "required": false,
+    "optional": true
    },
    {
     "type": "expandable",
@@ -5559,6 +5602,48 @@
       "required": false,
       "optional": true,
       "default": 5.0
+     }
+    ],
+    "expanded": false,
+    "name": "hardware_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "switch"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "immersion_switch_entity",
+      "description": {
+       "suggested_value": "switch.immersion_heater"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "immersion_temp_sensor_entity",
+      "description": {
+       "suggested_value": "sensor.hot_water_cylinder_temperature"
+      },
+      "required": false,
+      "optional": true
      },
      {
       "selector": {
@@ -5577,8 +5662,9 @@
      }
     ],
     "expanded": false,
-    "name": "hardware_settings",
-    "required": true
+    "name": "immersion_settings",
+    "required": false,
+    "optional": true
    },
    {
     "type": "expandable",
@@ -6313,6 +6399,48 @@
       "required": false,
       "optional": true,
       "default": 5.0
+     }
+    ],
+    "expanded": false,
+    "name": "hardware_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "switch"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "immersion_switch_entity",
+      "description": {
+       "suggested_value": "switch.immersion_heater"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "immersion_temp_sensor_entity",
+      "description": {
+       "suggested_value": "sensor.hot_water_cylinder_temperature"
+      },
+      "required": false,
+      "optional": true
      },
      {
       "selector": {
@@ -6331,8 +6459,9 @@
      }
     ],
     "expanded": false,
-    "name": "hardware_settings",
-    "required": true
+    "name": "immersion_settings",
+    "required": false,
+    "optional": true
    },
    {
     "type": "expandable",
@@ -7192,6 +7321,48 @@
       "required": false,
       "optional": true,
       "default": 5.0
+     }
+    ],
+    "expanded": false,
+    "name": "hardware_settings",
+    "required": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "switch"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "immersion_switch_entity",
+      "description": {
+       "suggested_value": "switch.immersion_heater"
+      },
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "immersion_temp_sensor_entity",
+      "description": {
+       "suggested_value": "sensor.hot_water_cylinder_temperature"
+      },
+      "required": false,
+      "optional": true
      },
      {
       "selector": {
@@ -7213,8 +7384,9 @@
      }
     ],
     "expanded": false,
-    "name": "hardware_settings",
-    "required": true
+    "name": "immersion_settings",
+    "required": false,
+    "optional": true
    },
    {
     "type": "expandable",
