@@ -1012,6 +1012,29 @@
           "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
         }
       }
+    },
+    "battery_cost_not_set": {
+      "title": "Battery cost is not set",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Set the battery cost",
+            "description": "**Battery cost** is 0, so battery wear is not counted and Net Saving Today equals Saving vs Grid Today. Enter what the battery cost to put a wear cost on each kWh cycled.\n\nThe value is saved to the integration options, and the integration reloads. Every other saved option stays as it is. Dismiss this repair if you do not want wear counted.",
+            "data": {
+              "battery_cost_eur": "Battery cost"
+            },
+            "data_description": {
+              "battery_cost_eur": "What the battery cost, including installation. Must be above 0."
+            }
+          }
+        },
+        "error": {
+          "cost_required": "Enter a cost above 0, or dismiss this repair."
+        },
+        "abort": {
+          "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
+        }
+      }
     }
   },
   "exceptions": {

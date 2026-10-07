@@ -80,6 +80,20 @@ To clear a slot by hand:
 
 Slot 1 is never changed by this repair.
 
+## Battery cost is not set
+
+The repair **Battery cost is not set** appears when **Battery cost** is 0 and the integration has been tracking the battery for 7 days. With no cost, battery wear is 0, so **Net Saving Today** equals **Saving vs Grid Today**. A battery cost also feeds **Battery Cycle Cost per kWh** and the immersion divert rule. See [Configuration](configuration.md#battery--charging-thresholds).
+
+To set it from the repair:
+
+1. Open **Settings → System → Repairs** and open **Battery cost is not set**.
+2. Enter what the battery cost, then select **Submit**.
+3. The value is saved to the integration options and the integration reloads. Every other saved option is kept. The repair clears on the next update cycle.
+
+You can also set **Battery cost** under **Configure**, in the Battery & charging thresholds section.
+
+The repair appears once. If you do not want wear counted, select **Ignore** and it stays out of the way. It is raised again only if the cost is set and then set back to 0.
+
 ## Daily sensors are frozen after an upgrade
 
 Version 0.2.1 gave nine daily sensors the state class `total_increasing` together with `last_reset`. Home Assistant refuses that combination, so the sensors stopped updating until the integration reloaded. Battery throughput, for example, stayed at one value until the integration reloaded.

@@ -52,6 +52,7 @@ from homeassistant.util import dt as dt_util
 from .accumulation import AccumulationStore
 from .const import (
     CONF_BATTERY_CAPACITY,
+    CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
@@ -80,6 +81,7 @@ from .const import (
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
     DEFAULT_BATTERY_CAPACITY,
+    DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_DRY_RUN,
@@ -95,7 +97,7 @@ from .const import (
     GIVTCP_MIN_CHARGE_TARGET_PCT,
     UPDATE_INTERVAL_SECONDS,
 )
-from .core.battery import BatteryStats
+from .core.battery import BatteryStats, battery_cost_prompt_due
 from .core.charge_hold import HeldCharge
 from .core.engine import (
     Accumulators,
@@ -126,9 +128,11 @@ from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
     ClearOutcome,
+    async_create_battery_cost_issue,
     async_create_givtcp_missing_issue,
     async_create_min_soc_issue,
     async_create_other_charge_slots_issue,
+    async_delete_battery_cost_issue,
     async_delete_givtcp_missing_issue,
     async_delete_min_soc_issue,
     async_delete_other_charge_slots_issue,
@@ -1064,6 +1068,15 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         else:
             async_delete_min_soc_issue(self.hass)
         self._check_other_charge_slots(cfg)
+        self._check_battery_cost(cfg)
+
+    def _check_battery_cost(self, cfg: dict) -> None:
+        """Ask for the battery cost while it is 0 after the integration has run a while."""
+        cost = float(cfg.get(CONF_BATTERY_COST, DEFAULT_BATTERY_COST))
+        if battery_cost_prompt_due(cost, self._battery_stats, self._now().date()):
+            async_create_battery_cost_issue(self.hass)
+        else:
+            async_delete_battery_cost_issue(self.hass)
 
     def _other_charge_slots(self, cfg: dict[str, Any]) -> list[ActiveChargeSlot]:
         """Charge slots other than the managed one that have a window set. Reads only."""

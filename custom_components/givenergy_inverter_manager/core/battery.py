@@ -102,6 +102,15 @@ class BatteryStats:
         return self.estimated_years_remaining(today)
 
 
+def battery_cost_prompt_due(battery_cost: float, stats: BatteryStats, today: date) -> bool:
+    """True when the battery cost is still unset after the integration has run for a while.
+
+    With no cost, battery wear is 0 and the net saving equals the saving against the grid.
+    "A while" is the same number of days the battery life estimate waits for.
+    """
+    return battery_cost <= 0 and stats.days_tracked(today) >= BATTERY_LIFE_ESTIMATE_MIN_DAYS
+
+
 def calculate_cycle_increment(soc_delta: float) -> float:
     """
     Calculate the cycle increment for a given SoC change.
