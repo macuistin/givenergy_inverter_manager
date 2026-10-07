@@ -31,7 +31,7 @@ Every 30 seconds the coordinator runs these steps in order.
 4. Look for an EV charger. While none is found, discovery repeats about every 5 minutes (every tenth cycle).
 5. Read the sensors: solar power, battery SoC, battery power, grid power, house load, the optional immersion temperature, forecasts, carbon intensity and inverter temperature, the EV charger, and the GivTCP daily energy counters.
 6. Run the engine. It finds the current rate, adds the time since the last cycle to the today, week, month and year totals, applies the GivTCP daily counters to today's totals, and works out the charge target, immersion decision, bill figures, night survival and EV signals.
-7. Record the day's first forecast value, for the forecast accuracy sensors.
+7. Record the day's first forecast value, for the Solar forecast today sensor, and the latest forecast for tomorrow, which the forecast accuracy sensors and the accuracy correction measure the next day against.
 8. Apply the cheap rate floor, if it is due.
 9. Apply the EV mode change, if one was requested.
 10. Apply the immersion decision to your real immersion switch. The first cycle after a start or reload skips this step, because the real switch may not be up yet. It runs even when the managed switch entity is disabled. The managed switch shows the decision and lets you override it.
@@ -57,7 +57,7 @@ GivTCP writes use registers with a limited lifetime. Each write helper:
 - skips the write when the same value was written to the same entity in the last 300 seconds (a different value is still written);
 - reads the entity back after 2 seconds and retries up to 3 times;
 - catches an error from the service call, logs it and carries on instead of stopping the task;
-- counts each write in the GivTCP Register Write Count sensor, and logs a warning at 500,000 writes. The count is saved with the accumulated energy and survives restarts.
+- counts each write in the GivTCP Register Write Count sensor, and logs a warning at 500,000 writes. The count is saved with the accumulated energy and survives restarts. It counts writes that were sent. A write skipped because the entity already holds the value is not counted, so a night where only the charge target changed adds 1. Each write is also listed, with its reason, in the sensor's `recent_writes` attribute. See [Find out what changed the charge target](troubleshooting.md#find-out-what-changed-the-charge-target).
 
 If writing the target SoC fails, the charge target is not enabled, so the inverter is not limited to an old target. Charge targets are limited to 4 to 100%, the range GivTCP accepts.
 

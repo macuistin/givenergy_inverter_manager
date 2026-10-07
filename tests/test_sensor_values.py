@@ -310,6 +310,19 @@ class TestNightSurvivalConfidence:
         assert attrs["explanation"].startswith("Critical")
 
 
+class TestRegisterWriteAttributes:
+    def test_recent_writes_are_listed_newest_first(self):
+        log = [
+            {"time": "t1", "entity_id": "number.t", "value": "55", "reason": "charge target"},
+            {"time": "t2", "entity_id": "number.t", "value": "60", "reason": "external"},
+        ]
+        attrs = values.register_write_attributes(make_data(register_write_log=log))
+        assert [w["time"] for w in attrs["recent_writes"]] == ["t2", "t1"]
+
+    def test_an_empty_log_gives_an_empty_list(self):
+        assert values.register_write_attributes(make_data()) == {"recent_writes": []}
+
+
 class TestInverterAndCarbon:
     def test_temperature_rounds_and_handles_none(self):
         assert values.inverter_temperature(make_data(inverter_temperature=41.26)) == 41.3

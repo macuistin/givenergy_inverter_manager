@@ -257,6 +257,7 @@ class CoordinatorData:
     yesterday_forecast_accuracy_pct: float = 0.0
     forecast_accuracy_7day_avg_pct: float = 0.0
     register_write_count: int = 0
+    register_write_log: list[dict] = field(default_factory=list)  # oldest first
     carbon_intensity_gco2: float | None = None
     carbon_intensity_status: str = "Unknown"
 

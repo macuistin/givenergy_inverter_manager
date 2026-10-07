@@ -4,7 +4,26 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+**Features**
+- The **GivTCP Register Write Count** sensor has a `recent_writes` attribute: the last 20 writes
+  the integration made to the charge target, the charge window and the charge switches, each with
+  its time, entity, value and reason. A change to the charge target, window start or window end
+  that the integration did not make is added as `external`, with the Home Assistant `user_id` and
+  `parent_id` when there are any, and one INFO log line. Nothing is reverted and no option is
+  added. The log is saved with the other stored data.
+
 **Fixes**
+- Forecast accuracy yesterday and its 7-day average divide actual solar by the forecast for that
+  day. They used the first forecast the charge calculation saw, which could be blended toward
+  the P10 or belong to another day, so the figure read far too low (19% on a day the forecast
+  provider had forecast 7.54 kWh and the site made 6.64 kWh, about 88%). A day with no
+  remembered forecast, or with no data because Home Assistant was down, is skipped. On upgrade
+  the stored history is rebuilt from the daily forecast and solar pairs the integration already
+  keeps, up to the last 7 days, so the sensors show corrected values straight away. With no
+  pairs stored they read 0 until the next midnight. The Solar forecast today sensor still shows
+  the first forecast value the charge calculation used.
+- The write count and the write log are queued for saving as soon as a write is sent. They used
+  to wait for the next periodic save, so a crash soon after a write could lose it.
 - The Recommended Overnight Charge Target sensor no longer jitters. The calculated target moves
   by several points between cycles in the small hours, so the sensor and its reason text
   changed dozens of times overnight. The sensors now hold their value

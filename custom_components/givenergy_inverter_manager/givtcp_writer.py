@@ -9,6 +9,10 @@ through one path that:
   3. calls the service and reads the state back, retrying a mismatch,
   4. counts each accepted service call towards the lifetime register total.
 
+The write observer hears about each call before it is sent, and again when it was
+accepted or failed. The write log uses that to tell the manager's own writes from
+changes made by anyone else.
+
 Writes are serialised with a lock. Two callers (the charge-target task and the
 cheap-rate floor in the update cycle) never interleave their service calls.
 
@@ -23,7 +27,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
+from typing import Any, Protocol
 
 from homeassistant.exceptions import HomeAssistantError
 
@@ -33,6 +37,7 @@ from .const import (
     GIVTCP_WRITE_LIFETIME_WARN,
     GIVTCP_WRITE_RETRY_SLEEP_S,
 )
+from .core.write_log import WriteRecord
 from .logging import WriteOutcome, get_logger, log_givtcp_write
 
 _LOG = get_logger(__name__)
@@ -40,6 +45,32 @@ _LOG = get_logger(__name__)
 GetState = Callable[[str], Any]
 CallService = Callable[[str, str, dict[str, Any]], Awaitable[None]]
 CountListener = Callable[[int], None]
+
+
+class WriteObserver(Protocol):
+    """Hears about each service call the writer makes to the inverter entities."""
+
+    def before_write(self, record: WriteRecord) -> None:
+        """The call is about to be sent. An entity can report the new value before it returns."""
+
+    def after_write(self, record: WriteRecord) -> None:
+        """The call was accepted."""
+
+    def write_failed(self, record: WriteRecord) -> None:
+        """The call raised, so nothing was written."""
+
+
+class _NoObserver:
+    """The default observer: nobody is listening."""
+
+    def before_write(self, record: WriteRecord) -> None:
+        pass
+
+    def after_write(self, record: WriteRecord) -> None:
+        pass
+
+    def write_failed(self, record: WriteRecord) -> None:
+        pass
 
 
 class SwitchState(StrEnum):
@@ -145,10 +176,12 @@ class GivTCPWriter:
         get_state: GetState,
         call_service: CallService,
         on_count_change: CountListener,
+        observer: WriteObserver | None = None,
     ) -> None:
         self._get_state = get_state
         self._call_service = call_service
         self._on_count_change = on_count_change
+        self._observer: WriteObserver = observer or _NoObserver()
         self._lock = asyncio.Lock()
         self.write_count: int = 0
         self.last_write_time: dict[tuple[str, object], float] = {}
@@ -233,6 +266,8 @@ class GivTCPWriter:
 
     async def _send(self, write: VerifiedWrite) -> bool:
         """Call the write service. On failure, log it and release the cooldown."""
+        record = WriteRecord(write.entity_id, str(write.shown), write.name)
+        self._observer.before_write(record)
         try:
             await self._call_service(write.domain, write.service, write.payload)
         except HomeAssistantError as err:
@@ -253,8 +288,9 @@ class GivTCPWriter:
                 write.entity_id,
             )
         else:
-            self._count_write()
+            self._count_write(record)
             return True
+        self._observer.write_failed(record)
         self.last_write_time.pop(write.cooldown_key, None)
         return False
 
@@ -304,9 +340,10 @@ class GivTCPWriter:
 
     # ── Lifetime register count ───────────────────────────────────────────────
 
-    def _count_write(self) -> None:
+    def _count_write(self, record: WriteRecord) -> None:
         self.write_count += 1
         self._on_count_change(self.write_count)
+        self._observer.after_write(record)
         if self.write_count == GIVTCP_WRITE_LIFETIME_WARN:
             _LOG.warning(
                 "GivTCP register write count has reached %d, approximately 50%% of the "

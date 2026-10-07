@@ -19,6 +19,7 @@ from .const import (
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.tariff import EnergyAccumulator
+from .core.write_log import newest_first
 
 # Power inside this band either side of zero counts as no flow.
 POWER_DIRECTION_BAND_W = 50
@@ -217,6 +218,11 @@ def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
             data.survival_reason,
         )
     )
+
+
+def register_write_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """The recent writes and outside changes to the charge entities, newest first."""
+    return {"recent_writes": newest_first(data.register_write_log)}
 
 
 # ── Inverter and carbon ──────────────────────────────────────────────────────
