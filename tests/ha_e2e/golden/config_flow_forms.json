@@ -4553,6 +4553,23 @@
     "schema": [
      {
       "selector": {
+       "date": {}
+      },
+      "name": "effective_from",
+      "required": false,
+      "optional": true
+     }
+    ],
+    "expanded": false,
+    "name": "tariff_change",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
        "number": {
         "min": 5.0,
         "max": 30.0,
@@ -5353,6 +5370,23 @@
     "schema": [
      {
       "selector": {
+       "date": {}
+      },
+      "name": "effective_from",
+      "required": false,
+      "optional": true
+     }
+    ],
+    "expanded": false,
+    "name": "tariff_change",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
        "number": {
         "min": 5.0,
         "max": 30.0,
@@ -6136,6 +6170,23 @@
     ],
     "expanded": false,
     "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "date": {}
+      },
+      "name": "effective_from",
+      "required": false,
+      "optional": true
+     }
+    ],
+    "expanded": false,
+    "name": "tariff_change",
     "required": false,
     "optional": true
    },
@@ -7022,6 +7073,23 @@
     ],
     "expanded": false,
     "name": "rate_period_5",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "date": {}
+      },
+      "name": "effective_from",
+      "required": false,
+      "optional": true
+     }
+    ],
+    "expanded": false,
+    "name": "tariff_change",
     "required": false,
     "optional": true
    },

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 import voluptuous as vol
@@ -27,6 +28,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
+from homeassistant.util import dt as dt_util
 
 from .config_helpers import effective_config
 from .const import (
@@ -108,7 +110,14 @@ from .const import (
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
-from .core.tariff import build_tariff
+from .core.tariff import (
+    TariffSubmission,
+    build_tariff,
+    options_after_reconfigure,
+    options_after_tariff_save,
+    scheduled_tariff_changes,
+    tariff_in_force,
+)
 from .discovery import discover_ev_chargers, discover_givtcp_inverters
 
 _LOGGER = logging.getLogger(__name__)
@@ -261,12 +270,32 @@ def _tariff_summary(cfg: dict) -> str:
     )
 
 
+def _periods_text(periods: list[dict]) -> str:
+    """The timed rates as one line, such as Night 0.1644 (23:00 to 08:00)."""
+    return ", ".join(
+        f"{p['name']} {float(p['rate']):.4f} ({p['start']} to {p['end']})" for p in periods
+    )
+
+
+def _scheduled_changes_summary(cfg: dict, today: date) -> str:
+    """One line for each rate change that has not started yet, or an empty string."""
+    code = cfg.get(CONF_CURRENCY) or DEFAULT_CURRENCY
+    lines = []
+    for change in scheduled_tariff_changes(cfg, today):
+        rates = change.rates
+        lines.append(
+            f"From {change.effective.isoformat()}: {rates[CONF_BASE_RATE_NAME]} "
+            f"{float(rates[CONF_BASE_RATE]):.4f}, export {float(rates[CONF_EXPORT_RATE]):.4f} "
+            f"{code}/kWh, timed rates: {_periods_text(rates[CONF_RATE_PERIODS]) or 'none'}."
+        )
+    if not lines:
+        return ""
+    return "Scheduled rate changes:\n" + "\n".join(f"- {line}" for line in lines)
+
+
 def _setup_summary(data: dict) -> str:
     """Bullet list of the choices made so far, shown before the entry is created."""
-    periods = ", ".join(
-        f"{p['name']} {float(p['rate']):.4f} ({p['start']} to {p['end']})"
-        for p in data.get(CONF_RATE_PERIODS) or []
-    )
+    periods = _periods_text(data.get(CONF_RATE_PERIODS) or [])
     lines = [
         _tariff_summary(data),
         f"Base rate: {data.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)} "
@@ -360,6 +389,40 @@ def _tariff_updates(values: dict, rate_periods: list[dict]) -> dict[str, Any]:
         CONF_BILL_START_DAY: int(values[CONF_BILL_START_DAY]),
         CONF_CURRENCY: values.get(CONF_CURRENCY, DEFAULT_CURRENCY),
     }
+
+
+_TARIFF_CHANGE_SECTION = "tariff_change"
+
+
+def _submitted_change(user_input: dict) -> dict:
+    """The tariff_change section of a submission, empty when the client sent none."""
+    return user_input.get(_TARIFF_CHANGE_SECTION) or {}
+
+
+def _effective_from(change: dict) -> date | None:
+    """The date the user asked the submitted rates to start, or None for now."""
+    try:
+        return date.fromisoformat(str(change["effective_from"]))
+    except (KeyError, ValueError):
+        return None
+
+
+def _tariff_submission(user_input: dict, rate_periods: list[dict]) -> TariffSubmission:
+    """What the submitted options form asks to do with the tariff."""
+    change = _submitted_change(user_input)
+    return TariffSubmission(
+        updates=_tariff_updates(user_input.get("tariff_settings", {}), rate_periods),
+        effective=_effective_from(change),
+        cancel_scheduled=bool(change.get("cancel_scheduled")),
+    )
+
+
+def _change_date_errors(user_input: dict, today: date) -> dict[str, str]:
+    """A rate change cannot start in the past: costs already accumulated are not recalculated."""
+    effective = _effective_from(_submitted_change(user_input))
+    if effective is not None and effective < today:
+        return {"base": "tariff_change_date_in_past"}
+    return {}
 
 
 def _currency_code(code: object) -> str:
@@ -814,7 +877,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
 
     def _store_reconfigured_tariff(self, entry, updates: dict[str, Any]) -> None:
         """Write *updates* to the entry data and drop the saved options that would override them."""
-        options = {k: v for k, v in entry.options.items() if k not in updates}
+        options = options_after_reconfigure(dict(entry.options), updates, dt_util.now().date())
         self.hass.config_entries.async_update_entry(
             entry, data={**entry.data, **updates}, options=options
         )
@@ -823,7 +886,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         self, entry, user_input: dict | None, errors: dict[str, str]
     ) -> config_entries.ConfigFlowResult:
         """Show the tariff form filled with the values in force."""
-        current = effective_config(entry)
+        current = tariff_in_force(effective_config(entry), dt_util.now().date())
         schema = self.__class__._build_tariff_schema(
             current.get(CONF_RATE_PERIODS) or [],
             current,
@@ -866,7 +929,11 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         A saved falsy option (0, an empty string, an empty list) is a real choice
         and must not fall back to the setup value.
         """
-        return effective_config(self._config_entry).get(key, default)
+        return self._in_force().get(key, default)
+
+    def _in_force(self) -> dict[str, Any]:
+        """The saved values with the unit rates in force today: the latest dated change applied."""
+        return tariff_in_force(effective_config(self._config_entry), dt_util.now().date())
 
     def _optional_key(self, key) -> vol.Optional:
         """Optional schema key that pre-fills a saved value but has no default when empty.
@@ -882,8 +949,12 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict, rate_periods: list[dict]
     ) -> config_entries.ConfigFlowResult:
         """Store the submitted options and create the entry."""
-        tariff = user_input.get("tariff_settings", {})
-        self._options.update(_tariff_updates(tariff, rate_periods))
+        self._options = options_after_tariff_save(
+            self._options,
+            self._in_force(),
+            _tariff_submission(user_input, rate_periods),
+            dt_util.now().date(),
+        )
         self._options.update(user_input.get("threshold_settings", {}))
         self._store_floats(
             user_input.get("hardware_settings", {}),
@@ -944,7 +1015,9 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
     def _submission_errors(user_input: dict, rate_periods: list[dict]) -> dict[str, str]:
         """Return form errors for a submitted options form, or an empty dict."""
         tariff = user_input.get("tariff_settings", {})
-        return _rate_period_errors(rate_periods, _base_rate_name(tariff))
+        return _rate_period_errors(rate_periods, _base_rate_name(tariff)) or _change_date_errors(
+            user_input, dt_util.now().date()
+        )
 
     def _show_form(
         self, user_input: dict | None, errors: dict[str, str]
@@ -957,16 +1030,22 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             step_id="init",
             data_schema=schema,
             errors=errors,
-            description_placeholders={
-                "tariff_summary": _tariff_summary(effective_config(self._config_entry))
-            },
+            description_placeholders={"tariff_summary": self._tariff_summary_text()},
         )
+
+    def _tariff_summary_text(self) -> str:
+        """The tariff in force today, then any rate change that has not started yet."""
+        in_force = self._in_force()
+        scheduled = _scheduled_changes_summary(in_force, dt_util.now().date())
+        summary = _tariff_summary(in_force)
+        return f"{summary}\n\n{scheduled}" if scheduled else summary
 
     def _form_fields(self) -> dict:
         """Return the options form fields in display order."""
         currency = self._get(CONF_CURRENCY, DEFAULT_CURRENCY)
         fields: dict = {vol.Required("tariff_settings"): self._tariff_section(currency)}
         fields.update(self._rate_period_sections(currency))
+        fields[vol.Optional(_TARIFF_CHANGE_SECTION)] = self._tariff_change_section()
         fields[vol.Required("threshold_settings")] = self._threshold_section(currency)
         fields[vol.Required("forecast_settings")] = self._forecast_section()
         fields[vol.Required("hardware_settings")] = self._hardware_section()
@@ -982,6 +1061,16 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(f"rate_period_{i}"): _rate_period_section(slot, currency)
             for i, slot in enumerate(slots, 1)
         }
+
+    def _tariff_change_section(self) -> object:
+        """Return the section that dates the submitted unit rates, and cancels scheduled ones.
+
+        Optional, so a client that omits it applies the rates now and keeps what is scheduled.
+        """
+        fields: dict = {vol.Optional("effective_from"): selector.DateSelector()}
+        if scheduled_tariff_changes(self._in_force(), dt_util.now().date()):
+            fields[vol.Optional("cancel_scheduled", default=False)] = selector.BooleanSelector()
+        return section(vol.Schema(fields), {"collapsed": True})
 
     def _tariff_section(self, currency: object) -> object:
         """Return the tariff section: base rate, export rate, charges, billing and currency."""

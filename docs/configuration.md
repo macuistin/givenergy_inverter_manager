@@ -156,11 +156,15 @@ A read-only summary lists the cheapest rate, the billing period (for example "Yo
 
 Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. Saving reloads the integration, so entities are unavailable for a few seconds. Saved options override the values entered at setup.
 
-The sections run in the order they are used most: Tariff, the five rate periods, Battery & charging thresholds, Solar forecast, Hardware, Immersion heater, Electric vehicle. Only Tariff opens expanded, and a rate period opens expanded when it has a name. The first line of the page states the cheapest rate in the saved tariff and the billing period, so a wrong rate slot or bill start day shows before you save.
+The sections run in the order they are used most: Tariff, the five rate periods, Dated rate change, Battery & charging thresholds, Solar forecast, Hardware, Immersion heater, Electric vehicle. Only Tariff opens expanded, and a rate period opens expanded when it has a name. The first line of the page states the cheapest rate in the saved tariff and the billing period, so a wrong rate slot or bill start day shows before you save.
 
 ### Tariff
 
 Same fields as setup step 2. Rate periods 1 to 5 sit in their own sections below the tariff section. Check the rates against your latest bill whenever your supplier changes its prices. See [Tariff](tariff.md).
+
+### Dated rate change
+
+Sets the date the rates in the Tariff and Rate period sections start. Leave it empty to apply them now. Only the base rate and its name, the timed rate periods and the export rate follow the date. The other tariff fields apply when you save. See [Tariff](tariff.md#change-the-rates-from-a-date).
 
 ### Battery & charging thresholds
 
@@ -222,7 +226,7 @@ Details as in setup step 3. Clear an entity field to remove the saved entity.
 
 ## Reconfigure
 
-**Settings → Devices & Services → GivEnergy Inverter Manager → ⋮ → Reconfigure** shows the tariff form, pre-filled with the values in force, and saves it to the setup data. It also removes any saved Configure-page values for the same tariff keys, because saved options override setup data. The integration reloads once. To change inverter entities, remove and re-add the integration.
+**Settings → Devices & Services → GivEnergy Inverter Manager → ⋮ → Reconfigure** shows the tariff form, pre-filled with the values in force, and saves it to the setup data. It also removes any saved Configure-page values for the same tariff keys, because saved options override setup data. It also ends any dated rate change that has started, and keeps the ones that have not. The integration reloads once. To change inverter entities, remove and re-add the integration.
 
 ## Things to know
 

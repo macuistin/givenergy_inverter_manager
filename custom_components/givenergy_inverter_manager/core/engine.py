@@ -112,7 +112,14 @@ from .rules import (
     decide_ev_charger_action,
     should_divert_to_immersion,
 )
-from .tariff import CounterMemory, EnergyAccumulator, RatePeriod, TariffConfig, build_tariff
+from .tariff import (
+    CounterMemory,
+    EnergyAccumulator,
+    RatePeriod,
+    TariffConfig,
+    build_tariff,
+    tariff_in_force,
+)
 from .timeutil import elapsed_seconds, local_time_on
 
 _LOG = get_logger(__name__)
@@ -1224,7 +1231,7 @@ def _carry_grid_to_battery(accumulators: Accumulators, raw: RawSensorValues) -> 
 
 
 def _start_cycle(inputs: CycleInputs, forecast: ForecastContext, now: datetime) -> _Cycle:
-    tariff = build_tariff(inputs.cfg)
+    tariff = build_tariff(tariff_in_force(inputs.cfg, now.date()))
     return _Cycle(
         inputs.raw,
         inputs.cfg,

@@ -444,6 +444,18 @@
               "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
             }
           },
+          "tariff_change": {
+            "name": "Dated rate change",
+            "description": "Start the rates in the Tariff and Rate period sections on a later date. Energy recorded before the date keeps the old rates, and nothing already recorded is recalculated. The standing charge, levy, VAT, discount and currency apply as soon as you save.",
+            "data": {
+              "effective_from": "Rates start on",
+              "cancel_scheduled": "Cancel scheduled rate changes"
+            },
+            "data_description": {
+              "effective_from": "Choose a date after today to schedule the base rate, its name, the timed rate periods and the export rate. Leave it empty to apply them now. The date cannot be in the past.",
+              "cancel_scheduled": "Remove every rate change that has not started yet. Rates already in force stay as they are."
+            }
+          },
           "threshold_settings": {
             "name": "Battery & charging thresholds",
             "description": "Charging behaviour, battery protection, and advanced options.",
@@ -529,7 +541,8 @@
     },
     "error": {
       "rate_period_zero_length": "A rate period cannot start and end at the same time. Change its start or end time, or clear its name to remove it.",
-      "rate_period_duplicate_name": "Rate period names must be different from each other and from the base rate name."
+      "rate_period_duplicate_name": "Rate period names must be different from each other and from the base rate name.",
+      "tariff_change_date_in_past": "The rates cannot start in the past, because costs already recorded are not recalculated. Clear the date to apply the rates now, or choose a later date."
     }
   },
   "entity": {
@@ -1009,6 +1022,20 @@
         "abort": {
           "dry_run": "Dry run is on, so nothing was changed. Turn it off in the integration options to clear the slots.",
           "write_failed": "GivTCP did not accept every write. The slots that are still active stay listed. Check that GivTCP is running, then try again.",
+          "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
+        }
+      }
+    },
+    "tariff_review_due": {
+      "title": "Tariff rates have not been reviewed",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Confirm the tariff rates",
+            "description": "The tariff rates were last saved or confirmed on {last_reviewed}, {days} days ago. A supplier price change leaves every cost figure wrong until the rates here are updated.\n\nCheck the rates against your latest bill. If a rate changed, go to **Settings → Integrations → GivEnergy Inverter Manager → Configure** and save the new rates, or give them a start date. If the rates are correct, select **Submit** to confirm them."
+          }
+        },
+        "abort": {
           "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
         }
       }

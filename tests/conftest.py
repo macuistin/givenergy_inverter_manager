@@ -55,6 +55,7 @@ for _mod_name in _HA_SUBMODULES:
 # --- homeassistant.util.dt ---
 _dt_util = sys.modules["homeassistant.util.dt"]
 _dt_util.as_local = lambda dt: dt
+_dt_util.now = lambda tz=None: datetime.now(tz).astimezone()
 sys.modules["homeassistant.util"].dt = _dt_util
 
 # --- homeassistant.const ---

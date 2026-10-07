@@ -11,10 +11,11 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 
 from ..const import CONF_FORECAST_ENTITY, CONF_INVERTER_TEMP_ENTITY
 from ..core.devices import Device
-from ..core.tariff import build_tariff
+from ..core.tariff import build_tariff, tariff_in_force
 from .cards import (
     BAR,
     BATTERY,
@@ -728,7 +729,8 @@ class Builder:
 
     def tariff_sections(self) -> list:
         """Sub-view: the rates and charges the bill sums use."""
-        table = markdown_card(tariff_table(build_tariff(self.cfg), self.cfg))
+        in_force = tariff_in_force(self.cfg, dt_util.now().date())
+        table = markdown_card(tariff_table(build_tariff(in_force), self.cfg))
         return [group(heading_card("Tariff in use", "mdi:table"), [table])]
 
     # -- Battery --

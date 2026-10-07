@@ -36,7 +36,7 @@ current charge decision, and calls number.set_value on the GivTCP entity.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from datetime import time as dtime
@@ -108,7 +108,7 @@ from .core.engine import (
     build_coordinator_data,
 )
 from .core.rules import monthly_solar_fractions
-from .core.tariff import build_tariff
+from .core.tariff import build_tariff, stale_tariff_age_days, tariff_in_force
 from .core.timeutil import elapsed_seconds
 from .discovery import (
     UNUSED_SLOT_TIME,
@@ -129,9 +129,11 @@ from .repairs import (
     async_create_givtcp_missing_issue,
     async_create_min_soc_issue,
     async_create_other_charge_slots_issue,
+    async_create_tariff_review_issue,
     async_delete_givtcp_missing_issue,
     async_delete_min_soc_issue,
     async_delete_other_charge_slots_issue,
+    async_delete_tariff_review_issue,
 )
 from .write_audit import WriteAudit
 
@@ -241,6 +243,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._update_cycle: int = 0
         self._floor_top_up_applied: bool = False
         self.export_rate: float = 0.0
+        self._unsub_charge_target: Callable[[], None] | None = None
+        self._charge_target_trigger_at: tuple[int, int] | None = None
         self._ev_charger: EVCharger | None = None
         self._battery_cycle_entities: list[str] = []
         self._givtcp_was_unavailable: bool = False
@@ -293,6 +297,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         )
         # Cheap-rate start listener (writes charge target to GivTCP). The start time comes
         # from the configured tariff, one minute before, so the target is set before charging.
+        self.entry.async_on_unload(self._cancel_charge_target_listener)
         self._register_charge_target_listener()
         self._watch_managed_entities()
 
@@ -494,38 +499,48 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         Only registers when there is at least one timed rate period configured.
         A flat-rate tariff has no cheap window to target — no write-back needed.
+        Runs again at midnight, so a dated rate change that moves the cheap window takes
+        effect without a reload.
         """
-        cfg = self._effective_cfg()
         try:
-            tariff = build_tariff(cfg)
-            if not tariff.rate_periods:
-                _LOG.debug(
-                    "No timed rate periods configured — skipping charge target "
-                    "write-back listener (flat-rate tariff)"
-                )
+            trigger = self._charge_target_trigger()
+            if trigger == self._charge_target_trigger_at:
                 return
-            cheap_start: dtime = tariff.get_cheapest_rate_start()
-            trigger_minute = (cheap_start.minute - 1) % 60
-            trigger_hour = (
-                cheap_start.hour if cheap_start.minute > 0 else (cheap_start.hour - 1) % 24
-            )
-            _LOG.debug(
-                "Registering charge target write-back at %02d:%02d (cheap rate starts %s)",
-                trigger_hour,
-                trigger_minute,
-                cheap_start.strftime("%H:%M"),
-            )
-            self.entry.async_on_unload(
-                async_track_time_change(
-                    self.hass,
-                    self._write_charge_target_to_inverter,
-                    hour=trigger_hour,
-                    minute=trigger_minute,
-                    second=0,
-                )
+            self._cancel_charge_target_listener()
+            self._charge_target_trigger_at = trigger
+            if trigger is None:
+                return
+            hour, minute = trigger
+            _LOG.debug("Registering charge target write-back at %02d:%02d", hour, minute)
+            self._unsub_charge_target = async_track_time_change(
+                self.hass,
+                self._write_charge_target_to_inverter,
+                hour=hour,
+                minute=minute,
+                second=0,
             )
         except (ValueError, TypeError, AttributeError) as err:
             _LOG.warning("Could not register charge target listener: %s", err)
+
+    def _charge_target_trigger(self) -> tuple[int, int] | None:
+        """Hour and minute one minute before the cheapest rate starts, or None when flat."""
+        tariff = build_tariff(self._effective_cfg())
+        if not tariff.rate_periods:
+            _LOG.debug(
+                "No timed rate periods configured — skipping charge target "
+                "write-back listener (flat-rate tariff)"
+            )
+            return None
+        cheap_start: dtime = tariff.get_cheapest_rate_start()
+        minute = (cheap_start.minute - 1) % 60
+        hour = cheap_start.hour if cheap_start.minute > 0 else (cheap_start.hour - 1) % 24
+        return hour, minute
+
+    def _cancel_charge_target_listener(self) -> None:
+        if self._unsub_charge_target is not None:
+            self._unsub_charge_target()
+            self._unsub_charge_target = None
+        self._charge_target_trigger_at = None
 
     async def async_restore_state(self) -> None:
         """Load stored accumulators and apply any resets missed while HA was down."""
@@ -565,6 +580,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._last_reset_time = midnight.isoformat()
         self._floor_top_up_applied = False
         self._acc.on_midnight(midnight)
+        self._register_charge_target_listener()
         self.hass.async_create_task(self._acc.async_save())
         self._last_update = None
         _LOG.debug("Midnight reset: daily, weekly, and monthly accumulators updated")
@@ -730,10 +746,14 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _effective_cfg(self) -> dict:
-        """Merge options over data so tariff edits take immediate effect."""
+        """Merge options over data so tariff edits take immediate effect.
+
+        The unit rates are those in force today: the saved ones, or the latest dated change
+        on or before today. With no dated change the merge is returned as is.
+        """
         cfg = dict(self.entry.data)
         cfg.update(self.entry.options)
-        return cfg
+        return tariff_in_force(cfg, self._now().date())
 
     def _configured_bill_start_day(self, cfg: dict | None = None) -> int:
         """Return the bill start day from the effective config (options over data)."""
@@ -1064,6 +1084,24 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         else:
             async_delete_min_soc_issue(self.hass)
         self._check_other_charge_slots(cfg)
+        self._check_tariff_review(cfg)
+
+    def _check_tariff_review(self, cfg: dict[str, Any]) -> None:
+        """Raise the repair issue once the tariff has gone unreviewed for too long, else clear it.
+
+        The review date is the last saved tariff change or confirmation, else the day the
+        entry was created. Without a usable creation date nothing is raised.
+        """
+        created = getattr(self.entry, "created_at", None)
+        if not isinstance(created, datetime):
+            return
+        today = self._now().date()
+        created_on = dt_util.as_local(created).date()
+        age = stale_tariff_age_days(cfg, created_on, today)
+        if age is None:
+            async_delete_tariff_review_issue(self.hass)
+        else:
+            async_create_tariff_review_issue(self.hass, today - timedelta(days=age), age)
 
     def _other_charge_slots(self, cfg: dict[str, Any]) -> list[ActiveChargeSlot]:
         """Charge slots other than the managed one that have a window set. Reads only."""

@@ -58,6 +58,18 @@ CONF_VAT_RATE = "vat_rate"
 CONF_DISCOUNT_RATE = "discount_rate"
 CONF_BILL_START_DAY = "bill_start_day"
 CONF_CURRENCY = "currency"  # symbol used in cost sensor units
+# Dated rate changes: a list of dicts, each an "effective" date (YYYY-MM-DD) plus a full set of
+# the TARIFF_RATE_KEYS values. The latest change on or before today replaces those saved values.
+CONF_TARIFF_CHANGES = "tariff_changes"
+# The only values a dated change carries. Standing charge, levy, VAT and discount are not dated:
+# the bill estimate reverses them from the stored import cost, which needs one value per period.
+TARIFF_RATE_KEYS = (CONF_BASE_RATE, CONF_BASE_RATE_NAME, CONF_EXPORT_RATE, CONF_RATE_PERIODS)
+# Date (YYYY-MM-DD) the user last saved a changed tariff or confirmed it in the repair.
+# An entry without it counts from the day the entry was created.
+CONF_TARIFF_REVIEWED_ON = "tariff_reviewed_on"
+# Days without a tariff review before the repair appears. Suppliers change prices about once a
+# year, and no existing constant measures time since a user action.
+TARIFF_REVIEW_STALE_DAYS = 365
 
 # ── Solar forecast ───────────────────────────────────────────────────────────
 CONF_FORECAST_ENTITY = "forecast_entity"

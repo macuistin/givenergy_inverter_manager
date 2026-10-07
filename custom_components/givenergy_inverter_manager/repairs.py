@@ -25,11 +25,17 @@ Issues raised:
     active slot, so a leftover slot can charge the battery at a dearer rate
     than the cheapest period. Fixable: the repair clears each such slot to
     00:00 to 00:00 through the coordinator's verified writer.
+
+  tariff_review_due
+    The tariff has not been saved changed or confirmed for TARIFF_REVIEW_STALE_DAYS.
+    A supplier price change leaves every cost figure wrong until the rates are updated.
+    Fixable: the repair records today as the review date, to confirm the rates are right.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import date
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -49,6 +55,7 @@ if TYPE_CHECKING:
 ISSUE_GIVTCP_ENTITIES_MISSING = "givtcp_entities_missing"
 ISSUE_MIN_SOC_TOO_HIGH = "min_soc_too_high"
 ISSUE_OTHER_CHARGE_SLOTS_ACTIVE = "other_charge_slots_active"
+ISSUE_TARIFF_REVIEW_DUE = "tariff_review_due"
 
 TROUBLESHOOTING_URL = (
     "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs/troubleshooting.md"
@@ -57,6 +64,7 @@ LEARN_MORE_URLS: dict[str, str] = {
     ISSUE_GIVTCP_ENTITIES_MISSING: f"{TROUBLESHOOTING_URL}#givtcp-entities-not-found",
     ISSUE_MIN_SOC_TOO_HIGH: f"{TROUBLESHOOTING_URL}#battery-minimum-soc-is-set-too-high",
     ISSUE_OTHER_CHARGE_SLOTS_ACTIVE: f"{TROUBLESHOOTING_URL}#other-charge-slots-are-active",
+    ISSUE_TARIFF_REVIEW_DUE: f"{TROUBLESHOOTING_URL}#the-tariff-has-not-been-reviewed",
 }
 
 # Matches the selector max in config_flow.py. Values above this are legacy
@@ -130,11 +138,32 @@ def async_delete_other_charge_slots_issue(hass: HomeAssistant) -> None:
     async_delete_issue(hass, DOMAIN, ISSUE_OTHER_CHARGE_SLOTS_ACTIVE)
 
 
+def async_create_tariff_review_issue(hass: HomeAssistant, last_reviewed: date, days: int) -> None:
+    """Surface a fixable repair issue when the tariff has not been reviewed for a long time."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_TARIFF_REVIEW_DUE,
+        is_fixable=True,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_TARIFF_REVIEW_DUE],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_TARIFF_REVIEW_DUE,
+        translation_placeholders={"last_reviewed": last_reviewed.isoformat(), "days": str(days)},
+    )
+
+
+def async_delete_tariff_review_issue(hass: HomeAssistant) -> None:
+    """Clear the tariff review repair issue once the tariff has been reviewed."""
+    async_delete_issue(hass, DOMAIN, ISSUE_TARIFF_REVIEW_DUE)
+
+
 async def async_create_fix_flow(
     hass: HomeAssistant, issue_id: str, data: dict[str, str | int | float | None] | None
 ) -> RepairsFlow:
-    """Home Assistant calls this to fix a fixable issue. Only one issue here is fixable."""
+    """Home Assistant calls this to fix a fixable issue: clear charge slots or confirm rates."""
     # Imported here because the repairs integration is not available to the unit test stub.
-    from .repair_flows import ClearOtherChargeSlotsFlow
+    from .repair_flows import ClearOtherChargeSlotsFlow, ConfirmTariffReviewedFlow
 
+    if issue_id == ISSUE_TARIFF_REVIEW_DUE:
+        return ConfirmTariffReviewedFlow()
     return ClearOtherChargeSlotsFlow()
