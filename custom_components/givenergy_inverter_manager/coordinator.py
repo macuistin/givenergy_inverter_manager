@@ -327,7 +327,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     def _immersion_ports(self) -> ImmersionPorts:
         """Wire the actuator to this coordinator. Lambdas look the proxies up at call time."""
         return ImmersionPorts(
-            switch_entity=lambda: self.entry.data.get(CONF_IMMERSION_SWITCH),
+            switch_entity=lambda: self._effective_cfg().get(CONF_IMMERSION_SWITCH),
             read_state=lambda entity_id: self._get_state(entity_id),
             send=lambda service, entity_id: self._call_service(
                 "switch", service, {"entity_id": entity_id}
