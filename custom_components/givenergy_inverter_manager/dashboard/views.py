@@ -341,11 +341,21 @@ class Builder:
         cards = self.devices.variants(devices, self._flow_card)
         return heading_block(heading_card("Live power flow", "mdi:transmission-tower"), cards)
 
+    def _forecast_tiles(self) -> list:
+        """Today's forecast and how much of it has been generated, with a forecast configured."""
+        if not self.has_forecast:
+            return []
+        return [
+            self.tile("solar_forecast_raw_today", "Forecast", color=SOLAR),
+            self.tile("solar_actual_vs_forecast_pct", "% of forecast", color=SOLAR),
+        ]
+
     def _totals(self) -> list:
         return heading_block(
             heading_card("Energy today", "mdi:lightning-bolt", nav=self.go(TAB_TODAY)),
             [
                 self.tile("solar_today", "Generated", color=SOLAR),
+                *self._forecast_tiles(),
                 self.tile("house_kwh_today", "Used", color=GRID),
                 self.tile("import_today", "Imported", color=GRID),
                 self.tile("export_today", "Exported", color=GRID),
@@ -617,8 +627,9 @@ class Builder:
         forecast = (
             [
                 tile_card(solar_today, "Generated today", color=SOLAR),
-                self.tile("solar_forecast_kwh_today", "Forecast today", color=SOLAR),
-                self.tile("solar_actual_vs_forecast_pct", "Tracking", color=SOLAR),
+                self.tile("solar_forecast_raw_today", "Forecast", color=SOLAR),
+                self.tile("solar_actual_vs_forecast_pct", "% of forecast", color=SOLAR),
+                self.tile("solar_forecast_kwh_today", "Plan forecast", color=SOLAR),
                 self.tile("yesterday_forecast_accuracy_pct", "Yesterday", color=SOLAR),
             ]
             if self.has_forecast

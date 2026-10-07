@@ -927,10 +927,13 @@
         "name": "Net Financial Position This Month"
       },
       "solar_forecast_kwh_today": {
-        "name": "Solar forecast today"
+        "name": "Solar forecast today (charge plan)"
+      },
+      "solar_forecast_raw_today": {
+        "name": "Solar forecast today (provider)"
       },
       "solar_actual_vs_forecast_pct": {
-        "name": "Solar actual vs forecast"
+        "name": "Solar vs provider forecast"
       },
       "yesterday_forecast_accuracy_pct": {
         "name": "Forecast accuracy yesterday"

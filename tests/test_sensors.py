@@ -17,7 +17,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
-from homeassistant.const import UnitOfPower
+from homeassistant.const import UnitOfEnergy, UnitOfPower
 
 from custom_components.givenergy_inverter_manager.const import DEFAULT_CURRENCY_SYMBOL
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
@@ -135,6 +135,31 @@ class TestImmersionPowerMetadata:
         d = MagicMock()
         d.immersion_load_w = 0.0
         assert _lambda_for("immersion_power")(d) == pytest.approx(0.0)
+
+
+class TestSolarForecastSensors:
+    """The charge plan and the provider forecasts are separate sensors with different sources."""
+
+    def test_provider_forecast_is_an_energy_sensor_without_a_state_class(self):
+        description = _BY_KEY["solar_forecast_raw_today"]
+        assert description.device_class is SensorDeviceClass.ENERGY
+        assert description.native_unit_of_measurement is UnitOfEnergy.KILO_WATT_HOUR
+        assert description.state_class is None
+        assert description.entity_registry_enabled_default is True
+
+    def test_the_two_forecast_sensors_read_different_fields(self):
+        data = CoordinatorData()
+        data.solar_forecast_kwh_today = 31.5
+        data.solar_forecast_raw_kwh_today = 38.96
+        assert _lambda_for("solar_forecast_kwh_today")(data) == pytest.approx(31.5)
+        assert _lambda_for("solar_forecast_raw_today")(data) == pytest.approx(38.96)
+
+    def test_the_percentage_follows_the_provider_forecast(self):
+        data = CoordinatorData()
+        data.solar_forecast_kwh_today = 31.5
+        data.solar_forecast_raw_kwh_today = 40.0
+        data.today.solar_kwh = 30.0
+        assert _lambda_for("solar_actual_vs_forecast_pct")(data) == pytest.approx(75.0)
 
 
 class TestWeeklyMonthlySensorStateClass:

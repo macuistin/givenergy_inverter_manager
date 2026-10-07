@@ -670,19 +670,19 @@
   "name": "Self-sufficiency yesterday"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_solar_actual_vs_forecast",
-  "key": "solar_actual_vs_forecast_pct",
-  "name": "Solar actual vs forecast"
- },
- {
   "entity_id": "sensor.givenergy_inverter_manager_solar_capture_efficiency_today",
   "key": "solar_capture_efficiency_today",
   "name": "Solar Capture Efficiency Today"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_solar_forecast_today",
+  "entity_id": "sensor.givenergy_inverter_manager_solar_forecast_today_charge_plan",
   "key": "solar_forecast_kwh_today",
-  "name": "Solar forecast today"
+  "name": "Solar forecast today (charge plan)"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_forecast_today_provider",
+  "key": "solar_forecast_raw_today",
+  "name": "Solar forecast today (provider)"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_solar_generated_this_month",
@@ -743,6 +743,11 @@
   "entity_id": "sensor.givenergy_inverter_manager_solar_trailing_12_months",
   "key": "solar_trailing_12m",
   "name": "Solar \u2014 trailing 12 months"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_solar_vs_provider_forecast",
+  "key": "solar_actual_vs_forecast_pct",
+  "name": "Solar vs provider forecast"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_this_week_s_energy_summary",

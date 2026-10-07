@@ -21,6 +21,16 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: round(d.solar_forecast_kwh_today, 3),
     ),
     GivEnergyManagerSensorDescription(
+        key="solar_forecast_raw_today",
+        translation_key="solar_forecast_raw_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=None,
+        icon="mdi:weather-sunny",
+        entity_registry_enabled_default=True,
+        value_fn=values.solar_forecast_raw_today,
+    ),
+    GivEnergyManagerSensorDescription(
         key="solar_actual_vs_forecast_pct",
         translation_key="solar_actual_vs_forecast_pct",
         native_unit_of_measurement=PERCENTAGE,

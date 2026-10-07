@@ -380,6 +380,18 @@ views:
       grid_options:
         columns: 6
     - type: tile
+      entity: sensor.givenergy_inverter_manager_solar_forecast_today_provider
+      name: Forecast
+      color: amber
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_solar_vs_provider_forecast
+      name: '% of forecast'
+      color: amber
+      grid_options:
+        columns: 6
+    - type: tile
       entity: sensor.givenergy_inverter_manager_house_load_today
       name: Used
       color: blue
@@ -1287,14 +1299,20 @@ views:
       grid_options:
         columns: 6
     - type: tile
-      entity: sensor.givenergy_inverter_manager_solar_forecast_today
-      name: Forecast today
+      entity: sensor.givenergy_inverter_manager_solar_forecast_today_provider
+      name: Forecast
       color: amber
       grid_options:
         columns: 6
     - type: tile
-      entity: sensor.givenergy_inverter_manager_solar_actual_vs_forecast
-      name: Tracking
+      entity: sensor.givenergy_inverter_manager_solar_vs_provider_forecast
+      name: '% of forecast'
+      color: amber
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_solar_forecast_today_charge_plan
+      name: Plan forecast
       color: amber
       grid_options:
         columns: 6

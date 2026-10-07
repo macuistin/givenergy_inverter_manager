@@ -135,6 +135,25 @@ async def test_features_from_the_config_entry_show_up(hass, loaded_entry):
     assert "inverter_temperature" in text
 
 
+async def test_energy_today_tiles_point_at_the_registered_forecast_sensors(hass, loaded_entry):
+    """Forecast and % of forecast sit in Energy today and name the IDs Home Assistant assigned."""
+    text, _ = await _generate(hass)
+    registry = er.async_get(hass)
+    forecast = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{loaded_entry.entry_id}_solar_forecast_raw_today"
+    )
+    tracking = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{loaded_entry.entry_id}_solar_actual_vs_forecast_pct"
+    )
+    view = next(v for v in yaml.safe_load(text)["views"] if v["path"] == "power-flow")
+    section = next(
+        s for s in view["sections"] if s["cards"][0].get("heading") == "Energy today"
+    )
+    tiles = {c["name"]: c["entity"] for c in section["cards"] if c["type"] == "tile"}
+    assert tiles["Forecast"] == forecast
+    assert tiles["% of forecast"] == tracking
+
+
 async def test_a_charger_found_after_the_file_was_written_shows_up_with_no_regeneration(
     hass, loaded_entry
 ):

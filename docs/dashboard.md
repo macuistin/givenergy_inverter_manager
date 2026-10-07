@@ -163,7 +163,7 @@ This hides the controls. It is not security. Home Assistant has no permissions f
 For administrators the heading also holds a **Settings** button.
 - **Dry run is on**: a banner with the last skipped action, below Now. It appears only while Dry Run Mode Active is true.
 - **Live power flow**: a power-flow-card-plus card with solar, battery, grid, home and, when they exist, two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. Battery Power is positive while charging and the card expects the opposite, so the node sets `invert_state: true`. The grid node shows the Live Grid Cost Rate.
-- **Energy today**: Generated, Used (House Load Today), Imported and Exported. Tap the heading to open the Today tab.
+- **Energy today**: Generated, Forecast and % of forecast (with a forecast sensor set), Used (House Load Today), Imported and Exported. Forecast is the provider's own figure for today and % of forecast is the solar generated so far against it. Tap the heading to open the Today tab.
 - **Devices**: an Immersion tile (the water temperature, or the heater power when there is no sensor) and an EV charger tile (the charger state). Each opens its sub-view. The heading and each tile show only while their device exists.
 
 For the EV load, the dashboard uses the first of these entities that exists, else the integration's own EV Charging Power: `sensor.myenergi_zappi_power_ct_internal_load`, `..._2`, `sensor.myenergi_zappi2_power_ct_internal_load`, `sensor.wallbox_charging_power`, `sensor.ohme_current_power`.
@@ -201,7 +201,9 @@ A tile for every cost line today (grid import, export earnings, rest of house, E
 
 ### Solar and forecast (sub-view)
 
-Generated today, today's forecast, how generation tracks the forecast and yesterday's accuracy, when a forecast is configured, and a bar graph of solar generation per hour over 2 days.
+With a forecast sensor set: Generated today, Forecast, % of forecast, Plan forecast and Yesterday (the accuracy of yesterday's forecast). Below them is a bar graph of solar generation per hour over 2 days.
+
+Forecast is what your forecast service predicted for today, as it stood just before midnight. % of forecast compares solar generated so far with that figure. Plan forecast is the figure the overnight charge calculation used: blended toward the pessimistic estimate and scaled by the accuracy correction, so it can differ from the provider's figure. Judge the day against Forecast. Forecast and % of forecast read empty on a new install until the first midnight, because the provider forecast is remembered then.
 
 The two graphs on the sub-views are statistics graphs, not history graphs. The daily sensors fall to zero at midnight, so a history graph of them draws a sawtooth. The graphs plot the change in each period instead, from the long-term statistics. They stay empty until Home Assistant has compiled statistics for the sensors, which takes up to an hour.
 

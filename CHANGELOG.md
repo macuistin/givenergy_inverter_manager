@@ -2,6 +2,26 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Features**
+- New sensor **Solar forecast today (provider)** (`solar_forecast_raw_today`): the forecast
+  service's own figure for today, as it stood just before midnight. It is empty when none was
+  seen then, such as on the first day of a new install.
+- The **Energy today** section of the dashboard gains Forecast and % of forecast tiles when a
+  forecast sensor is set. The Solar and forecast sub-view shows Forecast, % of forecast, Plan forecast
+  (the charge plan's figure) and Yesterday (accuracy).
+
+**Changes**
+- **Solar vs provider forecast** (`solar_actual_vs_forecast_pct`) now compares solar generated
+  today with the provider's forecast for today. It compared with the charge plan's forecast,
+  which is blended toward the pessimistic estimate and scaled by the accuracy correction, so it
+  read higher than the day deserved. It is empty without a provider forecast, where it used to
+  fall back to the seasonal estimate. Its entity ID on an existing install is unchanged.
+- **Solar forecast today** (`solar_forecast_kwh_today`) is renamed **Solar forecast today (charge
+  plan)** to say what it holds. Its value is unchanged and so is its entity ID on an existing
+  install. A new install gets entity IDs from the new names.
+
 ## v0.10.0
 
 Sizes the overnight charge window to the plan, lets the immersion devices be added later,

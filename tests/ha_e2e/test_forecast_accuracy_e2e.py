@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from conftest import MIDDAY
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
 from custom_components.givenergy_inverter_manager.accumulation import (
@@ -11,6 +12,7 @@ from custom_components.givenergy_inverter_manager.accumulation import (
     AccumulationState,
     _serialize,
 )
+from custom_components.givenergy_inverter_manager.const import DOMAIN
 
 # MIDDAY publishes 12.4 kWh for the GivTCP daily solar counter, which the coordinator applies
 # to today's total after every cycle.
@@ -113,3 +115,37 @@ async def test_upgrade_with_no_stored_raw_forecasts_starts_the_accuracy_fresh(
 
     assert config_entry.runtime_data._acc.state.forecast_accuracy_history == []
     assert config_entry.runtime_data.data.yesterday_forecast_accuracy_pct == 0.0
+
+
+def _state(hass, entry, key: str) -> str:
+    entity_id = er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{key}")
+    assert entity_id, key
+    return hass.states.get(entity_id).state
+
+
+async def test_tracking_compares_solar_with_the_provider_forecast_not_the_plan(
+    hass, loaded_entry
+):
+    """The plan held 35 kWh, the provider 14. 12.4 kWh generated is 88.6% of the provider's day."""
+    acc = loaded_entry.runtime_data._acc
+    acc.state.today_raw_forecast_kwh = 14.0
+    acc.state.today_forecast_kwh = 35.0
+
+    await _refresh(hass, loaded_entry)
+
+    assert float(_state(hass, loaded_entry, "solar_forecast_raw_today")) == pytest.approx(14.0)
+    assert float(_state(hass, loaded_entry, "solar_forecast_kwh_today")) == pytest.approx(35.0)
+    assert float(_state(hass, loaded_entry, "solar_actual_vs_forecast_pct")) == pytest.approx(88.6)
+
+
+async def test_tracking_is_unknown_without_a_provider_forecast_for_today(hass, loaded_entry):
+    """A forecast first seen after midnight belongs to tomorrow, so today has none to track."""
+    acc = loaded_entry.runtime_data._acc
+    acc.state.today_raw_forecast_kwh = 0.0
+    acc.state.today_forecast_kwh = 35.0
+
+    await _refresh(hass, loaded_entry)
+
+    assert _state(hass, loaded_entry, "solar_forecast_raw_today") == "unknown"
+    assert _state(hass, loaded_entry, "solar_actual_vs_forecast_pct") == "unknown"
+    assert float(_state(hass, loaded_entry, "solar_forecast_kwh_today")) == pytest.approx(35.0)
