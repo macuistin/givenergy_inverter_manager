@@ -399,7 +399,7 @@ DESCRIPTIONS: dict[str, str] = {
     "solar_forecast_kwh_today": "First forecast value the charge calculation used today.",
     "solar_actual_vs_forecast_pct": "Solar generated today as a share of that forecast.",
     "yesterday_forecast_accuracy_pct": (
-        "Yesterday's actual solar as a share of its forecast, capped at 200."
+        "Yesterday's actual solar as a share of the forecast for that day, capped at 200."
     ),
     "forecast_accuracy_7day_avg_pct": "Average of the last 7 daily accuracy values.",
     "carbon_intensity": "Value of the carbon intensity entity you set.",

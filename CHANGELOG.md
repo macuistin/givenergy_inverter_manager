@@ -2,6 +2,19 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- Forecast accuracy yesterday and its 7-day average divide actual solar by the forecast for that
+  day. They used the first forecast the charge calculation saw, which could be blended toward
+  the P10 or belong to another day, so the figure read far too low (19% on a day the forecast
+  provider had forecast 7.54 kWh and the site made 6.64 kWh, about 88%). A day with no
+  remembered forecast, or with no data because Home Assistant was down, is skipped. On upgrade
+  the stored history is rebuilt from the daily forecast and solar pairs the integration already
+  keeps, up to the last 7 days, so the sensors show corrected values straight away. With no
+  pairs stored they read 0 until the next midnight. The Solar forecast today sensor still shows
+  the first forecast value the charge calculation used.
+
 ## v0.9.0
 
 Removes three disabled sensors. No option name changes.

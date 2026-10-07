@@ -184,7 +184,7 @@ Needs a forecast sensor in the options to be meaningful.
 |---|---|---|---|---|---|---|---|
 | Solar forecast today | `solar_forecast_kwh_today` | kWh | energy | none | no | yes | First forecast value the charge calculation used today. |
 | Solar actual vs forecast | `solar_actual_vs_forecast_pct` | % | - | measurement | no | yes | Solar generated today as a share of that forecast. |
-| Forecast accuracy yesterday | `yesterday_forecast_accuracy_pct` | % | - | measurement | no | no | Yesterday's actual solar as a share of its forecast, capped at 200. |
+| Forecast accuracy yesterday | `yesterday_forecast_accuracy_pct` | % | - | measurement | no | no | Yesterday's actual solar as a share of the forecast for that day, capped at 200. |
 | Forecast accuracy 7-day average | `forecast_accuracy_7day_avg_pct` | % | - | measurement | no | no | Average of the last 7 daily accuracy values. |
 
 ## Carbon intensity
