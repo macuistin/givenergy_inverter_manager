@@ -2,10 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.11.0
 
-Self-sufficiency no longer reads 0% on the morning after a cheap overnight charge. Stored data
-moves to version 4 on first start, with no action needed.
+Self-sufficiency no longer reads 0% on the morning after a cheap overnight charge. The dashboard
+says in plain words where the day's energy came from, and solar is compared with the forecast
+service's own figure. Stored data moves to version 4 on first start, with no action needed.
 
 **Fixes**
 - Self-sufficiency counts grid energy that went into the battery separately. It read 0% when
