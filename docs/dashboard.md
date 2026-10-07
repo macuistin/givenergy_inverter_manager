@@ -270,3 +270,5 @@ content: "{{ state_attr('sensor.givenergy_inverter_manager_todays_energy_summary
 ```
 
 Replace the entity ID with the real one from **Settings → Entities**.
+
+The Solar row of Today's energy summary carries the same forecast as the dashboard: the provider's own forecast for today and the share of it generated so far, matching Forecast and % of forecast. The row shows no forecast until the provider's figure has been remembered at the first midnight. Tonight's charge plan shows the plan's forecast on its own row, labelled Plan forecast, because the charge calculation blends it toward the pessimistic estimate. The accuracy rows of This week's energy summary measure against the provider's forecast too.
