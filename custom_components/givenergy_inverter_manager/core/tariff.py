@@ -566,17 +566,23 @@ def changes_still_ahead(raw: Any, on: date) -> list[dict[str, Any]]:
     return [c.as_stored() for c in parse_tariff_changes(raw) if c.effective > on]
 
 
-def last_tariff_review(cfg: dict[str, Any], created: date) -> date:
-    """The day the tariff was last saved changed or confirmed, else the day the entry was made."""
+def last_tariff_review(cfg: dict[str, Any]) -> date | None:
+    """The day the tariff was last saved changed or confirmed, or None when never recorded."""
     try:
         return date.fromisoformat(str(cfg.get(CONF_TARIFF_REVIEWED_ON)))
     except ValueError:
-        return created
+        return None
 
 
-def stale_tariff_age_days(cfg: dict[str, Any], created: date, today: date) -> int | None:
-    """Days since the last tariff review when that is at least the stale limit, else None."""
-    age = (today - last_tariff_review(cfg, created)).days
+def stale_tariff_age_days(cfg: dict[str, Any], today: date) -> int | None:
+    """Days since the last tariff review when that is at least the stale limit, else None.
+
+    A tariff with no recorded review is never stale: the coordinator records today first.
+    """
+    reviewed = last_tariff_review(cfg)
+    if reviewed is None:
+        return None
+    age = (today - reviewed).days
     return age if age >= TARIFF_REVIEW_STALE_DAYS else None
 
 

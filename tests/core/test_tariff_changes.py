@@ -266,30 +266,29 @@ class TestOptionsAfterReconfigure:
 
 
 class TestStaleTariffAge:
-    CREATED = date(2025, 6, 15)
+    REVIEWED = date(2025, 6, 15)
 
-    def test_the_entry_creation_date_counts_when_no_review_is_recorded(self):
-        assert last_tariff_review({}, self.CREATED) == self.CREATED
+    @staticmethod
+    def _cfg(reviewed: date | None) -> dict:
+        return {} if reviewed is None else {CONF_TARIFF_REVIEWED_ON: reviewed.isoformat()}
 
-    def test_a_recorded_review_wins_over_the_creation_date(self):
-        cfg = {CONF_TARIFF_REVIEWED_ON: "2026-03-01"}
-        assert last_tariff_review(cfg, self.CREATED) == date(2026, 3, 1)
+    def test_a_tariff_with_no_recorded_review_is_never_stale(self):
+        assert last_tariff_review({}) is None
+        assert stale_tariff_age_days({}, TODAY) is None
 
-    def test_a_bad_review_date_falls_back_to_the_creation_date(self):
+    def test_a_bad_review_date_counts_as_none_recorded(self):
         cfg = {CONF_TARIFF_REVIEWED_ON: "last spring"}
-        assert last_tariff_review(cfg, self.CREATED) == self.CREATED
+        assert last_tariff_review(cfg) is None
+        assert stale_tariff_age_days(cfg, TODAY) is None
 
     def test_one_day_short_of_the_limit_is_not_stale(self):
-        today = date.fromordinal(self.CREATED.toordinal() + TARIFF_REVIEW_STALE_DAYS - 1)
-        assert stale_tariff_age_days({}, self.CREATED, today) is None
+        today = date.fromordinal(self.REVIEWED.toordinal() + TARIFF_REVIEW_STALE_DAYS - 1)
+        assert stale_tariff_age_days(self._cfg(self.REVIEWED), today) is None
 
     def test_the_limit_day_is_stale_and_reports_the_age(self):
-        today = date.fromordinal(self.CREATED.toordinal() + TARIFF_REVIEW_STALE_DAYS)
-        assert stale_tariff_age_days({}, self.CREATED, today) == TARIFF_REVIEW_STALE_DAYS
+        today = date.fromordinal(self.REVIEWED.toordinal() + TARIFF_REVIEW_STALE_DAYS)
+        age = stale_tariff_age_days(self._cfg(self.REVIEWED), today)
+        assert age == TARIFF_REVIEW_STALE_DAYS
 
-    def test_a_recent_review_clears_it(self):
-        cfg = {CONF_TARIFF_REVIEWED_ON: "2026-06-14"}
-        assert stale_tariff_age_days(cfg, self.CREATED, TODAY) is None
-
-    def test_a_creation_date_in_the_future_is_not_stale(self):
-        assert stale_tariff_age_days({}, date(2027, 1, 1), TODAY) is None
+    def test_a_review_in_the_future_is_not_stale(self):
+        assert stale_tariff_age_days(self._cfg(date(2027, 1, 1)), TODAY) is None

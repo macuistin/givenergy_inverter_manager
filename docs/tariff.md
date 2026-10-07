@@ -46,7 +46,7 @@ What a dated change covers and does not cover:
 
 ## Stale tariff repair
 
-The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. A supplier price change leaves every cost figure wrong until the rates are updated, and nothing in Home Assistant tells you. The date counts from the last time you saved a different tariff in Configure or Reconfigure, recorded a dated change or confirmed the rates in the repair. An install that has never done so counts from the day the integration was added. See [Troubleshooting](troubleshooting.md#the-tariff-has-not-been-reviewed).
+The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. A supplier price change leaves every cost figure wrong until the rates are updated, and nothing in Home Assistant tells you. The date counts from the last time you saved a different tariff in Configure or Reconfigure, recorded a dated change or confirmed the rates in the repair. The first time the integration runs with this feature, it records that day, so an upgrade never raises the repair at once. The first repair comes 365 days later at the earliest. See [Troubleshooting](troubleshooting.md#the-tariff-has-not-been-reviewed).
 
 ## Worked example
 

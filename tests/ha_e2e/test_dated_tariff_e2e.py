@@ -312,15 +312,21 @@ class TestAChangeTakingEffect:
 
 
 class TestNoChangeRecorded:
-    async def test_saving_the_form_unchanged_adds_no_dated_keys(self, hass, loaded_entry):
+    async def test_saving_the_form_unchanged_adds_no_dated_keys_and_keeps_the_review_date(
+        self, hass, loaded_entry
+    ):
+        await _set_options(hass, loaded_entry, **{CONF_TARIFF_REVIEWED_ON: "2026-01-01"})
+
         await _save(hass, loaded_entry, payload)
 
         assert CONF_TARIFF_CHANGES not in loaded_entry.options
-        assert CONF_TARIFF_REVIEWED_ON not in loaded_entry.options
+        assert loaded_entry.options[CONF_TARIFF_REVIEWED_ON] == "2026-01-01"
 
     async def test_saving_a_different_rate_without_a_date_moves_the_review_date(
         self, hass, loaded_entry
     ):
+        await _set_options(hass, loaded_entry, **{CONF_TARIFF_REVIEWED_ON: "2026-01-01"})
+
         await _save(hass, loaded_entry, lambda r: payload(r, tariff_settings={CONF_BASE_RATE: 0.37}))
 
         assert loaded_entry.options[CONF_BASE_RATE] == pytest.approx(0.37)
@@ -330,13 +336,14 @@ class TestNoChangeRecorded:
 ISSUE = repairs.ISSUE_TARIFF_REVIEW_DUE
 
 
-def _entry_aged(days: int, **options) -> MockConfigEntry:
-    """An entry created *days* before the frozen clock (2026-06-15)."""
-    entry = MockConfigEntry(
+def _entry_reviewed(days_ago: int | None, **options) -> MockConfigEntry:
+    """An entry whose tariff was last reviewed *days_ago* days before the frozen clock."""
+    if days_ago is not None:
+        reviewed = datetime(2026, 6, 15, tzinfo=timezone.utc) - timedelta(days=days_ago)
+        options = {**options, CONF_TARIFF_REVIEWED_ON: reviewed.date().isoformat()}
+    return MockConfigEntry(
         domain=DOMAIN, data=full_config_data(), options=options, unique_id=SERIAL, version=1
     )
-    entry.created_at = datetime(2026, 6, 15, 12, tzinfo=timezone.utc) - timedelta(days=days)
-    return entry
 
 
 async def _load(hass, entry) -> None:
@@ -354,7 +361,7 @@ class TestStaleTariffRepair:
     async def test_an_entry_unreviewed_for_the_limit_raises_a_fixable_issue(
         self, hass, hass_in_scenario
     ):
-        entry = _entry_aged(TARIFF_REVIEW_STALE_DAYS + 1)
+        entry = _entry_reviewed(TARIFF_REVIEW_STALE_DAYS + 1)
         await _load(hass, entry)
 
         issue = _issue(hass)
@@ -367,18 +374,32 @@ class TestStaleTariffRepair:
         }
         await hass.config_entries.async_unload(entry.entry_id)
 
-    async def test_a_new_entry_raises_nothing(self, hass, hass_in_scenario):
-        entry = _entry_aged(3)
+    async def test_a_recent_review_raises_nothing(self, hass, hass_in_scenario):
+        entry = _entry_reviewed(3)
         await _load(hass, entry)
 
         assert _issue(hass) is None
+        assert entry.options[CONF_TARIFF_REVIEWED_ON] == "2026-06-12"
         await hass.config_entries.async_unload(entry.entry_id)
 
-    async def test_a_recent_review_keeps_an_old_entry_clear(self, hass, hass_in_scenario):
-        entry = _entry_aged(3 * TARIFF_REVIEW_STALE_DAYS, **{CONF_TARIFF_REVIEWED_ON: "2026-05-01"})
+    async def test_the_first_run_records_today_and_raises_nothing_after_an_upgrade(
+        self, hass, hass_in_scenario, monkeypatch
+    ):
+        setups: list[str] = []
+        real = integration.async_setup_entry
+
+        async def counting(hass_, entry_):
+            setups.append(entry_.entry_id)
+            return await real(hass_, entry_)
+
+        monkeypatch.setattr(integration, "async_setup_entry", counting)
+        entry = _entry_reviewed(None)
+        entry.created_at = datetime(2020, 1, 1, tzinfo=timezone.utc)
         await _load(hass, entry)
 
+        assert entry.options[CONF_TARIFF_REVIEWED_ON] == TODAY
         assert _issue(hass) is None
+        assert setups == [entry.entry_id]
         await hass.config_entries.async_unload(entry.entry_id)
 
     async def test_confirming_the_fix_records_the_review_without_a_reload(
@@ -392,7 +413,7 @@ class TestStaleTariffRepair:
             return await real(hass_, entry_)
 
         monkeypatch.setattr(integration, "async_setup_entry", counting)
-        entry = _entry_aged(TARIFF_REVIEW_STALE_DAYS + 40)
+        entry = _entry_reviewed(TARIFF_REVIEW_STALE_DAYS + 40)
         await _load(hass, entry)
         coordinator = entry.runtime_data
         assert _issue(hass) is not None
@@ -414,7 +435,7 @@ class TestStaleTariffRepair:
         await hass.config_entries.async_unload(entry.entry_id)
 
     async def test_saving_a_new_rate_clears_the_issue(self, hass, hass_in_scenario):
-        entry = _entry_aged(TARIFF_REVIEW_STALE_DAYS + 40)
+        entry = _entry_reviewed(TARIFF_REVIEW_STALE_DAYS + 40)
         await _load(hass, entry)
         assert _issue(hass) is not None
 

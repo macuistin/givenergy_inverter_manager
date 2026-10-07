@@ -65,7 +65,7 @@ CONF_TARIFF_CHANGES = "tariff_changes"
 # the bill estimate reverses them from the stored import cost, which needs one value per period.
 TARIFF_RATE_KEYS = (CONF_BASE_RATE, CONF_BASE_RATE_NAME, CONF_EXPORT_RATE, CONF_RATE_PERIODS)
 # Date (YYYY-MM-DD) the user last saved a changed tariff or confirmed it in the repair.
-# An entry without it counts from the day the entry was created.
+# The first run records today when it is missing, so an upgrade never raises the repair at once.
 CONF_TARIFF_REVIEWED_ON = "tariff_reviewed_on"
 # Days without a tariff review before the repair appears. Suppliers change prices about once a
 # year, and no existing constant measures time since a user action.

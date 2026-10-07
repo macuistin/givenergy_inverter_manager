@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from datetime import time as dtime
 from typing import Any
 
@@ -79,6 +79,7 @@ from .const import (
     CONF_INVERTER_TEMP_ENTITY,
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
+    CONF_TARIFF_REVIEWED_ON,
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
@@ -108,7 +109,12 @@ from .core.engine import (
     build_coordinator_data,
 )
 from .core.rules import monthly_solar_fractions
-from .core.tariff import build_tariff, stale_tariff_age_days, tariff_in_force
+from .core.tariff import (
+    build_tariff,
+    last_tariff_review,
+    stale_tariff_age_days,
+    tariff_in_force,
+)
 from .core.timeutil import elapsed_seconds
 from .discovery import (
     UNUSED_SLOT_TIME,
@@ -1089,19 +1095,24 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     def _check_tariff_review(self, cfg: dict[str, Any]) -> None:
         """Raise the repair issue once the tariff has gone unreviewed for too long, else clear it.
 
-        The review date is the last saved tariff change or confirmation, else the day the
-        entry was created. Without a usable creation date nothing is raised.
+        The review date is the last saved tariff change or confirmation. The first run
+        records today when there is none, so an upgrade never raises the issue at once.
         """
-        created = getattr(self.entry, "created_at", None)
-        if not isinstance(created, datetime):
-            return
         today = self._now().date()
-        created_on = dt_util.as_local(created).date()
-        age = stale_tariff_age_days(cfg, created_on, today)
+        if last_tariff_review(cfg) is None:
+            self._record_first_tariff_review(today)
+            return
+        age = stale_tariff_age_days(cfg, today)
         if age is None:
             async_delete_tariff_review_issue(self.hass)
         else:
             async_create_tariff_review_issue(self.hass, today - timedelta(days=age), age)
+
+    def _record_first_tariff_review(self, today: date) -> None:
+        """Save today as the review date. The options update listener ignores this key."""
+        options = {**self.entry.options, CONF_TARIFF_REVIEWED_ON: today.isoformat()}
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
+        async_delete_tariff_review_issue(self.hass)
 
     def _other_charge_slots(self, cfg: dict[str, Any]) -> list[ActiveChargeSlot]:
         """Charge slots other than the managed one that have a window set. Reads only."""

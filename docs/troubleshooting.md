@@ -82,7 +82,7 @@ Slot 1 is never changed by this repair.
 
 ## The tariff has not been reviewed
 
-The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. The date counts from the last saved change to the tariff, the last dated change recorded, the last Reconfigure, or the last time you confirmed the rates in the repair. Without any of these, it counts from the day the integration was added. The repair does not change anything and does not affect any sensor.
+The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. The date counts from the last saved change to the tariff, the last dated change recorded, the last Reconfigure, or the last time you confirmed the rates in the repair. The first run after an upgrade records that day, so the repair appears 365 days later at the earliest. The repair does not change anything and does not affect any sensor.
 
 1. Check the rates against your latest bill.
 2. If a rate changed, open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure** and save the new rates. To start them on a later date, use the **Dated rate change** section. See [Tariff](tariff.md#change-the-rates-from-a-date).

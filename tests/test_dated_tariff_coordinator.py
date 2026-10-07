@@ -151,17 +151,21 @@ def _cleared() -> int:
     return sum(1 for c in ir.async_delete_issue.call_args_list if c.args[2] == ISSUE_TARIFF_REVIEW_DUE)
 
 
-def _coord_created(monkeypatch, days_ago: int, **options) -> FakeCoordinator:
+def _coord_reviewed(monkeypatch, days_ago: int | None) -> FakeCoordinator:
+    """A coordinator whose tariff was last reviewed *days_ago* days before today (None: never)."""
     _set_today(monkeypatch, DAY)
     coord = FakeCoordinator(cfg=_cfg())
-    coord.entry.created_at = _local(DAY) - timedelta(days=days_ago)
-    coord.entry.options = options
+    coord.entry.options = (
+        {}
+        if days_ago is None
+        else {CONF_TARIFF_REVIEWED_ON: (DAY - timedelta(days=days_ago)).isoformat()}
+    )
     return coord
 
 
 class TestStaleTariffRepair:
-    def test_an_old_entry_that_was_never_reviewed_raises_a_fixable_issue(self, monkeypatch):
-        coord = _coord_created(monkeypatch, TARIFF_REVIEW_STALE_DAYS + 30)
+    def test_a_tariff_unreviewed_for_the_limit_raises_a_fixable_issue(self, monkeypatch):
+        coord = _coord_reviewed(monkeypatch, TARIFF_REVIEW_STALE_DAYS + 30)
 
         coord._check_config_repair_issues(coord._effective_cfg())
 
@@ -175,20 +179,8 @@ class TestStaleTariffRepair:
             "days": str(TARIFF_REVIEW_STALE_DAYS + 30),
         }
 
-    def test_a_recent_entry_raises_nothing_and_clears_the_issue(self, monkeypatch):
-        coord = _coord_created(monkeypatch, 10)
-
-        coord._check_config_repair_issues(coord._effective_cfg())
-
-        assert _raised() == []
-        assert _cleared() == 1
-
-    def test_a_recent_review_clears_the_issue_on_an_old_entry(self, monkeypatch):
-        coord = _coord_created(
-            monkeypatch,
-            TARIFF_REVIEW_STALE_DAYS + 30,
-            **{CONF_TARIFF_REVIEWED_ON: (DAY - timedelta(days=3)).isoformat()},
-        )
+    def test_a_recent_review_raises_nothing_and_clears_the_issue(self, monkeypatch):
+        coord = _coord_reviewed(monkeypatch, 3)
 
         coord._check_config_repair_issues(coord._effective_cfg())
 
@@ -196,17 +188,25 @@ class TestStaleTariffRepair:
         assert _cleared() == 1
 
     def test_the_issue_waits_for_the_stale_limit(self, monkeypatch):
-        coord = _coord_created(monkeypatch, TARIFF_REVIEW_STALE_DAYS - 1)
+        coord = _coord_reviewed(monkeypatch, TARIFF_REVIEW_STALE_DAYS - 1)
 
         coord._check_config_repair_issues(coord._effective_cfg())
 
         assert _raised() == []
 
-    def test_an_entry_without_a_creation_date_raises_nothing(self, monkeypatch):
-        _set_today(monkeypatch, DAY)
-        coord = FakeCoordinator(cfg=_cfg())
+    def test_the_first_run_records_today_and_raises_nothing(self, monkeypatch):
+        coord = _coord_reviewed(monkeypatch, None)
 
-        coord._check_tariff_review(coord._effective_cfg())
+        coord._check_config_repair_issues(coord._effective_cfg())
 
+        (call,) = coord.hass.config_entries.async_update_entry.call_args_list
+        assert call.args == (coord.entry,)
+        assert call.kwargs["options"] == {CONF_TARIFF_REVIEWED_ON: DAY.isoformat()}
         assert _raised() == []
-        assert _cleared() == 0
+
+    def test_a_recorded_review_is_not_written_again(self, monkeypatch):
+        coord = _coord_reviewed(monkeypatch, 3)
+
+        coord._check_config_repair_issues(coord._effective_cfg())
+
+        coord.hass.config_entries.async_update_entry.assert_not_called()
