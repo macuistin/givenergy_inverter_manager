@@ -147,6 +147,7 @@ Read **Immersion Divert Reason**. It gives the exact block.
 
 | Reason starts with | Fix |
 |---|---|
+| `No immersion switch configured` | No immersion switch entity is set, so there is nothing to turn on |
 | `Manual override` | **Auto Immersion Divert** is off. Turn it on |
 | `Water already at` | The water is at the target. Wait for it to cool by the restart gap |
 | `Battery SoC ... below threshold` | The divert threshold (default 80%) is set at setup only |

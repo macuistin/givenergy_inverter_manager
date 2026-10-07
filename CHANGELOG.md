@@ -2,6 +2,18 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- With no immersion switch set, Immersion Divert Reason reads `No immersion switch configured`
+  and the divert decision stays off. It used to say the heater was diverting or heating.
+- Missed Solar Today counts export only once an immersion switch is set or an EV charger is
+  found. With neither, there is nothing that could have used the export, and the sensor stayed
+  inflated.
+- The today and week reports leave out the immersion saving lines when there is no immersion
+  switch. They showed a permanent zero.
+- EV Solar Surplus is unavailable until an EV charger is found, like the other EV sensors.
+
 ## v0.9.0
 
 Removes three disabled sensors. No option name changes.

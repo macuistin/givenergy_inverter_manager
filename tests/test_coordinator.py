@@ -397,6 +397,28 @@ class TestCollectRaw:
         raw = coord._collect_raw(coord._effective_cfg())
         assert raw.immersion_on is False
 
+    def test_flags_an_immersion_switch_that_is_configured(self):
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_IMMERSION_SWITCH: "switch.immersion"}))
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.immersion_switch_configured is True
+
+    def test_flags_a_missing_immersion_switch(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.immersion_switch_configured is False
+
+    def test_reads_the_immersion_switch_from_options_over_data(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.entry.options = {CONF_IMMERSION_SWITCH: "switch.immersion"}
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.immersion_switch_configured is True
+
+    def test_flags_no_ev_charger_until_one_is_discovered(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        assert coord._collect_raw(coord._effective_cfg()).ev_charger_present is False
+        coord._ev_charger = TestApplyEvAction()._charger()
+        assert coord._collect_raw(coord._effective_cfg()).ev_charger_present is True
+
     def test_no_forecast_when_entity_not_configured(self):
         coord = FakeCoordinator(cfg=_cfg())
         raw = coord._collect_raw(coord._effective_cfg())

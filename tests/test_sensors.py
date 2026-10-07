@@ -740,3 +740,26 @@ class TestSensorEntity:
 
     def test_no_state_attributes_without_html_or_attribute_functions(self):
         assert self._sensor(_BY_KEY["solar_power"], CoordinatorData()).extra_state_attributes is None
+
+
+class TestEvSensorsNeedACharger:
+    """A sensor that describes the EV charger is unavailable until one is discovered."""
+
+    @pytest.mark.parametrize(
+        "key",
+        [
+            "ev_charger_state",
+            "ev_power",
+            "ev_session_energy",
+            "ev_draining_battery",
+            "ev_protection_reason",
+            "ev_charging_source",
+            "ev_solar_surplus_available",
+        ],
+    )
+    def test_unavailable_without_a_charger_and_available_with_one(self, key):
+        without, with_charger = CoordinatorData(), CoordinatorData()
+        with_charger.ev_available = True
+        description = _BY_KEY[key]
+        assert description.available_fn(without) is False
+        assert description.available_fn(with_charger) is True

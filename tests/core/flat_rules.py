@@ -97,6 +97,7 @@ def should_divert_to_immersion(
     immersion_temp_unavailable: bool = False,
     unavailable_for_s: float = 0.0,
     currency_symbol: str = DEFAULT_CURRENCY_SYMBOL,
+    switch_configured: bool = True,
 ) -> tuple[bool, str]:
     return rules.should_divert_to_immersion(
         ImmersionInputs(
@@ -122,7 +123,11 @@ def should_divert_to_immersion(
                 export_rate=export_rate,
                 currency_symbol=currency_symbol,
             ),
-            run=ImmersionRun(currently_on=currently_on, unavailable_for_s=unavailable_for_s),
+            run=ImmersionRun(
+                currently_on=currently_on,
+                unavailable_for_s=unavailable_for_s,
+                switch_configured=switch_configured,
+            ),
         )
     )
 

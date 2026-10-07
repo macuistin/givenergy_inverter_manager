@@ -764,6 +764,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self, cfg: dict, raw: RawSensorValues, unavailable: list[str]
     ) -> None:
         raw.immersion_wattage_w = float(cfg.get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE))
+        raw.immersion_switch_configured = bool(cfg.get(CONF_IMMERSION_SWITCH))
         raw.immersion_on = self._read_bool(cfg.get(CONF_IMMERSION_SWITCH))
         raw.immersion_target_temp = self.immersion_target_temp
         raw.immersion_min_temp = self.immersion_min_temp
@@ -800,6 +801,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     def _copy_ev_state(self, raw: RawSensorValues) -> None:
         if self._ev_charger is not None:
+            raw.ev_charger_present = True
             raw.ev_power_w = self._ev_charger.power_w
             raw.ev_plugged_in = self._ev_charger.is_plugged_in
 

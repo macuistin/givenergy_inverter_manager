@@ -129,6 +129,7 @@ The average daily load is today's house energy so far, scaled up to 24 hours. It
 
 The rule runs in this order. The first match wins.
 
+0. No immersion switch set: do not heat. The reason reads `No immersion switch configured`.
 1. Water below **Immersion Minimum Temperature**: heat, whatever the surplus.
 2. Water at or above **Immersion Target Temperature**: do not heat.
 3. Battery SoC below the divert threshold (default 80%): do not heat.
