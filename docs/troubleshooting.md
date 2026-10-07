@@ -147,6 +147,7 @@ Read **Immersion Divert Reason**. It gives the exact block.
 
 | Reason starts with | Fix |
 |---|---|
+| `No immersion switch configured` | No immersion switch entity is set, so there is nothing to turn on |
 | `Manual override` | **Auto Immersion Divert** is off. Turn it on |
 | `Water already at` | The water is at the target. Wait for it to cool by the restart gap |
 | `Battery SoC ... below threshold` | The divert threshold (default 80%) is set at setup only |
@@ -172,7 +173,7 @@ Accrued Bill This Period is built from the month totals, which start again on th
 
 | Sensor | Reason |
 |---|---|
-| EV sensors | Unavailable until an EV charger is discovered. Discovery retries about every 5 minutes |
+| EV sensors | Unavailable until an EV charger is discovered. Discovery retries about every 5 minutes, until the charger's power, session and charge mode entities are all found |
 | Inverter Temperature and its status | The inverter temperature entity was not detected. The status shows Unknown |
 | Solar actual vs forecast and the carbon sensors | No forecast has been recorded today, or no carbon intensity sensor is set |
 | Minutes Remaining in Rate Period | You are on the base rate |

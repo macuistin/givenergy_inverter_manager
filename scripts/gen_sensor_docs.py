@@ -307,7 +307,8 @@ DESCRIPTIONS: dict[str, str] = {
     "immersion_solar_kwh_today": "Solar energy that went to the immersion.",
     "self_consumed_kwh_today": "Solar generated minus exported, floored at 0.",
     "missed_solar_today": (
-        "Export while the battery was at 99% or more and no EV or immersion load was on."
+        "Export while the battery was at 99% or more and no EV or immersion load was on. "
+        "Stays 0 until an immersion switch is set or an EV charger is found."
     ),
     "inverter_derating_today_minutes": "Minutes with the inverter at 65 °C or more.",
     "import_cost_today": "Import cost after the supplier discount and VAT.",
