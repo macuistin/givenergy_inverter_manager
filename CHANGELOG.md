@@ -2,6 +2,21 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Features**
+- The immersion switch and water temperature sensor can be added, changed or cleared under
+  Configure, Immersion heater, at any time. Saving reloads the integration, so there is no
+  restart and no reinstall. The Immersion Heater (Managed) switch and the Immersion dashboard
+  view appear or disappear to match. The element power moved from the Hardware section to the
+  new section. The target and minimum temperatures stay with their number entities.
+
+**Fixes**
+- A switch or sensor saved in the options is now used. The managed switch and the heater
+  controller read the setup data only, so an immersion switch set after setup was ignored.
+- Clearing the forecast section's entities no longer happens when a submission leaves the
+  section out.
+
 ## v0.9.0
 
 Removes three disabled sensors. No option name changes.
