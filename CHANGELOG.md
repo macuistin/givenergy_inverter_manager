@@ -4,10 +4,29 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+Four more sensors are enabled by default, so Home Assistant keeps history for them and the
+dashboard shows more on a fresh install.
 The Immersion sub-view shows the water temperature and the heater on one chart. Generate the
 dashboard file again to get it.
 
 **Changes**
+- **Saving vs Grid Today** (`saving_vs_grid_today`) and **Net Saving Today (inc. battery wear)**
+  (`net_saving_today`) are enabled by default. Home Assistant now records their history, so a
+  saving over time can be charted.
+- **Battery Discharged Today** (`battery_discharge_kwh_today`) is enabled by default. The Where
+  today's energy came from card on the Today tab splits solar and battery on a fresh install,
+  where it showed them as one figure.
+- **Next Cheap Rate Start** (`next_cheap_rate_start`) is enabled by default, so the Cheap from
+  tile of the Now section shows on a fresh install. Hours to Cheap Rate stays disabled.
+- A fresh install generates a dashboard with these figures in it. Existing dashboards are
+  unchanged until you generate the file again.
+- The Now strip on the Power Flow tab has one Cheap from tile in place of Cheap from and Cheap in.
+  It reads `23:00 (in 8 h 56 min)` before a cheap period, and `Now (ends in 5 h 30 min)` during
+  one. The end is where the whole run of periods cheaper than the base rate stops, so a Nightboost
+  period inside Night does not cut it short.
+  The tile is full width and shows the new `summary` attribute of Next Cheap Rate Start. The state
+  of that sensor is unchanged, and so is the Hours to Cheap Rate sensor, which no longer has a tile.
+  A stored dashboard picks this up when you regenerate it.
 - The heater's power is a fixed number, so the Heater power chart is gone. The water temperature
   chart shades the times the heater was on instead, in a pale red band. With a switch and no
   temperature sensor, a small Heater on or off chart shows the same band. The Today tiles for
@@ -18,6 +37,15 @@ dashboard file again to get it.
 - Without apexcharts-card, the built-in history graph adds the heater's power as a line. It
   cannot shade the band. The hourly immersion energy graph is removed with the Heater power
   section.
+
+**Upgrading**
+- Home Assistant applies an enabled default only when it creates an entity. On the first start
+  after the upgrade, setup enables these four sensors where the integration had disabled them,
+  so there is nothing to do by hand. A sensor you disabled yourself stays disabled, and setup
+  does not touch it on later starts. History starts from that first start.
+- Home Assistant reloads the integration once, about 30 seconds after those sensors are enabled.
+  It does this once, on the first start after the upgrade.
+- Generate the dashboard again to get the Cheap from tile and the solar and battery split.
 
 ## v0.11.0
 

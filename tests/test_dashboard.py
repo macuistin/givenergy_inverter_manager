@@ -590,7 +590,7 @@ class TestNowSection:
         assert first["path"] == "power-flow"
         assert first["sections"][0]["cards"][0]["heading"] == "Now"
 
-    def test_now_has_the_six_core_entities_battery_first(self):
+    def test_now_has_the_five_core_entities_battery_first(self):
         tiles = self._now(_build())["cards"][1:]
         assert [c["entity"] for c in tiles] == [
             eid("battery_soc"),
@@ -598,7 +598,6 @@ class TestNowSection:
             eid("current_rate"),
             eid("import_cost_today"),
             eid("next_cheap_rate_start"),
-            eid("hours_to_cheap_rate"),
         ]
         assert [c["name"] for c in tiles] == [
             "Battery",
@@ -606,8 +605,17 @@ class TestNowSection:
             "Rate now",
             "Cost today",
             "Cheap from",
-            "Cheap in",
         ]
+
+    def test_cheap_from_shows_the_countdown_summary_in_one_tile(self):
+        """One tile reads like "23:00 (in 8 h 56 min)", so there is no tile of its own for the wait."""
+        cards = self._now(_build())["cards"][1:]
+        tile = next(c for c in cards if c["name"] == "Cheap from")
+        assert tile["entity"] == eid("next_cheap_rate_start")
+        assert tile["state_content"] == ["summary"]
+        assert tile["grid_options"]["columns"] == "full"
+        assert "Cheap in" not in [c["name"] for c in cards]
+        assert eid("hours_to_cheap_rate") not in [c["entity"] for c in cards]
 
     def test_now_uses_only_tiles(self):
         assert {c["type"] for c in self._now(_build())["cards"][1:]} == {"tile"}
@@ -624,16 +632,18 @@ class TestNowSection:
         assert tile["tap_action"] == {"action": "navigate", "navigation_path": "battery-detail"}
 
     def test_now_drops_sensors_that_are_disabled_by_default(self):
-        """Night survival confidence and the cheap rate sensors are off on a fresh install."""
+        """Night survival confidence is off on a fresh install."""
         text = _build(registry=FakeRegistry())
         assert [c["entity"] for c in self._now(text)["cards"][1:]] == [
             eid("battery_soc"),
             eid("current_rate"),
             eid("import_cost_today"),
+            eid("next_cheap_rate_start"),
         ]
         header = text[: text.index("views:")]
-        for name in ("Night Survival Confidence", "Next Cheap Rate Start", "Hours to Cheap Rate"):
-            assert name in header
+        assert "Night Survival Confidence" in header
+        for name in ("Hours to Cheap Rate", "Next Cheap Rate Start"):
+            assert name not in header
 
 
 class TestLongTextStates:

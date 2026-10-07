@@ -15,10 +15,11 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import time
+from datetime import datetime, time, timedelta
 
 from ..const import CHARGE_WINDOW_MARGIN, CHARGE_WINDOW_ROUND_MINUTES
 from .tariff import RatePeriod, TariffConfig
+from .timeutil import elapsed_seconds, local_time_on
 
 _MINUTES_PER_DAY = 24 * 60
 # A window that ran the whole day would end where it starts, which the inverter reads as unused.
@@ -94,6 +95,20 @@ def cheapest_period(tariff: TariffConfig) -> RatePeriod:
     return min(tariff.rate_periods, key=lambda p: p.rate)
 
 
+def _cheaper_than_base(tariff: TariffConfig) -> list[RatePeriod]:
+    return [p for p in tariff.rate_periods if p.rate < tariff.base_rate]
+
+
+def _extend_run(cheaper: list[RatePeriod], start: int, length: int) -> int:
+    """Grow a run of *length* minutes from minute *start* while a cheaper period carries on."""
+    while length < _MAX_WINDOW_MINUTES:
+        reach = max((_reach_from(p, start + length) for p in cheaper), default=0)
+        if reach == 0:
+            break
+        length += reach
+    return min(length, _MAX_WINDOW_MINUTES)
+
+
 def cheap_run_minutes(tariff: TariffConfig) -> int:
     """Minutes from the cheapest period's start to the end of the cheaper-than-base run after it.
 
@@ -102,15 +117,26 @@ def cheap_run_minutes(tariff: TariffConfig) -> int:
     cheaper than the base rate is active. It is never longer than a day less a minute.
     """
     cheapest = cheapest_period(tariff)
-    start = _minute_of_day(cheapest.start)
-    cheaper = [p for p in tariff.rate_periods if p.rate < tariff.base_rate]
-    length = _span(cheapest)
-    while length < _MAX_WINDOW_MINUTES:
-        reach = max((_reach_from(p, start + length) for p in cheaper), default=0)
-        if reach == 0:
-            break
-        length += reach
-    return min(length, _MAX_WINDOW_MINUTES)
+    return _extend_run(_cheaper_than_base(tariff), _minute_of_day(cheapest.start), _span(cheapest))
+
+
+def cheap_run_remaining_minutes(tariff: TariffConfig, now: datetime) -> float | None:
+    """Minutes from *now* to the end of the cheaper-than-base run *now* sits in, else None.
+
+    The run is the same as in cheap_run_minutes, so inside a short cheap period within a longer
+    one, it ends with the longer one. The end is a wall-clock time, so a clock change inside
+    the run shortens or lengthens the wait by the real hour.
+    """
+    cheaper = _cheaper_than_base(tariff)
+    minute = _minute_of_day(now.time())
+    reach = max((_reach_from(p, minute) for p in cheaper), default=0)
+    if reach == 0:
+        return None
+    end_at = _time_of(minute + _extend_run(cheaper, minute, reach))
+    end = local_time_on(now, end_at)
+    if elapsed_seconds(now, end) <= 0:
+        end = local_time_on(now + timedelta(days=1), end_at)
+    return round(elapsed_seconds(now, end) / 60, 1)
 
 
 def _minutes_needed(need: ChargeNeed) -> int:

@@ -85,15 +85,10 @@ views:
       entity: sensor.givenergy_inverter_manager_next_cheap_rate_start
       name: Cheap from
       color: blue
+      state_content:
+      - summary
       grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.givenergy_inverter_manager_hours_to_cheap_rate
-      name: Cheap in
-      icon: mdi:timer-outline
-      color: blue
-      grid_options:
-        columns: 6
+        columns: full
   - type: grid
     visibility:
     - condition: state

@@ -324,8 +324,13 @@ class Builder:
                 ),
                 self.tile("current_rate", "Rate now", color=GRID),
                 self.tile("import_cost_today", "Cost today", color=GRID, nav=self.go(TAB_TODAY)),
-                self.tile("next_cheap_rate_start", "Cheap from", color=GRID),
-                self.tile("hours_to_cheap_rate", "Cheap in", color=GRID, icon="mdi:timer-outline"),
+                self.tile(
+                    "next_cheap_rate_start",
+                    "Cheap from",
+                    columns=FULL,
+                    color=GRID,
+                    state_content=["summary"],
+                ),
             ],
         )
 

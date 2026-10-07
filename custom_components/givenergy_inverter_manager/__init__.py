@@ -32,6 +32,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
+from .core.default_enabled import keys_to_enable
 from .logging import get_logger, log_startup
 from .optional_devices import remove_orphaned_entities
 from .services import (
@@ -108,6 +109,25 @@ def _remove_retired_sensors(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
             _LOG.info("Removed the retired sensor %s", entity_id)
 
 
+def _enable_newly_default_sensors(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Enable the sensors that are now on by default where the integration had disabled them.
+
+    Only an entry whose disabled_by is the integration default qualifies. One the user, the
+    config entry or the device disabled is left alone. Once enabled, disabled_by is no longer
+    the integration default, so later starts find nothing to do.
+    """
+    registry = er.async_get(hass)
+    prefix = f"{entry.entry_id}_"
+    held = {
+        e.unique_id.removeprefix(prefix): e
+        for e in er.async_entries_for_config_entry(registry, entry.entry_id)
+        if e.domain == Platform.SENSOR and e.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    }
+    for key in keys_to_enable(held):
+        registry.async_update_entity(held[key].entity_id, disabled_by=None)
+        _LOG.info("Enabled the sensor %s, which is now on by default", held[key].entity_id)
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the service actions once, independent of any config entry."""
     await async_register_services(hass)
@@ -130,6 +150,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
     entry.runtime_data = coordinator
 
     _remove_retired_sensors(hass, entry)
+    _enable_newly_default_sensors(hass, entry)
     remove_orphaned_entities(hass, entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

@@ -57,7 +57,6 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 
 | Item | What and why | Evidence | Indicative value per year | Size |
 |---|---|---|---|---|
-| **S21 Enable the saving sensors by default** | `saving_vs_grid_today` and `net_saving_today` are disabled by default, so Home Assistant keeps no history of them and a saving over time cannot be charted. Enable them by default and say so in the changelog | One install: neither sensor had recorder history | Not applicable (shows the saving) | S |
 | **S8 Prompt for the battery cost** | `battery_cost_eur` is 0 by default, so wear is 0 and `net_saving_today` equals `saving_vs_grid_today`. Ask for it in setup, or raise a repair. Wear per kWh delivered is cost / (usable capacity x rated cycles) | With a battery cost of 0 both sensors read the same value | Not applicable (wear sets the margin per kWh) | S |
 | **S10 Surface tariff mismatches** | GivTCP can hold its own import and export rates. Show the difference in a repair or a diagnostic attribute when they disagree with the tariff entered here, and when a configured value looks implausible, such as a VAT rate that disagrees with the one on the bill. A wrong rate or VAT value scales every cost figure. See open question 2 | Seen on one install: GivTCP and the manager held different rates, which moved total cost by about 5% | Not applicable | S |
 | **S9 Define or rename the "peak" import sensors** | `import_kwh_peak_*`, `import_cost_peak_*` and `peak_import_fraction_today` measure the base rate. No peak band is configured. Change the display names and docs to base-rate wording and keep the entity ids, so statistics stay intact | `docs/sensors.md` | Not applicable | S |
@@ -153,7 +152,7 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 
 1. **M3 first.** S3, S5, S2 and C1 need real EV power, and the load baseline must exclude the EV.
 2. **One writer for the charge schedule.** S1 and S5 write it. All go through `GivTCPWriter`, so the verified read-back and write counting apply.
-3. **S21 and S8 before S6 and C5.** A recommendation or a daily review needs a trustworthy saving that keeps history. S8 makes net saving include wear.
+3. **S8 before S6 and C5.** A recommendation or a daily review needs a trustworthy saving. S8 makes net saving include wear.
 4. **M4 and S10 settle the inputs.** The forecast and the tariff feed every money figure on this page.
 5. **S17 before C1 to C4, N6 and N7.** The device list is the foundation. C1 comes before C3. C2 comes before N7. C17 comes before N8. S4 comes before N4.
 6. **S1, S2 and S4 share the cheap windows.** The battery, the EV and the immersion can together draw more than the supply allows. Do C19 or add a supply limit check before enabling more than one by default.

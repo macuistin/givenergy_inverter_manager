@@ -152,7 +152,6 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
         icon="mdi:battery-arrow-down-outline",
         is_daily_total=True,
-        entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.today.battery_discharge_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(

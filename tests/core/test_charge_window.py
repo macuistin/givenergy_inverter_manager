@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import time
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -13,6 +14,7 @@ from custom_components.givenergy_inverter_manager.const import (
 from custom_components.givenergy_inverter_manager.core.charge_window import (
     ChargeNeed,
     cheap_run_minutes,
+    cheap_run_remaining_minutes,
     plan_charge_window,
 )
 from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
@@ -209,3 +211,73 @@ class TestChargePowerUnknown:
         assert (window.start, window.end, window.extended) == (time(2, 0), time(4, 0), False)
         assert window.expected_kwh is None
         assert window.finish_time is None
+
+
+DUBLIN = ZoneInfo("Europe/Dublin")
+
+
+def _at(hour: int, minute: int = 0, second: int = 0, *, day: int = 15, month: int = 12, year: int = 2026):
+    return datetime(year, month, day, hour, minute, second, tzinfo=DUBLIN)
+
+
+class TestCheapRunRemaining:
+    """Minutes from now to the end of the cheaper-than-base run now sits in."""
+
+    def test_inside_the_inner_cheapest_period_the_run_ends_with_the_outer_one(self):
+        assert cheap_run_remaining_minutes(_night_and_boost(), _at(2, 30)) == 5 * 60 + 30
+
+    def test_inside_the_outer_period_only(self):
+        tariff = _night_and_boost()
+        assert cheap_run_remaining_minutes(tariff, _at(23, 30)) == 8 * 60 + 30
+        assert cheap_run_remaining_minutes(tariff, _at(5, 0)) == 3 * 60
+
+    def test_after_midnight_it_counts_to_the_morning(self):
+        assert cheap_run_remaining_minutes(_night_and_boost(), _at(0, 10)) == 7 * 60 + 50
+
+    def test_before_midnight_it_counts_past_midnight(self):
+        tariff = _tariff(_period("Night", 0.1644, "23:00", "08:00"))
+        assert cheap_run_remaining_minutes(tariff, _at(23, 15)) == 8 * 60 + 45
+
+    def test_two_cheap_periods_with_a_base_rate_gap_end_at_the_first_gap(self):
+        tariff = _tariff(
+            _period("Night", 0.1644, "23:00", "08:00"),
+            _period("Afternoon", 0.2, "13:00", "15:00"),
+        )
+        assert cheap_run_remaining_minutes(tariff, _at(13, 30)) == 90
+        assert cheap_run_remaining_minutes(tariff, _at(23, 30)) == 8 * 60 + 30
+
+    def test_cheap_periods_that_meet_make_one_run(self):
+        tariff = _tariff(
+            _period("Night", 0.1644, "23:00", "05:00"),
+            _period("Early", 0.2, "05:00", "08:00"),
+        )
+        assert cheap_run_remaining_minutes(tariff, _at(23, 30)) == 8 * 60 + 30
+
+    def test_a_single_cheap_period(self):
+        tariff = _tariff(_period("Night", 0.1644, "01:00", "05:00"))
+        assert cheap_run_remaining_minutes(tariff, _at(2, 0)) == 3 * 60
+
+    def test_a_period_dearer_than_the_base_rate_does_not_extend_the_run(self):
+        tariff = _tariff(
+            _period("Night", 0.1644, "23:00", "08:00"),
+            _period("Peak", 0.4, "08:00", "10:00"),
+        )
+        assert cheap_run_remaining_minutes(tariff, _at(7, 0)) == 60
+
+    def test_the_seconds_into_the_minute_are_taken_off(self):
+        assert cheap_run_remaining_minutes(_night_and_boost(), _at(2, 30, 30)) == 5 * 60 + 29.5
+
+    def test_the_last_minute_of_the_run(self):
+        assert cheap_run_remaining_minutes(_night_and_boost(), _at(7, 59)) == 1
+
+    @pytest.mark.parametrize("now", [_at(8, 0), _at(12, 0), _at(22, 59)])
+    def test_none_outside_a_cheap_run(self, now):
+        assert cheap_run_remaining_minutes(_night_and_boost(), now) is None
+
+    def test_none_on_a_tariff_with_no_timed_period(self):
+        assert cheap_run_remaining_minutes(_tariff(), _at(2, 30)) is None
+
+    def test_a_clock_change_inside_the_run_counts_real_time(self):
+        """The clocks go forward at 01:00 on 28 March 2027, so the night has one hour fewer."""
+        now = _at(23, 30, day=27, month=3, year=2027)
+        assert cheap_run_remaining_minutes(_night_and_boost(), now) == 7 * 60 + 30
