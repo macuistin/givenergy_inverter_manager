@@ -8,7 +8,7 @@ are all testable without HA.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -40,14 +40,6 @@ def _midnight_reset(state: AccumulationState, now: datetime, bill_start_day: int
     today_date = now.date()
 
     state.yesterday = state.today
-
-    if state.today_forecast_kwh > 0:
-        actual = state.today.solar_kwh
-        accuracy = min(200.0, round(actual / state.today_forecast_kwh * 100, 1))
-        state.yesterday_forecast_accuracy_pct = accuracy
-        history = state.forecast_accuracy_history[-6:]
-        history.append(accuracy)
-        state.forecast_accuracy_history = history
 
     state.today = EnergyAccumulator()
     state.today_forecast_kwh = 0.0
@@ -121,56 +113,121 @@ class TestMidnightReset:
 # ── Forecast accuracy ─────────────────────────────────────────────────────────
 
 
+def _accuracy_store():
+    """A store without HA Storage, to run the real on_midnight."""
+    from unittest.mock import MagicMock
+
+    from custom_components.givenergy_inverter_manager.accumulation import AccumulationStore
+
+    store = AccumulationStore.__new__(AccumulationStore)
+    store._store = MagicMock()
+    store._bill_start_day = 1
+    store.state = AccumulationState()
+    return store
+
+
+def _finish_day(store, raw_forecast_kwh: float, solar_kwh: float, now: datetime) -> None:
+    """Run midnight for a day that had *raw_forecast_kwh* forecast and made *solar_kwh*."""
+    store.state.today_raw_forecast_kwh = raw_forecast_kwh
+    store.state.today.solar_kwh = solar_kwh
+    store.on_midnight(now)
+
+
 class TestForecastAccuracy:
     def test_accuracy_calculated_at_midnight(self):
-        state = AccumulationState()
-        state.today_forecast_kwh = 10.0
-        state.today.solar_kwh = 8.5
-        _midnight_reset(state, _tuesday())
-        assert state.yesterday_forecast_accuracy_pct == pytest.approx(85.0, rel=0.01)
+        store = _accuracy_store()
+        _finish_day(store, 10.0, 8.5, _tuesday())
+        assert store.state.yesterday_forecast_accuracy_pct == pytest.approx(85.0, rel=0.01)
 
     def test_perfect_forecast_gives_100_pct(self):
-        state = AccumulationState()
-        state.today_forecast_kwh = 10.0
-        state.today.solar_kwh = 10.0
-        _midnight_reset(state, _tuesday())
-        assert state.yesterday_forecast_accuracy_pct == pytest.approx(100.0, rel=0.01)
+        store = _accuracy_store()
+        _finish_day(store, 10.0, 10.0, _tuesday())
+        assert store.state.yesterday_forecast_accuracy_pct == pytest.approx(100.0, rel=0.01)
 
     def test_accuracy_capped_at_200_pct(self):
-        state = AccumulationState()
-        state.today_forecast_kwh = 5.0
-        state.today.solar_kwh = 20.0  # way above forecast
-        _midnight_reset(state, _tuesday())
-        assert state.yesterday_forecast_accuracy_pct == 200.0
+        store = _accuracy_store()
+        _finish_day(store, 5.0, 20.0, _tuesday())  # way above forecast
+        assert store.state.yesterday_forecast_accuracy_pct == 200.0
 
-    def test_no_accuracy_calculated_when_no_forecast(self):
-        state = AccumulationState()
-        state.today_forecast_kwh = 0.0
-        state.today.solar_kwh = 8.0
-        _midnight_reset(state, _tuesday())
-        assert state.yesterday_forecast_accuracy_pct == 0.0
+    def test_no_accuracy_calculated_when_no_raw_forecast(self):
+        store = _accuracy_store()
+        _finish_day(store, 0.0, 8.0, _tuesday())
+        assert store.state.yesterday_forecast_accuracy_pct == 0.0
+        assert store.state.forecast_accuracy_history == []
+
+    def test_a_charge_decision_forecast_does_not_stand_in_for_a_missing_raw_forecast(self):
+        store = _accuracy_store()
+        store.on_charge_decision(10.0)
+        _finish_day(store, 0.0, 8.0, _tuesday())
+        assert store.state.forecast_accuracy_history == []
+
+    def test_day_with_nothing_accumulated_is_skipped(self):
+        store = _accuracy_store()
+        store.state.today_raw_forecast_kwh = 10.0
+        store.on_midnight(_tuesday())
+        assert store.state.forecast_accuracy_history == []
 
     def test_history_accumulates_over_days(self):
-        state = AccumulationState()
+        store = _accuracy_store()
         for kwh in [8.0, 9.0, 10.0]:
-            state.today_forecast_kwh = 10.0
-            state.today.solar_kwh = kwh
-            _midnight_reset(state, _tuesday())
-        assert len(state.forecast_accuracy_history) == 3
+            _finish_day(store, 10.0, kwh, _tuesday())
+        assert store.state.forecast_accuracy_history == [80.0, 90.0, 100.0]
 
     def test_history_capped_at_7_days(self):
-        state = AccumulationState()
+        store = _accuracy_store()
         for _ in range(10):
-            state.today_forecast_kwh = 10.0
-            state.today.solar_kwh = 9.0
-            _midnight_reset(state, _tuesday())
-        assert len(state.forecast_accuracy_history) <= 7
+            _finish_day(store, 10.0, 9.0, _tuesday())
+        assert len(store.state.forecast_accuracy_history) == 7
+
+    def test_seven_day_average_follows_the_history(self):
+        store = _accuracy_store()
+        for kwh in [8.0, 10.0]:
+            _finish_day(store, 10.0, kwh, _tuesday())
+        assert store.forecast_accuracy_7day_avg_pct == pytest.approx(90.0)
 
     def test_forecast_cleared_at_midnight(self):
-        state = AccumulationState()
-        state.today_forecast_kwh = 10.0
-        _midnight_reset(state, _tuesday())
-        assert state.today_forecast_kwh == 0.0
+        store = _accuracy_store()
+        store.on_charge_decision(10.0)
+        store.on_midnight(_tuesday())
+        assert store.state.today_forecast_kwh == 0.0
+
+
+class TestForecastAccuracyAcrossMidnight:
+    """The denominator is the raw forecast for the day, not the charge decision's figure."""
+
+    def test_blended_charge_decision_forecast_does_not_set_the_denominator(self):
+        store = _accuracy_store()
+        day_start = datetime(2026, 10, 6, 0, 0, tzinfo=timezone.utc)
+        store.on_raw_forecast(7.54)  # sensor reading for the 6th, last seen on the 5th
+        store.on_midnight(day_start)
+        store.on_charge_decision(35.0)  # 01:59 decision: blended, and for another day
+        store.state.today.solar_kwh = 6.64
+        store.on_raw_forecast(9.0)  # reading for the 7th
+        store.on_midnight(day_start + timedelta(days=1))
+        assert store.state.yesterday_forecast_accuracy_pct == pytest.approx(88.1)
+        assert store.state.forecast_accuracy_history == [88.1]
+
+    def test_raw_forecast_read_after_midnight_does_not_change_the_finished_day(self):
+        store = _accuracy_store()
+        day_start = datetime(2026, 10, 6, 0, 0, tzinfo=timezone.utc)
+        store.on_raw_forecast(7.54)
+        store.on_midnight(day_start)
+        store.state.today.solar_kwh = 6.64
+        store.on_raw_forecast(20.0)  # tomorrow's forecast arrives during the day
+        store.on_midnight(day_start + timedelta(days=1))
+        assert store.state.forecast_accuracy_history == [88.1]
+
+    def test_accuracy_agrees_with_the_ratio_history(self):
+        store = _accuracy_store()
+        day_start = datetime(2026, 10, 6, 0, 0, tzinfo=timezone.utc)
+        store.on_raw_forecast(7.54)
+        store.on_midnight(day_start)
+        store.state.today.solar_kwh = 6.64
+        store.on_midnight(day_start + timedelta(days=1))
+        record = store.state.forecast_ratio_history[-1]
+        assert store.state.yesterday_forecast_accuracy_pct == pytest.approx(
+            record["actual"] / record["forecast"] * 100, abs=0.05
+        )
 
 
 # ── Serialisation / deserialisation ──────────────────────────────────────────
@@ -593,11 +650,11 @@ class TestOnMidnight:
         store.on_midnight(datetime(2026, 7, 8, 0, 0, tzinfo=timezone.utc))
         assert store.state.today.solar_kwh == pytest.approx(0.0)
 
-    def test_records_forecast_accuracy_when_forecast_positive(self):
+    def test_records_forecast_accuracy_when_raw_forecast_positive(self):
         from datetime import datetime, timezone
 
         store = self._store()
-        store.state.today_forecast_kwh = 10.0
+        store.state.today_raw_forecast_kwh = 10.0
         store.state.today.solar_kwh = 8.0
         store.on_midnight(datetime(2026, 7, 8, 0, 0, tzinfo=timezone.utc))
         assert store.state.yesterday_forecast_accuracy_pct == pytest.approx(80.0)
@@ -927,6 +984,7 @@ class TestRollForwardOnRestart:
 
     def test_forecast_accuracy_is_recorded_once_for_the_stored_day(self):
         saved = _stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc))
+        saved.today_raw_forecast_kwh = 10.0
         saved.today_forecast_kwh = 10.0
         store = _restart(saved)
 
@@ -934,6 +992,16 @@ class TestRollForwardOnRestart:
 
         assert store.state.forecast_accuracy_history == [90.0]
         assert store.state.today_forecast_kwh == 0.0
+
+    def test_days_missed_while_down_do_not_record_zero_accuracy(self):
+        saved = _stored_run(datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc))
+        saved.today_raw_forecast_kwh = 10.0
+        saved.pending_raw_forecast_kwh = 8.0  # forecast for the 15th, a day Home Assistant missed
+        store = _restart(saved)
+
+        store.roll_forward(datetime(2026, 7, 17, 7, 0, tzinfo=timezone.utc))
+
+        assert store.state.forecast_accuracy_history == [90.0]
 
     def test_dst_zone_keeps_local_midnight_stamps(self):
         from zoneinfo import ZoneInfo
@@ -1008,7 +1076,7 @@ class TestStorageMigration:
     def test_storage_version_is_bumped(self):
         from custom_components.givenergy_inverter_manager import accumulation
 
-        assert accumulation._STORAGE_VERSION == 2
+        assert accumulation._STORAGE_VERSION == 3
 
     def test_version_1_cycle_figures_are_halved(self):
         from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
@@ -1016,7 +1084,7 @@ class TestStorageMigration:
         migrated = migrate_storage(1, _v1_payload())
         assert migrated["battery_cycles"] == pytest.approx(31.3)
         assert migrated["battery_tracking_start_cycles"] == pytest.approx(5.0)
-        assert migrated["version"] == 2
+        assert migrated["version"] == 3
 
     def test_other_fields_are_left_alone(self):
         from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
@@ -1038,7 +1106,7 @@ class TestStorageMigration:
 
         payload = _serialize(AccumulationState())
         payload["battery_cycles"] = 31.3
-        assert migrate_storage(2, payload)["battery_cycles"] == pytest.approx(31.3)
+        assert migrate_storage(3, payload)["battery_cycles"] == pytest.approx(31.3)
 
     def test_migrating_twice_halves_only_once(self):
         from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
@@ -1092,8 +1160,100 @@ class TestStorageMigration:
             else:
                 sys.modules["homeassistant.helpers.storage"] = saved["homeassistant.helpers.storage"]
 
-        assert store.version == 2
+        assert store.version == 3
         assert migrated["battery_cycles"] == pytest.approx(31.3)
+
+
+def _v2_payload(ratio_history: list) -> dict:
+    """A version 2 payload whose accuracy figures came from the blended forecast."""
+    payload = _serialize(AccumulationState())
+    payload["version"] = 2
+    payload["yesterday_forecast_accuracy_pct"] = 19.0
+    payload["forecast_accuracy_history"] = [19.0, 22.0, 131.0]
+    payload["forecast_ratio_history"] = ratio_history
+    return payload
+
+
+def _ratio(forecast: float, actual: float) -> dict:
+    return {"forecast": forecast, "actual": actual, "clipped": False}
+
+
+class TestForecastAccuracyMigration:
+    """Version 3 rebuilds the accuracy history from the raw forecast and actual of each day."""
+
+    def test_history_is_rebuilt_from_the_ratio_history(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v2_payload([_ratio(10.0, 8.0), _ratio(7.54, 6.64)])
+        migrated = migrate_storage(2, payload)
+        assert migrated["forecast_accuracy_history"] == [80.0, 88.1]
+        assert migrated["yesterday_forecast_accuracy_pct"] == pytest.approx(88.1)
+        assert migrated["version"] == 3
+
+    def test_old_blended_figures_are_not_kept(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        migrated = migrate_storage(2, _v2_payload([_ratio(10.0, 9.0)]))
+        assert 19.0 not in migrated["forecast_accuracy_history"]
+        assert migrated["yesterday_forecast_accuracy_pct"] == pytest.approx(90.0)
+
+    def test_no_ratio_history_starts_the_accuracy_fresh(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        migrated = migrate_storage(2, _v2_payload([]))
+        assert migrated["forecast_accuracy_history"] == []
+        assert migrated["yesterday_forecast_accuracy_pct"] == 0.0
+
+    def test_only_the_last_seven_days_are_kept(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        records = [_ratio(10.0, float(kwh)) for kwh in range(1, 11)]
+        migrated = migrate_storage(2, _v2_payload(records))
+        assert migrated["forecast_accuracy_history"] == [40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
+
+    def test_days_without_solar_or_forecast_and_unreadable_records_are_skipped(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        records = [_ratio(10.0, 0.0), _ratio(0.0, 5.0), {"forecast": "x"}, "junk", _ratio(10.0, 9.0)]
+        migrated = migrate_storage(2, _v2_payload(records))
+        assert migrated["forecast_accuracy_history"] == [90.0]
+
+    def test_accuracy_is_capped_at_200(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        migrated = migrate_storage(2, _v2_payload([_ratio(2.0, 9.0)]))
+        assert migrated["forecast_accuracy_history"] == [200.0]
+
+    def test_a_version_3_payload_keeps_its_accuracy_history(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v2_payload([_ratio(10.0, 8.0)])
+        payload["version"] = 3
+        assert migrate_storage(2, payload)["forecast_accuracy_history"] == [19.0, 22.0, 131.0]
+
+    def test_migrating_twice_gives_the_same_result(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        once = migrate_storage(2, _v2_payload([_ratio(10.0, 8.0)]))
+        assert migrate_storage(2, once) == once
+
+    def test_version_1_payload_gets_both_migrations(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        payload = _v1_payload()
+        payload["forecast_ratio_history"] = [_ratio(10.0, 8.0)]
+        payload["forecast_accuracy_history"] = [19.0]
+        migrated = migrate_storage(1, payload)
+        assert migrated["battery_cycles"] == pytest.approx(31.3)
+        assert migrated["forecast_accuracy_history"] == [80.0]
+        assert migrated["version"] == 3
+
+    def test_migrated_payload_loads_into_state(self):
+        from custom_components.givenergy_inverter_manager.accumulation import migrate_storage
+
+        state = _deserialize(migrate_storage(2, _v2_payload([_ratio(7.54, 6.64)])))
+        assert state.yesterday_forecast_accuracy_pct == pytest.approx(88.1)
+        assert state.forecast_accuracy_history == [88.1]
 
 
 # ── Register write count persistence ──────────────────────────────────────────
