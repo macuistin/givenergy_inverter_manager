@@ -241,6 +241,7 @@ BATTERY_RATED_CYCLES = 6000  # typical LFP rated cycle life (manufacturer spec)
 NIGHT_SURVIVAL_WARNING_MARGIN_PCT = 5.0  # warn within this many SoC points of min SoC
 BATTERY_LIFE_ESTIMATE_MIN_DAYS = 7  # days of cycle data needed before estimating years left
 BATTERY_MAX_SOC_STEP_PCT = 10.0  # SoC change between two updates above this is a sensor glitch
+BATTERY_EFFICIENCY_MIN_KWH = 2.0  # kWh in and out today before round-trip efficiency is reported
 
 # ── Battery degradation cost ──────────────────────────────────────────────────
 # Install cost of the battery (€). When set, the cycle cost is computed as:

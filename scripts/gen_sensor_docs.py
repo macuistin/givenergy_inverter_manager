@@ -353,7 +353,11 @@ DESCRIPTIONS: dict[str, str] = {
     "self_consumption": "Share of today's solar that was not exported. 0 with no solar.",
     "peak_import_fraction_today": "Share of today's import that was at the base rate.",
     "solar_capture_efficiency_today": "Solar generated minus missed solar, as a share of solar.",
-    "battery_roundtrip_efficiency_today": "Energy out of the battery divided by energy in.",
+    "battery_roundtrip_efficiency_today": (
+        "Energy out of the battery divided by energy in. Unknown until at least 2 kWh has gone "
+        "both in and out today, because earlier in the day the battery still holds energy "
+        "charged overnight."
+    ),
     "accrued_bill": (
         "Bill so far this period: energy less the supplier saving, standing charge and PSO levy, "
         "VAT, minus export earnings."

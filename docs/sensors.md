@@ -109,7 +109,7 @@ Percentages worked out from today's totals.
 | Self Consumption | `self_consumption` | % | - | measurement | no | yes | Share of today's solar that was not exported. 0 with no solar. |
 | Peak rate import fraction | `peak_import_fraction_today` | % | - | measurement | no | yes | Share of today's import that was at the base rate. |
 | Solar Capture Efficiency Today | `solar_capture_efficiency_today` | % | - | measurement | no | no | Solar generated minus missed solar, as a share of solar. |
-| Battery Round-trip Efficiency Today | `battery_roundtrip_efficiency_today` | % | - | measurement | no | no | Energy out of the battery divided by energy in. Diagnostic category. |
+| Battery Round-trip Efficiency Today | `battery_roundtrip_efficiency_today` | % | - | measurement | no | no | Energy out of the battery divided by energy in. Unknown until at least 2 kWh has gone both in and out today, because earlier in the day the battery still holds energy charged overnight. Diagnostic category. |
 
 ## Bill
 
