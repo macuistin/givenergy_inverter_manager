@@ -5,6 +5,7 @@ from __future__ import annotations
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import PERCENTAGE, UnitOfEnergy
 
+from .. import sensor_values as values
 from ..core.devices import Device
 from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
 
@@ -87,6 +88,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:home-battery",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.yesterday.self_sufficiency_pct, 1),
+        attrs_fn=values.self_sufficiency_attributes_yesterday,
     ),
     GivEnergyManagerSensorDescription(
         key="solar_share_yesterday",

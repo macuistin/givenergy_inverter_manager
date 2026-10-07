@@ -788,3 +788,52 @@ class TestEvSensorsNeedACharger:
         description = _BY_KEY[key]
         assert description.available_fn(without) is False
         assert description.available_fn(with_charger) is True
+
+
+class TestGridToBattery:
+    """The part of today's import that charged the battery, and the attributes that use it."""
+
+    def test_is_declared_like_the_other_daily_energy_totals(self):
+        description, sibling = _BY_KEY["grid_to_battery_today"], _BY_KEY["import_today"]
+        assert description.native_unit_of_measurement == sibling.native_unit_of_measurement
+        assert description.device_class == sibling.device_class
+        assert description.state_class == sibling.state_class
+        assert description.is_daily_total is True
+
+    def test_reports_the_figure_for_today(self):
+        data = CoordinatorData()
+        data.today.grid_to_battery_kwh = 7.5
+        assert _lambda_for("grid_to_battery_today")(data) == pytest.approx(7.5)
+
+    def test_is_unavailable_without_the_counter(self):
+        description = _BY_KEY["grid_to_battery_today"]
+        data = CoordinatorData()
+        data.grid_to_battery_counter_available = False
+        assert description.available_fn(data) is False
+        data.grid_to_battery_counter_available = True
+        assert description.available_fn(data) is True
+
+    @pytest.mark.parametrize(
+        ("key", "period"),
+        [
+            ("self_sufficiency", "today"),
+            ("self_sufficiency_yesterday", "yesterday"),
+            ("self_sufficiency_this_week", "week"),
+            ("self_sufficiency_this_month", "month"),
+        ],
+    )
+    def test_each_self_sufficiency_sensor_explains_itself(self, key, period):
+        data = CoordinatorData()
+        acc = getattr(data, period)
+        acc.house_kwh, acc.import_kwh, acc.grid_to_battery_kwh = 11.3, 12.1, 7.5
+        description = _BY_KEY[key]
+        assert description.value_fn(data) == pytest.approx(59.3)
+        attrs = description.attrs_fn(data)
+        assert set(attrs) == {
+            "house_load_kwh",
+            "from_grid_kwh",
+            "grid_to_battery_kwh",
+            "from_solar_and_battery_kwh",
+            "basis",
+        }
+        assert attrs["from_grid_kwh"] == pytest.approx(4.6)

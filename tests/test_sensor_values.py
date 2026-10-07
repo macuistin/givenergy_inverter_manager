@@ -448,3 +448,60 @@ class TestSolarFigures:
 
 def test_yes_and_no_strings_are_unchanged():
     assert (values.YES, values.NO) == ("yes", "no")
+
+
+class TestSelfSufficiencyAttributes:
+    """The kWh behind a self-sufficiency percentage, so it can be checked by hand."""
+
+    @staticmethod
+    def _live_day() -> EnergyAccumulator:
+        return EnergyAccumulator(house_kwh=11.3, import_kwh=12.1, grid_to_battery_kwh=7.5)
+
+    def test_the_live_day_is_broken_down_into_its_sources(self):
+        data = make_data(today=self._live_day(), grid_to_battery_counter_available=True)
+        assert values.self_sufficiency_attributes_today(data) == {
+            "house_load_kwh": 11.3,
+            "from_grid_kwh": 4.6,
+            "grid_to_battery_kwh": 7.5,
+            "from_solar_and_battery_kwh": 6.7,
+            "basis": values.SUFFICIENCY_BASIS_AC_CHARGE,
+        }
+
+    def test_the_sources_add_up_to_the_house_load(self):
+        attrs = values.self_sufficiency_attributes_today(make_data(today=self._live_day()))
+        assert attrs["from_grid_kwh"] + attrs["from_solar_and_battery_kwh"] == pytest.approx(
+            attrs["house_load_kwh"]
+        )
+
+    def test_the_basis_is_the_counter_while_it_is_readable(self):
+        data = make_data(
+            today=EnergyAccumulator(house_kwh=5.0, import_kwh=1.0),
+            grid_to_battery_counter_available=True,
+        )
+        assert values.self_sufficiency_attributes_today(data)["basis"] == "ac_charge_counter"
+
+    def test_the_basis_is_import_only_without_the_counter(self):
+        data = make_data(
+            today=EnergyAccumulator(house_kwh=11.3, import_kwh=12.1),
+            grid_to_battery_counter_available=False,
+        )
+        attrs = values.self_sufficiency_attributes_today(data)
+        assert attrs["basis"] == "import_only"
+        assert attrs["from_grid_kwh"] == pytest.approx(12.1)
+        assert attrs["grid_to_battery_kwh"] == 0.0
+
+    def test_a_week_that_holds_counter_energy_keeps_the_counter_basis_through_an_outage(self):
+        data = make_data(week=self._live_day(), grid_to_battery_counter_available=False)
+        assert values.self_sufficiency_attributes_week(data)["basis"] == "ac_charge_counter"
+
+    @pytest.mark.parametrize(
+        ("period", "function"),
+        [
+            ("yesterday", values.self_sufficiency_attributes_yesterday),
+            ("week", values.self_sufficiency_attributes_week),
+            ("month", values.self_sufficiency_attributes_month),
+        ],
+    )
+    def test_each_period_reads_its_own_accumulator(self, period, function):
+        data = make_data(**{period: self._live_day()}, grid_to_battery_counter_available=True)
+        assert function(data)["from_grid_kwh"] == pytest.approx(4.6)

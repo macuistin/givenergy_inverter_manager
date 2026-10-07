@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 
 from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.rules import build_load_profile, forecast_correction_factor
-from .core.tariff import EnergyAccumulator
+from .core.tariff import CounterMemory, EnergyAccumulator
 from .core.write_log import restore_entries
 
 if TYPE_CHECKING:
@@ -33,13 +33,16 @@ if TYPE_CHECKING:
 
 _LOG = logging.getLogger(__name__)
 _STORAGE_KEY = "givenergy_inverter_manager.energy"
-_STORAGE_VERSION = 3
+_STORAGE_VERSION = 4
 # Version 1 counted battery cycles in both directions (charge and discharge).
 # Version 2 counts discharge only, so stored cycle figures are halved once.
 _CYCLE_FIELDS_HALVED_AT_V2 = ("battery_cycles", "battery_tracking_start_cycles")
 # Version 2 divided actual solar by the blended forecast the first charge decision of the day
 # used, which can be for another day. Version 3 divides by the raw forecast for the day, so the
 # stored accuracy history is rebuilt from forecast_ratio_history, which holds that pair.
+# Version 4 adds grid_to_battery_kwh to every accumulator, the grid energy stored in the battery.
+# Older periods did not track it, so they start at 0 and read as import only.
+_ACCUMULATOR_KEYS = ("today", "week", "month", "year", "yesterday")
 _FORECAST_HISTORY_DAYS = 7
 _FORECAST_RATIO_HISTORY_DAYS = 14
 _SLOT_HISTORY_DAYS = 28
@@ -62,6 +65,7 @@ def _acc_to_dict(acc: EnergyAccumulator) -> dict:
         "zappi_kwh": acc.zappi_kwh,
         "immersion_kwh": acc.immersion_kwh,
         "house_kwh": acc.house_kwh,
+        "grid_to_battery_kwh": acc.grid_to_battery_kwh,
         "import_kwh_cheap": acc.import_kwh_cheap,
         "import_kwh_peak": acc.import_kwh_peak,
         "import_cost_cheap": acc.import_cost_cheap,
@@ -126,8 +130,9 @@ def migrate_storage(old_version: int, data: dict) -> dict:
     """Bring a stored payload up to the current storage version.
 
     Version 1 -> 2 converts the battery cycle figures from the old both-directions
-    definition to discharge only by halving them. The inner "version" key makes
-    the conversion safe to call twice on the same payload.
+    definition to discharge only by halving them. Version 2 -> 3 rebuilds the forecast
+    accuracy figures. Version 3 -> 4 gives each period a grid-to-battery figure of 0. The
+    inner "version" key makes each conversion safe to call twice on the same payload.
     """
     migrated = dict(data)
     if old_version < 2 and int(migrated.get("version", 1)) < 2:
@@ -141,7 +146,32 @@ def migrate_storage(old_version: int, data: dict) -> dict:
     if old_version < 3 and int(migrated.get("version", 1)) < 3:
         _rebuild_forecast_accuracy(migrated)
         migrated["version"] = 3
+    if old_version < 4 and int(migrated.get("version", 1)) < 4:
+        _add_grid_to_battery(migrated)
+        migrated["version"] = 4
     return migrated
+
+
+def _with_grid_to_battery(stored: dict) -> dict:
+    """A copy of one stored period with a grid-to-battery figure, 0 unless it already has one."""
+    return {"grid_to_battery_kwh": 0.0, **stored}
+
+
+def _add_grid_to_battery(payload: dict) -> None:
+    """Give every stored period, and every monthly snapshot, a grid-to-battery figure of 0.
+
+    A figure already there is kept, so running the step twice changes nothing. The nested
+    dicts are copied, so the payload the caller passed in is left as it was.
+    """
+    for key in _ACCUMULATOR_KEYS:
+        if isinstance(payload.get(key), dict):
+            payload[key] = _with_grid_to_battery(payload[key])
+    snapshots = payload.get("monthly_snapshots")
+    if isinstance(snapshots, list):
+        payload["monthly_snapshots"] = [
+            _with_grid_to_battery(entry) if isinstance(entry, dict) else entry
+            for entry in snapshots
+        ]
 
 
 def _forecast_accuracy_pct(forecast_kwh: float, actual_kwh: float) -> float:
@@ -192,6 +222,8 @@ class AccumulationState:
     month: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     year: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     yesterday: EnergyAccumulator = field(default_factory=EnergyAccumulator)
+    # Last GivTCP counter readings, kept across midnight. See CounterMemory.
+    counters: CounterMemory = field(default_factory=CounterMemory)
 
     # First forecast the charge decision used today. Feeds the "Solar forecast today" sensor
     # and today's solar against forecast, not the accuracy history.
@@ -287,6 +319,10 @@ class AccumulationStore:
     @property
     def yesterday(self) -> EnergyAccumulator:
         return self.state.yesterday
+
+    @property
+    def counters(self) -> CounterMemory:
+        return self.state.counters
 
     @property
     def today_forecast_kwh(self) -> float:
@@ -495,6 +531,9 @@ class AccumulationStore:
             for offset in range(1, (today - last).days + 1):
                 self.on_midnight(_midnight_of(now, last + timedelta(days=offset)))
                 changed = True
+            if changed:
+                # The remembered counter readings belong to a day that has ended.
+                self.state.counters = CounterMemory()
         return self._fill_period_starts(now) or changed
 
     def _fill_period_starts(self, now: datetime) -> bool:
@@ -631,6 +670,7 @@ def _serialize(state: AccumulationState) -> dict:
         "month": _acc_to_dict(state.month),
         "year": _acc_to_dict(state.year),
         "yesterday": _acc_to_dict(state.yesterday),
+        "ac_charge_counter_kwh": state.counters.ac_charge_kwh,
         "today_forecast_kwh": state.today_forecast_kwh,
         "battery_cycles": state.battery_cycles,
         "last_full_charge_date": state.last_full_charge_date,
@@ -668,6 +708,7 @@ def _restore_accumulators(state: AccumulationState, data: dict) -> None:
 
 
 def _restore_battery_and_forecast(state: AccumulationState, data: dict) -> None:
+    state.counters = CounterMemory(float(data.get("ac_charge_counter_kwh", 0.0)))
     state.today_forecast_kwh = float(data.get("today_forecast_kwh", 0.0))
     state.battery_cycles = float(data.get("battery_cycles", 0.0))
     state.last_full_charge_date = str(data.get("last_full_charge_date", ""))

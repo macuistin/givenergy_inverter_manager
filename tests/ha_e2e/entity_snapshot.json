@@ -365,6 +365,11 @@
   "name": "Grid Power Direction"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_grid_to_battery_today",
+  "key": "grid_to_battery_today",
+  "name": "Grid to Battery Today"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_hours_to_cheap_rate",
   "key": "hours_to_cheap_rate",
   "name": "Hours to Cheap Rate"

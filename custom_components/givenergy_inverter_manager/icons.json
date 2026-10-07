@@ -23,6 +23,7 @@
       "rate_savings_vs_daytime": {"default": "mdi:cash-fast"},
       "solar_today": {"default": "mdi:solar-power"},
       "import_today": {"default": "mdi:transmission-tower-import"},
+      "grid_to_battery_today": {"default": "mdi:battery-charging-high"},
       "export_today": {"default": "mdi:transmission-tower-export"},
       "zappi_today": {"default": "mdi:car-electric"},
       "immersion_today": {"default": "mdi:water-boiler"},

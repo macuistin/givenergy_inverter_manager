@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 148 sensors. 92 are enabled by default and 56 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 149 sensors. 93 are enabled by default and 56 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches, numbers and the button, see [Entities](entities.md).
 
@@ -65,6 +65,7 @@ Accumulated since local midnight. They report `last_reset` as the most recent mi
 |---|---|---|---|---|---|---|---|
 | Solar Generation Today | `solar_today` | kWh | energy | total | day | yes | Solar generated. Uses the GivTCP daily counter when present. |
 | Grid Import Today | `import_today` | kWh | energy | total | day | yes | Grid import. Uses the GivTCP daily counter when present. |
+| Grid to Battery Today | `grid_to_battery_today` | kWh | energy | total | day | yes | Part of Grid Import Today that charged the battery. Uses GivTCP's AC charge counter. Unavailable when that counter is missing. |
 | Grid Export Today | `export_today` | kWh | energy | total | day | yes | Grid export. Uses the GivTCP daily counter when present. |
 | EV Charging Today | `zappi_today` | kWh | energy | total | day | yes | Energy delivered to the EV charger, from charger power. Created only with an EV charger. |
 | Immersion Heater Today | `immersion_today` | kWh | energy | total | day | yes | Immersion energy, from the configured wattage while the switch is on. Created only with an immersion switch. |
@@ -103,7 +104,7 @@ Percentages worked out from today's totals.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Self Sufficiency | `self_sufficiency` | % | - | measurement | no | yes | Share of consumption, EV and immersion included, that was not bought from the grid. |
+| Self Sufficiency | `self_sufficiency` | % | - | measurement | no | yes | Share of the house load, EV and immersion included, that did not come from the grid at the time. Grid energy stored in the battery is not counted against it. Attributes show the kWh behind the figure and the `basis`. |
 | Solar Share | `solar_share` | % | - | measurement | no | yes | Share of consumption met by solar generated and kept on site (generation minus export, battery storage included). Grid import and battery discharge do not count. 0 with no consumption. |
 | Self Consumption | `self_consumption` | % | - | measurement | no | yes | Share of today's solar that was not exported. 0 with no solar. |
 | Peak rate import fraction | `peak_import_fraction_today` | % | - | measurement | no | yes | Share of today's import that was at the base rate. |

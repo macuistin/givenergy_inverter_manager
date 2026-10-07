@@ -106,7 +106,7 @@ from .rules import (
     decide_ev_charger_action,
     should_divert_to_immersion,
 )
-from .tariff import EnergyAccumulator, RatePeriod, TariffConfig, build_tariff
+from .tariff import CounterMemory, EnergyAccumulator, RatePeriod, TariffConfig, build_tariff
 from .timeutil import elapsed_seconds, local_time_on
 
 _LOG = get_logger(__name__)
@@ -163,6 +163,9 @@ class RawSensorValues:
     charge_energy_today_kwh: float | None = None
     discharge_energy_today_kwh: float | None = None
     load_energy_today_kwh: float | None = None
+    # Grid energy that went into the battery today (GivTCP's AC charge counter), part of
+    # import_energy_today_kwh. None when the entity is missing: self-sufficiency counts all import.
+    ac_charge_energy_today_kwh: float | None = None
     # Lifetime cycle count reported by the battery BMS (highest single pack), None if unknown
     battery_lifetime_cycles: float | None = None
     # The GivTCP battery charge rate setting in W, None when the entity is not readable
@@ -217,6 +220,8 @@ class CoordinatorData:
     month: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     year: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     yesterday: EnergyAccumulator = field(default_factory=EnergyAccumulator)
+    # True while GivTCP's AC charge counter is readable, so grid_to_battery_kwh is measured.
+    grid_to_battery_counter_available: bool = False
     battery_stats: BatteryStats = field(default_factory=BatteryStats)
     accrued_bill: float = 0.0
     projected_bill: float = 0.0
@@ -617,8 +622,8 @@ def _process_ev_charger(
 class Accumulators:
     """The running energy accumulators, plus when today's was last reset.
 
-    today is mutated in place every cycle. The others are None until the coordinator
-    has restored them.
+    today and counters are mutated in place every cycle. The other accumulators are None
+    until the coordinator has restored them.
     """
 
     today: EnergyAccumulator
@@ -627,6 +632,7 @@ class Accumulators:
     year: EnergyAccumulator | None = None
     yesterday: EnergyAccumulator | None = None
     last_reset_time: str = ""
+    counters: CounterMemory = field(default_factory=CounterMemory)
 
     def rolling(self) -> tuple[EnergyAccumulator, ...]:
         """The accumulators that integrate live power, today's first. Yesterday is a record."""
@@ -1112,7 +1118,9 @@ def _accumulate_energy_today(
     # GivTCP reads directly from the inverter's metering, which is more accurate than
     # integrating 30-second power readings. Financial fields (costs, earnings) remain
     # integration-based since GivTCP has no tariff knowledge.
+    _carry_grid_to_battery(accumulators, cycle.raw)
     _apply_daily_counters(accumulators.today, cycle.raw)
+    data.grid_to_battery_counter_available = cycle.raw.ac_charge_energy_today_kwh is not None
     data.today = accumulators.today
 
 
@@ -1164,7 +1172,8 @@ def _apply_daily_counters(acc: EnergyAccumulator, raw: RawSensorValues) -> None:
 
     GivTCP reads energy directly from the inverter's own metering, avoiding the
     small rounding errors introduced by integrating 30-second power readings.
-    Only fields where the counter is present (not None) are overridden.
+    Only fields where the counter is present (not None) are overridden. The exception is
+    grid_to_battery_kwh, which reads 0 without its counter.
     Financial fields (costs, earnings, per-period breakdown) are left unchanged
     — they require tariff knowledge that GivTCP doesn't have.
     """
@@ -1180,7 +1189,25 @@ def _apply_daily_counters(acc: EnergyAccumulator, raw: RawSensorValues) -> None:
         acc.battery_discharge_kwh = raw.discharge_energy_today_kwh
     if raw.load_energy_today_kwh is not None:
         acc.house_kwh = raw.load_energy_today_kwh
+    # No power integration stands in for this counter. Without it nothing comes off import.
+    acc.grid_to_battery_kwh = (
+        raw.ac_charge_energy_today_kwh if raw.ac_charge_energy_today_kwh is not None else 0.0
+    )
 
+
+def _carry_grid_to_battery(accumulators: Accumulators, raw: RawSensorValues) -> None:
+    """Add the growth of the AC charge counter to the week, month and year.
+
+    Today takes the counter itself. The longer periods integrate live power, which has no
+    grid-to-battery figure, so each gets the counter's rise since the last reading. That
+    also catches up the time Home Assistant was down.
+    """
+    if raw.ac_charge_energy_today_kwh is None:
+        return
+    growth_kwh = accumulators.counters.growth_since_last(raw.ac_charge_energy_today_kwh)
+    for longer_acc in (accumulators.week, accumulators.month, accumulators.year):
+        if longer_acc is not None:
+            longer_acc.grid_to_battery_kwh += growth_kwh
 
 
 def _start_cycle(inputs: CycleInputs, forecast: ForecastContext, now: datetime) -> _Cycle:

@@ -84,7 +84,9 @@ When these entities exist, they replace the integration's own sum for today's ph
 
 `sensor.givtcp_<serial>_pv_energy_today_kwh`, `_import_energy_today_kwh`, `_export_energy_today_kwh`, `_charge_energy_today_kwh`, `_discharge_energy_today_kwh` and `_load_energy_today_kwh`.
 
-A missing counter falls back to the integration's own sum, one counter at a time. Week, month and year totals always use the integration's own sum. Costs and earnings are always worked out by the integration, because GivTCP does not know your tariff.
+A missing counter falls back to the integration's own sum, one counter at a time. Week, month and year totals always use the integration's own sum, with one exception: the AC charge counter below. Costs and earnings are always worked out by the integration, because GivTCP does not know your tariff.
+
+`sensor.givtcp_<serial>_ac_charge_energy_today_kwh` is the part of today's import that charged the battery. It has no power-based stand-in. Without it, Grid to Battery Today is unavailable and Self-sufficiency counts all import, as it did before. The week, month and year each add the counter's rise since the last reading, so a midnight reset or a restart does not lose or repeat energy.
 
 ### Battery cycles
 
@@ -170,9 +172,23 @@ Every cycle the grid import is priced at the current rate, after supplier discou
 
 ### Self-sufficiency, solar share and self-consumption
 
-Three percentages answer three questions. **Self-sufficiency** is the share of what the house used that you did not buy from the grid. It counts any import, so charging the battery from the grid overnight lowers it. **Solar share** is the share of what the house used that your own solar covered: solar generated minus exported, over the house load. Grid import does not change it. **Self-consumption** is the share of your solar that you used on site rather than exported. The house load includes the EV charger and the immersion in all three.
+Three percentages answer three questions. **Self-sufficiency** is the share of what the house used that did not have to be drawn from the grid at the time. **Solar share** is the share of what the house used that your own solar covered: solar generated minus exported, over the house load. Grid import does not change it. **Self-consumption** is the share of your solar that you used on site rather than exported. The house load includes the EV charger and the immersion in all three.
 
-Example: the house uses 10 kWh, generates 8 kWh of solar, exports 2 kWh and imports 5 kWh (3 kWh of it to charge the battery overnight). Self-sufficiency is 50% (5 kWh of 10 kWh not bought). Solar share is 60% (6 kWh of solar kept, over 10 kWh used). Self-consumption is 75% (6 kWh of 8 kWh kept). Use self-sufficiency to see how much you bought, solar share to see how much your own solar covered, and self-consumption to see how much of your solar you used.
+Self-sufficiency takes the grid energy that went into the battery off the import before it compares the import with the house load. That energy is stored, not used. When the battery later supplies the house, the house is supplied from storage. So cheap overnight energy that the house uses the next day counts as supplied from storage, and the figure does not drop on the day the battery is charged. The grid energy that went to the house is the import minus the grid energy that went into the battery. EV and immersion energy bought from the grid is part of the house load, so it still counts as grid.
+
+Example: the house uses 10 kWh, generates 8 kWh of solar, exports 2 kWh and imports 5 kWh (3 kWh of it into the battery overnight). The grid supplied the house with 2 kWh. Self-sufficiency is 80% (8 kWh of 10 kWh not drawn from the grid). Solar share is 60% (6 kWh of solar kept, over 10 kWh used). Self-consumption is 75% (6 kWh of 8 kWh kept). Use self-sufficiency to see how much of the load the grid did not have to supply, solar share to see how much your own solar covered, and self-consumption to see how much of your solar you used.
+
+The Self-sufficiency sensors for today, yesterday, this week and this month show the working in their attributes:
+
+| Attribute | Meaning |
+|---|---|
+| `house_load_kwh` | Everything the house used, EV and immersion included. |
+| `from_grid_kwh` | Import that went to the house, not into the battery. |
+| `grid_to_battery_kwh` | Import that went into the battery. |
+| `from_solar_and_battery_kwh` | Load not drawn from the grid: `house_load_kwh` minus `from_grid_kwh`. |
+| `basis` | `ac_charge_counter` when the AC charge counter was used. `import_only` when it is missing, so all import counts as grid. |
+
+Example from a real day: 12.1 kWh imported, 7.5 kWh of it into the battery, and an 11.3 kWh load. The grid supplied the house with 4.6 kWh, so self-sufficiency reads 59%. Counting all the import as grid read 0%.
 
 ### Dry run
 

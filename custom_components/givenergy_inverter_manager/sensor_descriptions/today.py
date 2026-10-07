@@ -30,6 +30,16 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: round(d.today.import_kwh, 3),
     ),
     GivEnergyManagerSensorDescription(
+        key="grid_to_battery_today",
+        is_daily_total=True,
+        translation_key="grid_to_battery_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        available_fn=lambda d: d.grid_to_battery_counter_available,
+        value_fn=lambda d: round(d.today.grid_to_battery_kwh, 3),
+    ),
+    GivEnergyManagerSensorDescription(
         key="export_today",
         is_daily_total=True,
         translation_key="export_today",
@@ -157,6 +167,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.today.self_sufficiency_pct, 1),
+        attrs_fn=values.self_sufficiency_attributes_today,
     ),
     GivEnergyManagerSensorDescription(
         key="solar_share",

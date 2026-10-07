@@ -58,7 +58,13 @@ from .charts import (
 from .devices import Devices, with_visibility
 from .hacs import APEX_CARD, POWER_FLOW_CARD, HacsCards
 from .registry import HostFacts, Registry, entry_config, external_ev_power
-from .templates import survival_template, tariff_table
+from .templates import (
+    EnergySources,
+    energy_devices_template,
+    energy_sources_template,
+    survival_template,
+    tariff_table,
+)
 
 # ── View paths ───────────────────────────────────────────────────────────────
 # A tab is a view with a tab. A sub-view has none: a tile, heading or button on a tab opens it
@@ -359,6 +365,7 @@ class Builder:
                 self.tile("house_kwh_today", "Used", color=GRID),
                 self.tile("import_today", "Imported", color=GRID),
                 self.tile("export_today", "Exported", color=GRID),
+                self.tile("self_sufficiency", "Self-sufficient", color=SOLAR),
             ],
         )
 
@@ -552,6 +559,38 @@ class Builder:
             ],
         )
 
+    def _energy_sources_card(self) -> dict | None:
+        """The house and grid sums in words. None unless the sensors it reads exist."""
+        sources = EnergySources(
+            self.entity("self_sufficiency") or "",
+            self.entity("house_kwh_today") or "",
+            self.entity("import_today") or "",
+            self.entity("battery_discharge_kwh_today"),
+        )
+        if not (sources.self_sufficiency and sources.house and sources.imported):
+            return None
+        return markdown_card(energy_sources_template(sources))
+
+    def _energy_devices_card(self, shown: frozenset[Device]) -> dict | None:
+        """The EV and immersion energy, for the devices of *shown* that have an entity."""
+        ev = self.ev("zappi_today") if Device.EV_CHARGER in shown else None
+        immersion = self.immersion("immersion_today") if Device.IMMERSION_SWITCH in shown else None
+        text = energy_devices_template(ev, immersion)
+        return markdown_card(text) if text else None
+
+    def _today_sources(self) -> dict | None:
+        """Where today's energy came from. The EV and immersion lines follow their devices."""
+        sources = self._energy_sources_card()
+        if sources is None:
+            return None
+        devices = self.devices.variants(
+            (Device.EV_CHARGER, Device.IMMERSION_SWITCH), self._energy_devices_card
+        )
+        return group(
+            heading_card("Where today's energy came from", "mdi:home-lightning-bolt-outline"),
+            [sources, *devices],
+        )
+
     def _today_cost(self) -> dict | None:
         return group(
             heading_card("Cost", "mdi:cash-multiple", nav=self.go(SUB_COST)),
@@ -575,7 +614,12 @@ class Builder:
         )
 
     def today_sections(self) -> list:
-        return [self._today_energy(), self._today_cost(), self._today_solar()]
+        return [
+            self._today_energy(),
+            self._today_sources(),
+            self._today_cost(),
+            self._today_solar(),
+        ]
 
     def _cost_entities(self, shown: frozenset[Device]) -> _CostEntities:
         """The cost sensors, with the EV and immersion lines only for the devices of *shown*."""

@@ -605,6 +605,9 @@
       "import_today": {
         "name": "Grid Import Today"
       },
+      "grid_to_battery_today": {
+        "name": "Grid to Battery Today"
+      },
       "export_today": {
         "name": "Grid Export Today"
       },

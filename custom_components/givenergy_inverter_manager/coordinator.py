@@ -857,6 +857,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             f"{pfx}_battery_discharge_energy_today_kwh", f"{pfx}_discharge_energy_today_kwh"
         )
         raw.load_energy_today_kwh = self._read_optional_float(f"{pfx}_load_energy_today_kwh")
+        # The part of today's import that charged the battery.
+        raw.ac_charge_energy_today_kwh = self._read_optional_float(
+            f"{pfx}_ac_charge_energy_today_kwh"
+        )
 
     def _read_charge_rate_w(self, cfg: dict) -> float | None:
         """The battery charge rate setting GivTCP exposes, derived from the inverter serial.
@@ -1128,6 +1132,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 year=self._acc.year,
                 yesterday=self._acc.yesterday,
                 last_reset_time=self._last_reset_time,
+                counters=self._acc.counters,
             ),
             PreviousCycle(
                 battery_stats=self._battery_stats,

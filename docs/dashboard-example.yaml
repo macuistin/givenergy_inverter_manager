@@ -409,6 +409,12 @@ views:
       color: blue
       grid_options:
         columns: 6
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_self_sufficiency
+      name: Self-sufficient
+      color: amber
+      grid_options:
+        columns: 6
     - type: heading
       heading: Devices
       heading_style: title
@@ -532,6 +538,74 @@ views:
       grid_options:
         columns: 6
       visibility:
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state_not: unavailable
+  - type: grid
+    cards:
+    - type: heading
+      heading: Where today's energy came from
+      heading_style: title
+      icon: mdi:home-lightning-bolt-outline
+    - type: markdown
+      content: |-
+        {%- set card = 'sensor.givenergy_inverter_manager_self_sufficiency' -%}
+        {%- set house_entity = 'sensor.givenergy_inverter_manager_house_load_today' -%}
+        {%- set import_entity = 'sensor.givenergy_inverter_manager_grid_import_today' -%}
+        {%- set battery_entity = 'sensor.givenergy_inverter_manager_battery_discharged_today' -%}
+        {%- set house = state_attr(card, 'house_load_kwh') -%}
+        {%- set house = house if is_number(house) else states(house_entity) -%}
+        {%- set imported = states(import_entity) -%}
+        {%- set to_battery = state_attr(card, 'grid_to_battery_kwh') -%}
+        {%- set to_battery = to_battery | float(0) if is_number(to_battery) else 0 -%}
+        {%- set from_grid = state_attr(card, 'from_grid_kwh') -%}
+        {%- set from_grid = from_grid if is_number(from_grid) else imported -%}
+        {%- if is_number(house) and is_number(imported) -%}
+        {%- set house = house | float(0) -%}
+        {%- set imported = imported | float(0) -%}
+        {%- set from_grid = [from_grid | float(0), house] | min -%}
+        {%- set stored = [house - from_grid, 0] | max -%}
+        {%- set battery_known = battery_entity and is_number(states(battery_entity)) -%}
+        {%- set battery = [[states(battery_entity) | float(0), stored] | min, 0] | max -%}
+        House used **{{ house | round(1) }} kWh**: {% if battery_known %}solar {{ (stored - battery) | round(1) }} + battery {{ battery | round(1) }}{% else %}solar and battery {{ stored | round(1) }}{% endif %} + grid {{ from_grid | round(1) }}.
+
+        {% if state_attr(card, 'basis') == 'ac_charge_counter' %}Grid import **{{ imported | round(1) }} kWh**: {{ from_grid | round(1) }} for the house + {{ to_battery | round(1) }} into the battery.{% else %}Grid import **{{ imported | round(1) }} kWh**. How much of it went into the battery is not known, so it all counts as used by the house.{% endif %}
+
+        **Self-sufficiency{% if is_number(states(card)) %} {{ states(card) | float(0) | round(0) | int }}%{% endif %}** is the share of what the house used that did not come from the grid.{%- else -%}
+        Waiting for today's energy totals.
+        {%- endif %}
+      grid_options:
+        columns: full
+    - type: markdown
+      content: Of the house use, the EV took {{ states('sensor.givenergy_inverter_manager_ev_charging_today') | float(0) | round(1) }} kWh.
+      grid_options:
+        columns: full
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state_not: unavailable
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state: unavailable
+    - type: markdown
+      content: Of the house use, the immersion took {{ states('sensor.givenergy_inverter_manager_immersion_heater_today') | float(0) | round(1) }} kWh.
+      grid_options:
+        columns: full
+      visibility:
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state_not: unavailable
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state: unavailable
+    - type: markdown
+      content: Of the house use, the EV took {{ states('sensor.givenergy_inverter_manager_ev_charging_today') | float(0) | round(1) }} kWh and the immersion took {{ states('sensor.givenergy_inverter_manager_immersion_heater_today') | float(0) | round(1) }} kWh.
+      grid_options:
+        columns: full
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state_not: unavailable
       - condition: state
         entity: switch.givenergy_inverter_manager_immersion_heater_managed
         state_not: unavailable

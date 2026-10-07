@@ -105,6 +105,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:home-battery",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.week.self_sufficiency_pct, 1),
+        attrs_fn=values.self_sufficiency_attributes_week,
     ),
     GivEnergyManagerSensorDescription(
         key="solar_share_this_week",
