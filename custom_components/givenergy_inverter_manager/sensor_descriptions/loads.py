@@ -77,6 +77,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="ev_solar_surplus_available",
         translation_key="ev_solar_surplus_available",
         value_fn=lambda d: "Available" if d.ev_solar_surplus_available else "Not available",
+        available_fn=lambda d: d.ev_available,
     ),
     GivEnergyManagerSensorDescription(
         key="immersion_cost_today",

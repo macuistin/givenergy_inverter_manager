@@ -157,6 +157,52 @@ class TestAccumulateEnergy:
         assert acc_60.solar_kwh == pytest.approx(acc_30.solar_kwh * 2, rel=0.01)
 
 
+class TestOptionalDevices:
+    """An install with no immersion switch or EV charger gets no figures about them."""
+
+    _SURPLUS = {
+        "solar_power_w": 4500.0,
+        "house_load_w": 500.0,
+        "battery_soc": 85.0,
+        "battery_power_w": 200.0,
+        "immersion_temp": 40.0,
+        "immersion_min_temp": 30.0,
+    }
+    _EXPORTING_FULL = {"battery_soc": 100.0, "grid_power_w": -3000.0, "solar_power_w": 4000.0}
+
+    def _missed_solar_kwh(self, **raw_kwargs):
+        acc = EnergyAccumulator()
+        tariff = build_tariff(_nightboost_cfg())
+        now = datetime(2024, 6, 15, 14, 0)
+        raw = _raw(**self._EXPORTING_FULL, **raw_kwargs)
+        accumulate_energy(acc, raw, tariff, "Day", now, now - timedelta(minutes=30))
+        return acc.missed_solar_kwh
+
+    def test_divert_reason_names_the_missing_switch(self):
+        data, _ = _run(raw=_raw(**self._SURPLUS, immersion_switch_configured=False))
+        assert data.should_divert_immersion is False
+        assert data.divert_reason == "No immersion switch configured"
+
+    def test_divert_reason_is_unchanged_with_a_switch(self):
+        data, _ = _run(raw=_raw(**self._SURPLUS, immersion_switch_configured=True))
+        assert data.should_divert_immersion is True
+        assert "Solar surplus" in data.divert_reason
+
+    def test_snapshot_records_that_there_is_no_immersion(self):
+        data, _ = _run(raw=_raw(immersion_switch_configured=False))
+        assert data.immersion_configured is False
+
+    def test_no_missed_solar_without_switch_or_ev(self):
+        assert self._missed_solar_kwh(immersion_switch_configured=False) == 0.0
+
+    def test_missed_solar_counts_with_a_switch(self):
+        assert self._missed_solar_kwh(immersion_switch_configured=True) == pytest.approx(1.5)
+
+    def test_missed_solar_counts_with_only_an_ev_charger(self):
+        kwh = self._missed_solar_kwh(immersion_switch_configured=False, ev_charger_present=True)
+        assert kwh == pytest.approx(1.5)
+
+
 # ── estimate_avg_daily_kwh ────────────────────────────────────────────────────
 
 

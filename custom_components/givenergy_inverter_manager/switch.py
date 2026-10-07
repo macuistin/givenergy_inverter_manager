@@ -9,7 +9,8 @@ Provides three switches:
     not be turned on automatically regardless of solar surplus.
 
   Immersion Heater Managed (GivEnergyImmersionControlSwitch)
-    Only created if an immersion switch entity is configured. It shows the
+    Only created while an immersion switch entity is configured, and removed when it is
+    cleared in the options. It shows the
     coordinator's divert decision. The coordinator's ImmersionActuator applies
     that decision to the real switch on every update, whether or not this
     entity is enabled. Turning this switch on runs the heater until the water
@@ -26,12 +27,14 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.const import STATE_ON
+from homeassistant.const import STATE_ON, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import CONF_IMMERSION_SWITCH
+from .config_helpers import effective_config
+from .const import CONF_IMMERSION_SWITCH, DOMAIN
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .entity import GivEnergyEntity
 from .logging import get_logger
@@ -58,10 +61,27 @@ async def async_setup_entry(
     ]
 
     # Only add immersion control switch if an immersion entity is configured
-    if entry.data.get(CONF_IMMERSION_SWITCH):
+    if effective_config(entry).get(CONF_IMMERSION_SWITCH):
         entities.append(GivEnergyImmersionControlSwitch(coordinator))
+    else:
+        _remove_managed_switch(hass, entry)
 
     async_add_entities(entities)
+
+
+def _managed_switch_unique_id(entry: GivEnergyConfigEntry) -> str:
+    return f"{entry.entry_id}_immersion_managed"
+
+
+def _remove_managed_switch(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Delete the managed switch left behind after the immersion switch was cleared."""
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        Platform.SWITCH, DOMAIN, _managed_switch_unique_id(entry)
+    )
+    if entity_id is not None:
+        registry.async_remove(entity_id)
+        _LOG.info("Removed the managed immersion switch %s, no immersion switch is set", entity_id)
 
 
 class GivEnergyAutoImmersionSwitch(
@@ -110,7 +130,7 @@ class GivEnergyImmersionControlSwitch(GivEnergyEntity, SwitchEntity):
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_immersion_managed"
+        self._attr_unique_id = _managed_switch_unique_id(coordinator.entry)
 
     @property
     def is_on(self) -> bool:

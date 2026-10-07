@@ -847,6 +847,11 @@ _OPTIONAL_FORECAST_KEYS = (
     CONF_CARBON_INTENSITY_ENTITY,
 )
 
+_OPTIONAL_IMMERSION_KEYS = (
+    CONF_IMMERSION_SWITCH,
+    CONF_IMMERSION_TEMP_SENSOR,
+)
+
 
 class GivEnergyOptionsFlow(config_entries.OptionsFlow):
     """Options flow — tariff rates, per-period rates, thresholds, forecast."""
@@ -882,16 +887,32 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         self._options.update(user_input.get("threshold_settings", {}))
         self._store_floats(
             user_input.get("hardware_settings", {}),
-            (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT, CONF_IMMERSION_WATTAGE),
+            (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT),
         )
-        forecast = user_input.get("forecast_settings", {})
-        for key in _OPTIONAL_FORECAST_KEYS:
-            self._options[key] = forecast.get(key, "")
-        self._store_floats(forecast, (CONF_FORECAST_CONSERVATISM,))
+        self._store_optional_entities(user_input, "forecast_settings", _OPTIONAL_FORECAST_KEYS)
+        self._store_floats(
+            user_input.get("forecast_settings", {}), (CONF_FORECAST_CONSERVATISM,)
+        )
+        self._store_optional_entities(user_input, "immersion_settings", _OPTIONAL_IMMERSION_KEYS)
+        self._store_floats(user_input.get("immersion_settings", {}), (CONF_IMMERSION_WATTAGE,))
         self._store_floats(
             user_input.get("ev_settings", {}), (CONF_CAR_EFFICIENCY_KWH_PER_100KM,)
         )
         return self.async_create_entry(title="", data=self._options)
+
+    def _store_optional_entities(
+        self, user_input: dict, section_name: str, keys: tuple[str, ...]
+    ) -> None:
+        """Store the entity choices of one submitted section.
+
+        An entity the section leaves out was cleared by the user, so it is saved as empty.
+        A section the submission does not carry at all is left as saved.
+        """
+        submitted = user_input.get(section_name)
+        if submitted is None:
+            return
+        for key in keys:
+            self._options[key] = submitted.get(key, "")
 
     def _store_floats(self, submitted: dict, keys: tuple[str, ...]) -> None:
         """Store each of *keys* that the form submitted, as a float."""
@@ -949,6 +970,8 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         fields[vol.Required("threshold_settings")] = self._threshold_section(currency)
         fields[vol.Required("forecast_settings")] = self._forecast_section()
         fields[vol.Required("hardware_settings")] = self._hardware_section()
+        # Optional, so a client that omits the section keeps the saved devices.
+        fields[vol.Optional("immersion_settings")] = self._immersion_section()
         fields[vol.Required("ev_settings")] = self._ev_section()
         return fields
 
@@ -1074,7 +1097,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         )
 
     def _hardware_section(self) -> object:
-        """Return the hardware section: battery capacity, inverter output, immersion wattage."""
+        """Return the hardware section: battery capacity and inverter output."""
         return section(
             vol.Schema(
                 {
@@ -1088,6 +1111,22 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                             self._get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)
                         ),
                     ): _number_selector(CONF_INVERTER_MAX_OUTPUT),
+                }
+            ),
+            {"collapsed": True},
+        )
+
+    def _immersion_section(self) -> object:
+        """Return the immersion section: switch, water temperature sensor and element power.
+
+        The target and minimum temperatures stay with the number entities, which persist
+        them while the heater runs.
+        """
+        return section(
+            vol.Schema(
+                {
+                    self._optional_key(CONF_IMMERSION_SWITCH): _entity_selector("switch"),
+                    self._optional_key(CONF_IMMERSION_TEMP_SENSOR): _entity_selector(),
                     vol.Optional(
                         CONF_IMMERSION_WATTAGE,
                         default=float(self._get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE)),
