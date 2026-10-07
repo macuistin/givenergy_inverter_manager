@@ -156,6 +156,38 @@ def next_cheap_rate_start(data: CoordinatorData) -> str | None:
     return RATE_NOW if data.hours_to_cheap_rate == 0.0 else None
 
 
+def _duration_text(minutes: float) -> str:
+    """Return a duration in whole minutes as "45 min", "9 h" or "8 h 56 min"."""
+    hours, rest = divmod(round(minutes), 60)
+    parts = ([f"{hours} h"] if hours else []) + ([f"{rest} min"] if rest or not hours else [])
+    return " ".join(parts)
+
+
+def cheap_rate_summary(data: CoordinatorData) -> str | None:
+    """Return "23:00 (in 8 h 56 min)", "Now (ends in 1 h 12 min)", or None without a cheap rate."""
+    start = next_cheap_rate_start(data)
+    if start is None:
+        return None
+    if start == RATE_NOW:
+        return _now_summary(data.minutes_remaining_in_period)
+    if data.hours_to_cheap_rate is None:
+        return start
+    return f"{start} (in {_duration_text(data.hours_to_cheap_rate * 60)})"
+
+
+def _now_summary(minutes_remaining: float | None) -> str:
+    """Return "Now", with how long the active period has left when that is known."""
+    if minutes_remaining is None:
+        return RATE_NOW
+    return f"{RATE_NOW} (ends in {_duration_text(minutes_remaining)})"
+
+
+def cheap_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Return the summary attribute a dashboard tile shows, None on a tariff without one."""
+    summary = cheap_rate_summary(data)
+    return None if summary is None else {"summary": summary}
+
+
 def average_import_rate(accumulator: EnergyAccumulator) -> float | None:
     """Return the average price paid per imported kWh, None when nothing was imported."""
     if accumulator.import_kwh > 0:

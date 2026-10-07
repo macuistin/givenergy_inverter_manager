@@ -200,6 +200,72 @@ class TestNextCheapRateStart:
         assert values.next_cheap_rate_start(data) is None
 
 
+class TestCheapRateSummary:
+    @staticmethod
+    def _summary(start, hours, remaining=None):
+        data = make_data(
+            next_cheap_rate_start=start, hours_to_cheap_rate=hours, minutes_remaining_in_period=remaining
+        )
+        return values.cheap_rate_summary(data)
+
+    @pytest.mark.parametrize(
+        ("hours", "expected"),
+        [
+            (8.93, "23:00 (in 8 h 56 min)"),
+            (9.0, "23:00 (in 9 h)"),
+            (1.0, "23:00 (in 1 h)"),
+            (1.02, "23:00 (in 1 h 1 min)"),
+            (0.75, "23:00 (in 45 min)"),
+            (0.02, "23:00 (in 1 min)"),
+            (59.9 / 60, "23:00 (in 1 h)"),
+            (59.4 / 60, "23:00 (in 59 min)"),
+            (60 / 60, "23:00 (in 1 h)"),
+            (24.0, "23:00 (in 24 h)"),
+        ],
+    )
+    def test_counts_down_to_a_later_start(self, hours, expected):
+        assert self._summary("23:00", hours) == expected
+
+    def test_start_alone_when_the_wait_is_unknown(self):
+        assert self._summary("23:00", None) == "23:00"
+
+    def test_zero_wait_with_a_start_reads_zero_minutes(self):
+        assert self._summary("23:00", 0.0) == "23:00 (in 0 min)"
+
+    @pytest.mark.parametrize(
+        ("remaining", "expected"),
+        [
+            (72.0, "Now (ends in 1 h 12 min)"),
+            (71.6, "Now (ends in 1 h 12 min)"),
+            (60.0, "Now (ends in 1 h)"),
+            (59.9, "Now (ends in 1 h)"),
+            (59.4, "Now (ends in 59 min)"),
+            (45.0, "Now (ends in 45 min)"),
+            (420.0, "Now (ends in 7 h)"),
+            (0.0, "Now (ends in 0 min)"),
+        ],
+    )
+    def test_says_when_the_active_period_ends(self, remaining, expected):
+        assert self._summary(None, 0.0, remaining) == expected
+
+    def test_now_alone_when_the_end_is_unknown(self):
+        assert self._summary(None, 0.0, None) == "Now"
+
+    def test_none_on_a_tariff_without_a_cheap_period(self):
+        assert self._summary(None, None) is None
+        assert self._summary(None, None, 30.0) is None
+
+
+class TestCheapRateAttributes:
+    def test_carries_the_summary(self):
+        data = make_data(next_cheap_rate_start="23:00", hours_to_cheap_rate=9.0)
+        assert values.cheap_rate_attributes(data) == {"summary": "23:00 (in 9 h)"}
+
+    def test_absent_on_a_tariff_without_a_cheap_period(self):
+        data = make_data(next_cheap_rate_start=None, hours_to_cheap_rate=None)
+        assert values.cheap_rate_attributes(data) is None
+
+
 class TestImportFigures:
     @staticmethod
     def _accumulator(import_kwh, cost=0.0, cheap_kwh=0.0) -> EnergyAccumulator:
