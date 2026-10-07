@@ -95,6 +95,7 @@ from .const import (
     FORECAST_P10_ATTRIBUTE,
     GIVTCP_MAX_CHARGE_TARGET_PCT,
     GIVTCP_MIN_CHARGE_TARGET_PCT,
+    GIVTCP_RATE_TOLERANCE_PCT,
     UPDATE_INTERVAL_SECONDS,
 )
 from .core.battery import BatteryStats, battery_cost_prompt_due
@@ -111,6 +112,7 @@ from .core.engine import (
 )
 from .core.rules import monthly_solar_fractions
 from .core.tariff import build_tariff
+from .core.tariff_check import GivTCPRates, find_rate_mismatches
 from .core.timeutil import elapsed_seconds
 from .discovery import (
     UNUSED_SLOT_TIME,
@@ -120,6 +122,7 @@ from .discovery import (
     discover_battery_cycle_entities,
     discover_ev_chargers,
     find_other_active_charge_slots,
+    givtcp_rate_entity_ids,
     update_charger_state,
 )
 from .givtcp_writer import GivTCPWriter, SwitchState, state_as_int
@@ -132,10 +135,12 @@ from .repairs import (
     async_create_givtcp_missing_issue,
     async_create_min_soc_issue,
     async_create_other_charge_slots_issue,
+    async_create_rates_differ_issue,
     async_delete_battery_cost_issue,
     async_delete_givtcp_missing_issue,
     async_delete_min_soc_issue,
     async_delete_other_charge_slots_issue,
+    async_delete_rates_differ_issue,
 )
 from .write_audit import WriteAudit
 
@@ -1069,6 +1074,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             async_delete_min_soc_issue(self.hass)
         self._check_other_charge_slots(cfg)
         self._check_battery_cost(cfg)
+        self._check_givtcp_rates(cfg)
 
     def _check_battery_cost(self, cfg: dict) -> None:
         """Ask for the battery cost while it is 0 after the integration has run a while."""
@@ -1077,6 +1083,33 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             async_create_battery_cost_issue(self.hass)
         else:
             async_delete_battery_cost_issue(self.hass)
+
+    def _read_givtcp_rates(self, cfg: dict) -> GivTCPRates:
+        """GivTCP's day, night and export rates. A rate that is not readable above zero is None."""
+        serial = cfg.get(CONF_INVERTER_SERIAL)
+        if not serial:
+            return GivTCPRates()
+        values = {
+            name: self._read_optional_float(entity_id)
+            for name, entity_id in givtcp_rate_entity_ids(serial).items()
+        }
+        held = {name: v for name, v in values.items() if v is not None and v > 0}
+        return GivTCPRates(day=held.get("day"), night=held.get("night"), export=held.get("export"))
+
+    def _check_givtcp_rates(self, cfg: dict) -> None:
+        """Show the rates GivTCP holds when they differ from the tariff entered here.
+
+        With no readable GivTCP rate the issue is left as it is, so a GivTCP restart does
+        not clear a dismissed issue and raise it again.
+        """
+        rates = self._read_givtcp_rates(cfg)
+        if not rates.any_held:
+            return
+        mismatches = find_rate_mismatches(build_tariff(cfg), rates, GIVTCP_RATE_TOLERANCE_PCT)
+        if mismatches:
+            async_create_rates_differ_issue(self.hass, mismatches)
+        else:
+            async_delete_rates_differ_issue(self.hass)
 
     def _other_charge_slots(self, cfg: dict[str, Any]) -> list[ActiveChargeSlot]:
         """Charge slots other than the managed one that have a window set. Reads only."""

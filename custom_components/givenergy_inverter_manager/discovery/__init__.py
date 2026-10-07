@@ -18,6 +18,7 @@ from .givtcp import (
     discover_givtcp_inverters,
     find_other_active_charge_slots,
     get_suggested_entities,
+    givtcp_rate_entity_ids,
 )
 
 __all__ = [
@@ -34,5 +35,6 @@ __all__ = [
     "discover_givtcp_inverters",
     "find_other_active_charge_slots",
     "get_suggested_entities",
+    "givtcp_rate_entity_ids",
     "update_charger_state",
 ]

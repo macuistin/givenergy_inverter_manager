@@ -160,7 +160,7 @@ The sections run in the order they are used most: Tariff, the five rate periods,
 
 ### Tariff
 
-Same fields as setup step 2. Rate periods 1 to 5 sit in their own sections below the tariff section. Check the rates against your latest bill whenever your supplier changes its prices. See [Tariff](tariff.md).
+Same fields as setup step 2. Rate periods 1 to 5 sit in their own sections below the tariff section. Check the rates against your latest bill whenever your supplier changes its prices. See [Tariff](tariff.md). If GivTCP holds day, night or export rates that differ from these, the repair **GivTCP rates differ from your tariff** shows both values. The rates here always win. See [Troubleshooting](troubleshooting.md#givtcp-rates-differ-from-the-tariff).
 
 ### Battery & charging thresholds
 

@@ -1035,6 +1035,10 @@
           "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
         }
       }
+    },
+    "givtcp_rates_differ": {
+      "title": "GivTCP rates differ from your tariff",
+      "description": "GivTCP holds rates that disagree with the tariff entered in this integration:\n\n{rates}\n\nThis integration uses the rates entered here for every cost figure. GivTCP's own cost sensors use its rates. If the rates here are wrong, correct them under **Configure**. If GivTCP's are wrong, correct them in GivTCP. The repair clears once they agree."
     }
   },
   "exceptions": {
