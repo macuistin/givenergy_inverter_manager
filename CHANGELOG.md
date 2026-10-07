@@ -2,6 +2,21 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- Today's energy summary report now compares solar generated today with the provider's own
+  forecast for the day, the figure the dashboard's Forecast and % of forecast tiles use. Its
+  Solar row read "Forecast: X kWh (N%)" from the charge plan's forecast, which is blended toward
+  the pessimistic estimate and scaled by the accuracy correction, so the report and the
+  dashboard disagreed. The row shows no forecast until a provider forecast has been seen at
+  midnight, where it used to fall back to the plan's figure. The percentage is no longer
+  capped at 200%.
+- Tonight's charge plan report labels its forecast as the plan's: the row reads "Plan forecast"
+  and the sensor state reads "Skip charge · Plan forecast X kWh · SoC N%". The week summary and
+  its Yesterday section carry no forecast of their own, and their accuracy rows already measure
+  against the provider's forecast.
+
 ## v0.11.0
 
 Self-sufficiency no longer reads 0% on the morning after a cheap overnight charge. The dashboard
