@@ -2,7 +2,10 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.10.0
+
+Sizes the overnight charge window to the plan, lets the immersion devices be added later,
+and fixes forecast accuracy. Stored data moves to version 3 on first start, with no action needed.
 
 The EV charger, the immersion switch and the immersion temperature sensor are optional, and
 an install can add or remove any of them at any time. Entities and the dashboard now follow.
