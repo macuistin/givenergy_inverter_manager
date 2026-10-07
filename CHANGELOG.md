@@ -2,6 +2,15 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Changes**
+- The Now strip on the Power Flow tab has one Cheap from tile in place of Cheap from and Cheap in.
+  It reads `23:00 (in 8 h 56 min)` before a cheap period, and `Now (ends in 1 h 12 min)` during one.
+  The tile is full width and shows the new `summary` attribute of Next Cheap Rate Start. The state
+  of that sensor is unchanged, and so is the Hours to Cheap Rate sensor, which no longer has a tile.
+  A stored dashboard picks this up when you regenerate it.
+
 ## v0.11.0
 
 Self-sufficiency no longer reads 0% on the morning after a cheap overnight charge. The dashboard
