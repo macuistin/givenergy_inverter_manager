@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 149 sensors. 93 are enabled by default and 56 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 149 sensors. 97 are enabled by default and 52 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches, numbers and the button, see [Entities](entities.md).
 
@@ -45,7 +45,7 @@ Read from the tariff you configured. See [Tariff](tariff.md).
 | Current Rate | `current_rate` | currency | - | measurement | no | yes | Unit import rate in force now. |
 | Current Rate Period | `current_rate_period` | - | - | none | no | yes | Name of the active period, or the base rate name. |
 | Live Grid Cost Rate | `live_grid_cost_rate` | currency | - | measurement | no | yes | Cost per hour of the current grid flow. Positive when spending, negative when earning. |
-| Next Cheap Rate Start | `next_cheap_rate_start` | - | - | none | no | no | Start time (HH:MM) of the next period cheaper than the base rate, or Now. |
+| Next Cheap Rate Start | `next_cheap_rate_start` | - | - | none | no | yes | Start time (HH:MM) of the next period cheaper than the base rate, or Now. |
 | Hours to Cheap Rate | `hours_to_cheap_rate` | h | - | measurement | no | no | Hours until a period cheaper than the base rate starts. 0 while one is active. |
 | Cheapest Tariff Rate | `cheapest_rate` | currency | - | measurement | no | no | Lowest rate across the base rate and all periods. |
 | Cheapest Rate Period Name | `cheapest_rate_period` | - | - | none | no | no | Name of the cheapest rate. |
@@ -76,7 +76,7 @@ Accumulated since local midnight. They report `last_reset` as the most recent mi
 | Immersion solar diverted | `immersion_solar_kwh_today` | kWh | energy | total | day | yes | Solar energy that went to the immersion. Created only with an immersion switch. |
 | Battery throughput | `battery_throughput_kwh_today` | kWh | energy | total | day | yes | Battery energy in plus out. |
 | Battery Charged Today | `battery_charge_kwh_today` | kWh | energy | total | day | no | Energy into the battery. Uses the GivTCP counter when present. |
-| Battery Discharged Today | `battery_discharge_kwh_today` | kWh | energy | total | day | no | Energy out of the battery. Uses the GivTCP counter when present. |
+| Battery Discharged Today | `battery_discharge_kwh_today` | kWh | energy | total | day | yes | Energy out of the battery. Uses the GivTCP counter when present. |
 | House Load Today | `house_kwh_today` | kWh | energy | total | day | yes | House consumption. Uses the GivTCP load counter when present. |
 | Missed solar today | `missed_solar_today` | kWh | energy | total | day | no | Export while the battery was at 99% or more and no EV or immersion load was on. Stays 0 until an immersion switch is set or an EV charger is found. |
 
@@ -88,8 +88,8 @@ Money sensors use the currency symbol you chose in the tariff.
 |---|---|---|---|---|---|---|---|
 | Import Cost Today | `import_cost_today` | currency | monetary | total | day | yes | Import cost after the supplier discount and VAT. |
 | Export Earnings Today | `export_earnings_today` | currency | monetary | total | day | yes | Exported kWh times the export rate. |
-| Saving vs Grid Today | `saving_vs_grid_today` | currency | monetary | total | day | no | House load priced at the rate in force when it ran, minus net import cost (import cost minus export earnings). |
-| Net Saving Today (inc. battery wear) | `net_saving_today` | currency | monetary | total | day | no | Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. |
+| Saving vs Grid Today | `saving_vs_grid_today` | currency | monetary | total | day | yes | House load priced at the rate in force when it ran, minus net import cost (import cost minus export earnings). |
+| Net Saving Today (inc. battery wear) | `net_saving_today` | currency | monetary | total | day | yes | Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. |
 | EV Charging Cost Today | `zappi_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the EV charger. Created only with an EV charger. |
 | House Cost Today | `house_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the rest of the house. |
 | Net Financial Position Today | `net_position_today` | currency | monetary | total | day | no | Export earnings minus import cost. |

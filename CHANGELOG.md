@@ -2,6 +2,29 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+Three more sensors are enabled by default, so Home Assistant keeps history for them and the
+dashboard shows more on a fresh install.
+
+**Changes**
+- **Saving vs Grid Today** (`saving_vs_grid_today`) and **Net Saving Today (inc. battery wear)**
+  (`net_saving_today`) are enabled by default. Home Assistant now records their history, so a
+  saving over time can be charted.
+- **Battery Discharged Today** (`battery_discharge_kwh_today`) is enabled by default. The Where
+  today's energy came from card on the Today tab splits solar and battery on a fresh install,
+  where it showed them as one figure.
+- **Next Cheap Rate Start** (`next_cheap_rate_start`) is enabled by default, so the Cheap from
+  tile of the Now section shows on a fresh install. Hours to Cheap Rate stays disabled.
+- A fresh install generates a dashboard with these figures in it. Existing dashboards are
+  unchanged until you generate the file again.
+
+**Upgrading**
+- Home Assistant applies a default only when it creates an entity. An existing install keeps
+  these sensors disabled until you enable them in **Settings > Devices & services > GivEnergy
+  Inverter Manager > entities**. A sensor you disabled yourself stays disabled. History starts
+  from the moment you enable a sensor. Generate the dashboard again afterwards to get the tiles.
+
 ## v0.11.0
 
 Self-sufficiency no longer reads 0% on the morning after a cheap overnight charge. The dashboard

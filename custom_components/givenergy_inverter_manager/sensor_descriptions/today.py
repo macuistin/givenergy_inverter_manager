@@ -94,7 +94,6 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
-        entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.saving_vs_grid_today, 4),
     ),
     GivEnergyManagerSensorDescription(
@@ -104,7 +103,6 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=CURRENCY_UNIT,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
-        entity_registry_enabled_default=False,
         value_fn=lambda d: round(d.net_saving_today, 4),
     ),
     GivEnergyManagerSensorDescription(
