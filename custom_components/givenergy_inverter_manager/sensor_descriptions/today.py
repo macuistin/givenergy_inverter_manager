@@ -6,6 +6,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfEnergy
 
 from .. import sensor_values as values
+from ..core.devices import Device
 from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
@@ -39,6 +40,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     ),
     GivEnergyManagerSensorDescription(
         key="zappi_today",
+        requires=Device.EV_CHARGER,
         is_daily_total=True,
         translation_key="zappi_today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -48,6 +50,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     ),
     GivEnergyManagerSensorDescription(
         key="immersion_today",
+        requires=Device.IMMERSION_SWITCH,
         is_daily_total=True,
         translation_key="immersion_today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -96,6 +99,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     ),
     GivEnergyManagerSensorDescription(
         key="zappi_cost_today",
+        requires=Device.EV_CHARGER,
         is_daily_total=True,
         translation_key="zappi_cost_today",
         native_unit_of_measurement=CURRENCY_UNIT,

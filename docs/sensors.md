@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 145 sensors. 89 are enabled by default and 56 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 146 sensors. 90 are enabled by default and 56 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches, numbers and the button, see [Entities](entities.md).
 
@@ -13,6 +13,8 @@ Column guide:
 - **Last reset**: `day`, `week`, `month` or `year` means the sensor reports `last_reset` as the start of that period. `no` means it reports none. See [Long-term statistics](long-term-statistics.md).
 - **Enabled**: whether the sensor is enabled when first created.
 
+A sensor marked `Created only with ...` exists only while that device is present: an EV charger the integration discovered, the immersion switch, or the immersion temperature sensor. An install without the device has no such sensor, so nothing sits unavailable. The sensor appears by itself when the device appears: when discovery first finds an EV charger, or after an options change that sets the immersion entities (the entry reloads). The registry entries of a device that is gone are removed when the entry next loads. An EV charger's are kept while Home Assistant is starting, because its own integration may not have loaded yet. A dashboard made by the integration follows these changes. See [Dashboard](dashboard.md#devices-you-add-or-remove-later).
+
 ## Live power and flow
 
 Updated every 30 seconds. Power values are in watts. Grid Power is positive when importing.
@@ -22,7 +24,7 @@ Updated every 30 seconds. Power values are in watts. Grid Power is positive when
 | Solar Power | `solar_power` | W | power | measurement | no | yes | Current solar generation. |
 | Battery State of Charge | `battery_soc` | % | battery | measurement | no | yes | Battery state of charge. |
 | Battery Power | `battery_power` | W | power | measurement | no | yes | Positive while charging, negative while discharging. |
-| Immersion Heater Power | `immersion_power` | W | power | measurement | no | yes | Configured element wattage while the immersion switch is on, else 0. |
+| Immersion Heater Power | `immersion_power` | W | power | measurement | no | yes | Configured element wattage while the immersion switch is on, else 0. Created only with an immersion switch. |
 | Grid Power | `grid_power` | W | power | measurement | no | yes | Positive while importing, negative while exporting. |
 | House Load | `house_load` | W | power | measurement | no | yes | House load as read from the GivTCP load sensor. |
 | Rest of House Load | `rest_of_house_load` | W | power | measurement | no | yes | House load minus EV charger power and immersion power, floored at 0. |
@@ -64,13 +66,13 @@ Accumulated since local midnight. They report `last_reset` as the most recent mi
 | Solar Generation Today | `solar_today` | kWh | energy | total | day | yes | Solar generated. Uses the GivTCP daily counter when present. |
 | Grid Import Today | `import_today` | kWh | energy | total | day | yes | Grid import. Uses the GivTCP daily counter when present. |
 | Grid Export Today | `export_today` | kWh | energy | total | day | yes | Grid export. Uses the GivTCP daily counter when present. |
-| EV Charging Today | `zappi_today` | kWh | energy | total | day | yes | Energy delivered to the EV charger, from charger power. |
-| Immersion Heater Today | `immersion_today` | kWh | energy | total | day | yes | Immersion energy, from the configured wattage while the switch is on. |
+| EV Charging Today | `zappi_today` | kWh | energy | total | day | yes | Energy delivered to the EV charger, from charger power. Created only with an EV charger. |
+| Immersion Heater Today | `immersion_today` | kWh | energy | total | day | yes | Immersion energy, from the configured wattage while the switch is on. Created only with an immersion switch. |
 | Self-consumed Solar Today | `self_consumed_kwh_today` | kWh | energy | total | day | no | Solar generated minus exported, floored at 0. |
 | Inverter Derating Today | `inverter_derating_today_minutes` | - | - | total | day | no | Minutes with the inverter at 65 °C or more. |
 | Import at cheap rate | `import_kwh_cheap_today` | kWh | energy | total | day | yes | Energy imported while a timed rate period was active. |
 | Import at peak rate | `import_kwh_peak_today` | kWh | energy | total | day | yes | Energy imported at the base rate. |
-| Immersion solar diverted | `immersion_solar_kwh_today` | kWh | energy | total | day | yes | Solar energy that went to the immersion. |
+| Immersion solar diverted | `immersion_solar_kwh_today` | kWh | energy | total | day | yes | Solar energy that went to the immersion. Created only with an immersion switch. |
 | Battery throughput | `battery_throughput_kwh_today` | kWh | energy | total | day | yes | Battery energy in plus out. |
 | Battery Charged Today | `battery_charge_kwh_today` | kWh | energy | total | day | no | Energy into the battery. Uses the GivTCP counter when present. |
 | Battery Discharged Today | `battery_discharge_kwh_today` | kWh | energy | total | day | no | Energy out of the battery. Uses the GivTCP counter when present. |
@@ -87,13 +89,13 @@ Money sensors use the currency symbol you chose in the tariff.
 | Export Earnings Today | `export_earnings_today` | currency | monetary | total | day | yes | Exported kWh times the export rate. |
 | Saving vs Grid Today | `saving_vs_grid_today` | currency | monetary | total | day | no | House load priced at the rate in force when it ran, minus net import cost (import cost minus export earnings). |
 | Net Saving Today (inc. battery wear) | `net_saving_today` | currency | monetary | total | day | no | Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. |
-| EV Charging Cost Today | `zappi_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the EV charger. |
+| EV Charging Cost Today | `zappi_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the EV charger. Created only with an EV charger. |
 | House Cost Today | `house_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the rest of the house. |
 | Net Financial Position Today | `net_position_today` | currency | monetary | total | day | no | Export earnings minus import cost. |
-| Immersion Cost Today | `immersion_cost_today` | currency | - | total | day | yes | Import cost attributed to the immersion. |
+| Immersion Cost Today | `immersion_cost_today` | currency | - | total | day | yes | Import cost attributed to the immersion. Created only with an immersion switch. |
 | Import cost at cheap rate | `import_cost_cheap_today` | currency | - | total | day | yes | Import cost while a timed rate period was active. |
 | Import cost at peak rate | `import_cost_peak_today` | currency | - | total | day | yes | Import cost at the base rate. |
-| Immersion solar savings | `immersion_savings_today` | currency | - | total | day | yes | Diverted solar kWh times (current rate minus export rate). |
+| Immersion solar savings | `immersion_savings_today` | currency | - | total | day | yes | Diverted solar kWh times (current rate minus export rate). Created only with an immersion switch. |
 
 ## Efficiency today
 
@@ -154,27 +156,28 @@ Outputs of the overnight charge calculation.
 
 ## Immersion
 
-Output of the immersion divert rule.
+Output of the immersion divert rule, and the water temperature. The water temperature sensor exists only with a temperature sensor set.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Immersion Divert Reason | `immersion_divert_reason` | - | - | none | no | yes | Why the immersion is on or off. Diagnostic category. |
+| Immersion Water Temperature | `immersion_water_temperature` | °C | temperature | measurement | no | yes | Reading of the immersion temperature sensor you set. Also lets a stored dashboard show the water temperature as soon as a sensor is set. Created only with an immersion temperature sensor. |
 
 ## EV charger
 
-Sensors marked `EV charger needed` are unavailable until a supported charger is discovered.
+These sensors exist only while a supported charger is discovered, and appear when discovery first finds one. The ones marked `EV charger needed` are unavailable while the charger is not reporting.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| EV Charger State | `ev_charger_state` | - | - | none | no | yes | disconnected, connected, charging, paused, boosting, completed or unknown. Charging and boosting need the charger to be drawing power. EV charger needed. |
-| EV Charging Power | `ev_power` | W | power | measurement | no | yes | EV charger power. EV charger needed. |
-| EV Session Energy | `ev_session_energy` | kWh | energy | total_increasing | no | yes | Energy of the current session, as reported by the charger. EV charger needed. |
-| EV km Charged Today | `ev_km_charged_today` | km | - | total | day | no | EV energy today divided by car efficiency. Empty with no EV energy. |
-| EV Cost per km Today | `ev_cost_per_km_today` | currency | - | measurement | no | no | EV cost today divided by km charged. |
-| EV Draining Battery | `ev_draining_battery` | - | - | none | no | yes | yes while the charger is charging, drawing power, and the battery discharges over 200 W. EV charger needed. Diagnostic category. |
-| EV Mode Decision | `ev_protection_reason` | - | - | none | no | yes | Reason for the latest EV charge mode decision. EV charger needed. Diagnostic category. |
-| EV Charging Source | `ev_charging_source` | - | - | none | no | yes | Not charging, Solar, Grid, Battery or Mixed. EV charger needed. |
-| EV Solar Surplus | `ev_solar_surplus_available` | - | - | none | no | yes | Available when net solar surplus is 1380 W or more. |
+| EV Charger State | `ev_charger_state` | - | - | none | no | yes | disconnected, connected, charging, paused, boosting, completed or unknown. Charging and boosting need the charger to be drawing power. Created only with an EV charger. EV charger needed. |
+| EV Charging Power | `ev_power` | W | power | measurement | no | yes | EV charger power. Created only with an EV charger. EV charger needed. |
+| EV Session Energy | `ev_session_energy` | kWh | energy | total_increasing | no | yes | Energy of the current session, as reported by the charger. Created only with an EV charger. EV charger needed. |
+| EV km Charged Today | `ev_km_charged_today` | km | - | total | day | no | EV energy today divided by car efficiency. Empty with no EV energy. Created only with an EV charger. |
+| EV Cost per km Today | `ev_cost_per_km_today` | currency | - | measurement | no | no | EV cost today divided by km charged. Created only with an EV charger. |
+| EV Draining Battery | `ev_draining_battery` | - | - | none | no | yes | yes while the charger is charging, drawing power, and the battery discharges over 200 W. Created only with an EV charger. EV charger needed. Diagnostic category. |
+| EV Mode Decision | `ev_protection_reason` | - | - | none | no | yes | Reason for the latest EV charge mode decision. Created only with an EV charger. EV charger needed. Diagnostic category. |
+| EV Charging Source | `ev_charging_source` | - | - | none | no | yes | Not charging, Solar, Grid, Battery or Mixed. Created only with an EV charger. EV charger needed. |
+| EV Solar Surplus | `ev_solar_surplus_available` | - | - | none | no | yes | Available when net solar surplus is 1380 W or more. Created only with an EV charger. EV charger needed. |
 
 ## Solar forecast
 
@@ -208,7 +211,7 @@ Yesterday's totals, copied from today's accumulator at midnight. They have no st
 | Import cost yesterday | `import_cost_yesterday` | currency | - | none | no | yes | - |
 | Import at cheap rate yesterday | `import_kwh_cheap_yesterday` | kWh | energy | none | no | yes | - |
 | Import at peak rate yesterday | `import_kwh_peak_yesterday` | kWh | energy | none | no | yes | - |
-| Immersion savings yesterday | `immersion_savings_yesterday` | currency | - | none | no | yes | - |
+| Immersion savings yesterday | `immersion_savings_yesterday` | currency | - | none | no | yes | Created only with an immersion switch. |
 | Self-sufficiency yesterday | `self_sufficiency_yesterday` | % | - | measurement | no | yes | - |
 | Solar share yesterday | `solar_share_yesterday` | % | - | measurement | no | yes | - |
 
@@ -225,7 +228,7 @@ Resets at midnight on Monday. Reports `last_reset` as the start of the week.
 | Export earnings this week | `export_earnings_this_week` | currency | - | total | week | yes | - |
 | Import at cheap rate this week | `import_kwh_cheap_this_week` | kWh | energy | total | week | yes | - |
 | Import at peak rate this week | `import_kwh_peak_this_week` | kWh | energy | total | week | yes | - |
-| Immersion savings this week | `immersion_savings_this_week` | currency | - | total | week | yes | - |
+| Immersion savings this week | `immersion_savings_this_week` | currency | - | total | week | yes | Created only with an immersion switch. |
 | Self-sufficiency this week | `self_sufficiency_this_week` | % | - | measurement | no | yes | - |
 | Solar share this week | `solar_share_this_week` | % | - | measurement | no | yes | - |
 | Cheap rate import fraction this week | `cheap_import_fraction_this_week` | % | - | measurement | no | no | - |
@@ -243,7 +246,7 @@ Resets at midnight on the bill start day chosen at setup. Reports `last_reset` a
 | Export earnings this month | `export_earnings_this_month` | currency | - | total | month | yes | - |
 | Import at cheap rate this month | `import_kwh_cheap_this_month` | kWh | energy | total | month | yes | - |
 | Import at peak rate this month | `import_kwh_peak_this_month` | kWh | energy | total | month | yes | - |
-| Immersion savings this month | `immersion_savings_this_month` | currency | - | total | month | yes | - |
+| Immersion savings this month | `immersion_savings_this_month` | currency | - | total | month | yes | Created only with an immersion switch. |
 | Self-sufficiency this month | `self_sufficiency_this_month` | % | - | measurement | no | yes | - |
 | Solar share this month | `solar_share_this_month` | % | - | measurement | no | yes | - |
 | Cheap rate import fraction this month | `cheap_import_fraction_this_month` | % | - | measurement | no | no | - |

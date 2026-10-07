@@ -2,6 +2,47 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+The EV charger, the immersion switch and the immersion temperature sensor are optional, and
+an install can add or remove any of them at any time. Entities and the dashboard now follow.
+
+**Changes**
+- The sensors, numbers and switches that need an EV charger or an immersion are created only
+  while the device exists. Before, an install without them held 11 EV sensors (6 of them never
+  available), 8 immersion sensors that always read 0, 3 temperature numbers and the Auto
+  Immersion Divert switch. Setup removes the registry entries of a device that is gone. The
+  entities of a charger discovery has not found yet are kept while Home Assistant is starting,
+  and removed by the next reload if no charger shows. See [Sensors](docs/sensors.md).
+- A device added later brings its entities with it. An EV charger's appear when discovery first
+  finds it, with no restart. The immersion entities appear when the options set the immersion
+  switch or sensor, which reloads the integration as it always did.
+- The temperature controls (Target, Minimum, Restart gap) exist only with an immersion switch
+  and a temperature sensor together, as they act on nothing without both.
+- EV Solar Surplus is unavailable while no charger has been discovered, like the other EV
+  sensors.
+
+**New**
+- Immersion Water Temperature sensor. It mirrors the immersion temperature sensor you set, and
+  exists only with one. The dashboard charts it, so a stored dashboard has a stable entity for
+  a sensor that is added later.
+
+**Dashboard**
+- The generated dashboard is correct for every combination of the three devices. A switch with
+  no sensor has an Immersion view with no temperature chart and no Target, Minimum or Restart
+  gap tiles. A sensor with no switch shows the water temperature, with no heater power chart,
+  no reason text and no tiles for a heater. No device means no Devices heading and no empty
+  link.
+- Cards for a device carry a Lovelace visibility condition, so a file, or a dashboard pasted
+  into the raw editor, shows the cards of a device the moment it exists and hides them when it
+  goes, with no new file. The file points those cards at the entity IDs the device's entities
+  will get. The power flow card and the cost chart are built once for each combination of
+  devices.
+- The Immersion and EV charger views are always in the file, with their sections hidden until
+  the device exists.
+- The dashboard strategy is unchanged and is still the one dashboard that is always current.
+  See [Dashboard](docs/dashboard.md#devices-you-add-or-remove-later).
+
 ## v0.9.0
 
 Removes three disabled sensors. No option name changes.

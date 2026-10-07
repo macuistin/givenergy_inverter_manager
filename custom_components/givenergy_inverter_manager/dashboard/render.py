@@ -147,8 +147,9 @@ def _generate(
 
     Uses actual entity IDs from the entity registry so names customised in the HA
     UI are respected. A tile or card appears only when its entity is registered and
-    enabled, and the feature behind it (EV charger, immersion heater, inverter
-    temperature, solar forecast) is configured.
+    enabled, and the feature behind it (inverter temperature, solar forecast) is
+    configured. The cards of an optional device (EV charger, immersion switch or
+    sensor) are always built, and a visibility condition shows them while it exists.
     """
     builder = Builder(hass, entry, facts, registry)
     subviews = builder.build_subviews()

@@ -6,6 +6,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import PERCENTAGE, UnitOfEnergy, UnitOfPower
 
 from .. import sensor_values as values
+from ..core.devices import Device
 from .base import GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
@@ -36,6 +37,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     ),
     GivEnergyManagerSensorDescription(
         key="immersion_power",
+        requires=Device.IMMERSION_SWITCH,
         translation_key="immersion_power",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,

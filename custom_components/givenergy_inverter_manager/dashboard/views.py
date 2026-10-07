@@ -12,12 +12,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from ..const import (
-    CONF_FORECAST_ENTITY,
-    CONF_IMMERSION_SWITCH,
-    CONF_IMMERSION_TEMP_SENSOR,
-    CONF_INVERTER_TEMP_ENTITY,
-)
+from ..const import CONF_FORECAST_ENTITY, CONF_INVERTER_TEMP_ENTITY
+from ..core.devices import Device
 from ..core.tariff import build_tariff
 from .cards import (
     BAR,
@@ -59,8 +55,9 @@ from .charts import (
     flow_card,
     flow_fallback,
 )
+from .devices import Devices, with_visibility
 from .hacs import APEX_CARD, POWER_FLOW_CARD, HacsCards
-from .registry import HostFacts, Registry, entry_config, ev_charger_brand, external_ev_power
+from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import survival_template, tariff_table
 
 # ── View paths ───────────────────────────────────────────────────────────────
@@ -109,6 +106,14 @@ def _cost_history(cost: _CostEntities) -> dict | None:
     )
 
 
+# The immersion temperature settings: unique ID suffix and the name shown.
+_THERMOSTAT_SETTINGS = (
+    ("immersion_target_temp", "Target temp"),
+    ("immersion_min_temp", "Minimum temp"),
+    ("immersion_hysteresis", "Restart gap"),
+)
+
+
 class Builder:
     """Builds the sections of each view from the entities that exist.
 
@@ -128,10 +133,7 @@ class Builder:
         self.reg = Registry(er.async_get(hass) if registry is None else registry, entry.entry_id)
         self.cfg = entry_config(entry)
         self.external_ev = external_ev_power(hass)
-        self.has_ev = bool(ev_charger_brand(entry) or self.external_ev)
-        self.has_immersion = bool(
-            self.cfg.get(CONF_IMMERSION_SWITCH) or self.cfg.get(CONF_IMMERSION_TEMP_SENSOR)
-        )
+        self.devices = Devices(self.reg)
         self.has_inverter_temp = bool(self.cfg.get(CONF_INVERTER_TEMP_ENTITY))
         self.has_forecast = bool(self.cfg.get(CONF_FORECAST_ENTITY))
         self._subview_paths: set[str] | None = None
@@ -143,12 +145,20 @@ class Builder:
         return self.reg.get(suffix)
 
     def ev(self, suffix: str) -> str | None:
-        """Like entity, but None unless an EV charger is configured."""
-        return self.entity(suffix) if self.has_ev else None
+        """An EV charger entity. Its expected ID while no charger has been discovered."""
+        return self.devices.entity(Device.EV_CHARGER, suffix)
 
     def immersion(self, suffix: str) -> str | None:
-        """Like entity, but None unless an immersion heater is configured."""
-        return self.entity(suffix) if self.has_immersion else None
+        """An entity of the immersion switch. Its expected ID while none is configured."""
+        return self.devices.entity(Device.IMMERSION_SWITCH, suffix)
+
+    def water_sensor(self, suffix: str) -> str | None:
+        """An entity of the immersion temperature sensor, expected while none is configured."""
+        return self.devices.entity(Device.IMMERSION_SENSOR, suffix)
+
+    def thermostat(self, suffix: str) -> str | None:
+        """An immersion temperature control. Expected while the switch or sensor is missing."""
+        return self.devices.entity(Device.IMMERSION_THERMOSTAT, suffix)
 
     def inverter_temp(self, suffix: str) -> str | None:
         """Like entity, but None unless an inverter temperature entity is configured."""
@@ -156,10 +166,8 @@ class Builder:
 
     def ev_power(self) -> str | None:
         """The charger's power: a known external charger first, then our own sensor."""
-        if not self.has_ev:
-            return None
         # Looked up first, so a disabled sensor is still listed as left out.
-        integration_power = self.entity("ev_power")
+        integration_power = self.ev("ev_power")
         return self.external_ev or integration_power
 
     def tile(self, suffix: str, name: str, **style) -> dict | None:
@@ -259,28 +267,25 @@ class Builder:
             return None
         return {"entity": house_load, "subtract_individual": False, "hide": False}
 
-    def _individual_nodes(self) -> list:
-        """The devices drawn beside the home node."""
-        return present(
-            [
-                entity_row(
-                    self.ev_power(),
-                    "Car Charger",
-                    icon="mdi:car-electric",
-                    display_zero=False,
-                    color=HEX[EV],
-                ),
-                entity_row(
-                    self.immersion("immersion_power"),
-                    "Immersion",
-                    icon="mdi:water-boiler",
-                    display_zero=False,
-                    color=HEX[IMMERSION],
-                ),
-            ]
+    def _individual_nodes(self, shown: frozenset[Device]) -> list:
+        """The devices drawn beside the home node: those of *shown* that exist."""
+        car = entity_row(
+            self.ev_power() if Device.EV_CHARGER in shown else None,
+            "Car Charger",
+            icon="mdi:car-electric",
+            display_zero=False,
+            color=HEX[EV],
         )
+        heater = entity_row(
+            self.immersion("immersion_power") if Device.IMMERSION_SWITCH in shown else None,
+            "Immersion",
+            icon="mdi:water-boiler",
+            display_zero=False,
+            color=HEX[IMMERSION],
+        )
+        return present([car, heater])
 
-    def _flow_entities(self) -> dict:
+    def _flow_entities(self, shown: frozenset[Device]) -> dict:
         nodes = {
             "solar": self._solar_node(),
             "battery": self._battery_node(),
@@ -288,7 +293,7 @@ class Builder:
             "home": self._home_node(),
         }
         out = {name: node for name, node in nodes.items() if node}
-        if individual := self._individual_nodes():
+        if individual := self._individual_nodes(shown):
             out["individual"] = individual
         return out
 
@@ -318,15 +323,23 @@ class Builder:
             ],
         )
 
-    def _flow(self) -> list:
-        flow = self._flow_entities()
+    def _flow_card(self, shown: frozenset[Device]) -> dict | None:
+        """The power flow card with the devices of *shown* drawn beside the home node."""
+        flow = self._flow_entities(shown)
         if not flow:
-            return []
+            return None
         card = flow_card(flow) if self.cards.use(POWER_FLOW_CARD) else flow_fallback(flow)
-        return heading_block(
-            heading_card("Live power flow", "mdi:transmission-tower"),
-            [{**card, "grid_options": {"columns": FULL}} if card else None],
-        )
+        return {**card, "grid_options": {"columns": FULL}} if card else None
+
+    def _flow(self) -> list:
+        """One card for each combination of the car charger and immersion being there.
+
+        The card cannot hide one device, so a stored dashboard shows the card built for the
+        devices present, and swaps to another when a device comes or goes.
+        """
+        devices = (Device.EV_CHARGER, Device.IMMERSION_SWITCH)
+        cards = self.devices.variants(devices, self._flow_card)
+        return heading_block(heading_card("Live power flow", "mdi:transmission-tower"), cards)
 
     def _totals(self) -> list:
         return heading_block(
@@ -339,25 +352,40 @@ class Builder:
             ],
         )
 
+    def _immersion_tiles(self) -> list:
+        """The Immersion tile: the water temperature, or the heater when there is no sensor."""
+        devices = self.devices
+        style = {"color": IMMERSION, "icon": "mdi:water-boiler", "nav": self.go(SUB_IMMERSION)}
+        temperature = devices.show_with(
+            tile_card(self.water_sensor("immersion_water_temperature"), "Immersion", **style),
+            Device.IMMERSION_SENSOR,
+        )
+        heater = with_visibility(
+            tile_card(self.immersion("immersion_power"), "Immersion", **style),
+            devices.visible_with(Device.IMMERSION_SWITCH)
+            + devices.visible_without(Device.IMMERSION_SENSOR),
+        )
+        return [temperature, heater]
+
     def _devices(self) -> list:
-        immersion = tile_card(
-            self.cfg.get(CONF_IMMERSION_TEMP_SENSOR) or None,
-            "Immersion",
-            color=IMMERSION,
-            icon="mdi:water-boiler",
-            nav=self.go(SUB_IMMERSION),
+        """The Devices heading and a tile for each device present. Nothing shows with none."""
+        ev_charger = self.devices.show_with(
+            tile_card(
+                self.ev("ev_charger_state"),
+                "EV charger",
+                color=EV,
+                icon="mdi:ev-station",
+                nav=self.go(SUB_EV),
+            ),
+            Device.EV_CHARGER,
         )
-        ev_charger = tile_card(
-            self.ev("ev_charger_state") if self.has_subview(SUB_EV) else None,
-            "EV charger",
-            color=EV,
-            icon="mdi:ev-station",
-            nav=self.go(SUB_EV),
-        )
-        return heading_block(
+        heading = with_visibility(
             heading_card("Devices", "mdi:power-plug"),
-            [immersion if self.has_subview(SUB_IMMERSION) else None, ev_charger],
+            self.devices.visible_with_any(
+                Device.EV_CHARGER, Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR
+            ),
         )
+        return heading_block(heading, [*self._immersion_tiles(), ev_charger])
 
     def power_flow_sections(self) -> list:
         return present(
@@ -371,58 +399,99 @@ class Builder:
 
     # -- Immersion sub-view --
 
-    def _immersion_charts(self) -> tuple[list, list]:
-        """The temperature cards and the power cards. Both empty without a temperature sensor."""
-        temp_sensor = self.cfg.get(CONF_IMMERSION_TEMP_SENSOR, "")
+    def _immersion_charts(self, entities: ImmersionEntities, device: Device) -> tuple[list, list]:
+        """The immersion charts in apexcharts-card, or built-in cards when it is not installed.
+
+        Only a device that exists makes the file ask for apexcharts-card. A chart that waits
+        for a device that is not there yet still picks its card, but adds no note about it.
+        """
+        if device in self.devices.present:
+            use_apex = self.cards.use(APEX_CARD)
+        else:
+            use_apex = self.cards.installed(APEX_CARD)
+        build = apex_immersion_charts if use_apex else builtin_immersion_charts
+        return build(entities)
+
+    def _temperature_card(self, shown: frozenset[Device]) -> dict | None:
+        """The water temperature chart, with the target and minimum lines when they exist."""
+        thermostat = Device.IMMERSION_THERMOSTAT in shown
         entities = ImmersionEntities(
-            temp_sensor,
-            self.entity("immersion_target_temp"),
-            self.entity("immersion_min_temp"),
-            self.entity("immersion_today"),
-            self.entity("immersion_power"),
+            self.water_sensor("immersion_water_temperature") or "",
+            self.thermostat("immersion_target_temp") if thermostat else None,
+            self.thermostat("immersion_min_temp") if thermostat else None,
+            None,
+            None,
         )
-        if not temp_sensor:
-            return [], []
-        if self.cards.use(APEX_CARD):
-            return apex_immersion_charts(entities)
-        return builtin_immersion_charts(entities)
+        temps, _ = self._immersion_charts(entities, Device.IMMERSION_SENSOR)
+        return temps[0] if temps else None
+
+    def _power_cards(self) -> list:
+        """The heater power chart. It follows the switch, so it needs no sensor."""
+        entities = ImmersionEntities(
+            "",
+            None,
+            None,
+            self.immersion("immersion_today"),
+            self.immersion("immersion_power"),
+        )
+        return self._immersion_charts(entities, Device.IMMERSION_SWITCH)[1]
+
+    def _water_temperature(self) -> dict | None:
+        """The water temperature chart, while there is a sensor. Not drawn without one."""
+        cards = self.devices.variants((Device.IMMERSION_THERMOSTAT,), self._temperature_card)
+        return group(
+            heading_card("Water temperature", "mdi:thermometer-water"),
+            [self.devices.show_with(card, Device.IMMERSION_SENSOR) for card in cards],
+        )
 
     def immersion_sections(self) -> list:
-        """Sub-view: the water temperature and power charts and why the heater is on or off."""
-        if not self.has_immersion:
-            return []
-        temps, power = self._immersion_charts()
-        reason = self.entity("immersion_divert_reason")
+        """Sub-view: the water temperature, why the heater is on or off, and what it used.
+
+        Each section follows its own device, so a switch with no sensor shows no temperature
+        chart, and a sensor with no switch shows no heater power or reason.
+        """
+        switch = Device.IMMERSION_SWITCH
+        reason = state_markdown(self.entity("immersion_divert_reason"))
         return [
-            grid_section(
-                heading_block(heading_card("Water temperature", "mdi:thermometer-water"), temps),
-                heading_block(
-                    subheading_card("Why", "mdi:help-circle-outline"), [state_markdown(reason)]
-                ),
+            self._water_temperature(),
+            group(heading_card("Why", "mdi:help-circle-outline"), [reason], **self._when(switch)),
+            group(
+                heading_card("Heater power", "mdi:flash"),
+                self._power_cards(),
+                **self._when(switch),
             ),
-            group(heading_card("Heater power", "mdi:flash"), power),
             group(
                 heading_card("Today", "mdi:calendar-today"),
                 [
-                    self.tile("immersion_today", "Energy", color=IMMERSION),
-                    self.tile("immersion_cost_today", "Cost", color=GRID),
-                    self.tile("immersion_savings_today", "Saved by solar", color=BATTERY),
+                    tile_card(self.immersion("immersion_today"), "Energy", color=IMMERSION),
+                    tile_card(self.immersion("immersion_cost_today"), "Cost", color=GRID),
+                    self._immersion_savings_tile(),
                 ],
+                **self._when(switch),
             ),
             self._immersion_settings_in_force(),
         ]
 
+    def _when(self, *devices: Device) -> dict[str, list[dict]]:
+        """The section option that shows a section while these devices are present."""
+        return {"visibility": self.devices.visible_with(*devices)}
+
     def _immersion_settings_in_force(self) -> dict[str, Any] | None:
         """The immersion settings as they stand, to read. Administrators change them."""
+        readings = [
+            self.devices.show_with(
+                readonly_tile(self.thermostat(suffix), name, IMMERSION), Device.IMMERSION_THERMOSTAT
+            )
+            for suffix, name in _THERMOSTAT_SETTINGS
+        ]
         return group(
             heading_card("Settings in force", "mdi:tune"),
             [
                 readonly_tile(self.immersion("auto_immersion"), "Auto divert", IMMERSION),
                 readonly_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
-                readonly_tile(self.immersion("immersion_target_temp"), "Target temp", IMMERSION),
-                readonly_tile(self.immersion("immersion_min_temp"), "Minimum temp", IMMERSION),
-                readonly_tile(self.immersion("immersion_hysteresis"), "Restart gap", IMMERSION),
+                *readings,
             ],
+            **self._when(Device.IMMERSION_SWITCH),
         )
 
     # -- EV charger sub-view --
@@ -430,6 +499,7 @@ class Builder:
     def ev_sections(self) -> list:
         """Sub-view: the EV charger's state and why it is or is not charging."""
         decision = self.ev("ev_protection_reason")
+        shown = self._when(Device.EV_CHARGER)
         return [
             group(
                 heading_card("Charging now", "mdi:ev-station"),
@@ -439,6 +509,7 @@ class Builder:
                     tile_card(self.ev("ev_session_energy"), "Session energy", color=EV),
                     tile_card(self.ev("ev_charging_source"), "Charging source", color=EV),
                 ],
+                **shown,
             ),
             group(
                 heading_card("Why", "mdi:help-circle-outline"),
@@ -447,6 +518,7 @@ class Builder:
                     tile_card(self.ev("ev_solar_surplus_available"), "Solar surplus", color=SOLAR),
                     state_markdown(decision),
                 ],
+                **shown,
             ),
         ]
 
@@ -460,8 +532,13 @@ class Builder:
                 self.tile("house_kwh_today", "Used", color=GRID),
                 self.tile("import_today", "Imported", color=GRID),
                 self.tile("export_today", "Exported", color=GRID),
-                tile_card(self.ev("zappi_today"), "EV", color=EV),
-                tile_card(self.immersion("immersion_today"), "Immersion", color=IMMERSION),
+                self.devices.show_with(
+                    tile_card(self.ev("zappi_today"), "EV", color=EV), Device.EV_CHARGER
+                ),
+                self.devices.show_with(
+                    tile_card(self.immersion("immersion_today"), "Immersion", color=IMMERSION),
+                    Device.IMMERSION_SWITCH,
+                ),
             ],
         )
 
@@ -490,18 +567,28 @@ class Builder:
     def today_sections(self) -> list:
         return [self._today_energy(), self._today_cost(), self._today_solar()]
 
-    def _cost_entities(self) -> _CostEntities:
+    def _cost_entities(self, shown: frozenset[Device]) -> _CostEntities:
+        """The cost sensors, with the EV and immersion lines only for the devices of *shown*."""
+        ev = Device.EV_CHARGER in shown
+        immersion = Device.IMMERSION_SWITCH in shown
         return _CostEntities(
             self.entity("import_cost_today"),
             self.entity("export_earnings_today"),
             self.entity("house_cost_today"),
-            self.ev("zappi_cost_today"),
-            self.immersion("immersion_cost_today"),
+            self.ev("zappi_cost_today") if ev else None,
+            self.immersion("immersion_cost_today") if immersion else None,
         )
+
+    def _cost_history_card(self, shown: frozenset[Device]) -> dict | None:
+        return _cost_history(self._cost_entities(shown))
 
     def cost_sections(self) -> list:
         """Sub-view: every cost line for today and the cost per day for two weeks."""
-        cost = self._cost_entities()
+        cost = self._cost_entities(frozenset({Device.EV_CHARGER, Device.IMMERSION_SWITCH}))
+        show = self.devices.show_with
+        history = self.devices.variants(
+            (Device.EV_CHARGER, Device.IMMERSION_SWITCH), self._cost_history_card
+        )
         return [
             group(
                 heading_card("Today", "mdi:calendar-today"),
@@ -509,12 +596,15 @@ class Builder:
                     tile_card(cost.grid_import, "Grid import", color=GRID),
                     tile_card(cost.export_earnings, "Export earnings", color=BATTERY),
                     tile_card(cost.house, "Rest of house", color=GRID),
-                    tile_card(cost.ev, "EV charging", color=EV),
-                    tile_card(cost.immersion, "Immersion", color=IMMERSION),
-                    self._immersion_savings_tile(),
+                    show(tile_card(cost.ev, "EV charging", color=EV), Device.EV_CHARGER),
+                    show(
+                        tile_card(cost.immersion, "Immersion", color=IMMERSION),
+                        Device.IMMERSION_SWITCH,
+                    ),
+                    show(self._immersion_savings_tile(), Device.IMMERSION_SWITCH),
                 ],
             ),
-            group(heading_card("Last 14 days", "mdi:chart-bar"), [_cost_history(cost)]),
+            group(heading_card("Last 14 days", "mdi:chart-bar"), history),
         ]
 
     def _immersion_savings_tile(self) -> dict | None:
@@ -706,17 +796,25 @@ class Builder:
             ],
         )
 
+    def _immersion_sliders(self) -> list:
+        """The temperature sliders. They act only with a switch and a sensor, so only then show."""
+        return [
+            self.devices.show_with(
+                slider_tile(self.thermostat(suffix), name, IMMERSION), Device.IMMERSION_THERMOSTAT
+            )
+            for suffix, name in _THERMOSTAT_SETTINGS
+        ]
+
     def _immersion_controls(self) -> dict | None:
         return group(
             heading_card("Immersion heater", "mdi:water-boiler"),
             [
                 toggle_tile(self.immersion("auto_immersion"), "Auto divert", IMMERSION),
                 toggle_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
-                state_markdown(self.immersion("immersion_divert_reason")),
-                slider_tile(self.immersion("immersion_target_temp"), "Target temp", IMMERSION),
-                slider_tile(self.immersion("immersion_min_temp"), "Minimum temp", IMMERSION),
-                slider_tile(self.immersion("immersion_hysteresis"), "Restart gap", IMMERSION),
+                state_markdown(self.entity("immersion_divert_reason")),
+                *self._immersion_sliders(),
             ],
+            **self._when(Device.IMMERSION_SWITCH),
         )
 
     def settings_sections(self) -> list[Any]:

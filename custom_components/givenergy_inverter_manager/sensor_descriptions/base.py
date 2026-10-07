@@ -12,6 +12,7 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntityDescription
 
+from ..core.devices import Device
 from ..core.engine import CoordinatorData
 
 # Sentinel for monetary sensors — actual symbol (€, £, $) resolved at runtime.
@@ -20,8 +21,13 @@ CURRENCY_UNIT = "DYNAMIC_CURRENCY"
 
 @dataclass(frozen=True, kw_only=True)
 class GivEnergyManagerSensorDescription(SensorEntityDescription):
-    """Describes a GivEnergy Manager sensor."""
+    """Describes a GivEnergy Manager sensor.
 
+    requires names the optional device the sensor needs. The platform creates the sensor
+    only while that device is present, so an install without it has no dead entity.
+    """
+
+    requires: Device | None = None
     value_fn: Callable[[CoordinatorData], Any] = lambda d: None
     available_fn: Callable[[CoordinatorData], bool] = lambda d: True
     is_daily_total: bool = False  # True: resets at local midnight and exposes last_reset

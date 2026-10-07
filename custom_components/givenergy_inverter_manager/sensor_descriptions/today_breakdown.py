@@ -6,6 +6,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfEnergy
 
 from .. import sensor_values as values
+from ..core.devices import Device
 from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
@@ -85,6 +86,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     ),
     GivEnergyManagerSensorDescription(
         key="immersion_savings_today",
+        requires=Device.IMMERSION_SWITCH,
         translation_key="immersion_savings_today",
         native_unit_of_measurement=CURRENCY_UNIT,
         state_class=SensorStateClass.TOTAL,
@@ -94,6 +96,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     ),
     GivEnergyManagerSensorDescription(
         key="immersion_solar_kwh_today",
+        requires=Device.IMMERSION_SWITCH,
         translation_key="immersion_solar_kwh_today",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,

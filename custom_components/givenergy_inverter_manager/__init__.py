@@ -33,6 +33,7 @@ from .const import (
 )
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .logging import get_logger, log_startup
+from .optional_devices import remove_orphaned_entities
 from .services import (
     DASHBOARD_FILENAME,
     async_register_services,
@@ -129,6 +130,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
     entry.runtime_data = coordinator
 
     _remove_retired_sensors(hass, entry)
+    remove_orphaned_entities(hass, entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

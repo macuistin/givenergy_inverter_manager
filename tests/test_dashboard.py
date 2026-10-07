@@ -26,6 +26,7 @@ from tests.dashboard_support import (
     default_entity_ids,
     view_cards,
 )
+from tests.dashboard_visibility import seen_for, shown_text
 
 _IDS = default_entity_ids()
 
@@ -124,12 +125,11 @@ class TestBuildDashboardYaml:
         """The dry run section carries a visibility condition on the dry run sensor."""
         parsed = yaml.safe_load(_build())
         power_flow = next(v for v in parsed["views"] if v["path"] == "power-flow")
-        hidden = [s for s in power_flow["sections"] if "visibility" in s]
-        assert len(hidden) == 1
-        assert hidden[0]["visibility"] == [
+        banner = [s for s in power_flow["sections"] if s["cards"][0]["heading"] == "Dry run is on"]
+        assert len(banner) == 1
+        assert banner[0]["visibility"] == [
             {"condition": "state", "entity": eid("dry_run_active"), "state": "True"}
         ]
-        assert hidden[0]["cards"][0]["type"] == "heading"
 
     def test_stable_output(self):
         """Same inputs produce identical YAML on multiple calls."""
@@ -242,19 +242,19 @@ class TestPowerFlowTabChanges:
         """A switch but no temperature sensor gives the rows but no apexcharts charts."""
         from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_SWITCH
 
-        text = _build(config={CONF_IMMERSION_SWITCH: "switch.immersion_heater"})
-        assert "apexcharts" not in text
-        assert "graph_span: 12h" not in text
-        assert not [c for c in _cards(text, "immersion") if c["type"].endswith("graph")]
+        text = shown_text({CONF_IMMERSION_SWITCH: "switch.immersion_heater"}, ev_brand=None)
+        immersion = _cards(text, "immersion")
+        assert not [c for c in immersion if c["type"] == "history-graph"]
+        assert eid("immersion_water_temperature") not in text
         assert eid("immersion_today") in text
 
     def test_immersion_section_present_when_configured(self):
         """When temp sensor is configured, the sub-view has the two apexcharts charts."""
-        yaml_text = _build()
+        yaml_text = shown_text()
 
         assert "apexcharts-card" in yaml_text, "Immersion section must use apexcharts-card"
         assert "graph_span: 12h" in yaml_text, "Must show 12 hours of history"
-        assert "sensor.hot_water_cylinder_temperature" in yaml_text
+        assert eid("immersion_water_temperature") in yaml_text
         assert yaml_text.count("apexcharts-card") >= 2, (
             "Must have temperature chart and energy/power chart."
         )
@@ -473,7 +473,8 @@ class TestFeatureGating:
     """EV, immersion, inverter temperature and forecast rows need the feature configured."""
 
     def _minimal(self, **kw) -> str:
-        return _build(config=MINIMAL_CONFIG, registry=FakeRegistry(enable_all=True), **kw)
+        """What a dashboard shows for an install with none of the optional devices."""
+        return shown_text(MINIMAL_CONFIG, **kw)
 
     def test_minimal_config_has_no_ev_rows(self):
         text = self._minimal(ev_brand=None)
@@ -520,38 +521,28 @@ class TestFeatureGating:
             CONF_INVERTER_TEMP_ENTITY,
         )
 
-        text = _build(
-            config={CONF_INVERTER_TEMP_ENTITY: "sensor.x"},
-            registry=FakeRegistry(enable_all=True),
-            ev_brand=None,
-        )
+        text = shown_text({CONF_INVERTER_TEMP_ENTITY: "sensor.x"}, ev_brand=None)
         assert eid("inverter_temperature") in text
         assert eid("immersion_power") not in text
         assert eid("ev_power") not in text
 
-    def test_external_ev_charger_state_counts_as_configured(self):
-        """An EV charger the coordinator has not discovered yet is still shown if it exists."""
-        text = _build(
-            config=MINIMAL_CONFIG,
-            registry=FakeRegistry(enable_all=True),
-            ev_brand=None,
-            states=("sensor.wallbox_charging_power",),
+    def test_a_charger_discovery_has_not_found_shows_nothing(self):
+        """The EV cards follow the integration's own entities, which exist once it finds one."""
+        text = shown_text(
+            MINIMAL_CONFIG, ev_brand=None, states=("sensor.wallbox_charging_power",)
         )
-        assert "sensor.wallbox_charging_power" in text
-        assert "EV charger" in _titles(text)
+        assert "EV charger" not in _titles(text)
+        assert "sensor.wallbox_charging_power" not in text
 
     def test_immersion_with_only_a_temperature_sensor(self):
         from custom_components.givenergy_inverter_manager.const import (
             CONF_IMMERSION_TEMP_SENSOR,
         )
 
-        text = _build(
-            config={CONF_IMMERSION_TEMP_SENSOR: "sensor.t"},
-            registry=FakeRegistry(enable_all=True),
-            ev_brand=None,
-        )
-        assert "Immersion heater" in _titles(text)
-        assert "sensor.t" in text
+        text = shown_text({CONF_IMMERSION_TEMP_SENSOR: "sensor.t"}, ev_brand=None)
+        assert "Water temperature" in _titles(text)
+        assert eid("immersion_water_temperature") in text
+        assert eid("immersion_power") not in text
 
 
 def _cards(text: str, path: str) -> list[dict]:
@@ -770,7 +761,7 @@ class TestStatisticsGraphs:
         graphs = [
             c
             for path in ("cost", "solar")
-            for c in _cards(_build(), path)
+            for c in _cards(shown_text(), path)
             if c["type"] == "statistics-graph"
         ]
         assert [g["period"] for g in graphs] == ["hour", "day"] or [
@@ -901,6 +892,9 @@ class TestMissingHacsCards:
     def _text(self, resources) -> str:
         return dashboard_text(resources=resources)
 
+    def _shown(self, resources) -> str:
+        return shown_text(resources=resources)
+
     def test_unknown_resources_keep_the_custom_cards(self):
         types = self._types(None)
         assert {"custom:power-flow-card-plus", "custom:apexcharts-card"} <= types
@@ -914,7 +908,7 @@ class TestMissingHacsCards:
         assert not {t for t in types if t.startswith("custom:")}
 
     def test_power_flow_falls_back_to_an_entities_card(self):
-        text = self._text([_APEX])
+        text = self._shown([_APEX])
         assert "custom:power-flow-card-plus" not in text
         card = next(
             c
@@ -929,13 +923,13 @@ class TestMissingHacsCards:
         assert eid("immersion_power") in rows
 
     def test_immersion_charts_fall_back_to_built_in_cards(self):
-        text = self._text([_PFC])
+        text = self._shown([_PFC])
         assert "custom:apexcharts-card" not in text
         cards = _cards(text, "immersion")
         charts = [c["type"] for c in cards if c["type"].endswith("graph")]
         assert charts == ["history-graph", "statistics-graph"]
         graph = next(c for c in cards if c["type"] == "history-graph")
-        assert [r["entity"] for r in graph["entities"]][0] == "sensor.hot_water_cylinder_temperature"
+        assert [r["entity"] for r in graph["entities"]][0] == eid("immersion_water_temperature")
         assert all(c["type"] != "vertical-stack" for c in cards)
 
     def test_matching_ignores_case_and_path(self):
@@ -1046,7 +1040,8 @@ class TestSubViews:
             assert f"navigation_path: {sub['path']}" in yaml.dump(parent), sub["path"]
 
     def test_tabs_stay_short(self):
-        for view in self._views():
+        """Counted on what is shown, with every optional device present."""
+        for view in seen_for(ev=True, switch=True, sensor=True)["views"]:
             if not view.get("subview"):
                 assert len(view["sections"]) <= 4, view["path"]
                 assert len(view_cards(view)) <= 20, view["path"]
@@ -1099,11 +1094,13 @@ class TestSubViews:
         power = next(c for c in charts if c["series"][0]["entity"] == eid("immersion_power"))
         assert power["apex_config"]["stroke"]["curve"] == "stepline"
 
-    def test_no_immersion_or_ev_sub_view_without_the_devices(self):
-        views = self._views(config=MINIMAL_CONFIG, registry=FakeRegistry(), ev_brand=None)
-        paths = {v["path"] for v in views}
-        assert "immersion" not in paths
-        assert "ev-charger" not in paths
+    def test_no_immersion_or_ev_view_is_shown_without_the_devices(self):
+        """The views stay in a stored file, so a device added later has somewhere to show."""
+        views = seen_for()["views"]
+        assert {v["path"] for v in views} >= {"immersion", "ev-charger"}
+        for view in views:
+            if view["path"] in ("immersion", "ev-charger"):
+                assert view["sections"] == []
         assert "navigation_path: immersion" not in yaml.dump(views)
         assert "navigation_path: ev-charger" not in yaml.dump(views)
 

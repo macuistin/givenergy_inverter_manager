@@ -62,14 +62,14 @@ class HacsCards:
 
     def use(self, card: HacsCard) -> bool:
         """True to build the HACS card. False means build the built-in fallback instead."""
-        if self._installed(card):
+        if self.installed(card):
             self.used.add(card)
             return True
         if card not in self.fallbacks:
             self.fallbacks.append(card)
         return False
 
-    def _installed(self, card: HacsCard) -> bool:
+    def installed(self, card: HacsCard) -> bool:
         """True unless the Lovelace resources are known and do not include this card.
 
         Unknown resources (None) mean the generator could not read them, in which

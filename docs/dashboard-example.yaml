@@ -148,6 +148,186 @@ views:
           entity: sensor.givenergy_inverter_manager_house_load
           subtract_individual: false
           hide: false
+      min_flow_rate: 0.75
+      max_flow_rate: 6
+      display_zero_lines:
+        mode: transparency
+        transparency: 75
+        grey_color:
+        - 189
+        - 189
+        - 189
+      allow_layout_break: false
+      kilo_threshold: 1000
+      base_decimals: 0
+      kilo_decimals: 1
+      disable_dots: false
+      clickable_entities: true
+      no_labels: false
+      grid_options:
+        columns: full
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state: unavailable
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state: unavailable
+    - type: custom:power-flow-card-plus
+      entities:
+        solar:
+          entity: sensor.givenergy_inverter_manager_solar_power
+          color_icon: false
+          color_value: false
+          invert_state: false
+          secondary_info_entity: sensor.givenergy_inverter_manager_inverter_clipping
+          secondary_info:
+            template: '{{- "·⚡Clip" if states("sensor.givenergy_inverter_manager_inverter_clipping") == "clipping" else "" }}'
+        battery:
+          entity: sensor.givenergy_inverter_manager_battery_power
+          invert_state: true
+          state_of_charge: sensor.givenergy_inverter_manager_battery_state_of_charge
+          show_state_of_charge: true
+        grid:
+          entity: sensor.givenergy_inverter_manager_grid_power
+          use_metadata: false
+          invert_state: false
+          display_state: one_way
+          secondary_info:
+            entity: sensor.givenergy_inverter_manager_live_grid_cost_rate
+            icon: mdi:cash-clock
+            decimals: 4
+            display_zero: true
+            color_value: false
+            unit_of_measurement: ' '
+        home:
+          entity: sensor.givenergy_inverter_manager_house_load
+          subtract_individual: false
+          hide: false
+        individual:
+        - entity: sensor.givenergy_inverter_manager_ev_charging_power
+          name: Car Charger
+          icon: mdi:car-electric
+          display_zero: false
+          color: '#009688'
+      min_flow_rate: 0.75
+      max_flow_rate: 6
+      display_zero_lines:
+        mode: transparency
+        transparency: 75
+        grey_color:
+        - 189
+        - 189
+        - 189
+      allow_layout_break: false
+      kilo_threshold: 1000
+      base_decimals: 0
+      kilo_decimals: 1
+      disable_dots: false
+      clickable_entities: true
+      no_labels: false
+      grid_options:
+        columns: full
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state_not: unavailable
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state: unavailable
+    - type: custom:power-flow-card-plus
+      entities:
+        solar:
+          entity: sensor.givenergy_inverter_manager_solar_power
+          color_icon: false
+          color_value: false
+          invert_state: false
+          secondary_info_entity: sensor.givenergy_inverter_manager_inverter_clipping
+          secondary_info:
+            template: '{{- "·⚡Clip" if states("sensor.givenergy_inverter_manager_inverter_clipping") == "clipping" else "" }}'
+        battery:
+          entity: sensor.givenergy_inverter_manager_battery_power
+          invert_state: true
+          state_of_charge: sensor.givenergy_inverter_manager_battery_state_of_charge
+          show_state_of_charge: true
+        grid:
+          entity: sensor.givenergy_inverter_manager_grid_power
+          use_metadata: false
+          invert_state: false
+          display_state: one_way
+          secondary_info:
+            entity: sensor.givenergy_inverter_manager_live_grid_cost_rate
+            icon: mdi:cash-clock
+            decimals: 4
+            display_zero: true
+            color_value: false
+            unit_of_measurement: ' '
+        home:
+          entity: sensor.givenergy_inverter_manager_house_load
+          subtract_individual: false
+          hide: false
+        individual:
+        - entity: sensor.givenergy_inverter_manager_immersion_heater_power
+          name: Immersion
+          icon: mdi:water-boiler
+          display_zero: false
+          color: '#FF9800'
+      min_flow_rate: 0.75
+      max_flow_rate: 6
+      display_zero_lines:
+        mode: transparency
+        transparency: 75
+        grey_color:
+        - 189
+        - 189
+        - 189
+      allow_layout_break: false
+      kilo_threshold: 1000
+      base_decimals: 0
+      kilo_decimals: 1
+      disable_dots: false
+      clickable_entities: true
+      no_labels: false
+      grid_options:
+        columns: full
+      visibility:
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state_not: unavailable
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state: unavailable
+    - type: custom:power-flow-card-plus
+      entities:
+        solar:
+          entity: sensor.givenergy_inverter_manager_solar_power
+          color_icon: false
+          color_value: false
+          invert_state: false
+          secondary_info_entity: sensor.givenergy_inverter_manager_inverter_clipping
+          secondary_info:
+            template: '{{- "·⚡Clip" if states("sensor.givenergy_inverter_manager_inverter_clipping") == "clipping" else "" }}'
+        battery:
+          entity: sensor.givenergy_inverter_manager_battery_power
+          invert_state: true
+          state_of_charge: sensor.givenergy_inverter_manager_battery_state_of_charge
+          show_state_of_charge: true
+        grid:
+          entity: sensor.givenergy_inverter_manager_grid_power
+          use_metadata: false
+          invert_state: false
+          display_state: one_way
+          secondary_info:
+            entity: sensor.givenergy_inverter_manager_live_grid_cost_rate
+            icon: mdi:cash-clock
+            decimals: 4
+            display_zero: true
+            color_value: false
+            unit_of_measurement: ' '
+        home:
+          entity: sensor.givenergy_inverter_manager_house_load
+          subtract_individual: false
+          hide: false
         individual:
         - entity: sensor.givenergy_inverter_manager_ev_charging_power
           name: Car Charger
@@ -177,6 +357,13 @@ views:
       no_labels: false
       grid_options:
         columns: full
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state_not: unavailable
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state_not: unavailable
   - type: grid
     cards:
     - type: heading
@@ -214,8 +401,20 @@ views:
       heading: Devices
       heading_style: title
       icon: mdi:power-plug
+      visibility:
+      - condition: or
+        conditions:
+        - condition: state
+          entity: sensor.givenergy_inverter_manager_ev_charger_state
+          state_not: unavailable
+        - condition: state
+          entity: switch.givenergy_inverter_manager_immersion_heater_managed
+          state_not: unavailable
+        - condition: state
+          entity: sensor.givenergy_inverter_manager_immersion_water_temperature
+          state_not: unavailable
     - type: tile
-      entity: sensor.hot_water_cylinder_temperature
+      entity: sensor.givenergy_inverter_manager_immersion_water_temperature
       name: Immersion
       icon: mdi:water-boiler
       color: orange
@@ -227,6 +426,30 @@ views:
         navigation_path: immersion
       grid_options:
         columns: 6
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_immersion_water_temperature
+        state_not: unavailable
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_immersion_heater_power
+      name: Immersion
+      icon: mdi:water-boiler
+      color: orange
+      tap_action:
+        action: navigate
+        navigation_path: immersion
+      icon_tap_action:
+        action: navigate
+        navigation_path: immersion
+      grid_options:
+        columns: 6
+      visibility:
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state_not: unavailable
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_immersion_water_temperature
+        state: unavailable
     - type: tile
       entity: sensor.givenergy_inverter_manager_ev_charger_state
       name: EV charger
@@ -240,6 +463,10 @@ views:
         navigation_path: ev-charger
       grid_options:
         columns: 6
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state_not: unavailable
 - title: Today
   icon: mdi:calendar-today
   path: today
@@ -282,12 +509,20 @@ views:
       color: teal
       grid_options:
         columns: 6
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state_not: unavailable
     - type: tile
       entity: sensor.givenergy_inverter_manager_immersion_heater_today
       name: Immersion
       color: orange
       grid_options:
         columns: 6
+      visibility:
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state_not: unavailable
   - type: grid
     cards:
     - type: heading
@@ -584,7 +819,43 @@ views:
           show: true
           position: bottom
       series:
-      - entity: sensor.hot_water_cylinder_temperature
+      - entity: sensor.givenergy_inverter_manager_immersion_water_temperature
+        name: Water
+        color: '#03a9f4'
+        stroke_width: 2
+      grid_options:
+        columns: full
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state: unavailable
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_immersion_water_temperature
+        state_not: unavailable
+    - type: custom:apexcharts-card
+      header:
+        show: false
+      graph_span: 12h
+      apex_config:
+        chart:
+          height: 180
+          zoom:
+            enabled: false
+        tooltip:
+          shared: true
+          followCursor: true
+        stroke:
+          curve: smooth
+          width: 2
+        markers:
+          size: 0
+          hover:
+            size: 5
+        legend:
+          show: true
+          position: bottom
+      series:
+      - entity: sensor.givenergy_inverter_manager_immersion_water_temperature
         name: Water
         color: '#03a9f4'
         stroke_width: 2
@@ -598,15 +869,32 @@ views:
         stroke_width: 1
       grid_options:
         columns: full
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_immersion_water_temperature
+        state_not: unavailable
+  - type: grid
+    visibility:
+    - condition: state
+      entity: switch.givenergy_inverter_manager_immersion_heater_managed
+      state_not: unavailable
+    cards:
     - type: heading
       heading: Why
-      heading_style: subtitle
+      heading_style: title
       icon: mdi:help-circle-outline
     - type: markdown
       content: '{{ states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
       grid_options:
         columns: full
   - type: grid
+    visibility:
+    - condition: state
+      entity: switch.givenergy_inverter_manager_immersion_heater_managed
+      state_not: unavailable
     cards:
     - type: heading
       heading: Heater power
@@ -643,6 +931,10 @@ views:
       grid_options:
         columns: full
   - type: grid
+    visibility:
+    - condition: state
+      entity: switch.givenergy_inverter_manager_immersion_heater_managed
+      state_not: unavailable
     cards:
     - type: heading
       heading: Today
@@ -667,6 +959,10 @@ views:
       grid_options:
         columns: 6
   - type: grid
+    visibility:
+    - condition: state
+      entity: switch.givenergy_inverter_manager_immersion_heater_managed
+      state_not: unavailable
     cards:
     - type: heading
       heading: Settings in force
@@ -702,6 +998,10 @@ views:
         action: none
       grid_options:
         columns: 6
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable
     - type: tile
       entity: number.givenergy_inverter_manager_immersion_minimum_temperature
       name: Minimum temp
@@ -712,6 +1012,10 @@ views:
         action: none
       grid_options:
         columns: 6
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable
     - type: tile
       entity: number.givenergy_inverter_manager_immersion_restart_gap
       name: Restart gap
@@ -722,6 +1026,10 @@ views:
         action: none
       grid_options:
         columns: 6
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable
 - title: EV charger
   icon: mdi:ev-station
   path: ev-charger
@@ -731,6 +1039,10 @@ views:
   back_path: power-flow
   sections:
   - type: grid
+    visibility:
+    - condition: state
+      entity: sensor.givenergy_inverter_manager_ev_charger_state
+      state_not: unavailable
     cards:
     - type: heading
       heading: Charging now
@@ -761,6 +1073,10 @@ views:
       grid_options:
         columns: 6
   - type: grid
+    visibility:
+    - condition: state
+      entity: sensor.givenergy_inverter_manager_ev_charger_state
+      state_not: unavailable
     cards:
     - type: heading
       heading: Why
@@ -820,24 +1136,109 @@ views:
       color: teal
       grid_options:
         columns: 6
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state_not: unavailable
     - type: tile
       entity: sensor.givenergy_inverter_manager_immersion_cost_today
       name: Immersion
       color: orange
       grid_options:
         columns: 6
+      visibility:
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state_not: unavailable
     - type: tile
       entity: sensor.givenergy_inverter_manager_immersion_solar_savings
       name: Saved by solar
       color: green
       grid_options:
         columns: 6
+      visibility:
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state_not: unavailable
   - type: grid
     cards:
     - type: heading
       heading: Last 14 days
       heading_style: title
       icon: mdi:chart-bar
+    - type: statistics-graph
+      entities:
+      - entity: sensor.givenergy_inverter_manager_import_cost_today
+        name: Grid Import
+      - entity: sensor.givenergy_inverter_manager_house_cost_today
+        name: Rest of House
+      - entity: sensor.givenergy_inverter_manager_export_earnings_today
+        name: Export Earnings
+      chart_type: bar
+      period: day
+      days_to_show: 14
+      stat_types:
+      - change
+      grid_options:
+        columns: full
+        rows: 4
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state: unavailable
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state: unavailable
+    - type: statistics-graph
+      entities:
+      - entity: sensor.givenergy_inverter_manager_import_cost_today
+        name: Grid Import
+      - entity: sensor.givenergy_inverter_manager_house_cost_today
+        name: Rest of House
+      - entity: sensor.givenergy_inverter_manager_ev_charging_cost_today
+        name: EV Charging
+      - entity: sensor.givenergy_inverter_manager_export_earnings_today
+        name: Export Earnings
+      chart_type: bar
+      period: day
+      days_to_show: 14
+      stat_types:
+      - change
+      grid_options:
+        columns: full
+        rows: 4
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state_not: unavailable
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state: unavailable
+    - type: statistics-graph
+      entities:
+      - entity: sensor.givenergy_inverter_manager_import_cost_today
+        name: Grid Import
+      - entity: sensor.givenergy_inverter_manager_house_cost_today
+        name: Rest of House
+      - entity: sensor.givenergy_inverter_manager_immersion_cost_today
+        name: Immersion
+      - entity: sensor.givenergy_inverter_manager_export_earnings_today
+        name: Export Earnings
+      chart_type: bar
+      period: day
+      days_to_show: 14
+      stat_types:
+      - change
+      grid_options:
+        columns: full
+        rows: 4
+      visibility:
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state_not: unavailable
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state: unavailable
     - type: statistics-graph
       entities:
       - entity: sensor.givenergy_inverter_manager_import_cost_today
@@ -858,6 +1259,13 @@ views:
       grid_options:
         columns: full
         rows: 4
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_ev_charger_state
+        state_not: unavailable
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state_not: unavailable
 - title: Solar and forecast
   icon: mdi:weather-sunny
   path: solar
@@ -1063,6 +1471,10 @@ views:
       grid_options:
         columns: 6
   - type: grid
+    visibility:
+    - condition: state
+      entity: switch.givenergy_inverter_manager_immersion_heater_managed
+      state_not: unavailable
     cards:
     - type: heading
       heading: Immersion heater
@@ -1099,6 +1511,10 @@ views:
         style: slider
       grid_options:
         columns: full
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable
     - type: tile
       entity: number.givenergy_inverter_manager_immersion_minimum_temperature
       name: Minimum temp
@@ -1108,6 +1524,10 @@ views:
         style: slider
       grid_options:
         columns: full
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable
     - type: tile
       entity: number.givenergy_inverter_manager_immersion_restart_gap
       name: Restart gap
@@ -1117,3 +1537,7 @@ views:
         style: slider
       grid_options:
         columns: full
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable

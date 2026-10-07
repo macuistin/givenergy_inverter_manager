@@ -58,10 +58,14 @@ GROUPS: dict[str, str] = {
     "Bill": "Estimates for the current bill period. See [Tariff](tariff.md#bill-line-items).",
     "Battery": "Health, wear and state of the battery.",
     "Charge plan and night survival": "Outputs of the overnight charge calculation.",
-    "Immersion": "Output of the immersion divert rule.",
+    "Immersion": (
+        "Output of the immersion divert rule, and the water temperature. The water "
+        "temperature sensor exists only with a temperature sensor set."
+    ),
     "EV charger": (
-        "Sensors marked `EV charger needed` are unavailable until a supported charger is "
-        "discovered."
+        "These sensors exist only while a supported charger is discovered, and appear when "
+        "discovery first finds one. The ones marked `EV charger needed` are unavailable "
+        "while the charger is not reporting."
     ),
     "Solar forecast": "Needs a forecast sensor in the options to be meaningful.",
     "Carbon intensity": "Needs a carbon intensity sensor in the options.",
@@ -206,7 +210,7 @@ KEY_GROUPS: dict[str, str] = {
         ),
         "Charge plan and night survival",
     ),
-    "immersion_divert_reason": "Immersion",
+    **dict.fromkeys(("immersion_divert_reason", "immersion_water_temperature"), "Immersion"),
     **dict.fromkeys(
         (
             "ev_charger_state",
@@ -382,6 +386,10 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "cheap_rate_floor_status": "State of the cheap rate floor top-up, or Inactive.",
     "immersion_divert_reason": "Why the immersion is on or off.",
+    "immersion_water_temperature": (
+        "Reading of the immersion temperature sensor you set. Also lets a stored dashboard "
+        "show the water temperature as soon as a sensor is set."
+    ),
     "ev_charger_state": (
         "disconnected, connected, charging, paused, boosting, completed or unknown. "
         "Charging and boosting need the charger to be drawing power."
@@ -412,6 +420,14 @@ DESCRIPTIONS: dict[str, str] = {
     "integration_version": "Installed integration version.",
 }
 
+
+# What a sensor needs in order to exist, from `requires=` in its description.
+REQUIRES_NOTES: dict[str, str] = {
+    "EV_CHARGER": "Created only with an EV charger.",
+    "IMMERSION_SWITCH": "Created only with an immersion switch.",
+    "IMMERSION_SENSOR": "Created only with an immersion temperature sensor.",
+    "IMMERSION_THERMOSTAT": "Created only with an immersion switch and temperature sensor.",
+}
 
 RETIRED_SENSORS: tuple[tuple[str, str], ...] = (
     ("pre_boost_export_recommended", "Pre-boost export recommended"),
@@ -493,6 +509,7 @@ def load_sensors() -> list[dict]:
                 "enabled": bool(_literal(kw.get("entity_registry_enabled_default"), True)),
                 "last_reset": reset_period if state_class == "total" else None,
                 "diagnostic": _attr(kw.get("entity_category")) == "DIAGNOSTIC",
+                "requires": _attr(kw.get("requires")),
                 "needs_ev": (
                     available_fn is not None and "ev_available" in ast.unparse(available_fn)
                 ),
@@ -517,6 +534,8 @@ def _cell(value: str) -> str:
 
 def _row(sensor: dict) -> str:
     notes = []
+    if sensor["requires"]:
+        notes.append(REQUIRES_NOTES[sensor["requires"]])
     if sensor["needs_ev"]:
         notes.append("EV charger needed.")
     if sensor["diagnostic"]:
@@ -573,6 +592,17 @@ def generate() -> str:
         "`last_reset` as the start of that period. `no` means it reports none. See "
         "[Long-term statistics](long-term-statistics.md).",
         "- **Enabled**: whether the sensor is enabled when first created.",
+        "",
+        "A sensor marked `Created only with ...` exists only while that device is present: an "
+        "EV charger the integration discovered, the immersion switch, or the immersion "
+        "temperature sensor. An install without the device has no such sensor, so nothing "
+        "sits unavailable. The sensor appears by itself when the device appears: when "
+        "discovery first finds an EV charger, or after an options change that sets the "
+        "immersion entities (the entry reloads). The registry entries of a device that is "
+        "gone are removed when the entry next loads. An EV charger's are kept while Home "
+        "Assistant is starting, because its own integration may not have loaded yet. A "
+        "dashboard made by the integration follows these changes. See "
+        "[Dashboard](dashboard.md#devices-you-add-or-remove-later).",
         "",
     ]
     for group, members in by_group.items():

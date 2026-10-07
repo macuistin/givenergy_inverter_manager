@@ -2,6 +2,9 @@
 sensor.py — Sensor platform for GivEnergy Inverter Manager.
 
 Exposes all calculated and tracked values as Home Assistant sensor entities.
+A sensor that needs an optional device (an EV charger, the immersion switch or its
+temperature sensor) is created only while that device is present. See optional_devices.py.
+
 Every sensor reads from the shared GivEnergyCoordinator data snapshot —
 no direct polling of GivTCP or any external source.
 
@@ -27,7 +30,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DEFAULT_CURRENCY_SYMBOL
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
+from .core.devices import Device
 from .entity import GivEnergyEntity
+from .optional_devices import async_add_entities_per_device
 from .sensor_descriptions import SENSOR_DESCRIPTIONS
 from .sensor_descriptions.base import (
     CURRENCY_UNIT,
@@ -57,8 +62,19 @@ async def async_setup_entry(
     """Set up GivEnergy Manager sensors."""
     coordinator = entry.runtime_data
     async_add_entities(
-        GivEnergyManagerSensor(coordinator, description) for description in SENSOR_DESCRIPTIONS
+        GivEnergyManagerSensor(coordinator, description)
+        for description in SENSOR_DESCRIPTIONS
+        if description.requires is None
     )
+
+    def _sensors_of(device: Device) -> list[GivEnergyManagerSensor]:
+        return [
+            GivEnergyManagerSensor(coordinator, description)
+            for description in SENSOR_DESCRIPTIONS
+            if description.requires == device
+        ]
+
+    async_add_entities_per_device(entry, async_add_entities, _sensors_of)
 
 
 class GivEnergyManagerSensor(GivEnergyEntity, SensorEntity):

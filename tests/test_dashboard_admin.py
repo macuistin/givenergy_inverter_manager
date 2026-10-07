@@ -19,7 +19,6 @@ from custom_components.givenergy_inverter_manager.dashboard.registry import asyn
 from tests.dashboard_support import (
     ADMIN_ID,
     MINIMAL_CONFIG,
-    FakeRegistry,
     dashboard_dict,
     default_entity_ids,
     view_cards,
@@ -30,7 +29,7 @@ CONTROL_DOMAINS = {"switch", "number", "button"}
 CONTROL_FEATURES = {"toggle", "numeric-input"}
 INSTALLS = {
     "full": {},
-    "minimal": {"config": MINIMAL_CONFIG, "registry": FakeRegistry(), "ev_brand": None},
+    "minimal": {"config": MINIMAL_CONFIG, "ev_brand": None},
     "no_admin": {"admin_ids": ()},
 }
 

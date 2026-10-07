@@ -167,7 +167,9 @@ source-grep tests are listed for replacement in `ROADMAP.md`.
 
 **Before adding a new sensor:** add its description to the matching theme module in
 `custom_components/givenergy_inverter_manager/sensor_descriptions/` (keep the join order in its
-`__init__.py` in step). Add tests in `tests/test_sensors.py` covering
+`__init__.py` in step). A sensor that is meaningless without an EV charger, an immersion switch or
+an immersion temperature sensor sets `requires=Device.<X>`, and the platform creates it only
+while that device exists (`optional_devices.py`). Add tests in `tests/test_sensors.py` covering
 device_class, unit, state_class, and value_fn. The existing battery_power tests
 are the reference pattern. Put any value logic longer than one expression in
 `sensor_values.py` (pure, no HA imports) and test it in `tests/test_sensor_values.py`. Then run
@@ -220,8 +222,17 @@ serialises it with PyYAML, so never hand-indent YAML in an f-string.
 
 The builder looks entity IDs up in the entity registry (`Registry.get`), so IDs in the
 generated YAML are always current. A row or card is included only when its entity is
-registered and enabled. EV, immersion, inverter temperature and forecast rows also need the
-feature configured. `docs/dashboard-example.yaml` is a golden file: after a deliberate change,
+registered and enabled. Inverter temperature and forecast rows also need the feature
+configured.
+
+The EV charger, the immersion switch and the immersion temperature sensor are optional and can
+come and go, so a stored dashboard must outlive a change. Every card that needs one carries a
+visibility condition on a sentinel entity of that device (`dashboard/devices.py`, `SENTINELS`).
+While the device is absent the card points at the entity ID the device's entity will get
+(`expected_entity_id`). A card that lists entities (the power flow card, the cost chart, the
+temperature chart) is built once for each combination of devices (`Devices.variants`). Use
+`Devices.show_with` for a card and `Builder._when` for a section. Test with
+`tests/dashboard_visibility.py`, which plays the frontend and drops what the conditions hide. `docs/dashboard-example.yaml` is a golden file: after a deliberate change,
 run `UPDATE_DASHBOARD_EXAMPLE=1 python -m pytest tests/test_dashboard_example.py` and review
 the diff.
 
