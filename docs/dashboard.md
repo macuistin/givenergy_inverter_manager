@@ -190,7 +190,7 @@ Each section shows only while the device it needs exists.
 ![Today view with energy generated, used, imported and exported, cost tiles, and self-sufficiency gauges.](images/dashboard-today.png)
 - **Energy**: Generated, Used, Imported, Exported, EV and Immersion.
 - **Where today's energy came from**: three lines in plain words, then one line for each of the EV and the immersion that exists.
-  - House used: what the house used, split into solar, battery and grid. Solar and battery show as one figure when the Battery Discharged Today sensor is disabled. New installs have it enabled. An existing install keeps its entity list, so enable it by hand if it is disabled.
+  - House used: what the house used, split into solar, battery and grid. Solar and battery show as one figure when the Battery Discharged Today sensor is disabled. The integration enables it on start, unless you disabled it yourself.
   - Grid import: what came in from the grid, split into the part the house used and the part that went into the battery. The split needs the inverter's AC charge counter. Without it the card says the split is not known and counts all of the import as used by the house.
   - Self-sufficiency: the share of what the house used that did not come from the grid.
   - EV and immersion: how much of the house use went to each. They are part of the house use, not added to it. A line shows only while its device exists.

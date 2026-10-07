@@ -4,7 +4,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
-Three more sensors are enabled by default, so Home Assistant keeps history for them and the
+Four more sensors are enabled by default, so Home Assistant keeps history for them and the
 dashboard shows more on a fresh install.
 
 **Changes**
@@ -20,10 +20,13 @@ dashboard shows more on a fresh install.
   unchanged until you generate the file again.
 
 **Upgrading**
-- Home Assistant applies a default only when it creates an entity. An existing install keeps
-  these sensors disabled until you enable them in **Settings > Devices & services > GivEnergy
-  Inverter Manager > entities**. A sensor you disabled yourself stays disabled. History starts
-  from the moment you enable a sensor. Generate the dashboard again afterwards to get the tiles.
+- Home Assistant applies an enabled default only when it creates an entity. On the first start
+  after the upgrade, setup enables these four sensors where the integration had disabled them,
+  so there is nothing to do by hand. A sensor you disabled yourself stays disabled, and setup
+  does not touch it on later starts. History starts from that first start.
+- Home Assistant reloads the integration once, about 30 seconds after those sensors are enabled.
+  It does this once, on the first start after the upgrade.
+- Generate the dashboard again to get the Cheap from tile and the solar and battery split.
 
 ## v0.11.0
 
