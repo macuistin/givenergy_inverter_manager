@@ -272,6 +272,27 @@ class TariffConfig:
 
 
 @dataclass
+class CounterMemory:
+    """The last reading of each GivTCP daily counter that feeds the longer periods.
+
+    A daily counter drops to zero at midnight. The memory outlives the midnight reset so a
+    stale reading just after it is not added a second time.
+    """
+
+    ac_charge_kwh: float = 0.0
+
+    def growth_since_last(self, current_kwh: float) -> float:
+        """How far the AC charge counter rose since the last reading, all of it after a reset.
+
+        Remembers current_kwh for the next call.
+        """
+        rose = current_kwh >= self.ac_charge_kwh
+        growth_kwh = current_kwh - self.ac_charge_kwh if rose else current_kwh
+        self.ac_charge_kwh = current_kwh
+        return growth_kwh
+
+
+@dataclass
 class EnergyAccumulator:
     """
     Tracks energy and cost accumulation over a billing period (resets at midnight).
@@ -293,6 +314,9 @@ class EnergyAccumulator:
     zappi_kwh: float = 0.0
     immersion_kwh: float = 0.0
     house_kwh: float = 0.0
+    # The part of import_kwh that went into the battery (GivTCP's AC charge counter). It is
+    # stored, not used, so it does not count as the grid supplying the house.
+    grid_to_battery_kwh: float = 0.0
 
     # ── Rate-tier import breakdown ────────────────────────────────────────────
     # "cheap" = any timed rate period active (Night, Nightboost, etc.)
@@ -363,17 +387,32 @@ class EnergyAccumulator:
         return (self.import_kwh_cheap / total) if total > 0 else 0.0
 
     @property
+    def grid_to_house_kwh(self) -> float:
+        """Import that went to the house, not into the battery. Never negative.
+
+        Without a grid-to-battery reading the figure is the whole import.
+        """
+        return max(0.0, self.import_kwh - self.grid_to_battery_kwh)
+
+    @property
+    def supplied_without_grid_kwh(self) -> float:
+        """The house load not drawn from the grid at the time: solar, and battery discharge."""
+        return max(0.0, self.house_kwh - self.grid_to_house_kwh)
+
+    @property
     def self_sufficiency_pct(self) -> float:
-        """Percentage of the house's consumption that was not bought from the grid.
+        """Percentage of the house's consumption that did not have to be drawn from the grid.
 
         house_kwh is the whole load, EV and immersion included, so they are not added again.
-        Solar, and battery discharge of stored solar, appear as import that did not happen.
-        Energy the battery took from the grid counts as import, so charging from the grid
-        lowers the figure on the day it is bought.
+        Grid energy the battery stored (grid_to_battery_kwh) is not counted against it.
+        Later discharge of that stored energy counts as supplied from storage. EV and
+        immersion energy bought from the grid is in house_kwh, so it still counts as grid.
+        With no grid-to-battery reading, all import counts, as it did before the reading
+        existed.
         """
         if self.house_kwh <= 0:
             return 100.0
-        return max(0.0, min(100.0, (1 - self.import_kwh / self.house_kwh) * 100))
+        return max(0.0, min(100.0, (1 - self.grid_to_house_kwh / self.house_kwh) * 100))
 
     @property
     def solar_share_pct(self) -> float:
@@ -383,7 +422,8 @@ class EnergyAccumulator:
         battery, which counts when it is generated, not when it is later discharged.
         It does not count battery discharge, so energy the battery took from the grid
         never raises the figure. It ignores grid import, so buying cheap energy does not
-        lower it. Compare self_sufficiency_pct, which counts everything not imported.
+        lower it. Compare self_sufficiency_pct, which counts all the house did not draw from the
+        grid.
 
         house_kwh is the whole load, EV and immersion included, so they are not added again.
         With no consumption the share is 0, not 100 as for self-sufficiency: no solar was
