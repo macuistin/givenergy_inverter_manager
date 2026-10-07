@@ -2,6 +2,16 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- A manual or external immersion turn-on with no readable water temperature no longer heats
+  for ever. With no temperature sensor set, or one that is unavailable, the run lasts 5
+  minutes (the existing sensor outage hold limit) and then automatic control resumes.
+- EV charger discovery repeats every 5 minutes until the power, session and charge mode
+  entities are all found, not only the power entity. A charger found before its integration
+  finished loading is completed with no reload.
+
 ## v0.9.0
 
 Removes three disabled sensors. No option name changes.

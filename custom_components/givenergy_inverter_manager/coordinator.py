@@ -853,15 +853,41 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
 
     def _maybe_rediscover_ev(self) -> None:
-        """Re-run EV charger discovery every 5 minutes when none is cached."""
-        needs_discovery = self._ev_charger is None or self._ev_charger.power_entity is None
-        if needs_discovery and (self._update_cycle % _REDISCOVER_EVERY_N_CYCLES == 1):
-            found = discover_ev_chargers(self._get_all_states())
-            if found:
-                self._ev_charger = found[0]
-                _LOG.info("Discovered EV charger: %s", self._ev_charger.display_name)
-            else:
-                _LOG.debug("No EV charger found (cycle %d)", self._update_cycle)
+        """Re-run EV charger discovery every 5 minutes until the charger is fully found.
+
+        A charger is complete once its power, session and charge-mode entities exist. The
+        integrations that provide them can finish loading after this one.
+        """
+        charger = self._ev_charger
+        if charger is not None and charger.is_fully_discovered:
+            return
+        if self._update_cycle % _REDISCOVER_EVERY_N_CYCLES != 1:
+            return
+        found = discover_ev_chargers(self._get_all_states())
+        if charger is None:
+            self._adopt_discovered_ev(found)
+        else:
+            self._complete_ev_charger(charger, found)
+
+    def _adopt_discovered_ev(self, found: list[EVCharger]) -> None:
+        if not found:
+            _LOG.debug("No EV charger found (cycle %d)", self._update_cycle)
+            return
+        self._ev_charger = found[0]
+        _LOG.info("Discovered EV charger: %s", self._ev_charger.display_name)
+
+    def _complete_ev_charger(self, charger: EVCharger, found: list[EVCharger]) -> None:
+        """Add entities that have appeared since the charger was first found."""
+        rescanned = next((c for c in found if c.status_entity == charger.status_entity), None)
+        filled = charger.fill_missing_entities(rescanned) if rescanned else []
+        if filled:
+            _LOG.debug("EV charger %s: found %s", charger.display_name, ", ".join(filled))
+        else:
+            _LOG.debug(
+                "EV charger %s: no new entities (cycle %d)",
+                charger.display_name,
+                self._update_cycle,
+            )
 
     def _apply_ev_action(self, target_mode: str | None) -> None:
         """Apply an EV charger mode change via HA service call.

@@ -172,7 +172,7 @@ Accrued Bill This Period is built from the month totals, which start again on th
 
 | Sensor | Reason |
 |---|---|
-| EV sensors | Unavailable until an EV charger is discovered. Discovery retries about every 5 minutes |
+| EV sensors | Unavailable until an EV charger is discovered. Discovery retries about every 5 minutes, until the charger's power, session and charge mode entities are all found |
 | Inverter Temperature and its status | The inverter temperature entity was not detected. The status shows Unknown |
 | Solar actual vs forecast and the carbon sensors | No forecast has been recorded today, or no carbon intensity sensor is set |
 | Minutes Remaining in Rate Period | You are on the base rate |
