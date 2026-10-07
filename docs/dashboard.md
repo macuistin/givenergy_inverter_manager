@@ -11,7 +11,7 @@ Either:
 
 A notification, **GivEnergy Dashboard Ready**, confirms the write. The first time the integration is set up it also creates a placeholder file containing `views: []`, so a YAML-mode dashboard can point at the file straight away.
 
-Generate the file again after you change the options, rename entities, or add an immersion temperature sensor. The file is overwritten.
+Generate the file again after you change the options, rename entities, or add or remove an immersion switch or temperature sensor. The file is overwritten. The dashboard strategy below needs no regenerating.
 
 ## Example
 
@@ -26,7 +26,7 @@ The file only contains tiles and cards that will show a value.
 - A tile is left out when its entity is disabled or not registered. Many sensors are disabled by default. The file header and the **GivEnergy Dashboard Ready** notification list the disabled sensors the dashboard would have used. Enable them in **Settings → Devices & services → Entities**, then generate the file again.
 - A section with no tiles left is left out too, so there is never a heading on its own.
 - EV tiles and the EV charger sub-view need an EV charger. The dashboard counts a charger the integration has discovered, or one of the external power sensors listed under Power Flow.
-- Immersion tiles, the Immersion heater section and the immersion charts need an immersion switch or temperature sensor in the options. The charts need the temperature sensor.
+- Immersion tiles, the Immersion heater section and the immersion charts need an immersion switch or temperature sensor, set at setup or later under Configure, Immersion heater. The charts need the temperature sensor.
 - Inverter temperature tiles need the inverter temperature entity in the options.
 - The forecast tiles need a forecast entity in the options.
 

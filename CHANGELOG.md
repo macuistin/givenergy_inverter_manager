@@ -5,6 +5,11 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 ## Unreleased
 
 **Features**
+- The immersion switch and water temperature sensor can be added, changed or cleared under
+  Configure, Immersion heater, at any time. Saving reloads the integration, so there is no
+  restart and no reinstall. The Immersion Heater (Managed) switch and the Immersion dashboard
+  view appear or disappear to match. The element power moved from the Hardware section to the
+  new section. The target and minimum temperatures stay with their number entities.
 - The **GivTCP Register Write Count** sensor has a `recent_writes` attribute: the last 20 writes
   the integration made to the charge target, the charge window and the charge switches, each with
   its time, entity, value and reason. A change to the charge target, window start or window end
@@ -13,6 +18,24 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   added. The log is saved with the other stored data.
 
 **Fixes**
+- A switch or sensor saved in the options is now used. The managed switch and the heater
+  controller read the setup data only, so an immersion switch set after setup was ignored.
+- Clearing the forecast section's entities no longer happens when a submission leaves the
+  section out.
+- A manual or external immersion turn-on with no readable water temperature no longer heats
+  for ever. With no temperature sensor set, or one that is unavailable, the run lasts 5
+  minutes (the existing sensor outage hold limit) and then automatic control resumes.
+- EV charger discovery repeats every 5 minutes until the power, session and charge mode
+  entities are all found, not only the power entity. A charger found before its integration
+  finished loading is completed with no reload.
+- With no immersion switch set, Immersion Divert Reason reads `No immersion switch configured`
+  and the divert decision stays off. It used to say the heater was diverting or heating.
+- Missed Solar Today counts export only once an immersion switch is set or an EV charger is
+  found. With neither, there is nothing that could have used the export, and the sensor stayed
+  inflated.
+- The today and week reports leave out the immersion saving lines when there is no immersion
+  switch. They showed a permanent zero.
+- EV Solar Surplus is unavailable until an EV charger is found, like the other EV sensors.
 - Forecast accuracy yesterday and its 7-day average divide actual solar by the forecast for that
   day. They used the first forecast the charge calculation saw, which could be blended toward
   the P10 or belong to another day, so the figure read far too low (19% on a day the forecast

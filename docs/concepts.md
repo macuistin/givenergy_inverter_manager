@@ -28,7 +28,7 @@ Every 30 seconds the coordinator runs these steps in order.
 1. Merge configuration. Saved options override the values entered at setup.
 2. Raise or clear the repair issues: one for a minimum SoC above 30%, one for other charge slots with a window set.
 3. Check GivTCP. If both the solar power sensor and the battery SoC sensor are `unavailable`, `unknown` or missing, the cycle fails and every entity of the integration becomes unavailable until GivTCP returns. See [Troubleshooting](troubleshooting.md#all-entities-are-unavailable).
-4. Look for an EV charger. While none is found, discovery repeats about every 5 minutes (every tenth cycle).
+4. Look for an EV charger. Until one is found with its power, session and charge mode entities, discovery repeats about every 5 minutes (every tenth cycle). Entities that appear later are added with no reload.
 5. Read the sensors: solar power, battery SoC, battery power, grid power, house load, the optional immersion temperature, forecasts, carbon intensity and inverter temperature, the EV charger, and the GivTCP daily energy counters.
 6. Run the engine. It finds the current rate, adds the time since the last cycle to the today, week, month and year totals, applies the GivTCP daily counters to today's totals, and works out the charge target, immersion decision, bill figures, night survival and EV signals.
 7. Record the day's first forecast value, for the Solar forecast today sensor, and the latest forecast for tomorrow, which the forecast accuracy sensors and the accuracy correction measure the next day against.
@@ -131,6 +131,7 @@ The average daily load is today's house energy so far, scaled up to 24 hours. It
 
 The rule runs in this order. The first match wins.
 
+0. No immersion switch set: do not heat. The reason reads `No immersion switch configured`.
 1. Water below **Immersion Minimum Temperature**: heat, whatever the surplus.
 2. Water at or above **Immersion Target Temperature**: do not heat.
 3. Battery SoC below the divert threshold (default 80%): do not heat.
@@ -147,7 +148,7 @@ The integration writes to your real immersion switch. After each automatic on or
 
 When **Auto Immersion Divert** is off, the rule above is bypassed. The decision becomes off with the reason `Manual override`, and the managed switch asks for the real switch to be off. The minimum temperature rule does not run either.
 
-Turning the managed switch on yourself starts a run to target. So does turning your real switch on from outside, once the integration has switched it at least once. The heater stays on until the water reaches the target. With no temperature sensor it stays on until you turn it off. Turning it off, here or outside, holds off automatic control for 10 minutes.
+Turning the managed switch on yourself starts a run to target. So does turning your real switch on from outside, once the integration has switched it at least once. The heater stays on until the water reaches the target. With no temperature reading, either because no sensor is set or because it is unavailable, the run lasts 5 minutes and then automatic control resumes. Turn it on again to extend it. Turning it off, here or outside, holds off automatic control for 10 minutes.
 
 ### EV charger
 

@@ -179,6 +179,48 @@ class TestCalculateOvernightChargeTarget:
 # --- Immersion divert tests ---
 
 
+class TestShouldDivertToImmersionWithoutSwitch:
+    """With no immersion switch there is nothing to drive, whatever the readings say."""
+
+    def _kwargs(self, **overrides):
+        defaults = {
+            "solar_power_w": 4000.0,
+            "house_load_w": 800.0,
+            "battery_soc": 90.0,
+            "battery_power_w": 500.0,
+            "inverter_max_w": 5000.0,
+            "immersion_temp": 40.0,
+            "immersion_target_temp": 55.0,
+            "immersion_min_temp": 30.0,
+            "soc_threshold": 80,
+            "min_surplus_w": 500,
+            "switch_configured": False,
+        }
+        defaults.update(overrides)
+        return defaults
+
+    def test_does_not_divert_with_a_large_surplus(self):
+        should, reason = should_divert_to_immersion(**self._kwargs())
+        assert should is False
+        assert reason == "No immersion switch configured"
+
+    def test_does_not_claim_to_heat_below_the_legionella_minimum(self):
+        should, reason = should_divert_to_immersion(**self._kwargs(immersion_temp=20.0))
+        assert should is False
+        assert reason == "No immersion switch configured"
+
+    def test_does_not_claim_to_divert_at_inverter_capacity(self):
+        should, reason = should_divert_to_immersion(
+            **self._kwargs(solar_power_w=5000.0, battery_soc=100.0)
+        )
+        assert should is False
+        assert "diverting" not in reason
+
+    def test_a_configured_switch_still_diverts_on_the_same_readings(self):
+        should, _ = should_divert_to_immersion(**self._kwargs(switch_configured=True))
+        assert should is True
+
+
 class TestShouldDivertToImmersion:
     def _base_kwargs(self, **overrides):
         defaults = {

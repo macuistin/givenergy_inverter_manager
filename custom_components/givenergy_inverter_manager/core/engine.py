@@ -133,6 +133,10 @@ class RawSensorValues:
     inverter_max_w: float = DEFAULT_INVERTER_MAX_OUTPUT * 1000
     battery_capacity_kwh: float = 10.0
     immersion_on: bool = False
+    # False when the install has no immersion switch. The coordinator sets it from the
+    # configuration. The default describes a fully equipped site, like the other immersion
+    # defaults here.
+    immersion_switch_configured: bool = True
     immersion_wattage_w: float = 3000.0
     immersion_temp: float | None = None
     immersion_target_temp: float = 55.0
@@ -144,6 +148,8 @@ class RawSensorValues:
     carbon_intensity_gco2: float | None = None
     ev_power_w: float = 0.0
     ev_plugged_in: bool = False
+    # True once an EV charger has been discovered. The coordinator sets it.
+    ev_charger_present: bool = False
     inverter_temp: float | None = None
     # Names of required inputs that were unavailable this cycle (their value is a 0.0 placeholder)
     unavailable_inputs: tuple[str, ...] = ()
@@ -242,6 +248,8 @@ class CoordinatorData:
     ev_mode_change_requested: bool = False
     ev_protection_reason: str = ""
     ev_available: bool = False
+    # False when the install has no immersion switch, so reports leave out its saving.
+    immersion_configured: bool = True
     ev_charging_source: str = "Not charging"
     ev_solar_surplus_available: bool = False
     dry_run: bool = False
@@ -388,9 +396,12 @@ def _accumulate_missed_solar(acc: EnergyAccumulator, step: _Step) -> None:
     """Missed solar: kWh exported while the battery is full and no flex load is active.
 
     Represents solar that could have been self-consumed (EV charging or a larger
-    immersion divert window would have captured this).
+    immersion divert window would have captured this). With neither an immersion switch
+    nor an EV charger there is nothing to have captured it, so nothing is counted.
     """
     raw = step.raw
+    if not (raw.immersion_switch_configured or raw.ev_charger_present):
+        return
     battery_full = raw.battery_soc >= BATTERY_FULL_SOC_PCT
     exporting = raw.grid_power_w < 0
     no_flex_load = step.immersion_w <= 0 and raw.ev_power_w <= 0
@@ -709,6 +720,7 @@ def _apply_live_readings(data: CoordinatorData, raw: RawSensorValues) -> None:
     data.inverter_max_w = raw.inverter_max_w
     data.battery_capacity_kwh = raw.battery_capacity_kwh
     data.immersion_temp = raw.immersion_temp
+    data.immersion_configured = raw.immersion_switch_configured
     data.forecast_kwh_tomorrow = raw.forecast_kwh_tomorrow
 
 
@@ -859,6 +871,7 @@ def _immersion_inputs(data: CoordinatorData, cycle: _Cycle) -> ImmersionInputs:
         run=ImmersionRun(
             currently_on=raw.immersion_on,
             unavailable_for_s=raw.unavailable_for_s,
+            switch_configured=raw.immersion_switch_configured,
         ),
     )
 
