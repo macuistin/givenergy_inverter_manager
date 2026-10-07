@@ -4,16 +4,57 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
-The overnight charge reason sensor now says whether the forecast accuracy correction is waiting
-for data or applied.
+Shows how the forecast accuracy correction is doing and starts it from recorded history. Adds
+dated rate changes and three repairs. Fixes a year-on-year cost delta and two misleading
+readings, and renames the base-rate import sensors.
 
-**Changes**
+**Features**
 - **Overnight Charge Reason** (`overnight_charge_reason`) has new attributes: `accuracy_status`
   (for example `Waiting for data: 3 of 5 days` or `Applied: x0.80 from 7 usable days`),
   `accuracy_applied`, `accuracy_measured_factor` (the median actual to forecast ratio so far),
   `accuracy_applied_factor` (that ratio after the 0.6 to 1.2 limit, empty until 5 usable days),
   `accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`. The state of the
   sensor and the text of the charge reason are unchanged.
+- The forecast accuracy history is seeded from the Home Assistant recorder. On a new install, or
+  when no history is stored, the integration reads the last 14 days of the tomorrow forecast
+  sensor and the GivTCP daily solar total in the background, so the correction can apply from the
+  first night instead of after five. With the default 10 days of recorder history that gives
+  about 9 days. Seeded days count as not clipped, a stored history is never replaced, and any
+  recorder problem is ignored. The first refresh after setup still reads `Waiting for data`. The
+  next one shows the applied factor. `recorder` is now an `after_dependency`.
+- Dated rate changes. A new Dated rate change section in Configure lets you enter the new base
+  rate, timed rates and export rate with the date they start. The current rates stay in force
+  until then, costs already recorded are not recalculated, and the cheap window timing follows
+  the change without a reload. A date in the past is rejected. The standing charge, levy, VAT and
+  discount still apply when you save. See [Tariff](docs/tariff.md).
+- A repair appears when the tariff has not been saved changed, reconfigured or confirmed for 365
+  days. The first run records today's date, so an upgrade never raises it straight away. Confirm
+  the rates in the repair to clear it.
+- A repair asks for the battery cost when it is still 0 after seven days of battery tracking.
+  Without a cost, battery wear is 0 and Net Saving Today equals Saving vs Grid Today. The repair
+  saves the value without changing any other saved option. Ignore it to keep wear at 0.
+- A repair shows the GivTCP day, night or export rate next to the tariff entered here when they
+  differ by more than 2%. It needs no setup, appears only when GivTCP's rate sensors are
+  readable, and can be ignored. The rates entered here still decide every cost.
+
+**Changes**
+- The sensors that count import at the base rate are renamed from "peak rate" to "base rate":
+  Import at base rate (today, yesterday, this week, this month), Import cost at base rate and Base
+  rate import fraction. Keys and unique ids are unchanged, so history carries on. Existing
+  installs keep their entity ids, and new installs get ids from the new names. See "Renamed
+  sensors" in [Sensors](docs/sensors.md).
+- Forecast accuracy yesterday and its 7-day average are no longer capped at 200. A day that beats
+  the forecast by more than double now shows its real figure. A stored 200 stays until it leaves
+  the 7-day window.
+
+**Fixes**
+- Year-on-year comparison: `delta.import_cost` and `delta_pct.import_cost` in
+  `year_on_year_summary` now compare against last year's import cost. They equalled the whole
+  current cost, with a null percentage.
+- Battery Round-trip Efficiency Today (off by default) is unknown until at least 2 kWh has gone
+  both into and out of the battery today. It read far too low early in the day.
+- Pressing the managed immersion switch in dry run is recorded as a skipped action (Last Skipped
+  Action). It no longer ends or starts a manual run on the next cycle.
 
 ## v0.12.0
 

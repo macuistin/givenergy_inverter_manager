@@ -36,7 +36,6 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 | Item | What and why | Evidence | Indicative value per year | Size |
 |---|---|---|---|---|
 | **M3 Confirm EV power reads the charger, then fix what is left** | `ev_power`, `zappi_today` and `zappi_cost_today` read 0 for weeks on installs where the myenergi entity ids carry no serial, because the lookup needed one. That was fixed in v0.4.0. A real-Home-Assistant test and the published plug and status values now cover the lookup, and a charger only counts as active while it draws power, because a Zappi keeps a Boosting status while its plug reads Waiting for EV. Check `sensor.givenergy_inverter_manager_ev_charging_power` on the next charging session. If it still reads 0, read power from the charger's own power sensor (for example `sensor.myenergi_zappi_power_ct_internal_load`) and use its energy counters (`green_energy_today`, `energy_used_today`, `charge_added_session`) for energy and the solar and grid cost split. `rest_of_house_load` and the baseline subtract EV power, so they keep the EV until it does | One install: EV power read 0 for weeks while charging sessions of about 7 kW were recorded. `rest_of_house_load` peaked close to the house load because the EV was not subtracted | Not applicable (unlocks S2, S3, S5, C1) | S |
-| **M4 Seed the forecast accuracy history from the recorder** | The measured accuracy factor and its usable days are shown as attributes of the overnight charge reason sensor, so a user can tell a correction that is waiting for data from one that is applied. A new install still waits for 5 usable days, about a week. Seed the stored history at first load from the recorder: the last state of the tomorrow forecast sensor before each local midnight, paired with that day's solar from the GivTCP daily solar counter. The recorder keeps states for 10 days by default, and the clipped flag cannot be recovered, so seeded days carry `clipped: false`. Needs `recorder` in `after_dependencies` and a real-recorder test | One install: forecast ran about 30% high (median ratio 0.7 over three weeks, 0.45 to 1.16 by day). Replaying the ratios cut the mean absolute error from about 7.7 to 2.4 kWh a day | About 35 (low to medium) | S |
 
 ---
 
@@ -57,13 +56,7 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 
 | Item | What and why | Evidence | Indicative value per year | Size |
 |---|---|---|---|---|
-| **S8 Prompt for the battery cost** | `battery_cost_eur` is 0 by default, so wear is 0 and `net_saving_today` equals `saving_vs_grid_today`. Ask for it in setup, or raise a repair. Wear per kWh delivered is cost / (usable capacity x rated cycles) | With a battery cost of 0 both sensors read the same value | Not applicable (wear sets the margin per kWh) | S |
-| **S10 Surface tariff mismatches** | GivTCP can hold its own import and export rates. Show the difference in a repair or a diagnostic attribute when they disagree with the tariff entered here, and when a configured value looks implausible, such as a VAT rate that disagrees with the one on the bill. A wrong rate or VAT value scales every cost figure. See open question 2 | Seen on one install: GivTCP and the manager held different rates, which moved total cost by about 5% | Not applicable | S |
-| **S9 Define or rename the "peak" import sensors** | `import_kwh_peak_*`, `import_cost_peak_*` and `peak_import_fraction_today` measure the base rate. No peak band is configured. Change the display names and docs to base-rate wording and keep the entity ids, so statistics stay intact | `docs/sensors.md` | Not applicable | S |
-| **S11 Settle the 200 cap on forecast accuracy** | `yesterday_forecast_accuracy_pct` and the 7-day average read "capped at 200" (`_forecast_accuracy_pct` in `accumulation.py`). Remove the cap or explain why it is there. The forecast sensors are now named for what they hold (charge plan and provider) | Review of the forecast sensors | Not applicable | S |
 | **S12 Redefine the immersion savings sensors** | `immersion_savings_*` count diverted solar kWh only, and the heater is not managed, so they read near zero while the immersion draws far more from the grid. Rename, or add a cost by band for the immersion | One install: the monthly savings sensor read under 1 while the immersion used over 100 kWh | Not applicable | S |
-| **S13 Guard battery round-trip efficiency** | `battery_roundtrip_efficiency_today` reads misleadingly low early in the day, when little energy has moved. Add a minimum throughput, or use the lifetime ratio. The sensor is off by default | One install: the daily figure read about half the lifetime ratio from a part-day total | Not applicable | S |
-| **S14 Fix the year-on-year `import_cost` delta** | `_delta` reads `import_cost` from the stored snapshot, but a snapshot stores `import_cost_by_period`. The delta equals the whole current cost and `delta_pct` is null. `tests/golden_services.json` pins 47.5 for `year_on_year_full`. Fix it and regenerate that one case. Invisible until 12 billing months of snapshots exist | `services.py`, `_year_on_year` | Not applicable | S |
 
 ### Setup and delivery
 
@@ -71,7 +64,6 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 |---|---|---|---|---|
 | **S18 Require status checks on the `main` ruleset** | The ruleset has no required checks today (it has non-fast-forward, creation, pull request and code scanning rules). Require `lint`, `Tests (Python 3.13)`, `Tests (Python 3.14)`, `Home Assistant end-to-end`, `validate`, `HACS Action` and `Analyze (python)`. A repository settings change, not code | `.github/workflows/` | Not applicable | S |
 | **S17 Add a per-appliance power list with roles** | Discover power sensors from the Home Assistant label `device_power`. Fall back to `device_class: power` in W with `state_class: measurement`, and skip entities with no statistics. Roles: `always_on`, `schedulable_cycle`, `discretionary`, `ev`, `immersion`. Foundation for C1 to C4 | One install: metered devices covered under half of the non-EV, non-immersion load | Not applicable (unlocks C1 to C4) | M |
-| **S15 Add dated tariff changes and a stale-tariff repair** | Apply a new rate set from an effective date. Raise a repair when rates have not been reviewed for a long time | One install: costs read low until the rates were updated after a supplier price change | Not applicable | M |
 
 ---
 
@@ -79,11 +71,10 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 
 | Item | What and why | Evidence | Indicative value per year | Size |
 |---|---|---|---|---|
-| **C7 Fix the dry-run managed switch** | In dry run, a press on the managed switch sends nothing and records nothing (`_send_manual` in `immersion_actuator.py`), while the actuator state still changes. Record it as a skipped action | Reading `immersion_actuator.py` | Not applicable | S |
-| **C8 Use the service constant in `button.py`** | `button.py` calls the literal `"get_dashboard_yaml"`. Use `SERVICE_GET_DASHBOARD_YAML` from `const.py` | `button.py`, `const.py` | Not applicable | S |
-| **C10 Fix the first-setup currency and units form quirk** | Currency and units on the first-setup form behave unexpectedly. Reproduce and describe it before changing it | User request | Not applicable | S |
+| **C10 Fix the first-setup currency and units form quirk** | Currency and units on the first-setup form behave unexpectedly. Not reproduced from the description: the price unit labels (for example `EUR/kWh`) follow the chosen currency only when the form is shown again after an error, and a clean submit stores the chosen currency with the default prices unchanged. Needs a description of what is expected | User request | Not applicable | S |
 | **C25 Model battery round-trip loss in the charge simulation** | The forward simulation assumes no loss between the grid, the battery and the house, so it plans slightly too little charge. Add one efficiency factor, kept in one constant, and use it in the charge target and in any energy-balance estimate | Predbat comparison | Small (low) | S |
 | **C26 Extend the charge window start for tariffs with no cheaper-than-base period after the cheapest** | The window end is only extended into cheaper-than-base periods that follow the cheapest one (shipped as a plan-sized charge window). A tariff whose cheapest period is the last cheap band before the base rate keeps a window the plan can outgrow. Start the window earlier, inside a cheaper-than-base period that precedes the cheapest, and move the pre-window write trigger with it. The cheapest hours then no longer come first, so write the start only as far back as the plan needs | Design of the plan-sized charge window | Not known. Depends on how many tariffs have this shape (low) | M |
+| **C27 Date the standing charge, levy, VAT and discount** | Dated rate changes cover the unit rates only. The bill estimate reverses accumulated import cost with one VAT and discount factor and multiplies one standing charge by the days, so a change to any of them part-way through a period is wrong for the earlier days. Needs a per-day bill split in `calculate_bill` and the projected bill | Left out of the dated rate changes on purpose | Not applicable | M |
 | **C1 Add standby baseline and unmetered load sensors** | `standby_baseline_w` (rolling 4 h minimum of rest-of-house load), `standby_cost_per_year`, `metered_always_on_w` and `unmetered_load_w`. They show where the base load goes. Needs S17 and M3 | One install: the overnight floor was a few hundred watts, and most of it was not metered | Not applicable (shows where cost goes, not a saving) | M |
 | **C4 Add data-quality diagnostics** | Report a negative energy sensor, power sensors that are unavailable with no statistics, unit mismatches (a power sensor in kW) and delta counters marked `total_increasing`. Skip these in discovery. Needs S17 | Found while auditing one install's sensors | Not applicable | M |
 | **C2 Detect appliance cycles** | Washing machine or dishwasher start, run length and kWh per cycle, with a suggestion to run it in the cheapest window or on sunny hours. Where the cheap rate is close to the export rate, moving to sunny hours pays little, so lead with the cheapest window. Needs S17 | One install: about half of cycles started in the base-rate band | 10 to 40 (low) | M |
@@ -152,12 +143,9 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 
 1. **M3 first.** S3, S5, S2 and C1 need real EV power, and the load baseline must exclude the EV.
 2. **One writer for the charge schedule.** S1 and S5 write it. All go through `GivTCPWriter`, so the verified read-back and write counting apply.
-3. **S8 before S6 and C5.** A recommendation or a daily review needs a trustworthy saving. S8 makes net saving include wear.
-4. **M4 and S10 settle the inputs.** The forecast and the tariff feed every money figure on this page.
-5. **S17 before C1 to C4, N6 and N7.** The device list is the foundation. C1 comes before C3. C2 comes before N7. C17 comes before N8. S4 comes before N4.
-6. **S1, S2 and S4 share the cheap windows.** The battery, the EV and the immersion can together draw more than the supply allows. Do C19 or add a supply limit check before enabling more than one by default.
-7. **C12 between stacks, then C11.** The layout move touches `coordinator.py`. Fix the types after the move, so each error is fixed once at its final path.
-8. **S14 in its own commit.** It changes one golden case on purpose.
+3. **S17 before C1 to C4, N6 and N7.** The device list is the foundation. C1 comes before C3. C2 comes before N7. C17 comes before N8. S4 comes before N4.
+4. **S1, S2 and S4 share the cheap windows.** The battery, the EV and the immersion can together draw more than the supply allows. Do C19 or add a supply limit check before enabling more than one by default.
+5. **C12 between stacks, then C11.** The layout move touches `coordinator.py`. Fix the types after the move, so each error is fixed once at its final path.
 
 ---
 
@@ -166,7 +154,6 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 Comment on a GitHub issue to weigh in.
 
 1. **Do most users plug the car in most nights?** The top of the S2 range assumes it. Without it, S3 holds most of the value and S2 is not worth an L.
-2. **Which rates win when GivTCP and the manager disagree?** The proposal is that the tariff entered here always wins, and GivTCP's values are shown for comparison only (S10).
 
 ---
 
@@ -179,7 +166,7 @@ Comment on a GitHub issue to weigh in.
 | Forecast.Solar is less accurate for east-west arrays | Charge target may be slightly off. A template sensor that sums the arrays works | C22 |
 | Bill prediction assumes constant daily usage | Inaccurate early in the billing period | Improves as data builds up |
 | GivTCP must be installed and running | Hard dependency. Detection is in place | C23 |
-| Tariff rates are entered by hand | A supplier price change leaves costs low until the options are updated | S15 |
+| The standing charge, levy, VAT and discount apply from the moment they are saved, not from a date | A change part-way through a bill period makes the bill estimate wrong for the days before it | C27 |
 | Season rules use northern hemisphere months | Winter behaviour starts in the wrong months in the southern hemisphere | C24 |
 | Cycle count is an estimate when GivTCP publishes no BMS counter | Can differ from the battery's own counter | Counts discharge only since v0.4.0 |
 | Monetary sensors use a currency symbol as the unit | Newer Home Assistant versions may reject statistics | C14 |
