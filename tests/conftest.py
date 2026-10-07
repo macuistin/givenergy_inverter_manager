@@ -244,6 +244,9 @@ _ep.AddEntitiesCallback = MagicMock
 if "homeassistant.helpers.event" not in sys.modules:
     sys.modules["homeassistant.helpers.event"] = types.ModuleType("homeassistant.helpers.event")
 sys.modules["homeassistant.helpers.event"].async_track_time_change = lambda *a, **kw: lambda: None
+sys.modules["homeassistant.helpers.event"].async_track_state_change_event = (
+    lambda *a, **kw: lambda: None
+)
 
 
 # homeassistant.core needs ServiceCall for services.py
@@ -357,4 +360,5 @@ def _run(
         override_skip_charge=kwargs.get("override_skip_charge", False),
         today_raw_forecast_kwh=kwargs.get("today_raw_forecast_kwh"),
         today_raw_forecast_p10_kwh=kwargs.get("today_raw_forecast_p10_kwh"),
+        held_charge=kwargs.get("held_charge"),
     )

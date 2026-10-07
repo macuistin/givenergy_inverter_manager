@@ -27,16 +27,23 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.const import STATE_ON
+from homeassistant.const import STATE_ON, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
+from .const import DOMAIN
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .core.devices import Device
 from .entity import GivEnergyEntity
 from .logging import get_logger
-from .optional_devices import AUTO_IMMERSION, IMMERSION_MANAGED, async_add_entities_per_device
+from .optional_devices import (
+    AUTO_IMMERSION,
+    IMMERSION_MANAGED,
+    async_add_entities_per_device,
+    present_devices,
+)
 
 _LOG = get_logger(__name__)
 
@@ -68,7 +75,25 @@ async def async_setup_entry(
             GivEnergyImmersionControlSwitch(coordinator),
         ]
 
+    if Device.IMMERSION_SWITCH not in present_devices(entry):
+        _remove_managed_switch(hass, entry)
+
     async_add_entities_per_device(entry, async_add_entities, _switches_of)
+
+
+def _managed_switch_unique_id(entry: GivEnergyConfigEntry) -> str:
+    return f"{entry.entry_id}_immersion_managed"
+
+
+def _remove_managed_switch(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Delete the managed switch left behind after the immersion switch was cleared."""
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        Platform.SWITCH, DOMAIN, _managed_switch_unique_id(entry)
+    )
+    if entity_id is not None:
+        registry.async_remove(entity_id)
+        _LOG.info("Removed the managed immersion switch %s, no immersion switch is set", entity_id)
 
 
 class GivEnergyAutoImmersionSwitch(
@@ -117,7 +142,7 @@ class GivEnergyImmersionControlSwitch(GivEnergyEntity, SwitchEntity):
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_immersion_managed"
+        self._attr_unique_id = _managed_switch_unique_id(coordinator.entry)
 
     @property
     def is_on(self) -> bool:

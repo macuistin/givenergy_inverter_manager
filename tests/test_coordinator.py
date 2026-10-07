@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
@@ -40,6 +41,7 @@ from custom_components.givenergy_inverter_manager.const import (
 )
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter, SwitchState
@@ -116,6 +118,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         from custom_components.givenergy_inverter_manager.logging import GivLogger
 
         self._battery_stats = BatteryStats()
+        self._held_charge = HeldCharge()
         self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""
 
@@ -396,6 +399,28 @@ class TestCollectRaw:
         coord.set_state("switch.immersion", "off")
         raw = coord._collect_raw(coord._effective_cfg())
         assert raw.immersion_on is False
+
+    def test_flags_an_immersion_switch_that_is_configured(self):
+        coord = FakeCoordinator(cfg=_cfg(**{CONF_IMMERSION_SWITCH: "switch.immersion"}))
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.immersion_switch_configured is True
+
+    def test_flags_a_missing_immersion_switch(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.immersion_switch_configured is False
+
+    def test_reads_the_immersion_switch_from_options_over_data(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.entry.options = {CONF_IMMERSION_SWITCH: "switch.immersion"}
+        raw = coord._collect_raw(coord._effective_cfg())
+        assert raw.immersion_switch_configured is True
+
+    def test_flags_no_ev_charger_until_one_is_discovered(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        assert coord._collect_raw(coord._effective_cfg()).ev_charger_present is False
+        coord._ev_charger = TestApplyEvAction()._charger()
+        assert coord._collect_raw(coord._effective_cfg()).ev_charger_present is True
 
     def test_no_forecast_when_entity_not_configured(self):
         coord = FakeCoordinator(cfg=_cfg())
@@ -1076,6 +1101,21 @@ class TestWriteChargeTarget:
         assert number_calls[0]["value"] == 75
 
     @pytest.mark.asyncio
+    async def test_the_write_uses_the_fresh_decision_not_the_published_one(self):
+        coord = self._coord_with_decision(target_soc=91)
+        coord.data.published_charge_decision = replace(coord.data.charge_decision, target_soc=87)
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        await coord.tasks_created[0]
+        assert coord.service_calls_for("number", "set_value")[0]["value"] == 91
+
+    def test_the_write_releases_the_held_recommendation(self):
+        coord = self._coord_with_decision(target_soc=91)
+        coord._held_charge.decision = replace(coord.data.charge_decision, target_soc=87)
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        coord.tasks_created[0].close()
+        assert coord._held_charge.decision is None
+
+    @pytest.mark.asyncio
     async def test_enable_charge_target_on_below_100(self):
         coord = self._coord_with_decision(target_soc=85)
         coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
@@ -1201,6 +1241,25 @@ class TestEffectiveCfg:
         coord.entry.options = {}
         cfg = coord._effective_cfg()
         assert cfg["base_rate"] == pytest.approx(0.33)
+
+
+class TestImmersionSwitchFromOptions:
+    """The actuator reads the immersion switch from options over data, like everything else."""
+
+    def test_switch_saved_only_in_options_is_used(self):
+        coord = FakeCoordinator(cfg={})
+        coord.entry.options = {"immersion_switch_entity": "switch.heater"}
+        assert coord.immersion._ports.switch_entity() == "switch.heater"
+
+    def test_option_replaces_the_setup_switch(self):
+        coord = FakeCoordinator(cfg={"immersion_switch_entity": "switch.old"})
+        coord.entry.options = {"immersion_switch_entity": "switch.new"}
+        assert coord.immersion._ports.switch_entity() == "switch.new"
+
+    def test_cleared_option_hides_the_setup_switch(self):
+        coord = FakeCoordinator(cfg={"immersion_switch_entity": "switch.old"})
+        coord.entry.options = {"immersion_switch_entity": ""}
+        assert not coord.immersion._ports.switch_entity()
 
 
 # ── TestApplyEvAction ─────────────────────────────────────────────────────────
@@ -2095,16 +2154,91 @@ class TestReadOptionalFloatProxy:
         coord._read_optional_float("sensor.temp")  # must not raise
 
 
-class TestEVRediscoveryNullPowerEntity:
-    """Coordinator must retry EV discovery when power_entity is None."""
+ZAPPI_PLUG = "sensor.myenergi_zappi_plug_status"
+ZAPPI_POWER = "sensor.myenergi_zappi_internal_load_ct1"
+ZAPPI_SESSION = "sensor.myenergi_zappi_charge_added_session"
+ZAPPI_MODE = "select.myenergi_zappi_charge_mode"
 
-    def test_retry_condition_in_source(self):
 
-        src = (PKG / "coordinator.py").read_text()
-        assert "self._ev_charger.power_entity is None" in src, (
-            "Without this, a charger cached on boot with no power entity "
-            "never gets updated even after the entity appears in HA."
-        )
+class TestEVRediscovery:
+    """Discovery repeats every fifth minute until power, session and charge mode are found."""
+
+    def _coord(self, *entities):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.set_states(dict.fromkeys((ZAPPI_PLUG, *entities), "1"))
+        return coord
+
+    def _discover_at(self, coord, cycle):
+        coord._update_cycle = cycle
+        coord._maybe_rediscover_ev()
+
+    def test_a_charger_with_no_power_entity_is_completed_when_it_appears(self):
+        coord = self._coord()
+        self._discover_at(coord, 1)
+        assert coord._ev_charger.power_entity is None
+        coord.set_state(ZAPPI_POWER, "0")
+        self._discover_at(coord, 11)
+        assert coord._ev_charger.power_entity == ZAPPI_POWER
+
+    def test_a_charger_missing_only_its_charge_mode_is_completed_when_it_appears(self):
+        coord = self._coord(ZAPPI_POWER, ZAPPI_SESSION)
+        self._discover_at(coord, 1)
+        assert coord._ev_charger.charge_mode_entity is None
+        coord.set_state(ZAPPI_MODE, "Fast")
+        self._discover_at(coord, 11)
+        assert coord._ev_charger.charge_mode_entity == ZAPPI_MODE
+
+    def test_a_charger_missing_only_its_session_entity_is_completed_when_it_appears(self):
+        coord = self._coord(ZAPPI_POWER, ZAPPI_MODE)
+        self._discover_at(coord, 1)
+        assert coord._ev_charger.session_energy_entity is None
+        coord.set_state(ZAPPI_SESSION, "2.5")
+        self._discover_at(coord, 11)
+        assert coord._ev_charger.session_energy_entity == ZAPPI_SESSION
+
+    def test_the_charger_object_and_its_state_survive_completion(self):
+        coord = self._coord(ZAPPI_POWER)
+        self._discover_at(coord, 1)
+        charger = coord._ev_charger
+        charger.power_w = 7200.0
+        coord.set_states({ZAPPI_SESSION: "2.5", ZAPPI_MODE: "Fast"})
+        self._discover_at(coord, 11)
+        assert coord._ev_charger is charger
+        assert charger.power_w == pytest.approx(7200.0)
+
+    def test_scanning_waits_for_the_fifth_minute(self):
+        coord = self._coord(ZAPPI_POWER)
+        self._discover_at(coord, 1)
+        coord.set_state(ZAPPI_MODE, "Fast")
+        self._discover_at(coord, 5)
+        assert coord._ev_charger.charge_mode_entity is None
+
+    def test_a_complete_charger_is_not_scanned_again(self):
+        coord = self._coord(ZAPPI_POWER, ZAPPI_SESSION, ZAPPI_MODE)
+        self._discover_at(coord, 1)
+        coord._get_all_states = lambda: pytest.fail("a complete charger must not be rescanned")
+        self._discover_at(coord, 11)
+
+    def test_a_charger_without_a_mode_select_keeps_being_scanned_without_changing(self, caplog):
+        import logging
+
+        coord = self._coord(ZAPPI_POWER, ZAPPI_SESSION)
+        self._discover_at(coord, 1)
+        charger = coord._ev_charger
+        with caplog.at_level(logging.INFO):
+            self._discover_at(coord, 11)
+        assert coord._ev_charger is charger
+        assert not [r for r in caplog.records if r.levelno >= logging.INFO]
+
+    def test_no_charger_yet_is_found_when_it_appears(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        self._discover_at(coord, 1)
+        assert coord._ev_charger is None
+        coord.set_states({ZAPPI_PLUG: "EV Connected", ZAPPI_POWER: "0"})
+        self._discover_at(coord, 11)
+        assert coord._ev_charger is not None
 
 
 class TestEntityUnavailable:
@@ -3543,3 +3677,116 @@ class TestBackgroundTasks:
 
         with pytest.raises(asyncio.CancelledError):
             await GivEnergyCoordinator._run_background(coord, cancelled())
+
+
+
+
+# ── TestChargeWindowSizing ────────────────────────────────────────────────────
+
+_SERIAL = "fd2309f069"
+_CHARGE_RATE = f"number.givtcp_{_SERIAL}_battery_charge_rate"
+
+
+class TestChargeWindowSizing:
+    """The charge window end is sized to the plan from the GivTCP battery charge rate."""
+
+    @staticmethod
+    def _coord(soc: str = "20", charge_rate: str | None = "3600", **cfg_extra) -> FakeCoordinator:
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_BATTERY_CAPACITY,
+            CONF_INVERTER_SERIAL,
+        )
+
+        coord = FakeCoordinator(
+            cfg=_cfg(**{CONF_INVERTER_SERIAL: _SERIAL, CONF_BATTERY_CAPACITY: 19.0, **cfg_extra})
+        )
+        coord.set_states({**_default_states(), "sensor.battery_soc": soc})
+        if charge_rate is not None:
+            coord.set_state(_CHARGE_RATE, charge_rate)
+        coord.override_charge_enabled = True
+        coord.override_charge_value = 88
+        return coord
+
+    @staticmethod
+    def _written_times(coord: FakeCoordinator) -> dict[str, str]:
+        calls = coord.service_calls_for("select", "select_option")
+        return {c["entity_id"]: c["option"] for c in calls}
+
+    async def _write(self, coord: FakeCoordinator) -> None:
+        await coord.run_cycle()
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        await coord.tasks_created[0]
+
+    @pytest.mark.parametrize(
+        ("rate_state", "expected"),
+        [
+            ("3600", 3600.0),
+            ("2600.0", 2600.0),
+            ("0", None),
+            ("unavailable", None),
+            ("unknown", None),
+        ],
+    )
+    def test_reads_the_charge_rate_from_the_serial_derived_entity(self, rate_state, expected):
+        coord = self._coord(charge_rate=rate_state)
+
+        raw = coord._collect_raw(coord._effective_cfg())
+
+        assert raw.battery_charge_rate_w == expected
+
+    def test_a_missing_charge_rate_entity_reads_as_unknown(self):
+        coord = self._coord(charge_rate=None)
+
+        assert coord._collect_raw(coord._effective_cfg()).battery_charge_rate_w is None
+
+    def test_no_inverter_serial_reads_as_unknown(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states({**_default_states(), _CHARGE_RATE: "3600"})
+
+        assert coord._collect_raw(coord._effective_cfg()).battery_charge_rate_w is None
+
+    @pytest.mark.asyncio
+    async def test_a_deep_deficit_writes_the_extended_end(self):
+        coord = self._coord()
+
+        await self._write(coord)
+
+        written = self._written_times(coord)
+        assert written["select.charge_start"] == "02:00:00"
+        assert written["select.charge_end"] == "06:10:00"
+
+    @pytest.mark.asyncio
+    async def test_a_shallow_deficit_writes_the_cheapest_period_end(self):
+        coord = self._coord(soc="75")
+
+        await self._write(coord)
+
+        assert self._written_times(coord)["select.charge_end"] == "04:00:00"
+
+    @pytest.mark.asyncio
+    async def test_an_unreadable_charge_rate_writes_the_cheapest_period_end(self):
+        coord = self._coord(charge_rate=None)
+
+        await self._write(coord)
+
+        assert self._written_times(coord)["select.charge_end"] == "04:00:00"
+
+    @pytest.mark.asyncio
+    async def test_a_skipped_night_resets_the_window_to_the_cheapest_period(self):
+        coord = self._coord()
+        coord.override_charge_enabled = False
+        coord.override_skip_charge = True
+
+        await self._write(coord)
+
+        assert self._written_times(coord)["select.charge_end"] == "04:00:00"
+
+    @pytest.mark.asyncio
+    async def test_dry_run_shows_the_extended_window(self):
+        coord = self._coord(**{CONF_DRY_RUN: True})
+        await coord.run_cycle()
+
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+
+        assert coord.tasks_created == []
+        assert "Nightboost window 02:00–06:10" in coord.data.dry_run_last_skipped

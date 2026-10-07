@@ -19,6 +19,7 @@ from .const import (
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.tariff import EnergyAccumulator
+from .core.write_log import newest_first
 
 # Power inside this band either side of zero counts as no flow.
 POWER_DIRECTION_BAND_W = 50
@@ -169,11 +170,45 @@ def cheap_import_percentage(accumulator: EnergyAccumulator) -> float | None:
 # ── Overnight charge and night survival ──────────────────────────────────────
 
 
+def overnight_charge_target(data: CoordinatorData) -> int | None:
+    """Return the published recommended target, None before the first decision."""
+    if data.published_charge_decision:
+        return data.published_charge_decision.target_soc
+    return None
+
+
+def overnight_charge_reason(data: CoordinatorData) -> str | None:
+    """Return why the published target was recommended, None before the first decision."""
+    if data.published_charge_decision:
+        return data.published_charge_decision.reason
+    return None
+
+
 def overnight_charge_cost(data: CoordinatorData) -> float | None:
     """Return the cost of tonight's planned charge, None before the first decision."""
-    if data.charge_decision:
-        return round(data.charge_decision.cost_to_charge, 3)
+    if data.published_charge_decision:
+        return round(data.published_charge_decision.cost_to_charge, 3)
     return None
+
+
+def overnight_charge_window(data: CoordinatorData) -> str | None:
+    """Return the charge window to write, for example "02:00 to 06:30", None before a decision."""
+    return data.charge_window.text if data.charge_window else None
+
+
+def overnight_charge_window_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Return what the window is sized for, None when there is no window."""
+    window = data.charge_window
+    if window is None:
+        return None
+    finish = window.finish_time
+    return {
+        "window_start": window.start.strftime("%H:%M"),
+        "window_end": window.end.strftime("%H:%M"),
+        "window_extended": window.extended,
+        "expected_kwh": window.expected_kwh,
+        "expected_finish": finish.strftime("%H:%M") if finish else None,
+    }
 
 
 def night_survival_confidence(data: CoordinatorData) -> str | None:
@@ -203,6 +238,11 @@ def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
             data.survival_reason,
         )
     )
+
+
+def register_write_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """The recent writes and outside changes to the charge entities, newest first."""
+    return {"recent_writes": newest_first(data.register_write_log)}
 
 
 # ── Inverter and carbon ──────────────────────────────────────────────────────

@@ -15,13 +15,21 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="overnight_charge_target",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda d: d.charge_decision.target_soc if d.charge_decision else None,
+        value_fn=values.overnight_charge_target,
     ),
     GivEnergyManagerSensorDescription(
         key="overnight_charge_reason",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="overnight_charge_reason",
-        value_fn=lambda d: d.charge_decision.reason if d.charge_decision else None,
+        value_fn=values.overnight_charge_reason,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="overnight_charge_window",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="overnight_charge_window",
+        icon="mdi:clock-time-four-outline",
+        attrs_fn=values.overnight_charge_window_attributes,
+        value_fn=values.overnight_charge_window,
     ),
     GivEnergyManagerSensorDescription(
         key="overnight_charge_cost",

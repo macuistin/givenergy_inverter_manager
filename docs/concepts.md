@@ -28,10 +28,10 @@ Every 30 seconds the coordinator runs these steps in order.
 1. Merge configuration. Saved options override the values entered at setup.
 2. Raise or clear the repair issues: one for a minimum SoC above 30%, one for other charge slots with a window set.
 3. Check GivTCP. If both the solar power sensor and the battery SoC sensor are `unavailable`, `unknown` or missing, the cycle fails and every entity of the integration becomes unavailable until GivTCP returns. See [Troubleshooting](troubleshooting.md#all-entities-are-unavailable).
-4. Look for an EV charger. While none is found, discovery repeats about every 5 minutes (every tenth cycle).
+4. Look for an EV charger. Until one is found with its power, session and charge mode entities, discovery repeats about every 5 minutes (every tenth cycle). Entities that appear later are added with no reload.
 5. Read the sensors: solar power, battery SoC, battery power, grid power, house load, the optional immersion temperature, forecasts, carbon intensity and inverter temperature, the EV charger, and the GivTCP daily energy counters.
 6. Run the engine. It finds the current rate, adds the time since the last cycle to the today, week, month and year totals, applies the GivTCP daily counters to today's totals, and works out the charge target, immersion decision, bill figures, night survival and EV signals.
-7. Record the day's first forecast value, for the forecast accuracy sensors.
+7. Record the day's first forecast value, for the Solar forecast today sensor, and the latest forecast for tomorrow, which the forecast accuracy sensors and the accuracy correction measure the next day against.
 8. Apply the cheap rate floor, if it is due.
 9. Apply the EV mode change, if one was requested.
 10. Apply the immersion decision to your real immersion switch. The first cycle after a start or reload skips this step, because the real switch may not be up yet. It runs even when the managed switch entity is disabled. The managed switch shows the decision and lets you override it.
@@ -57,7 +57,7 @@ GivTCP writes use registers with a limited lifetime. Each write helper:
 - skips the write when the same value was written to the same entity in the last 300 seconds (a different value is still written);
 - reads the entity back after 2 seconds and retries up to 3 times;
 - catches an error from the service call, logs it and carries on instead of stopping the task;
-- counts each write in the GivTCP Register Write Count sensor, and logs a warning at 500,000 writes. The count is saved with the accumulated energy and survives restarts.
+- counts each write in the GivTCP Register Write Count sensor, and logs a warning at 500,000 writes. The count is saved with the accumulated energy and survives restarts. It counts writes that were sent. A write skipped because the entity already holds the value is not counted, so a night where only the charge target changed adds 1. Each write is also listed, with its reason, in the sensor's `recent_writes` attribute. See [Find out what changed the charge target](troubleshooting.md#find-out-what-changed-the-charge-target).
 
 If writing the target SoC fails, the charge target is not enabled, so the inverter is not limited to an old target. Charge targets are limited to 4 to 100%, the range GivTCP accepts.
 
@@ -110,6 +110,8 @@ The calculation runs every cycle. The result is written to GivTCP once a day. Th
 7. **Cap.** The target is capped at **Default overnight charge target**, which is 80% unless you change it. The cap also applies to the winter target of 100%.
 8. **Overrides.** Manual overrides replace the result and the cap does not apply to them. See [Entities](entities.md).
 
+**Held recommendation.** The calculated target moves by a few points from cycle to cycle, most of all in the small hours, when the average daily load is extrapolated from very little data. The **Recommended Overnight Charge Target**, **Overnight Charge Reason** and **Estimated Overnight Charge Cost** sensors hold their last value until the calculated target is 5 points or more away from it, or the plan changes between charging and skipping. Overrides and the cap apply at once. The value written to the inverter is never held: it comes from the latest calculation at the moment of the write, and the sensors catch up on the next cycle.
+
 **Forecast adjustments, in order.** Step 3 adjusts the forecast twice before the simulation uses it:
 
 1. **Accuracy correction.** Multiply by the median of actual solar over forecast for the last 14 days, kept between 0.6 and 1.2. It needs 5 usable days. A day with clipping, or with a forecast or solar yield under 0.5 kWh, is not usable. A forecast that runs about 30% high gives a factor near 0.7, so the battery charges for 70% of what the service promises.
@@ -121,7 +123,9 @@ The winter and shoulder month lists are fixed calendar months. They follow north
 
 The average daily load is today's house energy so far, scaled up to 24 hours. It is at least 5 kWh, and 15 kWh in the first 30 minutes after midnight.
 
-**Writing the target.** One minute before the cheapest timed period starts, the integration sets, in order: enable charge schedule on, charge start time, charge end time, target SoC, then enable charge target (on for targets below 100, off for 100). The window is the cheapest timed period. On a skip night it writes the minimum SoC as the target, so the battery can discharge instead of being held at an old target. Nothing is written when the target SoC entity was not detected, or when the tariff has no timed period. The integration owns charge slot 1 only. When another slot (2 to 10) has a window set, it raises the repair **Other charge slots are active**, because the inverter also charges in that slot. See [Troubleshooting](troubleshooting.md#other-charge-slots-are-active).
+**Writing the target.** One minute before the cheapest timed period starts, the integration sets, in order: enable charge schedule on, charge start time, charge end time, target SoC, then enable charge target (on for targets below 100, off for 100). The window starts with the cheapest timed period and is sized to the plan (see below). On a skip night it writes the minimum SoC as the target, so the battery can discharge instead of being held at an old target. Nothing is written when the target SoC entity was not detected, or when the tariff has no timed period. The integration owns charge slot 1 only. When another slot (2 to 10) has a window set, it raises the repair **Other charge slots are active**, because the inverter also charges in that slot. See [Troubleshooting](troubleshooting.md#other-charge-slots-are-active).
+
+**Sizing the window.** The inverter charges from the window start and stops at the target, so the cheapest hours come first. The cheapest period alone can be too short for a deep charge: a two hour period at 3.6 kW adds about 7 kWh. When the plan needs more time, the integration moves the window end later. Hours needed = (target SoC minus current SoC) x battery capacity / battery charge rate, plus 15% for the slowdown near full, rounded up to 5 minutes. The end never goes past the end of the run of timed periods cheaper than the base rate that follows the cheapest period. For example, with Nightboost 02:00 to 04:00 inside Night 23:00 to 08:00, the end can reach 08:00. If the plan fits the cheapest period, nothing changes. The charge rate is read from `number..._battery_charge_rate` on the same inverter. Without it the window stays the cheapest period. A tariff with no cheaper-than-base period after the cheapest one is never extended. The planned window, the energy it should deliver and the expected finish are on the **Overnight Charge Window** sensor. In dry run mode the "would write" text shows the extended window.
 
 **Cheap rate floor.** During a timed period cheaper than the base rate, the integration checks SoC against the floor (default 40%, 0 turns it off). In the cheapest period the full floor applies. In a cheaper-but-not-cheapest period it only acts when SoC is below the minimum SoC plus 5. When it acts, it writes the floor as the target SoC and turns enable charge target on, once per day.
 
@@ -129,6 +133,7 @@ The average daily load is today's house energy so far, scaled up to 24 hours. It
 
 The rule runs in this order. The first match wins.
 
+0. No immersion switch set: do not heat. The reason reads `No immersion switch configured`.
 1. Water below **Immersion Minimum Temperature**: heat, whatever the surplus.
 2. Water at or above **Immersion Target Temperature**: do not heat.
 3. Battery SoC below the divert threshold (default 80%): do not heat.
@@ -145,7 +150,7 @@ The integration writes to your real immersion switch. After each automatic on or
 
 When **Auto Immersion Divert** is off, the rule above is bypassed. The decision becomes off with the reason `Manual override`, and the managed switch asks for the real switch to be off. The minimum temperature rule does not run either.
 
-Turning the managed switch on yourself starts a run to target. So does turning your real switch on from outside, once the integration has switched it at least once. The heater stays on until the water reaches the target. With no temperature sensor it stays on until you turn it off. Turning it off, here or outside, holds off automatic control for 10 minutes.
+Turning the managed switch on yourself starts a run to target. So does turning your real switch on from outside, once the integration has switched it at least once. The heater stays on until the water reaches the target. With no temperature reading, either because no sensor is set or because it is unavailable, the run lasts 5 minutes and then automatic control resumes. Turn it on again to extend it. Turning it off, here or outside, holds off automatic control for 10 minutes.
 
 ### EV charger
 

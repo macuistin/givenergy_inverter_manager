@@ -655,6 +655,57 @@ class TestZappiWithoutSerialInEntityIds:
         assert len(warnings) == 2
 
 
+class TestPartlyDiscoveredCharger:
+    """A charger found before its integration finished loading is completed by a later scan."""
+
+    PLUG_ONLY = {"sensor.myenergi_zappi_plug_status": "EV Connected"}
+    ALL = {
+        **PLUG_ONLY,
+        "sensor.myenergi_zappi_internal_load_ct1": "0",
+        "sensor.myenergi_zappi_charge_added_session": "1.0",
+        "select.myenergi_zappi_charge_mode": "Fast",
+    }
+
+    @pytest.mark.parametrize(
+        "missing",
+        ["internal_load_ct1", "charge_added_session", "charge_mode"],
+    )
+    def test_each_of_power_session_and_mode_is_needed_to_be_complete(self, missing):
+        ids = {k: v for k, v in self.ALL.items() if not k.endswith(missing)}
+        (charger,) = discover_ev_chargers(_states(ids))
+        assert not charger.is_fully_discovered
+
+    def test_a_charger_with_all_three_is_complete(self):
+        (charger,) = discover_ev_chargers(_states(self.ALL))
+        assert charger.is_fully_discovered
+
+    def test_missing_entities_are_adopted_from_a_fresh_scan(self):
+        (partial,) = discover_ev_chargers(_states(self.PLUG_ONLY))
+        (rescanned,) = discover_ev_chargers(_states(self.ALL))
+        filled = partial.fill_missing_entities(rescanned)
+        assert filled == ["power_entity", "session_energy_entity", "charge_mode_entity"]
+        assert partial.is_fully_discovered
+
+    def test_entities_already_found_are_kept(self):
+        (partial,) = discover_ev_chargers(_states(self.PLUG_ONLY))
+        partial.power_entity = "sensor.chosen_power"
+        (rescanned,) = discover_ev_chargers(_states(self.ALL))
+        partial.fill_missing_entities(rescanned)
+        assert partial.power_entity == "sensor.chosen_power"
+
+    def test_runtime_state_is_kept(self):
+        (partial,) = discover_ev_chargers(_states(self.PLUG_ONLY))
+        partial.power_w = 7200.0
+        (rescanned,) = discover_ev_chargers(_states(self.ALL))
+        partial.fill_missing_entities(rescanned)
+        assert partial.power_w == 7200.0
+
+    def test_nothing_is_filled_when_nothing_new_was_found(self):
+        (partial,) = discover_ev_chargers(_states(self.PLUG_ONLY))
+        (rescanned,) = discover_ev_chargers(_states(self.PLUG_ONLY))
+        assert partial.fill_missing_entities(rescanned) == []
+
+
 class TestZappiSessionAsPublished:
     """The plug and status values a Zappi publishes through one evening, plug-in to completion.
 

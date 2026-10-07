@@ -157,6 +157,52 @@ class TestAccumulateEnergy:
         assert acc_60.solar_kwh == pytest.approx(acc_30.solar_kwh * 2, rel=0.01)
 
 
+class TestOptionalDevices:
+    """An install with no immersion switch or EV charger gets no figures about them."""
+
+    _SURPLUS = {
+        "solar_power_w": 4500.0,
+        "house_load_w": 500.0,
+        "battery_soc": 85.0,
+        "battery_power_w": 200.0,
+        "immersion_temp": 40.0,
+        "immersion_min_temp": 30.0,
+    }
+    _EXPORTING_FULL = {"battery_soc": 100.0, "grid_power_w": -3000.0, "solar_power_w": 4000.0}
+
+    def _missed_solar_kwh(self, **raw_kwargs):
+        acc = EnergyAccumulator()
+        tariff = build_tariff(_nightboost_cfg())
+        now = datetime(2024, 6, 15, 14, 0)
+        raw = _raw(**self._EXPORTING_FULL, **raw_kwargs)
+        accumulate_energy(acc, raw, tariff, "Day", now, now - timedelta(minutes=30))
+        return acc.missed_solar_kwh
+
+    def test_divert_reason_names_the_missing_switch(self):
+        data, _ = _run(raw=_raw(**self._SURPLUS, immersion_switch_configured=False))
+        assert data.should_divert_immersion is False
+        assert data.divert_reason == "No immersion switch configured"
+
+    def test_divert_reason_is_unchanged_with_a_switch(self):
+        data, _ = _run(raw=_raw(**self._SURPLUS, immersion_switch_configured=True))
+        assert data.should_divert_immersion is True
+        assert "Solar surplus" in data.divert_reason
+
+    def test_snapshot_records_that_there_is_no_immersion(self):
+        data, _ = _run(raw=_raw(immersion_switch_configured=False))
+        assert data.immersion_configured is False
+
+    def test_no_missed_solar_without_switch_or_ev(self):
+        assert self._missed_solar_kwh(immersion_switch_configured=False) == 0.0
+
+    def test_missed_solar_counts_with_a_switch(self):
+        assert self._missed_solar_kwh(immersion_switch_configured=True) == pytest.approx(1.5)
+
+    def test_missed_solar_counts_with_only_an_ev_charger(self):
+        kwh = self._missed_solar_kwh(immersion_switch_configured=False, ev_charger_present=True)
+        assert kwh == pytest.approx(1.5)
+
+
 # ── estimate_avg_daily_kwh ────────────────────────────────────────────────────
 
 
@@ -1946,3 +1992,40 @@ class TestBillSensors:
         month.export_earnings = 10.0
         credited, _ = _run(cfg=cfg, now=datetime(2026, 8, 30, 12), acc_month=month)
         assert credited.accrued_bill == pytest.approx(base.accrued_bill - 10.0)
+
+
+class TestChargeWindowInEngine:
+    """The window is sized to the charge decision from the battery charge rate."""
+
+    @staticmethod
+    def _deep_night(**raw_fields):
+        raw = _raw(battery_soc=20.0, battery_capacity_kwh=19.0, **raw_fields)
+        data, _ = _run(raw=raw, override_charge_target=88)
+        return data
+
+    def test_a_known_charge_rate_extends_the_window_into_the_night_band(self):
+        data = self._deep_night(battery_charge_rate_w=3600.0)
+
+        assert data.charge_window.extended is True
+        assert data.charge_window.text == "02:00 to 06:10"
+
+    def test_an_unknown_charge_rate_keeps_the_cheapest_period(self):
+        data = self._deep_night()
+
+        assert data.charge_window.extended is False
+        assert data.charge_window.text == "02:00 to 04:00"
+
+    def test_a_skipped_night_keeps_the_cheapest_period(self):
+        raw = _raw(battery_soc=20.0, battery_capacity_kwh=19.0, battery_charge_rate_w=3600.0)
+        data, _ = _run(raw=raw, override_skip_charge=True)
+
+        assert data.charge_window.extended is False
+        assert data.charge_window.expected_kwh == 0.0
+
+    def test_a_flat_rate_tariff_has_no_window(self):
+        cfg = _nightboost_cfg()
+        cfg["rate_periods"] = []
+        raw = _raw(battery_soc=20.0, battery_charge_rate_w=3600.0)
+        data, _ = _run(raw=raw, cfg=cfg)
+
+        assert data.charge_window is None

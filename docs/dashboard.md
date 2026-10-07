@@ -46,8 +46,8 @@ What each device brings:
 | Device | How the integration knows | Shown when it is there |
 |---|---|---|
 | EV charger | Discovery finds a supported charger. This runs again every five minutes until one is found | Car charger on the flow card, the EV charger tile and sub-view, EV energy and cost tiles |
-| Immersion switch | The switch is set in the integration options | Heater power, energy, cost and savings, the divert reason, the Auto divert and Managed settings, the immersion node on the flow card |
-| Immersion temperature sensor | The sensor is set in the integration options | The Immersion tile with the water temperature, the water temperature chart |
+| Immersion switch | The switch is set under Configure, Immersion heater (or at setup) | Heater power, energy, cost and savings, the divert reason, the Auto divert and Managed settings, the immersion node on the flow card |
+| Immersion temperature sensor | The sensor is set under Configure, Immersion heater (or at setup) | The Immersion tile with the water temperature, the water temperature chart |
 | Switch and sensor together | Both are set | The Target, Minimum and Restart gap tiles and sliders, and the target and minimum lines on the chart |
 
 With only a switch, the Immersion tile shows the heater power and the sub-view has no temperature chart. With only a sensor, it shows the water temperature and nothing about a heater.

@@ -1,36 +1,34 @@
-"""
-The EV charger, the immersion switch and the immersion temperature sensor are optional.
+"""Devices that are optional, or that arrive after the integration: end to end in real Home Assistant.
 
-An entity that needs one exists only while the device does. A device added later brings its
-entities with it, with no restart and no manual step. A device taken away takes them with it.
+* An EV charger whose integration publishes its entities in stages is completed by the
+  five-minute rediscovery, with no reload.
+* A manual immersion run with no temperature sensor ends by itself, instead of heating for ever.
 """
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
-from conftest import (
-    IMMERSION_SWITCH,
-    IMMERSION_TEMP,
-    MIDDAY,
-    ZAPPI_STATES,
-    discover_the_charger,
-    full_config_data,
-)
+from conftest import IMMERSION_SWITCH, MIDDAY, SERIAL, full_config_data
+from homeassistant.components.switch import DATA_COMPONENT
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import (
-    CONF_IMMERSION_MIN_TEMP,
-    CONF_IMMERSION_SWITCH,
-    CONF_IMMERSION_TARGET_TEMP,
     CONF_IMMERSION_TEMP_SENSOR,
     DOMAIN,
+    SENSOR_OUTAGE_HOLD_LIMIT_S,
 )
-from custom_components.givenergy_inverter_manager.core.devices import Device
-from custom_components.givenergy_inverter_manager.optional_devices import _device_entities
 
-SERIAL = "ab1234g567"
+CYCLE = timedelta(seconds=30)
+CYCLES_PER_REDISCOVERY = 10  # the coordinator rescans every tenth cycle
+
+ZAPPI_PLUG = "sensor.myenergi_zappi_plug_status"
+ZAPPI_POWER = "sensor.myenergi_zappi_internal_load_ct1"
+ZAPPI_SESSION = "sensor.myenergi_zappi_charge_added_session"
+ZAPPI_MODE = "select.myenergi_zappi_charge_mode"
 
 
 @pytest.fixture
@@ -38,266 +36,137 @@ def scenario():
     return MIDDAY
 
 
-def _keys_needing(*devices: Device) -> set[str]:
-    return {key for _, key, device in _device_entities() if device in devices}
-
-
-EV_KEYS = _keys_needing(Device.EV_CHARGER)
-SWITCH_KEYS = _keys_needing(Device.IMMERSION_SWITCH)
-SENSOR_KEYS = _keys_needing(Device.IMMERSION_SENSOR)
-THERMOSTAT_KEYS = _keys_needing(Device.IMMERSION_THERMOSTAT)
-
-
-def _config(*, switch: bool, sensor: bool) -> dict:
-    data = full_config_data()
-    for key in (CONF_IMMERSION_SWITCH, CONF_IMMERSION_TEMP_SENSOR):
-        data.pop(key)
-    if switch:
-        data[CONF_IMMERSION_SWITCH] = IMMERSION_SWITCH
-    if sensor:
-        data[CONF_IMMERSION_TEMP_SENSOR] = IMMERSION_TEMP
-    return data
-
-
-async def _setup(hass, *, switch=False, sensor=False, charger=False) -> MockConfigEntry:
-    if charger:
-        for entity_id, state in ZAPPI_STATES.items():
-            hass.states.async_set(entity_id, state)
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title="GivEnergy Inverter Manager",
-        data=_config(switch=switch, sensor=sensor),
-        unique_id=SERIAL,
-        version=1,
-    )
+async def set_up(hass, entry) -> None:
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.LOADED
-    if charger:
-        await discover_the_charger(hass, entry)
-    return entry
 
 
-def _registered(hass, entry) -> set[str]:
-    """The unique ID suffixes of the entities in the registry for this entry."""
-    registry = er.async_get(hass)
-    prefix = f"{entry.entry_id}_"
-    return {
-        e.unique_id.removeprefix(prefix)
-        for e in er.async_entries_for_config_entry(registry, entry.entry_id)
-    }
-
-
-def _states_exist(hass, entry, keys: set[str]) -> bool:
-    """True when every one of these is registered, and has a state unless it is disabled."""
-    registry = er.async_get(hass)
-    for key in keys:
-        entity_id = next(
-            (
-                found
-                for domain in ("sensor", "switch", "number")
-                if (found := registry.async_get_entity_id(domain, DOMAIN, f"{entry.entry_id}_{key}"))
-            ),
-            None,
-        )
-        if entity_id is None:
-            return False
-        if registry.async_get(entity_id).disabled_by is None and hass.states.get(entity_id) is None:
-            return False
-    return True
-
-
-async def _unload(hass, entry) -> None:
-    if entry.state is ConfigEntryState.LOADED:
-        await hass.config_entries.async_unload(entry.entry_id)
+async def cycles(hass, entry, freezer, count: int) -> None:
+    for _ in range(count):
+        freezer.tick(CYCLE)
+        await entry.runtime_data.async_refresh()
         await hass.async_block_till_done()
 
 
-# ── every combination of devices at setup ────────────────────────────────────
-
-COMBINATIONS = {
-    "none": {"switch": False, "sensor": False, "charger": False},
-    "charger only": {"switch": False, "sensor": False, "charger": True},
-    "switch only": {"switch": True, "sensor": False, "charger": False},
-    "sensor only": {"switch": False, "sensor": True, "charger": False},
-    "switch and sensor": {"switch": True, "sensor": True, "charger": False},
-    "everything": {"switch": True, "sensor": True, "charger": True},
-}
-
-
-def _expected(switch: bool, sensor: bool, charger: bool) -> set[str]:
-    keys: set[str] = set()
-    if charger:
-        keys |= EV_KEYS
-    if switch:
-        keys |= SWITCH_KEYS
-    if sensor:
-        keys |= SENSOR_KEYS
-    if switch and sensor:
-        keys |= THERMOSTAT_KEYS
-    return keys
-
-
-@pytest.mark.parametrize("combination", COMBINATIONS)
-async def test_only_the_entities_of_the_devices_present_exist(hass, hass_in_scenario, service_calls, combination):
-    devices = COMBINATIONS[combination]
-    entry = await _setup(hass, **devices)
-
-    device_keys = EV_KEYS | SWITCH_KEYS | SENSOR_KEYS | THERMOSTAT_KEYS
-    assert _registered(hass, entry) & device_keys == _expected(**devices)
-    assert _states_exist(hass, entry, _expected(**devices))
-    await _unload(hass, entry)
-
-
-async def test_an_install_with_no_device_has_no_entity_that_reads_unavailable(
-    hass, hass_in_scenario, service_calls
-):
-    """Before this, an install with no EV charger had six sensors that were never available."""
-    entry = await _setup(hass)
-    registry = er.async_get(hass)
-    unavailable = [
-        registered.entity_id
-        for registered in er.async_entries_for_config_entry(registry, entry.entry_id)
-        if registered.disabled_by is None
-        and hass.states.get(registered.entity_id).state == "unavailable"
-    ]
-    assert unavailable == []
-    await _unload(hass, entry)
-
-
-# ── a device that appears later ──────────────────────────────────────────────
-
-
-async def test_a_charger_found_after_setup_brings_its_entities(hass, hass_in_scenario, service_calls):
-    entry = await _setup(hass)
-    assert _registered(hass, entry).isdisjoint(EV_KEYS)
-
-    for entity_id, state in ZAPPI_STATES.items():
-        hass.states.async_set(entity_id, state)
-    await discover_the_charger(hass, entry)
-
-    assert _states_exist(hass, entry, EV_KEYS)
-    assert entry.state is ConfigEntryState.LOADED  # no reload, no restart
-    await _unload(hass, entry)
-
-
-async def test_a_charger_is_not_added_twice(hass, hass_in_scenario, service_calls):
-    entry = await _setup(hass, charger=True)
-    before = _registered(hass, entry)
-    await discover_the_charger(hass, entry)
-    await discover_the_charger(hass, entry)
-    assert _registered(hass, entry) == before
-    await _unload(hass, entry)
-
-
-async def test_the_immersion_entities_arrive_when_the_options_name_the_devices(
-    hass, hass_in_scenario, service_calls
-):
-    """The options change reloads the entry, and the reload creates what is now needed."""
-    entry = await _setup(hass)
-    assert _registered(hass, entry).isdisjoint(SWITCH_KEYS | SENSOR_KEYS | THERMOSTAT_KEYS)
-
-    hass.config_entries.async_update_entry(
-        entry,
-        options={
-            CONF_IMMERSION_SWITCH: IMMERSION_SWITCH,
-            CONF_IMMERSION_TEMP_SENSOR: IMMERSION_TEMP,
-        },
+def make_entry(data: dict) -> MockConfigEntry:
+    return MockConfigEntry(
+        domain=DOMAIN,
+        title="GivEnergy Inverter Manager",
+        data=data,
+        unique_id=SERIAL,
+        version=1,
     )
-    await hass.async_block_till_done()
-
-    assert entry.state is ConfigEntryState.LOADED
-    assert _states_exist(hass, entry, SWITCH_KEYS | SENSOR_KEYS | THERMOSTAT_KEYS)
-    await _unload(hass, entry)
 
 
-async def test_adding_only_the_switch_later_adds_its_entities_but_not_the_thermostat(
-    hass, hass_in_scenario, service_calls
-):
-    entry = await _setup(hass, sensor=True)
-    hass.config_entries.async_update_entry(
-        entry, options={CONF_IMMERSION_SWITCH: IMMERSION_SWITCH}
-    )
-    await hass.async_block_till_done()
+class TestEvChargerPublishedInStages:
+    @pytest.fixture
+    async def entry(self, hass_in_scenario, service_calls):
+        """Set up while the charger has a status and a power entity but nothing else."""
+        hass = hass_in_scenario
+        hass.states.async_set(ZAPPI_PLUG, "EV Connected")
+        hass.states.async_set(ZAPPI_POWER, "0")
+        entry = make_entry(full_config_data())
+        await set_up(hass, entry)
+        return entry
 
-    registered = _registered(hass, entry)
-    assert SWITCH_KEYS | SENSOR_KEYS | THERMOSTAT_KEYS <= registered
-    await _unload(hass, entry)
+    async def test_the_charge_mode_and_session_entities_are_found_when_they_appear(
+        self, hass_in_scenario, entry, freezer
+    ):
+        hass = hass_in_scenario
+        await cycles(hass, entry, freezer, 3)
+        charger = entry.runtime_data._ev_charger
+        assert charger is not None
+        assert charger.power_entity == ZAPPI_POWER
+        assert charger.charge_mode_entity is None
+        assert charger.session_energy_entity is None
 
+        hass.states.async_set(ZAPPI_SESSION, "1.5")
+        hass.states.async_set(ZAPPI_MODE, "Fast")
+        await cycles(hass, entry, freezer, CYCLES_PER_REDISCOVERY)
 
-# ── a device that goes ───────────────────────────────────────────────────────
+        assert charger.charge_mode_entity == ZAPPI_MODE
+        assert charger.session_energy_entity == ZAPPI_SESSION
+        assert charger.session_kwh == pytest.approx(1.5)
+        assert charger.charge_mode == "Fast"
+        assert entry.runtime_data._ev_charger is charger
 
-
-async def test_removing_the_switch_removes_its_entities_from_the_registry(
-    hass, hass_in_scenario, service_calls
-):
-    entry = await _setup(hass, switch=True, sensor=True)
-    assert SWITCH_KEYS <= _registered(hass, entry)
-
-    hass.config_entries.async_update_entry(entry, options={CONF_IMMERSION_SWITCH: ""})
-    await hass.async_block_till_done()
-
-    registered = _registered(hass, entry)
-    assert registered.isdisjoint(SWITCH_KEYS | THERMOSTAT_KEYS)
-    assert SENSOR_KEYS <= registered  # the sensor is still there
-    await _unload(hass, entry)
-
-
-async def test_removing_the_sensor_removes_the_temperature_entities(
-    hass, hass_in_scenario, service_calls
-):
-    entry = await _setup(hass, switch=True, sensor=True)
-
-    hass.config_entries.async_update_entry(entry, options={CONF_IMMERSION_TEMP_SENSOR: ""})
-    await hass.async_block_till_done()
-
-    registered = _registered(hass, entry)
-    assert registered.isdisjoint(SENSOR_KEYS | THERMOSTAT_KEYS)
-    assert SWITCH_KEYS <= registered
-    await _unload(hass, entry)
+    async def test_the_integration_is_not_reloaded_to_find_them(
+        self, hass_in_scenario, entry, freezer
+    ):
+        hass = hass_in_scenario
+        coordinator = entry.runtime_data
+        hass.states.async_set(ZAPPI_MODE, "Fast")
+        await cycles(hass, entry, freezer, CYCLES_PER_REDISCOVERY)
+        assert entry.state is ConfigEntryState.LOADED
+        assert entry.runtime_data is coordinator
 
 
-async def test_a_charger_that_is_gone_loses_its_entities_at_the_next_reload(
-    hass, hass_in_scenario, service_calls
-):
-    entry = await _setup(hass, charger=True)
-    assert EV_KEYS <= _registered(hass, entry)
+class TestImmersionWithoutATemperatureSensor:
+    @pytest.fixture
+    async def entry(self, hass_in_scenario, service_calls):
+        hass = hass_in_scenario
+        data = full_config_data()
+        data.pop(CONF_IMMERSION_TEMP_SENSOR)
+        entry = make_entry(data)
+        await set_up(hass, entry)
+        return entry
 
-    for entity_id in ZAPPI_STATES:
-        hass.states.async_remove(entity_id)
-    await hass.config_entries.async_reload(entry.entry_id)
-    await hass.async_block_till_done()
+    @pytest.fixture
+    def switch_calls(self, hass_in_scenario, entry) -> list[str]:
+        """The real immersion switch: records each call and follows it."""
+        hass = hass_in_scenario
+        calls: list[str] = []
 
-    assert _registered(hass, entry).isdisjoint(EV_KEYS)
-    await _unload(hass, entry)
+        def handler(service: str, state: str):
+            async def handle(call) -> None:
+                if call.data["entity_id"] == IMMERSION_SWITCH:
+                    calls.append(service)
+                    hass.states.async_set(IMMERSION_SWITCH, state)
 
+            return handle
 
-async def test_a_reload_keeps_the_charger_entities_and_their_ids(
-    hass, hass_in_scenario, service_calls
-):
-    """A charger discovery has not counted yet must not lose its entities across a reload."""
-    entry = await _setup(hass, charger=True)
-    registry = er.async_get(hass)
-    unique_id = f"{entry.entry_id}_ev_power"
-    entity_id = registry.async_get_entity_id("sensor", DOMAIN, unique_id)
-    registry.async_update_entity(entity_id, new_entity_id="sensor.my_car_charger_power")
+        for service, state in (("turn_on", "on"), ("turn_off", "off")):
+            hass.services.async_register("switch", service, handler(service, state))
+        return calls
 
-    await hass.config_entries.async_reload(entry.entry_id)
-    await hass.async_block_till_done()
+    async def press_managed_switch_on(self, hass, entry) -> None:
+        entity_id = er.async_get(hass).async_get_entity_id(
+            "switch", DOMAIN, f"{entry.entry_id}_immersion_managed"
+        )
+        await hass.data[DATA_COMPONENT].get_entity(entity_id).async_turn_on()
+        await hass.async_block_till_done()
 
-    assert registry.async_get_entity_id("sensor", DOMAIN, unique_id) == "sensor.my_car_charger_power"
-    await _unload(hass, entry)
+    async def test_a_manual_run_ends_after_the_outage_hold_limit(
+        self, hass_in_scenario, entry, switch_calls, freezer
+    ):
+        hass = hass_in_scenario
+        immersion = entry.runtime_data.immersion
+        await self.press_managed_switch_on(hass, entry)
+        assert switch_calls == ["turn_on"]
 
+        held_for = timedelta(seconds=SENSOR_OUTAGE_HOLD_LIMIT_S)
+        await cycles(hass, entry, freezer, int(held_for / CYCLE) - 2)
+        assert immersion.override is True
+        assert switch_calls == ["turn_on"]
 
-async def test_changing_a_temperature_slider_keeps_the_entities(hass, hass_in_scenario, service_calls):
-    """The sliders write the entry data without a reload. Nothing is created or removed."""
-    entry = await _setup(hass, switch=True, sensor=True)
-    before = _registered(hass, entry)
-    hass.config_entries.async_update_entry(
-        entry,
-        data={**entry.data, CONF_IMMERSION_TARGET_TEMP: 60, CONF_IMMERSION_MIN_TEMP: 45},
-    )
-    await hass.async_block_till_done()
-    assert _registered(hass, entry) == before
-    await _unload(hass, entry)
+        await cycles(hass, entry, freezer, 4)
+        assert immersion.override is None
+        assert switch_calls == ["turn_on", "turn_off"]
+        assert hass.states.get(IMMERSION_SWITCH).state == "off"
+
+    async def test_an_external_turn_on_ends_after_the_outage_hold_limit(
+        self, hass_in_scenario, entry, switch_calls, freezer
+    ):
+        hass = hass_in_scenario
+        immersion = entry.runtime_data.immersion
+        await cycles(hass, entry, freezer, 2)
+        immersion.last_commanded_on = False
+        hass.states.async_set(IMMERSION_SWITCH, "on")  # a wall button or another automation
+        await cycles(hass, entry, freezer, 2)
+        assert immersion.override is True
+
+        await cycles(hass, entry, freezer, int(timedelta(seconds=SENSOR_OUTAGE_HOLD_LIMIT_S) / CYCLE) + 2)
+        assert immersion.override is None
+        assert switch_calls == ["turn_off"]

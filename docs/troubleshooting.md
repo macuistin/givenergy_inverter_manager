@@ -118,11 +118,24 @@ Work through this list.
 6. Was the same entity written in the last 5 minutes? The write is skipped. With debug logging on, the log says `write cooldown active`.
 7. Check GivTCP's own log for rejected writes.
 
+## Find out what changed the charge target
+
+The charge target, the charge window start and the charge window end can be changed by the integration, by you, by an automation, by GivTCP or by the inverter app. The integration keeps a log of the last 20 changes to these entities, plus the switches it turns on and off with them.
+
+1. Open **Developer Tools → States** and search for `register_write_count`. The **GivTCP Register Write Count** sensor holds the log in its `recent_writes` attribute, newest first.
+2. Read each entry. `time`, `entity_id` and `value` say what changed and when. `reason` says why: `charge target`, `charge window start`, `charge window end`, `floor top-up`, `clear other slot` and similar mean the integration wrote it. `external` means something else changed it.
+3. For an `external` entry, look at `user_id` and `parent_id`. A `user_id` is the Home Assistant user who made the change, for example from a dashboard card. Look it up under **Settings → People**. A `parent_id` is the context of the automation or script that made the change. Search your automation traces for it.
+4. If `user_id` and `parent_id` are both empty, the change did not come through a Home Assistant service call. GivTCP, the inverter app or the inverter itself made it.
+5. Search **Settings → System → Logs** for `outside the manager` to see the same entries as log lines, with the old and new value.
+
+The integration only records these changes. It does not undo them. The log is saved with the integration's other stored data, so it survives restarts. The `external` entries cover the charge target, window start and window end entities only.
+
 ## A charge decision looks wrong
 
 Read **Overnight Charge Reason** first. Then check these:
 
 - **The target is lower than expected, and the reason ends "capped at configured max".** **Default overnight charge target** caps the calculated target. It is 80 unless you changed it, and the cap applies to the winter 100% target too.
+- **The sensor differs by a few points from the value written to the inverter.** **Recommended Overnight Charge Target** holds its value until the calculated target moves 5 points or more, so the history stays readable. The write uses the latest calculation, and the sensor matches it from the next cycle. See [Overnight charge target](concepts.md#overnight-charge-target).
 - **December to February.** The target is 100% before the cap, whatever the forecast.
 - **March, April, October and November.** The minimum SoC is at least 70% in the calculation.
 - **No forecast.** Without a tomorrow sensor, the integration uses a seasonal estimate from your latitude. The reason says so.
@@ -147,6 +160,7 @@ Read **Immersion Divert Reason**. It gives the exact block.
 
 | Reason starts with | Fix |
 |---|---|
+| `No immersion switch configured` | No immersion switch entity is set, so there is nothing to turn on |
 | `Manual override` | **Auto Immersion Divert** is off. Turn it on |
 | `Water already at` | The water is at the target. Wait for it to cool by the restart gap |
 | `Battery SoC ... below threshold` | The divert threshold (default 80%) is set at setup only |
@@ -172,7 +186,7 @@ Accrued Bill This Period is built from the month totals, which start again on th
 
 | Sensor | Reason |
 |---|---|
-| EV sensors | Unavailable until an EV charger is discovered. Discovery retries about every 5 minutes |
+| EV sensors | Unavailable until an EV charger is discovered. Discovery retries about every 5 minutes, until the charger's power, session and charge mode entities are all found |
 | Inverter Temperature and its status | The inverter temperature entity was not detected. The status shows Unknown |
 | Solar actual vs forecast and the carbon sensors | No forecast has been recorded today, or no carbon intensity sensor is set |
 | Minutes Remaining in Rate Period | You are on the base rate |

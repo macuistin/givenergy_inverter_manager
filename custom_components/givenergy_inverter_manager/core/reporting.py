@@ -126,17 +126,28 @@ def _today_cost_rows(data: "CoordinatorData") -> list[str]:
     ]
 
 
-def _today_savings_rows(data: "CoordinatorData") -> list[str]:
+def _immersion_divert_today_row(data: "CoordinatorData") -> list[str]:
+    """The immersion saving row, or nothing when there is no immersion switch."""
+    if not data.immersion_configured:
+        return []
     t = data.today
     sym = data.currency_symbol
     return [
-        _section("💡 Integration Savings"),
         _row(
             "Immersion divert",
             f"{sym}{t.immersion_savings:.2f}" if t.immersion_savings > 0 else "—",
             f"{t.immersion_solar_kwh:.2f} kWh solar diverted" if t.immersion_solar_kwh > 0 else "",
             _S["positive"] if t.immersion_savings > 0 else _S["normal"],
-        ),
+        )
+    ]
+
+
+def _today_savings_rows(data: "CoordinatorData") -> list[str]:
+    t = data.today
+    sym = data.currency_symbol
+    return [
+        _section("💡 Integration Savings"),
+        *_immersion_divert_today_row(data),
         _row("Self-sufficiency", f"{t.self_sufficiency_pct:.1f}%", "", _S["highlight"]),
         _row(
             "Accrued bill",
@@ -161,10 +172,11 @@ def build_today_summary_state(data: "CoordinatorData") -> str:
     """Short sensor state string (≤255 chars) — useful in automations."""
     sym = data.currency_symbol
     t = data.today
+    saved = f"Saved {sym}{t.immersion_savings:.2f} · " if data.immersion_configured else ""
     return (
         f"Solar {t.solar_kwh:.1f} kWh · "
         f"Import {sym}{t.total_import_cost:.2f} · "
-        f"Saved {sym}{t.immersion_savings:.2f} · "
+        f"{saved}"
         f"Self-suff {t.self_sufficiency_pct:.0f}%"
     )[:255]
 
@@ -251,6 +263,22 @@ def _delta(today_val: float, yday_val: float) -> str:
     return f"({'+' if d > 0 else ''}{d:.1f} vs yday)"
 
 
+def _immersion_saved_week_row(data: "CoordinatorData") -> list[str]:
+    """The immersion saving row, or nothing when there is no immersion switch."""
+    if not data.immersion_configured:
+        return []
+    sym = data.currency_symbol
+    w = data.week
+    return [
+        _row(
+            "Immersion saved",
+            f"{sym}{w.immersion_savings:.2f}",
+            f"{w.immersion_solar_kwh:.1f} kWh diverted",
+            _S["positive"],
+        )
+    ]
+
+
 def _week_rows(data: "CoordinatorData") -> list[str]:
     sym = data.currency_symbol
     w = data.week
@@ -278,12 +306,7 @@ def _week_rows(data: "CoordinatorData") -> list[str]:
             peak_style,
         ),
         _row("Import cost", f"{sym}{w.total_import_cost:.2f}"),
-        _row(
-            "Immersion saved",
-            f"{sym}{w.immersion_savings:.2f}",
-            f"{w.immersion_solar_kwh:.1f} kWh diverted",
-            _S["positive"],
-        ),
+        *_immersion_saved_week_row(data),
         _row("Self-sufficiency", f"{w.self_sufficiency_pct:.1f}%", "", _S["highlight"]),
     ]
 
