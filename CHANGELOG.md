@@ -2,6 +2,17 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- The Recommended Overnight Charge Target sensor no longer jitters. The calculated target moves
+  by several points between cycles in the small hours, so the sensor and its reason text
+  changed dozens of times overnight. The sensors now hold their value
+  until the calculated target is 5 points or more away, or the plan changes between charging and
+  skipping. The value written to the inverter at the start of the charge window always comes from
+  the latest calculation, never from the held value. Manual overrides and the configured cap show
+  at once.
+
 ## v0.9.0
 
 Removes three disabled sensors. No option name changes.

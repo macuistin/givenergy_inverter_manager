@@ -110,6 +110,8 @@ The calculation runs every cycle. The result is written to GivTCP once a day. Th
 7. **Cap.** The target is capped at **Default overnight charge target**, which is 80% unless you change it. The cap also applies to the winter target of 100%.
 8. **Overrides.** Manual overrides replace the result and the cap does not apply to them. See [Entities](entities.md).
 
+**Held recommendation.** The calculated target moves by a few points from cycle to cycle, most of all in the small hours, when the average daily load is extrapolated from very little data. The **Recommended Overnight Charge Target**, **Overnight Charge Reason** and **Estimated Overnight Charge Cost** sensors hold their last value until the calculated target is 5 points or more away from it, or the plan changes between charging and skipping. Overrides and the cap apply at once. The value written to the inverter is never held: it comes from the latest calculation at the moment of the write, and the sensors catch up on the next cycle.
+
 **Forecast adjustments, in order.** Step 3 adjusts the forecast twice before the simulation uses it:
 
 1. **Accuracy correction.** Multiply by the median of actual solar over forecast for the last 14 days, kept between 0.6 and 1.2. It needs 5 usable days. A day with clipping, or with a forecast or solar yield under 0.5 kWh, is not usable. A forecast that runs about 30% high gives a factor near 0.7, so the battery charges for 70% of what the service promises.

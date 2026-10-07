@@ -169,10 +169,24 @@ def cheap_import_percentage(accumulator: EnergyAccumulator) -> float | None:
 # ── Overnight charge and night survival ──────────────────────────────────────
 
 
+def overnight_charge_target(data: CoordinatorData) -> int | None:
+    """Return the published recommended target, None before the first decision."""
+    if data.published_charge_decision:
+        return data.published_charge_decision.target_soc
+    return None
+
+
+def overnight_charge_reason(data: CoordinatorData) -> str | None:
+    """Return why the published target was recommended, None before the first decision."""
+    if data.published_charge_decision:
+        return data.published_charge_decision.reason
+    return None
+
+
 def overnight_charge_cost(data: CoordinatorData) -> float | None:
     """Return the cost of tonight's planned charge, None before the first decision."""
-    if data.charge_decision:
-        return round(data.charge_decision.cost_to_charge, 3)
+    if data.published_charge_decision:
+        return round(data.published_charge_decision.cost_to_charge, 3)
     return None
 
 

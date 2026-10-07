@@ -209,6 +209,11 @@ CHARGE_SHOULDER_MIN_SOC = 70  # % — applied instead of battery_min_soc in shou
 CHARGE_WINTER_SKIP_SOC_PCT = 95  # %
 # The overnight target is never planned closer than this to the minimum SoC.
 CHARGE_MIN_TARGET_HEADROOM_PCT = 5  # SoC points above min SoC
+# The published recommendation holds until the fresh target moves this far from it. Overnight
+# readings jitter by ten points or more (early-morning load extrapolation), so a step this size
+# keeps the sensor steady while a change worth acting on still shows. The write uses the fresh
+# target, never the held one.
+CHARGE_TARGET_HOLD_STEP_PCT = 5  # SoC points
 
 CHARGE_PEAK_SOLAR_HOURS = 4.0  # peak-output hours assumed when no forecast available
 CHARGE_SOLAR_USABLE_FRACTION = 0.6  # fraction of forecast kWh we can realistically charge from

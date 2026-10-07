@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
@@ -40,6 +41,7 @@ from custom_components.givenergy_inverter_manager.const import (
 )
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter, SwitchState
@@ -116,6 +118,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         from custom_components.givenergy_inverter_manager.logging import GivLogger
 
         self._battery_stats = BatteryStats()
+        self._held_charge = HeldCharge()
         self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""
 
@@ -1074,6 +1077,21 @@ class TestWriteChargeTarget:
         number_calls = coord.service_calls_for("number", "set_value")
         assert len(number_calls) == 1
         assert number_calls[0]["value"] == 75
+
+    @pytest.mark.asyncio
+    async def test_the_write_uses_the_fresh_decision_not_the_published_one(self):
+        coord = self._coord_with_decision(target_soc=91)
+        coord.data.published_charge_decision = replace(coord.data.charge_decision, target_soc=87)
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        await coord.tasks_created[0]
+        assert coord.service_calls_for("number", "set_value")[0]["value"] == 91
+
+    def test_the_write_releases_the_held_recommendation(self):
+        coord = self._coord_with_decision(target_soc=91)
+        coord._held_charge.decision = replace(coord.data.charge_decision, target_soc=87)
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        coord.tasks_created[0].close()
+        assert coord._held_charge.decision is None
 
     @pytest.mark.asyncio
     async def test_enable_charge_target_on_below_100(self):

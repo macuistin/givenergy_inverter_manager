@@ -96,6 +96,7 @@ from .const import (
     UPDATE_INTERVAL_SECONDS,
 )
 from .core.battery import BatteryStats
+from .core.charge_hold import HeldCharge
 from .core.engine import (
     Accumulators,
     CoordinatorData,
@@ -233,6 +234,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._last_reset_time: str = ""
         self._acc = AccumulationStore(self.hass, self._configured_bill_start_day())
         self._battery_stats = BatteryStats()
+        self._held_charge = HeldCharge()
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
@@ -583,6 +585,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             _LOG.warning("No charge decision available yet — skipping charge target write-back")
             return
         decision = self.data.charge_decision
+        # The sensors catch up with what is written on the next cycle.
+        self._held_charge.decision = None
         if decision.skip_charge:
             self._write_minimum_target(cfg, decision)
         else:
@@ -1066,6 +1070,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 battery_stats=self._battery_stats,
                 last_soc=self._last_soc,
                 last_update_time=self._last_update,
+                held_charge=self._held_charge,
             ),
             ForecastContext(
                 solar_fractions=self._solar_fractions,

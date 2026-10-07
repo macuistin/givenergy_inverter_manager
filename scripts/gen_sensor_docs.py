@@ -365,8 +365,11 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "battery_throughput_budget_status": "OK, High (80% or more) or Over budget.",
     "register_write_count": "Lifetime writes sent to GivTCP. Saved and kept across restarts.",
-    "overnight_charge_target": "Tonight's target after overrides and the configured cap.",
-    "overnight_charge_reason": "Why that target was chosen.",
+    "overnight_charge_target": (
+        "Tonight's target after overrides and the configured cap. Holds its value until the "
+        "calculated target moves 5 points or more."
+    ),
+    "overnight_charge_reason": "Why that target was chosen. Changes only when the target does.",
     "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",
     "estimated_soc_at_sunrise": (
         "Projected SoC when solar starts, taken as 08:00. While solar is generating "

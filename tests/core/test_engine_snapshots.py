@@ -17,6 +17,10 @@ net_saving_today moved. The new behaviour is pinned in test_saving_counterfactua
 
 189 cases were regenerated when the pre-boost export fields left CoordinatorData. Only the three
 pre_boost_export_* leaves were removed, from those cases and from the fresh snapshot.
+
+All 255 cases were regenerated when the published charge recommendation was added. Only the new
+published_charge_decision leaf was added, to the fresh snapshot (None) and to every case. On the
+first cycle it equals charge_decision. The hold itself is pinned in test_charge_hold.py.
 """
 
 from __future__ import annotations
