@@ -157,7 +157,7 @@ This hides the controls. It is not security. Home Assistant has no permissions f
 
 ### Power Flow
 
-![Power Flow view with battery at 73%, live solar, grid, home and battery flow, and today's energy totals.](images/dashboard-power-flow.png)
+![Power Flow view with the battery, the Cheap from tile, live solar, grid, home and battery flow, and today's energy with the forecast tiles.](images/dashboard-power-flow.png)
 
 - **Now**: Battery (state of charge with a bar), Night survival, Rate now, Cost today and Cheap from (Next Cheap Rate Start). Cheap from is a full-width tile that reads the start and the wait in one line, such as `23:00 (in 8 h 56 min)`, or `Now (ends in 5 h 30 min)` while one is active. The end is where the run of cheaper-than-base periods stops, so a cheaper period inside a longer one does not cut it short. Night Survival Confidence is disabled by default, so a new install shows four of the five until you enable it. Night survival reads Safe, Warning or Critical. Tap it to open Battery detail, which says in words why. Tap the Battery tile to open the Battery tab.
 For administrators the heading also holds a **Settings** button.
@@ -187,7 +187,7 @@ Each section shows only while the device it needs exists.
 
 ### Today
 
-![Today view with energy generated, used, imported and exported, cost tiles, and self-sufficiency gauges.](images/dashboard-today.png)
+![Today view with energy generated, used, imported and exported, the card that says where today's energy came from, cost tiles, and self-sufficiency gauges.](images/dashboard-today.png)
 - **Energy**: Generated, Used, Imported, Exported, EV and Immersion.
 - **Where today's energy came from**: three lines in plain words, then one line for each of the EV and the immersion that exists.
   - House used: what the house used, split into solar, battery and grid. Solar and battery show as one figure when the Battery Discharged Today sensor is disabled. The integration enables it on start, unless you disabled it yourself.
