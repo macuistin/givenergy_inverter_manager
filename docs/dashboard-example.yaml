@@ -85,15 +85,10 @@ views:
       entity: sensor.givenergy_inverter_manager_next_cheap_rate_start
       name: Cheap from
       color: blue
+      state_content:
+      - summary
       grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.givenergy_inverter_manager_hours_to_cheap_rate
-      name: Cheap in
-      icon: mdi:timer-outline
-      color: blue
-      grid_options:
-        columns: 6
+        columns: full
   - type: grid
     visibility:
     - condition: state
@@ -886,6 +881,9 @@ views:
       header:
         show: false
       graph_span: 12h
+      yaxis:
+      - id: temp
+        decimals: 0
       apex_config:
         chart:
           height: 180
@@ -894,9 +892,6 @@ views:
         tooltip:
           shared: true
           followCursor: true
-        stroke:
-          curve: smooth
-          width: 2
         markers:
           size: 0
           hover:
@@ -909,6 +904,8 @@ views:
         name: Water
         color: '#03a9f4'
         stroke_width: 2
+        curve: smooth
+        yaxis_id: temp
       grid_options:
         columns: full
       visibility:
@@ -922,6 +919,14 @@ views:
       header:
         show: false
       graph_span: 12h
+      yaxis:
+      - id: temp
+        decimals: 0
+      - id: heater
+        min: 0
+        max: 1
+        decimals: 0
+        show: false
       apex_config:
         chart:
           height: 180
@@ -930,9 +935,6 @@ views:
         tooltip:
           shared: true
           followCursor: true
-        stroke:
-          curve: smooth
-          width: 2
         markers:
           size: 0
           hover:
@@ -945,14 +947,32 @@ views:
         name: Water
         color: '#03a9f4'
         stroke_width: 2
+        curve: smooth
+        yaxis_id: temp
       - entity: number.givenergy_inverter_manager_immersion_target_temperature
         name: Target
         color: '#f44336'
         stroke_width: 1
+        curve: smooth
+        yaxis_id: temp
       - entity: number.givenergy_inverter_manager_immersion_minimum_temperature
         name: Minimum
         color: '#ff9800'
         stroke_width: 1
+        curve: smooth
+        yaxis_id: temp
+      - entity: sensor.givenergy_inverter_manager_immersion_heater_power
+        name: Heater on
+        type: area
+        curve: stepline
+        color: '#ff8a80'
+        opacity: 0.15
+        stroke_width: 0
+        yaxis_id: heater
+        transform: 'return x > 0 ? 1 : 0;'
+        show:
+          in_header: false
+          legend_value: false
       grid_options:
         columns: full
       visibility:
@@ -967,13 +987,52 @@ views:
     - condition: state
       entity: switch.givenergy_inverter_manager_immersion_heater_managed
       state_not: unavailable
+    - condition: state
+      entity: sensor.givenergy_inverter_manager_immersion_water_temperature
+      state: unavailable
     cards:
     - type: heading
-      heading: Why
+      heading: Heater on or off
       heading_style: title
-      icon: mdi:help-circle-outline
-    - type: markdown
-      content: '{{ states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
+      icon: mdi:flash
+    - type: custom:apexcharts-card
+      header:
+        show: false
+      graph_span: 12h
+      yaxis:
+      - id: heater
+        min: 0
+        max: 1
+        decimals: 0
+        show: false
+      apex_config:
+        chart:
+          height: 180
+          zoom:
+            enabled: false
+        tooltip:
+          shared: true
+          followCursor: true
+        markers:
+          size: 0
+          hover:
+            size: 5
+        legend:
+          show: true
+          position: bottom
+      series:
+      - entity: sensor.givenergy_inverter_manager_immersion_heater_power
+        name: Heater on
+        type: area
+        curve: stepline
+        color: '#ff8a80'
+        opacity: 0.15
+        stroke_width: 0
+        yaxis_id: heater
+        transform: 'return x > 0 ? 1 : 0;'
+        show:
+          in_header: false
+          legend_value: false
       grid_options:
         columns: full
   - type: grid
@@ -983,37 +1042,11 @@ views:
       state_not: unavailable
     cards:
     - type: heading
-      heading: Heater power
+      heading: Why
       heading_style: title
-      icon: mdi:flash
-    - type: custom:apexcharts-card
-      header:
-        show: false
-      graph_span: 12h
-      yaxis:
-      - min: 0
-      apex_config:
-        chart:
-          height: 180
-          zoom:
-            enabled: false
-        tooltip:
-          shared: true
-          followCursor: true
-        stroke:
-          curve: stepline
-          width: 2
-        markers:
-          size: 0
-          hover:
-            size: 5
-        legend:
-          show: false
-      series:
-      - entity: sensor.givenergy_inverter_manager_immersion_heater_power
-        name: Power
-        color: '#ff9800'
-        stroke_width: 2
+      icon: mdi:help-circle-outline
+    - type: markdown
+      content: '{{ states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
       grid_options:
         columns: full
   - type: grid

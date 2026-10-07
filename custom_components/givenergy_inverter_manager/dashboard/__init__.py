@@ -31,7 +31,8 @@ so a stored dashboard follows a device that comes or goes with no new file.
 Power flow view requires power-flow-card-plus from HACS:
   https://github.com/flixlix/power-flow-card-plus
 
-The immersion charts need apexcharts-card from HACS:
+The immersion chart (the water temperature, with the heater shaded while it is on) needs
+apexcharts-card from HACS:
   https://github.com/RomRider/apexcharts-card
 
 All other views use only built-in HA Lovelace cards.

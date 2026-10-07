@@ -90,7 +90,12 @@ from .battery import (
     hours_until_solar,
 )
 from .charge_hold import HeldCharge, next_held_recommendation
-from .charge_window import ChargeNeed, ChargeWindow, plan_charge_window
+from .charge_window import (
+    ChargeNeed,
+    ChargeWindow,
+    cheap_run_remaining_minutes,
+    plan_charge_window,
+)
 from .rules import (
     ChargeDecision,
     ChargeInputs,
@@ -245,6 +250,8 @@ class CoordinatorData:
     is_on_cheapest_rate: bool = False
     is_on_base_rate: bool = False
     minutes_remaining_in_period: float | None = None
+    # Minutes until the run of cheaper-than-base periods now active ends, None outside one.
+    cheap_run_remaining_minutes: float | None = None
     rate_savings_vs_daytime: float = 0.0
     estimated_soc_at_sunrise: float = 0.0
     survival_reason: str = ""
@@ -1085,6 +1092,7 @@ def _set_tariff_fields(data: CoordinatorData, cycle: _Cycle) -> None:
     data.is_on_base_rate = period.name == tariff.base_rate_name
     # Minutes remaining in the current timed rate period (None for base/daytime rate)
     data.minutes_remaining_in_period = _minutes_remaining_in_period(tariff, period, now)
+    data.cheap_run_remaining_minutes = cheap_run_remaining_minutes(tariff, now)
     # Rate savings vs the base (daytime) rate — 0 when currently at base rate
     data.rate_savings_vs_daytime = round(max(0.0, tariff.base_rate - period.rate), 4)
     data.live_grid_cost_rate = _live_grid_cost_rate(cycle)

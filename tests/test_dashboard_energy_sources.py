@@ -207,9 +207,16 @@ class TestTheSourcesGroup:
         group = self._group(_generated())
         assert f"'{DISCHARGE}'" in group["cards"][1]["content"]
 
-    def test_it_leaves_the_battery_out_on_a_fresh_install_where_that_sensor_is_disabled(self):
+    def test_it_names_the_battery_sensor_on_a_fresh_install(self):
         config = dashboard_dict(FULL_CONFIG, FakeRegistry())
         group = self._group(config)
+        assert group is not None
+        assert f"'{DISCHARGE}'" in group["cards"][1]["content"]
+
+    def test_it_leaves_the_battery_out_when_the_user_has_disabled_that_sensor(self):
+        registry = FakeRegistry(enable_all=True)
+        registry.async_get(DISCHARGE).disabled_by = "user"
+        group = self._group(dashboard_dict(FULL_CONFIG, registry))
         assert group is not None
         assert "set battery_entity = ''" in group["cards"][1]["content"]
 

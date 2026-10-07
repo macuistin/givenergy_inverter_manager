@@ -1712,6 +1712,15 @@ class TestPeriodTimeSensors:
         data = self._run_at_hour(23, 30)
         assert data.minutes_remaining_in_period == pytest.approx(510.0)
 
+    def test_cheap_run_none_during_daytime(self):
+        assert self._run_at_hour(14).cheap_run_remaining_minutes is None
+
+    def test_cheap_run_outlasts_the_cheapest_active_period(self):
+        # 03:00 — Nightboost ends at 04:00, but Night is still cheap until 08:00
+        data = self._run_at_hour(3, 0)
+        assert data.minutes_remaining_in_period == pytest.approx(60.0)
+        assert data.cheap_run_remaining_minutes == pytest.approx(300.0)
+
     def test_rate_savings_zero_at_base_rate(self):
         # 14:00 — at daytime base rate: savings = 0
         data = self._run_at_hour(14)

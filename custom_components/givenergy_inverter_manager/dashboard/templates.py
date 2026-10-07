@@ -76,8 +76,8 @@ class EnergySources:
 
     The self-sufficiency sensor carries the breakdown as attributes. A card that finds one
     missing falls back to the house and import totals, so it still reads on a build that
-    does not set them. battery_discharge is None while that sensor is disabled, which it is
-    by default, and the card then shows solar and battery as one figure.
+    does not set them. battery_discharge is None while the user has disabled that sensor, and
+    the card then shows solar and battery as one figure.
     """
 
     self_sufficiency: str

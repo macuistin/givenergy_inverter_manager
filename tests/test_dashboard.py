@@ -251,18 +251,15 @@ class TestPowerFlowTabChanges:
         assert eid("immersion_today") in text
 
     def test_immersion_section_present_when_configured(self):
-        """When temp sensor is configured, the sub-view has the two apexcharts charts."""
+        """With a temperature sensor and a switch, the sub-view has one apexcharts chart."""
         yaml_text = shown_text()
 
         assert "apexcharts-card" in yaml_text, "Immersion section must use apexcharts-card"
         assert "graph_span: 12h" in yaml_text, "Must show 12 hours of history"
         assert eid("immersion_water_temperature") in yaml_text
-        assert yaml_text.count("apexcharts-card") >= 2, (
-            "Must have temperature chart and energy/power chart."
-        )
         charts = [c for c in _cards(yaml_text, "immersion") if c["type"].startswith("custom:")]
-        assert len(charts) == 2
-        assert all(c["header"] == {"show": False} for c in charts)
+        assert len(charts) == 1
+        assert charts[0]["header"] == {"show": False}
 
 
 class TestDashboardImprovements:
@@ -593,7 +590,7 @@ class TestNowSection:
         assert first["path"] == "power-flow"
         assert first["sections"][0]["cards"][0]["heading"] == "Now"
 
-    def test_now_has_the_six_core_entities_battery_first(self):
+    def test_now_has_the_five_core_entities_battery_first(self):
         tiles = self._now(_build())["cards"][1:]
         assert [c["entity"] for c in tiles] == [
             eid("battery_soc"),
@@ -601,7 +598,6 @@ class TestNowSection:
             eid("current_rate"),
             eid("import_cost_today"),
             eid("next_cheap_rate_start"),
-            eid("hours_to_cheap_rate"),
         ]
         assert [c["name"] for c in tiles] == [
             "Battery",
@@ -609,8 +605,17 @@ class TestNowSection:
             "Rate now",
             "Cost today",
             "Cheap from",
-            "Cheap in",
         ]
+
+    def test_cheap_from_shows_the_countdown_summary_in_one_tile(self):
+        """One tile reads like "23:00 (in 8 h 56 min)", so there is no tile of its own for the wait."""
+        cards = self._now(_build())["cards"][1:]
+        tile = next(c for c in cards if c["name"] == "Cheap from")
+        assert tile["entity"] == eid("next_cheap_rate_start")
+        assert tile["state_content"] == ["summary"]
+        assert tile["grid_options"]["columns"] == "full"
+        assert "Cheap in" not in [c["name"] for c in cards]
+        assert eid("hours_to_cheap_rate") not in [c["entity"] for c in cards]
 
     def test_now_uses_only_tiles(self):
         assert {c["type"] for c in self._now(_build())["cards"][1:]} == {"tile"}
@@ -627,16 +632,18 @@ class TestNowSection:
         assert tile["tap_action"] == {"action": "navigate", "navigation_path": "battery-detail"}
 
     def test_now_drops_sensors_that_are_disabled_by_default(self):
-        """Night survival confidence and the cheap rate sensors are off on a fresh install."""
+        """Night survival confidence is off on a fresh install."""
         text = _build(registry=FakeRegistry())
         assert [c["entity"] for c in self._now(text)["cards"][1:]] == [
             eid("battery_soc"),
             eid("current_rate"),
             eid("import_cost_today"),
+            eid("next_cheap_rate_start"),
         ]
         header = text[: text.index("views:")]
-        for name in ("Night Survival Confidence", "Next Cheap Rate Start", "Hours to Cheap Rate"):
-            assert name in header
+        assert "Night Survival Confidence" in header
+        for name in ("Hours to Cheap Rate", "Next Cheap Rate Start"):
+            assert name not in header
 
 
 class TestLongTextStates:
@@ -965,9 +972,11 @@ class TestMissingHacsCards:
         assert "custom:apexcharts-card" not in text
         cards = _cards(text, "immersion")
         charts = [c["type"] for c in cards if c["type"].endswith("graph")]
-        assert charts == ["history-graph", "statistics-graph"]
+        assert charts == ["history-graph"]
         graph = next(c for c in cards if c["type"] == "history-graph")
-        assert [r["entity"] for r in graph["entities"]][0] == eid("immersion_water_temperature")
+        rows = [r["entity"] for r in graph["entities"]]
+        assert rows[0] == eid("immersion_water_temperature")
+        assert rows[-1] == eid("immersion_power")
         assert all(c["type"] != "vertical-stack" for c in cards)
 
     def test_matching_ignores_case_and_path(self):
@@ -1123,17 +1132,13 @@ class TestSubViews:
         ]
         assert len(bars) == 2  # the Now section and the Battery tab
 
-    def test_immersion_power_chart_plots_power_not_energy(self):
+    def test_the_heater_is_a_stepped_band_on_the_temperature_chart(self):
+        """The sensor only updates on change, so a smooth line would draw false ramps."""
         charts = [c for c in _cards(_build(), "immersion") if c["type"] == "custom:apexcharts-card"]
-        text = yaml.dump(charts)
-        assert eid("immersion_power") in text
-        assert "Immersion Power Today" not in text
-
-    def test_immersion_power_chart_is_a_step_line(self):
-        """The sensor only updates on change, so a smooth line draws false ramps."""
-        charts = [c for c in _cards(_build(), "immersion") if c["type"] == "custom:apexcharts-card"]
-        power = next(c for c in charts if c["series"][0]["entity"] == eid("immersion_power"))
-        assert power["apex_config"]["stroke"]["curve"] == "stepline"
+        heater = [s for c in charts for s in c["series"] if s["entity"] == eid("immersion_power")]
+        assert heater
+        assert {s["curve"] for s in heater} == {"stepline"}
+        assert "Immersion Power Today" not in yaml.dump(charts)
 
     def test_no_immersion_or_ev_view_is_shown_without_the_devices(self):
         """The views stay in a stored file, so a device added later has somewhere to show."""
