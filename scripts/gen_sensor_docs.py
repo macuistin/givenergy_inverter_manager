@@ -331,9 +331,18 @@ DESCRIPTIONS: dict[str, str] = {
     "inverter_derating_today_minutes": "Minutes with the inverter at 65 °C or more.",
     "import_cost_today": "Import cost after the supplier discount and VAT.",
     "export_earnings_today": "Exported kWh times the export rate.",
-    "zappi_cost_today": "Import cost attributed to the EV charger.",
-    "house_cost_today": "Import cost attributed to the rest of the house.",
-    "immersion_cost_today": "Import cost attributed to the immersion.",
+    "zappi_cost_today": (
+        "Import cost attributed to the EV charger, after the supplier discount and VAT. "
+        "Standing charge and levy are not included, so it is higher than the EV energy "
+        "times the bare rate by the discount and VAT factor."
+    ),
+    "house_cost_today": (
+        "Import cost attributed to the rest of the house, after the supplier discount and VAT. "
+        "Includes grid energy stored in the battery."
+    ),
+    "immersion_cost_today": (
+        "Import cost attributed to the immersion, after the supplier discount and VAT."
+    ),
     "import_cost_cheap_today": "Import cost while a timed rate period was active.",
     "import_cost_peak_today": (
         "Import cost while no timed rate period was active, so at the base rate. "

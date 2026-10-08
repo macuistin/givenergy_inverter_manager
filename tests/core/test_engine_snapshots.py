@@ -32,6 +32,11 @@ it, and the fresh snapshot gained it as None. Nothing else moved.
 
 The forecast_accuracy leaf was added for the accuracy diagnostics on the charge reason sensor. The
 fresh snapshot gained it as None. No case moved, because none passes a forecast accuracy.
+
+7 of the 255 cases were regenerated when the EV and immersion cost stopped taking battery-charging
+import. Only zappi_cost, immersion_cost and house_cost on the accumulators and
+ev_cost_per_km_today moved. The new behaviour is pinned in TestAccumulateEnergy in
+tests/core/test_engine.py.
 """
 
 from __future__ import annotations

@@ -326,22 +326,24 @@ def _apportion_import_cost(
     raw: RawSensorValues,
     immersion_w: float,
 ) -> None:
-    """Apportion import cost across loads by their fraction of total load."""
+    """Split import cost between the EV, the immersion and the rest of the house.
+
+    The EV and the immersion each take their share of the house load, applied only to the
+    import that fed the load. Import above the load went into the battery, so it stays in
+    the rest of the house and is never charged to the car or the heater.
+    """
     total_load_w = max(1.0, raw.house_load_w)
+    load_fed_by_grid = min(1.0, total_load_w / max(1.0, raw.grid_power_w))
     ev_raw = raw.ev_power_w / total_load_w
     imm_raw = immersion_w / total_load_w
     total_frac = ev_raw + imm_raw
-    ev_frac = ev_raw
-    immersion_frac = imm_raw
-    if total_frac > 1.0:
-        norm = 1.0 / total_frac
-        ev_frac *= norm
-        immersion_frac *= norm
-    rest_frac = max(0.0, 1.0 - ev_frac - immersion_frac)
+    norm = 1.0 / total_frac if total_frac > 1.0 else 1.0
+    ev_cost = period_cost * load_fed_by_grid * ev_raw * norm
+    immersion_cost = period_cost * load_fed_by_grid * imm_raw * norm
 
-    acc.zappi_cost += period_cost * ev_frac
-    acc.immersion_cost += period_cost * immersion_frac
-    acc.house_cost += period_cost * rest_frac
+    acc.zappi_cost += ev_cost
+    acc.immersion_cost += immersion_cost
+    acc.house_cost += period_cost - ev_cost - immersion_cost
 
 
 def _accumulate_import(acc: EnergyAccumulator, step: _Step) -> None:

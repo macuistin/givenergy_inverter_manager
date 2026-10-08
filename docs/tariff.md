@@ -132,7 +132,7 @@ On the last day of the period the accrued and projected bill are both 101.70.
 
 ### Where costs go
 
-Each cycle's import cost is split between the EV charger, the immersion and the rest of the house in proportion to their share of the house load. The split feeds EV Charging Cost Today, Immersion Cost Today and House Cost Today. Costs are also recorded per rate period name.
+Each cycle's import cost is priced at the rate in force, after the supplier discount and VAT, so a cost sensor is the bare rate times the energy, scaled by that discount and VAT factor. The standing charge and the levy are not in it. The EV charger and the immersion each take their share of the house load, applied to the import that fed the load. Import above the load went into the battery and stays in the rest of the house. The split feeds EV Charging Cost Today, Immersion Cost Today and House Cost Today. Costs are also recorded per rate period name.
 
 ## Other fields
 
