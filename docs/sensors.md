@@ -32,7 +32,7 @@ Updated every 30 seconds. Power values are in watts. Grid Power is positive when
 | Solar Output % of Max | `solar_power_pct_of_max` | % | - | measurement | no | no | Solar power as a percentage of the configured inverter maximum. |
 | Net Solar Surplus | `net_solar_surplus_w` | W | power | measurement | no | no | Smoothed solar power minus house load, with the immersion's own draw added back, floored at 0. Battery charging is not subtracted. Drives the EV signals. |
 | Inverter Clipping | `is_clipping` | - | - | none | no | yes | `clipping` at or above 95% of the inverter maximum, else `normal`. Diagnostic category. |
-| Inverter Temperature | `inverter_temperature` | °C | temperature | measurement | no | yes | Reading of the GivTCP inverter temperature entity, if set. |
+| Inverter Temperature | `inverter_temperature` | °C | temperature | measurement | no | yes | Reading of the GivTCP inverter temperature entity, from the one stored at setup or found from the inverter serial. |
 | Inverter Temperature Status | `inverter_temperature_status` | - | - | none | no | yes | Normal, Warm (60 °C or more), Derating (65 °C or more), Critical (75 °C or more) or Unknown. |
 | Battery Power Direction | `battery_power_direction` | - | - | none | no | no | Charging, Discharging or Idle (within 50 W of zero). |
 
@@ -90,10 +90,10 @@ Money sensors use the currency symbol you chose in the tariff.
 | Export Earnings Today | `export_earnings_today` | currency | monetary | total | day | yes | Exported kWh times the export rate. |
 | Saving vs Grid Today | `saving_vs_grid_today` | currency | monetary | total | day | yes | House load priced at the rate in force when it ran, minus net import cost (import cost minus export earnings). |
 | Net Saving Today (inc. battery wear) | `net_saving_today` | currency | monetary | total | day | yes | Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. |
-| EV Charging Cost Today | `zappi_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the EV charger. Created only with an EV charger. |
-| House Cost Today | `house_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the rest of the house. |
+| EV Charging Cost Today | `zappi_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the EV charger, after the supplier discount and VAT. Standing charge and levy are not included, so it is higher than the EV energy times the bare rate by the discount and VAT factor. Created only with an EV charger. |
+| House Cost Today | `house_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the rest of the house, after the supplier discount and VAT. Includes grid energy stored in the battery. |
 | Net Financial Position Today | `net_position_today` | currency | monetary | total | day | no | Export earnings minus import cost. |
-| Immersion Cost Today | `immersion_cost_today` | currency | - | total | day | yes | Import cost attributed to the immersion. Created only with an immersion switch. |
+| Immersion Cost Today | `immersion_cost_today` | currency | - | total | day | yes | Import cost attributed to the immersion, after the supplier discount and VAT. Created only with an immersion switch. |
 | Import cost at cheap rate | `import_cost_cheap_today` | currency | - | total | day | yes | Import cost while a timed rate period was active. |
 | Import cost at base rate | `import_cost_peak_today` | currency | - | total | day | yes | Import cost while no timed rate period was active, so at the base rate. With no timed rate period set, all import cost. |
 | Immersion solar savings | `immersion_savings_today` | currency | - | total | day | yes | Diverted solar kWh times (current rate minus export rate). Created only with an immersion switch. |

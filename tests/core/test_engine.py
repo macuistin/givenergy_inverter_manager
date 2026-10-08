@@ -138,6 +138,46 @@ class TestAccumulateEnergy:
         assert acc.zappi_kwh > 0
         assert acc.zappi_cost > 0
 
+    def _split_cost(self, **raw_kwargs):
+        """One 30 minute step at a flat 0.20 per kWh with no discount or VAT."""
+        cfg = _nightboost_cfg()
+        cfg.update(base_rate=0.20, rate_periods=[], vat_rate=0.0, discount_rate=0.0)
+        acc = EnergyAccumulator()
+        now = datetime(2024, 6, 15, 14, 0)
+        raw = _raw(**raw_kwargs)
+        accumulate_energy(acc, raw, build_tariff(cfg), "Day", now, now - timedelta(minutes=30))
+        return acc
+
+    def test_ev_cost_is_its_own_energy_when_the_grid_also_charges_the_battery(self):
+        """Import above the house load went into the battery, not the car."""
+        acc = self._split_cost(
+            ev_power_w=7000.0,
+            house_load_w=7500.0,
+            grid_power_w=10000.0,
+            battery_power_w=2500.0,
+            solar_power_w=0.0,
+        )
+        assert acc.zappi_kwh == pytest.approx(3.5)
+        assert acc.zappi_cost == pytest.approx(3.5 * 0.20)
+
+    def test_the_split_still_adds_up_to_the_import_cost(self):
+        acc = self._split_cost(
+            ev_power_w=7000.0,
+            house_load_w=7500.0,
+            grid_power_w=10000.0,
+            battery_power_w=2500.0,
+            solar_power_w=0.0,
+        )
+        total = acc.zappi_cost + acc.immersion_cost + acc.house_cost
+        assert total == pytest.approx(acc.import_cost_by_period["Day"])
+
+    def test_ev_cost_is_its_share_when_solar_covers_part_of_the_load(self):
+        """Grid below the load: the car takes its load share of what was imported."""
+        acc = self._split_cost(
+            ev_power_w=3000.0, house_load_w=4000.0, grid_power_w=2000.0, solar_power_w=2000.0
+        )
+        assert acc.zappi_cost == pytest.approx(0.75 * 1.0 * 0.20)
+
     def test_no_ev_cost_when_no_grid_import(self):
         """EV charging from solar only — no grid cost attributed."""
         acc = self._acc_after(

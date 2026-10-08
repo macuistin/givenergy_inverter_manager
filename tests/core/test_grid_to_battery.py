@@ -209,3 +209,35 @@ class TestLongerPeriods:
             ForecastContext(),
         )
         assert accumulators.week.grid_to_battery_kwh == pytest.approx(3.0)
+
+
+class TestSelfSufficiencyFollowsTheDocumentedDefinition:
+    """Figures from a live review, where the sensor and an import/load ratio seemed to disagree.
+
+    The sensor is 1 - (import - grid to battery) / house load, with grid to battery read from
+    the AC charge counter. It is not the battery charge counter, which also holds solar.
+    """
+
+    @staticmethod
+    def _pct(import_kwh: float, load_kwh: float, ac_charge_kwh: float) -> float:
+        raw = _counter_raw(
+            ac_charge_kwh, import_energy_today_kwh=import_kwh, load_energy_today_kwh=load_kwh
+        )
+        return _cycle(raw, _periods()).today.self_sufficiency_pct
+
+    def test_a_day_with_a_large_ev_load_reads_low_but_above_the_plain_ratio(self):
+        plain_ratio = (1 - 58.4 / 62.2) * 100
+        assert plain_ratio == pytest.approx(6.1, abs=0.05)
+        assert self._pct(58.4, 62.2, 5.0) == pytest.approx(14.1, abs=0.05)
+
+    def test_a_reading_taken_earlier_in_the_day_uses_that_moment_counters(self):
+        """08:42 that day: import 57.7, load 53.6, AC charge 5.0 gave 1.7 percent."""
+        assert self._pct(57.7, 53.6, 5.0) == pytest.approx(1.7, abs=0.05)
+
+    def test_the_figure_is_never_below_the_plain_ratio(self):
+        for ac_charge_kwh in (0.0, 2.0, 5.0, 9.3):
+            assert self._pct(58.4, 61.4, ac_charge_kwh) >= (1 - 58.4 / 61.4) * 100 - 1e-9
+
+    def test_a_finished_day_reads_above_the_plain_ratio(self):
+        """Yesterday: import 20.2, load 27.5, 7.5 kWh of the import stored in the battery."""
+        assert self._pct(20.2, 27.5, 7.5) == pytest.approx(53.8, abs=0.05)

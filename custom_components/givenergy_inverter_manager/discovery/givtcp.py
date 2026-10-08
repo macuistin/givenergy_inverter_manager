@@ -176,6 +176,19 @@ def givtcp_rate_entity_ids(serial: str) -> dict[str, str]:
     }
 
 
+# GivTCP names the temperature sensor "invertor". The other spelling is tried second, in case
+# a GivTCP release or a renamed entity uses it.
+INVERTER_TEMPERATURE_SPELLINGS = ("invertor", "inverter")
+
+
+def inverter_temperature_entity_ids(serial: str) -> list[str]:
+    """The entity ids GivTCP could publish the inverter temperature under, best first."""
+    return [
+        f"sensor.{GIVTCP_PREFIX}{serial.lower()}_{spelling}_temperature"
+        for spelling in INVERTER_TEMPERATURE_SPELLINGS
+    ]
+
+
 # ── Charge slots the integration does not manage ─────────────────────────────
 
 _TRAILING_NUMBER = re.compile(r"^(?P<stem>.*?)(?P<number>\d+)$")

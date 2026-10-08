@@ -249,7 +249,7 @@ Accrued Bill This Period is built from the month totals, which start again on th
 | Sensor | Reason |
 |---|---|
 | EV sensors | Unavailable until an EV charger is discovered. Discovery retries about every 5 minutes, until the charger's power, session and charge mode entities are all found |
-| Inverter Temperature and its status | The inverter temperature entity was not detected. The status shows Unknown |
+| Inverter Temperature and its status | GivTCP has no `sensor.givtcp_<serial>_invertor_temperature` entity (GivTCP spells it "invertor") and none is stored in the entry. The integration looks for that entity from the inverter serial on every cycle, so it picks the sensor up once GivTCP creates it. The status shows Unknown until then |
 | Solar forecast today (provider), Solar vs provider forecast and the carbon sensors | No provider forecast was seen before midnight (a new install has none until its first midnight, and a forecast sensor that was unavailable then leaves the day without one), or no carbon intensity sensor is set |
 | Minutes Remaining in Rate Period | You are on the base rate |
 | Battery Years Remaining | Fewer than 7 days of cycle data |
