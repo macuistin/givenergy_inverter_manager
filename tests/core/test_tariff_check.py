@@ -87,9 +87,10 @@ def test_any_held_is_false_when_no_rate_is_held():
     assert GivTCPRates(export=0.2).any_held is True
 
 
-def test_the_description_lists_one_rate_per_line():
-    text = describe_rate_mismatches(_mismatches(day=0.395, export=0.2))
+def test_the_description_lists_one_line_per_rate():
+    lines = describe_rate_mismatches(_mismatches(day=0.395, export=0.2))
 
-    assert text == (
-        "- Day rate: 0.3334 here, 0.395 in GivTCP\n- Export rate: 0.195 here, 0.2 in GivTCP"
-    )
+    assert lines == [
+        "Day rate: 0.3334 here, 0.395 in GivTCP",
+        "Export rate: 0.195 here, 0.2 in GivTCP",
+    ]

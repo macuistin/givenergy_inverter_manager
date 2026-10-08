@@ -15,6 +15,7 @@ from custom_components.givenergy_inverter_manager.core.battery import BatterySta
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.rules import forecast_accuracy
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+from custom_components.givenergy_inverter_manager.core.tariff_check import RateMismatch
 
 
 def make_data(**fields) -> CoordinatorData:
@@ -284,6 +285,26 @@ class TestCheapRateAttributes:
     def test_absent_on_a_tariff_without_a_cheap_period(self):
         data = make_data(next_cheap_rate_start=None, hours_to_cheap_rate=None)
         assert values.cheap_rate_attributes(data) is None
+
+
+class TestGivTCPRateAttributes:
+    def test_lists_each_rate_that_differs(self):
+        mismatch = RateMismatch("Day rate", 0.3334, 0.395)
+        data = make_data(givtcp_rate_mismatches=(mismatch,))
+        assert values.givtcp_rate_attributes(data) == {
+            "givtcp_rates_differ": True,
+            "givtcp_rate_differences": ["Day rate: 0.3334 here, 0.395 in GivTCP"],
+        }
+
+    def test_false_and_empty_when_the_rates_agree(self):
+        data = make_data(givtcp_rate_mismatches=())
+        assert values.givtcp_rate_attributes(data) == {
+            "givtcp_rates_differ": False,
+            "givtcp_rate_differences": [],
+        }
+
+    def test_absent_when_no_givtcp_rate_is_readable(self):
+        assert values.givtcp_rate_attributes(make_data()) is None
 
 
 class TestImportFigures:

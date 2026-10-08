@@ -279,7 +279,12 @@ DESCRIPTIONS: dict[str, str] = {
         "Normal, Warm (60 °C or more), Derating (65 °C or more), Critical (75 °C or more) "
         "or Unknown."
     ),
-    "current_rate": "Unit import rate in force now.",
+    "current_rate": (
+        "Unit import rate in force now. The `givtcp_rates_differ` and `givtcp_rate_differences` "
+        "attributes compare the day, night and export rates GivTCP holds with the tariff "
+        "entered here. See [Tariff](tariff.md#comparing-with-givtcps-rates). Absent when "
+        "GivTCP's rates cannot be read."
+    ),
     "current_rate_period": "Name of the active period, or the base rate name.",
     "live_grid_cost_rate": (
         "Cost per hour of the current grid flow. Positive when spending, negative when earning."
