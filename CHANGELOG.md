@@ -2,6 +2,17 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+GivTCP rate differences are shown on a sensor instead of as a repair.
+
+**Changes**
+- GivTCP rates that differ from the tariff no longer raise a repair. Many installs keep their
+  rates here and use GivTCP for live data only. The comparison now shows as the
+  `givtcp_rates_differ` and `givtcp_rate_differences` attributes of the Current Rate sensor, and
+  both are absent while GivTCP's rates cannot be read. Setup deletes the "GivTCP rates differ
+  from your tariff" repair if an earlier version raised it.
+
 ## v0.14.0
 
 Stops an EV charge reading as a night shortfall, corrects the EV and immersion cost when the grid
