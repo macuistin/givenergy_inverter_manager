@@ -552,6 +552,14 @@ class TestFeatureGating:
         assert eid("immersion_power") not in text
         assert eid("ev_power") not in text
 
+    def test_the_temperature_rows_show_for_a_givtcp_entity_found_from_the_serial(self):
+        from custom_components.givenergy_inverter_manager.const import CONF_INVERTER_SERIAL
+
+        config = {CONF_INVERTER_SERIAL: "ab1234g567"}
+        found = ("sensor.givtcp_ab1234g567_invertor_temperature",)
+        assert eid("inverter_temperature") in shown_text(config, ev_brand=None, states=found)
+        assert eid("inverter_temperature") not in shown_text(config, ev_brand=None)
+
     def test_a_charger_discovery_has_not_found_shows_nothing(self):
         """The EV cards follow the integration's own entities, which exist once it finds one."""
         text = shown_text(

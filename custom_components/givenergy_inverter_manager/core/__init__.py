@@ -10,6 +10,7 @@ Modules:
   rules     — Decision functions: charge target, immersion divert, EV protection,
                appliance suggestions
   engine    — CoordinatorData, build_coordinator_data(), accumulate_energy()
+  ev_base_rate — When a car charging from the grid at the base rate is worth an alert
   reporting — HTML report generators for dashboard sensors
   optimizer — Backward-compat shim re-exporting from rules
   timeutil  — Elapsed-time maths that stays correct across a clock change

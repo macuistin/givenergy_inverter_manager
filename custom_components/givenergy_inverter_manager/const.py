@@ -286,6 +286,10 @@ THROUGHPUT_BUDGET_STATUS_OVER = "Over budget"
 # and the Zappi is switched to Eco+.
 # Based on IEC 61851 minimum of 6A (1,380W at 230V). Single-phase assumption.
 EV_CHARGER_MIN_POWER_W = 1380
+# How long a car must draw from the grid in the base-rate band before the repair
+# "EV is charging at the base rate" is raised. Five minutes (ten cycles) skips a charger that
+# starts, pauses and restarts, and a short grid spike while solar diverts.
+EV_BASE_RATE_ALERT_DELAY_S = 300
 
 # ── Configurable thresholds — exposed in config flow ─────────────────────────
 # (SURPLUS_DIVERT_SOC_THRESHOLD and SURPLUS_DIVERT_MIN_POWER_W already defined above,

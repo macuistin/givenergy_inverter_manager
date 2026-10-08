@@ -26,7 +26,7 @@ inverter --> GivTCP --> MQTT --> Home Assistant entities (sensor.givtcp_<serial>
 Every 30 seconds the coordinator runs these steps in order.
 
 1. Merge configuration. Saved options override the values entered at setup.
-2. Raise or clear the repair issues: one for a minimum SoC above 30%, one for other charge slots with a window set, one for a battery cost of 0 after a week of battery tracking, one for GivTCP day, night or export rates that differ from the tariff.
+2. Raise or clear the repair issues: one for a minimum SoC above 30%, one for other charge slots with a window set, one for a battery cost of 0 after a week of battery tracking, one for GivTCP day, night or export rates that differ from the tariff, one for a car charging from the grid at the base rate.
 3. Check GivTCP. If both the solar power sensor and the battery SoC sensor are `unavailable`, `unknown` or missing, the cycle fails and every entity of the integration becomes unavailable until GivTCP returns. See [Troubleshooting](troubleshooting.md#all-entities-are-unavailable).
 4. Look for an EV charger. Until one is found with its power, session and charge mode entities, discovery repeats about every 5 minutes (every tenth cycle). Entities that appear later are added with no reload.
 5. Read the sensors: solar power, battery SoC, battery power, grid power, house load, the optional immersion temperature, forecasts, carbon intensity and inverter temperature, the EV charger, and the GivTCP daily energy counters.
@@ -123,13 +123,25 @@ The factor raises the forecast, up to 1.2, when the service runs low. The charge
 
 The winter and shoulder month lists are fixed calendar months. They follow northern hemisphere seasons. The seasonal solar estimate does use your latitude.
 
-The average daily load is today's house energy so far, scaled up to 24 hours. It is at least 5 kWh, and 15 kWh in the first 30 minutes after midnight.
+The average daily load is today's house energy so far, less the EV charger's energy, scaled up to 24 hours. It is at least 5 kWh, and 15 kWh in the first 30 minutes after midnight. The car is left out because it is a separate load that charges from the grid in the cheap window. The only effect of a plugged-in car on the target is the 10 point buffer in step 6.
 
 **Writing the target.** One minute before the cheapest timed period starts, the integration sets, in order: enable charge schedule on, charge start time, charge end time, target SoC, then enable charge target (on for targets below 100, off for 100). The window starts with the cheapest timed period and is sized to the plan (see below). On a skip night it writes the minimum SoC as the target, so the battery can discharge instead of being held at an old target. Nothing is written when the target SoC entity was not detected, or when the tariff has no timed period. The integration owns charge slot 1 only. When another slot (2 to 10) has a window set, it raises the repair **Other charge slots are active**, because the inverter also charges in that slot. See [Troubleshooting](troubleshooting.md#other-charge-slots-are-active).
 
 **Sizing the window.** The inverter charges from the window start and stops at the target, so the cheapest hours come first. The cheapest period alone can be too short for a deep charge: a two hour period at 3.6 kW adds about 7 kWh. When the plan needs more time, the integration moves the window end later. Hours needed = (target SoC minus current SoC) x battery capacity / battery charge rate, plus 15% for the slowdown near full, rounded up to 5 minutes. The end never goes past the end of the run of timed periods cheaper than the base rate that follows the cheapest period. For example, with Nightboost 02:00 to 04:00 inside Night 23:00 to 08:00, the end can reach 08:00. If the plan fits the cheapest period, nothing changes. The charge rate is read from `number..._battery_charge_rate` on the same inverter. Without it the window stays the cheapest period. A tariff with no cheaper-than-base period after the cheapest one is never extended. The planned window, the energy it should deliver and the expected finish are on the **Overnight Charge Window** sensor. In dry run mode the "would write" text shows the extended window.
 
 **Cheap rate floor.** During a timed period cheaper than the base rate, the integration checks SoC against the floor (default 40%, 0 turns it off). In the cheapest period the full floor applies. In a cheaper-but-not-cheapest period it only acts when SoC is below the minimum SoC plus 5. When it acts, it writes the floor as the target SoC and turns enable charge target on, once per day.
+
+### Night survival
+
+Night survival asks whether the battery lasts until solar starts. It uses the current SoC, the usable capacity above the minimum SoC, the average daily load (see above, so without the EV charger) spread evenly over 24 hours, and a window of hours:
+
+- Before 08:00, the hours left until 08:00.
+- After 08:00 while solar is generating, tonight's pre-solar window of 8 hours from the current SoC.
+- After 08:00 with no solar, from now until 08:00 tomorrow.
+
+The charge plan skips a night only when this check passes, and it uses the same window and load. **Estimated SoC at Sunrise** is the SoC left at the end of the window, never below the minimum SoC. **Battery Night Survival Status** and **Night Survival Confidence** read the same calculation.
+
+The calculated figure steps when the day's energy total resets at midnight, when the window flips at 08:00 and when solar fades in the evening. The published **Estimated SoC at Sunrise** follows the calculated figure at no more than the pace the inverter can charge or discharge the battery (inverter maximum output over battery capacity, for example 5 kW over 19 kWh is about 26 points an hour). A step becomes a ramp of about half an hour. The status and confidence sensors use the calculated figure, so a real shortfall shows at once. After a restart or a gap of an hour the held value is dropped and the sensor starts from the calculated figure.
 
 ### Immersion divert
 
@@ -158,17 +170,18 @@ Turning the managed switch on yourself starts a run to target. So does turning y
 
 The integration finds Zappi (myenergi), Wallbox, OCPP, Ohme and Easee chargers by their entity names. It uses the first one found.
 
-It does three things with the charger:
+It does four things with the charger:
 
 - **Signals.** EV Solar Surplus reads `Available` at 1380 W of net solar surplus or more. EV Charging Source reports Solar, Grid, Battery or Mixed. EV Draining Battery is `yes` when the charger is charging, is drawing power, and the battery discharges over 200 W. A charger that reports a charging status but draws no power, such as a Zappi waiting for the car, does not count.
 - **Zappi mode.** For a Zappi with a charge mode entity, with a car plugged in and net surplus of at least 1380 W, the integration selects **Eco+** unless the Zappi is already in it. It never selects Stopped. In dry run it records the action and sends nothing.
+- **Base-rate alert.** When the car draws at least 1380 W, the grid supplies at least 1380 W, the rate in force is the base rate and the tariff has a cheaper timed band, the repair **EV is charging at the base rate** appears after 5 minutes. It is raised once and clears when the session ends or the rate drops. A flat tariff never raises it, and an install with no charger evaluates nothing. See [Troubleshooting](troubleshooting.md#ev-is-charging-at-the-base-rate).
 - **Cost and distance.** EV energy, cost and kilometres use the car efficiency from the options.
 
-Other brands get the signals only.
+Other brands get the signals and the base-rate alert only.
 
 ### Costs
 
-Every cycle the grid import is priced at the current rate, after supplier discount and VAT, and split between the EV, the immersion and the rest of the house by their share of the house load. Export earns the export rate. See [Tariff](tariff.md#bill-line-items).
+Every cycle the grid import is priced at the current rate, after supplier discount and VAT, and split between the EV, the immersion and the rest of the house by their share of the house load. Import above the load went into the battery and stays in the rest of the house. Export earns the export rate. See [Tariff](tariff.md#bill-line-items).
 
 ### Self-sufficiency, solar share and self-consumption
 

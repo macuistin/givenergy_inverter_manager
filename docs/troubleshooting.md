@@ -114,6 +114,26 @@ The rates entered here always win. Every cost figure in this integration uses th
 
 The repair clears on the next update cycle once the rates agree. It appears once, and **Ignore** keeps it out of the way until the rates agree and then differ again. While GivTCP is unavailable, the repair is left as it is.
 
+## EV is charging at the base rate
+
+The repair **EV is charging at the base rate** appears when the car draws from the grid in the base-rate band and your tariff has a cheaper band. The same session in the cheaper band costs less. The repair names the power, the base rate and when the next cheaper band starts, for example `about 7.2 kW at the Day rate, a cheaper band starts at 23:00`.
+
+It needs nothing set up. The integration uses the charger it already found and the tariff you entered. All of these must hold for 5 minutes before the repair appears:
+
+- The car draws at least 1380 W, the same threshold the EV signals use.
+- The grid supplies at least 1380 W. A car on solar, or on the battery, does not count.
+- The rate in force is the base rate. A session in any timed band, cheap or not, is left alone.
+- The tariff has a timed band cheaper than the base rate. A flat tariff, or one whose only timed bands cost more than the base rate, never raises the repair.
+
+The repair is raised once, not every cycle. It clears when the session ends or when the rate drops into a timed band, for example when a night band starts. If the session is still charging when the base rate returns, for example at the end of the night band, a new repair appears after another 5 minutes. **Ignore** hides it until it clears and a later session raises it again.
+
+The integration does not stop or pause the charger. To move the session:
+
+1. Pause the charge, or set the charger to a mode that waits, until the cheaper band starts.
+2. Or set the charger's own schedule to start inside the cheaper band. See [Tariff](tariff.md) for the bands in force.
+
+If the repair appears while the car should be on solar, check that **Grid Power** reads correctly and that the charger's power entity is the one the integration found. The charger's power is **EV Charging Power**. An install with no charger, or a charger with no power entity, never raises it.
+
 ## The tariff has not been reviewed
 
 The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. The date counts from the last saved change to the tariff, the last dated change recorded, the last Reconfigure, or the last time you confirmed the rates in the repair. The first run after an upgrade records that day, so the repair appears 365 days later at the earliest. The repair does not change anything and does not affect any sensor.
@@ -229,7 +249,7 @@ Accrued Bill This Period is built from the month totals, which start again on th
 | Sensor | Reason |
 |---|---|
 | EV sensors | Unavailable until an EV charger is discovered. Discovery retries about every 5 minutes, until the charger's power, session and charge mode entities are all found |
-| Inverter Temperature and its status | The inverter temperature entity was not detected. The status shows Unknown |
+| Inverter Temperature and its status | GivTCP has no `sensor.givtcp_<serial>_invertor_temperature` entity (GivTCP spells it "invertor") and none is stored in the entry. The integration looks for that entity from the inverter serial on every cycle, so it picks the sensor up once GivTCP creates it. The status shows Unknown until then |
 | Solar forecast today (provider), Solar vs provider forecast and the carbon sensors | No provider forecast was seen before midnight (a new install has none until its first midnight, and a forecast sensor that was unavailable then leaves the day without one), or no carbon intensity sensor is set |
 | Minutes Remaining in Rate Period | You are on the base rate |
 | Battery Years Remaining | Fewer than 7 days of cycle data |

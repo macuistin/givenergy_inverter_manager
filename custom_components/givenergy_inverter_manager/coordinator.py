@@ -111,7 +111,9 @@ from .core.engine import (
     RawSensorValues,
     build_coordinator_data,
 )
+from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
 from .core.rules import monthly_solar_fractions
+from .core.sunrise_hold import HeldSunrise
 from .core.tariff import (
     build_tariff,
     last_tariff_review,
@@ -129,6 +131,7 @@ from .discovery import (
     discover_ev_chargers,
     find_other_active_charge_slots,
     givtcp_rate_entity_ids,
+    inverter_temperature_entity_ids,
     update_charger_state,
 )
 from .forecast_seeding import async_seed_forecast_accuracy
@@ -139,12 +142,14 @@ from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
     ClearOutcome,
     async_create_battery_cost_issue,
+    async_create_ev_base_rate_issue,
     async_create_givtcp_missing_issue,
     async_create_min_soc_issue,
     async_create_other_charge_slots_issue,
     async_create_rates_differ_issue,
     async_create_tariff_review_issue,
     async_delete_battery_cost_issue,
+    async_delete_ev_base_rate_issue,
     async_delete_givtcp_missing_issue,
     async_delete_min_soc_issue,
     async_delete_other_charge_slots_issue,
@@ -254,6 +259,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._acc = AccumulationStore(self.hass, self._configured_bill_start_day())
         self._battery_stats = BatteryStats()
         self._held_charge = HeldCharge()
+        self._held_sunrise = HeldSunrise()
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
@@ -262,6 +268,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._unsub_charge_target: Callable[[], None] | None = None
         self._charge_target_trigger_at: tuple[int, int] | None = None
         self._ev_charger: EVCharger | None = None
+        self._ev_base_rate = WatchState()
         self._battery_cycle_entities: list[str] = []
         self._givtcp_was_unavailable: bool = False
         self._inputs_unavailable_since: datetime | None = None
@@ -457,6 +464,17 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return float(state.state)
         except (ValueError, TypeError):
             return None
+
+    def _read_inverter_temperature(self, cfg: dict) -> float | None:
+        """The inverter temperature: the chosen entity, else GivTCP's, found from the serial.
+
+        An install set up before GivTCP published the temperature has no entity stored.
+        """
+        entity_ids = [cfg.get(CONF_INVERTER_TEMP_ENTITY) or ""]
+        serial = cfg.get(CONF_INVERTER_SERIAL)
+        if serial:
+            entity_ids += inverter_temperature_entity_ids(serial)
+        return self._read_first_optional_float(*entity_ids)
 
     def _read_first_optional_float(self, *entity_ids: str) -> float | None:
         """Return the first entity id that has a numeric state, else None."""
@@ -833,7 +851,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw.carbon_intensity_gco2 = self._read_optional_float(
             cfg.get(CONF_CARBON_INTENSITY_ENTITY)
         )
-        raw.inverter_temp = self._read_optional_float(cfg.get(CONF_INVERTER_TEMP_ENTITY))
+        raw.inverter_temp = self._read_inverter_temperature(cfg)
         self._copy_ev_state(raw)
         raw.battery_lifetime_cycles = self._read_battery_lifetime_cycles()
         self._read_daily_counters(cfg, raw)
@@ -1260,6 +1278,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 last_soc=self._last_soc,
                 last_update_time=self._last_update,
                 held_charge=self._held_charge,
+                held_sunrise=self._held_sunrise,
             ),
             ForecastContext(
                 solar_fractions=self._solar_fractions,
@@ -1279,6 +1298,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         data.cheap_rate_floor_status = await self._maybe_apply_cheap_rate_floor(now, raw, cfg)
         log_cycle(_LOG, CycleSnapshot(self._update_cycle, now, raw, data))
         self._remember_cycle(raw, now)
+        self._watch_ev_base_rate(data, raw, now)
         self._apply_decisions(data, ev_target_mode, now)
         return data
 
@@ -1377,6 +1397,41 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Keep what the next cycle needs: the last SoC and the cycle time."""
         self._last_soc = None if "battery_soc" in raw.unavailable_inputs else raw.battery_soc
         self._last_update = now
+
+    def _watch_ev_base_rate(
+        self, data: CoordinatorData, raw: RawSensorValues, now: datetime
+    ) -> None:
+        """Raise the repair while the car charges from the grid at the base rate, else clear it.
+
+        Nothing is read or created on an install with no charger. A charger that goes away
+        mid-session clears a raised repair.
+        """
+        if self._ev_charger is None:
+            self._end_ev_base_rate_watch()
+            return
+        reading = BaseRateReading(
+            ev_power_w=raw.ev_power_w,
+            grid_import_w=raw.grid_power_w,
+            on_base_rate=data.is_on_base_rate,
+            next_cheap_start=data.next_cheap_rate_start,
+        )
+        step = watch_step(self._ev_base_rate, reading, now)
+        self._ev_base_rate = step.state
+        if step.action is AlertAction.RAISE:
+            async_create_ev_base_rate_issue(
+                self.hass,
+                power_kw=f"{raw.ev_power_w / 1000:.1f}",
+                rate_name=data.current_rate_name,
+                next_cheap_start=str(data.next_cheap_rate_start),
+            )
+        elif step.action is AlertAction.CLEAR:
+            async_delete_ev_base_rate_issue(self.hass)
+
+    def _end_ev_base_rate_watch(self) -> None:
+        """Forget the watch, clearing the repair only when this watch raised it."""
+        if self._ev_base_rate.raised:
+            async_delete_ev_base_rate_issue(self.hass)
+        self._ev_base_rate = WatchState()
 
     def _apply_decisions(
         self, data: CoordinatorData, ev_target_mode: str | None, now: datetime
