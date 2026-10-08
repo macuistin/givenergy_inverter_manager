@@ -112,6 +112,7 @@ from .core.engine import (
     build_coordinator_data,
 )
 from .core.rules import monthly_solar_fractions
+from .core.sunrise_hold import HeldSunrise
 from .core.tariff import (
     build_tariff,
     last_tariff_review,
@@ -255,6 +256,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._acc = AccumulationStore(self.hass, self._configured_bill_start_day())
         self._battery_stats = BatteryStats()
         self._held_charge = HeldCharge()
+        self._held_sunrise = HeldSunrise()
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
@@ -1272,6 +1274,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 last_soc=self._last_soc,
                 last_update_time=self._last_update,
                 held_charge=self._held_charge,
+                held_sunrise=self._held_sunrise,
             ),
             ForecastContext(
                 solar_fractions=self._solar_fractions,

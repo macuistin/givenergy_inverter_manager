@@ -43,6 +43,7 @@ from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCo
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter, SwitchState
 from custom_components.givenergy_inverter_manager.immersion_actuator import ImmersionActuator
@@ -119,6 +120,7 @@ class FakeCoordinator(GivEnergyCoordinator):
 
         self._battery_stats = BatteryStats()
         self._held_charge = HeldCharge()
+        self._held_sunrise = HeldSunrise()
         self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""
         self._unsub_charge_target = None
