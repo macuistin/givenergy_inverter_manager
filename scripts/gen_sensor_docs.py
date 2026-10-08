@@ -271,7 +271,10 @@ DESCRIPTIONS: dict[str, str] = {
     "battery_kwh_available": "Battery state of charge times the configured capacity.",
     "battery_power_direction": "Charging, Discharging or Idle (within 50 W of zero).",
     "is_clipping": "`clipping` at or above 95% of the inverter maximum, else `normal`.",
-    "inverter_temperature": "Reading of the GivTCP inverter temperature entity, if set.",
+    "inverter_temperature": (
+        "Reading of the GivTCP inverter temperature entity, from the one stored at setup "
+        "or found from the inverter serial."
+    ),
     "inverter_temperature_status": (
         "Normal, Warm (60 °C or more), Derating (65 °C or more), Critical (75 °C or more) "
         "or Unknown."
