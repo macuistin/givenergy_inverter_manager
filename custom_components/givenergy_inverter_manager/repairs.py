@@ -44,6 +44,13 @@ Issues raised:
     diagnostic attribute because a wrong rate scales every cost figure and nobody opens
     an attribute to look for it. It does not repeat: the issue is created once and
     dismissing it keeps it dismissed until the rates agree again.
+
+  ev_charging_at_base_rate
+    The car has drawn from the grid at the base rate for a few minutes while the tariff
+    has a cheaper band. Not fixable: the integration never stops or pauses a charger. The
+    issue is created once per base-rate stretch of a session and cleared when the session
+    ends or the rate drops. Dismissing it keeps it dismissed until then. The decision lives
+    in core/ev_base_rate.py. An install with no charger never reaches it.
 """
 
 from __future__ import annotations
@@ -73,6 +80,7 @@ ISSUE_OTHER_CHARGE_SLOTS_ACTIVE = "other_charge_slots_active"
 ISSUE_TARIFF_REVIEW_DUE = "tariff_review_due"
 ISSUE_BATTERY_COST_NOT_SET = "battery_cost_not_set"
 ISSUE_GIVTCP_RATES_DIFFER = "givtcp_rates_differ"
+ISSUE_EV_BASE_RATE_CHARGING = "ev_charging_at_base_rate"
 
 TROUBLESHOOTING_URL = (
     "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs/troubleshooting.md"
@@ -84,6 +92,7 @@ LEARN_MORE_URLS: dict[str, str] = {
     ISSUE_TARIFF_REVIEW_DUE: f"{TROUBLESHOOTING_URL}#the-tariff-has-not-been-reviewed",
     ISSUE_BATTERY_COST_NOT_SET: f"{TROUBLESHOOTING_URL}#battery-cost-is-not-set",
     ISSUE_GIVTCP_RATES_DIFFER: f"{TROUBLESHOOTING_URL}#givtcp-rates-differ-from-the-tariff",
+    ISSUE_EV_BASE_RATE_CHARGING: f"{TROUBLESHOOTING_URL}#ev-is-charging-at-the-base-rate",
 }
 
 # Matches the selector max in config_flow.py. Values above this are legacy
@@ -213,6 +222,31 @@ def async_create_rates_differ_issue(
 def async_delete_rates_differ_issue(hass: HomeAssistant) -> None:
     """Clear the rates-differ repair issue once GivTCP's rates agree with the tariff."""
     async_delete_issue(hass, DOMAIN, ISSUE_GIVTCP_RATES_DIFFER)
+
+
+def async_create_ev_base_rate_issue(
+    hass: HomeAssistant, power_kw: str, rate_name: str, next_cheap_start: str
+) -> None:
+    """Surface a repair issue while the car charges from the grid at the base rate."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_EV_BASE_RATE_CHARGING,
+        is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_EV_BASE_RATE_CHARGING],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_EV_BASE_RATE_CHARGING,
+        translation_placeholders={
+            "power_kw": power_kw,
+            "rate_name": rate_name,
+            "next_cheap_start": next_cheap_start,
+        },
+    )
+
+
+def async_delete_ev_base_rate_issue(hass: HomeAssistant) -> None:
+    """Clear the base-rate charging repair issue once the session ends or the rate drops."""
+    async_delete_issue(hass, DOMAIN, ISSUE_EV_BASE_RATE_CHARGING)
 
 
 async def async_create_fix_flow(

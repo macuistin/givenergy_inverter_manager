@@ -43,6 +43,7 @@ from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCo
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+from custom_components.givenergy_inverter_manager.core.ev_base_rate import WatchState
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter, SwitchState
 from custom_components.givenergy_inverter_manager.immersion_actuator import ImmersionActuator
@@ -239,6 +240,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
         self._ev_charger = None
+        self._ev_base_rate = WatchState()
         self._battery_cycle_entities: list[str] = []
         self.override_charge_enabled = False
         self.override_charge_value = 80

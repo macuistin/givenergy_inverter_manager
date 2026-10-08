@@ -111,6 +111,7 @@ from .core.engine import (
     RawSensorValues,
     build_coordinator_data,
 )
+from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
 from .core.rules import monthly_solar_fractions
 from .core.tariff import (
     build_tariff,
@@ -139,12 +140,14 @@ from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
     ClearOutcome,
     async_create_battery_cost_issue,
+    async_create_ev_base_rate_issue,
     async_create_givtcp_missing_issue,
     async_create_min_soc_issue,
     async_create_other_charge_slots_issue,
     async_create_rates_differ_issue,
     async_create_tariff_review_issue,
     async_delete_battery_cost_issue,
+    async_delete_ev_base_rate_issue,
     async_delete_givtcp_missing_issue,
     async_delete_min_soc_issue,
     async_delete_other_charge_slots_issue,
@@ -262,6 +265,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._unsub_charge_target: Callable[[], None] | None = None
         self._charge_target_trigger_at: tuple[int, int] | None = None
         self._ev_charger: EVCharger | None = None
+        self._ev_base_rate = WatchState()
         self._battery_cycle_entities: list[str] = []
         self._givtcp_was_unavailable: bool = False
         self._inputs_unavailable_since: datetime | None = None
@@ -1279,6 +1283,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         data.cheap_rate_floor_status = await self._maybe_apply_cheap_rate_floor(now, raw, cfg)
         log_cycle(_LOG, CycleSnapshot(self._update_cycle, now, raw, data))
         self._remember_cycle(raw, now)
+        self._watch_ev_base_rate(data, raw, now)
         self._apply_decisions(data, ev_target_mode, now)
         return data
 
@@ -1377,6 +1382,41 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Keep what the next cycle needs: the last SoC and the cycle time."""
         self._last_soc = None if "battery_soc" in raw.unavailable_inputs else raw.battery_soc
         self._last_update = now
+
+    def _watch_ev_base_rate(
+        self, data: CoordinatorData, raw: RawSensorValues, now: datetime
+    ) -> None:
+        """Raise the repair while the car charges from the grid at the base rate, else clear it.
+
+        Nothing is read or created on an install with no charger. A charger that goes away
+        mid-session clears a raised repair.
+        """
+        if self._ev_charger is None:
+            self._end_ev_base_rate_watch()
+            return
+        reading = BaseRateReading(
+            ev_power_w=raw.ev_power_w,
+            grid_import_w=raw.grid_power_w,
+            on_base_rate=data.is_on_base_rate,
+            next_cheap_start=data.next_cheap_rate_start,
+        )
+        step = watch_step(self._ev_base_rate, reading, now)
+        self._ev_base_rate = step.state
+        if step.action is AlertAction.RAISE:
+            async_create_ev_base_rate_issue(
+                self.hass,
+                power_kw=f"{raw.ev_power_w / 1000:.1f}",
+                rate_name=data.current_rate_name,
+                next_cheap_start=str(data.next_cheap_rate_start),
+            )
+        elif step.action is AlertAction.CLEAR:
+            async_delete_ev_base_rate_issue(self.hass)
+
+    def _end_ev_base_rate_watch(self) -> None:
+        """Forget the watch, clearing the repair only when this watch raised it."""
+        if self._ev_base_rate.raised:
+            async_delete_ev_base_rate_issue(self.hass)
+        self._ev_base_rate = WatchState()
 
     def _apply_decisions(
         self, data: CoordinatorData, ev_target_mode: str | None, now: datetime

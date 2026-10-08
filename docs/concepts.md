@@ -26,7 +26,7 @@ inverter --> GivTCP --> MQTT --> Home Assistant entities (sensor.givtcp_<serial>
 Every 30 seconds the coordinator runs these steps in order.
 
 1. Merge configuration. Saved options override the values entered at setup.
-2. Raise or clear the repair issues: one for a minimum SoC above 30%, one for other charge slots with a window set, one for a battery cost of 0 after a week of battery tracking, one for GivTCP day, night or export rates that differ from the tariff.
+2. Raise or clear the repair issues: one for a minimum SoC above 30%, one for other charge slots with a window set, one for a battery cost of 0 after a week of battery tracking, one for GivTCP day, night or export rates that differ from the tariff, one for a car charging from the grid at the base rate.
 3. Check GivTCP. If both the solar power sensor and the battery SoC sensor are `unavailable`, `unknown` or missing, the cycle fails and every entity of the integration becomes unavailable until GivTCP returns. See [Troubleshooting](troubleshooting.md#all-entities-are-unavailable).
 4. Look for an EV charger. Until one is found with its power, session and charge mode entities, discovery repeats about every 5 minutes (every tenth cycle). Entities that appear later are added with no reload.
 5. Read the sensors: solar power, battery SoC, battery power, grid power, house load, the optional immersion temperature, forecasts, carbon intensity and inverter temperature, the EV charger, and the GivTCP daily energy counters.
@@ -158,13 +158,14 @@ Turning the managed switch on yourself starts a run to target. So does turning y
 
 The integration finds Zappi (myenergi), Wallbox, OCPP, Ohme and Easee chargers by their entity names. It uses the first one found.
 
-It does three things with the charger:
+It does four things with the charger:
 
 - **Signals.** EV Solar Surplus reads `Available` at 1380 W of net solar surplus or more. EV Charging Source reports Solar, Grid, Battery or Mixed. EV Draining Battery is `yes` when the charger is charging, is drawing power, and the battery discharges over 200 W. A charger that reports a charging status but draws no power, such as a Zappi waiting for the car, does not count.
 - **Zappi mode.** For a Zappi with a charge mode entity, with a car plugged in and net surplus of at least 1380 W, the integration selects **Eco+** unless the Zappi is already in it. It never selects Stopped. In dry run it records the action and sends nothing.
+- **Base-rate alert.** When the car draws at least 1380 W, the grid supplies at least 1380 W, the rate in force is the base rate and the tariff has a cheaper timed band, the repair **EV is charging at the base rate** appears after 5 minutes. It is raised once and clears when the session ends or the rate drops. A flat tariff never raises it, and an install with no charger evaluates nothing. See [Troubleshooting](troubleshooting.md#ev-is-charging-at-the-base-rate).
 - **Cost and distance.** EV energy, cost and kilometres use the car efficiency from the options.
 
-Other brands get the signals only.
+Other brands get the signals and the base-rate alert only.
 
 ### Costs
 
