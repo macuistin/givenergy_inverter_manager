@@ -2,6 +2,39 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+Stops an EV charge reading as a night shortfall, corrects the EV and immersion cost when the grid
+also charges the battery, and adds an alert for EV charging at the base rate.
+
+**Features**
+- Repair "EV is charging at the base rate". When the car draws from the grid in the base-rate
+  band for 5 minutes and the tariff has a cheaper timed band, the repair names the power, the
+  rate and when the next cheaper band starts. It is raised once, clears when the session ends or
+  the rate drops, and never appears for a flat tariff or an install with no charger. The
+  integration does not stop or pause the charger.
+
+**Fixes**
+- Night survival and the overnight charge target no longer count an EV charge as house load. A
+  car charging overnight used to push Estimated SoC at Sunrise to the minimum, give a false
+  "Battery may run low" status and Critical confidence, and send the charge target to the cap.
+  The car's energy is now left out of the average daily load. The 10 point buffer for a
+  plugged-in car is unchanged.
+- Estimated SoC at Sunrise no longer jumps at midnight, at 08:00 or when solar fades. It follows
+  the calculated estimate at no more than the pace the inverter can charge or discharge the
+  battery (inverter maximum output over battery capacity). The Night Survival Status and
+  Confidence sensors and the charge plan still read the calculated figure.
+- EV Charging Cost Today and Immersion Cost Today no longer include grid energy that went into
+  the battery. They take their share only of the import that fed the load, and House Cost Today
+  keeps the rest.
+- Inverter Temperature and its status read GivTCP's `sensor.givtcp_<serial>_invertor_temperature`
+  when no entity was stored at setup. The temperature dashboard rows show once that entity
+  exists.
+
+**Docs**
+- The cost sensors are documented as including the supplier discount and VAT, and not the standing
+  charge or the PSO levy.
+
 ## v0.13.0
 
 Shows how the forecast accuracy correction is doing and starts it from recorded history. Adds

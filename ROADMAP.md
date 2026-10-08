@@ -35,7 +35,6 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 
 | Item | What and why | Evidence | Indicative value per year | Size |
 |---|---|---|---|---|
-| **M3 Confirm EV power reads the charger, then fix what is left** | `ev_power`, `zappi_today` and `zappi_cost_today` read 0 for weeks on installs where the myenergi entity ids carry no serial, because the lookup needed one. That was fixed in v0.4.0. A real-Home-Assistant test and the published plug and status values now cover the lookup, and a charger only counts as active while it draws power, because a Zappi keeps a Boosting status while its plug reads Waiting for EV. Check `sensor.givenergy_inverter_manager_ev_charging_power` on the next charging session. If it still reads 0, read power from the charger's own power sensor (for example `sensor.myenergi_zappi_power_ct_internal_load`) and use its energy counters (`green_energy_today`, `energy_used_today`, `charge_added_session`) for energy and the solar and grid cost split. `rest_of_house_load` and the baseline subtract EV power, so they keep the EV until it does | One install: EV power read 0 for weeks while charging sessions of about 7 kW were recorded. `rest_of_house_load` peaked close to the house load because the EV was not subtracted | Not applicable (unlocks S2, S3, S5, C1) | S |
 
 ---
 
@@ -45,7 +44,6 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 
 | Item | What and why | Evidence | Indicative value per year | Size |
 |---|---|---|---|---|
-| **S3 Alert when the EV charges at the base rate** | Notify when the car draws from the grid in the base-rate band, so the session can move to a cheaper band | One install: a small share of EV charging landed in the base-rate band in a month | About 100 (medium). Overlaps the low end of S2 | S |
 | **S5 Make the overnight charge target load-aware** | Use a rolling non-EV evening load so the battery lasts until the cheap window and does not run flat into base-rate import. When solar matches the forecast but the battery still runs flat, load caused the miss | One install: on one evening the battery ran flat several hours before the cheap window and about 7 kWh came in at the base rate | 35 to 65 (low to medium) | M |
 | **S4 Schedule immersion heating into the cheapest window** | Heat in the cheapest window through the managed switch (`immersion_heater_managed`, off by default), with surplus-only top-ups by day. Also covers the old predictive immersion item, which runs in the cheapest window when the forecast is low. The divert rule compares solar with the import rate, but where export pays more than the cheapest import rate, diverting solar loses money. Review the rule as part of this | One install: half or more of the immersion energy was not solar. Hot water timing and tank loss are unmeasured | 25 to 150 (low) | M |
 | **S1 Take over charge schedules** (repair and one-click fix shipped in v0.8.0; what is left is below) | Raise a repair when any other charge slot is active in GivTCP. Offer a one-click fix in the repair that clears the conflicting slots, so grid charging happens in the cheapest window, with no new option. A leftover slot 2 can charge at a dearer rate. Charging in the window is capped by the charge rate times the window length | One install: most grid charge landed outside the cheapest window, and most of the energy in the dearer band could have moved | 75 to 100 (medium) | M |
@@ -141,7 +139,7 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 
 ## Dependencies and order
 
-1. **M3 first.** S3, S5, S2 and C1 need real EV power, and the load baseline must exclude the EV.
+1. **EV power is confirmed.** It reads the real charger. S5, S2 and C1 can rely on it, and the load baseline excludes the EV.
 2. **One writer for the charge schedule.** S1 and S5 write it. All go through `GivTCPWriter`, so the verified read-back and write counting apply.
 3. **S17 before C1 to C4, N6 and N7.** The device list is the foundation. C1 comes before C3. C2 comes before N7. C17 comes before N8. S4 comes before N4.
 4. **S1, S2 and S4 share the cheap windows.** The battery, the EV and the immersion can together draw more than the supply allows. Do C19 or add a supply limit check before enabling more than one by default.
@@ -153,7 +151,7 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 
 Comment on a GitHub issue to weigh in.
 
-1. **Do most users plug the car in most nights?** The top of the S2 range assumes it. Without it, S3 holds most of the value and S2 is not worth an L.
+1. **Do most users plug the car in most nights?** The top of the S2 range assumes it. Without it, S2 is not worth an L.
 
 ---
 
