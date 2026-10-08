@@ -131,6 +131,18 @@ The average daily load is today's house energy so far, less the EV charger's ene
 
 **Cheap rate floor.** During a timed period cheaper than the base rate, the integration checks SoC against the floor (default 40%, 0 turns it off). In the cheapest period the full floor applies. In a cheaper-but-not-cheapest period it only acts when SoC is below the minimum SoC plus 5. When it acts, it writes the floor as the target SoC and turns enable charge target on, once per day.
 
+### Night survival
+
+Night survival asks whether the battery lasts until solar starts. It uses the current SoC, the usable capacity above the minimum SoC, the average daily load (see above, so without the EV charger) spread evenly over 24 hours, and a window of hours:
+
+- Before 08:00, the hours left until 08:00.
+- After 08:00 while solar is generating, tonight's pre-solar window of 8 hours from the current SoC.
+- After 08:00 with no solar, from now until 08:00 tomorrow.
+
+The charge plan skips a night only when this check passes, and it uses the same window and load. **Estimated SoC at Sunrise** is the SoC left at the end of the window, never below the minimum SoC. **Battery Night Survival Status** and **Night Survival Confidence** read the same calculation.
+
+The calculated figure steps when the day's energy total resets at midnight, when the window flips at 08:00 and when solar fades in the evening. The published **Estimated SoC at Sunrise** follows the calculated figure at no more than the pace the inverter can charge or discharge the battery (inverter maximum output over battery capacity, for example 5 kW over 19 kWh is about 26 points an hour). A step becomes a ramp of about half an hour. The status and confidence sensors use the calculated figure, so a real shortfall shows at once. After a restart or a gap of an hour the held value is dropped and the sensor starts from the calculated figure.
+
 ### Immersion divert
 
 The rule runs in this order. The first match wins.

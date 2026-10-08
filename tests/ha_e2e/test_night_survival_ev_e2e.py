@@ -1,7 +1,8 @@
 """Night survival with a car charging overnight, through the real Home Assistant runtime.
 
 An EV drawing 7.2 kW for hours is not house load the battery has to cover. The estimate and the
-status stay where the house alone puts them.
+status stay where the house alone puts them, and the published estimate moves at the battery's
+pace, not in a jump, when the window changes.
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ from dataclasses import replace
 from datetime import timedelta
 
 import pytest
-from conftest import CHEAP_NIGHT, full_config_data
+from conftest import CHEAP_NIGHT, SOC, full_config_data
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -84,3 +85,42 @@ async def test_overnight_ev_charge_does_not_empty_the_night_survival_estimate(
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
 
+
+@pytest.mark.parametrize("scenario", [EV_JUNE_NIGHT], ids=lambda s: s.name)
+async def test_published_estimate_follows_a_step_at_the_battery_pace(
+    hass_in_scenario, service_calls, freezer
+):
+    """A reading that drops the calculated estimate by 60 points moves the sensor by minutes of
+    inverter power, not at once. The coordinator carries the held estimate between cycles."""
+    hass = hass_in_scenario
+    for entity_id, value in ZAPPI_CHARGING.items():
+        hass.states.async_set(entity_id, value)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="GivEnergy Inverter Manager",
+        data=full_config_data(),
+        unique_id="ab1234g567",
+        version=1,
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    for _ in range(STEPS):
+        freezer.tick(STEP)
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+
+    before = float(_sensor_state(hass, entry, "estimated_soc_at_sunrise").state)
+    hass.states.async_set(SOC, "20")
+    freezer.tick(timedelta(minutes=1))
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    after = float(_sensor_state(hass, entry, "estimated_soc_at_sunrise").state)
+
+    data = entry.runtime_data.data
+    one_minute_swing = data.inverter_max_w / 1000 / data.battery_capacity_kwh * 100 / 60
+    assert before - after == pytest.approx(one_minute_swing, abs=0.2)
+    assert data.battery_soc == 20.0
+
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()

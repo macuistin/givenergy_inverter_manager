@@ -112,6 +112,12 @@ from .rules import (
     decide_ev_charger_action,
     should_divert_to_immersion,
 )
+from .sunrise_hold import (
+    HeldSunrise,
+    SunriseReading,
+    max_battery_swing_pct_per_hour,
+    published_sunrise_soc,
+)
 from .tariff import (
     CounterMemory,
     EnergyAccumulator,
@@ -696,12 +702,16 @@ class ForecastContext:
 
 @dataclass(frozen=True)
 class PreviousCycle:
-    """State carried over from the previous update. battery_stats and held_charge are mutated."""
+    """State carried over from the previous update.
+
+    battery_stats, held_charge and held_sunrise are mutated.
+    """
 
     battery_stats: BatteryStats
     last_soc: float | None
     last_update_time: datetime | None
     held_charge: HeldCharge = field(default_factory=HeldCharge)
+    held_sunrise: HeldSunrise = field(default_factory=HeldSunrise)
 
 
 @dataclass(frozen=True)
@@ -1075,14 +1085,21 @@ def _minutes_remaining_in_period(
     return round(elapsed_seconds(now, end) / 60, 1)
 
 
-def _calculate_night_survival(data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float) -> None:
-    """Calculate night survival metrics."""
+def _calculate_night_survival(
+    data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float, held: HeldSunrise
+) -> None:
+    """Calculate night survival metrics.
+
+    will_survive_night and survival_reason come from the calculated estimate. The published
+    estimated_soc_at_sunrise follows it at the battery's own pace, so a step in the window
+    or the load estimate does not jump the sensor.
+    """
     raw = cycle.raw
     min_soc = _configured_min_soc(cycle.cfg)
     data.battery_min_soc = min_soc
     (
         data.will_survive_night,
-        data.estimated_soc_at_sunrise,
+        calculated_soc,
         data.survival_reason,
     ) = estimate_will_survive_night(
         NightEstimateInputs(
@@ -1093,6 +1110,15 @@ def _calculate_night_survival(data: CoordinatorData, cycle: _Cycle, avg_daily_kw
             average_hourly_consumption_kwh=avg_daily_kwh / 24,
         )
     )
+    data.estimated_soc_at_sunrise = published_sunrise_soc(
+        held,
+        SunriseReading(
+            calculated_soc,
+            cycle.now,
+            max_battery_swing_pct_per_hour(raw.inverter_max_w, raw.battery_capacity_kwh),
+        ),
+    )
+    held.soc, held.at = data.estimated_soc_at_sunrise, cycle.now
 
 
 def _live_grid_cost_rate(cycle: _Cycle) -> float:
@@ -1299,7 +1325,7 @@ def build_coordinator_data(
     _set_decisions(data, cycle, avg_daily_kwh, previous.held_charge)
     _set_money_fields(data, cycle, accumulators)
     _calculate_ev_km(data, accumulators.today, inputs.cfg)
-    _calculate_night_survival(data, cycle, avg_daily_kwh)
+    _calculate_night_survival(data, cycle, avg_daily_kwh, previous.held_sunrise)
     _set_carbon_intensity(data, inputs.raw)
 
     if inputs.ev_charger is None:
