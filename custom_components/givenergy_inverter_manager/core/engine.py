@@ -526,6 +526,17 @@ def estimate_avg_daily_kwh(
     return max(limits.absolute_min, estimated)
 
 
+def _baseline_house_kwh(today: EnergyAccumulator) -> float:
+    """Today's house energy without the EV charger's share.
+
+    The load figure includes the EV charger. The charge target and the night survival
+    estimate scale this energy up to a full day, so a car drawing 7 kW at 01:00 would read
+    as a house that uses 170 kWh a day. The EV is a separate, flexible load and the
+    per-slot baseline profile already leaves it out.
+    """
+    return max(0.0, today.house_kwh - today.zappi_kwh)
+
+
 @dataclass(frozen=True)
 class BatteryReading:
     """This cycle's SoC, the previous cycle's, and the BMS lifetime cycle count if reported."""
@@ -1283,7 +1294,7 @@ def build_coordinator_data(
     _set_tariff_fields(data, cycle)
     _set_battery_stats(data, cycle, previous)
     _accumulate_energy_today(data, cycle, accumulators, previous.last_update_time)
-    avg_daily_kwh = estimate_avg_daily_kwh(data.today.house_kwh, now)
+    avg_daily_kwh = estimate_avg_daily_kwh(_baseline_house_kwh(data.today), now)
 
     _set_decisions(data, cycle, avg_daily_kwh, previous.held_charge)
     _set_money_fields(data, cycle, accumulators)
