@@ -120,7 +120,7 @@ from .core.tariff import (
     stale_tariff_age_days,
     tariff_in_force,
 )
-from .core.tariff_check import GivTCPRates, find_rate_mismatches
+from .core.tariff_check import GivTCPRates, RateMismatch, find_rate_mismatches
 from .core.timeutil import elapsed_seconds
 from .discovery import (
     UNUSED_SLOT_TIME,
@@ -146,14 +146,12 @@ from .repairs import (
     async_create_givtcp_missing_issue,
     async_create_min_soc_issue,
     async_create_other_charge_slots_issue,
-    async_create_rates_differ_issue,
     async_create_tariff_review_issue,
     async_delete_battery_cost_issue,
     async_delete_ev_base_rate_issue,
     async_delete_givtcp_missing_issue,
     async_delete_min_soc_issue,
     async_delete_other_charge_slots_issue,
-    async_delete_rates_differ_issue,
     async_delete_tariff_review_issue,
 )
 from .write_audit import WriteAudit
@@ -1144,7 +1142,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             async_delete_min_soc_issue(self.hass)
         self._check_other_charge_slots(cfg)
         self._check_battery_cost(cfg)
-        self._check_givtcp_rates(cfg)
         self._check_tariff_review(cfg)
 
     def _check_battery_cost(self, cfg: dict) -> None:
@@ -1167,20 +1164,15 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         held = {name: v for name, v in values.items() if v is not None and v > 0}
         return GivTCPRates(day=held.get("day"), night=held.get("night"), export=held.get("export"))
 
-    def _check_givtcp_rates(self, cfg: dict) -> None:
-        """Show the rates GivTCP holds when they differ from the tariff entered here.
+    def _compare_givtcp_rates(self, cfg: dict) -> tuple[RateMismatch, ...] | None:
+        """The GivTCP rates that differ from the tariff entered here, None when none is readable.
 
-        With no readable GivTCP rate the issue is left as it is, so a GivTCP restart does
-        not clear a dismissed issue and raise it again.
+        The result only feeds attributes of the Current Rate sensor. It never raises a repair.
         """
         rates = self._read_givtcp_rates(cfg)
         if not rates.any_held:
-            return
-        mismatches = find_rate_mismatches(build_tariff(cfg), rates, GIVTCP_RATE_TOLERANCE_PCT)
-        if mismatches:
-            async_create_rates_differ_issue(self.hass, mismatches)
-        else:
-            async_delete_rates_differ_issue(self.hass)
+            return None
+        return tuple(find_rate_mismatches(build_tariff(cfg), rates, GIVTCP_RATE_TOLERANCE_PCT))
 
     def _check_tariff_review(self, cfg: dict[str, Any]) -> None:
         """Raise the repair issue once the tariff has gone unreviewed for too long, else clear it.
@@ -1293,6 +1285,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             ),
         )
         self._attach_stored_totals(data)
+        data.givtcp_rate_mismatches = self._compare_givtcp_rates(cfg)
         self.immersion.annotate_divert_reason(data, raw.immersion_temp)
         self._record_forecast(raw, data)
         data.cheap_rate_floor_status = await self._maybe_apply_cheap_rate_floor(now, raw, cfg)

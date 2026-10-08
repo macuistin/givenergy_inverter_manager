@@ -126,6 +126,7 @@ from .tariff import (
     build_tariff,
     tariff_in_force,
 )
+from .tariff_check import RateMismatch
 from .timeutil import elapsed_seconds, local_time_on
 
 _LOG = get_logger(__name__)
@@ -302,6 +303,8 @@ class CoordinatorData:
     register_write_log: list[dict] = field(default_factory=list)  # oldest first
     carbon_intensity_gco2: float | None = None
     carbon_intensity_status: str = "Unknown"
+    # GivTCP rates that differ from the tariff here. None when no GivTCP rate is readable.
+    givtcp_rate_mismatches: tuple[RateMismatch, ...] | None = None
 
 
 @dataclass(frozen=True)

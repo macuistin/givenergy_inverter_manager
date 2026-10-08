@@ -23,6 +23,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
@@ -100,6 +101,11 @@ def _make_update_listener(entry: GivEnergyConfigEntry):
     return _on_entry_updated
 
 
+# Repair issues the integration no longer raises. A live install may still hold one, so
+# setup deletes it. Deleting an issue that is not there does nothing.
+_RETIRED_ISSUE_IDS: tuple[str, ...] = ("givtcp_rates_differ",)
+
+
 def _remove_retired_sensors(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
     """Delete the registry entries of retired sensors that belong to this config entry."""
     registry = er.async_get(hass)
@@ -110,6 +116,12 @@ def _remove_retired_sensors(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
         if entity_id is not None:
             registry.async_remove(entity_id)
             _LOG.info("Removed the retired sensor %s", entity_id)
+
+
+def _remove_retired_issues(hass: HomeAssistant) -> None:
+    """Delete the repair issues the integration used to raise and no longer does."""
+    for issue_id in _RETIRED_ISSUE_IDS:
+        ir.async_delete_issue(hass, DOMAIN, issue_id)
 
 
 def _enable_newly_default_sensors(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
@@ -153,6 +165,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
     entry.runtime_data = coordinator
 
     _remove_retired_sensors(hass, entry)
+    _remove_retired_issues(hass)
     _enable_newly_default_sensors(hass, entry)
     remove_orphaned_entities(hass, entry)
 

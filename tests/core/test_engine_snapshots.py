@@ -44,6 +44,10 @@ fresh snapshot gained it as None. No case moved, because none passes a forecast 
 import. Only zappi_cost, immersion_cost and house_cost on the accumulators and
 ev_cost_per_km_today moved. The new behaviour is pinned in TestAccumulateEnergy in
 tests/core/test_engine.py.
+
+The givtcp_rate_mismatches leaf was added for the GivTCP rate attributes of the Current Rate
+sensor. The fresh snapshot gained it as None. No case moved, because the coordinator sets it
+after the engine has built the snapshot.
 """
 
 from __future__ import annotations

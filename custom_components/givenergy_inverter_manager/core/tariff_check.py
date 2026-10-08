@@ -2,8 +2,9 @@
 tariff_check.py - compare the tariff entered here with the rates GivTCP holds.
 
 GivTCP keeps its own day, night and export rates. The rates entered here always win, and
-GivTCP's are shown for comparison only. A GivTCP rate that is missing, unavailable or not
-above zero is treated as not held, so an inverter that never had its rates set raises nothing.
+GivTCP's are shown for comparison only, as attributes of the Current Rate sensor. A GivTCP
+rate that is missing, unavailable or not above zero is treated as not held, so an inverter
+that never had its rates set shows nothing.
 
 Pure Python, no Home Assistant imports.
 """
@@ -42,9 +43,9 @@ class RateMismatch:
         return f"{self.label}: {self.here:g} here, {self.givtcp:g} in GivTCP"
 
 
-def describe_rate_mismatches(mismatches: Sequence[RateMismatch]) -> str:
-    """The mismatches as a Markdown bullet list, one rate per line."""
-    return "\n".join(f"- {mismatch.line}" for mismatch in mismatches)
+def describe_rate_mismatches(mismatches: Sequence[RateMismatch]) -> list[str]:
+    """One short line per mismatch, such as "Day rate: 0.3334 here, 0.395 in GivTCP"."""
+    return [mismatch.line for mismatch in mismatches]
 
 
 def find_rate_mismatches(

@@ -94,26 +94,6 @@ You can also set **Battery cost** under **Configure**, in the Battery & charging
 
 The repair appears once. If you do not want wear counted, select **Ignore** and it stays out of the way. It is raised again only if the cost is set and then set back to 0.
 
-## GivTCP rates differ from the tariff
-
-The repair **GivTCP rates differ from your tariff** appears when GivTCP holds a day, night or export rate that disagrees with the tariff entered in this integration. A wrong rate scales every cost figure, so both values are shown, for example `Day rate: 0.3334 here, 0.395 in GivTCP`.
-
-The integration reads these GivTCP sensors for your inverter serial: `day_rate`, `night_rate` and `export_rate`. Nothing is set up for this. If the sensors are missing, unavailable or 0, nothing is shown.
-
-How the rates are compared:
-
-- The GivTCP day rate is compared with the base rate, and the export rate with the export rate.
-- GivTCP has one night rate. It agrees when it matches any timed rate period, so a tariff with a night and a boost period is not flagged for either. A tariff with no timed period has no night rate to compare.
-- A rate counts as different when it is more than 2% away from the rate entered here.
-
-The rates entered here always win. Every cost figure in this integration uses them, and GivTCP's rates are shown for comparison only. The repair does not change either side. To clear it:
-
-1. Decide which rate is right, using your latest bill.
-2. If the rate here is wrong, open **Configure** and correct it. See [Tariff](tariff.md).
-3. If the GivTCP rate is wrong, correct it in GivTCP. This only affects GivTCP's own cost sensors.
-
-The repair clears on the next update cycle once the rates agree. It appears once, and **Ignore** keeps it out of the way until the rates agree and then differ again. While GivTCP is unavailable, the repair is left as it is.
-
 ## EV is charging at the base rate
 
 The repair **EV is charging at the base rate** appears when the car draws from the grid in the base-rate band and your tariff has a cheaper band. The same session in the cheaper band costs less. The repair names the power, the base rate and when the next cheaper band starts, for example `about 7.2 kW at the Day rate, a cheaper band starts at 23:00`.

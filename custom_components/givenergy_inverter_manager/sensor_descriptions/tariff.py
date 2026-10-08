@@ -15,6 +15,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         native_unit_of_measurement=CURRENCY_UNIT,  # unit resolved dynamically
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.current_rate, 4),
+        attrs_fn=values.givtcp_rate_attributes,
     ),
     GivEnergyManagerSensorDescription(
         key="current_rate_period",

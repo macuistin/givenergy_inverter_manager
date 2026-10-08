@@ -42,7 +42,7 @@ Read from the tariff you configured. See [Tariff](tariff.md).
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Current Rate | `current_rate` | currency | - | measurement | no | yes | Unit import rate in force now. |
+| Current Rate | `current_rate` | currency | - | measurement | no | yes | Unit import rate in force now. The `givtcp_rates_differ` and `givtcp_rate_differences` attributes compare the day, night and export rates GivTCP holds with the tariff entered here. See [Tariff](tariff.md#comparing-with-givtcps-rates). Absent when GivTCP's rates cannot be read. |
 | Current Rate Period | `current_rate_period` | - | - | none | no | yes | Name of the active period, or the base rate name. |
 | Live Grid Cost Rate | `live_grid_cost_rate` | currency | - | measurement | no | yes | Cost per hour of the current grid flow. Positive when spending, negative when earning. |
 | Next Cheap Rate Start | `next_cheap_rate_start` | - | - | none | no | yes | Start time (HH:MM) of the next period cheaper than the base rate, or Now. The `summary` attribute adds the wait, such as `23:00 (in 8 h 56 min)`, or the time until cheap rates end, such as `Now (ends in 5 h 30 min)`. The end is that of the whole run of periods cheaper than the base rate, so a cheaper period inside a longer one does not cut it short. Absent on a tariff with no cheap period. |

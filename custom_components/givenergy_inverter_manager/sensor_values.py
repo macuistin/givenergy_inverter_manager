@@ -20,6 +20,7 @@ from .const import (
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.tariff import EnergyAccumulator
+from .core.tariff_check import describe_rate_mismatches
 from .core.write_log import newest_first
 
 # Power inside this band either side of zero counts as no flow.
@@ -196,6 +197,17 @@ def cheap_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """Return the summary attribute a dashboard tile shows, None on a tariff without one."""
     summary = cheap_rate_summary(data)
     return None if summary is None else {"summary": summary}
+
+
+def givtcp_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Return how GivTCP's rates compare with the tariff here, None when none is readable."""
+    mismatches = data.givtcp_rate_mismatches
+    if mismatches is None:
+        return None
+    return {
+        "givtcp_rates_differ": bool(mismatches),
+        "givtcp_rate_differences": describe_rate_mismatches(mismatches),
+    }
 
 
 def average_import_rate(accumulator: EnergyAccumulator) -> float | None:
