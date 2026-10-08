@@ -2,7 +2,7 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.14.0
 
 Stops an EV charge reading as a night shortfall, corrects the EV and immersion cost when the grid
 also charges the battery, and adds an alert for EV charging at the base rate.
@@ -34,6 +34,10 @@ also charges the battery, and adds an alert for EV charging at the base rate.
 **Docs**
 - The cost sensors are documented as including the supplier discount and VAT, and not the standing
   charge or the PSO levy.
+
+**Upgrading**
+- Nothing to do by hand. Estimated SoC at Sunrise can read differently from the first start, because
+  an EV charge no longer counts as house load. Cost totals already stored are not restated.
 
 ## v0.13.0
 
