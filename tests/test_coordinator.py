@@ -43,6 +43,7 @@ from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCo
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter, SwitchState
 from custom_components.givenergy_inverter_manager.immersion_actuator import ImmersionActuator
@@ -119,6 +120,7 @@ class FakeCoordinator(GivEnergyCoordinator):
 
         self._battery_stats = BatteryStats()
         self._held_charge = HeldCharge()
+        self._held_sunrise = HeldSunrise()
         self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""
         self._unsub_charge_target = None
@@ -2634,6 +2636,70 @@ class TestInverterTemperature:
         assert data.inverter_temperature is None
         from custom_components.givenergy_inverter_manager.const import INVERTER_TEMP_STATUS_UNKNOWN
         assert data.inverter_temperature_status == INVERTER_TEMP_STATUS_UNKNOWN
+
+    @staticmethod
+    def _temperature_coordinator(*states: tuple[str, str], configured: str | None = None):
+        """A coordinator with a serial, and an optional configured temperature entity."""
+        from custom_components.givenergy_inverter_manager.const import (
+            CONF_INVERTER_SERIAL,
+            CONF_INVERTER_TEMP_ENTITY,
+        )
+
+        extra = {CONF_INVERTER_SERIAL: "fd2309f069"}
+        if configured:
+            extra[CONF_INVERTER_TEMP_ENTITY] = configured
+        coord = FakeCoordinator(cfg=_cfg(**extra))
+        coord.set_states(_default_states())
+        for entity_id, state in states:
+            coord.set_state(entity_id, state)
+        return coord
+
+    @pytest.mark.asyncio
+    async def test_reads_the_invertor_entity_from_the_serial_when_none_is_configured(self):
+        coord = self._temperature_coordinator(("sensor.givtcp_fd2309f069_invertor_temperature", "36.3"))
+        data = await coord._async_update_data()
+        assert data.inverter_temperature == pytest.approx(36.3)
+
+    @pytest.mark.asyncio
+    async def test_reads_the_inverter_spelling_when_that_is_the_one_present(self):
+        coord = self._temperature_coordinator(("sensor.givtcp_fd2309f069_inverter_temperature", "41.0"))
+        data = await coord._async_update_data()
+        assert data.inverter_temperature == pytest.approx(41.0)
+
+    @pytest.mark.asyncio
+    async def test_the_configured_entity_wins_over_the_serial_derived_one(self):
+        coord = self._temperature_coordinator(
+            ("sensor.chosen_temp", "50.0"),
+            ("sensor.givtcp_fd2309f069_invertor_temperature", "36.3"),
+            configured="sensor.chosen_temp",
+        )
+        data = await coord._async_update_data()
+        assert data.inverter_temperature == pytest.approx(50.0)
+
+    @pytest.mark.asyncio
+    async def test_the_entity_is_picked_up_when_givtcp_creates_it_later(self):
+        coord = self._temperature_coordinator()
+        assert (await coord._async_update_data()).inverter_temperature is None
+        coord.set_state("sensor.givtcp_fd2309f069_invertor_temperature", "36.3")
+        assert (await coord._async_update_data()).inverter_temperature == pytest.approx(36.3)
+
+    @pytest.mark.asyncio
+    async def test_no_serial_and_no_entity_stays_unknown(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.set_state("sensor.givtcp_fd2309f069_invertor_temperature", "36.3")
+        data = await coord._async_update_data()
+        assert data.inverter_temperature is None
+
+    def test_the_candidate_entity_ids_try_givtcp_s_spelling_first(self):
+        from custom_components.givenergy_inverter_manager.discovery import (
+            inverter_temperature_entity_ids,
+        )
+
+        assert inverter_temperature_entity_ids("FD2309F069") == [
+            "sensor.givtcp_fd2309f069_invertor_temperature",
+            "sensor.givtcp_fd2309f069_inverter_temperature",
+        ]
 
     def test_inverter_temp_in_discovery_map(self):
         src = (PKG / "config_flow.py").read_text()

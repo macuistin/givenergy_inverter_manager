@@ -29,7 +29,7 @@ The file only contains tiles and cards that will show a value.
 - A section with no tiles left is left out too, so there is never a heading on its own.
 - EV tiles and the EV charger sub-view need an EV charger the integration has discovered. They are hidden until it has, and shown when it does. See [Devices you add or remove later](#devices-you-add-or-remove-later).
 - The heater tiles, the heater on or off band and the divert reason need an immersion switch. The water temperature tile and chart need an immersion temperature sensor. The Target, Minimum and Restart gap tiles and sliders need both, because they act on nothing without a sensor to read.
-- Inverter temperature tiles need the inverter temperature entity in the options.
+- Inverter temperature tiles need an inverter temperature entity: the one stored at setup, or GivTCP's `sensor.givtcp_<serial>_invertor_temperature` when it exists.
 - The forecast tiles need a forecast entity in the options.
 
 ## Devices you add or remove later

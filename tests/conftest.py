@@ -362,4 +362,5 @@ def _run(
         today_raw_forecast_kwh=kwargs.get("today_raw_forecast_kwh"),
         today_raw_forecast_p10_kwh=kwargs.get("today_raw_forecast_p10_kwh"),
         held_charge=kwargs.get("held_charge"),
+        held_sunrise=kwargs.get("held_sunrise"),
     )

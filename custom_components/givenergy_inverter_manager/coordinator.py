@@ -112,6 +112,7 @@ from .core.engine import (
     build_coordinator_data,
 )
 from .core.rules import monthly_solar_fractions
+from .core.sunrise_hold import HeldSunrise
 from .core.tariff import (
     build_tariff,
     last_tariff_review,
@@ -129,6 +130,7 @@ from .discovery import (
     discover_ev_chargers,
     find_other_active_charge_slots,
     givtcp_rate_entity_ids,
+    inverter_temperature_entity_ids,
     update_charger_state,
 )
 from .forecast_seeding import async_seed_forecast_accuracy
@@ -254,6 +256,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._acc = AccumulationStore(self.hass, self._configured_bill_start_day())
         self._battery_stats = BatteryStats()
         self._held_charge = HeldCharge()
+        self._held_sunrise = HeldSunrise()
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
@@ -457,6 +460,17 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return float(state.state)
         except (ValueError, TypeError):
             return None
+
+    def _read_inverter_temperature(self, cfg: dict) -> float | None:
+        """The inverter temperature: the chosen entity, else GivTCP's, found from the serial.
+
+        An install set up before GivTCP published the temperature has no entity stored.
+        """
+        entity_ids = [cfg.get(CONF_INVERTER_TEMP_ENTITY) or ""]
+        serial = cfg.get(CONF_INVERTER_SERIAL)
+        if serial:
+            entity_ids += inverter_temperature_entity_ids(serial)
+        return self._read_first_optional_float(*entity_ids)
 
     def _read_first_optional_float(self, *entity_ids: str) -> float | None:
         """Return the first entity id that has a numeric state, else None."""
@@ -833,7 +847,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw.carbon_intensity_gco2 = self._read_optional_float(
             cfg.get(CONF_CARBON_INTENSITY_ENTITY)
         )
-        raw.inverter_temp = self._read_optional_float(cfg.get(CONF_INVERTER_TEMP_ENTITY))
+        raw.inverter_temp = self._read_inverter_temperature(cfg)
         self._copy_ev_state(raw)
         raw.battery_lifetime_cycles = self._read_battery_lifetime_cycles()
         self._read_daily_counters(cfg, raw)
@@ -1260,6 +1274,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 last_soc=self._last_soc,
                 last_update_time=self._last_update,
                 held_charge=self._held_charge,
+                held_sunrise=self._held_sunrise,
             ),
             ForecastContext(
                 solar_fractions=self._solar_fractions,

@@ -112,6 +112,12 @@ from .rules import (
     decide_ev_charger_action,
     should_divert_to_immersion,
 )
+from .sunrise_hold import (
+    HeldSunrise,
+    SunriseReading,
+    max_battery_swing_pct_per_hour,
+    published_sunrise_soc,
+)
 from .tariff import (
     CounterMemory,
     EnergyAccumulator,
@@ -326,22 +332,24 @@ def _apportion_import_cost(
     raw: RawSensorValues,
     immersion_w: float,
 ) -> None:
-    """Apportion import cost across loads by their fraction of total load."""
+    """Split import cost between the EV, the immersion and the rest of the house.
+
+    The EV and the immersion each take their share of the house load, applied only to the
+    import that fed the load. Import above the load went into the battery, so it stays in
+    the rest of the house and is never charged to the car or the heater.
+    """
     total_load_w = max(1.0, raw.house_load_w)
+    load_fed_by_grid = min(1.0, total_load_w / max(1.0, raw.grid_power_w))
     ev_raw = raw.ev_power_w / total_load_w
     imm_raw = immersion_w / total_load_w
     total_frac = ev_raw + imm_raw
-    ev_frac = ev_raw
-    immersion_frac = imm_raw
-    if total_frac > 1.0:
-        norm = 1.0 / total_frac
-        ev_frac *= norm
-        immersion_frac *= norm
-    rest_frac = max(0.0, 1.0 - ev_frac - immersion_frac)
+    norm = 1.0 / total_frac if total_frac > 1.0 else 1.0
+    ev_cost = period_cost * load_fed_by_grid * ev_raw * norm
+    immersion_cost = period_cost * load_fed_by_grid * imm_raw * norm
 
-    acc.zappi_cost += period_cost * ev_frac
-    acc.immersion_cost += period_cost * immersion_frac
-    acc.house_cost += period_cost * rest_frac
+    acc.zappi_cost += ev_cost
+    acc.immersion_cost += immersion_cost
+    acc.house_cost += period_cost - ev_cost - immersion_cost
 
 
 def _accumulate_import(acc: EnergyAccumulator, step: _Step) -> None:
@@ -526,6 +534,17 @@ def estimate_avg_daily_kwh(
     return max(limits.absolute_min, estimated)
 
 
+def _baseline_house_kwh(today: EnergyAccumulator) -> float:
+    """Today's house energy without the EV charger's share.
+
+    The load figure includes the EV charger. The charge target and the night survival
+    estimate scale this energy up to a full day, so a car drawing 7 kW at 01:00 would read
+    as a house that uses 170 kWh a day. The EV is a separate, flexible load and the
+    per-slot baseline profile already leaves it out.
+    """
+    return max(0.0, today.house_kwh - today.zappi_kwh)
+
+
 @dataclass(frozen=True)
 class BatteryReading:
     """This cycle's SoC, the previous cycle's, and the BMS lifetime cycle count if reported."""
@@ -685,12 +704,16 @@ class ForecastContext:
 
 @dataclass(frozen=True)
 class PreviousCycle:
-    """State carried over from the previous update. battery_stats and held_charge are mutated."""
+    """State carried over from the previous update.
+
+    battery_stats, held_charge and held_sunrise are mutated.
+    """
 
     battery_stats: BatteryStats
     last_soc: float | None
     last_update_time: datetime | None
     held_charge: HeldCharge = field(default_factory=HeldCharge)
+    held_sunrise: HeldSunrise = field(default_factory=HeldSunrise)
 
 
 @dataclass(frozen=True)
@@ -1064,14 +1087,21 @@ def _minutes_remaining_in_period(
     return round(elapsed_seconds(now, end) / 60, 1)
 
 
-def _calculate_night_survival(data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float) -> None:
-    """Calculate night survival metrics."""
+def _calculate_night_survival(
+    data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float, held: HeldSunrise
+) -> None:
+    """Calculate night survival metrics.
+
+    will_survive_night and survival_reason come from the calculated estimate. The published
+    estimated_soc_at_sunrise follows it at the battery's own pace, so a step in the window
+    or the load estimate does not jump the sensor.
+    """
     raw = cycle.raw
     min_soc = _configured_min_soc(cycle.cfg)
     data.battery_min_soc = min_soc
     (
         data.will_survive_night,
-        data.estimated_soc_at_sunrise,
+        calculated_soc,
         data.survival_reason,
     ) = estimate_will_survive_night(
         NightEstimateInputs(
@@ -1082,6 +1112,15 @@ def _calculate_night_survival(data: CoordinatorData, cycle: _Cycle, avg_daily_kw
             average_hourly_consumption_kwh=avg_daily_kwh / 24,
         )
     )
+    data.estimated_soc_at_sunrise = published_sunrise_soc(
+        held,
+        SunriseReading(
+            calculated_soc,
+            cycle.now,
+            max_battery_swing_pct_per_hour(raw.inverter_max_w, raw.battery_capacity_kwh),
+        ),
+    )
+    held.soc, held.at = data.estimated_soc_at_sunrise, cycle.now
 
 
 def _live_grid_cost_rate(cycle: _Cycle) -> float:
@@ -1283,12 +1322,12 @@ def build_coordinator_data(
     _set_tariff_fields(data, cycle)
     _set_battery_stats(data, cycle, previous)
     _accumulate_energy_today(data, cycle, accumulators, previous.last_update_time)
-    avg_daily_kwh = estimate_avg_daily_kwh(data.today.house_kwh, now)
+    avg_daily_kwh = estimate_avg_daily_kwh(_baseline_house_kwh(data.today), now)
 
     _set_decisions(data, cycle, avg_daily_kwh, previous.held_charge)
     _set_money_fields(data, cycle, accumulators)
     _calculate_ev_km(data, accumulators.today, inputs.cfg)
-    _calculate_night_survival(data, cycle, avg_daily_kwh)
+    _calculate_night_survival(data, cycle, avg_daily_kwh, previous.held_sunrise)
     _set_carbon_intensity(data, inputs.raw)
 
     if inputs.ev_charger is None:

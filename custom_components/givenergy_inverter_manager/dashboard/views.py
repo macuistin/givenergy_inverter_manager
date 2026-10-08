@@ -13,9 +13,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
-from ..const import CONF_FORECAST_ENTITY, CONF_INVERTER_TEMP_ENTITY
+from ..const import CONF_FORECAST_ENTITY, CONF_INVERTER_SERIAL, CONF_INVERTER_TEMP_ENTITY
 from ..core.devices import Device
 from ..core.tariff import build_tariff, tariff_in_force
+from ..discovery import inverter_temperature_entity_ids
 from .cards import (
     BAR,
     BATTERY,
@@ -121,6 +122,15 @@ _THERMOSTAT_SETTINGS = (
 )
 
 
+def _has_inverter_temp(hass: HomeAssistant, cfg: dict) -> bool:
+    """True when an inverter temperature entity is chosen or GivTCP publishes one."""
+    if cfg.get(CONF_INVERTER_TEMP_ENTITY):
+        return True
+    serial = cfg.get(CONF_INVERTER_SERIAL)
+    candidates = inverter_temperature_entity_ids(serial) if serial else []
+    return any(hass.states.get(entity_id) is not None for entity_id in candidates)
+
+
 class Builder:
     """Builds the sections of each view from the entities that exist.
 
@@ -141,7 +151,7 @@ class Builder:
         self.cfg = entry_config(entry)
         self.external_ev = external_ev_power(hass)
         self.devices = Devices(self.reg)
-        self.has_inverter_temp = bool(self.cfg.get(CONF_INVERTER_TEMP_ENTITY))
+        self.has_inverter_temp = _has_inverter_temp(hass, self.cfg)
         self.has_forecast = bool(self.cfg.get(CONF_FORECAST_ENTITY))
         self._subview_paths: set[str] | None = None
 

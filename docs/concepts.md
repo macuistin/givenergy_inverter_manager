@@ -123,13 +123,25 @@ The factor raises the forecast, up to 1.2, when the service runs low. The charge
 
 The winter and shoulder month lists are fixed calendar months. They follow northern hemisphere seasons. The seasonal solar estimate does use your latitude.
 
-The average daily load is today's house energy so far, scaled up to 24 hours. It is at least 5 kWh, and 15 kWh in the first 30 minutes after midnight.
+The average daily load is today's house energy so far, less the EV charger's energy, scaled up to 24 hours. It is at least 5 kWh, and 15 kWh in the first 30 minutes after midnight. The car is left out because it is a separate load that charges from the grid in the cheap window. The only effect of a plugged-in car on the target is the 10 point buffer in step 6.
 
 **Writing the target.** One minute before the cheapest timed period starts, the integration sets, in order: enable charge schedule on, charge start time, charge end time, target SoC, then enable charge target (on for targets below 100, off for 100). The window starts with the cheapest timed period and is sized to the plan (see below). On a skip night it writes the minimum SoC as the target, so the battery can discharge instead of being held at an old target. Nothing is written when the target SoC entity was not detected, or when the tariff has no timed period. The integration owns charge slot 1 only. When another slot (2 to 10) has a window set, it raises the repair **Other charge slots are active**, because the inverter also charges in that slot. See [Troubleshooting](troubleshooting.md#other-charge-slots-are-active).
 
 **Sizing the window.** The inverter charges from the window start and stops at the target, so the cheapest hours come first. The cheapest period alone can be too short for a deep charge: a two hour period at 3.6 kW adds about 7 kWh. When the plan needs more time, the integration moves the window end later. Hours needed = (target SoC minus current SoC) x battery capacity / battery charge rate, plus 15% for the slowdown near full, rounded up to 5 minutes. The end never goes past the end of the run of timed periods cheaper than the base rate that follows the cheapest period. For example, with Nightboost 02:00 to 04:00 inside Night 23:00 to 08:00, the end can reach 08:00. If the plan fits the cheapest period, nothing changes. The charge rate is read from `number..._battery_charge_rate` on the same inverter. Without it the window stays the cheapest period. A tariff with no cheaper-than-base period after the cheapest one is never extended. The planned window, the energy it should deliver and the expected finish are on the **Overnight Charge Window** sensor. In dry run mode the "would write" text shows the extended window.
 
 **Cheap rate floor.** During a timed period cheaper than the base rate, the integration checks SoC against the floor (default 40%, 0 turns it off). In the cheapest period the full floor applies. In a cheaper-but-not-cheapest period it only acts when SoC is below the minimum SoC plus 5. When it acts, it writes the floor as the target SoC and turns enable charge target on, once per day.
+
+### Night survival
+
+Night survival asks whether the battery lasts until solar starts. It uses the current SoC, the usable capacity above the minimum SoC, the average daily load (see above, so without the EV charger) spread evenly over 24 hours, and a window of hours:
+
+- Before 08:00, the hours left until 08:00.
+- After 08:00 while solar is generating, tonight's pre-solar window of 8 hours from the current SoC.
+- After 08:00 with no solar, from now until 08:00 tomorrow.
+
+The charge plan skips a night only when this check passes, and it uses the same window and load. **Estimated SoC at Sunrise** is the SoC left at the end of the window, never below the minimum SoC. **Battery Night Survival Status** and **Night Survival Confidence** read the same calculation.
+
+The calculated figure steps when the day's energy total resets at midnight, when the window flips at 08:00 and when solar fades in the evening. The published **Estimated SoC at Sunrise** follows the calculated figure at no more than the pace the inverter can charge or discharge the battery (inverter maximum output over battery capacity, for example 5 kW over 19 kWh is about 26 points an hour). A step becomes a ramp of about half an hour. The status and confidence sensors use the calculated figure, so a real shortfall shows at once. After a restart or a gap of an hour the held value is dropped and the sensor starts from the calculated figure.
 
 ### Immersion divert
 
@@ -168,7 +180,7 @@ Other brands get the signals only.
 
 ### Costs
 
-Every cycle the grid import is priced at the current rate, after supplier discount and VAT, and split between the EV, the immersion and the rest of the house by their share of the house load. Export earns the export rate. See [Tariff](tariff.md#bill-line-items).
+Every cycle the grid import is priced at the current rate, after supplier discount and VAT, and split between the EV, the immersion and the rest of the house by their share of the house load. Import above the load went into the battery and stays in the rest of the house. Export earns the export rate. See [Tariff](tariff.md#bill-line-items).
 
 ### Self-sufficiency, solar share and self-consumption
 
