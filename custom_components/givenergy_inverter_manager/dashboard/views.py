@@ -693,11 +693,18 @@ class Builder:
         )
 
     def _today_solar(self) -> dict | None:
+        """The solar shares as bars.
+
+        Self-sufficiency has no bar of its own while the card on where today's energy came
+        from states it, with what it means, in the section beside this one. The Power Flow
+        tab keeps its tile for a glance.
+        """
         share = {"columns": FULL, "color": SOLAR, "features": [BAR]}
+        stated = self._energy_sources_card() is not None
         return group(
             heading_card("Solar", "mdi:weather-sunny", nav=self.go(SUB_SOLAR)),
             [
-                self.tile("self_sufficiency", "Self-sufficiency", **share),
+                None if stated else self.tile("self_sufficiency", "Self-sufficiency", **share),
                 self.tile("solar_share", "Solar share", **share),
                 self.tile("self_consumption", "Self-consumption", **share),
             ],

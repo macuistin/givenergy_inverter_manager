@@ -16,6 +16,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   also shows the date the tariff was last reviewed. Nothing shows while no change is scheduled.
   The list is read when the file is generated, so generate it again, or use the strategy
   dashboard, after you schedule a change or one starts.
+- The Today tab no longer shows Self-sufficiency twice. The card on where today's energy came
+  from states it with what it means, so its bar is gone from the Solar section. The Power Flow tile
+  stays. The bar returns if that card cannot be built.
 - Generate the dashboard file again, or use the strategy dashboard, to get the new charts.
 
 ## v0.16.0

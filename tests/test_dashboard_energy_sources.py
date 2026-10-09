@@ -22,6 +22,7 @@ from tests.dashboard_support import (
     FakeRegistry,
     dashboard_dict,
     default_entity_ids,
+    view_cards,
 )
 from tests.test_dashboard import _render
 
@@ -231,3 +232,44 @@ class TestTheSourcesGroup:
         for card in group["cards"]:
             if card["type"] == "markdown":
                 assert _render(card["content"], lambda entity: "1.0")
+
+
+class TestSelfSufficiencyIsShownOnce:
+    """Self-sufficiency is stated, with its meaning, by the sources card of the Today tab.
+
+    The Power Flow tab keeps a tile for a glance. The Today tab does not repeat it as a bar
+    unless the sources card is missing, so the figure is never lost.
+    """
+
+    def _bars(self, config: dict) -> list[str]:
+        section = _section(_view(config, "today"), "Solar")
+        return [c["name"] for c in section["cards"] if c["type"] == "tile"]
+
+    def _says_it_in_words(self, config: dict) -> bool:
+        group = _section(_view(config, "today"), HEADING)
+        return bool(group) and any(CARD in c.get("content", "") for c in group["cards"])
+
+    def test_the_today_bars_leave_it_out_while_the_card_states_it(self):
+        config = _generated()
+        assert self._says_it_in_words(config)
+        assert self._bars(config) == ["Solar share", "Self-consumption"]
+
+    def test_no_tile_of_the_today_tab_repeats_the_figure(self):
+        cards = view_cards(_view(_generated(), "today"))
+        assert [c for c in cards if c["type"] == "tile" and c["entity"] == CARD] == []
+
+    def test_the_power_flow_tile_stays(self):
+        tiles = TestEnergyTodayTiles()._tiles(_generated())
+        assert tiles["Self-sufficient"]["entity"] == CARD
+
+    @pytest.mark.parametrize("missing", ["house_kwh_today", "import_today"])
+    def test_the_bar_returns_when_the_card_cannot_be_built(self, missing):
+        """Losing the card must not lose the figure."""
+        config = _generated(absent={missing})
+        assert not self._says_it_in_words(config)
+        assert self._bars(config) == ["Self-sufficiency", "Solar share", "Self-consumption"]
+
+    def test_the_figure_is_gone_from_the_today_tab_when_its_sensor_is_missing(self):
+        config = _generated(absent={"self_sufficiency"})
+        assert self._bars(config) == ["Solar share", "Self-consumption"]
+        assert CARD not in yaml.safe_dump(_view(config, "today"))
