@@ -70,8 +70,10 @@ from .hacs import APEX_CARD, POWER_FLOW_CARD, HacsCards
 from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
     MANAGED_HELP,
+    PLAN_FORECAST_CAPTION,
     RESTART_GAP_HELP,
     EnergySources,
+    currency_symbol,
     energy_devices_template,
     energy_sources_template,
     oil_schedule_template,
@@ -310,7 +312,7 @@ class Builder:
                 "decimals": 4,
                 "display_zero": True,
                 "color_value": False,
-                "unit_of_measurement": " ",
+                "unit_of_measurement": f"{currency_symbol(self.cfg)}/h",
             }
         return node
 
@@ -581,13 +583,19 @@ class Builder:
         )
 
     def _oil_advice_section(self) -> dict[str, Any] | None:
-        """The cheapest way to heat the water, while an oil price is set. Advice only."""
+        """The cheapest way to heat the water, while an oil price is set. Advice only.
+
+        The live suggestion shows only while Immersion Scheduled Heating is off. While it is
+        on, the Ready by section prints the same sentence, so the page holds one copy.
+        """
         source = self.oil_advice("water_heating_cheapest_source")
+        scheduled = self.thermostat("immersion_schedule")
+        suggestion = attribute_markdown(source, "suggestion")
         return group(
             heading_card("Cheapest way to heat the water", "mdi:fire-circle"),
             [
                 tile_card(source, "Cheapest source", color=IMMERSION, columns=FULL),
-                attribute_markdown(source, "suggestion"),
+                with_visibility(suggestion, self.devices.visible_while_off(scheduled)),
                 self._oil_schedule_line(source),
             ],
             **self._when(Device.OIL_ADVICE),
@@ -756,8 +764,8 @@ class Builder:
             heading_card("Solar", "mdi:weather-sunny", nav=self.go(SUB_SOLAR)),
             [
                 None if stated else self.tile("self_sufficiency", "Self-sufficiency", **share),
-                self.tile("solar_share", "Solar share", **share),
-                self.tile("self_consumption", "Self-consumption", **share),
+                self.tile("solar_share", "Home use from solar", **share),
+                self.tile("self_consumption", "Solar kept at home", **share),
             ],
         )
 
@@ -826,18 +834,20 @@ class Builder:
     def solar_sections(self) -> list:
         """Sub-view: how solar compares with the forecast and the generation per hour."""
         solar_today = self.entity("solar_today")
+        plan_forecast = self.tile("solar_forecast_kwh_today", "Plan forecast", color=SOLAR)
         forecast = (
             [
                 tile_card(solar_today, "Generated today", color=SOLAR),
                 self.tile("solar_forecast_raw_today", "Forecast", color=SOLAR),
                 self.tile("solar_actual_vs_forecast_pct", "% of forecast", color=SOLAR),
-                self.tile("solar_forecast_kwh_today", "Plan forecast", color=SOLAR),
+                plan_forecast,
                 self.tile(
                     "yesterday_forecast_accuracy_pct",
                     "Yesterday's accuracy",
                     columns=FULL,
                     color=SOLAR,
                 ),
+                markdown_card(PLAN_FORECAST_CAPTION) if plan_forecast else None,
             ]
             if self.has_forecast
             else []
@@ -958,7 +968,9 @@ class Builder:
             heading_card("Tonight's charge plan", "mdi:weather-night"),
             [
                 state_markdown(self.entity("charge_plan")),
-                self.tile("overnight_charge_target", "Target tonight", color=BATTERY),
+                self.tile(
+                    "overnight_charge_target", "Target if charging", color=BATTERY, columns=FULL
+                ),
                 self.tile("overnight_charge_cost", "Est. cost", color=GRID),
                 self.tile("estimated_soc_at_sunrise", "At sunrise", color=BATTERY),
                 self.tile(

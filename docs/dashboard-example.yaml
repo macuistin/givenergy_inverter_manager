@@ -140,7 +140,7 @@ views:
             decimals: 4
             display_zero: true
             color_value: false
-            unit_of_measurement: ' '
+            unit_of_measurement: €/h
         home:
           entity: sensor.givenergy_inverter_manager_house_load
           subtract_individual: false
@@ -196,7 +196,7 @@ views:
             decimals: 4
             display_zero: true
             color_value: false
-            unit_of_measurement: ' '
+            unit_of_measurement: €/h
         home:
           entity: sensor.givenergy_inverter_manager_house_load
           subtract_individual: false
@@ -258,7 +258,7 @@ views:
             decimals: 4
             display_zero: true
             color_value: false
-            unit_of_measurement: ' '
+            unit_of_measurement: €/h
         home:
           entity: sensor.givenergy_inverter_manager_house_load
           subtract_individual: false
@@ -320,7 +320,7 @@ views:
             decimals: 4
             display_zero: true
             color_value: false
-            unit_of_measurement: ' '
+            unit_of_measurement: €/h
         home:
           entity: sensor.givenergy_inverter_manager_house_load
           subtract_individual: false
@@ -650,7 +650,7 @@ views:
         navigation_path: solar
     - type: tile
       entity: sensor.givenergy_inverter_manager_solar_share
-      name: Solar share
+      name: Home use from solar
       color: amber
       features:
       - type: bar-gauge
@@ -660,7 +660,7 @@ views:
         columns: full
     - type: tile
       entity: sensor.givenergy_inverter_manager_self_consumption
-      name: Self-consumption
+      name: Solar kept at home
       color: amber
       features:
       - type: bar-gauge
@@ -813,10 +813,10 @@ views:
         columns: full
     - type: tile
       entity: sensor.givenergy_inverter_manager_recommended_overnight_charge_target
-      name: Target tonight
+      name: Target if charging
       color: green
       grid_options:
-        columns: 6
+        columns: full
     - type: tile
       entity: sensor.givenergy_inverter_manager_estimated_overnight_charge_cost
       name: Est. cost
@@ -1135,6 +1135,10 @@ views:
       content: '{{ state_attr(''sensor.givenergy_inverter_manager_water_heating_cheapest_source'', ''suggestion'') }}'
       grid_options:
         columns: full
+      visibility:
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_scheduled_heating
+        state_not: 'on'
     - type: markdown
       content: |-
         {% set text = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'oil_schedule_suggestion') %}{% set days = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'oil_schedule_days') %}{% if text -%}
@@ -1582,6 +1586,10 @@ views:
       entity: sensor.givenergy_inverter_manager_forecast_accuracy_yesterday
       name: Yesterday's accuracy
       color: amber
+      grid_options:
+        columns: full
+    - type: markdown
+      content: '**Plan forecast** is the forecast the charge plan uses: blended toward the low estimate and corrected by past accuracy.'
       grid_options:
         columns: full
   - type: grid

@@ -128,6 +128,10 @@ class Devices:
         """A condition that holds while this switch is on."""
         return [_state_condition(entity, state="on")]
 
+    def visible_while_off(self, entity: str) -> list[dict]:
+        """A condition that holds while this switch is not on, and while it does not exist."""
+        return [_state_condition(entity, state_not="on")]
+
     def visible_with_any(self, *devices: Device) -> list[dict]:
         """One condition that holds while at least one of these devices is present."""
         present = [

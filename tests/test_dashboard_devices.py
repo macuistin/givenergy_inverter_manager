@@ -522,6 +522,62 @@ def test_ready_by_keeps_its_own_cards_without_an_oil_price():
     assert "'planned_heating'" in cards[1]["content"]
 
 
+def _suggestion_homes(config: dict) -> list[str]:
+    """The headings of the sections of the Immersion view that print the oil suggestion."""
+    homes = []
+    for section in _view(config, "immersion")["sections"]:
+        printed = [
+            c
+            for c in section["cards"]
+            if c["type"] == "markdown" and f"state_attr('{OIL_SENTINEL}', 'suggestion')" in c["content"]
+        ]
+        if printed:
+            homes.append(next(c["heading"] for c in section["cards"] if c["type"] == "heading"))
+    return homes
+
+
+def _oil_states(devices: set[Device], schedule: str) -> dict[str, str]:
+    states = states_with(devices)
+    if IDS["immersion_schedule"] in states:
+        states[IDS["immersion_schedule"]] = schedule
+    return states
+
+
+ALL_OIL_DEVICES = {
+    Device.IMMERSION_SWITCH,
+    Device.IMMERSION_SENSOR,
+    Device.IMMERSION_THERMOSTAT,
+    Device.OIL_ADVICE,
+}
+
+
+@pytest.mark.parametrize(
+    ("schedule", "home"), [("on", READY_HEADING), ("off", OIL_HEADING)], ids=["scheduled", "not-scheduled"]
+)
+def test_the_oil_suggestion_shows_once_in_the_section_that_fits_scheduled_heating(schedule, home):
+    stored = generated_for(switch=True, sensor=True, oil=True)
+    assert _suggestion_homes(seen(stored, _oil_states(ALL_OIL_DEVICES, schedule))) == [home]
+
+
+def test_the_oil_suggestion_stays_in_the_cheapest_section_while_scheduled_heating_cannot_exist():
+    """With no temperature sensor there is no schedule switch and no Ready by section."""
+    stored = generated_for(switch=True, oil=True)
+    devices = {Device.IMMERSION_SWITCH, Device.OIL_ADVICE}
+    assert _suggestion_homes(seen(stored, states_with(devices))) == [OIL_HEADING]
+
+
+def test_the_cheapest_suggestion_waits_on_the_schedule_switch_in_the_file():
+    config = generated_for(switch=True, sensor=True, oil=True)
+    card = next(
+        c
+        for c in _oil_section_cards(config)
+        if c["type"] == "markdown" and "'suggestion'" in c["content"]
+    )
+    assert card["visibility"] == [
+        {"condition": "state", "entity": IDS["immersion_schedule"], "state_not": "on"}
+    ]
+
+
 def test_the_oil_suggestion_arrives_in_a_file_made_before_the_price_was_set():
     stored = generated_for(switch=True, sensor=True)
     before = states_with({Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR, Device.IMMERSION_THERMOSTAT})

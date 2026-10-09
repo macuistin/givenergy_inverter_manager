@@ -13,7 +13,10 @@ import itertools
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.const import CONF_INVERTER_TEMP_ENTITY
+from custom_components.givenergy_inverter_manager.const import (
+    CONF_FORECAST_ENTITY,
+    CONF_INVERTER_TEMP_ENTITY,
+)
 from tests.dashboard_support import (
     FULL_CONFIG,
     FakeRegistry,
@@ -313,6 +316,34 @@ def test_the_solar_view_says_what_the_yesterday_figure_is():
     tile = tiles["Yesterday's accuracy"]
     assert tile["entity"] == IDS["yesterday_forecast_accuracy_pct"]
     assert tile["grid_options"]["columns"] == "full"
+
+
+def _caption(config: dict) -> list[dict]:
+    cards = _sections(config, "solar").get("Against the forecast", [])
+    return [c for c in cards if c["type"] == "markdown"]
+
+
+def test_the_solar_view_explains_plan_forecast_under_the_tiles():
+    cards = _sections(dashboard_dict(), "solar")["Against the forecast"]
+    assert cards[-1]["type"] == "markdown"
+    assert cards[-1]["content"] == (
+        "**Plan forecast** is the forecast the charge plan uses: blended toward the low "
+        "estimate and corrected by past accuracy."
+    )
+    assert cards[-1]["grid_options"]["columns"] == "full"
+
+
+def test_the_plan_forecast_caption_needs_a_forecast_sensor():
+    config = {k: v for k, v in FULL_CONFIG.items() if k != CONF_FORECAST_ENTITY}
+    assert _caption(dashboard_dict(config)) == []
+
+
+def test_the_plan_forecast_caption_goes_with_its_tile():
+    registry = FakeRegistry(enable_all=True, absent={"solar_forecast_kwh_today"})
+    config = dashboard_dict(registry=registry)
+    assert _caption(config) == []
+    names = [c.get("name") for c in _sections(config, "solar")["Against the forecast"]]
+    assert "Plan forecast" not in names
 
 
 def test_every_full_width_name_fits_the_tile():

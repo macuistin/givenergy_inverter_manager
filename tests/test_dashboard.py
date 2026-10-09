@@ -336,6 +336,30 @@ class TestIncomeBar:
         assert pf_card["entities"]["grid"]["secondary_info"]["entity"] == eid("live_grid_cost_rate")
 
 
+class TestGridCostRateUnit:
+    """The grid node names the unit of the live cost rate: the currency symbol per hour."""
+
+    @staticmethod
+    def _secondary_info(currency: str | None) -> dict:
+        config = {**FULL_CONFIG, **({"currency": currency} if currency else {})}
+        parsed = yaml.safe_load(_build(config))
+        pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
+        pf_card = next(c for c in view_cards(pf_view) if "power-flow-card-plus" in c["type"])
+        return pf_card["entities"]["grid"]["secondary_info"]
+
+    @pytest.mark.parametrize(
+        ("currency", "unit"),
+        [(None, "€/h"), ("EUR", "€/h"), ("GBP", "£/h"), ("SEK", "kr/h"), ("USD", "$/h")],
+    )
+    def test_the_unit_is_the_configured_currency_symbol_per_hour(self, currency, unit):
+        info = self._secondary_info(currency)
+        assert info["unit_of_measurement"] == unit
+        assert info["entity"] == eid("live_grid_cost_rate")
+
+    def test_the_node_still_shows_a_zero_rate(self):
+        assert self._secondary_info("GBP")["display_zero"] is True
+
+
 class TestSolarForecastCards:
     """Solar vs forecast section is present on the Today tab."""
 

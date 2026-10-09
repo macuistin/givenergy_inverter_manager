@@ -123,19 +123,24 @@ MANAGED_HELP = (
     "**Managed**: turn it on to force a heating run until the water reaches the target. "
     f"Turn it off to hold the heater off for {IMMERSION_SWITCH_COOLDOWN_MINUTES} minutes."
 )
+PLAN_FORECAST_CAPTION = (
+    "**Plan forecast** is the forecast the charge plan uses: blended toward the low estimate "
+    "and corrected by past accuracy."
+)
 RESTART_GAP_HELP = (
     "**Restart gap**: how far the water must fall below the target before a new heating run "
     "starts."
 )
 
 
-def _currency_symbol(cfg: dict) -> str:
+def currency_symbol(cfg: dict) -> str:
+    """The symbol of the configured currency, such as € or £."""
     return CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), "€")
 
 
 def tariff_table(tariff: TariffConfig, cfg: dict) -> str:
     """Markdown table of the rates the integration prices energy with."""
-    symbol = _currency_symbol(cfg)
+    symbol = currency_symbol(cfg)
     billed = (1 - tariff.discount_rate / 100) * (1 + tariff.vat_rate / 100)
     rows = [(tariff.base_rate_name, "all other times", tariff.base_rate)]
     rows += [(p.name, f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate) for p in tariff.rate_periods]
@@ -164,7 +169,7 @@ def _day(day: date) -> str:
 
 def _change_row(change: TariffChange, cfg: dict) -> str:
     """One row: the date, then the base rate, the timed rates and the export rate from it."""
-    symbol = _currency_symbol(cfg)
+    symbol = currency_symbol(cfg)
     rates = build_tariff({**cfg, **change.rates})
     windows = (
         f"{p.name} {p.start:%H:%M} to {p.end:%H:%M} {symbol}{p.rate:.4f}"
