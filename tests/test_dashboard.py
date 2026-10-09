@@ -610,7 +610,7 @@ class TestNowSection:
         assert [c["name"] for c in tiles] == [
             "Battery",
             "Night survival",
-            "Rate now",
+            "Rate per kWh",
             "Cost today",
             "Cheap from",
         ]

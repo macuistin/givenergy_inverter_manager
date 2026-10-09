@@ -138,6 +138,8 @@ The dashboard has four tabs. Detail sits in seven sub-views that have no tab. A 
 
 A sub-view and the tile that opens it are left out when the sub-view would be empty. The Immersion and EV charger sub-views are the exception: they stay in the file so a device added later has somewhere to show, and their tiles are hidden until the device exists.
 
+A rate tile says per kWh in its name (Rate per kWh, Avg import/kWh). The rate sensors report a bare currency amount, and their unit stays that so long-term statistics are not affected.
+
 The links use relative paths, so they work at any dashboard URL.
 
 On a phone the sections stack in one column:
@@ -160,7 +162,7 @@ This hides the controls. It is not security. Home Assistant has no permissions f
 
 ![Power Flow view with the battery, the Cheap from tile, live solar, grid, home and battery flow, and today's energy with the forecast tiles.](images/dashboard-power-flow.png)
 
-- **Now**: Battery (state of charge with a bar), Night survival, Rate now, Cost today and Cheap from (Next Cheap Rate Start). Cheap from is a full-width tile that reads the start and the wait in one line, such as `23:00 (in 8 h 56 min)`, or `Now (ends in 5 h 30 min)` while one is active. The end is where the run of cheaper-than-base periods stops, so a cheaper period inside a longer one does not cut it short. Night Survival Confidence is disabled by default, so a new install shows four of the five until you enable it. Night survival reads Safe, Warning or Critical. Tap it to open Battery detail, which says in words why. Tap the Battery tile to open the Battery tab.
+- **Now**: Battery (state of charge with a bar), Night survival, Rate per kWh, Cost today and Cheap from (Next Cheap Rate Start). Cheap from is a full-width tile that reads the start and the wait in one line, such as `23:00 (in 8 h 56 min)`, or `Now (ends in 5 h 30 min)` while one is active. The end is where the run of cheaper-than-base periods stops, so a cheaper period inside a longer one does not cut it short. Night Survival Confidence is disabled by default, so a new install shows four of the five until you enable it. Night survival reads Safe, Warning or Critical. Tap it to open Battery detail, which says in words why. Tap the Battery tile to open the Battery tab.
 For administrators the heading also holds a **Settings** button.
 - **Dry run is on**: a banner with the last skipped action, below Now. It appears only while Dry Run Mode Active is true.
 - **Live power flow**: a power-flow-card-plus card with solar, battery, grid, home and, when they exist, two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. Battery Power is positive while charging and the card expects the opposite, so the node sets `invert_state: true`. The grid node shows the Live Grid Cost Rate.
@@ -199,7 +201,7 @@ Each section shows only while the device it needs exists.
   - EV and immersion: how much of the house use went to each. They are part of the house use, not added to it. A line shows only while its device exists.
 
   The card reads four attributes of the Self Sufficiency sensor: `house_load_kwh`, `from_grid_kwh`, `grid_to_battery_kwh` and `basis`. Where one is missing it uses the House Load Today and Grid Import Today totals. The whole group is left out when Self Sufficiency, House Load Today or Grid Import Today is missing.
-- **Cost**: Import cost, Export earnings, Rate now and Rate period. The heading opens Cost breakdown.
+- **Cost**: Import cost, Export earnings, Rate per kWh and Rate period. The heading opens Cost breakdown.
 - **Solar**: Self-sufficiency, Solar share and Self-consumption, each with a bar. The heading opens Solar and forecast.
 
 ### Cost breakdown (sub-view)
@@ -223,7 +225,7 @@ The two graphs on the sub-views are statistics graphs, not history graphs. The d
 Figures for the current bill period, so you can hold them against your supplier bill.
 
 - **Bill so far**: Accrued bill, Projected bill, Import cost and Export credit. A **Tariff** button in the heading opens the Tariff sub-view.
-- **This bill period**: Days elapsed, Days left, Avg import rate and Cheap share (the cheap rate share of import).
+- **This bill period**: Days elapsed, Days left, Avg import/kWh and Cheap share (the cheap rate share of import).
 
 Days Elapsed in Bill Period, Average Import Rate This Month and Cheap rate import fraction this month are disabled by default. Enable them to see those tiles.
 

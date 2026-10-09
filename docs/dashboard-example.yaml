@@ -65,7 +65,7 @@ views:
         columns: 6
     - type: tile
       entity: sensor.givenergy_inverter_manager_current_rate
-      name: Rate now
+      name: Rate per kWh
       color: blue
       grid_options:
         columns: 6
@@ -627,7 +627,7 @@ views:
         columns: 6
     - type: tile
       entity: sensor.givenergy_inverter_manager_current_rate
-      name: Rate now
+      name: Rate per kWh
       color: blue
       grid_options:
         columns: 6
@@ -737,7 +737,7 @@ views:
         columns: 6
     - type: tile
       entity: sensor.givenergy_inverter_manager_average_import_rate_this_month
-      name: Avg import rate
+      name: Avg import/kWh
       color: blue
       grid_options:
         columns: 6

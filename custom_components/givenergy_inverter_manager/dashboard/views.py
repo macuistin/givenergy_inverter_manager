@@ -87,6 +87,11 @@ SUB_BATTERY = "battery-detail"
 SUB_SETTINGS = "settings"
 TABS = frozenset({TAB_POWER_FLOW, TAB_TODAY, TAB_BILL, TAB_BATTERY})
 
+# The rate sensors report a bare currency amount, and their unit stays that for the long-term
+# statistics. So the tile name says what the amount is for.
+RATE_NAME = "Rate per kWh"
+AVERAGE_RATE_NAME = "Avg import/kWh"
+
 
 # ── Views ────────────────────────────────────────────────────────────────────
 
@@ -340,7 +345,7 @@ class Builder:
                     color=NIGHT,
                     nav=self.go(SUB_BATTERY),
                 ),
-                self.tile("current_rate", "Rate now", color=GRID),
+                self.tile("current_rate", RATE_NAME, color=GRID),
                 self.tile("import_cost_today", "Cost today", color=GRID, nav=self.go(TAB_TODAY)),
                 self.tile(
                     "next_cheap_rate_start",
@@ -671,7 +676,7 @@ class Builder:
             [
                 self.tile("import_cost_today", "Import cost", color=GRID),
                 self.tile("export_earnings_today", "Export earnings", color=BATTERY),
-                self.tile("current_rate", "Rate now", color=GRID),
+                self.tile("current_rate", RATE_NAME, color=GRID),
                 self.tile("current_rate_period", "Rate period", color=GRID),
             ],
         )
@@ -782,7 +787,7 @@ class Builder:
             [
                 self.tile("days_in_period", "Days elapsed"),
                 self.tile("days_remaining_in_period", "Days left"),
-                self.tile("avg_import_rate_this_month", "Avg import rate", color=GRID),
+                self.tile("avg_import_rate_this_month", AVERAGE_RATE_NAME, color=GRID),
                 self.tile("cheap_import_fraction_this_month", "Cheap share", color=GRID),
             ],
         )

@@ -9,6 +9,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   on every tile and entity page, for example `127.48 €` instead of `127.4757 €`. The stored value,
   the unit and the long-term statistics are unchanged, and a sensor registered by an earlier
   release picks the display up when the integration starts. A rate per kWh keeps its own precision.
+- The dashboard names the unit of a rate. Rate now is now Rate per kWh on Power Flow and Today, and
+  Avg import rate is Avg import/kWh on Bill. The sensors' own unit is unchanged, so long-term
+  statistics are not affected. The Tariff table already gave each rate per kWh.
 
 ## v0.16.0
 
