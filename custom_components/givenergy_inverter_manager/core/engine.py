@@ -96,9 +96,11 @@ from .charge_window import (
     cheap_run_remaining_minutes,
     plan_charge_window,
 )
+from .immersion_window import open_cheapest_window
 from .rules import (
     ChargeDecision,
     ChargeInputs,
+    CheapWindow,
     DivertPolicy,
     ForecastAccuracy,
     ImmersionInputs,
@@ -163,6 +165,10 @@ class RawSensorValues:
     immersion_target_temp: float = 55.0
     immersion_min_temp: float = 50.0
     immersion_hysteresis_c: float = 5.0
+    # The user's opt-in to heating in the cheapest rate window, set by the coordinator.
+    immersion_cheap_window_enabled: bool = False
+    # True when the previous cycle was heating in the cheapest window. The coordinator sets it.
+    immersion_window_heating_before: bool = False
     forecast_kwh_tomorrow: float | None = None
     forecast_kwh_p10: float | None = None
     forecast_kwh_d2: float | None = None
@@ -235,6 +241,8 @@ class CoordinatorData:
     published_charge_decision: ChargeDecision | None = None
     should_divert_immersion: bool = False
     divert_reason: str = ""
+    # True while the cheapest rate window is open, the user opted in and the heater is wanted.
+    immersion_window_heating: bool = False
     today: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     week: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     month: EnergyAccumulator = field(default_factory=EnergyAccumulator)
@@ -920,6 +928,17 @@ def _divert_policy(data: CoordinatorData, cycle: _Cycle) -> DivertPolicy:
     )
 
 
+def _cheap_window(cycle: _Cycle) -> CheapWindow:
+    raw = cycle.raw
+    if not raw.immersion_cheap_window_enabled:
+        return CheapWindow()
+    return CheapWindow(
+        enabled=True,
+        open_label=open_cheapest_window(cycle.tariff, cycle.now),
+        heating_before=raw.immersion_window_heating_before,
+    )
+
+
 def _immersion_inputs(data: CoordinatorData, cycle: _Cycle) -> ImmersionInputs:
     raw = cycle.raw
     return ImmersionInputs(
@@ -931,6 +950,7 @@ def _immersion_inputs(data: CoordinatorData, cycle: _Cycle) -> ImmersionInputs:
             unavailable_for_s=raw.unavailable_for_s,
             switch_configured=raw.immersion_switch_configured,
         ),
+        window=_cheap_window(cycle),
     )
 
 
@@ -941,8 +961,10 @@ def _set_immersion_decision(data: CoordinatorData, cycle: _Cycle) -> None:
         data.should_divert_immersion = cycle.overrides.immersion
         data.divert_reason = "Manual override"
         return
-    data.should_divert_immersion, data.divert_reason = should_divert_to_immersion(
-        _immersion_inputs(data, cycle)
+    inputs = _immersion_inputs(data, cycle)
+    data.should_divert_immersion, data.divert_reason = should_divert_to_immersion(inputs)
+    data.immersion_window_heating = (
+        data.should_divert_immersion and inputs.window.open_label is not None
     )
 
 

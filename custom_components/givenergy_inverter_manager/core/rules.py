@@ -693,11 +693,25 @@ class ImmersionRun:
 
 
 @dataclass(frozen=True)
+class CheapWindow:
+    """Heating in the cheapest rate window: the opt-in, the window if it is open, the last run.
+
+    open_label names the window while it is open and is None otherwise. heating_before is True
+    when the previous cycle was heating in this window, so a run the heater cut short carries on.
+    """
+
+    enabled: bool = False
+    open_label: str | None = None
+    heating_before: bool = False
+
+
+@dataclass(frozen=True)
 class ImmersionInputs:
     power: PowerReadings
     water: WaterState
     policy: DivertPolicy = field(default_factory=DivertPolicy)
     run: ImmersionRun = field(default_factory=ImmersionRun)
+    window: CheapWindow = field(default_factory=CheapWindow)
 
 
 @dataclass(frozen=True)
@@ -768,6 +782,28 @@ def _water_temperature_decision(water: WaterState) -> Verdict | None:
     if water.temp >= water.target_temp:
         return False, f"Water already at {water.temp:.1f}°C (target {water.target_temp}°C)"
     return None
+
+
+def _cheap_window_decision(inputs: ImmersionInputs) -> Verdict | None:
+    """Heat to the target while the cheapest window is open, or None to defer to the surplus rule.
+
+    Needs the opt-in, an open window and a water reading, so a missing sensor schedules nothing
+    and an unavailable one is left to the outage rule. The battery and the power sensors do not
+    matter, the energy comes from the grid at the cheapest rate. A fresh start waits for the
+    water to cool by the restart gap. A heater that is on, or that was heating a moment ago
+    and was cut short by its own timer, carries on to the target.
+    """
+    window, water = inputs.window, inputs.water
+    if not window.enabled or window.open_label is None or water.temp is None:
+        return None
+    carrying_on = inputs.run.currently_on or window.heating_before
+    starts_below = water.target_temp if carrying_on else water.target_temp - water.hysteresis_c
+    if water.temp >= starts_below:
+        return None
+    return True, (
+        f"Cheapest rate window ({window.open_label}): heating from {water.temp:.1f}°C "
+        f"to {water.target_temp:.0f}°C"
+    )
 
 
 def _assess_surplus(inputs: ImmersionInputs, readings: _Readings) -> _Surplus:
@@ -847,6 +883,8 @@ def should_divert_to_immersion(inputs: ImmersionInputs) -> Verdict:
       0. Never divert when there is no switch to drive the element
       1. Always heat if below legionella minimum temperature (ignores hysteresis)
       2. Turn off when target temperature is reached
+      2a. While the cheapest rate window is open and the user has opted in, heat to the
+         target whatever the solar surplus and battery level (see _cheap_window_decision)
       3. If a required input is missing (None solar, house load or battery power,
          or water.temp_unavailable): never start on missing data. If already on,
          hold on while run.unavailable_for_s is below SENSOR_OUTAGE_HOLD_LIMIT_S, then
@@ -868,6 +906,9 @@ def should_divert_to_immersion(inputs: ImmersionInputs) -> Verdict:
     temperature_decision = _water_temperature_decision(inputs.water)
     if temperature_decision is not None:
         return temperature_decision
+    window_decision = _cheap_window_decision(inputs)
+    if window_decision is not None:
+        return window_decision
     readings = _required_readings(inputs.power)
     missing = _missing_inputs(inputs)
     if missing or readings is None:
