@@ -2,7 +2,7 @@
 
 Everything except sensors. For sensors, see [Sensors](sensors.md).
 
-The immersion switches and numbers exist only while the device they need is set. The Auto Immersion Divert and Immersion Heater (Managed) switches need an immersion switch. The three immersion numbers need an immersion switch and a temperature sensor. They are created when the options set the device, and removed when the options clear it. See [Sensors](sensors.md) for the sensors that follow the same rule.
+The immersion switches and numbers exist only while the device they need is set. The Auto Immersion Divert and Immersion Heater (Managed) switches need an immersion switch. Immersion Scheduled Heating and the three immersion numbers need an immersion switch and a temperature sensor. They are created when the options set the device, and removed when the options clear it. See [Sensors](sensors.md) for the sensors that follow the same rule.
 
 All entities belong to one device, **GivEnergy Inverter Manager** (manufacturer macuistin, model Inverter Manager). Home Assistant builds entity IDs from the device name and the entity name, for example `switch.givenergy_inverter_manager_force_skip_overnight_charge`. Check yours in **Settings → Entities**.
 
@@ -12,6 +12,7 @@ All entities belong to one device, **GivEnergy Inverter Manager** (manufacturer 
 |---|---|---|---|
 | Auto Immersion Divert | on | yes | On: the immersion rule runs. Off: the rule is bypassed and the managed switch asks for the real immersion switch to be off. The minimum temperature rule does not run while it is off. See [Concepts](concepts.md#immersion-divert) |
 | Immersion Heater (Managed) | follows the decision | no | Created only while an immersion switch is set. Shows whether the integration wants the heater on. Turning it on starts a run to target temperature. Turning it off switches the heater off and holds off automatic control for 10 minutes |
+| Immersion Scheduled Heating | off | yes | Created only while an immersion switch and a water temperature sensor are set. On: the heater runs to the target in the cheapest rate window and in time for the hot water ready times. Surplus diversion is unchanged. See [Concepts](concepts.md#scheduled-immersion-heating) |
 | Force Skip Overnight Charge | off | no | On: tonight's decision becomes skip, with the reason `Manual override: skip overnight charge`. At the write time the minimum SoC is written as the target. It is off again after a restart |
 | Enable Charge Target Override | off | yes | On: tonight's target is the Overnight Charge Target Override value. Off: the automatic target. See the note below |
 

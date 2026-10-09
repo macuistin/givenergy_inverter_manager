@@ -150,6 +150,7 @@ The rule runs in this order. The first match wins.
 0. No immersion switch set: do not heat. The reason reads `No immersion switch configured`.
 1. Water below **Immersion Minimum Temperature**: heat, whatever the surplus.
 2. Water at or above **Immersion Target Temperature**: do not heat.
+2a. With **Immersion Scheduled Heating** on and a temperature sensor: heat while the cheapest window is open or a ready time needs the heater now. See [Scheduled immersion heating](#scheduled-immersion-heating).
 3. Battery SoC below the divert threshold (default 80%): do not heat.
 4. Surplus below the minimum (default 500 W) and no clipping: do not heat. Surplus is smoothed solar power minus house load minus battery charging power. Clipping means solar at 95% or more of the inverter maximum.
 5. Battery cycle cost above the export rate: do not heat. Active only when a battery cost is set.
@@ -165,6 +166,36 @@ The integration writes to your real immersion switch. After each automatic on or
 When **Auto Immersion Divert** is off, the rule above is bypassed. The decision becomes off with the reason `Manual override`, and the managed switch asks for the real switch to be off. The minimum temperature rule does not run either.
 
 Turning the managed switch on yourself starts a run to target. So does turning your real switch on from outside, once the integration has switched it at least once. The heater stays on until the water reaches the target. With no temperature reading, either because no sensor is set or because it is unavailable, the run lasts 5 minutes and then automatic control resumes. Turn it on again to extend it. Turning it off, here or outside, holds off automatic control for 10 minutes.
+
+### Scheduled immersion heating
+
+By default the immersion runs only on solar surplus, plus the minimum temperature rule. **Immersion Scheduled Heating** adds two kinds of grid heating. It is a switch, off by default, and it keeps its state across a restart. It is created while an immersion switch and a water temperature sensor are both set. Nothing here runs without a temperature sensor, because without one the integration cannot know when the water reached its target. Surplus diversion carries on as before.
+
+The scheduled rules sit after the temperature rules and before the surplus rules. The minimum temperature and target temperature rules above still come first, so the water is never heated above the target and never left below the minimum. **Auto Immersion Divert** off still stops everything.
+
+**Cheapest window.** The window is the cheapest timed rate period, the one the battery charge starts in, for example 02:00 to 04:00. It counts only when its rate is below the base rate. While it is open the heater runs until the water reaches the target, then stops. The battery level and the solar sensors do not matter. At the window start the water must be at least the **Immersion Restart Gap** below the target, so warm water from the day before is left alone (with 55 °C and 5 °C, a start needs water below 50 °C). When the window ends the heater stops, with the water below target or not. It never runs on into a dearer band.
+
+If the heater cuts itself off in the window with the water still below the target, for example a 60 minute auto-off on the device, the integration waits out the 10 minute switch hold and turns it on again. The run carries on to the target even when the water is inside the restart gap by then.
+
+**Hot water ready by.** List the times of day the water has to be at its target in the immersion options, for example 07:00 and 19:00. For the next ready time the integration works out how long the heater has to run, then places those hours in the cheapest bands left before it:
+
+1. The hours needed are the degrees short of the target divided by the heating rate, plus 15%.
+2. The time until the ready time is cut at every rate change. The hours go into the cheapest bands first, and a partly used band is entered late. Where two bands cost the same, the later one fills first, which keeps the day free for solar surplus.
+3. The heater is wanted when the current band is used up. If the hours cannot fit, it runs now and **Immersion Divert Reason** says `too late to be ready in full`.
+
+For 07:00 with the cheapest window 02:00 to 04:00 inside a Night band to 08:00, the window comes first and any hours left go to the Night band after it, never the base rate. For 19:00 with only the base rate on offer, nothing runs until the last moment, so solar surplus gets the afternoon, and a cold tank at 17:00 starts about when the heating needed would just fit. The plan is recomputed every cycle from the live temperature. It follows solar that heated the water, a run cut short by the device, and hot water drawn.
+
+The heating rate is in degrees per hour. The integration measures it from its own runs: a stretch with the heater on and the temperature readable, at least 20 minutes long and at least 2 °C of rise. It keeps the last 5 and plans with their median. Until a run has been measured it assumes the element heats a 300 litre cylinder, which is slow, so the first plans start early. The **Immersion Water Temperature** sensor shows `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source` (`learned` or `assumed`). The attributes are there only while ready times are set and Immersion Scheduled Heating is on.
+
+Dry run records `Would turn_on immersion heater (reason: ...)` for the scheduled rules and sends nothing. The switch hold, the verified write and the manual overrides work as for surplus diversion.
+
+**Moving from the device timers and home automations.** Switch the heater's own timers off, or leave only a long auto-off as a backup. Disable any automation that turns the heater on at set times or off at the target. Then turn **Immersion Scheduled Heating** on and enter the ready times. What the old automations did is covered:
+
+- Heat below the minimum temperature at any hour: the minimum temperature rule, which runs all day and night.
+- Switch off at the target, whatever turned the heater on: the target rule. A heater switched on by a timer or a person while the water is at or above the target is switched off at the next cycle or the one after. A run started outside below the target runs to the target and stops.
+- A time limit on the day: the cheapest window and the ready times replace it, and the target rule keeps the heater off above the target at every hour.
+
+A device auto-off during a run you started yourself ends that run, in the same way as pressing the switch off. The integration does not fight it. Scheduled heating restarts the heater after the hold if the window or a ready time still needs it.
 
 ### EV charger
 

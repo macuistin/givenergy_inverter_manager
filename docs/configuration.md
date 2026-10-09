@@ -202,8 +202,11 @@ Update these when you add battery modules or change the inverter.
 | Immersion switch | `immersion_switch_entity` | from setup, else none | a `switch` entity |
 | Water temperature sensor | `immersion_temp_sensor_entity` | from setup, else none | a `sensor` entity |
 | Element power | `immersion_wattage_w` | from setup | 500 to 6000 W |
+| Hot water ready by | `immersion_ready_times` | none | times as `HH:MM`, for example `07:00` and `19:00` |
 
 Both devices are optional and can be added, changed or cleared at any time, without a restart. Saving reloads the integration. The Immersion Heater (Managed) switch is created while an immersion switch is set and removed when it is cleared. The Immersion view and tiles of the dashboard follow the same two fields. A heater with no temperature sensor is switched on and off by solar surplus alone, and the target and minimum temperatures have no effect without a sensor.
+
+**Hot water ready by** lists the times the water has to be at its target temperature. It takes effect only while **Immersion Scheduled Heating** is on and a water temperature sensor is set. With no temperature sensor the ready times are ignored, because the integration cannot tell when the target is reached. An entry that is not `HH:MM` is refused, and the times are saved in order. The planning is described in [Concepts](concepts.md#scheduled-immersion-heating), which also covers moving from the heater's own timers and from home automations: switch the other timers off, turn **Immersion Scheduled Heating** on and enter the times here. Leave the field empty for the cheapest window alone.
 
 Leave a field empty to clear it. The values saved here override the ones entered at setup. The target, minimum and restart gap temperatures are not on this page. Change them with the Immersion number entities, see [Entities](entities.md).
 
