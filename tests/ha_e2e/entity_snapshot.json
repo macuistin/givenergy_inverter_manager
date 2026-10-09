@@ -785,6 +785,11 @@
   "name": "Force Skip Overnight Charge"
  },
  {
+  "entity_id": "switch.givenergy_inverter_manager_immersion_cheapest_window",
+  "key": "immersion_cheap_window",
+  "name": "Immersion Cheapest Window"
+ },
+ {
   "entity_id": "switch.givenergy_inverter_manager_immersion_heater_managed",
   "key": "immersion_managed",
   "name": "Immersion Heater (Managed)"

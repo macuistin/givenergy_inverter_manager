@@ -296,6 +296,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.immersion_hysteresis_c: float = float(
             cfg.get(CONF_IMMERSION_HYSTERESIS, DEFAULT_IMMERSION_HYSTERESIS)
         )
+        # The opt-in to heating in the cheapest rate window, set by its switch entity.
+        self.immersion_cheap_window_enabled: bool = False
         # Decides when the real immersion switch is turned on or off. Runs every cycle, so
         # diversion works whether or not the managed switch entity is enabled.
         self.immersion = ImmersionActuator(self._immersion_ports())
@@ -870,6 +872,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw.immersion_target_temp = self.immersion_target_temp
         raw.immersion_min_temp = self.immersion_min_temp
         raw.immersion_hysteresis_c = self.immersion_hysteresis_c
+        raw.immersion_cheap_window_enabled = self.immersion_cheap_window_enabled
+        raw.immersion_window_heating_before = bool(
+            self.data is not None and self.data.immersion_window_heating
+        )
         temp_eid = cfg.get(CONF_IMMERSION_TEMP_SENSOR)
         if temp_eid:
             raw.immersion_temp = self._read_optional_float(temp_eid)

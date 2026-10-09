@@ -37,7 +37,7 @@ async def test_platforms_register_expected_entities(hass, loaded_entry):
     assert len(by_domain["sensor"]) == len(
         [d for d in SENSOR_DESCRIPTIONS if d.requires is not Device.EV_CHARGER]
     )
-    assert len(by_domain["switch"]) == 4  # includes the immersion control switch
+    assert len(by_domain["switch"]) == 5  # includes the immersion switches
     assert len(by_domain["number"]) == 4
     assert len(by_domain["button"]) == 1
     assert hass.services.has_service(DOMAIN, "get_dashboard_yaml")

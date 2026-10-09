@@ -249,6 +249,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self.immersion_target_temp: float = 55.0
         self.immersion_min_temp: float = 50.0
         self.immersion_hysteresis_c: float = 5.0
+        self.immersion_cheap_window_enabled: bool = False
         self._floor_top_up_applied: bool = False
         self.override_skip_charge = False
         self._givtcp_was_unavailable: bool = False
