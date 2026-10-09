@@ -15,6 +15,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="battery_cycles",
         state_class=SensorStateClass.TOTAL,
+        suggested_display_precision=0,
         value_fn=lambda d: round(d.battery_stats.total_cycles, 2),
     ),
     GivEnergyManagerSensorDescription(

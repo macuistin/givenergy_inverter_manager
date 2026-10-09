@@ -28,6 +28,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   Battery health. The night survival card no longer repeats its heading before the level.
 - Settings: the immersion divert reason sits at the end of the section under a Heater decision now
   label, not between the switches.
+- Battery Cycles is shown as a whole number (575, not 575.0). The state keeps its decimals.
 - Generate the dashboard file again, or use the strategy dashboard, to get the new charts and cards.
 
 ## v0.16.0

@@ -71,6 +71,13 @@ class TestBatteryPowerMetadata:
         assert _BY_KEY["battery_power"].state_class is SensorStateClass.MEASUREMENT
 
 
+class TestBatteryCyclesMetadata:
+    """The cycle count is shown as a whole number, not as 575.0."""
+
+    def test_it_suggests_no_decimals(self):
+        assert _BY_KEY["battery_cycles"].suggested_display_precision == 0
+
+
 class TestBatteryPowerValueFn:
     """value_fn must read battery_power_w, not some other attribute."""
 

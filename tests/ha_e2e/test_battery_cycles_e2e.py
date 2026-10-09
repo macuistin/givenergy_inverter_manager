@@ -90,3 +90,11 @@ async def test_remaining_life_uses_the_bms_counter(hass, bms_packs, loaded_entry
 async def test_soc_estimate_is_used_without_a_bms_counter(hass, loaded_entry):
     """No battery_cycles entity exists, so the SoC estimate (starting at zero) applies."""
     assert float(_sensor_state(hass, loaded_entry, "battery_cycles")) == pytest.approx(0.0)
+
+
+async def test_total_cycles_is_shown_as_a_whole_number(hass, loaded_entry):
+    """A cycle count has no unit and no fraction worth reading, so it is not shown as 575.0."""
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{loaded_entry.entry_id}_battery_cycles")
+    options = registry.async_get(entity_id).options
+    assert options["sensor"]["suggested_display_precision"] == 0
