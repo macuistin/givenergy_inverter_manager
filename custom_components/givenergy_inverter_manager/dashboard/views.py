@@ -784,15 +784,25 @@ class Builder:
                         tile_card(cost.immersion, "Immersion", color=IMMERSION),
                         Device.IMMERSION_SWITCH,
                     ),
-                    show(self._immersion_savings_tile(), Device.IMMERSION_SWITCH),
+                    show(
+                        self._immersion_savings_tile("Immersion solar saving", FULL),
+                        Device.IMMERSION_SWITCH,
+                    ),
                 ],
             ),
             group(heading_card("Cost per day, last 14 days", "mdi:chart-bar"), history),
         ]
 
-    def _immersion_savings_tile(self) -> dict | None:
-        """What solar saved on the immersion today."""
-        return tile_card(self.immersion("immersion_savings_today"), "Saved by solar", color=BATTERY)
+    def _immersion_savings_tile(
+        self, name: str = "Saved by solar", columns: int | str = 6
+    ) -> dict | None:
+        """What solar saved on the immersion today.
+
+        On the Immersion view the section says whose saving it is. Beside the other costs it
+        needs the name, and a name that long takes the full width.
+        """
+        entity = self.immersion("immersion_savings_today")
+        return tile_card(entity, name, columns=columns, color=BATTERY)
 
     def solar_sections(self) -> list:
         """Sub-view: how solar compares with the forecast and the generation per hour."""
@@ -803,7 +813,12 @@ class Builder:
                 self.tile("solar_forecast_raw_today", "Forecast", color=SOLAR),
                 self.tile("solar_actual_vs_forecast_pct", "% of forecast", color=SOLAR),
                 self.tile("solar_forecast_kwh_today", "Plan forecast", color=SOLAR),
-                self.tile("yesterday_forecast_accuracy_pct", "Yesterday", color=SOLAR),
+                self.tile(
+                    "yesterday_forecast_accuracy_pct",
+                    "Yesterday's accuracy",
+                    columns=FULL,
+                    color=SOLAR,
+                ),
             ]
             if self.has_forecast
             else []

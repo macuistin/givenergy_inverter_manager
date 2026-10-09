@@ -31,6 +31,8 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 - The overnight charge reason says `cautious forecast, 35% of the way from the typical to the low
   estimate` where it said `P10/P50 blend, conservatism=0.35`. The reason is a sentence for people,
   so an automation that matches the old wording needs the new one.
+- Two tiles say what they are: Yesterday on the Solar view is now Yesterday's accuracy, and Saved by
+  solar on the Cost breakdown is now Immersion solar saving. Both take the full width.
 - Settings and the Immersion view explain Managed and Restart gap in a line each, for the devices the
   install has.
 - Battery Cycles is shown as a whole number (575, not 575.0). The state keeps its decimals.

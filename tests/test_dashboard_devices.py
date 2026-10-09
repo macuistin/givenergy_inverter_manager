@@ -199,7 +199,7 @@ class TestEveryCombination:
         ]
         assert ("EV charging" in names) == ev
         assert ("Immersion" in names) == switch
-        assert ("Saved by solar" in names) == switch
+        assert ("Immersion solar saving" in names) == switch
 
     def test_exactly_one_power_flow_card_is_shown_and_it_draws_the_devices_present(self, combination):
         ev, switch, _ = combination

@@ -1413,10 +1413,10 @@ views:
         state_not: unavailable
     - type: tile
       entity: sensor.givenergy_inverter_manager_immersion_solar_savings
-      name: Saved by solar
+      name: Immersion solar saving
       color: green
       grid_options:
-        columns: 6
+        columns: full
       visibility:
       - condition: state
         entity: switch.givenergy_inverter_manager_immersion_heater_managed
@@ -1559,10 +1559,10 @@ views:
         columns: 6
     - type: tile
       entity: sensor.givenergy_inverter_manager_forecast_accuracy_yesterday
-      name: Yesterday
+      name: Yesterday's accuracy
       color: amber
       grid_options:
-        columns: 6
+        columns: full
   - type: grid
     cards:
     - type: heading

@@ -283,3 +283,38 @@ def test_the_managed_help_states_the_cooldown_the_actuator_uses():
     )
 
     assert f"{IMMERSION_SWITCH_COOLDOWN_MINUTES} minutes" in MANAGED
+
+
+# ── names that mean something alone ──────────────────────────────────────────
+
+
+@pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
+def test_the_cost_view_says_whose_saving_the_solar_tile_is(combination):
+    ev, switch, sensor = combination
+    cards = _sections(seen_for(ev=ev, switch=switch, sensor=sensor), "cost")["Today"]
+    tiles = {c["name"]: c for c in cards if c["type"] == "tile"}
+    assert ("Immersion solar saving" in tiles) == switch
+    assert "Saved by solar" not in tiles
+    if switch:
+        tile = tiles["Immersion solar saving"]
+        assert tile["entity"] == IDS["immersion_savings_today"]
+        assert tile["grid_options"]["columns"] == "full"
+
+
+def test_the_immersion_view_keeps_its_short_name_under_the_immersion_heading():
+    cards = _sections(seen_for(switch=True), "immersion")["Today"]
+    assert "Saved by solar" in [c["name"] for c in cards if c["type"] == "tile"]
+
+
+def test_the_solar_view_says_what_the_yesterday_figure_is():
+    cards = _sections(dashboard_dict(), "solar")["Against the forecast"]
+    tiles = {c["name"]: c for c in cards if c["type"] == "tile"}
+    assert "Yesterday" not in tiles
+    tile = tiles["Yesterday's accuracy"]
+    assert tile["entity"] == IDS["yesterday_forecast_accuracy_pct"]
+    assert tile["grid_options"]["columns"] == "full"
+
+
+def test_every_full_width_name_fits_the_tile():
+    for name in ("Immersion solar saving", "Yesterday's accuracy"):
+        assert len(name) <= 22
