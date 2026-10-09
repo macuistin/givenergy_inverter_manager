@@ -666,7 +666,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         decision = self.data.charge_decision
         # The sensors catch up with what is written on the next cycle.
-        self._held_charge.decision = None
+        self._held_charge.release()
         if decision.skip_charge:
             self._write_minimum_target(cfg, decision)
         else:

@@ -27,6 +27,11 @@ cases gained it, and the fresh snapshot gained it as None. Nothing else moved. T
 battery charge rate, so every window is the cheapest period. The sizing is pinned in
 tests/core/test_charge_window.py.
 
+The published_charge_window leaf was added when the Overnight Charge Window sensor started holding
+its end. The fresh snapshot gained it as None and 217 of the 255 cases gained it, the same 217 that
+have a charge_window. On the first cycle it equals charge_window. Nothing else moved. The hold is
+pinned in test_charge_hold.py and test_decision_stability.py.
+
 The cheap_run_remaining_minutes leaf was added for the Cheap from tile: 49 of the 255 cases gained
 it, and the fresh snapshot gained it as None. Nothing else moved.
 

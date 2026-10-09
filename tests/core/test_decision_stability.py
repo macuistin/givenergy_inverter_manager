@@ -11,6 +11,8 @@ from custom_components.givenergy_inverter_manager.const import (
     CHARGE_TARGET_HOLD_LARGE_STEP_PCT,
     CHARGE_TARGET_HOLD_MIN_MINUTES,
     CHARGE_TARGET_HOLD_STEP_PCT,
+    CHARGE_WINDOW_HOLD_LARGE_STEP_MINUTES,
+    CHARGE_WINDOW_HOLD_STEP_MINUTES,
 )
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
@@ -200,3 +202,113 @@ class TestACrossingOfTheSkipThresholdDuringTheCharge:
         last = _charging_cycles()[-1]
         assert last.charge_decision.skip_charge is True
         assert last.published_charge_decision.skip_charge is False
+
+
+# ── The window end ────────────────────────────────────────────────────────────
+
+EVENING = datetime(2026, 10, 8, 21, 0)
+CHARGE_RATE_W = 3300.0
+START_SOC = 40.0
+WINDOW_END_MINUTE_LIMIT = 8 * 60
+
+
+def _evening_cycle(now: datetime, held: HeldCharge, charge_rate_w: float = CHARGE_RATE_W):
+    """The battery runs down through the evening, so the plan needs a little longer each hour."""
+    hours = (now - EVENING).total_seconds() / 3600
+    soc = START_SOC - HOUSE_LOAD_KW * hours / CAPACITY_KWH * 100
+    since_midnight_h = (now - now.replace(hour=0, minute=0, second=0)).total_seconds() / 3600
+    acc = EnergyAccumulator()
+    acc.house_kwh = HOUSE_LOAD_KW * since_midnight_h
+    raw = _raw(
+        battery_soc=soc,
+        battery_capacity_kwh=CAPACITY_KWH,
+        solar_power_w=0.0,
+        house_load_w=HOUSE_LOAD_KW * 1000,
+        battery_power_w=-HOUSE_LOAD_KW * 1000,
+        battery_charge_rate_w=charge_rate_w,
+        forecast_kwh_tomorrow=2.0,
+    )
+    data, _ = _run(
+        raw=raw,
+        cfg=_autumn_cfg(),
+        now=now,
+        acc=acc,
+        today_raw_forecast_kwh=2.0,
+        held_charge=held,
+    )
+    return data
+
+
+def _evening_cycles() -> list:
+    held = HeldCharge()
+    steps = int(5 * 3600 / CYCLE.total_seconds())
+    return [_evening_cycle(EVENING + CYCLE * i, held) for i in range(steps)]
+
+
+def _end_minutes(windows: list) -> list[int]:
+    return [w.end.hour * 60 + w.end.minute for w in windows]
+
+
+class TestTheWindowThroughTheEvening:
+    def test_premise_the_planned_end_creeps_on_in_small_steps(self):
+        ends = _end_minutes([d.charge_window for d in _evening_cycles()])
+        assert _changes(ends) >= 10
+        assert max(ends) - min(ends) >= 2 * CHARGE_WINDOW_HOLD_STEP_MINUTES
+
+    def test_the_published_end_moves_a_few_times(self):
+        ends = _end_minutes([d.published_charge_window for d in _evening_cycles()])
+        assert _changes(ends) <= 5
+
+    def test_each_published_move_is_a_clear_step(self):
+        ends = _end_minutes([d.published_charge_window for d in _evening_cycles()])
+        moves = [abs(b - a) for a, b in zip(ends, ends[1:], strict=False) if a != b]
+        assert moves
+        assert min(moves) >= CHARGE_WINDOW_HOLD_STEP_MINUTES
+
+    def test_the_planned_window_is_never_held(self):
+        cycles = _evening_cycles()
+        planned = _end_minutes([d.charge_window for d in cycles])
+        published = _end_minutes([d.published_charge_window for d in cycles])
+        assert _changes(planned) > _changes(published) + 5
+        assert planned[-1] != published[-1]
+
+    def test_a_much_slower_charge_rate_is_published_at_once(self):
+        held = HeldCharge()
+        now = EVENING + timedelta(hours=1)
+        before = _evening_cycle(now, held).published_charge_window
+        after = _evening_cycle(now + CYCLE, held, charge_rate_w=CHARGE_RATE_W / 2)
+        moved = _end_minutes([after.published_charge_window])[0] - _end_minutes([before])[0]
+        assert moved >= CHARGE_WINDOW_HOLD_LARGE_STEP_MINUTES
+        assert after.published_charge_window == after.charge_window
+
+    def test_a_released_hold_publishes_the_next_planned_window(self):
+        held = HeldCharge()
+        _evening_cycles_with(held)
+        held.release()
+        data = _evening_cycle(EVENING + timedelta(hours=5, minutes=1), held)
+        assert data.published_charge_window == data.charge_window
+
+
+def _evening_cycles_with(held: HeldCharge) -> None:
+    for i in range(int(5 * 3600 / CYCLE.total_seconds())):
+        _evening_cycle(EVENING + CYCLE * i, held)
+
+
+class TestTheWindowDuringTheCharge:
+    def test_the_published_window_holds_still_while_the_charge_runs(self):
+        held = HeldCharge()
+        start = AUTUMN_NIGHT + timedelta(hours=2)
+        windows = []
+        for i in range(120):
+            soc = 40.0 + 3.3 / CAPACITY_KWH * 100 * (i * CYCLE.total_seconds() / 3600)
+            data = _autumn_cycle(
+                start + CYCLE * i,
+                held,
+                battery_soc=soc,
+                solar_power_w=0.0,
+                battery_power_w=3300.0,
+                grid_power_w=4300.0,
+                battery_charge_rate_w=CHARGE_RATE_W,
+            )
+            windows.append(data.published_charge_window)
+        assert len({w.end for w in windows}) == 1

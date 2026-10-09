@@ -5,7 +5,7 @@ is published at once. The write to the inverter is built from the fresh decision
 tests also pin that the fresh decision is never held.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 import pytest
 
@@ -13,12 +13,16 @@ from custom_components.givenergy_inverter_manager.const import (
     CHARGE_TARGET_HOLD_LARGE_STEP_PCT,
     CHARGE_TARGET_HOLD_MIN_MINUTES,
     CHARGE_TARGET_HOLD_STEP_PCT,
+    CHARGE_WINDOW_HOLD_LARGE_STEP_MINUTES,
+    CHARGE_WINDOW_HOLD_STEP_MINUTES,
 )
 from custom_components.givenergy_inverter_manager.core.charge_hold import (
     HeldCharge,
     HoldReading,
     next_held_recommendation,
+    next_held_window,
 )
+from custom_components.givenergy_inverter_manager.core.charge_window import ChargeWindow
 from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from tests.conftest import _nightboost_cfg, _raw, _run
@@ -193,6 +197,97 @@ class TestSettle:
         held = HeldCharge()
         held.settle(_decision(60), JUST_AFTER)
         assert held.published_at == JUST_AFTER.now
+
+
+WINDOW_STEP = CHARGE_WINDOW_HOLD_STEP_MINUTES
+WINDOW_LARGE = CHARGE_WINDOW_HOLD_LARGE_STEP_MINUTES
+
+
+def _window(end_minute_of_day: int = 4 * 60 + 30, *, start: time = time(2, 0)) -> ChargeWindow:
+    end = time(end_minute_of_day // 60 % 24, end_minute_of_day % 60)
+    return ChargeWindow(
+        start=start, end=end, extended=True, expected_kwh=5.0, finish_time=time(4, 0)
+    )
+
+
+def _held_window(window: ChargeWindow) -> HeldCharge:
+    return HeldCharge(window=window, window_published_at=PUBLISHED_AT)
+
+
+class TestNextHeldWindow:
+    def test_the_first_window_is_published_as_it_is(self):
+        fresh = _window()
+        assert next_held_window(HeldCharge(), fresh, JUST_AFTER) is fresh
+
+    def test_no_window_publishes_no_window(self):
+        assert next_held_window(_held_window(_window()), None, JUST_AFTER) is None
+
+    @pytest.mark.parametrize("minutes", [5, WINDOW_STEP - 5])
+    def test_an_end_inside_the_step_keeps_the_held_window(self, minutes):
+        held = _window()
+        fresh = _window(4 * 60 + 30 + minutes)
+        assert next_held_window(_held_window(held), fresh, AFTER_DWELL) is held
+
+    @pytest.mark.parametrize("direction", [1, -1])
+    def test_a_step_is_published_once_the_held_window_has_stood(self, direction):
+        held = _window()
+        fresh = _window(4 * 60 + 30 + direction * WINDOW_STEP)
+        assert next_held_window(_held_window(held), fresh, AFTER_DWELL) is fresh
+
+    def test_a_step_inside_the_hold_time_keeps_the_held_window(self):
+        held = _window()
+        fresh = _window(4 * 60 + 30 + WINDOW_LARGE - 5)
+        assert next_held_window(_held_window(held), fresh, JUST_AFTER) is held
+
+    @pytest.mark.parametrize("direction", [1, -1])
+    def test_a_large_step_is_published_at_once(self, direction):
+        held = _window()
+        fresh = _window(4 * 60 + 30 + direction * WINDOW_LARGE)
+        assert next_held_window(_held_window(held), fresh, JUST_AFTER) is fresh
+
+    def test_the_distance_is_measured_across_midnight(self):
+        held = _window(23 * 60 + 55)
+        fresh = _window(24 * 60 + 5)
+        assert next_held_window(_held_window(held), fresh, AFTER_DWELL) is held
+
+    def test_a_different_start_is_published_at_once(self):
+        held = _window()
+        fresh = _window(start=time(23, 0))
+        assert next_held_window(_held_window(held), fresh, JUST_AFTER) is fresh
+
+    def test_the_window_is_frozen_while_the_charge_runs(self):
+        held = _window()
+        fresh = _window(4 * 60 + 30 + WINDOW_LARGE)
+        running = HoldReading(AFTER_DWELL.now, charge_running=True)
+        assert next_held_window(_held_window(held), fresh, running) is held
+
+    def test_a_window_is_published_while_the_charge_runs_when_nothing_is_held(self):
+        fresh = _window()
+        running = HoldReading(AFTER_DWELL.now, charge_running=True)
+        assert next_held_window(HeldCharge(), fresh, running) is fresh
+
+
+class TestSettleWindow:
+    def test_a_published_window_records_when_it_was_published(self):
+        held = _held_window(_window())
+        fresh = _window(4 * 60 + 30 + WINDOW_LARGE)
+        held.settle_window(fresh, JUST_AFTER)
+        assert held.window is fresh
+        assert held.window_published_at == JUST_AFTER.now
+
+    def test_a_held_window_keeps_its_publish_time(self):
+        held = _held_window(_window())
+        kept = held.window
+        held.settle_window(_window(4 * 60 + 35), JUST_AFTER)
+        assert held.window is kept
+        assert held.window_published_at == PUBLISHED_AT
+
+
+class TestRelease:
+    def test_a_release_drops_the_decision_and_the_window(self):
+        held = HeldCharge(_decision(87), PUBLISHED_AT, _window(), PUBLISHED_AT)
+        held.release()
+        assert held == HeldCharge()
 
 
 def _jitter_series() -> list[float]:

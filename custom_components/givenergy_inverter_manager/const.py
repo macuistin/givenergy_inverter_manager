@@ -252,6 +252,12 @@ CHARGE_FORECAST_CORRECTION_MIN_KWH = 0.5  # days with forecast or actual below t
 # this fraction, because the battery slows near full and the real rate sits below the setting.
 CHARGE_WINDOW_MARGIN = 0.15
 CHARGE_WINDOW_ROUND_MINUTES = 5  # the window end is rounded up to a multiple of this
+# The published window end holds like the target does: it moves once the planned end is
+# CHARGE_WINDOW_HOLD_STEP_MINUTES away and the held end has stood for the target's hold time
+# (CHARGE_TARGET_HOLD_MIN_MINUTES), or at once when it is CHARGE_WINDOW_HOLD_LARGE_STEP_MINUTES
+# away. The window written to the inverter is always the planned one.
+CHARGE_WINDOW_HOLD_STEP_MINUTES = 15
+CHARGE_WINDOW_HOLD_LARGE_STEP_MINUTES = 45
 
 # ── Solar / generation parameters ─────────────────────────────────────────────
 SOLAR_SUNRISE_HOUR = 8  # hour of day when solar generation typically starts

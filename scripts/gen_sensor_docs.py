@@ -429,8 +429,10 @@ DESCRIPTIONS: dict[str, str] = {
         "`accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`."
     ),
     "overnight_charge_window": (
-        "The charge window written to slot 1, sized to the plan. Attributes: `window_start`, "
-        "`window_end`, `window_extended`, `expected_kwh` and `expected_finish`."
+        "The charge window written to slot 1, sized to the plan. The end holds until the plan "
+        "moves it 15 minutes or more and the shown end has stood for an hour, or 45 minutes or "
+        "more at once. Attributes: `window_start`, `window_end`, `window_extended`, "
+        "`expected_kwh` and `expected_finish`."
     ),
     "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",
     "estimated_soc_at_sunrise": (

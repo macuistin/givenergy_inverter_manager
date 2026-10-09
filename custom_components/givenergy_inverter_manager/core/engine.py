@@ -232,8 +232,10 @@ class CoordinatorData:
     is_clipping: bool = False
     charge_decision: ChargeDecision | None = None
     charge_window: ChargeWindow | None = None
-    # The held copy of charge_decision the sensors publish. The write uses charge_decision.
+    # The held copies of charge_decision and charge_window the sensors publish. The write uses
+    # charge_decision and charge_window.
     published_charge_decision: ChargeDecision | None = None
+    published_charge_window: ChargeWindow | None = None
     should_divert_immersion: bool = False
     divert_reason: str = ""
     today: EnergyAccumulator = field(default_factory=EnergyAccumulator)
@@ -1048,19 +1050,23 @@ def _set_overnight_charge(
     """
     Work out tonight's charge target, then apply any manual override and the cap.
 
-    charge_decision is the fresh result and is what gets written to the inverter. The
-    sensors read published_charge_decision, built from the held calculation so it only
-    moves once the fresh target is a clear step away and the held one has stood for a while.
-    Overrides and the cap apply to both.
+    charge_decision is the fresh result and is what gets written to the inverter, with the
+    window planned from it. The sensors read published_charge_decision, built from the held
+    calculation so it only moves once the fresh target is a clear step away and the held one
+    has stood for a while, and published_charge_window, held the same way. Overrides and the
+    cap apply to both decisions.
     """
     fresh = _overnight_charge_decision(cycle, avg_daily_kwh)
-    held.settle(fresh, HoldReading(cycle.now, _charge_running(data, cycle.raw)))
+    reading = HoldReading(cycle.now, _charge_running(data, cycle.raw))
+    held.settle(fresh, reading)
     max_target = int(cycle.cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
     data.charge_decision = _with_charge_overrides(fresh, cycle.overrides, max_target)
     data.published_charge_decision = _with_charge_overrides(
         held.decision, cycle.overrides, max_target
     )
     data.charge_window = _plan_charge_window(data, cycle)
+    held.settle_window(data.charge_window, reading)
+    data.published_charge_window = held.window
 
 
 def _plan_charge_window(data: CoordinatorData, cycle: _Cycle) -> ChargeWindow | None:
