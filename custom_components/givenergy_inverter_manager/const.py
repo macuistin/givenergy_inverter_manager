@@ -213,6 +213,10 @@ APPLIANCE_RATE_THRESHOLD = 1.5  # × export rate — above this the grid rate is
 # ── Coordinator ──────────────────────────────────────────────────────────────
 UPDATE_INTERVAL_SECONDS = 30
 
+# Power inside this band either side of zero counts as no flow. The sensors read it, and so does
+# the charge hold, which counts a battery drawing more than this from the grid as charging.
+POWER_DIRECTION_BAND_W = 50
+
 # ── HA platforms exposed by this integration ─────────────────────────────────
 PLATFORMS = ["sensor", "switch", "number"]
 
@@ -237,6 +241,11 @@ CHARGE_MIN_TARGET_HEADROOM_PCT = 5  # SoC points above min SoC
 # keeps the sensor steady while a change worth acting on still shows. The write uses the fresh
 # target, never the held one.
 CHARGE_TARGET_HOLD_STEP_PCT = 5  # SoC points
+# A published value then stands for at least this long before the next step of that size is
+# published, so a slow drift in the load estimate moves the sensor once an hour, not every few
+# minutes. A change of CHARGE_TARGET_HOLD_LARGE_STEP_PCT or more is published at once.
+CHARGE_TARGET_HOLD_MIN_MINUTES = 60
+CHARGE_TARGET_HOLD_LARGE_STEP_PCT = 15  # SoC points
 
 CHARGE_PEAK_SOLAR_HOURS = 4.0  # peak-output hours assumed when no forecast available
 CHARGE_SOLAR_USABLE_FRACTION = 0.6  # fraction of forecast kWh we can realistically charge from
@@ -254,6 +263,12 @@ CHARGE_FORECAST_CORRECTION_MIN_KWH = 0.5  # days with forecast or actual below t
 # this fraction, because the battery slows near full and the real rate sits below the setting.
 CHARGE_WINDOW_MARGIN = 0.15
 CHARGE_WINDOW_ROUND_MINUTES = 5  # the window end is rounded up to a multiple of this
+# The published window end holds like the target does: it moves once the planned end is
+# CHARGE_WINDOW_HOLD_STEP_MINUTES away and the held end has stood for the target's hold time
+# (CHARGE_TARGET_HOLD_MIN_MINUTES), or at once when it is CHARGE_WINDOW_HOLD_LARGE_STEP_MINUTES
+# away. The window written to the inverter is always the planned one.
+CHARGE_WINDOW_HOLD_STEP_MINUTES = 15
+CHARGE_WINDOW_HOLD_LARGE_STEP_MINUTES = 45
 
 # ── Solar / generation parameters ─────────────────────────────────────────────
 SOLAR_SUNRISE_HOUR = 8  # hour of day when solar generation typically starts

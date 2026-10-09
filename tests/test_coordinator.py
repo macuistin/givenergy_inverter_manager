@@ -17,6 +17,7 @@ import logging
 import time
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+from datetime import time as clock_time
 from unittest.mock import MagicMock
 
 import pytest
@@ -42,6 +43,7 @@ from custom_components.givenergy_inverter_manager.const import (
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
+from custom_components.givenergy_inverter_manager.core.charge_window import ChargeWindow
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.ev_base_rate import WatchState
 from custom_components.givenergy_inverter_manager.core.immersion_rate import RunTracker
@@ -1133,6 +1135,16 @@ class TestWriteChargeTarget:
         coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
         coord.tasks_created[0].close()
         assert coord._held_charge.decision is None
+
+    def test_the_write_releases_the_held_window(self):
+        coord = self._coord_with_decision(target_soc=91)
+        coord._held_charge.window = ChargeWindow(
+            clock_time(2, 0), clock_time(5, 0), extended=True, expected_kwh=4.0, finish_time=None
+        )
+        coord._held_charge.window_published_at = datetime(2026, 6, 15, 1, 0)
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        coord.tasks_created[0].close()
+        assert coord._held_charge == HeldCharge()
 
     @pytest.mark.asyncio
     async def test_enable_charge_target_on_below_100(self):

@@ -16,15 +16,13 @@ from .const import (
     BATTERY_FULL_SOC_PCT,
     BATTERY_RATED_CYCLES,
     NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
+    POWER_DIRECTION_BAND_W,
 )
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.tariff import EnergyAccumulator
 from .core.tariff_check import describe_rate_mismatches
 from .core.write_log import newest_first
-
-# Power inside this band either side of zero counts as no flow.
-POWER_DIRECTION_BAND_W = 50
 
 GRID_IMPORTING = "Importing"
 GRID_EXPORTING = "Exporting"
@@ -278,12 +276,12 @@ def overnight_charge_cost(data: CoordinatorData) -> float | None:
 
 def overnight_charge_window(data: CoordinatorData) -> str | None:
     """Return the charge window to write, for example "02:00 to 06:30", None before a decision."""
-    return data.charge_window.text if data.charge_window else None
+    return data.published_charge_window.text if data.published_charge_window else None
 
 
 def overnight_charge_window_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """Return what the window is sized for, None when there is no window."""
-    window = data.charge_window
+    window = data.published_charge_window
     if window is None:
         return None
     finish = window.finish_time

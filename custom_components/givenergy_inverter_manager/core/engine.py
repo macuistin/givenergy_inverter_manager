@@ -71,6 +71,7 @@ from ..const import (
     INVERTER_TEMP_STATUS_UNKNOWN,
     INVERTER_TEMP_STATUS_WARM,
     INVERTER_TEMP_WARM,
+    POWER_DIRECTION_BAND_W,
     SOLAR_NOISE_FLOOR_W,
     SOLAR_SUNRISE_HOUR,
     SURPLUS_DIVERT_MIN_POWER_W,
@@ -89,7 +90,7 @@ from .battery import (
     estimate_will_survive_night,
     hours_until_solar,
 )
-from .charge_hold import HeldCharge, next_held_recommendation
+from .charge_hold import HeldCharge, HoldReading
 from .charge_window import (
     ChargeNeed,
     ChargeWindow,
@@ -243,8 +244,10 @@ class CoordinatorData:
     is_clipping: bool = False
     charge_decision: ChargeDecision | None = None
     charge_window: ChargeWindow | None = None
-    # The held copy of charge_decision the sensors publish. The write uses charge_decision.
+    # The held copies of charge_decision and charge_window the sensors publish. The write uses
+    # charge_decision and charge_window.
     published_charge_decision: ChargeDecision | None = None
+    published_charge_window: ChargeWindow | None = None
     should_divert_immersion: bool = False
     divert_reason: str = ""
     # True while the cheapest rate window is open, the user opted in and the heater is wanted.
@@ -558,14 +561,14 @@ def estimate_avg_daily_kwh(
 
 
 def _baseline_house_kwh(today: EnergyAccumulator) -> float:
-    """Today's house energy without the EV charger's share.
+    """Today's house energy without the EV charger's and the immersion heater's shares.
 
-    The load figure includes the EV charger. The charge target and the night survival
-    estimate scale this energy up to a full day, so a car drawing 7 kW at 01:00 would read
-    as a house that uses 170 kWh a day. The EV is a separate, flexible load and the
-    per-slot baseline profile already leaves it out.
+    The load figure includes both. The charge target and the night survival estimate scale
+    this energy up to a full day, so a car drawing 7 kW at 01:00 would read as a house that
+    uses 170 kWh a day, and a 4.7 kWh morning heat as 0.2 kWh an hour all night. Both are
+    separate, flexible loads and the per-slot baseline profile already leaves them out.
     """
-    return max(0.0, today.house_kwh - today.zappi_kwh)
+    return max(0.0, today.house_kwh - today.zappi_kwh - today.immersion_kwh)
 
 
 @dataclass(frozen=True)
@@ -1095,24 +1098,38 @@ def _with_charge_overrides(
     return decision
 
 
+def _charge_running(data: CoordinatorData, raw: RawSensorValues) -> bool:
+    """True while the battery is taking power from the grid inside the cheap rate run."""
+    return (
+        data.cheap_run_remaining_minutes is not None
+        and raw.battery_power_w > POWER_DIRECTION_BAND_W
+        and raw.grid_power_w > POWER_DIRECTION_BAND_W
+    )
+
+
 def _set_overnight_charge(
     data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float, held: HeldCharge
 ) -> None:
     """
     Work out tonight's charge target, then apply any manual override and the cap.
 
-    charge_decision is the fresh result and is what gets written to the inverter. The
-    sensors read published_charge_decision, built from the held calculation so it only
-    moves once the fresh target is a clear step away. Overrides and the cap apply to both.
+    charge_decision is the fresh result and is what gets written to the inverter, with the
+    window planned from it. The sensors read published_charge_decision, built from the held
+    calculation so it only moves once the fresh target is a clear step away and the held one
+    has stood for a while, and published_charge_window, held the same way. Overrides and the
+    cap apply to both decisions.
     """
     fresh = _overnight_charge_decision(cycle, avg_daily_kwh)
-    held.decision = next_held_recommendation(held.decision, fresh)
     max_target = int(cycle.cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
+    reading = HoldReading(cycle.now, _charge_running(data, cycle.raw), max_target)
+    held.settle(fresh, reading)
     data.charge_decision = _with_charge_overrides(fresh, cycle.overrides, max_target)
     data.published_charge_decision = _with_charge_overrides(
         held.decision, cycle.overrides, max_target
     )
     data.charge_window = _plan_charge_window(data, cycle)
+    held.settle_window(data.charge_window, reading)
+    data.published_charge_window = held.window
 
 
 def _plan_charge_window(data: CoordinatorData, cycle: _Cycle) -> ChargeWindow | None:

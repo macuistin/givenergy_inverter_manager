@@ -27,6 +27,11 @@ cases gained it, and the fresh snapshot gained it as None. Nothing else moved. T
 battery charge rate, so every window is the cheapest period. The sizing is pinned in
 tests/core/test_charge_window.py.
 
+The published_charge_window leaf was added when the Overnight Charge Window sensor started holding
+its end. The fresh snapshot gained it as None and 217 of the 255 cases gained it, the same 217 that
+have a charge_window. On the first cycle it equals charge_window. Nothing else moved. The hold is
+pinned in test_charge_hold.py and test_decision_stability.py.
+
 The cheap_run_remaining_minutes leaf was added for the Cheap from tile: 49 of the 255 cases gained
 it, and the fresh snapshot gained it as None. Nothing else moved.
 
@@ -44,6 +49,12 @@ fresh snapshot gained it as None. No case moved, because none passes a forecast 
 import. Only zappi_cost, immersion_cost and house_cost on the accumulators and
 ev_cost_per_km_today moved. The new behaviour is pinned in TestAccumulateEnergy in
 tests/core/test_engine.py.
+
+20 of the 255 cases were regenerated when the immersion heater's energy left the average daily load,
+as the EV charger's had. Every one has immersion energy on today's accumulator, from earlier in the day or from the cycle's own step. The leaves that
+moved are survival_reason (all 20), estimated_soc_at_sunrise (8), will_survive_night (3) and
+charge_decision with published_charge_decision (4). The new behaviour is pinned in
+test_night_survival_immersion_load.py.
 
 The givtcp_rate_mismatches leaf was added for the GivTCP rate attributes of the Current Rate
 sensor. The fresh snapshot gained it as None. No case moved, because the coordinator sets it
