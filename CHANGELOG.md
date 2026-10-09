@@ -21,6 +21,17 @@ steady. Fixes a sunrise estimate that sat at the minimum.
 - A heater that cuts itself off in the window, for example a device auto-off, is turned on again
   after the switch hold, until the target or the window end. A device timer that turns the heater
   on while the water is at the target is switched off again.
+- Water Heating Cheapest Source sensor, for homes where an oil boiler also heats the cylinder. It
+  says whether electricity, solar surplus or oil is the cheapest way to heat the water now, with a
+  plain `suggestion` sentence and the hours when oil beats the grid. It compares the price of a
+  litre of oil (assuming an 85% boiler and 10.35 kWh a litre) with the grid rate after discount
+  and VAT and with the export rate for solar surplus, up to the next hot water ready time or 24
+  hours. Advice only: nothing controls the oil boiler.
+- Oil water heating options (Configure): Oil price per litre, and an optional Oil price sensor that
+  overrides it. Both are empty by default. With no price, or no immersion switch, the sensor is not
+  created and nothing is worked out. Set or clear them at any time.
+- The Immersion dashboard view gains a Cheapest way to heat the water section, shown only while the
+  sensor has a reading. A stored dashboard file shows or hides it with no new file.
 
 **Changes**
 - The Recommended Overnight Charge Target and Overnight Charge Reason sensors no longer step every

@@ -59,8 +59,9 @@ GROUPS: dict[str, str] = {
     "Battery": "Health, wear and state of the battery.",
     "Charge plan and night survival": "Outputs of the overnight charge calculation.",
     "Immersion": (
-        "Output of the immersion divert rule, and the water temperature. The water "
-        "temperature sensor exists only with a temperature sensor set."
+        "Output of the immersion divert rule, the water temperature and the oil water heating "
+        "advice. The water temperature sensor exists only with a temperature sensor set. The "
+        "cheapest source sensor exists only with an oil price and an immersion switch set."
     ),
     "EV charger": (
         "These sensors exist only while a supported charger is discovered, and appear when "

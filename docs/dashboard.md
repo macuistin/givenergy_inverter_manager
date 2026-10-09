@@ -34,7 +34,7 @@ The file only contains tiles and cards that will show a value.
 
 ## Devices you add or remove later
 
-The EV charger, the immersion switch and the immersion temperature sensor are optional, and you can add or remove any of them at any time. The dashboard follows, with no step from you.
+The EV charger, the immersion switch, the immersion temperature sensor and the oil price are optional, and you can add or remove any of them at any time. The dashboard follows, with no step from you.
 
 - **A card for a device is hidden until the device exists.** Each card, tile, chart and section that needs a device carries a Lovelace visibility condition on one entity of that device. The condition hides the card while the entity is missing or unavailable. It shows the card as soon as the entity exists, and hides it again when the entity goes.
 - **The file already holds those cards.** Without a device, the file points them at the entity IDs Home Assistant will give the device's entities, which follow from the entity names. When the device arrives, the cards show. The file is not generated again and nothing is pasted again.
@@ -49,6 +49,7 @@ What each device brings:
 | Immersion switch | The switch is set under Configure, Immersion heater (or at setup) | Heater power, energy, cost and savings, the heater on or off band, the divert reason, the Auto divert and Managed settings, the immersion node on the flow card |
 | Immersion temperature sensor | The sensor is set under Configure, Immersion heater (or at setup) | The Immersion tile with the water temperature, the water temperature chart |
 | Switch and sensor together | Both are set | The Target, Minimum and Restart gap tiles and sliders, and the target and minimum lines on the chart |
+| Oil price with the switch | An oil price or price sensor is set under Configure, Oil water heating, and an immersion switch is set | The Cheapest way to heat the water section of the Immersion view |
 
 With only a switch, the Immersion tile shows the heater power and the sub-view has a small chart of when the heater was on. With only a sensor, it shows the water temperature and nothing about a heater. With both, the water temperature chart also shades the times the heater was on.
 
@@ -177,6 +178,7 @@ Each section shows only while the device it needs exists.
 - **Water temperature** (needs the sensor): a 12-hour chart of water temperature. With a switch as well, it also draws the target and minimum, and shades the chart in pale red while the heater is on. The heater's power is a fixed number, so the chart shows on or off and not watts. There is no separate heater power chart.
 - **Heater on or off** (needs the switch and no sensor): a small 12-hour chart of the same shaded band, for an install with a switch but no temperature sensor. It hides itself when a sensor is set, as the water temperature chart then carries the band.
 - **Why** (needs the switch): the divert reason in words.
+- **Cheapest way to heat the water** (needs an oil price and the switch): a tile with the cheapest source now (electricity, solar or oil) and the suggestion in a sentence, for example `Oil is cheaper than electricity until 23:00 (saves about 0.16 per kWh of heat). Heat the water with the oil system now.` It is advice only. The section hides itself while the sensor has no reading, for example when a price sensor is unavailable and no price is saved. See [Oil water heating advice](concepts.md#oil-water-heating-advice).
 - **Today** (needs the switch): energy, cost and what solar saved.
 - **Settings in force** (needs the switch): Auto divert and Managed, to read. With a sensor as well it adds Target temp, Minimum temp and Restart gap. Change them in Settings.
 

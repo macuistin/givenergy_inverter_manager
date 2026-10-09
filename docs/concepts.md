@@ -199,6 +199,22 @@ Dry run records `Would turn_on immersion heater (reason: ...)` for the scheduled
 
 A device auto-off during a run you started yourself ends that run, in the same way as pressing the switch off. The integration does not fight it. Scheduled heating restarts the heater after the hold if the window or a ready time still needs it.
 
+### Oil water heating advice
+
+Some homes heat the same cylinder with an oil boiler through a second coil. With an oil price set under Configure, Oil water heating, and an immersion switch to compare with, the **Water Heating Cheapest Source** sensor says which source is cheapest to heat the water. It is advice. The integration does not control the oil boiler, and it never turns the immersion on or off because of it.
+
+Each source is a cost per kWh of heat, in your currency:
+
+- **Oil**: the price of a litre divided by the heat a litre gives. The integration assumes a boiler at 85% efficiency and 10.35 kWh of energy in a litre of kerosene heating oil, so a litre gives 8.8 kWh of heat. These two figures are fixed in the code and not options.
+- **Electricity from the grid**: the unit rate in force now, after the supplier discount and VAT, as the cost sensors apply them. The immersion turns all its electricity into heat, so a kWh of electricity is a kWh of heat.
+- **Solar surplus**: the export rate, because heating the water with surplus gives up what the surplus would have earned. It counts as a source only while the immersion rule would divert the surplus: the battery is at the divert level and the surplus is at least the minimum surplus.
+
+The state is the cheapest source now: `electricity`, `solar` or `oil`. A tie goes to solar, then the grid, so oil needs a real saving. The `suggestion` attribute is a sentence, for example `Oil is cheaper than electricity until 23:00 (saves about 0.16 per kWh of heat). Heat the water with the oil system now.` When electricity is cheapest, it says when oil becomes cheaper. When oil is cheapest, it adds when electricity is cheapest if the water can wait.
+
+The other attributes are the oil cost, the grid cost now, the cheapest grid cost up to the horizon, the saving of oil per kWh against the cheapest electric source now (negative when oil is dearer), the hours in the next 24 when oil beats the grid (`best_hours_for_oil`, or `all day` on a flat tariff), the horizon and the cheapest source over it. The horizon is the next hot water ready time when the immersion options list one, whether or not Immersion Scheduled Heating is on, and the next 24 hours otherwise. Solar counts over the horizon only while there is surplus now, because the integration does not forecast surplus by the hour.
+
+The grid hours come from the tariff in force today, cut at every rate boundary, so a tariff with a cheap night window gives oil hours by day and none at night. A tariff change dated inside the next 24 hours is not looked ahead to.
+
 ### EV charger
 
 The integration finds Zappi (myenergi), Wallbox, OCPP, Ohme and Easee chargers by their entity names. It uses the first one found.

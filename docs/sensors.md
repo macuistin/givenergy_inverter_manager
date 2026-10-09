@@ -158,7 +158,7 @@ Outputs of the overnight charge calculation.
 
 ## Immersion
 
-Output of the immersion divert rule, and the water temperature. The water temperature sensor exists only with a temperature sensor set.
+Output of the immersion divert rule, the water temperature and the oil water heating advice. The water temperature sensor exists only with a temperature sensor set. The cheapest source sensor exists only with an oil price and an immersion switch set.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
