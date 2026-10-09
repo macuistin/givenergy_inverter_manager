@@ -23,6 +23,7 @@ from custom_components.givenergy_inverter_manager.core.engine import (
     PreviousCycle,
     RawSensorValues,
 )
+from custom_components.givenergy_inverter_manager.core.oil_schedule import ImmersionHeatLog
 from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator, TariffConfig
@@ -57,6 +58,7 @@ def build_coordinator_data(
     held_charge: HeldCharge | None = None,
     held_sunrise: HeldSunrise | None = None,
     held_solar: HeldSolarDay | None = None,
+    heat_log: ImmersionHeatLog | None = None,
 ) -> tuple[CoordinatorData, str | None]:
     return engine.build_coordinator_data(
         CycleInputs(
@@ -77,6 +79,7 @@ def build_coordinator_data(
             year=acc_year,
             yesterday=acc_yesterday,
             last_reset_time=last_reset_time,
+            heat_log=heat_log,
         ),
         PreviousCycle(
             battery_stats,

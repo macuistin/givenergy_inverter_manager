@@ -478,6 +478,13 @@ DESCRIPTIONS: dict[str, str] = {
         "minimum temperature plus the restart gap and the target less the restart gap, solar "
         "surplus is not heating it and oil is cheaper than the grid now. The suggestion puts the "
         "oil start first, then the keep-warm run. "
+        "After 7 days of the immersion's grid heating it also suggests a recurring oil schedule, "
+        "apart from `suggestion`: `oil_schedule` (a list of `HH:MM to HH:MM` windows, empty when "
+        "nothing is worth suggesting), `oil_schedule_saving` (saved over the record, in your "
+        "currency), `oil_schedule_days` (complete days read, up to 14) and "
+        "`oil_schedule_suggestion` (the sentence, only with a schedule). All four are absent "
+        "before 7 days. Use them in your own automations: the integration does not switch the "
+        "oil system. "
         "Unavailable while the price cannot be read."
     ),
     "ev_charger_state": (

@@ -105,6 +105,7 @@ from .oil_advice import (
     advise_water_heating,
     oil_heat_cost_per_kwh,
 )
+from .oil_schedule import ImmersionHeatLog, OilSchedule, ScheduleQuery, suggest_oil_schedule
 from .oil_start import WaterReading
 from .rules import (
     ChargeDecision,
@@ -269,6 +270,9 @@ class CoordinatorData:
     immersion_expected_ready: bool | None = None
     # Oil against electricity for heating the water. None while no oil price is set.
     water_heating_advice: WaterHeatingAdvice | None = None
+    # The oil windows the immersion's grid heating suggests. None while no oil price is set or
+    # the record holds fewer than OIL_SCHEDULE_MIN_DAYS days. A separate line from the advice.
+    oil_schedule: OilSchedule | None = None
     immersion_heating_rate_c_per_h: float | None = None
     immersion_rate_source: str = ""
     today: EnergyAccumulator = field(default_factory=EnergyAccumulator)
@@ -408,10 +412,10 @@ def _accumulate_import(acc: EnergyAccumulator, step: _Step) -> None:
     _apportion_import_cost(acc, period_cost, step.raw, step.immersion_w)
 
 
-def _accumulate_immersion_savings(acc: EnergyAccumulator, step: _Step) -> None:
-    """Handle immersion savings when there is solar surplus."""
+def _solar_to_immersion_kwh(step: _Step) -> float:
+    """Solar surplus kWh that heated the water this step, zero while the heater is off."""
     if step.immersion_w <= 0:
-        return
+        return 0.0
     raw = step.raw
     solar_surplus_w = max(
         0.0,
@@ -421,9 +425,13 @@ def _accumulate_immersion_savings(acc: EnergyAccumulator, step: _Step) -> None:
             )
         ),
     )
-    solar_to_immersion_w = min(step.immersion_w, solar_surplus_w)
-    if solar_to_immersion_w > 0:
-        solar_diverted_kwh = (solar_to_immersion_w / 1000) * step.elapsed_h
+    return (min(step.immersion_w, solar_surplus_w) / 1000) * step.elapsed_h
+
+
+def _accumulate_immersion_savings(acc: EnergyAccumulator, step: _Step) -> None:
+    """Handle immersion savings when there is solar surplus."""
+    solar_diverted_kwh = _solar_to_immersion_kwh(step)
+    if solar_diverted_kwh > 0:
         import_rate = step.tariff.get_current_rate(step.now).rate
         saving_per_kwh = max(0.0, import_rate - step.tariff.export_rate)
         acc.immersion_solar_kwh += solar_diverted_kwh
@@ -509,6 +517,21 @@ def _usable_elapsed_hours(window: AccumulationWindow) -> float:
     return max(0.0, elapsed_h)
 
 
+def _step_for(raw: RawSensorValues, window: AccumulationWindow) -> _Step | None:
+    """The step this window covers, None when it must not accumulate."""
+    elapsed_h = _usable_elapsed_hours(window)
+    if elapsed_h <= 0:
+        return None
+    return _Step(
+        raw=raw,
+        tariff=window.tariff,
+        period_name=window.period_name,
+        now=window.now,
+        immersion_w=raw.immersion_wattage_w if raw.immersion_on else 0.0,
+        elapsed_h=elapsed_h,
+    )
+
+
 def accumulate_energy(
     acc: EnergyAccumulator, raw: RawSensorValues, window: AccumulationWindow
 ) -> None:
@@ -521,23 +544,31 @@ def accumulate_energy(
 
     Modifies acc in place; returns None.
     """
-    elapsed_h = _usable_elapsed_hours(window)
-    if elapsed_h <= 0:
+    step = _step_for(raw, window)
+    if step is None:
         return
-    step = _Step(
-        raw=raw,
-        tariff=window.tariff,
-        period_name=window.period_name,
-        now=window.now,
-        immersion_w=raw.immersion_wattage_w if raw.immersion_on else 0.0,
-        elapsed_h=elapsed_h,
-    )
     _accumulate_loads(acc, step)
     _accumulate_battery_flow(acc, step)
     _accumulate_grid(acc, step)
     _accumulate_immersion_savings(acc, step)
     _accumulate_missed_solar(acc, step)
     _accumulate_inverter_derating(acc, step)
+
+
+def record_immersion_grid_heat(
+    log: ImmersionHeatLog, raw: RawSensorValues, window: AccumulationWindow
+) -> None:
+    """Add the immersion's grid energy this step, and its cost, to the oil schedule record.
+
+    Only energy that solar surplus did not cover counts. A step with the heater off still notes
+    the day, so a day with no grid heating counts as a day watched.
+    """
+    step = _step_for(raw, window)
+    if step is None:
+        return
+    heater_kwh = (step.immersion_w / 1000) * step.elapsed_h
+    grid_kwh = max(0.0, heater_kwh - _solar_to_immersion_kwh(step))
+    log.add(step.now, grid_kwh, step.tariff.calculate_import_cost(grid_kwh, step.now))
 
 
 @dataclass(frozen=True)
@@ -697,7 +728,7 @@ def _process_ev_charger(
 class Accumulators:
     """The running energy accumulators, plus when today's was last reset.
 
-    today and counters are mutated in place every cycle. The other accumulators are None
+    today, counters and heat_log are mutated in place every cycle. The other accumulators are None
     until the coordinator has restored them.
     """
 
@@ -708,6 +739,7 @@ class Accumulators:
     yesterday: EnergyAccumulator | None = None
     last_reset_time: str = ""
     counters: CounterMemory = field(default_factory=CounterMemory)
+    heat_log: ImmersionHeatLog | None = None
 
     def rolling(self) -> tuple[EnergyAccumulator, ...]:
         """The accumulators that integrate live power, today's first. Yesterday is a record."""
@@ -1055,6 +1087,22 @@ def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
     )
 
 
+def _set_oil_schedule(data: CoordinatorData, cycle: _Cycle, log: ImmersionHeatLog | None) -> None:
+    """The oil windows the record suggests. Nothing without an oil price or a record."""
+    price = cycle.raw.oil_price_per_litre
+    if price is None or log is None:
+        return
+    data.oil_schedule = suggest_oil_schedule(
+        log,
+        ScheduleQuery(
+            today=cycle.now.date(),
+            oil_cost_per_kwh=oil_heat_cost_per_kwh(price),
+            heater_kw=cycle.raw.immersion_wattage_w / 1000,
+            currency_symbol=data.currency_symbol,
+        ),
+    )
+
+
 def _set_immersion_decision(data: CoordinatorData, cycle: _Cycle) -> None:
     """Set immersion divert decision."""
     data.battery_cycle_cost_per_kwh = _battery_cycle_cost(cycle.cfg, cycle.raw.battery_capacity_kwh)
@@ -1314,6 +1362,8 @@ def _accumulate_energy_today(
     )
     for rolling_acc in accumulators.rolling():
         accumulate_energy(rolling_acc, cycle.raw, window)
+    if accumulators.heat_log is not None and cycle.raw.oil_price_per_litre is not None:
+        record_immersion_grid_heat(accumulators.heat_log, cycle.raw, window)
     # Override today's physical kWh with GivTCP's own daily counters when available.
     # GivTCP reads directly from the inverter's metering, which is more accurate than
     # integrating 30-second power readings. Financial fields (costs, earnings) remain
@@ -1470,6 +1520,7 @@ def build_coordinator_data(
     avg_daily_kwh = estimate_avg_daily_kwh(_baseline_house_kwh(data.today), now)
 
     _set_decisions(data, cycle, avg_daily_kwh, previous.held_charge)
+    _set_oil_schedule(data, cycle, accumulators.heat_log)
     _set_money_fields(data, cycle, accumulators)
     _calculate_ev_km(data, accumulators.today, inputs.cfg)
     _calculate_night_survival(data, cycle, avg_daily_kwh, previous.held_sunrise)

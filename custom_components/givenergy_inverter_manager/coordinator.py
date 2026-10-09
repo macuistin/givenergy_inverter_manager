@@ -1298,6 +1298,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 yesterday=self._acc.yesterday,
                 last_reset_time=self._last_reset_time,
                 counters=self._acc.counters,
+                heat_log=self._acc.immersion_heat_log,
             ),
             PreviousCycle(
                 battery_stats=self._battery_stats,

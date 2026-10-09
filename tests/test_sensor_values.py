@@ -387,6 +387,67 @@ class TestOilStartAttributes:
         assert "oil_keep_warm" not in values.water_heating_attributes(self._data(None))
 
 
+class TestOilScheduleAttributes:
+    """oil_schedule, oil_schedule_saving, oil_schedule_days and the sentence, apart from suggestion."""
+
+    SENTENCE = "Over the last 10 days the immersion used about 15 kWh. Running the oil from 12:30 to 13:00."
+
+    def _data(self, schedule):
+        from custom_components.givenergy_inverter_manager.core.oil_advice import WaterHeatingAdvice
+
+        advice = WaterHeatingAdvice(
+            source="oil",
+            suggestion="Live suggestion.",
+            oil_cost_per_kwh=0.2,
+            electricity_cost_per_kwh=0.3,
+            cheapest_electricity_cost_per_kwh=0.3,
+            oil_saving_per_kwh=0.1,
+            oil_hours=(),
+            horizon="next_24_hours",
+            horizon_ends="12:00",
+            cheapest_source_in_horizon="oil",
+        )
+        return make_data(water_heating_advice=advice, oil_schedule=schedule)
+
+    def _schedule(self, **fields):
+        from custom_components.givenergy_inverter_manager.core.oil_schedule import OilSchedule
+
+        defaults = {
+            "days": 10,
+            "windows": ("12:30 to 13:00", "18:00 to 19:00"),
+            "saving": 5.8765,
+            "sentence": self.SENTENCE,
+        }
+        return OilSchedule(**{**defaults, **fields})
+
+    def test_with_a_suggestion_the_four_attributes_are_present(self):
+        attrs = values.water_heating_attributes(self._data(self._schedule()))
+        assert attrs["oil_schedule"] == ["12:30 to 13:00", "18:00 to 19:00"]
+        assert attrs["oil_schedule_saving"] == 5.88
+        assert attrs["oil_schedule_days"] == 10
+        assert attrs["oil_schedule_suggestion"] == self.SENTENCE
+
+    def test_the_schedule_is_not_mixed_into_the_live_suggestion(self):
+        attrs = values.water_heating_attributes(self._data(self._schedule()))
+        assert attrs["suggestion"] == "Live suggestion."
+
+    def test_before_a_week_of_data_none_of_them_is_present(self):
+        attrs = values.water_heating_attributes(self._data(None))
+        assert not {k for k in attrs if k.startswith("oil_schedule")}
+
+    def test_with_a_week_and_nothing_to_suggest_the_list_is_empty_and_there_is_no_sentence(self):
+        attrs = values.water_heating_attributes(
+            self._data(self._schedule(windows=(), saving=0.0, sentence=None))
+        )
+        assert attrs["oil_schedule"] == []
+        assert attrs["oil_schedule_saving"] == 0
+        assert attrs["oil_schedule_days"] == 10
+        assert "oil_schedule_suggestion" not in attrs
+
+    def test_no_attributes_at_all_without_advice(self):
+        assert values.water_heating_attributes(make_data(oil_schedule=self._schedule())) is None
+
+
 class TestCheapRateAttributes:
     def test_carries_the_summary(self):
         data = make_data(next_cheap_rate_start="23:00", hours_to_cheap_rate=9.0)

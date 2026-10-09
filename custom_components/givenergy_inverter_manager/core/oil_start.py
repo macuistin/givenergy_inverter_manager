@@ -35,7 +35,7 @@ from .tariff import TariffConfig
 from .timeutil import elapsed_seconds, shift_real
 
 _MINUTES_PER_HOUR = 60.0
-_KEEP_WARM_ROUND_MINUTES = 5
+_RUN_ROUND_MINUTES = 5
 # Takes a float rounding error off a whole number of minutes before it is rounded up.
 _ROUNDING_SLACK = 1e-6
 
@@ -126,6 +126,12 @@ def suggest_oil_start(query: StartQuery, ready_at: datetime) -> OilStart | None:
     return OilStart(ready_at, electric, by_solar, saving, run_minutes, start, late)
 
 
+def round_up_run_minutes(hours: float) -> int:
+    """A run of this many hours in minutes, rounded up to a multiple of five, five at least."""
+    steps = math.ceil(hours * _MINUTES_PER_HOUR / _RUN_ROUND_MINUTES - _ROUNDING_SLACK)
+    return max(steps, 1) * _RUN_ROUND_MINUTES
+
+
 def keep_warm_minutes(water: WaterReading, grid_cost_now: float, oil_cost: float) -> int | None:
     """Minutes of oil to lift cooling water to the target, None when it is not worth running.
 
@@ -137,5 +143,4 @@ def keep_warm_minutes(water: WaterReading, grid_cost_now: float, oil_cost: float
     needed = water.hours_to_target
     if needed <= 0:
         return None
-    steps = math.ceil(needed * _MINUTES_PER_HOUR / _KEEP_WARM_ROUND_MINUTES - _ROUNDING_SLACK)
-    return max(steps, 1) * _KEEP_WARM_ROUND_MINUTES
+    return round_up_run_minutes(needed)

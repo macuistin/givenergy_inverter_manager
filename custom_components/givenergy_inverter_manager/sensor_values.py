@@ -21,6 +21,7 @@ from .const import (
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.oil_advice import WaterHeatingAdvice
+from .core.oil_schedule import OilSchedule
 from .core.tariff import EnergyAccumulator
 from .core.tariff_check import describe_rate_mismatches
 from .core.write_log import newest_first
@@ -228,6 +229,25 @@ def _oil_start_attributes(advice: WaterHeatingAdvice) -> dict[str, Any]:
     }
 
 
+def _oil_schedule_attributes(schedule: OilSchedule | None) -> dict[str, Any]:
+    """The suggested oil schedule. Absent until the record holds a week of days.
+
+    From then on the list and the days are always there, and the list is empty when nothing is
+    worth suggesting. The sentence is only there with a suggestion. None of this is in the
+    suggestion attribute, which stays the live advice.
+    """
+    if schedule is None:
+        return {}
+    attributes: dict[str, Any] = {
+        "oil_schedule": list(schedule.windows),
+        "oil_schedule_saving": round(schedule.saving, 2),
+        "oil_schedule_days": schedule.days,
+    }
+    if schedule.sentence is not None:
+        attributes["oil_schedule_suggestion"] = schedule.sentence
+    return attributes
+
+
 def water_heating_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """Return the suggestion and the costs per kWh of heat behind it, None without advice."""
     advice = data.water_heating_advice
@@ -244,6 +264,7 @@ def water_heating_attributes(data: CoordinatorData) -> dict[str, Any] | None:
         "horizon_ends": advice.horizon_ends,
         "cheapest_source_in_horizon": advice.cheapest_source_in_horizon,
         **_oil_start_attributes(advice),
+        **_oil_schedule_attributes(data.oil_schedule),
     }
     if advice.keep_warm is not None:
         attributes["oil_keep_warm"] = advice.keep_warm
