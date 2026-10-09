@@ -464,7 +464,10 @@ DESCRIPTIONS: dict[str, str] = {
     "immersion_divert_reason": "Why the immersion is on or off.",
     "immersion_water_temperature": (
         "Reading of the immersion temperature sensor you set. Also lets a stored dashboard "
-        "show the water temperature as soon as a sensor is set."
+        "show the water temperature as soon as a sensor is set. With Immersion Scheduled "
+        "Heating on, the `planned_heating` attribute says in a sentence what the immersion "
+        "plans for the next ready time and the cheapest window. With ready times set it also "
+        "has `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source`."
     ),
     "water_heating_cheapest_source": (
         "The cheapest way to heat the water now: `electricity`, `solar` or `oil`. Compares the "

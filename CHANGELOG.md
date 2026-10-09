@@ -4,6 +4,29 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+**Features**
+- The Immersion Water Temperature sensor has a `planned_heating` attribute: a sentence that says
+  what scheduled heating plans for the next ready time and the cheapest window, for example
+  `Heating planned for the 19:00 ready time: 17:10 to 18:30 at the Day rate.` or `No heating
+  planned for the 19:00 ready time (water 54.4°C, ready). Next possible heating: 02:00 to 04:00
+  slot, only if the water is below 51°C by then.` It is there while Immersion Scheduled Heating is
+  on and the water temperature is read. The Ready by section of the Immersion view shows it.
+  What the immersion does is unchanged.
+
+**Changes**
+- Night survival is now worded as the battery lasting the night. The Power Flow tile Night survival
+  is Battery overnight, a full-width tile that reads `Lasts the night · 36% at sunrise`, `Only just
+  lasts the night · 12% at sunrise` or `May run low`. The Battery detail heading and card use the
+  same words. Battery Night Survival Status is now Battery Overnight Outlook and Night Survival
+  Confidence is now Battery Overnight Confidence. Their keys, unique IDs and states (Safe, Warning,
+  Critical) are unchanged, and an install made before this release keeps its entity IDs. The
+  confidence sensor gains the attributes `outlook` and `summary`, and its `explanation` no longer
+  starts with the level word.
+- Tonight's charge plan is enabled by default, so the Battery view has its sentence. An install
+  that had it disabled by the integration gets it enabled once on the first start after the
+  upgrade, as in v0.12.0. One you disabled yourself stays disabled. Its large `html` attribute is
+  not recorded.
+
 **Fixes**
 - Money totals (costs, earnings, bills, savings and the estimated charge cost) show two decimals
   on every tile and entity page, for example `127.48 €` instead of `127.4757 €`. The stored value,
@@ -21,18 +44,10 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   like a fault. It now says `Not enough spare solar: the house is using 345 W more than the panels
   make (needs 500 W spare)`, or `Not enough spare solar: 300 W spare, needs 500 W`. An automation
   that matches the old text needs the new one.
-- Night survival is now worded as the battery lasting the night. The Power Flow tile Night survival
-  is Battery overnight, a full-width tile that reads `Lasts the night · 36% at sunrise`, `Only just
-  lasts the night · 12% at sunrise` or `May run low`. The Battery detail heading and card use the
-  same words. Battery Night Survival Status is now Battery Overnight Outlook and Night Survival
-  Confidence is now Battery Overnight Confidence. Their keys, unique IDs and states (Safe, Warning,
-  Critical) are unchanged, and an install made before this release keeps its entity IDs. The
-  confidence sensor gains the attributes `outlook` and `summary`, and its `explanation` no longer
-  starts with the level word.
-- Tonight's charge plan is enabled by default, so the Battery view has its sentence. An install
-  that had it disabled by the integration gets it enabled once on the first start after the
-  upgrade, as in v0.12.0. One you disabled yourself stays disabled. Its large `html` attribute is
-  not recorded.
+- Water Heating Cheapest Source no longer suggests an oil start when the water needs no heating for
+  the ready time. At or above the temperature the immersion restarts at (the target less the
+  restart gap), or when the run would be under 5 minutes, there is no start and the suggestion says
+  the water is expected to be ready with no heating needed.
 
 ## v0.16.0
 

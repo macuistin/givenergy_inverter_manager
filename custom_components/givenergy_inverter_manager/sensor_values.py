@@ -216,6 +216,14 @@ def immersion_ready_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     }
 
 
+def immersion_water_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """The ready-by attributes and the planned heating sentence, None while neither is set."""
+    attributes = immersion_ready_attributes(data) or {}
+    if data.immersion_planned_heating is not None:
+        attributes = {**attributes, "planned_heating": data.immersion_planned_heating}
+    return attributes or None
+
+
 def water_heating_source(data: CoordinatorData) -> str | None:
     """Return the cheapest source to heat the water now, None without an oil price."""
     advice = data.water_heating_advice

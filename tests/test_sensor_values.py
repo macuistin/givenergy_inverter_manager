@@ -298,6 +298,39 @@ class TestImmersionReadyAttributes:
         }
 
 
+class TestImmersionWaterAttributes:
+    def test_none_without_a_ready_time_or_a_plan(self):
+        assert values.immersion_water_attributes(make_data()) is None
+
+    def test_the_plan_alone_when_no_ready_time_is_set(self):
+        data = make_data(immersion_planned_heating="No ready time is set.")
+        assert values.immersion_water_attributes(data) == {
+            "planned_heating": "No ready time is set."
+        }
+
+    def test_the_ready_attributes_stay_and_the_plan_joins_them(self):
+        from datetime import time
+
+        data = make_data(
+            immersion_ready_time=time(19, 0),
+            immersion_expected_ready=True,
+            immersion_heating_rate_c_per_h=8.6,
+            immersion_rate_source="assumed",
+            immersion_planned_heating="No heating planned.",
+        )
+        attributes = values.immersion_water_attributes(data)
+        assert attributes == {
+            **values.immersion_ready_attributes(data),
+            "planned_heating": "No heating planned.",
+        }
+
+    def test_the_ready_attributes_alone_without_a_plan(self):
+        from datetime import time
+
+        data = make_data(immersion_ready_time=time(19, 0), immersion_expected_ready=False)
+        assert values.immersion_water_attributes(data) == values.immersion_ready_attributes(data)
+
+
 class TestWaterHeatingAdvice:
     def _data(self):
         from custom_components.givenergy_inverter_manager.core.oil_advice import WaterHeatingAdvice

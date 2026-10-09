@@ -191,6 +191,16 @@ For 07:00 with the cheapest window 02:00 to 04:00 inside a Night band to 08:00, 
 
 The heating rate is in degrees per hour. The integration measures it from its own runs: a stretch with the heater on and the temperature readable, at least 20 minutes long and at least 2 °C of rise. It keeps the last 5 and plans with their median. Until a run has been measured it assumes the element heats a 300 litre cylinder, which is slow, so the first plans start early. The **Immersion Water Temperature** sensor shows `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source` (`learned` or `assumed`). The attributes are there only while ready times are set and Immersion Scheduled Heating is on.
 
+The same sensor has a `planned_heating` attribute, a sentence that says what the immersion plans. It is there while Immersion Scheduled Heating is on and the water temperature is read, with or without ready times. It does not change what the immersion does. It reads the plan above and the cheapest window, and says one of these:
+
+- `Heating planned for the 19:00 ready time: 17:10 to 18:30 at the Day rate.` The plan heats later. Heating in two bands lists both, in time order.
+- `Heating now to be ready by 19:00 (water 42.0°C, target 55°C): until 18:30 at the Day rate.` The plan wants the heater on now. When the water cannot be ready in time it adds that.
+- `No heating planned for the 19:00 ready time (water 54.4°C, ready). Next possible heating: 02:00 to 04:00 slot, only if the water is below 51°C by then.` The water is at or above the temperature the immersion restarts at (the target less the restart gap), or the run would be under 5 minutes, so it counts as ready. The immersion can still add a few minutes just before the ready time to reach the exact target. The next window is the cheapest rate window, and it heats only if the water has cooled below the restart temperature by then.
+- `Heating now in the Night slot until 08:00 tomorrow (water 40.0°C, target 55°C).` The cheapest window is open and heating the water.
+- With no ready time: `No ready time is set. Next possible heating: 23:00 to 08:00 slot, only if the water is below 51°C by then.` On a tariff with no window cheaper than the base rate it says `No heating planned: no ready time is set and the tariff has no cheaper slot.`
+
+The rate band is the name of the tariff period the heating falls in. On a flat tariff there is no window to name.
+
 Dry run records `Would turn_on immersion heater (reason: ...)` for the scheduled rules and sends nothing. The switch hold, the verified write and the manual overrides work as for surplus diversion.
 
 **Moving from the device timers and home automations.** Switch the heater's own timers off, or leave only a long auto-off as a backup. Disable any automation that turns the heater on at set times or off at the target. Then turn **Immersion Scheduled Heating** on and enter the ready times. What the old automations did is covered:
@@ -226,6 +236,8 @@ The grid hours come from the tariff in force today, cut at every rate boundary, 
 5. When it is already too late for the oil to finish before the immersion starts, the suggestion says to start the oil now and that the immersion will also run.
 
 When the water is already at the target, no start is suggested and the suggestion says there is nothing to heat. The plain sentence used to tell you to heat the water with the oil system even when it was hot.
+
+No start is suggested either when the water is at or above the temperature the immersion restarts at (the target less the restart gap, 51 with a target of 55 and a gap of 4), or when the run would be shorter than 5 minutes. The water is as good as ready, and the suggestion says so: `For the 19:00 ready time: the water is expected to be ready with no heating needed.`
 
 The attributes `oil_start_by` (a local time), `oil_run_minutes` and `oil_for_ready_time` are present only while an oil start is suggested. Use them in your own automations or notifications, for example a notification at `oil_start_by`. The suggestion reads the water temperature now, so once the oil is heating the start moves later and then disappears when the water reaches the target.
 
