@@ -418,7 +418,8 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "overnight_charge_target": (
         "Tonight's target after overrides and the configured cap. Holds its value until the "
-        "calculated target moves 5 points or more."
+        "calculated target moves 5 points or more, and for an hour after it last changed. A move "
+        "of 15 points or more shows at once."
     ),
     "overnight_charge_reason": (
         "Why that target was chosen. Changes only when the target does. Attributes report the "

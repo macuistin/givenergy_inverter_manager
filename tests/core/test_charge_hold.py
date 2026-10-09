@@ -1,16 +1,22 @@
 """The published charge recommendation holds until the fresh target moves a clear step.
 
-The write to the inverter is built from the fresh decision, so these tests also pin that the
-fresh decision is never held.
+A step of 5 points is published once the held value has stood for an hour. A step of 15 points
+is published at once. The write to the inverter is built from the fresh decision, so these
+tests also pin that the fresh decision is never held.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.const import CHARGE_TARGET_HOLD_STEP_PCT
+from custom_components.givenergy_inverter_manager.const import (
+    CHARGE_TARGET_HOLD_LARGE_STEP_PCT,
+    CHARGE_TARGET_HOLD_MIN_MINUTES,
+    CHARGE_TARGET_HOLD_STEP_PCT,
+)
 from custom_components.givenergy_inverter_manager.core.charge_hold import (
     HeldCharge,
+    HoldReading,
     next_held_recommendation,
 )
 from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
@@ -38,31 +44,91 @@ def _changes(values: list) -> int:
     return sum(1 for before, after in zip(values, values[1:], strict=False) if before != after)
 
 
+LARGE = CHARGE_TARGET_HOLD_LARGE_STEP_PCT
+DWELL = timedelta(minutes=CHARGE_TARGET_HOLD_MIN_MINUTES)
+PUBLISHED_AT = datetime(2024, 6, 15, 0, 0)
+JUST_AFTER = HoldReading(PUBLISHED_AT + timedelta(minutes=1))
+AFTER_DWELL = HoldReading(PUBLISHED_AT + DWELL)
+
+
+def _held(decision: ChargeDecision) -> HeldCharge:
+    return HeldCharge(decision, PUBLISHED_AT)
+
+
 class TestNextHeldRecommendation:
     def test_the_first_decision_is_published_as_it_is(self):
         fresh = _decision(87)
-        assert next_held_recommendation(None, fresh) is fresh
+        assert next_held_recommendation(HeldCharge(), fresh, JUST_AFTER) is fresh
 
     def test_a_target_inside_the_step_keeps_the_held_decision_and_its_reason(self):
         held = _decision(87, reason="held reason")
         fresh = _decision(87 + STEP - 1, reason="fresh reason")
-        assert next_held_recommendation(held, fresh) is held
+        assert next_held_recommendation(_held(held), fresh, AFTER_DWELL) is held
 
     @pytest.mark.parametrize("direction", [1, -1])
-    def test_a_target_a_full_step_away_is_published(self, direction):
+    def test_a_step_is_published_once_the_held_value_has_stood_for_the_dwell(self, direction):
         held = _decision(87)
         fresh = _decision(87 + direction * STEP)
-        assert next_held_recommendation(held, fresh) is fresh
+        assert next_held_recommendation(_held(held), fresh, AFTER_DWELL) is fresh
+
+    @pytest.mark.parametrize("direction", [1, -1])
+    def test_a_step_inside_the_dwell_keeps_the_held_decision(self, direction):
+        held = _decision(87)
+        fresh = _decision(87 + direction * (LARGE - 1))
+        assert next_held_recommendation(_held(held), fresh, JUST_AFTER) is held
+
+    def test_a_step_one_minute_short_of_the_dwell_keeps_the_held_decision(self):
+        reading = HoldReading(PUBLISHED_AT + DWELL - timedelta(minutes=1))
+        held = _decision(87)
+        assert next_held_recommendation(_held(held), _decision(87 + STEP), reading) is held
+
+    @pytest.mark.parametrize("direction", [1, -1])
+    def test_a_large_step_is_published_at_once(self, direction):
+        held = _decision(60)
+        fresh = _decision(60 + direction * LARGE)
+        assert next_held_recommendation(_held(held), fresh, JUST_AFTER) is fresh
+
+    def test_a_held_decision_with_no_publish_time_counts_as_stood_long_enough(self):
+        held = _decision(87)
+        fresh = _decision(87 + STEP)
+        assert next_held_recommendation(HeldCharge(held), fresh, JUST_AFTER) is fresh
+
+    def test_a_clock_that_runs_backwards_counts_as_stood_long_enough(self):
+        reading = HoldReading(PUBLISHED_AT - timedelta(hours=1))
+        held = _decision(87)
+        fresh = _decision(87 + STEP)
+        assert next_held_recommendation(_held(held), fresh, reading) is fresh
 
     def test_a_change_from_charging_to_skipping_is_published_at_once(self):
         held = _decision(87)
         fresh = _decision(88, skip=True)
-        assert next_held_recommendation(held, fresh) is fresh
+        assert next_held_recommendation(_held(held), fresh, JUST_AFTER) is fresh
 
     def test_a_change_from_skipping_to_charging_is_published_at_once(self):
         held = _decision(25, skip=True)
         fresh = _decision(26)
-        assert next_held_recommendation(held, fresh) is fresh
+        assert next_held_recommendation(_held(held), fresh, JUST_AFTER) is fresh
+
+
+class TestSettle:
+    def test_a_published_change_records_when_it_was_published(self):
+        held = _held(_decision(60))
+        fresh = _decision(60 + LARGE)
+        held.settle(fresh, JUST_AFTER)
+        assert held.decision is fresh
+        assert held.published_at == JUST_AFTER.now
+
+    def test_a_held_decision_keeps_its_publish_time(self):
+        held = _held(_decision(60))
+        kept = held.decision
+        held.settle(_decision(61), JUST_AFTER)
+        assert held.decision is kept
+        assert held.published_at == PUBLISHED_AT
+
+    def test_the_first_decision_is_stamped(self):
+        held = HeldCharge()
+        held.settle(_decision(60), JUST_AFTER)
+        assert held.published_at == JUST_AFTER.now
 
 
 def _jitter_series() -> list[float]:

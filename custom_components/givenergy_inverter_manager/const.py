@@ -226,6 +226,11 @@ CHARGE_MIN_TARGET_HEADROOM_PCT = 5  # SoC points above min SoC
 # keeps the sensor steady while a change worth acting on still shows. The write uses the fresh
 # target, never the held one.
 CHARGE_TARGET_HOLD_STEP_PCT = 5  # SoC points
+# A published value then stands for at least this long before the next step of that size is
+# published, so a slow drift in the load estimate moves the sensor once an hour, not every few
+# minutes. A change of CHARGE_TARGET_HOLD_LARGE_STEP_PCT or more is published at once.
+CHARGE_TARGET_HOLD_MIN_MINUTES = 60
+CHARGE_TARGET_HOLD_LARGE_STEP_PCT = 15  # SoC points
 
 CHARGE_PEAK_SOLAR_HOURS = 4.0  # peak-output hours assumed when no forecast available
 CHARGE_SOLAR_USABLE_FRACTION = 0.6  # fraction of forecast kWh we can realistically charge from

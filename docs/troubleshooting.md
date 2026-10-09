@@ -177,7 +177,7 @@ The integration only records these changes. It does not undo them. The log is sa
 Read **Overnight Charge Reason** first. Then check these:
 
 - **The target is lower than expected, and the reason ends "capped at configured max".** **Default overnight charge target** caps the calculated target. It is 80 unless you changed it, and the cap applies to the winter 100% target too.
-- **The sensor differs by a few points from the value written to the inverter.** **Recommended Overnight Charge Target** holds its value until the calculated target moves 5 points or more, so the history stays readable. The write uses the latest calculation, and the sensor matches it from the next cycle. See [Overnight charge target](concepts.md#overnight-charge-target).
+- **The sensor differs by a few points from the value written to the inverter.** **Recommended Overnight Charge Target** holds its value until the calculated target moves 5 points or more and the value has stood for an hour (15 points or more shows at once), so the history stays readable. The write uses the latest calculation, and the sensor matches it from the next cycle. See [Overnight charge target](concepts.md#overnight-charge-target).
 - **December to February.** The target is 100% before the cap, whatever the forecast.
 - **March, April, October and November.** The minimum SoC is at least 70% in the calculation.
 - **No forecast.** Without a tomorrow sensor, the integration uses a seasonal estimate from your latitude. The reason says so.

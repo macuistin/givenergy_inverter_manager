@@ -89,7 +89,7 @@ from .battery import (
     estimate_will_survive_night,
     hours_until_solar,
 )
-from .charge_hold import HeldCharge, next_held_recommendation
+from .charge_hold import HeldCharge, HoldReading
 from .charge_window import (
     ChargeNeed,
     ChargeWindow,
@@ -1040,10 +1040,11 @@ def _set_overnight_charge(
 
     charge_decision is the fresh result and is what gets written to the inverter. The
     sensors read published_charge_decision, built from the held calculation so it only
-    moves once the fresh target is a clear step away. Overrides and the cap apply to both.
+    moves once the fresh target is a clear step away and the held one has stood for a while.
+    Overrides and the cap apply to both.
     """
     fresh = _overnight_charge_decision(cycle, avg_daily_kwh)
-    held.decision = next_held_recommendation(held.decision, fresh)
+    held.settle(fresh, HoldReading(cycle.now))
     max_target = int(cycle.cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
     data.charge_decision = _with_charge_overrides(fresh, cycle.overrides, max_target)
     data.published_charge_decision = _with_charge_overrides(
