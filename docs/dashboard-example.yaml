@@ -1052,6 +1052,26 @@ views:
   - type: grid
     visibility:
     - condition: state
+      entity: sensor.givenergy_inverter_manager_water_heating_cheapest_source
+      state_not: unavailable
+    cards:
+    - type: heading
+      heading: Cheapest way to heat the water
+      heading_style: title
+      icon: mdi:fire-circle
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_water_heating_cheapest_source
+      name: Cheapest source
+      color: orange
+      grid_options:
+        columns: full
+    - type: markdown
+      content: '{{ state_attr(''sensor.givenergy_inverter_manager_water_heating_cheapest_source'', ''suggestion'') }}'
+      grid_options:
+        columns: full
+  - type: grid
+    visibility:
+    - condition: state
       entity: switch.givenergy_inverter_manager_immersion_heater_managed
       state_not: unavailable
     cards:

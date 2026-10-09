@@ -29,6 +29,7 @@ from .cards import (
     SOLAR,
     TREND,
     admin_condition,
+    attribute_markdown,
     button_badge,
     entity_list_card,
     entity_row,
@@ -168,6 +169,10 @@ class Builder:
     def immersion(self, suffix: str) -> str | None:
         """An entity of the immersion switch. Its expected ID while none is configured."""
         return self.devices.entity(Device.IMMERSION_SWITCH, suffix)
+
+    def oil_advice(self, suffix: str) -> str | None:
+        """An entity of the oil advice. Its expected ID while no oil price is set."""
+        return self.devices.entity(Device.OIL_ADVICE, suffix)
 
     def water_sensor(self, suffix: str) -> str | None:
         """An entity of the immersion temperature sensor, expected while none is configured."""
@@ -497,6 +502,7 @@ class Builder:
             self._water_temperature(),
             self._heater_on_off(),
             group(heading_card("Why", "mdi:help-circle-outline"), [reason], **self._when(switch)),
+            self._oil_advice_section(),
             group(
                 heading_card("Today", "mdi:calendar-today"),
                 [
@@ -508,6 +514,18 @@ class Builder:
             ),
             self._immersion_settings_in_force(),
         ]
+
+    def _oil_advice_section(self) -> dict[str, Any] | None:
+        """The cheapest way to heat the water, while an oil price is set. Advice only."""
+        source = self.oil_advice("water_heating_cheapest_source")
+        return group(
+            heading_card("Cheapest way to heat the water", "mdi:fire-circle"),
+            [
+                tile_card(source, "Cheapest source", color=IMMERSION, columns=FULL),
+                attribute_markdown(source, "suggestion"),
+            ],
+            **self._when(Device.OIL_ADVICE),
+        )
 
     def _when(self, *devices: Device) -> dict[str, list[dict]]:
         """The section option that shows a section while these devices are present."""

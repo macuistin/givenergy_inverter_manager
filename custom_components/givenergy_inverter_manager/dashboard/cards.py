@@ -198,6 +198,13 @@ def state_markdown(entity: str | None) -> dict | None:
     return markdown_card(state_ref(entity)) if entity else None
 
 
+def attribute_markdown(entity: str | None, attribute: str) -> dict | None:
+    """A markdown card that prints one attribute of an entity, for a sentence kept there."""
+    if not entity:
+        return None
+    return markdown_card(f"{{{{ state_attr('{entity}', '{attribute}') }}}}")
+
+
 def view_config(title: str, icon: str, path: str, sections: list, **extra) -> dict:
     return {
         "title": title,

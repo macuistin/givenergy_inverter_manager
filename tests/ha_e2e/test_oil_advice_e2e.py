@@ -7,13 +7,16 @@ sensor. A price sensor overrides the saved number.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+import yaml
 from conftest import MIDDAY, SERIAL, full_config_data
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_SWITCH,
@@ -21,6 +24,8 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_OIL_PRICE_PER_LITRE,
     DOMAIN,
 )
+from tests.dashboard_support import all_cards
+from tests.dashboard_visibility import seen
 
 KEY = "water_heating_cheapest_source"
 PRICE_SENSOR = "sensor.oil_price"
@@ -221,3 +226,33 @@ class TestPriceSensor:
         await set_up(hass, entry)
         await refresh(hass, entry)
         assert hass.states.get(sensor_id(hass, entry)).state == "unavailable"
+
+
+class TestDashboardTile:
+    @pytest.fixture
+    def config_entry(self):
+        return _entry(full_config_data())
+
+    async def shown_headings(self, hass, stored: dict) -> list[str]:
+        states = {state.entity_id: state.state for state in hass.states.async_all()}
+        cards = all_cards(seen(stored, states)["views"])
+        return [c["heading"] for c in cards if c["type"] == "heading"]
+
+    async def test_a_stored_file_shows_the_tile_once_an_oil_price_is_set(
+        self, hass_in_scenario, config_entry
+    ):
+        hass = hass_in_scenario
+        await set_up(hass, config_entry)
+        async_mock_service(hass, "persistent_notification", "create")
+        await hass.services.async_call(DOMAIN, "get_dashboard_yaml", blocking=True)
+        await hass.async_block_till_done()
+        path = Path(hass.config.config_dir) / "givenergy_dashboard.yaml"
+        stored = yaml.safe_load(path.read_text(encoding="utf-8"))
+        assert "Cheapest way to heat the water" not in await self.shown_headings(hass, stored)
+
+        await save_oil_options(hass, config_entry, {CONF_OIL_PRICE_PER_LITRE: CHEAP_OIL})
+        await refresh(hass, config_entry)
+        assert "Cheapest way to heat the water" in await self.shown_headings(hass, stored)
+
+        await save_oil_options(hass, config_entry, {})
+        assert "Cheapest way to heat the water" not in await self.shown_headings(hass, stored)

@@ -247,6 +247,65 @@ def test_a_cylinder_sensor_added_later_shows_its_chart_in_the_old_file():
     assert "Target temp" in [c["name"] for c in view_cards(_view(after, "immersion")) if c["type"] == "tile"]
 
 
+# ── the oil advice tile ──────────────────────────────────────────────────────
+
+OIL_SENTINEL = IDS["water_heating_cheapest_source"]
+OIL_HEADING = "Cheapest way to heat the water"
+
+
+def _oil_section_cards(config: dict) -> list[dict]:
+    """The cards under the oil advice heading of the Immersion view, as a person would see them."""
+    immersion = _view(config, "immersion")
+    for section in immersion["sections"]:
+        headings = [c.get("heading") for c in section["cards"] if c["type"] == "heading"]
+        if OIL_HEADING in headings:
+            return section["cards"]
+    return []
+
+
+@pytest.mark.parametrize("sensor", [False, True], ids=["no-sensor", "sensor"])
+@pytest.mark.parametrize("ev", [False, True], ids=["no-ev", "ev"])
+@pytest.mark.parametrize("switch", [False, True], ids=["no-switch", "switch"])
+@pytest.mark.parametrize("oil", [False, True], ids=["no-oil", "oil"])
+def test_the_oil_advice_shows_only_with_an_oil_price_and_the_switch(oil, switch, ev, sensor):
+    shown = seen_for(ev=ev, switch=switch, sensor=sensor, oil=oil)
+    assert bool(_oil_section_cards(shown)) == (oil and switch)
+
+
+def test_the_oil_advice_tile_and_sentence_read_the_oil_sensor():
+    cards = _oil_section_cards(seen_for(switch=True, oil=True))
+    tile = next(c for c in cards if c["type"] == "tile")
+    assert tile["entity"] == OIL_SENTINEL
+    markdown = next(c for c in cards if c["type"] == "markdown")
+    assert f"state_attr('{OIL_SENTINEL}', 'suggestion')" in markdown["content"]
+
+
+def test_the_oil_advice_waits_for_its_sensor_in_a_file_made_without_one():
+    stored = generated_for(switch=True)
+    states = states_with({Device.IMMERSION_SWITCH})
+    assert _oil_section_cards(seen(stored, states)) == []
+    states = states_with({Device.IMMERSION_SWITCH, Device.OIL_ADVICE})
+    assert _oil_section_cards(seen(stored, states)) != []
+
+
+def test_the_oil_advice_hides_while_the_sensor_is_unavailable():
+    """With the price sensor unreadable and no saved number there is no advice to show."""
+    stored = generated_for(switch=True, oil=True)
+    devices = {Device.IMMERSION_SWITCH, Device.OIL_ADVICE}
+    states = states_with(devices, {OIL_SENTINEL: "unavailable"})
+    assert _oil_section_cards(seen(stored, states)) == []
+
+
+def test_the_oil_advice_goes_when_the_price_is_cleared_without_regenerating():
+    stored = generated_for(switch=True, oil=True)
+    states = states_with({Device.IMMERSION_SWITCH})
+    assert _oil_section_cards(seen(stored, states)) == []
+
+
+def test_the_oil_advice_sentinel_is_the_oil_sensor():
+    assert SENTINELS[Device.OIL_ADVICE] == "water_heating_cheapest_source"
+
+
 # ── the conditions themselves ────────────────────────────────────────────────
 
 DEVICE_ENTITY_IDS = {
