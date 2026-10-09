@@ -50,6 +50,12 @@ import. Only zappi_cost, immersion_cost and house_cost on the accumulators and
 ev_cost_per_km_today moved. The new behaviour is pinned in TestAccumulateEnergy in
 tests/core/test_engine.py.
 
+20 of the 255 cases were regenerated when the immersion heater's energy left the average daily load,
+as the EV charger's had. Every one has immersion energy on today's accumulator, from earlier in the day or from the cycle's own step. The leaves that
+moved are survival_reason (all 20), estimated_soc_at_sunrise (8), will_survive_night (3) and
+charge_decision with published_charge_decision (4). The new behaviour is pinned in
+test_night_survival_immersion_load.py.
+
 The givtcp_rate_mismatches leaf was added for the GivTCP rate attributes of the Current Rate
 sensor. The fresh snapshot gained it as None. No case moved, because the coordinator sets it
 after the engine has built the snapshot.

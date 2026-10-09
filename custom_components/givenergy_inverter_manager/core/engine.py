@@ -541,14 +541,14 @@ def estimate_avg_daily_kwh(
 
 
 def _baseline_house_kwh(today: EnergyAccumulator) -> float:
-    """Today's house energy without the EV charger's share.
+    """Today's house energy without the EV charger's and the immersion heater's shares.
 
-    The load figure includes the EV charger. The charge target and the night survival
-    estimate scale this energy up to a full day, so a car drawing 7 kW at 01:00 would read
-    as a house that uses 170 kWh a day. The EV is a separate, flexible load and the
-    per-slot baseline profile already leaves it out.
+    The load figure includes both. The charge target and the night survival estimate scale
+    this energy up to a full day, so a car drawing 7 kW at 01:00 would read as a house that
+    uses 170 kWh a day, and a 4.7 kWh morning heat as 0.2 kWh an hour all night. Both are
+    separate, flexible loads and the per-slot baseline profile already leaves them out.
     """
-    return max(0.0, today.house_kwh - today.zappi_kwh)
+    return max(0.0, today.house_kwh - today.zappi_kwh - today.immersion_kwh)
 
 
 @dataclass(frozen=True)

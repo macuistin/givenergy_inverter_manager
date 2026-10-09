@@ -123,7 +123,7 @@ The factor raises the forecast, up to 1.2, when the service runs low. The charge
 
 The winter and shoulder month lists are fixed calendar months. They follow northern hemisphere seasons. The seasonal solar estimate does use your latitude.
 
-The average daily load is today's house energy so far, less the EV charger's energy, scaled up to 24 hours. It is at least 5 kWh, and 15 kWh in the first 30 minutes after midnight. The car is left out because it is a separate load that charges from the grid in the cheap window. The only effect of a plugged-in car on the target is the 10 point buffer in step 6.
+The average daily load is today's house energy so far, less the EV charger's energy and the immersion heater's energy, scaled up to 24 hours. It is at least 5 kWh, and 15 kWh in the first 30 minutes after midnight. The car and the heater are left out because each is a separate, flexible load that runs for a few hours, not all day, and the per-slot load history leaves both out too. The only effect of a plugged-in car on the target is the 10 point buffer in step 6.
 
 **Writing the target.** One minute before the cheapest timed period starts, the integration sets, in order: enable charge schedule on, charge start time, charge end time, target SoC, then enable charge target (on for targets below 100, off for 100). The window starts with the cheapest timed period and is sized to the plan (see below). On a skip night it writes the minimum SoC as the target, so the battery can discharge instead of being held at an old target. Nothing is written when the target SoC entity was not detected, or when the tariff has no timed period. The integration owns charge slot 1 only. When another slot (2 to 10) has a window set, it raises the repair **Other charge slots are active**, because the inverter also charges in that slot. See [Troubleshooting](troubleshooting.md#other-charge-slots-are-active).
 
@@ -133,13 +133,15 @@ The average daily load is today's house energy so far, less the EV charger's ene
 
 ### Night survival
 
-Night survival asks whether the battery lasts until solar starts. It uses the current SoC, the usable capacity above the minimum SoC, the average daily load (see above, so without the EV charger) spread evenly over 24 hours, and a window of hours:
+Night survival asks whether the battery lasts until solar starts. It uses the current SoC, the usable capacity above the minimum SoC, the average daily load (see above, so without the EV charger and the immersion heater) spread evenly over 24 hours, and a window of hours:
 
 - Before 08:00, the hours left until 08:00.
 - After 08:00 while solar is generating, tonight's pre-solar window of 8 hours from the current SoC.
 - After 08:00 with no solar, from now until 08:00 tomorrow.
 
 The charge plan skips a night only when this check passes, and it uses the same window and load. **Estimated SoC at Sunrise** is the SoC left at the end of the window, never below the minimum SoC. **Battery Night Survival Status** and **Night Survival Confidence** read the same calculation.
+
+The estimate is a pessimistic one by design, in two ways. It spreads the day's average load evenly over the window, so a night that is quieter than the day reads worse than it will be: an evening that uses 0.5 kWh an hour is judged at the daily average, often twice that. And it counts only the charge the battery holds now. A cheap-rate charge planned for later tonight is not added, so a shortfall in the evening is a shortfall without that charge. A **Battery may run low** status in the evening, with a charge planned for the cheap period, does not mean the battery will run out. Check **Tonight's Charge Plan** next to it. The minimum SoC reading is the floor of the estimate, not a measurement.
 
 The calculated figure steps when the day's energy total resets at midnight, when the window flips at 08:00 and when solar fades in the evening. The published **Estimated SoC at Sunrise** follows the calculated figure at no more than the pace the inverter can charge or discharge the battery (inverter maximum output over battery capacity, for example 5 kW over 19 kWh is about 26 points an hour). A step becomes a ramp of about half an hour. The status and confidence sensors use the calculated figure, so a real shortfall shows at once. After a restart or a gap of an hour the held value is dropped and the sensor starts from the calculated figure.
 
