@@ -25,6 +25,7 @@ from custom_components.givenergy_inverter_manager.core.immersion_ready import (
     hours_to_heat,
     next_ready_at,
     parse_ready_times,
+    place_hours,
     plan_ready,
 )
 from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
@@ -222,3 +223,36 @@ class TestLearningFromRuns:
 
     def test_no_run_means_no_sample(self):
         assert RunTracker().observe(at(2), None) is None
+
+
+class TestWherePlanPlacesItsHours:
+    """place_hours is what plan_ready reads: the fallback start and the grid rate of the plan."""
+
+    def test_one_band_puts_the_hours_at_its_end(self):
+        placed = place_hours(TARIFF, at(15), at(19), 1.0)
+        assert placed.fits is True
+        assert placed.starts_at == at(18)
+        assert placed.average_rate == pytest.approx(0.3334)
+
+    def test_hours_that_do_not_fit_start_now(self):
+        placed = place_hours(TARIFF, at(15), at(19), 5.0)
+        assert placed.fits is False
+        assert placed.starts_at == at(15)
+
+    def test_the_cheapest_bands_fill_first_and_the_start_is_the_earliest_used(self):
+        placed = place_hours(TARIFF, at(21), at(7, day=16), 3.0)
+        assert placed.starts_at == at(2, day=16)
+        assert placed.average_rate == pytest.approx((2 * 0.0965 + 1 * 0.1644) / 3)
+
+    def test_a_partly_used_band_is_entered_late(self):
+        placed = place_hours(TARIFF, at(1), at(7), 1.0)
+        assert placed.starts_at == at(3)
+
+    def test_a_full_band_starts_where_the_band_starts(self):
+        assert place_hours(TARIFF, at(1), at(7), 2.0).starts_at == at(2)
+
+    def test_the_start_is_a_real_hour_back_across_a_clock_change(self):
+        """On 25 October 2026 the clocks go back at 02:00, so 00:00 to 04:00 is five real hours."""
+        now, ready = datetime(2026, 10, 25, 0, 0, tzinfo=DUBLIN), datetime(2026, 10, 25, 4, 0, tzinfo=DUBLIN)
+        start = place_hours(build_tariff({"base_rate": 0.30, "rate_periods": []}), now, ready, 1.0).starts_at
+        assert start.astimezone(ZoneInfo("UTC")) == ready.astimezone(ZoneInfo("UTC")) - timedelta(hours=1)

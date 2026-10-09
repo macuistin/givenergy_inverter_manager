@@ -29,7 +29,7 @@ from datetime import datetime, time, timedelta
 
 from ..const import CHARGE_WINDOW_MARGIN, IMMERSION_SWITCH_COOLDOWN_MINUTES
 from .tariff import TariffConfig
-from .timeutil import elapsed_seconds, local_time_on
+from .timeutil import elapsed_seconds, local_time_on, shift_real
 
 _SECONDS_PER_HOUR = 3600.0
 # A segment is used up when less than this is left over, so rounding does not delay the start.
@@ -127,6 +127,49 @@ def _fill_cheapest_first(segments: list[RateSegment], hours: float) -> dict[int,
     return given
 
 
+@dataclass(frozen=True)
+class Placement:
+    """Where the heating hours go between now and a ready time.
+
+    segments are the rate segments in order. hours maps a segment's position to the hours the
+    plan gives it. The heating sits at the end of a part-used segment.
+    """
+
+    segments: list[RateSegment]
+    hours: dict[int, float]
+    needed: float
+
+    @property
+    def fits(self) -> bool:
+        return sum(self.hours.values()) >= self.needed - 1e-9
+
+    @property
+    def starts_at(self) -> datetime:
+        """When the plan first heats: the earliest start among the segments it uses."""
+        return min(self._starts())
+
+    @property
+    def average_rate(self) -> float:
+        """The hours-weighted rate of the plan, as the tariff states it (before discount, VAT)."""
+        total = sum(self.hours.values())
+        return sum(self.segments[i].rate * h for i, h in self.hours.items()) / total
+
+    def _starts(self) -> list[datetime]:
+        starts = []
+        for index, given in self.hours.items():
+            segment = self.segments[index]
+            full = given >= segment.hours - 1e-9
+            late = shift_real(segment.end, -timedelta(hours=given))
+            starts.append(segment.start if full else late)
+        return starts
+
+
+def place_hours(tariff: TariffConfig, now: datetime, ready: datetime, needed: float) -> Placement:
+    """Place *needed* heater hours in the cheapest segments between now and the ready time."""
+    segments = rate_segments(tariff, now, ready)
+    return Placement(segments, _fill_cheapest_first(segments, needed), needed)
+
+
 def hours_to_heat(temp: float, target: float, rate_c_per_h: float) -> float:
     """Heater hours to lift the water to the target, with the safety margin."""
     if temp >= target or rate_c_per_h <= 0:
@@ -156,13 +199,11 @@ def plan_ready(inputs: ReadyInputs) -> ReadyPlan:
     needed = hours_to_heat(temp, inputs.target, inputs.rate_c_per_h)
     if needed <= 0:
         return ReadyPlan(ready.timetz().replace(tzinfo=None), False, True, 0.0)
-    segments = rate_segments(inputs.tariff, now, ready)
-    given = _fill_cheapest_first(segments, needed)
-    fits = sum(given.values()) >= needed - 1e-9
-    first = segments[0]
+    placed = place_hours(inputs.tariff, now, ready, needed)
+    first = placed.segments[0]
     left_in_first = elapsed_seconds(first.start, first.end)
-    slack = left_in_first - given.get(0, 0.0) * _SECONDS_PER_HOUR
+    slack = left_in_first - placed.hours.get(0, 0.0) * _SECONDS_PER_HOUR
     # A run in progress carries on when the plan would start within the switch cooldown. An
     # off now could not be undone in time, because the write cooldown holds the next on back.
     used_up = slack <= _USED_UP_SECONDS or (inputs.heater_on and slack <= _COOLDOWN_SECONDS)
-    return ReadyPlan(ready.timetz().replace(tzinfo=None), used_up, fits, needed)
+    return ReadyPlan(ready.timetz().replace(tzinfo=None), used_up, placed.fits, needed)
