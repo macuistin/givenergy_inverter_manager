@@ -526,7 +526,10 @@ DESCRIPTIONS: dict[str, str] = {
     "today_summary": "Solar, import cost, immersion savings and self-sufficiency for today.",
     "charge_plan": "Tonight's target, the percentage to add and the cost, or Skip charge.",
     "week_summary": "Solar, import cost and self-sufficiency for this week.",
-    "dry_run_active": "True when dry run mode is on.",
+    "dry_run_active": (
+        "True when dry run mode is on. The `summary` attribute reads On or Off, "
+        "for the dashboard tile."
+    ),
     "dry_run_last_skipped": "The last action dry run mode held back.",
     "integration_version": "Installed integration version.",
 }

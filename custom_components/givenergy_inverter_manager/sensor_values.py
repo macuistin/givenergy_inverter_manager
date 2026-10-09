@@ -199,6 +199,11 @@ def cheap_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     return None if summary is None else {"summary": summary}
 
 
+def dry_run_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """Return the summary attribute a dashboard tile shows: On or Off, not True or False."""
+    return {"summary": "On" if data.dry_run else "Off"}
+
+
 def immersion_ready_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """Return the next hot water ready time, whether it will be met and the rate behind it."""
     if data.immersion_ready_time is None:

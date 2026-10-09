@@ -242,8 +242,8 @@ The table is read from your options when the file is generated, so generate the 
 ![Battery view with state of charge graph, tonight's charge plan and the charge settings in force.](images/dashboard-battery.png)
 
 - **Battery**: state of charge with a bar, battery power with a 24-hour trend, and a 24-hour history of state of charge. The heading opens Battery detail.
-- **Tonight's charge plan**: Target tonight, Est. cost, At sunrise (estimated state of charge) and Rate floor (the cheap rate floor).
-- **Charge settings in force**: the charge target override (Target override and Override on), Skip tonight and Dry run, to read. Change the first three in Settings. Dry run is an option of the integration.
+- **Tonight's charge plan**: the plan in one sentence first, then Target tonight, Est. cost, At sunrise (estimated state of charge) and Rate floor (the cheap rate floor). The sentence is the Tonight's charge plan sensor, and says outright whether tonight charges (`Target 78% · Add 34% · Cost €0.51`) or is skipped (`Skip charge · Plan forecast 8.2 kWh · SoC 64%`). That sensor is disabled by default, so the sentence shows once you enable it. Without it the tiles show alone.
+- **Charge settings in force**: Override on, the Target override value, Skip tonight and Dry run, to read. Target override shows only while Override on is on, because the value is not used otherwise. Dry run reads On or Off. Change the first three in Settings. Dry run is an option of the integration.
 
 State of charge and power are not drawn on one graph, because a percentage and watts share no scale.
 

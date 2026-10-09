@@ -14,6 +14,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="dry_run_active",
         icon="mdi:test-tube",
+        attrs_fn=values.dry_run_attributes,
         value_fn=lambda d: d.dry_run,
     ),
     GivEnergyManagerSensorDescription(

@@ -285,7 +285,7 @@ The state is a one-line summary. The `html` attribute holds a styled report for 
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Dry Run Mode Active | `dry_run_active` | - | - | none | no | yes | True when dry run mode is on. Diagnostic category. |
+| Dry Run Mode Active | `dry_run_active` | - | - | none | no | yes | True when dry run mode is on. The `summary` attribute reads On or Off, for the dashboard tile. Diagnostic category. |
 | Last Skipped Action (Dry Run) | `dry_run_last_skipped` | - | - | none | no | yes | The last action dry run mode held back. Diagnostic category. |
 | Integration Version | `integration_version` | - | - | none | no | no | Installed integration version. Diagnostic category. |
 

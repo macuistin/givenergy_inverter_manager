@@ -819,9 +819,11 @@ class Builder:
         )
 
     def _charge_plan(self) -> dict | None:
+        """The plan's sentence first: it says whether tonight charges or is skipped."""
         return group(
             heading_card("Tonight's charge plan", "mdi:weather-night"),
             [
+                state_markdown(self.entity("charge_plan")),
                 self.tile("overnight_charge_target", "Target tonight", color=BATTERY),
                 self.tile("overnight_charge_cost", "Est. cost", color=GRID),
                 self.tile("estimated_soc_at_sunrise", "At sunrise", color=BATTERY),
@@ -831,19 +833,31 @@ class Builder:
             ],
         )
 
+    def _target_override_tile(self) -> dict | None:
+        """The override value, shown only while the override is on and so in force."""
+        switch = self.entity("charge_target_override_enabled")
+        if switch is None:
+            return None
+        tile = readonly_tile(self.entity("charge_target_override"), "Target override", BATTERY)
+        return with_visibility(tile, self.devices.visible_while_on(switch))
+
     def _charge_settings_in_force(self) -> dict[str, Any] | None:
         """The charge settings as they stand, to read. Administrators change them."""
         return group(
             heading_card("Charge settings in force", "mdi:tune"),
             [
                 readonly_tile(
-                    self.entity("charge_target_override"), "Target override", BATTERY
-                ),
-                readonly_tile(
                     self.entity("charge_target_override_enabled"), "Override on", BATTERY
                 ),
+                self._target_override_tile(),
                 readonly_tile(self.entity("skip_charge_override"), "Skip tonight", BATTERY),
-                self.tile("dry_run_active", "Dry run", color=GRID, icon="mdi:test-tube"),
+                self.tile(
+                    "dry_run_active",
+                    "Dry run",
+                    color=GRID,
+                    icon="mdi:test-tube",
+                    state_content=["summary"],
+                ),
             ],
         )
 

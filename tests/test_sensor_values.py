@@ -458,6 +458,16 @@ class TestCheapRateAttributes:
         assert values.cheap_rate_attributes(data) is None
 
 
+class TestDryRunAttributes:
+    """The dashboard tile reads On or Off. The state stays True or False."""
+
+    def test_on(self):
+        assert values.dry_run_attributes(make_data(dry_run=True)) == {"summary": "On"}
+
+    def test_off(self):
+        assert values.dry_run_attributes(make_data(dry_run=False)) == {"summary": "Off"}
+
+
 class TestGivTCPRateAttributes:
     def test_lists_each_rate_that_differs(self):
         mismatch = RateMismatch("Day rate", 0.3334, 0.395)

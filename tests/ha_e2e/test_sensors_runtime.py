@@ -340,3 +340,25 @@ async def test_next_cheap_rate_start_carries_the_countdown_the_dashboard_tile_sh
     assert state is not None
     assert state.attributes["summary"] == _CHEAP_FROM_SUMMARY[scenario.name]
     assert state.state == ("23:00" if scenario.name == "midday_surplus" else "Now")
+
+
+async def test_dry_run_sensor_keeps_true_false_and_adds_an_on_off_summary(
+    hass, hass_in_scenario, service_calls, config_entry
+):
+    """The dashboard tile reads the summary. The state stays True or False for the banner."""
+    config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        config_entry, data={**full_config_data(), CONF_DRY_RUN: True}
+    )
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, f"{config_entry.entry_id}_dry_run_active")
+    state = hass.states.get(entity_id)
+    try:
+        assert state.state == "True"
+        assert state.attributes["summary"] == "On"
+    finally:
+        await hass.config_entries.async_unload(config_entry.entry_id)
+        await hass.async_block_till_done()

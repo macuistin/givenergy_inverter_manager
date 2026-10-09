@@ -12,6 +12,11 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 - The dashboard names the unit of a rate. Rate now is now Rate per kWh on Power Flow and Today, and
   Avg import rate is Avg import/kWh on Bill. The sensors' own unit is unchanged, so long-term
   statistics are not affected. The Tariff table already gave each rate per kWh.
+- The Battery view says what tonight does. Tonight's charge plan opens with the plan sentence
+  (for example `Skip charge` or `Target 78% · Add 34%`), the sentence being the Tonight's charge
+  plan sensor, which is disabled by default. Target override shows only while Override on is on,
+  and Dry run reads On or Off. The Dry Run Mode Active sensor keeps the state True or False and
+  gains a `summary` attribute that reads On or Off.
 
 ## v0.16.0
 
