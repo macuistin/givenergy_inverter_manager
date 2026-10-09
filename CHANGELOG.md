@@ -2,6 +2,14 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- Water Heating Cheapest Source no longer suggests an oil start when the water needs no heating for
+  the ready time. At or above the temperature the immersion restarts at (the target less the
+  restart gap), or when the run would be under 5 minutes, there is no start and the suggestion says
+  the water is expected to be ready with no heating needed.
+
 ## v0.16.0
 
 The oil advice now says when to start the oil, when to keep the water warm, and, after a week of

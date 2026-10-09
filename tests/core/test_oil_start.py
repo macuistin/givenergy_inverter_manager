@@ -100,6 +100,22 @@ class TestTheOilStart:
         assert suggest(at(15), at(19), reading=water(temp=55.0)) is None
         assert suggest(at(15), at(19), reading=water(temp=60.0)) is None
 
+    def test_water_above_the_restart_threshold_needs_no_start(self):
+        """54.4 degrees with a target of 55 and a restart gap of 4: the immersion will not restart."""
+        assert suggest(at(15), at(19), reading=water(temp=54.4, gap=4.0)) is None
+
+    def test_water_exactly_at_the_restart_threshold_needs_no_start(self):
+        assert suggest(at(15), at(19), reading=water(temp=51.0, gap=4.0)) is None
+
+    def test_water_just_below_the_restart_threshold_still_gets_a_start(self):
+        result = suggest(at(15), at(19), reading=water(temp=50.9, gap=4.0))
+        assert result.start_by is not None
+
+    def test_a_run_shorter_than_one_rounding_step_needs_no_start(self):
+        """At 1000 degrees an hour 15 degrees takes about a minute, under the 5 minute step."""
+        quick = WaterReading(40.0, TARGET, 1000.0, 45.0, 5.0)
+        assert suggest(at(15), at(19), reading=quick) is None
+
 
 class TestWhenOilIsNotTheCheaperHeat:
     def test_electricity_in_the_cheap_slot_beats_oil(self):

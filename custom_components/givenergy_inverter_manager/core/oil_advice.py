@@ -145,6 +145,7 @@ class _Picture:
     horizon: str
     start: OilStart | None = None
     keep_warm: str | None = None
+    ready_without_heating: datetime | None = None
 
     @property
     def at_target(self) -> bool:
@@ -299,10 +300,10 @@ def _on_the_day(moment: datetime, now: datetime) -> str:
     return f"{moment:%H:%M}" + ("" if moment.date() == now.date() else " tomorrow")
 
 
-def _ready_prefix(start: OilStart, now: datetime) -> str:
-    if start.ready_at.date() == now.date():
-        return f"For the {start.ready_at:%H:%M} ready time"
-    return f"For tomorrow's {start.ready_at:%H:%M} ready time"
+def _ready_prefix(ready_at: datetime, now: datetime) -> str:
+    if ready_at.date() == now.date():
+        return f"For the {ready_at:%H:%M} ready time"
+    return f"For tomorrow's {ready_at:%H:%M} ready time"
 
 
 def _start_sentence(picture: _Picture, start: OilStart) -> str:
@@ -312,13 +313,13 @@ def _start_sentence(picture: _Picture, start: OilStart) -> str:
     run = f"(about {start.run_minutes} minutes)"
     if start.late:
         return (
-            f"{_ready_prefix(start, now)}: turn the oil water heating on now {run}. "
+            f"{_ready_prefix(start.ready_at, now)}: turn the oil water heating on now {run}. "
             "It is too late for the oil to finish before the immersion has to start, so the "
             f"immersion will also run. Saves up to {saving} per kWh of heat."
         )
     when = _on_the_day(start.start_by, now)
     return (
-        f"{_ready_prefix(start, now)}: turn the oil water heating on at {when} {run}. "
+        f"{_ready_prefix(start.ready_at, now)}: turn the oil water heating on at {when} {run}. "
         f"The immersion will only top up. Saves about {saving} per kWh of heat."
     )
 
@@ -326,9 +327,14 @@ def _start_sentence(picture: _Picture, start: OilStart) -> str:
 def _cheaper_than_oil_sentence(picture: _Picture, start: OilStart) -> str:
     name = "solar surplus" if start.by_solar else "electricity"
     return (
-        f"{_ready_prefix(start, picture.inputs.now)}: {name} is cheaper than oil, so the "
+        f"{_ready_prefix(start.ready_at, picture.inputs.now)}: {name} is cheaper than oil, so the "
         "immersion will heat the water."
     )
+
+
+def _no_heating_sentence(picture: _Picture, ready_at: datetime) -> str:
+    prefix = _ready_prefix(ready_at, picture.inputs.now)
+    return f"{prefix}: the water is expected to be ready with no heating needed."
 
 
 def _suggestion(picture: _Picture) -> str:
@@ -338,6 +344,8 @@ def _suggestion(picture: _Picture) -> str:
         return _start_sentence(picture, start)
     if picture.keep_warm is not None:
         return picture.keep_warm
+    if picture.ready_without_heating is not None:
+        return _no_heating_sentence(picture, picture.ready_without_heating)
     if start is not None:
         return _cheaper_than_oil_sentence(picture, start)
     return _SENTENCES[picture.source](picture)
@@ -351,6 +359,15 @@ def _ready_start(inputs: AdviceInputs) -> OilStart | None:
     solar = inputs.tariff.export_rate if inputs.solar_surplus else None
     query = StartQuery(inputs.tariff, inputs.now, inputs.water, inputs.oil_cost_per_kwh, solar)
     return suggest_oil_start(query, ready)
+
+
+def _ready_without_heating(inputs: AdviceInputs) -> datetime | None:
+    """The next ready time when the water is below the target yet needs no heating for it."""
+    ready = next_ready_at(inputs.now, inputs.ready_times)
+    water = inputs.water
+    if water is None or not inputs.scheduled_heating or ready is None:
+        return None
+    return None if water.at_target or water.needs_heating else ready
 
 
 def _keep_warm(inputs: AdviceInputs, grid_now: float) -> str | None:
@@ -389,6 +406,7 @@ def _picture(inputs: AdviceInputs) -> _Picture:
         horizon=horizon,
         start=_ready_start(inputs),
         keep_warm=_keep_warm(inputs, grid_now),
+        ready_without_heating=_ready_without_heating(inputs),
     )
 
 
