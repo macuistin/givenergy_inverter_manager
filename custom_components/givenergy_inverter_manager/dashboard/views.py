@@ -1082,8 +1082,8 @@ class Builder:
         return group(
             heading_card("Overnight charging", "mdi:battery-charging"),
             [
-                slider_tile(self.entity("charge_target_override"), "Charge target", BATTERY),
-                toggle_tile(self.entity("charge_target_override_enabled"), "Use target", BATTERY),
+                slider_tile(self.entity("charge_target_override"), "Target override", BATTERY),
+                toggle_tile(self.entity("charge_target_override_enabled"), "Override on", BATTERY),
                 toggle_tile(self.entity("skip_charge_override"), "Skip tonight", BATTERY),
             ],
         )

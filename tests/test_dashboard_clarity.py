@@ -318,3 +318,25 @@ def test_the_solar_view_says_what_the_yesterday_figure_is():
 def test_every_full_width_name_fits_the_tile():
     for name in ("Immersion solar saving", "Yesterday's accuracy"):
         assert len(name) <= 22
+
+
+# ── one wording for the charge override ──────────────────────────────────────
+
+
+def _names_by_entity(config: dict, path: str) -> dict[str, str]:
+    return {c["entity"]: c["name"] for c in view_cards(_view(config, path)) if c["type"] == "tile"}
+
+
+def test_settings_and_the_battery_tab_name_the_charge_override_the_same():
+    config = dashboard_dict()
+    settings = _names_by_entity(config, "settings")
+    battery = _names_by_entity(config, "battery")
+    for key in ("charge_target_override", "charge_target_override_enabled", "skip_charge_override"):
+        assert settings[IDS[key]] == battery[IDS[key]], key
+    assert settings[IDS["charge_target_override"]] == "Target override"
+    assert settings[IDS["charge_target_override_enabled"]] == "Override on"
+
+
+def test_the_old_settings_names_are_gone():
+    names = set(_names_by_entity(dashboard_dict(), "settings").values())
+    assert not names & {"Charge target", "Use target"}

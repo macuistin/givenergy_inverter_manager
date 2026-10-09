@@ -268,7 +268,7 @@ State of charge and power are not drawn on one graph, because a percentage and w
 
 ![Settings view with the charge target slider, the skip tonight toggle and the immersion heater controls.](images/dashboard-settings.png)
 
-- **Overnight charging**: a slider for the charge target, and the Use target and Skip tonight switches.
+- **Overnight charging**: a Target override slider, and the Override on and Skip tonight switches. They carry the names the Battery tab gives the same settings.
 - **Immersion heater**: the Auto divert and Managed switches. With a temperature sensor as well, the Scheduled switch (Immersion Scheduled Heating) and sliders for the target temperature, the minimum temperature and the restart gap. The same two lines as on the Immersion view explain Managed and Restart gap under the controls, each only while its controls exist. The section ends with **Heater decision now**, the divert reason in words, so the controls come before the sentence and the sentence has a label.
 
 The view is left out when there is no administrator to show it to, and the immersion section is hidden while there is no immersion switch. The dry run banner is not here. It sits on the Power Flow tab, below Now, and appears only while Dry Run Mode Active is true.

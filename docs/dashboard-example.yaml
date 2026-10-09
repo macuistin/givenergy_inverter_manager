@@ -1784,7 +1784,7 @@ views:
       icon: mdi:battery-charging
     - type: tile
       entity: number.givenergy_inverter_manager_overnight_charge_target_override
-      name: Charge target
+      name: Target override
       color: green
       features:
       - type: numeric-input
@@ -1793,7 +1793,7 @@ views:
         columns: full
     - type: tile
       entity: switch.givenergy_inverter_manager_enable_charge_target_override
-      name: Use target
+      name: Override on
       color: green
       features:
       - type: toggle
