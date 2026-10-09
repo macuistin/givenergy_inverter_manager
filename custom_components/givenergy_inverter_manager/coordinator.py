@@ -116,6 +116,7 @@ from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_s
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
 from .core.rules import monthly_solar_fractions
+from .core.solar_day import HeldSolarDay
 from .core.sunrise_hold import HeldSunrise
 from .core.tariff import (
     build_tariff,
@@ -261,6 +262,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._battery_stats = BatteryStats()
         self._held_charge = HeldCharge()
         self._held_sunrise = HeldSunrise()
+        self._held_solar = HeldSolarDay()
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
@@ -1286,6 +1288,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 last_update_time=self._last_update,
                 held_charge=self._held_charge,
                 held_sunrise=self._held_sunrise,
+                held_solar=self._held_solar,
             ),
             ForecastContext(
                 solar_fractions=self._solar_fractions,

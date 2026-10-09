@@ -20,7 +20,7 @@ from datetime import datetime
 from .timeutil import elapsed_seconds
 
 # A gap this long means a restart or an outage. The held value is stale, so start again.
-_STALE_AFTER_S = 3600.0
+STALE_AFTER_S = 3600.0
 
 
 @dataclass
@@ -56,7 +56,7 @@ def published_sunrise_soc(held: HeldSunrise, reading: SunriseReading) -> float:
     if held.soc is None or held.at is None or reading.max_change_pct_per_hour <= 0:
         return reading.soc
     elapsed_s = elapsed_seconds(held.at, reading.now)
-    if elapsed_s <= 0 or elapsed_s > _STALE_AFTER_S:
+    if elapsed_s <= 0 or elapsed_s > STALE_AFTER_S:
         return reading.soc
     allowed_pct = reading.max_change_pct_per_hour * elapsed_s / 3600
     return held.soc + max(-allowed_pct, min(allowed_pct, reading.soc - held.soc))
