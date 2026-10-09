@@ -518,12 +518,14 @@
             "data": {
               "immersion_switch_entity": "Immersion switch",
               "immersion_temp_sensor_entity": "Water temperature sensor",
-              "immersion_wattage_w": "Element power (W)"
+              "immersion_wattage_w": "Element power (W)",
+              "immersion_ready_times": "Hot water ready by"
             },
             "data_description": {
               "immersion_switch_entity": "Switch that turns the immersion heater on and off. Empty means the heater is not controlled.",
               "immersion_temp_sensor_entity": "Optional water temperature sensor in °C. Empty means the heater is not stopped or started by temperature.",
-              "immersion_wattage_w": "Power of the heating element in watts, used to judge how much solar surplus it needs."
+              "immersion_wattage_w": "Power of the heating element in watts, used to judge how much solar surplus it needs.",
+              "immersion_ready_times": "Times of day the water has to be at its target temperature, as HH:MM, for example 07:00 and 19:00. Used only while Immersion Scheduled Heating is on and a water temperature sensor is set. Empty means none."
             }
           },
           "ev_settings": {
@@ -542,7 +544,8 @@
     "error": {
       "rate_period_zero_length": "A rate period cannot start and end at the same time. Change its start or end time, or clear its name to remove it.",
       "rate_period_duplicate_name": "Rate period names must be different from each other and from the base rate name.",
-      "tariff_change_date_in_past": "The rates cannot start in the past, because costs already recorded are not recalculated. Clear the date to apply the rates now, or choose a later date."
+      "tariff_change_date_in_past": "The rates cannot start in the past, because costs already recorded are not recalculated. Clear the date to apply the rates now, or choose a later date.",
+      "immersion_ready_time_invalid": "Enter each hot water ready time as HH:MM, for example 07:00."
     }
   },
   "entity": {

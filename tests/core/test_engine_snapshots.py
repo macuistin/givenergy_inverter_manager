@@ -52,6 +52,11 @@ after the engine has built the snapshot.
 The immersion_window_heating leaf was added for heating in the cheapest rate window. The fresh
 snapshot gained it as False. No case moved, because none opts in. The behaviour is pinned in
 tests/core/test_immersion_window.py.
+
+The immersion_ready_time, immersion_expected_ready, immersion_heating_rate_c_per_h and
+immersion_rate_source leaves were added for the ready-by plan. The fresh snapshot gained them as
+None, None, None and "". No case moved, because none sets a ready time. The behaviour is pinned in
+tests/core/test_immersion_ready.py and tests/core/test_immersion_scheduled.py.
 """
 
 from __future__ import annotations

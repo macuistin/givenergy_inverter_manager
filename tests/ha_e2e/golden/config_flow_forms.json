@@ -4885,6 +4885,17 @@
       "required": false,
       "optional": true,
       "default": 3000.0
+     },
+     {
+      "selector": {
+       "text": {
+        "multiple": true,
+        "multiline": false
+       }
+      },
+      "name": "immersion_ready_times",
+      "required": false,
+      "optional": true
      }
     ],
     "expanded": false,
@@ -5693,6 +5704,17 @@
       "required": false,
       "optional": true,
       "default": 3000.0
+     },
+     {
+      "selector": {
+       "text": {
+        "multiple": true,
+        "multiline": false
+       }
+      },
+      "name": "immersion_ready_times",
+      "required": false,
+      "optional": true
      }
     ],
     "expanded": false,
@@ -6507,6 +6529,17 @@
       "required": false,
       "optional": true,
       "default": 3000.0
+     },
+     {
+      "selector": {
+       "text": {
+        "multiple": true,
+        "multiline": false
+       }
+      },
+      "name": "immersion_ready_times",
+      "required": false,
+      "optional": true
      }
     ],
     "expanded": false,
@@ -7449,6 +7482,17 @@
       "required": false,
       "optional": true,
       "default": 3000.0
+     },
+     {
+      "selector": {
+       "text": {
+        "multiple": true,
+        "multiline": false
+       }
+      },
+      "name": "immersion_ready_times",
+      "required": false,
+      "optional": true
      }
     ],
     "expanded": false,

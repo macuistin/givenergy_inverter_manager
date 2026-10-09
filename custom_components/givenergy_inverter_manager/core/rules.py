@@ -56,6 +56,7 @@ from ..discovery.ev_charger import (
     EVChargerBrand,
 )
 from .battery import NightEstimateInputs, estimate_will_survive_night, hours_until_solar
+from .immersion_ready import ReadyPlan
 
 # ── Seasonal solar fractions ──────────────────────────────────────────────────
 
@@ -712,6 +713,7 @@ class ImmersionInputs:
     policy: DivertPolicy = field(default_factory=DivertPolicy)
     run: ImmersionRun = field(default_factory=ImmersionRun)
     window: CheapWindow = field(default_factory=CheapWindow)
+    ready: ReadyPlan = field(default_factory=ReadyPlan)
 
 
 @dataclass(frozen=True)
@@ -806,6 +808,18 @@ def _cheap_window_decision(inputs: ImmersionInputs) -> Verdict | None:
     )
 
 
+def _ready_decision(inputs: ImmersionInputs) -> Verdict | None:
+    """Heat now to have the water at its target by the next ready time, or None to defer."""
+    plan, water = inputs.ready, inputs.water
+    if not plan.heat_now or plan.ready_time is None or water.temp is None:
+        return None
+    late = "" if plan.expected_ready else ", too late to be ready in full"
+    return True, (
+        f"Heating to be ready by {plan.ready_time:%H:%M}: water at {water.temp:.1f}°C, "
+        f"target {water.target_temp:.0f}°C{late}"
+    )
+
+
 def _assess_surplus(inputs: ImmersionInputs, readings: _Readings) -> _Surplus:
     """Once on, the element stays on while the surplus is no worse than -min_surplus_w."""
     power, policy = inputs.power, inputs.policy
@@ -885,6 +899,8 @@ def should_divert_to_immersion(inputs: ImmersionInputs) -> Verdict:
       2. Turn off when target temperature is reached
       2a. While the cheapest rate window is open and the user has opted in, heat to the
          target whatever the solar surplus and battery level (see _cheap_window_decision)
+      2b. When the ready-by plan wants the heater now, heat to the target (see
+         core/immersion_ready.py), also whatever the surplus
       3. If a required input is missing (None solar, house load or battery power,
          or water.temp_unavailable): never start on missing data. If already on,
          hold on while run.unavailable_for_s is below SENSOR_OUTAGE_HOLD_LIMIT_S, then
@@ -909,6 +925,9 @@ def should_divert_to_immersion(inputs: ImmersionInputs) -> Verdict:
     window_decision = _cheap_window_decision(inputs)
     if window_decision is not None:
         return window_decision
+    ready_decision = _ready_decision(inputs)
+    if ready_decision is not None:
+        return ready_decision
     readings = _required_readings(inputs.power)
     missing = _missing_inputs(inputs)
     if missing or readings is None:

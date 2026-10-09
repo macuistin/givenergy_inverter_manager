@@ -44,6 +44,7 @@ from custom_components.givenergy_inverter_manager.core.battery import BatterySta
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.ev_base_rate import WatchState
+from custom_components.givenergy_inverter_manager.core.immersion_rate import RunTracker
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter, SwitchState
@@ -157,6 +158,11 @@ class FakeCoordinator(GivEnergyCoordinator):
             def counters(self):
                 return self.state.counters
 
+            immersion_heating_rates: list = []  # noqa: RUF012
+
+            def record_immersion_rate(self, rate):
+                self.immersion_heating_rates.append(rate)
+
             @property
             def today_forecast_kwh(self):
                 return self.state.today_forecast_kwh
@@ -249,7 +255,8 @@ class FakeCoordinator(GivEnergyCoordinator):
         self.immersion_target_temp: float = 55.0
         self.immersion_min_temp: float = 50.0
         self.immersion_hysteresis_c: float = 5.0
-        self.immersion_cheap_window_enabled: bool = False
+        self.immersion_schedule_enabled: bool = False
+        self._rate_tracker = RunTracker()
         self._floor_top_up_applied: bool = False
         self.override_skip_charge = False
         self._givtcp_was_unavailable: bool = False

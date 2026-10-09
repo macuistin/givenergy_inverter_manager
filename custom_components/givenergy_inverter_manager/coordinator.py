@@ -71,6 +71,7 @@ from .const import (
     CONF_HOUSE_LOAD,
     CONF_IMMERSION_HYSTERESIS,
     CONF_IMMERSION_MIN_TEMP,
+    CONF_IMMERSION_READY_TIMES,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TARGET_TEMP,
     CONF_IMMERSION_TEMP_SENSOR,
@@ -112,6 +113,8 @@ from .core.engine import (
     build_coordinator_data,
 )
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
+from .core.immersion_rate import RunTracker, resolve_rate
+from .core.immersion_ready import parse_ready_times
 from .core.rules import monthly_solar_fractions
 from .core.sunrise_hold import HeldSunrise
 from .core.tariff import (
@@ -297,7 +300,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             cfg.get(CONF_IMMERSION_HYSTERESIS, DEFAULT_IMMERSION_HYSTERESIS)
         )
         # The opt-in to heating in the cheapest rate window, set by its switch entity.
-        self.immersion_cheap_window_enabled: bool = False
+        self.immersion_schedule_enabled: bool = False
+        # Measures how fast the heater warms the water, for the ready-by plan.
+        self._rate_tracker = RunTracker()
         # Decides when the real immersion switch is turned on or off. Runs every cycle, so
         # diversion works whether or not the managed switch entity is enabled.
         self.immersion = ImmersionActuator(self._immersion_ports())
@@ -872,9 +877,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw.immersion_target_temp = self.immersion_target_temp
         raw.immersion_min_temp = self.immersion_min_temp
         raw.immersion_hysteresis_c = self.immersion_hysteresis_c
-        raw.immersion_cheap_window_enabled = self.immersion_cheap_window_enabled
+        raw.immersion_schedule_enabled = self.immersion_schedule_enabled
         raw.immersion_window_heating_before = bool(
             self.data is not None and self.data.immersion_window_heating
+        )
+        raw.immersion_ready_times = parse_ready_times(cfg.get(CONF_IMMERSION_READY_TIMES))
+        raw.immersion_heating_rate_c_per_h, raw.immersion_rate_source = resolve_rate(
+            self._acc.immersion_heating_rates, raw.immersion_wattage_w
         )
         temp_eid = cfg.get(CONF_IMMERSION_TEMP_SENSOR)
         if temp_eid:
@@ -1351,9 +1360,18 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw = self._collect_raw(cfg)
         self._refresh_ev_charger(raw)
         self.immersion.release_if_at_target(raw.immersion_temp)
+        self._learn_heating_rate(raw, now)
         self._track_input_outage(raw, now)
         self._record_baseline_load(raw, now)
         return raw
+
+    def _learn_heating_rate(self, raw: RawSensorValues, now: datetime) -> None:
+        """Feed the cycle to the run tracker and keep the rate of a run that just ended."""
+        temp_while_on = raw.immersion_temp if raw.immersion_on else None
+        rate = self._rate_tracker.observe(now, temp_while_on)
+        if rate is not None:
+            _LOG.info("Immersion run warmed the water at %.1f°C an hour", rate)
+            self._acc.record_immersion_rate(rate)
 
     def _refresh_ev_charger(self, raw: RawSensorValues) -> None:
         """Update the charger state now that battery_power_w is known."""

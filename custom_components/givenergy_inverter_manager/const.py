@@ -139,6 +139,17 @@ DEFAULT_IMMERSION_WATTAGE = 3000  # W
 DEFAULT_IMMERSION_TARGET_TEMP = 55  # °C — turn off when water reaches this
 DEFAULT_IMMERSION_MIN_TEMP = 50  # °C — force on below this (legionella protection)
 DEFAULT_IMMERSION_HYSTERESIS = 5  # °C — only restart after cooling this far below target
+# Ready-by planning (core/immersion_rate.py): the saved ready times, and the heating rate in
+# degrees per hour that the integration learns from its own runs.
+CONF_IMMERSION_READY_TIMES = "immersion_ready_times"
+# Rate assumed before a run has been measured: a large cylinder, which heats slowly, so the
+# first plans start early rather than late.
+IMMERSION_ASSUMED_TANK_LITRES = 300
+# A run counts as a sample only when it was long and warmed the water enough to measure.
+IMMERSION_RATE_RUN_MIN_MINUTES = 20
+IMMERSION_RATE_RUN_MIN_RISE_C = 2.0
+# The rate used is the median of the last few runs, so one run during a shower does not skew it.
+IMMERSION_RATE_RUNS_KEPT = 5
 IMMERSION_SWITCH_COOLDOWN_MINUTES = 10  # min between auto on/off writes to the real switch
 DEFAULT_BATTERY_MIN_SOC = 10  # %
 DEFAULT_OVERNIGHT_CHARGE_TARGET = 80  # %

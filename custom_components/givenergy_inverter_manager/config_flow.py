@@ -60,6 +60,7 @@ from .const import (
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
     CONF_IMMERSION_MIN_TEMP,
+    CONF_IMMERSION_READY_TIMES,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TARGET_TEMP,
     CONF_IMMERSION_TEMP_SENSOR,
@@ -110,6 +111,7 @@ from .const import (
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
+from .core.immersion_ready import parse_ready_times
 from .core.tariff import (
     TariffSubmission,
     build_tariff,
@@ -430,6 +432,14 @@ def _change_date_errors(user_input: dict, today: date) -> dict[str, str]:
     effective = _effective_from(_submitted_change(user_input))
     if effective is not None and effective < today:
         return {"base": "tariff_change_date_in_past"}
+    return {}
+
+
+def _ready_time_errors(user_input: dict) -> dict[str, str]:
+    """Every ready time has to read as HH:MM, so a typo is not silently dropped."""
+    submitted = user_input.get("immersion_settings", {}).get(CONF_IMMERSION_READY_TIMES) or []
+    if len(parse_ready_times(submitted)) < len({str(item).strip() for item in submitted}):
+        return {"base": "immersion_ready_time_invalid"}
     return {}
 
 
@@ -974,6 +984,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         )
         self._store_optional_entities(user_input, "immersion_settings", _OPTIONAL_IMMERSION_KEYS)
         self._store_floats(user_input.get("immersion_settings", {}), (CONF_IMMERSION_WATTAGE,))
+        self._store_ready_times(user_input.get("immersion_settings"))
         self._store_floats(
             user_input.get("ev_settings", {}), (CONF_CAR_EFFICIENCY_KWH_PER_100KM,)
         )
@@ -992,6 +1003,13 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             return
         for key in keys:
             self._options[key] = submitted.get(key, "")
+
+    def _store_ready_times(self, submitted: dict | None) -> None:
+        """Store the ready times of the immersion section as sorted HH:MM, empty when cleared."""
+        if submitted is None:
+            return
+        times = parse_ready_times(submitted.get(CONF_IMMERSION_READY_TIMES) or [])
+        self._options[CONF_IMMERSION_READY_TIMES] = [f"{at:%H:%M}" for at in times]
 
     def _store_floats(self, submitted: dict, keys: tuple[str, ...]) -> None:
         """Store each of *keys* that the form submitted, as a float."""
@@ -1023,8 +1041,10 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
     def _submission_errors(user_input: dict, rate_periods: list[dict]) -> dict[str, str]:
         """Return form errors for a submitted options form, or an empty dict."""
         tariff = user_input.get("tariff_settings", {})
-        return _rate_period_errors(rate_periods, _base_rate_name(tariff)) or _change_date_errors(
-            user_input, dt_util.now().date()
+        return (
+            _rate_period_errors(rate_periods, _base_rate_name(tariff))
+            or _change_date_errors(user_input, dt_util.now().date())
+            or _ready_time_errors(user_input)
         )
 
     def _show_form(
@@ -1228,6 +1248,9 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                         CONF_IMMERSION_WATTAGE,
                         default=float(self._get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE)),
                     ): _number_selector(CONF_IMMERSION_WATTAGE),
+                    self._optional_key(CONF_IMMERSION_READY_TIMES): selector.TextSelector(
+                        selector.TextSelectorConfig(multiple=True)
+                    ),
                 }
             ),
             {"collapsed": True},

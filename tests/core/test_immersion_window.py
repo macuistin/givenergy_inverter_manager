@@ -233,13 +233,13 @@ class TestThroughTheEngine:
         return _run(raw=_raw(**fields), now=datetime(2026, 12, 15, hour, minute))[0]
 
     def test_opted_in_water_is_heated_at_the_window_start(self):
-        data = self._run_at(2, 0, immersion_cheap_window_enabled=True)
+        data = self._run_at(2, 0, immersion_schedule_enabled=True)
         assert data.should_divert_immersion is True
         assert data.immersion_window_heating is True
         assert "Nightboost 02:00 to 04:00" in data.divert_reason
 
     def test_the_heater_stops_when_the_window_ends(self):
-        data = self._run_at(4, 0, immersion_cheap_window_enabled=True, immersion_on=True)
+        data = self._run_at(4, 0, immersion_schedule_enabled=True, immersion_on=True)
         assert data.should_divert_immersion is False
         assert data.immersion_window_heating is False
 
@@ -249,7 +249,7 @@ class TestThroughTheEngine:
         assert data.immersion_window_heating is False
 
     def test_warm_water_is_left_alone(self):
-        data = self._run_at(2, 0, immersion_cheap_window_enabled=True, immersion_temp=56.0)
+        data = self._run_at(2, 0, immersion_schedule_enabled=True, immersion_temp=56.0)
         assert data.should_divert_immersion is False
 
     def test_a_manual_off_override_beats_the_window(self):
@@ -259,7 +259,7 @@ class TestThroughTheEngine:
             solar_power_w=0.0,
             immersion_temp=40.0,
             immersion_min_temp=30.0,
-            immersion_cheap_window_enabled=True,
+            immersion_schedule_enabled=True,
         )
         data = _run(raw=raw, now=datetime(2026, 12, 15, 2, 30), override_immersion=False)[0]
         assert data.should_divert_immersion is False
@@ -267,6 +267,6 @@ class TestThroughTheEngine:
 
     def test_no_switch_configured_schedules_nothing(self):
         data = self._run_at(
-            2, 0, immersion_cheap_window_enabled=True, immersion_switch_configured=False
+            2, 0, immersion_schedule_enabled=True, immersion_switch_configured=False
         )
         assert data.should_divert_immersion is False

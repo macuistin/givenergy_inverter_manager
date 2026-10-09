@@ -25,7 +25,7 @@ Separation of concerns:
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from ..const import (
@@ -96,6 +96,7 @@ from .charge_window import (
     cheap_run_remaining_minutes,
     plan_charge_window,
 )
+from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
 from .rules import (
     ChargeDecision,
@@ -166,9 +167,14 @@ class RawSensorValues:
     immersion_min_temp: float = 50.0
     immersion_hysteresis_c: float = 5.0
     # The user's opt-in to heating in the cheapest rate window, set by the coordinator.
-    immersion_cheap_window_enabled: bool = False
+    immersion_schedule_enabled: bool = False
     # True when the previous cycle was heating in the cheapest window. The coordinator sets it.
     immersion_window_heating_before: bool = False
+    # Times of day the water has to be at its target, and the heating rate the coordinator
+    # learned or assumed for the plan (degrees per hour, 0.0 when unknown) and where it came from.
+    immersion_ready_times: tuple[time, ...] = ()
+    immersion_heating_rate_c_per_h: float = 0.0
+    immersion_rate_source: str = ""
     forecast_kwh_tomorrow: float | None = None
     forecast_kwh_p10: float | None = None
     forecast_kwh_d2: float | None = None
@@ -243,6 +249,12 @@ class CoordinatorData:
     divert_reason: str = ""
     # True while the cheapest rate window is open, the user opted in and the heater is wanted.
     immersion_window_heating: bool = False
+    # The next ready time and whether the water is expected to be at target by then. None
+    # without ready times, without scheduled heating or without a readable temperature.
+    immersion_ready_time: time | None = None
+    immersion_expected_ready: bool | None = None
+    immersion_heating_rate_c_per_h: float | None = None
+    immersion_rate_source: str = ""
     today: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     week: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     month: EnergyAccumulator = field(default_factory=EnergyAccumulator)
@@ -930,12 +942,29 @@ def _divert_policy(data: CoordinatorData, cycle: _Cycle) -> DivertPolicy:
 
 def _cheap_window(cycle: _Cycle) -> CheapWindow:
     raw = cycle.raw
-    if not raw.immersion_cheap_window_enabled:
+    if not raw.immersion_schedule_enabled:
         return CheapWindow()
     return CheapWindow(
         enabled=True,
         open_label=open_cheapest_window(cycle.tariff, cycle.now),
         heating_before=raw.immersion_window_heating_before,
+    )
+
+
+def _ready_plan(cycle: _Cycle) -> ReadyPlan:
+    """The plan for the ready times: only with scheduled heating on and a water reading."""
+    raw = cycle.raw
+    if not (raw.immersion_schedule_enabled and raw.immersion_ready_times):
+        return ReadyPlan()
+    return plan_ready(
+        ReadyInputs(
+            tariff=cycle.tariff,
+            now=cycle.now,
+            times=raw.immersion_ready_times,
+            temp=raw.immersion_temp,
+            target=raw.immersion_target_temp,
+            rate_c_per_h=raw.immersion_heating_rate_c_per_h,
+        )
     )
 
 
@@ -951,7 +980,17 @@ def _immersion_inputs(data: CoordinatorData, cycle: _Cycle) -> ImmersionInputs:
             switch_configured=raw.immersion_switch_configured,
         ),
         window=_cheap_window(cycle),
+        ready=_ready_plan(cycle),
     )
+
+
+def _set_ready_fields(data: CoordinatorData, plan: ReadyPlan, raw: RawSensorValues) -> None:
+    """What the ready times expect, for the sensor attributes."""
+    data.immersion_ready_time = plan.ready_time
+    data.immersion_expected_ready = plan.expected_ready
+    if plan.ready_time is not None:
+        data.immersion_heating_rate_c_per_h = round(raw.immersion_heating_rate_c_per_h, 2)
+        data.immersion_rate_source = raw.immersion_rate_source
 
 
 def _set_immersion_decision(data: CoordinatorData, cycle: _Cycle) -> None:
@@ -966,6 +1005,7 @@ def _set_immersion_decision(data: CoordinatorData, cycle: _Cycle) -> None:
     data.immersion_window_heating = (
         data.should_divert_immersion and inputs.window.open_label is not None
     )
+    _set_ready_fields(data, inputs.ready, cycle.raw)
 
 
 def _configured_min_soc(cfg: dict[str, Any]) -> int:

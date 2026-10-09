@@ -70,7 +70,7 @@ class TestWhatNeedsWhat:
 
     def test_the_temperature_controls_need_the_switch_and_the_sensor(self):
         assert _needing(THERMOSTAT) == {
-            "immersion_cheap_window",
+            "immersion_schedule",
             "immersion_target_temp",
             "immersion_min_temp",
             "immersion_hysteresis",
@@ -99,7 +99,7 @@ class TestWhatNeedsWhat:
         assert switch.GivEnergyAutoImmersionSwitch._attr_name == od.AUTO_IMMERSION.name
         assert switch.GivEnergyImmersionControlSwitch._attr_name == od.IMMERSION_MANAGED.name
         assert (
-            switch.GivEnergyImmersionCheapWindowSwitch._attr_name == od.IMMERSION_CHEAP_WINDOW.name
+            switch.GivEnergyImmersionScheduleSwitch._attr_name == od.IMMERSION_SCHEDULE.name
         )
         assert number.ImmersionTargetTempNumber._attr_name == od.IMMERSION_TARGET.name
         assert number.ImmersionMinTempNumber._attr_name == od.IMMERSION_MINIMUM.name
