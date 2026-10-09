@@ -7,7 +7,7 @@ from homeassistant.const import EntityCategory, UnitOfEnergy, UnitOfPower, UnitO
 
 from .. import sensor_values as values
 from ..core.devices import Device
-from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
+from .base import CURRENCY_UNIT, MONEY_PRECISION, GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     # --- EV charger ---
@@ -95,6 +95,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         is_daily_total=True,
         translation_key="immersion_cost_today",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.today.immersion_cost, 4),
     ),

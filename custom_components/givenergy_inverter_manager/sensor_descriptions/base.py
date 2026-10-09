@@ -18,6 +18,9 @@ from ..core.engine import CoordinatorData
 # Sentinel for monetary sensors — actual symbol (€, £, $) resolved at runtime.
 CURRENCY_UNIT = "DYNAMIC_CURRENCY"
 
+# Decimals shown for a money total (a cost, earning, bill or saving). A rate per kWh keeps its own.
+MONEY_PRECISION = 2
+
 
 @dataclass(frozen=True, kw_only=True)
 class GivEnergyManagerSensorDescription(SensorEntityDescription):

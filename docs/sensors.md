@@ -82,7 +82,7 @@ Accumulated since local midnight. They report `last_reset` as the most recent mi
 
 ## Cost and savings today
 
-Money sensors use the currency symbol you chose in the tariff.
+Money sensors use the currency symbol you chose in the tariff. A cost, earning, bill or saving total shows two decimals. A rate per kWh shows its own precision.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|

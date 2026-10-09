@@ -2,6 +2,14 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- Money totals (costs, earnings, bills, savings and the estimated charge cost) show two decimals
+  on every tile and entity page, for example `127.48 €` instead of `127.4757 €`. The stored value,
+  the unit and the long-term statistics are unchanged, and a sensor registered by an earlier
+  release picks the display up when the integration starts. A rate per kWh keeps its own precision.
+
 ## v0.16.0
 
 The oil advice now says when to start the oil, when to keep the water warm, and, after a week of

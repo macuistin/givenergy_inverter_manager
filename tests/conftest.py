@@ -196,6 +196,7 @@ class _SensorEntityDescription:
     name: object = None
     native_unit_of_measurement: str | None = None
     state_class: object = None
+    suggested_display_precision: int | None = None
     translation_key: str | None = None
 
 

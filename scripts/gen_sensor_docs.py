@@ -53,7 +53,10 @@ GROUPS: dict[str, str] = {
         "Accumulated since local midnight. They report `last_reset` as the most recent midnight. "
         "See [Long-term statistics](long-term-statistics.md)."
     ),
-    "Cost and savings today": "Money sensors use the currency symbol you chose in the tariff.",
+    "Cost and savings today": (
+        "Money sensors use the currency symbol you chose in the tariff. A cost, earning, bill or "
+        "saving total shows two decimals. A rate per kWh shows its own precision."
+    ),
     "Efficiency today": "Percentages worked out from today's totals.",
     "Bill": "Estimates for the current bill period. See [Tariff](tariff.md#bill-line-items).",
     "Battery": "Health, wear and state of the battery.",
