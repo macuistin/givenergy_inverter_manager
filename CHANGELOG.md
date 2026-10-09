@@ -2,7 +2,10 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.16.0
+
+The oil advice now says when to start the oil, when to keep the water warm, and, after a week of
+data, a recurring oil schedule. Advice only: the integration does not switch the oil system.
 
 **Features**
 - Water Heating Cheapest Source now says when to start the oil. With a water temperature sensor,
@@ -30,6 +33,12 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 **Fixes**
 - The `suggestion` no longer says to heat the water when it is already at the target temperature.
+
+**Upgrading**
+- Nothing to do by hand. The oil advice appears only when an oil price is set. The recurring
+  schedule starts recording once the price is set and has a suggestion after 7 days.
+- Generate the dashboard file again, or use the strategy dashboard, to get the oil start and
+  schedule lines.
 
 ## v0.15.0
 
