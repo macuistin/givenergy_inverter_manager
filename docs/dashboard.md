@@ -242,7 +242,7 @@ The table is read from your options when the file is generated, so generate the 
 ![Battery view with state of charge graph, tonight's charge plan and the charge settings in force.](images/dashboard-battery.png)
 
 - **Battery**: state of charge with a bar, battery power with a 24-hour trend, and a 24-hour history of state of charge. The heading opens Battery detail.
-- **Tonight's charge plan**: the plan in one sentence first, then Target tonight, Est. cost, At sunrise (estimated state of charge) and Rate floor (the cheap rate floor). The sentence is the Tonight's charge plan sensor, and says outright whether tonight charges (`Target 78% · Add 34% · Cost €0.51`) or is skipped (`Skip charge · Plan forecast 8.2 kWh · SoC 64%`). That sensor is disabled by default, so the sentence shows once you enable it. Without it the tiles show alone.
+- **Tonight's charge plan**: the plan in one sentence first, then Target tonight, Est. cost, At sunrise (estimated state of charge) and Rate floor (the cheap rate floor). The sentence is the Tonight's charge plan sensor, and says outright whether tonight charges (`Target 78% · Add 34% · Cost €0.51`) or is skipped (`Skip charge · Plan forecast 8.2 kWh · SoC 64%`). The sensor is enabled by default. If you disabled it, the tiles show alone.
 - **Charge settings in force**: Override on, the Target override value, Skip tonight and Dry run, to read. Target override shows only while Override on is on, because the value is not used otherwise. Dry run reads On or Off. Change the first three in Settings. Dry run is an option of the integration.
 
 State of charge and power are not drawn on one graph, because a percentage and watts share no scale.
@@ -267,7 +267,7 @@ There is no Refresh Dashboard card. Use the button on the device page.
 
 Three sensors carry a styled HTML report in their `html` attribute: Today's energy summary, Tonight's charge plan and This week's energy summary. They use inline styles, so the built-in Markdown card renders them.
 
-They are disabled by default. Enable them in the entity list first.
+Today's energy summary and This week's energy summary are disabled by default. Enable them in the entity list first. Tonight's charge plan is enabled by default, because the Battery view reads its sentence. The `html` attribute is kept out of the recorder.
 
 ```yaml
 type: markdown

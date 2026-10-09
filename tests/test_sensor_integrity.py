@@ -244,3 +244,16 @@ class TestMoneyDisplayPrecision:
             d.key for d in SENSOR_DESCRIPTIONS if d.native_unit_of_measurement == CURRENCY_UNIT
         }
         assert _PER_UNIT_PRICE_KEYS <= monetary
+
+
+class TestChargePlanSentence:
+    def test_the_charge_plan_is_enabled_by_default_so_the_battery_view_has_its_sentence(self):
+        plan = next(d for d in SENSOR_DESCRIPTIONS if d.key == "charge_plan")
+        assert plan.entity_registry_enabled_default is True
+
+    def test_it_is_listed_for_the_one_time_enable_on_an_install_that_disabled_it(self):
+        from custom_components.givenergy_inverter_manager.core.default_enabled import (
+            NEWLY_ENABLED_SENSOR_KEYS,
+        )
+
+        assert "charge_plan" in NEWLY_ENABLED_SENSOR_KEYS

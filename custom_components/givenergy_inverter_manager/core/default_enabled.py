@@ -11,12 +11,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-# Disabled by default up to v0.11.0, enabled by default since.
+# Disabled by default up to v0.11.0 (the first four) or v0.16.0 (charge_plan), enabled since.
 NEWLY_ENABLED_SENSOR_KEYS: tuple[str, ...] = (
     "saving_vs_grid_today",
     "net_saving_today",
     "battery_discharge_kwh_today",
     "next_cheap_rate_start",
+    "charge_plan",
 )
 
 

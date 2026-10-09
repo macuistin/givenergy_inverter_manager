@@ -14,7 +14,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   statistics are not affected. The Tariff table already gave each rate per kWh.
 - The Battery view says what tonight does. Tonight's charge plan opens with the plan sentence
   (for example `Skip charge` or `Target 78% · Add 34%`), the sentence being the Tonight's charge
-  plan sensor, which is disabled by default. Target override shows only while Override on is on,
+  plan sensor. Target override shows only while Override on is on,
   and Dry run reads On or Off. The Dry Run Mode Active sensor keeps the state True or False and
   gains a `summary` attribute that reads On or Off.
 - Immersion Divert Reason no longer reads `Insufficient surplus (-345W, need 500W)`, which looked
@@ -29,6 +29,10 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   Critical) are unchanged, and an install made before this release keeps its entity IDs. The
   confidence sensor gains the attributes `outlook` and `summary`, and its `explanation` no longer
   starts with the level word.
+- Tonight's charge plan is enabled by default, so the Battery view has its sentence. An install
+  that had it disabled by the integration gets it enabled once on the first start after the
+  upgrade, as in v0.12.0. One you disabled yourself stays disabled. Its large `html` attribute is
+  not recorded.
 
 ## v0.16.0
 
