@@ -151,6 +151,20 @@ IMMERSION_RATE_RUN_MIN_RISE_C = 2.0
 # The rate used is the median of the last few runs, so one run during a shower does not skew it.
 IMMERSION_RATE_RUNS_KEPT = 5
 IMMERSION_SWITCH_COOLDOWN_MINUTES = 10  # min between auto on/off writes to the real switch
+# ── Oil water heating advice (core/oil_advice.py) ────────────────────────────
+# Some homes also heat the same cylinder with an oil boiler, through a second coil. With an
+# oil price set, a sensor says when the oil system is the cheaper way to heat the water.
+# Advice only: the integration never switches the oil system. The price is the only setting.
+CONF_OIL_PRICE_PER_LITRE = "oil_price_per_litre"
+CONF_OIL_PRICE_ENTITY = "oil_price_entity"
+# Fixed assumptions, not options. A typical boiler in service sits between an older
+# non-condensing boiler (about 75 to 80%) and a new condensing one (about 90% or more). 85% leans
+# low on purpose, so oil is not suggested on an efficiency the boiler does not reach in summer,
+# when it heats only the cylinder.
+OIL_BOILER_EFFICIENCY_PCT = 85  # %
+# The commonly quoted energy content of kerosene heating oil.
+OIL_KWH_PER_LITRE = 10.35  # kWh per litre of fuel
+OIL_ADVICE_HORIZON_HOURS = 24  # how far ahead the cheapest hours are looked for
 DEFAULT_BATTERY_MIN_SOC = 10  # %
 DEFAULT_OVERNIGHT_CHARGE_TARGET = 80  # %
 DEFAULT_SKIP_CHARGE_SOC_THRESHOLD = 75  # %

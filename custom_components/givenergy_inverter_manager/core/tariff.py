@@ -199,6 +199,14 @@ class TariffConfig:
         gross = kwh * rate.rate * (1 - self.discount_rate / 100)
         return gross * (1 + self.vat_rate / 100)
 
+    def effective_import_rate(self, rate: float) -> float:
+        """What one kWh costs at this unit rate once the discount and VAT are applied.
+
+        Uses the same two factors as calculate_import_cost, so a price compared with it is
+        compared with what the cost sensors charge.
+        """
+        return rate * (1 - self.discount_rate / 100) * (1 + self.vat_rate / 100)
+
     def calculate_export_earnings(self, kwh: float) -> float:
         """Calculate earnings from exporting energy."""
         return kwh * self.export_rate
