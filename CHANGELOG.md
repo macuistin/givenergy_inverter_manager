@@ -2,7 +2,9 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.17.1
+
+Small dashboard clarity fixes found by previewing v0.17.0 in a real install.
 
 **Changes**
 - The Solar and forecast view has a line under its tiles that says what Plan forecast is: the forecast
@@ -19,6 +21,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 - The two bars in the Solar section of the Today tab say what they measure: Solar share is now Home
   use from solar (the share of what the house used that solar supplied) and Self-consumption is now
   Solar kept at home (the share of today's solar that was not exported). The entities keep their names.
+
+**Upgrading**
+- Generate the dashboard file again, or use the strategy dashboard, to get the new labels.
 
 ## v0.17.0
 
