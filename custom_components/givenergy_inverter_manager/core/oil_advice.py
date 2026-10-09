@@ -19,6 +19,12 @@ The cheapest source is worked out now, and over the horizon: up to the next hot 
 when one is set, else the next 24 hours. The hours in the next 24 when oil beats the grid are
 listed, so the owner sees when to prefer oil.
 
+With a water temperature reading the suggestion also says what to do about the water (oil_start.py):
+nothing when it is at the target, when to start the oil for the next ready time while scheduled
+heating is on (the immersion then only tops up), or a short oil run to keep cooling water from
+reaching the minimum temperature. The order is: the ready-by oil start, then the keep-warm run,
+then the ready-by verdict when electricity or solar is cheaper, then the plain sentence.
+
 Pure Python, no Home Assistant imports.
 """
 
@@ -34,8 +40,15 @@ from ..const import (
     OIL_KWH_PER_LITRE,
 )
 from .immersion_ready import next_ready_at, rate_segments
+from .oil_start import (
+    OilStart,
+    StartQuery,
+    WaterReading,
+    keep_warm_minutes,
+    suggest_oil_start,
+)
 from .tariff import TariffConfig
-from .timeutil import elapsed_seconds, real_time_after
+from .timeutil import elapsed_seconds, shift_real
 
 SOURCE_ELECTRICITY = "electricity"
 SOURCE_SOLAR = "solar"
@@ -59,7 +72,9 @@ def oil_heat_cost_per_kwh(price_per_litre: float) -> float:
 class AdviceInputs:
     """What the advice reads. oil_cost_per_kwh comes from oil_heat_cost_per_kwh.
 
-    solar_surplus is True while there is surplus the immersion could divert.
+    solar_surplus is True while there is surplus the immersion could divert. water is None
+    when the temperature cannot be read. scheduled_heating is True while the immersion plans its
+    heating for the ready times, which is what makes it the backstop the oil start relies on.
     """
 
     tariff: TariffConfig
@@ -68,6 +83,8 @@ class AdviceInputs:
     ready_times: tuple[time, ...] = ()
     solar_surplus: bool = False
     currency_symbol: str = DEFAULT_CURRENCY_SYMBOL
+    water: WaterReading | None = None
+    scheduled_heating: bool = False
 
 
 @dataclass(frozen=True)
@@ -77,6 +94,8 @@ class WaterHeatingAdvice:
     Costs are per kWh of heat. oil_saving_per_kwh is what oil saves against the cheapest
     electric source now (solar surplus if there is some, else the grid), negative when oil is
     dearer. oil_hours are the stretches of the next 24 hours when oil beats the grid.
+    oil_start is the oil run for the next ready time, None without one. keep_warm is the
+    sentence for a short oil run to keep the water from cooling to the minimum, None without one.
     """
 
     source: str
@@ -89,6 +108,8 @@ class WaterHeatingAdvice:
     horizon: str
     horizon_ends: str
     cheapest_source_in_horizon: str
+    oil_start: OilStart | None = None
+    keep_warm: str | None = None
 
 
 @dataclass(frozen=True)
@@ -117,8 +138,18 @@ class _Picture:
     day_end: datetime
     ranges: list[_OilRange]
     source: str
+    grid_now: float
     best_electric_now: float
     cheapest_stretch: _Span
+    horizon_end: datetime
+    horizon: str
+    start: OilStart | None = None
+    keep_warm: str | None = None
+
+    @property
+    def at_target(self) -> bool:
+        water = self.inputs.water
+        return water is not None and water.at_target
 
     @property
     def symbol(self) -> str:
@@ -131,9 +162,7 @@ class _Picture:
 
 def _day_end(now: datetime) -> datetime:
     """The instant 24 real hours on, in the clock of *now*."""
-    if now.tzinfo is None:
-        return now + _HORIZON
-    return real_time_after(now, _HORIZON).astimezone(now.tzinfo)
+    return shift_real(now, _HORIZON)
 
 
 def _spans(tariff: TariffConfig, now: datetime, end: datetime) -> list[_Span]:
@@ -210,6 +239,14 @@ def _money(symbol: str, value: float) -> str:
     return f"{symbol}{text}"
 
 
+_AT_TARGET = "The water is already at the target, so there is nothing to heat."
+
+
+def _action(picture: _Picture, text: str) -> str:
+    """What to do with the water: nothing when it is already at the target."""
+    return _AT_TARGET if picture.at_target else text
+
+
 def _oil_sentence(picture: _Picture) -> str:
     current = picture.ranges[0]
     ends_later = elapsed_seconds(current.end, picture.day_end) > 0
@@ -217,10 +254,10 @@ def _oil_sentence(picture: _Picture) -> str:
     saving = _money(picture.symbol, picture.best_electric_now - picture.oil)
     sentence = (
         f"Oil is cheaper than electricity {until} (saves about {saving} per kWh of heat). "
-        "Heat the water with the oil system now."
+        + _action(picture, "Heat the water with the oil system now.")
     )
     stretch = picture.cheapest_stretch
-    if stretch.cost < picture.oil:
+    if stretch.cost < picture.oil and not picture.at_target:
         cost = _money(picture.symbol, stretch.cost)
         sentence += (
             f" If the water can wait, electricity is cheapest from {stretch.start:%H:%M} "
@@ -233,15 +270,14 @@ def _solar_sentence(picture: _Picture) -> str:
     export = _money(picture.symbol, picture.inputs.tariff.export_rate)
     return (
         f"Solar surplus is the cheapest source now, at the export rate of {export} per kWh "
-        "of heat. Heat the water with the immersion."
+        "of heat. " + _action(picture, "Heat the water with the immersion.")
     )
 
 
 def _electricity_sentence(picture: _Picture) -> str:
     if not picture.ranges:
-        return (
-            "Electricity is cheaper than oil for the next 24 hours. "
-            "Heat the water with the immersion."
+        return "Electricity is cheaper than oil for the next 24 hours. " + _action(
+            picture, "Heat the water with the immersion."
         )
     first = picture.ranges[0]
     saving = _money(picture.symbol, first.saving)
@@ -259,33 +295,119 @@ _SENTENCES = {
 }
 
 
-def advise_water_heating(inputs: AdviceInputs) -> WaterHeatingAdvice:
-    """Which source is cheapest to heat the water now and over the horizon, and why."""
+def _on_the_day(moment: datetime, now: datetime) -> str:
+    return f"{moment:%H:%M}" + ("" if moment.date() == now.date() else " tomorrow")
+
+
+def _ready_prefix(start: OilStart, now: datetime) -> str:
+    if start.ready_at.date() == now.date():
+        return f"For the {start.ready_at:%H:%M} ready time"
+    return f"For tomorrow's {start.ready_at:%H:%M} ready time"
+
+
+def _start_sentence(picture: _Picture, start: OilStart) -> str:
+    """The oil start for the ready time. start.start_by is set."""
+    now = picture.inputs.now
+    saving = _money(picture.symbol, start.saving_per_kwh)
+    run = f"(about {start.run_minutes} minutes)"
+    if start.late:
+        return (
+            f"{_ready_prefix(start, now)}: turn the oil water heating on now {run}. "
+            "It is too late for the oil to finish before the immersion has to start, so the "
+            f"immersion will also run. Saves up to {saving} per kWh of heat."
+        )
+    when = _on_the_day(start.start_by, now)
+    return (
+        f"{_ready_prefix(start, now)}: turn the oil water heating on at {when} {run}. "
+        f"The immersion will only top up. Saves about {saving} per kWh of heat."
+    )
+
+
+def _cheaper_than_oil_sentence(picture: _Picture, start: OilStart) -> str:
+    name = "solar surplus" if start.by_solar else "electricity"
+    return (
+        f"{_ready_prefix(start, picture.inputs.now)}: {name} is cheaper than oil, so the "
+        "immersion will heat the water."
+    )
+
+
+def _suggestion(picture: _Picture) -> str:
+    """The sentence. The ready-by oil start comes first, then the keep-warm run."""
+    start = picture.start
+    if start is not None and start.start_by is not None:
+        return _start_sentence(picture, start)
+    if picture.keep_warm is not None:
+        return picture.keep_warm
+    if start is not None:
+        return _cheaper_than_oil_sentence(picture, start)
+    return _SENTENCES[picture.source](picture)
+
+
+def _ready_start(inputs: AdviceInputs) -> OilStart | None:
+    """The oil run for the next ready time. It needs the immersion plan as its backstop."""
+    ready = next_ready_at(inputs.now, inputs.ready_times)
+    if inputs.water is None or not inputs.scheduled_heating or ready is None:
+        return None
+    solar = inputs.tariff.export_rate if inputs.solar_surplus else None
+    query = StartQuery(inputs.tariff, inputs.now, inputs.water, inputs.oil_cost_per_kwh, solar)
+    return suggest_oil_start(query, ready)
+
+
+def _keep_warm(inputs: AdviceInputs, grid_now: float) -> str | None:
+    """The sentence for a short oil run while the water cools to the minimum, else None."""
+    water, oil = inputs.water, inputs.oil_cost_per_kwh
+    if water is None or inputs.solar_surplus:
+        return None
+    minutes = keep_warm_minutes(water, grid_now, oil)
+    if minutes is None:
+        return None
+    symbol = inputs.currency_symbol
+    return (
+        f"Water is at {water.temp:.1f}°C, close to the {water.min_temp:g}°C minimum. "
+        f"Oil is cheaper than the grid now ({_money(symbol, oil)} against "
+        f"{_money(symbol, grid_now)} per kWh of heat): run the oil water heating for about "
+        f"{minutes} minutes to avoid an electric top-up."
+    )
+
+
+def _picture(inputs: AdviceInputs) -> _Picture:
     now, oil = inputs.now, inputs.oil_cost_per_kwh
     day_end = _day_end(now)
     spans = _spans(inputs.tariff, now, day_end)
     horizon_end, horizon = _horizon_end(inputs, day_end)
-    horizon_spans = _clip(spans, horizon_end)
     solar = inputs.tariff.export_rate if inputs.solar_surplus else None
     grid_now = spans[0].cost
-    stretch = _cheapest_stretch(horizon_spans)
-    picture = _Picture(
+    return _Picture(
         inputs=inputs,
         day_end=day_end,
         ranges=_oil_ranges(spans, oil),
         source=_cheapest(grid_now, oil, solar),
+        grid_now=grid_now,
         best_electric_now=grid_now if solar is None else min(grid_now, solar),
-        cheapest_stretch=stretch,
+        cheapest_stretch=_cheapest_stretch(_clip(spans, horizon_end)),
+        horizon_end=horizon_end,
+        horizon=horizon,
+        start=_ready_start(inputs),
+        keep_warm=_keep_warm(inputs, grid_now),
     )
+
+
+def advise_water_heating(inputs: AdviceInputs) -> WaterHeatingAdvice:
+    """Which source is cheapest to heat the water now and over the horizon, and why."""
+    picture = _picture(inputs)
+    stretch = picture.cheapest_stretch
+    solar = inputs.tariff.export_rate if inputs.solar_surplus else None
     return WaterHeatingAdvice(
         source=picture.source,
-        suggestion=_SENTENCES[picture.source](picture),
-        oil_cost_per_kwh=oil,
-        electricity_cost_per_kwh=grid_now,
+        suggestion=_suggestion(picture),
+        oil_cost_per_kwh=picture.oil,
+        electricity_cost_per_kwh=picture.grid_now,
         cheapest_electricity_cost_per_kwh=stretch.cost,
-        oil_saving_per_kwh=picture.best_electric_now - oil,
-        oil_hours=_oil_hours(picture.ranges, now, day_end),
-        horizon=horizon,
-        horizon_ends=f"{horizon_end:%H:%M}",
-        cheapest_source_in_horizon=_cheapest(stretch.cost, oil, solar),
+        oil_saving_per_kwh=picture.best_electric_now - picture.oil,
+        oil_hours=_oil_hours(picture.ranges, inputs.now, picture.day_end),
+        horizon=picture.horizon,
+        horizon_ends=f"{picture.horizon_end:%H:%M}",
+        cheapest_source_in_horizon=_cheapest(stretch.cost, picture.oil, solar),
+        oil_start=picture.start,
+        keep_warm=picture.keep_warm,
     )

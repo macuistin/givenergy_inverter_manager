@@ -133,7 +133,10 @@ class TestAddedLater:
         await refresh(hass, config_entry)
         state = hass.states.get(entity_id)
         assert state.state == "oil"
-        assert "Heat the water with the oil system now" in state.attributes["suggestion"]
+        # This install has a water temperature of 48.2, under the minimum of 50 plus the restart
+        # gap of 5, so the suggestion is the keep-warm run, not the plain sentence.
+        assert "run the oil water heating for about" in state.attributes["suggestion"]
+        assert state.attributes["oil_keep_warm"] == state.attributes["suggestion"]
         assert state.attributes["oil_saving_per_kwh"] > 0
 
     async def test_a_dear_price_says_electricity(self, hass_in_scenario, config_entry):

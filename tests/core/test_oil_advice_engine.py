@@ -91,3 +91,81 @@ class TestWhatItReads:
         )
         assert advice.horizon == "ready_by"
         assert advice.horizon_ends == "07:00"
+
+
+READY_AT_19 = {
+    "immersion_temp": 40.0,
+    "immersion_heating_rate_c_per_h": 10.0,
+    "immersion_min_temp": 30.0,
+    "immersion_ready_times": (time(19, 0),),
+    "immersion_schedule_enabled": True,
+}
+
+
+def cycle(hour: int, minute: int = 0, **raw):
+    fields = {"solar_power_w": 0.0, "house_load_w": 400.0, "battery_soc": 20.0, **raw}
+    return _run(raw=_raw(**fields), cfg=CFG, now=datetime(2026, 12, 15, hour, minute))[0]
+
+
+class TestTheOilStart:
+    def test_cold_water_and_cheaper_oil_get_a_start_for_the_next_ready_time(self):
+        advice = cycle(15, oil_price_per_litre=price_for(0.20), **READY_AT_19).water_heating_advice
+        assert advice.oil_start.start_by == datetime(2026, 12, 15, 15, 32)
+        assert advice.suggestion.startswith(
+            "For the 19:00 ready time: turn the oil water heating on at 15:32 (about 104 minutes)."
+        )
+
+    def test_the_immersion_decision_is_the_same_with_and_without_an_oil_price(self):
+        for hour, minute in ((15, 0), (17, 17), (18, 30)):
+            without = cycle(hour, minute, **READY_AT_19)
+            with_oil = cycle(hour, minute, oil_price_per_litre=price_for(0.20), **READY_AT_19)
+            assert with_oil.should_divert_immersion == without.should_divert_immersion
+            assert with_oil.divert_reason == without.divert_reason
+
+    def test_the_immersion_is_the_backstop_so_it_starts_after_the_suggested_oil_would_finish(self):
+        assert cycle(15, **READY_AT_19).should_divert_immersion is False
+        assert cycle(17, 17, **READY_AT_19).should_divert_immersion is True
+
+    def test_scheduled_heating_off_gives_no_start(self):
+        raw = {**READY_AT_19, "immersion_schedule_enabled": False}
+        advice = cycle(15, oil_price_per_litre=price_for(0.20), **raw).water_heating_advice
+        assert advice.oil_start is None
+
+    def test_no_temperature_reading_gives_no_start_and_the_old_sentence(self):
+        raw = {**READY_AT_19, "immersion_temp": None}
+        advice = cycle(15, oil_price_per_litre=price_for(0.20), **raw).water_heating_advice
+        assert advice.oil_start is None
+        assert advice.suggestion.endswith("Heat the water with the oil system now.")
+
+    def test_water_at_the_target_gets_no_start_and_says_so(self):
+        raw = {**READY_AT_19, "immersion_temp": 56.0}
+        advice = cycle(15, oil_price_per_litre=price_for(0.20), **raw).water_heating_advice
+        assert advice.oil_start is None
+        assert advice.suggestion.endswith("so there is nothing to heat.")
+
+    def test_electricity_cheaper_for_the_ready_time_gives_no_start(self):
+        raw = {**READY_AT_19, "immersion_ready_times": (time(7, 0),)}
+        advice = cycle(1, oil_price_per_litre=price_for(0.20), **raw).water_heating_advice
+        assert advice.oil_start.start_by is None
+
+    def test_no_oil_price_gives_no_advice_at_all(self):
+        assert cycle(15, **READY_AT_19).water_heating_advice is None
+
+
+class TestKeepWarm:
+    COOLING = {"immersion_temp": 49.5, "immersion_heating_rate_c_per_h": 10.0, "immersion_min_temp": 45.0}
+
+    def test_cooling_water_with_cheaper_oil_gets_a_run(self):
+        advice = cycle(12, oil_price_per_litre=price_for(0.16), **self.COOLING).water_heating_advice
+        assert advice.keep_warm.endswith("for about 40 minutes to avoid an electric top-up.")
+
+    def test_it_uses_the_configured_minimum_and_restart_gap(self):
+        raw = {**self.COOLING, "immersion_min_temp": 40.0, "immersion_hysteresis_c": 5.0}
+        assert cycle(12, oil_price_per_litre=price_for(0.16), **raw).water_heating_advice.keep_warm is None
+
+    def test_in_the_cheap_slot_it_does_not_apply(self):
+        advice = cycle(1, oil_price_per_litre=price_for(0.16), **self.COOLING).water_heating_advice
+        assert advice.keep_warm is None
+
+    def test_no_oil_price_gives_nothing(self):
+        assert cycle(12, **self.COOLING).water_heating_advice is None

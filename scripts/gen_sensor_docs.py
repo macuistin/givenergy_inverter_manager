@@ -469,8 +469,15 @@ DESCRIPTIONS: dict[str, str] = {
         "sentence saying what to do and until when. Other attributes: `oil_cost_per_kwh`, "
         "`electricity_cost_per_kwh`, `cheapest_electricity_cost_per_kwh` (to the next ready time "
         "or 24 hours), `oil_saving_per_kwh` (negative when oil is dearer), `best_hours_for_oil`, "
-        "`horizon`, `horizon_ends` and `cheapest_source_in_horizon`. Unavailable while the price "
-        "cannot be read."
+        "`horizon`, `horizon_ends` and `cheapest_source_in_horizon`. With a water temperature "
+        "reading it also says whether the water needs heating. While scheduled heating is on and "
+        "a ready time is set, and oil is cheaper than the grid the immersion plan would use, it "
+        "adds `oil_start_by` (local time), `oil_run_minutes` and `oil_for_ready_time`: start the "
+        "oil then and the immersion only tops up. Absent when no oil start is needed. "
+        "`oil_keep_warm` is a sentence, present while the water is at or below the minimum "
+        "temperature plus the restart gap, solar surplus is not heating it and oil is cheaper "
+        "than the grid now. The suggestion puts the oil start first, then the keep-warm run. "
+        "Unavailable while the price cannot be read."
     ),
     "ev_charger_state": (
         "disconnected, connected, charging, paused, boosting, completed or unknown. "
