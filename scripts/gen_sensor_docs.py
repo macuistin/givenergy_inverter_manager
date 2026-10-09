@@ -474,9 +474,10 @@ DESCRIPTIONS: dict[str, str] = {
         "a ready time is set, and oil is cheaper than the grid the immersion plan would use, it "
         "adds `oil_start_by` (local time), `oil_run_minutes` and `oil_for_ready_time`: start the "
         "oil then and the immersion only tops up. Absent when no oil start is needed. "
-        "`oil_keep_warm` is a sentence, present while the water is at or below the minimum "
-        "temperature plus the restart gap, solar surplus is not heating it and oil is cheaper "
-        "than the grid now. The suggestion puts the oil start first, then the keep-warm run. "
+        "`oil_keep_warm` is a sentence, present while the water is at or below the lower of the "
+        "minimum temperature plus the restart gap and the target less the restart gap, solar "
+        "surplus is not heating it and oil is cheaper than the grid now. The suggestion puts the "
+        "oil start first, then the keep-warm run. "
         "Unavailable while the price cannot be read."
     ),
     "ev_charger_state": (

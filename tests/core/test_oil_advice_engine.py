@@ -169,3 +169,11 @@ class TestKeepWarm:
 
     def test_no_oil_price_gives_nothing(self):
         assert cycle(12, **self.COOLING).water_heating_advice is None
+
+    def test_with_the_default_minimum_and_gap_water_at_53_gets_none_and_49_gets_a_run(self):
+        defaults = {"immersion_heating_rate_c_per_h": 10.0, "immersion_min_temp": 50.0}
+        oil = price_for(0.16)
+        warm = cycle(12, oil_price_per_litre=oil, immersion_temp=53.0, **defaults)
+        cool = cycle(12, oil_price_per_litre=oil, immersion_temp=49.0, **defaults)
+        assert warm.water_heating_advice.keep_warm is None
+        assert cool.water_heating_advice.keep_warm is not None

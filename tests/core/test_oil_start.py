@@ -153,9 +153,24 @@ class TestKeepWarm:
     def test_above_the_threshold_it_does_not(self):
         assert keep_warm_minutes(water(temp=50.1), 0.38, 0.16) is None
 
-    def test_the_threshold_is_the_minimum_plus_the_restart_gap(self):
-        assert keep_warm_minutes(water(temp=52.0, min_temp=47.0, gap=5.0), 0.38, 0.16) is not None
-        assert keep_warm_minutes(water(temp=52.1, min_temp=47.0, gap=5.0), 0.38, 0.16) is None
+    def test_the_limit_is_the_lower_of_minimum_plus_gap_and_target_minus_gap(self):
+        # 47 + 5 = 52 and 55 - 5 = 50, so the limit is 50.
+        assert keep_warm_minutes(water(temp=50.0, min_temp=47.0, gap=5.0), 0.38, 0.16) is not None
+        assert keep_warm_minutes(water(temp=50.1, min_temp=47.0, gap=5.0), 0.38, 0.16) is None
+        # 40 + 5 = 45 and 55 - 5 = 50, so the limit is 45.
+        assert keep_warm_minutes(water(temp=45.0, min_temp=40.0, gap=5.0), 0.38, 0.16) is not None
+        assert keep_warm_minutes(water(temp=45.1, min_temp=40.0, gap=5.0), 0.38, 0.16) is None
+
+    def test_with_the_default_settings_the_limit_is_50(self):
+        """Minimum 50, gap 5, target 55: 50 + 5 would be the target, so the target less the gap rules."""
+        defaults = {"min_temp": 50.0, "gap": 5.0}
+        assert keep_warm_minutes(water(temp=53.0, **defaults), 0.38, 0.16) is None
+        assert keep_warm_minutes(water(temp=49.0, **defaults), 0.38, 0.16) is not None
+
+    def test_with_a_minimum_of_45_and_a_gap_of_5_the_limit_is_50(self):
+        settings = {"min_temp": 45.0, "gap": 5.0}
+        assert keep_warm_minutes(water(temp=50.0, **settings), 0.38, 0.16) is not None
+        assert keep_warm_minutes(water(temp=50.5, **settings), 0.38, 0.16) is None
 
     def test_oil_that_is_not_cheaper_than_the_grid_now_gives_nothing(self):
         assert keep_warm_minutes(water(temp=48.0), 0.15, 0.16) is None
@@ -165,4 +180,4 @@ class TestKeepWarm:
         assert keep_warm_minutes(water(temp=55.0, min_temp=50.0, gap=5.0), 0.38, 0.16) is None
 
     def test_it_is_at_least_five_minutes(self):
-        assert keep_warm_minutes(water(temp=54.99, min_temp=54.0, gap=1.0), 0.38, 0.16) == 5
+        assert keep_warm_minutes(water(temp=54.99, min_temp=55.0, gap=0.0), 0.38, 0.16) == 5

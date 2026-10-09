@@ -12,9 +12,10 @@ margin the ready-by plan uses:
     ready. Oil is only suggested when a kWh of heat from oil costs less than the immersion plan
     pays per kWh (the hours-weighted grid rate of the bands it uses, or the export rate when
     solar surplus is cheaper still).
-  * A keep-warm run. When the water has cooled to the minimum temperature plus the restart gap
-    and oil is cheaper than the grid now, a short oil run lifts it to the target, so the water
-    does not fall to where the immersion tops it up at the rate in force.
+  * A keep-warm run. When the water has cooled to the lower of the minimum temperature plus the
+    restart gap and the target less the restart gap, and oil is cheaper than the grid now, a
+    short oil run lifts it to the target, so the water does not fall to where the immersion tops
+    it up at the rate in force.
 
 The oil's heating rate is taken to be the immersion's. That is a conservative assumption: an oil
 coil usually heats faster, so the oil run is shorter than suggested and the start is early.
@@ -60,7 +61,12 @@ class WaterReading:
 
     @property
     def keep_warm_below(self) -> float:
-        return self.min_temp + self.restart_gap_c
+        """The temperature at or below which a keep-warm run is worth suggesting.
+
+        The lower of the minimum plus the restart gap and the target less the restart gap, so
+        the default settings (minimum 50, gap 5, target 55) give 50, not the target.
+        """
+        return min(self.min_temp + self.restart_gap_c, self.target - self.restart_gap_c)
 
 
 @dataclass(frozen=True)
