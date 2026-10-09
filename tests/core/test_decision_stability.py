@@ -96,3 +96,107 @@ class TestASlowDriftInTheLoadEstimate:
         fresh = [d.charge_decision.target_soc for d in cycles]
         published = [d.published_charge_decision.target_soc for d in cycles]
         assert _changes(fresh) > _changes(published) + 5
+
+
+# ── Skipping and charging ─────────────────────────────────────────────────────
+
+AUTUMN_NIGHT = datetime(2026, 10, 9, 0, 0)
+HOUSE_LOAD_KW = 1.07
+NOISE_FLOOR_W = 10.0
+BELOW_FLOOR_W = 9.0
+ABOVE_FLOOR_W = 12.0
+
+
+def _autumn_cfg() -> dict:
+    return {**_nightboost_cfg(), "overnight_charge_target_pct": 90}
+
+
+def _autumn_cycle(now: datetime, held: HeldCharge, **raw_overrides):
+    """One cycle on an autumn night, the house drawing a steady load since midnight."""
+    minute = (now - AUTUMN_NIGHT).total_seconds() / 60
+    acc = EnergyAccumulator()
+    acc.house_kwh = HOUSE_LOAD_KW * minute / 60
+    raw = _raw(
+        battery_capacity_kwh=CAPACITY_KWH,
+        house_load_w=HOUSE_LOAD_KW * 1000,
+        forecast_kwh_tomorrow=21.7,
+        **raw_overrides,
+    )
+    data, _ = _run(
+        raw=raw,
+        cfg=_autumn_cfg(),
+        now=now,
+        acc=acc,
+        today_raw_forecast_kwh=22.0,
+        held_charge=held,
+    )
+    return data
+
+
+def _dawn_cycles() -> list:
+    """08:00 to 08:10 with the solar reading flickering across the noise floor."""
+    held = HeldCharge()
+    start = AUTUMN_NIGHT + timedelta(hours=8)
+    cycles = []
+    for i in range(20):
+        solar_w = BELOW_FLOOR_W if i % 2 == 0 else ABOVE_FLOOR_W
+        cycles.append(
+            _autumn_cycle(
+                start + CYCLE * i,
+                held,
+                battery_soc=87.0,
+                solar_power_w=solar_w,
+                battery_power_w=0.0,
+            )
+        )
+    return cycles
+
+
+class TestSolarFlickeringAtDawn:
+    def test_premise_the_fresh_plan_flips_with_each_reading(self):
+        fresh = [d.charge_decision.skip_charge for d in _dawn_cycles()]
+        assert _changes(fresh) >= 10
+
+    def test_the_published_plan_does_not_flip(self):
+        published = [d.published_charge_decision.skip_charge for d in _dawn_cycles()]
+        assert _changes(published) == 0
+
+    def test_the_published_reason_does_not_churn(self):
+        reasons = [d.published_charge_decision.reason for d in _dawn_cycles()]
+        assert _changes(reasons) == 0
+
+
+def _charging_cycles() -> list:
+    """02:00 to 04:00 on the cheap rate, the battery climbing through the skip threshold."""
+    held = HeldCharge()
+    start = AUTUMN_NIGHT + timedelta(hours=2)
+    charge_pct_per_cycle = 3.3 / CAPACITY_KWH * 100 * CYCLE.total_seconds() / 3600
+    cycles = []
+    for i in range(240):
+        cycles.append(
+            _autumn_cycle(
+                start + CYCLE * i,
+                held,
+                battery_soc=min(90.0, 50.0 + charge_pct_per_cycle * i),
+                solar_power_w=0.0,
+                battery_power_w=3300.0,
+                grid_power_w=4300.0,
+            )
+        )
+    return cycles
+
+
+class TestACrossingOfTheSkipThresholdDuringTheCharge:
+    def test_premise_the_fresh_plan_turns_to_skip_part_way_through(self):
+        fresh = [d.charge_decision.skip_charge for d in _charging_cycles()]
+        assert fresh[0] is False
+        assert fresh[-1] is True
+
+    def test_the_published_plan_never_says_skipping_while_the_charge_runs(self):
+        published = [d.published_charge_decision.skip_charge for d in _charging_cycles()]
+        assert not any(published)
+
+    def test_the_fresh_plan_is_still_the_one_the_write_would_read(self):
+        last = _charging_cycles()[-1]
+        assert last.charge_decision.skip_charge is True
+        assert last.published_charge_decision.skip_charge is False

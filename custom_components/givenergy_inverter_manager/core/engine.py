@@ -71,6 +71,7 @@ from ..const import (
     INVERTER_TEMP_STATUS_UNKNOWN,
     INVERTER_TEMP_STATUS_WARM,
     INVERTER_TEMP_WARM,
+    POWER_DIRECTION_BAND_W,
     SOLAR_NOISE_FLOOR_W,
     SOLAR_SUNRISE_HOUR,
     SURPLUS_DIVERT_MIN_POWER_W,
@@ -1032,6 +1033,15 @@ def _with_charge_overrides(
     return decision
 
 
+def _charge_running(data: CoordinatorData, raw: RawSensorValues) -> bool:
+    """True while the battery is taking power from the grid inside the cheap rate run."""
+    return (
+        data.cheap_run_remaining_minutes is not None
+        and raw.battery_power_w > POWER_DIRECTION_BAND_W
+        and raw.grid_power_w > POWER_DIRECTION_BAND_W
+    )
+
+
 def _set_overnight_charge(
     data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float, held: HeldCharge
 ) -> None:
@@ -1044,7 +1054,7 @@ def _set_overnight_charge(
     Overrides and the cap apply to both.
     """
     fresh = _overnight_charge_decision(cycle, avg_daily_kwh)
-    held.settle(fresh, HoldReading(cycle.now))
+    held.settle(fresh, HoldReading(cycle.now, _charge_running(data, cycle.raw)))
     max_target = int(cycle.cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
     data.charge_decision = _with_charge_overrides(fresh, cycle.overrides, max_target)
     data.published_charge_decision = _with_charge_overrides(

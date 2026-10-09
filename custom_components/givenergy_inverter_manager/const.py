@@ -202,6 +202,10 @@ APPLIANCE_RATE_THRESHOLD = 1.5  # × export rate — above this the grid rate is
 # ── Coordinator ──────────────────────────────────────────────────────────────
 UPDATE_INTERVAL_SECONDS = 30
 
+# Power inside this band either side of zero counts as no flow. The sensors read it, and so does
+# the charge hold, which counts a battery drawing more than this from the grid as charging.
+POWER_DIRECTION_BAND_W = 50
+
 # ── HA platforms exposed by this integration ─────────────────────────────────
 PLATFORMS = ["sensor", "switch", "number"]
 

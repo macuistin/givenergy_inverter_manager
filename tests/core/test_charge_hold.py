@@ -27,13 +27,15 @@ STEP = CHARGE_TARGET_HOLD_STEP_PCT
 SMALL_HOURS = datetime(2024, 6, 15, 1, 30)
 
 
-def _decision(target_soc: int = 87, *, skip: bool = False, reason: str = "r") -> ChargeDecision:
+def _decision(
+    target_soc: int = 87, *, skip: bool = False, reason: str = "r", soc: float = 40.0
+) -> ChargeDecision:
     return ChargeDecision(
         target_soc=target_soc,
         skip_charge=skip,
         reason=reason,
         forecast_kwh=8.0,
-        current_soc=40.0,
+        current_soc=soc,
         battery_capacity=19.0,
         car_plugged_in=False,
         cost_to_charge=1.0,
@@ -106,8 +108,70 @@ class TestNextHeldRecommendation:
 
     def test_a_change_from_skipping_to_charging_is_published_at_once(self):
         held = _decision(25, skip=True)
-        fresh = _decision(26)
+        fresh = _decision(60)
         assert next_held_recommendation(_held(held), fresh, JUST_AFTER) is fresh
+
+
+class TestAChangeOfKindThatChargesLittle:
+    """Skipping and charging a few points are the same night, so the sensor keeps its value."""
+
+    def test_skipping_to_a_charge_that_adds_under_a_step_is_held(self):
+        held = _decision(80, skip=True, soc=88.0)
+        fresh = _decision(88 + STEP - 1, soc=88.0)
+        assert next_held_recommendation(_held(held), fresh, AFTER_DWELL) is held
+
+    def test_charging_to_a_skip_when_the_charge_adds_under_a_step_is_held(self):
+        held = _decision(90, soc=86.0)
+        fresh = _decision(80, skip=True, soc=88.0)
+        assert next_held_recommendation(_held(held), fresh, AFTER_DWELL) is held
+
+    def test_a_charge_that_adds_a_step_is_published_once_the_value_has_stood(self):
+        held = _decision(80, skip=True, soc=88.0)
+        fresh = _decision(88 + STEP, soc=88.0)
+        assert next_held_recommendation(_held(held), fresh, AFTER_DWELL) is fresh
+
+    def test_a_charge_that_adds_a_step_inside_the_hold_time_waits(self):
+        held = _decision(80, skip=True, soc=88.0)
+        fresh = _decision(88 + STEP, soc=88.0)
+        assert next_held_recommendation(_held(held), fresh, JUST_AFTER) is held
+
+    def test_a_charge_that_adds_a_large_step_is_published_at_once(self):
+        held = _decision(80, skip=True, soc=70.0)
+        fresh = _decision(70 + LARGE, soc=70.0)
+        assert next_held_recommendation(_held(held), fresh, JUST_AFTER) is fresh
+
+    def test_a_charge_target_below_the_soc_adds_nothing(self):
+        held = _decision(80, skip=True, soc=95.0)
+        fresh = _decision(60, soc=95.0)
+        assert next_held_recommendation(_held(held), fresh, AFTER_DWELL) is held
+
+
+class TestAChargeThatIsRunning:
+    RUNNING = HoldReading(AFTER_DWELL.now, charge_running=True)
+
+    def test_a_skip_is_not_published_while_the_charge_runs(self):
+        held = _decision(90, soc=60.0)
+        fresh = _decision(80, skip=True, soc=75.0)
+        assert next_held_recommendation(_held(held), fresh, self.RUNNING) is held
+
+    def test_a_skip_is_published_once_the_charge_has_stopped(self):
+        held = _decision(90, soc=60.0)
+        fresh = _decision(80, skip=True, soc=75.0)
+        assert next_held_recommendation(_held(held), fresh, AFTER_DWELL) is fresh
+
+    def test_a_skip_already_published_stays_while_the_charge_runs(self):
+        held = _decision(80, skip=True, soc=88.0)
+        fresh = _decision(80, skip=True, soc=89.0)
+        assert next_held_recommendation(_held(held), fresh, self.RUNNING) is held
+
+    def test_a_new_target_is_still_published_while_the_charge_runs(self):
+        held = _decision(70, soc=60.0)
+        fresh = _decision(70 + LARGE, soc=60.0)
+        assert next_held_recommendation(_held(held), fresh, self.RUNNING) is fresh
+
+    def test_a_charge_is_published_while_the_charge_runs_when_nothing_is_held(self):
+        fresh = _decision(80, skip=True, soc=75.0)
+        assert next_held_recommendation(HeldCharge(), fresh, self.RUNNING) is fresh
 
 
 class TestSettle:

@@ -16,15 +16,13 @@ from .const import (
     BATTERY_FULL_SOC_PCT,
     BATTERY_RATED_CYCLES,
     NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
+    POWER_DIRECTION_BAND_W,
 )
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.tariff import EnergyAccumulator
 from .core.tariff_check import describe_rate_mismatches
 from .core.write_log import newest_first
-
-# Power inside this band either side of zero counts as no flow.
-POWER_DIRECTION_BAND_W = 50
 
 GRID_IMPORTING = "Importing"
 GRID_EXPORTING = "Exporting"

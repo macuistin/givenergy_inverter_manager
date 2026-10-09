@@ -422,7 +422,8 @@ DESCRIPTIONS: dict[str, str] = {
         "of 15 points or more shows at once."
     ),
     "overnight_charge_reason": (
-        "Why that target was chosen. Changes only when the target does. Attributes report the "
+        "Why that target was chosen. Changes only when the target does, and never says skipping "
+        "while a charge is running. Attributes report the "
         "forecast accuracy correction: `accuracy_status` (for example `Waiting for data: 3 of 5 "
         "days`), `accuracy_applied`, `accuracy_measured_factor`, `accuracy_applied_factor`, "
         "`accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`."

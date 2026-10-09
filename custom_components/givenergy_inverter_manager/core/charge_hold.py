@@ -6,8 +6,14 @@ several points as the load estimate settles. The sensors publish a held copy tha
 changes once the fresh target is a clear step away, so the history stays readable and the
 reason text does not churn. A step of CHARGE_TARGET_HOLD_STEP_PCT is published once the held
 value has stood for CHARGE_TARGET_HOLD_MIN_MINUTES, and a step of
-CHARGE_TARGET_HOLD_LARGE_STEP_PCT at once. The charge written to the inverter always comes
-from the fresh decision, never from the held copy.
+CHARGE_TARGET_HOLD_LARGE_STEP_PCT at once.
+
+A change between charging and skipping is measured by the charge it adds or removes: skipping
+and charging a few points are the same night. A skip is never published while a charge is
+running, because the charge itself lifts the SoC over the skip threshold.
+
+The charge written to the inverter always comes from the fresh decision, never from the held
+copy.
 """
 
 from __future__ import annotations
@@ -29,6 +35,7 @@ class HoldReading:
     """What the hold needs to know about this cycle besides the fresh decision."""
 
     now: datetime
+    charge_running: bool = False
 
 
 @dataclass
@@ -53,15 +60,31 @@ def _has_stood_long_enough(held: HeldCharge, reading: HoldReading) -> bool:
     return elapsed_s < 0 or elapsed_s >= CHARGE_TARGET_HOLD_MIN_MINUTES * 60
 
 
+def _plan_change_pct(held: ChargeDecision, fresh: ChargeDecision) -> int:
+    """SoC points the fresh plan differs from the held one by.
+
+    A change between charging and skipping counts the charge that one plan adds over the
+    other, measured from the SoC now. A charge target at or below the SoC adds nothing.
+    """
+    if held.skip_charge == fresh.skip_charge:
+        return abs(fresh.target_soc - held.target_soc)
+    charging = held if fresh.skip_charge else fresh
+    return max(0, charging.target_soc - round(fresh.current_soc))
+
+
+def _skip_during_charge(held: ChargeDecision, fresh: ChargeDecision, reading: HoldReading) -> bool:
+    return reading.charge_running and fresh.skip_charge and not held.skip_charge
+
+
 def next_held_recommendation(
     held: HeldCharge, fresh: ChargeDecision, reading: HoldReading
 ) -> ChargeDecision:
-    """Keep the held decision until the fresh one differs by a clear step or changes kind."""
+    """Keep the held decision until the fresh one differs by a clear step."""
     if held.decision is None:
         return fresh
-    if held.decision.skip_charge != fresh.skip_charge:
-        return fresh
-    step_pct = abs(fresh.target_soc - held.decision.target_soc)
+    if _skip_during_charge(held.decision, fresh, reading):
+        return held.decision
+    step_pct = _plan_change_pct(held.decision, fresh)
     if step_pct >= CHARGE_TARGET_HOLD_LARGE_STEP_PCT:
         return fresh
     if step_pct >= CHARGE_TARGET_HOLD_STEP_PCT and _has_stood_long_enough(held, reading):
