@@ -2,7 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.17.0
+
+A clearer dashboard: plain labels, two-decimal money, a Battery overnight tile, fuller Bill, Solar,
+Tariff, EV charger and Settings views, and a line that says when the immersion plans to heat.
+The oil advice no longer suggests a start when the water needs no heating.
 
 **Features**
 - The Immersion Water Temperature sensor has a `planned_heating` attribute: a sentence that says
@@ -84,6 +88,14 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   restart gap), or when the run would be under 5 minutes, there is no start and the suggestion says
   the water is expected to be ready with no heating needed.
 - Battery Cycles is shown as a whole number (575, not 575.0). The state keeps its decimals.
+
+**Upgrading**
+- Generate the dashboard file again, or use the strategy dashboard, to get the new layout and
+  labels. A stored dashboard keeps working but shows the old labels until then.
+- Two sensors are renamed, "Battery Overnight Outlook" and "Battery Overnight Confidence". Existing
+  installs keep their entity ids. Tonight's Charge Plan is now enabled on first start.
+- An automation that matches the old text of the charge reason ("P10/P50 blend" or "Insufficient
+  surplus") needs the new wording.
 
 ## v0.16.0
 
