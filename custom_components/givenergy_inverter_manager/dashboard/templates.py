@@ -43,6 +43,31 @@ def survival_template(level: str, status: str | None, sunrise: str | None) -> st
     )
 
 
+def ready_by_template(sensor: str) -> str:
+    """The card for the next hot water ready time, read from the water temperature sensor.
+
+    The sensor holds ready_by, expected_ready and heating_rate_c_per_h only while ready times
+    are set and scheduled heating is on. A Lovelace condition cannot test for an attribute, so
+    the card itself says when there is no ready time.
+    """
+    return (
+        f"{{% set sensor = '{sensor}' %}}"
+        "{% set ready = state_attr(sensor, 'ready_by') %}"
+        "{% set expected = state_attr(sensor, 'expected_ready') %}"
+        "{% set rate = state_attr(sensor, 'heating_rate_c_per_h') %}"
+        "{% if ready -%}\n"
+        "**Next ready time {{ ready }}**\n\n"
+        "{% if expected is true %}The water is expected to be at the target by then."
+        "{% elif expected is false %}The water is not expected to reach the target by then."
+        "{% else %}Whether the water will be ready in time is not known yet.{% endif %}"
+        "{% if is_number(rate) %} Heating at about {{ rate | float(0) | round(1) }} °C an hour."
+        "{% endif %}\n"
+        "{%- else -%}\n"
+        "No hot water ready time is set. Add one under Hot water ready by in the immersion options."
+        "\n{%- endif %}"
+    )
+
+
 def tariff_table(tariff: TariffConfig, cfg: dict) -> str:
     """Markdown table of the rates the integration prices energy with."""
     symbol = CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), "€")
