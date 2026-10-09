@@ -1135,6 +1135,10 @@ views:
       content: '{{ state_attr(''sensor.givenergy_inverter_manager_water_heating_cheapest_source'', ''suggestion'') }}'
       grid_options:
         columns: full
+      visibility:
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_scheduled_heating
+        state_not: 'on'
     - type: markdown
       content: |-
         {% set text = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'oil_schedule_suggestion') %}{% set days = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'oil_schedule_days') %}{% if text -%}

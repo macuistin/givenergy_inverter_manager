@@ -5,6 +5,10 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 ## Unreleased
 
 **Changes**
+- The oil advice sentence shows once on the Immersion view. While Immersion Scheduled Heating is on, it
+  is in the Ready by section and the Cheapest way to heat the water section leaves it out. While
+  scheduled heating is off, or cannot exist, the Cheapest section shows it. Generate the dashboard
+  again, or use the strategy dashboard, to get the change.
 - The two bars in the Solar section of the Today tab say what they measure: Solar share is now Home
   use from solar (the share of what the house used that solar supplied) and Self-consumption is now
   Solar kept at home (the share of today's solar that was not exported). The entities keep their names.

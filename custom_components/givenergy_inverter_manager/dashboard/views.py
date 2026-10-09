@@ -581,13 +581,19 @@ class Builder:
         )
 
     def _oil_advice_section(self) -> dict[str, Any] | None:
-        """The cheapest way to heat the water, while an oil price is set. Advice only."""
+        """The cheapest way to heat the water, while an oil price is set. Advice only.
+
+        The live suggestion shows only while Immersion Scheduled Heating is off. While it is
+        on, the Ready by section prints the same sentence, so the page holds one copy.
+        """
         source = self.oil_advice("water_heating_cheapest_source")
+        scheduled = self.thermostat("immersion_schedule")
+        suggestion = attribute_markdown(source, "suggestion")
         return group(
             heading_card("Cheapest way to heat the water", "mdi:fire-circle"),
             [
                 tile_card(source, "Cheapest source", color=IMMERSION, columns=FULL),
-                attribute_markdown(source, "suggestion"),
+                with_visibility(suggestion, self.devices.visible_while_off(scheduled)),
                 self._oil_schedule_line(source),
             ],
             **self._when(Device.OIL_ADVICE),
