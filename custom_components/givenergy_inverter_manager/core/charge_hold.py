@@ -46,6 +46,9 @@ class HoldReading:
 
     now: datetime
     charge_running: bool = False
+    # The configured cap on the target. The sensors show the capped target, so a step above it
+    # is not a step the reader sees.
+    max_target_pct: int = 100
 
 
 @dataclass
@@ -83,16 +86,23 @@ def _has_stood_long_enough(published_at: datetime | None, reading: HoldReading) 
     return elapsed_s < 0 or elapsed_s >= CHARGE_TARGET_HOLD_MIN_MINUTES * 60
 
 
-def _plan_change_pct(held: ChargeDecision, fresh: ChargeDecision) -> int:
-    """SoC points the fresh plan differs from the held one by.
+def _shown_target(decision: ChargeDecision, reading: HoldReading) -> int:
+    """The target as published: a charge is capped, a skip is not."""
+    if decision.skip_charge:
+        return decision.target_soc
+    return min(decision.target_soc, reading.max_target_pct)
+
+
+def _plan_change_pct(held: ChargeDecision, fresh: ChargeDecision, reading: HoldReading) -> int:
+    """SoC points the fresh plan differs from the held one by, as the sensors would show it.
 
     A change between charging and skipping counts the charge that one plan adds over the
     other, measured from the SoC now. A charge target at or below the SoC adds nothing.
     """
     if held.skip_charge == fresh.skip_charge:
-        return abs(fresh.target_soc - held.target_soc)
+        return abs(_shown_target(fresh, reading) - _shown_target(held, reading))
     charging = held if fresh.skip_charge else fresh
-    return max(0, charging.target_soc - round(fresh.current_soc))
+    return max(0, _shown_target(charging, reading) - round(fresh.current_soc))
 
 
 def _skip_during_charge(held: ChargeDecision, fresh: ChargeDecision, reading: HoldReading) -> bool:
@@ -107,7 +117,7 @@ def next_held_recommendation(
         return fresh
     if _skip_during_charge(held.decision, fresh, reading):
         return held.decision
-    step_pct = _plan_change_pct(held.decision, fresh)
+    step_pct = _plan_change_pct(held.decision, fresh, reading)
     if step_pct >= CHARGE_TARGET_HOLD_LARGE_STEP_PCT:
         return fresh
     if step_pct >= CHARGE_TARGET_HOLD_STEP_PCT and _has_stood_long_enough(

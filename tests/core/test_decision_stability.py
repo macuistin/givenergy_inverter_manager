@@ -168,6 +168,36 @@ class TestSolarFlickeringAtDawn:
         assert _changes(reasons) == 0
 
 
+def _long_dawn_cycles() -> list:
+    """The flicker goes on for 90 minutes, longer than the hold time."""
+    held = HeldCharge()
+    start = AUTUMN_NIGHT + timedelta(hours=8)
+    return [
+        _autumn_cycle(
+            start + CYCLE * i,
+            held,
+            battery_soc=87.0,
+            solar_power_w=BELOW_FLOOR_W if i % 2 == 0 else ABOVE_FLOOR_W,
+            battery_power_w=0.0,
+        )
+        for i in range(180)
+    ]
+
+
+class TestAPlanThatDiffersOnlyAboveTheCap:
+    """The cap is 90%, so charging to a calculated 100% adds 3 points to a battery at 87%."""
+
+    def test_premise_the_calculated_charge_is_far_above_the_cap(self):
+        charging = [d for d in _long_dawn_cycles() if not d.charge_decision.skip_charge]
+        assert charging
+        assert all(d.charge_decision.target_soc == 90 for d in charging)
+        assert "Target 100%" in charging[0].charge_decision.reason
+
+    def test_the_published_plan_does_not_flip_after_the_hold_time(self):
+        published = [d.published_charge_decision.skip_charge for d in _long_dawn_cycles()]
+        assert _changes(published) == 0
+
+
 def _charging_cycles() -> list:
     """02:00 to 04:00 on the cheap rate, the battery climbing through the skip threshold."""
     held = HeldCharge()

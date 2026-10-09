@@ -150,6 +150,36 @@ class TestAChangeOfKindThatChargesLittle:
         assert next_held_recommendation(_held(held), fresh, AFTER_DWELL) is held
 
 
+class TestTargetsAboveTheCap:
+    CAPPED = HoldReading(AFTER_DWELL.now, max_target_pct=90)
+
+    def test_two_targets_above_the_cap_are_the_same_plan(self):
+        held = _decision(94)
+        fresh = _decision(100)
+        assert next_held_recommendation(_held(held), fresh, self.CAPPED) is held
+
+    def test_a_target_that_crosses_the_cap_counts_only_up_to_it(self):
+        held = _decision(84)
+        fresh = _decision(100)
+        assert next_held_recommendation(_held(held), fresh, self.CAPPED) is fresh
+
+    def test_a_target_that_crosses_the_cap_by_less_than_a_step_is_held(self):
+        held = _decision(88)
+        fresh = _decision(100)
+        assert next_held_recommendation(_held(held), fresh, self.CAPPED) is held
+
+    def test_a_charge_above_the_cap_adds_only_up_to_the_cap(self):
+        held = _decision(80, skip=True, soc=88.0)
+        fresh = _decision(100, soc=88.0)
+        assert next_held_recommendation(_held(held), fresh, self.CAPPED) is held
+
+    def test_a_skip_target_is_not_capped(self):
+        capped = HoldReading(AFTER_DWELL.now, max_target_pct=60)
+        held = _decision(80, skip=True)
+        fresh = _decision(85, skip=True)
+        assert next_held_recommendation(_held(held), fresh, capped) is fresh
+
+
 class TestAChargeThatIsRunning:
     RUNNING = HoldReading(AFTER_DWELL.now, charge_running=True)
 

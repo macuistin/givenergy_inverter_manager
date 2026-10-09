@@ -1057,9 +1057,9 @@ def _set_overnight_charge(
     cap apply to both decisions.
     """
     fresh = _overnight_charge_decision(cycle, avg_daily_kwh)
-    reading = HoldReading(cycle.now, _charge_running(data, cycle.raw))
-    held.settle(fresh, reading)
     max_target = int(cycle.cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
+    reading = HoldReading(cycle.now, _charge_running(data, cycle.raw), max_target)
+    held.settle(fresh, reading)
     data.charge_decision = _with_charge_overrides(fresh, cycle.overrides, max_target)
     data.published_charge_decision = _with_charge_overrides(
         held.decision, cycle.overrides, max_target
