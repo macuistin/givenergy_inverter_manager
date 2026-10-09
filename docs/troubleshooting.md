@@ -206,7 +206,7 @@ Read **Immersion Divert Reason**. It gives the exact block.
 | `Manual override` | **Auto Immersion Divert** is off. Turn it on |
 | `Water already at` | The water is at the target. Wait for it to cool by the restart gap |
 | `Battery SoC ... below threshold` | The divert threshold (default 80%) is set at setup only |
-| `Insufficient surplus` | Surplus is below the minimum (default 500 W). Cloud, or a large house load |
+| `Not enough spare solar` | Spare solar is below the minimum (default 500 W). It says how far short: either the house is using more than the panels make, or some watts are spare but fewer than needed. Cloud, or a large house load. A heater that is already on stays on until the house uses more than the minimum beyond what the panels make |
 | `Water at ... will restart below` | The restart gap is holding it off. Lower **Immersion Restart Gap** |
 | `Cheapest rate window (...): heating from ... to ...` | Scheduled heating is running in the cheapest window |
 | `Heating to be ready by 19:00: ...` | A ready time needs the heater now. `too late to be ready in full` means the hours left are fewer than the hours needed |

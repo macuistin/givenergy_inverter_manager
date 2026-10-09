@@ -17,6 +17,10 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   plan sensor, which is disabled by default. Target override shows only while Override on is on,
   and Dry run reads On or Off. The Dry Run Mode Active sensor keeps the state True or False and
   gains a `summary` attribute that reads On or Off.
+- Immersion Divert Reason no longer reads `Insufficient surplus (-345W, need 500W)`, which looked
+  like a fault. It now says `Not enough spare solar: the house is using 345 W more than the panels
+  make (needs 500 W spare)`, or `Not enough spare solar: 300 W spare, needs 500 W`. An automation
+  that matches the old text needs the new one.
 
 ## v0.16.0
 
