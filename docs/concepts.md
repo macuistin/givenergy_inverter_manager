@@ -231,7 +231,29 @@ The attributes `oil_start_by` (a local time), `oil_run_minutes` and `oil_for_rea
 
 **Keeping the water warm.** Hot water drawn through the day can cool until the immersion's minimum temperature rule tops it up at whatever the rate is. When the water is at or below the lower of the minimum temperature plus the restart gap and the target less the restart gap (50 with a minimum of 45, a gap of 5 and a target of 55), solar surplus is not already heating it and oil is cheaper than the grid rate in force now, the `oil_keep_warm` attribute says to run the oil for about N minutes now, for example `Water is at 49.5°C, close to the 45°C minimum. Oil is cheaper than the grid now (0.16 against 0.38 per kWh of heat): run the oil water heating for about 40 minutes to avoid an electric top-up.` N is the time to lift the water to the target at the immersion's heating rate with the margin, rounded up to 5 minutes. Inside a cheap slot, where oil is not cheaper than the grid, there is no keep-warm suggestion. It needs no ready time and works with Immersion Scheduled Heating on or off. With the default minimum of 50, gap of 5 and target of 55, the limit is 50, because the minimum plus the gap would be the target itself.
 
-**Which sentence you get.** The `suggestion` says one thing, in this order: the oil start for the next ready time, then the keep-warm run, then that electricity or solar is cheaper for the ready time, then the plain sentence for the cheapest source now. When both an oil start and a keep-warm run apply, the suggestion gives the oil start and `oil_keep_warm` still holds the keep-warm sentence. With no water temperature reading the plain sentence is unchanged.
+**Which sentence you get.** The `suggestion` says one thing, in this order: the oil start for the next ready time, then the keep-warm run, then that electricity or solar is cheaper for the ready time, then the plain sentence for the cheapest source now. When both an oil start and a keep-warm run apply, the suggestion gives the oil start and `oil_keep_warm` still holds the keep-warm sentence. With no water temperature reading the plain sentence is unchanged. The recurring oil schedule is never part of the `suggestion`: it has its own attributes and its own line on the dashboard.
+
+**A recurring oil schedule.** Over time the integration learns when the immersion heats the water from the grid at a rate above oil, and suggests running the oil at those times. It needs an oil price and an immersion switch, like the rest of the oil advice. It needs no water temperature sensor and no ready time. The integration does not switch the oil system: the suggestion is advice, and the attributes below are there for your own automations.
+
+For each hour of the last 14 complete days and the day in progress, the integration keeps the grid energy the immersion used and what it cost, at the rate in force then after discount and VAT. Energy that solar surplus covered is not counted. The oil price is not kept: it is read when the suggestion is worked out, so a change to the price applies to the whole record at once. The record is a few hundred numbers in the integration's stored data. It survives restarts, and nothing is recorded while no oil price is set.
+
+The suggestion is made like this:
+
+1. Nothing is suggested until the record holds 7 complete days, a week, so each weekday has been seen once. Today is left out until it ends.
+2. An hour of the day counts as a habit when, on at least a third of the days, the immersion used at least 0.25 kWh from the grid in it at a cost per kWh above oil. A third is two or three days a week, which catches a daily or weekday routine and ignores a one-off. 0.25 kWh is about five minutes of a 3 kW element, so a trickle of grid energy that surplus did not quite cover is not a heating run.
+3. Adjacent habit hours join into one block. The oil window ends at the start of the block's first hour, where the immersion usually started, so the oil runs just before it and the immersion finds the water at the target. The window lasts as long as the immersion took on the days it ran, at the immersion's heating rate, rounded up to 5 minutes. An oil coil usually heats faster, so this is long enough. A window never starts before the heating ahead of it ended.
+4. The saving of a window is what the dearer-than-oil grid heat in its hours cost, less what the same heat would have cost from oil, over the record. A window that saves less than 0.25 a week (about 13 a year) is dropped, and the three biggest savings stay, in time order.
+
+For example: `Over the last 14 days the immersion used about 14 kWh of grid electricity that cost more than oil, mostly around 13:00 and 19:00. Running the oil from 12:30 to 13:00 and 18:00 to 19:00 would have saved about 6.00 over those days.` Heating in a cheap slot, where electricity is cheaper than oil, never makes a suggestion, and neither does oil that is dearer than what the immersion paid.
+
+The Water Heating Cheapest Source sensor carries the result in four attributes, kept apart from `suggestion`:
+
+- `oil_schedule`: a list of windows as `HH:MM to HH:MM` in local time, empty when nothing is worth suggesting.
+- `oil_schedule_saving`: the total saved over the record, in your currency, as a plain number.
+- `oil_schedule_days`: how many complete days the suggestion read, up to 14.
+- `oil_schedule_suggestion`: the sentence. Present only while there is a schedule.
+
+All four are absent until the record holds 7 days. The hours are read at hour resolution, so a window ends on the hour even when the immersion usually started part way through it. The saving counts only the days the immersion heated, and oil that runs on a day the water needed no heating is not counted in it.
 
 ### EV charger
 

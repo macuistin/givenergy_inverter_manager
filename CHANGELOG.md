@@ -16,6 +16,17 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   `oil_keep_warm` attribute says how long to run the oil to avoid an electric top-up. The oil start
   for a ready time comes first in the `suggestion`.
 - The Ready by section of the Immersion view shows the oil advice sentence when an oil price is set.
+- Suggested oil schedule. With an oil price set, the integration keeps a record of the immersion's
+  grid heating by hour for 14 days, with its cost. From 7 days it finds the hours when the immersion
+  repeatedly heated at a rate above oil, on at least a third of the days, and suggests up to three
+  oil windows that end where the immersion usually started, with the saving over the record. The
+  integration still does not switch the oil system. Heating in a cheap slot, oil dearer than the
+  grid and savings under 0.25 a week make no suggestion.
+- Water Heating Cheapest Source gains the attributes `oil_schedule` (a list of `HH:MM to HH:MM`),
+  `oil_schedule_saving`, `oil_schedule_days` and `oil_schedule_suggestion` (the sentence). They are
+  absent until 7 days of data and apart from `suggestion`, so use them in your own automations.
+- The Cheapest way to heat the water section of the Immersion view shows the oil schedule sentence
+  on its own line, or says it is still learning.
 
 **Fixes**
 - The `suggestion` no longer says to heat the water when it is already at the target temperature.
