@@ -337,6 +337,56 @@ class TestWaterHeatingAdvice:
         }
 
 
+class TestOilStartAttributes:
+    def _data(self, start_by, keep_warm=None):
+        from datetime import datetime
+
+        from custom_components.givenergy_inverter_manager.core.oil_advice import WaterHeatingAdvice
+        from custom_components.givenergy_inverter_manager.core.oil_start import OilStart
+
+        start = OilStart(
+            ready_at=datetime(2026, 12, 15, 19, 0),
+            electric_cost_per_kwh=0.3,
+            by_solar=False,
+            saving_per_kwh=0.1,
+            run_minutes=90,
+            start_by=start_by,
+            late=False,
+        )
+        advice = WaterHeatingAdvice(
+            source="oil",
+            suggestion="s",
+            oil_cost_per_kwh=0.2,
+            electricity_cost_per_kwh=0.3,
+            cheapest_electricity_cost_per_kwh=0.3,
+            oil_saving_per_kwh=0.1,
+            oil_hours=(),
+            horizon="ready_by",
+            horizon_ends="19:00",
+            cheapest_source_in_horizon="oil",
+            oil_start=start,
+            keep_warm=keep_warm,
+        )
+        return make_data(water_heating_advice=advice)
+
+    def test_a_start_gives_the_time_the_minutes_and_the_ready_time(self):
+        from datetime import datetime
+
+        attrs = values.water_heating_attributes(self._data(datetime(2026, 12, 15, 16, 30)))
+        assert attrs["oil_start_by"] == "16:30"
+        assert attrs["oil_run_minutes"] == 90
+        assert attrs["oil_for_ready_time"] == "19:00"
+        assert "oil_keep_warm" not in attrs
+
+    def test_no_start_leaves_the_three_attributes_out(self):
+        attrs = values.water_heating_attributes(self._data(None))
+        assert not {"oil_start_by", "oil_run_minutes", "oil_for_ready_time"} & set(attrs)
+
+    def test_keep_warm_is_the_sentence_or_absent(self):
+        assert values.water_heating_attributes(self._data(None, "Run the oil."))["oil_keep_warm"] == "Run the oil."
+        assert "oil_keep_warm" not in values.water_heating_attributes(self._data(None))
+
+
 class TestCheapRateAttributes:
     def test_carries_the_summary(self):
         data = make_data(next_cheap_rate_start="23:00", hours_to_cheap_rate=9.0)

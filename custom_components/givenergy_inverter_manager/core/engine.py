@@ -105,6 +105,7 @@ from .oil_advice import (
     advise_water_heating,
     oil_heat_cost_per_kwh,
 )
+from .oil_start import WaterReading
 from .rules import (
     ChargeDecision,
     ChargeInputs,
@@ -1022,6 +1023,19 @@ def _solar_surplus_to_divert(data: CoordinatorData, cycle: _Cycle) -> bool:
     )
 
 
+def _water_reading(raw: RawSensorValues) -> WaterReading | None:
+    """The water as the oil advice reads it, None without a temperature reading."""
+    if raw.immersion_temp is None:
+        return None
+    return WaterReading(
+        temp=raw.immersion_temp,
+        target=raw.immersion_target_temp,
+        rate_c_per_h=raw.immersion_heating_rate_c_per_h,
+        min_temp=raw.immersion_min_temp,
+        restart_gap_c=raw.immersion_hysteresis_c,
+    )
+
+
 def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
     """Oil against electricity for the water. Nothing is worked out without an oil price."""
     price = cycle.raw.oil_price_per_litre
@@ -1035,6 +1049,8 @@ def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
             ready_times=cycle.raw.immersion_ready_times,
             solar_surplus=_solar_surplus_to_divert(data, cycle),
             currency_symbol=data.currency_symbol,
+            water=_water_reading(cycle.raw),
+            scheduled_heating=cycle.raw.immersion_schedule_enabled,
         )
     )
 

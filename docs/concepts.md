@@ -217,6 +217,22 @@ The other attributes are the oil cost, the grid cost now, the cheapest grid cost
 
 The grid hours come from the tariff in force today, cut at every rate boundary, so a tariff with a cheap night window gives oil hours by day and none at night. A tariff change dated inside the next 24 hours is not looked ahead to.
 
+**When to start the oil.** The integration does not switch the oil system, so the advice says when you should. With a water temperature sensor, Immersion Scheduled Heating on and a ready time set, the suggestion names a start time for the next ready time, for example `For the 19:00 ready time: turn the oil water heating on at 16:30 (about 90 minutes). The immersion will only top up. Saves about 0.22 per kWh of heat.` It is worked out like this:
+
+1. The immersion plan for the ready time is placed as for [Scheduled immersion heating](#scheduled-immersion-heating): as late as possible, in the cheapest bands. Its start is the time the immersion would have to start, and its cost is the hours-weighted grid rate of the bands it uses (after discount and VAT).
+2. Oil is suggested only when a kWh of heat from oil costs less than that, and less than the export rate while solar surplus is being diverted. A ready time that the cheap night band covers, for example 07:00 asked at 01:00, gets no oil start, and the suggestion says electricity is cheaper.
+3. The oil run lasts as long as the immersion would need to lift the water to the target, using the same heating rate (learned or assumed) and the same margin. An oil coil usually heats faster than the element, so this is a long run: the start is early, never late.
+4. The start is that run before the time the immersion would start, rounded down to the minute. If the oil switches on at that time, the water is at the target before the immersion needs to start, and the immersion does nothing. If the oil is not switched on, the immersion plan still has the water ready. The immersion plan is not changed by the advice.
+5. When it is already too late for the oil to finish before the immersion starts, the suggestion says to start the oil now and that the immersion will also run.
+
+When the water is already at the target, no start is suggested and the suggestion says there is nothing to heat. The plain sentence used to tell you to heat the water with the oil system even when it was hot.
+
+The attributes `oil_start_by` (a local time), `oil_run_minutes` and `oil_for_ready_time` are present only while an oil start is suggested. Use them in your own automations or notifications, for example a notification at `oil_start_by`. The suggestion reads the water temperature now, so once the oil is heating the start moves later and then disappears when the water reaches the target.
+
+**Keeping the water warm.** Hot water drawn through the day can cool until the immersion's minimum temperature rule tops it up at whatever the rate is. When the water is at or below the lower of the minimum temperature plus the restart gap and the target less the restart gap (50 with a minimum of 45, a gap of 5 and a target of 55), solar surplus is not already heating it and oil is cheaper than the grid rate in force now, the `oil_keep_warm` attribute says to run the oil for about N minutes now, for example `Water is at 49.5°C, close to the 45°C minimum. Oil is cheaper than the grid now (0.16 against 0.38 per kWh of heat): run the oil water heating for about 40 minutes to avoid an electric top-up.` N is the time to lift the water to the target at the immersion's heating rate with the margin, rounded up to 5 minutes. Inside a cheap slot, where oil is not cheaper than the grid, there is no keep-warm suggestion. It needs no ready time and works with Immersion Scheduled Heating on or off. With the default minimum of 50, gap of 5 and target of 55, the limit is 50, because the minimum plus the gap would be the target itself.
+
+**Which sentence you get.** The `suggestion` says one thing, in this order: the oil start for the next ready time, then the keep-warm run, then that electricity or solar is cheaper for the ready time, then the plain sentence for the cheapest source now. When both an oil start and a keep-warm run apply, the suggestion gives the oil start and `oil_keep_warm` still holds the keep-warm sentence. With no water temperature reading the plain sentence is unchanged.
+
 ### EV charger
 
 The integration finds Zappi (myenergi), Wallbox, OCPP, Ohme and Easee chargers by their entity names. It uses the first one found.

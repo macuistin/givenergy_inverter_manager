@@ -481,3 +481,62 @@ def test_a_device_view_exists_with_no_device_so_a_later_device_has_somewhere_to_
     config = generated_for()
     assert {v["path"] for v in config["views"]} >= {"immersion", "ev-charger"}
     assert all_cards(config["views"])
+
+
+# ── the oil start in the Ready by section ────────────────────────────────────
+
+READY_HEADING = "Ready by"
+
+
+def _ready_by_cards(config: dict) -> list[dict]:
+    for section in _view(config, "immersion")["sections"]:
+        headings = [c.get("heading") for c in section["cards"] if c["type"] == "heading"]
+        if READY_HEADING in headings:
+            return [c for c in section["cards"] if c["type"] == "markdown"]
+    return []
+
+
+def _oil_cards_in_ready_by(config: dict) -> list[dict]:
+    return [c for c in _ready_by_cards(config) if OIL_SENTINEL in c["content"]]
+
+
+@pytest.mark.parametrize("sensor", [False, True], ids=["no-sensor", "sensor"])
+@pytest.mark.parametrize("switch", [False, True], ids=["no-switch", "switch"])
+@pytest.mark.parametrize("oil", [False, True], ids=["no-oil", "oil"])
+def test_ready_by_shows_the_oil_suggestion_only_with_an_oil_price_the_switch_and_the_sensor(
+    oil, switch, sensor
+):
+    shown = seen_for(switch=switch, sensor=sensor, oil=oil)
+    assert bool(_oil_cards_in_ready_by(shown)) == (oil and switch and sensor)
+
+
+def test_the_oil_suggestion_in_ready_by_prints_the_sensors_suggestion():
+    card = _oil_cards_in_ready_by(seen_for(switch=True, sensor=True, oil=True))[0]
+    assert f"state_attr('{OIL_SENTINEL}', 'suggestion')" in card["content"]
+
+
+def test_ready_by_keeps_its_own_card_without_an_oil_price():
+    cards = _ready_by_cards(seen_for(switch=True, sensor=True))
+    assert len(cards) == 1
+    assert "state_attr(sensor, 'ready_by')" in cards[0]["content"]
+
+
+def test_the_oil_suggestion_arrives_in_a_file_made_before_the_price_was_set():
+    stored = generated_for(switch=True, sensor=True)
+    before = states_with({Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR, Device.IMMERSION_THERMOSTAT})
+    assert _oil_cards_in_ready_by(seen(stored, before)) == []
+    after = states_with(
+        {
+            Device.IMMERSION_SWITCH,
+            Device.IMMERSION_SENSOR,
+            Device.IMMERSION_THERMOSTAT,
+            Device.OIL_ADVICE,
+        }
+    )
+    assert _oil_cards_in_ready_by(seen(stored, after)) != []
+
+
+def test_the_oil_suggestion_leaves_ready_by_when_the_price_is_cleared():
+    stored = generated_for(switch=True, sensor=True, oil=True)
+    devices = {Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR, Device.IMMERSION_THERMOSTAT}
+    assert _oil_cards_in_ready_by(seen(stored, states_with(devices))) == []

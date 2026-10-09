@@ -31,6 +31,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_READY_TIMES,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
+    CONF_OIL_PRICE_PER_LITRE,
     DOMAIN,
 )
 
@@ -529,3 +530,50 @@ class TestParityWithTheOldAutomations:
         at(freezer, utc)
         await cycle(hass, loaded_entry)
         assert real_switch.calls == ["turn_off"]
+
+
+class TestOilStartForAReadyTime:
+    """With an oil price the sensor says when to start the oil. The immersion plan is the same."""
+
+    OIL_SENSOR = "sensor.givenergy_inverter_manager_water_heating_cheapest_source"
+
+    @pytest.fixture
+    def config_entry(self):
+        return _entry(**{CONF_IMMERSION_READY_TIMES: ["19:00"], CONF_OIL_PRICE_PER_LITRE: 0.05})
+
+    async def test_cold_water_gets_a_start_time_and_the_immersion_stays_off(
+        self, hass, loaded_entry, real_switch, freezer
+    ):
+        await opt_in(hass, loaded_entry)
+        water(hass, COLD)
+        at(freezer, "12:00:00")
+        await cycle(hass, loaded_entry)
+        attributes = hass.states.get(self.OIL_SENSOR).attributes
+        assert attributes["oil_for_ready_time"] == "19:00"
+        assert "16:00" < attributes["oil_start_by"] < "17:30"
+        assert attributes["oil_run_minutes"] > 0
+        assert attributes["suggestion"].startswith("For the 19:00 ready time: turn the oil water")
+        assert real_switch.calls == []
+
+    async def test_both_suggestions_apply_and_the_ready_start_leads(
+        self, hass, loaded_entry, real_switch, freezer
+    ):
+        await opt_in(hass, loaded_entry)
+        water(hass, COLD)  # 46 is under the minimum of 45 plus the restart gap of 5
+        at(freezer, "12:00:00")
+        await cycle(hass, loaded_entry)
+        attributes = hass.states.get(self.OIL_SENSOR).attributes
+        assert "oil_keep_warm" in attributes
+        assert attributes["suggestion"].startswith("For the 19:00 ready time")
+
+    async def test_warm_water_has_no_start_and_no_keep_warm(
+        self, hass, loaded_entry, real_switch, freezer
+    ):
+        await opt_in(hass, loaded_entry)
+        water(hass, 55.5)
+        at(freezer, "12:00:00")
+        await cycle(hass, loaded_entry)
+        attributes = hass.states.get(self.OIL_SENSOR).attributes
+        assert "oil_start_by" not in attributes
+        assert "oil_keep_warm" not in attributes
+        assert attributes["suggestion"].endswith("so there is nothing to heat.")

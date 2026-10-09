@@ -2,6 +2,24 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Features**
+- Water Heating Cheapest Source now says when to start the oil. With a water temperature sensor,
+  Immersion Scheduled Heating on and a ready time set, the `suggestion` names a start time for the
+  next ready time when oil is cheaper than the grid hours the immersion plan would use, so the oil
+  does the heating and the immersion only tops up. New attributes `oil_start_by`,
+  `oil_run_minutes` and `oil_for_ready_time`, present only while a start is suggested. The
+  immersion plan is unchanged and the integration still does not switch the oil system.
+- A keep-warm suggestion: when the water is at or below the lower of the minimum temperature plus the
+  restart gap and the target less the restart gap, no solar surplus is heating it and oil is cheaper than the grid now, the sensor's
+  `oil_keep_warm` attribute says how long to run the oil to avoid an electric top-up. The oil start
+  for a ready time comes first in the `suggestion`.
+- The Ready by section of the Immersion view shows the oil advice sentence when an oil price is set.
+
+**Fixes**
+- The `suggestion` no longer says to heat the water when it is already at the target temperature.
+
 ## v0.15.0
 
 Heats the water in the cheapest rate window, to ready times you set, and keeps the charge plan

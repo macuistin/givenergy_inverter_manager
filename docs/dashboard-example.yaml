@@ -1076,6 +1076,14 @@ views:
         {%- endif %}
       grid_options:
         columns: full
+    - type: markdown
+      content: '{{ state_attr(''sensor.givenergy_inverter_manager_water_heating_cheapest_source'', ''suggestion'') }}'
+      grid_options:
+        columns: full
+      visibility:
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_water_heating_cheapest_source
+        state_not: unavailable
   - type: grid
     visibility:
     - condition: state

@@ -40,3 +40,13 @@ def real_time_after(start: datetime, delta: timedelta) -> datetime:
     datetime compares real instants, not wall-clock readings.
     """
     return start.astimezone(timezone.utc) + delta
+
+
+def shift_real(moment: datetime, delta: timedelta) -> datetime:
+    """*moment* moved by *delta* of real time, in the timezone of *moment*.
+
+    A naive datetime has no offset, so it moves by wall-clock time.
+    """
+    if moment.tzinfo is None:
+        return moment + delta
+    return real_time_after(moment, delta).astimezone(moment.tzinfo)

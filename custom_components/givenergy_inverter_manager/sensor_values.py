@@ -20,6 +20,7 @@ from .const import (
 )
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
+from .core.oil_advice import WaterHeatingAdvice
 from .core.tariff import EnergyAccumulator
 from .core.tariff_check import describe_rate_mismatches
 from .core.write_log import newest_first
@@ -215,12 +216,24 @@ def water_heating_source(data: CoordinatorData) -> str | None:
     return None if advice is None else advice.source
 
 
+def _oil_start_attributes(advice: WaterHeatingAdvice) -> dict[str, Any]:
+    """The oil start for the next ready time. Absent unless oil should be started."""
+    start = advice.oil_start
+    if start is None or start.start_by is None:
+        return {}
+    return {
+        "oil_start_by": f"{start.start_by:%H:%M}",
+        "oil_run_minutes": start.run_minutes,
+        "oil_for_ready_time": f"{start.ready_at:%H:%M}",
+    }
+
+
 def water_heating_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """Return the suggestion and the costs per kWh of heat behind it, None without advice."""
     advice = data.water_heating_advice
     if advice is None:
         return None
-    return {
+    attributes = {
         "suggestion": advice.suggestion,
         "oil_cost_per_kwh": round(advice.oil_cost_per_kwh, 4),
         "electricity_cost_per_kwh": round(advice.electricity_cost_per_kwh, 4),
@@ -230,7 +243,11 @@ def water_heating_attributes(data: CoordinatorData) -> dict[str, Any] | None:
         "horizon": advice.horizon,
         "horizon_ends": advice.horizon_ends,
         "cheapest_source_in_horizon": advice.cheapest_source_in_horizon,
+        **_oil_start_attributes(advice),
     }
+    if advice.keep_warm is not None:
+        attributes["oil_keep_warm"] = advice.keep_warm
+    return attributes
 
 
 def givtcp_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
