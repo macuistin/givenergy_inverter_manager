@@ -141,6 +141,8 @@ Night survival asks whether the battery lasts until solar starts. It uses the cu
 
 The charge plan skips a night only when this check passes, and it uses the same window and load. **Estimated SoC at Sunrise** is the SoC left at the end of the window, never below the minimum SoC. **Battery Night Survival Status** and **Night Survival Confidence** read the same calculation.
 
+The estimate is a pessimistic one by design, in two ways. It spreads the day's average load evenly over the window, so a night that is quieter than the day reads worse than it will be: an evening that uses 0.5 kWh an hour is judged at the daily average, often twice that. And it counts only the charge the battery holds now. A cheap-rate charge planned for later tonight is not added, so a shortfall in the evening is a shortfall without that charge. A **Battery may run low** status in the evening, with a charge planned for the cheap period, does not mean the battery will run out. Check **Tonight's Charge Plan** next to it. The minimum SoC reading is the floor of the estimate, not a measurement.
+
 The calculated figure steps when the day's energy total resets at midnight, when the window flips at 08:00 and when solar fades in the evening. The published **Estimated SoC at Sunrise** follows the calculated figure at no more than the pace the inverter can charge or discharge the battery (inverter maximum output over battery capacity, for example 5 kW over 19 kWh is about 26 points an hour). A step becomes a ramp of about half an hour. The status and confidence sensors use the calculated figure, so a real shortfall shows at once. After a restart or a gap of an hour the held value is dropped and the sensor starts from the calculated figure.
 
 ### Immersion divert
