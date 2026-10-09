@@ -2,7 +2,7 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.15.0
 
 Heats the water in the cheapest rate window, to ready times you set, and keeps the charge plan
 steady. Fixes a sunrise estimate that sat at the minimum.
@@ -62,6 +62,14 @@ steady. Fixes a sunrise estimate that sat at the minimum.
 **Docs**
 - Night survival is documented as spreading the daily average evenly over the night and not
   counting a charge planned for later that night.
+
+**Upgrading**
+- Nothing changes until you turn on the new Immersion Scheduled Heating switch. Home Assistant
+  adds it, off, to installs with an immersion switch and a water temperature sensor.
+- Generate the dashboard file again, or use the strategy dashboard, to get the Scheduled tile, the
+  Ready by section and the oil advice section.
+- The estimated SoC at sunrise and the night survival status can read differently from the first
+  start, because the immersion heater's energy no longer counts as an all-day load.
 
 ## v0.14.1
 

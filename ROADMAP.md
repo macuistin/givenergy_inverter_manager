@@ -118,6 +118,7 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 | **N3 Support multiple inverters** | Sum solar and battery SoC across GivTCP inverters, for a gateway and AIO systems | Existing roadmap | Not applicable | M |
 | **N11 Support more hardware** | Multiple EV chargers (cost per charger, priority), storage heaters (charge in the cheapest window, needs a plug or CT), a second immersion element or heat pump cylinder (COP-aware cost), heat pump integration, demand response from grid operator signals | Existing roadmap | Not applicable | L |
 | **N12 Read a per-slot solar curve and day-ahead tariffs** | Use a per-period forecast attribute instead of a fixed bell curve (depends on what Solcast exposes). Dynamic day-ahead tariffs need a verified source first | Existing roadmap | Not applicable | L |
+| **N18 Control an oil boiler from the cheapest-source advice** | If the home has a switch for the oil boiler or its water heating channel, follow the Water Heating Cheapest Source advice by switching it, with dry run, the switch hold and manual overrides as for the immersion. Needs its own opt-in switch and a design for the oil boiler's own timers. Advice only until then | User request | Not applicable | M |
 
 ---
 
