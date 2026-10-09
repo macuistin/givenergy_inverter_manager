@@ -2,6 +2,46 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+Heats the water in the cheapest rate window, to ready times you set, and keeps the charge plan
+steady. Fixes a sunrise estimate that sat at the minimum.
+
+**Features**
+- Immersion Scheduled Heating switch (off by default, created only with an immersion switch and a
+  water temperature sensor). While on, the heater runs to the target temperature in the cheapest
+  rate window and stops at the target or the window end. Solar surplus diversion is unchanged.
+  With no cheaper window, no sensor or the switch off, nothing is scheduled.
+- Hot water ready by: a list of times in the immersion options. The integration plans grid
+  heating into the cheapest bands left, so the water is at the target by each time, using a
+  heating rate it learns from its own runs. Solar gets the day, because grid hours are placed as
+  late as possible. The Immersion Water Temperature sensor shows `ready_by`, `expected_ready`,
+  `heating_rate_c_per_h` and `heating_rate_source`, and the divert reason says when heating is to
+  meet a ready time. Dry run records what it would do.
+- A heater that cuts itself off in the window, for example a device auto-off, is turned on again
+  after the switch hold, until the target or the window end. A device timer that turns the heater
+  on while the water is at the target is switched off again.
+
+**Changes**
+- The Recommended Overnight Charge Target and Overnight Charge Reason sensors no longer step every
+  few minutes. A published value now stands for an hour before the next 5 point step. A 15 point
+  change still shows at once.
+- The charge plan no longer flips between skipping and charging when the solar reading flickers at
+  dawn. It never reads "Skipping" while the battery is charging from the grid.
+- The Overnight Charge Window sensor holds its end until the plan moves it by 15 minutes (after an
+  hour) or 45 minutes (at once), and stays put during the charge. The window written to the
+  inverter is unchanged.
+
+**Fixes**
+- Estimated SoC at Sunrise, Battery Night Survival Status and the overnight charge target no
+  longer count the immersion heater's energy as an all-day load. A morning heat of a few kWh was
+  scaled up over the whole night, which pinned the estimate at the minimum and could block a charge
+  skip.
+
+**Docs**
+- Night survival is documented as spreading the daily average evenly over the night and not
+  counting a charge planned for later that night.
+
 ## v0.14.1
 
 GivTCP rate differences are shown on a sensor instead of as a repair.
