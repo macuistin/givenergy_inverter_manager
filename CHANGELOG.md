@@ -2,6 +2,17 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Dashboard**
+- The Bill tab has a Cost per day chart: the import cost and the export credit of each of the last
+  31 days, which holds a whole bill period.
+- The Solar and forecast view has a Last 7 days chart that sets the provider forecast beside the
+  solar generated for each day. It needs apexcharts-card, which now also makes the generated file
+  ask for that card when a forecast sensor is set. Without it the chart plots what was generated.
+- The Generation per hour chart on the Solar and forecast view is taller, to match.
+- Generate the dashboard file again, or use the strategy dashboard, to get the new charts.
+
 ## v0.16.0
 
 The oil advice now says when to start the oil, when to keep the water warm, and, after a week of

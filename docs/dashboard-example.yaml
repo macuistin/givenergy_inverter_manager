@@ -3,7 +3,7 @@
 #
 # The live power flow requires power-flow-card-plus from HACS:
 #   https://github.com/flixlix/power-flow-card-plus
-# The immersion charts require apexcharts-card from HACS:
+# The immersion and solar forecast charts require apexcharts-card from HACS:
 #   https://github.com/RomRider/apexcharts-card
 # All other views use only built-in HA cards.
 #
@@ -747,6 +747,26 @@ views:
       color: blue
       grid_options:
         columns: 6
+  - type: grid
+    cards:
+    - type: heading
+      heading: Cost per day, last 31 days
+      heading_style: title
+      icon: mdi:chart-bar
+    - type: statistics-graph
+      entities:
+      - entity: sensor.givenergy_inverter_manager_import_cost_today
+        name: Import cost
+      - entity: sensor.givenergy_inverter_manager_export_earnings_today
+        name: Export credit
+      chart_type: bar
+      period: day
+      days_to_show: 31
+      stat_types:
+      - change
+      grid_options:
+        columns: full
+        rows: 5
 - title: Battery
   icon: mdi:battery-charging
   path: battery
@@ -1526,7 +1546,60 @@ views:
       - change
       grid_options:
         columns: full
-        rows: 4
+        rows: 5
+  - type: grid
+    cards:
+    - type: heading
+      heading: Last 7 days
+      heading_style: title
+      icon: mdi:calendar-week
+    - type: custom:apexcharts-card
+      header:
+        show: false
+      graph_span: 7d
+      span:
+        end: day
+      yaxis:
+      - min: 0
+        decimals: 0
+      apex_config:
+        chart:
+          height: 300
+          zoom:
+            enabled: false
+        tooltip:
+          shared: true
+          followCursor: true
+        markers:
+          size: 0
+          hover:
+            size: 5
+        legend:
+          show: true
+          position: bottom
+      series:
+      - entity: sensor.givenergy_inverter_manager_solar_forecast_today_provider
+        name: Forecast
+        type: column
+        color: '#78909c'
+        group_by:
+          func: max
+          duration: 1d
+        float_precision: 1
+        show:
+          datalabels: true
+      - entity: sensor.givenergy_inverter_manager_solar_generation_today
+        name: Generated
+        type: column
+        color: '#ffc107'
+        group_by:
+          func: max
+          duration: 1d
+        float_precision: 1
+        show:
+          datalabels: true
+      grid_options:
+        columns: full
 - title: Tariff
   icon: mdi:table
   path: tariff

@@ -1,7 +1,8 @@
 """
-charts.py - the immersion charts and the power flow card.
+charts.py - the immersion charts, the solar forecast chart and the power flow card.
 
-The immersion charts use apexcharts-card when it is installed and built-in cards when not.
+The immersion charts and the solar forecast chart use apexcharts-card when it is installed and
+built-in cards when not.
 The power flow card needs power-flow-card-plus and has an entities card as its fallback.
 """
 
@@ -121,6 +122,51 @@ def apex_immersion_chart(ent: ImmersionEntities) -> dict | None:
         "yaxis": _apex_axes(ent),
         "apex_config": {**apex_config(), "legend": {"show": True, "position": "bottom"}},
         "series": series,
+        "grid_options": {"columns": FULL},
+    }
+
+
+# ── Solar forecast chart ─────────────────────────────────────────────────────
+
+# Lower case, as the other hex colours of the generated file are.
+_ACTUAL_COLOUR = "#ffc107"  # the amber of the solar tiles
+_FORECAST_COLOUR = "#78909c"
+_DAY_BUCKET = {"func": "max", "duration": "1d"}
+
+
+def _apex_day_column(entity: str, name: str, color: str) -> dict:
+    """A column for the day's peak of a sensor that climbs through the day and resets at midnight.
+
+    The peak of such a sensor is the day's total. The provider forecast holds its value for
+    the whole day, so its peak is the forecast.
+    """
+    return {
+        "entity": entity,
+        "name": name,
+        "type": "column",
+        "color": color,
+        "group_by": _DAY_BUCKET,
+        "float_precision": 1,
+        "show": {"datalabels": True},
+    }
+
+
+def apex_solar_days_chart(forecast: str, actual: str, days: int, height: int) -> dict:
+    """The provider forecast beside the solar generated, for each of the last *days* days.
+
+    The chart reads the recorder history, which Home Assistant keeps for 10 days by default.
+    """
+    return {
+        "type": APEX_CARD.card_type,
+        "header": {"show": False},
+        "graph_span": f"{days}d",
+        "span": {"end": "day"},
+        "yaxis": [{"min": 0, "decimals": 0}],
+        "apex_config": {**apex_config(height), "legend": {"show": True, "position": "bottom"}},
+        "series": [
+            _apex_day_column(forecast, "Forecast", _FORECAST_COLOUR),
+            _apex_day_column(actual, "Generated", _ACTUAL_COLOUR),
+        ],
         "grid_options": {"columns": FULL},
     }
 

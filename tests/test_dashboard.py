@@ -849,7 +849,7 @@ class TestBillView:
 
     def test_bill_view_uses_only_built_in_cards(self):
         types = {c["type"] for c in _cards(_build(), "bill")}
-        assert types == {"heading", "tile"}
+        assert types == {"heading", "tile", "statistics-graph"}
 
     def test_disabled_by_default_figures_are_left_out_and_listed(self):
         text = _build(registry=FakeRegistry())

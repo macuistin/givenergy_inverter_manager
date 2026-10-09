@@ -111,7 +111,7 @@ The integration serves a small JavaScript file at `/givenergy_inverter_manager/g
 | Card | Needed for | Behaviour without it |
 |---|---|---|
 | [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | The live flow card in the Power Flow tab | An entities card lists the same values |
-| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The immersion charts in the Immersion sub-view | A history graph replaces the chart. It draws the temperatures and the heater's power as a line, so the heater is not shaded and has no on or off band |
+| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The immersion charts in the Immersion sub-view, and the forecast chart in the Solar and forecast sub-view | In the Immersion sub-view a history graph replaces the chart. It draws the temperatures and the heater's power as a line, so the heater is not shaded and has no on or off band. In the Solar and forecast sub-view a statistics graph plots what was generated each day and leaves out the forecast |
 
 When you generate the file, the integration reads the Lovelace resource list (**Settings → Dashboards → Resources**). A card whose URL is not in the list is treated as not installed, and the built-in cards are used. The file header names the cards it replaced. Install the card from HACS and generate the file again to get the custom card.
 
@@ -210,11 +210,13 @@ A tile for every cost line today (grid import, export earnings, rest of house, E
 
 ### Solar and forecast (sub-view)
 
-With a forecast sensor set: Generated today, Forecast, % of forecast, Plan forecast and Yesterday (the accuracy of yesterday's forecast). Below them is a bar graph of solar generation per hour over 2 days.
+With a forecast sensor set: Generated today, Forecast, % of forecast, Plan forecast and Yesterday (the accuracy of yesterday's forecast). Next to them are two charts: a bar graph of solar generation per hour over 2 days, and **Last 7 days**, which sets the provider's forecast beside what was generated for each of the last 7 days, as one pair of columns a day with the value above each column.
+
+The Last 7 days chart is an apexcharts-card chart. The forecast sensor keeps no long-term statistics, so only apexcharts-card can plot it, from the history Home Assistant keeps for the sensor (10 days by default). Both sensors are read at their highest value of each day, which is the day's total: the generated sensor climbs through the day, and the forecast holds its figure for the whole day. Without apexcharts-card the chart plots what was generated each day as a statistics graph, and the Forecast and Yesterday tiles carry the forecast. The chart needs a forecast sensor, so it is left out without one. The forecast is empty for a day before the first midnight the integration saw, so the first column pair can lack its forecast.
 
 Forecast is what your forecast service predicted for today, as it stood just before midnight. % of forecast compares solar generated so far with that figure. Plan forecast is the figure the overnight charge calculation used: blended toward the pessimistic estimate and scaled by the accuracy correction, so it can differ from the provider's figure. Judge the day against Forecast. Forecast and % of forecast read empty on a new install until the first midnight, because the provider forecast is remembered then.
 
-The two graphs on the sub-views are statistics graphs, not history graphs. The daily sensors fall to zero at midnight, so a history graph of them draws a sawtooth. The graphs plot the change in each period instead, from the long-term statistics. They stay empty until Home Assistant has compiled statistics for the sensors, which takes up to an hour.
+The graphs on the Bill tab and on the Cost breakdown and Solar and forecast sub-views are statistics graphs, not history graphs, apart from the Last 7 days chart of an install with apexcharts-card. The daily sensors fall to zero at midnight, so a history graph of them draws a sawtooth. The graphs plot the change in each period instead, from the long-term statistics. They stay empty until Home Assistant has compiled statistics for the sensors, which takes up to an hour.
 
 ### Bill
 
@@ -224,6 +226,7 @@ Figures for the current bill period, so you can hold them against your supplier 
 
 - **Bill so far**: Accrued bill, Projected bill, Import cost and Export credit. A **Tariff** button in the heading opens the Tariff sub-view.
 - **This bill period**: Days elapsed, Days left, Avg import rate and Cheap share (the cheap rate share of import).
+- **Cost per day, last 31 days**: a bar graph of the import cost and the export credit of each day, so you can see which days made the bill. It reads long-term statistics, so it stays empty until Home Assistant has compiled them (up to an hour), and it reaches back 31 days because a bill period is a calendar month at most. The file cannot mark where your bill period starts, because that moves each month.
 
 Days Elapsed in Bill Period, Average Import Rate This Month and Cheap rate import fraction this month are disabled by default. Enable them to see those tiles.
 

@@ -54,6 +54,7 @@ from .cards import (
 from .charts import (
     ImmersionEntities,
     apex_immersion_chart,
+    apex_solar_days_chart,
     builtin_immersion_chart,
     flow_card,
     flow_fallback,
@@ -86,6 +87,14 @@ SUB_TARIFF = "tariff"
 SUB_BATTERY = "battery-detail"
 SUB_SETTINGS = "settings"
 TABS = frozenset({TAB_POWER_FLOW, TAB_TODAY, TAB_BILL, TAB_BATTERY})
+
+# How far back the new charts reach, and how tall they are: grid rows for a built-in graph,
+# pixels for an apexcharts-card chart. A bill period is a calendar month, so 31 days always
+# holds the one in progress. The solar chart reads recorder history, kept 10 days by default.
+_BILL_COST_DAYS = 31
+_SOLAR_DAYS = 7
+_CHART_ROWS = 5
+_CHART_PIXELS = 300
 
 
 # ── Views ────────────────────────────────────────────────────────────────────
@@ -757,9 +766,28 @@ class Builder:
             group(heading_card("Against the forecast", "mdi:chart-line"), forecast),
             group(
                 heading_card("Generation per hour", "mdi:chart-bar"),
-                [statistics_graph([entity_row(solar_today, "Actual")], "hour", 2)],
+                [statistics_graph([entity_row(solar_today, "Actual")], "hour", 2, _CHART_ROWS)],
             ),
+            self._solar_days(),
         ]
+
+    def _solar_days(self) -> dict | None:
+        """The forecast beside what was generated, for each of the last 7 days.
+
+        Built with a forecast sensor set. Only apexcharts-card can plot the forecast, which
+        keeps no long-term statistics, so without it the chart shows what was generated.
+        """
+        actual = self.entity("solar_today")
+        forecast = self.entity("solar_forecast_raw_today")
+        if not (self.has_forecast and actual and forecast):
+            return None
+        if self.cards.use(APEX_CARD):
+            card = apex_solar_days_chart(forecast, actual, _SOLAR_DAYS, _CHART_PIXELS)
+        else:
+            card = statistics_graph(
+                [entity_row(actual, "Generated")], "day", _SOLAR_DAYS, _CHART_ROWS
+            )
+        return group(heading_card(f"Last {_SOLAR_DAYS} days", "mdi:calendar-week"), [card])
 
     # -- Bill --
 
@@ -787,9 +815,23 @@ class Builder:
             ],
         )
 
+    def _bill_cost_per_day(self) -> dict | None:
+        """The import cost and the export earnings of each day, which add up to the bill."""
+        history = statistics_graph(
+            [
+                entity_row(self.entity("import_cost_today"), "Import cost"),
+                entity_row(self.entity("export_earnings_today"), "Export credit"),
+            ],
+            "day",
+            _BILL_COST_DAYS,
+            _CHART_ROWS,
+        )
+        heading = heading_card(f"Cost per day, last {_BILL_COST_DAYS} days", "mdi:chart-bar")
+        return group(heading, [history])
+
     def bill_sections(self) -> list:
         """The month so far and the tariff the sums use, to compare with a real bill."""
-        return [self._bill_so_far(), self._bill_period()]
+        return [self._bill_so_far(), self._bill_period(), self._bill_cost_per_day()]
 
     def tariff_sections(self) -> list:
         """Sub-view: the rates and charges the bill sums use."""
