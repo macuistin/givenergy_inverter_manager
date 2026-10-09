@@ -177,16 +177,16 @@ def test_battery_detail_does_not_depend_on_the_devices(combination):
     ev, switch, sensor = combination
     shown = _view(seen_for(ev=ev, switch=switch, sensor=sensor), "battery-detail")
     assert [s["cards"][0]["heading"] for s in shown["sections"]] == [
-        "Night survival",
+        "Battery overnight",
         "Battery health",
         "Inverter",
     ]
 
 
-def test_the_night_survival_card_does_not_repeat_its_heading():
-    cards = _sections(dashboard_dict(), "battery-detail")["Night survival"]
+def test_the_overnight_card_does_not_repeat_its_heading():
+    cards = _sections(dashboard_dict(), "battery-detail")["Battery overnight"]
     first = next(c for c in cards if c["type"] == "markdown")
-    assert "**Night survival" not in first["content"]
+    assert "**Battery overnight" not in first["content"]
 
 
 # ── Settings ─────────────────────────────────────────────────────────────────

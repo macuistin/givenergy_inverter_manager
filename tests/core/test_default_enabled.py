@@ -8,21 +8,23 @@ from custom_components.givenergy_inverter_manager.core.default_enabled import (
 )
 
 
-def test_the_four_sensors_are_listed():
+def test_the_five_sensors_are_listed():
     assert set(NEWLY_ENABLED_SENSOR_KEYS) == {
         "saving_vs_grid_today",
         "net_saving_today",
         "battery_discharge_kwh_today",
         "next_cheap_rate_start",
+        "charge_plan",
     }
 
 
 def test_each_one_the_integration_disabled_is_selected():
-    held = ["net_saving_today", "next_cheap_rate_start", "saving_vs_grid_today"]
+    held = ["charge_plan", "net_saving_today", "next_cheap_rate_start", "saving_vs_grid_today"]
     assert keys_to_enable(held) == [
         "saving_vs_grid_today",
         "net_saving_today",
         "next_cheap_rate_start",
+        "charge_plan",
     ]
 
 

@@ -365,6 +365,49 @@ class TestTheOilStartSentence:
         assert advice.suggestion.endswith("Heat the water with the oil system now.")
 
 
+class TestNoStartForATrivialTopUp:
+    """The water is above the temperature at which the immersion restarts: there is nothing to start."""
+
+    def test_water_at_54_point_4_says_no_heating_is_needed_and_not_a_start(self):
+        advice = advise(at(15), 0.20, water=water(temp=54.4, gap=4.0), **READY)
+        assert advice.oil_start is None
+        assert advice.suggestion == (
+            "For the 19:00 ready time: the water is expected to be ready with no heating needed."
+        )
+
+    def test_the_sentence_names_tomorrows_ready_time(self):
+        advice = advise(
+            at(22), 0.20, water=water(temp=54.4, gap=4.0), ready_times=(time(7),), scheduled_heating=True
+        )
+        assert advice.suggestion == (
+            "For tomorrow's 07:00 ready time: the water is expected to be ready with no heating "
+            "needed."
+        )
+
+    def test_cold_water_still_gets_a_start(self):
+        advice = advise(at(15), 0.20, water=water(temp=40.0, gap=4.0), **READY)
+        assert advice.oil_start.start_by == at(15, 32)
+        assert "turn the oil water heating on at 15:32" in advice.suggestion
+
+    def test_water_just_below_the_restart_threshold_gets_a_start(self):
+        advice = advise(at(15), 0.20, water=water(temp=50.9, gap=4.0), **READY)
+        assert advice.oil_start.start_by is not None
+
+    def test_water_at_the_restart_threshold_gets_none(self):
+        advice = advise(at(15), 0.20, water=water(temp=51.0, gap=4.0), **READY)
+        assert advice.oil_start is None
+        assert "no heating needed" in advice.suggestion
+
+    def test_without_scheduled_heating_the_sentence_is_the_plain_one(self):
+        advice = advise(at(15), 0.20, water=water(temp=54.4, gap=4.0), ready_times=(time(19),))
+        assert "no heating needed" not in advice.suggestion
+        assert advice.suggestion.endswith("Heat the water with the oil system now.")
+
+    def test_water_at_the_target_keeps_its_own_sentence(self):
+        advice = advise(at(15), 0.20, water=water(temp=55.0, gap=4.0), **READY)
+        assert advice.suggestion.endswith(AT_TARGET)
+
+
 class TestNoOilStartNeeded:
     def test_electricity_in_the_cheap_slot_beats_oil_for_the_morning(self):
         advice = advise(at(1), 0.20, water=water(), ready_times=(time(7),), scheduled_heating=True)

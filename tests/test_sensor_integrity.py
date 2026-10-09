@@ -18,6 +18,7 @@ import pytest
 from homeassistant.components.sensor import SensorStateClass
 
 from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
+from custom_components.givenergy_inverter_manager.sensor_descriptions.base import CURRENCY_UNIT
 from tests.helpers import PKG
 
 _PKG = PKG
@@ -198,3 +199,61 @@ class TestAgainstRealHomeAssistant:
         )
         assert result.returncode == 0, result.stderr[-2000:]
         assert json.loads(result.stdout.strip().splitlines()[-1]) == []
+
+
+# Per-unit prices, not totals: they keep the precision of their own value.
+_PER_UNIT_PRICE_KEYS = frozenset(
+    {
+        "battery_cycle_cost_per_kwh",
+        "ev_cost_per_km_today",
+        "current_rate",
+        "live_grid_cost_rate",
+        "cheapest_rate",
+        "rate_savings_vs_daytime",
+        "avg_import_rate_today",
+        "avg_import_rate_this_week",
+        "avg_import_rate_this_month",
+    }
+)
+
+
+class TestMoneyDisplayPrecision:
+    """A money total shows two decimals everywhere. The stored value stays at full precision."""
+
+    def test_every_money_total_suggests_two_decimals(self):
+        wrong = {
+            d.key: d.suggested_display_precision
+            for d in SENSOR_DESCRIPTIONS
+            if d.native_unit_of_measurement == CURRENCY_UNIT
+            and d.key not in _PER_UNIT_PRICE_KEYS
+            and d.suggested_display_precision != 2
+        }
+        assert wrong == {}
+
+    def test_a_price_per_unit_keeps_its_own_precision(self):
+        priced = {
+            d.key: d.suggested_display_precision
+            for d in SENSOR_DESCRIPTIONS
+            if d.key in _PER_UNIT_PRICE_KEYS
+        }
+        assert set(priced) == _PER_UNIT_PRICE_KEYS
+        assert set(priced.values()) == {None}
+
+    def test_every_monetary_sensor_is_a_total_or_a_listed_price(self):
+        monetary = {
+            d.key for d in SENSOR_DESCRIPTIONS if d.native_unit_of_measurement == CURRENCY_UNIT
+        }
+        assert _PER_UNIT_PRICE_KEYS <= monetary
+
+
+class TestChargePlanSentence:
+    def test_the_charge_plan_is_enabled_by_default_so_the_battery_view_has_its_sentence(self):
+        plan = next(d for d in SENSOR_DESCRIPTIONS if d.key == "charge_plan")
+        assert plan.entity_registry_enabled_default is True
+
+    def test_it_is_listed_for_the_one_time_enable_on_an_install_that_disabled_it(self):
+        from custom_components.givenergy_inverter_manager.core.default_enabled import (
+            NEWLY_ENABLED_SENSOR_KEYS,
+        )
+
+        assert "charge_plan" in NEWLY_ENABLED_SENSOR_KEYS

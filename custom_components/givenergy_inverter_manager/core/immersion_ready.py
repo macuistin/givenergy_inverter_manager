@@ -58,10 +58,21 @@ class RateSegment:
     start: datetime
     end: datetime
     rate: float
+    name: str = ""
 
     @property
     def hours(self) -> float:
         return elapsed_seconds(self.start, self.end) / _SECONDS_PER_HOUR
+
+
+@dataclass(frozen=True)
+class HeatingSpan:
+    """A stretch of planned heating inside one rate band."""
+
+    start: datetime
+    end: datetime
+    rate: float
+    name: str
 
 
 def parse_ready_times(raw: object) -> tuple[time, ...]:
@@ -111,7 +122,8 @@ def rate_segments(tariff: TariffConfig, now: datetime, end: datetime) -> list[Ra
     segments = []
     for seg_start, seg_end in zip(edges, edges[1:], strict=False):
         middle = seg_start + (seg_end - seg_start) / 2
-        segments.append(RateSegment(seg_start, seg_end, tariff.get_current_rate(middle).rate))
+        period = tariff.get_current_rate(middle)
+        segments.append(RateSegment(seg_start, seg_end, period.rate, period.name))
     return segments
 
 
@@ -154,14 +166,27 @@ class Placement:
         total = sum(self.hours.values())
         return sum(self.segments[i].rate * h for i, h in self.hours.items()) / total
 
-    def _starts(self) -> list[datetime]:
-        starts = []
-        for index, given in self.hours.items():
+    @property
+    def spans(self) -> list[HeatingSpan]:
+        """The planned heating in time order, one span per rate band, neighbours joined."""
+        spans: list[HeatingSpan] = []
+        for index in sorted(self.hours):
             segment = self.segments[index]
-            full = given >= segment.hours - 1e-9
-            late = shift_real(segment.end, -timedelta(hours=given))
-            starts.append(segment.start if full else late)
-        return starts
+            span = HeatingSpan(self._start_in(index), segment.end, segment.rate, segment.name)
+            joined = bool(spans) and spans[-1].end == span.start and spans[-1].name == span.name
+            if joined:
+                span = HeatingSpan(spans.pop().start, span.end, span.rate, span.name)
+            spans.append(span)
+        return spans
+
+    def _start_in(self, index: int) -> datetime:
+        segment, given = self.segments[index], self.hours[index]
+        if given >= segment.hours - 1e-9:
+            return segment.start
+        return shift_real(segment.end, -timedelta(hours=given))
+
+    def _starts(self) -> list[datetime]:
+        return [self._start_in(index) for index in self.hours]
 
 
 def place_hours(tariff: TariffConfig, now: datetime, ready: datetime, needed: float) -> Placement:

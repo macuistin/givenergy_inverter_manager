@@ -719,7 +719,7 @@ class TestImmersionHysteresis:
         assert should is True
 
     def test_no_surplus_shows_surplus_reason_not_hysteresis(self):
-        """With 34W solar (no surplus), reason must be insufficient surplus
+        """With 34W solar (no surplus), reason must be the spare solar one,
         not hysteresis — even if water is in the hysteresis band."""
         should, reason = should_divert_to_immersion(
             **self._base(
@@ -732,7 +732,7 @@ class TestImmersionHysteresis:
             )
         )
         assert should is False
-        assert "surplus" in reason.lower(), f"Expected surplus reason, got: {reason!r}"
+        assert "spare solar" in reason.lower(), f"Expected spare solar reason, got: {reason!r}"
         assert "hysteresis" not in reason.lower(), (
             f"Hysteresis reason is misleading when there is no surplus: {reason!r}"
         )
@@ -1102,7 +1102,41 @@ class TestImmersionStartStopBand:
             solar_power_w=400.0, house_load_w=4000.0, currently_on=True, **self._kwargs()
         )
         assert should is False
-        assert "insufficient" in reason.lower()
+        assert "not enough spare solar" in reason.lower()
+
+    def test_a_deficit_is_told_as_the_house_using_more_than_the_panels_make(self):
+        """345 W short reads as plain words, not as a negative surplus that looks like a fault."""
+        should, reason = should_divert_to_immersion(
+            solar_power_w=34.0, house_load_w=379.0, currently_on=False, **self._kwargs()
+        )
+        assert should is False
+        assert reason == (
+            "Not enough spare solar: the house is using 345 W more than the panels make "
+            "(needs 500 W spare)"
+        )
+
+    def test_a_small_positive_surplus_is_told_as_spare_against_needed(self):
+        should, reason = should_divert_to_immersion(
+            solar_power_w=1300.0, house_load_w=1000.0, currently_on=False, **self._kwargs()
+        )
+        assert should is False
+        assert reason == "Not enough spare solar: 300 W spare, needs 500 W"
+
+    def test_a_running_heater_names_the_deficit_it_turns_off_at(self):
+        should, reason = should_divert_to_immersion(
+            solar_power_w=400.0, house_load_w=4000.0, currently_on=True, **self._kwargs()
+        )
+        assert should is False
+        assert reason == (
+            "Not enough spare solar: the house is using 600 W more than the panels make "
+            "(the heater turns off past 500 W)"
+        )
+
+    def test_the_reason_shows_no_negative_figure(self):
+        _, reason = should_divert_to_immersion(
+            solar_power_w=0.0, house_load_w=2000.0, currently_on=False, **self._kwargs()
+        )
+        assert "-" not in reason
 
     def test_band_follows_configured_min_surplus(self):
         should, _ = should_divert_to_immersion(

@@ -30,9 +30,10 @@ def _sunrise_phrase(sunrise: str | None) -> str:
 
 
 def survival_template(level: str, status: str | None, sunrise: str | None) -> str:
-    """The night survival card: the level, then the explanation attribute or a sentence.
+    """The overnight card: the plain outlook, then the explanation attribute or a sentence.
 
-    The heading above the card already says what the level is of.
+    The outlook attribute holds a phrase such as "Lasts the night". An install that lacks it
+    shows the level word instead. The heading above the card already says what it is of.
     """
     status_text = state_ref(status) if status else ""
     warning = (
@@ -42,7 +43,7 @@ def survival_template(level: str, status: str | None, sunrise: str | None) -> st
     )
     return (
         f"{{% set level = states('{level}') %}}"
-        "**{{ level }}**\n\n"
+        f"**{{{{ state_attr('{level}', 'outlook') or level }}}}**\n\n"
         f"{{% if state_attr('{level}', 'explanation') -%}}\n"
         f"{{{{ state_attr('{level}', 'explanation') }}}}\n"
         "{%- elif level | lower == 'warning' -%}\n"
@@ -75,6 +76,23 @@ def ready_by_template(sensor: str) -> str:
         "{%- else -%}\n"
         "No hot water ready time is set. Add one under Hot water ready by in the immersion options."
         "\n{%- endif %}"
+    )
+
+
+def planned_heating_template(sensor: str) -> str:
+    """The planned heating sentence, read from the water temperature sensor.
+
+    The sensor holds planned_heating only while scheduled heating is on and the water
+    temperature is read. A Lovelace condition cannot test for an attribute, so the card says
+    what it is waiting for.
+    """
+    return (
+        f"{{% set text = state_attr('{sensor}', 'planned_heating') %}}"
+        "{% if text -%}\n"
+        "{{ text }}\n"
+        "{%- else -%}\n"
+        "The planned heating shows once the water temperature is read.\n"
+        "{%- endif %}"
     )
 
 

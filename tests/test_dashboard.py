@@ -17,6 +17,11 @@ import pytest
 import yaml
 
 from custom_components.givenergy_inverter_manager.const import CONF_FORECAST_ENTITY
+from custom_components.givenergy_inverter_manager.core.battery import (
+    OUTLOOK_CRITICAL,
+    OUTLOOK_SAFE,
+    OUTLOOK_WARNING,
+)
 from tests.dashboard_support import (
     ENTRY_ID,
     FULL_CONFIG,
@@ -602,16 +607,16 @@ class TestNowSection:
         tiles = self._now(_build())["cards"][1:]
         assert [c["entity"] for c in tiles] == [
             eid("battery_soc"),
-            eid("night_survival_confidence"),
             eid("current_rate"),
             eid("import_cost_today"),
+            eid("night_survival_confidence"),
             eid("next_cheap_rate_start"),
         ]
         assert [c["name"] for c in tiles] == [
             "Battery",
-            "Night survival",
-            "Rate now",
+            "Rate per kWh",
             "Cost today",
+            "Battery overnight",
             "Cheap from",
         ]
 
@@ -633,14 +638,14 @@ class TestNowSection:
         assert battery["features"] == [{"type": "bar-gauge", "min": 0, "max": 100}]
         assert battery["grid_options"]["rows"] > 1
 
-    def test_night_survival_opens_the_explanation(self):
-        """The state is a one word status, so a tap leads to the sentence behind it."""
-        tile = self._now(_build())["cards"][2]
-        assert tile["name"] == "Night survival"
+    def test_battery_overnight_opens_the_explanation(self):
+        """The tile gives a short phrase, so a tap leads to the sentence behind it."""
+        tile = self._now(_build())["cards"][4]
+        assert tile["name"] == "Battery overnight"
         assert tile["tap_action"] == {"action": "navigate", "navigation_path": "battery-detail"}
 
     def test_now_drops_sensors_that_are_disabled_by_default(self):
-        """Night survival confidence is off on a fresh install."""
+        """Battery overnight confidence is off on a fresh install."""
         text = _build(registry=FakeRegistry())
         assert [c["entity"] for c in self._now(text)["cards"][1:]] == [
             eid("battery_soc"),
@@ -649,7 +654,7 @@ class TestNowSection:
             eid("next_cheap_rate_start"),
         ]
         header = text[: text.index("views:")]
-        assert "Night Survival Confidence" in header
+        assert "Battery Overnight Confidence" in header
         for name in ("Hours to Cheap Rate", "Next Cheap Rate Start"):
             assert name not in header
 
@@ -682,7 +687,7 @@ class TestLongTextStates:
     def test_battery_detail_leads_with_night_survival_then_the_charge_reason(self):
         markdown = [c for c in self._battery() if c["type"] == "markdown"]
         assert len(markdown) == 2
-        assert self._battery()[0]["heading"] == "Night survival"
+        assert self._battery()[0]["heading"] == "Battery overnight"
         assert self._battery()[1] == markdown[0]
         assert f"{{{{ states('{eid('overnight_charge_reason')}') }}}}" == markdown[1]["content"]
         night = markdown[0]["content"]
@@ -723,6 +728,13 @@ def _is_number(value) -> bool:
         return False
 
 
+_OUTLOOKS = {
+    "Safe": OUTLOOK_SAFE,
+    "Warning": OUTLOOK_WARNING,
+    "Critical": OUTLOOK_CRITICAL,
+}
+
+
 class TestNightSurvivalCard:
     """The reason behind the level is shown today, from entities that exist today."""
 
@@ -736,14 +748,15 @@ class TestNightSurvivalCard:
 
     def _text(self, level, *, sunrise="13.6", status="Battery should last.", explanation=None):
         states = {self._CONF: level, self._SUNRISE: sunrise, self._STATUS: status}
-        attrs = {(self._CONF, "explanation"): explanation} if explanation else {}
+        attrs = {(self._CONF, "outlook"): _OUTLOOKS[level]} if level in _OUTLOOKS else {}
+        if explanation:
+            attrs[(self._CONF, "explanation")] = explanation
         return _render(self._card(), lambda e: states.get(e, "unknown"), attrs).strip()
 
     def test_the_level_is_bold_and_comes_first(self):
         """The heading above the card says what the level is of, so the card does not repeat it."""
         text = self._text("Warning")
-        assert text.startswith("**Warning**\n\n")
-        assert "Night survival" not in text.splitlines()[0]
+        assert text.startswith("**Only just lasts the night**")
 
     def test_warning_is_explained_from_the_sunrise_estimate(self):
         text = self._text("Warning")
@@ -769,20 +782,25 @@ class TestNightSurvivalCard:
 
     def test_critical_shows_the_status_text_with_the_shortfall(self):
         text = self._text("Critical", status="Short by 2.1 kWh before 08:00.")
-        assert text == "**Critical**\n\nShort by 2.1 kWh before 08:00."
+        assert text == "**May run low**\n\nShort by 2.1 kWh before 08:00."
 
     def test_safe_shows_the_status_text(self):
         text = self._text("Safe", status="Battery should last until solar.")
-        assert text == "**Safe**\n\nBattery should last until solar."
+        assert text == "**Lasts the night**\n\nBattery should last until solar."
 
     def test_without_the_confidence_sensor_only_the_status_text_is_shown(self):
-        """Night Survival Confidence is disabled by default."""
+        """Battery Overnight Confidence is disabled by default."""
         card = self._card(registry=FakeRegistry())
         assert self._CONF not in card
         text = _render(card, lambda e: "Battery should last.").strip()
         assert text == "Battery should last."
 
-    def test_every_night_survival_tile_opens_the_explanation(self):
+    def test_the_level_word_shows_when_the_sensor_has_no_outlook_attribute(self):
+        states = {self._CONF: "Safe", self._SUNRISE: "40", self._STATUS: "ok"}
+        text = _render(self._card(), lambda e: states.get(e, "unknown")).strip()
+        assert text.startswith("**Safe**")
+
+    def test_every_battery_overnight_tile_opens_the_explanation(self):
         tiles = [
             c
             for c in all_cards(yaml.safe_load(_build())["views"])

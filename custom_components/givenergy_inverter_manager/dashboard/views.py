@@ -75,6 +75,7 @@ from .templates import (
     energy_devices_template,
     energy_sources_template,
     oil_schedule_template,
+    planned_heating_template,
     ready_by_template,
     survival_template,
     tariff_changes_table,
@@ -104,6 +105,13 @@ _BILL_COST_DAYS = 31
 _SOLAR_DAYS = 7
 _CHART_ROWS = 5
 _CHART_PIXELS = 300
+
+# The rate sensors report a bare currency amount, and their unit stays that for the long-term
+# statistics. So the tile name says what the amount is for.
+RATE_NAME = "Rate per kWh"
+AVERAGE_RATE_NAME = "Avg import/kWh"
+# What the night survival sensors are called to a person: does the battery last the night.
+OVERNIGHT_NAME = "Battery overnight"
 
 
 # ── Views ────────────────────────────────────────────────────────────────────
@@ -343,7 +351,12 @@ class Builder:
         return out
 
     def _now(self) -> list:
-        """The numbers worth a glance: charge first, then outlook, rate, cost, cheap rate."""
+        """The numbers worth a glance: charge, rate, cost, whether the night is covered, cheap rate.
+
+        The overnight tile is full width because it says two things: whether the battery lasts
+        and the charge expected at sunrise. So the battery tile is two rows tall, beside the
+        rate and cost tiles.
+        """
         return heading_block(
             heading_card("Now", "mdi:clock-outline", badges=self._settings_badges()),
             [
@@ -353,16 +366,18 @@ class Builder:
                     color=BATTERY,
                     features=[BAR],
                     nav=self.go(TAB_BATTERY),
-                    rows=3,
+                    rows=2,
                 ),
+                self.tile("current_rate", RATE_NAME, color=GRID),
+                self.tile("import_cost_today", "Cost today", color=GRID, nav=self.go(TAB_TODAY)),
                 self.tile(
                     "night_survival_confidence",
-                    "Night survival",
+                    OVERNIGHT_NAME,
+                    columns=FULL,
                     color=NIGHT,
                     nav=self.go(SUB_BATTERY),
+                    state_content=["summary"],
                 ),
-                self.tile("current_rate", "Rate now", color=GRID),
-                self.tile("import_cost_today", "Cost today", color=GRID, nav=self.go(TAB_TODAY)),
                 self.tile(
                     "next_cheap_rate_start",
                     "Cheap from",
@@ -540,11 +555,11 @@ class Builder:
         ]
 
     def _ready_by(self) -> dict | None:
-        """The next hot water ready time, while scheduled heating is on.
+        """The next hot water ready time and the planned heating, while scheduled heating is on.
 
         Needs both devices, because scheduled heating does. The sensor's attributes carry the
-        time, so no helper sensor is needed. With an oil price it adds the oil advice sentence,
-        which names when to start the oil for this ready time.
+        time and the plan, so no helper sensor is needed. With an oil price it adds the oil
+        advice sentence, which names when to start the oil for this ready time.
         """
         sensor = self.water_sensor("immersion_water_temperature")
         schedule = self.thermostat("immersion_schedule")
@@ -554,7 +569,11 @@ class Builder:
         oil = attribute_markdown(self.oil_advice("water_heating_cheapest_source"), "suggestion")
         return group(
             heading_card("Ready by", "mdi:clock-check-outline"),
-            [markdown_card(ready_by_template(sensor)), devices.show_with(oil, Device.OIL_ADVICE)],
+            [
+                markdown_card(ready_by_template(sensor)),
+                markdown_card(planned_heating_template(sensor)),
+                devices.show_with(oil, Device.OIL_ADVICE),
+            ],
             visibility=[
                 *devices.visible_with(Device.IMMERSION_THERMOSTAT, Device.IMMERSION_SENSOR),
                 *devices.visible_while_on(schedule),
@@ -719,7 +738,7 @@ class Builder:
             [
                 self.tile("import_cost_today", "Import cost", color=GRID),
                 self.tile("export_earnings_today", "Export earnings", color=BATTERY),
-                self.tile("current_rate", "Rate now", color=GRID),
+                self.tile("current_rate", RATE_NAME, color=GRID),
                 self.tile("current_rate_period", "Rate period", color=GRID),
             ],
         )
@@ -871,7 +890,7 @@ class Builder:
             [
                 self.tile("days_in_period", "Days elapsed"),
                 self.tile("days_remaining_in_period", "Days left"),
-                self.tile("avg_import_rate_this_month", "Avg import rate", color=GRID),
+                self.tile("avg_import_rate_this_month", AVERAGE_RATE_NAME, color=GRID),
                 self.tile("cheap_import_fraction_this_month", "Cheap share", color=GRID),
             ],
         )
@@ -934,9 +953,11 @@ class Builder:
         )
 
     def _charge_plan(self) -> dict | None:
+        """The plan's sentence first: it says whether tonight charges or is skipped."""
         return group(
             heading_card("Tonight's charge plan", "mdi:weather-night"),
             [
+                state_markdown(self.entity("charge_plan")),
                 self.tile("overnight_charge_target", "Target tonight", color=BATTERY),
                 self.tile("overnight_charge_cost", "Est. cost", color=GRID),
                 self.tile("estimated_soc_at_sunrise", "At sunrise", color=BATTERY),
@@ -946,19 +967,31 @@ class Builder:
             ],
         )
 
+    def _target_override_tile(self) -> dict | None:
+        """The override value, shown only while the override is on and so in force."""
+        switch = self.entity("charge_target_override_enabled")
+        if switch is None:
+            return None
+        tile = readonly_tile(self.entity("charge_target_override"), "Target override", BATTERY)
+        return with_visibility(tile, self.devices.visible_while_on(switch))
+
     def _charge_settings_in_force(self) -> dict[str, Any] | None:
         """The charge settings as they stand, to read. Administrators change them."""
         return group(
             heading_card("Charge settings in force", "mdi:tune"),
             [
                 readonly_tile(
-                    self.entity("charge_target_override"), "Target override", BATTERY
-                ),
-                readonly_tile(
                     self.entity("charge_target_override_enabled"), "Override on", BATTERY
                 ),
+                self._target_override_tile(),
                 readonly_tile(self.entity("skip_charge_override"), "Skip tonight", BATTERY),
-                self.tile("dry_run_active", "Dry run", color=GRID, icon="mdi:test-tube"),
+                self.tile(
+                    "dry_run_active",
+                    "Dry run",
+                    color=GRID,
+                    icon="mdi:test-tube",
+                    state_content=["summary"],
+                ),
             ],
         )
 
@@ -997,7 +1030,7 @@ class Builder:
         return [
             grid_section(
                 heading_block(
-                    heading_card("Night survival", "mdi:weather-night"), self._night_survival()
+                    heading_card(OVERNIGHT_NAME, "mdi:weather-night"), self._night_survival()
                 ),
                 heading_block(
                     subheading_card("Tonight's charge target", "mdi:battery-charging"),
@@ -1009,7 +1042,7 @@ class Builder:
         ]
 
     def _night_survival(self) -> list:
-        """The night survival level in bold, then why, in words.
+        """The overnight outlook in bold, then why, in words.
 
         The confidence sensor carries the level. Its explanation attribute is used when
         it has one. Without it a sentence is chosen by level: Warning is explained from

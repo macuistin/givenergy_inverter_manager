@@ -107,6 +107,7 @@ from .oil_advice import (
 )
 from .oil_schedule import ImmersionHeatLog, OilSchedule, ScheduleQuery, suggest_oil_schedule
 from .oil_start import WaterReading
+from .planned_heating import PlanQuery, describe_planned_heating
 from .rules import (
     ChargeDecision,
     ChargeInputs,
@@ -268,6 +269,8 @@ class CoordinatorData:
     # without ready times, without scheduled heating or without a readable temperature.
     immersion_ready_time: time | None = None
     immersion_expected_ready: bool | None = None
+    # What scheduled heating plans, in a sentence. None without scheduled heating or a reading.
+    immersion_planned_heating: str | None = None
     # Oil against electricity for heating the water. None while no oil price is set.
     water_heating_advice: WaterHeatingAdvice | None = None
     # The oil windows the immersion's grid heating suggests. None while no oil price is set or
@@ -1037,6 +1040,16 @@ def _immersion_inputs(data: CoordinatorData, cycle: _Cycle) -> ImmersionInputs:
     )
 
 
+def _set_planned_heating(data: CoordinatorData, cycle: _Cycle) -> None:
+    """The sentence for what scheduled heating plans. Needs scheduled heating and a reading."""
+    raw = cycle.raw
+    water = _water_reading(raw)
+    if not raw.immersion_schedule_enabled or water is None:
+        return
+    query = PlanQuery(cycle.tariff, cycle.now, raw.immersion_ready_times, water, raw.immersion_on)
+    data.immersion_planned_heating = describe_planned_heating(query)
+
+
 def _set_ready_fields(data: CoordinatorData, plan: ReadyPlan, raw: RawSensorValues) -> None:
     """What the ready times expect, for the sensor attributes."""
     data.immersion_ready_time = plan.ready_time
@@ -1106,6 +1119,7 @@ def _set_oil_schedule(data: CoordinatorData, cycle: _Cycle, log: ImmersionHeatLo
 def _set_immersion_decision(data: CoordinatorData, cycle: _Cycle) -> None:
     """Set immersion divert decision."""
     data.battery_cycle_cost_per_kwh = _battery_cycle_cost(cycle.cfg, cycle.raw.battery_capacity_kwh)
+    _set_planned_heating(data, cycle)
     if cycle.overrides.immersion is not None:
         data.should_divert_immersion = cycle.overrides.immersion
         data.divert_reason = "Manual override"

@@ -4,28 +4,52 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
-**Dashboard**
+**Features**
+- The Immersion Water Temperature sensor has a `planned_heating` attribute: a sentence that says
+  what scheduled heating plans for the next ready time and the cheapest window, for example
+  `Heating planned for the 19:00 ready time: 17:10 to 18:30 at the Day rate.` or `No heating
+  planned for the 19:00 ready time (water 54.4°C, ready). Next possible heating: 02:00 to 04:00
+  slot, only if the water is below 51°C by then.` It is there while Immersion Scheduled Heating is
+  on and the water temperature is read. The Ready by section of the Immersion view shows it.
+  What the immersion does is unchanged.
 - The Bill tab has a Cost per day chart: the import cost and the export credit of each of the last
   31 days, which holds a whole bill period.
 - The Solar and forecast view has a Last 7 days chart that sets the provider forecast beside the
   solar generated for each day. It needs apexcharts-card, which now also makes the generated file
   ask for that card when a forecast sensor is set. Without it the chart plots what was generated.
-- The Generation per hour chart on the Solar and forecast view is taller, to match.
+  The Generation per hour chart on the same view is taller, to match.
 - The Tariff view lists the rate changes you have scheduled (the `tariff_changes` option) under
   the tariff in use: the start date, the new base rate, the timed rates and the export rate. It
   also shows the date the tariff was last reviewed. Nothing shows while no change is scheduled.
   The list is read when the file is generated, so generate it again, or use the strategy
   dashboard, after you schedule a change or one starts.
+- EV charger view: new Today section (energy and cost) and a Charge power, last 24 hours graph,
+  both shown only while a charger exists.
+- Settings and the Immersion view explain Managed and Restart gap in a line each, for the devices the
+  install has.
+- Generate the dashboard file again, or use the strategy dashboard, to get the new charts and cards.
+
+**Changes**
+- Night survival is now worded as the battery lasting the night. The Power Flow tile Night survival
+  is Battery overnight, a full-width tile that reads `Lasts the night · 36% at sunrise`, `Only just
+  lasts the night · 12% at sunrise` or `May run low`. The Battery detail heading and card use the
+  same words. Battery Night Survival Status is now Battery Overnight Outlook and Night Survival
+  Confidence is now Battery Overnight Confidence. Their keys, unique IDs and states (Safe, Warning,
+  Critical) are unchanged, and an install made before this release keeps its entity IDs. The
+  confidence sensor gains the attributes `outlook` and `summary`, and its `explanation` no longer
+  starts with the level word.
+- Tonight's charge plan is enabled by default, so the Battery view has its sentence. An install
+  that had it disabled by the integration gets it enabled once on the first start after the
+  upgrade, as in v0.12.0. One you disabled yourself stays disabled. Its large `html` attribute is
+  not recorded.
 - The Today tab no longer shows Self-sufficiency twice. The card on where today's energy came
   from states it with what it means, so its bar is gone from the Solar section. The Power Flow tile
   stays. The bar returns if that card cannot be built.
 - Cost breakdown: the chart is headed Cost per day, last 14 days, and its series are named as the
   tiles above it are (Rest of house, EV charging, Immersion, Export earnings). Grid import is no
   longer plotted, as it is the sum of the first three. Its tile carries the total.
-- EV charger view: new Today section (energy and cost) and a Charge power, last 24 hours graph,
-  both shown only while a charger exists.
 - Battery detail: the inverter temperature and status move to their own Inverter section, out of
-  Battery health. The night survival card no longer repeats its heading before the level.
+  Battery health. The overnight card no longer repeats its heading before the outlook.
 - Settings: the immersion divert reason sits at the end of the section under a Heater decision now
   label, not between the switches.
 - The overnight charge reason says `cautious forecast, 35% of the way from the typical to the low
@@ -33,10 +57,29 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   so an automation that matches the old wording needs the new one.
 - Two tiles say what they are: Yesterday on the Solar view is now Yesterday's accuracy, and Saved by
   solar on the Cost breakdown is now Immersion solar saving. Both take the full width.
-- Settings and the Immersion view explain Managed and Restart gap in a line each, for the devices the
-  install has.
+
+**Fixes**
+- Money totals (costs, earnings, bills, savings and the estimated charge cost) show two decimals
+  on every tile and entity page, for example `127.48 €` instead of `127.4757 €`. The stored value,
+  the unit and the long-term statistics are unchanged, and a sensor registered by an earlier
+  release picks the display up when the integration starts. A rate per kWh keeps its own precision.
+- The dashboard names the unit of a rate. Rate now is now Rate per kWh on Power Flow and Today, and
+  Avg import rate is Avg import/kWh on Bill. The sensors' own unit is unchanged, so long-term
+  statistics are not affected. The Tariff table already gave each rate per kWh.
+- The Battery view says what tonight does. Tonight's charge plan opens with the plan sentence
+  (for example `Skip charge` or `Target 78% · Add 34%`), the sentence being the Tonight's charge
+  plan sensor. Target override shows only while Override on is on,
+  and Dry run reads On or Off. The Dry Run Mode Active sensor keeps the state True or False and
+  gains a `summary` attribute that reads On or Off.
+- Immersion Divert Reason no longer reads `Insufficient surplus (-345W, need 500W)`, which looked
+  like a fault. It now says `Not enough spare solar: the house is using 345 W more than the panels
+  make (needs 500 W spare)`, or `Not enough spare solar: 300 W spare, needs 500 W`. An automation
+  that matches the old text needs the new one.
+- Water Heating Cheapest Source no longer suggests an oil start when the water needs no heating for
+  the ready time. At or above the temperature the immersion restarts at (the target less the
+  restart gap), or when the run would be under 5 minutes, there is no start and the suggestion says
+  the water is expected to be ready with no heating needed.
 - Battery Cycles is shown as a whole number (575, not 575.0). The state keeps its decimals.
-- Generate the dashboard file again, or use the strategy dashboard, to get the new charts and cards.
 
 ## v0.16.0
 

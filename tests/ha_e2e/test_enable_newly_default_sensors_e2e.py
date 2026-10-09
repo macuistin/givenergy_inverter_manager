@@ -18,6 +18,7 @@ from custom_components.givenergy_inverter_manager.core.default_enabled import (
 )
 
 DISABLER = er.RegistryEntryDisabler
+COUNT = len(NEWLY_ENABLED_SENSOR_KEYS)
 
 
 def _register(hass, entry, key: str, disabled_by: er.RegistryEntryDisabler | None) -> str:
@@ -91,7 +92,7 @@ def setup_calls(monkeypatch) -> list[str]:
     return calls
 
 
-async def test_the_four_sensors_are_enabled_after_the_upgrade(
+async def test_the_listed_sensors_are_enabled_after_the_upgrade(
     hass, hass_in_scenario, service_calls, config_entry
 ):
     config_entry.add_to_hass(hass)
@@ -99,7 +100,7 @@ async def test_the_four_sensors_are_enabled_after_the_upgrade(
 
     await _setup(hass, config_entry)
 
-    assert _disabled_by(hass, entity_ids) == [None] * 4
+    assert _disabled_by(hass, entity_ids) == [None] * COUNT
     assert all(hass.states.get(entity_id) is not None for entity_id in entity_ids)
     await _unload(hass, config_entry)
 
@@ -128,7 +129,7 @@ async def test_a_sensor_the_config_entry_or_device_disabled_is_left_alone(
 
     integration._enable_newly_default_sensors(hass, config_entry)
 
-    assert _disabled_by(hass, entity_ids) == [disabler] * 4
+    assert _disabled_by(hass, entity_ids) == [disabler] * COUNT
 
 
 async def test_other_sensors_the_integration_disabled_stay_disabled(
@@ -158,7 +159,7 @@ async def test_an_entity_of_another_config_entry_is_left_alone(
     await _unload(hass, config_entry)
 
 
-async def test_a_fresh_install_has_the_four_enabled_and_changes_nothing(
+async def test_a_fresh_install_has_them_enabled_and_changes_nothing(
     hass, hass_in_scenario, service_calls, config_entry, enabled_events
 ):
     config_entry.add_to_hass(hass)
@@ -182,17 +183,17 @@ async def test_the_first_start_enables_once_and_reloads_once_without_a_loop(
     entity_ids = _register_all(hass, config_entry, DISABLER.INTEGRATION)
 
     await _setup(hass, config_entry)
-    assert len(enabled_events) == 4
+    assert len(enabled_events) == COUNT
     assert len(setup_calls) == 1
 
     await _wait_for_the_scheduled_reload(hass)
     assert config_entry.state is ConfigEntryState.LOADED
     assert len(setup_calls) == 2
-    assert len(enabled_events) == 4
+    assert len(enabled_events) == COUNT
 
     await _wait_for_the_scheduled_reload(hass)
     assert len(setup_calls) == 2
-    assert _disabled_by(hass, entity_ids) == [None] * 4
+    assert _disabled_by(hass, entity_ids) == [None] * COUNT
     await _unload(hass, config_entry)
 
 
@@ -227,5 +228,5 @@ async def test_a_user_who_disables_one_again_is_not_overridden_on_the_next_start
 
     await _setup(hass, config_entry)
 
-    assert _disabled_by(hass, entity_ids) == [DISABLER.USER, None, None, None]
+    assert _disabled_by(hass, entity_ids) == [DISABLER.USER] + [None] * (COUNT - 1)
     await _unload(hass, config_entry)

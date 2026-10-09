@@ -6,8 +6,9 @@ get_dashboard_yaml service writes the YAML to a file.
 
 The generated dashboard has four tabs, all of the "sections" view type. Each section starts
 with a heading card and holds native tile cards:
-  1. Power Flow   - a Now section (charge, night survival, rate, cost, cheap rate), the live
-                    energy flow (power-flow-card-plus from HACS), today's totals and devices
+  1. Power Flow   - a Now section (charge, rate, cost, whether the battery lasts the night,
+                    cheap rate), the live energy flow (power-flow-card-plus from HACS),
+                    today's totals and devices
   2. Today        - energy, cost and self-sufficiency
   3. Bill         - the month so far and the bill period
   4. Battery      - charge, power, charge history and tonight's plan

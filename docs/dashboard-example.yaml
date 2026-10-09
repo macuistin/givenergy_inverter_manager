@@ -50,22 +50,10 @@ views:
         navigation_path: battery
       grid_options:
         columns: 6
-        rows: 3
-    - type: tile
-      entity: sensor.givenergy_inverter_manager_night_survival_confidence
-      name: Night survival
-      color: indigo
-      tap_action:
-        action: navigate
-        navigation_path: battery-detail
-      icon_tap_action:
-        action: navigate
-        navigation_path: battery-detail
-      grid_options:
-        columns: 6
+        rows: 2
     - type: tile
       entity: sensor.givenergy_inverter_manager_current_rate
-      name: Rate now
+      name: Rate per kWh
       color: blue
       grid_options:
         columns: 6
@@ -81,6 +69,20 @@ views:
         navigation_path: today
       grid_options:
         columns: 6
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_battery_overnight_confidence
+      name: Battery overnight
+      color: indigo
+      state_content:
+      - summary
+      tap_action:
+        action: navigate
+        navigation_path: battery-detail
+      icon_tap_action:
+        action: navigate
+        navigation_path: battery-detail
+      grid_options:
+        columns: full
     - type: tile
       entity: sensor.givenergy_inverter_manager_next_cheap_rate_start
       name: Cheap from
@@ -627,7 +629,7 @@ views:
         columns: 6
     - type: tile
       entity: sensor.givenergy_inverter_manager_current_rate
-      name: Rate now
+      name: Rate per kWh
       color: blue
       grid_options:
         columns: 6
@@ -727,7 +729,7 @@ views:
         columns: 6
     - type: tile
       entity: sensor.givenergy_inverter_manager_average_import_rate_this_month
-      name: Avg import rate
+      name: Avg import/kWh
       color: blue
       grid_options:
         columns: 6
@@ -805,6 +807,10 @@ views:
       heading: Tonight's charge plan
       heading_style: title
       icon: mdi:weather-night
+    - type: markdown
+      content: '{{ states(''sensor.givenergy_inverter_manager_tonight_s_charge_plan'') }}'
+      grid_options:
+        columns: full
     - type: tile
       entity: sensor.givenergy_inverter_manager_recommended_overnight_charge_target
       name: Target tonight
@@ -837,16 +843,6 @@ views:
       heading_style: title
       icon: mdi:tune
     - type: tile
-      entity: number.givenergy_inverter_manager_overnight_charge_target_override
-      name: Target override
-      color: green
-      tap_action:
-        action: none
-      icon_tap_action:
-        action: none
-      grid_options:
-        columns: 6
-    - type: tile
       entity: switch.givenergy_inverter_manager_enable_charge_target_override
       name: Override on
       color: green
@@ -856,6 +852,20 @@ views:
         action: none
       grid_options:
         columns: 6
+    - type: tile
+      entity: number.givenergy_inverter_manager_overnight_charge_target_override
+      name: Target override
+      color: green
+      tap_action:
+        action: none
+      icon_tap_action:
+        action: none
+      grid_options:
+        columns: 6
+      visibility:
+      - condition: state
+        entity: switch.givenergy_inverter_manager_enable_charge_target_override
+        state: 'on'
     - type: tile
       entity: switch.givenergy_inverter_manager_force_skip_overnight_charge
       name: Skip tonight
@@ -871,6 +881,8 @@ views:
       name: Dry run
       icon: mdi:test-tube
       color: blue
+      state_content:
+      - summary
       grid_options:
         columns: 6
 - title: Immersion
@@ -1083,6 +1095,15 @@ views:
         {% if expected is true %}The water is expected to be at the target by then.{% elif expected is false %}The water is not expected to reach the target by then.{% else %}Whether the water will be ready in time is not known yet.{% endif %}{% if is_number(rate) %} Heating at about {{ rate | float(0) | round(1) }} °C an hour.{% endif %}
         {%- else -%}
         No hot water ready time is set. Add one under Hot water ready by in the immersion options.
+        {%- endif %}
+      grid_options:
+        columns: full
+    - type: markdown
+      content: |-
+        {% set text = state_attr('sensor.givenergy_inverter_manager_immersion_water_temperature', 'planned_heating') %}{% if text -%}
+        {{ text }}
+        {%- else -%}
+        The planned heating shows once the water temperature is read.
         {%- endif %}
       grid_options:
         columns: full
@@ -1677,19 +1698,19 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: Night survival
+      heading: Battery overnight
       heading_style: title
       icon: mdi:weather-night
     - type: markdown
       content: |-
-        {% set level = states('sensor.givenergy_inverter_manager_night_survival_confidence') %}**{{ level }}**
+        {% set level = states('sensor.givenergy_inverter_manager_battery_overnight_confidence') %}**{{ state_attr('sensor.givenergy_inverter_manager_battery_overnight_confidence', 'outlook') or level }}**
 
-        {% if state_attr('sensor.givenergy_inverter_manager_night_survival_confidence', 'explanation') -%}
-        {{ state_attr('sensor.givenergy_inverter_manager_night_survival_confidence', 'explanation') }}
+        {% if state_attr('sensor.givenergy_inverter_manager_battery_overnight_confidence', 'explanation') -%}
+        {{ state_attr('sensor.givenergy_inverter_manager_battery_overnight_confidence', 'explanation') }}
         {%- elif level | lower == 'warning' -%}
         The battery should last until solar starts, but only just. It is expected to reach {% if has_value('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') %}about {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') | float(0) | round(0) | int }}% at sunrise{% else %}the minimum at sunrise{% endif %}, close to your minimum charge. A warning shows when the estimate is within 5 points of the minimum.
         {%- else -%}
-        {{ states('sensor.givenergy_inverter_manager_battery_night_survival_status') }}
+        {{ states('sensor.givenergy_inverter_manager_battery_overnight_outlook') }}
         {%- endif %}
       grid_options:
         columns: full

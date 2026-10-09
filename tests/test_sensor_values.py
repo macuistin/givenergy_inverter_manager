@@ -298,6 +298,39 @@ class TestImmersionReadyAttributes:
         }
 
 
+class TestImmersionWaterAttributes:
+    def test_none_without_a_ready_time_or_a_plan(self):
+        assert values.immersion_water_attributes(make_data()) is None
+
+    def test_the_plan_alone_when_no_ready_time_is_set(self):
+        data = make_data(immersion_planned_heating="No ready time is set.")
+        assert values.immersion_water_attributes(data) == {
+            "planned_heating": "No ready time is set."
+        }
+
+    def test_the_ready_attributes_stay_and_the_plan_joins_them(self):
+        from datetime import time
+
+        data = make_data(
+            immersion_ready_time=time(19, 0),
+            immersion_expected_ready=True,
+            immersion_heating_rate_c_per_h=8.6,
+            immersion_rate_source="assumed",
+            immersion_planned_heating="No heating planned.",
+        )
+        attributes = values.immersion_water_attributes(data)
+        assert attributes == {
+            **values.immersion_ready_attributes(data),
+            "planned_heating": "No heating planned.",
+        }
+
+    def test_the_ready_attributes_alone_without_a_plan(self):
+        from datetime import time
+
+        data = make_data(immersion_ready_time=time(19, 0), immersion_expected_ready=False)
+        assert values.immersion_water_attributes(data) == values.immersion_ready_attributes(data)
+
+
 class TestWaterHeatingAdvice:
     def _data(self):
         from custom_components.givenergy_inverter_manager.core.oil_advice import WaterHeatingAdvice
@@ -456,6 +489,16 @@ class TestCheapRateAttributes:
     def test_absent_on_a_tariff_without_a_cheap_period(self):
         data = make_data(next_cheap_rate_start=None, hours_to_cheap_rate=None)
         assert values.cheap_rate_attributes(data) is None
+
+
+class TestDryRunAttributes:
+    """The dashboard tile reads On or Off. The state stays True or False."""
+
+    def test_on(self):
+        assert values.dry_run_attributes(make_data(dry_run=True)) == {"summary": "On"}
+
+    def test_off(self):
+        assert values.dry_run_attributes(make_data(dry_run=False)) == {"summary": "Off"}
 
 
 class TestGivTCPRateAttributes:
@@ -684,7 +727,8 @@ class TestNightSurvivalConfidence:
 
     def test_attributes_explain_the_level(self):
         attrs = values.night_survival_attributes(self._night(survive=False, reason="Runs out"))
-        assert attrs["explanation"].startswith("Critical")
+        assert attrs["explanation"] == "Runs out"
+        assert attrs["outlook"] == "May run low"
 
 
 class TestRegisterWriteAttributes:

@@ -60,6 +60,21 @@ class WaterReading:
         return hours_to_heat(self.temp, self.target, self.rate_c_per_h)
 
     @property
+    def restart_below(self) -> float:
+        """The temperature the immersion has to cool below before it starts a run of its own."""
+        return self.target - self.restart_gap_c
+
+    @property
+    def needs_heating(self) -> bool:
+        """Whether a ready time needs heat: below the restart threshold, run of 5 minutes or more.
+
+        Above the threshold, or for a run shorter than one rounding step, the water is as good
+        as ready and an oil start would only be noise.
+        """
+        long_enough = self.hours_to_target * _MINUTES_PER_HOUR >= _RUN_ROUND_MINUTES
+        return self.temp < self.restart_below and long_enough
+
+    @property
     def keep_warm_below(self) -> float:
         """The temperature at or below which a keep-warm run is worth suggesting.
 
@@ -108,10 +123,10 @@ def _to_the_minute(moment: datetime) -> datetime:
 
 
 def suggest_oil_start(query: StartQuery, ready_at: datetime) -> OilStart | None:
-    """The oil run for this ready time, None when the water is already at the target."""
-    needed = query.water.hours_to_target
-    if needed <= 0:
+    """The oil run for this ready time, None when the water needs no heating (see needs_heating)."""
+    if not query.water.needs_heating:
         return None
+    needed = query.water.hours_to_target
     placed = place_hours(query.tariff, query.now, ready_at, needed)
     grid = query.tariff.effective_import_rate(placed.average_rate)
     by_solar = query.solar_cost is not None and query.solar_cost < grid

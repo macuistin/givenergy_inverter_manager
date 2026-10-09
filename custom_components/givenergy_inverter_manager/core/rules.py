@@ -864,6 +864,25 @@ def _restart_block(water: WaterState, run: ImmersionRun) -> Verdict | None:
     return None
 
 
+def _short_surplus_reason(surplus: _Surplus) -> str:
+    """Say in plain words why the spare solar is not enough.
+
+    A negative figure is not a fault: the house uses more than the panels make. A heater that
+    is already on may run on a deficit up to the limit, so its limit is a negative figure too.
+    """
+    if surplus.required_w < 0:
+        return (
+            f"Not enough spare solar: the house is using {-surplus.net_w:.0f} W more than "
+            f"the panels make (the heater turns off past {-surplus.required_w:.0f} W)"
+        )
+    if surplus.net_w < 0:
+        return (
+            f"Not enough spare solar: the house is using {-surplus.net_w:.0f} W more than "
+            f"the panels make (needs {surplus.required_w:.0f} W spare)"
+        )
+    return f"Not enough spare solar: {surplus.net_w:.0f} W spare, needs {surplus.required_w:.0f} W"
+
+
 def _surplus_decision(inputs: ImmersionInputs, readings: _Readings) -> Verdict:
     power = inputs.power
     if power.battery_soc < inputs.policy.soc_threshold:
@@ -872,9 +891,7 @@ def _surplus_decision(inputs: ImmersionInputs, readings: _Readings) -> Verdict:
         )
     surplus = _assess_surplus(inputs, readings)
     if not surplus.sufficient:
-        return False, (
-            f"Insufficient surplus ({surplus.net_w:.0f}W, need {surplus.required_w:.0f}W)"
-        )
+        return False, _short_surplus_reason(surplus)
     blocked = _cycle_cost_block(inputs.policy) or _restart_block(inputs.water, inputs.run)
     if blocked is not None:
         return blocked
