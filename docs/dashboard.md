@@ -206,7 +206,7 @@ The sections show only while a charger exists.
 
   The card reads four attributes of the Self Sufficiency sensor: `house_load_kwh`, `from_grid_kwh`, `grid_to_battery_kwh` and `basis`. Where one is missing it uses the House Load Today and Grid Import Today totals. The whole group is left out when Self Sufficiency, House Load Today or Grid Import Today is missing.
 - **Cost**: Import cost, Export earnings, Rate per kWh and Rate period. The heading opens Cost breakdown.
-- **Solar**: Solar share and Self-consumption, each with a bar. The heading opens Solar and forecast. Self-sufficiency has no bar here, because the card above it states the figure with what it means. The Power Flow tab keeps its Self-sufficient tile, as the glance. The bar comes back on this tab when that card cannot be built, which happens when Self Sufficiency, House Load Today or Grid Import Today is missing, so the figure is never lost.
+- **Solar**: Home use from solar and Solar kept at home, each with a bar. Home use from solar is the Solar Share sensor: the share of what the house used that solar supplied. Solar kept at home is the Self Consumption sensor: the share of today's solar that was not exported. The heading opens Solar and forecast. Self-sufficiency has no bar here, because the card above it states the figure with what it means. The Power Flow tab keeps its Self-sufficient tile, as the glance. The bar comes back on this tab when that card cannot be built, which happens when Self Sufficiency, House Load Today or Grid Import Today is missing, so the figure is never lost.
 
 ### Cost breakdown (sub-view)
 

@@ -650,7 +650,7 @@ views:
         navigation_path: solar
     - type: tile
       entity: sensor.givenergy_inverter_manager_solar_share
-      name: Solar share
+      name: Home use from solar
       color: amber
       features:
       - type: bar-gauge
@@ -660,7 +660,7 @@ views:
         columns: full
     - type: tile
       entity: sensor.givenergy_inverter_manager_self_consumption
-      name: Self-consumption
+      name: Solar kept at home
       color: amber
       features:
       - type: bar-gauge

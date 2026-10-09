@@ -61,6 +61,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   it said Charge target and Use target.
 - Two tiles say what they are: Yesterday on the Solar view is now Yesterday's accuracy, and Saved by
   solar on the Cost breakdown is now Immersion solar saving. Both take the full width.
+- The two bars in the Solar section of the Today tab say what they measure: Solar share is now Home
+  use from solar (the share of what the house used that solar supplied) and Self-consumption is now
+  Solar kept at home (the share of today's solar that was not exported). The entities keep their names.
 
 **Fixes**
 - Money totals (costs, earnings, bills, savings and the estimated charge cost) show two decimals

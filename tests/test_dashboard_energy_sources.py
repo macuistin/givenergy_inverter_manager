@@ -252,7 +252,7 @@ class TestSelfSufficiencyIsShownOnce:
     def test_the_today_bars_leave_it_out_while_the_card_states_it(self):
         config = _generated()
         assert self._says_it_in_words(config)
-        assert self._bars(config) == ["Solar share", "Self-consumption"]
+        assert self._bars(config) == ["Home use from solar", "Solar kept at home"]
 
     def test_no_tile_of_the_today_tab_repeats_the_figure(self):
         cards = view_cards(_view(_generated(), "today"))
@@ -267,9 +267,9 @@ class TestSelfSufficiencyIsShownOnce:
         """Losing the card must not lose the figure."""
         config = _generated(absent={missing})
         assert not self._says_it_in_words(config)
-        assert self._bars(config) == ["Self-sufficiency", "Solar share", "Self-consumption"]
+        assert self._bars(config) == ["Self-sufficiency", "Home use from solar", "Solar kept at home"]
 
     def test_the_figure_is_gone_from_the_today_tab_when_its_sensor_is_missing(self):
         config = _generated(absent={"self_sufficiency"})
-        assert self._bars(config) == ["Solar share", "Self-consumption"]
+        assert self._bars(config) == ["Home use from solar", "Solar kept at home"]
         assert CARD not in yaml.safe_dump(_view(config, "today"))

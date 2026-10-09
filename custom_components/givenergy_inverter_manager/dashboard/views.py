@@ -756,8 +756,8 @@ class Builder:
             heading_card("Solar", "mdi:weather-sunny", nav=self.go(SUB_SOLAR)),
             [
                 None if stated else self.tile("self_sufficiency", "Self-sufficiency", **share),
-                self.tile("solar_share", "Solar share", **share),
-                self.tile("self_consumption", "Self-consumption", **share),
+                self.tile("solar_share", "Home use from solar", **share),
+                self.tile("self_consumption", "Solar kept at home", **share),
             ],
         )
 
