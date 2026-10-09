@@ -1,7 +1,8 @@
-"""The base rate import sensors say base rate, and kept their keys.
+"""Renamed sensors keep their keys. The base rate and overnight sensors say what they mean.
 
 No peak band is configured: these sensors count import made while no timed rate period is
-active, which is the base rate. Only the display names changed. The key is the unique ID, so
+active, which is the base rate. The two overnight sensors say whether the battery lasts the
+night, not "night survival". Only the display names changed. The key is the unique ID, so
 history and statistics stay with the sensor. docs/sensors.md lists the old names under
 "Renamed sensors".
 """
@@ -32,7 +33,7 @@ def _names(path: str) -> dict[str, str]:
     return {key: value["name"] for key, value in sensors.items() if "name" in value}
 
 
-def test_the_renamed_sensors_are_the_peak_keyed_ones(renamed):
+def test_the_renamed_sensors_are_the_peak_keyed_and_overnight_ones(renamed):
     keys = {key for key, _, _ in renamed}
     assert keys == {
         "import_kwh_peak_today",
@@ -41,6 +42,8 @@ def test_the_renamed_sensors_are_the_peak_keyed_ones(renamed):
         "import_kwh_peak_this_month",
         "import_cost_peak_today",
         "peak_import_fraction_today",
+        "night_survival_reason",
+        "night_survival_confidence",
     }
 
 
@@ -54,6 +57,14 @@ def test_each_sensor_shows_its_new_name(renamed, path):
 @pytest.mark.parametrize("path", ["strings.json", "translations/en.json"])
 def test_no_name_says_peak_rate_any_more(path):
     assert [name for name in _names(path).values() if "peak rate" in name.lower()] == []
+
+
+@pytest.mark.parametrize("path", ["strings.json", "translations/en.json"])
+def test_the_overnight_sensors_are_named_in_plain_words(path):
+    names = _names(path)
+    assert names["night_survival_reason"] == "Battery Overnight Outlook"
+    assert names["night_survival_confidence"] == "Battery Overnight Confidence"
+    assert [n for n in names.values() if "survival" in n.lower()] == []
 
 
 def test_the_keys_and_translation_keys_did_not_change(renamed):

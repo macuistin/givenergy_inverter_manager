@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 150 sensors. 98 are enabled by default and 52 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 150 sensors. 99 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches, numbers and the button, see [Entities](entities.md).
 
@@ -82,7 +82,7 @@ Accumulated since local midnight. They report `last_reset` as the most recent mi
 
 ## Cost and savings today
 
-Money sensors use the currency symbol you chose in the tariff.
+Money sensors use the currency symbol you chose in the tariff. A cost, earning, bill or saving total shows two decimals. A rate per kWh shows its own precision.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
@@ -141,7 +141,7 @@ Health, wear and state of the battery.
 | Battery Throughput Budget Used | `battery_throughput_budget_pct` | % | - | measurement | no | no | Today's throughput as a share of the daily budget. Empty when the budget is 0. Diagnostic category. |
 | Battery Throughput Budget Status | `battery_throughput_budget_status` | - | - | none | no | no | OK, High (80% or more) or Over budget. Diagnostic category. |
 
-## Charge plan and night survival
+## Charge plan and overnight outlook
 
 Outputs of the overnight charge calculation.
 
@@ -152,8 +152,8 @@ Outputs of the overnight charge calculation.
 | Overnight Charge Window | `overnight_charge_window` | - | - | none | no | yes | The charge window written to slot 1, sized to the plan. The end holds until the plan moves it 15 minutes or more and the shown end has stood for an hour, or 45 minutes or more at once. Attributes: `window_start`, `window_end`, `window_extended`, `expected_kwh` and `expected_finish`. Diagnostic category. |
 | Estimated Overnight Charge Cost | `overnight_charge_cost` | currency | monetary | none | no | yes | kWh to charge times the cheapest rate, before discount and VAT. Diagnostic category. |
 | Estimated SoC at Sunrise | `estimated_soc_at_sunrise` | % | - | measurement | no | yes | Projected SoC when solar starts, taken as 08:00. While solar is generating it covers tonight's 8 hour pre-solar window from the current SoC. |
-| Battery Night Survival Status | `night_survival_reason` | - | - | none | no | yes | Whether the battery should last until 08:00, with any shortfall. The charge plan does not skip a night this sensor calls Critical. Diagnostic category. |
-| Night Survival Confidence | `night_survival_confidence` | - | - | none | no | no | Safe, Warning (within 5 points of minimum SoC) or Critical. The attributes say why and give the numbers. |
+| Battery Overnight Outlook | `night_survival_reason` | - | - | none | no | yes | Whether the battery should last until 08:00, with any shortfall. The charge plan does not skip a night this sensor calls Critical. Diagnostic category. |
+| Battery Overnight Confidence | `night_survival_confidence` | - | - | none | no | no | Safe, Warning (within 5 points of minimum SoC) or Critical. The attributes say why and give the numbers. `outlook` and `summary` say it in words for the dashboard, for example Lasts the night, with the charge expected at sunrise. |
 | Cheap Rate Floor | `cheap_rate_floor_status` | - | - | none | no | yes | State of the cheap rate floor top-up, or Inactive. Diagnostic category. |
 
 ## Immersion
@@ -163,7 +163,7 @@ Output of the immersion divert rule, the water temperature and the oil water hea
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Immersion Divert Reason | `immersion_divert_reason` | - | - | none | no | yes | Why the immersion is on or off. Diagnostic category. |
-| Immersion Water Temperature | `immersion_water_temperature` | °C | temperature | measurement | no | yes | Reading of the immersion temperature sensor you set. Also lets a stored dashboard show the water temperature as soon as a sensor is set. Created only with an immersion temperature sensor. |
+| Immersion Water Temperature | `immersion_water_temperature` | °C | temperature | measurement | no | yes | Reading of the immersion temperature sensor you set. Also lets a stored dashboard show the water temperature as soon as a sensor is set. With Immersion Scheduled Heating on, the `planned_heating` attribute says in a sentence what the immersion plans for the next ready time and the cheapest window. With ready times set it also has `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source`. Created only with an immersion temperature sensor. |
 | Water Heating Cheapest Source | `water_heating_cheapest_source` | - | - | none | no | yes | The cheapest way to heat the water now: `electricity`, `solar` or `oil`. Compares the cost of a kWh of heat from the grid (after discount and VAT), from solar surplus (the export rate) and from oil (the price of a litre over 85% of 10.35 kWh). Advice only: the integration does not control the oil boiler. The `suggestion` attribute is a sentence saying what to do and until when. Other attributes: `oil_cost_per_kwh`, `electricity_cost_per_kwh`, `cheapest_electricity_cost_per_kwh` (to the next ready time or 24 hours), `oil_saving_per_kwh` (negative when oil is dearer), `best_hours_for_oil`, `horizon`, `horizon_ends` and `cheapest_source_in_horizon`. With a water temperature reading it also says whether the water needs heating. While scheduled heating is on and a ready time is set, and oil is cheaper than the grid the immersion plan would use, it adds `oil_start_by` (local time), `oil_run_minutes` and `oil_for_ready_time`: start the oil then and the immersion only tops up. Absent when no oil start is needed. `oil_keep_warm` is a sentence, present while the water is at or below the lower of the minimum temperature plus the restart gap and the target less the restart gap, solar surplus is not heating it and oil is cheaper than the grid now. The suggestion puts the oil start first, then the keep-warm run. After 7 days of the immersion's grid heating it also suggests a recurring oil schedule, apart from `suggestion`: `oil_schedule` (a list of `HH:MM to HH:MM` windows, empty when nothing is worth suggesting), `oil_schedule_saving` (saved over the record, in your currency), `oil_schedule_days` (complete days read, up to 14) and `oil_schedule_suggestion` (the sentence, only with a schedule). All four are absent before 7 days. Use them in your own automations: the integration does not switch the oil system. Unavailable while the price cannot be read. Created only with an oil price and an immersion switch. |
 
 ## EV charger
@@ -278,20 +278,20 @@ The state is a one-line summary. The `html` attribute holds a styled report for 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Today's energy summary | `today_summary` | - | - | none | no | no | Solar, import cost, immersion savings and self-sufficiency for today. |
-| Tonight's charge plan | `charge_plan` | - | - | none | no | no | Tonight's target, the percentage to add and the cost, or Skip charge. |
+| Tonight's charge plan | `charge_plan` | - | - | none | no | yes | Tonight's target, the percentage to add and the cost, or Skip charge. |
 | This week's energy summary | `week_summary` | - | - | none | no | no | Solar, import cost and self-sufficiency for this week. |
 
 ## Dry run and diagnostics
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Dry Run Mode Active | `dry_run_active` | - | - | none | no | yes | True when dry run mode is on. Diagnostic category. |
+| Dry Run Mode Active | `dry_run_active` | - | - | none | no | yes | True when dry run mode is on. The `summary` attribute reads On or Off, for the dashboard tile. Diagnostic category. |
 | Last Skipped Action (Dry Run) | `dry_run_last_skipped` | - | - | none | no | yes | The last action dry run mode held back. Diagnostic category. |
 | Integration Version | `integration_version` | - | - | none | no | no | Installed integration version. Diagnostic category. |
 
 ## Renamed sensors
 
-These sensors were renamed because they measure the base rate, the rate that applies while no timed rate period is active. They are not a peak band, and no peak band is configured. The key and the unique ID did not change, so history, statistics and automations carry on. An install made before the rename keeps its old entity IDs, which still contain `peak`. A new install builds entity IDs from the new names.
+The base rate sensors were renamed because they measure the base rate, the rate that applies while no timed rate period is active. They are not a peak band, and no peak band is configured. The two overnight sensors were renamed because night survival read like an alarm: they tell whether the battery lasts the night. In both groups the key and the unique ID did not change, so history, statistics and automations carry on. An install made before a rename keeps its old entity IDs, which still contain `peak` or `night_survival`. A new install builds entity IDs from the new names.
 
 | Key | Previous name | Name now |
 |---|---|---|
@@ -301,6 +301,8 @@ These sensors were renamed because they measure the base rate, the rate that app
 | `import_kwh_peak_this_month` | Import at peak rate this month | Import at base rate this month |
 | `import_cost_peak_today` | Import cost at peak rate | Import cost at base rate |
 | `peak_import_fraction_today` | Peak rate import fraction | Base rate import fraction |
+| `night_survival_reason` | Battery Night Survival Status | Battery Overnight Outlook |
+| `night_survival_confidence` | Night Survival Confidence | Battery Overnight Confidence |
 
 ## Removed sensors
 

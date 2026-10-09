@@ -7,7 +7,7 @@ from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfEnergy
 
 from .. import sensor_values as values
 from ..core.devices import Device
-from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
+from .base import CURRENCY_UNIT, MONEY_PRECISION, GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     # ── Today — rate-tier breakdown and savings ───────────────────────────────
@@ -35,6 +35,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="import_cost_cheap_today",
         translation_key="import_cost_cheap_today",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:cash-minus",
         is_daily_total=True,
@@ -44,6 +45,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="import_cost_peak_today",
         translation_key="import_cost_peak_today",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:cash",
         is_daily_total=True,
@@ -89,6 +91,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         requires=Device.IMMERSION_SWITCH,
         translation_key="immersion_savings_today",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:water-boiler",
         is_daily_total=True,

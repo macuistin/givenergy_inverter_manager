@@ -199,6 +199,11 @@ def cheap_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     return None if summary is None else {"summary": summary}
 
 
+def dry_run_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """Return the summary attribute a dashboard tile shows: On or Off, not True or False."""
+    return {"summary": "On" if data.dry_run else "Off"}
+
+
 def immersion_ready_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """Return the next hot water ready time, whether it will be met and the rate behind it."""
     if data.immersion_ready_time is None:
@@ -209,6 +214,14 @@ def immersion_ready_attributes(data: CoordinatorData) -> dict[str, Any] | None:
         "heating_rate_c_per_h": data.immersion_heating_rate_c_per_h,
         "heating_rate_source": data.immersion_rate_source,
     }
+
+
+def immersion_water_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """The ready-by attributes and the planned heating sentence, None while neither is set."""
+    attributes = immersion_ready_attributes(data) or {}
+    if data.immersion_planned_heating is not None:
+        attributes = {**attributes, "planned_heating": data.immersion_planned_heating}
+    return attributes or None
 
 
 def water_heating_source(data: CoordinatorData) -> str | None:

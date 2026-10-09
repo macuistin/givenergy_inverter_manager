@@ -199,7 +199,7 @@ class TestEveryCombination:
         ]
         assert ("EV charging" in names) == ev
         assert ("Immersion" in names) == switch
-        assert ("Saved by solar" in names) == switch
+        assert ("Immersion solar saving" in names) == switch
 
     def test_exactly_one_power_flow_card_is_shown_and_it_draws_the_devices_present(self, combination):
         ev, switch, _ = combination
@@ -515,10 +515,11 @@ def test_the_oil_suggestion_in_ready_by_prints_the_sensors_suggestion():
     assert f"state_attr('{OIL_SENTINEL}', 'suggestion')" in card["content"]
 
 
-def test_ready_by_keeps_its_own_card_without_an_oil_price():
+def test_ready_by_keeps_its_own_cards_without_an_oil_price():
     cards = _ready_by_cards(seen_for(switch=True, sensor=True))
-    assert len(cards) == 1
+    assert len(cards) == 2
     assert "state_attr(sensor, 'ready_by')" in cards[0]["content"]
+    assert "'planned_heating'" in cards[1]["content"]
 
 
 def test_the_oil_suggestion_arrives_in_a_file_made_before_the_price_was_set():

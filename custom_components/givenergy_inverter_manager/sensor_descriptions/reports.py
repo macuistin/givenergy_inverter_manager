@@ -26,7 +26,6 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="charge_plan",
         translation_key="charge_plan",
         icon="mdi:battery-clock-outline",
-        entity_registry_enabled_default=False,
         value_fn=build_charge_plan_state,
         html_fn=build_charge_plan_html,
     ),

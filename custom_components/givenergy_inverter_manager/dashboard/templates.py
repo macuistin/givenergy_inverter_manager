@@ -5,9 +5,16 @@ templates.py - the text of the markdown cards that are more than an entity's sta
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
-from ..const import CONF_CURRENCY, CURRENCIES, DEFAULT_CURRENCY, OIL_SCHEDULE_MIN_DAYS
-from ..core.tariff import TariffConfig
+from ..const import (
+    CONF_CURRENCY,
+    CURRENCIES,
+    DEFAULT_CURRENCY,
+    IMMERSION_SWITCH_COOLDOWN_MINUTES,
+    OIL_SCHEDULE_MIN_DAYS,
+)
+from ..core.tariff import TariffChange, TariffConfig, build_tariff
 from .cards import state_ref
 
 
@@ -23,7 +30,11 @@ def _sunrise_phrase(sunrise: str | None) -> str:
 
 
 def survival_template(level: str, status: str | None, sunrise: str | None) -> str:
-    """The night survival card: the level, then the explanation attribute or a sentence."""
+    """The overnight card: the plain outlook, then the explanation attribute or a sentence.
+
+    The outlook attribute holds a phrase such as "Lasts the night". An install that lacks it
+    shows the level word instead. The heading above the card already says what it is of.
+    """
     status_text = state_ref(status) if status else ""
     warning = (
         "The battery should last until solar starts, but only just. "
@@ -32,7 +43,7 @@ def survival_template(level: str, status: str | None, sunrise: str | None) -> st
     )
     return (
         f"{{% set level = states('{level}') %}}"
-        "**Night survival: {{ level }}**\n\n"
+        f"**{{{{ state_attr('{level}', 'outlook') or level }}}}**\n\n"
         f"{{% if state_attr('{level}', 'explanation') -%}}\n"
         f"{{{{ state_attr('{level}', 'explanation') }}}}\n"
         "{%- elif level | lower == 'warning' -%}\n"
@@ -68,6 +79,23 @@ def ready_by_template(sensor: str) -> str:
     )
 
 
+def planned_heating_template(sensor: str) -> str:
+    """The planned heating sentence, read from the water temperature sensor.
+
+    The sensor holds planned_heating only while scheduled heating is on and the water
+    temperature is read. A Lovelace condition cannot test for an attribute, so the card says
+    what it is waiting for.
+    """
+    return (
+        f"{{% set text = state_attr('{sensor}', 'planned_heating') %}}"
+        "{% if text -%}\n"
+        "{{ text }}\n"
+        "{%- else -%}\n"
+        "The planned heating shows once the water temperature is read.\n"
+        "{%- endif %}"
+    )
+
+
 def oil_schedule_template(source: str) -> str:
     """The suggested oil schedule line, read from the cheapest source sensor.
 
@@ -90,9 +118,24 @@ def oil_schedule_template(source: str) -> str:
     )
 
 
+# What two immersion settings do, in words. Their names say little on their own.
+MANAGED_HELP = (
+    "**Managed**: turn it on to force a heating run until the water reaches the target. "
+    f"Turn it off to hold the heater off for {IMMERSION_SWITCH_COOLDOWN_MINUTES} minutes."
+)
+RESTART_GAP_HELP = (
+    "**Restart gap**: how far the water must fall below the target before a new heating run "
+    "starts."
+)
+
+
+def _currency_symbol(cfg: dict) -> str:
+    return CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), "€")
+
+
 def tariff_table(tariff: TariffConfig, cfg: dict) -> str:
     """Markdown table of the rates the integration prices energy with."""
-    symbol = CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), "€")
+    symbol = _currency_symbol(cfg)
     billed = (1 - tariff.discount_rate / 100) * (1 + tariff.vat_rate / 100)
     rows = [(tariff.base_rate_name, "all other times", tariff.base_rate)]
     rows += [(p.name, f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate) for p in tariff.rate_periods]
@@ -111,6 +154,47 @@ def tariff_table(tariff: TariffConfig, cfg: dict) -> str:
         f"| PSO levy | {symbol}{tariff.pso_levy:.2f} per bill period |",
         f"| Bill starts on day | {tariff.bill_start_day} |",
     ]
+    return "\n".join(lines)
+
+
+def _day(day: date) -> str:
+    """A date in words, such as 1 Nov 2026."""
+    return f"{day.day} {day:%b %Y}"
+
+
+def _change_row(change: TariffChange, cfg: dict) -> str:
+    """One row: the date, then the base rate, the timed rates and the export rate from it."""
+    symbol = _currency_symbol(cfg)
+    rates = build_tariff({**cfg, **change.rates})
+    windows = (
+        f"{p.name} {p.start:%H:%M} to {p.end:%H:%M} {symbol}{p.rate:.4f}"
+        for p in rates.rate_periods
+    )
+    timed = "<br>".join(windows) or "none"
+    base = f"{rates.base_rate_name} {symbol}{rates.base_rate:.4f}"
+    export = f"{symbol}{rates.export_rate:.4f}"
+    return f"| {_day(change.effective)} | {base} | {timed} | {export} |"
+
+
+def tariff_changes_table(
+    changes: list[TariffChange], cfg: dict, reviewed: date | None
+) -> str | None:
+    """Markdown table of the rate changes that have not started, with the last review date.
+
+    None when no change is scheduled, so a tariff with nothing coming shows no table.
+    """
+    if not changes:
+        return None
+    lines = [
+        "| From | Base rate | Timed rates | Export rate per kWh |",
+        "|---|---|---|---:|",
+        *(_change_row(change, cfg) for change in changes),
+        "",
+        "A change replaces the base rate, the timed rates and the export rate from its date. "
+        "The other charges stay as in the table above.",
+    ]
+    if reviewed is not None:
+        lines += ["", f"Tariff last reviewed on {_day(reviewed)}."]
     return "\n".join(lines)
 
 

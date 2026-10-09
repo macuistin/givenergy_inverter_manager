@@ -7,7 +7,7 @@ from homeassistant.const import PERCENTAGE, UnitOfEnergy
 
 from .. import sensor_values as values
 from ..core.devices import Device
-from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
+from .base import CURRENCY_UNIT, MONEY_PRECISION, GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     # ── Weekly accumulations (disabled by default) ────────────────────────────
@@ -48,6 +48,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="import_cost_this_week",
         translation_key="import_cost_this_week",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=SensorStateClass.TOTAL,
         reset_period="week",
         icon="mdi:cash-minus",
@@ -58,6 +59,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="export_earnings_this_week",
         translation_key="export_earnings_this_week",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=SensorStateClass.TOTAL,
         reset_period="week",
         icon="mdi:cash-plus",
@@ -91,6 +93,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         requires=Device.IMMERSION_SWITCH,
         translation_key="immersion_savings_this_week",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=SensorStateClass.TOTAL,
         reset_period="week",
         icon="mdi:water-boiler",

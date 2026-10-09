@@ -7,7 +7,7 @@ from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfEnergy
 
 from .. import sensor_values as values
 from ..core.devices import Device
-from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
+from .base import CURRENCY_UNIT, MONEY_PRECISION, GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     # ── Monthly accumulations (disabled by default) ───────────────────────────
@@ -48,6 +48,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="import_cost_this_month",
         translation_key="import_cost_this_month",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=SensorStateClass.TOTAL,
         reset_period="month",
         icon="mdi:cash-minus",
@@ -58,6 +59,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="export_earnings_this_month",
         translation_key="export_earnings_this_month",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=SensorStateClass.TOTAL,
         reset_period="month",
         icon="mdi:cash-plus",
@@ -78,6 +80,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="export_earnings_this_year",
         translation_key="export_earnings_this_year",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=SensorStateClass.TOTAL,
         reset_period="year",
         entity_registry_enabled_default=False,
@@ -128,6 +131,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="import_cost_trailing_12m",
         translation_key="import_cost_trailing_12m",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         device_class=SensorDeviceClass.MONETARY,
         state_class=None,
         icon="mdi:cash-minus",
@@ -138,6 +142,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="export_earnings_trailing_12m",
         translation_key="export_earnings_trailing_12m",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         device_class=SensorDeviceClass.MONETARY,
         state_class=None,
         icon="mdi:cash-plus",
@@ -171,6 +176,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         requires=Device.IMMERSION_SWITCH,
         translation_key="immersion_savings_this_month",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=SensorStateClass.TOTAL,
         reset_period="month",
         icon="mdi:water-boiler",
@@ -219,6 +225,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="net_position_this_month",
         translation_key="net_position_this_month",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         reset_period="month",

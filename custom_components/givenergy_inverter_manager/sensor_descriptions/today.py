@@ -7,7 +7,7 @@ from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfEnergy
 
 from .. import sensor_values as values
 from ..core.devices import Device
-from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
+from .base import CURRENCY_UNIT, MONEY_PRECISION, GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     # --- Today energy ---
@@ -74,6 +74,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         is_daily_total=True,
         translation_key="import_cost_today",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.today.total_import_cost, 4),
@@ -83,6 +84,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         is_daily_total=True,
         translation_key="export_earnings_today",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.today.export_earnings, 4),
@@ -92,6 +94,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         is_daily_total=True,
         translation_key="saving_vs_grid_today",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.saving_vs_grid_today, 4),
@@ -101,6 +104,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         is_daily_total=True,
         translation_key="net_saving_today",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.net_saving_today, 4),
@@ -111,6 +115,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         is_daily_total=True,
         translation_key="zappi_cost_today",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.today.zappi_cost, 4),
@@ -120,6 +125,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         is_daily_total=True,
         translation_key="house_cost_today",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.today.house_cost, 4),
@@ -141,6 +147,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         is_daily_total=True,
         translation_key="net_position_today",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         icon="mdi:scale-balance",

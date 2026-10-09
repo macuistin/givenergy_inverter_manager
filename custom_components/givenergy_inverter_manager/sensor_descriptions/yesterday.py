@@ -7,7 +7,7 @@ from homeassistant.const import PERCENTAGE, UnitOfEnergy
 
 from .. import sensor_values as values
 from ..core.devices import Device
-from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
+from .base import CURRENCY_UNIT, MONEY_PRECISION, GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     # ── Yesterday comparisons (disabled by default) ───────────────────────────
@@ -45,6 +45,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         key="import_cost_yesterday",
         translation_key="import_cost_yesterday",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=None,
         icon="mdi:cash-minus",
         entity_registry_enabled_default=True,
@@ -75,6 +76,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         requires=Device.IMMERSION_SWITCH,
         translation_key="immersion_savings_yesterday",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         state_class=None,
         icon="mdi:water-boiler",
         entity_registry_enabled_default=True,

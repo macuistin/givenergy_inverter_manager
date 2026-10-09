@@ -42,7 +42,7 @@ POWER_FLOW_CARD = HacsCard(
 APEX_CARD = HacsCard(
     "apexcharts-card",
     "https://github.com/RomRider/apexcharts-card",
-    "# The immersion charts require apexcharts-card from HACS:\n"
+    "# The immersion and solar forecast charts require apexcharts-card from HACS:\n"
     "#   https://github.com/RomRider/apexcharts-card\n",
 )
 HACS_CARDS = (POWER_FLOW_CARD, APEX_CARD)

@@ -6,7 +6,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import PERCENTAGE, EntityCategory
 
 from .. import sensor_values as values
-from .base import CURRENCY_UNIT, GivEnergyManagerSensorDescription
+from .base import CURRENCY_UNIT, MONEY_PRECISION, GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     # --- Overnight charge decision ---
@@ -37,6 +37,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="overnight_charge_cost",
         native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
         device_class=SensorDeviceClass.MONETARY,
         state_class=None,
         value_fn=values.overnight_charge_cost,

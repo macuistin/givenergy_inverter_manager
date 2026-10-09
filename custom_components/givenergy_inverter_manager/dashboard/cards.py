@@ -222,11 +222,12 @@ def graph_card(card: dict, rows: int = 4) -> dict:
     return {**card, "grid_options": {"columns": FULL, "rows": rows}}
 
 
-def statistics_graph(rows: list, period: str, days: int) -> dict | None:
+def statistics_graph(rows: list, period: str, days: int, height: int = 4) -> dict | None:
     """Bars of the change in each period, for sensors that reset every day.
 
     A history graph of such a sensor draws a sawtooth that falls to zero at midnight.
     The daily sensors keep long-term statistics, so the change per period is exact.
+    *height* is the number of grid rows the graph takes.
     """
     card = entity_list_card(
         rows,
@@ -236,7 +237,7 @@ def statistics_graph(rows: list, period: str, days: int) -> dict | None:
         days_to_show=days,
         stat_types=["change"],
     )
-    return graph_card(card) if card else None
+    return graph_card(card, height) if card else None
 
 
 def entity_list_card(rows: list, head: dict, **tail) -> dict | None:

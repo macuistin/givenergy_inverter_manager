@@ -58,7 +58,7 @@ The integration creates the entities of a device only while the device exists. S
 What still needs a new file or a reload of the strategy dashboard:
 
 - an entity you renamed after you generated the file, and a sensor you enabled
-- the Tariff table, the administrator list and the HACS card choice, which are read when the file is generated
+- the Tariff table with its scheduled rate changes, the administrator list and the HACS card choice, which are read when the file is generated
 - a charger whose entity IDs differ from the ones Home Assistant assigns by default, for example because an entity with that ID already existed
 
 ## Add the dashboard
@@ -111,7 +111,7 @@ The integration serves a small JavaScript file at `/givenergy_inverter_manager/g
 | Card | Needed for | Behaviour without it |
 |---|---|---|
 | [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | The live flow card in the Power Flow tab | An entities card lists the same values |
-| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The immersion charts in the Immersion sub-view | A history graph replaces the chart. It draws the temperatures and the heater's power as a line, so the heater is not shaded and has no on or off band |
+| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The immersion charts in the Immersion sub-view, and the forecast chart in the Solar and forecast sub-view | In the Immersion sub-view a history graph replaces the chart. It draws the temperatures and the heater's power as a line, so the heater is not shaded and has no on or off band. In the Solar and forecast sub-view a statistics graph plots what was generated each day and leaves out the forecast |
 
 When you generate the file, the integration reads the Lovelace resource list (**Settings → Dashboards → Resources**). A card whose URL is not in the list is treated as not installed, and the built-in cards are used. The file header names the cards it replaced. Install the card from HACS and generate the file again to get the custom card.
 
@@ -131,12 +131,14 @@ The dashboard has four tabs. Detail sits in seven sub-views that have no tab. A 
 
 | Tab | Sub-views it opens |
 |---|---|
-| Power Flow | Immersion and EV charger (the Devices tiles), Battery detail (Night survival tile), Settings (the Settings button in the Now heading, administrators only) |
+| Power Flow | Immersion and EV charger (the Devices tiles), Battery detail (Battery overnight tile), Settings (the Settings button in the Now heading, administrators only) |
 | Today | Cost breakdown (Cost heading), Solar and forecast (Solar heading) |
 | Bill | Tariff (the Tariff button in the Bill so far heading) |
 | Battery | Battery detail (Battery heading) |
 
 A sub-view and the tile that opens it are left out when the sub-view would be empty. The Immersion and EV charger sub-views are the exception: they stay in the file so a device added later has somewhere to show, and their tiles are hidden until the device exists.
+
+A rate tile says per kWh in its name (Rate per kWh, Avg import/kWh). The rate sensors report a bare currency amount, and their unit stays that so long-term statistics are not affected.
 
 The links use relative paths, so they work at any dashboard URL.
 
@@ -160,7 +162,7 @@ This hides the controls. It is not security. Home Assistant has no permissions f
 
 ![Power Flow view with the battery, the Cheap from tile, live solar, grid, home and battery flow, and today's energy with the forecast tiles.](images/dashboard-power-flow.png)
 
-- **Now**: Battery (state of charge with a bar), Night survival, Rate now, Cost today and Cheap from (Next Cheap Rate Start). Cheap from is a full-width tile that reads the start and the wait in one line, such as `23:00 (in 8 h 56 min)`, or `Now (ends in 5 h 30 min)` while one is active. The end is where the run of cheaper-than-base periods stops, so a cheaper period inside a longer one does not cut it short. Night Survival Confidence is disabled by default, so a new install shows four of the five until you enable it. Night survival reads Safe, Warning or Critical. Tap it to open Battery detail, which says in words why. Tap the Battery tile to open the Battery tab.
+- **Now**: Battery (state of charge with a bar), Rate per kWh, Cost today, Battery overnight and Cheap from (Next Cheap Rate Start). Cheap from is a full-width tile that reads the start and the wait in one line, such as `23:00 (in 8 h 56 min)`, or `Now (ends in 5 h 30 min)` while one is active. The end is where the run of cheaper-than-base periods stops, so a cheaper period inside a longer one does not cut it short. Battery overnight is a full-width tile that says whether the battery lasts until solar starts, and the charge expected at sunrise, such as `Lasts the night · 36% at sunrise`. The other phrases are `Only just lasts the night` and `May run low`. It reads the Battery Overnight Confidence sensor, which is disabled by default, so a new install shows four of the five until you enable it. The sensor's state stays Safe, Warning or Critical. Tap the tile to open Battery detail, which says in words why. Tap the Battery tile to open the Battery tab.
 For administrators the heading also holds a **Settings** button.
 - **Dry run is on**: a banner with the last skipped action, below Now. It appears only while Dry Run Mode Active is true.
 - **Live power flow**: a power-flow-card-plus card with solar, battery, grid, home and, when they exist, two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. Battery Power is positive while charging and the card expects the opposite, so the node sets `invert_state: true`. The grid node shows the Live Grid Cost Rate.
@@ -178,15 +180,19 @@ Each section shows only while the device it needs exists.
 - **Water temperature** (needs the sensor): a 12-hour chart of water temperature. With a switch as well, it also draws the target and minimum, and shades the chart in pale red while the heater is on. The heater's power is a fixed number, so the chart shows on or off and not watts. There is no separate heater power chart.
 - **Heater on or off** (needs the switch and no sensor): a small 12-hour chart of the same shaded band, for an install with a switch but no temperature sensor. It hides itself when a sensor is set, as the water temperature chart then carries the band.
 - **Why** (needs the switch): the divert reason in words.
-- **Ready by** (needs the switch and the sensor, and shows only while Immersion Scheduled Heating is on): the next hot water ready time, whether the water is expected to be at the target by then, and the heating rate the plan uses. It reads the `ready_by`, `expected_ready` and `heating_rate_c_per_h` attributes of the Immersion Water Temperature sensor, so there is no helper sensor. With an oil price set it adds the oil advice sentence below it, which says when to start the oil for that ready time, for example `For the 19:00 ready time: turn the oil water heating on at 16:30 (about 90 minutes). The immersion will only top up.` It follows the oil advice, so it is hidden while that sensor is unavailable. Home Assistant cannot hide a card on a missing attribute, so with the switch on and no ready time set, the card says where to add one.
-- **Cheapest way to heat the water** (needs an oil price and the switch): a tile with the cheapest source now (electricity, solar or oil) and the suggestion in a sentence, for example `Oil is cheaper than electricity until 23:00 (saves about 0.16 per kWh of heat). Heat the water with the oil system now.` With a water temperature sensor the sentence also says when to start the oil for the next ready time, when to run it to keep the water warm, or that the water is already at the target. It is advice only: the integration does not switch the oil system. The section hides itself while the sensor has no reading, for example when a price sensor is unavailable and no price is saved. See [Oil water heating advice](concepts.md#oil-water-heating-advice). Below the suggestion is a separate line for the recurring oil schedule, for example `Over the last 14 days the immersion used about 14 kWh of grid electricity that cost more than oil, mostly around 13:00 and 19:00. Running the oil from 12:30 to 13:00 and 18:00 to 19:00 would have saved about 6.00 over those days.` Until the integration has seen 7 days it says it is still learning, and with 7 days or more and nothing worth suggesting it says so. The schedule is advice too, and the integration does not switch the oil system.
+- **Ready by** (needs the switch and the sensor, and shows only while Immersion Scheduled Heating is on): the next hot water ready time, whether the water is expected to be at the target by then, and the heating rate the plan uses. It reads the `ready_by`, `expected_ready` and `heating_rate_c_per_h` attributes of the Immersion Water Temperature sensor, so there is no helper sensor. Below it a line from the `planned_heating` attribute says what the immersion plans, for example `Heating planned for the 19:00 ready time: 17:10 to 18:30 at the Day rate.` or `No heating planned for the 19:00 ready time (water 54.4°C, ready). Next possible heating: 02:00 to 04:00 slot, only if the water is below 51°C by then.` With no water reading yet it says the plan shows once the temperature is read. See [Scheduled immersion heating](concepts.md#scheduled-immersion-heating). With an oil price set it adds the oil advice sentence below it, which says when to start the oil for that ready time, for example `For the 19:00 ready time: turn the oil water heating on at 16:30 (about 90 minutes). The immersion will only top up.` It follows the oil advice, so it is hidden while that sensor is unavailable. Home Assistant cannot hide a card on a missing attribute, so with the switch on and no ready time set, the card says where to add one.
+- **Cheapest way to heat the water** (needs an oil price and the switch): a tile with the cheapest source now (electricity, solar or oil) and the suggestion in a sentence, for example `Oil is cheaper than electricity until 23:00 (saves about 0.16 per kWh of heat). Heat the water with the oil system now.` With a water temperature sensor the sentence also says when to start the oil for the next ready time, when to run it to keep the water warm, that the water is already at the target, or that it is expected to be ready with no heating needed. It is advice only: the integration does not switch the oil system. The section hides itself while the sensor has no reading, for example when a price sensor is unavailable and no price is saved. See [Oil water heating advice](concepts.md#oil-water-heating-advice). Below the suggestion is a separate line for the recurring oil schedule, for example `Over the last 14 days the immersion used about 14 kWh of grid electricity that cost more than oil, mostly around 13:00 and 19:00. Running the oil from 12:30 to 13:00 and 18:00 to 19:00 would have saved about 6.00 over those days.` Until the integration has seen 7 days it says it is still learning, and with 7 days or more and nothing worth suggesting it says so. The schedule is advice too, and the integration does not switch the oil system.
 - **Today** (needs the switch): energy, cost and what solar saved.
-- **Settings in force** (needs the switch): Auto divert and Managed, to read. With a sensor as well it adds Scheduled (the Immersion Scheduled Heating switch), Target temp, Minimum temp and Restart gap. Change them in Settings.
+- **Settings in force** (needs the switch): Auto divert and Managed, to read. With a sensor as well it adds Scheduled (the Immersion Scheduled Heating switch), Target temp, Minimum temp and Restart gap. Change them in Settings. Under the tiles, two short lines say what Managed and Restart gap mean: Managed forces a heating run when turned on and holds the heater off for 10 minutes when turned off, and Restart gap is how far the water must fall below the target before a new heating run starts. The Managed line shows with the switch, and the Restart gap line needs the sensor as well.
 
 ### EV charger (sub-view)
 
 - **Charging now**: charger state, charge power, session energy and charging source.
 - **Why**: whether the EV is draining the battery, the solar surplus available and the mode decision in words.
+- **Today**: the energy the charger delivered and what it cost.
+- **Charge power, last 24 hours**: a line graph of the charger's power. It uses the same power entity as the Charge power tile. Power does not reset at midnight, so a history graph draws it without a sawtooth.
+
+The sections show only while a charger exists.
 
 ### Today
 
@@ -199,22 +205,24 @@ Each section shows only while the device it needs exists.
   - EV and immersion: how much of the house use went to each. They are part of the house use, not added to it. A line shows only while its device exists.
 
   The card reads four attributes of the Self Sufficiency sensor: `house_load_kwh`, `from_grid_kwh`, `grid_to_battery_kwh` and `basis`. Where one is missing it uses the House Load Today and Grid Import Today totals. The whole group is left out when Self Sufficiency, House Load Today or Grid Import Today is missing.
-- **Cost**: Import cost, Export earnings, Rate now and Rate period. The heading opens Cost breakdown.
-- **Solar**: Self-sufficiency, Solar share and Self-consumption, each with a bar. The heading opens Solar and forecast.
+- **Cost**: Import cost, Export earnings, Rate per kWh and Rate period. The heading opens Cost breakdown.
+- **Solar**: Solar share and Self-consumption, each with a bar. The heading opens Solar and forecast. Self-sufficiency has no bar here, because the card above it states the figure with what it means. The Power Flow tab keeps its Self-sufficient tile, as the glance. The bar comes back on this tab when that card cannot be built, which happens when Self Sufficiency, House Load Today or Grid Import Today is missing, so the figure is never lost.
 
 ### Cost breakdown (sub-view)
 
 ![Cost breakdown view with grid import, house, EV and immersion costs and a 14 day bar chart.](images/dashboard-cost-breakdown.png)
 
-A tile for every cost line today (grid import, export earnings, rest of house, EV charging, immersion and what solar saved the immersion) and a bar graph of cost per day over 14 days.
+A tile for every cost line today (grid import, export earnings, rest of house, EV charging, immersion and Immersion solar saving, which is what solar saved on the immersion) and a bar graph, **Cost per day, last 14 days**. The graph names its series as the tiles do. It plots Rest of house, EV charging and Immersion (the last two only while that device exists) and Export earnings. It does not plot Grid import, because that is the whole of the import cost, the sum of the three, and drawing it beside them would count the same cost twice. Read the total from the Grid import tile.
 
 ### Solar and forecast (sub-view)
 
-With a forecast sensor set: Generated today, Forecast, % of forecast, Plan forecast and Yesterday (the accuracy of yesterday's forecast). Below them is a bar graph of solar generation per hour over 2 days.
+With a forecast sensor set: Generated today, Forecast, % of forecast, Plan forecast and Yesterday's accuracy (yesterday's solar as a share of the forecast for that day). Next to them are two charts: a bar graph of solar generation per hour over 2 days, and **Last 7 days**, which sets the provider's forecast beside what was generated for each of the last 7 days, as one pair of columns a day with the value above each column.
+
+The Last 7 days chart is an apexcharts-card chart. The forecast sensor keeps no long-term statistics, so only apexcharts-card can plot it, from the history Home Assistant keeps for the sensor (10 days by default). Both sensors are read at their highest value of each day, which is the day's total: the generated sensor climbs through the day, and the forecast holds its figure for the whole day. Without apexcharts-card the chart plots what was generated each day as a statistics graph, and the Forecast and Yesterday tiles carry the forecast. The chart needs a forecast sensor, so it is left out without one. The forecast is empty for a day before the first midnight the integration saw, so the first column pair can lack its forecast.
 
 Forecast is what your forecast service predicted for today, as it stood just before midnight. % of forecast compares solar generated so far with that figure. Plan forecast is the figure the overnight charge calculation used: blended toward the pessimistic estimate and scaled by the accuracy correction, so it can differ from the provider's figure. Judge the day against Forecast. Forecast and % of forecast read empty on a new install until the first midnight, because the provider forecast is remembered then.
 
-The two graphs on the sub-views are statistics graphs, not history graphs. The daily sensors fall to zero at midnight, so a history graph of them draws a sawtooth. The graphs plot the change in each period instead, from the long-term statistics. They stay empty until Home Assistant has compiled statistics for the sensors, which takes up to an hour.
+The graphs on the Bill tab and on the Cost breakdown and Solar and forecast sub-views are statistics graphs, not history graphs, apart from the Last 7 days chart of an install with apexcharts-card. The daily sensors fall to zero at midnight, so a history graph of them draws a sawtooth. The graphs plot the change in each period instead, from the long-term statistics. They stay empty until Home Assistant has compiled statistics for the sensors, which takes up to an hour.
 
 ### Bill
 
@@ -223,7 +231,8 @@ The two graphs on the sub-views are statistics graphs, not history graphs. The d
 Figures for the current bill period, so you can hold them against your supplier bill.
 
 - **Bill so far**: Accrued bill, Projected bill, Import cost and Export credit. A **Tariff** button in the heading opens the Tariff sub-view.
-- **This bill period**: Days elapsed, Days left, Avg import rate and Cheap share (the cheap rate share of import).
+- **This bill period**: Days elapsed, Days left, Avg import/kWh and Cheap share (the cheap rate share of import).
+- **Cost per day, last 31 days**: a bar graph of the import cost and the export credit of each day, so you can see which days made the bill. It reads long-term statistics, so it stays empty until Home Assistant has compiled them (up to an hour), and it reaches back 31 days because a bill period is a calendar month at most. The file cannot mark where your bill period starts, because that moves each month.
 
 Days Elapsed in Bill Period, Average Import Rate This Month and Cheap rate import fraction this month are disabled by default. Enable them to see those tiles.
 
@@ -235,27 +244,32 @@ A table of the base rate and each timed rate period with its window, the rate, a
 
 The table is read from your options when the file is generated, so generate the file again after you change the tariff. It uses the same defaults as the integration for any field you have not set.
 
+Under it, **Scheduled rate changes** lists each dated change that has not started: the date it starts, the new base rate, the timed rates with their windows, and the export rate. The line below the table gives the date the tariff was last reviewed. The list is left out when no change is scheduled, and so is the heading. A change that has started is not listed, because the table above already shows its rates. A change replaces the base rate, the timed rates and the export rate on its date, and the standing charge, levy, VAT, discount and bill start day stay as they are in the table above.
+
+Like the table, the list is read from your options when the file is generated, so it is as of that day. Generate the file again to see a change drop out of the list once it has started, or to see one you have just scheduled. A dashboard that uses the [strategy](#dashboard-strategy-optional) reads the options each time it opens, so a reload of the page is enough. To schedule a change, see [Change the rates from a date](tariff.md#change-the-rates-from-a-date).
+
 ### Battery
 
 ![Battery view with state of charge graph, tonight's charge plan and the charge settings in force.](images/dashboard-battery.png)
 
 - **Battery**: state of charge with a bar, battery power with a 24-hour trend, and a 24-hour history of state of charge. The heading opens Battery detail.
-- **Tonight's charge plan**: Target tonight, Est. cost, At sunrise (estimated state of charge) and Rate floor (the cheap rate floor).
-- **Charge settings in force**: the charge target override (Target override and Override on), Skip tonight and Dry run, to read. Change the first three in Settings. Dry run is an option of the integration.
+- **Tonight's charge plan**: the plan in one sentence first, then Target tonight, Est. cost, At sunrise (estimated state of charge) and Rate floor (the cheap rate floor). The sentence is the Tonight's charge plan sensor, and says outright whether tonight charges (`Target 78% · Add 34% · Cost €0.51`) or is skipped (`Skip charge · Plan forecast 8.2 kWh · SoC 64%`). The sensor is enabled by default. If you disabled it, the tiles show alone.
+- **Charge settings in force**: Override on, the Target override value, Skip tonight and Dry run, to read. Target override shows only while Override on is on, because the value is not used otherwise. Dry run reads On or Off. Change the first three in Settings. Dry run is an option of the integration.
 
 State of charge and power are not drawn on one graph, because a percentage and watts share no scale.
 
 ### Battery detail (sub-view)
 
-- **Night survival**: the level in bold, then why. Where the Night Survival Confidence sensor has an `explanation` attribute, that is shown. Otherwise a Warning is explained from the estimated state of charge at sunrise ("about 14% at sunrise, close to your minimum charge"), and Safe and Critical show the Battery Night Survival Status text, which carries any kWh shortfall. Without the confidence sensor, which is disabled by default, only the status text is shown. Under it, the reason for tonight's charge target. Both are sentences, and a tile cuts them off, so they sit in Markdown cards.
-- **Battery health**: total cycles, life remaining, days since full charge, and the inverter temperature and status.
+- **Battery overnight**: the outlook in bold, with no repeat of the heading, then why. Where the Battery Overnight Confidence sensor has an `explanation` attribute, that is shown. Otherwise a Warning is explained from the estimated state of charge at sunrise ("about 14% at sunrise, close to your minimum charge"), and Safe and Critical show the Battery Overnight Outlook text, which carries any kWh shortfall. Without the confidence sensor, which is disabled by default, only the status text is shown. Under it, the reason for tonight's charge target. Both are sentences, and a tile cuts them off, so they sit in Markdown cards.
+- **Battery health**: total cycles, life remaining and days since full charge.
+- **Inverter**: the inverter temperature and status. The section needs an inverter temperature entity.
 
 ### Settings (sub-view, administrators only)
 
 ![Settings view with the charge target slider, the skip tonight toggle and the immersion heater controls.](images/dashboard-settings.png)
 
-- **Overnight charging**: a slider for the charge target, and the Use target and Skip tonight switches.
-- **Immersion heater**: the Auto divert and Managed switches and the divert reason in words. With a temperature sensor as well, the Scheduled switch (Immersion Scheduled Heating) and sliders for the target temperature, the minimum temperature and the restart gap.
+- **Overnight charging**: a Target override slider, and the Override on and Skip tonight switches. They carry the names the Battery tab gives the same settings.
+- **Immersion heater**: the Auto divert and Managed switches. With a temperature sensor as well, the Scheduled switch (Immersion Scheduled Heating) and sliders for the target temperature, the minimum temperature and the restart gap. The same two lines as on the Immersion view explain Managed and Restart gap under the controls, each only while its controls exist. The section ends with **Heater decision now**, the divert reason in words, so the controls come before the sentence and the sentence has a label.
 
 The view is left out when there is no administrator to show it to, and the immersion section is hidden while there is no immersion switch. The dry run banner is not here. It sits on the Power Flow tab, below Now, and appears only while Dry Run Mode Active is true.
 
@@ -265,7 +279,7 @@ There is no Refresh Dashboard card. Use the button on the device page.
 
 Three sensors carry a styled HTML report in their `html` attribute: Today's energy summary, Tonight's charge plan and This week's energy summary. They use inline styles, so the built-in Markdown card renders them.
 
-They are disabled by default. Enable them in the entity list first.
+Today's energy summary and This week's energy summary are disabled by default. Enable them in the entity list first. Tonight's charge plan is enabled by default, because the Battery view reads its sentence. The `html` attribute is kept out of the recorder.
 
 ```yaml
 type: markdown

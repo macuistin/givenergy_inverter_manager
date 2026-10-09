@@ -53,11 +53,14 @@ GROUPS: dict[str, str] = {
         "Accumulated since local midnight. They report `last_reset` as the most recent midnight. "
         "See [Long-term statistics](long-term-statistics.md)."
     ),
-    "Cost and savings today": "Money sensors use the currency symbol you chose in the tariff.",
+    "Cost and savings today": (
+        "Money sensors use the currency symbol you chose in the tariff. A cost, earning, bill or "
+        "saving total shows two decimals. A rate per kWh shows its own precision."
+    ),
     "Efficiency today": "Percentages worked out from today's totals.",
     "Bill": "Estimates for the current bill period. See [Tariff](tariff.md#bill-line-items).",
     "Battery": "Health, wear and state of the battery.",
-    "Charge plan and night survival": "Outputs of the overnight charge calculation.",
+    "Charge plan and overnight outlook": "Outputs of the overnight charge calculation.",
     "Immersion": (
         "Output of the immersion divert rule, the water temperature and the oil water heating "
         "advice. The water temperature sensor exists only with a temperature sensor set. The "
@@ -211,7 +214,7 @@ KEY_GROUPS: dict[str, str] = {
             "night_survival_confidence",
             "cheap_rate_floor_status",
         ),
-        "Charge plan and night survival",
+        "Charge plan and overnight outlook",
     ),
     **dict.fromkeys(
         (
@@ -453,13 +456,18 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "night_survival_confidence": (
         "Safe, Warning (within 5 points of minimum SoC) or Critical. "
-        "The attributes say why and give the numbers."
+        "The attributes say why and give the numbers. `outlook` and `summary` say it in "
+        "words for the dashboard, for example Lasts the night, with the charge expected at "
+        "sunrise."
     ),
     "cheap_rate_floor_status": "State of the cheap rate floor top-up, or Inactive.",
     "immersion_divert_reason": "Why the immersion is on or off.",
     "immersion_water_temperature": (
         "Reading of the immersion temperature sensor you set. Also lets a stored dashboard "
-        "show the water temperature as soon as a sensor is set."
+        "show the water temperature as soon as a sensor is set. With Immersion Scheduled "
+        "Heating on, the `planned_heating` attribute says in a sentence what the immersion "
+        "plans for the next ready time and the cheapest window. With ready times set it also "
+        "has `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source`."
     ),
     "water_heating_cheapest_source": (
         "The cheapest way to heat the water now: `electricity`, `solar` or `oil`. Compares the "
@@ -523,7 +531,10 @@ DESCRIPTIONS: dict[str, str] = {
     "today_summary": "Solar, import cost, immersion savings and self-sufficiency for today.",
     "charge_plan": "Tonight's target, the percentage to add and the cost, or Skip charge.",
     "week_summary": "Solar, import cost and self-sufficiency for this week.",
-    "dry_run_active": "True when dry run mode is on.",
+    "dry_run_active": (
+        "True when dry run mode is on. The `summary` attribute reads On or Off, "
+        "for the dashboard tile."
+    ),
     "dry_run_last_skipped": "The last action dry run mode held back.",
     "integration_version": "Installed integration version.",
 }
@@ -555,13 +566,17 @@ RENAMED_SENSORS: tuple[tuple[str, str, str], ...] = (
     ),
     ("import_cost_peak_today", "Import cost at peak rate", "Import cost at base rate"),
     ("peak_import_fraction_today", "Peak rate import fraction", "Base rate import fraction"),
+    ("night_survival_reason", "Battery Night Survival Status", "Battery Overnight Outlook"),
+    ("night_survival_confidence", "Night Survival Confidence", "Battery Overnight Confidence"),
 )
 RENAMED_NOTE = (
-    "These sensors were renamed because they measure the base rate, the rate that applies "
-    "while no timed rate period is active. They are not a peak band, and no peak band is "
-    "configured. The key and the unique ID did not change, so history, statistics and "
-    "automations carry on. An install made before the rename keeps its old entity IDs, "
-    "which still contain `peak`. A new install builds entity IDs from the new names."
+    "The base rate sensors were renamed because they measure the base rate, the rate that "
+    "applies while no timed rate period is active. They are not a peak band, and no peak band "
+    "is configured. The two overnight sensors were renamed because night survival read like "
+    "an alarm: they tell whether the battery lasts the night. In both groups the key and the "
+    "unique ID did not change, so history, statistics and automations carry on. An install "
+    "made before a rename keeps its old entity IDs, which still contain `peak` or "
+    "`night_survival`. A new install builds entity IDs from the new names."
 )
 RETIRED_NOTE = (
     "These sensors were removed. The integration never writes or advises forced battery "

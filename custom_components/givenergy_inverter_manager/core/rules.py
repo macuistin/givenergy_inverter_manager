@@ -307,7 +307,8 @@ def _blend_forecast_p10(
         return forecast_kwh, ""
     weight = max(0.0, min(1.0, conservatism))
     blended = (1.0 - weight) * forecast_kwh + weight * forecast_kwh_p10
-    return blended, f" (P10/P50 blend, conservatism={weight:.2f})"
+    note = f" (cautious forecast, {weight:.0%} of the way from the typical to the low estimate)"
+    return blended, note
 
 
 @dataclass
@@ -455,7 +456,7 @@ def _missing_p10_note(forecast: SolarForecast) -> str:
         return ""
     if forecast.forecast_conservatism <= 0.0:
         return ""
-    return ", no P10 forecast so conservatism is unused"
+    return ", no low estimate available, so the forecast is used as it is"
 
 
 def _resolve_forecast(
@@ -863,6 +864,25 @@ def _restart_block(water: WaterState, run: ImmersionRun) -> Verdict | None:
     return None
 
 
+def _short_surplus_reason(surplus: _Surplus) -> str:
+    """Say in plain words why the spare solar is not enough.
+
+    A negative figure is not a fault: the house uses more than the panels make. A heater that
+    is already on may run on a deficit up to the limit, so its limit is a negative figure too.
+    """
+    if surplus.required_w < 0:
+        return (
+            f"Not enough spare solar: the house is using {-surplus.net_w:.0f} W more than "
+            f"the panels make (the heater turns off past {-surplus.required_w:.0f} W)"
+        )
+    if surplus.net_w < 0:
+        return (
+            f"Not enough spare solar: the house is using {-surplus.net_w:.0f} W more than "
+            f"the panels make (needs {surplus.required_w:.0f} W spare)"
+        )
+    return f"Not enough spare solar: {surplus.net_w:.0f} W spare, needs {surplus.required_w:.0f} W"
+
+
 def _surplus_decision(inputs: ImmersionInputs, readings: _Readings) -> Verdict:
     power = inputs.power
     if power.battery_soc < inputs.policy.soc_threshold:
@@ -871,9 +891,7 @@ def _surplus_decision(inputs: ImmersionInputs, readings: _Readings) -> Verdict:
         )
     surplus = _assess_surplus(inputs, readings)
     if not surplus.sufficient:
-        return False, (
-            f"Insufficient surplus ({surplus.net_w:.0f}W, need {surplus.required_w:.0f}W)"
-        )
+        return False, _short_surplus_reason(surplus)
     blocked = _cycle_cost_block(inputs.policy) or _restart_block(inputs.water, inputs.run)
     if blocked is not None:
         return blocked

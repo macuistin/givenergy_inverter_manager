@@ -76,6 +76,10 @@ tests/core/test_oil_advice.py and tests/core/test_oil_advice_engine.py.
 The oil_schedule leaf was added for the suggested oil schedule. The fresh snapshot gained it as
 None. No case moved, because none passes a record of the immersion's grid heating. The behaviour
 is pinned in tests/core/test_oil_schedule.py and tests/core/test_oil_schedule_engine.py.
+
+The immersion_planned_heating leaf was added for the planned heating sentence. The fresh snapshot
+gained it as None. No case moved, because none turns scheduled heating on. The behaviour is pinned
+in tests/core/test_planned_heating.py and tests/core/test_immersion_scheduled.py.
 """
 
 from __future__ import annotations

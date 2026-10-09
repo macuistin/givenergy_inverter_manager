@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -15,7 +16,12 @@ from homeassistant.util import dt as dt_util
 
 from ..const import CONF_FORECAST_ENTITY, CONF_INVERTER_SERIAL, CONF_INVERTER_TEMP_ENTITY
 from ..core.devices import Device
-from ..core.tariff import build_tariff, tariff_in_force
+from ..core.tariff import (
+    build_tariff,
+    last_tariff_review,
+    scheduled_tariff_changes,
+    tariff_in_force,
+)
 from ..discovery import inverter_temperature_entity_ids
 from .cards import (
     BAR,
@@ -54,6 +60,7 @@ from .cards import (
 from .charts import (
     ImmersionEntities,
     apex_immersion_chart,
+    apex_solar_days_chart,
     builtin_immersion_chart,
     flow_card,
     flow_fallback,
@@ -62,12 +69,16 @@ from .devices import Devices, with_visibility
 from .hacs import APEX_CARD, POWER_FLOW_CARD, HacsCards
 from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
+    MANAGED_HELP,
+    RESTART_GAP_HELP,
     EnergySources,
     energy_devices_template,
     energy_sources_template,
     oil_schedule_template,
+    planned_heating_template,
     ready_by_template,
     survival_template,
+    tariff_changes_table,
     tariff_table,
 )
 
@@ -87,6 +98,21 @@ SUB_BATTERY = "battery-detail"
 SUB_SETTINGS = "settings"
 TABS = frozenset({TAB_POWER_FLOW, TAB_TODAY, TAB_BILL, TAB_BATTERY})
 
+# How far back the new charts reach, and how tall they are: grid rows for a built-in graph,
+# pixels for an apexcharts-card chart. A bill period is a calendar month, so 31 days always
+# holds the one in progress. The solar chart reads recorder history, kept 10 days by default.
+_BILL_COST_DAYS = 31
+_SOLAR_DAYS = 7
+_CHART_ROWS = 5
+_CHART_PIXELS = 300
+
+# The rate sensors report a bare currency amount, and their unit stays that for the long-term
+# statistics. So the tile name says what the amount is for.
+RATE_NAME = "Rate per kWh"
+AVERAGE_RATE_NAME = "Avg import/kWh"
+# What the night survival sensors are called to a person: does the battery last the night.
+OVERNIGHT_NAME = "Battery overnight"
+
 
 # ── Views ────────────────────────────────────────────────────────────────────
 
@@ -103,14 +129,17 @@ class _CostEntities:
 
 
 def _cost_history(cost: _CostEntities) -> dict | None:
-    """Bars of the cost per day for two weeks."""
+    """Bars of the cost per day for two weeks, named as the tiles above it are.
+
+    Grid import is left out: it is the sum of the house, EV and immersion costs, so drawing
+    it beside them would count the same cost twice. Its tile above carries the total.
+    """
     return statistics_graph(
         [
-            entity_row(cost.grid_import, "Grid Import"),
-            entity_row(cost.house, "Rest of House"),
-            entity_row(cost.ev, "EV Charging"),
+            entity_row(cost.house, "Rest of house"),
+            entity_row(cost.ev, "EV charging"),
             entity_row(cost.immersion, "Immersion"),
-            entity_row(cost.export_earnings, "Export Earnings"),
+            entity_row(cost.export_earnings, "Export earnings"),
         ],
         "day",
         14,
@@ -322,7 +351,12 @@ class Builder:
         return out
 
     def _now(self) -> list:
-        """The numbers worth a glance: charge first, then outlook, rate, cost, cheap rate."""
+        """The numbers worth a glance: charge, rate, cost, whether the night is covered, cheap rate.
+
+        The overnight tile is full width because it says two things: whether the battery lasts
+        and the charge expected at sunrise. So the battery tile is two rows tall, beside the
+        rate and cost tiles.
+        """
         return heading_block(
             heading_card("Now", "mdi:clock-outline", badges=self._settings_badges()),
             [
@@ -332,16 +366,18 @@ class Builder:
                     color=BATTERY,
                     features=[BAR],
                     nav=self.go(TAB_BATTERY),
-                    rows=3,
+                    rows=2,
                 ),
+                self.tile("current_rate", RATE_NAME, color=GRID),
+                self.tile("import_cost_today", "Cost today", color=GRID, nav=self.go(TAB_TODAY)),
                 self.tile(
                     "night_survival_confidence",
-                    "Night survival",
+                    OVERNIGHT_NAME,
+                    columns=FULL,
                     color=NIGHT,
                     nav=self.go(SUB_BATTERY),
+                    state_content=["summary"],
                 ),
-                self.tile("current_rate", "Rate now", color=GRID),
-                self.tile("import_cost_today", "Cost today", color=GRID, nav=self.go(TAB_TODAY)),
                 self.tile(
                     "next_cheap_rate_start",
                     "Cheap from",
@@ -519,11 +555,11 @@ class Builder:
         ]
 
     def _ready_by(self) -> dict | None:
-        """The next hot water ready time, while scheduled heating is on.
+        """The next hot water ready time and the planned heating, while scheduled heating is on.
 
         Needs both devices, because scheduled heating does. The sensor's attributes carry the
-        time, so no helper sensor is needed. With an oil price it adds the oil advice sentence,
-        which names when to start the oil for this ready time.
+        time and the plan, so no helper sensor is needed. With an oil price it adds the oil
+        advice sentence, which names when to start the oil for this ready time.
         """
         sensor = self.water_sensor("immersion_water_temperature")
         schedule = self.thermostat("immersion_schedule")
@@ -533,7 +569,11 @@ class Builder:
         oil = attribute_markdown(self.oil_advice("water_heating_cheapest_source"), "suggestion")
         return group(
             heading_card("Ready by", "mdi:clock-check-outline"),
-            [markdown_card(ready_by_template(sensor)), devices.show_with(oil, Device.OIL_ADVICE)],
+            [
+                markdown_card(ready_by_template(sensor)),
+                markdown_card(planned_heating_template(sensor)),
+                devices.show_with(oil, Device.OIL_ADVICE),
+            ],
             visibility=[
                 *devices.visible_with(Device.IMMERSION_THERMOSTAT, Device.IMMERSION_SENSOR),
                 *devices.visible_while_on(schedule),
@@ -562,6 +602,13 @@ class Builder:
         """The section option that shows a section while these devices are present."""
         return {"visibility": self.devices.visible_with(*devices)}
 
+    def _thermostat_help(self) -> list[dict | None]:
+        """What Managed and Restart gap mean. Restart gap needs the switch and the sensor."""
+        return [
+            markdown_card(MANAGED_HELP),
+            self.devices.show_with(markdown_card(RESTART_GAP_HELP), Device.IMMERSION_THERMOSTAT),
+        ]
+
     def _immersion_settings_in_force(self) -> dict[str, Any] | None:
         """The immersion settings as they stand, to read. Administrators change them."""
         readings = [
@@ -581,6 +628,7 @@ class Builder:
                 readonly_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
                 schedule,
                 *readings,
+                *self._thermostat_help(),
             ],
             **self._when(Device.IMMERSION_SWITCH),
         )
@@ -611,7 +659,26 @@ class Builder:
                 ],
                 **shown,
             ),
+            group(
+                heading_card("Today", "mdi:calendar-today"),
+                [
+                    tile_card(self.ev("zappi_today"), "Energy", color=EV),
+                    tile_card(self.ev("zappi_cost_today"), "Cost", color=GRID),
+                ],
+                **shown,
+            ),
+            group(
+                heading_card("Charge power, last 24 hours", "mdi:chart-line"),
+                [self._ev_power_history()],
+                **shown,
+            ),
         ]
+
+    def _ev_power_history(self) -> dict | None:
+        """A line of the charger's power. Power does not reset, so a history graph is right."""
+        power = entity_row(self.ev_power(), "Charge power")
+        history = entity_list_card([power], {"type": "history-graph"}, hours_to_show=24)
+        return graph_card(history) if history else None
 
     # -- Today --
 
@@ -671,17 +738,24 @@ class Builder:
             [
                 self.tile("import_cost_today", "Import cost", color=GRID),
                 self.tile("export_earnings_today", "Export earnings", color=BATTERY),
-                self.tile("current_rate", "Rate now", color=GRID),
+                self.tile("current_rate", RATE_NAME, color=GRID),
                 self.tile("current_rate_period", "Rate period", color=GRID),
             ],
         )
 
     def _today_solar(self) -> dict | None:
+        """The solar shares as bars.
+
+        Self-sufficiency has no bar of its own while the card on where today's energy came
+        from states it, with what it means, in the section beside this one. The Power Flow
+        tab keeps its tile for a glance.
+        """
         share = {"columns": FULL, "color": SOLAR, "features": [BAR]}
+        stated = self._energy_sources_card() is not None
         return group(
             heading_card("Solar", "mdi:weather-sunny", nav=self.go(SUB_SOLAR)),
             [
-                self.tile("self_sufficiency", "Self-sufficiency", **share),
+                None if stated else self.tile("self_sufficiency", "Self-sufficiency", **share),
                 self.tile("solar_share", "Solar share", **share),
                 self.tile("self_consumption", "Self-consumption", **share),
             ],
@@ -729,15 +803,25 @@ class Builder:
                         tile_card(cost.immersion, "Immersion", color=IMMERSION),
                         Device.IMMERSION_SWITCH,
                     ),
-                    show(self._immersion_savings_tile(), Device.IMMERSION_SWITCH),
+                    show(
+                        self._immersion_savings_tile("Immersion solar saving", FULL),
+                        Device.IMMERSION_SWITCH,
+                    ),
                 ],
             ),
-            group(heading_card("Last 14 days", "mdi:chart-bar"), history),
+            group(heading_card("Cost per day, last 14 days", "mdi:chart-bar"), history),
         ]
 
-    def _immersion_savings_tile(self) -> dict | None:
-        """What solar saved on the immersion today."""
-        return tile_card(self.immersion("immersion_savings_today"), "Saved by solar", color=BATTERY)
+    def _immersion_savings_tile(
+        self, name: str = "Saved by solar", columns: int | str = 6
+    ) -> dict | None:
+        """What solar saved on the immersion today.
+
+        On the Immersion view the section says whose saving it is. Beside the other costs it
+        needs the name, and a name that long takes the full width.
+        """
+        entity = self.immersion("immersion_savings_today")
+        return tile_card(entity, name, columns=columns, color=BATTERY)
 
     def solar_sections(self) -> list:
         """Sub-view: how solar compares with the forecast and the generation per hour."""
@@ -748,7 +832,12 @@ class Builder:
                 self.tile("solar_forecast_raw_today", "Forecast", color=SOLAR),
                 self.tile("solar_actual_vs_forecast_pct", "% of forecast", color=SOLAR),
                 self.tile("solar_forecast_kwh_today", "Plan forecast", color=SOLAR),
-                self.tile("yesterday_forecast_accuracy_pct", "Yesterday", color=SOLAR),
+                self.tile(
+                    "yesterday_forecast_accuracy_pct",
+                    "Yesterday's accuracy",
+                    columns=FULL,
+                    color=SOLAR,
+                ),
             ]
             if self.has_forecast
             else []
@@ -757,9 +846,28 @@ class Builder:
             group(heading_card("Against the forecast", "mdi:chart-line"), forecast),
             group(
                 heading_card("Generation per hour", "mdi:chart-bar"),
-                [statistics_graph([entity_row(solar_today, "Actual")], "hour", 2)],
+                [statistics_graph([entity_row(solar_today, "Actual")], "hour", 2, _CHART_ROWS)],
             ),
+            self._solar_days(),
         ]
+
+    def _solar_days(self) -> dict | None:
+        """The forecast beside what was generated, for each of the last 7 days.
+
+        Built with a forecast sensor set. Only apexcharts-card can plot the forecast, which
+        keeps no long-term statistics, so without it the chart shows what was generated.
+        """
+        actual = self.entity("solar_today")
+        forecast = self.entity("solar_forecast_raw_today")
+        if not (self.has_forecast and actual and forecast):
+            return None
+        if self.cards.use(APEX_CARD):
+            card = apex_solar_days_chart(forecast, actual, _SOLAR_DAYS, _CHART_PIXELS)
+        else:
+            card = statistics_graph(
+                [entity_row(actual, "Generated")], "day", _SOLAR_DAYS, _CHART_ROWS
+            )
+        return group(heading_card(f"Last {_SOLAR_DAYS} days", "mdi:calendar-week"), [card])
 
     # -- Bill --
 
@@ -782,20 +890,51 @@ class Builder:
             [
                 self.tile("days_in_period", "Days elapsed"),
                 self.tile("days_remaining_in_period", "Days left"),
-                self.tile("avg_import_rate_this_month", "Avg import rate", color=GRID),
+                self.tile("avg_import_rate_this_month", AVERAGE_RATE_NAME, color=GRID),
                 self.tile("cheap_import_fraction_this_month", "Cheap share", color=GRID),
             ],
         )
 
+    def _bill_cost_per_day(self) -> dict | None:
+        """The import cost and the export earnings of each day, which add up to the bill."""
+        history = statistics_graph(
+            [
+                entity_row(self.entity("import_cost_today"), "Import cost"),
+                entity_row(self.entity("export_earnings_today"), "Export credit"),
+            ],
+            "day",
+            _BILL_COST_DAYS,
+            _CHART_ROWS,
+        )
+        heading = heading_card(f"Cost per day, last {_BILL_COST_DAYS} days", "mdi:chart-bar")
+        return group(heading, [history])
+
     def bill_sections(self) -> list:
         """The month so far and the tariff the sums use, to compare with a real bill."""
-        return [self._bill_so_far(), self._bill_period()]
+        return [self._bill_so_far(), self._bill_period(), self._bill_cost_per_day()]
+
+    def _scheduled_changes(self, today: date) -> list:
+        """The rate changes that have not started, under the tariff in use. Empty when none."""
+        changes = scheduled_tariff_changes(self.cfg, today)
+        text = tariff_changes_table(changes, self.cfg, last_tariff_review(self.cfg))
+        heading = subheading_card("Scheduled rate changes", "mdi:calendar-clock")
+        return heading_block(heading, [markdown_card(text) if text else None])
 
     def tariff_sections(self) -> list:
-        """Sub-view: the rates and charges the bill sums use."""
-        in_force = tariff_in_force(self.cfg, dt_util.now().date())
+        """Sub-view: the rates and charges the bill sums use, and the rate changes to come.
+
+        Both are read from the options when the file is generated. A generated file shows
+        them as they were then, and the strategy dashboard reads them each time it opens.
+        """
+        today = dt_util.now().date()
+        in_force = tariff_in_force(self.cfg, today)
         table = markdown_card(tariff_table(build_tariff(in_force), self.cfg))
-        return [group(heading_card("Tariff in use", "mdi:table"), [table])]
+        return [
+            grid_section(
+                heading_block(heading_card("Tariff in use", "mdi:table"), [table]),
+                self._scheduled_changes(today),
+            )
+        ]
 
     # -- Battery --
 
@@ -814,9 +953,11 @@ class Builder:
         )
 
     def _charge_plan(self) -> dict | None:
+        """The plan's sentence first: it says whether tonight charges or is skipped."""
         return group(
             heading_card("Tonight's charge plan", "mdi:weather-night"),
             [
+                state_markdown(self.entity("charge_plan")),
                 self.tile("overnight_charge_target", "Target tonight", color=BATTERY),
                 self.tile("overnight_charge_cost", "Est. cost", color=GRID),
                 self.tile("estimated_soc_at_sunrise", "At sunrise", color=BATTERY),
@@ -826,19 +967,31 @@ class Builder:
             ],
         )
 
+    def _target_override_tile(self) -> dict | None:
+        """The override value, shown only while the override is on and so in force."""
+        switch = self.entity("charge_target_override_enabled")
+        if switch is None:
+            return None
+        tile = readonly_tile(self.entity("charge_target_override"), "Target override", BATTERY)
+        return with_visibility(tile, self.devices.visible_while_on(switch))
+
     def _charge_settings_in_force(self) -> dict[str, Any] | None:
         """The charge settings as they stand, to read. Administrators change them."""
         return group(
             heading_card("Charge settings in force", "mdi:tune"),
             [
                 readonly_tile(
-                    self.entity("charge_target_override"), "Target override", BATTERY
-                ),
-                readonly_tile(
                     self.entity("charge_target_override_enabled"), "Override on", BATTERY
                 ),
+                self._target_override_tile(),
                 readonly_tile(self.entity("skip_charge_override"), "Skip tonight", BATTERY),
-                self.tile("dry_run_active", "Dry run", color=GRID, icon="mdi:test-tube"),
+                self.tile(
+                    "dry_run_active",
+                    "Dry run",
+                    color=GRID,
+                    icon="mdi:test-tube",
+                    state_content=["summary"],
+                ),
             ],
         )
 
@@ -854,10 +1007,18 @@ class Builder:
                 self.tile(
                     "days_since_full_charge", "Since full", color=BATTERY, icon="mdi:battery-check"
                 ),
-                tile_card(self.inverter_temp("inverter_temperature"), "Inverter temp", color=GRID),
+            ],
+        )
+
+    def _inverter_health(self) -> dict | None:
+        """The inverter's temperature and status, under a heading of their own."""
+        return group(
+            heading_card("Inverter", "mdi:thermometer"),
+            [
+                tile_card(self.inverter_temp("inverter_temperature"), "Temperature", color=GRID),
                 tile_card(
                     self.inverter_temp("inverter_temperature_status"),
-                    "Inverter status",
+                    "Status",
                     color=GRID,
                     icon="mdi:thermometer-alert",
                 ),
@@ -869,7 +1030,7 @@ class Builder:
         return [
             grid_section(
                 heading_block(
-                    heading_card("Night survival", "mdi:weather-night"), self._night_survival()
+                    heading_card(OVERNIGHT_NAME, "mdi:weather-night"), self._night_survival()
                 ),
                 heading_block(
                     subheading_card("Tonight's charge target", "mdi:battery-charging"),
@@ -877,10 +1038,11 @@ class Builder:
                 ),
             ),
             self._battery_health(),
+            self._inverter_health(),
         ]
 
     def _night_survival(self) -> list:
-        """The night survival level in bold, then why, in words.
+        """The overnight outlook in bold, then why, in words.
 
         The confidence sensor carries the level. Its explanation attribute is used when
         it has one. Without it a sentence is chosen by level: Warning is explained from
@@ -893,7 +1055,7 @@ class Builder:
         if level:
             return [markdown_card(survival_template(level, status, sunrise))]
         if status:
-            return [markdown_card(f"**Night survival**\n\n{state_ref(status)}")]
+            return [markdown_card(state_ref(status))]
         return []
 
     # -- Settings --
@@ -920,8 +1082,8 @@ class Builder:
         return group(
             heading_card("Overnight charging", "mdi:battery-charging"),
             [
-                slider_tile(self.entity("charge_target_override"), "Charge target", BATTERY),
-                toggle_tile(self.entity("charge_target_override_enabled"), "Use target", BATTERY),
+                slider_tile(self.entity("charge_target_override"), "Target override", BATTERY),
+                toggle_tile(self.entity("charge_target_override_enabled"), "Override on", BATTERY),
                 toggle_tile(self.entity("skip_charge_override"), "Skip tonight", BATTERY),
             ],
         )
@@ -943,14 +1105,21 @@ class Builder:
             ],
         ]
 
+    def _divert_decision(self) -> list:
+        """The divert reason under a label, so a sentence among controls says what it is."""
+        reason = state_markdown(self.entity("immersion_divert_reason"))
+        heading = subheading_card("Heater decision now", "mdi:help-circle-outline")
+        return heading_block(heading, [reason])
+
     def _immersion_controls(self) -> dict | None:
         return group(
             heading_card("Immersion heater", "mdi:water-boiler"),
             [
                 toggle_tile(self.immersion("auto_immersion"), "Auto divert", IMMERSION),
                 toggle_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
-                state_markdown(self.entity("immersion_divert_reason")),
                 *self._immersion_thermostat_controls(),
+                *self._thermostat_help(),
+                *self._divert_decision(),
             ],
             **self._when(Device.IMMERSION_SWITCH),
         )
