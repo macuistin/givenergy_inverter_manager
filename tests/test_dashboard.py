@@ -740,8 +740,10 @@ class TestNightSurvivalCard:
         return _render(self._card(), lambda e: states.get(e, "unknown"), attrs).strip()
 
     def test_the_level_is_bold_and_comes_first(self):
+        """The heading above the card says what the level is of, so the card does not repeat it."""
         text = self._text("Warning")
-        assert text.startswith("**Night survival: Warning**")
+        assert text.startswith("**Warning**\n\n")
+        assert "Night survival" not in text.splitlines()[0]
 
     def test_warning_is_explained_from_the_sunrise_estimate(self):
         text = self._text("Warning")
@@ -767,18 +769,18 @@ class TestNightSurvivalCard:
 
     def test_critical_shows_the_status_text_with_the_shortfall(self):
         text = self._text("Critical", status="Short by 2.1 kWh before 08:00.")
-        assert text == "**Night survival: Critical**\n\nShort by 2.1 kWh before 08:00."
+        assert text == "**Critical**\n\nShort by 2.1 kWh before 08:00."
 
     def test_safe_shows_the_status_text(self):
         text = self._text("Safe", status="Battery should last until solar.")
-        assert text == "**Night survival: Safe**\n\nBattery should last until solar."
+        assert text == "**Safe**\n\nBattery should last until solar."
 
     def test_without_the_confidence_sensor_only_the_status_text_is_shown(self):
         """Night Survival Confidence is disabled by default."""
         card = self._card(registry=FakeRegistry())
         assert self._CONF not in card
         text = _render(card, lambda e: "Battery should last.").strip()
-        assert text == "**Night survival**\n\nBattery should last."
+        assert text == "Battery should last."
 
     def test_every_night_survival_tile_opens_the_explanation(self):
         tiles = [

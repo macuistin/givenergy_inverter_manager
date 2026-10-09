@@ -19,7 +19,15 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 - The Today tab no longer shows Self-sufficiency twice. The card on where today's energy came
   from states it with what it means, so its bar is gone from the Solar section. The Power Flow tile
   stays. The bar returns if that card cannot be built.
-- Generate the dashboard file again, or use the strategy dashboard, to get the new charts.
+- Cost breakdown: the chart is headed Cost per day, last 14 days, and its series are named as the
+  tiles above it are (Grid import, Rest of house, EV charging, Immersion, Export earnings).
+- EV charger view: new Today section (energy and cost) and a Charge power, last 24 hours graph,
+  both shown only while a charger exists.
+- Battery detail: the inverter temperature and status move to their own Inverter section, out of
+  Battery health. The night survival card no longer repeats its heading before the level.
+- Settings: the immersion divert reason sits at the end of the section under a Heater decision now
+  label, not between the switches.
+- Generate the dashboard file again, or use the strategy dashboard, to get the new charts and cards.
 
 ## v0.16.0
 

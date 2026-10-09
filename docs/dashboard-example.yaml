@@ -1307,6 +1307,46 @@ views:
       content: '{{ states(''sensor.givenergy_inverter_manager_ev_mode_decision'') }}'
       grid_options:
         columns: full
+  - type: grid
+    visibility:
+    - condition: state
+      entity: sensor.givenergy_inverter_manager_ev_charger_state
+      state_not: unavailable
+    cards:
+    - type: heading
+      heading: Today
+      heading_style: title
+      icon: mdi:calendar-today
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_ev_charging_today
+      name: Energy
+      color: teal
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_ev_charging_cost_today
+      name: Cost
+      color: blue
+      grid_options:
+        columns: 6
+  - type: grid
+    visibility:
+    - condition: state
+      entity: sensor.givenergy_inverter_manager_ev_charger_state
+      state_not: unavailable
+    cards:
+    - type: heading
+      heading: Charge power, last 24 hours
+      heading_style: title
+      icon: mdi:chart-line
+    - type: history-graph
+      entities:
+      - entity: sensor.givenergy_inverter_manager_ev_charging_power
+        name: Charge power
+      hours_to_show: 24
+      grid_options:
+        columns: full
+        rows: 4
 - title: Cost breakdown
   icon: mdi:cash-multiple
   path: cost
@@ -1372,17 +1412,17 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: Last 14 days
+      heading: Cost per day, last 14 days
       heading_style: title
       icon: mdi:chart-bar
     - type: statistics-graph
       entities:
       - entity: sensor.givenergy_inverter_manager_import_cost_today
-        name: Grid Import
+        name: Grid import
       - entity: sensor.givenergy_inverter_manager_house_cost_today
-        name: Rest of House
+        name: Rest of house
       - entity: sensor.givenergy_inverter_manager_export_earnings_today
-        name: Export Earnings
+        name: Export earnings
       chart_type: bar
       period: day
       days_to_show: 14
@@ -1401,13 +1441,13 @@ views:
     - type: statistics-graph
       entities:
       - entity: sensor.givenergy_inverter_manager_import_cost_today
-        name: Grid Import
+        name: Grid import
       - entity: sensor.givenergy_inverter_manager_house_cost_today
-        name: Rest of House
+        name: Rest of house
       - entity: sensor.givenergy_inverter_manager_ev_charging_cost_today
-        name: EV Charging
+        name: EV charging
       - entity: sensor.givenergy_inverter_manager_export_earnings_today
-        name: Export Earnings
+        name: Export earnings
       chart_type: bar
       period: day
       days_to_show: 14
@@ -1426,13 +1466,13 @@ views:
     - type: statistics-graph
       entities:
       - entity: sensor.givenergy_inverter_manager_import_cost_today
-        name: Grid Import
+        name: Grid import
       - entity: sensor.givenergy_inverter_manager_house_cost_today
-        name: Rest of House
+        name: Rest of house
       - entity: sensor.givenergy_inverter_manager_immersion_cost_today
         name: Immersion
       - entity: sensor.givenergy_inverter_manager_export_earnings_today
-        name: Export Earnings
+        name: Export earnings
       chart_type: bar
       period: day
       days_to_show: 14
@@ -1451,15 +1491,15 @@ views:
     - type: statistics-graph
       entities:
       - entity: sensor.givenergy_inverter_manager_import_cost_today
-        name: Grid Import
+        name: Grid import
       - entity: sensor.givenergy_inverter_manager_house_cost_today
-        name: Rest of House
+        name: Rest of house
       - entity: sensor.givenergy_inverter_manager_ev_charging_cost_today
-        name: EV Charging
+        name: EV charging
       - entity: sensor.givenergy_inverter_manager_immersion_cost_today
         name: Immersion
       - entity: sensor.givenergy_inverter_manager_export_earnings_today
-        name: Export Earnings
+        name: Export earnings
       chart_type: bar
       period: day
       days_to_show: 14
@@ -1638,7 +1678,7 @@ views:
       icon: mdi:weather-night
     - type: markdown
       content: |-
-        {% set level = states('sensor.givenergy_inverter_manager_night_survival_confidence') %}**Night survival: {{ level }}**
+        {% set level = states('sensor.givenergy_inverter_manager_night_survival_confidence') %}**{{ level }}**
 
         {% if state_attr('sensor.givenergy_inverter_manager_night_survival_confidence', 'explanation') -%}
         {{ state_attr('sensor.givenergy_inverter_manager_night_survival_confidence', 'explanation') }}
@@ -1682,15 +1722,21 @@ views:
       color: green
       grid_options:
         columns: 6
+  - type: grid
+    cards:
+    - type: heading
+      heading: Inverter
+      heading_style: title
+      icon: mdi:thermometer
     - type: tile
       entity: sensor.givenergy_inverter_manager_inverter_temperature
-      name: Inverter temp
+      name: Temperature
       color: blue
       grid_options:
         columns: 6
     - type: tile
       entity: sensor.givenergy_inverter_manager_inverter_temperature_status
-      name: Inverter status
+      name: Status
       icon: mdi:thermometer-alert
       color: blue
       grid_options:
@@ -1766,10 +1812,6 @@ views:
       features_position: inline
       grid_options:
         columns: 6
-    - type: markdown
-      content: '{{ states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
-      grid_options:
-        columns: full
     - type: tile
       entity: switch.givenergy_inverter_manager_immersion_scheduled_heating
       name: Scheduled
@@ -1822,3 +1864,11 @@ views:
       - condition: state
         entity: number.givenergy_inverter_manager_immersion_target_temperature
         state_not: unavailable
+    - type: heading
+      heading: Heater decision now
+      heading_style: subtitle
+      icon: mdi:help-circle-outline
+    - type: markdown
+      content: '{{ states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
+      grid_options:
+        columns: full

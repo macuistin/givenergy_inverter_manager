@@ -187,6 +187,10 @@ Each section shows only while the device it needs exists.
 
 - **Charging now**: charger state, charge power, session energy and charging source.
 - **Why**: whether the EV is draining the battery, the solar surplus available and the mode decision in words.
+- **Today**: the energy the charger delivered and what it cost.
+- **Charge power, last 24 hours**: a line graph of the charger's power. It uses the same power entity as the Charge power tile. Power does not reset at midnight, so a history graph draws it without a sawtooth.
+
+The sections show only while a charger exists.
 
 ### Today
 
@@ -206,7 +210,7 @@ Each section shows only while the device it needs exists.
 
 ![Cost breakdown view with grid import, house, EV and immersion costs and a 14 day bar chart.](images/dashboard-cost-breakdown.png)
 
-A tile for every cost line today (grid import, export earnings, rest of house, EV charging, immersion and what solar saved the immersion) and a bar graph of cost per day over 14 days.
+A tile for every cost line today (grid import, export earnings, rest of house, EV charging, immersion and what solar saved the immersion) and a bar graph, **Cost per day, last 14 days**. The graph names its series as the tiles do. Grid import is the whole of the import cost, so it is the sum of Rest of house, EV charging and Immersion: read it as the total, and the three beside it as its parts.
 
 ### Solar and forecast (sub-view)
 
@@ -254,15 +258,16 @@ State of charge and power are not drawn on one graph, because a percentage and w
 
 ### Battery detail (sub-view)
 
-- **Night survival**: the level in bold, then why. Where the Night Survival Confidence sensor has an `explanation` attribute, that is shown. Otherwise a Warning is explained from the estimated state of charge at sunrise ("about 14% at sunrise, close to your minimum charge"), and Safe and Critical show the Battery Night Survival Status text, which carries any kWh shortfall. Without the confidence sensor, which is disabled by default, only the status text is shown. Under it, the reason for tonight's charge target. Both are sentences, and a tile cuts them off, so they sit in Markdown cards.
-- **Battery health**: total cycles, life remaining, days since full charge, and the inverter temperature and status.
+- **Night survival**: the level in bold, with no repeat of the heading, then why. Where the Night Survival Confidence sensor has an `explanation` attribute, that is shown. Otherwise a Warning is explained from the estimated state of charge at sunrise ("about 14% at sunrise, close to your minimum charge"), and Safe and Critical show the Battery Night Survival Status text, which carries any kWh shortfall. Without the confidence sensor, which is disabled by default, only the status text is shown. Under it, the reason for tonight's charge target. Both are sentences, and a tile cuts them off, so they sit in Markdown cards.
+- **Battery health**: total cycles, life remaining and days since full charge.
+- **Inverter**: the inverter temperature and status. The section needs an inverter temperature entity.
 
 ### Settings (sub-view, administrators only)
 
 ![Settings view with the charge target slider, the skip tonight toggle and the immersion heater controls.](images/dashboard-settings.png)
 
 - **Overnight charging**: a slider for the charge target, and the Use target and Skip tonight switches.
-- **Immersion heater**: the Auto divert and Managed switches and the divert reason in words. With a temperature sensor as well, the Scheduled switch (Immersion Scheduled Heating) and sliders for the target temperature, the minimum temperature and the restart gap.
+- **Immersion heater**: the Auto divert and Managed switches. With a temperature sensor as well, the Scheduled switch (Immersion Scheduled Heating) and sliders for the target temperature, the minimum temperature and the restart gap. The section ends with **Heater decision now**, the divert reason in words, so the controls come before the sentence and the sentence has a label.
 
 The view is left out when there is no administrator to show it to, and the immersion section is hidden while there is no immersion switch. The dry run banner is not here. It sits on the Power Flow tab, below Now, and appears only while Dry Run Mode Active is true.
 

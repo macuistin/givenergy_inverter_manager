@@ -119,14 +119,14 @@ class _CostEntities:
 
 
 def _cost_history(cost: _CostEntities) -> dict | None:
-    """Bars of the cost per day for two weeks."""
+    """Bars of the cost per day for two weeks, named as the tiles above it are."""
     return statistics_graph(
         [
-            entity_row(cost.grid_import, "Grid Import"),
-            entity_row(cost.house, "Rest of House"),
-            entity_row(cost.ev, "EV Charging"),
+            entity_row(cost.grid_import, "Grid import"),
+            entity_row(cost.house, "Rest of house"),
+            entity_row(cost.ev, "EV charging"),
             entity_row(cost.immersion, "Immersion"),
-            entity_row(cost.export_earnings, "Export Earnings"),
+            entity_row(cost.export_earnings, "Export earnings"),
         ],
         "day",
         14,
@@ -627,7 +627,26 @@ class Builder:
                 ],
                 **shown,
             ),
+            group(
+                heading_card("Today", "mdi:calendar-today"),
+                [
+                    tile_card(self.ev("zappi_today"), "Energy", color=EV),
+                    tile_card(self.ev("zappi_cost_today"), "Cost", color=GRID),
+                ],
+                **shown,
+            ),
+            group(
+                heading_card("Charge power, last 24 hours", "mdi:chart-line"),
+                [self._ev_power_history()],
+                **shown,
+            ),
         ]
+
+    def _ev_power_history(self) -> dict | None:
+        """A line of the charger's power. Power does not reset, so a history graph is right."""
+        power = entity_row(self.ev_power(), "Charge power")
+        history = entity_list_card([power], {"type": "history-graph"}, hours_to_show=24)
+        return graph_card(history) if history else None
 
     # -- Today --
 
@@ -755,7 +774,7 @@ class Builder:
                     show(self._immersion_savings_tile(), Device.IMMERSION_SWITCH),
                 ],
             ),
-            group(heading_card("Last 14 days", "mdi:chart-bar"), history),
+            group(heading_card("Cost per day, last 14 days", "mdi:chart-bar"), history),
         ]
 
     def _immersion_savings_tile(self) -> dict | None:
@@ -927,10 +946,18 @@ class Builder:
                 self.tile(
                     "days_since_full_charge", "Since full", color=BATTERY, icon="mdi:battery-check"
                 ),
-                tile_card(self.inverter_temp("inverter_temperature"), "Inverter temp", color=GRID),
+            ],
+        )
+
+    def _inverter_health(self) -> dict | None:
+        """The inverter's temperature and status, under a heading of their own."""
+        return group(
+            heading_card("Inverter", "mdi:thermometer"),
+            [
+                tile_card(self.inverter_temp("inverter_temperature"), "Temperature", color=GRID),
                 tile_card(
                     self.inverter_temp("inverter_temperature_status"),
-                    "Inverter status",
+                    "Status",
                     color=GRID,
                     icon="mdi:thermometer-alert",
                 ),
@@ -950,6 +977,7 @@ class Builder:
                 ),
             ),
             self._battery_health(),
+            self._inverter_health(),
         ]
 
     def _night_survival(self) -> list:
@@ -966,7 +994,7 @@ class Builder:
         if level:
             return [markdown_card(survival_template(level, status, sunrise))]
         if status:
-            return [markdown_card(f"**Night survival**\n\n{state_ref(status)}")]
+            return [markdown_card(state_ref(status))]
         return []
 
     # -- Settings --
@@ -1016,14 +1044,20 @@ class Builder:
             ],
         ]
 
+    def _divert_decision(self) -> list:
+        """The divert reason under a label, so a sentence among controls says what it is."""
+        reason = state_markdown(self.entity("immersion_divert_reason"))
+        heading = subheading_card("Heater decision now", "mdi:help-circle-outline")
+        return heading_block(heading, [reason])
+
     def _immersion_controls(self) -> dict | None:
         return group(
             heading_card("Immersion heater", "mdi:water-boiler"),
             [
                 toggle_tile(self.immersion("auto_immersion"), "Auto divert", IMMERSION),
                 toggle_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
-                state_markdown(self.entity("immersion_divert_reason")),
                 *self._immersion_thermostat_controls(),
+                *self._divert_decision(),
             ],
             **self._when(Device.IMMERSION_SWITCH),
         )
