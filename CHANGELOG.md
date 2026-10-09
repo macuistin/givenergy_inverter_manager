@@ -21,6 +21,11 @@ steady. Fixes a sunrise estimate that sat at the minimum.
 - A heater that cuts itself off in the window, for example a device auto-off, is turned on again
   after the switch hold, until the target or the window end. A device timer that turns the heater
   on while the water is at the target is switched off again.
+- Dashboard: the Immersion view shows a Ready by section (the next ready time, whether the water
+  is expected to be ready, and the heating rate) while Immersion Scheduled Heating is on. The
+  Scheduled switch sits with the Target, Minimum and Restart gap tiles on the Immersion view,
+  and as a toggle in Settings. They show only with an immersion switch and a water temperature
+  sensor, and a stored dashboard picks them up with no regeneration.
 
 **Changes**
 - The Recommended Overnight Charge Target and Overnight Charge Reason sensors no longer step every
