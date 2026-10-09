@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 
 from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.immersion_rate import keep_run
+from .core.oil_schedule import ImmersionHeatLog
 from .core.rules import (
     ForecastAccuracy,
     build_load_profile,
@@ -49,6 +50,9 @@ _CYCLE_FIELDS_HALVED_AT_V2 = ("battery_cycles", "battery_tracking_start_cycles")
 # Version 4 adds grid_to_battery_kwh to every accumulator, the grid energy stored in the battery.
 # Older periods did not track it, so they start at 0 and read as import only.
 _ACCUMULATOR_KEYS = ("today", "week", "month", "year", "yesterday")
+# The record of the immersion's grid heating is read with .get and stored only once it holds a
+# day, so it needs no storage version and an install without an oil price never stores it.
+_HEAT_LOG_KEY = "immersion_heat_history"
 _FORECAST_HISTORY_DAYS = 7
 _FORECAST_RATIO_HISTORY_DAYS = 14
 _SLOT_HISTORY_DAYS = 28
@@ -266,6 +270,10 @@ class AccumulationState:
     # Heating rates (degrees per hour) of the last few immersion runs, oldest first. The
     # ready-by plan reads their median. See core/immersion_rate.py.
     immersion_heating_rates: list = field(default_factory=list)
+
+    # The immersion's grid heating by local hour for the last 14 complete days and today, with
+    # what it cost. Filled only while an oil price is set. See core/oil_schedule.py.
+    immersion_heat_log: ImmersionHeatLog = field(default_factory=ImmersionHeatLog)
 
     # Rolling 12-month export snapshots — one entry per completed billing month,
     # oldest first, capped at 12. Populated at each monthly reset before clearing.
@@ -645,6 +653,10 @@ class AccumulationStore:
     def immersion_heating_rates(self) -> list[float]:
         return self.state.immersion_heating_rates
 
+    @property
+    def immersion_heat_log(self) -> ImmersionHeatLog:
+        return self.state.immersion_heat_log
+
     def record_immersion_rate(self, rate_c_per_h: float) -> None:
         """Keep the heating rate of a finished immersion run and queue a save."""
         self.state.immersion_heating_rates = keep_run(
@@ -710,6 +722,13 @@ class AccumulationStore:
 
 
 def _serialize(state: AccumulationState) -> dict:
+    payload = _serialize_state(state)
+    if state.immersion_heat_log.days:
+        payload[_HEAT_LOG_KEY] = state.immersion_heat_log.to_storage()
+    return payload
+
+
+def _serialize_state(state: AccumulationState) -> dict:
     return {
         "version": _STORAGE_VERSION,
         "today": _acc_to_dict(state.today),
@@ -796,6 +815,10 @@ def _restore_immersion_rates(state: AccumulationState, data: dict) -> None:
     ]
 
 
+def _restore_heat_log(state: AccumulationState, data: dict) -> None:
+    state.immersion_heat_log = ImmersionHeatLog.from_storage(data.get(_HEAT_LOG_KEY))
+
+
 def _restore_period_history(state: AccumulationState, data: dict) -> None:
     state.week_start_iso = data.get("week_start_iso", "")
     state.month_start_iso = data.get("month_start_iso", "")
@@ -816,5 +839,6 @@ def _deserialize(data: dict) -> AccumulationState:
     _restore_battery_and_forecast(state, data)
     _restore_slot_load(state, data)
     _restore_immersion_rates(state, data)
+    _restore_heat_log(state, data)
     _restore_period_history(state, data)
     return state
