@@ -453,3 +453,79 @@ class TestReadyTimesInTheOptions:
         result = await save_options(hass, loaded_entry, ready=["07:00", "breakfast"], expect="form")
         assert result["errors"] == {"base": "immersion_ready_time_invalid"}
         assert CONF_IMMERSION_READY_TIMES not in loaded_entry.options
+
+
+class TestParityWithTheOldAutomations:
+    """What the three home automations did, now done here with scheduled heating left off."""
+
+    async def _commanded_once(self, hass, entry, freezer) -> None:
+        """Let the integration switch the heater on and off once, so it can tell outside toggles."""
+        water(hass, 44.0)  # below the minimum of 45
+        at(freezer, "10:00:00")
+        await cycle(hass, entry)
+        water(hass, TARGET_REACHED)
+        at(freezer, "10:30:00")
+        await cycle(hass, entry)
+
+    @pytest.mark.parametrize("utc", ["06:00:00", "12:00:00", "23:45:00", "03:00:00"])
+    async def test_below_the_minimum_the_heater_comes_on_at_any_hour(
+        self, hass, loaded_entry, real_switch, freezer, utc
+    ):
+        water(hass, 44.0)
+        at(freezer, utc)
+        await cycle(hass, loaded_entry)
+        assert real_switch.calls == ["turn_on"]
+        assert "below minimum safe temperature" in loaded_entry.runtime_data.data.divert_reason
+
+    async def test_a_timer_run_below_target_heats_to_target_then_stops(
+        self, hass, loaded_entry, real_switch, freezer
+    ):
+        await self._commanded_once(hass, loaded_entry, freezer)
+        assert real_switch.calls == ["turn_on", "turn_off"]
+        water(hass, 52.0)
+        hass.states.async_set(IMMERSION_SWITCH, "on")  # a timer of the device starts it
+        at(freezer, "22:00:00")
+        await cycle(hass, loaded_entry)
+        await cycle(hass, loaded_entry)
+        assert real_switch.calls == ["turn_on", "turn_off"]  # left running to the target
+        water(hass, TARGET_REACHED)
+        await cycle(hass, loaded_entry)
+        assert real_switch.calls == ["turn_on", "turn_off", "turn_off"]
+
+    async def test_a_timer_start_with_the_water_at_target_is_switched_off(
+        self, hass, loaded_entry, real_switch, freezer
+    ):
+        await self._commanded_once(hass, loaded_entry, freezer)
+        hass.states.async_set(IMMERSION_SWITCH, "on")
+        at(freezer, "22:00:00")
+        await cycle(hass, loaded_entry)
+        await cycle(hass, loaded_entry)
+        assert real_switch.calls[-1] == "turn_off"
+        assert real_switch.calls.count("turn_off") == 2
+
+    async def test_the_device_auto_off_after_an_hour_ends_a_timer_run_without_a_fight(
+        self, hass, loaded_entry, real_switch, freezer
+    ):
+        """Inching switches the heater off at 60 minutes. That is read as an outside turn-off."""
+        await self._commanded_once(hass, loaded_entry, freezer)
+        water(hass, 52.0)
+        hass.states.async_set(IMMERSION_SWITCH, "on")
+        at(freezer, "22:00:00")
+        await cycle(hass, loaded_entry)
+        await cycle(hass, loaded_entry)
+        water(hass, 53.5)
+        hass.states.async_set(IMMERSION_SWITCH, "off")
+        at(freezer, "23:00:00")
+        await cycle(hass, loaded_entry)
+        assert real_switch.calls == ["turn_on", "turn_off"]
+        assert loaded_entry.runtime_data.override_immersion is None
+
+    @pytest.mark.parametrize("utc", ["00:30:00", "03:00:00", "05:00:00", "12:00:00", "23:45:00"])
+    async def test_a_heater_above_target_is_never_left_on_at_any_hour(
+        self, hass, loaded_entry, real_switch, freezer, utc
+    ):
+        hass.states.async_set(IMMERSION_SWITCH, "on")
+        water(hass, TARGET_REACHED)
+        at(freezer, utc)
+        await cycle(hass, loaded_entry)
+        assert real_switch.calls == ["turn_off"]
