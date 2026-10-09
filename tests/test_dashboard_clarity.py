@@ -225,3 +225,61 @@ def test_the_decision_shows_only_with_the_switch(combination):
     assert ("Immersion heater" in sections) == switch
     if switch:
         assert any(c.get("heading") == "Heater decision now" for c in sections["Immersion heater"])
+
+
+# ── Managed and Restart gap, in words ────────────────────────────────────────
+
+MANAGED = (
+    "**Managed**: turn it on to force a heating run until the water reaches the target. "
+    "Turn it off to hold the heater off for 10 minutes."
+)
+RESTART_GAP = (
+    "**Restart gap**: how far the water must fall below the target before a new heating run "
+    "starts."
+)
+
+
+def _markdown(cards: list[dict]) -> list[str]:
+    return [c["content"] for c in cards if c["type"] == "markdown"]
+
+
+@pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
+def test_the_immersion_settings_in_force_explain_the_settings_the_install_has(combination):
+    ev, switch, sensor = combination
+    shown = seen_for(ev=ev, switch=switch, sensor=sensor)
+    cards = _sections(shown, "immersion").get("Settings in force", [])
+    text = _markdown(cards)
+    assert (MANAGED in text) == switch
+    assert (RESTART_GAP in text) == (switch and sensor)
+
+
+@pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
+def test_the_settings_view_explains_the_settings_the_install_has(combination):
+    ev, switch, sensor = combination
+    shown = seen_for(ev=ev, switch=switch, sensor=sensor)
+    text = _markdown(_sections(shown, "settings").get("Immersion heater", []))
+    assert (MANAGED in text) == switch
+    assert (RESTART_GAP in text) == (switch and sensor)
+
+
+def test_the_help_follows_the_controls_it_explains_and_comes_before_the_decision():
+    cards = _sections(seen_for(switch=True, sensor=True), "settings")["Immersion heater"]
+    kinds = [c["type"] for c in cards]
+    last_control = max(i for i, k in enumerate(kinds) if k == "tile")
+    help_at = [i for i, c in enumerate(cards) if c["type"] == "markdown" and "**" in c["content"]]
+    assert all(i > last_control for i in help_at)
+    assert cards[-2]["heading"] == "Heater decision now"
+
+
+def test_the_help_comes_after_the_tiles_of_the_immersion_view():
+    cards = _sections(seen_for(switch=True, sensor=True), "immersion")["Settings in force"]
+    kinds = [c["type"] for c in cards]
+    assert kinds == ["tile"] * 6 + ["markdown"] * 2
+
+
+def test_the_managed_help_states_the_cooldown_the_actuator_uses():
+    from custom_components.givenergy_inverter_manager.const import (
+        IMMERSION_SWITCH_COOLDOWN_MINUTES,
+    )
+
+    assert f"{IMMERSION_SWITCH_COOLDOWN_MINUTES} minutes" in MANAGED

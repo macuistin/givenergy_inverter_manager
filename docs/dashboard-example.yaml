@@ -1239,6 +1239,18 @@ views:
       - condition: state
         entity: number.givenergy_inverter_manager_immersion_target_temperature
         state_not: unavailable
+    - type: markdown
+      content: '**Managed**: turn it on to force a heating run until the water reaches the target. Turn it off to hold the heater off for 10 minutes.'
+      grid_options:
+        columns: full
+    - type: markdown
+      content: '**Restart gap**: how far the water must fall below the target before a new heating run starts.'
+      grid_options:
+        columns: full
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable
 - title: EV charger
   icon: mdi:ev-station
   path: ev-charger
@@ -1850,6 +1862,18 @@ views:
       features:
       - type: numeric-input
         style: slider
+      grid_options:
+        columns: full
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable
+    - type: markdown
+      content: '**Managed**: turn it on to force a heating run until the water reaches the target. Turn it off to hold the heater off for 10 minutes.'
+      grid_options:
+        columns: full
+    - type: markdown
+      content: '**Restart gap**: how far the water must fall below the target before a new heating run starts.'
       grid_options:
         columns: full
       visibility:

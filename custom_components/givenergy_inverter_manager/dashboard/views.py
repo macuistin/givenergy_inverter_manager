@@ -69,6 +69,8 @@ from .devices import Devices, with_visibility
 from .hacs import APEX_CARD, POWER_FLOW_CARD, HacsCards
 from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
+    MANAGED_HELP,
+    RESTART_GAP_HELP,
     EnergySources,
     energy_devices_template,
     energy_sources_template,
@@ -581,6 +583,13 @@ class Builder:
         """The section option that shows a section while these devices are present."""
         return {"visibility": self.devices.visible_with(*devices)}
 
+    def _thermostat_help(self) -> list[dict | None]:
+        """What Managed and Restart gap mean. Restart gap needs the switch and the sensor."""
+        return [
+            markdown_card(MANAGED_HELP),
+            self.devices.show_with(markdown_card(RESTART_GAP_HELP), Device.IMMERSION_THERMOSTAT),
+        ]
+
     def _immersion_settings_in_force(self) -> dict[str, Any] | None:
         """The immersion settings as they stand, to read. Administrators change them."""
         readings = [
@@ -600,6 +609,7 @@ class Builder:
                 readonly_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
                 schedule,
                 *readings,
+                *self._thermostat_help(),
             ],
             **self._when(Device.IMMERSION_SWITCH),
         )
@@ -1060,6 +1070,7 @@ class Builder:
                 toggle_tile(self.immersion("auto_immersion"), "Auto divert", IMMERSION),
                 toggle_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
                 *self._immersion_thermostat_controls(),
+                *self._thermostat_help(),
                 *self._divert_decision(),
             ],
             **self._when(Device.IMMERSION_SWITCH),

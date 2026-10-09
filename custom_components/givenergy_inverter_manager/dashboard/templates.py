@@ -7,7 +7,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from ..const import CONF_CURRENCY, CURRENCIES, DEFAULT_CURRENCY, OIL_SCHEDULE_MIN_DAYS
+from ..const import (
+    CONF_CURRENCY,
+    CURRENCIES,
+    DEFAULT_CURRENCY,
+    IMMERSION_SWITCH_COOLDOWN_MINUTES,
+    OIL_SCHEDULE_MIN_DAYS,
+)
 from ..core.tariff import TariffChange, TariffConfig, build_tariff
 from .cards import state_ref
 
@@ -92,6 +98,17 @@ def oil_schedule_template(source: str) -> str:
         f"schedule appears after {OIL_SCHEDULE_MIN_DAYS} days.\n"
         "{%- endif %}"
     )
+
+
+# What two immersion settings do, in words. Their names say little on their own.
+MANAGED_HELP = (
+    "**Managed**: turn it on to force a heating run until the water reaches the target. "
+    f"Turn it off to hold the heater off for {IMMERSION_SWITCH_COOLDOWN_MINUTES} minutes."
+)
+RESTART_GAP_HELP = (
+    "**Restart gap**: how far the water must fall below the target before a new heating run "
+    "starts."
+)
 
 
 def _currency_symbol(cfg: dict) -> str:
