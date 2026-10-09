@@ -244,21 +244,37 @@ class TestSurvivalAttributes:
 
     def test_critical_explains_with_the_shortfall(self):
         attrs = self._attrs(survive=False, sunrise=10.0, reason="Battery may run low. Shortfall 1.8kWh.")
-        assert attrs["explanation"] == "Critical. Battery may run low. Shortfall 1.8kWh."
+        assert attrs["explanation"] == "Battery may run low. Shortfall 1.8kWh."
 
     def test_warning_says_it_lasts_but_only_just(self):
         attrs = self._attrs(sunrise=12.0)
-        assert attrs["explanation"].startswith("Warning. The battery should last")
+        assert attrs["explanation"].startswith("The battery should last until solar starts")
         assert "about 12% at sunrise" in attrs["explanation"]
         assert "within 5 points of the 10% minimum" in attrs["explanation"]
 
     def test_warning_threshold_is_the_minimum_plus_the_margin(self):
-        assert self._attrs(sunrise=14.9)["explanation"].startswith("Warning")
-        assert self._attrs(sunrise=15.0)["explanation"].startswith("Safe")
+        assert self._attrs(sunrise=14.9)["outlook"] == "Only just lasts the night"
+        assert self._attrs(sunrise=15.0)["outlook"] == "Lasts the night"
 
     def test_safe_repeats_the_reason(self):
         attrs = self._attrs(sunrise=40.0, reason="Battery should last until solar.")
-        assert attrs["explanation"] == "Safe. Battery should last until solar."
+        assert attrs["explanation"] == "Battery should last until solar."
+
+    def test_the_outlook_says_whether_the_battery_lasts_the_night_in_plain_words(self):
+        assert self._attrs(sunrise=40.0)["outlook"] == "Lasts the night"
+        assert self._attrs(sunrise=12.0)["outlook"] == "Only just lasts the night"
+        assert self._attrs(survive=False, sunrise=10.0)["outlook"] == "May run low"
+
+    def test_the_summary_adds_the_charge_expected_at_sunrise(self):
+        assert self._attrs(sunrise=36.4)["summary"] == "Lasts the night · 36% at sunrise"
+        assert self._attrs(sunrise=12.0)["summary"] == "Only just lasts the night · 12% at sunrise"
+
+    def test_a_battery_that_runs_out_has_no_sunrise_figure_in_the_summary(self):
+        assert self._attrs(survive=False, sunrise=10.0)["summary"] == "May run low"
+
+    def test_no_phrase_says_survival(self):
+        for attrs in (self._attrs(), self._attrs(sunrise=12.0), self._attrs(survive=False)):
+            assert "surviv" not in (attrs["outlook"] + attrs["summary"]).lower()
 
     def test_numbers_are_included(self):
         attrs = self._attrs(sunrise=12.34, min_soc=10.0, now=61.26)

@@ -163,7 +163,7 @@ class TestSensorDefaultEnabled:
         "Grid Power Direction",
         "Solar Output % of Max",
         "Battery State",
-        "Night Survival Confidence",
+        "Battery Overnight Confidence",
         "Net Solar Surplus",
         "Battery Energy Available",
         "Solar generated this year",

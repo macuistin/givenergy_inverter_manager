@@ -52,7 +52,7 @@ action:
 Warns if the estimated SoC at 08:00 falls below 10%.
 
 ```yaml
-alias: Battery night survival warning
+alias: Battery overnight warning
 trigger:
   - platform: numeric_state
     entity_id: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise
@@ -64,7 +64,7 @@ action:
       message: >
         Estimated SoC at sunrise:
         {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') }}%.
-        {{ states('sensor.givenergy_inverter_manager_battery_night_survival_status') }}
+        {{ states('sensor.givenergy_inverter_manager_battery_overnight_outlook') }}
 ```
 
 ---

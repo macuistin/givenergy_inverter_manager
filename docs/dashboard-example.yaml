@@ -50,19 +50,7 @@ views:
         navigation_path: battery
       grid_options:
         columns: 6
-        rows: 3
-    - type: tile
-      entity: sensor.givenergy_inverter_manager_night_survival_confidence
-      name: Night survival
-      color: indigo
-      tap_action:
-        action: navigate
-        navigation_path: battery-detail
-      icon_tap_action:
-        action: navigate
-        navigation_path: battery-detail
-      grid_options:
-        columns: 6
+        rows: 2
     - type: tile
       entity: sensor.givenergy_inverter_manager_current_rate
       name: Rate per kWh
@@ -81,6 +69,20 @@ views:
         navigation_path: today
       grid_options:
         columns: 6
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_battery_overnight_confidence
+      name: Battery overnight
+      color: indigo
+      state_content:
+      - summary
+      tap_action:
+        action: navigate
+        navigation_path: battery-detail
+      icon_tap_action:
+        action: navigate
+        navigation_path: battery-detail
+      grid_options:
+        columns: full
     - type: tile
       entity: sensor.givenergy_inverter_manager_next_cheap_rate_start
       name: Cheap from
@@ -1580,19 +1582,19 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: Night survival
+      heading: Battery overnight
       heading_style: title
       icon: mdi:weather-night
     - type: markdown
       content: |-
-        {% set level = states('sensor.givenergy_inverter_manager_night_survival_confidence') %}**Night survival: {{ level }}**
+        {% set level = states('sensor.givenergy_inverter_manager_battery_overnight_confidence') %}**{{ state_attr('sensor.givenergy_inverter_manager_battery_overnight_confidence', 'outlook') or level }}**
 
-        {% if state_attr('sensor.givenergy_inverter_manager_night_survival_confidence', 'explanation') -%}
-        {{ state_attr('sensor.givenergy_inverter_manager_night_survival_confidence', 'explanation') }}
+        {% if state_attr('sensor.givenergy_inverter_manager_battery_overnight_confidence', 'explanation') -%}
+        {{ state_attr('sensor.givenergy_inverter_manager_battery_overnight_confidence', 'explanation') }}
         {%- elif level | lower == 'warning' -%}
         The battery should last until solar starts, but only just. It is expected to reach {% if has_value('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') %}about {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') | float(0) | round(0) | int }}% at sunrise{% else %}the minimum at sunrise{% endif %}, close to your minimum charge. A warning shows when the estimate is within 5 points of the minimum.
         {%- else -%}
-        {{ states('sensor.givenergy_inverter_manager_battery_night_survival_status') }}
+        {{ states('sensor.givenergy_inverter_manager_battery_overnight_outlook') }}
         {%- endif %}
       grid_options:
         columns: full

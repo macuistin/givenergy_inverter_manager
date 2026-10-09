@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 import yaml
 
@@ -135,3 +137,44 @@ class TestChargeSettingsInForce:
         settings = yaml.safe_load(dashboard_text())["views"][0]["sections"]
         banner = next(s for s in settings if s["cards"][0]["heading"] == "Dry run is on")
         assert banner["visibility"][0]["state"] == "True"
+
+
+# ── Battery overnight ────────────────────────────────────────────────────────
+
+
+class TestBatteryOvernight:
+    """The night survival sensors are read as: does the battery last the night."""
+
+    def _tile(self) -> dict:
+        (found,) = [
+            c for _, c in _tiles_of(_IDS["night_survival_confidence"]) if c["name"]
+        ][:1]
+        return found
+
+    def test_the_tile_is_named_for_the_battery_lasting_overnight(self):
+        assert self._tile()["name"] == "Battery overnight"
+
+    def test_the_tile_reads_the_summary_phrase_and_the_charge_at_sunrise(self):
+        tile = self._tile()
+        assert tile["state_content"] == ["summary"]
+        assert tile["grid_options"]["columns"] == "full"
+
+    def test_the_tile_opens_battery_detail(self):
+        assert self._tile()["tap_action"]["navigation_path"] == "battery-detail"
+
+    def test_the_battery_tile_stays_beside_the_rate_and_cost_tiles(self):
+        now = next(v for v in _views() if v["path"] == "power-flow")["sections"][0]["cards"]
+        by_name = {c["name"]: c for c in now if c["type"] == "tile"}
+        assert by_name["Battery"]["grid_options"]["rows"] == 2
+        assert by_name["Rate per kWh"]["grid_options"]["columns"] == 6
+        assert by_name["Cost today"]["grid_options"]["columns"] == 6
+
+    def test_no_word_on_the_dashboard_says_survival(self):
+        text = re.sub(r"(sensor|switch|number)\.[a-z0-9_]+", "", dashboard_text())
+        header_free = text[text.index("views:") :]
+        assert "survival" not in header_free.lower()
+
+    def test_the_detail_view_heading_says_battery_overnight(self):
+        detail = next(v for v in _views() if v["path"] == "battery-detail")
+        headings = [c["heading"] for c in view_cards(detail) if c["type"] == "heading"]
+        assert headings[0] == "Battery overnight"

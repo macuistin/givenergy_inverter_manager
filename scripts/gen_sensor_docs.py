@@ -60,7 +60,7 @@ GROUPS: dict[str, str] = {
     "Efficiency today": "Percentages worked out from today's totals.",
     "Bill": "Estimates for the current bill period. See [Tariff](tariff.md#bill-line-items).",
     "Battery": "Health, wear and state of the battery.",
-    "Charge plan and night survival": "Outputs of the overnight charge calculation.",
+    "Charge plan and overnight outlook": "Outputs of the overnight charge calculation.",
     "Immersion": (
         "Output of the immersion divert rule, the water temperature and the oil water heating "
         "advice. The water temperature sensor exists only with a temperature sensor set. The "
@@ -214,7 +214,7 @@ KEY_GROUPS: dict[str, str] = {
             "night_survival_confidence",
             "cheap_rate_floor_status",
         ),
-        "Charge plan and night survival",
+        "Charge plan and overnight outlook",
     ),
     **dict.fromkeys(
         (
@@ -456,7 +456,9 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "night_survival_confidence": (
         "Safe, Warning (within 5 points of minimum SoC) or Critical. "
-        "The attributes say why and give the numbers."
+        "The attributes say why and give the numbers. `outlook` and `summary` say it in "
+        "words for the dashboard, for example Lasts the night, with the charge expected at "
+        "sunrise."
     ),
     "cheap_rate_floor_status": "State of the cheap rate floor top-up, or Inactive.",
     "immersion_divert_reason": "Why the immersion is on or off.",
@@ -561,13 +563,17 @@ RENAMED_SENSORS: tuple[tuple[str, str, str], ...] = (
     ),
     ("import_cost_peak_today", "Import cost at peak rate", "Import cost at base rate"),
     ("peak_import_fraction_today", "Peak rate import fraction", "Base rate import fraction"),
+    ("night_survival_reason", "Battery Night Survival Status", "Battery Overnight Outlook"),
+    ("night_survival_confidence", "Night Survival Confidence", "Battery Overnight Confidence"),
 )
 RENAMED_NOTE = (
-    "These sensors were renamed because they measure the base rate, the rate that applies "
-    "while no timed rate period is active. They are not a peak band, and no peak band is "
-    "configured. The key and the unique ID did not change, so history, statistics and "
-    "automations carry on. An install made before the rename keeps its old entity IDs, "
-    "which still contain `peak`. A new install builds entity IDs from the new names."
+    "The base rate sensors were renamed because they measure the base rate, the rate that "
+    "applies while no timed rate period is active. They are not a peak band, and no peak band "
+    "is configured. The two overnight sensors were renamed because night survival read like "
+    "an alarm: they tell whether the battery lasts the night. In both groups the key and the "
+    "unique ID did not change, so history, statistics and automations carry on. An install "
+    "made before a rename keeps its old entity IDs, which still contain `peak` or "
+    "`night_survival`. A new install builds entity IDs from the new names."
 )
 RETIRED_NOTE = (
     "These sensors were removed. The integration never writes or advises forced battery "

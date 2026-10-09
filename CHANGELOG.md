@@ -21,6 +21,14 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   like a fault. It now says `Not enough spare solar: the house is using 345 W more than the panels
   make (needs 500 W spare)`, or `Not enough spare solar: 300 W spare, needs 500 W`. An automation
   that matches the old text needs the new one.
+- Night survival is now worded as the battery lasting the night. The Power Flow tile Night survival
+  is Battery overnight, a full-width tile that reads `Lasts the night · 36% at sunrise`, `Only just
+  lasts the night · 12% at sunrise` or `May run low`. The Battery detail heading and card use the
+  same words. Battery Night Survival Status is now Battery Overnight Outlook and Night Survival
+  Confidence is now Battery Overnight Confidence. Their keys, unique IDs and states (Safe, Warning,
+  Critical) are unchanged, and an install made before this release keeps its entity IDs. The
+  confidence sensor gains the attributes `outlook` and `summary`, and its `explanation` no longer
+  starts with the level word.
 
 ## v0.16.0
 

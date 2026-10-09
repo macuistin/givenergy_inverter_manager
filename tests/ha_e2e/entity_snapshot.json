@@ -80,9 +80,9 @@
   "name": "Battery Life Consumed Today"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_battery_night_survival_status",
+  "entity_id": "sensor.givenergy_inverter_manager_battery_overnight_outlook",
   "key": "night_survival_reason",
-  "name": "Battery Night Survival Status"
+  "name": "Battery Overnight Outlook"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_battery_power",
@@ -595,9 +595,9 @@
   "name": "Next Cheap Rate Start"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_night_survival_confidence",
+  "entity_id": "sensor.givenergy_inverter_manager_battery_overnight_confidence",
   "key": "night_survival_confidence",
-  "name": "Night Survival Confidence"
+  "name": "Battery Overnight Confidence"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_on_base_daytime_rate",

@@ -20,8 +20,8 @@ Provides:
 
   survival_attributes()
     Says in words why night survival is Safe, Warning or Critical, with the
-    numbers behind it. Shown in the attributes of the Night Survival Confidence
-    sensor.
+    numbers behind it, and in plain phrases for the dashboard. Shown in the attributes
+    of the Battery Overnight Confidence sensor.
 
 Note: BatterySession tracking (per-session energy, depth-of-discharge,
 round-trip efficiency) is planned for v0.2.0 when energy accumulation is
@@ -192,17 +192,40 @@ class SurvivalReport:
     reason: str
 
 
+# What each level means for tonight, as a person would say it.
+OUTLOOK_SAFE = "Lasts the night"
+OUTLOOK_WARNING = "Only just lasts the night"
+OUTLOOK_CRITICAL = "May run low"
+
+
+def _outlook(report: SurvivalReport) -> str:
+    """Whether the battery lasts until solar starts, as a short phrase."""
+    if not report.will_survive:
+        return OUTLOOK_CRITICAL
+    if report.estimated_soc < report.min_soc + NIGHT_SURVIVAL_WARNING_MARGIN_PCT:
+        return OUTLOOK_WARNING
+    return OUTLOOK_SAFE
+
+
+def _summary(report: SurvivalReport, outlook: str) -> str:
+    """The outlook and the expected charge at sunrise. A battery that runs out has no figure."""
+    if outlook == OUTLOOK_CRITICAL:
+        return outlook
+    return f"{outlook} · {report.estimated_soc:.0f}% at sunrise"
+
+
 def _survival_explanation(report: SurvivalReport) -> str:
     margin = NIGHT_SURVIVAL_WARNING_MARGIN_PCT
-    if not report.will_survive:
-        return f"Critical. {report.reason}"
-    if report.estimated_soc < report.min_soc + margin:
+    outlook = _outlook(report)
+    if outlook == OUTLOOK_CRITICAL:
+        return report.reason
+    if outlook == OUTLOOK_WARNING:
         return (
-            "Warning. The battery should last until solar starts, but only just. "
+            "The battery should last until solar starts, but only just. "
             f"It is expected to reach about {report.estimated_soc:.0f}% at sunrise, "
             f"within {margin:g} points of the {report.min_soc:g}% minimum."
         )
-    return f"Safe. {report.reason}"
+    return report.reason
 
 
 def survival_attributes(report: SurvivalReport) -> dict[str, Any]:
@@ -211,7 +234,10 @@ def survival_attributes(report: SurvivalReport) -> dict[str, Any]:
     Critical: the battery runs out before solar starts. Warning: it lasts, but is
     expected to end within the warning margin of the minimum SoC. Safe: otherwise.
     """
+    outlook = _outlook(report)
     return {
+        "outlook": outlook,
+        "summary": _summary(report, outlook),
         "explanation": _survival_explanation(report),
         "battery_soc": round(report.current_soc, 1),
         "estimated_soc_at_sunrise": round(report.estimated_soc, 1),

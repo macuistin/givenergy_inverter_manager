@@ -23,7 +23,11 @@ def _sunrise_phrase(sunrise: str | None) -> str:
 
 
 def survival_template(level: str, status: str | None, sunrise: str | None) -> str:
-    """The night survival card: the level, then the explanation attribute or a sentence."""
+    """The overnight card: the plain outlook, then the explanation attribute or a sentence.
+
+    The outlook attribute holds a phrase such as "Lasts the night". An install that lacks it
+    shows the level word instead.
+    """
     status_text = state_ref(status) if status else ""
     warning = (
         "The battery should last until solar starts, but only just. "
@@ -32,7 +36,7 @@ def survival_template(level: str, status: str | None, sunrise: str | None) -> st
     )
     return (
         f"{{% set level = states('{level}') %}}"
-        "**Night survival: {{ level }}**\n\n"
+        f"**{{{{ state_attr('{level}', 'outlook') or level }}}}**\n\n"
         f"{{% if state_attr('{level}', 'explanation') -%}}\n"
         f"{{{{ state_attr('{level}', 'explanation') }}}}\n"
         "{%- elif level | lower == 'warning' -%}\n"

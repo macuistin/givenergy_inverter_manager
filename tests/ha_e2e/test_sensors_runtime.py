@@ -292,7 +292,7 @@ def _entity_ids(value) -> list[str]:
 
 
 async def test_night_survival_confidence_explains_its_level(hass, loaded_entry):
-    """The detail view of Night Survival Confidence says why it is Safe, Warning or Critical."""
+    """The detail view of Battery Overnight Confidence says why it is Safe, Warning or Critical."""
     registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id(
         "sensor", DOMAIN, f"{loaded_entry.entry_id}_night_survival_confidence"
@@ -308,7 +308,10 @@ async def test_night_survival_confidence_explains_its_level(hass, loaded_entry):
     state = hass.states.get(entity_id)
     assert state is not None
     assert state.state in ("Safe", "Warning", "Critical")
-    assert state.attributes["explanation"].startswith(state.state)
+    outlooks = {"Safe": "Lasts the night", "Warning": "Only just lasts the night", "Critical": "May run low"}
+    assert state.attributes["outlook"] == outlooks[state.state]
+    assert state.attributes["summary"].startswith(state.attributes["outlook"])
+    assert state.attributes["explanation"]
     assert state.attributes["minimum_soc"] == loaded_entry.runtime_data.data.battery_min_soc
     assert state.attributes["warning_below_soc"] > state.attributes["minimum_soc"]
     assert "estimated_soc_at_sunrise" in state.attributes

@@ -91,6 +91,8 @@ TABS = frozenset({TAB_POWER_FLOW, TAB_TODAY, TAB_BILL, TAB_BATTERY})
 # statistics. So the tile name says what the amount is for.
 RATE_NAME = "Rate per kWh"
 AVERAGE_RATE_NAME = "Avg import/kWh"
+# What the night survival sensors are called to a person: does the battery last the night.
+OVERNIGHT_NAME = "Battery overnight"
 
 
 # ── Views ────────────────────────────────────────────────────────────────────
@@ -327,7 +329,12 @@ class Builder:
         return out
 
     def _now(self) -> list:
-        """The numbers worth a glance: charge first, then outlook, rate, cost, cheap rate."""
+        """The numbers worth a glance: charge, rate, cost, whether the night is covered, cheap rate.
+
+        The overnight tile is full width because it says two things: whether the battery lasts
+        and the charge expected at sunrise. So the battery tile is two rows tall, beside the
+        rate and cost tiles.
+        """
         return heading_block(
             heading_card("Now", "mdi:clock-outline", badges=self._settings_badges()),
             [
@@ -337,16 +344,18 @@ class Builder:
                     color=BATTERY,
                     features=[BAR],
                     nav=self.go(TAB_BATTERY),
-                    rows=3,
-                ),
-                self.tile(
-                    "night_survival_confidence",
-                    "Night survival",
-                    color=NIGHT,
-                    nav=self.go(SUB_BATTERY),
+                    rows=2,
                 ),
                 self.tile("current_rate", RATE_NAME, color=GRID),
                 self.tile("import_cost_today", "Cost today", color=GRID, nav=self.go(TAB_TODAY)),
+                self.tile(
+                    "night_survival_confidence",
+                    OVERNIGHT_NAME,
+                    columns=FULL,
+                    color=NIGHT,
+                    nav=self.go(SUB_BATTERY),
+                    state_content=["summary"],
+                ),
                 self.tile(
                     "next_cheap_rate_start",
                     "Cheap from",
@@ -888,7 +897,7 @@ class Builder:
         return [
             grid_section(
                 heading_block(
-                    heading_card("Night survival", "mdi:weather-night"), self._night_survival()
+                    heading_card(OVERNIGHT_NAME, "mdi:weather-night"), self._night_survival()
                 ),
                 heading_block(
                     subheading_card("Tonight's charge target", "mdi:battery-charging"),
@@ -899,7 +908,7 @@ class Builder:
         ]
 
     def _night_survival(self) -> list:
-        """The night survival level in bold, then why, in words.
+        """The overnight outlook in bold, then why, in words.
 
         The confidence sensor carries the level. Its explanation attribute is used when
         it has one. Without it a sentence is chosen by level: Warning is explained from
@@ -912,7 +921,7 @@ class Builder:
         if level:
             return [markdown_card(survival_template(level, status, sunrise))]
         if status:
-            return [markdown_card(f"**Night survival**\n\n{state_ref(status)}")]
+            return [markdown_card(f"**{OVERNIGHT_NAME}**\n\n{state_ref(status)}")]
         return []
 
     # -- Settings --

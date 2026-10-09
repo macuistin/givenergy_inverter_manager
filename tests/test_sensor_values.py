@@ -694,7 +694,8 @@ class TestNightSurvivalConfidence:
 
     def test_attributes_explain_the_level(self):
         attrs = values.night_survival_attributes(self._night(survive=False, reason="Runs out"))
-        assert attrs["explanation"].startswith("Critical")
+        assert attrs["explanation"] == "Runs out"
+        assert attrs["outlook"] == "May run low"
 
 
 class TestRegisterWriteAttributes:

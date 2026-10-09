@@ -131,7 +131,7 @@ The dashboard has four tabs. Detail sits in seven sub-views that have no tab. A 
 
 | Tab | Sub-views it opens |
 |---|---|
-| Power Flow | Immersion and EV charger (the Devices tiles), Battery detail (Night survival tile), Settings (the Settings button in the Now heading, administrators only) |
+| Power Flow | Immersion and EV charger (the Devices tiles), Battery detail (Battery overnight tile), Settings (the Settings button in the Now heading, administrators only) |
 | Today | Cost breakdown (Cost heading), Solar and forecast (Solar heading) |
 | Bill | Tariff (the Tariff button in the Bill so far heading) |
 | Battery | Battery detail (Battery heading) |
@@ -162,7 +162,7 @@ This hides the controls. It is not security. Home Assistant has no permissions f
 
 ![Power Flow view with the battery, the Cheap from tile, live solar, grid, home and battery flow, and today's energy with the forecast tiles.](images/dashboard-power-flow.png)
 
-- **Now**: Battery (state of charge with a bar), Night survival, Rate per kWh, Cost today and Cheap from (Next Cheap Rate Start). Cheap from is a full-width tile that reads the start and the wait in one line, such as `23:00 (in 8 h 56 min)`, or `Now (ends in 5 h 30 min)` while one is active. The end is where the run of cheaper-than-base periods stops, so a cheaper period inside a longer one does not cut it short. Night Survival Confidence is disabled by default, so a new install shows four of the five until you enable it. Night survival reads Safe, Warning or Critical. Tap it to open Battery detail, which says in words why. Tap the Battery tile to open the Battery tab.
+- **Now**: Battery (state of charge with a bar), Rate per kWh, Cost today, Battery overnight and Cheap from (Next Cheap Rate Start). Cheap from is a full-width tile that reads the start and the wait in one line, such as `23:00 (in 8 h 56 min)`, or `Now (ends in 5 h 30 min)` while one is active. The end is where the run of cheaper-than-base periods stops, so a cheaper period inside a longer one does not cut it short. Battery overnight is a full-width tile that says whether the battery lasts until solar starts, and the charge expected at sunrise, such as `Lasts the night · 36% at sunrise`. The other phrases are `Only just lasts the night` and `May run low`. It reads the Battery Overnight Confidence sensor, which is disabled by default, so a new install shows four of the five until you enable it. The sensor's state stays Safe, Warning or Critical. Tap the tile to open Battery detail, which says in words why. Tap the Battery tile to open the Battery tab.
 For administrators the heading also holds a **Settings** button.
 - **Dry run is on**: a banner with the last skipped action, below Now. It appears only while Dry Run Mode Active is true.
 - **Live power flow**: a power-flow-card-plus card with solar, battery, grid, home and, when they exist, two individual loads: the EV charger and the immersion. Solar shows a clipping marker. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. Battery Power is positive while charging and the card expects the opposite, so the node sets `invert_state: true`. The grid node shows the Live Grid Cost Rate.
@@ -249,7 +249,7 @@ State of charge and power are not drawn on one graph, because a percentage and w
 
 ### Battery detail (sub-view)
 
-- **Night survival**: the level in bold, then why. Where the Night Survival Confidence sensor has an `explanation` attribute, that is shown. Otherwise a Warning is explained from the estimated state of charge at sunrise ("about 14% at sunrise, close to your minimum charge"), and Safe and Critical show the Battery Night Survival Status text, which carries any kWh shortfall. Without the confidence sensor, which is disabled by default, only the status text is shown. Under it, the reason for tonight's charge target. Both are sentences, and a tile cuts them off, so they sit in Markdown cards.
+- **Battery overnight**: the outlook in bold, then why. Where the Battery Overnight Confidence sensor has an `explanation` attribute, that is shown. Otherwise a Warning is explained from the estimated state of charge at sunrise ("about 14% at sunrise, close to your minimum charge"), and Safe and Critical show the Battery Overnight Outlook text, which carries any kWh shortfall. Without the confidence sensor, which is disabled by default, only the status text is shown. Under it, the reason for tonight's charge target. Both are sentences, and a tile cuts them off, so they sit in Markdown cards.
 - **Battery health**: total cycles, life remaining, days since full charge, and the inverter temperature and status.
 
 ### Settings (sub-view, administrators only)

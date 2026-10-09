@@ -141,7 +141,7 @@ Health, wear and state of the battery.
 | Battery Throughput Budget Used | `battery_throughput_budget_pct` | % | - | measurement | no | no | Today's throughput as a share of the daily budget. Empty when the budget is 0. Diagnostic category. |
 | Battery Throughput Budget Status | `battery_throughput_budget_status` | - | - | none | no | no | OK, High (80% or more) or Over budget. Diagnostic category. |
 
-## Charge plan and night survival
+## Charge plan and overnight outlook
 
 Outputs of the overnight charge calculation.
 
@@ -152,8 +152,8 @@ Outputs of the overnight charge calculation.
 | Overnight Charge Window | `overnight_charge_window` | - | - | none | no | yes | The charge window written to slot 1, sized to the plan. The end holds until the plan moves it 15 minutes or more and the shown end has stood for an hour, or 45 minutes or more at once. Attributes: `window_start`, `window_end`, `window_extended`, `expected_kwh` and `expected_finish`. Diagnostic category. |
 | Estimated Overnight Charge Cost | `overnight_charge_cost` | currency | monetary | none | no | yes | kWh to charge times the cheapest rate, before discount and VAT. Diagnostic category. |
 | Estimated SoC at Sunrise | `estimated_soc_at_sunrise` | % | - | measurement | no | yes | Projected SoC when solar starts, taken as 08:00. While solar is generating it covers tonight's 8 hour pre-solar window from the current SoC. |
-| Battery Night Survival Status | `night_survival_reason` | - | - | none | no | yes | Whether the battery should last until 08:00, with any shortfall. The charge plan does not skip a night this sensor calls Critical. Diagnostic category. |
-| Night Survival Confidence | `night_survival_confidence` | - | - | none | no | no | Safe, Warning (within 5 points of minimum SoC) or Critical. The attributes say why and give the numbers. |
+| Battery Overnight Outlook | `night_survival_reason` | - | - | none | no | yes | Whether the battery should last until 08:00, with any shortfall. The charge plan does not skip a night this sensor calls Critical. Diagnostic category. |
+| Battery Overnight Confidence | `night_survival_confidence` | - | - | none | no | no | Safe, Warning (within 5 points of minimum SoC) or Critical. The attributes say why and give the numbers. `outlook` and `summary` say it in words for the dashboard, for example Lasts the night, with the charge expected at sunrise. |
 | Cheap Rate Floor | `cheap_rate_floor_status` | - | - | none | no | yes | State of the cheap rate floor top-up, or Inactive. Diagnostic category. |
 
 ## Immersion
@@ -291,7 +291,7 @@ The state is a one-line summary. The `html` attribute holds a styled report for 
 
 ## Renamed sensors
 
-These sensors were renamed because they measure the base rate, the rate that applies while no timed rate period is active. They are not a peak band, and no peak band is configured. The key and the unique ID did not change, so history, statistics and automations carry on. An install made before the rename keeps its old entity IDs, which still contain `peak`. A new install builds entity IDs from the new names.
+The base rate sensors were renamed because they measure the base rate, the rate that applies while no timed rate period is active. They are not a peak band, and no peak band is configured. The two overnight sensors were renamed because night survival read like an alarm: they tell whether the battery lasts the night. In both groups the key and the unique ID did not change, so history, statistics and automations carry on. An install made before a rename keeps its old entity IDs, which still contain `peak` or `night_survival`. A new install builds entity IDs from the new names.
 
 | Key | Previous name | Name now |
 |---|---|---|
@@ -301,6 +301,8 @@ These sensors were renamed because they measure the base rate, the rate that app
 | `import_kwh_peak_this_month` | Import at peak rate this month | Import at base rate this month |
 | `import_cost_peak_today` | Import cost at peak rate | Import cost at base rate |
 | `peak_import_fraction_today` | Peak rate import fraction | Base rate import fraction |
+| `night_survival_reason` | Battery Night Survival Status | Battery Overnight Outlook |
+| `night_survival_confidence` | Night Survival Confidence | Battery Overnight Confidence |
 
 ## Removed sensors
 
