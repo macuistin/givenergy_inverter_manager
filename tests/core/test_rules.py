@@ -544,6 +544,23 @@ class TestForecastConservatism:
         defaults.update(overrides)
         return defaults
 
+    def test_the_reason_says_in_plain_words_that_the_forecast_is_cautious(self):
+        decision = calculate_overnight_charge_target(
+            **self._base(forecast_kwh=12.0, forecast_kwh_p10=6.0, forecast_conservatism=0.35)
+        )
+        assert (
+            "(cautious forecast, 35% of the way from the typical to the low estimate)"
+            in decision.reason
+        )
+        assert "P10" not in decision.reason
+        assert "conservatism=" not in decision.reason
+
+    def test_the_reason_does_not_mention_a_blend_that_was_not_applied(self):
+        decision = calculate_overnight_charge_target(
+            **self._base(forecast_kwh=12.0, forecast_kwh_p10=6.0, forecast_conservatism=0.0)
+        )
+        assert "cautious forecast" not in decision.reason
+
     def test_no_p10_entity_uses_p50_unchanged(self):
         # Arrange — P10=None means no Solcast P10 sensor configured
         decision_no_p10 = calculate_overnight_charge_target(

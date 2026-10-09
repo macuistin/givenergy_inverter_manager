@@ -28,6 +28,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   Battery health. The night survival card no longer repeats its heading before the level.
 - Settings: the immersion divert reason sits at the end of the section under a Heater decision now
   label, not between the switches.
+- The overnight charge reason says `cautious forecast, 35% of the way from the typical to the low
+  estimate` where it said `P10/P50 blend, conservatism=0.35`. The reason is a sentence for people,
+  so an automation that matches the old wording needs the new one.
 - Settings and the Immersion view explain Managed and Restart gap in a line each, for the devices the
   install has.
 - Battery Cycles is shown as a whole number (575, not 575.0). The state keeps its decimals.

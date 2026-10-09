@@ -307,7 +307,8 @@ def _blend_forecast_p10(
         return forecast_kwh, ""
     weight = max(0.0, min(1.0, conservatism))
     blended = (1.0 - weight) * forecast_kwh + weight * forecast_kwh_p10
-    return blended, f" (P10/P50 blend, conservatism={weight:.2f})"
+    note = f" (cautious forecast, {weight:.0%} of the way from the typical to the low estimate)"
+    return blended, note
 
 
 @dataclass

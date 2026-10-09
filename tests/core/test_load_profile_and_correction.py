@@ -258,7 +258,7 @@ class TestConservatismWithoutP10:
     def test_no_note_when_a_p10_forecast_is_present(self):
         decision = _decide(forecast_kwh_p10=8.0, forecast_conservatism=0.35)
         assert "conservatism is unused" not in decision.reason
-        assert "P10/P50 blend" in decision.reason
+        assert "cautious forecast" in decision.reason
 
     def test_no_note_for_the_seasonal_estimate(self):
         decision = _decide(forecast_kwh=None, forecast_conservatism=0.35)

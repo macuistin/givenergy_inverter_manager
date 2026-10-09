@@ -48,7 +48,7 @@ async def test_the_p10_attribute_is_blended_without_a_p10_sensor(hass_in_scenari
     entry = await _loaded(hass_in_scenario, with_attribute=True)
     decision = entry.runtime_data.data.charge_decision
     assert "no P10 forecast" not in decision.reason
-    assert "P10/P50 blend" in decision.reason
+    assert "cautious forecast" in decision.reason
     assert decision.forecast_kwh < 38.1
 
 
