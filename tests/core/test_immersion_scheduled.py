@@ -169,3 +169,52 @@ class TestParityWithTheOldAutomations:
             immersion_on=True,
         )
         assert data.should_divert_immersion is False
+
+
+class TestPlannedHeating:
+    """The sentence on the snapshot: present only with scheduled heating on and a water reading."""
+
+    def test_cold_water_with_a_ready_time_gets_a_plan(self):
+        data = run_at(
+            15,
+            immersion_schedule_enabled=True,
+            immersion_ready_times=(EVENING,),
+        )
+        assert data.immersion_planned_heating.startswith("Heating planned for the 19:00 ready time")
+
+    def test_water_that_is_ready_says_no_heating_is_planned(self):
+        data = run_at(
+            15,
+            immersion_temp=54.4,
+            immersion_schedule_enabled=True,
+            immersion_ready_times=(EVENING,),
+        )
+        assert data.immersion_planned_heating.startswith(
+            "No heating planned for the 19:00 ready time (water 54.4°C, ready)."
+        )
+
+    def test_heating_now_says_so(self):
+        data = run_at(
+            17,
+            immersion_temp=30.0,
+            immersion_schedule_enabled=True,
+            immersion_ready_times=(EVENING,),
+        )
+        assert data.immersion_planned_heating.startswith("Heating now to be ready by 19:00")
+
+    def test_no_ready_times_gives_the_cheap_window_only(self):
+        data = run_at(15, immersion_schedule_enabled=True)
+        assert data.immersion_planned_heating.startswith("No ready time is set. Next possible")
+
+    def test_nothing_without_scheduled_heating(self):
+        data = run_at(15, immersion_ready_times=(EVENING,))
+        assert data.immersion_planned_heating is None
+
+    def test_nothing_without_a_water_reading(self):
+        data = run_at(
+            15,
+            immersion_temp=None,
+            immersion_schedule_enabled=True,
+            immersion_ready_times=(EVENING,),
+        )
+        assert data.immersion_planned_heating is None

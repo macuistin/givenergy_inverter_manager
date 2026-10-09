@@ -1077,6 +1077,15 @@ views:
       grid_options:
         columns: full
     - type: markdown
+      content: |-
+        {% set text = state_attr('sensor.givenergy_inverter_manager_immersion_water_temperature', 'planned_heating') %}{% if text -%}
+        {{ text }}
+        {%- else -%}
+        The planned heating shows once the water temperature is read.
+        {%- endif %}
+      grid_options:
+        columns: full
+    - type: markdown
       content: '{{ state_attr(''sensor.givenergy_inverter_manager_water_heating_cheapest_source'', ''suggestion'') }}'
       grid_options:
         columns: full

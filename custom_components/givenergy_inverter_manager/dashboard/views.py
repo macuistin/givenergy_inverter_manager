@@ -66,6 +66,7 @@ from .templates import (
     energy_devices_template,
     energy_sources_template,
     oil_schedule_template,
+    planned_heating_template,
     ready_by_template,
     survival_template,
     tariff_table,
@@ -519,11 +520,11 @@ class Builder:
         ]
 
     def _ready_by(self) -> dict | None:
-        """The next hot water ready time, while scheduled heating is on.
+        """The next hot water ready time and the planned heating, while scheduled heating is on.
 
         Needs both devices, because scheduled heating does. The sensor's attributes carry the
-        time, so no helper sensor is needed. With an oil price it adds the oil advice sentence,
-        which names when to start the oil for this ready time.
+        time and the plan, so no helper sensor is needed. With an oil price it adds the oil
+        advice sentence, which names when to start the oil for this ready time.
         """
         sensor = self.water_sensor("immersion_water_temperature")
         schedule = self.thermostat("immersion_schedule")
@@ -533,7 +534,11 @@ class Builder:
         oil = attribute_markdown(self.oil_advice("water_heating_cheapest_source"), "suggestion")
         return group(
             heading_card("Ready by", "mdi:clock-check-outline"),
-            [markdown_card(ready_by_template(sensor)), devices.show_with(oil, Device.OIL_ADVICE)],
+            [
+                markdown_card(ready_by_template(sensor)),
+                markdown_card(planned_heating_template(sensor)),
+                devices.show_with(oil, Device.OIL_ADVICE),
+            ],
             visibility=[
                 *devices.visible_with(Device.IMMERSION_THERMOSTAT, Device.IMMERSION_SENSOR),
                 *devices.visible_while_on(schedule),

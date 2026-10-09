@@ -35,6 +35,7 @@ from custom_components.givenergy_inverter_manager.const import (
     DOMAIN,
 )
 
+WATER_SENSOR = "sensor.givenergy_inverter_manager_immersion_water_temperature"
 COLD = 46.0  # below the restart threshold of 50, above the minimum of 45
 TARGET_REACHED = 55.5
 
@@ -328,6 +329,43 @@ class TestReadyTimes:
         assert state.attributes["expected_ready"] is True
         assert state.attributes["heating_rate_source"] == "assumed"
 
+    async def test_the_sensor_says_what_heating_is_planned(
+        self, hass, loaded_entry, real_switch, freezer
+    ):
+        await opt_in(hass, loaded_entry)
+        water(hass, 46.0)
+        freezer.move_to("2026-12-15 12:00:00+00:00")
+        await cycle(hass, loaded_entry)
+        planned = hass.states.get(WATER_SENSOR).attributes["planned_heating"]
+        assert planned.startswith("Heating planned for the 19:00 ready time: ")
+        assert planned.endswith(" rate.")
+        assert real_switch.calls == []
+
+    async def test_water_that_is_ready_says_no_heating_is_planned(
+        self, hass, loaded_entry, real_switch, freezer
+    ):
+        await opt_in(hass, loaded_entry)
+        water(hass, 54.4)
+        freezer.move_to("2026-12-15 12:00:00+00:00")
+        await cycle(hass, loaded_entry)
+        planned = hass.states.get(WATER_SENSOR).attributes["planned_heating"]
+        assert planned.startswith("No heating planned for the 19:00 ready time (water 54.4")
+        assert "Next possible heating: 02:00 to 04:00 slot tomorrow" in planned
+
+    async def test_the_plan_is_absent_until_scheduled_heating_is_on(
+        self, hass, loaded_entry, real_switch, freezer
+    ):
+        water(hass, 46.0)
+        freezer.move_to("2026-12-15 12:00:00+00:00")
+        await cycle(hass, loaded_entry)
+        assert "planned_heating" not in hass.states.get(WATER_SENSOR).attributes
+        await opt_in(hass, loaded_entry)
+        await cycle(hass, loaded_entry)
+        assert "planned_heating" in hass.states.get(WATER_SENSOR).attributes
+        await schedule_switch(hass, loaded_entry).async_turn_off()
+        await cycle(hass, loaded_entry)
+        assert "planned_heating" not in hass.states.get(WATER_SENSOR).attributes
+
     async def test_a_warm_tank_needs_nothing(self, hass, loaded_entry, real_switch, freezer):
         await opt_in(hass, loaded_entry)
         water(hass, 55.0)
@@ -434,6 +472,27 @@ class TestDevicesAddedLater:
         at(freezer, "02:00:30")
         await cycle(hass, loaded_entry)
         assert real_switch.calls == ["turn_on"]
+
+    async def test_the_plan_appears_once_the_sensor_and_scheduled_heating_are_there(
+        self, hass, loaded_entry, freezer
+    ):
+        await save_options(
+            hass,
+            loaded_entry,
+            immersion={
+                CONF_IMMERSION_SWITCH: IMMERSION_SWITCH,
+                CONF_IMMERSION_TEMP_SENSOR: IMMERSION_TEMP,
+            },
+            ready=["19:00"],
+        )
+        water(hass, COLD)
+        freezer.move_to("2026-12-15 12:00:00+00:00")
+        await cycle(hass, loaded_entry)
+        assert "planned_heating" not in hass.states.get(WATER_SENSOR).attributes
+        await schedule_switch(hass, loaded_entry).async_turn_on()
+        await cycle(hass, loaded_entry)
+        planned = hass.states.get(WATER_SENSOR).attributes["planned_heating"]
+        assert planned.startswith("Heating planned for the 19:00 ready time")
 
 
 class TestReadyTimesInTheOptions:

@@ -68,6 +68,23 @@ def ready_by_template(sensor: str) -> str:
     )
 
 
+def planned_heating_template(sensor: str) -> str:
+    """The planned heating sentence, read from the water temperature sensor.
+
+    The sensor holds planned_heating only while scheduled heating is on and the water
+    temperature is read. A Lovelace condition cannot test for an attribute, so the card says
+    what it is waiting for.
+    """
+    return (
+        f"{{% set text = state_attr('{sensor}', 'planned_heating') %}}"
+        "{% if text -%}\n"
+        "{{ text }}\n"
+        "{%- else -%}\n"
+        "The planned heating shows once the water temperature is read.\n"
+        "{%- endif %}"
+    )
+
+
 def oil_schedule_template(source: str) -> str:
     """The suggested oil schedule line, read from the cheapest source sensor.
 

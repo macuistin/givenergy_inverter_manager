@@ -11,7 +11,10 @@ from __future__ import annotations
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.dashboard.templates import ready_by_template
+from custom_components.givenergy_inverter_manager.dashboard.templates import (
+    planned_heating_template,
+    ready_by_template,
+)
 from tests.dashboard_support import dashboard_dict, default_entity_ids
 from tests.test_dashboard import _render
 
@@ -60,6 +63,23 @@ class TestTheText:
         )
 
 
+class TestThePlannedHeatingLine:
+    def _line(self, **attrs) -> str:
+        attributes = {(SENSOR, name): value for name, value in attrs.items()}
+        return _render(planned_heating_template(SENSOR), lambda entity: "48.0", attributes).strip()
+
+    def test_it_prints_the_sentence_the_sensor_holds(self):
+        sentence = "No heating planned for the 19:00 ready time (water 54.4°C, ready)."
+        assert self._line(planned_heating=sentence) == sentence
+
+    def test_it_reads_the_water_temperature_sensor(self):
+        assert f"state_attr('{SENSOR}', 'planned_heating')" in planned_heating_template(SENSOR)
+
+    def test_without_the_attribute_it_says_the_plan_waits_for_a_reading(self):
+        """A card cannot hide on a missing attribute, so it says what it is waiting for."""
+        assert self._line() == "The planned heating shows once the water temperature is read."
+
+
 class TestTheSection:
     def _section(self) -> dict:
         view = next(v for v in dashboard_dict()["views"] if v["path"] == "immersion")
@@ -72,6 +92,11 @@ class TestTheSection:
     def test_it_is_hidden_unless_scheduled_heating_is_on(self):
         conditions = self._section()["visibility"]
         assert {"condition": "state", "entity": SWITCH, "state": "on"} in conditions
+
+    def test_it_shows_the_planned_heating_after_the_ready_time(self):
+        cards = [c for c in self._section()["cards"] if c["type"] == "markdown"]
+        assert "'ready_by'" in cards[0]["content"]
+        assert "'planned_heating'" in cards[1]["content"]
 
     def test_it_waits_for_both_devices(self):
         entities = {c["entity"] for c in self._section()["visibility"]}

@@ -4,6 +4,15 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+**Features**
+- The Immersion Water Temperature sensor has a `planned_heating` attribute: a sentence that says
+  what scheduled heating plans for the next ready time and the cheapest window, for example
+  `Heating planned for the 19:00 ready time: 17:10 to 18:30 at the Day rate.` or `No heating
+  planned for the 19:00 ready time (water 54.4°C, ready). Next possible heating: 02:00 to 04:00
+  slot, only if the water is below 51°C by then.` It is there while Immersion Scheduled Heating is
+  on and the water temperature is read. The Ready by section of the Immersion view shows it.
+  What the immersion does is unchanged.
+
 **Fixes**
 - Water Heating Cheapest Source no longer suggests an oil start when the water needs no heating for
   the ready time. At or above the temperature the immersion restarts at (the target less the
