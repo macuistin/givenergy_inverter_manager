@@ -528,6 +528,18 @@
               "immersion_ready_times": "Times of day the water has to be at its target temperature, as HH:MM, for example 07:00 and 19:00. Used only while Immersion Scheduled Heating is on and a water temperature sensor is set. Empty means none."
             }
           },
+          "oil_settings": {
+            "name": "Oil water heating",
+            "description": "Optional. If an oil boiler also heats the hot water cylinder, set the price of a litre of oil and a sensor says when the oil system is cheaper than the immersion. This is advice only: the integration does not control the oil boiler. It needs an immersion switch to compare with, and clearing both fields removes it. The advice assumes a boiler efficiency of 85% and 10.35 kWh of energy in a litre of heating oil.",
+            "data": {
+              "oil_price_per_litre": "Oil price per litre",
+              "oil_price_entity": "Oil price sensor"
+            },
+            "data_description": {
+              "oil_price_per_litre": "Price of a litre of heating oil, in your currency. Empty means no oil advice.",
+              "oil_price_entity": "Optional sensor or number that holds the price of a litre. While it has a value it is used instead of the price above."
+            }
+          },
           "ev_settings": {
             "name": "Electric vehicle",
             "description": "Used to convert kWh charged into km added.",

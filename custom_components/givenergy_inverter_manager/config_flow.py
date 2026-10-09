@@ -68,6 +68,8 @@ from .const import (
     CONF_INVERTER_MAX_OUTPUT,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
+    CONF_OIL_PRICE_ENTITY,
+    CONF_OIL_PRICE_PER_LITRE,
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
@@ -188,6 +190,8 @@ _NUMBER_BOUNDS: dict[str, _Bounds] = {
     CONF_IMMERSION_TARGET_TEMP: _Bounds(40, 75, 1, "°C"),
     CONF_IMMERSION_MIN_TEMP: _Bounds(30, 60, 1, "°C"),
     CONF_CAR_EFFICIENCY_KWH_PER_100KM: _Bounds(5, 40, 0.1, "kWh/100km"),
+    # A box, not a slider: a slider cannot be left empty, and empty means no oil advice.
+    CONF_OIL_PRICE_PER_LITRE: _Bounds(0.001, 5, 0.001, mode="box"),
 }
 
 # What each price field is quoted per. The currency code comes from the form.
@@ -196,6 +200,7 @@ _PRICE_PER: dict[str, str] = {
     CONF_EXPORT_RATE: "kWh",
     CONF_STANDING_CHARGE: "day",
     CONF_PSO_LEVY: "month",
+    CONF_OIL_PRICE_PER_LITRE: "litre",
 }
 
 
@@ -223,7 +228,7 @@ def battery_cost_selector(currency: object) -> selector.NumberSelector:
     return _number_selector(CONF_BATTERY_COST, CURRENCIES[_currency_code(currency)])
 
 
-def _entity_selector(domain: str = "sensor") -> selector.EntitySelector:
+def _entity_selector(domain: str | list[str] = "sensor") -> selector.EntitySelector:
     return selector.EntitySelector(selector.EntitySelectorConfig(domain=domain))
 
 
@@ -934,6 +939,9 @@ _OPTIONAL_IMMERSION_KEYS = (
 )
 
 
+_OIL_PRICE_ENTITY_DOMAINS = ["sensor", "input_number"]
+
+
 class GivEnergyOptionsFlow(config_entries.OptionsFlow):
     """Options flow — tariff rates, per-period rates, thresholds, forecast."""
 
@@ -985,6 +993,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         self._store_optional_entities(user_input, "immersion_settings", _OPTIONAL_IMMERSION_KEYS)
         self._store_floats(user_input.get("immersion_settings", {}), (CONF_IMMERSION_WATTAGE,))
         self._store_ready_times(user_input.get("immersion_settings"))
+        self._store_oil_settings(user_input.get("oil_settings"))
         self._store_floats(
             user_input.get("ev_settings", {}), (CONF_CAR_EFFICIENCY_KWH_PER_100KM,)
         )
@@ -1003,6 +1012,20 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             return
         for key in keys:
             self._options[key] = submitted.get(key, "")
+
+    def _store_oil_settings(self, submitted: dict | None) -> None:
+        """Store the oil section. A price the section leaves out was cleared, so it is removed.
+
+        No saved price means no oil advice. A section the submission does not carry at all is
+        left as saved.
+        """
+        if submitted is None:
+            return
+        if CONF_OIL_PRICE_PER_LITRE in submitted:
+            self._options[CONF_OIL_PRICE_PER_LITRE] = float(submitted[CONF_OIL_PRICE_PER_LITRE])
+        else:
+            self._options.pop(CONF_OIL_PRICE_PER_LITRE, None)
+        self._options[CONF_OIL_PRICE_ENTITY] = submitted.get(CONF_OIL_PRICE_ENTITY, "")
 
     def _store_ready_times(self, submitted: dict | None) -> None:
         """Store the ready times of the immersion section as sorted HH:MM, empty when cleared."""
@@ -1079,6 +1102,8 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         fields[vol.Required("hardware_settings")] = self._hardware_section()
         # Optional, so a client that omits the section keeps the saved devices.
         fields[vol.Optional("immersion_settings")] = self._immersion_section()
+        # Optional, so a client that omits the section keeps the saved oil price.
+        fields[vol.Optional("oil_settings")] = self._oil_section(currency)
         fields[vol.Required("ev_settings")] = self._ev_section()
         return fields
 
@@ -1250,6 +1275,27 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     ): _number_selector(CONF_IMMERSION_WATTAGE),
                     self._optional_key(CONF_IMMERSION_READY_TIMES): selector.TextSelector(
                         selector.TextSelectorConfig(multiple=True)
+                    ),
+                }
+            ),
+            {"collapsed": True},
+        )
+
+    def _oil_section(self, currency: object) -> object:
+        """Return the oil section: the price of a litre, and a sensor that overrides it.
+
+        Both are empty until the user has an oil boiler to compare. With neither set there is
+        no oil advice. The boiler efficiency and the fuel's energy content are fixed
+        assumptions (const.py), not options.
+        """
+        return section(
+            vol.Schema(
+                {
+                    self._optional_key(CONF_OIL_PRICE_PER_LITRE): _price_selector(
+                        CONF_OIL_PRICE_PER_LITRE, currency
+                    ),
+                    self._optional_key(CONF_OIL_PRICE_ENTITY): _entity_selector(
+                        _OIL_PRICE_ENTITY_DOMAINS
                     ),
                 }
             ),
