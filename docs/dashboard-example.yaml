@@ -816,7 +816,7 @@ views:
       name: Target if charging
       color: green
       grid_options:
-        columns: 6
+        columns: full
     - type: tile
       entity: sensor.givenergy_inverter_manager_estimated_overnight_charge_cost
       name: Est. cost

@@ -964,7 +964,9 @@ class Builder:
             heading_card("Tonight's charge plan", "mdi:weather-night"),
             [
                 state_markdown(self.entity("charge_plan")),
-                self.tile("overnight_charge_target", "Target if charging", color=BATTERY),
+                self.tile(
+                    "overnight_charge_target", "Target if charging", color=BATTERY, columns=FULL
+                ),
                 self.tile("overnight_charge_cost", "Est. cost", color=GRID),
                 self.tile("estimated_soc_at_sunrise", "At sunrise", color=BATTERY),
                 self.tile(
