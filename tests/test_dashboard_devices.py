@@ -121,12 +121,39 @@ class TestEveryCombination:
             assert (IDS[key] in plotted) == switch, key
 
     def test_the_temperature_tiles_do_something_only_with_both_devices(self, combination):
-        """Target, minimum and restart gap act on a switch with a sensor, so show only then."""
+        """Scheduled heating, target, minimum and restart gap need a switch and a sensor."""
         _, switch, sensor = combination
         config = self._seen(combination)
         entities = _tile_entities(_view(config, "immersion"))
-        for key in ("immersion_target_temp", "immersion_min_temp", "immersion_hysteresis"):
+        for key in (
+            "immersion_schedule",
+            "immersion_target_temp",
+            "immersion_min_temp",
+            "immersion_hysteresis",
+        ):
             assert (IDS[key] in entities) == (switch and sensor), key
+
+    def test_ready_by_shows_only_with_both_devices_and_scheduled_heating_on(self, combination):
+        _, switch, sensor = combination
+        titles = _titles(_view(self._seen(combination), "immersion"))
+        assert ("Ready by" in titles) == (switch and sensor)
+
+    def test_ready_by_is_hidden_while_scheduled_heating_is_off(self, combination):
+        ev, switch, sensor = combination
+        config, brand = install(ev=ev, switch=switch, sensor=sensor)
+        states = states_with(
+            installed_devices(config, ev_charger_found=brand is not None),
+            {IDS["immersion_schedule"]: "off"},
+        )
+        shown = seen(generated_for(ev=ev, switch=switch, sensor=sensor), states)
+        assert "Ready by" not in _titles(_view(shown, "immersion"))
+
+    def test_ready_by_reads_the_water_sensor_and_names_no_entity_that_is_missing(self, combination):
+        _, switch, sensor = combination
+        cards = view_cards(_view(self._seen(combination), "immersion"))
+        text = " ".join(c["content"] for c in cards if c["type"] == "markdown")
+        assert ("state_attr(sensor, 'ready_by')" in text) == (switch and sensor)
+        assert (IDS["immersion_water_temperature"] in text) == (switch and sensor)
 
     def test_the_settings_view_holds_the_controls_that_exist(self, combination):
         ev, switch, sensor = combination
@@ -134,6 +161,7 @@ class TestEveryCombination:
         assert (IDS["auto_immersion"] in entities) == switch
         assert (IDS["immersion_managed"] in entities) == switch
         assert (IDS["immersion_target_temp"] in entities) == (switch and sensor)
+        assert (IDS["immersion_schedule"] in entities) == (switch and sensor)
 
     def test_the_today_tab_lists_the_ev_and_immersion_energy_for_the_devices_present(self, combination):
         ev, switch, _ = combination
@@ -237,6 +265,32 @@ def test_a_file_follows_any_change_of_devices_with_no_regeneration(first, then):
     assert seen(stored, _states(then)) == seen(regenerated, _states(then))
 
 
+def _states_with_schedule(combination, schedule: str) -> dict[str, str]:
+    """The states of that device set. The schedule switch exists only with a switch and a sensor."""
+    states = _states(combination)
+    if IDS["immersion_schedule"] in states:
+        states[IDS["immersion_schedule"]] = schedule
+    return states
+
+
+@pytest.mark.parametrize("schedule", ["on", "off"])
+@pytest.mark.parametrize(
+    ("first", "then"),
+    [(a, b) for a in COMBINATIONS for b in COMBINATIONS if a != b],
+    ids=lambda c: _label(c),
+)
+def test_a_file_follows_any_change_of_devices_whatever_scheduled_heating_does(
+    first, then, schedule
+):
+    """The Ready by section follows the switch of the new device set, in the old file."""
+    stored = generated_for(ev=first[0], switch=first[1], sensor=first[2])
+    regenerated = generated_for(ev=then[0], switch=then[1], sensor=then[2])
+    states = _states_with_schedule(then, schedule)
+    assert seen(stored, states) == seen(regenerated, states)
+    ready = "Ready by" in _titles(_view(seen(stored, states), "immersion"))
+    assert ready == (then[1] and then[2] and schedule == "on")
+
+
 def test_a_cylinder_sensor_added_later_shows_its_chart_in_the_old_file():
     stored = generated_for(switch=True)
     before = seen(stored, _states((False, True, False)))
@@ -245,6 +299,10 @@ def test_a_cylinder_sensor_added_later_shows_its_chart_in_the_old_file():
     assert "Water temperature" in _titles(_view(after, "immersion"))
     assert "Target temp" not in [c["name"] for c in view_cards(_view(before, "immersion")) if c["type"] == "tile"]
     assert "Target temp" in [c["name"] for c in view_cards(_view(after, "immersion")) if c["type"] == "tile"]
+    scheduled = [c["name"] for c in view_cards(_view(before, "immersion")) if c["type"] == "tile"]
+    assert "Scheduled" not in scheduled
+    scheduled = [c["name"] for c in view_cards(_view(after, "immersion")) if c["type"] == "tile"]
+    assert "Scheduled" in scheduled
 
 
 # ── the oil advice tile ──────────────────────────────────────────────────────

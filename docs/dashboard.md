@@ -28,7 +28,7 @@ The file only contains tiles and cards that will show a value.
 - A tile is left out when its entity is disabled or not registered. Many sensors are disabled by default. The file header and the **GivEnergy Dashboard Ready** notification list the disabled sensors the dashboard would have used. Enable them in **Settings → Devices & services → Entities**, then generate the file again.
 - A section with no tiles left is left out too, so there is never a heading on its own.
 - EV tiles and the EV charger sub-view need an EV charger the integration has discovered. They are hidden until it has, and shown when it does. See [Devices you add or remove later](#devices-you-add-or-remove-later).
-- The heater tiles, the heater on or off band and the divert reason need an immersion switch. The water temperature tile and chart need an immersion temperature sensor. The Target, Minimum and Restart gap tiles and sliders need both, because they act on nothing without a sensor to read.
+- The heater tiles, the heater on or off band and the divert reason need an immersion switch. The water temperature tile and chart need an immersion temperature sensor. The Scheduled tile, the Ready by section, and the Target, Minimum and Restart gap tiles and sliders need both, because they act on nothing without a sensor to read.
 - Inverter temperature tiles need an inverter temperature entity: the one stored at setup, or GivTCP's `sensor.givtcp_<serial>_invertor_temperature` when it exists.
 - The forecast tiles need a forecast entity in the options.
 
@@ -48,7 +48,7 @@ What each device brings:
 | EV charger | Discovery finds a supported charger. This runs again every five minutes until one is found | Car charger on the flow card, the EV charger tile and sub-view, EV energy and cost tiles |
 | Immersion switch | The switch is set under Configure, Immersion heater (or at setup) | Heater power, energy, cost and savings, the heater on or off band, the divert reason, the Auto divert and Managed settings, the immersion node on the flow card |
 | Immersion temperature sensor | The sensor is set under Configure, Immersion heater (or at setup) | The Immersion tile with the water temperature, the water temperature chart |
-| Switch and sensor together | Both are set | The Target, Minimum and Restart gap tiles and sliders, and the target and minimum lines on the chart |
+| Switch and sensor together | Both are set | The Scheduled tile and toggle, the Ready by section (while scheduled heating is on), the Target, Minimum and Restart gap tiles and sliders, and the target and minimum lines on the chart |
 | Oil price with the switch | An oil price or price sensor is set under Configure, Oil water heating, and an immersion switch is set | The Cheapest way to heat the water section of the Immersion view |
 
 With only a switch, the Immersion tile shows the heater power and the sub-view has a small chart of when the heater was on. With only a sensor, it shows the water temperature and nothing about a heater. With both, the water temperature chart also shades the times the heater was on.
@@ -178,9 +178,10 @@ Each section shows only while the device it needs exists.
 - **Water temperature** (needs the sensor): a 12-hour chart of water temperature. With a switch as well, it also draws the target and minimum, and shades the chart in pale red while the heater is on. The heater's power is a fixed number, so the chart shows on or off and not watts. There is no separate heater power chart.
 - **Heater on or off** (needs the switch and no sensor): a small 12-hour chart of the same shaded band, for an install with a switch but no temperature sensor. It hides itself when a sensor is set, as the water temperature chart then carries the band.
 - **Why** (needs the switch): the divert reason in words.
+- **Ready by** (needs the switch and the sensor, and shows only while Immersion Scheduled Heating is on): the next hot water ready time, whether the water is expected to be at the target by then, and the heating rate the plan uses. It reads the `ready_by`, `expected_ready` and `heating_rate_c_per_h` attributes of the Immersion Water Temperature sensor, so there is no helper sensor. Home Assistant cannot hide a card on a missing attribute, so with the switch on and no ready time set, the card says where to add one.
 - **Cheapest way to heat the water** (needs an oil price and the switch): a tile with the cheapest source now (electricity, solar or oil) and the suggestion in a sentence, for example `Oil is cheaper than electricity until 23:00 (saves about 0.16 per kWh of heat). Heat the water with the oil system now.` It is advice only. The section hides itself while the sensor has no reading, for example when a price sensor is unavailable and no price is saved. See [Oil water heating advice](concepts.md#oil-water-heating-advice).
 - **Today** (needs the switch): energy, cost and what solar saved.
-- **Settings in force** (needs the switch): Auto divert and Managed, to read. With a sensor as well it adds Target temp, Minimum temp and Restart gap. Change them in Settings.
+- **Settings in force** (needs the switch): Auto divert and Managed, to read. With a sensor as well it adds Scheduled (the Immersion Scheduled Heating switch), Target temp, Minimum temp and Restart gap. Change them in Settings.
 
 ### EV charger (sub-view)
 
@@ -254,7 +255,7 @@ State of charge and power are not drawn on one graph, because a percentage and w
 ![Settings view with the charge target slider, the skip tonight toggle and the immersion heater controls.](images/dashboard-settings.png)
 
 - **Overnight charging**: a slider for the charge target, and the Use target and Skip tonight switches.
-- **Immersion heater**: the Auto divert and Managed switches and the divert reason in words. With a temperature sensor as well, sliders for the target temperature, the minimum temperature and the restart gap.
+- **Immersion heater**: the Auto divert and Managed switches and the divert reason in words. With a temperature sensor as well, the Scheduled switch (Immersion Scheduled Heating) and sliders for the target temperature, the minimum temperature and the restart gap.
 
 The view is left out when there is no administrator to show it to, and the immersion section is hidden while there is no immersion switch. The dry run banner is not here. It sits on the Power Flow tab, below Now, and appears only while Dry Run Mode Active is true.
 

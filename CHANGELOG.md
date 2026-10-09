@@ -32,6 +32,11 @@ steady. Fixes a sunrise estimate that sat at the minimum.
   created and nothing is worked out. Set or clear them at any time.
 - The Immersion dashboard view gains a Cheapest way to heat the water section, shown only while the
   sensor has a reading. A stored dashboard file shows or hides it with no new file.
+- Dashboard: the Immersion view shows a Ready by section (the next ready time, whether the water
+  is expected to be ready, and the heating rate) while Immersion Scheduled Heating is on. The
+  Scheduled switch sits with the Target, Minimum and Restart gap tiles on the Immersion view,
+  and as a toggle in Settings. They show only with an immersion switch and a water temperature
+  sensor, and a stored dashboard picks them up with no regeneration.
 
 **Changes**
 - The Recommended Overnight Charge Target and Overnight Charge Reason sensors no longer step every
@@ -48,6 +53,11 @@ steady. Fixes a sunrise estimate that sat at the minimum.
   longer count the immersion heater's energy as an all-day load. A morning heat of a few kWh was
   scaled up over the whole night, which pinned the estimate at the minimum and could block a charge
   skip.
+- Battery Night Survival Status, its reason and Night Survival Confidence no longer flip at dawn and
+  dusk. Solar counts as started once it has stayed at or above 10 W for 5 minutes, and as ended once
+  it has stayed below 10 W for 5 minutes, so a reading that wanders across 10 W no longer swaps the
+  night window between 8 hours and the whole evening. A real shortfall still shows on the cycle it
+  appears.
 
 **Docs**
 - Night survival is documented as spreading the daily average evenly over the night and not

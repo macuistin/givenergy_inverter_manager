@@ -65,6 +65,7 @@ from .templates import (
     EnergySources,
     energy_devices_template,
     energy_sources_template,
+    ready_by_template,
     survival_template,
     tariff_table,
 )
@@ -502,6 +503,7 @@ class Builder:
             self._water_temperature(),
             self._heater_on_off(),
             group(heading_card("Why", "mdi:help-circle-outline"), [reason], **self._when(switch)),
+            self._ready_by(),
             self._oil_advice_section(),
             group(
                 heading_card("Today", "mdi:calendar-today"),
@@ -514,6 +516,26 @@ class Builder:
             ),
             self._immersion_settings_in_force(),
         ]
+
+    def _ready_by(self) -> dict | None:
+        """The next hot water ready time, while scheduled heating is on.
+
+        Needs both devices, because scheduled heating does. The sensor's attributes carry the
+        time, so no helper sensor is needed.
+        """
+        sensor = self.water_sensor("immersion_water_temperature")
+        schedule = self.thermostat("immersion_schedule")
+        if not (sensor and schedule):
+            return None
+        devices = self.devices
+        return group(
+            heading_card("Ready by", "mdi:clock-check-outline"),
+            [markdown_card(ready_by_template(sensor))],
+            visibility=[
+                *devices.visible_with(Device.IMMERSION_THERMOSTAT, Device.IMMERSION_SENSOR),
+                *devices.visible_while_on(schedule),
+            ],
+        )
 
     def _oil_advice_section(self) -> dict[str, Any] | None:
         """The cheapest way to heat the water, while an oil price is set. Advice only."""
@@ -539,11 +561,16 @@ class Builder:
             )
             for suffix, name in _THERMOSTAT_SETTINGS
         ]
+        schedule = self.devices.show_with(
+            readonly_tile(self.thermostat("immersion_schedule"), "Scheduled", IMMERSION),
+            Device.IMMERSION_THERMOSTAT,
+        )
         return group(
             heading_card("Settings in force", "mdi:tune"),
             [
                 readonly_tile(self.immersion("auto_immersion"), "Auto divert", IMMERSION),
                 readonly_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
+                schedule,
                 *readings,
             ],
             **self._when(Device.IMMERSION_SWITCH),
@@ -890,13 +917,21 @@ class Builder:
             ],
         )
 
-    def _immersion_sliders(self) -> list:
-        """The temperature sliders. They act only with a switch and a sensor, so only then show."""
+    def _immersion_thermostat_controls(self) -> list:
+        """The scheduled heating toggle and the temperature sliders.
+
+        They act only with a switch and a sensor, so only then show.
+        """
+        schedule = toggle_tile(self.thermostat("immersion_schedule"), "Scheduled", IMMERSION)
         return [
-            self.devices.show_with(
-                slider_tile(self.thermostat(suffix), name, IMMERSION), Device.IMMERSION_THERMOSTAT
-            )
-            for suffix, name in _THERMOSTAT_SETTINGS
+            self.devices.show_with(schedule, Device.IMMERSION_THERMOSTAT),
+            *[
+                self.devices.show_with(
+                    slider_tile(self.thermostat(suffix), name, IMMERSION),
+                    Device.IMMERSION_THERMOSTAT,
+                )
+                for suffix, name in _THERMOSTAT_SETTINGS
+            ],
         ]
 
     def _immersion_controls(self) -> dict | None:
@@ -906,7 +941,7 @@ class Builder:
                 toggle_tile(self.immersion("auto_immersion"), "Auto divert", IMMERSION),
                 toggle_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
                 state_markdown(self.entity("immersion_divert_reason")),
-                *self._immersion_sliders(),
+                *self._immersion_thermostat_controls(),
             ],
             **self._when(Device.IMMERSION_SWITCH),
         )
