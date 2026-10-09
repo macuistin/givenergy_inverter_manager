@@ -123,6 +123,10 @@ MANAGED_HELP = (
     "**Managed**: turn it on to force a heating run until the water reaches the target. "
     f"Turn it off to hold the heater off for {IMMERSION_SWITCH_COOLDOWN_MINUTES} minutes."
 )
+PLAN_FORECAST_CAPTION = (
+    "**Plan forecast** is the forecast the charge plan uses: blended toward the low estimate "
+    "and corrected by past accuracy."
+)
 RESTART_GAP_HELP = (
     "**Restart gap**: how far the water must fall below the target before a new heating run "
     "starts."

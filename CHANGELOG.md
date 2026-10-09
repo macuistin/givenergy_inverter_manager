@@ -5,6 +5,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 ## Unreleased
 
 **Changes**
+- The Solar and forecast view has a line under its tiles that says what Plan forecast is: the forecast
+  the charge plan uses, blended toward the low estimate and corrected by past accuracy. It shows
+  with the Plan forecast tile.
 - The Power Flow grid node names the unit of the live grid cost rate, your currency symbol per hour
   (`€/h`), where it showed a bare number. The sensor and its unit are unchanged.
 - The Battery view's Target tonight tile is now Target if charging, so it does not seem to disagree

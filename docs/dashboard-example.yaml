@@ -1588,6 +1588,10 @@ views:
       color: amber
       grid_options:
         columns: full
+    - type: markdown
+      content: '**Plan forecast** is the forecast the charge plan uses: blended toward the low estimate and corrected by past accuracy.'
+      grid_options:
+        columns: full
   - type: grid
     cards:
     - type: heading

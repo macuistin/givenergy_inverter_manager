@@ -70,6 +70,7 @@ from .hacs import APEX_CARD, POWER_FLOW_CARD, HacsCards
 from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
     MANAGED_HELP,
+    PLAN_FORECAST_CAPTION,
     RESTART_GAP_HELP,
     EnergySources,
     currency_symbol,
@@ -833,18 +834,20 @@ class Builder:
     def solar_sections(self) -> list:
         """Sub-view: how solar compares with the forecast and the generation per hour."""
         solar_today = self.entity("solar_today")
+        plan_forecast = self.tile("solar_forecast_kwh_today", "Plan forecast", color=SOLAR)
         forecast = (
             [
                 tile_card(solar_today, "Generated today", color=SOLAR),
                 self.tile("solar_forecast_raw_today", "Forecast", color=SOLAR),
                 self.tile("solar_actual_vs_forecast_pct", "% of forecast", color=SOLAR),
-                self.tile("solar_forecast_kwh_today", "Plan forecast", color=SOLAR),
+                plan_forecast,
                 self.tile(
                     "yesterday_forecast_accuracy_pct",
                     "Yesterday's accuracy",
                     columns=FULL,
                     color=SOLAR,
                 ),
+                markdown_card(PLAN_FORECAST_CAPTION) if plan_forecast else None,
             ]
             if self.has_forecast
             else []
