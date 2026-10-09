@@ -116,6 +116,7 @@ from .rules import (
     decide_ev_charger_action,
     should_divert_to_immersion,
 )
+from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
 from .sunrise_hold import (
     HeldSunrise,
     SunriseReading,
@@ -732,7 +733,7 @@ class ForecastContext:
 class PreviousCycle:
     """State carried over from the previous update.
 
-    battery_stats, held_charge and held_sunrise are mutated.
+    battery_stats, held_charge, held_sunrise and held_solar are mutated.
     """
 
     battery_stats: BatteryStats
@@ -740,6 +741,7 @@ class PreviousCycle:
     last_update_time: datetime | None
     held_charge: HeldCharge = field(default_factory=HeldCharge)
     held_sunrise: HeldSunrise = field(default_factory=HeldSunrise)
+    held_solar: HeldSolarDay = field(default_factory=HeldSolarDay)
 
 
 @dataclass(frozen=True)
@@ -764,6 +766,9 @@ class _Cycle:
     current_period: RatePeriod
     overrides: ManualOverrides
     forecast: ForecastContext
+    # Solar power as the night window sees it: the raw reading once the solar day has settled as
+    # started, zero otherwise (core/solar_day.py).
+    night_solar_w: float
 
 
 def _apply_history(
@@ -1030,7 +1035,7 @@ def _charge_inputs(cycle: _Cycle, avg_daily_kwh: float) -> ChargeInputs:
         average_daily_consumption_kwh=avg_daily_kwh,
         cheapest_rate=cycle.tariff.get_cheapest_rate().rate,
         load_profile=cycle.forecast.load_profile,
-        solar_power_w=raw.solar_power_w,
+        solar_power_w=cycle.night_solar_w,
     )
 
 
@@ -1191,7 +1196,7 @@ def _calculate_night_survival(
             current_soc=raw.battery_soc,
             battery_capacity_kwh=raw.battery_capacity_kwh,
             min_soc=float(min_soc),
-            hours_until_solar=hours_until_solar(cycle.now.hour, raw.solar_power_w),
+            hours_until_solar=hours_until_solar(cycle.now.hour, cycle.night_solar_w),
             average_hourly_consumption_kwh=avg_daily_kwh / 24,
         )
     )
@@ -1352,7 +1357,9 @@ def _carry_grid_to_battery(accumulators: Accumulators, raw: RawSensorValues) -> 
             longer_acc.grid_to_battery_kwh += growth_kwh
 
 
-def _start_cycle(inputs: CycleInputs, forecast: ForecastContext, now: datetime) -> _Cycle:
+def _start_cycle(
+    inputs: CycleInputs, forecast: ForecastContext, now: datetime, held_solar: HeldSolarDay
+) -> _Cycle:
     tariff = build_tariff(tariff_in_force(inputs.cfg, now.date()))
     return _Cycle(
         inputs.raw,
@@ -1362,6 +1369,7 @@ def _start_cycle(inputs: CycleInputs, forecast: ForecastContext, now: datetime) 
         tariff.get_current_rate(now),
         inputs.overrides,
         forecast,
+        settled_solar_w(held_solar, SolarReading(inputs.raw.solar_power_w, now)),
     )
 
 
@@ -1401,7 +1409,7 @@ def build_coordinator_data(
     data = CoordinatorData()
     _initialize_coordinator_data(data, inputs, accumulators, forecast)
 
-    cycle = _start_cycle(inputs, forecast, now)
+    cycle = _start_cycle(inputs, forecast, now, previous.held_solar)
     _set_tariff_fields(data, cycle)
     _set_battery_stats(data, cycle, previous)
     _accumulate_energy_today(data, cycle, accumulators, previous.last_update_time)

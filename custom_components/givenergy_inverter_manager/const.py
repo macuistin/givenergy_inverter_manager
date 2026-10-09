@@ -273,6 +273,11 @@ CHARGE_WINDOW_HOLD_LARGE_STEP_MINUTES = 45
 # ── Solar / generation parameters ─────────────────────────────────────────────
 SOLAR_SUNRISE_HOUR = 8  # hour of day when solar generation typically starts
 SOLAR_NOISE_FLOOR_W = 10.0  # W — sensor readings below this are treated as zero
+# The solar day starts once the reading has stayed at or above SOLAR_NOISE_FLOOR_W for this long,
+# and ends once it has stayed below it for as long. At dawn and dusk the reading wanders across the
+# floor every few cycles, and each crossing flipped the night window between 8 hours and the whole
+# evening. Night survival and the charge skip check read the settled state.
+SOLAR_DAY_DEBOUNCE_MINUTES = 5
 
 # ── Battery health parameters ─────────────────────────────────────────────────
 BATTERY_RATED_CYCLES = 6000  # typical LFP rated cycle life (manufacturer spec)

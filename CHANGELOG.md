@@ -42,6 +42,11 @@ steady. Fixes a sunrise estimate that sat at the minimum.
   longer count the immersion heater's energy as an all-day load. A morning heat of a few kWh was
   scaled up over the whole night, which pinned the estimate at the minimum and could block a charge
   skip.
+- Battery Night Survival Status, its reason and Night Survival Confidence no longer flip at dawn and
+  dusk. Solar counts as started once it has stayed at or above 10 W for 5 minutes, and as ended once
+  it has stayed below 10 W for 5 minutes, so a reading that wanders across 10 W no longer swaps the
+  night window between 8 hours and the whole evening. A real shortfall still shows on the cycle it
+  appears.
 
 **Docs**
 - Night survival is documented as spreading the daily average evenly over the night and not

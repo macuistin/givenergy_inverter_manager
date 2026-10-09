@@ -145,6 +145,11 @@ async def test_the_window_sensor_holds_a_small_move_but_the_write_uses_the_plann
     calls = await _fire_pre_window_trigger(hass, loaded_entry, charge_rate="2050")
 
     assert _written(calls, CHARGE_END) == {"05:45:00"}
+    # The write released the held window. The sensor catches up on the next cycle. The trigger
+    # also fires the coordinator's own poll timer, and which of the two runs first depends on
+    # the real loop clock, so run that cycle here instead of leaving it to the order.
+    await loaded_entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
     assert _window_state(hass, loaded_entry).state == "02:00 to 05:45"
 
 
