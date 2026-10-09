@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -15,7 +16,12 @@ from homeassistant.util import dt as dt_util
 
 from ..const import CONF_FORECAST_ENTITY, CONF_INVERTER_SERIAL, CONF_INVERTER_TEMP_ENTITY
 from ..core.devices import Device
-from ..core.tariff import build_tariff, tariff_in_force
+from ..core.tariff import (
+    build_tariff,
+    last_tariff_review,
+    scheduled_tariff_changes,
+    tariff_in_force,
+)
 from ..discovery import inverter_temperature_entity_ids
 from .cards import (
     BAR,
@@ -69,6 +75,7 @@ from .templates import (
     oil_schedule_template,
     ready_by_template,
     survival_template,
+    tariff_changes_table,
     tariff_table,
 )
 
@@ -833,11 +840,28 @@ class Builder:
         """The month so far and the tariff the sums use, to compare with a real bill."""
         return [self._bill_so_far(), self._bill_period(), self._bill_cost_per_day()]
 
+    def _scheduled_changes(self, today: date) -> list:
+        """The rate changes that have not started, under the tariff in use. Empty when none."""
+        changes = scheduled_tariff_changes(self.cfg, today)
+        text = tariff_changes_table(changes, self.cfg, last_tariff_review(self.cfg))
+        heading = subheading_card("Scheduled rate changes", "mdi:calendar-clock")
+        return heading_block(heading, [markdown_card(text) if text else None])
+
     def tariff_sections(self) -> list:
-        """Sub-view: the rates and charges the bill sums use."""
-        in_force = tariff_in_force(self.cfg, dt_util.now().date())
+        """Sub-view: the rates and charges the bill sums use, and the rate changes to come.
+
+        Both are read from the options when the file is generated. A generated file shows
+        them as they were then, and the strategy dashboard reads them each time it opens.
+        """
+        today = dt_util.now().date()
+        in_force = tariff_in_force(self.cfg, today)
         table = markdown_card(tariff_table(build_tariff(in_force), self.cfg))
-        return [group(heading_card("Tariff in use", "mdi:table"), [table])]
+        return [
+            grid_section(
+                heading_block(heading_card("Tariff in use", "mdi:table"), [table]),
+                self._scheduled_changes(today),
+            )
+        ]
 
     # -- Battery --
 

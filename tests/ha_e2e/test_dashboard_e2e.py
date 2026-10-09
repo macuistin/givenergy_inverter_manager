@@ -441,3 +441,25 @@ async def test_the_sources_card_waits_while_the_totals_are_unavailable(hass, loa
     hass.states.async_set(ids["house_kwh_today"], "unavailable")
     hass.states.async_set(ids["self_sufficiency"], "unavailable", {})
     assert _render(hass, _sources_card(text)) == "Waiting for today's energy totals."
+
+
+async def test_scheduled_rate_changes_in_the_options_show_on_the_tariff_view(hass, loaded_entry):
+    """The Tariff view lists a dated change from the real entry options, and not before one is set."""
+    text, _ = await _generate(hass)
+    assert "Scheduled rate changes" not in text
+    starts = dt_util.now().date() + timedelta(days=30)
+    change = {
+        "effective": starts.isoformat(),
+        "base_rate": 0.4,
+        "base_rate_name": "Day",
+        "export_rate": 0.21,
+        "rate_periods": [{"name": "Night", "rate": 0.2, "start": "23:00", "end": "08:00"}],
+    }
+    options = {**loaded_entry.options, "tariff_changes": [change], "tariff_reviewed_on": "2026-01-02"}
+    hass.config_entries.async_update_entry(loaded_entry, options=options)
+    await hass.async_block_till_done()
+
+    text, _ = await _generate(hass)
+    assert "Scheduled rate changes" in text
+    assert f"| {starts.day} {starts:%b %Y} | Day €0.4000 | Night 23:00 to 08:00 €0.2000 | €0.2100 |" in text
+    assert "Tariff last reviewed on 2 Jan 2026." in text

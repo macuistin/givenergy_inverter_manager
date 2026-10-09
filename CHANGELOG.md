@@ -11,6 +11,11 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   solar generated for each day. It needs apexcharts-card, which now also makes the generated file
   ask for that card when a forecast sensor is set. Without it the chart plots what was generated.
 - The Generation per hour chart on the Solar and forecast view is taller, to match.
+- The Tariff view lists the rate changes you have scheduled (the `tariff_changes` option) under
+  the tariff in use: the start date, the new base rate, the timed rates and the export rate. It
+  also shows the date the tariff was last reviewed. Nothing shows while no change is scheduled.
+  The list is read when the file is generated, so generate it again, or use the strategy
+  dashboard, after you schedule a change or one starts.
 - Generate the dashboard file again, or use the strategy dashboard, to get the new charts.
 
 ## v0.16.0

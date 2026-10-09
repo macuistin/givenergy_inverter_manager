@@ -5,9 +5,10 @@ templates.py - the text of the markdown cards that are more than an entity's sta
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 from ..const import CONF_CURRENCY, CURRENCIES, DEFAULT_CURRENCY, OIL_SCHEDULE_MIN_DAYS
-from ..core.tariff import TariffConfig
+from ..core.tariff import TariffChange, TariffConfig, build_tariff
 from .cards import state_ref
 
 
@@ -90,9 +91,13 @@ def oil_schedule_template(source: str) -> str:
     )
 
 
+def _currency_symbol(cfg: dict) -> str:
+    return CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), "€")
+
+
 def tariff_table(tariff: TariffConfig, cfg: dict) -> str:
     """Markdown table of the rates the integration prices energy with."""
-    symbol = CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), "€")
+    symbol = _currency_symbol(cfg)
     billed = (1 - tariff.discount_rate / 100) * (1 + tariff.vat_rate / 100)
     rows = [(tariff.base_rate_name, "all other times", tariff.base_rate)]
     rows += [(p.name, f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate) for p in tariff.rate_periods]
@@ -111,6 +116,47 @@ def tariff_table(tariff: TariffConfig, cfg: dict) -> str:
         f"| PSO levy | {symbol}{tariff.pso_levy:.2f} per bill period |",
         f"| Bill starts on day | {tariff.bill_start_day} |",
     ]
+    return "\n".join(lines)
+
+
+def _day(day: date) -> str:
+    """A date in words, such as 1 Nov 2026."""
+    return f"{day.day} {day:%b %Y}"
+
+
+def _change_row(change: TariffChange, cfg: dict) -> str:
+    """One row: the date, then the base rate, the timed rates and the export rate from it."""
+    symbol = _currency_symbol(cfg)
+    rates = build_tariff({**cfg, **change.rates})
+    windows = (
+        f"{p.name} {p.start:%H:%M} to {p.end:%H:%M} {symbol}{p.rate:.4f}"
+        for p in rates.rate_periods
+    )
+    timed = "<br>".join(windows) or "none"
+    base = f"{rates.base_rate_name} {symbol}{rates.base_rate:.4f}"
+    export = f"{symbol}{rates.export_rate:.4f}"
+    return f"| {_day(change.effective)} | {base} | {timed} | {export} |"
+
+
+def tariff_changes_table(
+    changes: list[TariffChange], cfg: dict, reviewed: date | None
+) -> str | None:
+    """Markdown table of the rate changes that have not started, with the last review date.
+
+    None when no change is scheduled, so a tariff with nothing coming shows no table.
+    """
+    if not changes:
+        return None
+    lines = [
+        "| From | Base rate | Timed rates | Export rate per kWh |",
+        "|---|---|---|---:|",
+        *(_change_row(change, cfg) for change in changes),
+        "",
+        "A change replaces the base rate, the timed rates and the export rate from its date. "
+        "The other charges stay as in the table above.",
+    ]
+    if reviewed is not None:
+        lines += ["", f"Tariff last reviewed on {_day(reviewed)}."]
     return "\n".join(lines)
 
 

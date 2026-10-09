@@ -58,7 +58,7 @@ The integration creates the entities of a device only while the device exists. S
 What still needs a new file or a reload of the strategy dashboard:
 
 - an entity you renamed after you generated the file, and a sensor you enabled
-- the Tariff table, the administrator list and the HACS card choice, which are read when the file is generated
+- the Tariff table with its scheduled rate changes, the administrator list and the HACS card choice, which are read when the file is generated
 - a charger whose entity IDs differ from the ones Home Assistant assigns by default, for example because an entity with that ID already existed
 
 ## Add the dashboard
@@ -237,6 +237,10 @@ Accrued Bill This Period is worked out line by line from the month totals: energ
 A table of the base rate and each timed rate period with its window, the rate, and the rate billed per kWh after the supplier discount and VAT. It also lists the export rate, standing charge, PSO levy and bill start day.
 
 The table is read from your options when the file is generated, so generate the file again after you change the tariff. It uses the same defaults as the integration for any field you have not set.
+
+Under it, **Scheduled rate changes** lists each dated change that has not started: the date it starts, the new base rate, the timed rates with their windows, and the export rate. The line below the table gives the date the tariff was last reviewed. The list is left out when no change is scheduled, and so is the heading. A change that has started is not listed, because the table above already shows its rates. A change replaces the base rate, the timed rates and the export rate on its date, and the standing charge, levy, VAT, discount and bill start day stay as they are in the table above.
+
+Like the table, the list is read from your options when the file is generated, so it is as of that day. Generate the file again to see a change drop out of the list once it has started, or to see one you have just scheduled. A dashboard that uses the [strategy](#dashboard-strategy-optional) reads the options each time it opens, so a reload of the page is enough. To schedule a change, see [Change the rates from a date](tariff.md#change-the-rates-from-a-date).
 
 ### Battery
 
