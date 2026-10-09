@@ -1108,6 +1108,20 @@ views:
       grid_options:
         columns: 6
     - type: tile
+      entity: switch.givenergy_inverter_manager_immersion_scheduled_heating
+      name: Scheduled
+      color: orange
+      tap_action:
+        action: none
+      icon_tap_action:
+        action: none
+      grid_options:
+        columns: 6
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable
+    - type: tile
       entity: number.givenergy_inverter_manager_immersion_target_temperature
       name: Target temp
       color: orange
@@ -1627,6 +1641,19 @@ views:
       content: '{{ states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
       grid_options:
         columns: full
+    - type: tile
+      entity: switch.givenergy_inverter_manager_immersion_scheduled_heating
+      name: Scheduled
+      color: orange
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: 6
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable
     - type: tile
       entity: number.givenergy_inverter_manager_immersion_target_temperature
       name: Target temp

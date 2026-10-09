@@ -521,11 +521,16 @@ class Builder:
             )
             for suffix, name in _THERMOSTAT_SETTINGS
         ]
+        schedule = self.devices.show_with(
+            readonly_tile(self.thermostat("immersion_schedule"), "Scheduled", IMMERSION),
+            Device.IMMERSION_THERMOSTAT,
+        )
         return group(
             heading_card("Settings in force", "mdi:tune"),
             [
                 readonly_tile(self.immersion("auto_immersion"), "Auto divert", IMMERSION),
                 readonly_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
+                schedule,
                 *readings,
             ],
             **self._when(Device.IMMERSION_SWITCH),
@@ -872,13 +877,21 @@ class Builder:
             ],
         )
 
-    def _immersion_sliders(self) -> list:
-        """The temperature sliders. They act only with a switch and a sensor, so only then show."""
+    def _immersion_thermostat_controls(self) -> list:
+        """The scheduled heating toggle and the temperature sliders.
+
+        They act only with a switch and a sensor, so only then show.
+        """
+        schedule = toggle_tile(self.thermostat("immersion_schedule"), "Scheduled", IMMERSION)
         return [
-            self.devices.show_with(
-                slider_tile(self.thermostat(suffix), name, IMMERSION), Device.IMMERSION_THERMOSTAT
-            )
-            for suffix, name in _THERMOSTAT_SETTINGS
+            self.devices.show_with(schedule, Device.IMMERSION_THERMOSTAT),
+            *[
+                self.devices.show_with(
+                    slider_tile(self.thermostat(suffix), name, IMMERSION),
+                    Device.IMMERSION_THERMOSTAT,
+                )
+                for suffix, name in _THERMOSTAT_SETTINGS
+            ],
         ]
 
     def _immersion_controls(self) -> dict | None:
@@ -888,7 +901,7 @@ class Builder:
                 toggle_tile(self.immersion("auto_immersion"), "Auto divert", IMMERSION),
                 toggle_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
                 state_markdown(self.entity("immersion_divert_reason")),
-                *self._immersion_sliders(),
+                *self._immersion_thermostat_controls(),
             ],
             **self._when(Device.IMMERSION_SWITCH),
         )

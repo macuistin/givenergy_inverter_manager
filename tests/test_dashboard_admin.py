@@ -92,6 +92,7 @@ class TestAdminsPresent:
                 "skip_charge_override",
                 "auto_immersion",
                 "immersion_managed",
+                "immersion_schedule",
                 "immersion_target_temp",
                 "immersion_min_temp",
                 "immersion_hysteresis",

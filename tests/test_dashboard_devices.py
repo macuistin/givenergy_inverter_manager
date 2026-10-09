@@ -121,11 +121,16 @@ class TestEveryCombination:
             assert (IDS[key] in plotted) == switch, key
 
     def test_the_temperature_tiles_do_something_only_with_both_devices(self, combination):
-        """Target, minimum and restart gap act on a switch with a sensor, so show only then."""
+        """Scheduled heating, target, minimum and restart gap need a switch and a sensor."""
         _, switch, sensor = combination
         config = self._seen(combination)
         entities = _tile_entities(_view(config, "immersion"))
-        for key in ("immersion_target_temp", "immersion_min_temp", "immersion_hysteresis"):
+        for key in (
+            "immersion_schedule",
+            "immersion_target_temp",
+            "immersion_min_temp",
+            "immersion_hysteresis",
+        ):
             assert (IDS[key] in entities) == (switch and sensor), key
 
     def test_the_settings_view_holds_the_controls_that_exist(self, combination):
@@ -134,6 +139,7 @@ class TestEveryCombination:
         assert (IDS["auto_immersion"] in entities) == switch
         assert (IDS["immersion_managed"] in entities) == switch
         assert (IDS["immersion_target_temp"] in entities) == (switch and sensor)
+        assert (IDS["immersion_schedule"] in entities) == (switch and sensor)
 
     def test_the_today_tab_lists_the_ev_and_immersion_energy_for_the_devices_present(self, combination):
         ev, switch, _ = combination
@@ -245,6 +251,10 @@ def test_a_cylinder_sensor_added_later_shows_its_chart_in_the_old_file():
     assert "Water temperature" in _titles(_view(after, "immersion"))
     assert "Target temp" not in [c["name"] for c in view_cards(_view(before, "immersion")) if c["type"] == "tile"]
     assert "Target temp" in [c["name"] for c in view_cards(_view(after, "immersion")) if c["type"] == "tile"]
+    scheduled = [c["name"] for c in view_cards(_view(before, "immersion")) if c["type"] == "tile"]
+    assert "Scheduled" not in scheduled
+    scheduled = [c["name"] for c in view_cards(_view(after, "immersion")) if c["type"] == "tile"]
+    assert "Scheduled" in scheduled
 
 
 # ── the conditions themselves ────────────────────────────────────────────────
