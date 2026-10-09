@@ -732,6 +732,9 @@
       "immersion_water_temperature": {
         "name": "Immersion Water Temperature"
       },
+      "water_heating_cheapest_source": {
+        "name": "Water Heating Cheapest Source"
+      },
       "estimated_soc_at_sunrise": {
         "name": "Estimated SoC at Sunrise"
       },

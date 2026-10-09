@@ -79,6 +79,8 @@ from .const import (
     CONF_INVERTER_MAX_OUTPUT,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
+    CONF_OIL_PRICE_ENTITY,
+    CONF_OIL_PRICE_PER_LITRE,
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
     CONF_TARIFF_REVIEWED_ON,
@@ -851,6 +853,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._read_power_inputs(cfg, raw, unavailable)
         self._read_system_limits(cfg, raw)
         self._read_immersion_inputs(cfg, raw, unavailable)
+        raw.oil_price_per_litre = self._read_oil_price(cfg)
         raw.unavailable_inputs = tuple(unavailable)
         self._read_forecasts(cfg, raw)
         raw.carbon_intensity_gco2 = self._read_optional_float(
@@ -890,6 +893,20 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.immersion_temp = self._read_optional_float(temp_eid)
             if raw.immersion_temp is None:
                 unavailable.append("immersion_temp")
+
+    def _read_oil_price(self, cfg: dict) -> float | None:
+        """The price of a litre of oil: the sensor when it reads one, else the saved number.
+
+        None when neither gives a price, or there is no immersion switch to compare oil with,
+        which means no oil advice and nothing to evaluate.
+        """
+        if not cfg.get(CONF_IMMERSION_SWITCH):
+            return None
+        from_sensor = self._read_optional_float(cfg.get(CONF_OIL_PRICE_ENTITY))
+        if from_sensor is not None and from_sensor > 0:
+            return from_sensor
+        saved = cfg.get(CONF_OIL_PRICE_PER_LITRE)
+        return float(saved) if saved else None
 
     def _read_forecasts(self, cfg: dict, raw: RawSensorValues) -> None:
         raw.forecast_kwh_tomorrow = self._read_forecast_kwh(cfg.get(CONF_FORECAST_ENTITY))

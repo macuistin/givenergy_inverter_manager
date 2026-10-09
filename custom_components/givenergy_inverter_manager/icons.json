@@ -137,6 +137,7 @@
       "battery_power": {"default": "mdi:battery-charging"},
       "immersion_power": {"default": "mdi:water-boiler"},
       "immersion_water_temperature": {"default": "mdi:thermometer-water"},
+      "water_heating_cheapest_source": {"default": "mdi:fire-circle"},
       "cheap_rate_floor_status": {"default": "mdi:floor-plan"},
       "inverter_temperature": {"default": "mdi:thermometer"},
       "inverter_temperature_status": {"default": "mdi:thermometer-alert"},

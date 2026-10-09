@@ -298,6 +298,45 @@ class TestImmersionReadyAttributes:
         }
 
 
+class TestWaterHeatingAdvice:
+    def _data(self):
+        from custom_components.givenergy_inverter_manager.core.oil_advice import WaterHeatingAdvice
+
+        advice = WaterHeatingAdvice(
+            source="oil",
+            suggestion="Oil is cheaper than electricity until 23:00.",
+            oil_cost_per_kwh=0.2000004,
+            electricity_cost_per_kwh=0.3,
+            cheapest_electricity_cost_per_kwh=0.15,
+            oil_saving_per_kwh=0.0999996,
+            oil_hours=("12:00 to 23:00",),
+            horizon="ready_by",
+            horizon_ends="07:00",
+            cheapest_source_in_horizon="electricity",
+        )
+        return make_data(water_heating_advice=advice)
+
+    def test_the_state_is_the_cheapest_source(self):
+        assert values.water_heating_source(self._data()) == "oil"
+
+    def test_no_state_without_advice(self):
+        assert values.water_heating_source(make_data()) is None
+        assert values.water_heating_attributes(make_data()) is None
+
+    def test_the_attributes_carry_the_sentence_and_the_figures(self):
+        assert values.water_heating_attributes(self._data()) == {
+            "suggestion": "Oil is cheaper than electricity until 23:00.",
+            "oil_cost_per_kwh": 0.2,
+            "electricity_cost_per_kwh": 0.3,
+            "cheapest_electricity_cost_per_kwh": 0.15,
+            "oil_saving_per_kwh": 0.1,
+            "best_hours_for_oil": ["12:00 to 23:00"],
+            "horizon": "ready_by",
+            "horizon_ends": "07:00",
+            "cheapest_source_in_horizon": "electricity",
+        }
+
+
 class TestCheapRateAttributes:
     def test_carries_the_summary(self):
         data = make_data(next_cheap_rate_start="23:00", hours_to_cheap_rate=9.0)

@@ -2185,6 +2185,54 @@ class TestReadOptionalFloatProxy:
         coord._read_optional_float("sensor.temp")  # must not raise
 
 
+class TestOilPriceRead:
+    """The oil price: the sensor when it reads a price, else the saved number, else none."""
+
+    def _coord(self, **cfg):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("sensor.oil", "1.10")
+        return coord, {"immersion_switch_entity": "switch.heater", **cfg}
+
+    def _read(self, coord, cfg):
+        return coord._read_oil_price(cfg)
+
+    def test_no_oil_settings_means_no_price(self):
+        coord, cfg = self._coord()
+        assert self._read(coord, cfg) is None
+
+    def test_the_saved_number_is_the_price(self):
+        coord, cfg = self._coord(oil_price_per_litre=0.95)
+        assert self._read(coord, cfg) == pytest.approx(0.95)
+
+    def test_the_sensor_overrides_the_number(self):
+        coord, cfg = self._coord(oil_price_per_litre=0.95, oil_price_entity="sensor.oil")
+        assert self._read(coord, cfg) == pytest.approx(1.10)
+
+    def test_the_sensor_alone_is_enough(self):
+        coord, cfg = self._coord(oil_price_entity="sensor.oil")
+        assert self._read(coord, cfg) == pytest.approx(1.10)
+
+    @pytest.mark.parametrize("state", ["unavailable", "unknown", "cheap", "0", "-1"])
+    def test_a_sensor_that_does_not_read_a_price_leaves_the_number(self, state):
+        coord, cfg = self._coord(oil_price_per_litre=0.95, oil_price_entity="sensor.oil")
+        coord.set_state("sensor.oil", state)
+        assert self._read(coord, cfg) == pytest.approx(0.95)
+
+    def test_a_sensor_that_does_not_read_a_price_with_no_number_gives_none(self):
+        coord, cfg = self._coord(oil_price_entity="sensor.oil")
+        coord.set_state("sensor.oil", "unavailable")
+        assert self._read(coord, cfg) is None
+
+    def test_without_an_immersion_switch_there_is_nothing_to_compare_with(self):
+        coord, cfg = self._coord(oil_price_per_litre=0.95)
+        del cfg["immersion_switch_entity"]
+        assert self._read(coord, cfg) is None
+
+    def test_an_emptied_sensor_choice_is_ignored(self):
+        coord, cfg = self._coord(oil_price_per_litre=0.95, oil_price_entity="")
+        assert self._read(coord, cfg) == pytest.approx(0.95)
+
+
 ZAPPI_PLUG = "sensor.myenergi_zappi_plug_status"
 ZAPPI_POWER = "sensor.myenergi_zappi_internal_load_ct1"
 ZAPPI_SESSION = "sensor.myenergi_zappi_charge_added_session"

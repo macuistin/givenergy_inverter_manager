@@ -212,7 +212,14 @@ KEY_GROUPS: dict[str, str] = {
         ),
         "Charge plan and night survival",
     ),
-    **dict.fromkeys(("immersion_divert_reason", "immersion_water_temperature"), "Immersion"),
+    **dict.fromkeys(
+        (
+            "immersion_divert_reason",
+            "immersion_water_temperature",
+            "water_heating_cheapest_source",
+        ),
+        "Immersion",
+    ),
     **dict.fromkeys(
         (
             "ev_charger_state",
@@ -453,6 +460,17 @@ DESCRIPTIONS: dict[str, str] = {
         "Reading of the immersion temperature sensor you set. Also lets a stored dashboard "
         "show the water temperature as soon as a sensor is set."
     ),
+    "water_heating_cheapest_source": (
+        "The cheapest way to heat the water now: `electricity`, `solar` or `oil`. Compares the "
+        "cost of a kWh of heat from the grid (after discount and VAT), from solar surplus (the "
+        "export rate) and from oil (the price of a litre over 85% of 10.35 kWh). Advice only: "
+        "the integration does not control the oil boiler. The `suggestion` attribute is a "
+        "sentence saying what to do and until when. Other attributes: `oil_cost_per_kwh`, "
+        "`electricity_cost_per_kwh`, `cheapest_electricity_cost_per_kwh` (to the next ready time "
+        "or 24 hours), `oil_saving_per_kwh` (negative when oil is dearer), `best_hours_for_oil`, "
+        "`horizon`, `horizon_ends` and `cheapest_source_in_horizon`. Unavailable while the price "
+        "cannot be read."
+    ),
     "ev_charger_state": (
         "disconnected, connected, charging, paused, boosting, completed or unknown. "
         "Charging and boosting need the charger to be drawing power."
@@ -501,6 +519,7 @@ REQUIRES_NOTES: dict[str, str] = {
     "IMMERSION_SWITCH": "Created only with an immersion switch.",
     "IMMERSION_SENSOR": "Created only with an immersion temperature sensor.",
     "IMMERSION_THERMOSTAT": "Created only with an immersion switch and temperature sensor.",
+    "OIL_ADVICE": "Created only with an oil price and an immersion switch.",
 }
 
 RETIRED_SENSORS: tuple[tuple[str, str], ...] = (

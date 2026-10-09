@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 149 sensors. 97 are enabled by default and 52 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 150 sensors. 98 are enabled by default and 52 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches, numbers and the button, see [Entities](entities.md).
 
@@ -164,6 +164,7 @@ Output of the immersion divert rule, and the water temperature. The water temper
 |---|---|---|---|---|---|---|---|
 | Immersion Divert Reason | `immersion_divert_reason` | - | - | none | no | yes | Why the immersion is on or off. Diagnostic category. |
 | Immersion Water Temperature | `immersion_water_temperature` | °C | temperature | measurement | no | yes | Reading of the immersion temperature sensor you set. Also lets a stored dashboard show the water temperature as soon as a sensor is set. Created only with an immersion temperature sensor. |
+| Water Heating Cheapest Source | `water_heating_cheapest_source` | - | - | none | no | yes | The cheapest way to heat the water now: `electricity`, `solar` or `oil`. Compares the cost of a kWh of heat from the grid (after discount and VAT), from solar surplus (the export rate) and from oil (the price of a litre over 85% of 10.35 kWh). Advice only: the integration does not control the oil boiler. The `suggestion` attribute is a sentence saying what to do and until when. Other attributes: `oil_cost_per_kwh`, `electricity_cost_per_kwh`, `cheapest_electricity_cost_per_kwh` (to the next ready time or 24 hours), `oil_saving_per_kwh` (negative when oil is dearer), `best_hours_for_oil`, `horizon`, `horizon_ends` and `cheapest_source_in_horizon`. Unavailable while the price cannot be read. Created only with an oil price and an immersion switch. |
 
 ## EV charger
 

@@ -99,6 +99,12 @@ from .charge_window import (
 )
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
+from .oil_advice import (
+    AdviceInputs,
+    WaterHeatingAdvice,
+    advise_water_heating,
+    oil_heat_cost_per_kwh,
+)
 from .rules import (
     ChargeDecision,
     ChargeInputs,
@@ -174,6 +180,9 @@ class RawSensorValues:
     # Times of day the water has to be at its target, and the heating rate the coordinator
     # learned or assumed for the plan (degrees per hour, 0.0 when unknown) and where it came from.
     immersion_ready_times: tuple[time, ...] = ()
+    # The price of a litre of oil, None when no oil price is set (no oil advice). The coordinator
+    # resolves the price sensor over the saved number.
+    oil_price_per_litre: float | None = None
     immersion_heating_rate_c_per_h: float = 0.0
     immersion_rate_source: str = ""
     forecast_kwh_tomorrow: float | None = None
@@ -256,6 +265,8 @@ class CoordinatorData:
     # without ready times, without scheduled heating or without a readable temperature.
     immersion_ready_time: time | None = None
     immersion_expected_ready: bool | None = None
+    # Oil against electricity for heating the water. None while no oil price is set.
+    water_heating_advice: WaterHeatingAdvice | None = None
     immersion_heating_rate_c_per_h: float | None = None
     immersion_rate_source: str = ""
     today: EnergyAccumulator = field(default_factory=EnergyAccumulator)
@@ -997,6 +1008,32 @@ def _set_ready_fields(data: CoordinatorData, plan: ReadyPlan, raw: RawSensorValu
         data.immersion_rate_source = raw.immersion_rate_source
 
 
+def _solar_surplus_to_divert(data: CoordinatorData, cycle: _Cycle) -> bool:
+    """True while the immersion rule would divert the surplus: enough of it, battery charged."""
+    policy = _divert_policy(data, cycle)
+    return (
+        cycle.raw.battery_soc >= policy.soc_threshold
+        and data.net_solar_surplus_w >= policy.min_surplus_w
+    )
+
+
+def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
+    """Oil against electricity for the water. Nothing is worked out without an oil price."""
+    price = cycle.raw.oil_price_per_litre
+    if price is None:
+        return
+    data.water_heating_advice = advise_water_heating(
+        AdviceInputs(
+            tariff=cycle.tariff,
+            now=cycle.now,
+            oil_cost_per_kwh=oil_heat_cost_per_kwh(price),
+            ready_times=cycle.raw.immersion_ready_times,
+            solar_surplus=_solar_surplus_to_divert(data, cycle),
+            currency_symbol=data.currency_symbol,
+        )
+    )
+
+
 def _set_immersion_decision(data: CoordinatorData, cycle: _Cycle) -> None:
     """Set immersion divert decision."""
     data.battery_cycle_cost_per_kwh = _battery_cycle_cost(cycle.cfg, cycle.raw.battery_capacity_kwh)
@@ -1371,6 +1408,7 @@ def _set_decisions(
     """The charge target and the immersion divert, both of which honour manual overrides."""
     _set_overnight_charge(data, cycle, avg_daily_kwh, held)
     _set_immersion_decision(data, cycle)
+    _set_water_heating_advice(data, cycle)
     _set_inverter_temperature(data, cycle.raw.inverter_temp)
 
 

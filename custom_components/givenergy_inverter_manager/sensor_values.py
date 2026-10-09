@@ -209,6 +209,30 @@ def immersion_ready_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     }
 
 
+def water_heating_source(data: CoordinatorData) -> str | None:
+    """Return the cheapest source to heat the water now, None without an oil price."""
+    advice = data.water_heating_advice
+    return None if advice is None else advice.source
+
+
+def water_heating_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Return the suggestion and the costs per kWh of heat behind it, None without advice."""
+    advice = data.water_heating_advice
+    if advice is None:
+        return None
+    return {
+        "suggestion": advice.suggestion,
+        "oil_cost_per_kwh": round(advice.oil_cost_per_kwh, 4),
+        "electricity_cost_per_kwh": round(advice.electricity_cost_per_kwh, 4),
+        "cheapest_electricity_cost_per_kwh": round(advice.cheapest_electricity_cost_per_kwh, 4),
+        "oil_saving_per_kwh": round(advice.oil_saving_per_kwh, 4),
+        "best_hours_for_oil": list(advice.oil_hours),
+        "horizon": advice.horizon,
+        "horizon_ends": advice.horizon_ends,
+        "cheapest_source_in_horizon": advice.cheapest_source_in_horizon,
+    }
+
+
 def givtcp_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """Return how GivTCP's rates compare with the tariff here, None when none is readable."""
     mismatches = data.givtcp_rate_mismatches

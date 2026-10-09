@@ -68,6 +68,10 @@ The immersion_ready_time, immersion_expected_ready, immersion_heating_rate_c_per
 immersion_rate_source leaves were added for the ready-by plan. The fresh snapshot gained them as
 None, None, None and "". No case moved, because none sets a ready time. The behaviour is pinned in
 tests/core/test_immersion_ready.py and tests/core/test_immersion_scheduled.py.
+
+The water_heating_advice leaf was added for the oil water heating advice. The fresh snapshot
+gained it as None. No case moved, because none sets an oil price. The behaviour is pinned in
+tests/core/test_oil_advice.py and tests/core/test_oil_advice_engine.py.
 """
 
 from __future__ import annotations

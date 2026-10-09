@@ -17,6 +17,7 @@ from custom_components.givenergy_inverter_manager import optional_devices as od
 from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
+    CONF_OIL_PRICE_PER_LITRE,
     DOMAIN,
 )
 from custom_components.givenergy_inverter_manager.core.devices import Device
@@ -26,6 +27,7 @@ EV = Device.EV_CHARGER
 SWITCH = Device.IMMERSION_SWITCH
 SENSOR = Device.IMMERSION_SENSOR
 THERMOSTAT = Device.IMMERSION_THERMOSTAT
+OIL = Device.OIL_ADVICE
 
 
 def _needing(device: Device) -> set[str]:
@@ -75,6 +77,16 @@ class TestWhatNeedsWhat:
             "immersion_min_temp",
             "immersion_hysteresis",
         }
+
+    def test_the_oil_advice_needs_an_oil_price_and_the_switch(self):
+        assert _needing(OIL) == {"water_heating_cheapest_source"}
+
+    def test_the_oil_sensor_is_unavailable_until_there_is_advice(self):
+        description = next(
+            d for d in SENSOR_DESCRIPTIONS if d.key == "water_heating_cheapest_source"
+        )
+        assert description.available_fn(SimpleNamespace(water_heating_advice=None)) is False
+        assert description.available_fn(SimpleNamespace(water_heating_advice=object())) is True
 
     def test_every_ev_sensor_that_reads_the_charger_is_unavailable_without_one(self):
         """The EV sensors that need a charger say so too, so one that is gone reads unavailable."""
@@ -204,7 +216,13 @@ class TestRemovingOrphans:
     def test_every_device_entity_goes_when_no_device_is_left(self):
         entry, _, _ = _entry()
         removed = self._remove(entry, _registry_with_every_device_entity())
-        assert removed == _needing(EV) | _needing(SWITCH) | _needing(SENSOR) | _needing(THERMOSTAT)
+        assert removed == (
+            _needing(EV)
+            | _needing(SWITCH)
+            | _needing(SENSOR)
+            | _needing(THERMOSTAT)
+            | _needing(OIL)
+        )
 
     def test_the_entities_of_a_device_still_present_stay(self):
         entry, _, _ = _entry({CONF_IMMERSION_SWITCH: "switch.heater"})
@@ -212,6 +230,16 @@ class TestRemovingOrphans:
         assert removed.isdisjoint(_needing(SWITCH))
         assert _needing(THERMOSTAT) <= removed
         assert _needing(SENSOR) <= removed
+
+    def test_removing_the_switch_removes_the_oil_advice_but_not_the_price(self):
+        entry, _, _ = _entry({CONF_OIL_PRICE_PER_LITRE: 0.95})
+        removed = self._remove(entry, _registry_with_every_device_entity())
+        assert "water_heating_cheapest_source" in removed
+
+    def test_an_oil_price_with_the_switch_keeps_the_oil_advice(self):
+        entry, _, _ = _entry({CONF_IMMERSION_SWITCH: "switch.heater", CONF_OIL_PRICE_PER_LITRE: 0.95})
+        removed = self._remove(entry, _registry_with_every_device_entity())
+        assert "water_heating_cheapest_source" not in removed
 
     def test_removing_the_sensor_removes_the_thermostat_but_keeps_the_switch_entities(self):
         entry, _, _ = _entry({CONF_IMMERSION_SWITCH: "switch.heater"})

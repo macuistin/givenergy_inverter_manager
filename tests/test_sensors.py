@@ -137,6 +137,28 @@ class TestImmersionPowerMetadata:
         assert _lambda_for("immersion_power")(d) == pytest.approx(0.0)
 
 
+class TestWaterHeatingCheapestSourceMetadata:
+    """A text sensor with its explanation in attributes, only with an oil price."""
+
+    def test_it_needs_the_oil_advice_device(self):
+        from custom_components.givenergy_inverter_manager.core.devices import Device
+
+        assert _BY_KEY["water_heating_cheapest_source"].requires is Device.OIL_ADVICE
+
+    def test_it_is_a_plain_text_state_with_no_unit_or_state_class(self):
+        description = _BY_KEY["water_heating_cheapest_source"]
+        assert description.native_unit_of_measurement is None
+        assert description.device_class is None
+        assert description.state_class is None
+
+    def test_it_reads_the_advice_and_is_unavailable_without_it(self):
+        description = _BY_KEY["water_heating_cheapest_source"]
+        data = CoordinatorData()
+        assert description.value_fn(data) is None
+        assert description.available_fn(data) is False
+        assert description.attrs_fn(data) is None
+
+
 class TestSolarForecastSensors:
     """The charge plan and the provider forecasts are separate sensors with different sources."""
 

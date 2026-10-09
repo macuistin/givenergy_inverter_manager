@@ -770,6 +770,11 @@
   "name": "Tonight's charge plan"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_water_heating_cheapest_source",
+  "key": "water_heating_cheapest_source",
+  "name": "Water Heating Cheapest Source"
+ },
+ {
   "entity_id": "switch.givenergy_inverter_manager_auto_immersion_divert",
   "key": "auto_immersion",
   "name": "Auto Immersion Divert"
