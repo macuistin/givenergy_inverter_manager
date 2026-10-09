@@ -1,7 +1,7 @@
 """
 switch.py — Switch platform for GivEnergy Inverter Manager.
 
-Provides four switches, two of them only with an immersion switch:
+Provides five switches, three of them only with an immersion switch:
 
   Auto Immersion Divert (GivEnergyAutoImmersionSwitch)
     Created only while an immersion switch is configured. Master on/off for the
@@ -15,6 +15,12 @@ Provides four switches, two of them only with an immersion switch:
     that decision to the real switch on every update, whether or not this
     entity is enabled. Turning this switch on runs the heater until the water
     reaches its target. Turning it off holds the heater off for the cooldown.
+
+  Immersion Scheduled Heating (GivEnergyImmersionScheduleSwitch)
+    Created only while both an immersion switch and a water temperature sensor are
+    configured. Off by default and restored after a restart. While on, the coordinator heats
+    the water to its target in the cheapest rate window and in time for the ready times.
+    Solar surplus diversion by day is unchanged.
 
   Force Skip Overnight Charge (GivEnergySkipChargeOverrideSwitch)
     When on, overrides the overnight charge decision to skip charging
@@ -41,6 +47,7 @@ from .logging import get_logger
 from .optional_devices import (
     AUTO_IMMERSION,
     IMMERSION_MANAGED,
+    IMMERSION_SCHEDULE,
     async_add_entities_per_device,
     present_devices,
 )
@@ -68,12 +75,14 @@ async def async_setup_entry(
     )
 
     def _switches_of(device: Device) -> list[SwitchEntity]:
-        if device is not Device.IMMERSION_SWITCH:
-            return []
-        return [
-            GivEnergyAutoImmersionSwitch(coordinator),
-            GivEnergyImmersionControlSwitch(coordinator),
-        ]
+        if device is Device.IMMERSION_SWITCH:
+            return [
+                GivEnergyAutoImmersionSwitch(coordinator),
+                GivEnergyImmersionControlSwitch(coordinator),
+            ]
+        if device is Device.IMMERSION_THERMOSTAT:
+            return [GivEnergyImmersionScheduleSwitch(coordinator)]
+        return []
 
     if Device.IMMERSION_SWITCH not in present_devices(entry):
         _remove_managed_switch(hass, entry)
@@ -158,6 +167,41 @@ class GivEnergyImmersionControlSwitch(GivEnergyEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off now; auto-divert resumes after cooldown expires."""
         await self.coordinator.immersion.manual_off()
+        await self.coordinator.async_request_refresh()
+
+
+class GivEnergyImmersionScheduleSwitch(GivEnergyEntity, RestoreEntity, SwitchEntity):
+    """Opt in to scheduled heating: the cheapest rate window and the ready-by times.
+
+    Off until the user turns it on. The state survives a restart. The coordinator reads
+    the flag every cycle, so turning it on or off takes effect at the next update.
+    """
+
+    _attr_name = IMMERSION_SCHEDULE.name
+    _attr_icon = "mdi:water-boiler-auto"
+
+    def __init__(self, coordinator: GivEnergyCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_immersion_schedule"
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last is not None:
+            self.coordinator.immersion_schedule_enabled = last.state == STATE_ON
+
+    @property
+    def is_on(self) -> bool:
+        return self.coordinator.immersion_schedule_enabled
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        self.coordinator.immersion_schedule_enabled = True
+        self.async_write_ha_state()
+        await self.coordinator.async_request_refresh()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        self.coordinator.immersion_schedule_enabled = False
+        self.async_write_ha_state()
         await self.coordinator.async_request_refresh()
 
 

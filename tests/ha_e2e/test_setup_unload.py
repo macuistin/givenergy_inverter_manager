@@ -33,11 +33,12 @@ async def test_platforms_register_expected_entities(hass, loaded_entry):
     entries = er.async_entries_for_config_entry(registry, loaded_entry.entry_id)
     by_domain = {d: [e for e in entries if e.domain == d] for d in PLATFORMS}
 
-    # The full config has an immersion switch and sensor but no EV charger to discover.
+    # The full config has an immersion switch and sensor but no EV charger to discover and
+    # no oil price.
     assert len(by_domain["sensor"]) == len(
-        [d for d in SENSOR_DESCRIPTIONS if d.requires is not Device.EV_CHARGER]
+        [d for d in SENSOR_DESCRIPTIONS if d.requires not in (Device.EV_CHARGER, Device.OIL_ADVICE)]
     )
-    assert len(by_domain["switch"]) == 4  # includes the immersion control switch
+    assert len(by_domain["switch"]) == 5  # includes the immersion switches
     assert len(by_domain["number"]) == 4
     assert len(by_domain["button"]) == 1
     assert hass.services.has_service(DOMAIN, "get_dashboard_yaml")

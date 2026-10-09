@@ -71,6 +71,7 @@ from .const import (
     CONF_HOUSE_LOAD,
     CONF_IMMERSION_HYSTERESIS,
     CONF_IMMERSION_MIN_TEMP,
+    CONF_IMMERSION_READY_TIMES,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TARGET_TEMP,
     CONF_IMMERSION_TEMP_SENSOR,
@@ -78,6 +79,8 @@ from .const import (
     CONF_INVERTER_MAX_OUTPUT,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
+    CONF_OIL_PRICE_ENTITY,
+    CONF_OIL_PRICE_PER_LITRE,
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
     CONF_TARIFF_REVIEWED_ON,
@@ -112,7 +115,10 @@ from .core.engine import (
     build_coordinator_data,
 )
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
+from .core.immersion_rate import RunTracker, resolve_rate
+from .core.immersion_ready import parse_ready_times
 from .core.rules import monthly_solar_fractions
+from .core.solar_day import HeldSolarDay
 from .core.sunrise_hold import HeldSunrise
 from .core.tariff import (
     build_tariff,
@@ -258,6 +264,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._battery_stats = BatteryStats()
         self._held_charge = HeldCharge()
         self._held_sunrise = HeldSunrise()
+        self._held_solar = HeldSolarDay()
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
@@ -296,6 +303,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.immersion_hysteresis_c: float = float(
             cfg.get(CONF_IMMERSION_HYSTERESIS, DEFAULT_IMMERSION_HYSTERESIS)
         )
+        # The opt-in to heating in the cheapest rate window, set by its switch entity.
+        self.immersion_schedule_enabled: bool = False
+        # Measures how fast the heater warms the water, for the ready-by plan.
+        self._rate_tracker = RunTracker()
         # Decides when the real immersion switch is turned on or off. Runs every cycle, so
         # diversion works whether or not the managed switch entity is enabled.
         self.immersion = ImmersionActuator(self._immersion_ports())
@@ -666,7 +677,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         decision = self.data.charge_decision
         # The sensors catch up with what is written on the next cycle.
-        self._held_charge.decision = None
+        self._held_charge.release()
         if decision.skip_charge:
             self._write_minimum_target(cfg, decision)
         else:
@@ -844,6 +855,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._read_power_inputs(cfg, raw, unavailable)
         self._read_system_limits(cfg, raw)
         self._read_immersion_inputs(cfg, raw, unavailable)
+        raw.oil_price_per_litre = self._read_oil_price(cfg)
         raw.unavailable_inputs = tuple(unavailable)
         self._read_forecasts(cfg, raw)
         raw.carbon_intensity_gco2 = self._read_optional_float(
@@ -870,11 +882,33 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw.immersion_target_temp = self.immersion_target_temp
         raw.immersion_min_temp = self.immersion_min_temp
         raw.immersion_hysteresis_c = self.immersion_hysteresis_c
+        raw.immersion_schedule_enabled = self.immersion_schedule_enabled
+        raw.immersion_window_heating_before = bool(
+            self.data is not None and self.data.immersion_window_heating
+        )
+        raw.immersion_ready_times = parse_ready_times(cfg.get(CONF_IMMERSION_READY_TIMES))
+        raw.immersion_heating_rate_c_per_h, raw.immersion_rate_source = resolve_rate(
+            self._acc.immersion_heating_rates, raw.immersion_wattage_w
+        )
         temp_eid = cfg.get(CONF_IMMERSION_TEMP_SENSOR)
         if temp_eid:
             raw.immersion_temp = self._read_optional_float(temp_eid)
             if raw.immersion_temp is None:
                 unavailable.append("immersion_temp")
+
+    def _read_oil_price(self, cfg: dict) -> float | None:
+        """The price of a litre of oil: the sensor when it reads one, else the saved number.
+
+        None when neither gives a price, or there is no immersion switch to compare oil with,
+        which means no oil advice and nothing to evaluate.
+        """
+        if not cfg.get(CONF_IMMERSION_SWITCH):
+            return None
+        from_sensor = self._read_optional_float(cfg.get(CONF_OIL_PRICE_ENTITY))
+        if from_sensor is not None and from_sensor > 0:
+            return from_sensor
+        saved = cfg.get(CONF_OIL_PRICE_PER_LITRE)
+        return float(saved) if saved else None
 
     def _read_forecasts(self, cfg: dict, raw: RawSensorValues) -> None:
         raw.forecast_kwh_tomorrow = self._read_forecast_kwh(cfg.get(CONF_FORECAST_ENTITY))
@@ -1271,6 +1305,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 last_update_time=self._last_update,
                 held_charge=self._held_charge,
                 held_sunrise=self._held_sunrise,
+                held_solar=self._held_solar,
             ),
             ForecastContext(
                 solar_fractions=self._solar_fractions,
@@ -1345,9 +1380,18 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw = self._collect_raw(cfg)
         self._refresh_ev_charger(raw)
         self.immersion.release_if_at_target(raw.immersion_temp)
+        self._learn_heating_rate(raw, now)
         self._track_input_outage(raw, now)
         self._record_baseline_load(raw, now)
         return raw
+
+    def _learn_heating_rate(self, raw: RawSensorValues, now: datetime) -> None:
+        """Feed the cycle to the run tracker and keep the rate of a run that just ended."""
+        temp_while_on = raw.immersion_temp if raw.immersion_on else None
+        rate = self._rate_tracker.observe(now, temp_while_on)
+        if rate is not None:
+            _LOG.info("Immersion run warmed the water at %.1f°C an hour", rate)
+            self._acc.record_immersion_rate(rate)
 
     def _refresh_ev_charger(self, raw: RawSensorValues) -> None:
         """Update the charger state now that battery_power_w is known."""

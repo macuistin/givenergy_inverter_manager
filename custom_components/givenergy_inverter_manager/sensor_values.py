@@ -16,15 +16,13 @@ from .const import (
     BATTERY_FULL_SOC_PCT,
     BATTERY_RATED_CYCLES,
     NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
+    POWER_DIRECTION_BAND_W,
 )
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.tariff import EnergyAccumulator
 from .core.tariff_check import describe_rate_mismatches
 from .core.write_log import newest_first
-
-# Power inside this band either side of zero counts as no flow.
-POWER_DIRECTION_BAND_W = 50
 
 GRID_IMPORTING = "Importing"
 GRID_EXPORTING = "Exporting"
@@ -199,6 +197,42 @@ def cheap_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     return None if summary is None else {"summary": summary}
 
 
+def immersion_ready_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Return the next hot water ready time, whether it will be met and the rate behind it."""
+    if data.immersion_ready_time is None:
+        return None
+    return {
+        "ready_by": f"{data.immersion_ready_time:%H:%M}",
+        "expected_ready": data.immersion_expected_ready,
+        "heating_rate_c_per_h": data.immersion_heating_rate_c_per_h,
+        "heating_rate_source": data.immersion_rate_source,
+    }
+
+
+def water_heating_source(data: CoordinatorData) -> str | None:
+    """Return the cheapest source to heat the water now, None without an oil price."""
+    advice = data.water_heating_advice
+    return None if advice is None else advice.source
+
+
+def water_heating_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Return the suggestion and the costs per kWh of heat behind it, None without advice."""
+    advice = data.water_heating_advice
+    if advice is None:
+        return None
+    return {
+        "suggestion": advice.suggestion,
+        "oil_cost_per_kwh": round(advice.oil_cost_per_kwh, 4),
+        "electricity_cost_per_kwh": round(advice.electricity_cost_per_kwh, 4),
+        "cheapest_electricity_cost_per_kwh": round(advice.cheapest_electricity_cost_per_kwh, 4),
+        "oil_saving_per_kwh": round(advice.oil_saving_per_kwh, 4),
+        "best_hours_for_oil": list(advice.oil_hours),
+        "horizon": advice.horizon,
+        "horizon_ends": advice.horizon_ends,
+        "cheapest_source_in_horizon": advice.cheapest_source_in_horizon,
+    }
+
+
 def givtcp_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """Return how GivTCP's rates compare with the tariff here, None when none is readable."""
     mismatches = data.givtcp_rate_mismatches
@@ -266,12 +300,12 @@ def overnight_charge_cost(data: CoordinatorData) -> float | None:
 
 def overnight_charge_window(data: CoordinatorData) -> str | None:
     """Return the charge window to write, for example "02:00 to 06:30", None before a decision."""
-    return data.charge_window.text if data.charge_window else None
+    return data.published_charge_window.text if data.published_charge_window else None
 
 
 def overnight_charge_window_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """Return what the window is sized for, None when there is no window."""
-    window = data.charge_window
+    window = data.published_charge_window
     if window is None:
         return None
     finish = window.finish_time

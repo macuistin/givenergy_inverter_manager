@@ -27,6 +27,11 @@ cases gained it, and the fresh snapshot gained it as None. Nothing else moved. T
 battery charge rate, so every window is the cheapest period. The sizing is pinned in
 tests/core/test_charge_window.py.
 
+The published_charge_window leaf was added when the Overnight Charge Window sensor started holding
+its end. The fresh snapshot gained it as None and 217 of the 255 cases gained it, the same 217 that
+have a charge_window. On the first cycle it equals charge_window. Nothing else moved. The hold is
+pinned in test_charge_hold.py and test_decision_stability.py.
+
 The cheap_run_remaining_minutes leaf was added for the Cheap from tile: 49 of the 255 cases gained
 it, and the fresh snapshot gained it as None. Nothing else moved.
 
@@ -45,9 +50,28 @@ import. Only zappi_cost, immersion_cost and house_cost on the accumulators and
 ev_cost_per_km_today moved. The new behaviour is pinned in TestAccumulateEnergy in
 tests/core/test_engine.py.
 
+20 of the 255 cases were regenerated when the immersion heater's energy left the average daily load,
+as the EV charger's had. Every one has immersion energy on today's accumulator, from earlier in the day or from the cycle's own step. The leaves that
+moved are survival_reason (all 20), estimated_soc_at_sunrise (8), will_survive_night (3) and
+charge_decision with published_charge_decision (4). The new behaviour is pinned in
+test_night_survival_immersion_load.py.
+
 The givtcp_rate_mismatches leaf was added for the GivTCP rate attributes of the Current Rate
 sensor. The fresh snapshot gained it as None. No case moved, because the coordinator sets it
 after the engine has built the snapshot.
+
+The immersion_window_heating leaf was added for heating in the cheapest rate window. The fresh
+snapshot gained it as False. No case moved, because none opts in. The behaviour is pinned in
+tests/core/test_immersion_window.py.
+
+The immersion_ready_time, immersion_expected_ready, immersion_heating_rate_c_per_h and
+immersion_rate_source leaves were added for the ready-by plan. The fresh snapshot gained them as
+None, None, None and "". No case moved, because none sets a ready time. The behaviour is pinned in
+tests/core/test_immersion_ready.py and tests/core/test_immersion_scheduled.py.
+
+The water_heating_advice leaf was added for the oil water heating advice. The fresh snapshot
+gained it as None. No case moved, because none sets an oil price. The behaviour is pinned in
+tests/core/test_oil_advice.py and tests/core/test_oil_advice_engine.py.
 """
 
 from __future__ import annotations

@@ -277,6 +277,66 @@ class TestCheapRateSummary:
         assert self._summary(None, None, 30.0) is None
 
 
+class TestImmersionReadyAttributes:
+    def test_none_without_a_ready_time(self):
+        assert values.immersion_ready_attributes(make_data()) is None
+
+    def test_the_plan_and_the_rate_it_used(self):
+        from datetime import time
+
+        data = make_data(
+            immersion_ready_time=time(19, 0),
+            immersion_expected_ready=True,
+            immersion_heating_rate_c_per_h=8.6,
+            immersion_rate_source="assumed",
+        )
+        assert values.immersion_ready_attributes(data) == {
+            "ready_by": "19:00",
+            "expected_ready": True,
+            "heating_rate_c_per_h": 8.6,
+            "heating_rate_source": "assumed",
+        }
+
+
+class TestWaterHeatingAdvice:
+    def _data(self):
+        from custom_components.givenergy_inverter_manager.core.oil_advice import WaterHeatingAdvice
+
+        advice = WaterHeatingAdvice(
+            source="oil",
+            suggestion="Oil is cheaper than electricity until 23:00.",
+            oil_cost_per_kwh=0.2000004,
+            electricity_cost_per_kwh=0.3,
+            cheapest_electricity_cost_per_kwh=0.15,
+            oil_saving_per_kwh=0.0999996,
+            oil_hours=("12:00 to 23:00",),
+            horizon="ready_by",
+            horizon_ends="07:00",
+            cheapest_source_in_horizon="electricity",
+        )
+        return make_data(water_heating_advice=advice)
+
+    def test_the_state_is_the_cheapest_source(self):
+        assert values.water_heating_source(self._data()) == "oil"
+
+    def test_no_state_without_advice(self):
+        assert values.water_heating_source(make_data()) is None
+        assert values.water_heating_attributes(make_data()) is None
+
+    def test_the_attributes_carry_the_sentence_and_the_figures(self):
+        assert values.water_heating_attributes(self._data()) == {
+            "suggestion": "Oil is cheaper than electricity until 23:00.",
+            "oil_cost_per_kwh": 0.2,
+            "electricity_cost_per_kwh": 0.3,
+            "cheapest_electricity_cost_per_kwh": 0.15,
+            "oil_saving_per_kwh": 0.1,
+            "best_hours_for_oil": ["12:00 to 23:00"],
+            "horizon": "ready_by",
+            "horizon_ends": "07:00",
+            "cheapest_source_in_horizon": "electricity",
+        }
+
+
 class TestCheapRateAttributes:
     def test_carries_the_summary(self):
         data = make_data(next_cheap_rate_start="23:00", hours_to_cheap_rate=9.0)
@@ -392,18 +452,18 @@ class TestOvernightChargeWindow:
         return ChargeWindow(**{**defaults, **fields})
 
     def test_none_without_a_window(self):
-        data = make_data(charge_window=None)
+        data = make_data(published_charge_window=None)
 
         assert values.overnight_charge_window(data) is None
         assert values.overnight_charge_window_attributes(data) is None
 
     def test_state_is_the_written_window(self):
-        data = make_data(charge_window=self._window())
+        data = make_data(published_charge_window=self._window())
 
         assert values.overnight_charge_window(data) == "02:00 to 06:10"
 
     def test_attributes_explain_the_window(self):
-        data = make_data(charge_window=self._window())
+        data = make_data(published_charge_window=self._window())
 
         assert values.overnight_charge_window_attributes(data) == {
             "window_start": "02:00",
@@ -413,10 +473,23 @@ class TestOvernightChargeWindow:
             "expected_finish": "05:36",
         }
 
+    def test_state_and_attributes_come_from_the_published_window_not_the_planned_one(self):
+        from datetime import time
+
+        data = make_data(
+            charge_window=self._window(end=time(6, 40)),
+            published_charge_window=self._window(end=time(6, 10)),
+        )
+
+        assert values.overnight_charge_window(data) == "02:00 to 06:10"
+        assert values.overnight_charge_window_attributes(data)["window_end"] == "06:10"
+
     def test_attributes_leave_out_what_is_not_known(self):
         window = self._window(extended=False, expected_kwh=None, finish_time=None)
 
-        attributes = values.overnight_charge_window_attributes(make_data(charge_window=window))
+        attributes = values.overnight_charge_window_attributes(
+            make_data(published_charge_window=window)
+        )
 
         assert attributes["window_extended"] is False
         assert attributes["expected_kwh"] is None

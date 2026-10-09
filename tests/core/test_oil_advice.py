@@ -1,0 +1,291 @@
+"""Unit tests for the water heating advice: oil against electricity (core, no Home Assistant).
+
+Figures are chosen to be round. The advice takes the oil's cost per kWh of heat, so the tests
+give it directly. The tariff is 0.30 by day and 0.15 from 23:00 to 08:00, with no discount and
+no VAT, unless a test says otherwise.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
+
+import pytest
+
+from custom_components.givenergy_inverter_manager.const import (
+    OIL_BOILER_EFFICIENCY_PCT,
+    OIL_KWH_PER_LITRE,
+)
+from custom_components.givenergy_inverter_manager.core.oil_advice import (
+    ALL_DAY,
+    SOURCE_ELECTRICITY,
+    SOURCE_OIL,
+    SOURCE_SOLAR,
+    AdviceInputs,
+    advise_water_heating,
+    oil_heat_cost_per_kwh,
+)
+from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
+
+DUBLIN = ZoneInfo("Europe/Dublin")
+NO_TAX = {"vat_rate": 0, "discount_rate": 0}
+TIMED = build_tariff(
+    {
+        "base_rate": 0.30,
+        "export_rate": 0.15,
+        "rate_periods": [{"name": "Night", "rate": 0.15, "start": "23:00", "end": "08:00"}],
+        **NO_TAX,
+    }
+)
+FLAT = build_tariff({"base_rate": 0.30, "export_rate": 0.15, "rate_periods": [], **NO_TAX})
+NIGHT_BOOST = build_tariff(
+    {
+        "base_rate": 0.30,
+        "export_rate": 0.15,
+        "rate_periods": [
+            {"name": "Night", "rate": 0.15, "start": "23:00", "end": "08:00"},
+            {"name": "Nightboost", "rate": 0.10, "start": "02:00", "end": "04:00"},
+        ],
+        **NO_TAX,
+    }
+)
+
+
+def at(hour: int, minute: int = 0, day: int = 15) -> datetime:
+    return datetime(2026, 12, day, hour, minute, tzinfo=DUBLIN)
+
+
+def advise(now: datetime, per_kwh: float, tariff=TIMED, **kwargs):
+    return advise_water_heating(AdviceInputs(tariff, now, per_kwh, **kwargs))
+
+
+class TestOilCost:
+    def test_it_is_the_price_over_the_heat_a_litre_gives(self):
+        heat_per_litre = OIL_KWH_PER_LITRE * OIL_BOILER_EFFICIENCY_PCT / 100
+        assert oil_heat_cost_per_kwh(1.00) == pytest.approx(1.00 / heat_per_litre)
+
+    def test_the_assumptions_are_a_typical_boiler_and_kerosene(self):
+        assert OIL_KWH_PER_LITRE == pytest.approx(10.35)
+        assert OIL_BOILER_EFFICIENCY_PCT == 85
+
+    def test_a_dearer_litre_costs_more_per_kwh(self):
+        assert oil_heat_cost_per_kwh(1.20) > oil_heat_cost_per_kwh(0.90)
+
+    def test_a_negative_price_is_refused(self):
+        with pytest.raises(ValueError, match="oil price"):
+            oil_heat_cost_per_kwh(-0.1)
+
+
+class TestElectricityCost:
+    def test_the_discount_and_vat_apply_like_the_cost_sensors(self):
+        taxed = build_tariff(
+            {"base_rate": 0.30, "rate_periods": [], "vat_rate": 10, "discount_rate": 10}
+        )
+        advice = advise(at(12), 0.20, taxed)
+        assert advice.electricity_cost_per_kwh == pytest.approx(0.30 * 0.9 * 1.1)
+        assert advice.electricity_cost_per_kwh == pytest.approx(
+            taxed.calculate_import_cost(1.0, at(12))
+        )
+
+    def test_the_comparison_uses_the_cost_after_tax(self):
+        """Oil at 0.28 is cheaper than the 0.30 rate, and dearer than the 0.297 it costs."""
+        taxed = build_tariff(
+            {"base_rate": 0.30, "rate_periods": [], "vat_rate": 10, "discount_rate": 10}
+        )
+        assert advise(at(12), 0.29, taxed).source == SOURCE_OIL
+        assert advise(at(12), 0.30, taxed).source == SOURCE_ELECTRICITY
+
+    def test_the_cheapest_electricity_is_the_cheapest_rate_in_the_next_day(self):
+        assert advise(at(12), 0.20).cheapest_electricity_cost_per_kwh == pytest.approx(0.15)
+
+    def test_the_cheapest_electricity_follows_a_boost_inside_the_night(self):
+        assert advise(at(12), 0.20, NIGHT_BOOST).cheapest_electricity_cost_per_kwh == pytest.approx(
+            0.10
+        )
+
+
+class TestOilDearerThanEveryRate:
+    def test_oil_is_never_suggested(self):
+        for hour in range(24):
+            advice = advise(at(hour), 0.40)
+            assert advice.source == SOURCE_ELECTRICITY, hour
+            assert advice.oil_hours == (), hour
+
+    def test_the_sentence_says_electricity_is_cheaper_for_the_day(self):
+        advice = advise(at(12), 0.40)
+        assert "Electricity is cheaper than oil for the next 24 hours" in advice.suggestion
+        assert "immersion" in advice.suggestion
+
+    def test_the_saving_of_oil_is_negative(self):
+        assert advise(at(12), 0.40).oil_saving_per_kwh == pytest.approx(0.30 - 0.40)
+
+
+class TestOilBetweenTheBaseRateAndTheCheapWindow:
+    """Oil at 0.20 beats the 0.30 day rate and loses to the 0.15 night rate."""
+
+    def test_in_the_day_oil_is_the_cheapest_source(self):
+        advice = advise(at(12), 0.20)
+        assert advice.source == SOURCE_OIL
+        assert advice.oil_saving_per_kwh == pytest.approx(0.10)
+
+    def test_the_sentence_names_the_end_of_the_oil_hours_and_the_saving(self):
+        advice = advise(at(12), 0.20)
+        assert advice.suggestion.startswith(
+            "Oil is cheaper than electricity until 23:00 (saves about €0.10 per kWh of heat). "
+            "Heat the water with the oil system now."
+        )
+
+    def test_in_the_cheap_window_electricity_is_the_cheapest_source(self):
+        advice = advise(at(1), 0.20)
+        assert advice.source == SOURCE_ELECTRICITY
+        assert advice.oil_saving_per_kwh == pytest.approx(-0.05)
+
+    def test_the_sentence_in_the_window_says_when_oil_is_cheaper(self):
+        advice = advise(at(1), 0.20)
+        assert "Electricity is the cheapest source now." in advice.suggestion
+        assert "Oil is cheaper than electricity from 08:00 to 23:00" in advice.suggestion
+
+    def test_the_best_hours_for_oil_are_the_day_rate_hours(self):
+        assert advise(at(12), 0.20).oil_hours == ("12:00 to 23:00", "08:00 to 12:00")
+
+    def test_asked_in_the_night_the_hours_start_when_the_day_rate_does(self):
+        assert advise(at(1), 0.20).oil_hours == ("08:00 to 23:00",)
+
+    def test_the_source_flips_when_the_night_rate_starts(self):
+        assert advise(at(22, 59), 0.20).source == SOURCE_OIL
+        assert advise(at(23), 0.20).source == SOURCE_ELECTRICITY
+
+
+class TestWaitingForAnotherWindow:
+    def test_oil_now_mentions_a_cheaper_electricity_window_to_come(self):
+        advice = advise(at(18), 0.12, NIGHT_BOOST)
+        assert advice.source == SOURCE_OIL
+        assert "If the water can wait, electricity is cheapest from 02:00 to 04:00" in advice.suggestion
+
+    def test_no_such_sentence_when_oil_beats_every_window(self):
+        assert "can wait" not in advise(at(18), 0.05).suggestion
+
+    def test_the_horizon_ends_at_the_ready_time_when_there_is_one(self):
+        advice = advise(at(18), 0.12, NIGHT_BOOST, ready_times=(time(7, 0),))
+        assert advice.horizon == "ready_by"
+        assert advice.horizon_ends == "07:00"
+        assert advice.cheapest_source_in_horizon == SOURCE_ELECTRICITY
+
+    def test_the_horizon_is_a_day_without_a_ready_time(self):
+        advice = advise(at(18), 0.12, NIGHT_BOOST)
+        assert advice.horizon == "next_24_hours"
+        assert advice.horizon_ends == "18:00"
+
+    def test_a_ready_time_before_the_cheap_window_leaves_oil_the_cheapest(self):
+        advice = advise(at(18), 0.12, NIGHT_BOOST, ready_times=(time(22, 0),))
+        assert advice.cheapest_source_in_horizon == SOURCE_OIL
+        assert advice.cheapest_electricity_cost_per_kwh == pytest.approx(0.30)
+        assert "can wait" not in advice.suggestion
+
+    def test_the_cheapest_electricity_is_looked_for_only_up_to_the_ready_time(self):
+        advice = advise(at(18), 0.20, TIMED, ready_times=(time(21, 0),))
+        assert advice.cheapest_electricity_cost_per_kwh == pytest.approx(0.30)
+        assert advise(at(18), 0.20, TIMED).cheapest_electricity_cost_per_kwh == pytest.approx(0.15)
+
+    def test_the_best_hours_are_still_the_whole_day_with_a_ready_time(self):
+        with_ready = advise(at(18), 0.20, ready_times=(time(21, 0),))
+        assert with_ready.oil_hours == advise(at(18), 0.20).oil_hours
+
+
+class TestSolarSurplus:
+    def test_solar_is_cheapest_when_the_export_forgone_is_below_oil(self):
+        advice = advise(at(12), 0.20, solar_surplus=True)
+        assert advice.source == SOURCE_SOLAR
+        assert "Solar surplus is the cheapest source now" in advice.suggestion
+        assert "0.15" in advice.suggestion
+        assert "immersion" in advice.suggestion
+
+    def test_oil_wins_when_the_export_rate_is_above_the_oil_cost(self):
+        rich = build_tariff(
+            {"base_rate": 0.30, "export_rate": 0.25, "rate_periods": [], **NO_TAX}
+        )
+        advice = advise(at(12), 0.20, rich, solar_surplus=True)
+        assert advice.source == SOURCE_OIL
+        assert advice.oil_saving_per_kwh == pytest.approx(0.05)
+
+    def test_the_saving_is_against_the_cheapest_electric_source(self):
+        with_surplus = advise(at(12), 0.20, solar_surplus=True)
+        assert with_surplus.oil_saving_per_kwh == pytest.approx(0.15 - 0.20)
+        assert advise(at(12), 0.20).oil_saving_per_kwh == pytest.approx(0.10)
+
+    def test_with_no_surplus_the_export_rate_is_not_a_source(self):
+        assert advise(at(12), 0.20).source == SOURCE_OIL
+
+    def test_free_solar_beats_free_oil(self):
+        free_export = build_tariff(
+            {"base_rate": 0.30, "export_rate": 0.0, "rate_periods": [], **NO_TAX}
+        )
+        advice = advise(at(12), 0.0, free_export, solar_surplus=True)
+        assert advice.source == SOURCE_SOLAR
+
+    def test_the_hours_for_oil_ignore_solar(self):
+        assert advise(at(12), 0.20, solar_surplus=True).oil_hours == advise(at(12), 0.20).oil_hours
+
+    def test_the_day_ahead_counts_solar_as_a_source_when_it_is_there_now(self):
+        advice = advise(at(18), 0.20, solar_surplus=True)
+        assert advice.cheapest_source_in_horizon == SOURCE_SOLAR
+
+
+class TestFlatTariff:
+    def test_oil_cheaper_than_the_one_rate_is_cheaper_all_day(self):
+        advice = advise(at(12), 0.20, FLAT)
+        assert advice.source == SOURCE_OIL
+        assert advice.oil_hours == (ALL_DAY,)
+        assert "for the next 24 hours" in advice.suggestion
+        assert "until" not in advice.suggestion
+
+    def test_oil_dearer_than_the_one_rate_is_never_suggested(self):
+        advice = advise(at(12), 0.40, FLAT)
+        assert advice.source == SOURCE_ELECTRICITY
+        assert advice.oil_hours == ()
+
+    def test_the_cheapest_electricity_is_the_one_rate(self):
+        assert advise(at(12), 0.20, FLAT).cheapest_electricity_cost_per_kwh == pytest.approx(0.30)
+
+
+class TestEdges:
+    def test_equal_costs_stay_with_electricity(self):
+        assert advise(at(12), 0.30).source == SOURCE_ELECTRICITY
+
+    def test_the_saving_is_not_a_money_figure_when_tiny(self):
+        advice = advise(at(12), 0.2992)
+        assert "saves about €0.001 per kWh" in advice.suggestion
+
+    def test_the_currency_symbol_leads_each_figure(self):
+        advice = advise(at(12), 0.20, currency_symbol="£")
+        assert "£0.10 per kWh" in advice.suggestion
+
+    def test_the_hours_run_across_midnight_in_order(self):
+        reverse = build_tariff(
+            {
+                "base_rate": 0.10,
+                "rate_periods": [{"name": "Peak", "rate": 0.40, "start": "17:00", "end": "20:00"}],
+                **NO_TAX,
+            }
+        )
+        advice = advise(at(21), 0.20, reverse)
+        assert advice.oil_hours == ("17:00 to 20:00",)
+        assert advice.source == SOURCE_ELECTRICITY
+
+    def test_a_peak_after_now_gives_oil_hours_that_start_later(self):
+        peak = build_tariff(
+            {
+                "base_rate": 0.10,
+                "rate_periods": [{"name": "Peak", "rate": 0.40, "start": "17:00", "end": "20:00"}],
+                **NO_TAX,
+            }
+        )
+        advice = advise(at(12), 0.20, peak)
+        assert advice.oil_hours == ("17:00 to 20:00",)
+        assert "Oil is cheaper than electricity from 17:00 to 20:00" in advice.suggestion
+
+    def test_a_day_ahead_that_gains_an_hour_still_ends_at_the_same_clock_time(self):
+        """The clocks go back in the small hours of 25 October, so the next 24 hours end at 11:00."""
+        before_change = datetime(2026, 10, 24, 12, 0, tzinfo=DUBLIN)
+        advice = advise(before_change, 0.20)
+        assert advice.oil_hours == ("12:00 to 23:00", "08:00 to 11:00")

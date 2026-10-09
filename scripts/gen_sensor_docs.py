@@ -59,8 +59,9 @@ GROUPS: dict[str, str] = {
     "Battery": "Health, wear and state of the battery.",
     "Charge plan and night survival": "Outputs of the overnight charge calculation.",
     "Immersion": (
-        "Output of the immersion divert rule, and the water temperature. The water "
-        "temperature sensor exists only with a temperature sensor set."
+        "Output of the immersion divert rule, the water temperature and the oil water heating "
+        "advice. The water temperature sensor exists only with a temperature sensor set. The "
+        "cheapest source sensor exists only with an oil price and an immersion switch set."
     ),
     "EV charger": (
         "These sensors exist only while a supported charger is discovered, and appear when "
@@ -212,7 +213,14 @@ KEY_GROUPS: dict[str, str] = {
         ),
         "Charge plan and night survival",
     ),
-    **dict.fromkeys(("immersion_divert_reason", "immersion_water_temperature"), "Immersion"),
+    **dict.fromkeys(
+        (
+            "immersion_divert_reason",
+            "immersion_water_temperature",
+            "water_heating_cheapest_source",
+        ),
+        "Immersion",
+    ),
     **dict.fromkeys(
         (
             "ev_charger_state",
@@ -418,17 +426,21 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "overnight_charge_target": (
         "Tonight's target after overrides and the configured cap. Holds its value until the "
-        "calculated target moves 5 points or more."
+        "calculated target moves 5 points or more, and for an hour after it last changed. A move "
+        "of 15 points or more shows at once."
     ),
     "overnight_charge_reason": (
-        "Why that target was chosen. Changes only when the target does. Attributes report the "
+        "Why that target was chosen. Changes only when the target does, and never says skipping "
+        "while a charge is running. Attributes report the "
         "forecast accuracy correction: `accuracy_status` (for example `Waiting for data: 3 of 5 "
         "days`), `accuracy_applied`, `accuracy_measured_factor`, `accuracy_applied_factor`, "
         "`accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`."
     ),
     "overnight_charge_window": (
-        "The charge window written to slot 1, sized to the plan. Attributes: `window_start`, "
-        "`window_end`, `window_extended`, `expected_kwh` and `expected_finish`."
+        "The charge window written to slot 1, sized to the plan. The end holds until the plan "
+        "moves it 15 minutes or more and the shown end has stood for an hour, or 45 minutes or "
+        "more at once. Attributes: `window_start`, `window_end`, `window_extended`, "
+        "`expected_kwh` and `expected_finish`."
     ),
     "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",
     "estimated_soc_at_sunrise": (
@@ -448,6 +460,17 @@ DESCRIPTIONS: dict[str, str] = {
     "immersion_water_temperature": (
         "Reading of the immersion temperature sensor you set. Also lets a stored dashboard "
         "show the water temperature as soon as a sensor is set."
+    ),
+    "water_heating_cheapest_source": (
+        "The cheapest way to heat the water now: `electricity`, `solar` or `oil`. Compares the "
+        "cost of a kWh of heat from the grid (after discount and VAT), from solar surplus (the "
+        "export rate) and from oil (the price of a litre over 85% of 10.35 kWh). Advice only: "
+        "the integration does not control the oil boiler. The `suggestion` attribute is a "
+        "sentence saying what to do and until when. Other attributes: `oil_cost_per_kwh`, "
+        "`electricity_cost_per_kwh`, `cheapest_electricity_cost_per_kwh` (to the next ready time "
+        "or 24 hours), `oil_saving_per_kwh` (negative when oil is dearer), `best_hours_for_oil`, "
+        "`horizon`, `horizon_ends` and `cheapest_source_in_horizon`. Unavailable while the price "
+        "cannot be read."
     ),
     "ev_charger_state": (
         "disconnected, connected, charging, paused, boosting, completed or unknown. "
@@ -497,6 +520,7 @@ REQUIRES_NOTES: dict[str, str] = {
     "IMMERSION_SWITCH": "Created only with an immersion switch.",
     "IMMERSION_SENSOR": "Created only with an immersion temperature sensor.",
     "IMMERSION_THERMOSTAT": "Created only with an immersion switch and temperature sensor.",
+    "OIL_ADVICE": "Created only with an oil price and an immersion switch.",
 }
 
 RETIRED_SENSORS: tuple[tuple[str, str], ...] = (

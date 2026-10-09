@@ -7,11 +7,15 @@ import pytest
 from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
+    CONF_OIL_PRICE_ENTITY,
+    CONF_OIL_PRICE_PER_LITRE,
 )
 from custom_components.givenergy_inverter_manager.core.devices import Device, installed_devices
 
 SWITCH = {CONF_IMMERSION_SWITCH: "switch.heater"}
 SENSOR = {CONF_IMMERSION_TEMP_SENSOR: "sensor.cylinder"}
+OIL_PRICE = {CONF_OIL_PRICE_PER_LITRE: 0.95}
+OIL_PRICE_SENSOR = {CONF_OIL_PRICE_ENTITY: "sensor.oil_price"}
 
 
 def test_an_install_with_nothing_has_no_device():
@@ -42,5 +46,26 @@ def test_an_unset_entity_is_not_a_device(empty):
 
 
 def test_the_devices_do_not_depend_on_each_other_apart_from_the_thermostat():
-    everything = installed_devices({**SWITCH, **SENSOR}, ev_charger_found=True)
+    everything = installed_devices({**SWITCH, **SENSOR, **OIL_PRICE}, ev_charger_found=True)
     assert everything == frozenset(Device)
+
+
+def test_an_oil_price_alone_is_no_device():
+    """The advice compares oil with the immersion, so it needs a heater to compare with."""
+    assert installed_devices(OIL_PRICE, ev_charger_found=False) == frozenset()
+
+
+def test_a_switch_alone_has_no_oil_advice():
+    assert Device.OIL_ADVICE not in installed_devices(SWITCH, ev_charger_found=False)
+
+
+@pytest.mark.parametrize("price", [OIL_PRICE, OIL_PRICE_SENSOR, {**OIL_PRICE, **OIL_PRICE_SENSOR}])
+def test_an_oil_price_and_a_switch_give_the_oil_advice(price):
+    devices = installed_devices({**SWITCH, **price}, ev_charger_found=False)
+    assert devices == {Device.IMMERSION_SWITCH, Device.OIL_ADVICE}
+
+
+@pytest.mark.parametrize("empty", [None, "", 0, 0.0])
+def test_an_unset_oil_price_is_no_oil_advice(empty):
+    config = {**SWITCH, CONF_OIL_PRICE_PER_LITRE: empty, CONF_OIL_PRICE_ENTITY: empty}
+    assert Device.OIL_ADVICE not in installed_devices(config, ev_charger_found=False)

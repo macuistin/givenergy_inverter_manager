@@ -109,9 +109,11 @@ async def test_fresh_install_dashboard_points_only_at_enabled_entities(hass, loa
     referenced = set(_OURS.findall(text))
     assert referenced
     waiting = referenced - _usable_ids(hass, loaded_entry)
-    # Only the cards of the one device this install lacks, hidden until it arrives.
-    ev_keys = [k for k, device in keys_needing_devices().items() if device == "EV_CHARGER"]
-    assert waiting <= {expected_entity_id(key) for key in ev_keys}
+    # Only the cards of the devices this install lacks (an EV charger, an oil price), hidden
+    # until they arrive.
+    absent = ("EV_CHARGER", "OIL_ADVICE")
+    absent_keys = [k for k, device in keys_needing_devices().items() if device in absent]
+    assert waiting <= {expected_entity_id(key) for key in absent_keys}
 
 
 async def test_fresh_install_leaves_out_forecast_accuracy_and_says_so(hass, loaded_entry):

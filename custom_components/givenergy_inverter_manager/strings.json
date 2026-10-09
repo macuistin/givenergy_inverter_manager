@@ -518,12 +518,26 @@
             "data": {
               "immersion_switch_entity": "Immersion switch",
               "immersion_temp_sensor_entity": "Water temperature sensor",
-              "immersion_wattage_w": "Element power (W)"
+              "immersion_wattage_w": "Element power (W)",
+              "immersion_ready_times": "Hot water ready by"
             },
             "data_description": {
               "immersion_switch_entity": "Switch that turns the immersion heater on and off. Empty means the heater is not controlled.",
               "immersion_temp_sensor_entity": "Optional water temperature sensor in °C. Empty means the heater is not stopped or started by temperature.",
-              "immersion_wattage_w": "Power of the heating element in watts, used to judge how much solar surplus it needs."
+              "immersion_wattage_w": "Power of the heating element in watts, used to judge how much solar surplus it needs.",
+              "immersion_ready_times": "Times of day the water has to be at its target temperature, as HH:MM, for example 07:00 and 19:00. Used only while Immersion Scheduled Heating is on and a water temperature sensor is set. Empty means none."
+            }
+          },
+          "oil_settings": {
+            "name": "Oil water heating",
+            "description": "Optional. If an oil boiler also heats the hot water cylinder, set the price of a litre of oil and a sensor says when the oil system is cheaper than the immersion. This is advice only: the integration does not control the oil boiler. It needs an immersion switch to compare with, and clearing both fields removes it. The advice assumes a boiler efficiency of 85% and 10.35 kWh of energy in a litre of heating oil.",
+            "data": {
+              "oil_price_per_litre": "Oil price per litre",
+              "oil_price_entity": "Oil price sensor"
+            },
+            "data_description": {
+              "oil_price_per_litre": "Price of a litre of heating oil, in your currency. Empty means no oil advice.",
+              "oil_price_entity": "Optional sensor or number that holds the price of a litre. While it has a value it is used instead of the price above."
             }
           },
           "ev_settings": {
@@ -542,7 +556,8 @@
     "error": {
       "rate_period_zero_length": "A rate period cannot start and end at the same time. Change its start or end time, or clear its name to remove it.",
       "rate_period_duplicate_name": "Rate period names must be different from each other and from the base rate name.",
-      "tariff_change_date_in_past": "The rates cannot start in the past, because costs already recorded are not recalculated. Clear the date to apply the rates now, or choose a later date."
+      "tariff_change_date_in_past": "The rates cannot start in the past, because costs already recorded are not recalculated. Clear the date to apply the rates now, or choose a later date.",
+      "immersion_ready_time_invalid": "Enter each hot water ready time as HH:MM, for example 07:00."
     }
   },
   "entity": {
@@ -716,6 +731,9 @@
       },
       "immersion_water_temperature": {
         "name": "Immersion Water Temperature"
+      },
+      "water_heating_cheapest_source": {
+        "name": "Water Heating Cheapest Source"
       },
       "estimated_soc_at_sunrise": {
         "name": "Estimated SoC at Sunrise"

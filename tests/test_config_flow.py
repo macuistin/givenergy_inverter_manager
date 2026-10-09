@@ -433,6 +433,35 @@ class TestOptionsFlowSections:
         assert data["immersion_temp_sensor_entity"] == "sensor.cylinder"
         assert data["immersion_wattage_w"] == pytest.approx(2800.0)
 
+    def test_oil_section_is_saved_to_options(self):
+        flow = self._make_flow()
+        data = self._submit(
+            flow,
+            oil_settings={"oil_price_per_litre": 0.95, "oil_price_entity": "sensor.oil_price"},
+        )
+        assert data["oil_price_per_litre"] == pytest.approx(0.95)
+        assert data["oil_price_entity"] == "sensor.oil_price"
+
+    def test_a_cleared_oil_price_is_removed_and_a_cleared_entity_saved_empty(self):
+        """The frontend omits a cleared field. No price means no oil advice."""
+        flow = self._make_flow()
+        flow._options = {"oil_price_per_litre": 0.95, "oil_price_entity": "sensor.oil_price"}
+        data = self._submit(flow, oil_settings={})
+        assert "oil_price_per_litre" not in data
+        assert data["oil_price_entity"] == ""
+
+    def test_unsent_oil_section_leaves_the_saved_oil_price(self):
+        flow = self._make_flow()
+        flow._options = {"oil_price_per_litre": 0.95, "oil_price_entity": "sensor.oil_price"}
+        data = self._submit(flow)
+        assert data["oil_price_per_litre"] == pytest.approx(0.95)
+        assert data["oil_price_entity"] == "sensor.oil_price"
+
+    def test_no_oil_option_is_saved_when_none_was_ever_set(self):
+        data = self._submit(self._make_flow())
+        assert "oil_price_per_litre" not in data
+        assert "oil_price_entity" not in data
+
     def test_unsent_forecast_section_leaves_the_saved_forecast(self):
         import asyncio
 

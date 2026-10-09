@@ -177,7 +177,7 @@ The integration only records these changes. It does not undo them. The log is sa
 Read **Overnight Charge Reason** first. Then check these:
 
 - **The target is lower than expected, and the reason ends "capped at configured max".** **Default overnight charge target** caps the calculated target. It is 80 unless you changed it, and the cap applies to the winter 100% target too.
-- **The sensor differs by a few points from the value written to the inverter.** **Recommended Overnight Charge Target** holds its value until the calculated target moves 5 points or more, so the history stays readable. The write uses the latest calculation, and the sensor matches it from the next cycle. See [Overnight charge target](concepts.md#overnight-charge-target).
+- **The sensor differs by a few points from the value written to the inverter.** **Recommended Overnight Charge Target** holds its value until the calculated target moves 5 points or more and the value has stood for an hour (15 points or more shows at once), so the history stays readable. The write uses the latest calculation, and the sensor matches it from the next cycle. See [Overnight charge target](concepts.md#overnight-charge-target).
 - **December to February.** The target is 100% before the cap, whatever the forecast.
 - **March, April, October and November.** The minimum SoC is at least 70% in the calculation.
 - **No forecast.** Without a tomorrow sensor, the integration uses a seasonal estimate from your latitude. The reason says so.
@@ -208,6 +208,8 @@ Read **Immersion Divert Reason**. It gives the exact block.
 | `Battery SoC ... below threshold` | The divert threshold (default 80%) is set at setup only |
 | `Insufficient surplus` | Surplus is below the minimum (default 500 W). Cloud, or a large house load |
 | `Water at ... will restart below` | The restart gap is holding it off. Lower **Immersion Restart Gap** |
+| `Cheapest rate window (...): heating from ... to ...` | Scheduled heating is running in the cheapest window |
+| `Heating to be ready by 19:00: ...` | A ready time needs the heater now. `too late to be ready in full` means the hours left are fewer than the hours needed |
 | `Export rate ... below battery cycle cost` | Battery cost is set and exceeds the export rate. Set battery cost to 0 to turn the check off |
 
 If the reason says to heat but the heater stays off, check that an immersion switch entity was set at setup, and that the 10-minute hold after the last switch has passed. In dry run the real switch is never touched.

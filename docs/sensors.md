@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 149 sensors. 97 are enabled by default and 52 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 150 sensors. 98 are enabled by default and 52 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches, numbers and the button, see [Entities](entities.md).
 
@@ -147,9 +147,9 @@ Outputs of the overnight charge calculation.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Recommended Overnight Charge Target | `overnight_charge_target` | % | - | measurement | no | yes | Tonight's target after overrides and the configured cap. Holds its value until the calculated target moves 5 points or more. |
-| Overnight Charge Reason | `overnight_charge_reason` | - | - | none | no | yes | Why that target was chosen. Changes only when the target does. Attributes report the forecast accuracy correction: `accuracy_status` (for example `Waiting for data: 3 of 5 days`), `accuracy_applied`, `accuracy_measured_factor`, `accuracy_applied_factor`, `accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`. Diagnostic category. |
-| Overnight Charge Window | `overnight_charge_window` | - | - | none | no | yes | The charge window written to slot 1, sized to the plan. Attributes: `window_start`, `window_end`, `window_extended`, `expected_kwh` and `expected_finish`. Diagnostic category. |
+| Recommended Overnight Charge Target | `overnight_charge_target` | % | - | measurement | no | yes | Tonight's target after overrides and the configured cap. Holds its value until the calculated target moves 5 points or more, and for an hour after it last changed. A move of 15 points or more shows at once. |
+| Overnight Charge Reason | `overnight_charge_reason` | - | - | none | no | yes | Why that target was chosen. Changes only when the target does, and never says skipping while a charge is running. Attributes report the forecast accuracy correction: `accuracy_status` (for example `Waiting for data: 3 of 5 days`), `accuracy_applied`, `accuracy_measured_factor`, `accuracy_applied_factor`, `accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`. Diagnostic category. |
+| Overnight Charge Window | `overnight_charge_window` | - | - | none | no | yes | The charge window written to slot 1, sized to the plan. The end holds until the plan moves it 15 minutes or more and the shown end has stood for an hour, or 45 minutes or more at once. Attributes: `window_start`, `window_end`, `window_extended`, `expected_kwh` and `expected_finish`. Diagnostic category. |
 | Estimated Overnight Charge Cost | `overnight_charge_cost` | currency | monetary | none | no | yes | kWh to charge times the cheapest rate, before discount and VAT. Diagnostic category. |
 | Estimated SoC at Sunrise | `estimated_soc_at_sunrise` | % | - | measurement | no | yes | Projected SoC when solar starts, taken as 08:00. While solar is generating it covers tonight's 8 hour pre-solar window from the current SoC. |
 | Battery Night Survival Status | `night_survival_reason` | - | - | none | no | yes | Whether the battery should last until 08:00, with any shortfall. The charge plan does not skip a night this sensor calls Critical. Diagnostic category. |
@@ -158,12 +158,13 @@ Outputs of the overnight charge calculation.
 
 ## Immersion
 
-Output of the immersion divert rule, and the water temperature. The water temperature sensor exists only with a temperature sensor set.
+Output of the immersion divert rule, the water temperature and the oil water heating advice. The water temperature sensor exists only with a temperature sensor set. The cheapest source sensor exists only with an oil price and an immersion switch set.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Immersion Divert Reason | `immersion_divert_reason` | - | - | none | no | yes | Why the immersion is on or off. Diagnostic category. |
 | Immersion Water Temperature | `immersion_water_temperature` | °C | temperature | measurement | no | yes | Reading of the immersion temperature sensor you set. Also lets a stored dashboard show the water temperature as soon as a sensor is set. Created only with an immersion temperature sensor. |
+| Water Heating Cheapest Source | `water_heating_cheapest_source` | - | - | none | no | yes | The cheapest way to heat the water now: `electricity`, `solar` or `oil`. Compares the cost of a kWh of heat from the grid (after discount and VAT), from solar surplus (the export rate) and from oil (the price of a litre over 85% of 10.35 kWh). Advice only: the integration does not control the oil boiler. The `suggestion` attribute is a sentence saying what to do and until when. Other attributes: `oil_cost_per_kwh`, `electricity_cost_per_kwh`, `cheapest_electricity_cost_per_kwh` (to the next ready time or 24 hours), `oil_saving_per_kwh` (negative when oil is dearer), `best_hours_for_oil`, `horizon`, `horizon_ends` and `cheapest_source_in_horizon`. Unavailable while the price cannot be read. Created only with an oil price and an immersion switch. |
 
 ## EV charger
 

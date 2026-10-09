@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from conftest import FORECAST, FORECAST_P10, MIDDAY, TARGET_SOC
@@ -10,6 +10,7 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.givenergy_inverter_manager.const import (
+    CHARGE_TARGET_HOLD_MIN_MINUTES,
     CHARGE_TARGET_HOLD_STEP_PCT,
     DOMAIN,
 )
@@ -57,16 +58,22 @@ async def _written_target(hass, coordinator) -> int:
     return targets[-1]
 
 
-async def _settled_at_first_forecast(hass, entry):
+def _let_the_published_value_stand(freezer) -> None:
+    """Move the clock past the time a published target stands before it may step."""
+    freezer.tick(timedelta(minutes=CHARGE_TARGET_HOLD_MIN_MINUTES))
+
+
+async def _settled_at_first_forecast(hass, entry, freezer):
     coordinator = entry.runtime_data
+    _let_the_published_value_stand(freezer)
     await _refresh_with_forecast(hass, coordinator, FIRST_FORECAST_KWH)
     return coordinator
 
 
 async def test_a_small_forecast_change_leaves_the_published_target_and_reason_alone(
-    hass, loaded_entry
+    hass, loaded_entry, freezer
 ):
-    coordinator = await _settled_at_first_forecast(hass, loaded_entry)
+    coordinator = await _settled_at_first_forecast(hass, loaded_entry, freezer)
     target = _published(hass, loaded_entry, "overnight_charge_target")
     reason = _published(hass, loaded_entry, "overnight_charge_reason")
 
@@ -79,9 +86,10 @@ async def test_a_small_forecast_change_leaves_the_published_target_and_reason_al
     assert _published(hass, loaded_entry, "overnight_charge_reason") == reason
 
 
-async def test_a_clear_change_is_published(hass, loaded_entry):
-    coordinator = await _settled_at_first_forecast(hass, loaded_entry)
+async def test_a_clear_change_is_published_once_the_value_has_stood(hass, loaded_entry, freezer):
+    coordinator = await _settled_at_first_forecast(hass, loaded_entry, freezer)
     target = int(_published(hass, loaded_entry, "overnight_charge_target"))
+    _let_the_published_value_stand(freezer)
 
     await _refresh_with_forecast(hass, coordinator, LOWER_FORECAST_KWH)
 
@@ -90,8 +98,8 @@ async def test_a_clear_change_is_published(hass, loaded_entry):
     assert int(_published(hass, loaded_entry, "overnight_charge_target")) == fresh
 
 
-async def test_the_write_uses_the_fresh_target_not_the_held_one(hass, loaded_entry):
-    coordinator = await _settled_at_first_forecast(hass, loaded_entry)
+async def test_the_write_uses_the_fresh_target_not_the_held_one(hass, loaded_entry, freezer):
+    coordinator = await _settled_at_first_forecast(hass, loaded_entry, freezer)
     held_target = int(_published(hass, loaded_entry, "overnight_charge_target"))
     await _refresh_with_forecast(hass, coordinator, JITTERED_FORECAST_KWH)
     fresh_target = coordinator.data.charge_decision.target_soc
@@ -100,8 +108,10 @@ async def test_the_write_uses_the_fresh_target_not_the_held_one(hass, loaded_ent
     assert await _written_target(hass, coordinator) == fresh_target
 
 
-async def test_the_published_target_matches_the_write_from_the_next_cycle(hass, loaded_entry):
-    coordinator = await _settled_at_first_forecast(hass, loaded_entry)
+async def test_the_published_target_matches_the_write_from_the_next_cycle(
+    hass, loaded_entry, freezer
+):
+    coordinator = await _settled_at_first_forecast(hass, loaded_entry, freezer)
     await _refresh_with_forecast(hass, coordinator, JITTERED_FORECAST_KWH)
     written = await _written_target(hass, coordinator)
 

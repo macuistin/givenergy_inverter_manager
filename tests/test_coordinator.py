@@ -17,6 +17,7 @@ import logging
 import time
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+from datetime import time as clock_time
 from unittest.mock import MagicMock
 
 import pytest
@@ -42,8 +43,11 @@ from custom_components.givenergy_inverter_manager.const import (
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
+from custom_components.givenergy_inverter_manager.core.charge_window import ChargeWindow
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.ev_base_rate import WatchState
+from custom_components.givenergy_inverter_manager.core.immersion_rate import RunTracker
+from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter, SwitchState
@@ -122,6 +126,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._battery_stats = BatteryStats()
         self._held_charge = HeldCharge()
         self._held_sunrise = HeldSunrise()
+        self._held_solar = HeldSolarDay()
         self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""
         self._unsub_charge_target = None
@@ -156,6 +161,11 @@ class FakeCoordinator(GivEnergyCoordinator):
             @property
             def counters(self):
                 return self.state.counters
+
+            immersion_heating_rates: list = []  # noqa: RUF012
+
+            def record_immersion_rate(self, rate):
+                self.immersion_heating_rates.append(rate)
 
             @property
             def today_forecast_kwh(self):
@@ -249,6 +259,8 @@ class FakeCoordinator(GivEnergyCoordinator):
         self.immersion_target_temp: float = 55.0
         self.immersion_min_temp: float = 50.0
         self.immersion_hysteresis_c: float = 5.0
+        self.immersion_schedule_enabled: bool = False
+        self._rate_tracker = RunTracker()
         self._floor_top_up_applied: bool = False
         self.override_skip_charge = False
         self._givtcp_was_unavailable: bool = False
@@ -1125,6 +1137,16 @@ class TestWriteChargeTarget:
         coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
         coord.tasks_created[0].close()
         assert coord._held_charge.decision is None
+
+    def test_the_write_releases_the_held_window(self):
+        coord = self._coord_with_decision(target_soc=91)
+        coord._held_charge.window = ChargeWindow(
+            clock_time(2, 0), clock_time(5, 0), extended=True, expected_kwh=4.0, finish_time=None
+        )
+        coord._held_charge.window_published_at = datetime(2026, 6, 15, 1, 0)
+        coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
+        coord.tasks_created[0].close()
+        assert coord._held_charge == HeldCharge()
 
     @pytest.mark.asyncio
     async def test_enable_charge_target_on_below_100(self):
@@ -2163,6 +2185,54 @@ class TestReadOptionalFloatProxy:
             side_effect=AssertionError("_read_optional_float called hass.states.get directly")
         )
         coord._read_optional_float("sensor.temp")  # must not raise
+
+
+class TestOilPriceRead:
+    """The oil price: the sensor when it reads a price, else the saved number, else none."""
+
+    def _coord(self, **cfg):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("sensor.oil", "1.10")
+        return coord, {"immersion_switch_entity": "switch.heater", **cfg}
+
+    def _read(self, coord, cfg):
+        return coord._read_oil_price(cfg)
+
+    def test_no_oil_settings_means_no_price(self):
+        coord, cfg = self._coord()
+        assert self._read(coord, cfg) is None
+
+    def test_the_saved_number_is_the_price(self):
+        coord, cfg = self._coord(oil_price_per_litre=0.95)
+        assert self._read(coord, cfg) == pytest.approx(0.95)
+
+    def test_the_sensor_overrides_the_number(self):
+        coord, cfg = self._coord(oil_price_per_litre=0.95, oil_price_entity="sensor.oil")
+        assert self._read(coord, cfg) == pytest.approx(1.10)
+
+    def test_the_sensor_alone_is_enough(self):
+        coord, cfg = self._coord(oil_price_entity="sensor.oil")
+        assert self._read(coord, cfg) == pytest.approx(1.10)
+
+    @pytest.mark.parametrize("state", ["unavailable", "unknown", "cheap", "0", "-1"])
+    def test_a_sensor_that_does_not_read_a_price_leaves_the_number(self, state):
+        coord, cfg = self._coord(oil_price_per_litre=0.95, oil_price_entity="sensor.oil")
+        coord.set_state("sensor.oil", state)
+        assert self._read(coord, cfg) == pytest.approx(0.95)
+
+    def test_a_sensor_that_does_not_read_a_price_with_no_number_gives_none(self):
+        coord, cfg = self._coord(oil_price_entity="sensor.oil")
+        coord.set_state("sensor.oil", "unavailable")
+        assert self._read(coord, cfg) is None
+
+    def test_without_an_immersion_switch_there_is_nothing_to_compare_with(self):
+        coord, cfg = self._coord(oil_price_per_litre=0.95)
+        del cfg["immersion_switch_entity"]
+        assert self._read(coord, cfg) is None
+
+    def test_an_emptied_sensor_choice_is_ignored(self):
+        coord, cfg = self._coord(oil_price_per_litre=0.95, oil_price_entity="")
+        assert self._read(coord, cfg) == pytest.approx(0.95)
 
 
 ZAPPI_PLUG = "sensor.myenergi_zappi_plug_status"

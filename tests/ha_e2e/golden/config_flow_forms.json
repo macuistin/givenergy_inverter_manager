@@ -4885,10 +4885,59 @@
       "required": false,
       "optional": true,
       "default": 3000.0
+     },
+     {
+      "selector": {
+       "text": {
+        "multiple": true,
+        "multiline": false
+       }
+      },
+      "name": "immersion_ready_times",
+      "required": false,
+      "optional": true
      }
     ],
     "expanded": false,
     "name": "immersion_settings",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 0.001,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/litre",
+        "mode": "box"
+       }
+      },
+      "name": "oil_price_per_litre",
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor",
+         "input_number"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "oil_price_entity",
+      "required": false,
+      "optional": true
+     }
+    ],
+    "expanded": false,
+    "name": "oil_settings",
     "required": false,
     "optional": true
    },
@@ -5693,10 +5742,59 @@
       "required": false,
       "optional": true,
       "default": 3000.0
+     },
+     {
+      "selector": {
+       "text": {
+        "multiple": true,
+        "multiline": false
+       }
+      },
+      "name": "immersion_ready_times",
+      "required": false,
+      "optional": true
      }
     ],
     "expanded": false,
     "name": "immersion_settings",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 0.001,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/litre",
+        "mode": "box"
+       }
+      },
+      "name": "oil_price_per_litre",
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor",
+         "input_number"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "oil_price_entity",
+      "required": false,
+      "optional": true
+     }
+    ],
+    "expanded": false,
+    "name": "oil_settings",
     "required": false,
     "optional": true
    },
@@ -6507,10 +6605,59 @@
       "required": false,
       "optional": true,
       "default": 3000.0
+     },
+     {
+      "selector": {
+       "text": {
+        "multiple": true,
+        "multiline": false
+       }
+      },
+      "name": "immersion_ready_times",
+      "required": false,
+      "optional": true
      }
     ],
     "expanded": false,
     "name": "immersion_settings",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 0.001,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "GBP/litre",
+        "mode": "box"
+       }
+      },
+      "name": "oil_price_per_litre",
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor",
+         "input_number"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "oil_price_entity",
+      "required": false,
+      "optional": true
+     }
+    ],
+    "expanded": false,
+    "name": "oil_settings",
     "required": false,
     "optional": true
    },
@@ -7449,10 +7596,59 @@
       "required": false,
       "optional": true,
       "default": 3000.0
+     },
+     {
+      "selector": {
+       "text": {
+        "multiple": true,
+        "multiline": false
+       }
+      },
+      "name": "immersion_ready_times",
+      "required": false,
+      "optional": true
      }
     ],
     "expanded": false,
     "name": "immersion_settings",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "number": {
+        "min": 0.001,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/litre",
+        "mode": "box"
+       }
+      },
+      "name": "oil_price_per_litre",
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor",
+         "input_number"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "oil_price_entity",
+      "required": false,
+      "optional": true
+     }
+    ],
+    "expanded": false,
+    "name": "oil_settings",
     "required": false,
     "optional": true
    },

@@ -112,7 +112,7 @@ The calculation runs every cycle. The result is written to GivTCP once a day. Th
 7. **Cap.** The target is capped at **Default overnight charge target**, which is 80% unless you change it. The cap also applies to the winter target of 100%.
 8. **Overrides.** Manual overrides replace the result and the cap does not apply to them. See [Entities](entities.md).
 
-**Held recommendation.** The calculated target moves by a few points from cycle to cycle, most of all in the small hours, when the average daily load is extrapolated from very little data. The **Recommended Overnight Charge Target**, **Overnight Charge Reason** and **Estimated Overnight Charge Cost** sensors hold their last value until the calculated target is 5 points or more away from it, or the plan changes between charging and skipping. Overrides and the cap apply at once. The value written to the inverter is never held: it comes from the latest calculation at the moment of the write, and the sensors catch up on the next cycle.
+**Held recommendation.** The calculated target moves by a few points from cycle to cycle, most of all in the small hours, when the average daily load is extrapolated from very little data. The **Recommended Overnight Charge Target**, **Overnight Charge Reason** and **Estimated Overnight Charge Cost** sensors hold their last value until the calculated target is 5 points or more away from it, compared as the sensor shows it, after the cap. A published value then stands for at least an hour before the next step of that size shows, so a slow drift in the load estimate moves the sensor about once an hour, not every few minutes. A move of 15 points or more shows at once. A change between charging and skipping is measured by the charge it adds or removes, so skipping and charging 3 points are the same night and the sensors keep their value. This matters at dawn, when the solar reading flickers around the 10 W noise floor. The plan reads the settled solar state described under Night survival, and the hold covers what the flicker still moves. A skip is never shown while the battery is charging from the grid in the cheap-rate run: the charge itself lifts the SoC over the skip threshold, and the sensors keep the charge they showed. Overrides and the cap apply at once. The value written to the inverter is never held: it comes from the latest calculation at the moment of the write, and the sensors catch up on the next cycle.
 
 **Forecast adjustments, in order.** Step 3 adjusts the forecast twice before the simulation uses it:
 
@@ -123,23 +123,27 @@ The factor raises the forecast, up to 1.2, when the service runs low. The charge
 
 The winter and shoulder month lists are fixed calendar months. They follow northern hemisphere seasons. The seasonal solar estimate does use your latitude.
 
-The average daily load is today's house energy so far, less the EV charger's energy, scaled up to 24 hours. It is at least 5 kWh, and 15 kWh in the first 30 minutes after midnight. The car is left out because it is a separate load that charges from the grid in the cheap window. The only effect of a plugged-in car on the target is the 10 point buffer in step 6.
+The average daily load is today's house energy so far, less the EV charger's energy and the immersion heater's energy, scaled up to 24 hours. It is at least 5 kWh, and 15 kWh in the first 30 minutes after midnight. The car and the heater are left out because each is a separate, flexible load that runs for a few hours, not all day, and the per-slot load history leaves both out too. The only effect of a plugged-in car on the target is the 10 point buffer in step 6.
 
 **Writing the target.** One minute before the cheapest timed period starts, the integration sets, in order: enable charge schedule on, charge start time, charge end time, target SoC, then enable charge target (on for targets below 100, off for 100). The window starts with the cheapest timed period and is sized to the plan (see below). On a skip night it writes the minimum SoC as the target, so the battery can discharge instead of being held at an old target. Nothing is written when the target SoC entity was not detected, or when the tariff has no timed period. The integration owns charge slot 1 only. When another slot (2 to 10) has a window set, it raises the repair **Other charge slots are active**, because the inverter also charges in that slot. See [Troubleshooting](troubleshooting.md#other-charge-slots-are-active).
 
-**Sizing the window.** The inverter charges from the window start and stops at the target, so the cheapest hours come first. The cheapest period alone can be too short for a deep charge: a two hour period at 3.6 kW adds about 7 kWh. When the plan needs more time, the integration moves the window end later. Hours needed = (target SoC minus current SoC) x battery capacity / battery charge rate, plus 15% for the slowdown near full, rounded up to 5 minutes. The end never goes past the end of the run of timed periods cheaper than the base rate that follows the cheapest period. For example, with Nightboost 02:00 to 04:00 inside Night 23:00 to 08:00, the end can reach 08:00. If the plan fits the cheapest period, nothing changes. The charge rate is read from `number..._battery_charge_rate` on the same inverter. Without it the window stays the cheapest period. A tariff with no cheaper-than-base period after the cheapest one is never extended. The planned window, the energy it should deliver and the expected finish are on the **Overnight Charge Window** sensor. In dry run mode the "would write" text shows the extended window.
+**Sizing the window.** The inverter charges from the window start and stops at the target, so the cheapest hours come first. The cheapest period alone can be too short for a deep charge: a two hour period at 3.6 kW adds about 7 kWh. When the plan needs more time, the integration moves the window end later. Hours needed = (target SoC minus current SoC) x battery capacity / battery charge rate, plus 15% for the slowdown near full, rounded up to 5 minutes. The end never goes past the end of the run of timed periods cheaper than the base rate that follows the cheapest period. For example, with Nightboost 02:00 to 04:00 inside Night 23:00 to 08:00, the end can reach 08:00. If the plan fits the cheapest period, nothing changes. The charge rate is read from `number..._battery_charge_rate` on the same inverter. Without it the window stays the cheapest period. A tariff with no cheaper-than-base period after the cheapest one is never extended. The planned window, the energy it should deliver and the expected finish are on the **Overnight Charge Window** sensor. The sensor holds its end the way the target is held. As the battery runs down through the evening the planned end creeps later in 5 minute steps, so the sensor moves once the planned end is 15 minutes or more away and the shown end has stood for an hour, or at once when it is 45 minutes or more away. While a charge is running it stays as it was. The window written to the inverter is always the planned one, and the sensor catches up on the next cycle. In dry run mode the "would write" text shows the extended window.
 
 **Cheap rate floor.** During a timed period cheaper than the base rate, the integration checks SoC against the floor (default 40%, 0 turns it off). In the cheapest period the full floor applies. In a cheaper-but-not-cheapest period it only acts when SoC is below the minimum SoC plus 5. When it acts, it writes the floor as the target SoC and turns enable charge target on, once per day.
 
 ### Night survival
 
-Night survival asks whether the battery lasts until solar starts. It uses the current SoC, the usable capacity above the minimum SoC, the average daily load (see above, so without the EV charger) spread evenly over 24 hours, and a window of hours:
+Night survival asks whether the battery lasts until solar starts. It uses the current SoC, the usable capacity above the minimum SoC, the average daily load (see above, so without the EV charger and the immersion heater) spread evenly over 24 hours, and a window of hours:
 
 - Before 08:00, the hours left until 08:00.
 - After 08:00 while solar is generating, tonight's pre-solar window of 8 hours from the current SoC.
 - After 08:00 with no solar, from now until 08:00 tomorrow.
 
+Solar counts as generating once the reading has stayed at or above 10 W (the noise floor) for 5 minutes, and stops counting once it has stayed below 10 W for 5 minutes. A reading that crosses back restarts the count. At dawn and dusk the reading wanders across 10 W every few cycles. Without this, the window flipped between 8 hours and the whole evening with each crossing, and the status flipped between "Estimated shortfall" and "should last". The charge plan reads the same settled state. Only the solar state waits. The SoC, the load and the shortfall are read fresh every cycle, so a real shortfall shows at once. After a restart or a gap of an hour the first reading is taken as it is.
+
 The charge plan skips a night only when this check passes, and it uses the same window and load. **Estimated SoC at Sunrise** is the SoC left at the end of the window, never below the minimum SoC. **Battery Night Survival Status** and **Night Survival Confidence** read the same calculation.
+
+The estimate is a pessimistic one by design, in two ways. It spreads the day's average load evenly over the window, so a night that is quieter than the day reads worse than it will be: an evening that uses 0.5 kWh an hour is judged at the daily average, often twice that. And it counts only the charge the battery holds now. A cheap-rate charge planned for later tonight is not added, so a shortfall in the evening is a shortfall without that charge. A **Battery may run low** status in the evening, with a charge planned for the cheap period, does not mean the battery will run out. Check **Tonight's Charge Plan** next to it. The minimum SoC reading is the floor of the estimate, not a measurement.
 
 The calculated figure steps when the day's energy total resets at midnight, when the window flips at 08:00 and when solar fades in the evening. The published **Estimated SoC at Sunrise** follows the calculated figure at no more than the pace the inverter can charge or discharge the battery (inverter maximum output over battery capacity, for example 5 kW over 19 kWh is about 26 points an hour). A step becomes a ramp of about half an hour. The status and confidence sensors use the calculated figure, so a real shortfall shows at once. After a restart or a gap of an hour the held value is dropped and the sensor starts from the calculated figure.
 
@@ -150,6 +154,7 @@ The rule runs in this order. The first match wins.
 0. No immersion switch set: do not heat. The reason reads `No immersion switch configured`.
 1. Water below **Immersion Minimum Temperature**: heat, whatever the surplus.
 2. Water at or above **Immersion Target Temperature**: do not heat.
+2a. With **Immersion Scheduled Heating** on and a temperature sensor: heat while the cheapest window is open or a ready time needs the heater now. See [Scheduled immersion heating](#scheduled-immersion-heating).
 3. Battery SoC below the divert threshold (default 80%): do not heat.
 4. Surplus below the minimum (default 500 W) and no clipping: do not heat. Surplus is smoothed solar power minus house load minus battery charging power. Clipping means solar at 95% or more of the inverter maximum.
 5. Battery cycle cost above the export rate: do not heat. Active only when a battery cost is set.
@@ -165,6 +170,52 @@ The integration writes to your real immersion switch. After each automatic on or
 When **Auto Immersion Divert** is off, the rule above is bypassed. The decision becomes off with the reason `Manual override`, and the managed switch asks for the real switch to be off. The minimum temperature rule does not run either.
 
 Turning the managed switch on yourself starts a run to target. So does turning your real switch on from outside, once the integration has switched it at least once. The heater stays on until the water reaches the target. With no temperature reading, either because no sensor is set or because it is unavailable, the run lasts 5 minutes and then automatic control resumes. Turn it on again to extend it. Turning it off, here or outside, holds off automatic control for 10 minutes.
+
+### Scheduled immersion heating
+
+By default the immersion runs only on solar surplus, plus the minimum temperature rule. **Immersion Scheduled Heating** adds two kinds of grid heating. It is a switch, off by default, and it keeps its state across a restart. It is created while an immersion switch and a water temperature sensor are both set. Nothing here runs without a temperature sensor, because without one the integration cannot know when the water reached its target. Surplus diversion carries on as before.
+
+The scheduled rules sit after the temperature rules and before the surplus rules. The minimum temperature and target temperature rules above still come first, so the water is never heated above the target and never left below the minimum. **Auto Immersion Divert** off still stops everything.
+
+**Cheapest window.** The window is the cheapest timed rate period, the one the battery charge starts in, for example 02:00 to 04:00. It counts only when its rate is below the base rate. While it is open the heater runs until the water reaches the target, then stops. The battery level and the solar sensors do not matter. At the window start the water must be at least the **Immersion Restart Gap** below the target, so warm water from the day before is left alone (with 55 °C and 5 °C, a start needs water below 50 °C). When the window ends the heater stops, with the water below target or not. It never runs on into a dearer band.
+
+If the heater cuts itself off in the window with the water still below the target, for example a 60 minute auto-off on the device, the integration waits out the 10 minute switch hold and turns it on again. The run carries on to the target even when the water is inside the restart gap by then.
+
+**Hot water ready by.** List the times of day the water has to be at its target in the immersion options, for example 07:00 and 19:00. For the next ready time the integration works out how long the heater has to run, then places those hours in the cheapest bands left before it:
+
+1. The hours needed are the degrees short of the target divided by the heating rate, plus 15%.
+2. The time until the ready time is cut at every rate change. The hours go into the cheapest bands first, and a partly used band is entered late. Where two bands cost the same, the later one fills first, which keeps the day free for solar surplus.
+3. The heater is wanted when the current band is used up. If the hours cannot fit, it runs now and **Immersion Divert Reason** says `too late to be ready in full`.
+
+For 07:00 with the cheapest window 02:00 to 04:00 inside a Night band to 08:00, the window comes first and any hours left go to the Night band after it, never the base rate. For 19:00 with only the base rate on offer, nothing runs until the last moment, so solar surplus gets the afternoon, and a cold tank at 17:00 starts about when the heating needed would just fit. The plan is recomputed every cycle from the live temperature. It follows solar that heated the water, a run cut short by the device, and hot water drawn.
+
+The heating rate is in degrees per hour. The integration measures it from its own runs: a stretch with the heater on and the temperature readable, at least 20 minutes long and at least 2 °C of rise. It keeps the last 5 and plans with their median. Until a run has been measured it assumes the element heats a 300 litre cylinder, which is slow, so the first plans start early. The **Immersion Water Temperature** sensor shows `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source` (`learned` or `assumed`). The attributes are there only while ready times are set and Immersion Scheduled Heating is on.
+
+Dry run records `Would turn_on immersion heater (reason: ...)` for the scheduled rules and sends nothing. The switch hold, the verified write and the manual overrides work as for surplus diversion.
+
+**Moving from the device timers and home automations.** Switch the heater's own timers off, or leave only a long auto-off as a backup. Disable any automation that turns the heater on at set times or off at the target. Then turn **Immersion Scheduled Heating** on and enter the ready times. What the old automations did is covered:
+
+- Heat below the minimum temperature at any hour: the minimum temperature rule, which runs all day and night.
+- Switch off at the target, whatever turned the heater on: the target rule. A heater switched on by a timer or a person while the water is at or above the target is switched off at the next cycle or the one after. A run started outside below the target runs to the target and stops.
+- A time limit on the day: the cheapest window and the ready times replace it, and the target rule keeps the heater off above the target at every hour.
+
+A device auto-off during a run you started yourself ends that run, in the same way as pressing the switch off. The integration does not fight it. Scheduled heating restarts the heater after the hold if the window or a ready time still needs it.
+
+### Oil water heating advice
+
+Some homes heat the same cylinder with an oil boiler through a second coil. With an oil price set under Configure, Oil water heating, and an immersion switch to compare with, the **Water Heating Cheapest Source** sensor says which source is cheapest to heat the water. It is advice. The integration does not control the oil boiler, and it never turns the immersion on or off because of it.
+
+Each source is a cost per kWh of heat, in your currency:
+
+- **Oil**: the price of a litre divided by the heat a litre gives. The integration assumes a boiler at 85% efficiency and 10.35 kWh of energy in a litre of kerosene heating oil, so a litre gives 8.8 kWh of heat. These two figures are fixed in the code and not options.
+- **Electricity from the grid**: the unit rate in force now, after the supplier discount and VAT, as the cost sensors apply them. The immersion turns all its electricity into heat, so a kWh of electricity is a kWh of heat.
+- **Solar surplus**: the export rate, because heating the water with surplus gives up what the surplus would have earned. It counts as a source only while the immersion rule would divert the surplus: the battery is at the divert level and the surplus is at least the minimum surplus.
+
+The state is the cheapest source now: `electricity`, `solar` or `oil`. A tie goes to solar, then the grid, so oil needs a real saving. The `suggestion` attribute is a sentence, for example `Oil is cheaper than electricity until 23:00 (saves about 0.16 per kWh of heat). Heat the water with the oil system now.` When electricity is cheapest, it says when oil becomes cheaper. When oil is cheapest, it adds when electricity is cheapest if the water can wait.
+
+The other attributes are the oil cost, the grid cost now, the cheapest grid cost up to the horizon, the saving of oil per kWh against the cheapest electric source now (negative when oil is dearer), the hours in the next 24 when oil beats the grid (`best_hours_for_oil`, or `all day` on a flat tariff), the horizon and the cheapest source over it. The horizon is the next hot water ready time when the immersion options list one, whether or not Immersion Scheduled Heating is on, and the next 24 hours otherwise. Solar counts over the horizon only while there is surplus now, because the integration does not forecast surplus by the hour.
+
+The grid hours come from the tariff in force today, cut at every rate boundary, so a tariff with a cheap night window gives oil hours by day and none at night. A tariff change dated inside the next 24 hours is not looked ahead to.
 
 ### EV charger
 

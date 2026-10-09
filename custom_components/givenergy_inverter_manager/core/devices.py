@@ -12,7 +12,12 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Any
 
-from ..const import CONF_IMMERSION_SWITCH, CONF_IMMERSION_TEMP_SENSOR
+from ..const import (
+    CONF_IMMERSION_SWITCH,
+    CONF_IMMERSION_TEMP_SENSOR,
+    CONF_OIL_PRICE_ENTITY,
+    CONF_OIL_PRICE_PER_LITRE,
+)
 
 
 class Device(StrEnum):
@@ -23,6 +28,8 @@ class Device(StrEnum):
     IMMERSION_SENSOR = "immersion_sensor"
     # The switch and the sensor together. Target, minimum and restart gap only act then.
     IMMERSION_THERMOSTAT = "immersion_thermostat"
+    # An oil price and the immersion switch together. The advice compares the two.
+    OIL_ADVICE = "oil_advice"
 
 
 def installed_devices(
@@ -31,10 +38,12 @@ def installed_devices(
     """The devices present, from the merged config and whether an EV charger was discovered."""
     switch = bool(config.get(CONF_IMMERSION_SWITCH))
     sensor = bool(config.get(CONF_IMMERSION_TEMP_SENSOR))
+    oil_price = bool(config.get(CONF_OIL_PRICE_PER_LITRE) or config.get(CONF_OIL_PRICE_ENTITY))
     present = {
         Device.EV_CHARGER: ev_charger_found,
         Device.IMMERSION_SWITCH: switch,
         Device.IMMERSION_SENSOR: sensor,
         Device.IMMERSION_THERMOSTAT: switch and sensor,
+        Device.OIL_ADVICE: switch and oil_price,
     }
     return frozenset(device for device, here in present.items() if here)

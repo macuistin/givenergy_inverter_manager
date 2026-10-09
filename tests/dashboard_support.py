@@ -36,6 +36,7 @@ _DEVICE_SLUG = "givenergy_inverter_manager"
 _OTHER_ENTITIES = {
     "auto_immersion": ("switch", "Auto Immersion Divert"),
     "immersion_managed": ("switch", "Immersion Heater (Managed)"),
+    "immersion_schedule": ("switch", "Immersion Scheduled Heating"),
     "skip_charge_override": ("switch", "Force Skip Overnight Charge"),
     "charge_target_override_enabled": ("switch", "Enable Charge Target Override"),
     "charge_target_override": ("number", "Overnight Charge Target Override"),

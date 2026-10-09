@@ -117,3 +117,50 @@ async def test_without_a_charge_rate_entity_the_window_is_unchanged(hass, loaded
 
     assert _written(calls, CHARGE_END) == {"04:00:00"}
     assert _written(calls, CHARGE_START) == {"02:00:00"}
+
+
+def _window_state(hass, entry):
+    entity_id = er.async_get(hass).async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.entry_id}_overnight_charge_window"
+    )
+    return hass.states.get(entity_id)
+
+
+async def test_the_window_sensor_holds_a_small_move_but_the_write_uses_the_planned_end(
+    hass, loaded_entry
+):
+    coordinator = loaded_entry.runtime_data
+    hass.states.async_set(CHARGE_RATE, "2000", {"unit_of_measurement": "W"})
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert _window_state(hass, loaded_entry).state == "02:00 to 05:50"
+
+    # A slightly faster charge shortens the plan by 5 minutes, to 05:45.
+    hass.states.async_set(CHARGE_RATE, "2050", {"unit_of_measurement": "W"})
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert coordinator.data.charge_window.text == "02:00 to 05:45"
+    assert _window_state(hass, loaded_entry).state == "02:00 to 05:50"
+
+    calls = await _fire_pre_window_trigger(hass, loaded_entry, charge_rate="2050")
+
+    assert _written(calls, CHARGE_END) == {"05:45:00"}
+    # The write released the held window. The sensor catches up on the next cycle. The trigger
+    # also fires the coordinator's own poll timer, and which of the two runs first depends on
+    # the real loop clock, so run that cycle here instead of leaving it to the order.
+    await loaded_entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert _window_state(hass, loaded_entry).state == "02:00 to 05:45"
+
+
+async def test_the_window_sensor_shows_a_large_move_at_once(hass, loaded_entry):
+    coordinator = loaded_entry.runtime_data
+    hass.states.async_set(CHARGE_RATE, "2000", {"unit_of_measurement": "W"})
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    hass.states.async_set(CHARGE_RATE, "9000", {"unit_of_measurement": "W"})
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert _window_state(hass, loaded_entry).state == "02:00 to 04:00"

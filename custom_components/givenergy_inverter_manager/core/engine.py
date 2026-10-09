@@ -25,7 +25,7 @@ Separation of concerns:
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from ..const import (
@@ -71,6 +71,7 @@ from ..const import (
     INVERTER_TEMP_STATUS_UNKNOWN,
     INVERTER_TEMP_STATUS_WARM,
     INVERTER_TEMP_WARM,
+    POWER_DIRECTION_BAND_W,
     SOLAR_NOISE_FLOOR_W,
     SOLAR_SUNRISE_HOUR,
     SURPLUS_DIVERT_MIN_POWER_W,
@@ -89,16 +90,25 @@ from .battery import (
     estimate_will_survive_night,
     hours_until_solar,
 )
-from .charge_hold import HeldCharge, next_held_recommendation
+from .charge_hold import HeldCharge, HoldReading
 from .charge_window import (
     ChargeNeed,
     ChargeWindow,
     cheap_run_remaining_minutes,
     plan_charge_window,
 )
+from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
+from .immersion_window import open_cheapest_window
+from .oil_advice import (
+    AdviceInputs,
+    WaterHeatingAdvice,
+    advise_water_heating,
+    oil_heat_cost_per_kwh,
+)
 from .rules import (
     ChargeDecision,
     ChargeInputs,
+    CheapWindow,
     DivertPolicy,
     ForecastAccuracy,
     ImmersionInputs,
@@ -112,6 +122,7 @@ from .rules import (
     decide_ev_charger_action,
     should_divert_to_immersion,
 )
+from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
 from .sunrise_hold import (
     HeldSunrise,
     SunriseReading,
@@ -163,6 +174,18 @@ class RawSensorValues:
     immersion_target_temp: float = 55.0
     immersion_min_temp: float = 50.0
     immersion_hysteresis_c: float = 5.0
+    # The user's opt-in to heating in the cheapest rate window, set by the coordinator.
+    immersion_schedule_enabled: bool = False
+    # True when the previous cycle was heating in the cheapest window. The coordinator sets it.
+    immersion_window_heating_before: bool = False
+    # Times of day the water has to be at its target, and the heating rate the coordinator
+    # learned or assumed for the plan (degrees per hour, 0.0 when unknown) and where it came from.
+    immersion_ready_times: tuple[time, ...] = ()
+    # The price of a litre of oil, None when no oil price is set (no oil advice). The coordinator
+    # resolves the price sensor over the saved number.
+    oil_price_per_litre: float | None = None
+    immersion_heating_rate_c_per_h: float = 0.0
+    immersion_rate_source: str = ""
     forecast_kwh_tomorrow: float | None = None
     forecast_kwh_p10: float | None = None
     forecast_kwh_d2: float | None = None
@@ -231,10 +254,22 @@ class CoordinatorData:
     is_clipping: bool = False
     charge_decision: ChargeDecision | None = None
     charge_window: ChargeWindow | None = None
-    # The held copy of charge_decision the sensors publish. The write uses charge_decision.
+    # The held copies of charge_decision and charge_window the sensors publish. The write uses
+    # charge_decision and charge_window.
     published_charge_decision: ChargeDecision | None = None
+    published_charge_window: ChargeWindow | None = None
     should_divert_immersion: bool = False
     divert_reason: str = ""
+    # True while the cheapest rate window is open, the user opted in and the heater is wanted.
+    immersion_window_heating: bool = False
+    # The next ready time and whether the water is expected to be at target by then. None
+    # without ready times, without scheduled heating or without a readable temperature.
+    immersion_ready_time: time | None = None
+    immersion_expected_ready: bool | None = None
+    # Oil against electricity for heating the water. None while no oil price is set.
+    water_heating_advice: WaterHeatingAdvice | None = None
+    immersion_heating_rate_c_per_h: float | None = None
+    immersion_rate_source: str = ""
     today: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     week: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     month: EnergyAccumulator = field(default_factory=EnergyAccumulator)
@@ -538,14 +573,14 @@ def estimate_avg_daily_kwh(
 
 
 def _baseline_house_kwh(today: EnergyAccumulator) -> float:
-    """Today's house energy without the EV charger's share.
+    """Today's house energy without the EV charger's and the immersion heater's shares.
 
-    The load figure includes the EV charger. The charge target and the night survival
-    estimate scale this energy up to a full day, so a car drawing 7 kW at 01:00 would read
-    as a house that uses 170 kWh a day. The EV is a separate, flexible load and the
-    per-slot baseline profile already leaves it out.
+    The load figure includes both. The charge target and the night survival estimate scale
+    this energy up to a full day, so a car drawing 7 kW at 01:00 would read as a house that
+    uses 170 kWh a day, and a 4.7 kWh morning heat as 0.2 kWh an hour all night. Both are
+    separate, flexible loads and the per-slot baseline profile already leaves them out.
     """
-    return max(0.0, today.house_kwh - today.zappi_kwh)
+    return max(0.0, today.house_kwh - today.zappi_kwh - today.immersion_kwh)
 
 
 @dataclass(frozen=True)
@@ -709,7 +744,7 @@ class ForecastContext:
 class PreviousCycle:
     """State carried over from the previous update.
 
-    battery_stats, held_charge and held_sunrise are mutated.
+    battery_stats, held_charge, held_sunrise and held_solar are mutated.
     """
 
     battery_stats: BatteryStats
@@ -717,6 +752,7 @@ class PreviousCycle:
     last_update_time: datetime | None
     held_charge: HeldCharge = field(default_factory=HeldCharge)
     held_sunrise: HeldSunrise = field(default_factory=HeldSunrise)
+    held_solar: HeldSolarDay = field(default_factory=HeldSolarDay)
 
 
 @dataclass(frozen=True)
@@ -741,6 +777,9 @@ class _Cycle:
     current_period: RatePeriod
     overrides: ManualOverrides
     forecast: ForecastContext
+    # Solar power as the night window sees it: the raw reading once the solar day has settled as
+    # started, zero otherwise (core/solar_day.py).
+    night_solar_w: float
 
 
 def _apply_history(
@@ -920,6 +959,35 @@ def _divert_policy(data: CoordinatorData, cycle: _Cycle) -> DivertPolicy:
     )
 
 
+def _cheap_window(cycle: _Cycle) -> CheapWindow:
+    raw = cycle.raw
+    if not raw.immersion_schedule_enabled:
+        return CheapWindow()
+    return CheapWindow(
+        enabled=True,
+        open_label=open_cheapest_window(cycle.tariff, cycle.now),
+        heating_before=raw.immersion_window_heating_before,
+    )
+
+
+def _ready_plan(cycle: _Cycle) -> ReadyPlan:
+    """The plan for the ready times: only with scheduled heating on and a water reading."""
+    raw = cycle.raw
+    if not (raw.immersion_schedule_enabled and raw.immersion_ready_times):
+        return ReadyPlan()
+    return plan_ready(
+        ReadyInputs(
+            tariff=cycle.tariff,
+            now=cycle.now,
+            times=raw.immersion_ready_times,
+            temp=raw.immersion_temp,
+            target=raw.immersion_target_temp,
+            rate_c_per_h=raw.immersion_heating_rate_c_per_h,
+            heater_on=raw.immersion_on,
+        )
+    )
+
+
 def _immersion_inputs(data: CoordinatorData, cycle: _Cycle) -> ImmersionInputs:
     raw = cycle.raw
     return ImmersionInputs(
@@ -931,6 +999,43 @@ def _immersion_inputs(data: CoordinatorData, cycle: _Cycle) -> ImmersionInputs:
             unavailable_for_s=raw.unavailable_for_s,
             switch_configured=raw.immersion_switch_configured,
         ),
+        window=_cheap_window(cycle),
+        ready=_ready_plan(cycle),
+    )
+
+
+def _set_ready_fields(data: CoordinatorData, plan: ReadyPlan, raw: RawSensorValues) -> None:
+    """What the ready times expect, for the sensor attributes."""
+    data.immersion_ready_time = plan.ready_time
+    data.immersion_expected_ready = plan.expected_ready
+    if plan.ready_time is not None:
+        data.immersion_heating_rate_c_per_h = round(raw.immersion_heating_rate_c_per_h, 2)
+        data.immersion_rate_source = raw.immersion_rate_source
+
+
+def _solar_surplus_to_divert(data: CoordinatorData, cycle: _Cycle) -> bool:
+    """True while the immersion rule would divert the surplus: enough of it, battery charged."""
+    policy = _divert_policy(data, cycle)
+    return (
+        cycle.raw.battery_soc >= policy.soc_threshold
+        and data.net_solar_surplus_w >= policy.min_surplus_w
+    )
+
+
+def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
+    """Oil against electricity for the water. Nothing is worked out without an oil price."""
+    price = cycle.raw.oil_price_per_litre
+    if price is None:
+        return
+    data.water_heating_advice = advise_water_heating(
+        AdviceInputs(
+            tariff=cycle.tariff,
+            now=cycle.now,
+            oil_cost_per_kwh=oil_heat_cost_per_kwh(price),
+            ready_times=cycle.raw.immersion_ready_times,
+            solar_surplus=_solar_surplus_to_divert(data, cycle),
+            currency_symbol=data.currency_symbol,
+        )
     )
 
 
@@ -941,9 +1046,12 @@ def _set_immersion_decision(data: CoordinatorData, cycle: _Cycle) -> None:
         data.should_divert_immersion = cycle.overrides.immersion
         data.divert_reason = "Manual override"
         return
-    data.should_divert_immersion, data.divert_reason = should_divert_to_immersion(
-        _immersion_inputs(data, cycle)
+    inputs = _immersion_inputs(data, cycle)
+    data.should_divert_immersion, data.divert_reason = should_divert_to_immersion(inputs)
+    data.immersion_window_heating = (
+        data.should_divert_immersion and inputs.window.open_label is not None
     )
+    _set_ready_fields(data, inputs.ready, cycle.raw)
 
 
 def _configured_min_soc(cfg: dict[str, Any]) -> int:
@@ -964,7 +1072,7 @@ def _charge_inputs(cycle: _Cycle, avg_daily_kwh: float) -> ChargeInputs:
         average_daily_consumption_kwh=avg_daily_kwh,
         cheapest_rate=cycle.tariff.get_cheapest_rate().rate,
         load_profile=cycle.forecast.load_profile,
-        solar_power_w=raw.solar_power_w,
+        solar_power_w=cycle.night_solar_w,
     )
 
 
@@ -1032,24 +1140,38 @@ def _with_charge_overrides(
     return decision
 
 
+def _charge_running(data: CoordinatorData, raw: RawSensorValues) -> bool:
+    """True while the battery is taking power from the grid inside the cheap rate run."""
+    return (
+        data.cheap_run_remaining_minutes is not None
+        and raw.battery_power_w > POWER_DIRECTION_BAND_W
+        and raw.grid_power_w > POWER_DIRECTION_BAND_W
+    )
+
+
 def _set_overnight_charge(
     data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float, held: HeldCharge
 ) -> None:
     """
     Work out tonight's charge target, then apply any manual override and the cap.
 
-    charge_decision is the fresh result and is what gets written to the inverter. The
-    sensors read published_charge_decision, built from the held calculation so it only
-    moves once the fresh target is a clear step away. Overrides and the cap apply to both.
+    charge_decision is the fresh result and is what gets written to the inverter, with the
+    window planned from it. The sensors read published_charge_decision, built from the held
+    calculation so it only moves once the fresh target is a clear step away and the held one
+    has stood for a while, and published_charge_window, held the same way. Overrides and the
+    cap apply to both decisions.
     """
     fresh = _overnight_charge_decision(cycle, avg_daily_kwh)
-    held.decision = next_held_recommendation(held.decision, fresh)
     max_target = int(cycle.cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
+    reading = HoldReading(cycle.now, _charge_running(data, cycle.raw), max_target)
+    held.settle(fresh, reading)
     data.charge_decision = _with_charge_overrides(fresh, cycle.overrides, max_target)
     data.published_charge_decision = _with_charge_overrides(
         held.decision, cycle.overrides, max_target
     )
     data.charge_window = _plan_charge_window(data, cycle)
+    held.settle_window(data.charge_window, reading)
+    data.published_charge_window = held.window
 
 
 def _plan_charge_window(data: CoordinatorData, cycle: _Cycle) -> ChargeWindow | None:
@@ -1111,7 +1233,7 @@ def _calculate_night_survival(
             current_soc=raw.battery_soc,
             battery_capacity_kwh=raw.battery_capacity_kwh,
             min_soc=float(min_soc),
-            hours_until_solar=hours_until_solar(cycle.now.hour, raw.solar_power_w),
+            hours_until_solar=hours_until_solar(cycle.now.hour, cycle.night_solar_w),
             average_hourly_consumption_kwh=avg_daily_kwh / 24,
         )
     )
@@ -1272,7 +1394,9 @@ def _carry_grid_to_battery(accumulators: Accumulators, raw: RawSensorValues) -> 
             longer_acc.grid_to_battery_kwh += growth_kwh
 
 
-def _start_cycle(inputs: CycleInputs, forecast: ForecastContext, now: datetime) -> _Cycle:
+def _start_cycle(
+    inputs: CycleInputs, forecast: ForecastContext, now: datetime, held_solar: HeldSolarDay
+) -> _Cycle:
     tariff = build_tariff(tariff_in_force(inputs.cfg, now.date()))
     return _Cycle(
         inputs.raw,
@@ -1282,6 +1406,7 @@ def _start_cycle(inputs: CycleInputs, forecast: ForecastContext, now: datetime) 
         tariff.get_current_rate(now),
         inputs.overrides,
         forecast,
+        settled_solar_w(held_solar, SolarReading(inputs.raw.solar_power_w, now)),
     )
 
 
@@ -1291,6 +1416,7 @@ def _set_decisions(
     """The charge target and the immersion divert, both of which honour manual overrides."""
     _set_overnight_charge(data, cycle, avg_daily_kwh, held)
     _set_immersion_decision(data, cycle)
+    _set_water_heating_advice(data, cycle)
     _set_inverter_temperature(data, cycle.raw.inverter_temp)
 
 
@@ -1321,7 +1447,7 @@ def build_coordinator_data(
     data = CoordinatorData()
     _initialize_coordinator_data(data, inputs, accumulators, forecast)
 
-    cycle = _start_cycle(inputs, forecast, now)
+    cycle = _start_cycle(inputs, forecast, now, previous.held_solar)
     _set_tariff_fields(data, cycle)
     _set_battery_stats(data, cycle, previous)
     _accumulate_energy_today(data, cycle, accumulators, previous.last_update_time)

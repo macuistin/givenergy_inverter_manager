@@ -2,6 +2,67 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+Heats the water in the cheapest rate window, to ready times you set, and keeps the charge plan
+steady. Fixes a sunrise estimate that sat at the minimum.
+
+**Features**
+- Immersion Scheduled Heating switch (off by default, created only with an immersion switch and a
+  water temperature sensor). While on, the heater runs to the target temperature in the cheapest
+  rate window and stops at the target or the window end. Solar surplus diversion is unchanged.
+  With no cheaper window, no sensor or the switch off, nothing is scheduled.
+- Hot water ready by: a list of times in the immersion options. The integration plans grid
+  heating into the cheapest bands left, so the water is at the target by each time, using a
+  heating rate it learns from its own runs. Solar gets the day, because grid hours are placed as
+  late as possible. The Immersion Water Temperature sensor shows `ready_by`, `expected_ready`,
+  `heating_rate_c_per_h` and `heating_rate_source`, and the divert reason says when heating is to
+  meet a ready time. Dry run records what it would do.
+- A heater that cuts itself off in the window, for example a device auto-off, is turned on again
+  after the switch hold, until the target or the window end. A device timer that turns the heater
+  on while the water is at the target is switched off again.
+- Water Heating Cheapest Source sensor, for homes where an oil boiler also heats the cylinder. It
+  says whether electricity, solar surplus or oil is the cheapest way to heat the water now, with a
+  plain `suggestion` sentence and the hours when oil beats the grid. It compares the price of a
+  litre of oil (assuming an 85% boiler and 10.35 kWh a litre) with the grid rate after discount
+  and VAT and with the export rate for solar surplus, up to the next hot water ready time or 24
+  hours. Advice only: nothing controls the oil boiler.
+- Oil water heating options (Configure): Oil price per litre, and an optional Oil price sensor that
+  overrides it. Both are empty by default. With no price, or no immersion switch, the sensor is not
+  created and nothing is worked out. Set or clear them at any time.
+- The Immersion dashboard view gains a Cheapest way to heat the water section, shown only while the
+  sensor has a reading. A stored dashboard file shows or hides it with no new file.
+- Dashboard: the Immersion view shows a Ready by section (the next ready time, whether the water
+  is expected to be ready, and the heating rate) while Immersion Scheduled Heating is on. The
+  Scheduled switch sits with the Target, Minimum and Restart gap tiles on the Immersion view,
+  and as a toggle in Settings. They show only with an immersion switch and a water temperature
+  sensor, and a stored dashboard picks them up with no regeneration.
+
+**Changes**
+- The Recommended Overnight Charge Target and Overnight Charge Reason sensors no longer step every
+  few minutes. A published value now stands for an hour before the next 5 point step. A 15 point
+  change still shows at once.
+- The charge plan no longer flips between skipping and charging when the solar reading flickers at
+  dawn. It never reads "Skipping" while the battery is charging from the grid.
+- The Overnight Charge Window sensor holds its end until the plan moves it by 15 minutes (after an
+  hour) or 45 minutes (at once), and stays put during the charge. The window written to the
+  inverter is unchanged.
+
+**Fixes**
+- Estimated SoC at Sunrise, Battery Night Survival Status and the overnight charge target no
+  longer count the immersion heater's energy as an all-day load. A morning heat of a few kWh was
+  scaled up over the whole night, which pinned the estimate at the minimum and could block a charge
+  skip.
+- Battery Night Survival Status, its reason and Night Survival Confidence no longer flip at dawn and
+  dusk. Solar counts as started once it has stayed at or above 10 W for 5 minutes, and as ended once
+  it has stayed below 10 W for 5 minutes, so a reading that wanders across 10 W no longer swaps the
+  night window between 8 hours and the whole evening. A real shortfall still shows on the cycle it
+  appears.
+
+**Docs**
+- Night survival is documented as spreading the daily average evenly over the night and not
+  counting a charge planned for later that night.
+
 ## v0.14.1
 
 GivTCP rate differences are shown on a sensor instead of as a repair.

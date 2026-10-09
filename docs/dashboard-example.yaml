@@ -1052,6 +1052,53 @@ views:
   - type: grid
     visibility:
     - condition: state
+      entity: number.givenergy_inverter_manager_immersion_target_temperature
+      state_not: unavailable
+    - condition: state
+      entity: sensor.givenergy_inverter_manager_immersion_water_temperature
+      state_not: unavailable
+    - condition: state
+      entity: switch.givenergy_inverter_manager_immersion_scheduled_heating
+      state: 'on'
+    cards:
+    - type: heading
+      heading: Ready by
+      heading_style: title
+      icon: mdi:clock-check-outline
+    - type: markdown
+      content: |-
+        {% set sensor = 'sensor.givenergy_inverter_manager_immersion_water_temperature' %}{% set ready = state_attr(sensor, 'ready_by') %}{% set expected = state_attr(sensor, 'expected_ready') %}{% set rate = state_attr(sensor, 'heating_rate_c_per_h') %}{% if ready -%}
+        **Next ready time {{ ready }}**
+
+        {% if expected is true %}The water is expected to be at the target by then.{% elif expected is false %}The water is not expected to reach the target by then.{% else %}Whether the water will be ready in time is not known yet.{% endif %}{% if is_number(rate) %} Heating at about {{ rate | float(0) | round(1) }} °C an hour.{% endif %}
+        {%- else -%}
+        No hot water ready time is set. Add one under Hot water ready by in the immersion options.
+        {%- endif %}
+      grid_options:
+        columns: full
+  - type: grid
+    visibility:
+    - condition: state
+      entity: sensor.givenergy_inverter_manager_water_heating_cheapest_source
+      state_not: unavailable
+    cards:
+    - type: heading
+      heading: Cheapest way to heat the water
+      heading_style: title
+      icon: mdi:fire-circle
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_water_heating_cheapest_source
+      name: Cheapest source
+      color: orange
+      grid_options:
+        columns: full
+    - type: markdown
+      content: '{{ state_attr(''sensor.givenergy_inverter_manager_water_heating_cheapest_source'', ''suggestion'') }}'
+      grid_options:
+        columns: full
+  - type: grid
+    visibility:
+    - condition: state
       entity: switch.givenergy_inverter_manager_immersion_heater_managed
       state_not: unavailable
     cards:
@@ -1107,6 +1154,20 @@ views:
         action: none
       grid_options:
         columns: 6
+    - type: tile
+      entity: switch.givenergy_inverter_manager_immersion_scheduled_heating
+      name: Scheduled
+      color: orange
+      tap_action:
+        action: none
+      icon_tap_action:
+        action: none
+      grid_options:
+        columns: 6
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable
     - type: tile
       entity: number.givenergy_inverter_manager_immersion_target_temperature
       name: Target temp
@@ -1627,6 +1688,19 @@ views:
       content: '{{ states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
       grid_options:
         columns: full
+    - type: tile
+      entity: switch.givenergy_inverter_manager_immersion_scheduled_heating
+      name: Scheduled
+      color: orange
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: 6
+      visibility:
+      - condition: state
+        entity: number.givenergy_inverter_manager_immersion_target_temperature
+        state_not: unavailable
     - type: tile
       entity: number.givenergy_inverter_manager_immersion_target_temperature
       name: Target temp

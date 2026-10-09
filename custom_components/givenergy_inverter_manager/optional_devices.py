@@ -58,6 +58,12 @@ AUTO_IMMERSION = DeviceEntity(
 IMMERSION_MANAGED = DeviceEntity(
     "switch", "immersion_managed", Device.IMMERSION_SWITCH, "Immersion Heater (Managed)"
 )
+IMMERSION_SCHEDULE = DeviceEntity(
+    "switch",
+    "immersion_schedule",
+    Device.IMMERSION_THERMOSTAT,
+    "Immersion Scheduled Heating",
+)
 IMMERSION_TARGET = DeviceEntity(
     "number", "immersion_target_temp", Device.IMMERSION_THERMOSTAT, "Immersion Target Temperature"
 )
@@ -70,6 +76,7 @@ IMMERSION_RESTART_GAP = DeviceEntity(
 DEVICE_ENTITIES: tuple[DeviceEntity, ...] = (
     AUTO_IMMERSION,
     IMMERSION_MANAGED,
+    IMMERSION_SCHEDULE,
     IMMERSION_TARGET,
     IMMERSION_MINIMUM,
     IMMERSION_RESTART_GAP,

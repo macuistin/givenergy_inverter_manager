@@ -139,7 +139,32 @@ DEFAULT_IMMERSION_WATTAGE = 3000  # W
 DEFAULT_IMMERSION_TARGET_TEMP = 55  # °C — turn off when water reaches this
 DEFAULT_IMMERSION_MIN_TEMP = 50  # °C — force on below this (legionella protection)
 DEFAULT_IMMERSION_HYSTERESIS = 5  # °C — only restart after cooling this far below target
+# Ready-by planning (core/immersion_rate.py): the saved ready times, and the heating rate in
+# degrees per hour that the integration learns from its own runs.
+CONF_IMMERSION_READY_TIMES = "immersion_ready_times"
+# Rate assumed before a run has been measured: a large cylinder, which heats slowly, so the
+# first plans start early rather than late.
+IMMERSION_ASSUMED_TANK_LITRES = 300
+# A run counts as a sample only when it was long and warmed the water enough to measure.
+IMMERSION_RATE_RUN_MIN_MINUTES = 20
+IMMERSION_RATE_RUN_MIN_RISE_C = 2.0
+# The rate used is the median of the last few runs, so one run during a shower does not skew it.
+IMMERSION_RATE_RUNS_KEPT = 5
 IMMERSION_SWITCH_COOLDOWN_MINUTES = 10  # min between auto on/off writes to the real switch
+# ── Oil water heating advice (core/oil_advice.py) ────────────────────────────
+# Some homes also heat the same cylinder with an oil boiler, through a second coil. With an
+# oil price set, a sensor says when the oil system is the cheaper way to heat the water.
+# Advice only: the integration never switches the oil system. The price is the only setting.
+CONF_OIL_PRICE_PER_LITRE = "oil_price_per_litre"
+CONF_OIL_PRICE_ENTITY = "oil_price_entity"
+# Fixed assumptions, not options. A typical boiler in service sits between an older
+# non-condensing boiler (about 75 to 80%) and a new condensing one (about 90% or more). 85% leans
+# low on purpose, so oil is not suggested on an efficiency the boiler does not reach in summer,
+# when it heats only the cylinder.
+OIL_BOILER_EFFICIENCY_PCT = 85  # %
+# The commonly quoted energy content of kerosene heating oil.
+OIL_KWH_PER_LITRE = 10.35  # kWh per litre of fuel
+OIL_ADVICE_HORIZON_HOURS = 24  # how far ahead the cheapest hours are looked for
 DEFAULT_BATTERY_MIN_SOC = 10  # %
 DEFAULT_OVERNIGHT_CHARGE_TARGET = 80  # %
 DEFAULT_SKIP_CHARGE_SOC_THRESHOLD = 75  # %
@@ -202,6 +227,10 @@ APPLIANCE_RATE_THRESHOLD = 1.5  # × export rate — above this the grid rate is
 # ── Coordinator ──────────────────────────────────────────────────────────────
 UPDATE_INTERVAL_SECONDS = 30
 
+# Power inside this band either side of zero counts as no flow. The sensors read it, and so does
+# the charge hold, which counts a battery drawing more than this from the grid as charging.
+POWER_DIRECTION_BAND_W = 50
+
 # ── HA platforms exposed by this integration ─────────────────────────────────
 PLATFORMS = ["sensor", "switch", "number"]
 
@@ -226,6 +255,11 @@ CHARGE_MIN_TARGET_HEADROOM_PCT = 5  # SoC points above min SoC
 # keeps the sensor steady while a change worth acting on still shows. The write uses the fresh
 # target, never the held one.
 CHARGE_TARGET_HOLD_STEP_PCT = 5  # SoC points
+# A published value then stands for at least this long before the next step of that size is
+# published, so a slow drift in the load estimate moves the sensor once an hour, not every few
+# minutes. A change of CHARGE_TARGET_HOLD_LARGE_STEP_PCT or more is published at once.
+CHARGE_TARGET_HOLD_MIN_MINUTES = 60
+CHARGE_TARGET_HOLD_LARGE_STEP_PCT = 15  # SoC points
 
 CHARGE_PEAK_SOLAR_HOURS = 4.0  # peak-output hours assumed when no forecast available
 CHARGE_SOLAR_USABLE_FRACTION = 0.6  # fraction of forecast kWh we can realistically charge from
@@ -243,10 +277,21 @@ CHARGE_FORECAST_CORRECTION_MIN_KWH = 0.5  # days with forecast or actual below t
 # this fraction, because the battery slows near full and the real rate sits below the setting.
 CHARGE_WINDOW_MARGIN = 0.15
 CHARGE_WINDOW_ROUND_MINUTES = 5  # the window end is rounded up to a multiple of this
+# The published window end holds like the target does: it moves once the planned end is
+# CHARGE_WINDOW_HOLD_STEP_MINUTES away and the held end has stood for the target's hold time
+# (CHARGE_TARGET_HOLD_MIN_MINUTES), or at once when it is CHARGE_WINDOW_HOLD_LARGE_STEP_MINUTES
+# away. The window written to the inverter is always the planned one.
+CHARGE_WINDOW_HOLD_STEP_MINUTES = 15
+CHARGE_WINDOW_HOLD_LARGE_STEP_MINUTES = 45
 
 # ── Solar / generation parameters ─────────────────────────────────────────────
 SOLAR_SUNRISE_HOUR = 8  # hour of day when solar generation typically starts
 SOLAR_NOISE_FLOOR_W = 10.0  # W — sensor readings below this are treated as zero
+# The solar day starts once the reading has stayed at or above SOLAR_NOISE_FLOOR_W for this long,
+# and ends once it has stayed below it for as long. At dawn and dusk the reading wanders across the
+# floor every few cycles, and each crossing flipped the night window between 8 hours and the whole
+# evening. Night survival and the charge skip check read the settled state.
+SOLAR_DAY_DEBOUNCE_MINUTES = 5
 
 # ── Battery health parameters ─────────────────────────────────────────────────
 BATTERY_RATED_CYCLES = 6000  # typical LFP rated cycle life (manufacturer spec)

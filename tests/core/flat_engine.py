@@ -23,6 +23,7 @@ from custom_components.givenergy_inverter_manager.core.engine import (
     PreviousCycle,
     RawSensorValues,
 )
+from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator, TariffConfig
 from custom_components.givenergy_inverter_manager.discovery import EVCharger
@@ -55,6 +56,7 @@ def build_coordinator_data(
     today_raw_forecast_p10_kwh: float | None = None,
     held_charge: HeldCharge | None = None,
     held_sunrise: HeldSunrise | None = None,
+    held_solar: HeldSolarDay | None = None,
 ) -> tuple[CoordinatorData, str | None]:
     return engine.build_coordinator_data(
         CycleInputs(
@@ -82,6 +84,7 @@ def build_coordinator_data(
             last_update_time,
             held_charge if held_charge is not None else HeldCharge(),
             held_sunrise if held_sunrise is not None else HeldSunrise(),
+            held_solar if held_solar is not None else HeldSolarDay(),
         ),
         ForecastContext(
             solar_fractions=solar_fractions,

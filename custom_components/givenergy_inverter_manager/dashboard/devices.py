@@ -1,11 +1,12 @@
 """
 devices.py - which optional devices the dashboard shows, and how it hides them.
 
-The EV charger, the immersion switch and the immersion temperature sensor are optional, and
-a stored dashboard (the YAML file, or a paste into the raw editor) outlives a change to any of
-them. So every card that needs a device carries a Lovelace visibility condition on one entity
-of that device, its sentinel. The condition hides the card while the sentinel is unavailable
-or missing and shows it when the device arrives, with no regeneration.
+The EV charger, the immersion switch, the immersion temperature sensor and the oil advice
+(an oil price with the switch) are optional, and a stored dashboard (the YAML file, or a paste
+into the raw editor) outlives a change to any of them. So every card that needs a device
+carries a Lovelace visibility condition on one entity of that device, its sentinel. The
+condition hides the card while the sentinel is unavailable or missing and shows it when the
+device arrives, with no regeneration.
 
 A device that is not installed yet has no registry entry. The cards that wait for it point at
 the entity ID Home Assistant will give it, worked out from the entity's name.
@@ -33,6 +34,7 @@ SENTINELS: dict[Device, str] = {
     Device.IMMERSION_SWITCH: "immersion_managed",
     Device.IMMERSION_SENSOR: "immersion_water_temperature",
     Device.IMMERSION_THERMOSTAT: "immersion_target_temp",
+    Device.OIL_ADVICE: "water_heating_cheapest_source",
 }
 
 _STRINGS = Path(__file__).resolve().parent.parent / "strings.json"
@@ -121,6 +123,10 @@ class Devices:
     def visible_without(self, *devices: Device) -> list[dict]:
         """Conditions that hold while none of these devices is present."""
         return [_state_condition(self.sentinel(device), state=_UNAVAILABLE) for device in devices]
+
+    def visible_while_on(self, entity: str) -> list[dict]:
+        """A condition that holds while this switch is on."""
+        return [_state_condition(entity, state="on")]
 
     def visible_with_any(self, *devices: Device) -> list[dict]:
         """One condition that holds while at least one of these devices is present."""

@@ -1,4 +1,4 @@
-"""Controllable loads: the EV charger and the immersion heater cost."""
+"""Controllable loads: the EV charger, the immersion heater and the oil water heating advice."""
 
 from __future__ import annotations
 
@@ -106,5 +106,14 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: None if d.immersion_temp is None else round(d.immersion_temp, 1),
+        attrs_fn=values.immersion_ready_attributes,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="water_heating_cheapest_source",
+        requires=Device.OIL_ADVICE,
+        translation_key="water_heating_cheapest_source",
+        value_fn=values.water_heating_source,
+        available_fn=lambda d: d.water_heating_advice is not None,
+        attrs_fn=values.water_heating_attributes,
     ),
 )

@@ -24,6 +24,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
+from .core.immersion_rate import keep_run
 from .core.rules import (
     ForecastAccuracy,
     build_load_profile,
@@ -261,6 +262,10 @@ class AccumulationState:
     slot_hours_today: list = field(default_factory=lambda: [0.0] * _SLOTS_PER_DAY)
     slot_load_date: str = ""
     slot_load_history: list = field(default_factory=list)
+
+    # Heating rates (degrees per hour) of the last few immersion runs, oldest first. The
+    # ready-by plan reads their median. See core/immersion_rate.py.
+    immersion_heating_rates: list = field(default_factory=list)
 
     # Rolling 12-month export snapshots — one entry per completed billing month,
     # oldest first, capped at 12. Populated at each monthly reset before clearing.
@@ -636,6 +641,17 @@ class AccumulationStore:
             dict(r) for r in records[-_FORECAST_RATIO_HISTORY_DAYS:]
         ]
 
+    @property
+    def immersion_heating_rates(self) -> list[float]:
+        return self.state.immersion_heating_rates
+
+    def record_immersion_rate(self, rate_c_per_h: float) -> None:
+        """Keep the heating rate of a finished immersion run and queue a save."""
+        self.state.immersion_heating_rates = keep_run(
+            self.state.immersion_heating_rates, rate_c_per_h
+        )
+        self.schedule_save()
+
     def note_clipping(self) -> None:
         """Flag today as clipping so it is left out of the forecast correction."""
         self.state.today_clipping = True
@@ -725,6 +741,7 @@ def _serialize(state: AccumulationState) -> dict:
         "month_start_iso": state.month_start_iso,
         "year_start_iso": state.year_start_iso,
         "last_reset_iso": state.last_reset_iso,
+        "immersion_heating_rates": list(state.immersion_heating_rates),
         "monthly_export_snapshots": list(state.monthly_export_snapshots),
         "monthly_snapshots": list(state.monthly_snapshots),
     }
@@ -772,6 +789,13 @@ def _restore_slot_load(state: AccumulationState, data: dict) -> None:
             setattr(state, key, [float(v) for v in values])
 
 
+def _restore_immersion_rates(state: AccumulationState, data: dict) -> None:
+    rates = data.get("immersion_heating_rates", [])
+    state.immersion_heating_rates = [
+        float(r) for r in rates if isinstance(r, (int, float)) and r > 0
+    ]
+
+
 def _restore_period_history(state: AccumulationState, data: dict) -> None:
     state.week_start_iso = data.get("week_start_iso", "")
     state.month_start_iso = data.get("month_start_iso", "")
@@ -791,5 +815,6 @@ def _deserialize(data: dict) -> AccumulationState:
     _restore_accumulators(state, data)
     _restore_battery_and_forecast(state, data)
     _restore_slot_load(state, data)
+    _restore_immersion_rates(state, data)
     _restore_period_history(state, data)
     return state
