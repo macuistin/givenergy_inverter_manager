@@ -199,6 +199,18 @@ def cheap_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     return None if summary is None else {"summary": summary}
 
 
+def immersion_ready_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Return the next hot water ready time, whether it will be met and the rate behind it."""
+    if data.immersion_ready_time is None:
+        return None
+    return {
+        "ready_by": f"{data.immersion_ready_time:%H:%M}",
+        "expected_ready": data.immersion_expected_ready,
+        "heating_rate_c_per_h": data.immersion_heating_rate_c_per_h,
+        "heating_rate_source": data.immersion_rate_source,
+    }
+
+
 def givtcp_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """Return how GivTCP's rates compare with the tariff here, None when none is readable."""
     mismatches = data.givtcp_rate_mismatches

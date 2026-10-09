@@ -438,7 +438,7 @@ def _change_date_errors(user_input: dict, today: date) -> dict[str, str]:
 def _ready_time_errors(user_input: dict) -> dict[str, str]:
     """Every ready time has to read as HH:MM, so a typo is not silently dropped."""
     submitted = user_input.get("immersion_settings", {}).get(CONF_IMMERSION_READY_TIMES) or []
-    if len(parse_ready_times(submitted)) < len({str(item).strip() for item in submitted}):
+    if not all(parse_ready_times([item]) for item in submitted):
         return {"base": "immersion_ready_time_invalid"}
     return {}
 

@@ -964,6 +964,7 @@ def _ready_plan(cycle: _Cycle) -> ReadyPlan:
             temp=raw.immersion_temp,
             target=raw.immersion_target_temp,
             rate_c_per_h=raw.immersion_heating_rate_c_per_h,
+            heater_on=raw.immersion_on,
         )
     )
 

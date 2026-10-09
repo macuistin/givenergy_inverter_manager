@@ -11,7 +11,8 @@ heater has to run, then places that time in the cheapest rate bands left before 
   3. The hours are filled into the cheapest segments first. Where segments cost the same, the
      later one fills first, so grid heating waits and solar surplus gets the day.
   4. Inside the last segment used, the heating sits at its end, so a partly used band is
-     entered late. The heater is wanted now when the current segment is used up to its end.
+     entered late. The heater is wanted now when the current segment is used up to its end,
+     or when it is already running and would be wanted within the switch cooldown.
 
 The plan is recomputed every cycle from the live temperature, so it follows what actually
 happened: solar surplus that heated the water, a device auto-off that cut a run short, or
@@ -26,13 +27,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 
-from ..const import CHARGE_WINDOW_MARGIN
+from ..const import CHARGE_WINDOW_MARGIN, IMMERSION_SWITCH_COOLDOWN_MINUTES
 from .tariff import TariffConfig
 from .timeutil import elapsed_seconds, local_time_on
 
 _SECONDS_PER_HOUR = 3600.0
 # A segment is used up when less than this is left over, so rounding does not delay the start.
 _USED_UP_SECONDS = 30.0
+_COOLDOWN_SECONDS = IMMERSION_SWITCH_COOLDOWN_MINUTES * 60.0
 
 
 @dataclass(frozen=True)
@@ -139,6 +141,7 @@ class ReadyInputs:
     temp: float | None
     target: float
     rate_c_per_h: float
+    heater_on: bool = False
 
 
 def plan_ready(inputs: ReadyInputs) -> ReadyPlan:
@@ -155,5 +158,8 @@ def plan_ready(inputs: ReadyInputs) -> ReadyPlan:
     fits = sum(given.values()) >= needed - 1e-9
     first = segments[0]
     left_in_first = elapsed_seconds(first.start, first.end)
-    used_up = given.get(0, 0.0) * _SECONDS_PER_HOUR >= left_in_first - _USED_UP_SECONDS
+    slack = left_in_first - given.get(0, 0.0) * _SECONDS_PER_HOUR
+    # A run in progress carries on when the plan would start within the switch cooldown. An
+    # off now could not be undone in time, because the write cooldown holds the next on back.
+    used_up = slack <= _USED_UP_SECONDS or (inputs.heater_on and slack <= _COOLDOWN_SECONDS)
     return ReadyPlan(ready.timetz().replace(tzinfo=None), used_up, fits, needed)

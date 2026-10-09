@@ -106,5 +106,6 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: None if d.immersion_temp is None else round(d.immersion_temp, 1),
+        attrs_fn=values.immersion_ready_attributes,
     ),
 )

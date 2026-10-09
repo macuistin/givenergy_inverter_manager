@@ -146,6 +146,20 @@ class TestEveningReadyTime:
         assert plan(at(18, 45), 52.0, EVENING).heat_now is True
 
 
+class TestARunInProgress:
+    def test_a_running_heater_is_not_stopped_a_minute_before_its_band_is_used_up(self):
+        """18:06 with 6.6 degrees to go: the plan would start at 18:07, but it already runs."""
+        idle = ReadyInputs(TARIFF, at(18, 6), (EVENING,), 48.4, TARGET, 8.6)
+        running = ReadyInputs(TARIFF, at(18, 6), (EVENING,), 48.4, TARGET, 8.6, heater_on=True)
+        assert plan_ready(idle).heat_now is False
+        assert plan_ready(running).heat_now is True
+
+    def test_a_running_heater_stops_when_the_current_band_is_not_in_the_plan(self):
+        """At 12:00 the plan would not start for hours, so a heater turned on for another reason goes."""
+        running = ReadyInputs(TARIFF, at(12), (EVENING,), 50.0, TARGET, RATE, heater_on=True)
+        assert plan_ready(running).heat_now is False
+
+
 class TestAfterTheReadyTime:
     def test_the_next_ready_time_is_the_evening_after_the_morning(self):
         assert plan(at(7, 1), 50.0, MORNING, EVENING).ready_time == EVENING

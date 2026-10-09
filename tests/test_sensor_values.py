@@ -277,6 +277,27 @@ class TestCheapRateSummary:
         assert self._summary(None, None, 30.0) is None
 
 
+class TestImmersionReadyAttributes:
+    def test_none_without_a_ready_time(self):
+        assert values.immersion_ready_attributes(make_data()) is None
+
+    def test_the_plan_and_the_rate_it_used(self):
+        from datetime import time
+
+        data = make_data(
+            immersion_ready_time=time(19, 0),
+            immersion_expected_ready=True,
+            immersion_heating_rate_c_per_h=8.6,
+            immersion_rate_source="assumed",
+        )
+        assert values.immersion_ready_attributes(data) == {
+            "ready_by": "19:00",
+            "expected_ready": True,
+            "heating_rate_c_per_h": 8.6,
+            "heating_rate_source": "assumed",
+        }
+
+
 class TestCheapRateAttributes:
     def test_carries_the_summary(self):
         data = make_data(next_cheap_rate_start="23:00", hours_to_cheap_rate=9.0)
