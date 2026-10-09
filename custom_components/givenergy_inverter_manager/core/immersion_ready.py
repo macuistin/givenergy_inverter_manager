@@ -52,7 +52,9 @@ class ReadyPlan:
 
 
 @dataclass(frozen=True)
-class _Segment:
+class RateSegment:
+    """A stretch of time with one import rate, as the tariff states it (before discount and VAT)."""
+
     start: datetime
     end: datetime
     rate: float
@@ -91,28 +93,29 @@ def next_ready_at(now: datetime, times: tuple[time, ...]) -> datetime | None:
     return min(moments, key=lambda m: elapsed_seconds(now, m))
 
 
-def _boundaries(tariff: TariffConfig, now: datetime, ready: datetime) -> list[datetime]:
-    """Every tariff boundary strictly between now and the ready time, in order."""
+def _boundaries(tariff: TariffConfig, now: datetime, end: datetime) -> list[datetime]:
+    """Every tariff boundary strictly between now and the end, in order."""
     points = []
     for period in tariff.rate_periods:
         for at in (period.start, period.end):
             for days in (0, 1):
                 moment = local_time_on(now + timedelta(days=days), at)
-                if 0 < elapsed_seconds(now, moment) < elapsed_seconds(now, ready):
+                if 0 < elapsed_seconds(now, moment) < elapsed_seconds(now, end):
                     points.append(moment)
     return sorted(set(points))
 
 
-def _segments(tariff: TariffConfig, now: datetime, ready: datetime) -> list[_Segment]:
-    edges = [now, *_boundaries(tariff, now, ready), ready]
+def rate_segments(tariff: TariffConfig, now: datetime, end: datetime) -> list[RateSegment]:
+    """The time from now to *end*, cut at every tariff boundary, each piece with its rate."""
+    edges = [now, *_boundaries(tariff, now, end), end]
     segments = []
-    for start, end in zip(edges, edges[1:], strict=False):
-        middle = start + (end - start) / 2
-        segments.append(_Segment(start, end, tariff.get_current_rate(middle).rate))
+    for seg_start, seg_end in zip(edges, edges[1:], strict=False):
+        middle = seg_start + (seg_end - seg_start) / 2
+        segments.append(RateSegment(seg_start, seg_end, tariff.get_current_rate(middle).rate))
     return segments
 
 
-def _fill_cheapest_first(segments: list[_Segment], hours: float) -> dict[int, float]:
+def _fill_cheapest_first(segments: list[RateSegment], hours: float) -> dict[int, float]:
     """Hours given to each segment (by position), cheapest first and later first on a tie."""
     order = sorted(range(len(segments)), key=lambda i: (segments[i].rate, -i))
     left, given = hours, {}
@@ -153,7 +156,7 @@ def plan_ready(inputs: ReadyInputs) -> ReadyPlan:
     needed = hours_to_heat(temp, inputs.target, inputs.rate_c_per_h)
     if needed <= 0:
         return ReadyPlan(ready.timetz().replace(tzinfo=None), False, True, 0.0)
-    segments = _segments(inputs.tariff, now, ready)
+    segments = rate_segments(inputs.tariff, now, ready)
     given = _fill_cheapest_first(segments, needed)
     fits = sum(given.values()) >= needed - 1e-9
     first = segments[0]
