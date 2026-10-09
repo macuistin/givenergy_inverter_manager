@@ -813,7 +813,7 @@ views:
         columns: full
     - type: tile
       entity: sensor.givenergy_inverter_manager_recommended_overnight_charge_target
-      name: Target tonight
+      name: Target if charging
       color: green
       grid_options:
         columns: 6

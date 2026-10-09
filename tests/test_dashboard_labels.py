@@ -91,14 +91,14 @@ class TestTonightsChargePlan:
 
     def test_the_other_tiles_stay_after_it(self):
         names = [c["name"] for c in _battery_section("Tonight's charge plan")[1:]]
-        assert names == ["Target tonight", "Est. cost", "At sunrise", "Rate floor"]
+        assert names == ["Target if charging", "Est. cost", "At sunrise", "Rate floor"]
 
     def test_the_section_works_while_the_plan_sensor_is_off(self):
         cards = _battery_section(
             "Tonight's charge plan", registry=FakeRegistry(absent={"charge_plan"})
         )
         assert {c["type"] for c in cards} == {"tile"}
-        assert cards[0]["name"] == "Target tonight"
+        assert cards[0]["name"] == "Target if charging"
 
 
 class TestChargeSettingsInForce:

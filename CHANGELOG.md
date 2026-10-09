@@ -5,6 +5,8 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 ## Unreleased
 
 **Changes**
+- The Battery view's Target tonight tile is now Target if charging, so it does not seem to disagree
+  with a Skip charge plan. The Recommended Overnight Charge Target sensor is unchanged.
 - The oil advice sentence shows once on the Immersion view. While Immersion Scheduled Heating is on, it
   is in the Ready by section and the Cheapest way to heat the water section leaves it out. While
   scheduled heating is off, or cannot exist, the Cheapest section shows it. Generate the dashboard
@@ -45,6 +47,8 @@ The oil advice no longer suggests a start when the water needs no heating.
 - Generate the dashboard file again, or use the strategy dashboard, to get the new charts and cards.
 
 **Changes**
+- The Battery view's Target tonight tile is now Target if charging, so it does not seem to disagree
+  with a Skip charge plan. The Recommended Overnight Charge Target sensor is unchanged.
 - Night survival is now worded as the battery lasting the night. The Power Flow tile Night survival
   is Battery overnight, a full-width tile that reads `Lasts the night · 36% at sunrise`, `Only just
   lasts the night · 12% at sunrise` or `May run low`. The Battery detail heading and card use the
@@ -183,6 +187,8 @@ steady. Fixes a sunrise estimate that sat at the minimum.
   sensor, and a stored dashboard picks them up with no regeneration.
 
 **Changes**
+- The Battery view's Target tonight tile is now Target if charging, so it does not seem to disagree
+  with a Skip charge plan. The Recommended Overnight Charge Target sensor is unchanged.
 - The Recommended Overnight Charge Target and Overnight Charge Reason sensors no longer step every
   few minutes. A published value now stands for an hour before the next 5 point step. A 15 point
   change still shows at once.
@@ -220,6 +226,8 @@ steady. Fixes a sunrise estimate that sat at the minimum.
 GivTCP rate differences are shown on a sensor instead of as a repair.
 
 **Changes**
+- The Battery view's Target tonight tile is now Target if charging, so it does not seem to disagree
+  with a Skip charge plan. The Recommended Overnight Charge Target sensor is unchanged.
 - GivTCP rates that differ from the tariff no longer raise a repair. Many installs keep their
   rates here and use GivTCP for live data only. The comparison now shows as the
   `givtcp_rates_differ` and `givtcp_rate_differences` attributes of the Current Rate sensor, and
@@ -299,6 +307,8 @@ readings, and renames the base-rate import sensors.
   readable, and can be ignored. The rates entered here still decide every cost.
 
 **Changes**
+- The Battery view's Target tonight tile is now Target if charging, so it does not seem to disagree
+  with a Skip charge plan. The Recommended Overnight Charge Target sensor is unchanged.
 - The sensors that count import at the base rate are renamed from "peak rate" to "base rate":
   Import at base rate (today, yesterday, this week, this month), Import cost at base rate and Base
   rate import fraction. Keys and unique ids are unchanged, so history carries on. Existing
@@ -332,6 +342,8 @@ chart shows when the heater was on, and the reports use the forecast service's o
 Generate the dashboard file again to get the dashboard changes.
 
 **Changes**
+- The Battery view's Target tonight tile is now Target if charging, so it does not seem to disagree
+  with a Skip charge plan. The Recommended Overnight Charge Target sensor is unchanged.
 - **Saving vs Grid Today** (`saving_vs_grid_today`) and **Net Saving Today (inc. battery wear)**
   (`net_saving_today`) are enabled by default. Home Assistant now records their history, so a
   saving over time can be charted.
@@ -431,6 +443,8 @@ service's own figure. Stored data moves to version 4 on first start, with no act
   (the charge plan's figure) and Yesterday (accuracy).
 
 **Changes**
+- The Battery view's Target tonight tile is now Target if charging, so it does not seem to disagree
+  with a Skip charge plan. The Recommended Overnight Charge Target sensor is unchanged.
 - **Solar vs provider forecast** (`solar_actual_vs_forecast_pct`) now compares solar generated
   today with the provider's forecast for today. It compared with the charge plan's forecast,
   which is blended toward the pessimistic estimate and scaled by the accuracy correction, so it
