@@ -1104,6 +1104,17 @@ views:
       content: '{{ state_attr(''sensor.givenergy_inverter_manager_water_heating_cheapest_source'', ''suggestion'') }}'
       grid_options:
         columns: full
+    - type: markdown
+      content: |-
+        {% set text = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'oil_schedule_suggestion') %}{% set days = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'oil_schedule_days') %}{% if text -%}
+        {{ text }}
+        {%- elif days -%}
+        No regular oil schedule would save enough yet, from the last {{ days }} days of heating.
+        {%- else -%}
+        Still learning when the immersion heats the water at rates above oil. A suggested oil schedule appears after 7 days.
+        {%- endif %}
+      grid_options:
+        columns: full
   - type: grid
     visibility:
     - condition: state

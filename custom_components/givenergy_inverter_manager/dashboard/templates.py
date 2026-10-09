@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..const import CONF_CURRENCY, CURRENCIES, DEFAULT_CURRENCY
+from ..const import CONF_CURRENCY, CURRENCIES, DEFAULT_CURRENCY, OIL_SCHEDULE_MIN_DAYS
 from ..core.tariff import TariffConfig
 from .cards import state_ref
 
@@ -65,6 +65,28 @@ def ready_by_template(sensor: str) -> str:
         "{%- else -%}\n"
         "No hot water ready time is set. Add one under Hot water ready by in the immersion options."
         "\n{%- endif %}"
+    )
+
+
+def oil_schedule_template(source: str) -> str:
+    """The suggested oil schedule line, read from the cheapest source sensor.
+
+    The sensor holds oil_schedule_suggestion only while there is a schedule to suggest, and
+    oil_schedule_days only from the first week of data. A Lovelace condition cannot test for an
+    attribute, so the card says which of the two it is waiting on.
+    """
+    return (
+        f"{{% set text = state_attr('{source}', 'oil_schedule_suggestion') %}}"
+        f"{{% set days = state_attr('{source}', 'oil_schedule_days') %}}"
+        "{% if text -%}\n"
+        "{{ text }}\n"
+        "{%- elif days -%}\n"
+        "No regular oil schedule would save enough yet, from the last {{ days }} days of "
+        "heating.\n"
+        "{%- else -%}\n"
+        "Still learning when the immersion heats the water at rates above oil. A suggested oil "
+        f"schedule appears after {OIL_SCHEDULE_MIN_DAYS} days.\n"
+        "{%- endif %}"
     )
 
 

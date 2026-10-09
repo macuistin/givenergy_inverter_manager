@@ -65,6 +65,7 @@ from .templates import (
     EnergySources,
     energy_devices_template,
     energy_sources_template,
+    oil_schedule_template,
     ready_by_template,
     survival_template,
     tariff_table,
@@ -547,9 +548,15 @@ class Builder:
             [
                 tile_card(source, "Cheapest source", color=IMMERSION, columns=FULL),
                 attribute_markdown(source, "suggestion"),
+                self._oil_schedule_line(source),
             ],
             **self._when(Device.OIL_ADVICE),
         )
+
+    @staticmethod
+    def _oil_schedule_line(source: str | None) -> dict | None:
+        """The suggested oil schedule, apart from the live suggestion above it."""
+        return markdown_card(oil_schedule_template(source)) if source else None
 
     def _when(self, *devices: Device) -> dict[str, list[dict]]:
         """The section option that shows a section while these devices are present."""
