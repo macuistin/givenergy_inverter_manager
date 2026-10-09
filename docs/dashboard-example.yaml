@@ -1417,8 +1417,6 @@ views:
       icon: mdi:chart-bar
     - type: statistics-graph
       entities:
-      - entity: sensor.givenergy_inverter_manager_import_cost_today
-        name: Grid import
       - entity: sensor.givenergy_inverter_manager_house_cost_today
         name: Rest of house
       - entity: sensor.givenergy_inverter_manager_export_earnings_today
@@ -1440,8 +1438,6 @@ views:
         state: unavailable
     - type: statistics-graph
       entities:
-      - entity: sensor.givenergy_inverter_manager_import_cost_today
-        name: Grid import
       - entity: sensor.givenergy_inverter_manager_house_cost_today
         name: Rest of house
       - entity: sensor.givenergy_inverter_manager_ev_charging_cost_today
@@ -1465,8 +1461,6 @@ views:
         state: unavailable
     - type: statistics-graph
       entities:
-      - entity: sensor.givenergy_inverter_manager_import_cost_today
-        name: Grid import
       - entity: sensor.givenergy_inverter_manager_house_cost_today
         name: Rest of house
       - entity: sensor.givenergy_inverter_manager_immersion_cost_today
@@ -1490,8 +1484,6 @@ views:
         state: unavailable
     - type: statistics-graph
       entities:
-      - entity: sensor.givenergy_inverter_manager_import_cost_today
-        name: Grid import
       - entity: sensor.givenergy_inverter_manager_house_cost_today
         name: Rest of house
       - entity: sensor.givenergy_inverter_manager_ev_charging_cost_today

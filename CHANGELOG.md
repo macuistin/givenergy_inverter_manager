@@ -20,7 +20,8 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   from states it with what it means, so its bar is gone from the Solar section. The Power Flow tile
   stays. The bar returns if that card cannot be built.
 - Cost breakdown: the chart is headed Cost per day, last 14 days, and its series are named as the
-  tiles above it are (Grid import, Rest of house, EV charging, Immersion, Export earnings).
+  tiles above it are (Rest of house, EV charging, Immersion, Export earnings). Grid import is no
+  longer plotted, as it is the sum of the first three. Its tile carries the total.
 - EV charger view: new Today section (energy and cost) and a Charge power, last 24 hours graph,
   both shown only while a charger exists.
 - Battery detail: the inverter temperature and status move to their own Inverter section, out of

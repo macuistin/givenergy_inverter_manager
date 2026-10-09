@@ -119,10 +119,13 @@ class _CostEntities:
 
 
 def _cost_history(cost: _CostEntities) -> dict | None:
-    """Bars of the cost per day for two weeks, named as the tiles above it are."""
+    """Bars of the cost per day for two weeks, named as the tiles above it are.
+
+    Grid import is left out: it is the sum of the house, EV and immersion costs, so drawing
+    it beside them would count the same cost twice. Its tile above carries the total.
+    """
     return statistics_graph(
         [
-            entity_row(cost.grid_import, "Grid import"),
             entity_row(cost.house, "Rest of house"),
             entity_row(cost.ev, "EV charging"),
             entity_row(cost.immersion, "Immersion"),

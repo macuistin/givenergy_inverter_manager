@@ -63,8 +63,18 @@ def test_the_cost_chart_names_its_series_as_the_tiles_above_it_do():
     config = seen_for(ev=True, switch=True, sensor=True)
     tiles = _tile_names(_sections(config, "cost")["Today"])
     series = [row["name"] for row in _cost_chart(config)["entities"]]
-    assert series == ["Grid import", "Rest of house", "EV charging", "Immersion", "Export earnings"]
+    assert series == ["Rest of house", "EV charging", "Immersion", "Export earnings"]
     assert set(series) <= set(tiles)
+
+
+def test_the_cost_chart_does_not_draw_the_total_beside_its_parts():
+    """Grid import is the house, EV and immersion costs added up, so it would count them twice."""
+    config = seen_for(ev=True, switch=True, sensor=True)
+    plotted = {row["entity"] for row in _cost_chart(config)["entities"]}
+    assert IDS["import_cost_today"] not in plotted
+    assert {IDS["house_cost_today"], IDS["zappi_cost_today"], IDS["immersion_cost_today"]} <= plotted
+    tiles = [c["entity"] for c in _sections(config, "cost")["Today"] if c["type"] == "tile"]
+    assert IDS["import_cost_today"] in tiles
 
 
 @pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
@@ -74,7 +84,8 @@ def test_the_cost_chart_plots_only_the_devices_there(combination):
     names = [row["name"] for row in _cost_chart(shown)["entities"]]
     assert ("EV charging" in names) == ev
     assert ("Immersion" in names) == switch
-    assert {"Grid import", "Rest of house", "Export earnings"} <= set(names)
+    assert {"Rest of house", "Export earnings"} <= set(names)
+    assert "Grid import" not in names
 
 
 # ── EV charger ───────────────────────────────────────────────────────────────

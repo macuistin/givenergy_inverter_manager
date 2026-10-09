@@ -210,7 +210,7 @@ The sections show only while a charger exists.
 
 ![Cost breakdown view with grid import, house, EV and immersion costs and a 14 day bar chart.](images/dashboard-cost-breakdown.png)
 
-A tile for every cost line today (grid import, export earnings, rest of house, EV charging, immersion and what solar saved the immersion) and a bar graph, **Cost per day, last 14 days**. The graph names its series as the tiles do. Grid import is the whole of the import cost, so it is the sum of Rest of house, EV charging and Immersion: read it as the total, and the three beside it as its parts.
+A tile for every cost line today (grid import, export earnings, rest of house, EV charging, immersion and what solar saved the immersion) and a bar graph, **Cost per day, last 14 days**. The graph names its series as the tiles do. It plots Rest of house, EV charging and Immersion (the last two only while that device exists) and Export earnings. It does not plot Grid import, because that is the whole of the import cost, the sum of the three, and drawing it beside them would count the same cost twice. Read the total from the Grid import tile.
 
 ### Solar and forecast (sub-view)
 
