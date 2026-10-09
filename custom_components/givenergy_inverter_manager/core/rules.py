@@ -456,7 +456,7 @@ def _missing_p10_note(forecast: SolarForecast) -> str:
         return ""
     if forecast.forecast_conservatism <= 0.0:
         return ""
-    return ", no P10 forecast so conservatism is unused"
+    return ", no low estimate available, so the forecast is used as it is"
 
 
 def _resolve_forecast(

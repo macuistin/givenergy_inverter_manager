@@ -54,7 +54,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   label, not between the switches.
 - The overnight charge reason says `cautious forecast, 35% of the way from the typical to the low
   estimate` where it said `P10/P50 blend, conservatism=0.35`. The reason is a sentence for people,
-  so an automation that matches the old wording needs the new one.
+  so an automation that matches the old wording needs the new one. Where there is no low estimate
+  to blend with, it says `no low estimate available, so the forecast is used as it is` where it said
+  `no P10 forecast so conservatism is unused`.
 - Settings names the charge override as the Battery tab does: Target override and Override on, where
   it said Charge target and Use target.
 - Two tiles say what they are: Yesterday on the Solar view is now Yesterday's accuracy, and Saved by

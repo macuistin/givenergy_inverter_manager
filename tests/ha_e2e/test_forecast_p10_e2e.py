@@ -57,4 +57,4 @@ async def test_without_the_attribute_or_a_sensor_conservatism_is_unused(
 ):
     entry = await _loaded(hass_in_scenario, with_attribute=False)
     decision = entry.runtime_data.data.charge_decision
-    assert "no P10 forecast so conservatism is unused" in decision.reason
+    assert "no low estimate available, so the forecast is used as it is" in decision.reason

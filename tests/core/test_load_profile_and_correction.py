@@ -241,11 +241,12 @@ class TestForecastCorrectionApplied:
 class TestConservatismWithoutP10:
     def test_reason_says_conservatism_is_unused(self):
         decision = _decide(forecast_conservatism=0.35)
-        assert "no P10 forecast so conservatism is unused" in decision.reason
+        assert "no low estimate available, so the forecast is used as it is" in decision.reason
+        assert "P10" not in decision.reason
 
     def test_note_comes_after_the_accuracy_factor(self):
         decision = _decide(forecast_conservatism=0.35, forecast_correction=0.7)
-        assert "x0.70 recent accuracy, no P10 forecast so conservatism is unused" in (
+        assert "x0.70 recent accuracy, no low estimate available, so the forecast is used as it is" in (
             decision.reason
         )
 
@@ -257,7 +258,7 @@ class TestConservatismWithoutP10:
 
     def test_no_note_when_a_p10_forecast_is_present(self):
         decision = _decide(forecast_kwh_p10=8.0, forecast_conservatism=0.35)
-        assert "conservatism is unused" not in decision.reason
+        assert "no low estimate available" not in decision.reason
         assert "cautious forecast" in decision.reason
 
     def test_no_note_for_the_seasonal_estimate(self):

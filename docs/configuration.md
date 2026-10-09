@@ -100,7 +100,7 @@ When the blend is applied, the charge reason says so in plain words, for example
 
 Both adjustments pull the forecast down. If your forecast runs high and the accuracy factor is active, a lower conservatism avoids charging the battery more than the day needs.
 
-Without a P10 sensor, or while it reads unavailable or unknown, the blend is skipped and the charge reason says `no P10 forecast so conservatism is unused`. With conservatism at 0 the blend is off whatever the sensor says. The note only shows when a forecast sensor is set.
+Without a P10 sensor, or while it reads unavailable or unknown, the blend is skipped and the charge reason says `no low estimate available, so the forecast is used as it is`. With conservatism at 0 the blend is off whatever the sensor says. The note only shows when a forecast sensor is set.
 
 #### Where the P10 comes from
 
