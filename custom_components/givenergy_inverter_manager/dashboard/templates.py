@@ -129,13 +129,14 @@ RESTART_GAP_HELP = (
 )
 
 
-def _currency_symbol(cfg: dict) -> str:
+def currency_symbol(cfg: dict) -> str:
+    """The symbol of the configured currency, such as € or £."""
     return CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), "€")
 
 
 def tariff_table(tariff: TariffConfig, cfg: dict) -> str:
     """Markdown table of the rates the integration prices energy with."""
-    symbol = _currency_symbol(cfg)
+    symbol = currency_symbol(cfg)
     billed = (1 - tariff.discount_rate / 100) * (1 + tariff.vat_rate / 100)
     rows = [(tariff.base_rate_name, "all other times", tariff.base_rate)]
     rows += [(p.name, f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate) for p in tariff.rate_periods]
@@ -164,7 +165,7 @@ def _day(day: date) -> str:
 
 def _change_row(change: TariffChange, cfg: dict) -> str:
     """One row: the date, then the base rate, the timed rates and the export rate from it."""
-    symbol = _currency_symbol(cfg)
+    symbol = currency_symbol(cfg)
     rates = build_tariff({**cfg, **change.rates})
     windows = (
         f"{p.name} {p.start:%H:%M} to {p.end:%H:%M} {symbol}{p.rate:.4f}"

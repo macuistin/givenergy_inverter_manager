@@ -72,6 +72,7 @@ from .templates import (
     MANAGED_HELP,
     RESTART_GAP_HELP,
     EnergySources,
+    currency_symbol,
     energy_devices_template,
     energy_sources_template,
     oil_schedule_template,
@@ -310,7 +311,7 @@ class Builder:
                 "decimals": 4,
                 "display_zero": True,
                 "color_value": False,
-                "unit_of_measurement": " ",
+                "unit_of_measurement": f"{currency_symbol(self.cfg)}/h",
             }
         return node
 

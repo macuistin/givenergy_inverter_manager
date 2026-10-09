@@ -5,6 +5,8 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 ## Unreleased
 
 **Changes**
+- The Power Flow grid node names the unit of the live grid cost rate, your currency symbol per hour
+  (`€/h`), where it showed a bare number. The sensor and its unit are unchanged.
 - The Battery view's Target tonight tile is now Target if charging, so it does not seem to disagree
   with a Skip charge plan. The Recommended Overnight Charge Target sensor is unchanged.
 - The oil advice sentence shows once on the Immersion view. While Immersion Scheduled Heating is on, it

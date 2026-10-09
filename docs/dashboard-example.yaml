@@ -140,7 +140,7 @@ views:
             decimals: 4
             display_zero: true
             color_value: false
-            unit_of_measurement: ' '
+            unit_of_measurement: €/h
         home:
           entity: sensor.givenergy_inverter_manager_house_load
           subtract_individual: false
@@ -196,7 +196,7 @@ views:
             decimals: 4
             display_zero: true
             color_value: false
-            unit_of_measurement: ' '
+            unit_of_measurement: €/h
         home:
           entity: sensor.givenergy_inverter_manager_house_load
           subtract_individual: false
@@ -258,7 +258,7 @@ views:
             decimals: 4
             display_zero: true
             color_value: false
-            unit_of_measurement: ' '
+            unit_of_measurement: €/h
         home:
           entity: sensor.givenergy_inverter_manager_house_load
           subtract_individual: false
@@ -320,7 +320,7 @@ views:
             decimals: 4
             display_zero: true
             color_value: false
-            unit_of_measurement: ' '
+            unit_of_measurement: €/h
         home:
           entity: sensor.givenergy_inverter_manager_house_load
           subtract_individual: false
