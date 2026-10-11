@@ -103,7 +103,9 @@ views:
       icon: mdi:test-tube
     - type: markdown
       content: |-
-        No commands are sent to your inverter or EV charger. Sensors and charge decisions still update. To go live, turn off Dry Run in Settings, Devices & services, GivEnergy Inverter Manager, Configure.
+        No commands are sent to your inverter or EV charger. Sensors and charge decisions still update.
+
+        {% if state_attr('sensor.givenergy_inverter_manager_dry_run_mode_active', 'test_instance') %}**Test instance.** A .givenergy_test_instance file in the Home Assistant configuration folder forces dry run on. Delete the file and restart Home Assistant to go live.{% else %}To go live, turn off Dry Run in Settings, Devices & services, GivEnergy Inverter Manager, Configure.{% endif %}
 
         **Last skipped action:** {{ state_attr('sensor.givenergy_inverter_manager_last_skipped_action_dry_run', 'full_text') or states('sensor.givenergy_inverter_manager_last_skipped_action_dry_run') }}
       grid_options:

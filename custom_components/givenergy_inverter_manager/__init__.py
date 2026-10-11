@@ -132,6 +132,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
 
     coordinator = GivEnergyCoordinator(hass, entry)
 
+    # Before the first refresh, so the very first snapshot already reads dry run on a test instance.
+    await coordinator.async_detect_test_instance()
+
     # Restore persisted energy accumulators so today/week/month survive HA restarts.
     await coordinator.async_restore_state()
 

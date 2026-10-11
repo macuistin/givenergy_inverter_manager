@@ -346,6 +346,8 @@ class CoordinatorData:
     ev_charging_source: str = "Not charging"
     ev_solar_surplus_available: bool = False
     dry_run: bool = False
+    # True while the test instance marker file exists. Set by the coordinator, which owns the file.
+    test_instance: bool = False
     cheap_rate_floor_status: str = ""
     dry_run_last_skipped: str = ""
     inverter_temperature: float | None = None

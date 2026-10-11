@@ -214,6 +214,9 @@ DEFAULT_RATE_PERIODS = [
 # Sensors still update, charge decisions are still calculated — nothing is sent
 # to GivTCP. Useful for verifying behaviour before first live deployment.
 CONF_DRY_RUN = "dry_run"
+# A file with this name in the Home Assistant config directory marks a test instance. While it
+# exists, dry run is on whatever the saved option says. Only the file's presence is read.
+TEST_INSTANCE_MARKER = ".givenergy_test_instance"
 DEFAULT_DRY_RUN = False
 
 CONF_VERBOSE_LOGGING = "verbose_logging"

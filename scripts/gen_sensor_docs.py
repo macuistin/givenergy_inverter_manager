@@ -560,7 +560,8 @@ DESCRIPTIONS: dict[str, str] = {
     "week_summary": "Solar, import cost and self-sufficiency for this week.",
     "dry_run_active": (
         "True when dry run mode is on. The `summary` attribute reads On or Off, "
-        "for the dashboard tile."
+        "for the dashboard tile. On a test instance (see Configuration) the "
+        "`test_instance` attribute is also true."
     ),
     "dry_run_last_skipped": "The last action dry run mode held back.",
     "integration_version": "Installed integration version.",

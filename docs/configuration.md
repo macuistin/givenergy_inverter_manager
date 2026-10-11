@@ -248,6 +248,10 @@ Details as in setup step 3. Clear an entity field to remove the saved entity.
 |---|---|---|---|
 | Car efficiency (kWh/100km) | `car_efficiency_kwh_per_100km` | 15 | 5 to 40 |
 
+### Test instance
+
+Create an empty file named `.givenergy_test_instance` in the Home Assistant configuration folder, next to `configuration.yaml`, and restart Home Assistant. While the file exists, dry run is on whatever the Dry run mode field says, and the dashboard banner says it is a test instance. Use it on a copy of your configuration that must never write to your inverter, immersion or EV charger. The file is read once at start-up. To go live, delete the file and restart Home Assistant. There is no setting or action that creates or removes it, so a stray click cannot leave test mode.
+
 ## Reconfigure
 
 **Settings → Devices & Services → GivEnergy Inverter Manager → ⋮ → Reconfigure** shows the tariff form, pre-filled with the values in force, and saves it to the setup data. It also removes any saved Configure-page values for the same tariff keys, because saved options override setup data. It also ends any dated rate change that has started, and keeps the ones that have not. Changing the currency reloads the integration once. Every other tariff change applies without a reload. To change inverter entities, remove and re-add the integration.

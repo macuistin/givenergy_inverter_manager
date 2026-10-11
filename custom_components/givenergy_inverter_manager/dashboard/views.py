@@ -165,6 +165,23 @@ _THERMOSTAT_SETTINGS = (
 )
 
 
+def _dry_run_exit(dry_run_active: str) -> str:
+    """How to leave dry run, as a template: a test instance has its own way out.
+
+    The sensor carries the test_instance attribute only on a test instance.
+    """
+    return (
+        f"{{% if state_attr('{dry_run_active}', 'test_instance') %}}"
+        "**Test instance.** A .givenergy_test_instance file in the Home Assistant "
+        "configuration folder forces dry run on. Delete the file and restart Home Assistant "
+        "to go live."
+        "{% else %}"
+        "To go live, turn off Dry Run in Settings, Devices & services, GivEnergy Inverter "
+        "Manager, Configure."
+        "{% endif %}"
+    )
+
+
 def _has_inverter_temp(hass: HomeAssistant, cfg: dict) -> bool:
     """True when an inverter temperature entity is chosen or GivTCP publishes one."""
     if cfg.get(CONF_INVERTER_TEMP_ENTITY):
@@ -1103,8 +1120,7 @@ class Builder:
             return None
         text = (
             "No commands are sent to your inverter or EV charger. Sensors and charge "
-            "decisions still update. To go live, turn off Dry Run in Settings, Devices & "
-            "services, GivEnergy Inverter Manager, Configure."
+            "decisions still update.\n\n" + _dry_run_exit(dry_run_active)
         )
         if skipped := self.entity("dry_run_last_skipped"):
             text += f"\n\n**Last skipped action:** {state_ref(skipped, ATTR_FULL_TEXT)}"

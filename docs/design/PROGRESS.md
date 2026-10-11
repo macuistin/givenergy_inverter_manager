@@ -10,6 +10,7 @@ One line per card. A card is listed as merged only when its pull request is merg
 | SP2 | Server-side admin check, frontend items | In the spikes PR. Admin check yes, frontend items need a browser: see [SP2](spikes/SP2.md) |
 | SP3 | Checklist wizard pattern and `async_update_and_abort` | In the spikes PR. Yes, no menu fallback needed: see [SP3](spikes/SP3.md) |
 | FN3 | Mock GivTCP and the write-sequence test | In the spikes PR. In-process, no MQTT broker: see [mock_givtcp](mock_givtcp.md) |
+| CT1 | The test instance marker file | In the controls PR (`r018/controls`). The marker forces dry run in the coordinator, the snapshot, the sensor, the log and the diagnostics |
 
 Merged cards: none yet.
 

@@ -200,8 +200,14 @@ def cheap_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
 
 
 def dry_run_attributes(data: CoordinatorData) -> dict[str, Any]:
-    """Return the summary attribute a dashboard tile shows: On or Off, not True or False."""
-    return {"summary": "On" if data.dry_run else "Off"}
+    """Return the summary attribute a dashboard tile shows: On or Off, not True or False.
+
+    A test instance adds a flag the dashboard banner reads. It is absent on any other install.
+    """
+    attributes: dict[str, Any] = {"summary": "On" if data.dry_run else "Off"}
+    if data.test_instance:
+        attributes["test_instance"] = True
+    return attributes
 
 
 def immersion_ready_attributes(data: CoordinatorData) -> dict[str, Any] | None:

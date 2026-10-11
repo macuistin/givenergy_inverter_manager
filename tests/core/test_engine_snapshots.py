@@ -95,6 +95,11 @@ week, month, year and yesterday. 235 of the 255 cases gained today.soc_at_start_
 first cycle read. Nothing else moved: no case sets the AC charge counter, and every case starts
 its day at the SoC it reads, so the saving is unchanged. The behaviour is pinned in
 tests/core/test_stored_energy.py.
+
+The test_instance leaf was added for the test instance marker file. The fresh snapshot gained it
+as False. No case moved, because the engine never sets it: the coordinator copies it onto the
+snapshot after the engine has built it. The behaviour is pinned in
+tests/ha_e2e/test_test_instance_e2e.py and tests/test_test_instance.py.
 """
 
 from __future__ import annotations

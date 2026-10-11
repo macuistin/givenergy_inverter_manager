@@ -36,6 +36,7 @@ current charge decision, and calls number.set_value on the GivTCP entity.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
@@ -100,6 +101,7 @@ from .const import (
     GIVTCP_MAX_CHARGE_TARGET_PCT,
     GIVTCP_MIN_CHARGE_TARGET_PCT,
     GIVTCP_RATE_TOLERANCE_PCT,
+    TEST_INSTANCE_MARKER,
     UPDATE_INTERVAL_SECONDS,
 )
 from .core.battery import BatteryStats, battery_cost_prompt_due
@@ -247,6 +249,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     _create_task so this class is fully testable by subclassing.
     """
 
+    # True while the test instance marker file exists. async_detect_test_instance reads the
+    # file once at setup and caches the answer here.
+    test_instance: bool = False
+
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         super().__init__(
             hass,
@@ -264,6 +270,22 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._init_immersion(entry.data)
         self._init_writer()
         self._register_time_listeners()
+
+    async def async_detect_test_instance(self) -> None:
+        """Look for the test instance marker file once, in the executor, and remember the answer.
+
+        The file is only ever created or removed by hand, so setup is the one place to look.
+        While it exists the whole integration reads dry run: the write guard, the snapshot, the
+        sensor, the log and the diagnostics all take it from the merged config.
+        """
+        marker = self.hass.config.path(TEST_INSTANCE_MARKER)
+        self.test_instance = await self.hass.async_add_executor_job(os.path.exists, marker)
+        if self.test_instance:
+            _LOG.warning(
+                "Test instance marker %s found. Dry run is forced on and no command is sent "
+                "to the inverter, the immersion or the EV charger. Delete the file to go live.",
+                marker,
+            )
 
     def _init_cycle_state(self) -> None:
         """State threaded across update cycles."""
@@ -845,11 +867,16 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     def _effective_cfg(self) -> dict:
         """Merge options over data so tariff edits take immediate effect.
 
+        On a test instance dry run is forced on, whatever the saved option says. Every reader
+        of dry run (the write guard, the snapshot, the logger) goes through this merge.
+
         The unit rates are those in force today: the saved ones, or the latest dated change
         on or before today. With no dated change the merge is returned as is.
         """
         cfg = dict(self.entry.data)
         cfg.update(self.entry.options)
+        if self.test_instance:
+            cfg[CONF_DRY_RUN] = True
         return tariff_in_force(cfg, self._now().date())
 
     def _configured_bill_start_day(self, cfg: dict | None = None) -> int:
@@ -1520,6 +1547,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # The engine's snapshot starts empty. Copy after the actions so a skip
         # recorded in this cycle shows up in this snapshot.
         data.dry_run_last_skipped = self._dry_run_last_skipped
+        data.test_instance = self.test_instance
 
 
 # The config entry type for this integration. Platforms and __init__ use it so

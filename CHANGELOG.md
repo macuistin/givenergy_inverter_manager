@@ -4,9 +4,15 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
-Two sunrise figures, saving values that count the battery, and a forecast correction that follows cloudy weeks.
+Two sunrise figures, saving values that count the battery, a forecast correction that follows cloudy weeks, and a test instance marker.
 
 **Features**
+- A file named `.givenergy_test_instance` in the Home Assistant configuration folder makes the
+  whole integration read dry run, for a copy of your configuration that must never write to your
+  inverter, immersion or EV charger. Dry run is on whatever the saved setting says, the Dry Run Mode
+  Active sensor says so in its `test_instance` attribute, the diagnostics download shows
+  `test_instance`, and the dashboard banner says it is a test instance. The file is read at
+  start-up. Delete it and restart to go live. See [Test instance](docs/configuration.md#test-instance).
 - New sensor Estimated SoC at Sunrise With the Planned Charge (`estimated_soc_at_sunrise_with_charge`).
   It projects the battery to the next 08:00 with tonight's planned charge in it: the battery runs down
   to the start of the charge window, the window adds charge up to the target at the charge rate the
