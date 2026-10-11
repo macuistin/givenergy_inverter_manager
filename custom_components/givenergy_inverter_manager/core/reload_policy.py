@@ -232,6 +232,11 @@ def _needs_reload(key: str, old: Mapping[str, Any], new: Mapping[str, Any]) -> b
     return key not in LIVE_KEYS
 
 
+def reload_keys(old: Mapping[str, Any], new: Mapping[str, Any]) -> frozenset[str]:
+    """The changed keys that make the integration reload, so a screen can say which."""
+    return frozenset(key for key in changed_keys(old, new) if _needs_reload(key, old, new))
+
+
 def change_effect(old: Mapping[str, Any], new: Mapping[str, Any]) -> Effect:
     """What going from the merged config *old* to *new* needs.
 
