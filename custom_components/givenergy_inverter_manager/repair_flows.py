@@ -18,7 +18,6 @@ from homeassistant.components.repairs import ConfirmRepairFlow, RepairsFlow
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.util import dt as dt_util
 
-from .config_flow import battery_cost_selector
 from .config_helpers import effective_config
 from .const import (
     CONF_BATTERY_COST,
@@ -28,6 +27,7 @@ from .const import (
     DOMAIN,
 )
 from .repairs import ClearOutcome
+from .wizard.selectors import battery_cost_selector
 
 
 class ClearOtherChargeSlotsFlow(ConfirmRepairFlow):

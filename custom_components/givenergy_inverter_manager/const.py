@@ -76,6 +76,8 @@ TARIFF_REVIEW_STALE_DAYS = 365
 
 # ── Solar forecast ───────────────────────────────────────────────────────────
 CONF_FORECAST_ENTITY = "forecast_entity"
+# Stored by 0.17 and earlier and never read. No wizard page offers it any more, and an entry that
+# holds it keeps it untouched.
 CONF_FORECAST_PROVIDER = "forecast_provider"
 FORECAST_PROVIDER_FORECAST_SOLAR = "forecast_solar"
 FORECAST_PROVIDER_SOLCAST = "solcast"

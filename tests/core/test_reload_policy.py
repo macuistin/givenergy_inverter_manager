@@ -106,11 +106,18 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     "alt_heat_cost_entity": ("sensor.a", "sensor.b", LIVE),
 }
 
-# Names in the forms that are not stored under their own key: the discovery pickers, the
-# date and cancel box of a dated change, and the fields inside a rate period.
+# Names in the forms that are not stored under their own key: the checklist, the rate count and
+# the tick boxes of the tariff screen, the inverter picker and the entity-source choice, the date
+# and cancel box of a dated change, and the fields inside a rate row.
 FORM_ONLY_NAMES = {
-    "discovered_charger",
+    "pages",
+    "rate_count",
+    "edit_rates",
+    "edit_bill",
+    "schedule_change",
+    "confirm_current",
     "discovered_inverter",
+    "source",
     "effective_from",
     "cancel_scheduled",
     "name",

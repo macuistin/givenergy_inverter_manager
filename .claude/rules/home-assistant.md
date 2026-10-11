@@ -51,18 +51,20 @@ Each rule is checked by a test or by the Home Assistant source. The test is name
 
 ## Config and options flows
 
-- The setup wizard runs `inverter`, `tariff`, `forecast`, `immersion`, `ev`, `battery`, `confirm`.
-  Reconfigure edits the tariff. The options flow is one page of collapsible sections.
+- The setup wizard is a checklist of pages: `system`, then only the ticked pages (`tariff`,
+  `tariff_rates`, `forecast`, `hot_water`), then `confirm`. The options wizard is the same pages plus
+  `battery`, `ev`, `bill` and `schedule_change`. Page logic is in `core/wizard_*.py`, the flow steps
+  in `wizard/`, and `config_flow.py` only registers the handlers. Reconfigure is the inverter connection.
 - `NumberSelector` needs `step >= 0.001` or `"any"`. A smaller step fails validation.
   `tests/test_config_flow_schemas.py` runs the real selectors.
-- A time selector returns `HH:MM:SS`. Rate periods are stored as `HH:MM` (`_slots_to_rate_periods`).
-- The options flow starts from the saved options and writes only what was submitted. A section the
-  form leaves out keeps its saved value, so sections added later are `vol.Optional`
-  (`_form_fields`). A client can send a partial payload and must not wipe the rest.
-- Reconfigure writes `async_update_entry` then `async_abort`. The entry's update listener does the
-  reload. Do not call `async_update_reload_and_abort`: Home Assistant 2026.9 reports it for an entry
-  with an update listener and removes it in 2026.12. `async_update_and_abort` is the helper that
-  does what reconfigure does here.
+- A time selector returns `HH:MM:SS`. Rate periods are stored as `HH:MM` (`rows_from_sections` in `core/wizard_tariff.py`).
+- A wizard keeps plain values on the handler and stores nothing until `confirm`. The options wizard
+  reads `config_entry.options` when it writes (never in `__init__`) and returns the current options
+  with only the changed keys replaced, so a control moved meanwhile keeps its value. A page that was
+  not ticked is never rewritten, and a value equal to the one in force is not written.
+- Reconfigure writes with `async_update_and_abort`. The entry's update listener does the reload. Do
+  not call `async_update_reload_and_abort`: Home Assistant 2026.9 reports it for an entry with an
+  update listener and removes it in 2026.12. Do not use `OptionsFlowWithReload` either.
 - `core/reload_policy.py` decides whether an options save reloads (`change_effect`). A new option
   key reloads until it is in `LIVE_KEYS`. Add a key there only when the coordinator reads it from
   `_effective_cfg()` on every cycle or `async_apply_config_change` copies it on, and add its row to

@@ -10,7 +10,7 @@ This documentation matches version 0.17.2.
 |---|---|
 | [Quick start](quick-start.md) | Install, set up and check the integration in ten minutes |
 | [Concepts](concepts.md) | Understand the data flow, the 30-second cycle, sign conventions and how decisions are made |
-| [Configuration](configuration.md) | Look up every setup step and option |
+| [Configuration](configuration.md) | Look up every setup screen and option |
 | [Tariff](tariff.md) | Enter rate periods, see which rate wins, and see how bill figures are built |
 
 ## Reference
@@ -57,4 +57,4 @@ The charge target rules are in [Concepts](concepts.md#overnight-charge-target). 
 - [GivTCP](https://github.com/britkat1980/giv_tcp) publishing your inverter to Home Assistant over MQTT. Discovery accepts the GivTCP v3 and v2 battery SoC entity names.
 - A GivEnergy hybrid inverter with a battery.
 
-Charge targets can only be written when GivTCP exposes its charge control entities. See [Configuration](configuration.md#step-1-inverter).
+Charge targets can only be written when GivTCP exposes its charge control entities. See [Configuration](configuration.md#screen-your-system).

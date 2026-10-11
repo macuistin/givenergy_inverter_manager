@@ -4,7 +4,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
-Two sunrise figures, saving values that count the battery, a forecast correction that follows cloudy weeks, seven settings that are now controls, and alternative water heating in place of the oil price.
+Two sunrise figures, saving values that count the battery, a forecast correction that follows cloudy weeks, seven settings that are now controls, alternative water heating in place of the oil price, and a shorter setup and Configure wizard.
 
 **Features**
 - Seven settings are now entities you can change at any time, and they take effect on the next
@@ -31,13 +31,31 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   `soc_at_charge_start`, `charge_added_pct`, `charge_window` and `basis`. Nothing reads it, so the
   charge plan and the night survival sensors are unchanged. It is enabled by default.
 
-- **Alternative water heating** replaces the oil price. Under Configure, Alternative water heating,
-  turn on **I have another way to heat the water**, give it a name (Oil, Gas, Heat pump, up to 20
+- **Alternative water heating** replaces the oil price. Under Configure, tick **Hot water** and open
+  **Another way to heat the water**, turn on **I have another way to heat the water**, give it a name (Oil, Gas, Heat pump, up to 20
   characters), choose what the cost is (the price of a litre of oil, or the cost of one kWh of heat
   delivered to the water) and enter it. A cost sensor can override the cost. The advice, the start
   time, the keep-warm run and the recurring schedule then use your name, for example `Gas is cheaper
   than electricity until 23:00`. The integration still only advises: it never switches the other
   system. Changing the name, the unit or a cost applies on the next cycle with no reload.
+- **A shorter setup.** The first screen lists what was found and will be used (the inverter, an EV
+  charger, a Solcast or Forecast.Solar sensor) and asks what to set up now. Only the pages you tick
+  follow, always in the same order, then a confirm screen. A flat-rate home with nothing else is three
+  screens, day and night rates four, and setting the tariff later two. The tariff screen asks how many
+  time-of-day rates you have, and the next screen has exactly that many rows. Nothing is saved until
+  the confirm screen, and a new install still starts in dry run. See
+  [Configuration](docs/configuration.md#setup).
+- **Configure is a wizard.** It opens with "What would you like to change?", a list of pages with
+  what is set now. You tick the pages you want, only those are shown, and the last screen lists each
+  change before and after and says whether it applies now or reloads the integration. It is skipped
+  when you change one page and nothing needs a reload. Changing the number of time-of-day rates adds
+  or removes rows on one screen, where Configure used to have five fixed rate sections. A warning, such
+  as ready-by times with no temperature sensor, shows once and never stops you saving. See
+  [Configuration](docs/configuration.md#configure).
+- **Reconfigure is now the inverter connection.** It shows the GivTCP entities in use next to what
+  discovery finds, and lets you use the found ones or choose them by hand. It refuses entities of a
+  different inverter and reloads once. Before, the only way to point the integration at other entities
+  was to remove it and add it again. See [Reconfigure](docs/configuration.md#reconfigure).
 - Some attributes that change often are no longer written to the history database: the ready-by
   plan on the water temperature sensor, the night survival numbers, the self-sufficiency
   breakdown, the register writes, the GivTCP rate differences and the alternative heating costs,
@@ -45,6 +63,21 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   Home Assistant stops storing a new set of attributes each time one of them moves.
 
 **Changes**
+- **The tariff is edited in Configure only.** Reconfigure used to be the tariff form. Use Configure,
+  tick **Tariff**. A dated rate change is its own tick box, **Schedule a rate change**, with a start
+  date and a switch to cancel the ones already scheduled. **Confirm the tariff is current** records
+  today as the day you checked the rates.
+- The setup tariff screen no longer starts from placeholder prices. The base rate and the export rate
+  are empty and have to be entered, and the standing charge, levy, VAT and discount start at 0. The
+  time-of-day rates start with none, where setup used to offer a Night and a Nightboost rate. An
+  install that already exists keeps what it has.
+- The forecast provider field and the EV charger chooser are gone. The provider was stored and never
+  read, and the charger is found automatically either way. An install that holds a provider keeps the
+  stored value, untouched. Setup also no longer asks for the immersion target and minimum
+  temperatures, the battery limits or the car efficiency. The defaults apply, the immersion
+  temperatures are numbers on the device page, and the rest are one tick away in Configure.
+- Clearing the alternative heating cost in Configure now saves an empty value instead of removing the
+  saved key, so it also overrides a cost entered at setup.
 - Dry run, verbose logging, the cheap rate floor, the skip-charge threshold and forecast
   conservatism are no longer on the Configure page, and the setup wizard no longer asks for them,
   the immersion divert thresholds or the other tuning values. Use the controls above. Saving the
@@ -102,7 +135,7 @@ Two sunrise figures, saving values that count the battery, a forecast correction
 - The Warning sentence the Battery detail view falls back to, when Battery Overnight Confidence has no
   `explanation`, now says the figure is without a charge and gives the figure with the planned
   charge when one adds something.
-- Saving the options page no longer reloads the integration for most changes. A tariff edit, a
+- Saving Configure no longer reloads the integration for most changes. A tariff edit, a
   threshold, dry run, verbose logging, the forecast and carbon sensors (except the main forecast
   sensor), element power, ready-by times and the car efficiency now apply straight away, and
   entities stay available. The integration still reloads when you change the immersion switch or
@@ -112,7 +145,6 @@ Two sunrise figures, saving values that count the battery, a forecast correction
 - Changing a rate period on the options page now moves the time the charge target is written to
   the inverter, without a reload. Before, the new time only took effect after the reload the save
   caused.
-- Reconfigure no longer reloads the integration unless you change the currency.
 - A tag such as `v0.18.0b1` now publishes a GitHub pre-release. HACS offers it when you turn on
   **Show beta versions**. `scripts/set_version.py` sets the version in the six files that state it.
 - Home Assistant 2026.5.0 is now the minimum, up from 2026.2.0. Home Assistant 2026.5 itself needs
@@ -176,6 +208,9 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   change its threshold.
 
 **Upgrading**
+- Nothing to change for the wizards. Your saved settings are untouched, and no stored data moves. If you
+  used Reconfigure to edit the tariff, use Configure, tick **Tariff** instead. If you want to point the
+  integration at other GivTCP entities, Reconfigure now does it.
 - Nothing to change for the controls. Each one shows the value your install already had, whether it
   was saved at setup or on the Configure page, and nothing is copied or reset. Check that the Dry
   run switch shows what you expect.

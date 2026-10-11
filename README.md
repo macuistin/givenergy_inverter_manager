@@ -38,7 +38,7 @@ Works with any supplier and any tariff: timed rates (two or three rate periods, 
 
 [![Open your Home Assistant instance and start setting up this integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=givenergy_inverter_manager)
 
-Go to **Settings → Devices & Services → Add Integration** and search for **GivEnergy Inverter Manager**. The wizard finds your GivTCP inverter and asks for your tariff, taken from your bill. A new install starts in dry run, so nothing is written to the inverter until you have checked the decisions and turned the Dry run switch off. The [quick start](docs/quick-start.md) has the steps.
+Go to **Settings → Devices & Services → Add Integration** and search for **GivEnergy Inverter Manager**. The wizard finds your GivTCP inverter, and an EV charger and a solar forecast sensor if you have them. It then asks what to set up now, and for your tariff, taken from your bill. A flat-rate home with nothing else is three screens. A new install starts in dry run, so nothing is written to the inverter until you have checked the decisions and turned the Dry run switch off. The [quick start](docs/quick-start.md) has the steps.
 
 ## Documentation
 
@@ -48,7 +48,7 @@ Start at the [documentation index](docs/index.md).
 |---|---|
 | [Quick start](docs/quick-start.md) | Install, set up and check in ten minutes |
 | [Concepts](docs/concepts.md) | Data flow, 30-second cycle, sign conventions, decisions |
-| [Configuration](docs/configuration.md) | Every setup step and option |
+| [Configuration](docs/configuration.md) | Every setup screen and option |
 | [Tariff](docs/tariff.md) | Rate periods, which rate wins, bill line items |
 | [Sensors](docs/sensors.md) | Every sensor |
 | [Entities](docs/entities.md) | Switches and numbers |

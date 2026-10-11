@@ -8,11 +8,12 @@ the reload. Clearing the cost removes the sensor. A cost sensor overrides the sa
 from __future__ import annotations
 
 import pytest
-from conftest import MIDDAY, SERIAL, full_config_data, serialise_schema
+from conftest import MIDDAY, SERIAL, full_config_data
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from wizard_support import Only, options_wizard
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_ALT_HEAT_COST,
@@ -47,33 +48,12 @@ def _entry(data: dict, options: dict | None = None) -> MockConfigEntry:
     )
 
 
-def _form_values(fields: list[dict]) -> dict:
-    values: dict = {}
-    for field in fields:
-        if field.get("type") == "expandable":
-            values[field["name"]] = _form_values(field["schema"])
-        elif "default" in field:
-            values[field["name"]] = field["default"]
-        elif "suggested_value" in field.get("description", {}):
-            values[field["name"]] = field["description"]["suggested_value"]
-    return values
+async def save_alt_options(hass, entry, section: dict) -> None:
+    """Run the options wizard's hot water page with this alternative heating section.
 
-
-async def save_alt_options(hass, entry, section: dict | None, *, unsent: bool = False) -> None:
-    """Open the options form and save it as the frontend would, with this alternative section.
-
-    {} is the section with every field cleared. With *unsent* the section is left out.
+    {} is the section with every field left empty.
     """
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    fields = serialise_schema(result["data_schema"])
-    payload = _form_values(fields)
-    payload.pop("alt_heat_settings", None)
-    if not unsent:
-        payload["alt_heat_settings"] = section or {}
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input=payload
-    )
-    await hass.async_block_till_done()
+    result = await options_wizard(hass, entry, {"hot_water": {"alt_heat": Only(section)}})
     assert result["type"] is FlowResultType.CREATE_ENTRY, result
     assert entry.state is ConfigEntryState.LOADED
 
@@ -153,13 +133,15 @@ class TestAddedLater:
         assert sensor_id(hass, config_entry) is not None
         await save_alt_options(hass, config_entry, {})
         assert sensor_id(hass, config_entry) is None
-        assert CONF_ALT_HEAT_COST not in config_entry.options
+        # Cleared is saved as an empty value, because setup keeps the cost in the entry data.
+        assert not config_entry.options.get(CONF_ALT_HEAT_COST)
 
-    async def test_an_unsent_section_keeps_the_saved_cost(self, hass_in_scenario, config_entry):
+    async def test_another_page_keeps_the_saved_cost(self, hass_in_scenario, config_entry):
         hass = hass_in_scenario
         await set_up(hass, config_entry)
         await save_alt_options(hass, config_entry, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL})
-        await save_alt_options(hass, config_entry, None, unsent=True)
+        result = await options_wizard(hass, config_entry, {"battery": {"battery_min_soc_pct": 12}})
+        assert result["type"] is FlowResultType.CREATE_ENTRY
         assert config_entry.options[CONF_ALT_HEAT_COST] == pytest.approx(CHEAP_OIL)
         assert sensor_id(hass, config_entry) is not None
 

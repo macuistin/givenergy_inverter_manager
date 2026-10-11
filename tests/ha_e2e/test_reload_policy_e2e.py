@@ -21,7 +21,7 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
     async_mock_service,
 )
-from test_options_flow_e2e import _serialise
+from wizard_support import options_wizard
 
 import custom_components.givenergy_inverter_manager as integration
 from custom_components.givenergy_inverter_manager.const import (
@@ -72,35 +72,9 @@ def lifecycle(monkeypatch):
     return calls
 
 
-def _form_values(fields: list[dict]) -> dict:
-    """What the frontend submits untouched: every default and every suggested value."""
-    values: dict = {}
-    for field in fields:
-        if field.get("type") == "expandable":
-            values[field["name"]] = _form_values(field["schema"])
-        elif "default" in field:
-            values[field["name"]] = field["default"]
-        elif "suggested_value" in field.get("description", {}):
-            values[field["name"]] = field["description"]["suggested_value"]
-    return values
-
-
-def frontend_payload(result, **section_overrides: dict) -> dict:
-    """The submission for the open options form, with the given section values changed."""
-    payload = _form_values(_serialise(result))
-    for name, values in section_overrides.items():
-        payload[name] = {**payload.get(name, {}), **values}
-    return payload
-
-
-async def _save_options(hass, entry, **sections: dict) -> None:
-    """Open the options form, change the given sections as the frontend would and submit."""
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert result["type"] is FlowResultType.FORM
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input=frontend_payload(result, **sections)
-    )
-    await hass.async_block_till_done()
+async def _save_options(hass, entry, steps: dict) -> None:
+    """Run the options wizard through *steps* as the frontend would and check it saved."""
+    result = await options_wizard(hass, entry, steps)
     assert result["type"] is FlowResultType.CREATE_ENTRY, result
 
 
@@ -123,9 +97,7 @@ async def test_a_slider_move_does_not_reload(hass, lifecycle, loaded_entry):
 async def test_a_threshold_change_does_not_reload(hass, lifecycle, loaded_entry):
     coordinator = loaded_entry.runtime_data
 
-    await _save_options(
-        hass, loaded_entry, threshold_settings={CONF_OVERNIGHT_CHARGE_TARGET: 90}
-    )
+    await _save_options(hass, loaded_entry, {"battery": {CONF_OVERNIGHT_CHARGE_TARGET: 90}})
 
     _assert_applied_live(loaded_entry, coordinator, lifecycle)
     assert loaded_entry.options[CONF_OVERNIGHT_CHARGE_TARGET] == 90
@@ -161,10 +133,12 @@ async def test_a_dry_run_toggle_does_not_reload_and_takes_effect(hass, lifecycle
     assert coordinator.is_dry_run is False
 
 
-async def test_saving_the_form_unchanged_does_not_reload(hass, lifecycle, loaded_entry):
+async def test_saving_every_page_unchanged_does_not_reload(hass, lifecycle, loaded_entry):
     coordinator = loaded_entry.runtime_data
 
-    await _save_options(hass, loaded_entry)
+    await _save_options(
+        hass, loaded_entry, {"tariff": {}, "battery": {}, "forecast": {}, "hot_water": {}, "ev": {}}
+    )
 
     _assert_applied_live(loaded_entry, coordinator, lifecycle)
 
@@ -174,7 +148,7 @@ async def test_changing_the_immersion_switch_reloads(hass, lifecycle, loaded_ent
     hass.states.async_set("switch.second_heater", "off")
 
     await _save_options(
-        hass, loaded_entry, immersion_settings={CONF_IMMERSION_SWITCH: "switch.second_heater"}
+        hass, loaded_entry, {"hot_water": {CONF_IMMERSION_SWITCH: "switch.second_heater"}}
     )
 
     assert loaded_entry.state is ConfigEntryState.LOADED
@@ -189,13 +163,9 @@ async def test_clearing_the_immersion_switch_reloads_and_removes_its_entities(
     registry = er.async_get(hass)
     unique_id = f"{loaded_entry.entry_id}_auto_immersion"
     assert registry.async_get_entity_id("switch", DOMAIN, unique_id) is not None
-    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
-    payload = frontend_payload(result)
-    # The frontend omits an emptied optional selector.
-    payload["immersion_settings"].pop(CONF_IMMERSION_SWITCH, None)
 
-    await hass.config_entries.options.async_configure(result["flow_id"], user_input=payload)
-    await hass.async_block_till_done()
+    # The frontend omits an emptied optional selector.
+    await _save_options(hass, loaded_entry, {"hot_water": {CONF_IMMERSION_SWITCH: None}})
 
     assert lifecycle == {"setup": 2, "unload": 1}
     assert registry.async_get_entity_id("switch", DOMAIN, unique_id) is None

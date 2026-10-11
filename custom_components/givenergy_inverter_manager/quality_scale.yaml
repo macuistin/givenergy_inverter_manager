@@ -7,8 +7,8 @@ rules:
   appropriate-polling: done    # 30s UPDATE_INTERVAL_SECONDS, fits the use case
   brands: done                 # icon.png and logo.png in brand/
   common-modules: done         # coordinator.py, const.py, rules.py
-  config-flow-test-coverage: todo  # config_flow.py is at 97% across both suites; the partly discovered inverter path and the discovered EV charger selector are not tested
-  config-flow: done            # 7-step wizard (inverter, tariff, forecast, immersion, EV, battery, confirm) with GivTCP auto-discovery
+  config-flow-test-coverage: todo  # the wizard rewrite has tests for every page and every combination of ticked pages in both suites, but coverage of the wizard package has not been measured
+  config-flow: done            # setup wizard (your system with a checklist, tariff, tariff rates, forecast, hot water, confirm) with GivTCP, EV charger and forecast sensor discovery
   dependency-transparency: done  # requirements: [] — relies only on HA built-ins
   docs-actions: done           # docs/actions.md documents all six actions
   docs-high-level-description: done
@@ -63,7 +63,7 @@ rules:
   entity-translations: done    # every sensor, switch and number has a translation_key and a name in strings.json
   exception-translations: done # ConfigEntryNotReady and UpdateFailed use translation_key
   icon-translations: done      # icons.json covers every sensor, switch and number by translation_key
-  reconfiguration-flow: done   # async_step_reconfigure re-uses the tariff step schema; it edits tariff values only
+  reconfiguration-flow: done   # async_step_reconfigure remaps the inverter entities (discovery or by hand) with async_update_and_abort; the tariff is in the options wizard
   repair-issues: done          # givtcp_entities_missing and min_soc_too_high repair issues, each with a learn_more_url
   stale-devices:
     status: exempt

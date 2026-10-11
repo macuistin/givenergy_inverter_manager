@@ -10,12 +10,13 @@ from __future__ import annotations
 import logging
 
 import pytest
-from conftest import MIDDAY, SERIAL, full_config_data, serialise_schema
+from conftest import MIDDAY, SERIAL, full_config_data
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import MAX_LENGTH_STATE_STATE
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from wizard_support import Only, options_wizard
 
 from custom_components.givenergy_inverter_manager.const import ALT_HEAT_LABEL_MAX_LENGTH, DOMAIN
 
@@ -39,28 +40,9 @@ def _entry(options: dict) -> MockConfigEntry:
     )
 
 
-def _form_values(fields: list[dict]) -> dict:
-    values: dict = {}
-    for field in fields:
-        if field.get("type") == "expandable":
-            values[field["name"]] = _form_values(field["schema"])
-        elif "default" in field:
-            values[field["name"]] = field["default"]
-        elif "suggested_value" in field.get("description", {}):
-            values[field["name"]] = field["description"]["suggested_value"]
-    return values
-
-
 async def submit(hass, entry, section: dict):
-    """Open the options form and submit it with *section* as the alternative heating section."""
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    payload = _form_values(serialise_schema(result["data_schema"]))
-    payload["alt_heat_settings"] = section
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input=payload
-    )
-    await hass.async_block_till_done()
-    return result
+    """Run the options wizard's hot water page with *section* as the alternative heating section."""
+    return await options_wizard(hass, entry, {"hot_water": {"alt_heat": Only(section)}})
 
 
 async def set_up(hass, entry) -> None:

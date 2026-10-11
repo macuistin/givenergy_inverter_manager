@@ -1,44 +1,39 @@
-"""Reconfigure against a real flow manager: it must take effect, and reload once when needed."""
+"""Reconfigure is the inverter connection: remap the GivTCP entities, with one reload.
+
+The tariff is edited in the options wizard (tests/ha_e2e/test_options_flow_e2e.py and
+test_dated_tariff_e2e.py).
+"""
 
 from __future__ import annotations
 
+import logging
+
 import pytest
-from conftest import MIDDAY, serialise_schema
+from conftest import BATTERY_POWER, GRID, LOAD, MIDDAY, SERIAL, SOC, SOLAR
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
+from wizard_support import field_names, serialised, submit
 
 import custom_components.givenergy_inverter_manager as integration
 from custom_components.givenergy_inverter_manager.const import (
-    CONF_BILL_START_DAY,
-    CONF_CURRENCY,
-    CONF_EXPORT_RATE,
-    CONF_RATE_PERIODS,
-    CONF_VAT_RATE,
+    CONF_BASE_RATE,
+    CONF_BATTERY_POWER,
+    CONF_BATTERY_SOC,
+    CONF_CHARGE_END_TIME_ENTITY,
+    CONF_GRID_POWER,
+    CONF_HOUSE_LOAD,
+    CONF_INVERTER_TEMP_ENTITY,
+    CONF_SOLAR_POWER,
+    CONF_TARGET_SOC_ENTITY,
 )
+
+OTHER_SOLAR = "sensor.rewired_solar"
+OTHER_GRID = "sensor.rewired_grid"
 
 
 @pytest.fixture
 def scenario():
     return MIDDAY
-
-
-def _defaults(result) -> dict:
-    fields = serialise_schema(result["data_schema"])
-    return {f["name"]: f["default"] for f in fields if "default" in f}
-
-
-def _payload(result, **overrides) -> dict:
-    fields = serialise_schema(result["data_schema"])
-    data: dict = {}
-    for field in fields:
-        if field.get("type") == "expandable":
-            data[field["name"]] = {
-                sub["name"]: sub["default"] for sub in field["schema"] if "default" in sub
-            }
-        elif "default" in field:
-            data[field["name"]] = field["default"]
-    data.update(overrides)
-    return data
 
 
 @pytest.fixture
@@ -55,95 +50,267 @@ def setups(monkeypatch) -> list[str]:
     return calls
 
 
-async def test_reconfigure_form_shows_the_values_in_force(hass, loaded_entry):
-    hass.config_entries.async_update_entry(
-        loaded_entry, options={CONF_EXPORT_RATE: 0.21, CONF_VAT_RATE: 13.5}
-    )
-    await hass.async_block_till_done()
-
-    result = await loaded_entry.start_reconfigure_flow(hass)
-    defaults = _defaults(result)
-
-    assert defaults[CONF_EXPORT_RATE] == pytest.approx(0.21)
-    assert defaults[CONF_VAT_RATE] == pytest.approx(13.5)
-    assert defaults[CONF_BILL_START_DAY] == 16
-    hass.config_entries.flow.async_abort(result["flow_id"])
+def flow(hass):
+    return hass.config_entries.flow
 
 
-async def test_reconfigure_is_offered_as_its_own_step(hass, loaded_entry):
+def five(**changes) -> dict:
+    mapping = {
+        CONF_SOLAR_POWER: SOLAR,
+        CONF_BATTERY_SOC: SOC,
+        CONF_BATTERY_POWER: BATTERY_POWER,
+        CONF_GRID_POWER: GRID,
+        CONF_HOUSE_LOAD: LOAD,
+    }
+    return {**mapping, **changes}
+
+
+async def manual_form(hass, entry):
+    result = await entry.start_reconfigure_flow(hass)
+    return await submit(flow(hass), result, source="manual")
+
+
+def publish_rewired_sensors(hass) -> None:
+    hass.states.async_set(OTHER_SOLAR, 1200, {"unit_of_measurement": "W"})
+    hass.states.async_set(OTHER_GRID, -300, {"unit_of_measurement": "W"})
+
+
+async def test_the_form_shows_the_mapping_in_force_next_to_what_discovery_finds(
+    hass, loaded_entry
+):
     result = await loaded_entry.start_reconfigure_flow(hass)
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "reconfigure"
-    hass.config_entries.flow.async_abort(result["flow_id"])
+    placeholders = result["description_placeholders"]
+    assert f"solar_power_entity: {SOLAR}" in placeholders["current"]
+    assert f"solar_power_entity: {SOLAR}" in placeholders["found"]
+    fields = serialised(result)
+    assert [f["name"] for f in fields] == ["source"]
+    assert fields[0]["default"] == "found"
+    assert fields[0]["selector"]["select"]["options"] == ["found", "manual"]
+    flow(hass).async_abort(result["flow_id"])
 
 
-async def test_reconfigure_wins_over_saved_options(hass, loaded_entry):
-    hass.config_entries.async_update_entry(loaded_entry, options={CONF_EXPORT_RATE: 0.21})
-    await hass.async_block_till_done()
-    assert loaded_entry.runtime_data.export_rate == pytest.approx(0.21)
-
+async def test_without_a_discovered_inverter_only_the_manual_choice_is_offered(hass, loaded_entry):
+    for entity_id in list(hass.states.async_entity_ids()):
+        if "givtcp" in entity_id and entity_id not in {SOLAR, SOC, BATTERY_POWER, GRID, LOAD}:
+            hass.states.async_remove(entity_id)
     result = await loaded_entry.start_reconfigure_flow(hass)
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input=_payload(result, **{CONF_EXPORT_RATE: 0.3})
-    )
+
+    assert "Nothing was found" in result["description_placeholders"]["found"]
+    (field,) = serialised(result)
+    assert field["selector"]["select"]["options"] == ["manual"]
+    assert field["default"] == "manual"
+    flow(hass).async_abort(result["flow_id"])
+
+
+async def test_using_what_was_found_changes_nothing_when_it_matches(hass, loaded_entry, setups):
+    before = dict(loaded_entry.data)
+    result = await loaded_entry.start_reconfigure_flow(hass)
+
+    result = await submit(flow(hass), result)
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
-    assert loaded_entry.state is ConfigEntryState.LOADED
-    assert loaded_entry.runtime_data.export_rate == pytest.approx(0.3)
-    assert CONF_EXPORT_RATE not in loaded_entry.options
-    assert loaded_entry.data[CONF_EXPORT_RATE] == pytest.approx(0.3)
-
-
-async def test_reconfigure_replaces_saved_rate_periods(hass, loaded_entry):
-    saved = [{"name": "Weekend", "rate": 0.1, "start": "00:00", "end": "06:00"}]
-    hass.config_entries.async_update_entry(loaded_entry, options={CONF_RATE_PERIODS: saved})
-    await hass.async_block_till_done()
-
-    result = await loaded_entry.start_reconfigure_flow(hass)
-    payload = _payload(result)
-    assert payload["rate_period_1"]["name"] == "Weekend"
-    payload["rate_period_1"]["name"] = "Night"
-    payload["rate_period_1"]["rate"] = 0.15
-    await hass.config_entries.flow.async_configure(result["flow_id"], user_input=payload)
-    await hass.async_block_till_done()
-
-    assert CONF_RATE_PERIODS not in loaded_entry.options
-    assert [p["name"] for p in loaded_entry.data[CONF_RATE_PERIODS]] == ["Night"]
-
-
-async def test_reconfigure_applies_a_tariff_change_without_a_reload(hass, loaded_entry, setups):
-    coordinator = loaded_entry.runtime_data
-    result = await loaded_entry.start_reconfigure_flow(hass)
-    await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input=_payload(result, **{CONF_EXPORT_RATE: 0.25})
-    )
-    await hass.async_block_till_done()
-
+    assert dict(loaded_entry.data) == before
     assert setups == []
     assert loaded_entry.state is ConfigEntryState.LOADED
-    assert loaded_entry.runtime_data is coordinator
-    assert coordinator.export_rate == pytest.approx(0.25)
 
 
-async def test_reconfigure_reloads_once_when_the_change_needs_it(hass, loaded_entry, setups):
-    result = await loaded_entry.start_reconfigure_flow(hass)
-    await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input=_payload(result, **{CONF_CURRENCY: "GBP"})
+async def test_using_what_was_found_remaps_a_wiring_that_has_drifted_and_reloads_once(
+    hass, loaded_entry, setups
+):
+    hass.config_entries.async_update_entry(
+        loaded_entry, data={**loaded_entry.data, CONF_SOLAR_POWER: OTHER_SOLAR}
     )
     await hass.async_block_till_done()
+    setups.clear()
+    result = await loaded_entry.start_reconfigure_flow(hass)
 
+    result = await submit(flow(hass), result)
+    await hass.async_block_till_done()
+
+    assert result["reason"] == "reconfigure_successful"
+    assert loaded_entry.data[CONF_SOLAR_POWER] == SOLAR
     assert len(setups) == 1
     assert loaded_entry.state is ConfigEntryState.LOADED
-    assert loaded_entry.runtime_data.data.currency_symbol == "£"
 
 
-async def test_reconfigure_without_changes_does_not_reload(hass, loaded_entry, setups):
-    result = await loaded_entry.start_reconfigure_flow(hass)
-    await hass.config_entries.flow.async_configure(result["flow_id"], user_input=_payload(result))
+async def test_a_manual_remap_is_saved_and_reloads_once(hass, loaded_entry, setups, caplog):
+    publish_rewired_sensors(hass)
+    result = await manual_form(hass, loaded_entry)
+    assert result["step_id"] == "reconfigure_manual"
+    defaults = {
+        f["name"]: (f.get("description") or {}).get("suggested_value") for f in serialised(result)
+    }
+    assert defaults[CONF_SOLAR_POWER] == SOLAR
+
+    with caplog.at_level(logging.WARNING):
+        result = await submit(
+            flow(hass), result, **five(**{CONF_SOLAR_POWER: OTHER_SOLAR, CONF_GRID_POWER: OTHER_GRID})
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert loaded_entry.data[CONF_SOLAR_POWER] == OTHER_SOLAR
+    assert loaded_entry.data[CONF_GRID_POWER] == OTHER_GRID
+    assert len(setups) == 1
+    assert loaded_entry.state is ConfigEntryState.LOADED
+    assert loaded_entry.runtime_data.last_update_success
+    assert "update listener" not in caplog.text
+
+
+async def test_reconfigure_leaves_the_tariff_the_options_and_the_serial_alone(hass, loaded_entry):
+    hass.config_entries.async_update_entry(
+        loaded_entry, options={CONF_BASE_RATE: 0.41, "dry_run": True}
+    )
+    await hass.async_block_till_done()
+    publish_rewired_sensors(hass)
+    data_before = {k: v for k, v in loaded_entry.data.items() if k != CONF_SOLAR_POWER}
+    result = await manual_form(hass, loaded_entry)
+
+    await submit(flow(hass), result, **five(**{CONF_SOLAR_POWER: OTHER_SOLAR}))
     await hass.async_block_till_done()
 
-    assert setups == []
+    assert {k: v for k, v in loaded_entry.data.items() if k != CONF_SOLAR_POWER} == data_before
+    assert loaded_entry.options[CONF_BASE_RATE] == 0.41
+    assert loaded_entry.options["dry_run"] is True
+    assert loaded_entry.unique_id == SERIAL
+
+
+async def test_an_optional_entity_that_is_emptied_is_removed_from_the_entry(hass, loaded_entry):
+    result = await manual_form(hass, loaded_entry)
+
+    emptied = {CONF_INVERTER_TEMP_ENTITY: None, CONF_TARGET_SOC_ENTITY: None}
+    await submit(flow(hass), result, **emptied)
+    await hass.async_block_till_done()
+
+    assert CONF_INVERTER_TEMP_ENTITY not in loaded_entry.data
+    assert CONF_TARGET_SOC_ENTITY not in loaded_entry.data
+    assert CONF_CHARGE_END_TIME_ENTITY in loaded_entry.data
     assert loaded_entry.state is ConfigEntryState.LOADED
+
+
+async def test_the_five_power_entities_are_required_and_the_other_six_are_optional(
+    hass, loaded_entry
+):
+    result = await manual_form(hass, loaded_entry)
+
+    required = {f["name"] for f in serialised(result) if f["required"]}
+    assert required == set(five())
+    assert len(field_names(result)) == 11
+    flow(hass).async_abort(result["flow_id"])
+
+
+async def test_an_entity_that_does_not_exist_is_refused_and_nothing_is_saved(
+    hass, loaded_entry, setups
+):
+    before = dict(loaded_entry.data)
+    result = await manual_form(hass, loaded_entry)
+
+    result = await submit(flow(hass), result, **five(**{CONF_SOLAR_POWER: "sensor.not_there"}))
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure_manual"
+    assert result["errors"] == {"base": "missing_entities"}
+    assert dict(loaded_entry.data) == before
+    assert setups == []
+    flow(hass).async_abort(result["flow_id"])
+
+
+async def test_an_entity_that_reads_unavailable_is_refused(hass, loaded_entry):
+    publish_rewired_sensors(hass)
+    hass.states.async_set(OTHER_GRID, "unavailable")
+    result = await manual_form(hass, loaded_entry)
+
+    result = await submit(flow(hass), result, **five(**{CONF_GRID_POWER: OTHER_GRID}))
+
+    assert result["errors"] == {"base": "missing_entities"}
+    flow(hass).async_abort(result["flow_id"])
+
+
+async def test_entities_of_another_inverter_abort_the_flow_and_save_nothing(
+    hass, loaded_entry, setups
+):
+    before = dict(loaded_entry.data)
+    other = "givtcp_cd5678h901"
+    for suffix in ("pv_power", "soc", "battery_power", "grid_power", "load_power"):
+        hass.states.async_set(f"sensor.{other}_{suffix}", 1)
+    result = await manual_form(hass, loaded_entry)
+    mapping = {
+        CONF_SOLAR_POWER: f"sensor.{other}_pv_power",
+        CONF_BATTERY_SOC: f"sensor.{other}_soc",
+        CONF_BATTERY_POWER: f"sensor.{other}_battery_power",
+        CONF_GRID_POWER: f"sensor.{other}_grid_power",
+        CONF_HOUSE_LOAD: f"sensor.{other}_load_power",
+    }
+
+    result = await submit(flow(hass), result, **mapping)
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "wrong_inverter"
+    assert dict(loaded_entry.data) == before
+    assert setups == []
+
+
+async def test_hand_picked_sensors_with_no_serial_in_their_name_are_accepted(hass, loaded_entry):
+    publish_rewired_sensors(hass)
+    result = await manual_form(hass, loaded_entry)
+
+    result = await submit(
+        flow(hass),
+        result,
+        **five(
+            **{
+                CONF_SOLAR_POWER: OTHER_SOLAR,
+                CONF_BATTERY_SOC: "sensor.rewired_solar",
+                CONF_BATTERY_POWER: "sensor.rewired_grid",
+                CONF_GRID_POWER: OTHER_GRID,
+                CONF_HOUSE_LOAD: OTHER_SOLAR,
+            }
+        ),
+    )
+
+    assert result["reason"] == "reconfigure_successful"
+
+
+async def test_the_serial_check_is_case_insensitive(hass, loaded_entry):
+    """GivTCP serials are upper case in the sensor and lower case in entity ids."""
+    hass.config_entries.async_update_entry(loaded_entry, unique_id=SERIAL.upper())
+    result = await manual_form(hass, loaded_entry)
+
+    result = await submit(flow(hass), result)
+
+    assert result["reason"] == "reconfigure_successful"
+
+
+async def test_an_entry_set_up_by_hand_has_no_serial_to_check(hass, loaded_entry):
+    hass.config_entries.async_update_entry(loaded_entry, unique_id="manual")
+    publish_rewired_sensors(hass)
+    result = await manual_form(hass, loaded_entry)
+
+    result = await submit(flow(hass), result, **five(**{CONF_SOLAR_POWER: OTHER_SOLAR}))
+
+    assert result["reason"] == "reconfigure_successful"
+    assert loaded_entry.data[CONF_SOLAR_POWER] == OTHER_SOLAR
+
+
+async def test_one_entity_of_another_inverter_among_the_right_ones_aborts_the_flow(
+    hass, loaded_entry, setups
+):
+    before = dict(loaded_entry.data)
+    hass.states.async_set("sensor.givtcp_cd5678h901_pv_power", 1)
+    result = await manual_form(hass, loaded_entry)
+
+    result = await submit(
+        flow(hass), result, **five(**{CONF_SOLAR_POWER: "sensor.givtcp_cd5678h901_pv_power"})
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "wrong_inverter"
+    assert dict(loaded_entry.data) == before
+    assert setups == []

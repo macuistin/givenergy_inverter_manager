@@ -9,16 +9,16 @@ Find your symptom, then follow the steps.
 
 ## Setup finds no inverter
 
-The wizard looks for an entity whose ID contains `givtcp_` and ends in `_invertor_serial_number`. GivTCP spells "inverter" as "invertor".
+The first screen says "No GivTCP inverter was found" when nothing matches. The wizard looks for an entity whose ID contains `givtcp_` and ends in `_invertor_serial_number`. GivTCP spells "inverter" as "invertor".
 
 1. Open **Developer Tools → States** and search for `invertor_serial_number`. If nothing appears, GivTCP has not published to Home Assistant yet.
 2. Check GivTCP is running and that it uses the same MQTT broker as Home Assistant. The listen panel under **Settings → Devices & Services → MQTT** shows whether GivTCP is publishing.
 3. Wait a minute after GivTCP starts, then start the wizard again.
-4. If the inverter shows "(some sensors missing)", pick it anyway and fill in the five power sensors by hand.
+4. If the first screen says the inverter has some sensors missing, go on. The next screen asks for the five power sensors, with the ones that were found filled in.
 
-The error "One or more required inverter entities are missing" means one of the five power sensors (solar, battery SoC, battery power, grid, house load) is empty.
+The error "A required inverter entity is missing or unavailable" means one of the five power sensors (solar, battery SoC, battery power, grid, house load) is empty, does not exist or reads unavailable.
 
-The manual path does not ask for the charge control entities. Without them the integration cannot write charge targets. If you need them, get GivTCP publishing all its entities and set the integration up again.
+The by-hand screen does not ask for the charge control entities. Without them the integration cannot write charge targets. If you need them, get GivTCP publishing all its entities, then open **Reconfigure** and use the entities it finds.
 
 ## All entities are unavailable
 
@@ -40,24 +40,26 @@ Related behaviour:
 The repair **GivTCP entities not found** appears in **Settings → System → Repairs** when the solar power and battery SoC entities chosen at setup no longer exist in Home Assistant. This usually means GivTCP was reinstalled with another serial, or its entity IDs changed.
 
 1. Open **Developer Tools → States** and search for `givtcp_`. Note the new serial in the entity IDs.
-2. Remove the integration and add it again, picking the new inverter. The repair text points to Reconfigure, but Reconfigure only edits the tariff.
-3. Accumulated energy is kept, because the storage file is not deleted.
+2. Open **Settings → Devices & Services → GivEnergy Inverter Manager**, open the menu and select **Reconfigure**. Use the entities it finds, or choose them by hand. Saving reloads the integration once.
+3. If you moved to a different inverter, Reconfigure refuses entities with another serial. Remove the integration and add it again, picking the new inverter. Accumulated energy is kept, because the storage file is not deleted.
 
 The repair clears on its own once both entities exist again.
 
-## Options form errors
+## Configure problems
 
 - **"Entity is neither a valid entity ID nor a valid UUID" on save.** This was a bug in v0.2.1 when a forecast or carbon intensity field was empty. Update to v0.3.0. In v0.3.0 an empty field saves as empty, and clearing a saved entity removes it.
-- **Battery divert threshold or surplus is not on the page.** They are set at setup only. See [Configuration](configuration.md#step-6-battery).
+- **Configure shows a checklist, not one long page.** Tick the pages you want to change. Only those are shown, and the last screen lists every change before saving. See [Configuration](configuration.md#configure).
+- **Battery divert threshold or surplus is not in Configure.** They are controls, with the other tuning settings. See [Configuration](configuration.md#controls).
+- **A page shows a note starting "Check:" and does not move on.** It is a warning, for example ready-by times with no temperature sensor. Submit the page again to keep what you entered.
 - **Entities went unavailable after saving.** Changing the immersion switch or sensor, the main forecast sensor, the currency, or alternative water heating when it appears or goes (turned on with a cost set, turned off, or its last cost cleared), reloads the integration. It takes a few seconds. If entities have not recovered after 30 seconds, check the log for errors.
 
 ## Battery minimum SoC is set too high
 
 The repair **Battery minimum SoC is set too high** appears when the saved minimum SoC is above 30%. Older versions accepted higher values. On a skip night the integration writes the minimum SoC as the charge target, so a high value holds the battery at that level all night and imports from the grid.
 
-1. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**.
-2. In the Battery & charging thresholds section, set **Minimum battery SoC** to 10 to 20.
-3. Save. The repair clears on the next update cycle.
+1. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure** and tick **Battery and charging**.
+2. Set **Battery minimum charge** to 10 to 20.
+3. Submit. The repair clears on the next update cycle.
 
 ## Other charge slots are active
 
@@ -82,7 +84,7 @@ Slot 1 is never changed by this repair.
 
 ## Battery cost is not set
 
-The repair **Battery cost is not set** appears when **Battery cost** is 0 and the integration has been tracking the battery for 7 days. With no cost, battery wear is 0, so **Net Saving Today** equals **Saving vs Grid Today**. A battery cost also feeds **Battery Cycle Cost per kWh** and the immersion divert rule. See [Configuration](configuration.md#battery--charging-thresholds).
+The repair **Battery cost is not set** appears when **Battery cost** is 0 and the integration has been tracking the battery for 7 days. With no cost, battery wear is 0, so **Net Saving Today** equals **Saving vs Grid Today**. A battery cost also feeds **Battery Cycle Cost per kWh** and the immersion divert rule. See [Configuration](configuration.md#battery-and-charging).
 
 To set it from the repair:
 
@@ -90,7 +92,7 @@ To set it from the repair:
 2. Enter what the battery cost, then select **Submit**.
 3. The value is saved to the integration options. Every other saved option is kept. The repair clears on the next update cycle.
 
-You can also set **Battery cost** under **Configure**, in the Battery & charging thresholds section.
+You can also set **Battery cost** under **Configure**, on the Battery and charging page.
 
 The repair appears once. If you do not want wear counted, select **Ignore** and it stays out of the way. It is raised again only if the cost is set and then set back to 0.
 
@@ -116,10 +118,10 @@ If the repair appears while the car should be on solar, check that **Grid Power*
 
 ## The tariff has not been reviewed
 
-The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. The date counts from the last saved change to the tariff, the last dated change recorded, the last Reconfigure, or the last time you confirmed the rates in the repair. The first run after an upgrade records that day, so the repair appears 365 days later at the earliest. The repair does not change anything and does not affect any sensor.
+The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. The date counts from the last saved change to the tariff, the last dated change recorded, the last time you ticked **Confirm the tariff is current** in Configure, or the last time you confirmed the rates in the repair. The first run after an upgrade records that day, so the repair appears 365 days later at the earliest. The repair does not change anything and does not affect any sensor.
 
 1. Check the rates against your latest bill.
-2. If a rate changed, open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure** and save the new rates. To start them on a later date, use the **Dated rate change** section. See [Tariff](tariff.md#change-the-rates-from-a-date).
+2. If a rate changed, open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**, tick **Tariff** and save the new rates. To start them on a later date, tick **Schedule a rate change**. See [Tariff](tariff.md#change-the-rates-from-a-date).
 3. If the rates are right, open **Settings → System → Repairs**, open **Tariff rates have not been reviewed** and select **Submit**. The repair clears on the next update cycle and returns after another 365 days.
 
 ## Daily sensors are frozen after an upgrade
@@ -182,7 +184,7 @@ Read **Overnight Charge Reason** first. Then check these:
 - **December to February.** The target is 100% before the cap, whatever the forecast.
 - **March, April, October and November.** The minimum SoC is at least 70% in the calculation.
 - **No forecast.** Without a tomorrow sensor, the integration uses a seasonal estimate from your latitude. The reason says so.
-- **A forecast setting has no effect.** Forecast provider is stored and unused. A P10 forecast only matters when the Forecast conservatism control is above 0, and conservatism only matters when a P10 forecast exists. Solcast provides one automatically. The charge reason says `no P10 forecast so conservatism is unused` otherwise. See [Where the P10 comes from](configuration.md#where-the-p10-comes-from).
+- **A forecast setting has no effect.** A P10 forecast only matters when the Forecast conservatism control is above 0, and conservatism only matters when a P10 forecast exists. Solcast provides one automatically. The charge reason says `no P10 forecast so conservatism is unused` otherwise. See [Where the P10 comes from](configuration.md#where-the-p10-comes-from).
 - **The charge reason shows no `recent accuracy` factor.** The correction needs 5 usable days. Days with clipping, or under 0.5 kWh of forecast or solar, do not count. The attributes of **Overnight Charge Reason** show how many days are usable (`accuracy_status`, for example `Waiting for data: 3 of 5 days`). A new install reads earlier days from the recorder when it first loads, so it shows up to 9 usable days at once. It shows 0 when the recorder is not running, holds no history for the forecast sensor or the GivTCP daily solar counter, or those sensors are new. Then it fills one night at a time, and the first midnight only remembers the forecast. See [Forecast accuracy correction](configuration.md#forecast-accuracy-correction).
 - **A manual target.** See [Entities](entities.md#manual-charge-target).
 

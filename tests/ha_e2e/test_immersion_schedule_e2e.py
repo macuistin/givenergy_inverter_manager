@@ -18,12 +18,12 @@ from conftest import (
     SERIAL,
     SOLAR,
     full_config_data,
-    serialise_schema,
 )
 from homeassistant.components.switch import DATA_COMPONENT
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from wizard_support import options_wizard
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_ALT_HEAT_COST,
@@ -99,39 +99,23 @@ def at(freezer, utc: str) -> None:
 async def save_options(
     hass, entry, immersion: dict | None = None, ready: list[str] | None = None, expect="entry"
 ):
-    """Open the options form and save it as the frontend would, with these immersion values."""
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    payload = _form_values(
-        serialise_schema(result["data_schema"])
-    )
-    section_values = payload["immersion_settings"]
+    """Run the options wizard's hot water page as the frontend would, with these values.
+
+    *immersion* replaces the entity choices ({} clears both, as the frontend leaves out an
+    emptied selector). *ready* sets the ready-by times.
+    """
+    values: dict = {}
     if immersion is not None:
-        section_values = {"immersion_wattage_w": section_values["immersion_wattage_w"], **immersion}
+        values = {CONF_IMMERSION_SWITCH: None, CONF_IMMERSION_TEMP_SENSOR: None, **immersion}
     if ready is not None:
-        section_values = {**section_values, CONF_IMMERSION_READY_TIMES: ready}
-    payload["immersion_settings"] = section_values
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input=payload
-    )
+        values[CONF_IMMERSION_READY_TIMES] = ready
+    result = await options_wizard(hass, entry, {"hot_water": values})
     await hass.async_block_till_done()
     if expect == "entry":
         assert result["type"] is FlowResultType.CREATE_ENTRY, result
     else:
         assert result["type"] is FlowResultType.FORM, result
     return result
-
-
-def _form_values(fields: list[dict]) -> dict:
-    """What the frontend submits untouched: defaults and suggested values, section by section."""
-    values: dict = {}
-    for field in fields:
-        if field.get("type") == "expandable":
-            values[field["name"]] = _form_values(field["schema"])
-        elif "default" in field:
-            values[field["name"]] = field["default"]
-        elif "suggested_value" in field.get("description", {}):
-            values[field["name"]] = field["description"]["suggested_value"]
-    return values
 
 
 def schedule_switch(hass, entry):

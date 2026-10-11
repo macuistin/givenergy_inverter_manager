@@ -21,7 +21,7 @@ inside it.
 | --- | --- |
 | `core/` | Pure Python decisions, tariff, accumulation maths and report text. No `homeassistant` imports |
 | `coordinator.py` | Thin Home Assistant bridge: reads states, calls `core/`, applies writes, runs timers |
-| `config_flow.py`, `config_helpers.py` | Setup wizard (inverter, tariff, forecast, immersion, EV, battery, confirm), reconfigure and the single-page options flow |
+| `config_flow.py`, `wizard/`, `core/wizard_*.py` | Setup wizard, options wizard and reconfigure (the inverter connection). `config_flow.py` only registers them. `config_helpers.py` merges entry data and options |
 | `sensor.py`, `sensor_descriptions/` | One entity class and the description table, split by theme |
 | `optional_devices.py`, `core/devices.py` | The EV charger, immersion switch and immersion sensor may be absent or added later |
 | `dashboard/`, `strategy.py` | The Lovelace dashboard strategy and the builder it calls |
