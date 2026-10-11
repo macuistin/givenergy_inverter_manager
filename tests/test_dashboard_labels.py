@@ -91,7 +91,13 @@ class TestTonightsChargePlan:
 
     def test_the_other_tiles_stay_after_it(self):
         names = [c["name"] for c in _battery_section("Tonight's charge plan")[1:]]
-        assert names == ["Target if charging", "Est. cost", "At sunrise", "Rate floor"]
+        assert names == [
+            "Target if charging",
+            "Sunrise (no charge)",
+            "Sunrise (with charge)",
+            "Est. cost",
+            "Rate floor",
+        ]
 
     def test_the_section_works_while_the_plan_sensor_is_off(self):
         cards = _battery_section(
@@ -99,6 +105,58 @@ class TestTonightsChargePlan:
         )
         assert {c["type"] for c in cards} == {"tile"}
         assert cards[0]["name"] == "Target if charging"
+
+
+class TestTheTwoSunriseFigures:
+    """The estimate at sunrise is shown without and with tonight's planned charge, by name."""
+
+    _NO_CHARGE = "Sunrise (no charge)"
+    _WITH_CHARGE = "Sunrise (with charge)"
+
+    @staticmethod
+    def _tiles(path: str, *, registry=None) -> dict[str, dict]:
+        config = yaml.safe_load(dashboard_text(registry=registry))
+        view = next(v for v in config["views"] if v["path"] == path)
+        return {c["name"]: c for c in view_cards(view) if c.get("type") == "tile"}
+
+    @pytest.mark.parametrize("path", ["battery", "battery-detail"])
+    def test_each_figure_has_a_tile_that_says_which_it_is(self, path):
+        tiles = self._tiles(path)
+        assert tiles[self._NO_CHARGE]["entity"] == _IDS["estimated_soc_at_sunrise"]
+        assert tiles[self._WITH_CHARGE]["entity"] == _IDS["estimated_soc_at_sunrise_with_charge"]
+
+    @pytest.mark.parametrize("path", ["battery", "battery-detail"])
+    def test_the_names_are_full_width_and_fit_the_tile(self, path):
+        for name in (self._NO_CHARGE, self._WITH_CHARGE):
+            tile = self._tiles(path)[name]
+            assert tile["grid_options"]["columns"] == "full"
+            assert len(name) <= 22
+
+    def test_the_old_at_sunrise_tile_is_gone(self):
+        names = {name for path in ("battery", "battery-detail") for name in self._tiles(path)}
+        assert "At sunrise" not in names
+
+    def test_the_two_tiles_sit_together_in_the_charge_plan(self):
+        names = [c["name"] for c in _battery_section("Tonight's charge plan") if "name" in c]
+        assert names[1:3] == [self._NO_CHARGE, self._WITH_CHARGE]
+
+    def test_the_detail_view_shows_them_under_the_outlook_in_the_overnight_section(self):
+        config = yaml.safe_load(dashboard_text())
+        view = next(v for v in config["views"] if v["path"] == "battery-detail")
+        overnight = next(
+            s for s in view["sections"] if s["cards"][0].get("heading") == "Battery overnight"
+        )
+        kinds = [c["type"] for c in overnight["cards"]]
+        names = [c.get("name") for c in overnight["cards"]]
+        assert kinds[:2] == ["heading", "markdown"]
+        assert names[2:4] == [self._NO_CHARGE, self._WITH_CHARGE]
+
+    @pytest.mark.parametrize("path", ["battery", "battery-detail"])
+    def test_a_tile_is_left_out_while_its_sensor_is_not_there(self, path):
+        absent = FakeRegistry(absent={"estimated_soc_at_sunrise_with_charge"})
+        tiles = self._tiles(path, registry=absent)
+        assert self._WITH_CHARGE not in tiles
+        assert self._NO_CHARGE in tiles
 
 
 class TestChargeSettingsInForce:

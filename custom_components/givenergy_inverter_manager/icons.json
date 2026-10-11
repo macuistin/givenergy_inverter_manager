@@ -56,6 +56,7 @@
       "overnight_charge_cost": {"default": "mdi:currency-eur"},
       "immersion_divert_reason": {"default": "mdi:water-boiler"},
       "estimated_soc_at_sunrise": {"default": "mdi:weather-sunny"},
+      "estimated_soc_at_sunrise_with_charge": {"default": "mdi:weather-sunset-up"},
       "night_survival_reason": {"default": "mdi:moon-waning-crescent"},
       "night_survival_confidence": {"default": "mdi:moon-waning-crescent"},
       "is_clipping": {"default": "mdi:lightning-bolt"},

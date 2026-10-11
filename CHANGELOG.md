@@ -2,6 +2,35 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+The estimated SoC at sunrise now comes as two figures, with and without tonight's planned charge, so
+an evening reading on the minimum SoC is no longer mistaken for a night that ends flat.
+
+**Features**
+- New sensor Estimated SoC at Sunrise With the Planned Charge (`estimated_soc_at_sunrise_with_charge`).
+  It projects the battery to the next 08:00 with tonight's planned charge in it: the battery runs down
+  to the start of the charge window, the window adds charge up to the target at the charge rate the
+  plan uses, and the battery runs down again to sunrise, never below the minimum SoC. The window is
+  sized for the SoC the battery will have when it opens. A skipped night, no timed charge window, or a
+  window that is over gives the same figure as the one without a charge. Its attributes are
+  `soc_at_charge_start`, `charge_added_pct`, `charge_window` and `basis`. Nothing reads it, so the
+  charge plan and the night survival sensors are unchanged. It is enabled by default.
+
+**Changes**
+- Estimated SoC at Sunrise is now Estimated SoC at Sunrise Without a Charge, and its description says
+  it ignores tonight's planned charge and holds at the minimum SoC when the battery would run flat.
+  The key, the unique ID and the value are unchanged, so history, statistics and automations carry on.
+  An install made before this change keeps its entity ID. A new install builds it from the new name.
+- The Battery view shows Sunrise (no charge) and Sunrise (with charge) in Tonight's charge plan, where
+  it showed one At sunrise tile. The Battery overnight section of the Battery detail view shows the
+  same two tiles under the outlook.
+
+**Upgrading**
+- Generate the dashboard file again, or use the strategy dashboard, to get the two Sunrise tiles.
+- Troubleshooting has a new entry, Why does SoC at sunrise read 10%?, and Concepts explains the two
+  figures under Battery overnight.
+
 ## v0.17.1
 
 Small dashboard clarity fixes found by previewing v0.17.0 in a real install.

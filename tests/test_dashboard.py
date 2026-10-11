@@ -1207,6 +1207,8 @@ class TestSubViews:
             "overnight_charge_reason",
             "night_survival_reason",
             "night_survival_confidence",
+            "estimated_soc_at_sunrise",
+            "estimated_soc_at_sunrise_with_charge",
             "battery_cycles",
             "battery_remaining_life",
             "days_since_full_charge",
