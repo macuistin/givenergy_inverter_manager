@@ -212,14 +212,31 @@ async def test_a_factor_below_the_limit_shows_both_the_measured_and_applied_valu
     hass, loaded_entry
 ):
     acc = loaded_entry.runtime_data._acc
+    acc.state.forecast_ratio_history = _days(5, 3.0)
+
+    await _refresh(hass, loaded_entry)
+
+    attributes = _reason_attributes(hass, loaded_entry)
+    assert attributes["accuracy_measured_factor"] == pytest.approx(0.3)
+    assert attributes["accuracy_applied_factor"] == pytest.approx(0.4)
+    assert "measured 0.30, limited to 0.4 to 1.2" in attributes["accuracy_status"]
+    assert "x0.40 recent accuracy (at the lower limit)" in (
+        loaded_entry.runtime_data.data.charge_decision.reason
+    )
+
+
+async def test_a_factor_between_the_old_and_new_floor_is_applied_as_measured(hass, loaded_entry):
+    acc = loaded_entry.runtime_data._acc
     acc.state.forecast_ratio_history = _days(5, 4.5)
 
     await _refresh(hass, loaded_entry)
 
     attributes = _reason_attributes(hass, loaded_entry)
-    assert attributes["accuracy_measured_factor"] == pytest.approx(0.45)
-    assert attributes["accuracy_applied_factor"] == pytest.approx(0.6)
-    assert "measured 0.45, limited to 0.6 to 1.2" in attributes["accuracy_status"]
+    assert attributes["accuracy_applied_factor"] == pytest.approx(0.45)
+    assert attributes["accuracy_status"] == "Applied: x0.45 from 5 usable days"
+    reason = loaded_entry.runtime_data.data.charge_decision.reason
+    assert "x0.45 recent accuracy" in reason
+    assert "limit" not in reason
 
 
 async def test_the_reason_state_does_not_carry_the_accuracy_text(hass, loaded_entry):

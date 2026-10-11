@@ -15,7 +15,7 @@ GivTCP entity naming convention (all prefixed with serial number):
 """
 
 DOMAIN = "givenergy_inverter_manager"
-INTEGRATION_VERSION = "0.17.1"  # keep in sync with manifest.json
+INTEGRATION_VERSION = "0.17.2"  # keep in sync with manifest.json
 NAME = "GivEnergy Inverter Manager"
 DEVICE_MANUFACTURER = "macuistin"  # shown on the device page; GivEnergy does not make this
 
@@ -290,7 +290,7 @@ CHARGE_EV_SOC_BONUS = 10  # extra SoC percentage added when EV is plugged in
 CHARGE_LOAD_PROFILE_MIN_COVERAGE = 0.9  # fraction of the day a load record must cover
 CHARGE_LOAD_PROFILE_MIN_DAYS = 2  # complete days needed before the per-slot profile is used
 CHARGE_LOAD_PROFILE_SAME_WEEKDAY_MIN_DAYS = 3  # same-weekday days needed to prefer them
-CHARGE_FORECAST_CORRECTION_MIN = 0.6  # lowest factor applied to the P50 forecast
+CHARGE_FORECAST_CORRECTION_MIN = 0.4  # lowest factor applied to the P50 forecast
 CHARGE_FORECAST_CORRECTION_MAX = 1.2  # highest factor applied to the P50 forecast
 CHARGE_FORECAST_CORRECTION_MIN_DAYS = 5  # usable days needed before the factor is applied
 CHARGE_FORECAST_CORRECTION_MIN_KWH = 0.5  # days with forecast or actual below this are ignored
@@ -380,3 +380,12 @@ REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept i
 SENSOR_OUTAGE_HOLD_LIMIT_S = 300
 GIVTCP_MIN_CHARGE_TARGET_PCT = 4      # lowest charge target GivTCP accepts
 GIVTCP_MAX_CHARGE_TARGET_PCT = 100    # highest charge target GivTCP accepts
+
+# ── Sensor state text ─────────────────────────────────────────────────────────
+# Home Assistant stores a state of up to 255 characters (homeassistant.const
+# MAX_LENGTH_STATE_STATE). A longer one is logged as an error and reads unknown. core/ cannot
+# import Home Assistant, so the limit is repeated here.
+STATE_MAX_LENGTH = 255
+# The attribute that carries the full text of a sensor whose state had to be cut to fit.
+# Attributes have no 255 character limit.
+ATTR_FULL_TEXT = "full_text"

@@ -127,6 +127,7 @@ from .rules import (
     usable_slot_loads_kwh,
 )
 from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
+from .stored_energy import stored_energy_change
 from .sunrise_charge import (
     LOAD_NOTE_FLAT,
     LOAD_NOTE_PER_SLOT,
@@ -313,6 +314,10 @@ class CoordinatorData:
     battery_throughput_budget_status: str = ""
     saving_vs_grid_today: float = 0.0
     net_saving_today: float = 0.0
+    # The part of the saving that is the change in the battery's stored energy since midnight,
+    # and that change in kWh. See core/stored_energy.py.
+    stored_energy_value: float = 0.0
+    stored_energy_change_kwh: float = 0.0
     ev_km_charged_today: float | None = None
     ev_cost_per_km_today: float | None = None
     cheapest_rate: float = 0.0
@@ -1425,7 +1430,7 @@ def _set_battery_stats(data: CoordinatorData, cycle: _Cycle, previous: PreviousC
     raw = cycle.raw
     today = cycle.now.date()
     reading = BatteryReading(
-        None if "battery_soc" in raw.unavailable_inputs else raw.battery_soc,
+        _soc_if_available(raw),
         previous.last_soc,
         raw.battery_lifetime_cycles,
     )
@@ -1451,8 +1456,9 @@ def _accumulate_energy_today(
     # GivTCP reads directly from the inverter's metering, which is more accurate than
     # integrating 30-second power readings. Financial fields (costs, earnings) remain
     # integration-based since GivTCP has no tariff knowledge.
-    _carry_grid_to_battery(accumulators, cycle.raw)
+    _carry_grid_to_battery(accumulators, cycle)
     _apply_daily_counters(accumulators.today, cycle.raw)
+    _bookmark_start_of_day_soc(accumulators.today, cycle.raw)
     data.grid_to_battery_counter_available = cycle.raw.ac_charge_energy_today_kwh is not None
     data.today = accumulators.today
 
@@ -1475,11 +1481,37 @@ def _set_bill_fields(data: CoordinatorData, cycle: _Cycle, accumulators: Accumul
     data.days_remaining = days_remaining
 
 
-def _set_savings_fields(data: CoordinatorData) -> None:
-    """The saving is what the load would have cost from the grid at the time, less what was paid."""
+def _soc_if_available(raw: RawSensorValues) -> float | None:
+    """The battery SoC, None while the reading is a placeholder."""
+    return None if "battery_soc" in raw.unavailable_inputs else raw.battery_soc
+
+
+def _bookmark_start_of_day_soc(acc: EnergyAccumulator, raw: RawSensorValues) -> None:
+    """Note the SoC the day began at, on the first cycle that has a reading.
+
+    The bookmark is stored with the accumulator, so a restart keeps it and midnight clears it.
+    """
+    soc = _soc_if_available(raw)
+    if acc.soc_at_start_pct is None and soc is not None:
+        acc.soc_at_start_pct = soc
+
+
+def _set_savings_fields(data: CoordinatorData, cycle: _Cycle) -> None:
+    """The saving is what the load would have cost from the grid at the time, less what was paid.
+
+    Energy the battery gained since midnight was paid for but not yet used, and energy it lost
+    was paid for yesterday, so the change in stored energy is added at its value.
+    """
     acc = data.today
+    stored = stored_energy_change(
+        acc, _soc_if_available(cycle.raw), cycle.raw.battery_capacity_kwh, cycle.tariff
+    )
+    data.stored_energy_change_kwh = stored.change_kwh
+    data.stored_energy_value = stored.value
     actual_net_cost = acc.total_import_cost - acc.export_earnings
-    data.saving_vs_grid_today = round(acc.grid_equivalent_load_cost - actual_net_cost, 4)
+    data.saving_vs_grid_today = round(
+        acc.grid_equivalent_load_cost - actual_net_cost + stored.value, 4
+    )
     battery_wear_today = acc.battery_throughput_kwh * data.battery_cycle_cost_per_kwh
     data.net_saving_today = round(data.saving_vs_grid_today - battery_wear_today, 4)
 
@@ -1528,19 +1560,24 @@ def _apply_daily_counters(acc: EnergyAccumulator, raw: RawSensorValues) -> None:
     )
 
 
-def _carry_grid_to_battery(accumulators: Accumulators, raw: RawSensorValues) -> None:
-    """Add the growth of the AC charge counter to the week, month and year.
+def _carry_grid_to_battery(accumulators: Accumulators, cycle: _Cycle) -> None:
+    """Add the growth of the AC charge counter to the week, month and year, and price today's.
 
     Today takes the counter itself. The longer periods integrate live power, which has no
     grid-to-battery figure, so each gets the counter's rise since the last reading. That
-    also catches up the time Home Assistant was down.
+    also catches up the time Home Assistant was down. The rise is priced at the rate in force,
+    on today only, for the value of the energy the battery holds (core/stored_energy.py).
     """
-    if raw.ac_charge_energy_today_kwh is None:
+    if cycle.raw.ac_charge_energy_today_kwh is None:
         return
-    growth_kwh = accumulators.counters.growth_since_last(raw.ac_charge_energy_today_kwh)
+    growth_kwh = accumulators.counters.growth_since_last(cycle.raw.ac_charge_energy_today_kwh)
     for longer_acc in (accumulators.week, accumulators.month, accumulators.year):
         if longer_acc is not None:
             longer_acc.grid_to_battery_kwh += growth_kwh
+    accumulators.today.grid_to_battery_priced_kwh += growth_kwh
+    accumulators.today.grid_to_battery_cost += cycle.tariff.calculate_import_cost(
+        growth_kwh, cycle.now
+    )
 
 
 def _start_cycle(
@@ -1572,7 +1609,7 @@ def _set_decisions(
 def _set_money_fields(data: CoordinatorData, cycle: _Cycle, accumulators: Accumulators) -> None:
     """Bill, savings and battery budget; they read the decisions above."""
     _set_bill_fields(data, cycle, accumulators)
-    _set_savings_fields(data)
+    _set_savings_fields(data, cycle)
     _set_throughput_budget(data, cycle.cfg)
 
 

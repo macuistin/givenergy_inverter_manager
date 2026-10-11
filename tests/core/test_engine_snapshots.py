@@ -87,6 +87,14 @@ tests/core/test_sunrise_charge_engine.py.
 The immersion_planned_heating leaf was added for the planned heating sentence. The fresh snapshot
 gained it as None. No case moved, because none turns scheduled heating on. The behaviour is pinned
 in tests/core/test_planned_heating.py and tests/core/test_immersion_scheduled.py.
+
+The stored energy value and change in kWh were added to the saving, and today's accumulator gained
+soc_at_start_pct, grid_to_battery_cost and grid_to_battery_priced_kwh. The fresh snapshot gained
+stored_energy_value, stored_energy_change_kwh and the three accumulator leaves on each of today,
+week, month, year and yesterday. 235 of the 255 cases gained today.soc_at_start_pct, the SoC the
+first cycle read. Nothing else moved: no case sets the AC charge counter, and every case starts
+its day at the SoC it reads, so the saving is unchanged. The behaviour is pinned in
+tests/core/test_stored_energy.py.
 """
 
 from __future__ import annotations

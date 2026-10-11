@@ -937,3 +937,37 @@ class TestSelfSufficiencyAttributes:
     def test_each_period_reads_its_own_accumulator(self, period, function):
         data = make_data(**{period: self._live_day()}, grid_to_battery_counter_available=True)
         assert function(data)["from_grid_kwh"] == pytest.approx(4.6)
+
+
+class TestSavingAttributes:
+    """The stored energy part of the saving, so the figure can be checked by hand."""
+
+    def test_the_value_and_the_change_are_reported(self):
+        data = make_data(
+            battery_capacity_kwh=19.0, stored_energy_value=0.73712, stored_energy_change_kwh=7.4123
+        )
+        assert values.saving_attributes(data) == {
+            "stored_energy_value": 0.7371,
+            "stored_energy_change_kwh": 7.412,
+        }
+
+    def test_a_fall_is_reported_as_a_negative_change(self):
+        data = make_data(
+            battery_capacity_kwh=19.0, stored_energy_value=-1.8, stored_energy_change_kwh=-19.0
+        )
+        attrs = values.saving_attributes(data)
+        assert attrs["stored_energy_value"] < 0
+        assert attrs["stored_energy_change_kwh"] == -19.0
+
+    def test_the_change_is_none_while_the_capacity_is_unknown(self):
+        attrs = values.saving_attributes(make_data(battery_capacity_kwh=0.0))
+        assert attrs == {"stored_energy_value": 0.0, "stored_energy_change_kwh": None}
+
+    @pytest.mark.parametrize("key", ["saving_vs_grid_today", "net_saving_today"])
+    def test_both_saving_sensors_carry_them(self, key):
+        from custom_components.givenergy_inverter_manager.sensor_descriptions import (
+            SENSOR_DESCRIPTIONS,
+        )
+
+        description = next(d for d in SENSOR_DESCRIPTIONS if d.key == key)
+        assert description.attrs_fn is values.saving_attributes

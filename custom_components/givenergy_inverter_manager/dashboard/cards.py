@@ -188,14 +188,21 @@ def markdown_card(content: str) -> dict:
     return {"type": "markdown", "content": content, "grid_options": {"columns": FULL}}
 
 
-def state_ref(entity: str) -> str:
-    """The template that prints an entity's state."""
-    return f"{{{{ states('{entity}') }}}}"
+def state_ref(entity: str, full_text_attribute: str | None = None) -> str:
+    """The template that prints an entity's state.
+
+    A sentence sensor cuts its state to Home Assistant's 255 character limit and keeps the whole
+    text in an attribute. Naming that attribute prints it, and falls back to the state while it
+    is absent, as on an install of an earlier version.
+    """
+    if full_text_attribute is None:
+        return f"{{{{ states('{entity}') }}}}"
+    return f"{{{{ state_attr('{entity}', '{full_text_attribute}') or states('{entity}') }}}}"
 
 
-def state_markdown(entity: str | None) -> dict | None:
+def state_markdown(entity: str | None, full_text_attribute: str | None = None) -> dict | None:
     """A markdown card that prints an entity's state, for sensors whose state is a sentence."""
-    return markdown_card(state_ref(entity)) if entity else None
+    return markdown_card(state_ref(entity, full_text_attribute)) if entity else None
 
 
 def attribute_markdown(entity: str | None, attribute: str) -> dict | None:

@@ -371,9 +371,15 @@ DESCRIPTIONS: dict[str, str] = {
     "immersion_savings_today": "Diverted solar kWh times (current rate minus export rate).",
     "saving_vs_grid_today": (
         "House load priced at the rate in force when it ran, minus net import cost "
-        "(import cost minus export earnings)."
+        "(import cost minus export earnings), plus the value of the change in the energy the "
+        "battery holds since midnight. The `stored_energy_value` and `stored_energy_change_kwh` "
+        "attributes show that last part, so the figure can be checked by hand. "
+        "See [Concepts](concepts.md#saving-and-the-energy-in-the-battery)."
     ),
-    "net_saving_today": "Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set.",
+    "net_saving_today": (
+        "Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. "
+        "It carries the same `stored_energy_value` and `stored_energy_change_kwh` attributes."
+    ),
     "net_position_today": "Export earnings minus import cost.",
     "self_sufficiency": (
         "Share of the house load, EV and immersion included, that did not come from the grid "
@@ -466,7 +472,8 @@ DESCRIPTIONS: dict[str, str] = {
         "Estimated SoC at Sunrise Without a Charge. It does not feed Battery Overnight Outlook "
         "or Confidence. It reads the learned per-slot load profile the charge plan uses (scaled "
         "to the daily average), and falls back to the flat average until there is a usable "
-        "profile. `basis` says which. Attributes: `soc_at_charge_start` (the SoC when the window opens), "
+        "profile. `basis` says which. Attributes: `soc_at_charge_start` (the SoC when the window "
+        "opens), "
         "`charge_added_pct` (points the window adds), `charge_window` (for example `02:00 to "
         "04:35`) and `basis` (in words, what the figure assumes)."
     ),
@@ -778,6 +785,11 @@ def generate() -> str:
         "`last_reset` as the start of that period. `no` means it reports none. See "
         "[Long-term statistics](long-term-statistics.md).",
         "- **Enabled**: whether the sensor is enabled when first created.",
+        "",
+        "Home Assistant keeps a state of at most 255 characters. A sensor whose state is a "
+        "sentence cuts a longer one at the end of a sentence or clause and ends it with `…`. "
+        "While it is cut, the sensor carries the whole text in its `full_text` attribute. The "
+        "attribute is absent when the text fits, and it is kept out of the recorder.",
         "",
         "A sensor marked `Created only with ...` exists only while that device is present: an "
         "EV charger the integration discovered, the immersion switch, or the immersion "

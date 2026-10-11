@@ -13,6 +13,8 @@ Column guide:
 - **Last reset**: `day`, `week`, `month` or `year` means the sensor reports `last_reset` as the start of that period. `no` means it reports none. See [Long-term statistics](long-term-statistics.md).
 - **Enabled**: whether the sensor is enabled when first created.
 
+Home Assistant keeps a state of at most 255 characters. A sensor whose state is a sentence cuts a longer one at the end of a sentence or clause and ends it with `…`. While it is cut, the sensor carries the whole text in its `full_text` attribute. The attribute is absent when the text fits, and it is kept out of the recorder.
+
 A sensor marked `Created only with ...` exists only while that device is present: an EV charger the integration discovered, the immersion switch, or the immersion temperature sensor. An install without the device has no such sensor, so nothing sits unavailable. The sensor appears by itself when the device appears: when discovery first finds an EV charger, or after an options change that sets the immersion entities (the entry reloads). The registry entries of a device that is gone are removed when the entry next loads. An EV charger's are kept while Home Assistant is starting, because its own integration may not have loaded yet. A dashboard made by the integration follows these changes. See [Dashboard](dashboard.md#devices-you-add-or-remove-later).
 
 ## Live power and flow
@@ -88,8 +90,8 @@ Money sensors use the currency symbol you chose in the tariff. A cost, earning, 
 |---|---|---|---|---|---|---|---|
 | Import Cost Today | `import_cost_today` | currency | monetary | total | day | yes | Import cost after the supplier discount and VAT. |
 | Export Earnings Today | `export_earnings_today` | currency | monetary | total | day | yes | Exported kWh times the export rate. |
-| Saving vs Grid Today | `saving_vs_grid_today` | currency | monetary | total | day | yes | House load priced at the rate in force when it ran, minus net import cost (import cost minus export earnings). |
-| Net Saving Today (inc. battery wear) | `net_saving_today` | currency | monetary | total | day | yes | Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. |
+| Saving vs Grid Today | `saving_vs_grid_today` | currency | monetary | total | day | yes | House load priced at the rate in force when it ran, minus net import cost (import cost minus export earnings), plus the value of the change in the energy the battery holds since midnight. The `stored_energy_value` and `stored_energy_change_kwh` attributes show that last part, so the figure can be checked by hand. See [Concepts](concepts.md#saving-and-the-energy-in-the-battery). |
+| Net Saving Today (inc. battery wear) | `net_saving_today` | currency | monetary | total | day | yes | Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. It carries the same `stored_energy_value` and `stored_energy_change_kwh` attributes. |
 | EV Charging Cost Today | `zappi_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the EV charger, after the supplier discount and VAT. Standing charge and levy are not included, so it is higher than the EV energy times the bare rate by the discount and VAT factor. Created only with an EV charger. |
 | House Cost Today | `house_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the rest of the house, after the supplier discount and VAT. Includes grid energy stored in the battery. |
 | Net Financial Position Today | `net_position_today` | currency | monetary | total | day | no | Export earnings minus import cost. |

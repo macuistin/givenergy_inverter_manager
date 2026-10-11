@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from ..const import (
+    ATTR_FULL_TEXT,
     CONF_CURRENCY,
     CURRENCIES,
     DEFAULT_CURRENCY,
@@ -35,7 +36,7 @@ def survival_template(level: str, status: str | None, sunrise: str | None) -> st
     The outlook attribute holds a phrase such as "Lasts the night". An install that lacks it
     shows the level word instead. The heading above the card already says what it is of.
     """
-    status_text = state_ref(status) if status else ""
+    status_text = state_ref(status, ATTR_FULL_TEXT) if status else ""
     warning = (
         "The battery should last until solar starts, but only just. "
         f"It is expected to reach {_sunrise_phrase(sunrise)}, close to your minimum charge. "

@@ -333,6 +333,16 @@ class EnergyAccumulator:
     # The part of import_kwh that went into the battery (GivTCP's AC charge counter). It is
     # stored, not used, so it does not count as the grid supplying the house.
     grid_to_battery_kwh: float = 0.0
+    # What the grid energy that went into the battery cost, and the kWh that cost covers. Both
+    # are kept by the integration from the moment it prices the AC charge counter, so
+    # grid_to_battery_priced_kwh can be less than grid_to_battery_kwh on the day it is
+    # first installed. Today's accumulator only. See core/stored_energy.py.
+    grid_to_battery_cost: float = 0.0
+    grid_to_battery_priced_kwh: float = 0.0
+    # The battery's state of charge at the start of the period, None until the first reading.
+    # A bookmark, not an accumulated figure, so it is left out of equality: a period with
+    # nothing else on it still counts as empty.
+    soc_at_start_pct: float | None = field(default=None, compare=False)
 
     # ── Rate-tier import breakdown ────────────────────────────────────────────
     # "cheap" = any timed rate period active (Night, Nightboost, etc.)
