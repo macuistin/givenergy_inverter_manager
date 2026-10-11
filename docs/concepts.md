@@ -116,10 +116,12 @@ The calculation runs every cycle. The result is written to GivTCP once a day. Th
 
 **Forecast adjustments, in order.** Step 3 adjusts the forecast twice before the simulation uses it:
 
-1. **Accuracy correction.** Multiply by the median of actual solar over forecast for the last 14 days, kept between 0.6 and 1.2. It needs 5 usable days. A new install fills them from the Home Assistant recorder when it first loads (the last value of the forecast sensor before each midnight against that day's GivTCP solar total, about 9 days with the default 10 days of history), so the correction can apply at once. A day with clipping, or with a forecast or solar yield under 0.5 kWh, is not usable, and seeded days are never marked as clipped. A forecast that runs about 30% high gives a factor near 0.7, so the battery charges for 70% of what the service promises.
+1. **Accuracy correction.** Multiply by the median of actual solar over forecast for the last 14 days, kept between 0.4 and 1.2. It needs 5 usable days. When the factor sits on a limit, the charge reason says so, for example `x0.40 recent accuracy (at the lower limit)`. A new install fills them from the Home Assistant recorder when it first loads (the last value of the forecast sensor before each midnight against that day's GivTCP solar total, about 9 days with the default 10 days of history), so the correction can apply at once. A day with clipping, or with a forecast or solar yield under 0.5 kWh, is not usable, and seeded days are never marked as clipped. A forecast that runs about 30% high gives a factor near 0.7, so the battery charges for 70% of what the service promises.
 2. **P10 blend.** If a P10 forecast is available (the P10 sensor, or the `estimate10` attribute of a Solcast forecast sensor) and conservatism is above 0, take `(1 - w) x forecast + w x P10`.
 
 The factor raises the forecast, up to 1.2, when the service runs low. The charge reason names each step that applied. Setup details are in [Configuration](configuration.md#forecast-accuracy-correction).
+
+**A long reason.** Home Assistant keeps a state of at most 255 characters, and the reason can be longer when several steps applied. The **Overnight Charge Reason** state is then cut at the end of a sentence or clause and ends with `…`. While the state is cut, the whole reason is in the `full_text` attribute of the same sensor, and the Battery overnight card of the dashboard shows it. Every sensor with a text state works the same way, for example **Battery Overnight Outlook**, **Immersion Divert Reason** and **EV Mode Decision**.
 
 The winter and shoulder month lists are fixed calendar months. They follow northern hemisphere seasons. The seasonal solar estimate does use your latitude.
 
@@ -141,11 +143,19 @@ The overnight outlook asks whether the battery lasts until solar starts. It uses
 
 Solar counts as generating once the reading has stayed at or above 10 W (the noise floor) for 5 minutes, and stops counting once it has stayed below 10 W for 5 minutes. A reading that crosses back restarts the count. At dawn and dusk the reading wanders across 10 W every few cycles. Without this, the window flipped between 8 hours and the whole evening with each crossing, and the status flipped between "Estimated shortfall" and "should last". The charge plan reads the same settled state. Only the solar state waits. The SoC, the load and the shortfall are read fresh every cycle, so a real shortfall shows at once. After a restart or a gap of an hour the first reading is taken as it is.
 
-The charge plan skips a night only when this check passes, and it uses the same window and load. **Estimated SoC at Sunrise** is the SoC left at the end of the window, never below the minimum SoC. **Battery Overnight Outlook** and **Battery Overnight Confidence** read the same calculation. The confidence is Safe, Warning or Critical. The dashboard says it in words: Lasts the night, Only just lasts the night and May run low.
+The charge plan skips a night only when this check passes, and it uses the same window and load. **Estimated SoC at Sunrise Without a Charge** is the SoC left at the end of the window, never below the minimum SoC. **Battery Overnight Outlook** and **Battery Overnight Confidence** read the same calculation. The confidence is Safe, Warning or Critical. The dashboard says it in words: Lasts the night, Only just lasts the night and May run low.
 
 The estimate is a pessimistic one by design, in two ways. It spreads the day's average load evenly over the window, so a night that is quieter than the day reads worse than it will be: an evening that uses 0.5 kWh an hour is judged at the daily average, often twice that. And it counts only the charge the battery holds now. A cheap-rate charge planned for later tonight is not added, so a shortfall in the evening is a shortfall without that charge. A **Battery may run low** status in the evening, with a charge planned for the cheap period, does not mean the battery will run out. Check **Tonight's Charge Plan** next to it. The minimum SoC reading is the floor of the estimate, not a measurement.
 
-The calculated figure steps when the day's energy total resets at midnight, when the window flips at 08:00 and when solar fades in the evening. The published **Estimated SoC at Sunrise** follows the calculated figure at no more than the pace the inverter can charge or discharge the battery (inverter maximum output over battery capacity, for example 5 kW over 19 kWh is about 26 points an hour). A step becomes a ramp of about half an hour. The status and confidence sensors use the calculated figure, so a real shortfall shows at once. After a restart or a gap of an hour the held value is dropped and the sensor starts from the calculated figure.
+The calculated figure steps when the day's energy total resets at midnight, when the window flips at 08:00 and when solar fades in the evening. The published **Estimated SoC at Sunrise Without a Charge** follows the calculated figure at no more than the pace the inverter can charge or discharge the battery (inverter maximum output over battery capacity, for example 5 kW over 19 kWh is about 26 points an hour). A step becomes a ramp of about half an hour. The status and confidence sensors use the calculated figure, so a real shortfall shows at once. After a restart or a gap of an hour the held value is dropped and the sensor starts from the calculated figure.
+
+**Two sunrise figures.** The figure above leaves tonight's planned charge out on purpose, because it answers "will the battery last without a charge". In the evening that makes it sit on the minimum SoC for hours, even with a charge planned and the battery on course to finish the night well above the minimum. **Estimated SoC at Sunrise With the Planned Charge** projects the same night with the charge in it:
+
+1. The battery runs down on the house load from now to the start of the charge window.
+2. The window adds charge at the charge rate the plan uses, up to the target. The window is sized for the SoC the battery will have when it opens, which is what the plan writes then, so the evening figure does not wait for the window to grow.
+3. The battery runs down on the house load from the end of the window to 08:00, never below the minimum SoC.
+
+It reads the next 08:00 on the clock, so it stays steady through the day and does not step at midnight. A window that is running starts from the current SoC. A battery already at the target when the window opens adds nothing. With no charge rate known, the battery is assumed to reach the target. On a skipped night, with no timed charge window, or once the window is over, it equals the figure without a charge. The two figures use different loads on purpose. The figure without a charge, which night survival judges, spreads the daily average evenly over the hours. The figure with the charge uses the learned per-slot load profile that the charge plan simulation uses, scaled to the same daily average, so a quiet night reads as quiet. Until there is a usable profile (a new install, or too little history) it falls back to the flat average. The `basis` attribute ends with the load it used. Its attributes show what it is made of: `soc_at_charge_start`, `charge_added_pct`, `charge_window` and `basis`. It does not feed Battery Overnight Outlook or Confidence, and no decision reads it.
 
 ### Immersion divert
 
@@ -283,6 +293,27 @@ Other brands get the signals and the base-rate alert only.
 ### Costs
 
 Every cycle the grid import is priced at the current rate, after supplier discount and VAT, and split between the EV, the immersion and the rest of the house by their share of the house load. Import above the load went into the battery and stays in the rest of the house. Export earns the export rate. See [Tariff](tariff.md#bill-line-items).
+
+### Saving and the energy in the battery
+
+**Saving vs Grid Today** is what the house load would have cost from the grid at the time it ran, minus what you paid (import cost minus export earnings). Energy bought to fill the battery is part of what you paid, but it only earns its keep when the battery gives it back. Counted alone, the saving reads negative after a cheap overnight charge and recovers through the day. So the saving also counts the energy the battery holds:
+
+saving = load priced at the grid rate at the time, minus net import cost, plus stored energy value
+
+- **Stored energy change.** (SoC now minus SoC at the start of the day) times the battery capacity from the options. The start of the day is the first SoC the integration reads after midnight, and it is saved with today's totals, so a restart keeps it. A fall in SoC makes the change negative.
+- **Value of each kWh.** The average cost of the grid energy that went into the battery today, after discount and VAT. That energy is the AC charge counter's rise, priced at the rate in force when it rose. When none went in, it is the cheapest rate in the tariff, after discount and VAT.
+- **Stored energy value.** The change times the value of each kWh. It is added to Saving vs Grid Today, and so to Net Saving Today. Both sensors show it in the `stored_energy_value` attribute, with the change in kWh in `stored_energy_change_kwh`. Divide one by the other for the value of each kWh.
+
+Why this rule. The grid energy stored today is the only energy the battery was bought with, so its average cost is what a stored kWh cost. Solar stored has no purchase price, and counting it at 0 would pull the average down, so it is left out. With no grid charge there is nothing to average, and the cheapest rate is the lowest price the battery could have been filled at. A fall in stored energy uses the same value, so a day that charges and a day that discharges the same energy cancel when the charge was bought at the cheapest rate.
+
+Example, a 10 kWh battery on a tariff whose cheapest rate is 0.10 after discount and VAT. The battery starts the day at 40% and 4 kWh are bought overnight at 0.10, which costs 0.40. By 11:00 solar has covered 1 kWh of load that would have cost 0.30 from the grid, and the battery stands at 80%. Without the stored energy the saving is 0.30 minus 0.40, which is -0.10. The battery holds 4 kWh more than at midnight, worth 4 times 0.10, which is 0.40. The saving is -0.10 plus 0.40, which is 0.30. When the battery later supplies the evening load, the stored energy value falls by what that energy cost and the load saving rises by what the grid would have charged for it. The saving ends the day higher than it stood at 11:00.
+
+What to expect:
+
+- The stored energy value follows the SoC. The saving rises as the battery charges and falls as it drains, by the value of the energy that moved.
+- Days add up. Each day starts at 0 and carries its own stored energy value. A week that ends at the SoC it began at adds nothing overall when the energy was bought at the cheapest rate. Energy bought at a dearer rate and later valued at the cheapest rate leaves the difference in the week, and that difference is a real cost.
+- With no battery capacity set, or while the SoC reading is unavailable, the stored energy value is 0 and the saving is the load minus net import cost. Without the AC charge counter every kWh is valued at the cheapest rate.
+- On the day you update, the start of the day SoC is the first reading after the update, so that day's stored energy value starts at 0.
 
 ### Self-sufficiency, solar share and self-consumption
 

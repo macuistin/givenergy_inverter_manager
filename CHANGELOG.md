@@ -4,7 +4,51 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+Two sunrise figures, saving values that count the battery, and a forecast correction that follows cloudy weeks.
+
+**Features**
+- New sensor Estimated SoC at Sunrise With the Planned Charge (`estimated_soc_at_sunrise_with_charge`).
+  It projects the battery to the next 08:00 with tonight's planned charge in it: the battery runs down
+  to the start of the charge window, the window adds charge up to the target at the charge rate the
+  plan uses, and the battery runs down again to sunrise, never below the minimum SoC. The window is
+  sized for the SoC the battery will have when it opens. A skipped night, no timed charge window, or a
+  window that is over gives the same figure as the one without a charge. It reads the learned
+  per-slot load profile the charge plan uses, and the flat daily average until there is a usable
+  profile. The figure without a charge keeps the flat average, and `basis` says which load was used. Its attributes are
+  `soc_at_charge_start`, `charge_added_pct`, `charge_window` and `basis`. Nothing reads it, so the
+  charge plan and the night survival sensors are unchanged. It is enabled by default.
+
 **Changes**
+- Estimated SoC at Sunrise is now Estimated SoC at Sunrise Without a Charge, and its description says
+  it ignores tonight's planned charge and holds at the minimum SoC when the battery would run flat.
+  The key, the unique ID and the value are unchanged, so history, statistics and automations carry on.
+  An install made before this change keeps its entity ID. A new install gets a different entity ID
+  for this sensor, `sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge`,
+  because Home Assistant builds it from the name. Use the entity ID shown on your install in
+  automations and cards.
+- The Battery view shows Sunrise (no charge) and Sunrise (with charge) in Tonight's charge plan, where
+  it showed one At sunrise tile. The Battery overnight section of the Battery detail view shows the
+  same two tiles under the outlook.
+- **Saving values change on every install.** Saving vs Grid Today and Net Saving Today now add the
+  value of the change in the energy the battery holds since midnight. Energy bought to fill the
+  battery was counted as cost on the day it was bought, while the battery had not yet given it
+  back, so the saving read negative in the morning and recovered through the day. The change is
+  (SoC now minus SoC at the start of the day) times the battery capacity, valued at the average
+  cost of the grid energy that went into the battery today, or at the cheapest rate in the tariff
+  when none did. A fall in SoC is valued the same way, so a day that drains the battery is charged
+  for the energy it used. A day with no change in SoC reads as before. See
+  [Concepts](docs/concepts.md#saving-and-the-energy-in-the-battery).
+- Both sensors have two new attributes, `stored_energy_value` and `stored_energy_change_kwh`, so
+  the figure can be checked by hand.
+- Today's start of day SoC and the cost of the grid energy stored are saved with today's totals.
+  Existing stored data loads unchanged. On the day you update, the start of the day SoC is the
+  first reading after the update, so that day's stored energy value starts at 0.
+- The forecast accuracy correction can now fall to 0.4, down from 0.6, so it follows a run of cloudy
+  days where the forecast over-reads by more than 40%. The upper limit stays 1.2, and the correction
+  still needs 5 usable days out of the last 14. The factor is still the median ratio of those days, so
+  one odd day does not swing it.
+- The charge reason says when the factor sits on a limit, for example
+  `x0.40 recent accuracy (at the lower limit)`.
 - Saving the options page no longer reloads the integration for most changes. A tariff edit, a
   threshold, dry run, verbose logging, the forecast and carbon sensors (except the main forecast
   sensor), element power, ready-by times and the car efficiency now apply straight away, and
@@ -19,6 +63,31 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   **Show beta versions**. `scripts/set_version.py` sets the version in the six files that state it.
 - Home Assistant 2026.5.0 is now the minimum, up from 2026.2.0. Home Assistant 2026.5 itself needs
   Python 3.14.2 or newer. HACS offers this version only to installs on 2026.5.0 or later.
+- A battery capacity of 0 no longer stops the charge plan with an error. The plan skips and says the
+  capacity is not set.
+
+**Upgrading**
+- Generate the dashboard file again, or use the strategy dashboard, to get the two Sunrise tiles.
+- Troubleshooting has a new entry, Why does SoC at sunrise read 10%?, and Concepts explains the two
+  figures under Battery overnight.
+- Charge targets can rise on cloudy weeks, because the plan now trusts the forecast less. Nothing needs
+  changing in the options.
+
+## v0.17.2
+
+Fixes text sensors that went unknown when their text was longer than Home Assistant allows.
+No stored data change. Generate the dashboard file again to get the dashboard cards that read the full text.
+
+**Fixes**
+- Overnight Charge Reason no longer reads unknown when the reason is longer than Home Assistant's
+  255 character state limit. A reason with the forecast accuracy, a cautious forecast, a skip note,
+  the load profile and the configured maximum can reach 270 characters, and Home Assistant logged
+  an error every 30 seconds and showed unknown for hours. Every sensor with a text state now cuts
+  a longer text at the end of a sentence or clause and ends it with `…`. While it is cut, the
+  sensor carries the whole text in a `full_text` attribute, which is kept out of the recorder.
+- The charge plan report uses the whole reason. The dashboard cards that print these sentences
+  (the Battery overnight card, the immersion and EV reasons, the dry run banner) read `full_text`
+  when it is there and fall back to the state. Regenerate the dashboard to pick this up.
 
 ## v0.17.1
 

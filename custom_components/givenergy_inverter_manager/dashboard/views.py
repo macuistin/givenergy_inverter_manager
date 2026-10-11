@@ -14,7 +14,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
-from ..const import CONF_FORECAST_ENTITY, CONF_INVERTER_SERIAL, CONF_INVERTER_TEMP_ENTITY
+from ..const import (
+    ATTR_FULL_TEXT,
+    CONF_FORECAST_ENTITY,
+    CONF_INVERTER_SERIAL,
+    CONF_INVERTER_TEMP_ENTITY,
+)
 from ..core.devices import Device
 from ..core.tariff import (
     build_tariff,
@@ -114,6 +119,10 @@ RATE_NAME = "Rate per kWh"
 AVERAGE_RATE_NAME = "Avg import/kWh"
 # What the night survival sensors are called to a person: does the battery last the night.
 OVERNIGHT_NAME = "Battery overnight"
+# The two sunrise figures differ by tonight's planned charge, so each name says which it is.
+# Both are full width: a half tile fits 15 characters and these are longer.
+SUNRISE_NO_CHARGE_NAME = "Sunrise (no charge)"
+SUNRISE_WITH_CHARGE_NAME = "Sunrise (with charge)"
 
 
 # ── Views ────────────────────────────────────────────────────────────────────
@@ -537,7 +546,7 @@ class Builder:
         sensor with no switch shows no heater or reason.
         """
         switch = Device.IMMERSION_SWITCH
-        reason = state_markdown(self.entity("immersion_divert_reason"))
+        reason = state_markdown(self.entity("immersion_divert_reason"), ATTR_FULL_TEXT)
         return [
             self._water_temperature(),
             self._heater_on_off(),
@@ -663,7 +672,7 @@ class Builder:
                 [
                     tile_card(self.ev("ev_draining_battery"), "Drains battery", color=BATTERY),
                     tile_card(self.ev("ev_solar_surplus_available"), "Solar surplus", color=SOLAR),
-                    state_markdown(decision),
+                    state_markdown(decision, ATTR_FULL_TEXT),
                 ],
                 **shown,
             ),
@@ -962,6 +971,20 @@ class Builder:
             ],
         )
 
+    def _sunrise_tiles(self) -> list:
+        """The charge expected at sunrise without and with tonight's planned charge."""
+        return [
+            self.tile(
+                "estimated_soc_at_sunrise", SUNRISE_NO_CHARGE_NAME, color=BATTERY, columns=FULL
+            ),
+            self.tile(
+                "estimated_soc_at_sunrise_with_charge",
+                SUNRISE_WITH_CHARGE_NAME,
+                color=BATTERY,
+                columns=FULL,
+            ),
+        ]
+
     def _charge_plan(self) -> dict | None:
         """The plan's sentence first: it says whether tonight charges or is skipped."""
         return group(
@@ -971,8 +994,8 @@ class Builder:
                 self.tile(
                     "overnight_charge_target", "Target if charging", color=BATTERY, columns=FULL
                 ),
+                *self._sunrise_tiles(),
                 self.tile("overnight_charge_cost", "Est. cost", color=GRID),
-                self.tile("estimated_soc_at_sunrise", "At sunrise", color=BATTERY),
                 self.tile(
                     "cheap_rate_floor_status", "Rate floor", color=GRID, icon="mdi:floor-plan"
                 ),
@@ -1042,11 +1065,12 @@ class Builder:
         return [
             grid_section(
                 heading_block(
-                    heading_card(OVERNIGHT_NAME, "mdi:weather-night"), self._night_survival()
+                    heading_card(OVERNIGHT_NAME, "mdi:weather-night"),
+                    [*self._night_survival(), *self._sunrise_tiles()],
                 ),
                 heading_block(
                     subheading_card("Tonight's charge target", "mdi:battery-charging"),
-                    [state_markdown(self.entity("overnight_charge_reason"))],
+                    [state_markdown(self.entity("overnight_charge_reason"), ATTR_FULL_TEXT)],
                 ),
             ),
             self._battery_health(),
@@ -1067,7 +1091,7 @@ class Builder:
         if level:
             return [markdown_card(survival_template(level, status, sunrise))]
         if status:
-            return [markdown_card(state_ref(status))]
+            return [markdown_card(state_ref(status, ATTR_FULL_TEXT))]
         return []
 
     # -- Settings --
@@ -1083,7 +1107,7 @@ class Builder:
             "services, GivEnergy Inverter Manager, Configure."
         )
         if skipped := self.entity("dry_run_last_skipped"):
-            text += f"\n\n**Last skipped action:** {state_ref(skipped)}"
+            text += f"\n\n**Last skipped action:** {state_ref(skipped, ATTR_FULL_TEXT)}"
         return group(
             heading_card("Dry run is on", "mdi:test-tube"),
             [markdown_card(text)],
@@ -1119,7 +1143,7 @@ class Builder:
 
     def _divert_decision(self) -> list:
         """The divert reason under a label, so a sentence among controls says what it is."""
-        reason = state_markdown(self.entity("immersion_divert_reason"))
+        reason = state_markdown(self.entity("immersion_divert_reason"), ATTR_FULL_TEXT)
         heading = subheading_card("Heater decision now", "mdi:help-circle-outline")
         return heading_block(heading, [reason])
 

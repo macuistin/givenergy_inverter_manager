@@ -176,6 +176,7 @@ The integration only records these changes. It does not undo them. The log is sa
 
 Read **Overnight Charge Reason** first. Then check these:
 
+- **The reason ends in `…`.** Home Assistant keeps a state of at most 255 characters, so a long reason is cut at the end of a sentence or clause. The whole text is in the `full_text` attribute of **Overnight Charge Reason**, which is there only while the state is cut. Read it in Developer tools, States, or in a template with `{{ state_attr('sensor.givenergy_inverter_manager_overnight_charge_reason', 'full_text') }}`.
 - **The target is lower than expected, and the reason ends "capped at configured max".** **Default overnight charge target** caps the calculated target. It is 80 unless you changed it, and the cap applies to the winter 100% target too.
 - **The sensor differs by a few points from the value written to the inverter.** **Recommended Overnight Charge Target** holds its value until the calculated target moves 5 points or more and the value has stood for an hour (15 points or more shows at once), so the history stays readable. The write uses the latest calculation, and the sensor matches it from the next cycle. See [Overnight charge target](concepts.md#overnight-charge-target).
 - **December to February.** The target is 100% before the cap, whatever the forecast.
@@ -195,6 +196,15 @@ logger:
   logs:
     custom_components.givenergy_inverter_manager: debug
 ```
+
+## Why does SoC at sunrise read 10%?
+
+There are two sunrise figures, and they answer different questions.
+
+- **Estimated SoC at Sunrise Without a Charge** is what the battery would have at 08:00 if nothing charged it. It leaves tonight's planned charge out, and it stops at the minimum SoC when the battery would run flat. In the evening, with the battery at 50 to 65% and a charge planned for the cheap period, it can read the minimum (10% by default) from dusk until the charge starts. That is the figure Battery Overnight Outlook and Confidence judge, so a "May run low" in the evening is a shortfall without the planned charge.
+- **Estimated SoC at Sunrise With the Planned Charge** adds the planned charge window, up to the target, then runs the battery down to 08:00. This is the one to read for where the night will end. Its attributes say how: `soc_at_charge_start` is the SoC when the window opens, `charge_added_pct` is what the window adds, `charge_window` is the window used and `basis` says it in words.
+
+If both read the same, no charge counts: tonight is skipped, no timed charge window is set, or the window is over. A with-charge figure well below the target means the window is too short to reach it at the charge rate, or the load estimate is high. The no-charge figure always spreads the daily average evenly, so it is pessimistic for a quiet night. The with-charge figure uses the learned per-slot load profile once there is one, and its `basis` attribute says which load it used. Check **Overnight Charge Window** and **Overnight Charge Reason**. See [Battery overnight](concepts.md#battery-overnight).
 
 ## The immersion does not turn on
 

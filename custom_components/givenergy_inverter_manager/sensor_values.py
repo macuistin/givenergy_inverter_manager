@@ -398,9 +398,47 @@ def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     )
 
 
+def sunrise_with_charge_soc(data: CoordinatorData) -> float | None:
+    """Return the SoC at sunrise with tonight's planned charge, None before the first cycle."""
+    projection = data.sunrise_with_charge
+    return None if projection is None else round(projection.soc, 1)
+
+
+def sunrise_with_charge_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Return what the figure is made of, None before the first cycle.
+
+    soc_at_charge_start and charge_window are None on a night with no charge in the figure.
+    """
+    projection = data.sunrise_with_charge
+    if projection is None:
+        return None
+    return {
+        "soc_at_charge_start": _round_or_none(projection.soc_at_charge_start, 1),
+        "charge_added_pct": round(projection.charge_added_pct, 1),
+        "charge_window": projection.charge_window,
+        "basis": projection.basis,
+    }
+
+
 def register_write_attributes(data: CoordinatorData) -> dict[str, Any]:
     """The recent writes and outside changes to the charge entities, newest first."""
     return {"recent_writes": newest_first(data.register_write_log)}
+
+
+# ── Savings ──────────────────────────────────────────────────────────────────
+
+
+def saving_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """The part of the saving that is stored energy, so the figure can be checked by hand.
+
+    stored_energy_change_kwh is None while the battery capacity is unknown, because the
+    change in kWh cannot be worked out then and the value is 0.
+    """
+    known = data.battery_capacity_kwh > 0
+    return {
+        "stored_energy_value": round(data.stored_energy_value, 4),
+        "stored_energy_change_kwh": round(data.stored_energy_change_kwh, 3) if known else None,
+    }
 
 
 # ── Self-sufficiency ─────────────────────────────────────────────────────────

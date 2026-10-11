@@ -736,7 +736,10 @@
         "name": "Water Heating Cheapest Source"
       },
       "estimated_soc_at_sunrise": {
-        "name": "Estimated SoC at Sunrise"
+        "name": "Estimated SoC at Sunrise Without a Charge"
+      },
+      "estimated_soc_at_sunrise_with_charge": {
+        "name": "Estimated SoC at Sunrise With the Planned Charge"
       },
       "night_survival_reason": {
         "name": "Battery Overnight Outlook"

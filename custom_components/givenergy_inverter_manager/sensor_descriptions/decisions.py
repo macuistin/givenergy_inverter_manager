@@ -58,6 +58,14 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=lambda d: round(d.estimated_soc_at_sunrise, 1),
     ),
     GivEnergyManagerSensorDescription(
+        key="estimated_soc_at_sunrise_with_charge",
+        translation_key="estimated_soc_at_sunrise_with_charge",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        attrs_fn=values.sunrise_with_charge_attributes,
+        value_fn=values.sunrise_with_charge_soc,
+    ),
+    GivEnergyManagerSensorDescription(
         key="night_survival_reason",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="night_survival_reason",

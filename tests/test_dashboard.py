@@ -706,14 +706,34 @@ class TestLongTextStates:
             c["content"] for c in all_cards(yaml.safe_load(_build())["views"]) if "content" in c
         )
         for key in self._SENTENCES:
-            assert f"{{{{ states('{eid(key)}') }}}}" in markdown, key
+            assert self._full_text(key) in markdown, key
+
+    @staticmethod
+    def _full_text(key: str) -> str:
+        """The template that prints the full text kept in the attribute, else the state."""
+        entity = eid(key)
+        return f"{{{{ state_attr('{entity}', 'full_text') or states('{entity}') }}}}"
+
+    def test_a_sentence_card_prints_the_full_text_attribute_over_the_cut_state(self):
+        entity = eid("overnight_charge_reason")
+        cut, full = "A long reason…", "A long reason that the state had to cut."
+        card = self._full_text("overnight_charge_reason")
+
+        shown = _render(card, lambda e: cut, {(entity, "full_text"): full})
+
+        assert shown == full
+
+    def test_a_sentence_card_falls_back_to_the_state_without_the_attribute(self):
+        card = self._full_text("overnight_charge_reason")
+
+        assert _render(card, lambda e: "The state.", {}) == "The state."
 
     def test_battery_detail_leads_with_night_survival_then_the_charge_reason(self):
         markdown = [c for c in self._battery() if c["type"] == "markdown"]
         assert len(markdown) == 2
         assert self._battery()[0]["heading"] == "Battery overnight"
         assert self._battery()[1] == markdown[0]
-        assert f"{{{{ states('{eid('overnight_charge_reason')}') }}}}" == markdown[1]["content"]
+        assert self._full_text("overnight_charge_reason") == markdown[1]["content"]
         night = markdown[0]["content"]
         for key in ("night_survival_confidence", "estimated_soc_at_sunrise", "night_survival_reason"):
             assert eid(key) in night, key
@@ -1207,6 +1227,8 @@ class TestSubViews:
             "overnight_charge_reason",
             "night_survival_reason",
             "night_survival_confidence",
+            "estimated_soc_at_sunrise",
+            "estimated_soc_at_sunrise_with_charge",
             "battery_cycles",
             "battery_remaining_life",
             "days_since_full_charge",

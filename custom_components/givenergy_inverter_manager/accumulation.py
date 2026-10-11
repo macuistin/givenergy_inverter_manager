@@ -64,8 +64,27 @@ _SAVE_DELAY_SECONDS = 15
 # ── Serialisation helpers ─────────────────────────────────────────────────────
 
 
+def _optional_acc_fields(acc: EnergyAccumulator) -> dict:
+    """The fields stored only once they hold something, so an unused install stores nothing new.
+
+    Like the immersion heat log, they are read with a default, so they need no storage
+    version: a payload saved before they existed loads with no bookmark and nothing priced.
+    """
+    fields: dict = {}
+    if acc.soc_at_start_pct is not None:
+        fields["soc_at_start_pct"] = acc.soc_at_start_pct
+    for key in ("grid_to_battery_cost", "grid_to_battery_priced_kwh"):
+        if getattr(acc, key):
+            fields[key] = getattr(acc, key)
+    return fields
+
+
 def _acc_to_dict(acc: EnergyAccumulator) -> dict:
     """Serialise an EnergyAccumulator to a JSON-safe dict."""
+    return {**_core_acc_fields(acc), **_optional_acc_fields(acc)}
+
+
+def _core_acc_fields(acc: EnergyAccumulator) -> dict:
     return {
         "import_kwh": acc.import_kwh,
         "export_kwh": acc.export_kwh,
