@@ -326,7 +326,7 @@
     "step": {
       "init": {
         "title": "GivEnergy Inverter Manager Settings",
-        "description": "{tariff_summary}\n\nChanges apply when you save. The integration reloads, so entities are unavailable for a few seconds.",
+        "description": "{tariff_summary}\n\nChanges apply when you save, and most take effect at once. Changing the immersion switch or sensor, the main forecast sensor or the currency reloads the integration, so entities are unavailable for a few seconds.",
         "sections": {
           "tariff_settings": {
             "name": "Tariff",
