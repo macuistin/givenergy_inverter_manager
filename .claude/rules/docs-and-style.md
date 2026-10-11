@@ -39,7 +39,7 @@ number example. Keep install-specific analysis in the PR discussion.
 - Conventional Commits for commit messages and PR titles: `fix(sensor): ...`, `feat(config): ...`.
 - No `Co-Authored-By` line and no "Generated with" line in commits or PR bodies.
 - PR body: `.github/PULL_REQUEST_TEMPLATE.md` (Summary, Changes, Testing, Impact, Checklist). This
-  repo does not use a BRAVE section. List what was not verified under Testing.
+  repo is personal, so there are no other sections. List what was not verified under Testing.
 - Work is stacked: each PR is based on the branch below it, not on `main`. To take changes from a
   lower branch, merge it into yours. Merge commits, not squash, so a stack stays mergeable.
 - Never rebase, amend or force-push a branch that has an open PR. Address review feedback with new
