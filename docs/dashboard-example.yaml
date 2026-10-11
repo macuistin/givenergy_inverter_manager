@@ -105,7 +105,7 @@ views:
       content: |-
         No commands are sent to your inverter or EV charger. Sensors and charge decisions still update. To go live, turn off Dry Run in Settings, Devices & services, GivEnergy Inverter Manager, Configure.
 
-        **Last skipped action:** {{ states('sensor.givenergy_inverter_manager_last_skipped_action_dry_run') }}
+        **Last skipped action:** {{ state_attr('sensor.givenergy_inverter_manager_last_skipped_action_dry_run', 'full_text') or states('sensor.givenergy_inverter_manager_last_skipped_action_dry_run') }}
       grid_options:
         columns: full
   - type: grid
@@ -1068,7 +1068,7 @@ views:
       heading_style: title
       icon: mdi:help-circle-outline
     - type: markdown
-      content: '{{ states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
+      content: '{{ state_attr(''sensor.givenergy_inverter_manager_immersion_divert_reason'', ''full_text'') or states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
       grid_options:
         columns: full
   - type: grid
@@ -1341,7 +1341,7 @@ views:
       grid_options:
         columns: 6
     - type: markdown
-      content: '{{ states(''sensor.givenergy_inverter_manager_ev_mode_decision'') }}'
+      content: '{{ state_attr(''sensor.givenergy_inverter_manager_ev_mode_decision'', ''full_text'') or states(''sensor.givenergy_inverter_manager_ev_mode_decision'') }}'
       grid_options:
         columns: full
   - type: grid
@@ -1718,7 +1718,7 @@ views:
         {%- elif level | lower == 'warning' -%}
         The battery should last until solar starts, but only just. It is expected to reach {% if has_value('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') %}about {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') | float(0) | round(0) | int }}% at sunrise{% else %}the minimum at sunrise{% endif %}, close to your minimum charge. A warning shows when the estimate is within 5 points of the minimum.
         {%- else -%}
-        {{ states('sensor.givenergy_inverter_manager_battery_overnight_outlook') }}
+        {{ state_attr('sensor.givenergy_inverter_manager_battery_overnight_outlook', 'full_text') or states('sensor.givenergy_inverter_manager_battery_overnight_outlook') }}
         {%- endif %}
       grid_options:
         columns: full
@@ -1727,7 +1727,7 @@ views:
       heading_style: subtitle
       icon: mdi:battery-charging
     - type: markdown
-      content: '{{ states(''sensor.givenergy_inverter_manager_overnight_charge_reason'') }}'
+      content: '{{ state_attr(''sensor.givenergy_inverter_manager_overnight_charge_reason'', ''full_text'') or states(''sensor.givenergy_inverter_manager_overnight_charge_reason'') }}'
       grid_options:
         columns: full
   - type: grid
@@ -1914,6 +1914,6 @@ views:
       heading_style: subtitle
       icon: mdi:help-circle-outline
     - type: markdown
-      content: '{{ states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
+      content: '{{ state_attr(''sensor.givenergy_inverter_manager_immersion_divert_reason'', ''full_text'') or states(''sensor.givenergy_inverter_manager_immersion_divert_reason'') }}'
       grid_options:
         columns: full

@@ -28,9 +28,10 @@ from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DEFAULT_CURRENCY_SYMBOL
+from .const import ATTR_FULL_TEXT, DEFAULT_CURRENCY_SYMBOL
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .core.devices import Device
+from .core.text_state import fit_state
 from .entity import GivEnergyEntity
 from .optional_devices import async_add_entities_per_device
 from .sensor_descriptions import SENSOR_DESCRIPTIONS
@@ -81,7 +82,7 @@ class GivEnergyManagerSensor(GivEnergyEntity, SensorEntity):
     """A sensor entity for GivEnergy Inverter Manager."""
 
     entity_description: GivEnergyManagerSensorDescription
-    _unrecorded_attributes = frozenset({"html"})
+    _unrecorded_attributes = frozenset({"html", ATTR_FULL_TEXT})
 
     def __init__(
         self,
@@ -145,11 +146,25 @@ class GivEnergyManagerSensor(GivEnergyEntity, SensorEntity):
             attrs["html"] = description.html_fn(data)
         if description.attrs_fn is not None:
             attrs.update(description.attrs_fn(data) or {})
+        attrs.update(self._full_text_attributes())
         return attrs or None
+
+    def _full_text_attributes(self) -> dict[str, str]:
+        """The full text of a sentence sensor, only when its state had to be cut."""
+        value = self._value()
+        if not isinstance(value, str):
+            return {}
+        fitted = fit_state(value)
+        return {ATTR_FULL_TEXT: fitted.full} if fitted.was_cut else {}
 
     @property
     def native_value(self) -> Any:
-        """Return sensor value from coordinator data."""
+        """Return the sensor value, a sentence cut to fit Home Assistant's state length."""
+        value = self._value()
+        return fit_state(value).state if isinstance(value, str) else value
+
+    def _value(self) -> Any:
+        """Return the value_fn result from coordinator data, None before data or on a failure."""
         if self.coordinator.data is None:
             return None
         try:

@@ -380,3 +380,12 @@ REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept i
 SENSOR_OUTAGE_HOLD_LIMIT_S = 300
 GIVTCP_MIN_CHARGE_TARGET_PCT = 4      # lowest charge target GivTCP accepts
 GIVTCP_MAX_CHARGE_TARGET_PCT = 100    # highest charge target GivTCP accepts
+
+# ── Sensor state text ─────────────────────────────────────────────────────────
+# Home Assistant stores a state of up to 255 characters (homeassistant.const
+# MAX_LENGTH_STATE_STATE). A longer one is logged as an error and reads unknown. core/ cannot
+# import Home Assistant, so the limit is repeated here.
+STATE_MAX_LENGTH = 255
+# The attribute that carries the full text of a sensor whose state had to be cut to fit.
+# Attributes have no 255 character limit.
+ATTR_FULL_TEXT = "full_text"
