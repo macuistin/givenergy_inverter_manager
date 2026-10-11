@@ -2,6 +2,20 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Changes**
+- Saving the options page no longer reloads the integration for most changes. A tariff edit, a
+  threshold, dry run, verbose logging, the forecast and carbon sensors (except the main forecast
+  sensor), element power, ready-by times and the car efficiency now apply straight away, and
+  entities stay available. The integration still reloads when you change the immersion switch or
+  water temperature sensor, the main forecast sensor, the currency, the inverter entities, or when
+  you set the first oil price or clear the last one.
+- Changing a rate period on the options page now moves the time the charge target is written to
+  the inverter, without a reload. Before, the new time only took effect after the reload the save
+  caused.
+- Reconfigure no longer reloads the integration unless you change the currency.
+
 ## v0.17.1
 
 Small dashboard clarity fixes found by previewing v0.17.0 in a real install.

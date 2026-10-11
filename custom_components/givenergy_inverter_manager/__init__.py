@@ -9,7 +9,7 @@ Sets up the integration from a config entry:
 
 Also handles:
   async_unload_entry  — clean teardown when the integration is removed.
-  async_reload_entry  — called by the update listener when a reload-relevant setting changes.
+  async_reload_entry  — called by the update listener when a change needs a reload.
   async_migrate_entry — version migration hook for future schema changes.
 """
 
@@ -26,15 +26,11 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
 
-from .const import (
-    CONF_IMMERSION_HYSTERESIS,
-    CONF_IMMERSION_MIN_TEMP,
-    CONF_IMMERSION_TARGET_TEMP,
-    CONF_TARIFF_REVIEWED_ON,
-    DOMAIN,
-)
+from .config_helpers import effective_config
+from .const import DOMAIN
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .core.default_enabled import keys_to_enable
+from .core.reload_policy import Effect, change_effect, changed_keys
 from .logging import get_logger, log_startup
 from .optional_devices import remove_orphaned_entities
 from .services import (
@@ -59,44 +55,25 @@ _RETIRED_SENSOR_KEYS: tuple[str, ...] = (
     "pre_boost_export_net_gain",
 )
 
-_LIVE_SETTINGS: dict[str, str] = {
-    CONF_IMMERSION_TARGET_TEMP: "immersion_target_temp",
-    CONF_IMMERSION_MIN_TEMP: "immersion_min_temp",
-    CONF_IMMERSION_HYSTERESIS: "immersion_hysteresis_c",
-}
-
-
-def _reload_relevant(entry: GivEnergyConfigEntry) -> tuple[dict, dict]:
-    """Return the entry contents that need a reload when they change."""
-    data = {k: v for k, v in entry.data.items() if k not in _LIVE_SETTINGS}
-    # The review date only feeds the tariff repair, which reads it every cycle.
-    options = {k: v for k, v in entry.options.items() if k != CONF_TARIFF_REVIEWED_ON}
-    return copy.deepcopy(data), copy.deepcopy(options)
-
-
-def _apply_live_settings(coordinator: GivEnergyCoordinator, entry: GivEnergyConfigEntry) -> None:
-    """Copy the immersion temperature settings onto the running coordinator."""
-    for conf_key, attr in _LIVE_SETTINGS.items():
-        if entry.data.get(conf_key) is not None:
-            setattr(coordinator, attr, float(entry.data[conf_key]))
-
-
 def _make_update_listener(entry: GivEnergyConfigEntry):
     """Build the update listener for *entry*.
 
-    A change that only touches the immersion temperature settings (moved with the
-    number entities) updates the running coordinator. Any other change reloads.
+    The listener keeps the merged config of the last save it saw. A change that needs a
+    reload (core/reload_policy.py) reloads the entry. Any other change is applied to the
+    running coordinator, and nothing reloads.
     """
-    reload_state = _reload_relevant(entry)
+    previous = copy.deepcopy(effective_config(entry))
 
     async def _on_entry_updated(hass: HomeAssistant, updated: GivEnergyConfigEntry) -> None:
-        nonlocal reload_state
-        current = _reload_relevant(updated)
-        if current == reload_state:
-            _apply_live_settings(updated.runtime_data, updated)
-            return
-        reload_state = current
-        await async_reload_entry(hass, updated)
+        nonlocal previous
+        current = copy.deepcopy(effective_config(updated))
+        effect = change_effect(previous, current)
+        changed = changed_keys(previous, current)
+        previous = current
+        if effect is Effect.RELOAD:
+            await async_reload_entry(hass, updated)
+        elif effect is Effect.LIVE:
+            await updated.runtime_data.async_apply_config_change(changed)
 
     return _on_entry_updated
 

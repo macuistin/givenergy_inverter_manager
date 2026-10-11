@@ -40,6 +40,12 @@ create unawaited coroutines and silently do nothing.
 Calling `async_unload_entry` + `async_setup_entry` directly bypasses HA's state machine
 and causes entities to go unavailable after an options save.
 
+**Which saves reload is decided in `core/reload_policy.py`.** `change_effect(old, new)` compares the
+merged config (setup data under saved options) and returns none, live or reload. A new option key
+reloads until it is placed in `LIVE_KEYS`, and `tests/core/test_reload_policy.py` fails until it has
+a row. Put a key in `LIVE_KEYS` only when the coordinator reads it from `_effective_cfg()` on every
+cycle, or `async_apply_config_change` copies it on.
+
 ---
 
 ## GivTCP sign conventions

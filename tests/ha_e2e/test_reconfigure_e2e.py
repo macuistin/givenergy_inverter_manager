@@ -1,4 +1,4 @@
-"""Reconfigure against a real flow manager: it must take effect and reload once."""
+"""Reconfigure against a real flow manager: it must take effect, and reload once when needed."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from homeassistant.helpers import config_validation as cv
 import custom_components.givenergy_inverter_manager as integration
 from custom_components.givenergy_inverter_manager.const import (
     CONF_BILL_START_DAY,
+    CONF_CURRENCY,
     CONF_EXPORT_RATE,
     CONF_RATE_PERIODS,
     CONF_VAT_RATE,
@@ -106,15 +107,30 @@ async def test_reconfigure_replaces_saved_rate_periods(hass, loaded_entry):
     assert [p["name"] for p in loaded_entry.data[CONF_RATE_PERIODS]] == ["Night"]
 
 
-async def test_reconfigure_reloads_once(hass, loaded_entry, setups):
+async def test_reconfigure_applies_a_tariff_change_without_a_reload(hass, loaded_entry, setups):
+    coordinator = loaded_entry.runtime_data
     result = await loaded_entry.start_reconfigure_flow(hass)
     await hass.config_entries.flow.async_configure(
         result["flow_id"], user_input=_payload(result, **{CONF_EXPORT_RATE: 0.25})
     )
     await hass.async_block_till_done()
 
+    assert setups == []
+    assert loaded_entry.state is ConfigEntryState.LOADED
+    assert loaded_entry.runtime_data is coordinator
+    assert coordinator.export_rate == pytest.approx(0.25)
+
+
+async def test_reconfigure_reloads_once_when_the_change_needs_it(hass, loaded_entry, setups):
+    result = await loaded_entry.start_reconfigure_flow(hass)
+    await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=_payload(result, **{CONF_CURRENCY: "GBP"})
+    )
+    await hass.async_block_till_done()
+
     assert len(setups) == 1
     assert loaded_entry.state is ConfigEntryState.LOADED
+    assert loaded_entry.runtime_data.data.currency_symbol == "£"
 
 
 async def test_reconfigure_without_changes_does_not_reload(hass, loaded_entry, setups):
