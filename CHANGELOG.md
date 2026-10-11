@@ -2,6 +2,20 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Changes**
+- The forecast accuracy correction can now fall to 0.4, down from 0.6, so it follows a run of cloudy
+  days where the forecast over-reads by more than 40%. The upper limit stays 1.2, and the correction
+  still needs 5 usable days out of the last 14. The factor is still the median ratio of those days, so
+  one odd day does not swing it.
+- The charge reason says when the factor sits on a limit, for example
+  `x0.40 recent accuracy (at the lower limit)`.
+
+**Upgrading**
+- Charge targets can rise on cloudy weeks, because the plan now trusts the forecast less. Nothing needs
+  changing in the options.
+
 ## v0.17.1
 
 Small dashboard clarity fixes found by previewing v0.17.0 in a real install.
