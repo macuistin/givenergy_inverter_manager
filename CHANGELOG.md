@@ -2,7 +2,10 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.17.2
+
+Fixes text sensors that went unknown when their text was longer than Home Assistant allows.
+No stored data change. Generate the dashboard file again to get the dashboard cards that read the full text.
 
 **Fixes**
 - Overnight Charge Reason no longer reads unknown when the reason is longer than Home Assistant's
