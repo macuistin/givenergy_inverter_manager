@@ -2,6 +2,19 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- Overnight Charge Reason no longer reads unknown when the reason is longer than Home Assistant's
+  255 character state limit. A reason with the forecast accuracy, a cautious forecast, a skip note,
+  the load profile and the configured maximum can reach 270 characters, and Home Assistant logged
+  an error every 30 seconds and showed unknown for hours. Every sensor with a text state now cuts
+  a longer text at the end of a sentence or clause and ends it with `…`. While it is cut, the
+  sensor carries the whole text in a `full_text` attribute, which is kept out of the recorder.
+- The charge plan report uses the whole reason. The dashboard cards that print these sentences
+  (the Battery overnight card, the immersion and EV reasons, the dry run banner) read `full_text`
+  when it is there and fall back to the state. Regenerate the dashboard to pick this up.
+
 ## v0.17.1
 
 Small dashboard clarity fixes found by previewing v0.17.0 in a real install.
