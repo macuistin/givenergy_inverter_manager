@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from conftest import FORECAST, MIDDAY, SERIAL, full_config_data
+from conftest import FORECAST, MIDDAY, SERIAL, full_config_data, serialise_schema
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import config_validation as cv
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import (
@@ -54,7 +53,7 @@ def config_entry(request):
 
 def _serialise(result) -> list[dict]:
     """Convert the form schema the way the frontend API does."""
-    fields = cv.to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    fields = serialise_schema(result["data_schema"])
     assert isinstance(fields, list), f"form schema did not serialise: {fields!r}"
     return fields
 

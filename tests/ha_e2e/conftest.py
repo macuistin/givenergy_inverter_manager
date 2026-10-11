@@ -171,6 +171,21 @@ CHEAP_NIGHT = Scenario(
 )
 
 
+def serialise_schema(schema) -> list[dict]:
+    """Serialise a form schema to the field list the frontend API receives.
+
+    Home Assistant 2026.5 serialises with voluptuous_serialize. Later releases moved to
+    probatio and expose cv.to_field_list, so the suite uses whichever the release has.
+    """
+    from homeassistant.helpers import config_validation as cv
+
+    if hasattr(cv, "to_field_list"):
+        return cv.to_field_list(schema, custom_serializer=cv.custom_serializer)
+    import voluptuous_serialize
+
+    return voluptuous_serialize.convert(schema, custom_serializer=cv.custom_serializer)
+
+
 def full_config_data() -> dict[str, Any]:
     """A complete, valid config entry payload (every optional feature on)."""
     return {

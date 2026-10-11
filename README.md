@@ -22,7 +22,7 @@ Works with any supplier and any tariff: timed rates (two or three rate periods, 
 
 ## Requirements
 
-- Home Assistant 2026.2.0 or later (the minimum declared in `hacs.json`)
+- Home Assistant 2026.5.0 or later (the minimum declared in `hacs.json`). Home Assistant 2026.5 itself needs Python 3.14.2 or newer
 - [GivTCP](https://github.com/britkat1980/giv_tcp) publishing your inverter to Home Assistant over MQTT
 - A GivEnergy hybrid inverter with a battery
 

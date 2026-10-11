@@ -151,7 +151,7 @@ python3 -m venv .venv
 .venv/bin/python -m ruff check .
 
 # Real Home Assistant suite (tests/ha_e2e): about 190 tests in about 17 s
-python3 -m venv .venv-e2e                    # needs Python 3.14.2 or newer
+python3 -m venv .venv-e2e                    # needs Python 3.14.2 or newer, as does Home Assistant 2026.5
 .venv-e2e/bin/pip install -r requirements-test-e2e.txt
 .venv-e2e/bin/python -m pytest tests/ha_e2e -q
 ```

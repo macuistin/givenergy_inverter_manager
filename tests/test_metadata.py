@@ -16,7 +16,8 @@ from tests.helpers import PKG, ROOT
 # released Home Assistant wheels: ConfigEntry.runtime_data first ships in 2024.6,
 # config flow sections in 2024.7 and the DataUpdateCoordinator config_entry
 # argument in 2024.11. The generated dashboard puts button badges on heading cards,
-# which first ship in 2026.2.
+# which first ship in 2026.2. The floor in hacs.json is 2026.5.0, so all four hold. Add a rule
+# when the code starts using an API from a newer release.
 _HA_FLOOR_RULES = (
     ("runtime_data", (2024, 6, 0)),
     ("section(", (2024, 7, 0)),
@@ -63,15 +64,16 @@ def test_pyproject_build_backend_exists():
     assert pyproject["build-system"]["build-backend"] == "setuptools.build_meta"
 
 
+_VERSION = r"[0-9]+(?:\.[0-9]+)*"
+
+
 def _version_sources() -> dict[str, str]:
     """Every place that states the release version, keyed by where it lives."""
     from custom_components.givenergy_inverter_manager.const import INTEGRATION_VERSION
 
-    readme = re.search(
-        r"Current version: ([0-9]+(?:\.[0-9]+)*)", (ROOT / "README.md").read_text()
-    )
+    readme = re.search(rf"Current version: ({_VERSION})", (ROOT / "README.md").read_text())
     index = re.search(
-        r"This documentation matches version ([0-9]+(?:\.[0-9]+)*)",
+        rf"This documentation matches version ({_VERSION})",
         (ROOT / "docs" / "index.md").read_text(),
     )
     return {
@@ -108,10 +110,12 @@ def test_check_names_are_stable():
     """Check names appear in the PR check list, so renaming a job is a deliberate change."""
     jobs = _workflow()["jobs"]
 
-    assert set(jobs) == {"lint", "tests-python", "e2e"}
+    assert set(jobs) == {"lint", "tests-python", "tests-beta", "e2e", "e2e-beta"}
     assert "name" not in jobs["lint"]
-    assert jobs["tests-python"]["name"] == "Tests (Python ${{ matrix.python-version }})"
-    assert jobs["e2e"]["name"] == "Home Assistant end-to-end"
+    assert jobs["tests-python"]["name"] == "Tests (Home Assistant ${{ matrix.home-assistant }})"
+    assert jobs["tests-beta"]["name"] == "Tests (Home Assistant beta, not blocking)"
+    assert jobs["e2e"]["name"] == "Home Assistant end-to-end (${{ matrix.home-assistant }})"
+    assert jobs["e2e-beta"]["name"] == "Home Assistant end-to-end (beta, not blocking)"
     assert "name" not in _workflow("hassfest.yml")["jobs"]["validate"]
     assert _workflow("hacs.yml")["jobs"]["hacs"]["name"] == "HACS Action"
     assert _workflow("codeql.yml")["jobs"]["analyze"]["name"] == "Analyze (${{ matrix.language }})"
@@ -156,10 +160,64 @@ def test_workflow_runs_nightly(name):
     assert all(re.fullmatch(r"(\S+ ){4}\S+", item["cron"]) for item in triggers["schedule"])
 
 
-def test_newer_python_versions_are_tested():
-    job = _workflow()["jobs"]["tests-python"]
+def _setup_python_versions(workflow: dict) -> set[str]:
+    return {
+        str(step["with"]["python-version"])
+        for job in workflow["jobs"].values()
+        for step in job["steps"]
+        if "setup-python" in step.get("uses", "")
+    }
 
-    assert job["strategy"]["matrix"]["python-version"] == ["3.13", "3.14"]
+
+def test_every_python_job_runs_the_python_home_assistant_needs():
+    """Home Assistant 2026.5 and newer need Python 3.14.2 or newer and do not install on 3.13."""
+    assert _setup_python_versions(_workflow()) == {"3.14"}
+
+
+def _hacs_minimum() -> str:
+    return json.loads((ROOT / "hacs.json").read_text())["homeassistant"]
+
+
+def test_the_unit_and_e2e_jobs_run_on_the_hacs_minimum_and_the_latest_release():
+    jobs = _workflow()["jobs"]
+
+    for name in ("tests-python", "e2e"):
+        versions = [row["home-assistant"] for row in jobs[name]["strategy"]["matrix"]["include"]]
+        assert versions == [_hacs_minimum(), "latest"], name
+
+
+def test_the_floor_jobs_install_the_hacs_minimum():
+    jobs = _workflow()["jobs"]
+    unit_floor = jobs["tests-python"]["strategy"]["matrix"]["include"][0]
+    e2e_floor = jobs["e2e"]["strategy"]["matrix"]["include"][0]
+    floor_file = (ROOT / e2e_floor["requirements"]).read_text().splitlines()
+
+    assert unit_floor["pin"] == f"homeassistant=={_hacs_minimum()}"
+    assert f"# pins homeassistant=={_hacs_minimum()}" in floor_file
+    assert any(line.startswith("pytest-homeassistant-custom-component==") for line in floor_file)
+
+
+def test_beta_jobs_do_not_block_and_the_others_do():
+    jobs = _workflow()["jobs"]
+
+    assert jobs["tests-beta"]["continue-on-error"] is True
+    assert jobs["e2e-beta"]["continue-on-error"] is True
+    assert not any(
+        "continue-on-error" in job for name, job in jobs.items() if not name.endswith("beta")
+    )
+
+
+def test_the_dependabot_pip_scan_does_not_reach_the_floor_requirements():
+    """Dependabot reads requirements files in the root only. It must not bump the floor pin."""
+    floor_file = ROOT / "tests" / "ha_e2e" / "requirements-floor.txt"
+
+    assert floor_file.exists()
+    assert list(ROOT.glob("requirements*floor*.txt")) == []
+
+
+def test_the_docs_state_the_hacs_minimum():
+    for path in (ROOT / "README.md", ROOT / "docs" / "index.md", ROOT / "REQUIREMENTS.md"):
+        assert _hacs_minimum() in path.read_text(), path.name
 
 
 def test_every_platform_sets_parallel_updates():
@@ -245,3 +303,13 @@ def test_core_package_does_not_import_home_assistant():
             offenders += [f"{path.name}: {n}" for n in names if n.split(".")[0] == "homeassistant"]
 
     assert offenders == []
+
+
+def test_workflow_actions_are_pinned_to_a_major_version_tag_like_the_others():
+    for path in sorted(_WORKFLOWS.glob("*.yml")):
+        workflow = yaml.safe_load(path.read_text())
+        for job in workflow["jobs"].values():
+            for step in job["steps"]:
+                action = step.get("uses", "")
+                if action.startswith("actions/"):
+                    assert re.fullmatch(r"actions/[\w-]+@v[0-9]+", action), (path.name, action)

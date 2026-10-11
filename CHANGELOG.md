@@ -15,6 +15,8 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
   the inverter, without a reload. Before, the new time only took effect after the reload the save
   caused.
 - Reconfigure no longer reloads the integration unless you change the currency.
+- Home Assistant 2026.5.0 is now the minimum, up from 2026.2.0. Home Assistant 2026.5 itself needs
+  Python 3.14.2 or newer. HACS offers this version only to installs on 2026.5.0 or later.
 
 ## v0.17.1
 

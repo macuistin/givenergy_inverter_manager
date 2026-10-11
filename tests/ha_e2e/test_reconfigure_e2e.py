@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from conftest import MIDDAY
+from conftest import MIDDAY, serialise_schema
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import config_validation as cv
 
 import custom_components.givenergy_inverter_manager as integration
 from custom_components.givenergy_inverter_manager.const import (
@@ -24,12 +23,12 @@ def scenario():
 
 
 def _defaults(result) -> dict:
-    fields = cv.to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    fields = serialise_schema(result["data_schema"])
     return {f["name"]: f["default"] for f in fields if "default" in f}
 
 
 def _payload(result, **overrides) -> dict:
-    fields = cv.to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    fields = serialise_schema(result["data_schema"])
     data: dict = {}
     for field in fields:
         if field.get("type") == "expandable":

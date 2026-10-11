@@ -8,11 +8,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from conftest import MIDDAY, SERIAL, full_config_data
+from conftest import MIDDAY, SERIAL, full_config_data, serialise_schema
 from homeassistant.components.repairs import repairs_flow_manager
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -45,7 +44,7 @@ def scenario():
 
 
 def _serialise(result) -> list[dict]:
-    return cv.to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    return serialise_schema(result["data_schema"])
 
 
 def _initial_data(fields: list[dict]) -> dict:

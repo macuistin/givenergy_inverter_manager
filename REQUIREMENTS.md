@@ -149,5 +149,5 @@ The current release is 0.17.1. What each release shipped is in [CHANGELOG.md](CH
 
 `github.com/macuistin/givenergy_inverter_manager`
 
-Requires: Home Assistant ≥ 2026.2.0, HACS ≥ 1.32.0, GivTCP running as a HA add-on.
+Requires: Home Assistant ≥ 2026.5.0, HACS ≥ 1.32.0, GivTCP running as a HA add-on.
 
