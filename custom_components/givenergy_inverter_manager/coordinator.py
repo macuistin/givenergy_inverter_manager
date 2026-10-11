@@ -36,6 +36,7 @@ current charge decision, and calls number.set_value on the GivTCP entity.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
@@ -51,6 +52,11 @@ from homeassistant.util import dt as dt_util
 
 from .accumulation import AccumulationStore
 from .const import (
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_COST_ENTITY,
+    CONF_ALT_HEAT_COST_UNIT,
+    CONF_ALT_HEAT_ENABLED,
+    CONF_ALT_HEAT_LABEL,
     CONF_BATTERY_CAPACITY,
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
@@ -79,11 +85,10 @@ from .const import (
     CONF_INVERTER_MAX_OUTPUT,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
-    CONF_OIL_PRICE_ENTITY,
-    CONF_OIL_PRICE_PER_LITRE,
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
     CONF_TARIFF_REVIEWED_ON,
+    DEFAULT_ALT_HEAT_UNIT,
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
@@ -100,8 +105,11 @@ from .const import (
     GIVTCP_MAX_CHARGE_TARGET_PCT,
     GIVTCP_MIN_CHARGE_TARGET_PCT,
     GIVTCP_RATE_TOLERANCE_PCT,
+    TEST_INSTANCE_MARKER,
     UPDATE_INTERVAL_SECONDS,
 )
+from .core.alt_heat_cost import heat_cost_per_kwh
+from .core.alt_heat_label import clean_label
 from .core.battery import BatteryStats, battery_cost_prompt_due
 from .core.charge_hold import HeldCharge
 from .core.engine import (
@@ -117,7 +125,9 @@ from .core.engine import (
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
+from .core.reload_policy import IMMERSION_TEMP_KEYS, TARIFF_TRIGGER_KEYS
 from .core.rules import monthly_solar_fractions
+from .core.setup_progress import SetupFacts, setup_items
 from .core.solar_day import HeldSolarDay
 from .core.sunrise_hold import HeldSunrise
 from .core.tariff import (
@@ -219,6 +229,14 @@ def _is_stale(state) -> bool:
     return state is None or state.state in ("unavailable", "unknown")
 
 
+# The coordinator attribute that caches each immersion temperature option.
+_IMMERSION_TEMP_ATTRS: dict[str, str] = {
+    CONF_IMMERSION_TARGET_TEMP: "immersion_target_temp",
+    CONF_IMMERSION_MIN_TEMP: "immersion_min_temp",
+    CONF_IMMERSION_HYSTERESIS: "immersion_hysteresis_c",
+}
+
+
 def _cheapest_period(tariff):
     """The timed rate period with the lowest rate."""
     return min(tariff.rate_periods, key=lambda p: p.rate)
@@ -238,6 +256,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     _create_task so this class is fully testable by subclassing.
     """
 
+    # True while the test instance marker file exists. async_detect_test_instance reads the
+    # file once at setup and caches the answer here.
+    test_instance: bool = False
+
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         super().__init__(
             hass,
@@ -255,6 +277,22 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._init_immersion(entry.data)
         self._init_writer()
         self._register_time_listeners()
+
+    async def async_detect_test_instance(self) -> None:
+        """Look for the test instance marker file once, in the executor, and remember the answer.
+
+        The file is only ever created or removed by hand, so setup is the one place to look.
+        While it exists the whole integration reads dry run: the write guard, the snapshot, the
+        sensor, the log and the diagnostics all take it from the merged config.
+        """
+        marker = self.hass.config.path(TEST_INSTANCE_MARKER)
+        self.test_instance = await self.hass.async_add_executor_job(os.path.exists, marker)
+        if self.test_instance:
+            _LOG.warning(
+                "Test instance marker %s found. Dry run is forced on and no command is sent "
+                "to the inverter, the immersion or the EV charger. Delete the file to go live.",
+                marker,
+            )
 
     def _init_cycle_state(self) -> None:
         """State threaded across update cycles."""
@@ -310,6 +348,31 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # Decides when the real immersion switch is turned on or off. Runs every cycle, so
         # diversion works whether or not the managed switch entity is enabled.
         self.immersion = ImmersionActuator(self._immersion_ports())
+
+    async def async_apply_config_change(self, changed: frozenset[str]) -> None:
+        """Bring the running coordinator in line with a saved change that needs no reload.
+
+        The cycle re-reads the merged config itself. A few things hold state of their own: the
+        export rate and bill start day, the immersion temperatures (cached from the number
+        entities), the charge-target write trigger (built from the tariff) and the held charge
+        recommendation. A reload used to reset them all, so a live change does it here.
+        """
+        self._apply_cached_rates(self._effective_cfg())
+        if changed & IMMERSION_TEMP_KEYS:
+            self._copy_immersion_temps(self.entry.data)
+        if changed & TARIFF_TRIGGER_KEYS:
+            self._register_charge_target_listener()
+        # The temperature numbers and the review date need no new cycle. Anything else may
+        # change what the sensors show, so one runs now rather than in up to 30 seconds.
+        if changed - IMMERSION_TEMP_KEYS - {CONF_TARIFF_REVIEWED_ON}:
+            self._held_charge.release()
+            await self.async_request_refresh()
+
+    def _copy_immersion_temps(self, cfg: Mapping) -> None:
+        """Set the three cached immersion temperatures from *cfg*, keeping those it lacks."""
+        for key, attr in _IMMERSION_TEMP_ATTRS.items():
+            if cfg.get(key) is not None:
+                setattr(self, attr, float(cfg[key]))
 
     def _init_writer(self) -> None:
         # Every inverter register write goes through the writer: read-before-write, cooldown,
@@ -811,11 +874,16 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     def _effective_cfg(self) -> dict:
         """Merge options over data so tariff edits take immediate effect.
 
+        On a test instance dry run is forced on, whatever the saved option says. Every reader
+        of dry run (the write guard, the snapshot, the logger) goes through this merge.
+
         The unit rates are those in force today: the saved ones, or the latest dated change
         on or before today. With no dated change the merge is returned as is.
         """
         cfg = dict(self.entry.data)
         cfg.update(self.entry.options)
+        if self.test_instance:
+            cfg[CONF_DRY_RUN] = True
         return tariff_in_force(cfg, self._now().date())
 
     def _configured_bill_start_day(self, cfg: dict | None = None) -> int:
@@ -855,7 +923,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._read_power_inputs(cfg, raw, unavailable)
         self._read_system_limits(cfg, raw)
         self._read_immersion_inputs(cfg, raw, unavailable)
-        raw.oil_price_per_litre = self._read_oil_price(cfg)
+        self._read_alt_heat(cfg, raw)
         raw.unavailable_inputs = tuple(unavailable)
         self._read_forecasts(cfg, raw)
         raw.carbon_intensity_gco2 = self._read_optional_float(
@@ -896,19 +964,23 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             if raw.immersion_temp is None:
                 unavailable.append("immersion_temp")
 
-    def _read_oil_price(self, cfg: dict) -> float | None:
-        """The price of a litre of oil: the sensor when it reads one, else the saved number.
+    def _read_alt_heat(self, cfg: dict, raw: RawSensorValues) -> None:
+        """Set the cost of a kWh of heat from the alternative, and its label.
 
-        None when neither gives a price, or there is no immersion switch to compare oil with,
-        which means no oil advice and nothing to evaluate.
+        The cost is None, and so is the advice, when the setting is off, there is no immersion
+        switch to compare with, or neither the cost sensor nor the saved cost gives a price.
+        The sensor wins while it reads a positive number. The unit applies to either source.
         """
-        if not cfg.get(CONF_IMMERSION_SWITCH):
-            return None
-        from_sensor = self._read_optional_float(cfg.get(CONF_OIL_PRICE_ENTITY))
-        if from_sensor is not None and from_sensor > 0:
-            return from_sensor
-        saved = cfg.get(CONF_OIL_PRICE_PER_LITRE)
-        return float(saved) if saved else None
+        raw.alt_heat_label = clean_label(cfg.get(CONF_ALT_HEAT_LABEL))
+        if not (cfg.get(CONF_ALT_HEAT_ENABLED) and cfg.get(CONF_IMMERSION_SWITCH)):
+            return
+        cost = self._read_optional_float(cfg.get(CONF_ALT_HEAT_COST_ENTITY))
+        if cost is None or cost <= 0:
+            saved = cfg.get(CONF_ALT_HEAT_COST)
+            cost = float(saved) if saved else None
+        if cost is not None:
+            unit = cfg.get(CONF_ALT_HEAT_COST_UNIT, DEFAULT_ALT_HEAT_UNIT)
+            raw.alt_heat_cost_per_kwh = heat_cost_per_kwh(unit, cost)
 
     def _read_forecasts(self, cfg: dict, raw: RawSensorValues) -> None:
         raw.forecast_kwh_tomorrow = self._read_forecast_kwh(cfg.get(CONF_FORECAST_ENTITY))
@@ -1329,6 +1401,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._remember_cycle(raw, now)
         self._watch_ev_base_rate(data, raw, now)
         self._apply_decisions(data, ev_target_mode, now)
+        self._attach_setup_progress(data, raw, cfg)
         return data
 
     def _begin_cycle(self) -> None:
@@ -1338,9 +1411,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._acc.save_battery_stats(self._battery_stats)
             self._acc.schedule_save()
         cfg = self._effective_cfg()
+        self._apply_cached_rates(cfg)
+        self._check_config_repair_issues(cfg)
+
+    def _apply_cached_rates(self, cfg: dict) -> None:
+        """Copy the two config values the coordinator keeps outside the snapshot."""
         self._acc.update_bill_start_day(self._configured_bill_start_day(cfg))
         self.export_rate = float(cfg.get(CONF_EXPORT_RATE, 0.0))
-        self._check_config_repair_issues(cfg)
 
     def _require_givtcp_publishing(self, cfg: dict) -> None:
         """Fail the cycle when GivTCP's solar and battery sensors are both stale.
@@ -1471,6 +1548,21 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             async_delete_ev_base_rate_issue(self.hass)
         self._ev_base_rate = WatchState()
 
+    def _attach_setup_progress(
+        self, data: CoordinatorData, raw: RawSensorValues, cfg: dict
+    ) -> None:
+        """Work out the setup checklist from the saved config and this cycle's readings."""
+        data.setup_items = setup_items(
+            cfg,
+            SetupFacts(
+                inverter_found=not raw.unavailable_inputs,
+                forecast_readable=raw.forecast_kwh_tomorrow is not None,
+                ev_charger_found=raw.ev_charger_present,
+                dry_run=data.dry_run,
+                test_instance=self.test_instance,
+            ),
+        )
+
     def _apply_decisions(
         self, data: CoordinatorData, ev_target_mode: str | None, now: datetime
     ) -> None:
@@ -1482,6 +1574,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # The engine's snapshot starts empty. Copy after the actions so a skip
         # recorded in this cycle shows up in this snapshot.
         data.dry_run_last_skipped = self._dry_run_last_skipped
+        data.test_instance = self.test_instance
 
 
 # The config entry type for this integration. Platforms and __init__ use it so

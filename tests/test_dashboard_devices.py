@@ -342,14 +342,14 @@ def test_the_oil_advice_waits_for_its_sensor_in_a_file_made_without_one():
     stored = generated_for(switch=True)
     states = states_with({Device.IMMERSION_SWITCH})
     assert _oil_section_cards(seen(stored, states)) == []
-    states = states_with({Device.IMMERSION_SWITCH, Device.OIL_ADVICE})
+    states = states_with({Device.IMMERSION_SWITCH, Device.ALTERNATIVE_HEAT})
     assert _oil_section_cards(seen(stored, states)) != []
 
 
 def test_the_oil_advice_hides_while_the_sensor_is_unavailable():
     """With the price sensor unreadable and no saved number there is no advice to show."""
     stored = generated_for(switch=True, oil=True)
-    devices = {Device.IMMERSION_SWITCH, Device.OIL_ADVICE}
+    devices = {Device.IMMERSION_SWITCH, Device.ALTERNATIVE_HEAT}
     states = states_with(devices, {OIL_SENTINEL: "unavailable"})
     assert _oil_section_cards(seen(stored, states)) == []
 
@@ -361,7 +361,7 @@ def test_the_oil_advice_goes_when_the_price_is_cleared_without_regenerating():
 
 
 def test_the_oil_advice_sentinel_is_the_oil_sensor():
-    assert SENTINELS[Device.OIL_ADVICE] == "water_heating_cheapest_source"
+    assert SENTINELS[Device.ALTERNATIVE_HEAT] == "water_heating_cheapest_source"
 
 
 # ── the conditions themselves ────────────────────────────────────────────────
@@ -393,7 +393,6 @@ def _guarded_by(conditions: list[dict], device_name: str) -> bool:
 # Cards that list many entities cannot hide one row. They are built once for each
 # combination of devices, and the variants test below covers them.
 _LISTS = ("custom:power-flow-card-plus", "entities", "statistics-graph", "history-graph")
-_CHARTS = ("custom:apexcharts-card",)
 
 
 def test_every_card_that_names_a_device_entity_is_hidden_without_that_device():
@@ -404,7 +403,7 @@ def test_every_card_that_names_a_device_entity_is_hidden_without_that_device():
         for section in view["sections"]:
             cards = _cards_with_their_conditions(section["cards"], section.get("visibility", []))
             for card, conditions in cards:
-                if card["type"] in (*_LISTS, *_CHARTS):
+                if card["type"] in _LISTS:
                     continue
                 for entity_id in _device_entities_named_by(card):
                     device = DEVICE_ENTITY_IDS[entity_id]
@@ -414,13 +413,13 @@ def test_every_card_that_names_a_device_entity_is_hidden_without_that_device():
 
 
 def test_every_list_card_that_names_a_device_entity_carries_a_condition():
-    """The cards that list entities, and the charts, are shown only for the right devices."""
+    """The cards that list entities are shown only for the right devices."""
     config = generated_for(ev=True, switch=True, sensor=True)
     for view in config["views"]:
         for section in view["sections"]:
             cards = _cards_with_their_conditions(section["cards"], section.get("visibility", []))
             for card, conditions in cards:
-                if card["type"] in (*_LISTS, *_CHARTS) and _device_entities_named_by(card):
+                if card["type"] in _LISTS and _device_entities_named_by(card):
                     assert conditions, (view["path"], card["type"])
 
 
@@ -547,7 +546,7 @@ ALL_OIL_DEVICES = {
     Device.IMMERSION_SWITCH,
     Device.IMMERSION_SENSOR,
     Device.IMMERSION_THERMOSTAT,
-    Device.OIL_ADVICE,
+    Device.ALTERNATIVE_HEAT,
 }
 
 
@@ -562,7 +561,7 @@ def test_the_oil_suggestion_shows_once_in_the_section_that_fits_scheduled_heatin
 def test_the_oil_suggestion_stays_in_the_cheapest_section_while_scheduled_heating_cannot_exist():
     """With no temperature sensor there is no schedule switch and no Ready by section."""
     stored = generated_for(switch=True, oil=True)
-    devices = {Device.IMMERSION_SWITCH, Device.OIL_ADVICE}
+    devices = {Device.IMMERSION_SWITCH, Device.ALTERNATIVE_HEAT}
     assert _suggestion_homes(seen(stored, states_with(devices))) == [OIL_HEADING]
 
 
@@ -587,7 +586,7 @@ def test_the_oil_suggestion_arrives_in_a_file_made_before_the_price_was_set():
             Device.IMMERSION_SWITCH,
             Device.IMMERSION_SENSOR,
             Device.IMMERSION_THERMOSTAT,
-            Device.OIL_ADVICE,
+            Device.ALTERNATIVE_HEAT,
         }
     )
     assert _oil_cards_in_ready_by(seen(stored, after)) != []

@@ -62,28 +62,22 @@ from .cards import (
     toggle_tile,
     view_config,
 )
-from .charts import (
-    ImmersionEntities,
-    apex_immersion_chart,
-    apex_solar_days_chart,
-    builtin_immersion_chart,
-    flow_card,
-    flow_fallback,
-)
+from .charts import ImmersionEntities, builtin_immersion_chart, flow_card, flow_fallback
 from .devices import Devices, with_visibility
-from .hacs import APEX_CARD, POWER_FLOW_CARD, HacsCards
+from .hacs import POWER_FLOW_CARD, HacsCards
 from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
     MANAGED_HELP,
     PLAN_FORECAST_CAPTION,
     RESTART_GAP_HELP,
     EnergySources,
+    alt_heat_schedule_template,
     currency_symbol,
     energy_devices_template,
     energy_sources_template,
-    oil_schedule_template,
     planned_heating_template,
     ready_by_template,
+    setup_checklist_template,
     survival_template,
     tariff_changes_table,
     tariff_table,
@@ -105,13 +99,11 @@ SUB_BATTERY = "battery-detail"
 SUB_SETTINGS = "settings"
 TABS = frozenset({TAB_POWER_FLOW, TAB_TODAY, TAB_BILL, TAB_BATTERY})
 
-# How far back the new charts reach, and how tall they are: grid rows for a built-in graph,
-# pixels for an apexcharts-card chart. A bill period is a calendar month, so 31 days always
-# holds the one in progress. The solar chart reads recorder history, kept 10 days by default.
+# How far back the charts reach, and how tall they are in grid rows. A bill period is a
+# calendar month, so 31 days always holds the one in progress.
 _BILL_COST_DAYS = 31
 _SOLAR_DAYS = 7
 _CHART_ROWS = 5
-_CHART_PIXELS = 300
 
 # The rate sensors report a bare currency amount, and their unit stays that for the long-term
 # statistics. So the tile name says what the amount is for.
@@ -119,6 +111,10 @@ RATE_NAME = "Rate per kWh"
 AVERAGE_RATE_NAME = "Avg import/kWh"
 # What the night survival sensors are called to a person: does the battery last the night.
 OVERNIGHT_NAME = "Battery overnight"
+# The two sunrise figures differ by tonight's planned charge, so each name says which it is.
+# Both are full width: a half tile fits 15 characters and these are longer.
+SUNRISE_NO_CHARGE_NAME = "Sunrise (no charge)"
+SUNRISE_WITH_CHARGE_NAME = "Sunrise (with charge)"
 
 
 # ── Views ────────────────────────────────────────────────────────────────────
@@ -161,6 +157,22 @@ _THERMOSTAT_SETTINGS = (
 )
 
 
+def _dry_run_exit(dry_run_active: str) -> str:
+    """How to leave dry run, as a template: a test instance has its own way out.
+
+    The sensor carries the test_instance attribute only on a test instance.
+    """
+    return (
+        f"{{% if state_attr('{dry_run_active}', 'test_instance') %}}"
+        "**Test instance.** A .givenergy_test_instance file in the Home Assistant "
+        "configuration folder forces dry run on. Delete the file and restart Home Assistant "
+        "to go live."
+        "{% else %}"
+        "To go live, an administrator turns off the Dry run switch in Settings."
+        "{% endif %}"
+    )
+
+
 def _has_inverter_temp(hass: HomeAssistant, cfg: dict) -> bool:
     """True when an inverter temperature entity is chosen or GivTCP publishes one."""
     if cfg.get(CONF_INVERTER_TEMP_ENTITY):
@@ -185,7 +197,8 @@ class Builder:
         registry,
     ) -> None:
         self.cards = HacsCards(facts.resources)
-        self.admin_ids = facts.admin_ids
+        # Settings is built for an administrator and left out for anyone else.
+        self.admin_ids = facts.admin_ids if facts.is_admin else ()
         self.reg = Registry(er.async_get(hass) if registry is None else registry, entry.entry_id)
         self.cfg = entry_config(entry)
         self.external_ev = external_ev_power(hass)
@@ -208,9 +221,9 @@ class Builder:
         """An entity of the immersion switch. Its expected ID while none is configured."""
         return self.devices.entity(Device.IMMERSION_SWITCH, suffix)
 
-    def oil_advice(self, suffix: str) -> str | None:
-        """An entity of the oil advice. Its expected ID while no oil price is set."""
-        return self.devices.entity(Device.OIL_ADVICE, suffix)
+    def alt_heat_advice(self, suffix: str) -> str | None:
+        """An entity of the alternative heating advice. Its expected ID while it is not set."""
+        return self.devices.entity(Device.ALTERNATIVE_HEAT, suffix)
 
     def water_sensor(self, suffix: str) -> str | None:
         """An entity of the immersion temperature sensor, expected while none is configured."""
@@ -400,7 +413,7 @@ class Builder:
         flow = self._flow_entities(shown)
         if not flow:
             return None
-        card = flow_card(flow) if self.cards.use(POWER_FLOW_CARD) else flow_fallback(flow)
+        card = flow_card(flow) if self.cards.installed(POWER_FLOW_CARD) else flow_fallback(flow)
         return {**card, "grid_options": {"columns": FULL}} if card else None
 
     def _flow(self) -> list:
@@ -475,6 +488,7 @@ class Builder:
             [
                 grid_section(self._now()),
                 self._dry_run_section(),
+                self._setup_checklist(),
                 grid_section(self._flow()),
                 grid_section([*self._totals(), *self._devices()]),
             ]
@@ -482,24 +496,17 @@ class Builder:
 
     # -- Immersion sub-view --
 
-    def _immersion_chart(self, entities: ImmersionEntities, device: Device) -> dict | None:
-        """An immersion chart in apexcharts-card, or a built-in card when it is not installed.
-
-        Only a device that exists makes the file ask for apexcharts-card. A chart that waits
-        for a device that is not there yet still picks its card, but adds no note about it.
-        """
-        if device in self.devices.present:
-            use_apex = self.cards.use(APEX_CARD)
-        else:
-            use_apex = self.cards.installed(APEX_CARD)
-        build = apex_immersion_chart if use_apex else builtin_immersion_chart
-        return build(entities)
+    def _heater_tile(self) -> dict | None:
+        """The heater's power now: its rated watts while it is on, 0 while it is off."""
+        return tile_card(
+            self.immersion("immersion_power"), "Heater power", color=IMMERSION, icon="mdi:flash"
+        )
 
     def _temperature_card(self, shown: frozenset[Device]) -> dict | None:
         """The water temperature chart.
 
         With the thermostat (the switch and the sensor together) it adds the target and minimum
-        lines, and the heater shaded while it is on.
+        lines, and the heater's power as a line.
         """
         both = Device.IMMERSION_THERMOSTAT in shown
         entities = ImmersionEntities(
@@ -508,26 +515,33 @@ class Builder:
             self.thermostat("immersion_min_temp") if both else None,
             self.immersion("immersion_power") if both else None,
         )
-        return self._immersion_chart(entities, Device.IMMERSION_SENSOR)
+        return builtin_immersion_chart(entities)
 
     def _water_temperature(self) -> dict | None:
-        """The water temperature chart, while there is a sensor. Not drawn without one."""
+        """The water temperature chart, while there is a sensor. Not drawn without one.
+
+        With the switch as well, a tile above it says whether the heater is on.
+        """
         cards = self.devices.variants((Device.IMMERSION_THERMOSTAT,), self._temperature_card)
         return group(
             heading_card("Water temperature", "mdi:thermometer-water"),
-            [self.devices.show_with(card, Device.IMMERSION_SENSOR) for card in cards],
+            [
+                self.devices.show_with(
+                    self._heater_tile(), Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR
+                ),
+                *[self.devices.show_with(card, Device.IMMERSION_SENSOR) for card in cards],
+            ],
         )
 
     def _heater_on_off(self) -> dict | None:
         """The heater on or off, for a switch with no temperature sensor.
 
-        With a sensor the temperature chart shades the heater, so this section hides itself.
+        With a sensor the water temperature section carries the heater, so this one hides itself.
         """
         entities = ImmersionEntities(None, None, None, self.immersion("immersion_power"))
-        chart = self._immersion_chart(entities, Device.IMMERSION_SWITCH)
         return group(
             heading_card("Heater on or off", "mdi:flash"),
-            [chart],
+            [self._heater_tile(), builtin_immersion_chart(entities)],
             visibility=[
                 *self.devices.visible_with(Device.IMMERSION_SWITCH),
                 *self.devices.visible_without(Device.IMMERSION_SENSOR),
@@ -537,8 +551,8 @@ class Builder:
     def immersion_sections(self) -> list:
         """Sub-view: the water temperature, why the heater is on or off, and what it used.
 
-        Each section follows its own device. A sensor with a switch shades the heater on the
-        temperature chart. A switch with no sensor gets a small heater chart instead, and a
+        Each section follows its own device. A sensor with a switch adds the heater to the
+        temperature section. A switch with no sensor gets a small heater chart instead, and a
         sensor with no switch shows no heater or reason.
         """
         switch = Device.IMMERSION_SWITCH
@@ -548,7 +562,7 @@ class Builder:
             self._heater_on_off(),
             group(heading_card("Why", "mdi:help-circle-outline"), [reason], **self._when(switch)),
             self._ready_by(),
-            self._oil_advice_section(),
+            self._alt_heat_section(),
             group(
                 heading_card("Today", "mdi:calendar-today"),
                 [
@@ -565,21 +579,23 @@ class Builder:
         """The next hot water ready time and the planned heating, while scheduled heating is on.
 
         Needs both devices, because scheduled heating does. The sensor's attributes carry the
-        time and the plan, so no helper sensor is needed. With an oil price it adds the oil
-        advice sentence, which names when to start the oil for this ready time.
+        time and the plan, so no helper sensor is needed. With alternative heating it adds the
+        advice sentence, which names when to start it for this ready time.
         """
         sensor = self.water_sensor("immersion_water_temperature")
         schedule = self.thermostat("immersion_schedule")
         if not (sensor and schedule):
             return None
         devices = self.devices
-        oil = attribute_markdown(self.oil_advice("water_heating_cheapest_source"), "suggestion")
+        advice = attribute_markdown(
+            self.alt_heat_advice("water_heating_cheapest_source"), "suggestion"
+        )
         return group(
             heading_card("Ready by", "mdi:clock-check-outline"),
             [
                 markdown_card(ready_by_template(sensor)),
                 markdown_card(planned_heating_template(sensor)),
-                devices.show_with(oil, Device.OIL_ADVICE),
+                devices.show_with(advice, Device.ALTERNATIVE_HEAT),
             ],
             visibility=[
                 *devices.visible_with(Device.IMMERSION_THERMOSTAT, Device.IMMERSION_SENSOR),
@@ -587,13 +603,13 @@ class Builder:
             ],
         )
 
-    def _oil_advice_section(self) -> dict[str, Any] | None:
-        """The cheapest way to heat the water, while an oil price is set. Advice only.
+    def _alt_heat_section(self) -> dict[str, Any] | None:
+        """The cheapest way to heat the water, while alternative heating is set. Advice only.
 
         The live suggestion shows only while Immersion Scheduled Heating is off. While it is
         on, the Ready by section prints the same sentence, so the page holds one copy.
         """
-        source = self.oil_advice("water_heating_cheapest_source")
+        source = self.alt_heat_advice("water_heating_cheapest_source")
         scheduled = self.thermostat("immersion_schedule")
         suggestion = attribute_markdown(source, "suggestion")
         return group(
@@ -601,15 +617,15 @@ class Builder:
             [
                 tile_card(source, "Cheapest source", color=IMMERSION, columns=FULL),
                 with_visibility(suggestion, self.devices.visible_while_off(scheduled)),
-                self._oil_schedule_line(source),
+                self._alt_heat_schedule_line(source),
             ],
-            **self._when(Device.OIL_ADVICE),
+            **self._when(Device.ALTERNATIVE_HEAT),
         )
 
     @staticmethod
-    def _oil_schedule_line(source: str | None) -> dict | None:
-        """The suggested oil schedule, apart from the live suggestion above it."""
-        return markdown_card(oil_schedule_template(source)) if source else None
+    def _alt_heat_schedule_line(source: str | None) -> dict | None:
+        """The suggested alternative heating schedule, apart from the live suggestion above it."""
+        return markdown_card(alt_heat_schedule_template(source)) if source else None
 
     def _when(self, *devices: Device) -> dict[str, list[dict]]:
         """The section option that shows a section while these devices are present."""
@@ -867,21 +883,15 @@ class Builder:
         ]
 
     def _solar_days(self) -> dict | None:
-        """The forecast beside what was generated, for each of the last 7 days.
+        """What was generated on each of the last 7 days, with a forecast sensor set.
 
-        Built with a forecast sensor set. Only apexcharts-card can plot the forecast, which
-        keeps no long-term statistics, so without it the chart shows what was generated.
+        The forecast sensor keeps no long-term statistics, so only the generated energy is
+        plotted. The Against the forecast section above holds the forecast figures.
         """
         actual = self.entity("solar_today")
-        forecast = self.entity("solar_forecast_raw_today")
-        if not (self.has_forecast and actual and forecast):
+        if not (self.has_forecast and actual and self.entity("solar_forecast_raw_today")):
             return None
-        if self.cards.use(APEX_CARD):
-            card = apex_solar_days_chart(forecast, actual, _SOLAR_DAYS, _CHART_PIXELS)
-        else:
-            card = statistics_graph(
-                [entity_row(actual, "Generated")], "day", _SOLAR_DAYS, _CHART_ROWS
-            )
+        card = statistics_graph([entity_row(actual, "Generated")], "day", _SOLAR_DAYS, _CHART_ROWS)
         return group(heading_card(f"Last {_SOLAR_DAYS} days", "mdi:calendar-week"), [card])
 
     # -- Bill --
@@ -967,6 +977,20 @@ class Builder:
             ],
         )
 
+    def _sunrise_tiles(self) -> list:
+        """The charge expected at sunrise without and with tonight's planned charge."""
+        return [
+            self.tile(
+                "estimated_soc_at_sunrise", SUNRISE_NO_CHARGE_NAME, color=BATTERY, columns=FULL
+            ),
+            self.tile(
+                "estimated_soc_at_sunrise_with_charge",
+                SUNRISE_WITH_CHARGE_NAME,
+                color=BATTERY,
+                columns=FULL,
+            ),
+        ]
+
     def _charge_plan(self) -> dict | None:
         """The plan's sentence first: it says whether tonight charges or is skipped."""
         return group(
@@ -976,8 +1000,8 @@ class Builder:
                 self.tile(
                     "overnight_charge_target", "Target if charging", color=BATTERY, columns=FULL
                 ),
+                *self._sunrise_tiles(),
                 self.tile("overnight_charge_cost", "Est. cost", color=GRID),
-                self.tile("estimated_soc_at_sunrise", "At sunrise", color=BATTERY),
                 self.tile(
                     "cheap_rate_floor_status", "Rate floor", color=GRID, icon="mdi:floor-plan"
                 ),
@@ -1047,7 +1071,8 @@ class Builder:
         return [
             grid_section(
                 heading_block(
-                    heading_card(OVERNIGHT_NAME, "mdi:weather-night"), self._night_survival()
+                    heading_card(OVERNIGHT_NAME, "mdi:weather-night"),
+                    [*self._night_survival(), *self._sunrise_tiles()],
                 ),
                 heading_block(
                     subheading_card("Tonight's charge target", "mdi:battery-charging"),
@@ -1069,8 +1094,9 @@ class Builder:
         level = self.entity("night_survival_confidence")
         status = self.entity("night_survival_reason")
         sunrise = self.entity("estimated_soc_at_sunrise")
+        with_charge = self.entity("estimated_soc_at_sunrise_with_charge")
         if level:
-            return [markdown_card(survival_template(level, status, sunrise))]
+            return [markdown_card(survival_template(level, status, sunrise, with_charge))]
         if status:
             return [markdown_card(state_ref(status, ATTR_FULL_TEXT))]
         return []
@@ -1084,15 +1110,52 @@ class Builder:
             return None
         text = (
             "No commands are sent to your inverter or EV charger. Sensors and charge "
-            "decisions still update. To go live, turn off Dry Run in Settings, Devices & "
-            "services, GivEnergy Inverter Manager, Configure."
+            "decisions still update.\n\n" + _dry_run_exit(dry_run_active)
         )
         if skipped := self.entity("dry_run_last_skipped"):
             text += f"\n\n**Last skipped action:** {state_ref(skipped, ATTR_FULL_TEXT)}"
+        if plan := self.entity("charge_plan"):
+            text += f"\n\n**Tonight's charge plan:** {state_ref(plan)}"
         return group(
             heading_card("Dry run is on", "mdi:test-tube"),
             [markdown_card(text)],
             visibility=[{"condition": "state", "entity": dry_run_active, "state": "True"}],
+        )
+
+    def _setup_checklist(self) -> dict | None:
+        """What is left to set up, shown while Setup Progress says incomplete.
+
+        The state condition is a classic one, so it works on the Home Assistant floor. There is
+        no dismiss button. The card goes when the required items are done.
+        """
+        progress = self.entity("setup_progress")
+        if not progress:
+            return None
+        return group(
+            heading_card("Finish setting up", "mdi:clipboard-check-outline"),
+            [markdown_card(setup_checklist_template(progress))],
+            visibility=[{"condition": "state", "entity": progress, "state": "incomplete"}],
+        )
+
+    def _dry_run_controls(self) -> dict | None:
+        """The Dry run switch. Administrators turn it off to go live."""
+        return group(
+            heading_card("Dry run", "mdi:test-tube"),
+            [toggle_tile(self.entity("dry_run"), "Dry run", GRID)],
+        )
+
+    def _tuning_controls(self) -> dict | None:
+        """The tuning knobs that apply to every install. The divert ones sit with the heater."""
+        return group(
+            heading_card("Tuning", "mdi:tune-variant"),
+            [
+                slider_tile(self.entity("cheap_rate_floor_soc"), "Cheap rate floor", BATTERY),
+                slider_tile(
+                    self.entity("skip_charge_soc_threshold_pct"), "Skip charge above", BATTERY
+                ),
+                slider_tile(self.entity("forecast_conservatism"), "Forecast caution", SOLAR),
+                toggle_tile(self.entity("verbose_logging"), "Verbose logging", GRID),
+            ],
         )
 
     def _charging_controls(self) -> dict | None:
@@ -1134,6 +1197,12 @@ class Builder:
             [
                 toggle_tile(self.immersion("auto_immersion"), "Auto divert", IMMERSION),
                 toggle_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
+                slider_tile(
+                    self.immersion("surplus_divert_soc_pct"), "Divert above battery", IMMERSION
+                ),
+                slider_tile(
+                    self.immersion("surplus_divert_min_power_w"), "Divert above surplus", IMMERSION
+                ),
                 *self._immersion_thermostat_controls(),
                 *self._thermostat_help(),
                 *self._divert_decision(),
@@ -1148,7 +1217,12 @@ class Builder:
         """
         if not self.admin_ids:
             return []
-        return [self._charging_controls(), self._immersion_controls()]
+        return [
+            self._dry_run_controls(),
+            self._charging_controls(),
+            self._tuning_controls(),
+            self._immersion_controls(),
+        ]
 
 
 @dataclass(frozen=True)

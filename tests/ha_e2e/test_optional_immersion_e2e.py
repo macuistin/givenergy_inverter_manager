@@ -6,23 +6,27 @@ and the managed switch entity and the Immersion dashboard view follow the config
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-import yaml
-from conftest import IMMERSION_SWITCH, IMMERSION_TEMP, MIDDAY, SERIAL, full_config_data
+from conftest import (
+    IMMERSION_SWITCH,
+    IMMERSION_TEMP,
+    MIDDAY,
+    SERIAL,
+    full_config_data,
+)
 from homeassistant.components.switch import DATA_COMPONENT
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
+from wizard_support import options_wizard
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
     DOMAIN,
 )
+from custom_components.givenergy_inverter_manager.strategy import async_dashboard_for_websocket
 from tests.dashboard_visibility import seen
 
 MANAGED = "immersion_managed"
@@ -51,36 +55,16 @@ def _config_without_immersion() -> dict:
     return data
 
 
-def _form_values(fields: list[dict]) -> dict:
-    """What the frontend submits untouched: defaults and suggested values, section by section."""
-    values: dict = {}
-    for field in fields:
-        if field.get("type") == "expandable":
-            values[field["name"]] = _form_values(field["schema"])
-        elif "default" in field:
-            values[field["name"]] = field["default"]
-        elif "suggested_value" in field.get("description", {}):
-            values[field["name"]] = field["description"]["suggested_value"]
-    return values
+async def save_options(hass, entry, immersion: dict | None = None) -> None:
+    """Run the options wizard's hot water page as the frontend would.
 
-
-async def save_options(hass, entry, immersion: dict | None = None, unsent: bool = False) -> None:
-    """Open the options form and save it as the frontend would.
-
-    *immersion* replaces the entity choices of the immersion section ({} clears both). With
-    *unsent*, the section is left out of the submission altogether.
+    *immersion* replaces the entity choices ({} clears both, as the frontend leaves out an
+    emptied selector). Without it the page is submitted untouched.
     """
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    fields = cv.to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
-    payload = _form_values(fields)
-    if unsent:
-        del payload["immersion_settings"]
-    elif immersion is not None:
-        wattage = payload["immersion_settings"]["immersion_wattage_w"]
-        payload["immersion_settings"] = {"immersion_wattage_w": wattage, **immersion}
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input=payload
-    )
+    values: dict = {}
+    if immersion is not None:
+        values = {CONF_IMMERSION_SWITCH: None, CONF_IMMERSION_TEMP_SENSOR: None, **immersion}
+    result = await options_wizard(hass, entry, {"hot_water": values})
     await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY, result
     assert entry.state is ConfigEntryState.LOADED
@@ -97,12 +81,9 @@ async def dashboard_paths(hass) -> set[str]:
     A device's view is always in the file, with its sections hidden by visibility conditions
     until the device exists, so a view counts when something in it is shown.
     """
-    async_mock_service(hass, "persistent_notification", "create")
-    await hass.services.async_call(DOMAIN, "get_dashboard_yaml", blocking=True)
-    await hass.async_block_till_done()
-    text = (Path(hass.config.config_dir) / "givenergy_dashboard.yaml").read_text(encoding="utf-8")
+    dashboard = await async_dashboard_for_websocket(hass, is_admin=True)
     states = {state.entity_id: state.state for state in hass.states.async_all()}
-    shown = seen(yaml.safe_load(text), states)
+    shown = seen(dashboard, states)
     return {view["path"] for view in shown["views"] if view["sections"]}
 
 
@@ -236,20 +217,23 @@ class TestRemovingDevices:
         assert [call.data["entity_id"] for call in turn_on_calls] == [OTHER_SWITCH]
 
 
-class TestUnsentSection:
+class TestUnticked:
     @pytest.fixture
     def config_entry(self):
         return _entry(full_config_data())
 
-    async def test_a_submission_without_the_section_keeps_the_devices(self, hass, loaded_entry):
-        await save_options(hass, loaded_entry, unsent=True)
+    async def test_a_page_that_was_not_ticked_keeps_the_devices(self, hass, loaded_entry):
+        result = await options_wizard(hass, loaded_entry, {"battery": {"battery_min_soc_pct": 12}})
 
+        assert result["type"] is FlowResultType.CREATE_ENTRY
         assert CONF_IMMERSION_SWITCH not in loaded_entry.options
+        assert CONF_IMMERSION_TEMP_SENSOR not in loaded_entry.options
         assert managed_switch_id(hass, loaded_entry) is not None
         assert "immersion" in await dashboard_paths(hass)
 
-    async def test_an_untouched_form_keeps_the_devices(self, hass, loaded_entry):
+    async def test_an_untouched_hot_water_page_keeps_the_devices(self, hass, loaded_entry):
         await save_options(hass, loaded_entry)
 
         assert managed_switch_id(hass, loaded_entry) is not None
         assert loaded_entry.runtime_data.immersion._ports.switch_entity() == IMMERSION_SWITCH
+        assert CONF_IMMERSION_SWITCH not in loaded_entry.options

@@ -7,7 +7,7 @@
 3. Remove the files. In HACS, open the integration and choose **Remove**. For a manual install, delete `config/custom_components/givenergy_inverter_manager/`.
 4. Restart Home Assistant.
 
-Deleting the entry removes the integration's entities and unregisters its six actions.
+Deleting the entry removes the integration's entities and unregisters its five actions.
 
 ## Check your inverter
 
@@ -27,11 +27,11 @@ Deleting the integration does not remove these. Delete them yourself if you want
 
 | What | Where |
 |---|---|
-| Generated dashboard file | `givenergy_dashboard.yaml` in the config folder |
+| Dashboard file from versions before 0.18 | `givenergy_dashboard.yaml` in the config folder, if it is still there |
 | Energy export | `givenergy_energy_export.csv` in the config folder, if you ran `export_energy_data` |
 | Accumulated energy and battery statistics | `.storage/givenergy_inverter_manager.energy` in the config folder |
-| The dashboard you built from the file | **Settings → Dashboards** |
-| The `lovelace:` block for YAML mode | `configuration.yaml`, if you added it |
+| The GivEnergy dashboard you added | **Settings → Dashboards** |
+| The `lovelace:` block for YAML mode of an earlier version | `configuration.yaml`, if you added it |
 | Automations and cards that use the entities | Your own automations and dashboards |
 
 Home Assistant keeps the long-term statistics of removed entities in its database. Clear them in **Developer Tools → Statistics** if you want them gone.

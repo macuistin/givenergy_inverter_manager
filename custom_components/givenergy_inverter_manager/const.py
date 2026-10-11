@@ -15,12 +15,11 @@ GivTCP entity naming convention (all prefixed with serial number):
 """
 
 DOMAIN = "givenergy_inverter_manager"
-INTEGRATION_VERSION = "0.17.2"  # keep in sync with manifest.json
+INTEGRATION_VERSION = "0.18.0"  # keep in sync with manifest.json
 NAME = "GivEnergy Inverter Manager"
 DEVICE_MANUFACTURER = "macuistin"  # shown on the device page; GivEnergy does not make this
 
 # ── Service actions ──────────────────────────────────────────────────────────
-SERVICE_GET_DASHBOARD_YAML = "get_dashboard_yaml"
 SERVICE_SUGGEST_APPLIANCE = "suggest_appliance_run"
 SERVICE_COMPARE_TARIFF = "compare_tariff"
 SERVICE_YEAR_ON_YEAR = "year_on_year_summary"
@@ -67,12 +66,18 @@ TARIFF_RATE_KEYS = (CONF_BASE_RATE, CONF_BASE_RATE_NAME, CONF_EXPORT_RATE, CONF_
 # Date (YYYY-MM-DD) the user last saved a changed tariff or confirmed it in the repair.
 # The first run records today when it is missing, so an upgrade never raises the repair at once.
 CONF_TARIFF_REVIEWED_ON = "tariff_reviewed_on"
+# URL path of the dashboard the user added from the strategy, once setup has seen it. Empty
+# means setup told the user how to add one and has not seen it yet. Absent means setup has not
+# looked, which is how it knows to look once.
+CONF_DASHBOARD_URL_PATH = "dashboard_url_path"
 # Days without a tariff review before the repair appears. Suppliers change prices about once a
 # year, and no existing constant measures time since a user action.
 TARIFF_REVIEW_STALE_DAYS = 365
 
 # ── Solar forecast ───────────────────────────────────────────────────────────
 CONF_FORECAST_ENTITY = "forecast_entity"
+# Stored by 0.17 and earlier and never read. No wizard page offers it any more, and an entry that
+# holds it keeps it untouched.
 CONF_FORECAST_PROVIDER = "forecast_provider"
 FORECAST_PROVIDER_FORECAST_SOLAR = "forecast_solar"
 FORECAST_PROVIDER_SOLCAST = "solcast"
@@ -151,41 +156,58 @@ IMMERSION_RATE_RUN_MIN_RISE_C = 2.0
 # The rate used is the median of the last few runs, so one run during a shower does not skew it.
 IMMERSION_RATE_RUNS_KEPT = 5
 IMMERSION_SWITCH_COOLDOWN_MINUTES = 10  # min between auto on/off writes to the real switch
-# ── Oil water heating advice (core/oil_advice.py) ────────────────────────────
-# Some homes also heat the same cylinder with an oil boiler, through a second coil. With an
-# oil price set, a sensor says when the oil system is the cheaper way to heat the water.
-# Advice only: the integration never switches the oil system. The price is the only setting.
-CONF_OIL_PRICE_PER_LITRE = "oil_price_per_litre"
-CONF_OIL_PRICE_ENTITY = "oil_price_entity"
-# Fixed assumptions, not options. A typical boiler in service sits between an older
-# non-condensing boiler (about 75 to 80%) and a new condensing one (about 90% or more). 85% leans
-# low on purpose, so oil is not suggested on an efficiency the boiler does not reach in summer,
-# when it heats only the cylinder.
+# ── Alternative water heating advice (core/alt_heat_advice.py) ────────────────────
+# Some homes also heat the same cylinder another way: an oil or gas boiler, a heat pump or solid
+# fuel, through a second coil. With the setting on and a cost set, a sensor says when that is the
+# cheaper way to heat the water. Advice only: the integration never switches the other system.
+CONF_ALT_HEAT_ENABLED = "alt_heat_enabled"
+CONF_ALT_HEAT_LABEL = "alt_heat_label"
+CONF_ALT_HEAT_COST_UNIT = "alt_heat_cost_unit"
+CONF_ALT_HEAT_COST = "alt_heat_cost"
+CONF_ALT_HEAT_COST_ENTITY = "alt_heat_cost_entity"
+# What the cost is the cost of. A litre is the price of a litre of heating oil, turned into heat
+# with the two fixed assumptions below. A kWh of heat is the cost of one kWh delivered to the
+# water, boiler efficiency already included.
+ALT_HEAT_UNIT_LITRE = "litre"
+ALT_HEAT_UNIT_KWH_HEAT = "kwh_heat"
+ALT_HEAT_UNITS = (ALT_HEAT_UNIT_LITRE, ALT_HEAT_UNIT_KWH_HEAT)
+DEFAULT_ALT_HEAT_UNIT = ALT_HEAT_UNIT_LITRE
+DEFAULT_ALT_HEAT_LABEL = "Oil"
+ALT_HEAT_LABEL_MAX_LENGTH = 20
+# The oil price options of 0.17 and earlier. Setup converts them once
+# (core/alt_heat_conversion.py) and nothing reads them afterwards. They are not CONF_ names
+# because they are no longer options.
+LEGACY_OIL_PRICE_PER_LITRE = "oil_price_per_litre"
+LEGACY_OIL_PRICE_ENTITY = "oil_price_entity"
+# Fixed assumptions for the litre unit, not options. A typical boiler in service sits between an
+# older non-condensing boiler (about 75 to 80%) and a new condensing one (about 90% or more). 85%
+# leans low on purpose, so oil is not suggested on an efficiency the boiler does not reach in
+# summer, when it heats only the cylinder.
 OIL_BOILER_EFFICIENCY_PCT = 85  # %
 # The commonly quoted energy content of kerosene heating oil.
 OIL_KWH_PER_LITRE = 10.35  # kWh per litre of fuel
-OIL_ADVICE_HORIZON_HOURS = 24  # how far ahead the cheapest hours are looked for
-# A suggested oil schedule (core/oil_schedule.py) is learned from a rolling record of the
-# immersion's grid heating. Fixed assumptions, not options.
+ALT_HEAT_ADVICE_HORIZON_HOURS = 24  # how far ahead the cheapest hours are looked for
+# A suggested alternative heating schedule (core/alt_heat_schedule.py) is learned from a rolling
+# record of the immersion's grid heating. Fixed assumptions, not options.
 # Complete days kept, plus the day in progress. Two weeks hold every weekday twice, so a weekly
 # habit shows up twice, and an old habit drops out within a fortnight of it ending.
-OIL_SCHEDULE_RECORD_DAYS = 14
+ALT_HEAT_SCHEDULE_RECORD_DAYS = 14
 # A single week is the shortest record that has seen each weekday once. Before that a pattern
 # could be one busy weekend.
-OIL_SCHEDULE_MIN_DAYS = 7
+ALT_HEAT_SCHEDULE_MIN_DAYS = 7
 # An hour counts as a habit when it recurs on at least one day in this many. A third is two or
 # three days a week: it catches weekday routines and the daily top-up, and leaves out a guest's
 # shower or one cold snap.
-OIL_SCHEDULE_REPEAT_ONE_IN = 3
+ALT_HEAT_SCHEDULE_REPEAT_ONE_IN = 3
 # The least grid energy in one hour that counts as the immersion heating (about 5 minutes of a
 # 3 kW element). Less is solar surplus that did not quite cover the heater.
-OIL_SCHEDULE_MIN_HOUR_KWH = 0.25
+ALT_HEAT_SCHEDULE_MIN_HOUR_KWH = 0.25
 # The least saving a week that is worth a window, in the configured currency. About 13 a year:
 # below it, setting up an automation costs more effort than it returns.
-OIL_SCHEDULE_MIN_SAVING_PER_WEEK = 0.25
+ALT_HEAT_SCHEDULE_MIN_SAVING_PER_WEEK = 0.25
 # Two or three windows is a morning, an afternoon and an evening. More is not a schedule anyone
 # sets up.
-OIL_SCHEDULE_MAX_WINDOWS = 3
+ALT_HEAT_SCHEDULE_MAX_WINDOWS = 3
 DEFAULT_BATTERY_MIN_SOC = 10  # %
 DEFAULT_OVERNIGHT_CHARGE_TARGET = 80  # %
 DEFAULT_SKIP_CHARGE_SOC_THRESHOLD = 75  # %
@@ -214,6 +236,9 @@ DEFAULT_RATE_PERIODS = [
 # Sensors still update, charge decisions are still calculated — nothing is sent
 # to GivTCP. Useful for verifying behaviour before first live deployment.
 CONF_DRY_RUN = "dry_run"
+# A file with this name in the Home Assistant config directory marks a test instance. While it
+# exists, dry run is on whatever the saved option says. Only the file's presence is read.
+TEST_INSTANCE_MARKER = ".givenergy_test_instance"
 DEFAULT_DRY_RUN = False
 
 CONF_VERBOSE_LOGGING = "verbose_logging"
@@ -290,7 +315,7 @@ CHARGE_EV_SOC_BONUS = 10  # extra SoC percentage added when EV is plugged in
 CHARGE_LOAD_PROFILE_MIN_COVERAGE = 0.9  # fraction of the day a load record must cover
 CHARGE_LOAD_PROFILE_MIN_DAYS = 2  # complete days needed before the per-slot profile is used
 CHARGE_LOAD_PROFILE_SAME_WEEKDAY_MIN_DAYS = 3  # same-weekday days needed to prefer them
-CHARGE_FORECAST_CORRECTION_MIN = 0.6  # lowest factor applied to the P50 forecast
+CHARGE_FORECAST_CORRECTION_MIN = 0.4  # lowest factor applied to the P50 forecast
 CHARGE_FORECAST_CORRECTION_MAX = 1.2  # highest factor applied to the P50 forecast
 CHARGE_FORECAST_CORRECTION_MIN_DAYS = 5  # usable days needed before the factor is applied
 CHARGE_FORECAST_CORRECTION_MIN_KWH = 0.5  # days with forecast or actual below this are ignored
@@ -357,9 +382,9 @@ EV_CHARGER_MIN_POWER_W = 1380
 # starts, pauses and restarts, and a short grid spike while solar diverts.
 EV_BASE_RATE_ALERT_DELAY_S = 300
 
-# ── Configurable thresholds — exposed in config flow ─────────────────────────
-# (SURPLUS_DIVERT_SOC_THRESHOLD and SURPLUS_DIVERT_MIN_POWER_W already defined above,
-#  but not yet exposed to the user. Config keys added here for wiring them in.)
+# ── Tuning controls ───────────────────────────────────────────────────────────
+# Each of these keys is edited through a number or switch entity (controls.py), which writes
+# it to the saved options. The defaults are the ones defined above and below.
 CONF_SURPLUS_DIVERT_SOC = "surplus_divert_soc_pct"
 CONF_SURPLUS_DIVERT_MIN_W = "surplus_divert_min_power_w"
 

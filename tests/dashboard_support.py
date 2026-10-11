@@ -13,10 +13,13 @@ real Home Assistant suite checks these IDs against a live registry.
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+import yaml
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_FORECAST_ENTITY,
@@ -25,26 +28,35 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_INVERTER_TEMP_ENTITY,
 )
 from custom_components.givenergy_inverter_manager.core.devices import Device, installed_devices
-from tests.helpers import ROOT
+from tests.helpers import PKG, ROOT
 
 ENTRY_ID = "test_entry_123"
 ADMIN_ID = "a0b1c2d3e4f5061728394a5b6c7d8e9f"
 _SCRIPT = ROOT / "scripts" / "gen_sensor_docs.py"
 _DEVICE_SLUG = "givenergy_inverter_manager"
 
-# Switch and number entities set _attr_name on the class, so the name is in code.
-_OTHER_ENTITIES = {
-    "auto_immersion": ("switch", "Auto Immersion Divert"),
-    "immersion_managed": ("switch", "Immersion Heater (Managed)"),
-    "immersion_schedule": ("switch", "Immersion Scheduled Heating"),
-    "skip_charge_override": ("switch", "Force Skip Overnight Charge"),
-    "charge_target_override_enabled": ("switch", "Enable Charge Target Override"),
-    "charge_target_override": ("number", "Overnight Charge Target Override"),
-    "immersion_target_temp": ("number", "Immersion Target Temperature"),
-    "immersion_min_temp": ("number", "Immersion Minimum Temperature"),
-    "immersion_hysteresis": ("number", "Immersion Restart Gap"),
-}
+
+def _switch_and_number_names() -> dict[str, tuple[str, str]]:
+    """{unique id suffix: (domain, name)} for the switches and numbers, from strings.json.
+
+    Each one has a translation key equal to its unique id suffix, so its name is a translation.
+    """
+    entity = json.loads((PKG / "strings.json").read_text(encoding="utf-8"))["entity"]
+    return {
+        key: (domain, value["name"])
+        for domain in ("switch", "number")
+        for key, value in entity[domain].items()
+    }
+
+
+_OTHER_ENTITIES = _switch_and_number_names()
+
 ALL_DEVICES = frozenset(Device)
+
+# The Lovelace resources of an install that has power-flow-card-plus from HACS. The dashboard
+# uses that card only when it is seen to be installed, so tests that look at the card start
+# from this. A test that wants no resources, or unreadable ones, passes [] or None.
+POWER_FLOW_RESOURCES = ["/hacsfiles/power-flow-card-plus/power-flow-card-plus.js"]
 
 MINIMAL_CONFIG: dict = {}
 
@@ -216,30 +228,67 @@ def all_cards(views: list[dict]) -> list[dict]:
     return [card for view in views for card in view_cards(view)]
 
 
+class _TextDumper(yaml.SafeDumper):
+    """SafeDumper that writes multi-line strings as literal blocks and never folds."""
+
+    def ignore_aliases(self, data):
+        return True
+
+
+def _represent_str(dumper: yaml.SafeDumper, data: str):
+    style = "|" if "\n" in data else None
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+
+_TextDumper.add_representer(str, _represent_str)
+
+
 def dashboard_text(
     config: dict | None = None,
     registry: FakeRegistry | None = None,
     *,
-    resources: list[str] | None = None,
+    resources: list[str] | None = POWER_FLOW_RESOURCES,
     admin_ids: tuple[str, ...] = (ADMIN_ID,),
+    is_admin: bool = True,
     ev_brand: str | None = "myenergi",
     states: tuple[str, ...] = (),
 ) -> str:
-    """The generated dashboard YAML. Defaults: every feature configured, every sensor enabled."""
-    from custom_components.givenergy_inverter_manager.dashboard import HostFacts, render_dashboard
+    """The generated dashboard as YAML text, which is easy to search and to pin with a hash.
 
-    config = FULL_CONFIG if config is None else config
-    entry = fake_entry(config, ev_brand)
-    registry = registry or FakeRegistry(enable_all=True, devices=devices_of(config, ev_brand))
-    return render_dashboard(fake_states_hass(states), entry, HostFacts(resources, admin_ids), registry)[0]
+    Defaults: every feature configured, every sensor enabled. The integration writes no YAML
+    file, so this dump exists only for the tests and the matrix golden.
+    """
+    dashboard = dashboard_dict(
+        config,
+        registry,
+        resources=resources,
+        admin_ids=admin_ids,
+        is_admin=is_admin,
+        ev_brand=ev_brand,
+        states=states,
+    )
+    return dashboard_yaml(dashboard)
+
+
+def dashboard_yaml(dashboard: dict) -> str:
+    """Serialise a dashboard dict the way the matrix golden pins it."""
+    return yaml.dump(
+        dashboard,
+        Dumper=_TextDumper,
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+        width=10_000,
+    )
 
 
 def dashboard_dict(
     config: dict | None = None,
     registry: FakeRegistry | None = None,
     *,
-    resources: list[str] | None = None,
+    resources: list[str] | None = POWER_FLOW_RESOURCES,
     admin_ids: tuple[str, ...] = (ADMIN_ID,),
+    is_admin: bool = True,
     ev_brand: str | None = "myenergi",
     states: tuple[str, ...] = (),
 ) -> dict:
@@ -249,4 +298,5 @@ def dashboard_dict(
     config = FULL_CONFIG if config is None else config
     entry = fake_entry(config, ev_brand)
     registry = registry or FakeRegistry(enable_all=True, devices=devices_of(config, ev_brand))
-    return build_dashboard(fake_states_hass(states), entry, HostFacts(resources, admin_ids), registry)
+    facts = HostFacts(resources, admin_ids, is_admin)
+    return build_dashboard(fake_states_hass(states), entry, facts, registry)

@@ -28,7 +28,6 @@ from tests.dashboard_support import (
     MINIMAL_CONFIG,
     FakeRegistry,
     all_cards,
-    dashboard_dict,
     dashboard_text,
     default_entity_ids,
     view_cards,
@@ -224,6 +223,7 @@ class TestPowerFlowTabChanges:
         assert [s["cards"][0]["heading"] for s in pf_view["sections"]] == [
             "Now",
             "Dry run is on",
+            "Finish setting up",
             "Live power flow",
             "Energy today",
         ]
@@ -246,25 +246,25 @@ class TestPowerFlowTabChanges:
         )
 
     def test_immersion_section_absent_without_temperature_sensor(self):
-        """A switch but no temperature sensor gives the rows but no apexcharts charts."""
+        """A switch but no temperature sensor gives the rows and a heater chart, no water chart."""
         from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_SWITCH
 
         text = shown_text({CONF_IMMERSION_SWITCH: "switch.immersion_heater"}, ev_brand=None)
         immersion = _cards(text, "immersion")
-        assert not [c for c in immersion if c["type"] == "history-graph"]
+        charts = [c for c in immersion if c["type"] == "history-graph"]
+        assert [r["name"] for c in charts for r in c["entities"]] == ["Heater power"]
         assert eid("immersion_water_temperature") not in text
         assert eid("immersion_today") in text
 
     def test_immersion_section_present_when_configured(self):
-        """With a temperature sensor and a switch, the sub-view has one apexcharts chart."""
+        """With a temperature sensor and a switch, the sub-view has one built-in history graph."""
         yaml_text = shown_text()
 
-        assert "apexcharts-card" in yaml_text, "Immersion section must use apexcharts-card"
-        assert "graph_span: 12h" in yaml_text, "Must show 12 hours of history"
+        assert "apexcharts" not in yaml_text
         assert eid("immersion_water_temperature") in yaml_text
-        charts = [c for c in _cards(yaml_text, "immersion") if c["type"].startswith("custom:")]
+        charts = [c for c in _cards(yaml_text, "immersion") if c["type"] == "history-graph"]
         assert len(charts) == 1
-        assert charts[0]["header"] == {"show": False}
+        assert charts[0]["hours_to_show"] == 12, "Must show 12 hours of history"
 
 
 class TestDashboardImprovements:
@@ -317,9 +317,9 @@ class TestIncomeBar:
 
     def test_no_income_markdown_card_on_power_flow(self):
         markdown = [c for c in _cards(_build(), "power-flow") if c["type"] == "markdown"]
-        assert all("Dry Run" in c["content"] for c in markdown), (
-            "Income bar is now on the grid node — only the dry run banner is markdown"
-        )
+        assert all(
+            "dry run" in c["content"].lower() or "state_attr('" in c["content"] for c in markdown
+        ), "Income bar is now on the grid node: only the dry run banner and the checklist are markdown"
 
     def test_income_bar_references_grid_power(self):
         result = _build()
@@ -399,9 +399,10 @@ class TestSolarForecastCards:
         assert tiles["% of forecast"] == eid("solar_actual_vs_forecast_pct")
         assert tiles["Plan forecast"] == eid("solar_forecast_kwh_today")
 
-    def test_solar_graph_in_today_view_uses_statistics(self):
+    def test_solar_graphs_in_the_solar_view_use_statistics(self):
         graphs = [c for c in _cards(_build(), "solar") if c.get("type") == "statistics-graph"]
-        assert [[r["entity"] for r in g["entities"]] for g in graphs] == [[eid("solar_today")]]
+        assert [g["period"] for g in graphs] == ["hour", "day"]
+        assert [[r["entity"] for r in g["entities"]] for g in graphs] == [[eid("solar_today")]] * 2
 
 
 class TestSoCHistoryChart:
@@ -415,32 +416,6 @@ class TestSoCHistoryChart:
         """A graph that mixes % and W squashes one of them flat."""
         for graph in (c for c in _cards(_build(), "battery") if c["type"] == "history-graph"):
             assert len(graph["entities"]) == 1
-
-
-class TestYamlSerialisation:
-    """The dashboard is built as a dict and serialised once."""
-
-    def _dict(self):
-        return dashboard_dict()
-
-    def test_yaml_round_trips_to_the_dict(self):
-        assert yaml.safe_load(_build()) == self._dict()
-
-    def test_no_anchors_or_aliases(self):
-        """Shared sub-dicts (the apex config) must be written out, not aliased."""
-        import re
-
-        assert not re.search(r"[&*]id\d+", _build())
-
-    def test_multiline_strings_are_literal_blocks(self):
-        text = _build()
-        assert "content: |-\n" in text
-        assert "\\n" not in text
-
-    def test_header_comment_precedes_views(self):
-        text = _build()
-        assert text.startswith("# GivEnergy Inverter Manager")
-        assert text.index("views:") > text.index("power-flow-card-plus")
 
 
 _OUR_ENTITY = re.compile(r"\b(?:sensor|switch|number)\.givenergy_inverter_manager_[a-z0-9_]+")
@@ -503,16 +478,6 @@ class TestEntityAvailability:
             registry=FakeRegistry(enabled={"yesterday_forecast_accuracy_pct"}),
         )
         assert eid("yesterday_forecast_accuracy_pct") in text
-
-    def test_disabled_sensors_are_listed_in_the_header(self):
-        text = _build(config=FULL_CONFIG, registry=FakeRegistry())
-        header = text[: text.index("views:")]
-        assert "disabled" in header
-        assert "Forecast accuracy yesterday" in header
-
-    def test_no_header_note_when_nothing_was_left_out(self):
-        text = _build(config=FULL_CONFIG, registry=FakeRegistry(enable_all=True))
-        assert "disabled" not in text[: text.index("views:")]
 
     def test_unregistered_entity_is_left_out(self):
         text = _build(registry=FakeRegistry(enable_all=True, absent={"cheap_rate_floor_status"}))
@@ -662,6 +627,27 @@ class TestNowSection:
         assert battery["features"] == [{"type": "bar-gauge", "min": 0, "max": 100}]
         assert battery["grid_options"]["rows"] > 1
 
+    def test_the_battery_overnight_tile_reads_the_summary_that_says_what_the_charge_adds(self):
+        """The tile shows the summary attribute, so its text is what the sensor builds tonight.
+
+        A battery that would run flat without a charge still reads May run low, and the tile
+        says in words that tonight's planned charge takes it to about two thirds.
+        """
+        from custom_components.givenergy_inverter_manager import sensor_values
+        from tests.core.test_sunrise_charge_engine import EVENING, _data
+
+        tile = self._now(_build())["cards"][4]
+        assert tile["entity"] == eid("night_survival_confidence")
+        assert tile["state_content"] == ["summary"]
+        assert tile["grid_options"]["columns"] == "full"
+
+        shown = sensor_values.night_survival_attributes(_data(EVENING, 66.0))["summary"]
+        assert shown == (
+            "May run low without a charge · tonight's charge covers it, about 67% at sunrise"
+        )
+        skipped = _data(EVENING, 66.0, override_skip_charge=True, override_charge_target=None)
+        assert sensor_values.night_survival_attributes(skipped)["summary"] == "May run low"
+
     def test_battery_overnight_opens_the_explanation(self):
         """The tile gives a short phrase, so a tap leads to the sentence behind it."""
         tile = self._now(_build())["cards"][4]
@@ -677,10 +663,7 @@ class TestNowSection:
             eid("import_cost_today"),
             eid("next_cheap_rate_start"),
         ]
-        header = text[: text.index("views:")]
-        assert "Battery Overnight Confidence" in header
-        for name in ("Hours to Cheap Rate", "Next Cheap Rate Start"):
-            assert name not in header
+        assert eid("night_survival_confidence") not in text
 
 
 class TestLongTextStates:
@@ -739,9 +722,10 @@ class TestLongTextStates:
             assert eid(key) in night, key
 
     def test_markdown_cards_are_valid_jinja(self):
+        checklist = {(eid("setup_progress"), "items"): [{"label": "Tariff set", "done": True, "required": True}]}
         for card in all_cards(yaml.safe_load(_build())["views"]):
             if card["type"] == "markdown":
-                assert _render(card["content"], lambda entity: "x")
+                assert _render(card["content"], lambda entity: "x", checklist)
 
     def test_battery_heading_opens_the_battery_detail_view(self):
         heading = next(c for c in _cards(_build(), "battery") if c["type"] == "heading")
@@ -784,17 +768,30 @@ class TestNightSurvivalCard:
 
     _CONF = eid("night_survival_confidence")
     _SUNRISE = eid("estimated_soc_at_sunrise")
+    _WITH_CHARGE = eid("estimated_soc_at_sunrise_with_charge")
     _STATUS = eid("night_survival_reason")
 
     def _card(self, **kw) -> str:
         cards = _cards(_build(**kw), "battery-detail")
         return next(c for c in cards if c["type"] == "markdown")["content"]
 
-    def _text(self, level, *, sunrise="13.6", status="Battery should last.", explanation=None):
+    def _text(
+        self,
+        level,
+        *,
+        sunrise="13.6",
+        status="Battery should last.",
+        explanation=None,
+        with_charge=None,
+        added=None,
+    ):
         states = {self._CONF: level, self._SUNRISE: sunrise, self._STATUS: status}
         attrs = {(self._CONF, "outlook"): _OUTLOOKS[level]} if level in _OUTLOOKS else {}
         if explanation:
             attrs[(self._CONF, "explanation")] = explanation
+        if with_charge is not None:
+            states[self._WITH_CHARGE] = with_charge
+            attrs[(self._WITH_CHARGE, "charge_added_pct")] = added
         return _render(self._card(), lambda e: states.get(e, "unknown"), attrs).strip()
 
     def test_the_level_is_bold_and_comes_first(self):
@@ -805,10 +802,28 @@ class TestNightSurvivalCard:
     def test_warning_is_explained_from_the_sunrise_estimate(self):
         text = self._text("Warning")
         assert text.endswith(
-            "The battery should last until solar starts, but only just. It is expected to "
-            "reach about 14% at sunrise, close to your minimum charge. A warning shows when "
-            "the estimate is within 5 points of the minimum."
+            "The battery should last until solar starts, but only just. Without a charge it "
+            "is expected to reach about 14% at sunrise, close to your minimum charge. A "
+            "warning shows when the estimate is within 5 points of the minimum."
         )
+
+    def test_warning_also_gives_the_figure_with_the_planned_charge_while_one_counts(self):
+        text = self._text("Warning", with_charge="89.2", added=64.5)
+        assert text.endswith(
+            "Without a charge it is expected to reach about 14% at sunrise, close to your "
+            "minimum charge. With tonight's planned charge it should reach about 89%. A "
+            "warning shows when the estimate is within 5 points of the minimum."
+        )
+
+    @pytest.mark.parametrize("added", [0, 0.0, None, "unknown"])
+    def test_warning_leaves_the_planned_charge_out_when_it_adds_nothing(self, added):
+        text = self._text("Warning", with_charge="13.6", added=added)
+        assert "planned charge" not in text
+        assert "about 14% at sunrise, close to your minimum charge." in text
+
+    def test_warning_leaves_the_planned_charge_out_when_its_figure_is_unavailable(self):
+        text = self._text("Warning", with_charge="unavailable", added=64.5)
+        assert "planned charge" not in text
 
     def test_warning_rounds_the_sunrise_estimate_to_whole_percent(self):
         assert "about 16% at sunrise" in self._text("Warning", sunrise="15.8")
@@ -881,9 +896,7 @@ class TestStatisticsGraphs:
             for c in _cards(shown_text(), path)
             if c["type"] == "statistics-graph"
         ]
-        assert [g["period"] for g in graphs] == ["hour", "day"] or [
-            g["period"] for g in graphs
-        ] == ["day", "hour"]
+        assert sorted(g["period"] for g in graphs) == ["day", "day", "hour"]
         for g in graphs:
             assert g["stat_types"] == ["change"]
             assert g["chart_type"] == "bar"
@@ -915,7 +928,7 @@ class TestBillView:
         types = {c["type"] for c in _cards(_build(), "bill")}
         assert types == {"heading", "tile", "statistics-graph"}
 
-    def test_disabled_by_default_figures_are_left_out_and_listed(self):
+    def test_disabled_by_default_figures_are_left_out(self):
         text = _build(registry=FakeRegistry())
         bill = yaml.dump(_cards(text, "bill"))
         for key in (
@@ -924,9 +937,6 @@ class TestBillView:
             "cheap_import_fraction_this_month",
         ):
             assert eid(key) not in bill
-        header = text[: text.index("views:")]
-        assert "Days Elapsed in Bill Period" in header
-        assert "Average Import Rate This Month" in header
 
     def test_bill_prediction_moved_off_the_today_view(self):
         titles = [c.get("heading") for c in _cards(_build(), "today")]
@@ -1012,13 +1022,19 @@ class TestMissingHacsCards:
     def _shown(self, resources) -> str:
         return shown_text(resources=resources)
 
-    def test_unknown_resources_keep_the_custom_cards(self):
+    def test_unknown_resources_use_the_built_in_cards(self):
+        """The custom card is used only when it is seen to be installed."""
         types = self._types(None)
-        assert {"custom:power-flow-card-plus", "custom:apexcharts-card"} <= types
+        assert "custom:power-flow-card-plus" not in types
+        assert not {t for t in types if t.startswith("custom:")}
 
-    def test_both_installed_keep_the_custom_cards(self):
+    def test_the_power_flow_card_is_used_when_its_resource_is_registered(self):
+        assert "custom:power-flow-card-plus" in self._types([_PFC])
+
+    def test_apexcharts_card_is_never_used_even_when_installed(self):
         types = self._types([_PFC, _APEX])
-        assert {"custom:power-flow-card-plus", "custom:apexcharts-card"} <= types
+        assert "custom:power-flow-card-plus" in types
+        assert "custom:apexcharts-card" not in types
 
     def test_no_resources_means_no_custom_cards(self):
         types = self._types([])
@@ -1039,7 +1055,7 @@ class TestMissingHacsCards:
         assert eid("ev_power") in rows
         assert eid("immersion_power") in rows
 
-    def test_immersion_charts_fall_back_to_built_in_cards(self):
+    def test_immersion_chart_is_a_built_in_card(self):
         text = self._shown([_PFC])
         assert "custom:apexcharts-card" not in text
         cards = _cards(text, "immersion")
@@ -1054,21 +1070,6 @@ class TestMissingHacsCards:
     def test_matching_ignores_case_and_path(self):
         types = self._types(["/local/Community/PowerFlowCard/POWER-FLOW-CARD-PLUS.js", _APEX])
         assert "custom:power-flow-card-plus" in types
-
-    def test_header_names_the_missing_cards(self):
-        header = self._text([])
-        header = header[: header.index("views:")]
-        assert "power-flow-card-plus" in header
-        assert "apexcharts-card" in header
-        assert "not installed" in header
-
-    def test_header_has_no_note_when_cards_are_present(self):
-        header = self._text([_PFC, _APEX])
-        assert "not installed" not in header[: header.index("views:")]
-
-    def test_no_apex_note_without_an_immersion_sensor(self):
-        text = dashboard_text(MINIMAL_CONFIG, resources=[_PFC], ev_brand=None)
-        assert "not installed" not in text[: text.index("views:")]
 
     def test_fallback_dashboard_references_only_usable_entities(self):
         assert _referenced(self._text([])) <= set(default_entity_ids().values())
@@ -1204,12 +1205,11 @@ class TestSubViews:
         ]
         assert len(bars) == 2  # the Now section and the Battery tab
 
-    def test_the_heater_is_a_stepped_band_on_the_temperature_chart(self):
-        """The sensor only updates on change, so a smooth line would draw false ramps."""
-        charts = [c for c in _cards(_build(), "immersion") if c["type"] == "custom:apexcharts-card"]
-        heater = [s for c in charts for s in c["series"] if s["entity"] == eid("immersion_power")]
+    def test_the_heater_is_a_row_of_the_temperature_chart(self):
+        """The built-in history graph steps between values, so it draws no false ramps."""
+        charts = [c for c in _cards(_build(), "immersion") if c["type"] == "history-graph"]
+        heater = [r for c in charts for r in c["entities"] if r["entity"] == eid("immersion_power")]
         assert heater
-        assert {s["curve"] for s in heater} == {"stepline"}
         assert "Immersion Power Today" not in yaml.dump(charts)
 
     def test_no_immersion_or_ev_view_is_shown_without_the_devices(self):
@@ -1227,6 +1227,8 @@ class TestSubViews:
             "overnight_charge_reason",
             "night_survival_reason",
             "night_survival_confidence",
+            "estimated_soc_at_sunrise",
+            "estimated_soc_at_sunrise_with_charge",
             "battery_cycles",
             "battery_remaining_life",
             "days_since_full_charge",
@@ -1308,7 +1310,7 @@ class TestSectionsLayout:
         graphs = [
             c
             for c in all_cards(self._views())
-            if c["type"] in {"history-graph", "statistics-graph", "custom:apexcharts-card"}
+            if c["type"] in {"history-graph", "statistics-graph"}
             or c["type"].startswith("custom:power-flow")
         ]
         assert graphs
@@ -1337,6 +1339,11 @@ class TestSectionsLayout:
             eid("immersion_target_temp"),
             eid("immersion_min_temp"),
             eid("immersion_hysteresis"),
+            eid("surplus_divert_soc_pct"),
+            eid("surplus_divert_min_power_w"),
+            eid("cheap_rate_floor_soc"),
+            eid("skip_charge_soc_threshold_pct"),
+            eid("forecast_conservatism"),
         }
 
     def test_settings_have_no_entities_lists(self):

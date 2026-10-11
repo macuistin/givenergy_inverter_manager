@@ -101,6 +101,33 @@ class TestBatteryPowerValueFn:
         assert _lambda_for("battery_power")(self._data(2500.456)) == pytest.approx(2500.5)
 
 
+class TestSetupProgressSensor:
+    """The checklist sensor is a diagnostic the dashboard card reads, enabled by default."""
+
+    def test_it_is_a_diagnostic_sensor_with_no_unit_and_no_state_class(self):
+        description = _BY_KEY["setup_progress"]
+        assert description.entity_category is not None
+        assert description.native_unit_of_measurement is None
+        assert description.state_class is None
+        assert description.device_class is None
+
+    def test_it_is_enabled_by_default_because_the_dashboard_reads_it(self):
+        assert _BY_KEY["setup_progress"].entity_registry_enabled_default is True
+
+    def test_it_needs_no_device(self):
+        assert _BY_KEY["setup_progress"].requires is None
+
+    def test_the_entity_publishes_the_state_and_the_items(self):
+        from custom_components.givenergy_inverter_manager.core.setup_progress import SetupItem
+
+        data = CoordinatorData()
+        data.setup_items = (SetupItem("tariff", "Tariff set", False, True),)
+        coordinator = SimpleNamespace(data=data, entry=SimpleNamespace(entry_id="entry"))
+        sensor = GivEnergyManagerSensor(coordinator, _BY_KEY["setup_progress"])
+        assert sensor.native_value == "incomplete"
+        assert sensor.extra_state_attributes["items"][0]["key"] == "tariff"
+
+
 class TestGridPowerMetadata:
     def test_device_class_is_power(self):
         assert _BY_KEY["grid_power"].device_class is SensorDeviceClass.POWER
@@ -150,7 +177,7 @@ class TestWaterHeatingCheapestSourceMetadata:
     def test_it_needs_the_oil_advice_device(self):
         from custom_components.givenergy_inverter_manager.core.devices import Device
 
-        assert _BY_KEY["water_heating_cheapest_source"].requires is Device.OIL_ADVICE
+        assert _BY_KEY["water_heating_cheapest_source"].requires is Device.ALTERNATIVE_HEAT
 
     def test_it_is_a_plain_text_state_with_no_unit_or_state_class(self):
         description = _BY_KEY["water_heating_cheapest_source"]
@@ -659,6 +686,40 @@ class TestStatusSensors:
         assert fn(self._night(sunrise_soc=40.0, min_soc=10)) == "Safe"
 
 
+class TestSunriseSensors:
+    """The estimate at sunrise comes with and without tonight's planned charge."""
+
+    def test_the_figure_without_a_charge_keeps_its_key_and_unit(self):
+        description = _BY_KEY["estimated_soc_at_sunrise"]
+        assert description.translation_key == "estimated_soc_at_sunrise"
+        assert description.native_unit_of_measurement == "%"
+        assert description.state_class is SensorStateClass.MEASUREMENT
+
+    def test_the_figure_with_the_charge_is_a_percentage_measurement(self):
+        description = _BY_KEY["estimated_soc_at_sunrise_with_charge"]
+        assert description.translation_key == "estimated_soc_at_sunrise_with_charge"
+        assert description.native_unit_of_measurement == "%"
+        assert description.state_class is SensorStateClass.MEASUREMENT
+        assert description.device_class is _BY_KEY["estimated_soc_at_sunrise"].device_class
+
+    def test_the_figure_with_the_charge_is_enabled_and_needs_no_device(self):
+        description = _BY_KEY["estimated_soc_at_sunrise_with_charge"]
+        assert description.entity_registry_enabled_default is True
+        assert description.requires is None
+        assert description.entity_category is None
+
+    def test_its_state_and_attributes_come_from_the_projection(self):
+        description = _BY_KEY["estimated_soc_at_sunrise_with_charge"]
+        data = CoordinatorData()
+        assert description.value_fn(data) is None
+        assert description.attrs_fn(data) is None
+
+    def test_the_figure_without_a_charge_is_still_the_night_survival_input(self):
+        data = CoordinatorData()
+        data.estimated_soc_at_sunrise = 12.345
+        assert _lambda_for("estimated_soc_at_sunrise")(data) == pytest.approx(12.3)
+
+
 class TestPowerBalanceSensors:
     def test_net_solar_surplus_rounds(self):
         fn = _lambda_for("net_solar_surplus_w")
@@ -749,7 +810,8 @@ class TestBatteryWearFormulaAgreement:
 
 
 def test_html_and_full_text_attributes_are_not_recorded():
-    assert GivEnergyManagerSensor._unrecorded_attributes == frozenset({"html", "full_text"})
+    """The full list is pinned in tests/test_unrecorded_attributes.py."""
+    assert {"html", "full_text"} <= GivEnergyManagerSensor._unrecorded_attributes
 
 
 class TestSensorEntity:

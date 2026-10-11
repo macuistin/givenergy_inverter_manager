@@ -71,15 +71,44 @@ tests/core/test_immersion_ready.py and tests/core/test_immersion_scheduled.py.
 
 The water_heating_advice leaf was added for the oil water heating advice. The fresh snapshot
 gained it as None. No case moved, because none sets an oil price. The behaviour is pinned in
-tests/core/test_oil_advice.py and tests/core/test_oil_advice_engine.py.
+tests/core/test_alt_heat_advice.py and tests/core/test_alt_heat_advice_engine.py.
 
 The oil_schedule leaf was added for the suggested oil schedule. The fresh snapshot gained it as
 None. No case moved, because none passes a record of the immersion's grid heating. The behaviour
-is pinned in tests/core/test_oil_schedule.py and tests/core/test_oil_schedule_engine.py.
+is pinned in tests/core/test_alt_heat_schedule.py and tests/core/test_alt_heat_schedule_engine.py.
+
+The sunrise_with_charge leaf was added for the Estimated SoC at Sunrise With the Planned Charge
+sensor. The fresh snapshot gained it as None and all 255 cases gained it, because every cycle
+projects the night. Nothing else moved, so estimated_soc_at_sunrise and the survival leaves are
+unchanged. The leaf was regenerated once more when it started reading the per-slot load profile and
+noting the load in its basis: 162 of the 255 cases moved, and only that leaf. The projection is pinned in tests/core/test_sunrise_charge.py and
+tests/core/test_sunrise_charge_engine.py.
 
 The immersion_planned_heating leaf was added for the planned heating sentence. The fresh snapshot
 gained it as None. No case moved, because none turns scheduled heating on. The behaviour is pinned
 in tests/core/test_planned_heating.py and tests/core/test_immersion_scheduled.py.
+
+The setup_items leaf was added for the setup checklist. The fresh snapshot gained it as an empty
+list. No case moved, because the coordinator sets it after the engine has built the snapshot. The
+checklist is pinned in tests/core/test_setup_progress.py.
+
+The stored energy value and change in kWh were added to the saving, and today's accumulator gained
+soc_at_start_pct, grid_to_battery_cost and grid_to_battery_priced_kwh. The fresh snapshot gained
+stored_energy_value, stored_energy_change_kwh and the three accumulator leaves on each of today,
+week, month, year and yesterday. 235 of the 255 cases gained today.soc_at_start_pct, the SoC the
+first cycle read. Nothing else moved: no case sets the AC charge counter, and every case starts
+its day at the SoC it reads, so the saving is unchanged. The behaviour is pinned in
+tests/core/test_stored_energy.py.
+
+The test_instance leaf was added for the test instance marker file. The fresh snapshot gained it
+as False. No case moved, because the engine never sets it: the coordinator copies it onto the
+snapshot after the engine has built it. The behaviour is pinned in
+tests/ha_e2e/test_test_instance_e2e.py and tests/test_test_instance.py.
+
+The oil_schedule leaf was renamed alt_heat_schedule when the oil surface became alternative heating.
+Only the fresh snapshot's key moved. No case moved, because none passes a record of the immersion's
+grid heating. The behaviour is pinned in tests/core/test_alt_heat_schedule.py and
+tests/core/test_alt_heat_schedule_engine.py.
 """
 
 from __future__ import annotations

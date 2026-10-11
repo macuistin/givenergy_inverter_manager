@@ -217,6 +217,7 @@ _button.ButtonEntity = object
 _number = sys.modules["homeassistant.components.number"]
 _number.NumberEntity = object
 _number.NumberMode = MagicMock()
+_number.NumberDeviceClass = MagicMock()
 _number.RestoreNumber = type("RestoreNumber", (), {})
 
 # --- helpers ---
@@ -366,4 +367,5 @@ def _run(
         held_sunrise=kwargs.get("held_sunrise"),
         held_solar=kwargs.get("held_solar"),
         heat_log=kwargs.get("heat_log"),
+        load_profile=kwargs.get("load_profile"),
     )

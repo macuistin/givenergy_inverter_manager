@@ -56,6 +56,7 @@
       "overnight_charge_cost": {"default": "mdi:currency-eur"},
       "immersion_divert_reason": {"default": "mdi:water-boiler"},
       "estimated_soc_at_sunrise": {"default": "mdi:weather-sunny"},
+      "estimated_soc_at_sunrise_with_charge": {"default": "mdi:weather-sunset-up"},
       "night_survival_reason": {"default": "mdi:moon-waning-crescent"},
       "night_survival_confidence": {"default": "mdi:moon-waning-crescent"},
       "is_clipping": {"default": "mdi:lightning-bolt"},
@@ -70,6 +71,7 @@
       "ev_solar_surplus_available": {"default": "mdi:solar-power-variant"},
       "immersion_cost_today": {"default": "mdi:water-boiler"},
       "dry_run_active": {"default": "mdi:test-tube"},
+      "setup_progress": {"default": "mdi:clipboard-check-outline"},
       "dry_run_last_skipped": {"default": "mdi:skip-next-circle-outline"},
       "import_kwh_cheap_today": {"default": "mdi:transmission-tower-import"},
       "import_kwh_peak_today": {"default": "mdi:transmission-tower-import"},
@@ -152,16 +154,21 @@
       "integration_version": {"default": "mdi:information-outline"},
       "days_in_period": {"default": "mdi:calendar-start"}
     },
-    "button": {
-      "refresh_dashboard": {"default": "mdi:view-dashboard-edit"}
-    },
     "switch": {
+      "dry_run": {"default": "mdi:test-tube"},
+      "verbose_logging": {"default": "mdi:text-box-search-outline"},
       "auto_immersion": {"default": "mdi:water-boiler-auto"},
       "immersion_managed": {"default": "mdi:water-boiler"},
+      "immersion_schedule": {"default": "mdi:water-boiler-auto"},
       "skip_charge_override": {"default": "mdi:battery-off"},
       "charge_target_override_enabled": {"default": "mdi:battery-charging-80"}
     },
     "number": {
+      "surplus_divert_soc_pct": {"default": "mdi:battery-charging-high"},
+      "surplus_divert_min_power_w": {"default": "mdi:solar-power"},
+      "cheap_rate_floor_soc": {"default": "mdi:battery-arrow-down-outline"},
+      "skip_charge_soc_threshold_pct": {"default": "mdi:battery-check-outline"},
+      "forecast_conservatism": {"default": "mdi:cloud-percent-outline"},
       "charge_target_override": {"default": "mdi:battery-charging-80"},
       "immersion_target_temp": {"default": "mdi:thermometer-high"},
       "immersion_min_temp": {"default": "mdi:thermometer-low"},
@@ -169,7 +176,6 @@
     }
   },
   "services": {
-    "get_dashboard_yaml": "mdi:view-dashboard-edit",
     "suggest_appliance_run": "mdi:washing-machine",
     "get_roi_summary": "mdi:chart-line",
     "compare_tariff": "mdi:swap-horizontal",

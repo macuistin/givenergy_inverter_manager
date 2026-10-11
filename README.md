@@ -8,9 +8,9 @@
 
 A Home Assistant integration for GivEnergy inverters. It sets the overnight charge target, diverts spare solar to an immersion heater, and tracks energy costs across your tariff periods. It reads and writes Home Assistant entities published by GivTCP over MQTT. No cloud account is needed.
 
-Works with any supplier and any tariff: timed rates (two or three rate periods, or a single overnight window) or a flat rate. Tested on a GivEnergy GIV-HY-5.0 with the Electric Ireland Nightboost tariff. Current version: 0.17.2.
+Works with any supplier and any tariff: timed rates (two or three rate periods, or a single overnight window) or a flat rate. Tested on a GivEnergy GIV-HY-5.0 with the Electric Ireland Nightboost tariff. Current version: 0.18.0.
 
-![The Power Flow view of the generated dashboard: battery, live power flow and today's energy.](https://raw.githubusercontent.com/macuistin/givenergy_inverter_manager/main/docs/images/dashboard-power-flow.png)
+![The Power Flow view of the dashboard: battery, live power flow and today's energy.](https://raw.githubusercontent.com/macuistin/givenergy_inverter_manager/main/docs/images/dashboard-power-flow.png)
 
 ## What it does
 
@@ -18,11 +18,11 @@ Works with any supplier and any tariff: timed rates (two or three rate periods, 
 - **Immersion divert.** Heats water from spare solar, with a minimum temperature, a target and a restart gap.
 - **EV signals.** Reports when solar surplus is available and where the car's power comes from. A Zappi is set to Eco+ when there is enough surplus.
 - **Cost tracking.** Import cost, export earnings and per-load costs across your timed and base rates, with daily, weekly, monthly and yearly totals.
-- **Bill estimate, battery health and ROI figures.** Plus a large set of sensors and six actions.
+- **Bill estimate, battery health and ROI figures.** Plus a large set of sensors and five actions.
 
 ## Requirements
 
-- Home Assistant 2026.2.0 or later (the minimum declared in `hacs.json`)
+- Home Assistant 2026.5.0 or later (the minimum declared in `hacs.json`). Home Assistant 2026.5 itself needs Python 3.14.2 or newer
 - [GivTCP](https://github.com/britkat1980/giv_tcp) publishing your inverter to Home Assistant over MQTT
 - A GivEnergy hybrid inverter with a battery
 
@@ -38,7 +38,7 @@ Works with any supplier and any tariff: timed rates (two or three rate periods, 
 
 [![Open your Home Assistant instance and start setting up this integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=givenergy_inverter_manager)
 
-Go to **Settings → Devices & Services → Add Integration** and search for **GivEnergy Inverter Manager**. The wizard finds your GivTCP inverter and asks for your tariff, taken from your bill. Turn on dry run first, so nothing is written to the inverter until you have checked the decisions. The [quick start](docs/quick-start.md) has the steps.
+Go to **Settings → Devices & Services → Add Integration** and search for **GivEnergy Inverter Manager**. The wizard finds your GivTCP inverter, and an EV charger and a solar forecast sensor if you have them. It then asks what to set up now, and for your tariff, taken from your bill. A flat-rate home with nothing else is three screens. A new install starts in dry run, so nothing is written to the inverter until you have checked the decisions and turned the Dry run switch off. The [quick start](docs/quick-start.md) has the steps.
 
 ## Documentation
 
@@ -48,12 +48,12 @@ Start at the [documentation index](docs/index.md).
 |---|---|
 | [Quick start](docs/quick-start.md) | Install, set up and check in ten minutes |
 | [Concepts](docs/concepts.md) | Data flow, 30-second cycle, sign conventions, decisions |
-| [Configuration](docs/configuration.md) | Every setup step and option |
+| [Configuration](docs/configuration.md) | Every setup screen and option |
 | [Tariff](docs/tariff.md) | Rate periods, which rate wins, bill line items |
 | [Sensors](docs/sensors.md) | Every sensor |
-| [Entities](docs/entities.md) | Switches, numbers and the button |
-| [Actions](docs/actions.md) | The six actions |
-| [Dashboard](docs/dashboard.md) | The generated dashboard |
+| [Entities](docs/entities.md) | Switches and numbers |
+| [Actions](docs/actions.md) | The five actions |
+| [Dashboard](docs/dashboard.md) | The dashboard that builds itself, and how to add it |
 | [Energy dashboard](docs/energy-dashboard.md) | Sensors for the Home Assistant Energy dashboard |
 | [Long-term statistics](docs/long-term-statistics.md) | State classes and midnight reset |
 | [Automation examples](docs/automations.md) | Ready-to-use automations |

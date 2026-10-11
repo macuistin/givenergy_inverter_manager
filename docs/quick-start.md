@@ -12,13 +12,13 @@ Ten minutes from install to a working dashboard. Start with dry run on, so the i
 1. Install through HACS. Open **HACS → Integrations → Custom repositories**, add `https://github.com/macuistin/givenergy_inverter_manager` with category **Integration**, then install **GivEnergy Inverter Manager**.
 2. Restart Home Assistant.
 3. Open **Settings → Devices & Services → Add Integration** and search for **GivEnergy Inverter Manager**.
-4. **Inverter.** Confirm the detected inverter, battery capacity and maximum inverter output. If nothing is detected, see [Troubleshooting](troubleshooting.md#setup-finds-no-inverter).
-5. **Tariff.** The form is pre-filled with placeholder values. Replace every one with the values from your own bill or tariff sheet. Any tariff with timed rates works, and so does a flat rate. See [Tariff](tariff.md).
-6. **Forecast, immersion, EV charger, battery.** Fill in what you have and submit the rest as is. Each step can stay at its defaults. See [Configuration](configuration.md).
-7. Turn on dry run. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**, expand **Battery & charging thresholds**, switch on **Dry run mode** and submit. The integration reloads.
+4. **Your system.** The first screen lists what was found and will be used: the inverter, an EV charger and a solar forecast sensor. Check the battery capacity and the maximum inverter output, then tick what to set up now. The tariff is ticked for you. If nothing is detected, see [Troubleshooting](troubleshooting.md#setup-finds-no-inverter).
+5. **Tariff.** Enter your base rate and export rate from your bill or tariff sheet, and choose how many time-of-day rates you have besides the base rate: 0 for one rate all day, 1 for a day and night tariff. The rates screen after it has that many rows. Open **Bill details** if you have your bill to hand. Any tariff with time-of-day rates works, and so does a flat rate. See [Tariff](tariff.md).
+6. **Hot water and forecast.** Tick them if you have an immersion heater, or no solar forecast was found. Every field is optional, and anything you skip can be set up later from **Configure**. See [Configuration](configuration.md).
+7. Check the last screen and submit it. Then check that dry run is on. A new install starts with it on. The **Dry run** switch is in the Configuration section of **Settings → Devices & Services → GivEnergy Inverter Manager**, and on the dashboard's Settings view. It takes effect on the next update cycle.
 8. Check the readings (next section).
-9. Press **Refresh Dashboard** on the device page, then add the generated file as a dashboard. See [Dashboard](dashboard.md).
-10. When the decisions look right, switch **Dry run mode** off.
+9. Add the dashboard. Go to **Settings → Dashboards → Add dashboard** and pick **GivEnergy** under **Community dashboards**. A notification at setup says the same. See [Dashboard](dashboard.md). It opens with a dry run banner and, until the required setup is done, a checklist.
+10. When the decisions look right, switch **Dry run** off.
 
 ## Check the readings
 

@@ -1,6 +1,6 @@
 # Tariff
 
-The tariff drives the Current Rate sensors, every cost sensor, the cheap-window charge timing and the bill estimates. Enter it at setup, or change it under **Configure**. Field ranges are in [Configuration](configuration.md#step-2-tariff).
+The tariff drives the Current Rate sensors, every cost sensor, the cheap-window charge timing and the bill estimates. Enter it at setup, or change it under **Configure**. Field ranges are in [Configuration](configuration.md#screen-tariff) for setup and [Configuration](configuration.md#tariff) for Configure.
 
 ## Rate periods
 
@@ -29,10 +29,10 @@ The cheapest timed period also sets when the overnight charge is written and whi
 
 When your supplier changes its prices from a set date, record the new rates with that date. You do not need to be at the screen on the day.
 
-1. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**.
-2. Enter the new base rate, base rate name, export rate and timed rate periods in the Tariff and Rate period sections.
-3. Open **Dated rate change** and choose the date in **Rates start on**.
-4. Save. The page opens with a line that lists the change, and the current rates stay in force until the date.
+1. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure** and tick **Tariff**.
+2. Enter the new base rate and export rate. Tick **Edit the time-of-day rates** to change the rows, and **Edit bill details** if the base rate name changes.
+3. Tick **Schedule a rate change**, then choose the date in **Rates start on** on its screen.
+4. Submit. The Tariff screen of the next Configure lists the change, and the current rates stay in force until the date.
 
 From the first update cycle on the chosen date, the new rates apply. Before it, the old rates apply. The date is the day in Home Assistant's time zone, so a cheap window that crosses midnight on the day before uses the old rates up to midnight and the new rates after it.
 
@@ -41,12 +41,12 @@ What a dated change covers and does not cover:
 - **Covered:** the base rate and its name, the timed rate periods and the export rate.
 - **Not dated:** the standing charge, the flat levy, VAT, the supplier discount, the bill start day and the currency. They apply as soon as you save, because the bill sensors work out one bill from one value of each. Change them on the day, or on the day you notice.
 - **Nothing is recalculated.** Costs and totals already recorded keep the rates that applied when the energy was used. The date cannot be in the past. If your supplier changed prices before you updated the rates, save the new rates without a date. They apply from that moment, and the costs recorded in between stay as they are.
-- **Several changes** can wait at once, one for each date. Recording a second change for the same date replaces the first. Select **Cancel scheduled rate changes** to remove every change that has not started.
-- **Later edits.** Once a change has started, its rates are the ones shown in the form. Saving the form without a date sets the rates from now on. A change that has not started yet is kept.
+- **Several changes** can wait at once, one for each date. Recording a second change for the same date replaces the first. Tick **Schedule a rate change** and select **Cancel the scheduled rate changes** to remove every change that has not started.
+- **Later edits.** Once a change has started, its rates are the ones shown on the Tariff screen. Saving the tariff without a date sets the rates from now on. A change that has not started yet is kept.
 
 ## Stale tariff repair
 
-The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. A supplier price change leaves every cost figure wrong until the rates are updated, and nothing in Home Assistant tells you. The date counts from the last time you saved a different tariff in Configure or Reconfigure, recorded a dated change or confirmed the rates in the repair. The first time the integration runs with this feature, it records that day, so an upgrade never raises the repair at once. The first repair comes 365 days later at the earliest. See [Troubleshooting](troubleshooting.md#the-tariff-has-not-been-reviewed).
+The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. A supplier price change leaves every cost figure wrong until the rates are updated, and nothing in Home Assistant tells you. The date counts from the last time you saved a different tariff in Configure, recorded a dated change, ticked **Confirm the tariff is current** or confirmed the rates in the repair. The first time the integration runs with this feature, it records that day, so an upgrade never raises the repair at once. The first repair comes 365 days later at the earliest. See [Troubleshooting](troubleshooting.md#the-tariff-has-not-been-reviewed).
 
 ## Comparing with GivTCP's rates
 
@@ -78,7 +78,7 @@ The numbers below are made up so the arithmetic is easy to follow. They are not 
 | Night | 0.15 | 23:00 to 08:00 |
 | Boost | 0.10 | 02:00 to 04:00 |
 
-Enter the base rate `0.30` named `Day`. Put Night in rate period 1 and Boost in rate period 2.
+Enter the base rate `0.30` named `Day`, choose 2 time-of-day rates, and put Night in row 1 and Boost in row 2.
 
 | Time | Active periods | Rate that applies |
 |---|---|---|
@@ -156,16 +156,16 @@ Each cycle's import cost is priced at the rate in force, after the supplier disc
 
 ## Other fields
 
-Take every value from your supplier bill or tariff sheet. The form is pre-filled with placeholder defaults taken from an Irish domestic tariff. They are not a recommendation, so replace all of them.
+Take every value from your supplier bill or tariff sheet. The setup form has no prices filled in for the base and export rate, and the bill details start at 0 (a billing day of 1). An install set up before 0.18 may still hold placeholder values from an Irish domestic tariff. They are not a recommendation, so replace all of them.
 
 | Field | What it is and where to find it | Effect of a wrong value |
 |---|---|---|
-| Base rate | Price per kWh outside every timed period, before VAT. Default 0.3334 | Every import cost outside the timed windows is wrong by the same factor |
-| Export rate | Amount paid per kWh sent to the grid. Called CEG in Ireland, and a feed-in or export tariff elsewhere. Default 0.195 | Export earnings, the immersion and battery export checks and the appliance advice use it |
-| Standing charge | Fixed daily charge, before VAT. Default 0.8259. Enter 0 if you have none | The bill sensors are off by the difference times the days elapsed |
-| Flat levy (PSO levy) | One flat amount per bill period, before VAT. Named after the Irish public service obligation levy. Enter any flat per-period charge here, or 0. Default 1.46 | The bill sensors are off by that amount, spread over the days |
-| VAT rate | Percentage added to energy, the standing charge and the levy. Read it from your bill. If your rates already include tax, enter 0. Default 9.0 | Every import cost and the bill scale by the same factor. An error of a few points shifts every cost figure by that many percent |
-| Supplier discount | Percentage taken off the energy rate only, before VAT, for example for paying by direct debit. Enter 0 if you have none. Default 5.5 | Import costs and the bill energy line are off by the difference |
+| Base rate | Price per kWh outside every timed period, before VAT. Required | Every import cost outside the timed windows is wrong by the same factor |
+| Export rate | Amount paid per kWh sent to the grid. Called CEG in Ireland, and a feed-in or export tariff elsewhere. Required | Export earnings, the immersion and battery export checks and the appliance advice use it |
+| Standing charge | Fixed daily charge, before VAT. Enter 0 if you have none | The bill sensors are off by the difference times the days elapsed |
+| Flat levy (PSO levy) | One flat amount per bill period, before VAT. Named after the Irish public service obligation levy. Enter any flat per-period charge here, or 0 | The bill sensors are off by that amount, spread over the days |
+| VAT rate | Percentage added to energy, the standing charge and the levy. Read it from your bill. If your rates already include tax, enter 0 | Every import cost and the bill scale by the same factor. An error of a few points shifts every cost figure by that many percent |
+| Supplier discount | Percentage taken off the energy rate only, before VAT, for example for paying by direct debit. Enter 0 if you have none | Import costs and the bill energy line are off by the difference |
 | Bill start day | The day your bill period starts, 1 to 28. See the note on the month reset in [Configuration](configuration.md#things-to-know) | The month totals reset on the wrong day and the projected bill uses the wrong period length |
 | Currency | Sets the symbol on money sensors. It does not convert any amounts | Only the symbol is wrong |
 

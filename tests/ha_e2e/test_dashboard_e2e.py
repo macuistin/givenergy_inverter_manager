@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from datetime import timedelta
-from pathlib import Path
 
 import yaml
 from conftest import ZAPPI_STATES, discover_the_charger
@@ -14,16 +13,16 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
-    async_mock_service,
 )
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
 from custom_components.givenergy_inverter_manager.dashboard.devices import (
     expected_entity_id,
 )
+from custom_components.givenergy_inverter_manager.strategy import async_dashboard_for_websocket
 from tests.dashboard_support import (
-    ADMIN_ID,
     all_cards,
+    dashboard_yaml,
     default_entity_ids,
     keys_needing_devices,
     view_cards,
@@ -40,7 +39,7 @@ def _registered_id(registry, entry_id: str, key: str) -> str | None:
 
 
 async def test_default_entity_ids_match_the_live_registry(hass, loaded_entry_with_charger):
-    """The IDs in docs/dashboard-example.yaml are the ones Home Assistant really assigns."""
+    """The IDs the dashboard tests assume are the ones Home Assistant really assigns."""
     registry = er.async_get(hass)
     wrong = {}
     for key, expected in default_entity_ids().items():
@@ -65,13 +64,10 @@ async def test_the_ids_a_stored_file_waits_on_are_the_ones_the_devices_get(
 _OURS = re.compile(r"\b(?:sensor|switch|number)\.givenergy_inverter_manager_[a-z0-9_]+")
 
 
-async def _generate(hass) -> tuple[str, list]:
-    """Run the get_dashboard_yaml service and return the file and the notifications."""
-    notifications = async_mock_service(hass, "persistent_notification", "create")
-    await hass.services.async_call(DOMAIN, "get_dashboard_yaml", blocking=True)
-    await hass.async_block_till_done()
-    text = (Path(hass.config.config_dir) / "givenergy_dashboard.yaml").read_text(encoding="utf-8")
-    return text, notifications
+async def _generate(hass, *, is_admin: bool = True) -> str:
+    """The dashboard the strategy builds for this viewer right now, as YAML text."""
+    dashboard = await async_dashboard_for_websocket(hass, is_admin=is_admin)
+    return dashboard_yaml(dashboard)
 
 
 def _shown(hass, text: str) -> dict:
@@ -105,32 +101,30 @@ def _usable_ids(hass, entry) -> set[str]:
 
 async def test_fresh_install_dashboard_points_only_at_enabled_entities(hass, loaded_entry):
     """Every entity in the generated file is registered and enabled."""
-    text, notifications = await _generate(hass)
+    text = await _generate(hass)
     referenced = set(_OURS.findall(text))
     assert referenced
     waiting = referenced - _usable_ids(hass, loaded_entry)
     # Only the cards of the devices this install lacks (an EV charger, an oil price), hidden
     # until they arrive.
-    absent = ("EV_CHARGER", "OIL_ADVICE")
+    absent = ("EV_CHARGER", "ALTERNATIVE_HEAT")
     absent_keys = [k for k, device in keys_needing_devices().items() if device in absent]
     assert waiting <= {expected_entity_id(key) for key in absent_keys}
 
 
-async def test_fresh_install_leaves_out_forecast_accuracy_and_says_so(hass, loaded_entry):
-    text, notifications = await _generate(hass)
+async def test_fresh_install_leaves_out_forecast_accuracy(hass, loaded_entry):
+    text = await _generate(hass)
     registry = er.async_get(hass)
     accuracy = registry.async_get_entity_id(
         "sensor", DOMAIN, f"{loaded_entry.entry_id}_yesterday_forecast_accuracy_pct"
     )
     assert registry.async_get(accuracy).disabled_by is not None
     assert accuracy not in text
-    assert "Forecast accuracy yesterday" in text[: text.index("views:")]
-    assert "Forecast accuracy yesterday" in notifications[0].data["message"]
 
 
 async def test_features_from_the_config_entry_show_up(hass, loaded_entry):
     """The full config has immersion, inverter temperature and a forecast, but no EV charger."""
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     names = _names(text, hass)
     assert "Water temperature" in names
     assert "Against the forecast" in names
@@ -138,9 +132,9 @@ async def test_features_from_the_config_entry_show_up(hass, loaded_entry):
     assert "inverter_temperature" in text
 
 
-async def test_the_heater_is_shaded_on_the_water_temperature_chart(hass, loaded_entry):
-    """With a switch and a sensor, one chart draws the registered entities and the heater band."""
-    text, _ = await _generate(hass)
+async def test_the_heater_is_a_row_of_the_water_temperature_chart(hass, loaded_entry):
+    """With a switch and a sensor, one chart draws the registered entities and the heater."""
+    text = await _generate(hass)
     registry = er.async_get(hass)
     entry_id = loaded_entry.entry_id
     real = [
@@ -153,21 +147,19 @@ async def test_the_heater_is_shaded_on_the_water_temperature_chart(hass, loaded_
         )
     ]
     view = next(v for v in _shown(hass, text)["views"] if v["path"] == "immersion")
-    charts = [c for c in view_cards(view) if c["type"] == "custom:apexcharts-card"]
+    charts = [c for c in view_cards(view) if c["type"] == "history-graph"]
     headings = [c["heading"] for c in view_cards(view) if c["type"] == "heading"]
 
     assert len(charts) == 1
-    assert [s["entity"] for s in charts[0]["series"]] == real
-    assert charts[0]["series"][-1]["name"] == "Heater on"
-    assert charts[0]["series"][-1]["curve"] == "stepline"
-    assert "stroke" not in charts[0]["apex_config"]
+    assert [row["entity"] for row in charts[0]["entities"]] == real
+    assert charts[0]["entities"][-1]["name"] == "Heater power"
     assert "Heater power" not in headings
     assert "Heater on or off" not in headings
 
 
 async def test_energy_today_tiles_point_at_the_registered_forecast_sensors(hass, loaded_entry):
     """Forecast and % of forecast sit in Energy today and name the IDs Home Assistant assigned."""
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     registry = er.async_get(hass)
     forecast = registry.async_get_entity_id(
         "sensor", DOMAIN, f"{loaded_entry.entry_id}_solar_forecast_raw_today"
@@ -188,7 +180,7 @@ async def test_a_charger_found_after_the_file_was_written_shows_up_with_no_regen
     hass, loaded_entry
 ):
     """The stored file waits for the EV cards, and shows them when discovery finds a charger."""
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     assert "EV charger" not in _names(text, hass)
     assert "EV charger" in _names(text)  # the cards are in the file, hidden
 
@@ -206,7 +198,7 @@ async def test_a_charger_found_after_the_file_was_written_shows_up_with_no_regen
 
 
 async def test_a_charger_that_goes_away_hides_its_cards_again(hass, loaded_entry_with_charger):
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     assert "EV charger" in _names(text, hass)
 
     registry = er.async_get(hass)
@@ -231,7 +223,7 @@ async def test_enabling_a_sensor_puts_it_back_in_the_dashboard(hass, loaded_entr
     await hass.async_block_till_done()
     assert loaded_entry.state is ConfigEntryState.LOADED
 
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     assert accuracy in text
 
 
@@ -269,23 +261,29 @@ async def test_resources_are_none_without_lovelace(hass, loaded_entry):
 
 async def test_generated_file_falls_back_when_cards_are_not_registered(hass, loaded_entry):
     await _setup_lovelace(hass)
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     assert "custom:power-flow-card-plus" not in text
     assert "custom:apexcharts-card" not in text
-    assert "not installed" in text[: text.index("views:")]
 
 
-async def test_generated_file_keeps_the_cards_that_are_registered(hass, loaded_entry):
+async def test_generated_file_keeps_the_power_flow_card_that_is_registered(hass, loaded_entry):
     resources = await _setup_lovelace(hass)
     for url in (
         "/hacsfiles/power-flow-card-plus/power-flow-card-plus.js",
         "/hacsfiles/apexcharts-card/apexcharts-card.js",
     ):
         await resources.async_create_item({"res_type": "module", "url": url})
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     assert "custom:power-flow-card-plus" in text
-    assert "custom:apexcharts-card" in text
+    assert "apexcharts" not in text
     assert "not installed" not in text
+
+
+async def test_generated_file_uses_core_cards_when_lovelace_is_not_loaded(hass, loaded_entry):
+    """No readable resource list means the card cannot be seen, so the core card is used."""
+    assert "lovelace" not in hass.data
+    text = await _generate(hass)
+    assert "custom:" not in text
 
 
 async def test_settings_are_visible_to_the_real_administrators_only(hass, loaded_entry):
@@ -294,11 +292,12 @@ async def test_settings_are_visible_to_the_real_administrators_only(hass, loaded
     resident = await hass.auth.async_create_user("Resident", group_ids=[GROUP_ID_USER])
     await hass.auth.async_update_user(other, is_active=False)
 
-    views = yaml.safe_load((await _generate(hass))[0])["views"]
+    text = await _generate(hass)
+    views = yaml.safe_load(text)["views"]
 
     settings = next(v for v in views if v["path"] == "settings")
     assert settings["visible"] == [{"user": admin.id}]
-    assert resident.id not in str((await _generate(hass))[0])
+    assert resident.id not in text
     [button] = [
         b
         for card in all_cards(views)
@@ -309,38 +308,19 @@ async def test_settings_are_visible_to_the_real_administrators_only(hass, loaded
 
 
 async def test_without_an_administrator_there_is_no_settings_view(hass, loaded_entry):
-    views = yaml.safe_load((await _generate(hass))[0])["views"]
-    assert "settings" not in {v["path"] for v in views}
-    assert "navigation_path: settings" not in (await _generate(hass))[0]
+    text = await _generate(hass)
+    assert "settings" not in {v["path"] for v in yaml.safe_load(text)["views"]}
+    assert "navigation_path: settings" not in text
 
 
-async def test_live_dashboard_matches_the_docs_example(hass, loaded_entry_with_charger):
-    """Full config, every sensor enabled and an EV charger: the output is the docs example."""
-    loaded_entry = loaded_entry_with_charger
+async def test_a_viewer_who_is_not_an_administrator_gets_no_settings_view(hass, loaded_entry):
     admin = await hass.auth.async_create_user("Admin", group_ids=[GROUP_ID_ADMIN])
 
-    from custom_components.givenergy_inverter_manager.const import CONF_BILL_START_DAY
+    text = await _generate(hass, is_admin=False)
 
-    # The e2e config bills from day 16. The example uses the default, day 1.
-    hass.config_entries.async_update_entry(
-        loaded_entry, data={**loaded_entry.data, CONF_BILL_START_DAY: 1}
-    )
-    await hass.async_block_till_done()
-    registry = er.async_get(hass)
-    for entry in er.async_entries_for_config_entry(registry, loaded_entry.entry_id):
-        if entry.disabled_by is not None:
-            registry.async_update_entity(entry.entity_id, disabled_by=None)
-    async_fire_time_changed(
-        hass, dt_util.utcnow() + timedelta(seconds=RELOAD_AFTER_UPDATE_DELAY + 1)
-    )
-    await hass.async_block_till_done()
-    assert loaded_entry.state is ConfigEntryState.LOADED
-    await discover_the_charger(hass, loaded_entry)
-
-    text, _ = await _generate(hass)
-
-    example = Path(__file__).parents[2] / "docs" / "dashboard-example.yaml"
-    assert text.replace(admin.id, ADMIN_ID) == example.read_text(encoding="utf-8")
+    assert "settings" not in {v["path"] for v in yaml.safe_load(text)["views"]}
+    assert "navigation_path: settings" not in text
+    assert admin.id not in text
 
 
 # ── the "where today's energy came from" card, rendered by Home Assistant ────
@@ -380,7 +360,7 @@ _SPLIT_ATTRIBUTES = {
 
 async def test_the_sources_card_is_in_the_file_and_reads_in_plain_words(hass, loaded_entry):
     """A fresh install has the battery discharge sensor enabled, so solar and battery are split."""
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     _set_the_live_day(hass, default_entity_ids(), _SPLIT_ATTRIBUTES)
 
     assert _render(hass, _sources_card(text)) == (
@@ -399,7 +379,7 @@ async def test_the_sources_card_shows_one_figure_when_the_user_disabled_the_disc
         "sensor", DOMAIN, f"{loaded_entry.entry_id}_battery_discharge_kwh_today"
     )
     registry.async_update_entity(entity_id, disabled_by=er.RegistryEntryDisabler.USER)
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     _set_the_live_day(hass, default_entity_ids(), _SPLIT_ATTRIBUTES)
 
     assert _render(hass, _sources_card(text)).startswith(
@@ -428,7 +408,7 @@ async def test_the_sources_card_splits_solar_and_battery_with_the_discharge_sens
 
 
 async def test_the_sources_card_falls_back_to_the_totals_without_the_attributes(hass, loaded_entry):
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     _set_the_live_day(hass, default_entity_ids(), {})
     rendered = _render(hass, _sources_card(text))
     assert rendered.startswith("House used **11.3 kWh**: solar 0.0 + battery 0.0 + grid 11.3.")
@@ -436,7 +416,7 @@ async def test_the_sources_card_falls_back_to_the_totals_without_the_attributes(
 
 
 async def test_the_sources_card_waits_while_the_totals_are_unavailable(hass, loaded_entry):
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     ids = default_entity_ids()
     hass.states.async_set(ids["house_kwh_today"], "unavailable")
     hass.states.async_set(ids["self_sufficiency"], "unavailable", {})
@@ -445,7 +425,7 @@ async def test_the_sources_card_waits_while_the_totals_are_unavailable(hass, loa
 
 async def test_scheduled_rate_changes_in_the_options_show_on_the_tariff_view(hass, loaded_entry):
     """The Tariff view lists a dated change from the real entry options, and not before one is set."""
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     assert "Scheduled rate changes" not in text
     starts = dt_util.now().date() + timedelta(days=30)
     change = {
@@ -459,7 +439,7 @@ async def test_scheduled_rate_changes_in_the_options_show_on_the_tariff_view(has
     hass.config_entries.async_update_entry(loaded_entry, options=options)
     await hass.async_block_till_done()
 
-    text, _ = await _generate(hass)
+    text = await _generate(hass)
     assert "Scheduled rate changes" in text
     assert f"| {starts.day} {starts:%b %Y} | Day €0.4000 | Night 23:00 to 08:00 €0.2000 | €0.2100 |" in text
     assert "Tariff last reviewed on 2 Jan 2026." in text

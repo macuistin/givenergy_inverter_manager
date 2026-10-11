@@ -1,8 +1,7 @@
 """
-charts.py - the immersion charts, the solar forecast chart and the power flow card.
+charts.py - the immersion chart and the power flow card.
 
-The immersion charts and the solar forecast chart use apexcharts-card when it is installed and
-built-in cards when not.
+The immersion chart is a built-in history graph.
 The power flow card needs power-flow-card-plus and has an entities card as its fallback.
 """
 
@@ -10,27 +9,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .cards import (
-    FULL,
-    HEX,
-    IMMERSION,
-    apex_config,
-    entity_list_card,
-    entity_row,
-    graph_card,
-    present,
-)
-from .hacs import APEX_CARD, POWER_FLOW_CARD
+from .cards import entity_list_card, entity_row, graph_card
+from .hacs import POWER_FLOW_CARD
 
-# ── Immersion charts ─────────────────────────────────────────────────────────
-
-_TEMP_AXIS = "temp"
-_HEATER_AXIS = "heater"
+# ── Immersion chart ──────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True)
 class ImmersionEntities:
-    """The entities one immersion chart draws. A None entity leaves its series out.
+    """The entities the immersion chart draws. A None entity leaves its series out.
 
     The heater is the power sensor of the immersion switch. Its power is a fixed number, so
     the chart shows only whether it is on.
@@ -58,117 +45,6 @@ def builtin_immersion_chart(ent: ImmersionEntities) -> dict | None:
         hours_to_show=12,
     )
     return graph_card(card) if card else None
-
-
-def _apex_series(entity: str | None, name: str, color: str, width: int) -> dict | None:
-    if not entity:
-        return None
-    return {
-        "entity": entity,
-        "name": name,
-        "color": color,
-        "stroke_width": width,
-        "curve": "smooth",
-        "yaxis_id": _TEMP_AXIS,
-    }
-
-
-def _apex_heater_series(entity: str | None) -> dict | None:
-    """The heater as a pale band that is there while it is on and gone while it is off."""
-    if not entity:
-        return None
-    return {
-        "entity": entity,
-        "name": "Heater on",
-        "type": "area",
-        "curve": "stepline",
-        "color": "#ff8a80",
-        "opacity": 0.15,
-        "stroke_width": 0,
-        "yaxis_id": _HEATER_AXIS,
-        "transform": "return x > 0 ? 1 : 0;",
-        "show": {"in_header": False, "legend_value": False},
-    }
-
-
-def _apex_axes(ent: ImmersionEntities) -> list[dict]:
-    """One axis for each kind of series drawn. The heater's is fixed and hidden."""
-    temperature = {"id": _TEMP_AXIS, "decimals": 0}
-    heater = {"id": _HEATER_AXIS, "min": 0, "max": 1, "decimals": 0, "show": False}
-    return [*([temperature] if ent.temp_sensor else []), *([heater] if ent.heater else [])]
-
-
-def apex_immersion_chart(ent: ImmersionEntities) -> dict | None:
-    """12 hours of the water temperature with the heater shaded while it is on.
-
-    Without a temperature sensor it holds the heater band only.
-    """
-    # Same orange as the immersion tiles. Lower case keeps the generated file unchanged.
-    orange = HEX[IMMERSION].lower()
-    series = present(
-        [
-            _apex_series(ent.temp_sensor, "Water", "#03a9f4", 2),
-            _apex_series(ent.target, "Target", "#f44336", 1),
-            _apex_series(ent.minimum, "Minimum", orange, 1),
-            _apex_heater_series(ent.heater),
-        ]
-    )
-    if not series:
-        return None
-    return {
-        "type": APEX_CARD.card_type,
-        "header": {"show": False},
-        "graph_span": "12h",
-        "yaxis": _apex_axes(ent),
-        "apex_config": {**apex_config(), "legend": {"show": True, "position": "bottom"}},
-        "series": series,
-        "grid_options": {"columns": FULL},
-    }
-
-
-# ── Solar forecast chart ─────────────────────────────────────────────────────
-
-# Lower case, as the other hex colours of the generated file are.
-_ACTUAL_COLOUR = "#ffc107"  # the amber of the solar tiles
-_FORECAST_COLOUR = "#78909c"
-_DAY_BUCKET = {"func": "max", "duration": "1d"}
-
-
-def _apex_day_column(entity: str, name: str, color: str) -> dict:
-    """A column for the day's peak of a sensor that climbs through the day and resets at midnight.
-
-    The peak of such a sensor is the day's total. The provider forecast holds its value for
-    the whole day, so its peak is the forecast.
-    """
-    return {
-        "entity": entity,
-        "name": name,
-        "type": "column",
-        "color": color,
-        "group_by": _DAY_BUCKET,
-        "float_precision": 1,
-        "show": {"datalabels": True},
-    }
-
-
-def apex_solar_days_chart(forecast: str, actual: str, days: int, height: int) -> dict:
-    """The provider forecast beside the solar generated, for each of the last *days* days.
-
-    The chart reads the recorder history, which Home Assistant keeps for 10 days by default.
-    """
-    return {
-        "type": APEX_CARD.card_type,
-        "header": {"show": False},
-        "graph_span": f"{days}d",
-        "span": {"end": "day"},
-        "yaxis": [{"min": 0, "decimals": 0}],
-        "apex_config": {**apex_config(height), "legend": {"show": True, "position": "bottom"}},
-        "series": [
-            _apex_day_column(forecast, "Forecast", _FORECAST_COLOUR),
-            _apex_day_column(actual, "Generated", _ACTUAL_COLOUR),
-        ],
-        "grid_options": {"columns": FULL},
-    }
 
 
 # ── Content helpers ──────────────────────────────────────────────────────────

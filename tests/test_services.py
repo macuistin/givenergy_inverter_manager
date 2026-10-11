@@ -15,11 +15,9 @@ from custom_components.givenergy_inverter_manager import services
 from custom_components.givenergy_inverter_manager.const import DOMAIN
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
-from custom_components.givenergy_inverter_manager.dashboard import HostFacts
 from tests.helpers import ROOT
 
 ALL_SERVICES = {
-    "get_dashboard_yaml",
     "suggest_appliance_run",
     "get_roi_summary",
     "compare_tariff",
@@ -141,38 +139,6 @@ class TestNoLoadedEntry:
             services.require_loaded_entries(hass)
 
 
-class TestGetDashboardYaml:
-    def _call(self, home, skipped=()):
-        with (
-            patch.object(services, "async_host_facts", AsyncMock(return_value=HostFacts())),
-            patch.object(services, "render_dashboard", return_value=("views: []\n", list(skipped))),
-        ):
-            home.call("get_dashboard_yaml")
-
-    def test_writes_the_rendered_yaml_to_the_config_directory(self, home, tmp_path):
-        self._call(home)
-        assert (tmp_path / "givenergy_dashboard.yaml").read_text() == "views: []\n"
-
-    def test_notification_names_the_file_and_the_steps(self, home, tmp_path):
-        self._call(home)
-        note = home.notification
-        assert note["notification_id"] == "givenergy_dashboard_yaml"
-        assert str(tmp_path / "givenergy_dashboard.yaml") in note["message"]
-        assert "Raw configuration editor" in note["message"]
-        assert "Left out" not in note["message"]
-
-    def test_notification_lists_the_sensors_left_out(self, home):
-        self._call(home, skipped=["Battery Cycles", "Solar Clipping"])
-        assert "Battery Cycles, Solar Clipping" in home.notification["message"]
-
-    def test_unwritable_directory_raises_a_translated_error(self, tmp_path):
-        home = FakeHass([_entry(_coordinator())], tmp_path / "missing")
-        with pytest.raises(ServiceValidationError) as raised:
-            self._call(home)
-        assert raised.value.translation_key == "dashboard_write_failed"
-        assert raised.value.translation_domain == DOMAIN
-
-
 class TestSuggestAppliance:
     def _call(self, home, **data):
         data = {"appliance_name": "Dishwasher", "appliance_power_w": 2000} | data
@@ -291,7 +257,7 @@ class TestExportEnergyData:
         home = FakeHass([_entry(_coordinator())], tmp_path / "missing")
         with pytest.raises(ServiceValidationError) as raised:
             home.call("export_energy_data")
-        assert raised.value.translation_key == "dashboard_write_failed"
+        assert raised.value.translation_key == "config_file_write_failed"
 
     def test_empty_response_before_the_first_update(self, tmp_path):
         home = FakeHass([_entry(SimpleNamespace(data=None))], tmp_path)
@@ -414,17 +380,6 @@ class TestPinnedOutput:
         assert result == golden["export_response"]
         assert (tmp_path / "givenergy_energy_export.csv").read_text() == golden["export_csv"]
         assert home.notification["message"] == golden["export_message"].replace("<dir>", str(tmp_path))
-
-    def test_dashboard_notification_text(self, tmp_path, golden):
-        home = self._home(tmp_path)
-        with (
-            patch.object(services, "async_host_facts", AsyncMock(return_value=HostFacts())),
-            patch.object(services, "render_dashboard", return_value=("views: []\n", ["A", "B"])),
-        ):
-            home.call("get_dashboard_yaml")
-        expected = golden["dashboard_message"].replace("<dir>", str(tmp_path))
-        assert home.notification["message"] == expected
-        assert home.notification["title"] == "GivEnergy Dashboard Ready"
 
     def test_appliance_suggestion_text(self, tmp_path, golden):
         home = self._home(tmp_path)

@@ -51,6 +51,7 @@ from ..const import (
     CONF_SURPLUS_DIVERT_MIN_W,
     CONF_SURPLUS_DIVERT_SOC,
     CURRENCIES,
+    DEFAULT_ALT_HEAT_LABEL,
     DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_BATTERY_THROUGHPUT_BUDGET,
@@ -83,6 +84,14 @@ from ..const import (
 )
 from ..discovery import EVCharger, EVChargerState
 from ..logging import get_logger
+from .alt_heat_advice import AdviceInputs, WaterHeatingAdvice, advise_water_heating
+from .alt_heat_schedule import (
+    AltHeatSchedule,
+    ImmersionHeatLog,
+    ScheduleQuery,
+    suggest_alt_heat_schedule,
+)
+from .alt_heat_start import WaterReading
 from .battery import (
     BatteryStats,
     NightEstimateInputs,
@@ -99,14 +108,6 @@ from .charge_window import (
 )
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
-from .oil_advice import (
-    AdviceInputs,
-    WaterHeatingAdvice,
-    advise_water_heating,
-    oil_heat_cost_per_kwh,
-)
-from .oil_schedule import ImmersionHeatLog, OilSchedule, ScheduleQuery, suggest_oil_schedule
-from .oil_start import WaterReading
 from .planned_heating import PlanQuery, describe_planned_heating
 from .rules import (
     ChargeDecision,
@@ -124,8 +125,22 @@ from .rules import (
     calculate_overnight_charge_target,
     decide_ev_charger_action,
     should_divert_to_immersion,
+    usable_slot_loads_kwh,
 )
+from .setup_progress import SetupItem
 from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
+from .stored_energy import stored_energy_change
+from .sunrise_charge import (
+    LOAD_NOTE_FLAT,
+    LOAD_NOTE_PER_SLOT,
+    BatteryNow,
+    PlannedCharge,
+    SunriseWithCharge,
+    flat_load,
+    project_sunrise_with_charge,
+    slot_load,
+    with_load_note,
+)
 from .sunrise_hold import (
     HeldSunrise,
     SunriseReading,
@@ -184,9 +199,12 @@ class RawSensorValues:
     # Times of day the water has to be at its target, and the heating rate the coordinator
     # learned or assumed for the plan (degrees per hour, 0.0 when unknown) and where it came from.
     immersion_ready_times: tuple[time, ...] = ()
-    # The price of a litre of oil, None when no oil price is set (no oil advice). The coordinator
-    # resolves the price sensor over the saved number.
-    oil_price_per_litre: float | None = None
+    # What a kWh of heat costs from the alternative water heating, None when it is off or has no
+    # cost (no advice). The coordinator resolves the cost sensor over the saved number and turns
+    # the unit into a cost per kWh of heat (core/alt_heat_cost.py). The label is the user's word
+    # for it, as the advice sentences say it.
+    alt_heat_cost_per_kwh: float | None = None
+    alt_heat_label: str = DEFAULT_ALT_HEAT_LABEL
     immersion_heating_rate_c_per_h: float = 0.0
     immersion_rate_source: str = ""
     forecast_kwh_tomorrow: float | None = None
@@ -271,11 +289,12 @@ class CoordinatorData:
     immersion_expected_ready: bool | None = None
     # What scheduled heating plans, in a sentence. None without scheduled heating or a reading.
     immersion_planned_heating: str | None = None
-    # Oil against electricity for heating the water. None while no oil price is set.
+    # The alternative heating against electricity for the water. None while it has no cost.
     water_heating_advice: WaterHeatingAdvice | None = None
-    # The oil windows the immersion's grid heating suggests. None while no oil price is set or
-    # the record holds fewer than OIL_SCHEDULE_MIN_DAYS days. A separate line from the advice.
-    oil_schedule: OilSchedule | None = None
+    # The windows the immersion's grid heating suggests for the alternative. None while it has no
+    # cost or the record holds fewer than ALT_HEAT_SCHEDULE_MIN_DAYS days. A separate line from
+    # the advice.
+    alt_heat_schedule: AltHeatSchedule | None = None
     immersion_heating_rate_c_per_h: float | None = None
     immersion_rate_source: str = ""
     today: EnergyAccumulator = field(default_factory=EnergyAccumulator)
@@ -301,6 +320,10 @@ class CoordinatorData:
     battery_throughput_budget_status: str = ""
     saving_vs_grid_today: float = 0.0
     net_saving_today: float = 0.0
+    # The part of the saving that is the change in the battery's stored energy since midnight,
+    # and that change in kWh. See core/stored_energy.py.
+    stored_energy_value: float = 0.0
+    stored_energy_change_kwh: float = 0.0
     ev_km_charged_today: float | None = None
     ev_cost_per_km_today: float | None = None
     cheapest_rate: float = 0.0
@@ -312,6 +335,8 @@ class CoordinatorData:
     cheap_run_remaining_minutes: float | None = None
     rate_savings_vs_daytime: float = 0.0
     estimated_soc_at_sunrise: float = 0.0
+    # The same night with tonight's planned charge in it. None before the first cycle.
+    sunrise_with_charge: SunriseWithCharge | None = None
     survival_reason: str = ""
     ev_charger_brand: str = ""
     ev_charger_name: str = ""
@@ -327,8 +352,13 @@ class CoordinatorData:
     ev_charging_source: str = "Not charging"
     ev_solar_surplus_available: bool = False
     dry_run: bool = False
+    # True while the test instance marker file exists. Set by the coordinator, which owns the file.
+    test_instance: bool = False
     cheap_rate_floor_status: str = ""
     dry_run_last_skipped: str = ""
+    # The setup checklist. The coordinator fills it after the engine has run, because it needs
+    # the saved config and the cycle's readings together (core/setup_progress.py).
+    setup_items: tuple[SetupItem, ...] = ()
     inverter_temperature: float | None = None
     inverter_temperature_status: str = "Unknown"
     last_reset_time: str = ""
@@ -561,7 +591,7 @@ def accumulate_energy(
 def record_immersion_grid_heat(
     log: ImmersionHeatLog, raw: RawSensorValues, window: AccumulationWindow
 ) -> None:
-    """Add the immersion's grid energy this step, and its cost, to the oil schedule record.
+    """Add the immersion's grid energy this step, and its cost, to the alternative schedule record.
 
     Only energy that solar surplus did not cover counts. A step with the heater off still notes
     the day, so a day with no grid heating counts as a day watched.
@@ -1069,7 +1099,7 @@ def _solar_surplus_to_divert(data: CoordinatorData, cycle: _Cycle) -> bool:
 
 
 def _water_reading(raw: RawSensorValues) -> WaterReading | None:
-    """The water as the oil advice reads it, None without a temperature reading."""
+    """The water as the alternative heating advice reads it, None without a reading."""
     if raw.immersion_temp is None:
         return None
     return WaterReading(
@@ -1082,15 +1112,16 @@ def _water_reading(raw: RawSensorValues) -> WaterReading | None:
 
 
 def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
-    """Oil against electricity for the water. Nothing is worked out without an oil price."""
-    price = cycle.raw.oil_price_per_litre
-    if price is None:
+    """The alternative against electricity for the water. Nothing is worked out without a cost."""
+    cost = cycle.raw.alt_heat_cost_per_kwh
+    if cost is None:
         return
     data.water_heating_advice = advise_water_heating(
         AdviceInputs(
             tariff=cycle.tariff,
             now=cycle.now,
-            oil_cost_per_kwh=oil_heat_cost_per_kwh(price),
+            alt_cost_per_kwh=cost,
+            label=cycle.raw.alt_heat_label,
             ready_times=cycle.raw.immersion_ready_times,
             solar_surplus=_solar_surplus_to_divert(data, cycle),
             currency_symbol=data.currency_symbol,
@@ -1100,18 +1131,21 @@ def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
     )
 
 
-def _set_oil_schedule(data: CoordinatorData, cycle: _Cycle, log: ImmersionHeatLog | None) -> None:
-    """The oil windows the record suggests. Nothing without an oil price or a record."""
-    price = cycle.raw.oil_price_per_litre
-    if price is None or log is None:
+def _set_alt_heat_schedule(
+    data: CoordinatorData, cycle: _Cycle, log: ImmersionHeatLog | None
+) -> None:
+    """The windows the record suggests. Nothing without a cost or a record."""
+    cost = cycle.raw.alt_heat_cost_per_kwh
+    if cost is None or log is None:
         return
-    data.oil_schedule = suggest_oil_schedule(
+    data.alt_heat_schedule = suggest_alt_heat_schedule(
         log,
         ScheduleQuery(
             today=cycle.now.date(),
-            oil_cost_per_kwh=oil_heat_cost_per_kwh(price),
+            alt_cost_per_kwh=cost,
             heater_kw=cycle.raw.immersion_wattage_w / 1000,
             currency_symbol=data.currency_symbol,
+            label=cycle.raw.alt_heat_label,
         ),
     )
 
@@ -1324,6 +1358,61 @@ def _calculate_night_survival(
         ),
     )
     held.soc, held.at = data.estimated_soc_at_sunrise, cycle.now
+    _project_sunrise_with_charge(data, cycle, avg_daily_kwh, held.charged())
+
+
+def _planned_charge(data: CoordinatorData, cycle: _Cycle) -> PlannedCharge:
+    """Tonight's plan as the sensors publish it, and the sizing it applies to the window."""
+    decision = data.published_charge_decision
+    rate_w = cycle.raw.battery_charge_rate_w
+    target = float(decision.target_soc) if decision else 0.0
+    return PlannedCharge(
+        window=data.published_charge_window,
+        target_soc=target,
+        skipped=decision is None or decision.skip_charge,
+        charge_power_kw=rate_w / 1000 if rate_w is not None and rate_w > 0 else 0.0,
+        size_window=lambda soc: plan_charge_window(
+            cycle.tariff,
+            ChargeNeed(soc, target, cycle.raw.battery_capacity_kwh, rate_w),
+        ),
+    )
+
+
+def _project_sunrise_with_charge(
+    data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float, held: HeldSunrise
+) -> None:
+    """The SoC at sunrise with the planned charge.
+
+    The load is the per-slot profile the charge simulation uses, scaled to the daily average,
+    or the flat average when there is no usable profile. The figure without a charge, which
+    night survival reads, always uses the flat average.
+
+    The published figure moves at the battery's own pace, as the one without a charge does.
+    Night survival reads the figure without a charge and does not read this one.
+    """
+    raw = cycle.raw
+    battery = BatteryNow(
+        soc=raw.battery_soc,
+        capacity_kwh=raw.battery_capacity_kwh,
+        min_soc=float(data.battery_min_soc),
+        soc_without_charge=data.estimated_soc_at_sunrise,
+    )
+    slots = usable_slot_loads_kwh(avg_daily_kwh, cycle.forecast.load_profile)
+    load = flat_load(avg_daily_kwh / 24) if slots is None else slot_load(slots)
+    projection = with_load_note(
+        project_sunrise_with_charge(battery, cycle.now, _planned_charge(data, cycle), load),
+        LOAD_NOTE_FLAT if slots is None else LOAD_NOTE_PER_SLOT,
+    )
+    paced = published_sunrise_soc(
+        held,
+        SunriseReading(
+            projection.soc,
+            cycle.now,
+            max_battery_swing_pct_per_hour(raw.inverter_max_w, raw.battery_capacity_kwh),
+        ),
+    )
+    held.soc, held.at = paced, cycle.now
+    data.sunrise_with_charge = replace(projection, soc=paced)
 
 
 def _live_grid_cost_rate(cycle: _Cycle) -> float:
@@ -1356,7 +1445,7 @@ def _set_battery_stats(data: CoordinatorData, cycle: _Cycle, previous: PreviousC
     raw = cycle.raw
     today = cycle.now.date()
     reading = BatteryReading(
-        None if "battery_soc" in raw.unavailable_inputs else raw.battery_soc,
+        _soc_if_available(raw),
         previous.last_soc,
         raw.battery_lifetime_cycles,
     )
@@ -1376,14 +1465,15 @@ def _accumulate_energy_today(
     )
     for rolling_acc in accumulators.rolling():
         accumulate_energy(rolling_acc, cycle.raw, window)
-    if accumulators.heat_log is not None and cycle.raw.oil_price_per_litre is not None:
+    if accumulators.heat_log is not None and cycle.raw.alt_heat_cost_per_kwh is not None:
         record_immersion_grid_heat(accumulators.heat_log, cycle.raw, window)
     # Override today's physical kWh with GivTCP's own daily counters when available.
     # GivTCP reads directly from the inverter's metering, which is more accurate than
     # integrating 30-second power readings. Financial fields (costs, earnings) remain
     # integration-based since GivTCP has no tariff knowledge.
-    _carry_grid_to_battery(accumulators, cycle.raw)
+    _carry_grid_to_battery(accumulators, cycle)
     _apply_daily_counters(accumulators.today, cycle.raw)
+    _bookmark_start_of_day_soc(accumulators.today, cycle.raw)
     data.grid_to_battery_counter_available = cycle.raw.ac_charge_energy_today_kwh is not None
     data.today = accumulators.today
 
@@ -1406,11 +1496,37 @@ def _set_bill_fields(data: CoordinatorData, cycle: _Cycle, accumulators: Accumul
     data.days_remaining = days_remaining
 
 
-def _set_savings_fields(data: CoordinatorData) -> None:
-    """The saving is what the load would have cost from the grid at the time, less what was paid."""
+def _soc_if_available(raw: RawSensorValues) -> float | None:
+    """The battery SoC, None while the reading is a placeholder."""
+    return None if "battery_soc" in raw.unavailable_inputs else raw.battery_soc
+
+
+def _bookmark_start_of_day_soc(acc: EnergyAccumulator, raw: RawSensorValues) -> None:
+    """Note the SoC the day began at, on the first cycle that has a reading.
+
+    The bookmark is stored with the accumulator, so a restart keeps it and midnight clears it.
+    """
+    soc = _soc_if_available(raw)
+    if acc.soc_at_start_pct is None and soc is not None:
+        acc.soc_at_start_pct = soc
+
+
+def _set_savings_fields(data: CoordinatorData, cycle: _Cycle) -> None:
+    """The saving is what the load would have cost from the grid at the time, less what was paid.
+
+    Energy the battery gained since midnight was paid for but not yet used, and energy it lost
+    was paid for yesterday, so the change in stored energy is added at its value.
+    """
     acc = data.today
+    stored = stored_energy_change(
+        acc, _soc_if_available(cycle.raw), cycle.raw.battery_capacity_kwh, cycle.tariff
+    )
+    data.stored_energy_change_kwh = stored.change_kwh
+    data.stored_energy_value = stored.value
     actual_net_cost = acc.total_import_cost - acc.export_earnings
-    data.saving_vs_grid_today = round(acc.grid_equivalent_load_cost - actual_net_cost, 4)
+    data.saving_vs_grid_today = round(
+        acc.grid_equivalent_load_cost - actual_net_cost + stored.value, 4
+    )
     battery_wear_today = acc.battery_throughput_kwh * data.battery_cycle_cost_per_kwh
     data.net_saving_today = round(data.saving_vs_grid_today - battery_wear_today, 4)
 
@@ -1459,19 +1575,24 @@ def _apply_daily_counters(acc: EnergyAccumulator, raw: RawSensorValues) -> None:
     )
 
 
-def _carry_grid_to_battery(accumulators: Accumulators, raw: RawSensorValues) -> None:
-    """Add the growth of the AC charge counter to the week, month and year.
+def _carry_grid_to_battery(accumulators: Accumulators, cycle: _Cycle) -> None:
+    """Add the growth of the AC charge counter to the week, month and year, and price today's.
 
     Today takes the counter itself. The longer periods integrate live power, which has no
     grid-to-battery figure, so each gets the counter's rise since the last reading. That
-    also catches up the time Home Assistant was down.
+    also catches up the time Home Assistant was down. The rise is priced at the rate in force,
+    on today only, for the value of the energy the battery holds (core/stored_energy.py).
     """
-    if raw.ac_charge_energy_today_kwh is None:
+    if cycle.raw.ac_charge_energy_today_kwh is None:
         return
-    growth_kwh = accumulators.counters.growth_since_last(raw.ac_charge_energy_today_kwh)
+    growth_kwh = accumulators.counters.growth_since_last(cycle.raw.ac_charge_energy_today_kwh)
     for longer_acc in (accumulators.week, accumulators.month, accumulators.year):
         if longer_acc is not None:
             longer_acc.grid_to_battery_kwh += growth_kwh
+    accumulators.today.grid_to_battery_priced_kwh += growth_kwh
+    accumulators.today.grid_to_battery_cost += cycle.tariff.calculate_import_cost(
+        growth_kwh, cycle.now
+    )
 
 
 def _start_cycle(
@@ -1503,7 +1624,7 @@ def _set_decisions(
 def _set_money_fields(data: CoordinatorData, cycle: _Cycle, accumulators: Accumulators) -> None:
     """Bill, savings and battery budget; they read the decisions above."""
     _set_bill_fields(data, cycle, accumulators)
-    _set_savings_fields(data)
+    _set_savings_fields(data, cycle)
     _set_throughput_budget(data, cycle.cfg)
 
 
@@ -1534,7 +1655,7 @@ def build_coordinator_data(
     avg_daily_kwh = estimate_avg_daily_kwh(_baseline_house_kwh(data.today), now)
 
     _set_decisions(data, cycle, avg_daily_kwh, previous.held_charge)
-    _set_oil_schedule(data, cycle, accumulators.heat_log)
+    _set_alt_heat_schedule(data, cycle, accumulators.heat_log)
     _set_money_fields(data, cycle, accumulators)
     _calculate_ev_km(data, accumulators.today, inputs.cfg)
     _calculate_night_survival(data, cycle, avg_daily_kwh, previous.held_sunrise)

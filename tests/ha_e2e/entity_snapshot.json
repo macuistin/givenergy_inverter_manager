@@ -1,8 +1,23 @@
 [
  {
-  "entity_id": "button.givenergy_inverter_manager_refresh_dashboard",
-  "key": "refresh_dashboard",
-  "name": "Refresh Dashboard"
+  "entity_id": "number.givenergy_inverter_manager_cheap_rate_floor_soc",
+  "key": "cheap_rate_floor_soc",
+  "name": "Cheap rate floor SoC"
+ },
+ {
+  "entity_id": "number.givenergy_inverter_manager_forecast_conservatism",
+  "key": "forecast_conservatism",
+  "name": "Forecast conservatism"
+ },
+ {
+  "entity_id": "number.givenergy_inverter_manager_immersion_divert_minimum_soc",
+  "key": "surplus_divert_soc_pct",
+  "name": "Immersion divert minimum SoC"
+ },
+ {
+  "entity_id": "number.givenergy_inverter_manager_immersion_divert_minimum_surplus",
+  "key": "surplus_divert_min_power_w",
+  "name": "Immersion divert minimum surplus"
  },
  {
   "entity_id": "number.givenergy_inverter_manager_immersion_minimum_temperature",
@@ -23,6 +38,11 @@
   "entity_id": "number.givenergy_inverter_manager_overnight_charge_target_override",
   "key": "charge_target_override",
   "name": "Overnight Charge Target Override"
+ },
+ {
+  "entity_id": "number.givenergy_inverter_manager_skip_charge_soc_threshold",
+  "key": "skip_charge_soc_threshold_pct",
+  "name": "Skip-charge SoC threshold"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_accrued_bill_this_period",
@@ -200,9 +220,14 @@
   "name": "Estimated Overnight Charge Cost"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_estimated_soc_at_sunrise",
+  "entity_id": "sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge",
+  "key": "estimated_soc_at_sunrise_with_charge",
+  "name": "Estimated SoC at Sunrise With the Planned Charge"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge",
   "key": "estimated_soc_at_sunrise",
-  "name": "Estimated SoC at Sunrise"
+  "name": "Estimated SoC at Sunrise Without a Charge"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_ev_charger_state",
@@ -675,6 +700,11 @@
   "name": "Self-sufficiency yesterday"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_setup_progress",
+  "key": "setup_progress",
+  "name": "Setup Progress"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_solar_capture_efficiency_today",
   "key": "solar_capture_efficiency_today",
   "name": "Solar Capture Efficiency Today"
@@ -780,6 +810,11 @@
   "name": "Auto Immersion Divert"
  },
  {
+  "entity_id": "switch.givenergy_inverter_manager_dry_run",
+  "key": "dry_run",
+  "name": "Dry run"
+ },
+ {
   "entity_id": "switch.givenergy_inverter_manager_enable_charge_target_override",
   "key": "charge_target_override_enabled",
   "name": "Enable Charge Target Override"
@@ -798,5 +833,10 @@
   "entity_id": "switch.givenergy_inverter_manager_immersion_scheduled_heating",
   "key": "immersion_schedule",
   "name": "Immersion Scheduled Heating"
+ },
+ {
+  "entity_id": "switch.givenergy_inverter_manager_verbose_logging",
+  "key": "verbose_logging",
+  "name": "Verbose logging"
  }
 ]

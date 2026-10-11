@@ -1,18 +1,17 @@
 """
 strategy.py - serves the dashboard as a Lovelace strategy.
 
-With this, a dashboard's whole configuration can be:
+The dashboard is a strategy. Its whole configuration is:
 
     strategy:
       type: custom:givenergy-manager
 
-The frontend loads a small JavaScript file from this integration. The file calls
-a websocket command that returns the same dashboard the get_dashboard_yaml
-service writes, built from the current registry and options each time the
-dashboard opens.
+The frontend loads a small JavaScript file from this integration. The file calls a websocket
+command that builds the dashboard from the current registry and options each time the
+dashboard opens, and lists the strategy under Community dashboards when a dashboard is added.
 
-Nothing here is required by the rest of the integration. The service and the
-generated file work without it.
+The command reads the connection's user to decide whether the Settings view is built. Nothing
+else in the integration needs the strategy.
 """
 
 from __future__ import annotations
@@ -29,21 +28,24 @@ from .services import loaded_entries
 _LOG = get_logger(__name__)
 
 WS_TYPE = f"{DOMAIN}/dashboard"
+# The strategy type a dashboard names in its configuration.
+STRATEGY_TYPE = "custom:givenergy-manager"
 STRATEGY_URL_PATH = f"/{DOMAIN}/givenergy-manager-strategy.js"
 STRATEGY_FILE = Path(__file__).parent / "frontend" / "givenergy-manager-strategy.js"
 _REGISTERED_KEY = f"{DOMAIN}_strategy_registered"
 _EXTRA_MODULE_URL_KEY = "frontend_extra_module_url"
 
 
-async def async_dashboard_for_websocket(hass: HomeAssistant) -> dict | None:
+async def async_dashboard_for_websocket(hass: HomeAssistant, *, is_admin: bool) -> dict | None:
     """Return the dashboard dict for the first loaded config entry, or None if none is loaded.
 
-    This is the entry the get_dashboard_yaml action uses too.
+    *is_admin* is whether the connection's user is an administrator. Only then does the
+    dashboard hold the Settings view.
     """
     entries = loaded_entries(hass)
     if not entries:
         return None
-    facts = await async_host_facts(hass)
+    facts = await async_host_facts(hass, is_admin=is_admin)
     return build_dashboard(hass, entries[0], facts)
 
 
@@ -66,7 +68,9 @@ def _register_websocket_command(hass: HomeAssistant) -> None:
     @websocket_api.websocket_command({vol.Required("type"): WS_TYPE})
     @websocket_api.async_response
     async def ws_dashboard(hass, connection, msg):
-        config = await async_dashboard_for_websocket(hass)
+        # The authenticated user decides who sees Settings. The schema accepts no other field,
+        # so there is nothing in the message a client could use to ask for it.
+        config = await async_dashboard_for_websocket(hass, is_admin=connection.user.is_admin)
         if config is None:
             connection.send_error(
                 msg["id"], websocket_api.ERR_NOT_FOUND, "GivEnergy Inverter Manager is not set up"

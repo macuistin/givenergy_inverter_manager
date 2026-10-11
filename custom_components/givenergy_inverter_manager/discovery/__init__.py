@@ -9,6 +9,11 @@ from .ev_charger import (
     discover_ev_chargers,
     update_charger_state,
 )
+from .forecast import (
+    ForecastSensors,
+    discover_forecast_sensors,
+    discover_immersion_switch_candidates,
+)
 from .givtcp import (
     UNUSED_SLOT_TIME,
     ActiveChargeSlot,
@@ -29,11 +34,14 @@ __all__ = [
     "EVCharger",
     "EVChargerBrand",
     "EVChargerState",
+    "ForecastSensors",
     "GivTCPInverter",
     "describe_charge_slots",
     "discover_battery_cycle_entities",
     "discover_ev_chargers",
+    "discover_forecast_sensors",
     "discover_givtcp_inverters",
+    "discover_immersion_switch_candidates",
     "find_other_active_charge_slots",
     "get_suggested_entities",
     "givtcp_rate_entity_ids",

@@ -98,6 +98,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.saving_vs_grid_today, 4),
+        attrs_fn=values.saving_attributes,
     ),
     GivEnergyManagerSensorDescription(
         key="net_saving_today",
@@ -108,6 +109,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.net_saving_today, 4),
+        attrs_fn=values.saving_attributes,
     ),
     GivEnergyManagerSensorDescription(
         key="zappi_cost_today",

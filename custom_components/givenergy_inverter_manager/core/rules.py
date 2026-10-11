@@ -260,6 +260,15 @@ def _slot_loads_kwh(avg_daily_kwh: float, load_profile: list[float] | None) -> l
     return [avg_daily_kwh / 48] * 48
 
 
+def usable_slot_loads_kwh(
+    avg_daily_kwh: float, load_profile: list[float] | None
+) -> list[float] | None:
+    """The 48 slot loads the charge simulation uses, or None when there is no usable profile."""
+    if not _profile_usable(load_profile):
+        return None
+    return _slot_loads_kwh(avg_daily_kwh, load_profile)
+
+
 @dataclass(frozen=True)
 class _SimulatedDay:
     """One day to simulate: the solar forecast, the battery size and the load per slot."""
@@ -406,6 +415,17 @@ def _build_decision(inputs: ChargeInputs, plan: _ChargePlan) -> ChargeDecision:
     )
 
 
+def _no_capacity_plan(inputs: ChargeInputs) -> _ChargePlan:
+    """A battery with no capacity has nothing to charge, and the simulation divides by it."""
+    return _ChargePlan(
+        target_soc=inputs.min_soc,
+        skip_charge=True,
+        reason="Skip: the battery capacity is not set, so there is nothing to plan.",
+        forecast_kwh=0.0,
+        cost_to_charge=0.0,
+    )
+
+
 def _winter_plan(inputs: ChargeInputs, month: int) -> _ChargePlan:
     """Solar is negligible in Dec-Feb, so always fill the battery.
 
@@ -441,12 +461,21 @@ def _seasonal_forecast(
     )
 
 
+def _correction_limit_note(correction: float) -> str:
+    """Say so when the accuracy factor sits on one of its limits."""
+    if correction <= CHARGE_FORECAST_CORRECTION_MIN:
+        return " (at the lower limit)"
+    if correction >= CHARGE_FORECAST_CORRECTION_MAX:
+        return " (at the upper limit)"
+    return ""
+
+
 def _integration_forecast(forecast_kwh: float, correction: float | None) -> _ResolvedForecast:
     """Use the integration's forecast, scaled by how accurate it has recently been."""
     source = "forecast integration"
     if correction is not None and correction != 1.0:
         forecast_kwh *= correction
-        source += f", x{correction:.2f} recent accuracy"
+        source += f", x{correction:.2f} recent accuracy{_correction_limit_note(correction)}"
     return _ResolvedForecast(kwh=forecast_kwh, source=source)
 
 
@@ -594,6 +623,8 @@ def calculate_overnight_charge_target(
     and estimate_will_survive_night), so the plan never skips a charge the survival
     sensor calls Critical. inputs.solar_power_w tells it whether the sun is still up.
     """
+    if inputs.battery_capacity_kwh <= 0:
+        return _build_decision(inputs, _no_capacity_plan(inputs))
     if dt.month in CHARGE_WINTER_MONTHS:
         return _build_decision(inputs, _winter_plan(inputs, dt.month))
 

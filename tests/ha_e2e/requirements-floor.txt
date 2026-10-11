@@ -1,0 +1,7 @@
+# Real Home Assistant end-to-end suite (tests/ha_e2e), on the minimum in hacs.json.
+#
+# Kept out of the repository root so Dependabot, which reads requirements files there,
+# never bumps it. Change it only when the floor in hacs.json changes.
+#
+# pins homeassistant==2026.5.0
+pytest-homeassistant-custom-component==0.13.329

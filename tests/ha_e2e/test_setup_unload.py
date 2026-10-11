@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from conftest import SOLAR, TARGET_SOC
+from conftest import SOC, SOLAR, TARGET_SOC
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.helpers import entity_registry as er
@@ -28,7 +28,7 @@ async def test_entry_loads_with_givtcp_inputs(hass, loaded_entry):
 
 
 async def test_platforms_register_expected_entities(hass, loaded_entry):
-    """Every platform adds entities and the dashboard service is registered."""
+    """Every platform adds entities and the service actions are registered."""
     registry = er.async_get(hass)
     entries = er.async_entries_for_config_entry(registry, loaded_entry.entry_id)
     by_domain = {d: [e for e in entries if e.domain == d] for d in PLATFORMS}
@@ -36,12 +36,17 @@ async def test_platforms_register_expected_entities(hass, loaded_entry):
     # The full config has an immersion switch and sensor but no EV charger to discover and
     # no oil price.
     assert len(by_domain["sensor"]) == len(
-        [d for d in SENSOR_DESCRIPTIONS if d.requires not in (Device.EV_CHARGER, Device.OIL_ADVICE)]
+        [d for d in SENSOR_DESCRIPTIONS if d.requires not in (Device.EV_CHARGER, Device.ALTERNATIVE_HEAT)]
     )
-    assert len(by_domain["switch"]) == 5  # includes the immersion switches
-    assert len(by_domain["number"]) == 4
-    assert len(by_domain["button"]) == 1
-    assert hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+    # The five switches include the immersion ones. The two controls (dry run, verbose logging)
+    # make seven.
+    assert len(by_domain["switch"]) == 7
+    # Four before the controls: the override and the three immersion temperatures. The controls
+    # add the floor, the skip-charge threshold and forecast conservatism, and, with an immersion
+    # switch, the two divert thresholds.
+    assert len(by_domain["number"]) == 9
+    assert [e for e in entries if e.domain == "button"] == []
+    assert hass.services.has_service(DOMAIN, "suggest_appliance_run")
 
 
 async def test_every_entity_exists_once_a_charger_is_discovered(hass, loaded_entry_with_charger):
@@ -91,7 +96,7 @@ async def test_unload_is_clean(hass, loaded_entry, caplog):
     await hass.async_block_till_done()
 
     assert loaded_entry.state is ConfigEntryState.NOT_LOADED
-    assert not hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+    assert not hass.services.has_service(DOMAIN, "suggest_appliance_run")
     for entity_id in entity_ids:
         state = hass.states.get(entity_id)
         assert state is not None and state.state == STATE_UNAVAILABLE, entity_id
@@ -100,7 +105,7 @@ async def test_unload_is_clean(hass, loaded_entry, caplog):
     assert await hass.config_entries.async_setup(loaded_entry.entry_id)
     await hass.async_block_till_done()
     assert loaded_entry.state is ConfigEntryState.LOADED
-    assert hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+    assert hass.services.has_service(DOMAIN, "suggest_appliance_run")
 
     errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
     assert not errors, [r.getMessage() for r in errors]
@@ -114,7 +119,7 @@ async def test_remove_entry_cleans_up(hass, loaded_entry):
 
     registry = er.async_get(hass)
     assert er.async_entries_for_config_entry(registry, entry_id) == []
-    assert not hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+    assert not hass.services.has_service(DOMAIN, "suggest_appliance_run")
 
 
 async def test_setup_retries_when_givtcp_is_absent(
@@ -130,6 +135,22 @@ async def test_setup_retries_when_givtcp_is_absent(
     assert not await hass.config_entries.async_setup(config_entry.entry_id)
     assert config_entry.state is ConfigEntryState.SETUP_RETRY
     await hass.config_entries.async_unload(config_entry.entry_id)
+
+
+async def test_a_silent_givtcp_fails_the_cycle_with_a_translated_reason(hass, loaded_entry):
+    """The failure carries the translation key, so Home Assistant can show the user a message."""
+    from homeassistant.helpers.update_coordinator import UpdateFailed
+
+    hass.states.async_set(SOLAR, "unavailable")
+    hass.states.async_set(SOC, "unavailable")
+    coordinator = loaded_entry.runtime_data
+
+    await coordinator.async_refresh()
+
+    assert coordinator.last_update_success is False
+    assert isinstance(coordinator.last_exception, UpdateFailed)
+    assert coordinator.last_exception.translation_domain == DOMAIN
+    assert coordinator.last_exception.translation_key == "givtcp_unavailable"
 
 
 async def test_bill_start_day_comes_from_options_over_data(hass_in_scenario, service_calls):

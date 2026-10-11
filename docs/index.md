@@ -2,7 +2,7 @@
 
 Home Assistant integration for GivEnergy inverters. It reads inverter data from GivTCP over MQTT, sets the overnight charge target, diverts spare solar to an immersion heater, and tracks energy costs across your tariff periods. Nothing leaves your network: the integration only reads and writes Home Assistant entities.
 
-This documentation matches version 0.17.2.
+This documentation matches version 0.18.0.
 
 ## Start here
 
@@ -10,7 +10,7 @@ This documentation matches version 0.17.2.
 |---|---|
 | [Quick start](quick-start.md) | Install, set up and check the integration in ten minutes |
 | [Concepts](concepts.md) | Understand the data flow, the 30-second cycle, sign conventions and how decisions are made |
-| [Configuration](configuration.md) | Look up every setup step and option |
+| [Configuration](configuration.md) | Look up every setup screen and option |
 | [Tariff](tariff.md) | Enter rate periods, see which rate wins, and see how bill figures are built |
 
 ## Reference
@@ -18,9 +18,9 @@ This documentation matches version 0.17.2.
 | Page | Contents |
 |---|---|
 | [Sensors](sensors.md) | Every sensor with unit, state class and enabled-by-default (generated from the code) |
-| [Entities](entities.md) | Switches, numbers and the button |
-| [Actions](actions.md) | The six actions the integration registers |
-| [Dashboard](dashboard.md) | The generated Lovelace dashboard and the HTML report cards |
+| [Entities](entities.md) | Switches and numbers |
+| [Actions](actions.md) | The five actions the integration registers |
+| [Dashboard](dashboard.md) | The Lovelace dashboard that builds itself, and the HTML report cards |
 | [Energy dashboard](energy-dashboard.md) | Which sensors to pick in Home Assistant's Energy dashboard |
 | [Long-term statistics](long-term-statistics.md) | Why daily sensors use state class `total` and reset at midnight |
 | [Automation examples](automations.md) | Ready-to-use automations |
@@ -53,8 +53,8 @@ The charge target rules are in [Concepts](concepts.md#overnight-charge-target). 
 
 ## Requirements
 
-- Home Assistant 2026.2.0 or later. This is the minimum declared in `hacs.json`.
+- Home Assistant 2026.5.0 or later. This is the minimum declared in `hacs.json`. Home Assistant 2026.5 itself needs Python 3.14.2 or newer.
 - [GivTCP](https://github.com/britkat1980/giv_tcp) publishing your inverter to Home Assistant over MQTT. Discovery accepts the GivTCP v3 and v2 battery SoC entity names.
 - A GivEnergy hybrid inverter with a battery.
 
-Charge targets can only be written when GivTCP exposes its charge control entities. See [Configuration](configuration.md#step-1-inverter).
+Charge targets can only be written when GivTCP exposes its charge control entities. See [Configuration](configuration.md#screen-your-system).

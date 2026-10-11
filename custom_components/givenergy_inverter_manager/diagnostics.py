@@ -52,6 +52,9 @@ async def async_get_config_entry_diagnostics(
             "solar_fractions": coordinator.solar_fractions,
             "has_ev_charger": coordinator.ev_charger_brand is not None,
             "ev_charger_brand": coordinator.ev_charger_brand,
+            # The saved dry_run option can differ from this: a test instance forces it on.
+            "dry_run_in_force": coordinator.is_dry_run,
+            "test_instance": coordinator.test_instance,
         },
     }
 

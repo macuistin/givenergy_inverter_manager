@@ -8,12 +8,13 @@ from dataclasses import dataclass
 from datetime import date
 
 from ..const import (
+    ALT_HEAT_SCHEDULE_MIN_DAYS,
     ATTR_FULL_TEXT,
     CONF_CURRENCY,
     CURRENCIES,
+    DEFAULT_ALT_HEAT_LABEL,
     DEFAULT_CURRENCY,
     IMMERSION_SWITCH_COOLDOWN_MINUTES,
-    OIL_SCHEDULE_MIN_DAYS,
 )
 from ..core.tariff import TariffChange, TariffConfig, build_tariff
 from .cards import state_ref
@@ -30,16 +31,35 @@ def _sunrise_phrase(sunrise: str | None) -> str:
     )
 
 
-def survival_template(level: str, status: str | None, sunrise: str | None) -> str:
+def _planned_charge_phrase(with_charge: str | None) -> str:
+    """The figure with tonight's planned charge, as a template fragment, while a charge counts."""
+    if not with_charge:
+        return ""
+    added = f"state_attr('{with_charge}', 'charge_added_pct')"
+    figure = f"states('{with_charge}')"
+    return (
+        f"{{% if is_number({added}) and {added} | float(0) > 0 and is_number({figure}) %}}"
+        f" With tonight's planned charge it should reach about "
+        f"{{{{ states('{with_charge}') | float(0) | round(0) | int }}}}%."
+        "{% endif %}"
+    )
+
+
+def survival_template(
+    level: str, status: str | None, sunrise: str | None, with_charge: str | None = None
+) -> str:
     """The overnight card: the plain outlook, then the explanation attribute or a sentence.
 
     The outlook attribute holds a phrase such as "Lasts the night". An install that lacks it
     shows the level word instead. The heading above the card already says what it is of.
+    The sunrise entity is the figure without a charge. A Warning also gives the figure with
+    tonight's planned charge, from the with_charge entity, while that charge adds something.
     """
     status_text = state_ref(status, ATTR_FULL_TEXT) if status else ""
     warning = (
         "The battery should last until solar starts, but only just. "
-        f"It is expected to reach {_sunrise_phrase(sunrise)}, close to your minimum charge. "
+        f"Without a charge it is expected to reach {_sunrise_phrase(sunrise)}, "
+        f"close to your minimum charge.{_planned_charge_phrase(with_charge)} "
         "A warning shows when the estimate is within 5 points of the minimum."
     )
     return (
@@ -52,6 +72,23 @@ def survival_template(level: str, status: str | None, sunrise: str | None) -> st
         "{%- else -%}\n"
         f"{status_text}\n"
         "{%- endif %}"
+    )
+
+
+def setup_checklist_template(progress: str) -> str:
+    """The setup checklist: each required item as done or to do, then the optional ones left.
+
+    It reads the `items` attribute of the Setup Progress sensor. Optional items that are done
+    are not listed, and the others appear once as available, in smaller text.
+    """
+    return (
+        f"{{% set items = state_attr('{progress}', 'items') or [] %}}"
+        "{% for item in items if item.required %}"
+        "- {{ 'Done' if item.done else 'To do' }}: {{ item.label }}\n"
+        "{% endfor %}"
+        "{% set open = items | rejectattr('required') | rejectattr('done')"
+        " | map(attribute='label') | list %}"
+        "{% if open %}\n<small>Available: {{ open | join(', ') }}</small>{% endif %}"
     )
 
 
@@ -97,24 +134,29 @@ def planned_heating_template(sensor: str) -> str:
     )
 
 
-def oil_schedule_template(source: str) -> str:
-    """The suggested oil schedule line, read from the cheapest source sensor.
+def alt_heat_schedule_template(source: str) -> str:
+    """The suggested alternative heating schedule line, read from the cheapest source sensor.
 
-    The sensor holds oil_schedule_suggestion only while there is a schedule to suggest, and
-    oil_schedule_days only from the first week of data. A Lovelace condition cannot test for an
-    attribute, so the card says which of the two it is waiting on.
+    The sensor holds alt_schedule_suggestion only while there is a schedule to suggest, and
+    alt_schedule_days only from the first week of data. A Lovelace condition cannot test for an
+    attribute, so the card says which of the two it is waiting on. The label comes from the
+    sensor's alt_label attribute, so a change of label shows without regenerating the dashboard.
+    Inside a sentence it is lower case unless it is all capitals (core/alt_heat_label.py).
     """
     return (
-        f"{{% set text = state_attr('{source}', 'oil_schedule_suggestion') %}}"
-        f"{{% set days = state_attr('{source}', 'oil_schedule_days') %}}"
+        f"{{% set text = state_attr('{source}', 'alt_schedule_suggestion') %}}"
+        f"{{% set days = state_attr('{source}', 'alt_schedule_days') %}}"
+        f"{{% set label = state_attr('{source}', 'alt_label') or '{DEFAULT_ALT_HEAT_LABEL}' %}}"
+        "{% set word = label if label == label | upper else label | lower %}"
         "{% if text -%}\n"
         "{{ text }}\n"
         "{%- elif days -%}\n"
-        "No regular oil schedule would save enough yet, from the last {{ days }} days of "
+        "No regular {{ word }} schedule would save enough yet, from the last {{ days }} days of "
         "heating.\n"
         "{%- else -%}\n"
-        "Still learning when the immersion heats the water at rates above oil. A suggested oil "
-        f"schedule appears after {OIL_SCHEDULE_MIN_DAYS} days.\n"
+        "Still learning when the immersion heats the water at rates above {{ word }}. A "
+        "suggested {{ word }} schedule appears after "
+        f"{ALT_HEAT_SCHEDULE_MIN_DAYS} days.\n"
         "{%- endif %}"
     )
 

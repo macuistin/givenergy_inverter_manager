@@ -62,9 +62,10 @@ GROUPS: dict[str, str] = {
     "Battery": "Health, wear and state of the battery.",
     "Charge plan and overnight outlook": "Outputs of the overnight charge calculation.",
     "Immersion": (
-        "Output of the immersion divert rule, the water temperature and the oil water heating "
-        "advice. The water temperature sensor exists only with a temperature sensor set. The "
-        "cheapest source sensor exists only with an oil price and an immersion switch set."
+        "Output of the immersion divert rule, the water temperature and the alternative water "
+        "heating advice. The water temperature sensor exists only with a temperature sensor set. "
+        "The cheapest source sensor exists only with alternative water heating on, a cost set "
+        "and an immersion switch set."
     ),
     "EV charger": (
         "These sensors exist only while a supported charger is discovered, and appear when "
@@ -210,6 +211,7 @@ KEY_GROUPS: dict[str, str] = {
             "overnight_charge_window",
             "overnight_charge_cost",
             "estimated_soc_at_sunrise",
+            "estimated_soc_at_sunrise_with_charge",
             "night_survival_reason",
             "night_survival_confidence",
             "cheap_rate_floor_status",
@@ -251,7 +253,7 @@ KEY_GROUPS: dict[str, str] = {
     **dict.fromkeys(("carbon_intensity", "carbon_intensity_status"), "Carbon intensity"),
     **dict.fromkeys(("today_summary", "charge_plan", "week_summary"), "HTML reports"),
     **dict.fromkeys(
-        ("dry_run_active", "dry_run_last_skipped", "integration_version"),
+        ("dry_run_active", "dry_run_last_skipped", "setup_progress", "integration_version"),
         "Dry run and diagnostics",
     ),
     "net_position_this_month": "This month",
@@ -370,9 +372,15 @@ DESCRIPTIONS: dict[str, str] = {
     "immersion_savings_today": "Diverted solar kWh times (current rate minus export rate).",
     "saving_vs_grid_today": (
         "House load priced at the rate in force when it ran, minus net import cost "
-        "(import cost minus export earnings)."
+        "(import cost minus export earnings), plus the value of the change in the energy the "
+        "battery holds since midnight. The `stored_energy_value` and `stored_energy_change_kwh` "
+        "attributes show that last part, so the figure can be checked by hand. "
+        "See [Concepts](concepts.md#saving-and-the-energy-in-the-battery)."
     ),
-    "net_saving_today": "Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set.",
+    "net_saving_today": (
+        "Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. "
+        "It carries the same `stored_energy_value` and `stored_energy_change_kwh` attributes."
+    ),
     "net_position_today": "Export earnings minus import cost.",
     "self_sufficiency": (
         "Share of the house load, EV and immersion included, that did not come from the grid "
@@ -447,18 +455,40 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",
     "estimated_soc_at_sunrise": (
-        "Projected SoC when solar starts, taken as 08:00. While solar is generating "
-        "it covers tonight's 8 hour pre-solar window from the current SoC."
+        "Projected SoC when solar starts, taken as 08:00, if no charge happens: the battery "
+        "from now to sunrise on the house load, ignoring tonight's planned charge. It holds at "
+        "the minimum SoC when the battery would run flat, so in the evening it can read the "
+        "minimum although a charge is planned. This is the figure the Battery Overnight "
+        "Outlook and Confidence sensors judge. It spreads the daily average load evenly over "
+        "the hours, the flat load. While solar is generating it covers tonight's "
+        "8 hour pre-solar window from the current SoC. See Estimated SoC at Sunrise With the "
+        "Planned Charge for the same night with the charge in it."
+    ),
+    "estimated_soc_at_sunrise_with_charge": (
+        "Projected SoC at the next 08:00 with tonight's planned charge in it: the battery runs "
+        "down to the start of the charge window, the window adds charge up to the target, and "
+        "the battery runs down again to sunrise, never below the minimum SoC. The window is "
+        "sized for the SoC the battery will have when it opens, as the plan writes it. On a "
+        "skipped night, with no timed charge window, or once the window is over, it equals "
+        "Estimated SoC at Sunrise Without a Charge. It does not feed Battery Overnight Outlook "
+        "or Confidence. It reads the learned per-slot load profile the charge plan uses (scaled "
+        "to the daily average), and falls back to the flat average until there is a usable "
+        "profile. `basis` says which. Attributes: `soc_at_charge_start` (the SoC when the window "
+        "opens), "
+        "`charge_added_pct` (points the window adds), `charge_window` (for example `02:00 to "
+        "04:35`) and `basis` (in words, what the figure assumes)."
     ),
     "night_survival_reason": (
         "Whether the battery should last until 08:00, with any shortfall. "
         "The charge plan does not skip a night this sensor calls Critical."
     ),
     "night_survival_confidence": (
-        "Safe, Warning (within 5 points of minimum SoC) or Critical. "
-        "The attributes say why and give the numbers. `outlook` and `summary` say it in "
-        "words for the dashboard, for example Lasts the night, with the charge expected at "
-        "sunrise."
+        "Safe, Warning (within 5 points of minimum SoC) or Critical, judged without a "
+        "charge. The attributes say why and give the numbers. `outlook` and `summary` say it "
+        "in words for the dashboard, for example Lasts the night, with the charge expected at "
+        "sunrise. While tonight's planned charge counts, `summary` and `explanation` also "
+        "give the figure with it and say whether it covers a Warning or Critical night. The "
+        "level does not change."
     ),
     "cheap_rate_floor_status": "State of the cheap rate floor top-up, or Inactive.",
     "immersion_divert_reason": "Why the immersion is on or off.",
@@ -470,30 +500,33 @@ DESCRIPTIONS: dict[str, str] = {
         "has `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source`."
     ),
     "water_heating_cheapest_source": (
-        "The cheapest way to heat the water now: `electricity`, `solar` or `oil`. Compares the "
-        "cost of a kWh of heat from the grid (after discount and VAT), from solar surplus (the "
-        "export rate) and from oil (the price of a litre over 85% of 10.35 kWh). Advice only: "
-        "the integration does not control the oil boiler. The `suggestion` attribute is a "
-        "sentence saying what to do and until when. Other attributes: `oil_cost_per_kwh`, "
-        "`electricity_cost_per_kwh`, `cheapest_electricity_cost_per_kwh` (to the next ready time "
-        "or 24 hours), `oil_saving_per_kwh` (negative when oil is dearer), `best_hours_for_oil`, "
+        "The cheapest way to heat the water now: `electricity`, `solar` or `alternative`. "
+        "Compares the cost of a kWh of heat from the grid (after discount and VAT), from solar "
+        "surplus (the export rate) and from the alternative heating you set (oil, gas, a heat "
+        "pump, in the unit you chose). Advice only: the integration does not control the other "
+        "system. The `suggestion` attribute is a sentence saying what to do and until when, and "
+        "calls the alternative by your name for it, held in `alt_label` (Oil by default). Other "
+        "attributes: `alt_cost_per_kwh`, `electricity_cost_per_kwh`, "
+        "`cheapest_electricity_cost_per_kwh` (to the next ready time or 24 hours), "
+        "`alt_saving_per_kwh` (negative when the alternative is dearer), `best_hours_for_alt`, "
         "`horizon`, `horizon_ends` and `cheapest_source_in_horizon`. With a water temperature "
         "reading it also says whether the water needs heating. While scheduled heating is on and "
-        "a ready time is set, and oil is cheaper than the grid the immersion plan would use, it "
-        "adds `oil_start_by` (local time), `oil_run_minutes` and `oil_for_ready_time`: start the "
-        "oil then and the immersion only tops up. Absent when no oil start is needed. "
-        "`oil_keep_warm` is a sentence, present while the water is at or below the lower of the "
-        "minimum temperature plus the restart gap and the target less the restart gap, solar "
-        "surplus is not heating it and oil is cheaper than the grid now. The suggestion puts the "
-        "oil start first, then the keep-warm run. "
-        "After 7 days of the immersion's grid heating it also suggests a recurring oil schedule, "
-        "apart from `suggestion`: `oil_schedule` (a list of `HH:MM to HH:MM` windows, empty when "
-        "nothing is worth suggesting), `oil_schedule_saving` (saved over the record, in your "
-        "currency), `oil_schedule_days` (complete days read, up to 14) and "
-        "`oil_schedule_suggestion` (the sentence, only with a schedule). All four are absent "
+        "a ready time is set, and the alternative is cheaper than the grid the immersion plan "
+        "would use, it adds `alt_start_by` (local time), `alt_run_minutes` and "
+        "`alt_for_ready_time`: start it then and the immersion only tops up. Absent when no "
+        "start is needed. `alt_keep_warm` is a sentence, present while the water is at or below "
+        "the lower of the minimum temperature plus the restart gap and the target less the "
+        "restart gap, solar surplus is not heating it and the alternative is cheaper than the "
+        "grid now. The suggestion puts the start first, then the keep-warm run. "
+        "After 7 days of the immersion's grid heating it also suggests a recurring schedule, "
+        "apart from `suggestion`: `alt_schedule` (a list of `HH:MM to HH:MM` windows, empty when "
+        "nothing is worth suggesting), `alt_schedule_saving` (saved over the record, in your "
+        "currency), `alt_schedule_days` (complete days read, up to 14) and "
+        "`alt_schedule_suggestion` (the sentence, only with a schedule). All four are absent "
         "before 7 days. Use them in your own automations: the integration does not switch the "
-        "oil system. "
-        "Unavailable while the price cannot be read."
+        "other system. The costs, hours, start, keep-warm and schedule attributes are not "
+        "written to the history database. "
+        "Unavailable while the cost cannot be read."
     ),
     "ev_charger_state": (
         "disconnected, connected, charging, paused, boosting, completed or unknown. "
@@ -533,9 +566,15 @@ DESCRIPTIONS: dict[str, str] = {
     "week_summary": "Solar, import cost and self-sufficiency for this week.",
     "dry_run_active": (
         "True when dry run mode is on. The `summary` attribute reads On or Off, "
-        "for the dashboard tile."
+        "for the dashboard tile. On a test instance (see Configuration) the "
+        "`test_instance` attribute is also true."
     ),
     "dry_run_last_skipped": "The last action dry run mode held back.",
+    "setup_progress": (
+        "complete once the required setup is done, incomplete before that. The `items` "
+        "attribute lists each step with whether it is done and whether it is required. "
+        "The dashboard shows a checklist while the state is incomplete."
+    ),
     "integration_version": "Installed integration version.",
 }
 
@@ -546,7 +585,9 @@ REQUIRES_NOTES: dict[str, str] = {
     "IMMERSION_SWITCH": "Created only with an immersion switch.",
     "IMMERSION_SENSOR": "Created only with an immersion temperature sensor.",
     "IMMERSION_THERMOSTAT": "Created only with an immersion switch and temperature sensor.",
-    "OIL_ADVICE": "Created only with an oil price and an immersion switch.",
+    "ALTERNATIVE_HEAT": (
+        "Created only with alternative water heating on, a cost set and an immersion switch."
+    ),
 }
 
 RETIRED_SENSORS: tuple[tuple[str, str], ...] = (
@@ -568,15 +609,22 @@ RENAMED_SENSORS: tuple[tuple[str, str, str], ...] = (
     ("peak_import_fraction_today", "Peak rate import fraction", "Base rate import fraction"),
     ("night_survival_reason", "Battery Night Survival Status", "Battery Overnight Outlook"),
     ("night_survival_confidence", "Night Survival Confidence", "Battery Overnight Confidence"),
+    (
+        "estimated_soc_at_sunrise",
+        "Estimated SoC at Sunrise",
+        "Estimated SoC at Sunrise Without a Charge",
+    ),
 )
 RENAMED_NOTE = (
     "The base rate sensors were renamed because they measure the base rate, the rate that "
     "applies while no timed rate period is active. They are not a peak band, and no peak band "
     "is configured. The two overnight sensors were renamed because night survival read like "
-    "an alarm: they tell whether the battery lasts the night. In both groups the key and the "
-    "unique ID did not change, so history, statistics and automations carry on. An install "
-    "made before a rename keeps its old entity IDs, which still contain `peak` or "
-    "`night_survival`. A new install builds entity IDs from the new names."
+    "an alarm: they tell whether the battery lasts the night. The sunrise estimate was renamed "
+    "because it leaves tonight's planned charge out, and a second sensor now gives the "
+    "figure with the charge. In every group the key and the unique ID did not change, so "
+    "history, statistics and automations carry on. An install made before a rename keeps its "
+    "old entity IDs, which still contain `peak`, `night_survival` or the plain "
+    "`estimated_soc_at_sunrise`. A new install builds entity IDs from the new names."
 )
 RETIRED_NOTE = (
     "These sensors were removed. The integration never writes or advises forced battery "
@@ -737,7 +785,7 @@ def generate() -> str:
         "**Settings > Devices & Services > GivEnergy Inverter Manager > entities**.",
         "",
         "This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after "
-        "changing `sensor.py`. For switches, numbers and the button, see "
+        "changing `sensor.py`. For switches and numbers, see "
         "[Entities](entities.md).",
         "",
         "Column guide:",

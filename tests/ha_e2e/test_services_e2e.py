@@ -14,7 +14,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, async_
 from custom_components.givenergy_inverter_manager.const import CONF_INVERTER_SERIAL, DOMAIN
 
 ALL_SERVICES = (
-    "get_dashboard_yaml",
     "suggest_appliance_run",
     "get_roi_summary",
     "compare_tariff",
@@ -56,7 +55,6 @@ async def test_services_exist_before_any_entry_is_loaded(hass):
 @pytest.mark.parametrize(
     ("service", "data"),
     [
-        ("get_dashboard_yaml", {}),
         ("suggest_appliance_run", {"appliance_name": "Dishwasher", "appliance_power_w": 2000}),
         ("get_roi_summary", {}),
         ("compare_tariff", {"rate": 0.3}),

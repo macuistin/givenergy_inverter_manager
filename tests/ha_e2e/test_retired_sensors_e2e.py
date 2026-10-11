@@ -88,7 +88,7 @@ async def test_setup_removes_an_existing_entry_for_each_retired_sensor(
     ]
     # No EV charger is discoverable and no oil price is set, so those sensors are not created.
     assert len(sensors) == len(
-        [d for d in SENSOR_DESCRIPTIONS if d.requires not in (Device.EV_CHARGER, Device.OIL_ADVICE)]
+        [d for d in SENSOR_DESCRIPTIONS if d.requires not in (Device.EV_CHARGER, Device.ALTERNATIVE_HEAT)]
     )
     await _unload(hass, config_entry)
 

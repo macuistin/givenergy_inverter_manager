@@ -17,13 +17,13 @@ python3 -m venv .venv
 
 `tests/conftest.py` replaces `homeassistant` in `sys.modules` before collection. The tests run from any directory. Source paths come from `ROOT` and `PKG` in `tests/helpers.py`, never from the working directory. `pyproject.toml` adds `--ignore=tests/ha_e2e` so this suite never imports the real Home Assistant tests.
 
-`tests/test_dashboard_example.py` is a golden test for `docs/dashboard-example.yaml`. After an intended change to the dashboard generator, regenerate the file with `UPDATE_DASHBOARD_EXAMPLE=1 python -m pytest tests/test_dashboard_example.py` and review the diff.
+`tests/test_dashboard_matrix.py` pins the dashboard for a grid of installs, for an administrator and for another user. After an intended change to the dashboard builder, regenerate the golden file with `UPDATE_DASHBOARD_MATRIX=1 python -m pytest tests/test_dashboard_matrix.py`, and compare the dashboards before and after section by section.
 
 `tests/test_dashboard_strategy.py` runs the strategy JavaScript under `node` when `node` is installed, and skips those tests otherwise.
 
 ## Real Home Assistant suite
 
-Use a separate virtualenv. The plugin pins `homeassistant`, `pytest` and `pytest-asyncio`, and Home Assistant 2026.9 needs Python 3.14.2 or newer.
+Use a separate virtualenv. The plugin pins `homeassistant`, `pytest` and `pytest-asyncio`, and Home Assistant 2026.3 and later need Python 3.14.2 or newer.
 
 ```bash
 python3 -m venv .venv-e2e
@@ -44,8 +44,8 @@ If you run `pytest tests/ha_e2e` in the stubbed suite's virtualenv, it reports o
 - Enables every sensor that is disabled by default, reloads, and checks each one has a state.
 - Drives the options flow with the payload the frontend would send, including an empty forecast and carbon selection, and serialises the form schema the way the frontend API does.
 - Walks the config flow for the manual path (no discovered inverters) and the discovered path.
-- Checks that every field in the setup, reconfigure and options forms has a label and help text in `strings.json` and `translations/en.json`.
-- Moves the immersion temperature numbers and checks the integration is not reloaded.
+- Checks that every field in every setup, reconfigure and options form has a label and help text in `strings.json` and `translations/en.json`, and that every placeholder a description uses is supplied by the flow.
+- Moves the immersion temperature numbers, and saves a slider, a threshold and the dry run switch through the options flow, and checks the integration is not reloaded. Changing the immersion switch is checked to reload.
 - Unloads, reloads and removes the entry.
 
 Writes to GivTCP are captured with `async_mock_service` for `number.set_value`, `switch.turn_on`, `switch.turn_off` and `select.select_option`. Nothing talks to a real inverter. The 2 s retry sleep in the coordinator is patched to 0.
@@ -56,17 +56,25 @@ Tests marked `xfail(strict=True)` document real defects in the integration. When
 
 ### Updating Home Assistant
 
-`requirements-test-e2e.txt` pins one plugin release. Each release pins one `homeassistant` version, so bumping the plugin bumps Home Assistant. Check the plugin's `Requires-Dist` before changing it.
+`requirements-test-e2e.txt` pins one plugin release, the latest Home Assistant. Each release pins one `homeassistant` version, so bumping the plugin bumps Home Assistant. Check the plugin's `Requires-Dist` before changing it.
+
+`tests/ha_e2e/requirements-floor.txt` pins the plugin release that pins the minimum in `hacs.json` (`pytest-homeassistant-custom-component` 0.13.329 pins `homeassistant==2026.5.0`). It lives in `tests/ha_e2e` so Dependabot, which reads the repository root, never bumps it. Change it only when the floor changes.
+
+To run the floor locally, install that file into a Python 3.14.2 or newer virtualenv in place of `requirements-test-e2e.txt`. For the stubbed suite, `pip install -r requirements-test.txt homeassistant==2026.5.0`.
 
 ## CI
 
-`.github/workflows/tests.yml` has three jobs:
+`.github/workflows/tests.yml` has five jobs. Home Assistant 2026.5 and newer need Python 3.14.2 or newer and do not install on Python 3.13, so every job runs on Python 3.14.
 
 | Job | What it runs |
 |---|---|
-| `lint` | `ruff check` and `bandit` on Python 3.13 |
-| `Tests (Python 3.13)` and `Tests (Python 3.14)` | One job per Python version in a matrix, running the stubbed suite |
-| `Home Assistant end-to-end` | The real Home Assistant suite on Python 3.14 |
+| `lint` | `ruff check` and `bandit` |
+| `Tests (Home Assistant 2026.5.0)` and `Tests (Home Assistant latest)` | The stubbed suite, with the real `homeassistant` package at the minimum in `hacs.json` and at the newest release |
+| `Tests (Home Assistant beta, not blocking)` | The stubbed suite against the newest pre-release. Until a beta is out it resolves to the latest release |
+| `Home Assistant end-to-end (2026.5.0)` and `Home Assistant end-to-end (latest)` | The real Home Assistant suite at the minimum and at the release pinned in `requirements-test-e2e.txt` |
+| `Home Assistant end-to-end (beta, not blocking)` | The real Home Assistant suite against the newest pre-release plugin |
+
+The two beta jobs use `continue-on-error`, so a failure there does not fail the workflow. They are not required checks.
 
 Three more workflows run on every pull request: Hassfest (`validate`), HACS (`HACS Action`) and CodeQL (`Analyze (python)`). All four workflows also run nightly or weekly, so a change in Home Assistant, HACS or a dependency shows up without a pull request.
 

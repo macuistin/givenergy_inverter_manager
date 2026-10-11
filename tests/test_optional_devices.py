@@ -15,19 +15,21 @@ import pytest
 
 from custom_components.givenergy_inverter_manager import optional_devices as od
 from custom_components.givenergy_inverter_manager.const import (
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_ENABLED,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
-    CONF_OIL_PRICE_PER_LITRE,
     DOMAIN,
 )
 from custom_components.givenergy_inverter_manager.core.devices import Device
 from custom_components.givenergy_inverter_manager.sensor_descriptions import SENSOR_DESCRIPTIONS
+from tests.helpers import PKG
 
 EV = Device.EV_CHARGER
 SWITCH = Device.IMMERSION_SWITCH
 SENSOR = Device.IMMERSION_SENSOR
 THERMOSTAT = Device.IMMERSION_THERMOSTAT
-OIL = Device.OIL_ADVICE
+OIL = Device.ALTERNATIVE_HEAT
 
 
 def _needing(device: Device) -> set[str]:
@@ -65,6 +67,8 @@ class TestWhatNeedsWhat:
             "immersion_solar_kwh_today",
             "auto_immersion",
             "immersion_managed",
+            "surplus_divert_soc_pct",
+            "surplus_divert_min_power_w",
         }
 
     def test_the_water_temperature_follows_the_sensor(self):
@@ -78,10 +82,10 @@ class TestWhatNeedsWhat:
             "immersion_hysteresis",
         }
 
-    def test_the_oil_advice_needs_an_oil_price_and_the_switch(self):
+    def test_the_advice_needs_alternative_heating_with_a_cost_and_the_switch(self):
         assert _needing(OIL) == {"water_heating_cheapest_source"}
 
-    def test_the_oil_sensor_is_unavailable_until_there_is_advice(self):
+    def test_the_cheapest_source_is_unavailable_until_there_is_advice(self):
         description = next(
             d for d in SENSOR_DESCRIPTIONS if d.key == "water_heating_cheapest_source"
         )
@@ -106,16 +110,38 @@ class TestWhatNeedsWhat:
         assert len(keys) == len(set(keys))
 
     def test_the_switch_and_number_names_are_the_ones_the_entities_use(self):
+        """The dashboard predicts an absent device's entity id from DeviceEntity.name.
+
+        Home Assistant builds the real id from the translated name, so the two must agree.
+        """
+        import json
+
+        entity = json.loads((PKG / "strings.json").read_text(encoding="utf-8"))["entity"]
+        for device_entity in od.DEVICE_ENTITIES:
+            if device_entity.platform not in ("switch", "number"):
+                continue
+            translated = entity[device_entity.platform][device_entity.key]["name"]
+            assert translated == device_entity.name, device_entity.key
+
+    def test_the_entity_classes_translate_their_name_by_the_unique_id_suffix(self):
         from custom_components.givenergy_inverter_manager import number, switch
 
-        assert switch.GivEnergyAutoImmersionSwitch._attr_name == od.AUTO_IMMERSION.name
-        assert switch.GivEnergyImmersionControlSwitch._attr_name == od.IMMERSION_MANAGED.name
+        assert switch.GivEnergyAutoImmersionSwitch._attr_translation_key == od.AUTO_IMMERSION.key
         assert (
-            switch.GivEnergyImmersionScheduleSwitch._attr_name == od.IMMERSION_SCHEDULE.name
+            switch.GivEnergyImmersionControlSwitch._attr_translation_key
+            == od.IMMERSION_MANAGED.key
         )
-        assert number.ImmersionTargetTempNumber._attr_name == od.IMMERSION_TARGET.name
-        assert number.ImmersionMinTempNumber._attr_name == od.IMMERSION_MINIMUM.name
-        assert number.ImmersionHysteresisNumber._attr_name == od.IMMERSION_RESTART_GAP.name
+        assert (
+            switch.GivEnergyImmersionScheduleSwitch._attr_translation_key
+            == od.IMMERSION_SCHEDULE.key
+        )
+        coordinator = SimpleNamespace(entry=SimpleNamespace(entry_id="entry"))
+        for cls, device_entity in (
+            (number.ImmersionTargetTempNumber, od.IMMERSION_TARGET),
+            (number.ImmersionMinTempNumber, od.IMMERSION_MINIMUM),
+            (number.ImmersionHysteresisNumber, od.IMMERSION_RESTART_GAP),
+        ):
+            assert cls(coordinator)._attr_translation_key == device_entity.key
 
 
 def _entry(config=None, brand=None):
@@ -231,13 +257,19 @@ class TestRemovingOrphans:
         assert _needing(THERMOSTAT) <= removed
         assert _needing(SENSOR) <= removed
 
-    def test_removing_the_switch_removes_the_oil_advice_but_not_the_price(self):
-        entry, _, _ = _entry({CONF_OIL_PRICE_PER_LITRE: 0.95})
+    def test_removing_the_switch_removes_the_advice_but_not_the_cost(self):
+        entry, _, _ = _entry({CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: 0.95})
         removed = self._remove(entry, _registry_with_every_device_entity())
         assert "water_heating_cheapest_source" in removed
 
-    def test_an_oil_price_with_the_switch_keeps_the_oil_advice(self):
-        entry, _, _ = _entry({CONF_IMMERSION_SWITCH: "switch.heater", CONF_OIL_PRICE_PER_LITRE: 0.95})
+    def test_alternative_heating_with_the_switch_keeps_the_advice(self):
+        entry, _, _ = _entry(
+            {
+                CONF_IMMERSION_SWITCH: "switch.heater",
+                CONF_ALT_HEAT_ENABLED: True,
+                CONF_ALT_HEAT_COST: 0.95,
+            }
+        )
         removed = self._remove(entry, _registry_with_every_device_entity())
         assert "water_heating_cheapest_source" not in removed
 

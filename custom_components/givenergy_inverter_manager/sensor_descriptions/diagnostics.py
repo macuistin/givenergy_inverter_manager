@@ -62,6 +62,14 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=values.carbon_intensity_status,
     ),
     GivEnergyManagerSensorDescription(
+        key="setup_progress",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="setup_progress",
+        icon="mdi:clipboard-check-outline",
+        attrs_fn=values.setup_progress_attributes,
+        value_fn=values.setup_progress_state,
+    ),
+    GivEnergyManagerSensorDescription(
         key="dry_run_last_skipped",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="dry_run_last_skipped",

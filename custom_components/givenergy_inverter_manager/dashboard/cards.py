@@ -20,8 +20,8 @@ IMMERSION = "orange"
 EV = "teal"
 NIGHT = "indigo"
 
-# The flow card and the charts take hex colours, not the names the tiles use. These are the
-# Home Assistant values of the names above.
+# The flow card takes hex colours, not the names the tiles use. These are the Home Assistant
+# values of the names above.
 HEX = {IMMERSION: "#FF9800", EV: "#009688"}
 
 BAR = {"type": "bar-gauge", "min": 0, "max": 100}
@@ -34,20 +34,6 @@ MAX_COLUMNS = 3
 
 
 # ── Card primitives ──────────────────────────────────────────────────────────
-
-
-def apex_config(height: int = 180) -> dict:
-    """The apexcharts options shared by the charts.
-
-    It sets no stroke. A global stroke curve or width overrides the per-series ones, so each
-    series carries its own stroke_width and curve.
-    """
-    return {
-        "chart": {"height": height, "zoom": {"enabled": False}},
-        "tooltip": {"shared": True, "followCursor": True},
-        "markers": {"size": 0, "hover": {"size": 5}},
-        "legend": {"show": False},
-    }
 
 
 def present(items: list) -> list:

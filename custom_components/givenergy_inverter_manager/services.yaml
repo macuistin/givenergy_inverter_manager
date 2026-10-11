@@ -1,15 +1,3 @@
-get_dashboard_yaml:
-  name: Get dashboard YAML
-  description: >
-    Writes a Lovelace dashboard pre-filled with your actual entity IDs to
-    givenergy_dashboard.yaml in the Home Assistant config directory, then shows a
-    persistent notification with setup steps. Paste the file into a new blank
-    dashboard via Raw configuration editor, or point a YAML-mode dashboard at it.
-
-    The dashboard has five views: Power Flow, Today, Bill, Battery, and Controls.
-    View 1 requires power-flow-card-plus from HACS.
-  fields: {}
-
 suggest_appliance_run:
   name: Suggest appliance run time
   description: >

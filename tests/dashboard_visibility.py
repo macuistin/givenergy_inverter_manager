@@ -19,9 +19,10 @@ from typing import Any
 import yaml
 
 from custom_components.givenergy_inverter_manager.const import (
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_ENABLED,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
-    CONF_OIL_PRICE_PER_LITRE,
 )
 from custom_components.givenergy_inverter_manager.core.devices import Device
 from tests.dashboard_support import (
@@ -117,7 +118,8 @@ def install(
 ) -> tuple[dict, str | None]:
     """The config and discovered charger of an install with some of the optional devices.
 
-    oil sets an oil price, which makes the oil advice a device only together with the switch.
+    oil turns alternative heating on with a cost, which makes its advice a device only together
+    with the switch.
     """
     config = {
         k: v
@@ -129,7 +131,8 @@ def install(
     if sensor:
         config[CONF_IMMERSION_TEMP_SENSOR] = FULL_CONFIG[CONF_IMMERSION_TEMP_SENSOR]
     if oil:
-        config[CONF_OIL_PRICE_PER_LITRE] = 0.95
+        config[CONF_ALT_HEAT_ENABLED] = True
+        config[CONF_ALT_HEAT_COST] = 0.95
     return config, ("myenergi" if ev else None)
 
 

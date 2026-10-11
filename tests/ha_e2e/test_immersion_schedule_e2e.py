@@ -21,17 +21,18 @@ from conftest import (
 )
 from homeassistant.components.switch import DATA_COMPONENT
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from wizard_support import options_wizard
 
 from custom_components.givenergy_inverter_manager.const import (
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_ENABLED,
     CONF_DRY_RUN,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_READY_TIMES,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
-    CONF_OIL_PRICE_PER_LITRE,
     DOMAIN,
 )
 
@@ -98,39 +99,23 @@ def at(freezer, utc: str) -> None:
 async def save_options(
     hass, entry, immersion: dict | None = None, ready: list[str] | None = None, expect="entry"
 ):
-    """Open the options form and save it as the frontend would, with these immersion values."""
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    payload = _form_values(
-        cv.to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
-    )
-    section_values = payload["immersion_settings"]
+    """Run the options wizard's hot water page as the frontend would, with these values.
+
+    *immersion* replaces the entity choices ({} clears both, as the frontend leaves out an
+    emptied selector). *ready* sets the ready-by times.
+    """
+    values: dict = {}
     if immersion is not None:
-        section_values = {"immersion_wattage_w": section_values["immersion_wattage_w"], **immersion}
+        values = {CONF_IMMERSION_SWITCH: None, CONF_IMMERSION_TEMP_SENSOR: None, **immersion}
     if ready is not None:
-        section_values = {**section_values, CONF_IMMERSION_READY_TIMES: ready}
-    payload["immersion_settings"] = section_values
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input=payload
-    )
+        values[CONF_IMMERSION_READY_TIMES] = ready
+    result = await options_wizard(hass, entry, {"hot_water": values})
     await hass.async_block_till_done()
     if expect == "entry":
         assert result["type"] is FlowResultType.CREATE_ENTRY, result
     else:
         assert result["type"] is FlowResultType.FORM, result
     return result
-
-
-def _form_values(fields: list[dict]) -> dict:
-    """What the frontend submits untouched: defaults and suggested values, section by section."""
-    values: dict = {}
-    for field in fields:
-        if field.get("type") == "expandable":
-            values[field["name"]] = _form_values(field["schema"])
-        elif "default" in field:
-            values[field["name"]] = field["default"]
-        elif "suggested_value" in field.get("description", {}):
-            values[field["name"]] = field["description"]["suggested_value"]
-    return values
 
 
 def schedule_switch(hass, entry):
@@ -598,7 +583,7 @@ class TestOilStartForAReadyTime:
 
     @pytest.fixture
     def config_entry(self):
-        return _entry(**{CONF_IMMERSION_READY_TIMES: ["19:00"], CONF_OIL_PRICE_PER_LITRE: 0.05})
+        return _entry(**{CONF_IMMERSION_READY_TIMES: ["19:00"], CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: 0.05})
 
     async def test_cold_water_gets_a_start_time_and_the_immersion_stays_off(
         self, hass, loaded_entry, real_switch, freezer
@@ -608,9 +593,9 @@ class TestOilStartForAReadyTime:
         at(freezer, "12:00:00")
         await cycle(hass, loaded_entry)
         attributes = hass.states.get(self.OIL_SENSOR).attributes
-        assert attributes["oil_for_ready_time"] == "19:00"
-        assert "16:00" < attributes["oil_start_by"] < "17:30"
-        assert attributes["oil_run_minutes"] > 0
+        assert attributes["alt_for_ready_time"] == "19:00"
+        assert "16:00" < attributes["alt_start_by"] < "17:30"
+        assert attributes["alt_run_minutes"] > 0
         assert attributes["suggestion"].startswith("For the 19:00 ready time: turn the oil water")
         assert real_switch.calls == []
 
@@ -622,7 +607,7 @@ class TestOilStartForAReadyTime:
         at(freezer, "12:00:00")
         await cycle(hass, loaded_entry)
         attributes = hass.states.get(self.OIL_SENSOR).attributes
-        assert "oil_keep_warm" in attributes
+        assert "alt_keep_warm" in attributes
         assert attributes["suggestion"].startswith("For the 19:00 ready time")
 
     async def test_warm_water_has_no_start_and_no_keep_warm(
@@ -633,6 +618,6 @@ class TestOilStartForAReadyTime:
         at(freezer, "12:00:00")
         await cycle(hass, loaded_entry)
         attributes = hass.states.get(self.OIL_SENSOR).attributes
-        assert "oil_start_by" not in attributes
-        assert "oil_keep_warm" not in attributes
+        assert "alt_start_by" not in attributes
+        assert "alt_keep_warm" not in attributes
         assert attributes["suggestion"].endswith("so there is nothing to heat.")

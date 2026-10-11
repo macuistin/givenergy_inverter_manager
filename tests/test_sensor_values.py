@@ -14,6 +14,7 @@ from custom_components.givenergy_inverter_manager.const import (
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.rules import forecast_accuracy
+from custom_components.givenergy_inverter_manager.core.setup_progress import SetupItem
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.core.tariff_check import RateMismatch
 
@@ -332,25 +333,28 @@ class TestImmersionWaterAttributes:
 
 
 class TestWaterHeatingAdvice:
-    def _data(self):
-        from custom_components.givenergy_inverter_manager.core.oil_advice import WaterHeatingAdvice
+    def _data(self, **advice_fields):
+        from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
+            WaterHeatingAdvice,
+        )
 
         advice = WaterHeatingAdvice(
-            source="oil",
+            source="alternative",
             suggestion="Oil is cheaper than electricity until 23:00.",
-            oil_cost_per_kwh=0.2000004,
+            alt_cost_per_kwh=0.2000004,
             electricity_cost_per_kwh=0.3,
             cheapest_electricity_cost_per_kwh=0.15,
-            oil_saving_per_kwh=0.0999996,
-            oil_hours=("12:00 to 23:00",),
+            alt_saving_per_kwh=0.0999996,
+            alt_hours=("12:00 to 23:00",),
             horizon="ready_by",
             horizon_ends="07:00",
             cheapest_source_in_horizon="electricity",
+            **advice_fields,
         )
         return make_data(water_heating_advice=advice)
 
     def test_the_state_is_the_cheapest_source(self):
-        assert values.water_heating_source(self._data()) == "oil"
+        assert values.water_heating_source(self._data()) == "alternative"
 
     def test_no_state_without_advice(self):
         assert values.water_heating_source(make_data()) is None
@@ -359,25 +363,40 @@ class TestWaterHeatingAdvice:
     def test_the_attributes_carry_the_sentence_and_the_figures(self):
         assert values.water_heating_attributes(self._data()) == {
             "suggestion": "Oil is cheaper than electricity until 23:00.",
-            "oil_cost_per_kwh": 0.2,
+            "alt_label": "Oil",
+            "alt_cost_per_kwh": 0.2,
             "electricity_cost_per_kwh": 0.3,
             "cheapest_electricity_cost_per_kwh": 0.15,
-            "oil_saving_per_kwh": 0.1,
-            "best_hours_for_oil": ["12:00 to 23:00"],
+            "alt_saving_per_kwh": 0.1,
+            "best_hours_for_alt": ["12:00 to 23:00"],
             "horizon": "ready_by",
             "horizon_ends": "07:00",
             "cheapest_source_in_horizon": "electricity",
         }
 
 
+    def test_the_label_is_an_attribute_so_the_dashboard_can_name_the_alternative(self):
+        attrs = values.water_heating_attributes(self._data(label="Heat pump"))
+        assert attrs["alt_label"] == "Heat pump"
+
+    def test_the_state_is_the_same_whatever_the_label(self):
+        assert values.water_heating_source(self._data(label="Heat pump")) == "alternative"
+
+    def test_no_attribute_still_carries_the_word_oil(self):
+        attrs = values.water_heating_attributes(self._data(label="Gas"))
+        assert not [name for name in attrs if "oil" in name]
+
+
 class TestOilStartAttributes:
     def _data(self, start_by, keep_warm=None):
         from datetime import datetime
 
-        from custom_components.givenergy_inverter_manager.core.oil_advice import WaterHeatingAdvice
-        from custom_components.givenergy_inverter_manager.core.oil_start import OilStart
+        from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
+            WaterHeatingAdvice,
+        )
+        from custom_components.givenergy_inverter_manager.core.alt_heat_start import AltHeatStart
 
-        start = OilStart(
+        start = AltHeatStart(
             ready_at=datetime(2026, 12, 15, 19, 0),
             electric_cost_per_kwh=0.3,
             by_solar=False,
@@ -387,17 +406,17 @@ class TestOilStartAttributes:
             late=False,
         )
         advice = WaterHeatingAdvice(
-            source="oil",
+            source="alternative",
             suggestion="s",
-            oil_cost_per_kwh=0.2,
+            alt_cost_per_kwh=0.2,
             electricity_cost_per_kwh=0.3,
             cheapest_electricity_cost_per_kwh=0.3,
-            oil_saving_per_kwh=0.1,
-            oil_hours=(),
+            alt_saving_per_kwh=0.1,
+            alt_hours=(),
             horizon="ready_by",
             horizon_ends="19:00",
-            cheapest_source_in_horizon="oil",
-            oil_start=start,
+            cheapest_source_in_horizon="alternative",
+            alt_start=start,
             keep_warm=keep_warm,
         )
         return make_data(water_heating_advice=advice)
@@ -406,44 +425,48 @@ class TestOilStartAttributes:
         from datetime import datetime
 
         attrs = values.water_heating_attributes(self._data(datetime(2026, 12, 15, 16, 30)))
-        assert attrs["oil_start_by"] == "16:30"
-        assert attrs["oil_run_minutes"] == 90
-        assert attrs["oil_for_ready_time"] == "19:00"
-        assert "oil_keep_warm" not in attrs
+        assert attrs["alt_start_by"] == "16:30"
+        assert attrs["alt_run_minutes"] == 90
+        assert attrs["alt_for_ready_time"] == "19:00"
+        assert "alt_keep_warm" not in attrs
 
     def test_no_start_leaves_the_three_attributes_out(self):
         attrs = values.water_heating_attributes(self._data(None))
-        assert not {"oil_start_by", "oil_run_minutes", "oil_for_ready_time"} & set(attrs)
+        assert not {"alt_start_by", "alt_run_minutes", "alt_for_ready_time"} & set(attrs)
 
     def test_keep_warm_is_the_sentence_or_absent(self):
-        assert values.water_heating_attributes(self._data(None, "Run the oil."))["oil_keep_warm"] == "Run the oil."
-        assert "oil_keep_warm" not in values.water_heating_attributes(self._data(None))
+        assert values.water_heating_attributes(self._data(None, "Run the oil."))["alt_keep_warm"] == "Run the oil."
+        assert "alt_keep_warm" not in values.water_heating_attributes(self._data(None))
 
 
 class TestOilScheduleAttributes:
-    """oil_schedule, oil_schedule_saving, oil_schedule_days and the sentence, apart from suggestion."""
+    """alt_schedule, alt_schedule_saving, alt_schedule_days and the sentence, apart from suggestion."""
 
     SENTENCE = "Over the last 10 days the immersion used about 15 kWh. Running the oil from 12:30 to 13:00."
 
     def _data(self, schedule):
-        from custom_components.givenergy_inverter_manager.core.oil_advice import WaterHeatingAdvice
+        from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
+            WaterHeatingAdvice,
+        )
 
         advice = WaterHeatingAdvice(
-            source="oil",
+            source="alternative",
             suggestion="Live suggestion.",
-            oil_cost_per_kwh=0.2,
+            alt_cost_per_kwh=0.2,
             electricity_cost_per_kwh=0.3,
             cheapest_electricity_cost_per_kwh=0.3,
-            oil_saving_per_kwh=0.1,
-            oil_hours=(),
+            alt_saving_per_kwh=0.1,
+            alt_hours=(),
             horizon="next_24_hours",
             horizon_ends="12:00",
-            cheapest_source_in_horizon="oil",
+            cheapest_source_in_horizon="alternative",
         )
-        return make_data(water_heating_advice=advice, oil_schedule=schedule)
+        return make_data(water_heating_advice=advice, alt_heat_schedule=schedule)
 
     def _schedule(self, **fields):
-        from custom_components.givenergy_inverter_manager.core.oil_schedule import OilSchedule
+        from custom_components.givenergy_inverter_manager.core.alt_heat_schedule import (
+            AltHeatSchedule,
+        )
 
         defaults = {
             "days": 10,
@@ -451,14 +474,14 @@ class TestOilScheduleAttributes:
             "saving": 5.8765,
             "sentence": self.SENTENCE,
         }
-        return OilSchedule(**{**defaults, **fields})
+        return AltHeatSchedule(**{**defaults, **fields})
 
     def test_with_a_suggestion_the_four_attributes_are_present(self):
         attrs = values.water_heating_attributes(self._data(self._schedule()))
-        assert attrs["oil_schedule"] == ["12:30 to 13:00", "18:00 to 19:00"]
-        assert attrs["oil_schedule_saving"] == 5.88
-        assert attrs["oil_schedule_days"] == 10
-        assert attrs["oil_schedule_suggestion"] == self.SENTENCE
+        assert attrs["alt_schedule"] == ["12:30 to 13:00", "18:00 to 19:00"]
+        assert attrs["alt_schedule_saving"] == 5.88
+        assert attrs["alt_schedule_days"] == 10
+        assert attrs["alt_schedule_suggestion"] == self.SENTENCE
 
     def test_the_schedule_is_not_mixed_into_the_live_suggestion(self):
         attrs = values.water_heating_attributes(self._data(self._schedule()))
@@ -466,19 +489,19 @@ class TestOilScheduleAttributes:
 
     def test_before_a_week_of_data_none_of_them_is_present(self):
         attrs = values.water_heating_attributes(self._data(None))
-        assert not {k for k in attrs if k.startswith("oil_schedule")}
+        assert not {k for k in attrs if k.startswith("alt_schedule")}
 
     def test_with_a_week_and_nothing_to_suggest_the_list_is_empty_and_there_is_no_sentence(self):
         attrs = values.water_heating_attributes(
             self._data(self._schedule(windows=(), saving=0.0, sentence=None))
         )
-        assert attrs["oil_schedule"] == []
-        assert attrs["oil_schedule_saving"] == 0
-        assert attrs["oil_schedule_days"] == 10
-        assert "oil_schedule_suggestion" not in attrs
+        assert attrs["alt_schedule"] == []
+        assert attrs["alt_schedule_saving"] == 0
+        assert attrs["alt_schedule_days"] == 10
+        assert "alt_schedule_suggestion" not in attrs
 
     def test_no_attributes_at_all_without_advice(self):
-        assert values.water_heating_attributes(make_data(oil_schedule=self._schedule())) is None
+        assert values.water_heating_attributes(make_data(alt_heat_schedule=self._schedule())) is None
 
 
 class TestCheapRateAttributes:
@@ -499,6 +522,35 @@ class TestDryRunAttributes:
 
     def test_off(self):
         assert values.dry_run_attributes(make_data(dry_run=False)) == {"summary": "Off"}
+
+
+class TestSetupProgress:
+    """The state is complete or incomplete. The attributes carry the checklist the card draws."""
+
+    _ITEMS = (
+        SetupItem("tariff", "Tariff set", True, True),
+        SetupItem("forecast", "Solar forecast added", False, True),
+        SetupItem("hot_water", "Hot water", False, False),
+    )
+
+    def test_incomplete_while_a_required_item_is_not_done(self):
+        assert values.setup_progress_state(make_data(setup_items=self._ITEMS)) == "incomplete"
+
+    def test_complete_when_the_required_items_are_done(self):
+        items = (SetupItem("tariff", "Tariff set", True, True), self._ITEMS[2])
+        assert values.setup_progress_state(make_data(setup_items=items)) == "complete"
+
+    def test_incomplete_before_the_first_cycle_has_made_a_checklist(self):
+        assert values.setup_progress_state(make_data()) == "incomplete"
+
+    def test_the_items_attribute_lists_each_item_in_order(self):
+        assert values.setup_progress_attributes(make_data(setup_items=self._ITEMS)) == {
+            "items": [
+                {"key": "tariff", "label": "Tariff set", "done": True, "required": True},
+                {"key": "forecast", "label": "Solar forecast added", "done": False, "required": True},
+                {"key": "hot_water", "label": "Hot water", "done": False, "required": False},
+            ]
+        }
 
 
 class TestGivTCPRateAttributes:
@@ -730,6 +782,118 @@ class TestNightSurvivalConfidence:
         assert attrs["explanation"] == "Runs out"
         assert attrs["outlook"] == "May run low"
 
+    @staticmethod
+    def _night_with_charge(survive, sunrise_soc, soc_with_charge, **fields):
+        from custom_components.givenergy_inverter_manager.core.sunrise_charge import (
+            BASIS_REACHES_TARGET,
+            SunriseWithCharge,
+        )
+
+        projection = SunriseWithCharge(
+            soc_with_charge, 25.5, 60.0, "02:00 to 04:00", BASIS_REACHES_TARGET
+        )
+        reason = "Battery may run low. Estimated shortfall: 1.8kWh before solar starts."
+        return make_data(
+            survival_reason=reason if not survive else "Battery should last until solar.",
+            will_survive_night=survive,
+            estimated_soc_at_sunrise=sunrise_soc,
+            battery_min_soc=10,
+            sunrise_with_charge=projection,
+            **fields,
+        )
+
+    def test_the_attributes_give_the_figure_with_a_planned_charge_that_counts(self):
+        data = self._night_with_charge(False, 10.0, 89.2)
+        attrs = values.night_survival_attributes(data)
+        assert attrs["summary"] == (
+            "May run low without a charge · tonight's charge covers it, about 89% at sunrise"
+        )
+        assert attrs["explanation"].endswith("Tonight's planned charge covers this: about 89% at sunrise.")
+
+    def test_the_level_ignores_the_planned_charge(self):
+        assert values.night_survival_confidence(self._night_with_charge(False, 10.0, 89.2)) == "Critical"
+        assert values.night_survival_confidence(self._night_with_charge(True, 12.0, 89.2)) == "Warning"
+        assert values.night_survival_confidence(self._night_with_charge(True, 40.0, 89.2)) == "Safe"
+
+    @pytest.mark.parametrize(
+        "fields",
+        [
+            {"charge_window": None, "charge_added_pct": 0.0, "soc_at_charge_start": None},
+            {"charge_added_pct": 0.0},
+        ],
+        ids=["no window, so no charge", "window that adds nothing"],
+    )
+    def test_a_projection_with_no_charge_in_it_leaves_one_figure(self, fields):
+        from dataclasses import replace
+
+        data = self._night_with_charge(True, 40.0, 89.2)
+        data = replace(data, sunrise_with_charge=replace(data.sunrise_with_charge, **fields))
+        assert values.night_survival_attributes(data)["summary"] == "Lasts the night · 40% at sunrise"
+
+    def test_one_figure_before_the_first_projection(self):
+        data = self._night(sunrise_soc=40.0)
+        assert data.sunrise_with_charge is None
+        assert values.night_survival_attributes(data)["summary"] == "Lasts the night · 40% at sunrise"
+
+
+class TestSunriseWithCharge:
+    @staticmethod
+    def _projection(**fields):
+        from custom_components.givenergy_inverter_manager.core.sunrise_charge import (
+            BASIS_REACHES_TARGET,
+            SunriseWithCharge,
+        )
+
+        defaults = {
+            "soc": 66.84,
+            "soc_at_charge_start": 25.5263,
+            "charge_added_pct": 64.4737,
+            "charge_window": "02:00 to 04:00",
+            "basis": BASIS_REACHES_TARGET,
+        }
+        return SunriseWithCharge(**{**defaults, **fields})
+
+    def test_none_before_the_first_cycle(self):
+        assert values.sunrise_with_charge_soc(make_data()) is None
+        assert values.sunrise_with_charge_attributes(make_data()) is None
+
+    def test_the_state_is_the_figure_to_a_tenth(self):
+        data = make_data(sunrise_with_charge=self._projection())
+        assert values.sunrise_with_charge_soc(data) == 66.8
+
+    def test_the_attributes_say_what_the_figure_is_made_of(self):
+        data = make_data(sunrise_with_charge=self._projection())
+        assert values.sunrise_with_charge_attributes(data) == {
+            "soc_at_charge_start": 25.5,
+            "charge_added_pct": 64.5,
+            "charge_window": "02:00 to 04:00",
+            "basis": "The planned charge takes the battery up to the target",
+        }
+
+    def test_a_night_with_no_charge_leaves_the_charge_attributes_empty(self):
+        data = make_data(
+            sunrise_with_charge=self._projection(
+                soc_at_charge_start=None,
+                charge_added_pct=0.0,
+                charge_window=None,
+                basis="No charge planned tonight, so this is the figure without a charge",
+            )
+        )
+        attributes = values.sunrise_with_charge_attributes(data)
+        assert attributes["soc_at_charge_start"] is None
+        assert attributes["charge_window"] is None
+        assert attributes["charge_added_pct"] == 0.0
+
+    def test_the_night_survival_outlook_ignores_the_figure_with_the_charge(self):
+        data = make_data(
+            survival_reason="Battery may run low.",
+            will_survive_night=False,
+            estimated_soc_at_sunrise=10.0,
+            battery_min_soc=10,
+            sunrise_with_charge=self._projection(soc=89.0),
+        )
+        assert values.night_survival_confidence(data) == "Critical"
+
 
 class TestRegisterWriteAttributes:
     def test_recent_writes_are_listed_newest_first(self):
@@ -878,3 +1042,37 @@ class TestSelfSufficiencyAttributes:
     def test_each_period_reads_its_own_accumulator(self, period, function):
         data = make_data(**{period: self._live_day()}, grid_to_battery_counter_available=True)
         assert function(data)["from_grid_kwh"] == pytest.approx(4.6)
+
+
+class TestSavingAttributes:
+    """The stored energy part of the saving, so the figure can be checked by hand."""
+
+    def test_the_value_and_the_change_are_reported(self):
+        data = make_data(
+            battery_capacity_kwh=19.0, stored_energy_value=0.73712, stored_energy_change_kwh=7.4123
+        )
+        assert values.saving_attributes(data) == {
+            "stored_energy_value": 0.7371,
+            "stored_energy_change_kwh": 7.412,
+        }
+
+    def test_a_fall_is_reported_as_a_negative_change(self):
+        data = make_data(
+            battery_capacity_kwh=19.0, stored_energy_value=-1.8, stored_energy_change_kwh=-19.0
+        )
+        attrs = values.saving_attributes(data)
+        assert attrs["stored_energy_value"] < 0
+        assert attrs["stored_energy_change_kwh"] == -19.0
+
+    def test_the_change_is_none_while_the_capacity_is_unknown(self):
+        attrs = values.saving_attributes(make_data(battery_capacity_kwh=0.0))
+        assert attrs == {"stored_energy_value": 0.0, "stored_energy_change_kwh": None}
+
+    @pytest.mark.parametrize("key", ["saving_vs_grid_today", "net_saving_today"])
+    def test_both_saving_sensors_carry_them(self, key):
+        from custom_components.givenergy_inverter_manager.sensor_descriptions import (
+            SENSOR_DESCRIPTIONS,
+        )
+
+        description = next(d for d in SENSOR_DESCRIPTIONS if d.key == key)
+        assert description.attrs_fn is values.saving_attributes

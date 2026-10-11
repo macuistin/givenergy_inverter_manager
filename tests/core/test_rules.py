@@ -43,6 +43,21 @@ class TestCalculateOvernightChargeTarget:
         assert decision.skip_charge is True
         assert decision.cost_to_charge == 0.0
 
+    @pytest.mark.parametrize("month", [6, 1])
+    @pytest.mark.parametrize("capacity", [0.0, -1.0])
+    def test_a_battery_with_no_capacity_skips_instead_of_dividing_by_zero(self, capacity, month):
+        decision = calculate_overnight_charge_target(
+            **self._base_kwargs(
+                battery_capacity_kwh=capacity,
+                forecast_kwh=10.0,
+                dt=datetime(2024, month, 15, 22, 0),
+            )
+        )
+        assert decision.skip_charge is True
+        assert decision.target_soc == 10
+        assert decision.cost_to_charge == 0.0
+        assert "capacity is not set" in decision.reason
+
     def test_no_skip_car_plugged_in(self):
         """Should not skip charge when car is plugged in even with high SoC."""
         decision = calculate_overnight_charge_target(

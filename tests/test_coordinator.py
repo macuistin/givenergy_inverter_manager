@@ -1938,22 +1938,6 @@ class TestTimezoneHandling:
             "UTC 22:30 should still be the Day rate — proves the distinction matters."
         )
 
-    def test_coordinator_uses_local_time(self):
-
-        src = (PKG / "coordinator.py").read_text()
-        assert "dt_util.as_local(datetime.now" in src, (
-            "coordinator must use dt_util.as_local() — without this, rate periods "
-            "activate 1h late in summer (Ireland GMT+1)."
-        )
-
-    def test_midnight_reset_uses_local_midnight(self):
-
-        src = (PKG / "coordinator.py").read_text()
-        assert "dt_util.as_local(now).replace(hour=0" in src, (
-            "_midnight_reset must use as_local — without this, daily accumulators "
-            "reset at UTC midnight (01:00 local in summer)."
-        )
-
 
 class TestImmersionNumberGuards:
     """Cross-entity guards prevent min >= target (which causes short-cycling)
@@ -1995,16 +1979,6 @@ class TestImmersionNumberGuards:
         asyncio.run(entity._apply(58.0))  # above target - 1 = 54°C
         assert entity._value <= coord.immersion_target_temp - 1, (
             "Min must be at least 1°C below target to prevent short-cycling."
-        )
-
-    def test_persist_writes_to_entry_data(self):
-        """_persist must call async_update_entry so values survive HA restart."""
-
-        src = (PKG / "number.py").read_text()
-        assert "async_update_entry" in src, (
-            "Number entities must persist values to entry.data via async_update_entry. "
-            "Without this, coordinator reads stale config defaults on the first cycle "
-            "after a restart (entity state restored after first coordinator update)."
         )
 
 
@@ -2100,11 +2074,21 @@ class TestCheapRateFloor:
         result = asyncio.run(coord._maybe_apply_cheap_rate_floor(self._now_at(2, 30), raw, cfg))
         assert result == "", f"Floor of 0 must disable feature, got: {result!r}"
 
-    def test_floor_resets_at_midnight(self):
-        """_floor_top_up_applied flag must reset at midnight so next night works."""
+    def test_floor_tops_up_again_after_midnight(self):
+        """A top-up made tonight must not stop the one due tomorrow night."""
+        import asyncio
 
-        src = (PKG / "coordinator.py").read_text()
-        assert "_floor_top_up_applied = False" in src
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._floor_top_up_applied = True
+        raw = _raw(battery_soc=20.0)
+        cfg = _nightboost_cfg()
+        before = asyncio.run(coord._maybe_apply_cheap_rate_floor(self._now_at(2, 30), raw, cfg))
+        assert "already applied" in before.lower()
+
+        coord._midnight_reset(datetime(2024, 7, 10, 23, 0, tzinfo=timezone.utc))
+
+        after = asyncio.run(coord._maybe_apply_cheap_rate_floor(self._now_at(2, 30), raw, cfg))
+        assert "topping up" in after.lower(), after
 
 
 class TestCheapRateFloorOutcomes:
@@ -2191,52 +2175,102 @@ class TestReadOptionalFloatProxy:
         coord._read_optional_float("sensor.temp")  # must not raise
 
 
-class TestOilPriceRead:
-    """The oil price: the sensor when it reads a price, else the saved number, else none."""
+class TestAltHeatRead:
+    """Alternative heating: the cost of a kWh of heat, from the sensor or the saved number."""
+
+    OIL_PER_KWH = 1.0 / (10.35 * 0.85)
 
     def _coord(self, **cfg):
         coord = FakeCoordinator(cfg=_cfg())
-        coord.set_state("sensor.oil", "1.10")
-        return coord, {"immersion_switch_entity": "switch.heater", **cfg}
+        coord.set_state("sensor.heat_cost", "1.10")
+        base = {"immersion_switch_entity": "switch.heater", "alt_heat_enabled": True}
+        return coord, {**base, **cfg}
+
+    def _raw(self, coord, cfg):
+        from custom_components.givenergy_inverter_manager.core.engine import RawSensorValues
+
+        raw = RawSensorValues()
+        coord._read_alt_heat(cfg, raw)
+        return raw
 
     def _read(self, coord, cfg):
-        return coord._read_oil_price(cfg)
+        return self._raw(coord, cfg).alt_heat_cost_per_kwh
 
-    def test_no_oil_settings_means_no_price(self):
+    def test_no_cost_means_no_advice(self):
         coord, cfg = self._coord()
         assert self._read(coord, cfg) is None
 
-    def test_the_saved_number_is_the_price(self):
-        coord, cfg = self._coord(oil_price_per_litre=0.95)
-        assert self._read(coord, cfg) == pytest.approx(0.95)
+    def test_the_saved_litre_price_is_turned_into_a_cost_per_kwh_of_heat(self):
+        coord, cfg = self._coord(alt_heat_cost=1.0)
+        assert self._read(coord, cfg) == pytest.approx(self.OIL_PER_KWH)
+
+    def test_the_unit_defaults_to_the_litre(self):
+        coord, cfg = self._coord(alt_heat_cost=1.0)
+        assert "alt_heat_cost_unit" not in cfg
+        assert self._read(coord, cfg) == pytest.approx(self.OIL_PER_KWH)
+
+    def test_a_cost_per_kwh_of_heat_is_used_as_it_is(self):
+        coord, cfg = self._coord(alt_heat_cost=0.08, alt_heat_cost_unit="kwh_heat")
+        assert self._read(coord, cfg) == pytest.approx(0.08)
 
     def test_the_sensor_overrides_the_number(self):
-        coord, cfg = self._coord(oil_price_per_litre=0.95, oil_price_entity="sensor.oil")
+        coord, cfg = self._coord(alt_heat_cost=0.95, alt_heat_cost_entity="sensor.heat_cost")
+        assert self._read(coord, cfg) == pytest.approx(1.10 * self.OIL_PER_KWH)
+
+    def test_the_unit_applies_to_the_sensor_too(self):
+        coord, cfg = self._coord(
+            alt_heat_cost=0.95, alt_heat_cost_entity="sensor.heat_cost", alt_heat_cost_unit="kwh_heat"
+        )
         assert self._read(coord, cfg) == pytest.approx(1.10)
 
     def test_the_sensor_alone_is_enough(self):
-        coord, cfg = self._coord(oil_price_entity="sensor.oil")
-        assert self._read(coord, cfg) == pytest.approx(1.10)
+        coord, cfg = self._coord(alt_heat_cost_entity="sensor.heat_cost")
+        assert self._read(coord, cfg) == pytest.approx(1.10 * self.OIL_PER_KWH)
 
     @pytest.mark.parametrize("state", ["unavailable", "unknown", "cheap", "0", "-1"])
-    def test_a_sensor_that_does_not_read_a_price_leaves_the_number(self, state):
-        coord, cfg = self._coord(oil_price_per_litre=0.95, oil_price_entity="sensor.oil")
-        coord.set_state("sensor.oil", state)
-        assert self._read(coord, cfg) == pytest.approx(0.95)
+    def test_a_sensor_that_does_not_read_a_cost_leaves_the_number(self, state):
+        coord, cfg = self._coord(alt_heat_cost=0.95, alt_heat_cost_entity="sensor.heat_cost")
+        coord.set_state("sensor.heat_cost", state)
+        assert self._read(coord, cfg) == pytest.approx(0.95 * self.OIL_PER_KWH)
 
-    def test_a_sensor_that_does_not_read_a_price_with_no_number_gives_none(self):
-        coord, cfg = self._coord(oil_price_entity="sensor.oil")
-        coord.set_state("sensor.oil", "unavailable")
+    def test_a_sensor_that_does_not_read_a_cost_with_no_number_gives_none(self):
+        coord, cfg = self._coord(alt_heat_cost_entity="sensor.heat_cost")
+        coord.set_state("sensor.heat_cost", "unavailable")
         assert self._read(coord, cfg) is None
 
     def test_without_an_immersion_switch_there_is_nothing_to_compare_with(self):
-        coord, cfg = self._coord(oil_price_per_litre=0.95)
+        coord, cfg = self._coord(alt_heat_cost=0.95)
         del cfg["immersion_switch_entity"]
         assert self._read(coord, cfg) is None
 
+    def test_switched_off_there_is_no_advice_whatever_is_set(self):
+        coord, cfg = self._coord(alt_heat_cost=0.95, alt_heat_enabled=False)
+        assert self._read(coord, cfg) is None
+
+    def test_never_switched_on_there_is_no_advice(self):
+        coord, cfg = self._coord(alt_heat_cost=0.95)
+        del cfg["alt_heat_enabled"]
+        assert self._read(coord, cfg) is None
+
     def test_an_emptied_sensor_choice_is_ignored(self):
-        coord, cfg = self._coord(oil_price_per_litre=0.95, oil_price_entity="")
-        assert self._read(coord, cfg) == pytest.approx(0.95)
+        coord, cfg = self._coord(alt_heat_cost=0.95, alt_heat_cost_entity="")
+        assert self._read(coord, cfg) == pytest.approx(0.95 * self.OIL_PER_KWH)
+
+    def test_the_label_is_read_and_cleaned(self):
+        coord, cfg = self._coord(alt_heat_cost=0.95, alt_heat_label="  Heat   pump ")
+        assert self._raw(coord, cfg).alt_heat_label == "Heat pump"
+
+    def test_no_label_reads_as_oil(self):
+        coord, cfg = self._coord(alt_heat_cost=0.95)
+        assert self._raw(coord, cfg).alt_heat_label == "Oil"
+
+    def test_a_very_long_label_is_cut(self):
+        coord, cfg = self._coord(alt_heat_cost=0.95, alt_heat_label="g" * 300)
+        assert self._raw(coord, cfg).alt_heat_label == "g" * 20
+
+    def test_the_label_is_read_even_when_there_is_no_advice(self):
+        coord, cfg = self._coord(alt_heat_label="Gas")
+        assert self._raw(coord, cfg).alt_heat_label == "Gas"
 
 
 ZAPPI_PLUG = "sensor.myenergi_zappi_plug_status"
@@ -2333,11 +2367,18 @@ class TestEntityUnavailable:
     when the data source stops publishing rather than holding stale values.
     """
 
-    def test_update_failed_imported(self):
-        """UpdateFailed must be imported to signal entity unavailability."""
+    @pytest.mark.asyncio
+    async def test_the_failed_cycle_carries_the_translation_for_the_user(self):
+        from homeassistant.helpers.update_coordinator import UpdateFailed
 
-        src = (PKG / "coordinator.py").read_text()
-        assert "UpdateFailed" in src
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.set_state("sensor.solar", "unavailable")
+        coord.set_state("sensor.battery_soc", "unavailable")
+        with pytest.raises(UpdateFailed) as failed:
+            await coord._async_update_data()
+        assert failed.value.translation_domain == "givenergy_inverter_manager"
+        assert failed.value.translation_key == "givtcp_unavailable"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("stale", ["unavailable", "unknown"])
@@ -2496,7 +2537,7 @@ class TestIconTranslations:
         # Arrange
         icons = self._load_icons()
         # Assert
-        assert "get_dashboard_yaml" in icons.get("services", {})
+        assert "get_dashboard_yaml" not in icons.get("services", {})
         assert "suggest_appliance_run" in icons.get("services", {})
 
 
@@ -2777,14 +2818,6 @@ class TestInverterTemperature:
             "sensor.givtcp_fd2309f069_inverter_temperature",
         ]
 
-    def test_inverter_temp_in_discovery_map(self):
-        src = (PKG / "config_flow.py").read_text()
-        assert "inverter_temp" in src
-        assert "CONF_INVERTER_TEMP_ENTITY" in src
-
-    def test_inverter_temp_suffix_in_givtcp_discovery(self):
-        src = (PKG / "discovery/givtcp.py").read_text()
-        assert "_invertor_temperature" in src
 class TestMissedSolar:
     """Missed solar accumulates when battery full, exporting, no flex load active."""
 

@@ -1,5 +1,5 @@
 """
-hacs.py - the custom cards from HACS, and the fallbacks used when they are not installed.
+hacs.py - the one optional custom card from HACS, and the fallback used when it is not installed.
 """
 
 from __future__ import annotations
@@ -18,65 +18,33 @@ _LOG = get_logger(__name__)
 
 @dataclass(frozen=True)
 class HacsCard:
-    """A custom card from HACS, with the note the generated file carries about it."""
+    """A custom card from HACS, and where to get it."""
 
     name: str
     url: str
-    header: str
 
     @property
     def card_type(self) -> str:
         return f"custom:{self.name}"
 
-    @property
-    def note(self) -> str:
-        return f"{self.name}: {self.url}"
 
-
-POWER_FLOW_CARD = HacsCard(
-    "power-flow-card-plus",
-    "https://github.com/flixlix/power-flow-card-plus",
-    "# The live power flow requires power-flow-card-plus from HACS:\n"
-    "#   https://github.com/flixlix/power-flow-card-plus\n",
-)
-APEX_CARD = HacsCard(
-    "apexcharts-card",
-    "https://github.com/RomRider/apexcharts-card",
-    "# The immersion and solar forecast charts require apexcharts-card from HACS:\n"
-    "#   https://github.com/RomRider/apexcharts-card\n",
-)
-HACS_CARDS = (POWER_FLOW_CARD, APEX_CARD)
+POWER_FLOW_CARD = HacsCard("power-flow-card-plus", "https://github.com/flixlix/power-flow-card-plus")
 
 
 class HacsCards:
-    """Decides between each HACS card and its built-in fallback, once, and remembers why.
-
-    The header comment of the generated file reads the outcome: which custom cards the
-    dashboard uses and which fallbacks stand in for cards that are not installed.
-    """
+    """Says whether a HACS card is installed, from the Lovelace resources the host reported."""
 
     def __init__(self, resources: list[str] | None) -> None:
         self._resources = resources
-        self.used: set[HacsCard] = set()
-        self.fallbacks: list[HacsCard] = []
-
-    def use(self, card: HacsCard) -> bool:
-        """True to build the HACS card. False means build the built-in fallback instead."""
-        if self.installed(card):
-            self.used.add(card)
-            return True
-        if card not in self.fallbacks:
-            self.fallbacks.append(card)
-        return False
 
     def installed(self, card: HacsCard) -> bool:
-        """True unless the Lovelace resources are known and do not include this card.
+        """True when the Lovelace resources list this card.
 
-        Unknown resources (None) mean the generator could not read them, in which
-        case the custom card is assumed to be there, as it always was.
+        Unreadable resources (None) count as not installed. The dashboard works with core
+        cards alone, so a card is used only when it is seen to be there.
         """
         if self._resources is None:
-            return True
+            return False
         return any(card.name in url.lower() for url in self._resources)
 
 

@@ -19,25 +19,29 @@ class HostFacts:
     """What Home Assistant tells the generator that is not in the config entry.
 
     resources are the Lovelace resource URLs, or None when they could not be read.
-    admin_ids are the IDs of the administrators who may see the Settings view. With none,
-    the Settings view and its button are left out, so no one sees them.
+    is_admin is whether the person the dashboard is built for is an administrator. The server
+    decides it from the websocket connection, never from anything the client sends. Without
+    it the Settings view and its button are left out of the dashboard altogether.
+    admin_ids are the IDs of the administrators. They fill the Settings view's `visible`
+    list, so a copy of the dashboard made by Take control still hides Settings from anyone
+    else. They are only read when is_admin is true.
     """
 
     resources: list[str] | None = None
     admin_ids: tuple[str, ...] = ()
+    is_admin: bool = False
 
 
 class Registry:
     """Looks up our entities and skips those that are missing or disabled.
 
     A card that points at a disabled entity shows "Entity not available", so the
-    generator leaves such rows out and remembers what it dropped.
+    generator leaves such rows out.
     """
 
     def __init__(self, registry, entry_id: str) -> None:
         self._reg = registry
         self._entry_id = entry_id
-        self.disabled: dict[str, str] = {}
 
     def get(self, unique_id_suffix: str) -> str | None:
         """Return the entity_id for one of our entities, or None if unusable."""
@@ -51,8 +55,6 @@ class Registry:
             return None
         registered = self._reg.async_get(entity_id)
         if registered is not None and registered.disabled_by is not None:
-            label = registered.name or registered.original_name or entity_id
-            self.disabled.setdefault(entity_id, label)
             return None
         return entity_id
 
