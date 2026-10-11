@@ -38,7 +38,7 @@ unless noted):
   controls               dry_run (coordinator.is_dry_run and the engine), verbose_logging
                          (the logger's config accessor), surplus_divert_soc_pct,
                          surplus_divert_min_power_w, tariff_reviewed_on (read by the repair
-                         check).
+                         check), dashboard_url_path (written once at setup, read by no cycle).
 
 Kept as RELOAD although re-read each cycle, because something else uses them once:
   forecast_entity        also seeds the forecast accuracy history, at setup.
@@ -74,6 +74,7 @@ from ..const import (
     CONF_CHARGE_START_TIME_ENTITY,
     CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_CURRENCY,
+    CONF_DASHBOARD_URL_PATH,
     CONF_DISCOUNT_RATE,
     CONF_DRY_RUN,
     CONF_ENABLE_CHARGE_SCHEDULE,
@@ -184,6 +185,8 @@ LIVE_KEYS: frozenset[str] = frozenset(
         CONF_SKIP_CHARGE_SOC_THRESHOLD,
         CONF_FORECAST_CONSERVATISM,
         CONF_TARIFF_REVIEWED_ON,
+        # Written once by setup, before the update listener exists. Nothing reads it each cycle.
+        CONF_DASHBOARD_URL_PATH,
         # Tariff
         CONF_STANDING_CHARGE,
         CONF_PSO_LEVY,

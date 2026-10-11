@@ -93,6 +93,9 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     "cheap_rate_floor_soc": (40, 45, LIVE),
     "skip_charge_soc_threshold_pct": (75, 80, LIVE),
     "forecast_conservatism": (0.35, 0.4, LIVE),
+    # The URL path of the dashboard setup found. It is written once, before the update listener
+    # exists, and no cycle reads it.
+    "dashboard_url_path": ("givenergy", "lovelace", LIVE),
     # Alternative heating. The coordinator reads the label, the unit, the cost and the cost
     # sensor every cycle, so a new value is live while the advice device stays as it is. The
     # device appears and goes with the setting, the cost and the cost sensor: tests below.

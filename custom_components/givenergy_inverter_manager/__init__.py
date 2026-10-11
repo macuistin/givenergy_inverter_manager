@@ -32,6 +32,7 @@ from .core.alt_heat_conversion import converted_alt_heat
 from .core.default_enabled import keys_to_enable
 from .core.devices import alt_heat_warnings
 from .core.reload_policy import Effect, change_effect, changed_keys
+from .dashboard_notice import async_announce_dashboard, async_dismiss_announcement
 from .logging import get_logger, log_startup
 from .optional_devices import remove_orphaned_entities
 from .services import async_register_services, async_unregister_services, loaded_entries
@@ -147,12 +148,21 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
+async def _announce_dashboard(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Tell the user once how to add the dashboard. A failure here never stops setup."""
+    try:
+        await async_announce_dashboard(hass, entry)
+    except Exception:  # noqa: BLE001 - the notice is a courtesy, not part of setup
+        _LOG.exception("Could not tell the user how to add the dashboard")
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> bool:
     """Set up GivEnergy Inverter Manager from a config entry."""
     _LOG.debug("Setting up entry %s (%s)", entry.entry_id, entry.title)
 
     _convert_oil_price(hass, entry)
     _warn_about_alt_heat(entry)
+    await _announce_dashboard(hass, entry)
 
     coordinator = GivEnergyCoordinator(hass, entry)
 
@@ -201,6 +211,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) -
         if not [e for e in loaded_entries(hass) if e.entry_id != entry.entry_id]:
             async_unregister_services(hass)
     return bool(unload_ok)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Take down the notice that explains how to add the dashboard, when the last entry goes."""
+    if not [e for e in hass.config_entries.async_entries(DOMAIN) if e.entry_id != entry.entry_id]:
+        async_dismiss_announcement(hass)
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:

@@ -66,6 +66,10 @@ TARIFF_RATE_KEYS = (CONF_BASE_RATE, CONF_BASE_RATE_NAME, CONF_EXPORT_RATE, CONF_
 # Date (YYYY-MM-DD) the user last saved a changed tariff or confirmed it in the repair.
 # The first run records today when it is missing, so an upgrade never raises the repair at once.
 CONF_TARIFF_REVIEWED_ON = "tariff_reviewed_on"
+# URL path of the dashboard the user added from the strategy, once setup has seen it. Empty
+# means setup told the user how to add one and has not seen it yet. Absent means setup has not
+# looked, which is how it knows to look once.
+CONF_DASHBOARD_URL_PATH = "dashboard_url_path"
 # Days without a tariff review before the repair appears. Suppliers change prices about once a
 # year, and no existing constant measures time since a user action.
 TARIFF_REVIEW_STALE_DAYS = 365

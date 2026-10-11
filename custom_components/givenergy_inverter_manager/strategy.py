@@ -28,6 +28,8 @@ from .services import loaded_entries
 _LOG = get_logger(__name__)
 
 WS_TYPE = f"{DOMAIN}/dashboard"
+# The strategy type a dashboard names in its configuration.
+STRATEGY_TYPE = "custom:givenergy-manager"
 STRATEGY_URL_PATH = f"/{DOMAIN}/givenergy-manager-strategy.js"
 STRATEGY_FILE = Path(__file__).parent / "frontend" / "givenergy-manager-strategy.js"
 _REGISTERED_KEY = f"{DOMAIN}_strategy_registered"
