@@ -145,18 +145,16 @@ async def test_every_threshold_is_its_own_field_with_a_default(hass, loaded_entr
 
     fields = {f["name"]: f for f in section["schema"]}
 
+    # Dry run, verbose logging, the cheap rate floor and the skip-charge threshold are controls
+    # (tests/ha_e2e/test_controls_e2e.py), so the form no longer offers them.
     assert set(fields) == {
         "battery_min_soc_pct",
-        "cheap_rate_floor_soc",
         "overnight_charge_target_pct",
-        "skip_charge_soc_threshold_pct",
         "battery_cost_eur",
         "battery_throughput_budget_kwh",
-        "dry_run",
-        "verbose_logging",
     }
     assert all("default" in field for field in fields.values())
-    assert fields["cheap_rate_floor_soc"]["default"] == 40
+    assert fields["overnight_charge_target_pct"]["default"] == 80
     hass.config_entries.options.async_abort(result["flow_id"])
 
 
@@ -240,16 +238,20 @@ async def test_cleared_forecast_stays_cleared_when_form_reopens(hass, loaded_ent
 
 
 async def test_zero_threshold_survives_reopening_the_form(hass, loaded_entry):
-    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
-    payload = frontend_payload(result, threshold_settings={"cheap_rate_floor_soc": 0})
-    await hass.config_entries.options.async_configure(result["flow_id"], user_input=payload)
-    await hass.async_block_till_done()
-    assert loaded_entry.options["cheap_rate_floor_soc"] == 0
+    """A zero is a real choice. The throughput budget is the field that keeps one."""
+    for budget in (4, 0):
+        result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+        payload = frontend_payload(
+            result, threshold_settings={"battery_throughput_budget_kwh": budget}
+        )
+        await hass.config_entries.options.async_configure(result["flow_id"], user_input=payload)
+        await hass.async_block_till_done()
+        assert loaded_entry.options["battery_throughput_budget_kwh"] == budget
 
     result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
     threshold_section = next(f for f in _serialise(result) if f.get("name") == "threshold_settings")
     defaults = {f["name"]: f.get("default") for f in threshold_section["schema"]}
-    assert defaults["cheap_rate_floor_soc"] == 0
+    assert defaults["battery_throughput_budget_kwh"] == 0
 
 
 SLOT_EMPTY = {"name": "Empty", "rate": 0.01, "start": "00:00:00", "end": "00:00:00"}

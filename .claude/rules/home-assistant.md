@@ -17,6 +17,8 @@ Each rule is checked by a test or by the Home Assistant source. The test is name
   `docs/sensors.md` under "Renamed sensors".
 - To retire a sensor, add its key to `_RETIRED_SENSOR_KEYS` in `__init__.py`. Setup then deletes its
   registry entry. A repair issue goes in `_RETIRED_ISSUE_IDS` the same way.
+- A setting the user tunes is a control (`controls.py`), not a form field. It writes its own option
+  key through `async_set_option`, shows the value in force, and the key is in `LIVE_KEYS`.
 - Every platform sets `PARALLEL_UPDATES` (`tests/test_metadata.py`). All entities use
   `_attr_has_entity_name = True` through `GivEnergyEntity`.
 - Listeners and other hooks that Home Assistant calls synchronously are `@callback` functions. To

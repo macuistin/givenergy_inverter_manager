@@ -2,7 +2,8 @@
 
 A slider move, a threshold change and a dry-run toggle apply live: the entry object stays
 loaded, its coordinator is the same one, and setup runs once. Changing the immersion switch
-changes the device set, so it reloads.
+changes the device set, so it reloads. The slider, threshold and dry-run changes below go
+through the controls, which own those settings. The options form no longer carries them.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from unittest.mock import patch
 
 import pytest
 from conftest import TARGET_SOC, Scenario
+from controls_support import control
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
@@ -26,6 +28,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_DRY_RUN,
     CONF_FORECAST_CONSERVATISM,
     CONF_IMMERSION_SWITCH,
+    CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_RATE_PERIODS,
     CONF_SKIP_CHARGE_SOC_THRESHOLD,
     CONF_TARIFF_REVIEWED_ON,
@@ -110,7 +113,8 @@ def _assert_applied_live(entry, coordinator, lifecycle) -> None:
 async def test_a_slider_move_does_not_reload(hass, lifecycle, loaded_entry):
     coordinator = loaded_entry.runtime_data
 
-    await _save_options(hass, loaded_entry, forecast_settings={CONF_FORECAST_CONSERVATISM: 0.6})
+    await control(hass, loaded_entry, CONF_FORECAST_CONSERVATISM).async_set_native_value(0.6)
+    await hass.async_block_till_done()
 
     _assert_applied_live(loaded_entry, coordinator, lifecycle)
     assert loaded_entry.options[CONF_FORECAST_CONSERVATISM] == pytest.approx(0.6)
@@ -120,8 +124,18 @@ async def test_a_threshold_change_does_not_reload(hass, lifecycle, loaded_entry)
     coordinator = loaded_entry.runtime_data
 
     await _save_options(
-        hass, loaded_entry, threshold_settings={CONF_SKIP_CHARGE_SOC_THRESHOLD: 90}
+        hass, loaded_entry, threshold_settings={CONF_OVERNIGHT_CHARGE_TARGET: 90}
     )
+
+    _assert_applied_live(loaded_entry, coordinator, lifecycle)
+    assert loaded_entry.options[CONF_OVERNIGHT_CHARGE_TARGET] == 90
+
+
+async def test_a_threshold_control_does_not_reload(hass, lifecycle, loaded_entry):
+    coordinator = loaded_entry.runtime_data
+
+    await control(hass, loaded_entry, CONF_SKIP_CHARGE_SOC_THRESHOLD).async_set_native_value(90)
+    await hass.async_block_till_done()
 
     _assert_applied_live(loaded_entry, coordinator, lifecycle)
     assert loaded_entry.options[CONF_SKIP_CHARGE_SOC_THRESHOLD] == 90
@@ -131,13 +145,15 @@ async def test_a_dry_run_toggle_does_not_reload_and_takes_effect(hass, lifecycle
     coordinator = loaded_entry.runtime_data
     assert coordinator.is_dry_run is False
 
-    await _save_options(hass, loaded_entry, threshold_settings={CONF_DRY_RUN: True})
+    await control(hass, loaded_entry, CONF_DRY_RUN).async_turn_on()
+    await hass.async_block_till_done()
 
     _assert_applied_live(loaded_entry, coordinator, lifecycle)
     assert coordinator.is_dry_run is True
     assert coordinator.data.dry_run is True
 
-    await _save_options(hass, loaded_entry, threshold_settings={CONF_DRY_RUN: False})
+    await control(hass, loaded_entry, CONF_DRY_RUN).async_turn_off()
+    await hass.async_block_till_done()
 
     _assert_applied_live(loaded_entry, coordinator, lifecycle)
     # The refresh a second save asks for waits out the coordinator's request cooldown, so
@@ -232,9 +248,10 @@ async def test_a_live_change_releases_the_held_charge_recommendation(hass, loade
     with patch.object(
         coordinator._held_charge, "release", wraps=coordinator._held_charge.release
     ) as release:
-        await _save_options(
-            hass, loaded_entry, threshold_settings={CONF_SKIP_CHARGE_SOC_THRESHOLD: 90}
+        await control(hass, loaded_entry, CONF_SKIP_CHARGE_SOC_THRESHOLD).async_set_native_value(
+            90
         )
+        await hass.async_block_till_done()
 
     release.assert_called_once_with()
 

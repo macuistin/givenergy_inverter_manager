@@ -38,8 +38,13 @@ async def test_platforms_register_expected_entities(hass, loaded_entry):
     assert len(by_domain["sensor"]) == len(
         [d for d in SENSOR_DESCRIPTIONS if d.requires not in (Device.EV_CHARGER, Device.OIL_ADVICE)]
     )
-    assert len(by_domain["switch"]) == 5  # includes the immersion switches
-    assert len(by_domain["number"]) == 4
+    # The five switches include the immersion ones. The two controls (dry run, verbose logging)
+    # make seven.
+    assert len(by_domain["switch"]) == 7
+    # Four before the controls: the override and the three immersion temperatures. The controls
+    # add the floor, the skip-charge threshold and forecast conservatism, and, with an immersion
+    # switch, the two divert thresholds.
+    assert len(by_domain["number"]) == 9
     assert len(by_domain["button"]) == 1
     assert hass.services.has_service(DOMAIN, "get_dashboard_yaml")
 

@@ -1,7 +1,8 @@
 """
 switch.py — Switch platform for GivEnergy Inverter Manager.
 
-Provides five switches, three of them only with an immersion switch:
+Provides five switches, three of them only with an immersion switch, and the two switch
+controls of controls.py (dry run and verbose logging):
 
   Auto Immersion Divert (GivEnergyAutoImmersionSwitch)
     Created only while an immersion switch is configured. Master on/off for the
@@ -40,6 +41,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DOMAIN
+from .controls import control_switches
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .core.devices import Device
 from .entity import GivEnergyEntity
@@ -71,6 +73,7 @@ async def async_setup_entry(
         [
             GivEnergySkipChargeOverrideSwitch(coordinator),
             GivEnergyChargeTargetOverrideSwitch(coordinator),
+            *control_switches(coordinator),
         ]
     )
 

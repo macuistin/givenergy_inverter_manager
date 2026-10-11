@@ -1,8 +1,8 @@
 """The test instance marker file, against a real Home Assistant.
 
 A file named .givenergy_test_instance in the configuration folder makes the whole integration
-read dry run: the write guard, the snapshot, the dry run sensor, the log, the diagnostics and the
-dashboard banner. It is read once, at setup.
+read dry run: the write guard, the snapshot, the dry run sensor, the log, the diagnostics, the
+Dry run switch and the dashboard banner. It is read once, at setup.
 """
 
 from __future__ import annotations
@@ -21,7 +21,9 @@ from conftest import (
     MIDDAY,
     set_givtcp_states,
 )
+from controls_support import control, entity_id_of
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.template import Template
 from pytest_homeassistant_custom_component.components.diagnostics import (
@@ -35,6 +37,7 @@ from custom_components.givenergy_inverter_manager.const import (
     DOMAIN,
     TEST_INSTANCE_MARKER,
 )
+from custom_components.givenergy_inverter_manager.controls import TEST_INSTANCE_LOCKED
 from custom_components.givenergy_inverter_manager.dashboard.render import (
     async_host_facts,
     build_dashboard,
@@ -98,6 +101,25 @@ class TestWithTheMarker:
         assert state.attributes["summary"] == "On"
         assert state.attributes["test_instance"] is True
 
+    async def test_the_switch_reads_on_and_cannot_be_turned_off(self, hass, marked_entry):
+        switch = control(hass, marked_entry, CONF_DRY_RUN)
+        assert hass.states.get(entity_id_of(hass, marked_entry, CONF_DRY_RUN)).state == "on"
+        assert (
+            hass.states.get(entity_id_of(hass, marked_entry, CONF_DRY_RUN)).attributes[
+                "test_instance"
+            ]
+            is True
+        )
+
+        with pytest.raises(ServiceValidationError) as raised:
+            await switch.async_turn_off()
+
+        assert raised.value.translation_domain == DOMAIN
+        assert raised.value.translation_key == TEST_INSTANCE_LOCKED
+        assert TEST_INSTANCE_MARKER in str(raised.value)
+        assert hass.states.get(entity_id_of(hass, marked_entry, CONF_DRY_RUN)).state == "on"
+        assert CONF_DRY_RUN not in marked_entry.options
+
     async def test_the_charge_target_is_not_written_at_its_trigger(
         self, hass, marked_entry, monkeypatch
     ):
@@ -159,7 +181,7 @@ class TestWithTheMarker:
         banner = await _banner(hass, marked_entry)
         assert "**Test instance.**" in banner
         assert "Delete the file" in banner
-        assert "turn off Dry Run in Settings" not in banner
+        assert "turns off the Dry run switch" not in banner
 
 
 class TestWithoutTheMarker:
@@ -175,15 +197,9 @@ class TestWithoutTheMarker:
         assert coordinator.test_instance is False
         assert coordinator.is_dry_run is False
         assert coordinator.data.test_instance is False
-        hass.config_entries.async_update_entry(
-            plain_entry, options={**plain_entry.options, CONF_DRY_RUN: True}
-        )
-        await hass.async_block_till_done()
+        await control(hass, plain_entry, CONF_DRY_RUN).async_turn_on()
         assert coordinator.is_dry_run is True
-        hass.config_entries.async_update_entry(
-            plain_entry, options={**plain_entry.options, CONF_DRY_RUN: False}
-        )
-        await hass.async_block_till_done()
+        await control(hass, plain_entry, CONF_DRY_RUN).async_turn_off()
         assert coordinator.is_dry_run is False
 
     async def test_the_charge_target_is_written_at_its_trigger(self, hass, plain_entry):
@@ -200,7 +216,7 @@ class TestWithoutTheMarker:
     async def test_the_dashboard_banner_points_at_the_switch(self, hass, plain_entry):
         banner = await _banner(hass, plain_entry)
         assert "**Test instance.**" not in banner
-        assert "turn off Dry Run in Settings" in banner
+        assert "turns off the Dry run switch in Settings" in banner
 
 
 class TestTheMarkerIsReadOnce:

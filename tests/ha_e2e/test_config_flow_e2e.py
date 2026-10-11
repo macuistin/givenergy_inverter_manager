@@ -15,6 +15,7 @@ from conftest import (
 )
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_BATTERY_CAPACITY,
@@ -197,3 +198,38 @@ async def test_confirm_step_summarises_the_wizard_before_creating_the_entry(
     entry = result["result"]
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
+
+
+async def test_a_new_install_starts_in_dry_run_with_every_control_at_its_default(
+    hass, hass_in_scenario, service_calls
+):
+    """The wizard no longer asks for the tuning knobs, and nothing is sent until dry run is off."""
+    flow = hass.config_entries.flow
+    result = await flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    result = await flow.async_configure(result["flow_id"], user_input={})
+    for _ in ("tariff", "forecast", "immersion", "ev", "battery"):
+        result = await flow.async_configure(result["flow_id"], user_input={})
+    assert result["step_id"] == "confirm"
+    assert "Dry run is on." in result["description_placeholders"]["summary"]
+
+    result = await flow.async_configure(result["flow_id"], user_input={})
+    await hass.async_block_till_done()
+    entry = result["result"]
+    try:
+        assert entry.data["dry_run"] is True
+        for key in (
+            "surplus_divert_soc_pct",
+            "surplus_divert_min_power_w",
+            "cheap_rate_floor_soc",
+            "skip_charge_soc_threshold_pct",
+            "forecast_conservatism",
+            "verbose_logging",
+        ):
+            assert key not in entry.data
+        assert entry.runtime_data.is_dry_run is True
+        registry = er.async_get(hass)
+        switch = registry.async_get_entity_id("switch", DOMAIN, f"{entry.entry_id}_dry_run")
+        assert hass.states.get(switch).state == "on"
+    finally:
+        await hass.config_entries.async_unload(entry.entry_id)
+        await hass.async_block_till_done()

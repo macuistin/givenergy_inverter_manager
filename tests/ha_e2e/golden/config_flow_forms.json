@@ -1130,20 +1130,6 @@
     "name": "carbon_intensity_entity",
     "required": false,
     "optional": true
-   },
-   {
-    "selector": {
-     "number": {
-      "min": 0.0,
-      "max": 1.0,
-      "step": 0.05,
-      "mode": "slider"
-     }
-    },
-    "name": "forecast_conservatism",
-    "required": false,
-    "optional": true,
-    "default": 0.35
    }
   ]
  },
@@ -1293,21 +1279,6 @@
    {
     "selector": {
      "number": {
-      "min": 0.0,
-      "max": 80.0,
-      "step": 5.0,
-      "unit_of_measurement": "%",
-      "mode": "slider"
-     }
-    },
-    "name": "cheap_rate_floor_soc",
-    "required": false,
-    "optional": true,
-    "default": 40
-   },
-   {
-    "selector": {
-     "number": {
       "min": 20.0,
       "max": 100.0,
       "step": 1.0,
@@ -1319,51 +1290,6 @@
     "required": false,
     "optional": true,
     "default": 80
-   },
-   {
-    "selector": {
-     "number": {
-      "min": 20.0,
-      "max": 100.0,
-      "step": 1.0,
-      "unit_of_measurement": "%",
-      "mode": "slider"
-     }
-    },
-    "name": "skip_charge_soc_threshold_pct",
-    "required": false,
-    "optional": true,
-    "default": 75
-   },
-   {
-    "selector": {
-     "number": {
-      "min": 50.0,
-      "max": 100.0,
-      "step": 5.0,
-      "unit_of_measurement": "%",
-      "mode": "slider"
-     }
-    },
-    "name": "surplus_divert_soc_pct",
-    "required": false,
-    "optional": true,
-    "default": 80
-   },
-   {
-    "selector": {
-     "number": {
-      "min": 100.0,
-      "max": 2000.0,
-      "step": 100.0,
-      "unit_of_measurement": "W",
-      "mode": "slider"
-     }
-    },
-    "name": "surplus_divert_min_power_w",
-    "required": false,
-    "optional": true,
-    "default": 500
    }
   ]
  },
@@ -1371,7 +1297,7 @@
   "step_id": "confirm",
   "errors": null,
   "placeholders": {
-   "summary": "- Cheapest rate in your saved tariff: Day at 0.3334 EUR/kWh, all day. Your bill runs from the 1st to the last day of the month.\n- Base rate: Day 0.3334. Timed rates: none.\n- Battery 9.5 kWh, inverter 5 kW.\n- Forecast sensor: none, a seasonal estimate is used.\n- Immersion switch: none."
+   "summary": "- Cheapest rate in your saved tariff: Day at 0.3334 EUR/kWh, all day. Your bill runs from the 1st to the last day of the month.\n- Base rate: Day 0.3334. Timed rates: none.\n- Battery 9.5 kWh, inverter 5 kW.\n- Forecast sensor: none, a seasonal estimate is used.\n- Immersion switch: none.\n- Dry run is on. Nothing is sent to your inverter, immersion or EV charger until you turn off the Dry run switch."
   },
   "fields": []
  },
@@ -2446,20 +2372,6 @@
     "name": "carbon_intensity_entity",
     "required": false,
     "optional": true
-   },
-   {
-    "selector": {
-     "number": {
-      "min": 0.0,
-      "max": 1.0,
-      "step": 0.05,
-      "mode": "slider"
-     }
-    },
-    "name": "forecast_conservatism",
-    "required": false,
-    "optional": true,
-    "default": 0.35
    }
   ]
  },
@@ -2609,21 +2521,6 @@
    {
     "selector": {
      "number": {
-      "min": 0.0,
-      "max": 80.0,
-      "step": 5.0,
-      "unit_of_measurement": "%",
-      "mode": "slider"
-     }
-    },
-    "name": "cheap_rate_floor_soc",
-    "required": false,
-    "optional": true,
-    "default": 40
-   },
-   {
-    "selector": {
-     "number": {
       "min": 20.0,
       "max": 100.0,
       "step": 1.0,
@@ -2635,51 +2532,6 @@
     "required": false,
     "optional": true,
     "default": 80
-   },
-   {
-    "selector": {
-     "number": {
-      "min": 20.0,
-      "max": 100.0,
-      "step": 1.0,
-      "unit_of_measurement": "%",
-      "mode": "slider"
-     }
-    },
-    "name": "skip_charge_soc_threshold_pct",
-    "required": false,
-    "optional": true,
-    "default": 75
-   },
-   {
-    "selector": {
-     "number": {
-      "min": 50.0,
-      "max": 100.0,
-      "step": 5.0,
-      "unit_of_measurement": "%",
-      "mode": "slider"
-     }
-    },
-    "name": "surplus_divert_soc_pct",
-    "required": false,
-    "optional": true,
-    "default": 80
-   },
-   {
-    "selector": {
-     "number": {
-      "min": 100.0,
-      "max": 2000.0,
-      "step": 100.0,
-      "unit_of_measurement": "W",
-      "mode": "slider"
-     }
-    },
-    "name": "surplus_divert_min_power_w",
-    "required": false,
-    "optional": true,
-    "default": 500
    }
   ]
  },
@@ -2687,7 +2539,7 @@
   "step_id": "confirm",
   "errors": null,
   "placeholders": {
-   "summary": "- Cheapest rate in your saved tariff: Day at 0.3334 EUR/kWh, all day. Your bill runs from the 1st to the last day of the month.\n- Base rate: Day 0.3334. Timed rates: none.\n- Battery 9.5 kWh, inverter 5 kW.\n- Forecast sensor: none, a seasonal estimate is used.\n- Immersion switch: none."
+   "summary": "- Cheapest rate in your saved tariff: Day at 0.3334 EUR/kWh, all day. Your bill runs from the 1st to the last day of the month.\n- Base rate: Day 0.3334. Timed rates: none.\n- Battery 9.5 kWh, inverter 5 kW.\n- Forecast sensor: none, a seasonal estimate is used.\n- Immersion switch: none.\n- Dry run is on. Nothing is sent to your inverter, immersion or EV charger until you turn off the Dry run switch."
   },
   "fields": []
  },
@@ -4586,21 +4438,6 @@
      {
       "selector": {
        "number": {
-        "min": 0.0,
-        "max": 80.0,
-        "step": 5.0,
-        "unit_of_measurement": "%",
-        "mode": "slider"
-       }
-      },
-      "name": "cheap_rate_floor_soc",
-      "required": false,
-      "optional": true,
-      "default": 40
-     },
-     {
-      "selector": {
-       "number": {
         "min": 20.0,
         "max": 100.0,
         "step": 1.0,
@@ -4612,21 +4449,6 @@
       "required": false,
       "optional": true,
       "default": 80
-     },
-     {
-      "selector": {
-       "number": {
-        "min": 20.0,
-        "max": 100.0,
-        "step": 1.0,
-        "unit_of_measurement": "%",
-        "mode": "slider"
-       }
-      },
-      "name": "skip_charge_soc_threshold_pct",
-      "required": false,
-      "optional": true,
-      "default": 75
      },
      {
       "selector": {
@@ -4657,24 +4479,6 @@
       "required": false,
       "optional": true,
       "default": 0.0
-     },
-     {
-      "selector": {
-       "boolean": {}
-      },
-      "name": "dry_run",
-      "required": false,
-      "optional": true,
-      "default": false
-     },
-     {
-      "selector": {
-       "boolean": {}
-      },
-      "name": "verbose_logging",
-      "required": false,
-      "optional": true,
-      "default": false
      }
     ],
     "expanded": false,
@@ -4776,20 +4580,6 @@
       },
       "required": false,
       "optional": true
-     },
-     {
-      "selector": {
-       "number": {
-        "min": 0.0,
-        "max": 1.0,
-        "step": 0.05,
-        "mode": "slider"
-       }
-      },
-      "name": "forecast_conservatism",
-      "required": false,
-      "optional": true,
-      "default": 0.35
      }
     ],
     "expanded": false,
@@ -5452,21 +5242,6 @@
      {
       "selector": {
        "number": {
-        "min": 0.0,
-        "max": 80.0,
-        "step": 5.0,
-        "unit_of_measurement": "%",
-        "mode": "slider"
-       }
-      },
-      "name": "cheap_rate_floor_soc",
-      "required": false,
-      "optional": true,
-      "default": 40
-     },
-     {
-      "selector": {
-       "number": {
         "min": 20.0,
         "max": 100.0,
         "step": 1.0,
@@ -5478,21 +5253,6 @@
       "required": false,
       "optional": true,
       "default": 80
-     },
-     {
-      "selector": {
-       "number": {
-        "min": 20.0,
-        "max": 100.0,
-        "step": 1.0,
-        "unit_of_measurement": "%",
-        "mode": "slider"
-       }
-      },
-      "name": "skip_charge_soc_threshold_pct",
-      "required": false,
-      "optional": true,
-      "default": 75
      },
      {
       "selector": {
@@ -5523,24 +5283,6 @@
       "required": false,
       "optional": true,
       "default": 0.0
-     },
-     {
-      "selector": {
-       "boolean": {}
-      },
-      "name": "dry_run",
-      "required": false,
-      "optional": true,
-      "default": false
-     },
-     {
-      "selector": {
-       "boolean": {}
-      },
-      "name": "verbose_logging",
-      "required": false,
-      "optional": true,
-      "default": false
      }
     ],
     "expanded": false,
@@ -5633,20 +5375,6 @@
       "name": "carbon_intensity_entity",
       "required": false,
       "optional": true
-     },
-     {
-      "selector": {
-       "number": {
-        "min": 0.0,
-        "max": 1.0,
-        "step": 0.05,
-        "mode": "slider"
-       }
-      },
-      "name": "forecast_conservatism",
-      "required": false,
-      "optional": true,
-      "default": 0.35
      }
     ],
     "expanded": false,
@@ -6309,21 +6037,6 @@
      {
       "selector": {
        "number": {
-        "min": 0.0,
-        "max": 80.0,
-        "step": 5.0,
-        "unit_of_measurement": "%",
-        "mode": "slider"
-       }
-      },
-      "name": "cheap_rate_floor_soc",
-      "required": false,
-      "optional": true,
-      "default": 0
-     },
-     {
-      "selector": {
-       "number": {
         "min": 20.0,
         "max": 100.0,
         "step": 1.0,
@@ -6335,21 +6048,6 @@
       "required": false,
       "optional": true,
       "default": 80
-     },
-     {
-      "selector": {
-       "number": {
-        "min": 20.0,
-        "max": 100.0,
-        "step": 1.0,
-        "unit_of_measurement": "%",
-        "mode": "slider"
-       }
-      },
-      "name": "skip_charge_soc_threshold_pct",
-      "required": false,
-      "optional": true,
-      "default": 75
      },
      {
       "selector": {
@@ -6380,24 +6078,6 @@
       "required": false,
       "optional": true,
       "default": 0.0
-     },
-     {
-      "selector": {
-       "boolean": {}
-      },
-      "name": "dry_run",
-      "required": false,
-      "optional": true,
-      "default": true
-     },
-     {
-      "selector": {
-       "boolean": {}
-      },
-      "name": "verbose_logging",
-      "required": false,
-      "optional": true,
-      "default": true
      }
     ],
     "expanded": false,
@@ -6496,20 +6176,6 @@
       },
       "required": false,
       "optional": true
-     },
-     {
-      "selector": {
-       "number": {
-        "min": 0.0,
-        "max": 1.0,
-        "step": 0.05,
-        "mode": "slider"
-       }
-      },
-      "name": "forecast_conservatism",
-      "required": false,
-      "optional": true,
-      "default": 0.35
      }
     ],
     "expanded": false,
@@ -7264,24 +6930,6 @@
      {
       "selector": {
        "number": {
-        "min": 0.0,
-        "max": 80.0,
-        "step": 5.0,
-        "unit_of_measurement": "%",
-        "mode": "slider"
-       }
-      },
-      "name": "cheap_rate_floor_soc",
-      "description": {
-       "suggested_value": 40.0
-      },
-      "required": false,
-      "optional": true,
-      "default": 40
-     },
-     {
-      "selector": {
-       "number": {
         "min": 20.0,
         "max": 100.0,
         "step": 1.0,
@@ -7296,24 +6944,6 @@
       "required": false,
       "optional": true,
       "default": 80
-     },
-     {
-      "selector": {
-       "number": {
-        "min": 20.0,
-        "max": 100.0,
-        "step": 1.0,
-        "unit_of_measurement": "%",
-        "mode": "slider"
-       }
-      },
-      "name": "skip_charge_soc_threshold_pct",
-      "description": {
-       "suggested_value": 75.0
-      },
-      "required": false,
-      "optional": true,
-      "default": 75
      },
      {
       "selector": {
@@ -7350,30 +6980,6 @@
       "required": false,
       "optional": true,
       "default": 0.0
-     },
-     {
-      "selector": {
-       "boolean": {}
-      },
-      "name": "dry_run",
-      "description": {
-       "suggested_value": false
-      },
-      "required": false,
-      "optional": true,
-      "default": false
-     },
-     {
-      "selector": {
-       "boolean": {}
-      },
-      "name": "verbose_logging",
-      "description": {
-       "suggested_value": false
-      },
-      "required": false,
-      "optional": true,
-      "default": false
      }
     ],
     "expanded": false,
@@ -7475,23 +7081,6 @@
       },
       "required": false,
       "optional": true
-     },
-     {
-      "selector": {
-       "number": {
-        "min": 0.0,
-        "max": 1.0,
-        "step": 0.05,
-        "mode": "slider"
-       }
-      },
-      "name": "forecast_conservatism",
-      "description": {
-       "suggested_value": 0.35
-      },
-      "required": false,
-      "optional": true,
-      "default": 0.35
      }
     ],
     "expanded": false,

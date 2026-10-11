@@ -176,8 +176,7 @@ def _dry_run_exit(dry_run_active: str) -> str:
         "configuration folder forces dry run on. Delete the file and restart Home Assistant "
         "to go live."
         "{% else %}"
-        "To go live, turn off Dry Run in Settings, Devices & services, GivEnergy Inverter "
-        "Manager, Configure."
+        "To go live, an administrator turns off the Dry run switch in Settings."
         "{% endif %}"
     )
 
@@ -1130,6 +1129,27 @@ class Builder:
             visibility=[{"condition": "state", "entity": dry_run_active, "state": "True"}],
         )
 
+    def _dry_run_controls(self) -> dict | None:
+        """The Dry run switch. Administrators turn it off to go live."""
+        return group(
+            heading_card("Dry run", "mdi:test-tube"),
+            [toggle_tile(self.entity("dry_run"), "Dry run", GRID)],
+        )
+
+    def _tuning_controls(self) -> dict | None:
+        """The tuning knobs that apply to every install. The divert ones sit with the heater."""
+        return group(
+            heading_card("Tuning", "mdi:tune-variant"),
+            [
+                slider_tile(self.entity("cheap_rate_floor_soc"), "Cheap rate floor", BATTERY),
+                slider_tile(
+                    self.entity("skip_charge_soc_threshold_pct"), "Skip charge above", BATTERY
+                ),
+                slider_tile(self.entity("forecast_conservatism"), "Forecast caution", SOLAR),
+                toggle_tile(self.entity("verbose_logging"), "Verbose logging", GRID),
+            ],
+        )
+
     def _charging_controls(self) -> dict | None:
         return group(
             heading_card("Overnight charging", "mdi:battery-charging"),
@@ -1169,6 +1189,12 @@ class Builder:
             [
                 toggle_tile(self.immersion("auto_immersion"), "Auto divert", IMMERSION),
                 toggle_tile(self.immersion("immersion_managed"), "Managed", IMMERSION),
+                slider_tile(
+                    self.immersion("surplus_divert_soc_pct"), "Divert above battery", IMMERSION
+                ),
+                slider_tile(
+                    self.immersion("surplus_divert_min_power_w"), "Divert above surplus", IMMERSION
+                ),
                 *self._immersion_thermostat_controls(),
                 *self._thermostat_help(),
                 *self._divert_decision(),
@@ -1183,7 +1209,12 @@ class Builder:
         """
         if not self.admin_ids:
             return []
-        return [self._charging_controls(), self._immersion_controls()]
+        return [
+            self._dry_run_controls(),
+            self._charging_controls(),
+            self._tuning_controls(),
+            self._immersion_controls(),
+        ]
 
 
 @dataclass(frozen=True)

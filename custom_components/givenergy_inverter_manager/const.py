@@ -360,9 +360,9 @@ EV_CHARGER_MIN_POWER_W = 1380
 # starts, pauses and restarts, and a short grid spike while solar diverts.
 EV_BASE_RATE_ALERT_DELAY_S = 300
 
-# ── Configurable thresholds — exposed in config flow ─────────────────────────
-# (SURPLUS_DIVERT_SOC_THRESHOLD and SURPLUS_DIVERT_MIN_POWER_W already defined above,
-#  but not yet exposed to the user. Config keys added here for wiring them in.)
+# ── Tuning controls ───────────────────────────────────────────────────────────
+# Each of these keys is edited through a number or switch entity (controls.py), which writes
+# it to the saved options. The defaults are the ones defined above and below.
 CONF_SURPLUS_DIVERT_SOC = "surplus_divert_soc_pct"
 CONF_SURPLUS_DIVERT_MIN_W = "surplus_divert_min_power_w"
 

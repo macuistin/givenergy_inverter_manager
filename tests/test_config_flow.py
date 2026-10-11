@@ -286,7 +286,6 @@ class TestOptionsFlowSections:
             DEFAULT_EXPORT_RATE,
             DEFAULT_OVERNIGHT_CHARGE_TARGET,
             DEFAULT_PSO_LEVY,
-            DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
             DEFAULT_STANDING_CHARGE,
             DEFAULT_VAT_RATE,
             FORECAST_PROVIDER_FORECAST_SOLAR,
@@ -320,9 +319,6 @@ class TestOptionsFlowSections:
             "threshold_settings": {
                 CONF_BATTERY_MIN_SOC: 10,
                 "overnight_charge_target_pct": DEFAULT_OVERNIGHT_CHARGE_TARGET,
-                "skip_charge_soc_threshold_pct": DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
-                "dry_run": False,
-                "verbose_logging": False,
             },
             "forecast_settings": {
                 CONF_FORECAST_PROVIDER: FORECAST_PROVIDER_FORECAST_SOLAR,
@@ -411,7 +407,7 @@ class TestOptionsFlowSections:
     def test_left_out_immersion_entities_are_saved_as_cleared(self):
         """The frontend omits a cleared selector. An empty string beats the setup value."""
         flow = self._make_flow()
-        flow._options = {
+        flow._config_entry.options = {
             "immersion_switch_entity": "switch.heater",
             "immersion_temp_sensor_entity": "sensor.cylinder",
         }
@@ -422,7 +418,7 @@ class TestOptionsFlowSections:
     def test_unsent_immersion_section_leaves_the_saved_devices(self):
         """A client that sends only the sections it changed must not clear the heater."""
         flow = self._make_flow()
-        flow._options = {
+        flow._config_entry.options = {
             "immersion_switch_entity": "switch.heater",
             "immersion_temp_sensor_entity": "sensor.cylinder",
             "immersion_wattage_w": 2800.0,
@@ -444,14 +440,14 @@ class TestOptionsFlowSections:
     def test_a_cleared_oil_price_is_removed_and_a_cleared_entity_saved_empty(self):
         """The frontend omits a cleared field. No price means no oil advice."""
         flow = self._make_flow()
-        flow._options = {"oil_price_per_litre": 0.95, "oil_price_entity": "sensor.oil_price"}
+        flow._config_entry.options = {"oil_price_per_litre": 0.95, "oil_price_entity": "sensor.oil_price"}
         data = self._submit(flow, oil_settings={})
         assert "oil_price_per_litre" not in data
         assert data["oil_price_entity"] == ""
 
     def test_unsent_oil_section_leaves_the_saved_oil_price(self):
         flow = self._make_flow()
-        flow._options = {"oil_price_per_litre": 0.95, "oil_price_entity": "sensor.oil_price"}
+        flow._config_entry.options = {"oil_price_per_litre": 0.95, "oil_price_entity": "sensor.oil_price"}
         data = self._submit(flow)
         assert data["oil_price_per_litre"] == pytest.approx(0.95)
         assert data["oil_price_entity"] == "sensor.oil_price"
@@ -465,12 +461,49 @@ class TestOptionsFlowSections:
         import asyncio
 
         flow = self._make_flow()
-        flow._options = {"forecast_entity": "sensor.forecast"}
+        flow._config_entry.options = {"forecast_entity": "sensor.forecast"}
         user_input = self._tariff_input()
         del user_input["forecast_settings"]
         asyncio.run(flow.async_step_init(user_input))
         data = flow.async_create_entry.call_args.kwargs["data"]
         assert data["forecast_entity"] == "sensor.forecast"
+
+    def test_a_control_key_in_the_threshold_section_is_not_saved(self):
+        """Dry run and the tuning knobs are controls. The form never writes them."""
+        data = self._submit(
+            self._make_flow(),
+            threshold_settings={
+                "battery_min_soc_pct": 12,
+                "dry_run": True,
+                "verbose_logging": True,
+                "cheap_rate_floor_soc": 5,
+                "skip_charge_soc_threshold_pct": 99,
+            },
+        )
+        assert data["battery_min_soc_pct"] == 12
+        for key in ("dry_run", "verbose_logging", "cheap_rate_floor_soc", "skip_charge_soc_threshold_pct"):
+            assert key not in data
+
+    def test_a_control_key_in_the_forecast_section_is_not_saved(self):
+        data = self._submit(
+            self._make_flow(),
+            forecast_settings={"forecast_entity": "sensor.f", "forecast_conservatism": 0.9},
+        )
+        assert data["forecast_entity"] == "sensor.f"
+        assert "forecast_conservatism" not in data
+
+    def test_a_control_saved_after_the_form_opened_is_not_undone_by_saving_it(self):
+        """The options at save time are the ones that count, not those when the form opened."""
+        flow = self._make_flow()
+        flow._config_entry.options = {"dry_run": True, "cheap_rate_floor_soc": 10}
+        data = self._submit(flow)
+        assert data["dry_run"] is True
+        assert data["cheap_rate_floor_soc"] == 10
+
+    def test_the_setup_summary_says_dry_run_is_on(self):
+        from custom_components.givenergy_inverter_manager.config_flow import _setup_summary
+
+        assert "Dry run is on." in _setup_summary({})
 
     def test_ev_efficiency_is_saved_to_options(self):
         import asyncio
@@ -507,7 +540,7 @@ class TestOptionsFlowSections:
         )
 
         flow = self._make_flow()
-        flow._options[CONF_FORECAST_ENTITY_P10] = "sensor.old_p10"
+        flow._config_entry.options[CONF_FORECAST_ENTITY_P10] = "sensor.old_p10"
         user_input = self._tariff_input()
         user_input["forecast_settings"] = {CONF_FORECAST_ENTITY: "sensor.forecast_today"}
         asyncio.run(flow.async_step_init(user_input))

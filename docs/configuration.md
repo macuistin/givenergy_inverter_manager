@@ -67,7 +67,8 @@ The defaults are placeholders taken from an Irish domestic tariff. Replace all o
 | Pessimistic (P10) sensor | `forecast_entity_p10` | Optional. Leave empty with Solcast, which is read automatically. For another service, a sensor whose state is a pessimistic forecast for tomorrow in kWh, blended in when conservatism is above 0. [Where the P10 comes from](#where-the-p10-comes-from) |
 | Day-after-tomorrow sensor | `forecast_entity_d2` | Optional. When it exceeds the battery capacity, tonight's target is lowered to leave room for that day's solar |
 | Grid carbon intensity sensor | `carbon_intensity_entity` | Optional. g CO2/kWh. Feeds the two carbon sensors |
-| Forecast conservatism | `forecast_conservatism` | Slider 0 to 1 in steps of 0.05, default 0.35. 0 is the plain forecast, 1 is the P10 value. Does nothing without a P10 forecast |
+
+Forecast conservatism is a control, not a field here. See [Controls](#controls).
 
 With no forecast sensor, the charge calculation uses a seasonal estimate from your latitude.
 
@@ -143,23 +144,19 @@ The coordinator finds the charger itself, whatever you pick here. Car efficiency
 | Field | Key | Default | Range |
 |---|---|---|---|
 | Minimum battery SoC | `battery_min_soc_pct` | 10 | 5 to 30 |
-| Cheap rate floor | `cheap_rate_floor_soc` | 40 | 0 to 80 in steps of 5. 0 turns it off |
 | Maximum overnight charge target | `overnight_charge_target_pct` | 80 | 20 to 100 |
-| Skip charge if SoC above | `skip_charge_soc_threshold_pct` | 75 | 20 to 100 |
-| Immersion divert: minimum battery SoC | `surplus_divert_soc_pct` | 80 | 50 to 100 in steps of 5 |
-| Immersion divert: minimum solar surplus (W) | `surplus_divert_min_power_w` | 500 | 100 to 2000 in steps of 100 |
 
-The two immersion divert fields can only be set here. The options page does not have them. To change them later, remove and re-add the integration.
+The cheap rate floor, the skip-charge threshold and the two immersion divert thresholds are controls, not setup questions. They start at their defaults and you change them any time. See [Controls](#controls).
 
 ### Step 7: Confirm
 
-A read-only summary lists the cheapest rate, the billing period (for example "Your bill runs from the 16th to the 15th."), the base rate and timed rates, the battery and inverter sizes, the forecast sensor and the immersion switch. Submit it to create the entry. Nothing is saved before this step. To change something, cancel and start again, or use Configure afterwards.
+A read-only summary lists the cheapest rate, the billing period (for example "Your bill runs from the 16th to the 15th."), the base rate and timed rates, the battery and inverter sizes, the forecast sensor, the immersion switch and that dry run is on. A new install starts with dry run on, so nothing is sent to the inverter, the immersion or the EV charger until you turn off the Dry run switch. Submit the summary to create the entry. Nothing is saved before this step. To change something, cancel and start again, or use Configure afterwards.
 
 ## Options
 
 Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. Saved options override the values entered at setup.
 
-Most changes apply on the next 30-second cycle with no reload: the tariff, battery and charging thresholds, dry run, verbose logging, the forecast and carbon sensors other than the main forecast sensor, element power, ready-by times and the car efficiency. Changing a rate period also moves the time the charge target is written. The integration reloads, and entities are unavailable for a few seconds, when you change the main forecast sensor, the currency, the immersion switch or the water temperature sensor, or when you set or clear the oil price (the first one set, or the last one cleared).
+Most changes apply on the next 30-second cycle with no reload: the tariff, the battery and charging thresholds, the forecast and carbon sensors other than the main forecast sensor, element power, ready-by times and the car efficiency. Changing a rate period also moves the time the charge target is written. The integration reloads, and entities are unavailable for a few seconds, when you change the main forecast sensor, the currency, the immersion switch or the water temperature sensor, or when you set or clear the oil price (the first one set, or the last one cleared).
 
 The sections run in the order they are used most: Tariff, the five rate periods, Dated rate change, Battery & charging thresholds, Solar forecast, Hardware, Immersion heater, Oil water heating, Electric vehicle. Only Tariff opens expanded, and a rate period opens expanded when it has a name. The first line of the page states the cheapest rate in the saved tariff and the billing period, so a wrong rate slot or bill start day shows before you save.
 
@@ -176,18 +173,15 @@ Sets the date the rates in the Tariff and Rate period sections start. Leave it e
 | Field | Key | Default | Range |
 |---|---|---|---|
 | Minimum battery SoC | `battery_min_soc_pct` | 10 | 5 to 30 |
-| Cheap rate floor (%) | `cheap_rate_floor_soc` | 40 | 0 to 80 in steps of 5. 0 turns it off |
 | Maximum overnight charge target | `overnight_charge_target_pct` | 80 | 20 to 100. The calculated target is capped at this |
-| Skip charge if SoC above | `skip_charge_soc_threshold_pct` | 75 | 20 to 100 |
 | Battery cost (EUR) | `battery_cost_eur` | 0 | 0 to 20000 in steps of 100. 0 turns the wear check off |
 | Daily battery throughput budget (kWh) | `battery_throughput_budget_kwh` | 0 | 0 to 50 in steps of 0.5. 0 turns the budget sensors off |
-| Dry run mode | `dry_run` | off | Decisions and sensors update, nothing is sent |
-| Verbose logging | `verbose_logging` | off | Detailed per-cycle log lines |
+
+Dry run, verbose logging, the cheap rate floor and the skip-charge threshold are not here any more. They are [controls](#controls).
 
 - **Battery cost** sets a wear cost per kWh: cost divided by (2 x capacity x 6000 rated cycles). The immersion rule then refuses to divert when the export rate is lower than that wear cost. It also feeds Net Saving Today and Battery Cycle Cost per kWh.
 - A battery cost of 0 means wear is not counted, so Net Saving Today equals Saving vs Grid Today. After 7 days of battery tracking the repair **Battery cost is not set** asks for the value. See [Troubleshooting](troubleshooting.md#battery-cost-is-not-set).
 - **Throughput budget** drives Battery Throughput Budget Used and Status. Status is OK below 80% of the budget, High from 80%, and Over budget above 100%.
-- **Verbose logging** writes at debug level. Also enable debug logging for the integration, or the lines will not appear. See [Troubleshooting](troubleshooting.md#a-charge-decision-looks-wrong).
 - A minimum SoC above 30 (possible only from older saved values) raises a repair issue, because on skip nights that value is written as the charge target.
 
 ### Hardware
@@ -238,9 +232,8 @@ The cost of heat from oil is the price of a litre divided by the heat a litre gi
 | Pessimistic (P10) forecast sensor | `forecast_entity_p10` |
 | Day-after-tomorrow forecast sensor | `forecast_entity_d2` |
 | Grid carbon intensity sensor | `carbon_intensity_entity` |
-| Forecast conservatism | `forecast_conservatism` |
 
-Details as in setup step 3. Clear an entity field to remove the saved entity.
+Details as in setup step 3. Clear an entity field to remove the saved entity. Forecast conservatism is a [control](#controls).
 
 ### Electric vehicle
 
@@ -248,9 +241,30 @@ Details as in setup step 3. Clear an entity field to remove the saved entity.
 |---|---|---|---|
 | Car efficiency (kWh/100km) | `car_efficiency_kwh_per_100km` | 15 | 5 to 40 |
 
-### Test instance
+## Controls
 
-Create an empty file named `.givenergy_test_instance` in the Home Assistant configuration folder, next to `configuration.yaml`, and restart Home Assistant. While the file exists, dry run is on whatever the Dry run mode field says, and the dashboard banner says it is a test instance. Use it on a copy of your configuration that must never write to your inverter, immersion or EV charger. The file is read once at start-up. To go live, delete the file and restart Home Assistant. There is no setting or action that creates or removes it, so a stray click cannot leave test mode.
+A control is a setting you try, watch and adjust. It is an entity on the device page, not a form field, and it takes effect on the next 30-second cycle with no reload. Each one shows the value in force, so a change made anywhere shows on the next refresh. The controls are in the **Configuration** section of **Settings → Devices & Services → GivEnergy Inverter Manager**, and on the administrators' **Settings** view of the dashboard.
+
+| Control | Kind | Key | Default | Range | What it does |
+|---|---|---|---|---|---|
+| Dry run | switch | `dry_run` | off, on for a new install | on or off | On: decisions and sensors update and nothing is sent to the inverter, the immersion or the EV charger. See [Dry run](#dry-run) |
+| Verbose logging | switch | `verbose_logging` | off | on or off | Writes per-cycle detail at debug level. Also enable debug logging for the integration, or the lines will not appear. See [Troubleshooting](troubleshooting.md#a-charge-decision-looks-wrong) |
+| Immersion divert minimum SoC | number | `surplus_divert_soc_pct` | 80 | 50 to 100 in steps of 5 | Solar surplus only goes to the immersion once the battery is above this percentage. Needs an immersion switch |
+| Immersion divert minimum surplus | number | `surplus_divert_min_power_w` | 500 | 100 to 2000 W in steps of 100 | The smallest solar surplus that starts diverting power to the immersion. Needs an immersion switch |
+| Cheap rate floor SoC | number | `cheap_rate_floor_soc` | 40 | 0 to 80 in steps of 5 | During the cheapest rate window the battery is topped up if it falls below this percentage. 0 turns the top-up off |
+| Skip-charge SoC threshold | number | `skip_charge_soc_threshold_pct` | 75 | 20 to 100 | If the battery is above this percentage and tomorrow's forecast is good, the overnight grid charge is skipped |
+| Forecast conservatism | number | `forecast_conservatism` | 0.35 | 0 to 1 in steps of 0.05 | How far to lean on the pessimistic (P10) forecast. 0 uses the plain forecast, 1 the P10 value. Does nothing without a P10 forecast |
+
+- **Upgrading keeps your values.** Each control reads the value the install already had, whether it was saved at setup or on the Configure page, and writes the same saved setting. Nothing is copied or reset on upgrade. A control with nothing saved shows its default, which is the value the integration used.
+- **The two divert controls follow the immersion switch.** They exist while an immersion switch is set, like the other immersion entities. Clear the switch and they go. Set one again and they return with the value you had.
+- **Not in the form.** The Configure page no longer has these fields. Saving it never changes a control, even when you moved one while the page was open.
+- **Not for voice assistants.** The controls are configuration entities, which Home Assistant keeps out of Assist unless you expose them.
+
+### Dry run
+
+A new install starts with dry run on. Turn it off with the **Dry run** switch when the decisions look right. The dashboard shows a banner while it is on.
+
+**Test instance.** Create an empty file named `.givenergy_test_instance` in the Home Assistant configuration folder, next to `configuration.yaml`, and restart Home Assistant. While the file exists, dry run is on whatever the switch or the saved setting says, the **Dry run** switch reads on and cannot be turned off, and the dashboard banner says it is a test instance. Use it on a copy of your configuration that must never write to your inverter, immersion or EV charger. The file is read once at start-up. To go live, delete the file and restart Home Assistant. There is no setting or action that creates or removes it, so a stray click cannot leave test mode.
 
 ## Reconfigure
 
@@ -260,6 +274,7 @@ Create an empty file named `.givenergy_test_instance` in the Home Assistant conf
 
 - **Bill start day.** The month totals reset at midnight on the bill start day. A day saved on the options page takes precedence over the one saved at setup or in Reconfigure, and applies from the next 30-second cycle.
 - **Immersion temperatures.** Target, minimum and restart gap are changed with number entities, not the options page. Moving one updates the running integration without a reload. See [Entities](entities.md).
+- **Controls.** Dry run, verbose logging, the cheap rate floor, the skip-charge threshold, the two immersion divert thresholds and forecast conservatism are entities too. See [Controls](#controls).
 - **Forecast provider.** The choice is stored and not used. Set the sensors.
 
 ## Field meanings
@@ -276,7 +291,7 @@ These are the fields that are easiest to enter wrongly. The same wording is in t
 | PSO levy per billing period | A flat amount, before VAT, charged once per billing period. It is named after the Irish public service obligation levy. Use it for any flat per-period charge. The bill sensors spread it evenly across the days. 0 means no levy. |
 | Standing charge per day | A fixed charge per day, before VAT. 0 means none. |
 | Export / CEG rate | Paid per kWh sent to the grid, such as a feed-in or export guarantee rate. No VAT or discount applies. |
-| Cheap rate floor (%) | During the cheapest rate window the battery is topped up if it falls below this. 0 turns it off. |
+| Cheap rate floor SoC | A control. During the cheapest rate window the battery is topped up if it falls below this. 0 turns it off. |
 | Battery cost (EUR) | Used to put a wear cost on each kWh cycled. Enter the amount in your own currency, as the field does not convert it. 0 turns the wear check off. |
 | Daily battery throughput budget (kWh) | A cap on kWh charged plus discharged per day. 0 turns the budget sensors off. |
 | Forecast sensors | An empty tomorrow sensor means a seasonal estimate is used. An empty pessimistic sensor means conservatism has no effect, and the charge reason says so. An empty carbon sensor means the carbon sensors have no data. |

@@ -1,7 +1,7 @@
 """
 number.py — Number platform for GivEnergy Inverter Manager.
 
-Provides one number entity, plus three immersion temperature controls:
+Provides one override number, three immersion temperature controls and five tuning controls:
 
   Overnight Charge Target Override (GivEnergyChargeTargetOverride)
     A 10-100% slider representing the manual override SoC target.
@@ -16,6 +16,11 @@ Provides one number entity, plus three immersion temperature controls:
   Immersion target, minimum and restart gap (ImmersionTargetTempNumber and its siblings)
     Created only while the immersion switch and its temperature sensor are both set, as
     the thermostat acts on no less.
+
+  Tuning controls (controls.py)
+    Cheap rate floor SoC, skip-charge SoC threshold and forecast conservatism, on every
+    install. Immersion divert minimum SoC and minimum surplus, only while an immersion switch
+    is set. Each writes the saved option it always used.
 """
 
 from __future__ import annotations
@@ -33,6 +38,7 @@ from .const import (
     DEFAULT_IMMERSION_MIN_TEMP,
     DEFAULT_IMMERSION_TARGET_TEMP,
 )
+from .controls import control_numbers
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .core.devices import Device
 from .entity import GivEnergyEntity
@@ -56,16 +62,17 @@ async def async_setup_entry(
 ) -> None:
     """Set up GivEnergy Manager number entities."""
     coordinator = entry.runtime_data
-    async_add_entities([GivEnergyChargeTargetOverride(coordinator)])
+    async_add_entities([GivEnergyChargeTargetOverride(coordinator), *control_numbers(coordinator)])
 
     def _numbers_of(device: Device) -> list[NumberEntity]:
-        if device is not Device.IMMERSION_THERMOSTAT:
-            return []
-        return [
-            ImmersionTargetTempNumber(coordinator),
-            ImmersionMinTempNumber(coordinator),
-            ImmersionHysteresisNumber(coordinator),
-        ]
+        numbers: list[NumberEntity] = control_numbers(coordinator, device)
+        if device is Device.IMMERSION_THERMOSTAT:
+            numbers += [
+                ImmersionTargetTempNumber(coordinator),
+                ImmersionMinTempNumber(coordinator),
+                ImmersionHysteresisNumber(coordinator),
+            ]
+        return numbers
 
     async_add_entities_per_device(entry, async_add_entities, _numbers_of)
 

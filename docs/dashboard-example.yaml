@@ -105,7 +105,7 @@ views:
       content: |-
         No commands are sent to your inverter or EV charger. Sensors and charge decisions still update.
 
-        {% if state_attr('sensor.givenergy_inverter_manager_dry_run_mode_active', 'test_instance') %}**Test instance.** A .givenergy_test_instance file in the Home Assistant configuration folder forces dry run on. Delete the file and restart Home Assistant to go live.{% else %}To go live, turn off Dry Run in Settings, Devices & services, GivEnergy Inverter Manager, Configure.{% endif %}
+        {% if state_attr('sensor.givenergy_inverter_manager_dry_run_mode_active', 'test_instance') %}**Test instance.** A .givenergy_test_instance file in the Home Assistant configuration folder forces dry run on. Delete the file and restart Home Assistant to go live.{% else %}To go live, an administrator turns off the Dry run switch in Settings.{% endif %}
 
         **Last skipped action:** {{ state_attr('sensor.givenergy_inverter_manager_last_skipped_action_dry_run', 'full_text') or states('sensor.givenergy_inverter_manager_last_skipped_action_dry_run') }}
       grid_options:
@@ -1807,6 +1807,21 @@ views:
   - type: grid
     cards:
     - type: heading
+      heading: Dry run
+      heading_style: title
+      icon: mdi:test-tube
+    - type: tile
+      entity: switch.givenergy_inverter_manager_dry_run
+      name: Dry run
+      color: blue
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: 6
+  - type: grid
+    cards:
+    - type: heading
       heading: Overnight charging
       heading_style: title
       icon: mdi:battery-charging
@@ -1832,6 +1847,48 @@ views:
       entity: switch.givenergy_inverter_manager_force_skip_overnight_charge
       name: Skip tonight
       color: green
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: 6
+  - type: grid
+    cards:
+    - type: heading
+      heading: Tuning
+      heading_style: title
+      icon: mdi:tune-variant
+    - type: tile
+      entity: number.givenergy_inverter_manager_cheap_rate_floor_soc
+      name: Cheap rate floor
+      color: green
+      features:
+      - type: numeric-input
+        style: slider
+      grid_options:
+        columns: full
+    - type: tile
+      entity: number.givenergy_inverter_manager_skip_charge_soc_threshold
+      name: Skip charge above
+      color: green
+      features:
+      - type: numeric-input
+        style: slider
+      grid_options:
+        columns: full
+    - type: tile
+      entity: number.givenergy_inverter_manager_forecast_conservatism
+      name: Forecast caution
+      color: amber
+      features:
+      - type: numeric-input
+        style: slider
+      grid_options:
+        columns: full
+    - type: tile
+      entity: switch.givenergy_inverter_manager_verbose_logging
+      name: Verbose logging
+      color: blue
       features:
       - type: toggle
       features_position: inline
@@ -1865,6 +1922,24 @@ views:
       features_position: inline
       grid_options:
         columns: 6
+    - type: tile
+      entity: number.givenergy_inverter_manager_immersion_divert_minimum_soc
+      name: Divert above battery
+      color: orange
+      features:
+      - type: numeric-input
+        style: slider
+      grid_options:
+        columns: full
+    - type: tile
+      entity: number.givenergy_inverter_manager_immersion_divert_minimum_surplus
+      name: Divert above surplus
+      color: orange
+      features:
+      - type: numeric-input
+        style: slider
+      grid_options:
+        columns: full
     - type: tile
       entity: switch.givenergy_inverter_manager_immersion_scheduled_heating
       name: Scheduled

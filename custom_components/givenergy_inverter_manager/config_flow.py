@@ -45,14 +45,12 @@ from .const import (
     CONF_CARBON_INTENSITY_ENTITY,
     CONF_CHARGE_END_TIME_ENTITY,
     CONF_CHARGE_START_TIME_ENTITY,
-    CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_CURRENCY,
     CONF_DISCOUNT_RATE,
     CONF_DRY_RUN,
     CONF_ENABLE_CHARGE_SCHEDULE,
     CONF_ENABLE_CHARGE_TARGET,
     CONF_EXPORT_RATE,
-    CONF_FORECAST_CONSERVATISM,
     CONF_FORECAST_ENTITY,
     CONF_FORECAST_ENTITY_D2,
     CONF_FORECAST_ENTITY_P10,
@@ -73,14 +71,10 @@ from .const import (
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
-    CONF_SKIP_CHARGE_SOC_THRESHOLD,
     CONF_SOLAR_POWER,
     CONF_STANDING_CHARGE,
-    CONF_SURPLUS_DIVERT_MIN_W,
-    CONF_SURPLUS_DIVERT_SOC,
     CONF_TARGET_SOC_ENTITY,
     CONF_VAT_RATE,
-    CONF_VERBOSE_LOGGING,
     CURRENCIES,
     DEFAULT_BASE_RATE,
     DEFAULT_BASE_RATE_NAME,
@@ -90,12 +84,9 @@ from .const import (
     DEFAULT_BATTERY_THROUGHPUT_BUDGET,
     DEFAULT_BILL_START_DAY,
     DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
-    DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_CURRENCY,
     DEFAULT_DISCOUNT_RATE,
-    DEFAULT_DRY_RUN,
     DEFAULT_EXPORT_RATE,
-    DEFAULT_FORECAST_CONSERVATISM,
     DEFAULT_IMMERSION_MIN_TEMP,
     DEFAULT_IMMERSION_TARGET_TEMP,
     DEFAULT_IMMERSION_WATTAGE,
@@ -103,15 +94,11 @@ from .const import (
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DEFAULT_PSO_LEVY,
     DEFAULT_RATE_PERIODS,
-    DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
     DEFAULT_STANDING_CHARGE,
     DEFAULT_VAT_RATE,
-    DEFAULT_VERBOSE_LOGGING,
     DOMAIN,
     FORECAST_PROVIDER_FORECAST_SOLAR,
     FORECAST_PROVIDER_SOLCAST,
-    SURPLUS_DIVERT_MIN_POWER_W,
-    SURPLUS_DIVERT_SOC_THRESHOLD,
 )
 from .core.immersion_ready import parse_ready_times
 from .core.tariff import (
@@ -166,7 +153,8 @@ class _Bounds:
     mode: str | None = None
 
 
-# Shared by the setup wizard and the options form, so a bound changes in one place.
+# Shared by the setup wizard and the options form, so a bound changes in one place. The tuning
+# controls (controls.py) keep their own ranges.
 _NUMBER_BOUNDS: dict[str, _Bounds] = {
     CONF_BASE_RATE: _Bounds(0, 5, 0.001),
     CONF_EXPORT_RATE: _Bounds(0, 1, 0.001),
@@ -176,14 +164,9 @@ _NUMBER_BOUNDS: dict[str, _Bounds] = {
     CONF_DISCOUNT_RATE: _Bounds(0, 20, 0.1, "%"),
     CONF_BILL_START_DAY: _Bounds(1, 28, 1),
     CONF_BATTERY_MIN_SOC: _Bounds(5, 30, 1, "%"),
-    CONF_CHEAP_RATE_FLOOR_SOC: _Bounds(0, 80, 5, "%"),
     CONF_OVERNIGHT_CHARGE_TARGET: _Bounds(20, 100, 1, "%"),
-    CONF_SKIP_CHARGE_SOC_THRESHOLD: _Bounds(20, 100, 1, "%"),
-    CONF_SURPLUS_DIVERT_SOC: _Bounds(50, 100, 5, "%"),
-    CONF_SURPLUS_DIVERT_MIN_W: _Bounds(100, 2000, 100, "W"),
     CONF_BATTERY_COST: _Bounds(0, 20000, 100),
     CONF_BATTERY_THROUGHPUT_BUDGET: _Bounds(0, 50, 0.5, "kWh"),
-    CONF_FORECAST_CONSERVATISM: _Bounds(0.0, 1.0, 0.05, mode="slider"),
     CONF_BATTERY_CAPACITY: _Bounds(1, 100, 0.1, "kWh"),
     CONF_INVERTER_MAX_OUTPUT: _Bounds(1, 20, 0.1, "kW"),
     CONF_IMMERSION_WATTAGE: _Bounds(500, 6000, 100, "W"),
@@ -320,6 +303,8 @@ def _setup_summary(data: dict) -> str:
         f"inverter {float(data.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)):g} kW.",
         f"Forecast sensor: {data.get(CONF_FORECAST_ENTITY) or 'none, a seasonal estimate is used'}.",
         f"Immersion switch: {data.get(CONF_IMMERSION_SWITCH) or 'none'}.",
+        "Dry run is on. Nothing is sent to your inverter, immersion or EV charger until you "
+        "turn off the Dry run switch.",
     ]
     return "\n".join(f"- {line}" for line in lines if line)
 
@@ -770,9 +755,6 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                 vol.Optional(CONF_FORECAST_ENTITY_P10): _entity_selector(),
                 vol.Optional(CONF_FORECAST_ENTITY_D2): _entity_selector(),
                 vol.Optional(CONF_CARBON_INTENSITY_ENTITY): _entity_selector(),
-                vol.Optional(
-                    CONF_FORECAST_CONSERVATISM, default=DEFAULT_FORECAST_CONSERVATISM
-                ): _number_selector(CONF_FORECAST_CONSERVATISM),
             }
         )
         return self.async_show_form(step_id="forecast", data_schema=schema)
@@ -839,7 +821,7 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
         return options, self._discovered_chargers[0].serial if only_charger else manual_ev
 
     async def async_step_battery(self, user_input=None) -> config_entries.ConfigFlowResult:
-        """Step 6: Battery management thresholds."""
+        """Step 6: Battery limits. The tuning knobs are controls, not setup questions."""
         if user_input is not None:
             self._data.update(user_input)
             return await self.async_step_confirm()
@@ -849,20 +831,8 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
                     CONF_BATTERY_MIN_SOC, default=DEFAULT_BATTERY_MIN_SOC
                 ): _number_selector(CONF_BATTERY_MIN_SOC),
                 vol.Optional(
-                    CONF_CHEAP_RATE_FLOOR_SOC, default=DEFAULT_CHEAP_RATE_FLOOR_SOC
-                ): _number_selector(CONF_CHEAP_RATE_FLOOR_SOC),
-                vol.Optional(
                     CONF_OVERNIGHT_CHARGE_TARGET, default=DEFAULT_OVERNIGHT_CHARGE_TARGET
                 ): _number_selector(CONF_OVERNIGHT_CHARGE_TARGET),
-                vol.Optional(
-                    CONF_SKIP_CHARGE_SOC_THRESHOLD, default=DEFAULT_SKIP_CHARGE_SOC_THRESHOLD
-                ): _number_selector(CONF_SKIP_CHARGE_SOC_THRESHOLD),
-                vol.Optional(
-                    CONF_SURPLUS_DIVERT_SOC, default=SURPLUS_DIVERT_SOC_THRESHOLD
-                ): _number_selector(CONF_SURPLUS_DIVERT_SOC),
-                vol.Optional(
-                    CONF_SURPLUS_DIVERT_MIN_W, default=SURPLUS_DIVERT_MIN_POWER_W
-                ): _number_selector(CONF_SURPLUS_DIVERT_MIN_W),
             }
         )
         return self.async_show_form(step_id="battery", data_schema=schema)
@@ -870,7 +840,10 @@ class GivEnergyInverterManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAI
     async def async_step_confirm(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Step 7: Show what will be saved, then create the entry."""
         if user_input is not None:
-            return self.async_create_entry(title="GivEnergy Inverter Manager", data=self._data)
+            # A new install sends nothing to the hardware until the Dry run switch is turned off.
+            return self.async_create_entry(
+                title="GivEnergy Inverter Manager", data={**self._data, CONF_DRY_RUN: True}
+            )
         return self.async_show_form(
             step_id="confirm",
             data_schema=vol.Schema({}),
@@ -941,6 +914,14 @@ _OPTIONAL_IMMERSION_KEYS = (
 
 _OIL_PRICE_ENTITY_DOMAINS = ["sensor", "input_number"]
 
+# The options form's threshold section. The tuning controls are not here: they write their own keys.
+_THRESHOLD_KEYS = (
+    CONF_BATTERY_MIN_SOC,
+    CONF_OVERNIGHT_CHARGE_TARGET,
+    CONF_BATTERY_COST,
+    CONF_BATTERY_THROUGHPUT_BUDGET,
+)
+
 
 class GivEnergyOptionsFlow(config_entries.OptionsFlow):
     """Options flow — tariff rates, per-period rates, thresholds, forecast."""
@@ -974,22 +955,23 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
     def _save_options(
         self, user_input: dict, rate_periods: list[dict]
     ) -> config_entries.ConfigFlowResult:
-        """Store the submitted options and create the entry."""
+        """Store the submitted options and create the entry.
+
+        The saved options are read now, not when the form opened. A control may have saved a
+        key since, and a copy taken earlier would write the old value back.
+        """
         self._options = options_after_tariff_save(
-            self._options,
+            dict(self._config_entry.options),
             self._in_force(),
             _tariff_submission(user_input, rate_periods),
             dt_util.now().date(),
         )
-        self._options.update(user_input.get("threshold_settings", {}))
+        self._store_thresholds(user_input.get("threshold_settings", {}))
         self._store_floats(
             user_input.get("hardware_settings", {}),
             (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT),
         )
         self._store_optional_entities(user_input, "forecast_settings", _OPTIONAL_FORECAST_KEYS)
-        self._store_floats(
-            user_input.get("forecast_settings", {}), (CONF_FORECAST_CONSERVATISM,)
-        )
         self._store_optional_entities(user_input, "immersion_settings", _OPTIONAL_IMMERSION_KEYS)
         self._store_floats(user_input.get("immersion_settings", {}), (CONF_IMMERSION_WATTAGE,))
         self._store_ready_times(user_input.get("immersion_settings"))
@@ -998,6 +980,10 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             user_input.get("ev_settings", {}), (CONF_CAR_EFFICIENCY_KWH_PER_100KM,)
         )
         return self.async_create_entry(title="", data=self._options)
+
+    def _store_thresholds(self, submitted: dict) -> None:
+        """Store the threshold keys the form owns. A control's key in a submission is ignored."""
+        self._options.update({k: v for k, v in submitted.items() if k in _THRESHOLD_KEYS})
 
     def _store_optional_entities(
         self, user_input: dict, section_name: str, keys: tuple[str, ...]
@@ -1169,7 +1155,11 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         )
 
     def _threshold_section(self, currency: object) -> object:
-        """Return the battery threshold section, plus battery cost, dry run and logging."""
+        """Return the battery limits, battery cost and throughput budget.
+
+        The cheap rate floor, the skip-charge threshold, dry run and verbose logging are
+        controls (controls.py), so they are not here.
+        """
         return section(
             vol.Schema(
                 {
@@ -1178,21 +1168,11 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                         default=self._get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC),
                     ): _number_selector(CONF_BATTERY_MIN_SOC),
                     vol.Optional(
-                        CONF_CHEAP_RATE_FLOOR_SOC,
-                        default=self._get(CONF_CHEAP_RATE_FLOOR_SOC, DEFAULT_CHEAP_RATE_FLOOR_SOC),
-                    ): _number_selector(CONF_CHEAP_RATE_FLOOR_SOC),
-                    vol.Optional(
                         CONF_OVERNIGHT_CHARGE_TARGET,
                         default=self._get(
                             CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET
                         ),
                     ): _number_selector(CONF_OVERNIGHT_CHARGE_TARGET),
-                    vol.Optional(
-                        CONF_SKIP_CHARGE_SOC_THRESHOLD,
-                        default=self._get(
-                            CONF_SKIP_CHARGE_SOC_THRESHOLD, DEFAULT_SKIP_CHARGE_SOC_THRESHOLD
-                        ),
-                    ): _number_selector(CONF_SKIP_CHARGE_SOC_THRESHOLD),
                     vol.Optional(
                         CONF_BATTERY_COST,
                         default=float(self._get(CONF_BATTERY_COST, DEFAULT_BATTERY_COST)),
@@ -1205,20 +1185,13 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                             )
                         ),
                     ): _number_selector(CONF_BATTERY_THROUGHPUT_BUDGET),
-                    vol.Optional(
-                        CONF_DRY_RUN, default=bool(self._get(CONF_DRY_RUN, DEFAULT_DRY_RUN))
-                    ): selector.BooleanSelector(),
-                    vol.Optional(
-                        CONF_VERBOSE_LOGGING,
-                        default=bool(self._get(CONF_VERBOSE_LOGGING, DEFAULT_VERBOSE_LOGGING)),
-                    ): selector.BooleanSelector(),
                 }
             ),
             {"collapsed": True},
         )
 
     def _forecast_section(self) -> object:
-        """Return the forecast section: provider, forecast and carbon sensors, conservatism."""
+        """Return the forecast section: provider, forecast and carbon sensors."""
         return section(
             vol.Schema(
                 {
@@ -1227,12 +1200,6 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
                     self._optional_key(CONF_FORECAST_ENTITY_P10): _entity_selector(),
                     self._optional_key(CONF_FORECAST_ENTITY_D2): _entity_selector(),
                     self._optional_key(CONF_CARBON_INTENSITY_ENTITY): _entity_selector(),
-                    vol.Optional(
-                        CONF_FORECAST_CONSERVATISM,
-                        default=float(
-                            self._get(CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM)
-                        ),
-                    ): _number_selector(CONF_FORECAST_CONSERVATISM),
                 }
             ),
             {"collapsed": True},

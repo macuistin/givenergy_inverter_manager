@@ -157,12 +157,20 @@
       "refresh_dashboard": {"default": "mdi:view-dashboard-edit"}
     },
     "switch": {
+      "dry_run": {"default": "mdi:test-tube"},
+      "verbose_logging": {"default": "mdi:text-box-search-outline"},
       "auto_immersion": {"default": "mdi:water-boiler-auto"},
       "immersion_managed": {"default": "mdi:water-boiler"},
+      "immersion_schedule": {"default": "mdi:water-boiler-auto"},
       "skip_charge_override": {"default": "mdi:battery-off"},
       "charge_target_override_enabled": {"default": "mdi:battery-charging-80"}
     },
     "number": {
+      "surplus_divert_soc_pct": {"default": "mdi:battery-charging-high"},
+      "surplus_divert_min_power_w": {"default": "mdi:solar-power"},
+      "cheap_rate_floor_soc": {"default": "mdi:battery-arrow-down-outline"},
+      "skip_charge_soc_threshold_pct": {"default": "mdi:battery-check-outline"},
+      "forecast_conservatism": {"default": "mdi:cloud-percent-outline"},
       "charge_target_override": {"default": "mdi:battery-charging-80"},
       "immersion_target_temp": {"default": "mdi:thermometer-high"},
       "immersion_min_temp": {"default": "mdi:thermometer-low"},

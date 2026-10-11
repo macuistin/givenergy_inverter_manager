@@ -65,6 +65,8 @@ class TestWhatNeedsWhat:
             "immersion_solar_kwh_today",
             "auto_immersion",
             "immersion_managed",
+            "surplus_divert_soc_pct",
+            "surplus_divert_min_power_w",
         }
 
     def test_the_water_temperature_follows_the_sensor(self):

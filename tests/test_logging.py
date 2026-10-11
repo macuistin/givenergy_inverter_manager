@@ -510,21 +510,12 @@ class TestCheapRateFloorPlumbing:
         )
 
     def test_strings_have_floor_label(self):
+        """The floor is a number control now, so its name is an entity translation."""
         import json
 
-        data = json.loads(
-            (PKG / "strings.json").read_text()
-        )
-        thresh_data = (
-            data.get("options", {})
-            .get("step", {})
-            .get("init", {})
-            .get("sections", {})
-            .get("threshold_settings", {})
-            .get("data", {})
-        )
-        assert "cheap_rate_floor_soc" in thresh_data, (
-            "strings.json must have a label for cheap_rate_floor_soc"
+        data = json.loads((PKG / "strings.json").read_text())
+        assert data["entity"]["number"]["cheap_rate_floor_soc"]["name"], (
+            "strings.json must name the cheap_rate_floor_soc number control"
         )
 
 

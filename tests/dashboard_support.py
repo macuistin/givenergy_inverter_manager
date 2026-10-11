@@ -13,6 +13,7 @@ real Home Assistant suite checks these IDs against a live registry.
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -25,25 +26,29 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_INVERTER_TEMP_ENTITY,
 )
 from custom_components.givenergy_inverter_manager.core.devices import Device, installed_devices
-from tests.helpers import ROOT
+from tests.helpers import PKG, ROOT
 
 ENTRY_ID = "test_entry_123"
 ADMIN_ID = "a0b1c2d3e4f5061728394a5b6c7d8e9f"
 _SCRIPT = ROOT / "scripts" / "gen_sensor_docs.py"
 _DEVICE_SLUG = "givenergy_inverter_manager"
 
-# Switch and number entities set _attr_name on the class, so the name is in code.
-_OTHER_ENTITIES = {
-    "auto_immersion": ("switch", "Auto Immersion Divert"),
-    "immersion_managed": ("switch", "Immersion Heater (Managed)"),
-    "immersion_schedule": ("switch", "Immersion Scheduled Heating"),
-    "skip_charge_override": ("switch", "Force Skip Overnight Charge"),
-    "charge_target_override_enabled": ("switch", "Enable Charge Target Override"),
-    "charge_target_override": ("number", "Overnight Charge Target Override"),
-    "immersion_target_temp": ("number", "Immersion Target Temperature"),
-    "immersion_min_temp": ("number", "Immersion Minimum Temperature"),
-    "immersion_hysteresis": ("number", "Immersion Restart Gap"),
-}
+
+def _switch_and_number_names() -> dict[str, tuple[str, str]]:
+    """{unique id suffix: (domain, name)} for the switches and numbers, from strings.json.
+
+    Each one has a translation key equal to its unique id suffix, so its name is a translation.
+    """
+    entity = json.loads((PKG / "strings.json").read_text(encoding="utf-8"))["entity"]
+    return {
+        key: (domain, value["name"])
+        for domain in ("switch", "number")
+        for key, value in entity[domain].items()
+    }
+
+
+_OTHER_ENTITIES = _switch_and_number_names()
+
 ALL_DEVICES = frozenset(Device)
 
 MINIMAL_CONFIG: dict = {}

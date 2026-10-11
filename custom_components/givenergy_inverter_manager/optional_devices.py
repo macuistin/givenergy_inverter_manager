@@ -24,7 +24,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .config_helpers import effective_config
-from .const import DOMAIN
+from .const import CONF_SURPLUS_DIVERT_MIN_W, CONF_SURPLUS_DIVERT_SOC, DOMAIN
 from .core.devices import Device, installed_devices
 from .discovery import discover_ev_chargers
 from .logging import get_logger
@@ -73,6 +73,15 @@ IMMERSION_MINIMUM = DeviceEntity(
 IMMERSION_RESTART_GAP = DeviceEntity(
     "number", "immersion_hysteresis", Device.IMMERSION_THERMOSTAT, "Immersion Restart Gap"
 )
+DIVERT_MIN_SOC = DeviceEntity(
+    "number", CONF_SURPLUS_DIVERT_SOC, Device.IMMERSION_SWITCH, "Immersion divert minimum SoC"
+)
+DIVERT_MIN_SURPLUS = DeviceEntity(
+    "number",
+    CONF_SURPLUS_DIVERT_MIN_W,
+    Device.IMMERSION_SWITCH,
+    "Immersion divert minimum surplus",
+)
 DEVICE_ENTITIES: tuple[DeviceEntity, ...] = (
     AUTO_IMMERSION,
     IMMERSION_MANAGED,
@@ -80,6 +89,8 @@ DEVICE_ENTITIES: tuple[DeviceEntity, ...] = (
     IMMERSION_TARGET,
     IMMERSION_MINIMUM,
     IMMERSION_RESTART_GAP,
+    DIVERT_MIN_SOC,
+    DIVERT_MIN_SURPLUS,
 )
 
 

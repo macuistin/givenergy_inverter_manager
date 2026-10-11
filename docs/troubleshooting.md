@@ -71,7 +71,7 @@ To clear the slots in one step:
 2. Check the slots named in the text, then select **Submit**.
 3. The integration sets the start and end time of each named slot to 00:00. Each change is read back and counted as an inverter register write. The repair clears on the next update cycle.
 
-With **Dry run mode** on, nothing is changed. **Last Skipped Action (Dry Run)** shows what would have been cleared, and the repair stays.
+With the **Dry run** switch on, nothing is changed. **Last Skipped Action (Dry Run)** shows what would have been cleared, and the repair stays.
 
 To clear a slot by hand:
 
@@ -152,7 +152,7 @@ The integration expects GivTCP's grid power to be positive when exporting. Expor
 
 Work through this list.
 
-1. Is **Dry run mode** on? Then nothing is sent. **Last Skipped Action (Dry Run)** shows what would have been written.
+1. Is the **Dry run** switch on? Then nothing is sent. A new install starts with it on, and a test instance (a `.givenergy_test_instance` file in the configuration folder) keeps it on. See [Configuration](configuration.md#dry-run). **Last Skipped Action (Dry Run)** shows what would have been written.
 2. Were the charge control entities detected? Without a target SoC entity nothing is written. The tariff step of setup shows how many of the five were found.
 3. Does the tariff have at least one timed rate period? With a flat tariff there is no cheap window and no write.
 4. The write happens once a day, one minute before the cheapest timed period starts. If your cheapest period starts at 02:00, that is 01:59. With debug logging on (see the next section), search the log for `Writing charge target`.
@@ -182,13 +182,13 @@ Read **Overnight Charge Reason** first. Then check these:
 - **December to February.** The target is 100% before the cap, whatever the forecast.
 - **March, April, October and November.** The minimum SoC is at least 70% in the calculation.
 - **No forecast.** Without a tomorrow sensor, the integration uses a seasonal estimate from your latitude. The reason says so.
-- **A forecast setting has no effect.** Forecast provider is stored and unused. A P10 forecast only matters when conservatism is above 0, and conservatism only matters when a P10 forecast exists. Solcast provides one automatically. The charge reason says `no P10 forecast so conservatism is unused` otherwise. See [Where the P10 comes from](configuration.md#where-the-p10-comes-from).
+- **A forecast setting has no effect.** Forecast provider is stored and unused. A P10 forecast only matters when the Forecast conservatism control is above 0, and conservatism only matters when a P10 forecast exists. Solcast provides one automatically. The charge reason says `no P10 forecast so conservatism is unused` otherwise. See [Where the P10 comes from](configuration.md#where-the-p10-comes-from).
 - **The charge reason shows no `recent accuracy` factor.** The correction needs 5 usable days. Days with clipping, or under 0.5 kWh of forecast or solar, do not count. The attributes of **Overnight Charge Reason** show how many days are usable (`accuracy_status`, for example `Waiting for data: 3 of 5 days`). A new install reads earlier days from the recorder when it first loads, so it shows up to 9 usable days at once. It shows 0 when the recorder is not running, holds no history for the forecast sensor or the GivTCP daily solar counter, or those sensors are new. Then it fills one night at a time, and the first midnight only remembers the forecast. See [Forecast accuracy correction](configuration.md#forecast-accuracy-correction).
 - **A manual target.** See [Entities](entities.md#manual-charge-target).
 
 To see every reading and decision, turn on both of these:
 
-1. **Verbose logging** in Configure, under Battery & charging thresholds.
+1. The **Verbose logging** switch, in the Configuration section of the device page.
 2. Debug logging for the integration. Either press **Enable debug logging** on the integration page, or add this to `configuration.yaml`:
 
 ```yaml

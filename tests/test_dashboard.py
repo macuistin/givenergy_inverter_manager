@@ -317,7 +317,7 @@ class TestIncomeBar:
 
     def test_no_income_markdown_card_on_power_flow(self):
         markdown = [c for c in _cards(_build(), "power-flow") if c["type"] == "markdown"]
-        assert all("Dry Run" in c["content"] for c in markdown), (
+        assert all("dry run" in c["content"].lower() for c in markdown), (
             "Income bar is now on the grid node — only the dry run banner is markdown"
         )
 
@@ -1339,6 +1339,11 @@ class TestSectionsLayout:
             eid("immersion_target_temp"),
             eid("immersion_min_temp"),
             eid("immersion_hysteresis"),
+            eid("surplus_divert_soc_pct"),
+            eid("surplus_divert_min_power_w"),
+            eid("cheap_rate_floor_soc"),
+            eid("skip_charge_soc_threshold_pct"),
+            eid("forecast_conservatism"),
         }
 
     def test_settings_have_no_entities_lists(self):

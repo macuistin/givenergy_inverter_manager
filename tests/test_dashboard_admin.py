@@ -96,6 +96,13 @@ class TestAdminsPresent:
                 "immersion_target_temp",
                 "immersion_min_temp",
                 "immersion_hysteresis",
+                "dry_run",
+                "verbose_logging",
+                "cheap_rate_floor_soc",
+                "skip_charge_soc_threshold_pct",
+                "forecast_conservatism",
+                "surplus_divert_soc_pct",
+                "surplus_divert_min_power_w",
             )
         }
         tiles = [c for c in view_cards(_view(dashboard_dict(), "settings")) if c["type"] == "tile"]

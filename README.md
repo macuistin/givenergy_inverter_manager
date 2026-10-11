@@ -38,7 +38,7 @@ Works with any supplier and any tariff: timed rates (two or three rate periods, 
 
 [![Open your Home Assistant instance and start setting up this integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=givenergy_inverter_manager)
 
-Go to **Settings → Devices & Services → Add Integration** and search for **GivEnergy Inverter Manager**. The wizard finds your GivTCP inverter and asks for your tariff, taken from your bill. Turn on dry run first, so nothing is written to the inverter until you have checked the decisions. The [quick start](docs/quick-start.md) has the steps.
+Go to **Settings → Devices & Services → Add Integration** and search for **GivEnergy Inverter Manager**. The wizard finds your GivTCP inverter and asks for your tariff, taken from your bill. A new install starts in dry run, so nothing is written to the inverter until you have checked the decisions and turned the Dry run switch off. The [quick start](docs/quick-start.md) has the steps.
 
 ## Documentation
 

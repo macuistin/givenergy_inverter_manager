@@ -4,15 +4,22 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
-Two sunrise figures, saving values that count the battery, a forecast correction that follows cloudy weeks, and a test instance marker.
+Two sunrise figures, saving values that count the battery, a forecast correction that follows cloudy weeks, and seven settings that are now controls.
 
 **Features**
+- Seven settings are now entities you can change at any time, and they take effect on the next
+  30-second cycle with no reload: **Dry run** and **Verbose logging** (switches), and **Immersion
+  divert minimum SoC**, **Immersion divert minimum surplus**, **Cheap rate floor SoC**,
+  **Skip-charge SoC threshold** and **Forecast conservatism** (numbers). They are in the
+  Configuration section of the device page and on the dashboard's Settings view. Each one shows the
+  value in force. The two immersion divert numbers could only be set at setup before, and now exist
+  while an immersion switch is set. See [Controls](docs/configuration.md#controls).
 - A file named `.givenergy_test_instance` in the Home Assistant configuration folder makes the
   whole integration read dry run, for a copy of your configuration that must never write to your
-  inverter, immersion or EV charger. Dry run is on whatever the saved setting says, the Dry Run Mode
-  Active sensor says so in its `test_instance` attribute, the diagnostics download shows
-  `test_instance`, and the dashboard banner says it is a test instance. The file is read at
-  start-up. Delete it and restart to go live. See [Test instance](docs/configuration.md#test-instance).
+  inverter, immersion or EV charger. The Dry run switch reads on and cannot be turned off, the
+  Dry Run Mode Active sensor says so in its `test_instance` attribute, and the dashboard banner says
+  it is a test instance. The file is read at start-up. Delete it and restart to go live. See
+  [Dry run](docs/configuration.md#dry-run).
 - New sensor Estimated SoC at Sunrise With the Planned Charge (`estimated_soc_at_sunrise_with_charge`).
   It projects the battery to the next 08:00 with tonight's planned charge in it: the battery runs down
   to the start of the charge window, the window adds charge up to the target at the charge rate the
@@ -25,6 +32,14 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   charge plan and the night survival sensors are unchanged. It is enabled by default.
 
 **Changes**
+- Dry run, verbose logging, the cheap rate floor, the skip-charge threshold and forecast
+  conservatism are no longer on the Configure page, and the setup wizard no longer asks for them,
+  the immersion divert thresholds or the other tuning values. Use the controls above. Saving the
+  Configure page never changes a control, even when you moved one while the page was open.
+- A new install starts with dry run on. The last setup page says so. Turn the Dry run switch off
+  when the decisions look right. An install that already exists keeps the dry run setting it had.
+- The dashboard's Settings view has a Dry run switch, a Tuning section and the two immersion
+  divert sliders. The dry run banner says how to go live: turn off the Dry run switch in Settings.
 - Estimated SoC at Sunrise is now Estimated SoC at Sunrise Without a Charge, and its description says
   it ignores tonight's planned charge and holds at the minimum SoC when the battery would run flat.
   The key, the unique ID and the value are unchanged, so history, statistics and automations carry on.
@@ -73,7 +88,11 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   capacity is not set.
 
 **Upgrading**
-- Generate the dashboard file again, or use the strategy dashboard, to get the two Sunrise tiles.
+- Nothing to change for the controls. Each one shows the value your install already had, whether it
+  was saved at setup or on the Configure page, and nothing is copied or reset. Check that the Dry
+  run switch shows what you expect.
+- Generate the dashboard file again, or use the strategy dashboard, to get the two Sunrise tiles and
+  the new Settings controls.
 - Troubleshooting has a new entry, Why does SoC at sunrise read 10%?, and Concepts explains the two
   figures under Battery overnight.
 - Charge targets can rise on cloudy weeks, because the plan now trusts the forecast less. Nothing needs
