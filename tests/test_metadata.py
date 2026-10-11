@@ -229,7 +229,7 @@ def test_every_platform_sets_parallel_updates():
     import ast
 
     missing = []
-    for name in ("sensor", "switch", "number", "button"):
+    for name in ("sensor", "switch", "number"):
         tree = ast.parse((PKG / f"{name}.py").read_text(encoding="utf-8"))
         assigned = {
             target.id
@@ -275,7 +275,7 @@ def test_quality_scale_done_claims_hold_in_the_code():
 
     untranslated = [
         name
-        for name in ("sensor", "switch", "number", "button")
+        for name in ("sensor", "switch", "number")
         if "translation_key" not in _platform_source(name)
     ]
     for rule in ("entity-translations", "icon-translations"):

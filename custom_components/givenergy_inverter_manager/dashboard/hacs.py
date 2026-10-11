@@ -18,50 +18,24 @@ _LOG = get_logger(__name__)
 
 @dataclass(frozen=True)
 class HacsCard:
-    """A custom card from HACS, with the note the generated file carries about it."""
+    """A custom card from HACS, and where to get it."""
 
     name: str
     url: str
-    header: str
 
     @property
     def card_type(self) -> str:
         return f"custom:{self.name}"
 
-    @property
-    def note(self) -> str:
-        return f"{self.name}: {self.url}"
 
-
-POWER_FLOW_CARD = HacsCard(
-    "power-flow-card-plus",
-    "https://github.com/flixlix/power-flow-card-plus",
-    "# The live power flow requires power-flow-card-plus from HACS:\n"
-    "#   https://github.com/flixlix/power-flow-card-plus\n",
-)
-HACS_CARDS = (POWER_FLOW_CARD,)
+POWER_FLOW_CARD = HacsCard("power-flow-card-plus", "https://github.com/flixlix/power-flow-card-plus")
 
 
 class HacsCards:
-    """Decides between each HACS card and its built-in fallback, once, and remembers why.
-
-    The header comment of the generated file reads the outcome: which custom cards the
-    dashboard uses and which fallbacks stand in for cards that are not installed.
-    """
+    """Says whether a HACS card is installed, from the Lovelace resources the host reported."""
 
     def __init__(self, resources: list[str] | None) -> None:
         self._resources = resources
-        self.used: set[HacsCard] = set()
-        self.fallbacks: list[HacsCard] = []
-
-    def use(self, card: HacsCard) -> bool:
-        """True to build the HACS card. False means build the built-in fallback instead."""
-        if self.installed(card):
-            self.used.add(card)
-            return True
-        if card not in self.fallbacks:
-            self.fallbacks.append(card)
-        return False
 
     def installed(self, card: HacsCard) -> bool:
         """True when the Lovelace resources list this card.

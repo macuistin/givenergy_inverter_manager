@@ -780,7 +780,7 @@ def generate() -> str:
         "**Settings > Devices & Services > GivEnergy Inverter Manager > entities**.",
         "",
         "This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after "
-        "changing `sensor.py`. For switches, numbers and the button, see "
+        "changing `sensor.py`. For switches and numbers, see "
         "[Entities](entities.md).",
         "",
         "Column guide:",

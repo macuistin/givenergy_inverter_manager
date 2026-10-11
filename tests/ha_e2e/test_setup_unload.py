@@ -28,7 +28,7 @@ async def test_entry_loads_with_givtcp_inputs(hass, loaded_entry):
 
 
 async def test_platforms_register_expected_entities(hass, loaded_entry):
-    """Every platform adds entities and the dashboard service is registered."""
+    """Every platform adds entities and the service actions are registered."""
     registry = er.async_get(hass)
     entries = er.async_entries_for_config_entry(registry, loaded_entry.entry_id)
     by_domain = {d: [e for e in entries if e.domain == d] for d in PLATFORMS}
@@ -45,8 +45,8 @@ async def test_platforms_register_expected_entities(hass, loaded_entry):
     # add the floor, the skip-charge threshold and forecast conservatism, and, with an immersion
     # switch, the two divert thresholds.
     assert len(by_domain["number"]) == 9
-    assert len(by_domain["button"]) == 1
-    assert hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+    assert [e for e in entries if e.domain == "button"] == []
+    assert hass.services.has_service(DOMAIN, "suggest_appliance_run")
 
 
 async def test_every_entity_exists_once_a_charger_is_discovered(hass, loaded_entry_with_charger):
@@ -96,7 +96,7 @@ async def test_unload_is_clean(hass, loaded_entry, caplog):
     await hass.async_block_till_done()
 
     assert loaded_entry.state is ConfigEntryState.NOT_LOADED
-    assert not hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+    assert not hass.services.has_service(DOMAIN, "suggest_appliance_run")
     for entity_id in entity_ids:
         state = hass.states.get(entity_id)
         assert state is not None and state.state == STATE_UNAVAILABLE, entity_id
@@ -105,7 +105,7 @@ async def test_unload_is_clean(hass, loaded_entry, caplog):
     assert await hass.config_entries.async_setup(loaded_entry.entry_id)
     await hass.async_block_till_done()
     assert loaded_entry.state is ConfigEntryState.LOADED
-    assert hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+    assert hass.services.has_service(DOMAIN, "suggest_appliance_run")
 
     errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
     assert not errors, [r.getMessage() for r in errors]
@@ -119,7 +119,7 @@ async def test_remove_entry_cleans_up(hass, loaded_entry):
 
     registry = er.async_get(hass)
     assert er.async_entries_for_config_entry(registry, entry_id) == []
-    assert not hass.services.has_service(DOMAIN, "get_dashboard_yaml")
+    assert not hass.services.has_service(DOMAIN, "suggest_appliance_run")
 
 
 async def test_setup_retries_when_givtcp_is_absent(

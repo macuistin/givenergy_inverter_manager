@@ -24,7 +24,7 @@ inside it.
 | `config_flow.py`, `config_helpers.py` | Setup wizard (inverter, tariff, forecast, immersion, EV, battery, confirm), reconfigure and the single-page options flow |
 | `sensor.py`, `sensor_descriptions/` | One entity class and the description table, split by theme |
 | `optional_devices.py`, `core/devices.py` | The EV charger, immersion switch and immersion sensor may be absent or added later |
-| `dashboard/`, `strategy.py` | Generated Lovelace dashboard and the optional dashboard strategy |
+| `dashboard/`, `strategy.py` | The Lovelace dashboard strategy and the builder it calls |
 | `repairs.py`, `repair_flows.py`, `services.py` | Repair issues and their fix flows, service actions |
 
 ## Architecture rules
@@ -89,7 +89,7 @@ Read the file that matches the code you are changing.
 | `.claude/rules/core-purity.md` | `core/` limits, golden files, how and when to change them |
 | `.claude/rules/tests.md` | Test layout, what each suite proves, rules for new and changed tests |
 | `.claude/rules/safety.md` | Dry run, no forced export, optional devices |
-| `.claude/rules/dashboard.md` | The generated dashboard and its golden files |
+| `.claude/rules/dashboard.md` | The dashboard strategy, who sees Settings, HACS cards and the golden file |
 | `.claude/rules/python-style.md` | Clean Code limits that ruff enforces |
 | `.claude/rules/docs-and-style.md` | UK English, docs, commits, PRs, changelog, version bump |
 

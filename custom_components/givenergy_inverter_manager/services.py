@@ -1,17 +1,8 @@
 """
 services.py — service actions for GivEnergy Inverter Manager.
 
-Registers the get_dashboard_yaml action, which writes the generated dashboard
-(see the dashboard package) to givenergy_dashboard.yaml in the config directory,
-and the appliance, tariff, ROI, year-on-year and export actions.
-
-How to use the dashboard:
-  1. Developer Tools → Actions → givenergy_inverter_manager.get_dashboard_yaml
-  2. Click Perform Action
-  3. Copy the YAML from givenergy_dashboard.yaml
-  4. Settings → Dashboards → New dashboard (Blank)
-  5. Three-dot menu → Edit dashboard → Raw configuration editor
-  6. Paste, save
+Registers the appliance, tariff, ROI, year-on-year and export actions. The dashboard is not
+an action: it is the strategy in strategy.py, built each time the dashboard opens.
 """
 
 from __future__ import annotations
@@ -28,19 +19,16 @@ from .const import (
     DOMAIN,
     SERVICE_COMPARE_TARIFF,
     SERVICE_EXPORT_ENERGY_DATA,
-    SERVICE_GET_DASHBOARD_YAML,
     SERVICE_GET_ROI_SUMMARY,
     SERVICE_SUGGEST_APPLIANCE,
     SERVICE_YEAR_ON_YEAR,
 )
 from .core.rules import ApplianceRequest, RateContext, SiteReadings, suggest_appliance_run
 from .core.tariff import BillBreakdown, TariffConfig, build_tariff
-from .dashboard import async_host_facts, render_dashboard
 from .logging import get_logger
 
 _LOG = get_logger(__name__)
 
-DASHBOARD_FILENAME = "givenergy_dashboard.yaml"
 _EXPORT_FILENAME = "givenergy_energy_export.csv"
 
 
@@ -66,7 +54,7 @@ def require_loaded_entries(hass: HomeAssistant) -> list[ConfigEntry]:
 def primary_entry(hass: HomeAssistant) -> ConfigEntry:
     """Return the entry an action without an entry selector acts on: the first loaded one.
 
-    The dashboard action and the dashboard strategy use the same entry.
+    The dashboard strategy uses the same entry.
     """
     return require_loaded_entries(hass)[0]
 
@@ -95,65 +83,9 @@ async def _write_config_file(hass: HomeAssistant, filename: str, content: str) -
         _LOG.error("Failed to write %s: %s", file_path, err)
         raise ServiceValidationError(
             translation_domain=DOMAIN,
-            translation_key="dashboard_write_failed",
+            translation_key="config_file_write_failed",
         ) from err
     return file_path
-
-
-# ── get_dashboard_yaml ───────────────────────────────────────────────────────
-
-_APPLY_STEPS = (
-    "**To apply (UI mode):**\n"
-    "1. Settings → Dashboards → Add Dashboard → Blank\n"
-    "2. Three-dot menu → Edit dashboard → Raw configuration editor\n"
-    f"3. Paste the contents of `{DASHBOARD_FILENAME}`\n\n"
-    "**To apply (YAML mode):** add to `configuration.yaml`:\n"
-    "```yaml\n"
-    "lovelace:\n"
-    "  dashboards:\n"
-    "    givenergy:\n"
-    "      mode: yaml\n"
-    f"      filename: {DASHBOARD_FILENAME}\n"
-    "      title: GivEnergy Inverter Manager\n"
-    "      icon: mdi:solar-power-variant\n"
-    "      show_in_sidebar: true\n"
-    "```\n\n"
-    "Run this action again after you change the tariff or rename entities. "
-    "Adding or removing an EV charger or immersion device needs no new file."
-)
-
-
-def _ready_message(file_path: str, skipped: list[str]) -> str:
-    """Return the notification text shown after the dashboard file is written."""
-    message = f"Dashboard written to `{file_path}`.\n\n{_APPLY_STEPS}"
-    if skipped:
-        message += (
-            "\n\nLeft out because the sensors are disabled: "
-            + ", ".join(skipped)
-            + ". Enable them under Settings → Devices & services → Entities, "
-            "then run this action again."
-        )
-    return message
-
-
-def _make_get_dashboard_yaml_handler(hass: HomeAssistant):
-    """Return the get_dashboard_yaml service handler bound to *hass*."""
-
-    async def handle(call: ServiceCall) -> None:
-        """Write the generated dashboard to the config directory."""
-        entry = primary_entry(hass)
-        facts = await async_host_facts(hass, is_admin=True)
-        yaml_output, skipped = render_dashboard(hass, entry, facts)
-        file_path = await _write_config_file(hass, DASHBOARD_FILENAME, yaml_output)
-        _LOG.info("Dashboard YAML written to %s", file_path)
-        await _notification(
-            hass,
-            "GivEnergy Dashboard Ready",
-            _ready_message(file_path, skipped),
-            "givenergy_dashboard_yaml",
-        )
-
-    return handle
 
 
 # ── suggest_appliance_run ────────────────────────────────────────────────────
@@ -610,7 +542,6 @@ class _ServiceSpec:
 
 
 _SERVICES = (
-    _ServiceSpec(SERVICE_GET_DASHBOARD_YAML, _make_get_dashboard_yaml_handler),
     _ServiceSpec(SERVICE_SUGGEST_APPLIANCE, _make_suggest_appliance_handler),
     _ServiceSpec(SERVICE_GET_ROI_SUMMARY, _make_roi_summary_handler, SupportsResponse.OPTIONAL),
     _ServiceSpec(SERVICE_COMPARE_TARIFF, _make_compare_tariff_handler, SupportsResponse.OPTIONAL),

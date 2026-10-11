@@ -20,7 +20,6 @@ NAME = "GivEnergy Inverter Manager"
 DEVICE_MANUFACTURER = "macuistin"  # shown on the device page; GivEnergy does not make this
 
 # ── Service actions ──────────────────────────────────────────────────────────
-SERVICE_GET_DASHBOARD_YAML = "get_dashboard_yaml"
 SERVICE_SUGGEST_APPLIANCE = "suggest_appliance_run"
 SERVICE_COMPARE_TARIFF = "compare_tariff"
 SERVICE_YEAR_ON_YEAR = "year_on_year_summary"

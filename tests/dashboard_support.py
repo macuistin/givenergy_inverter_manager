@@ -19,6 +19,8 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import yaml
+
 from custom_components.givenergy_inverter_manager.const import (
     CONF_FORECAST_ENTITY,
     CONF_IMMERSION_SWITCH,
@@ -226,6 +228,21 @@ def all_cards(views: list[dict]) -> list[dict]:
     return [card for view in views for card in view_cards(view)]
 
 
+class _TextDumper(yaml.SafeDumper):
+    """SafeDumper that writes multi-line strings as literal blocks and never folds."""
+
+    def ignore_aliases(self, data):
+        return True
+
+
+def _represent_str(dumper: yaml.SafeDumper, data: str):
+    style = "|" if "\n" in data else None
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+
+_TextDumper.add_representer(str, _represent_str)
+
+
 def dashboard_text(
     config: dict | None = None,
     registry: FakeRegistry | None = None,
@@ -236,14 +253,33 @@ def dashboard_text(
     ev_brand: str | None = "myenergi",
     states: tuple[str, ...] = (),
 ) -> str:
-    """The generated dashboard YAML. Defaults: every feature configured, every sensor enabled."""
-    from custom_components.givenergy_inverter_manager.dashboard import HostFacts, render_dashboard
+    """The generated dashboard as YAML text, which is easy to search and to pin with a hash.
 
-    config = FULL_CONFIG if config is None else config
-    entry = fake_entry(config, ev_brand)
-    registry = registry or FakeRegistry(enable_all=True, devices=devices_of(config, ev_brand))
-    facts = HostFacts(resources, admin_ids, is_admin)
-    return render_dashboard(fake_states_hass(states), entry, facts, registry)[0]
+    Defaults: every feature configured, every sensor enabled. The integration writes no YAML
+    file, so this dump exists only for the tests and the matrix golden.
+    """
+    dashboard = dashboard_dict(
+        config,
+        registry,
+        resources=resources,
+        admin_ids=admin_ids,
+        is_admin=is_admin,
+        ev_brand=ev_brand,
+        states=states,
+    )
+    return dashboard_yaml(dashboard)
+
+
+def dashboard_yaml(dashboard: dict) -> str:
+    """Serialise a dashboard dict the way the matrix golden pins it."""
+    return yaml.dump(
+        dashboard,
+        Dumper=_TextDumper,
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+        width=10_000,
+    )
 
 
 def dashboard_dict(

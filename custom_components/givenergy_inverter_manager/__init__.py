@@ -16,7 +16,6 @@ Also handles:
 from __future__ import annotations
 
 import copy
-import os
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -35,19 +34,14 @@ from .core.devices import alt_heat_warnings
 from .core.reload_policy import Effect, change_effect, changed_keys
 from .logging import get_logger, log_startup
 from .optional_devices import remove_orphaned_entities
-from .services import (
-    DASHBOARD_FILENAME,
-    async_register_services,
-    async_unregister_services,
-    loaded_entries,
-)
+from .services import async_register_services, async_unregister_services, loaded_entries
 from .strategy import async_register_strategy
 
 _LOG = get_logger(__name__)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH, Platform.NUMBER, Platform.BUTTON]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH, Platform.NUMBER]
 
 # Sensors removed from the integration. Their registry entries stay behind as
 # "no longer provided" until something deletes them, so setup does.
@@ -56,6 +50,10 @@ _RETIRED_SENSOR_KEYS: tuple[str, ...] = (
     "pre_boost_export_kwh",
     "pre_boost_export_net_gain",
 )
+
+# Buttons removed from the integration. Refresh Dashboard rewrote the YAML file that the
+# dashboard strategy replaced.
+_RETIRED_BUTTON_KEYS: tuple[str, ...] = ("refresh_dashboard",)
 
 def _make_update_listener(entry: GivEnergyConfigEntry):
     """Build the update listener for *entry*.
@@ -106,16 +104,16 @@ def _warn_about_alt_heat(entry: GivEnergyConfigEntry) -> None:
         _LOG.warning("Alternative water heating is on, but there is %s", warning)
 
 
-def _remove_retired_sensors(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
-    """Delete the registry entries of retired sensors that belong to this config entry."""
+def _remove_retired_entities(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Delete the registry entries of retired sensors and buttons of this config entry."""
     registry = er.async_get(hass)
-    for key in _RETIRED_SENSOR_KEYS:
-        entity_id = registry.async_get_entity_id(
-            Platform.SENSOR, DOMAIN, f"{entry.entry_id}_{key}"
-        )
-        if entity_id is not None:
-            registry.async_remove(entity_id)
-            _LOG.info("Removed the retired sensor %s", entity_id)
+    retired = ((Platform.SENSOR, _RETIRED_SENSOR_KEYS), (Platform.BUTTON, _RETIRED_BUTTON_KEYS))
+    for platform, keys in retired:
+        for key in keys:
+            entity_id = registry.async_get_entity_id(platform, DOMAIN, f"{entry.entry_id}_{key}")
+            if entity_id is not None:
+                registry.async_remove(entity_id)
+                _LOG.info("Removed the retired %s %s", platform.value, entity_id)
 
 
 def _remove_retired_issues(hass: HomeAssistant) -> None:
@@ -149,24 +147,6 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-async def _ensure_dashboard_placeholder(hass: HomeAssistant) -> None:
-    """Create a placeholder dashboard file so YAML-mode lovelace can reference it at once.
-
-    Without it the user would have to run Refresh Dashboard before the dashboard loads.
-    """
-    dashboard_path = os.path.join(hass.config.config_dir, DASHBOARD_FILENAME)
-
-    def _write_placeholder() -> bool:
-        if os.path.exists(dashboard_path):
-            return False
-        with open(dashboard_path, "w", encoding="utf-8") as fh:
-            fh.write("views: []\n")
-        return True
-
-    if await hass.async_add_executor_job(_write_placeholder):
-        _LOG.info("Created dashboard placeholder at %s", dashboard_path)
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> bool:
     """Set up GivEnergy Inverter Manager from a config entry."""
     _LOG.debug("Setting up entry %s (%s)", entry.entry_id, entry.title)
@@ -188,7 +168,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
 
     entry.runtime_data = coordinator
 
-    _remove_retired_sensors(hass, entry)
+    _remove_retired_entities(hass, entry)
     _remove_retired_issues(hass)
     _enable_newly_default_sensors(hass, entry)
     remove_orphaned_entities(hass, entry)
@@ -204,8 +184,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
         await async_register_strategy(hass)
     except Exception:
         _LOG.exception("Could not register the dashboard strategy")
-
-    await _ensure_dashboard_placeholder(hass)
 
     # Emit startup entity config to the verbose logger (opt-in, debug only)
     cfg = dict(entry.data)

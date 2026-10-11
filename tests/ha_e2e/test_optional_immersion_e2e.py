@@ -6,10 +6,7 @@ and the managed switch entity and the Immersion dashboard view follow the config
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-import yaml
 from conftest import (
     IMMERSION_SWITCH,
     IMMERSION_TEMP,
@@ -29,6 +26,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_TEMP_SENSOR,
     DOMAIN,
 )
+from custom_components.givenergy_inverter_manager.strategy import async_dashboard_for_websocket
 from tests.dashboard_visibility import seen
 
 MANAGED = "immersion_managed"
@@ -103,12 +101,9 @@ async def dashboard_paths(hass) -> set[str]:
     A device's view is always in the file, with its sections hidden by visibility conditions
     until the device exists, so a view counts when something in it is shown.
     """
-    async_mock_service(hass, "persistent_notification", "create")
-    await hass.services.async_call(DOMAIN, "get_dashboard_yaml", blocking=True)
-    await hass.async_block_till_done()
-    text = (Path(hass.config.config_dir) / "givenergy_dashboard.yaml").read_text(encoding="utf-8")
+    dashboard = await async_dashboard_for_websocket(hass, is_admin=True)
     states = {state.entity_id: state.state for state in hass.states.async_all()}
-    shown = seen(yaml.safe_load(text), states)
+    shown = seen(dashboard, states)
     return {view["path"] for view in shown["views"] if view["sections"]}
 
 

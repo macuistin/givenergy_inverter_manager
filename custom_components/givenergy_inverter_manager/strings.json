@@ -557,11 +557,6 @@
     }
   },
   "entity": {
-    "button": {
-      "refresh_dashboard": {
-        "name": "Refresh Dashboard"
-      }
-    },
     "number": {
       "surplus_divert_soc_pct": {
         "name": "Immersion divert minimum SoC"
@@ -1147,19 +1142,14 @@
     "no_config_entry": {
       "message": "GivEnergy Inverter Manager is not configured. Add the integration in Settings → Integrations before calling this service."
     },
-    "dashboard_write_failed": {
-      "message": "Failed to write dashboard file to the Home Assistant config directory. Check that HA has write access to the config folder."
+    "config_file_write_failed": {
+      "message": "Failed to write the file to the Home Assistant config directory. Check that HA has write access to the config folder."
     },
     "test_instance_dry_run_locked": {
       "message": "Dry run cannot be turned off on a test instance. Delete the .givenergy_test_instance file from the Home Assistant configuration folder and restart Home Assistant to go live."
     }
   },
   "services": {
-    "get_dashboard_yaml": {
-      "name": "Get dashboard YAML",
-      "description": "Writes a Lovelace dashboard pre-filled with your actual entity IDs to givenergy_dashboard.yaml in the Home Assistant config directory, then shows a persistent notification with setup steps. Paste the file into a new blank dashboard via Raw configuration editor, or point a YAML-mode dashboard at it.",
-      "fields": {}
-    },
     "suggest_appliance_run": {
       "name": "Suggest appliance run time",
       "description": "Checks whether now is a good time to run a high-load appliance (washing machine, dishwasher, etc.) based on current solar surplus, battery state, and the active tariff rate. Creates a persistent notification with the verdict and the reason. The action does not return a response.",

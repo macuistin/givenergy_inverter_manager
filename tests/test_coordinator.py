@@ -2537,7 +2537,7 @@ class TestIconTranslations:
         # Arrange
         icons = self._load_icons()
         # Assert
-        assert "get_dashboard_yaml" in icons.get("services", {})
+        assert "get_dashboard_yaml" not in icons.get("services", {})
         assert "suggest_appliance_run" in icons.get("services", {})
 
 

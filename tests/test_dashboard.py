@@ -28,7 +28,6 @@ from tests.dashboard_support import (
     MINIMAL_CONFIG,
     FakeRegistry,
     all_cards,
-    dashboard_dict,
     dashboard_text,
     default_entity_ids,
     view_cards,
@@ -418,32 +417,6 @@ class TestSoCHistoryChart:
             assert len(graph["entities"]) == 1
 
 
-class TestYamlSerialisation:
-    """The dashboard is built as a dict and serialised once."""
-
-    def _dict(self):
-        return dashboard_dict()
-
-    def test_yaml_round_trips_to_the_dict(self):
-        assert yaml.safe_load(_build()) == self._dict()
-
-    def test_no_anchors_or_aliases(self):
-        """Shared sub-dicts (the grid options) must be written out, not aliased."""
-        import re
-
-        assert not re.search(r"[&*]id\d+", _build())
-
-    def test_multiline_strings_are_literal_blocks(self):
-        text = _build()
-        assert "content: |-\n" in text
-        assert "\\n" not in text
-
-    def test_header_comment_precedes_views(self):
-        text = _build()
-        assert text.startswith("# GivEnergy Inverter Manager")
-        assert text.index("views:") > text.index("power-flow-card-plus")
-
-
 _OUR_ENTITY = re.compile(r"\b(?:sensor|switch|number)\.givenergy_inverter_manager_[a-z0-9_]+")
 
 
@@ -504,16 +477,6 @@ class TestEntityAvailability:
             registry=FakeRegistry(enabled={"yesterday_forecast_accuracy_pct"}),
         )
         assert eid("yesterday_forecast_accuracy_pct") in text
-
-    def test_disabled_sensors_are_listed_in_the_header(self):
-        text = _build(config=FULL_CONFIG, registry=FakeRegistry())
-        header = text[: text.index("views:")]
-        assert "disabled" in header
-        assert "Forecast accuracy yesterday" in header
-
-    def test_no_header_note_when_nothing_was_left_out(self):
-        text = _build(config=FULL_CONFIG, registry=FakeRegistry(enable_all=True))
-        assert "disabled" not in text[: text.index("views:")]
 
     def test_unregistered_entity_is_left_out(self):
         text = _build(registry=FakeRegistry(enable_all=True, absent={"cheap_rate_floor_status"}))
@@ -699,10 +662,7 @@ class TestNowSection:
             eid("import_cost_today"),
             eid("next_cheap_rate_start"),
         ]
-        header = text[: text.index("views:")]
-        assert "Battery Overnight Confidence" in header
-        for name in ("Hours to Cheap Rate", "Next Cheap Rate Start"):
-            assert name not in header
+        assert eid("night_survival_confidence") not in text
 
 
 class TestLongTextStates:
@@ -966,7 +926,7 @@ class TestBillView:
         types = {c["type"] for c in _cards(_build(), "bill")}
         assert types == {"heading", "tile", "statistics-graph"}
 
-    def test_disabled_by_default_figures_are_left_out_and_listed(self):
+    def test_disabled_by_default_figures_are_left_out(self):
         text = _build(registry=FakeRegistry())
         bill = yaml.dump(_cards(text, "bill"))
         for key in (
@@ -975,9 +935,6 @@ class TestBillView:
             "cheap_import_fraction_this_month",
         ):
             assert eid(key) not in bill
-        header = text[: text.index("views:")]
-        assert "Days Elapsed in Bill Period" in header
-        assert "Average Import Rate This Month" in header
 
     def test_bill_prediction_moved_off_the_today_view(self):
         titles = [c.get("heading") for c in _cards(_build(), "today")]
@@ -1111,16 +1068,6 @@ class TestMissingHacsCards:
     def test_matching_ignores_case_and_path(self):
         types = self._types(["/local/Community/PowerFlowCard/POWER-FLOW-CARD-PLUS.js", _APEX])
         assert "custom:power-flow-card-plus" in types
-
-    def test_header_names_the_missing_cards(self):
-        header = self._text([])
-        header = header[: header.index("views:")]
-        assert "power-flow-card-plus" in header
-        assert "not installed" in header
-
-    def test_header_has_no_note_when_cards_are_present(self):
-        header = self._text([_PFC, _APEX])
-        assert "not installed" not in header[: header.index("views:")]
 
     def test_fallback_dashboard_references_only_usable_entities(self):
         assert _referenced(self._text([])) <= set(default_entity_ids().values())

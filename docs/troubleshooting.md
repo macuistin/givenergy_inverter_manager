@@ -264,10 +264,16 @@ Accrued Bill This Period is built from the month totals, which start again on th
 
 Many sensors are disabled by default. See [Sensors](sensors.md).
 
-## Dashboard cards show errors
+## The dashboard is missing or shows an error
 
-- The live flow card in the Power Flow view needs power-flow-card-plus. Install it from HACS if the card shows an error.
-- The immersion chart needs apexcharts-card. Without it the sub-view uses a built-in history graph, which draws the heater's power as a line and cannot shade the times it was on.
+- **GivEnergy is not listed under Community dashboards.** Reload the browser tab, so the frontend loads the integration's strategy file. If it is still missing, add a dashboard from scratch and use `strategy: type: custom:givenergy-manager` in its Raw configuration editor. See [Dashboard](dashboard.md#add-the-dashboard).
+- **I never saw the notification, and there is no dashboard.** The integration adds nothing to your dashboards. Add it yourself from **Settings → Dashboards → Add dashboard**. The notification is shown once, at first setup.
+- **The dashboard says GivEnergy Inverter Manager is not loaded.** The integration is not set up, or it is still starting or reloading. Check **Settings → Devices & Services**, and reload the page when it shows as loaded.
+- **The dashboard says it could not build the dashboard, with a reason.** Look for lines that contain `givenergy` in **Settings → System → Logs**, and open an issue with them if the reason is not clear.
+- **A tile or section is missing.** The dashboard leaves out what has no value to show: a disabled sensor, an optional device that does not exist, or a setting you have not made. See [What is left out](dashboard.md#what-is-left-out).
+- **There is no Settings view.** Only Home Assistant administrators get it. Sign in as one and reload the page. A copy made with Take control keeps the view the person had at the time.
+- **The live flow card shows an error.** The card needs power-flow-card-plus. The dashboard uses it only when its URL is in **Settings → Dashboards → Resources**, and shows an entities card otherwise.
+- **The Refresh Dashboard button and the `get_dashboard_yaml` action are gone.** The dashboard builds itself each time it opens. See [Dashboard](dashboard.md#moving-from-the-generated-file).
 - HTML report cards that show plain text: use a built-in `markdown` card and enable the report sensor. See [Dashboard](dashboard.md#html-report-cards).
 
 ## Getting help

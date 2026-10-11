@@ -3,31 +3,20 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
-import yaml
 from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL, UrlManager
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.setup import async_setup_component
-from pytest_homeassistant_custom_component.common import async_mock_service
 
-from custom_components.givenergy_inverter_manager.const import DOMAIN, INTEGRATION_VERSION
+from custom_components.givenergy_inverter_manager.const import INTEGRATION_VERSION
 from custom_components.givenergy_inverter_manager.strategy import (
     STRATEGY_FILE,
     STRATEGY_URL_PATH,
     WS_TYPE,
+    async_dashboard_for_websocket,
 )
 
 MODULE_URL = f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}"
-
-
-async def _service_dashboard(hass) -> dict:
-    """What the get_dashboard_yaml service writes, parsed back into a dict."""
-    async_mock_service(hass, "persistent_notification", "create")
-    await hass.services.async_call(DOMAIN, "get_dashboard_yaml", blocking=True)
-    await hass.async_block_till_done()
-    text = (Path(hass.config.config_dir) / "givenergy_dashboard.yaml").read_text(encoding="utf-8")
-    return yaml.safe_load(text)
 
 
 async def test_websocket_command_returns_the_dashboard(hass, loaded_entry, hass_ws_client):
@@ -37,7 +26,7 @@ async def test_websocket_command_returns_the_dashboard(hass, loaded_entry, hass_
     response = await client.receive_json()
 
     assert response["success"] is True
-    assert response["result"] == await _service_dashboard(hass)
+    assert response["result"] == await async_dashboard_for_websocket(hass, is_admin=True)
     views = response["result"]["views"]
     assert [v["path"] for v in views if not v.get("subview")] == [
         "power-flow",

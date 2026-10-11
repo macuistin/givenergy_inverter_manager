@@ -10,7 +10,7 @@ A Home Assistant integration for GivEnergy inverters. It sets the overnight char
 
 Works with any supplier and any tariff: timed rates (two or three rate periods, or a single overnight window) or a flat rate. Tested on a GivEnergy GIV-HY-5.0 with the Electric Ireland Nightboost tariff. Current version: 0.17.2.
 
-![The Power Flow view of the generated dashboard: battery, live power flow and today's energy.](https://raw.githubusercontent.com/macuistin/givenergy_inverter_manager/main/docs/images/dashboard-power-flow.png)
+![The Power Flow view of the dashboard: battery, live power flow and today's energy.](https://raw.githubusercontent.com/macuistin/givenergy_inverter_manager/main/docs/images/dashboard-power-flow.png)
 
 ## What it does
 
@@ -18,7 +18,7 @@ Works with any supplier and any tariff: timed rates (two or three rate periods, 
 - **Immersion divert.** Heats water from spare solar, with a minimum temperature, a target and a restart gap.
 - **EV signals.** Reports when solar surplus is available and where the car's power comes from. A Zappi is set to Eco+ when there is enough surplus.
 - **Cost tracking.** Import cost, export earnings and per-load costs across your timed and base rates, with daily, weekly, monthly and yearly totals.
-- **Bill estimate, battery health and ROI figures.** Plus a large set of sensors and six actions.
+- **Bill estimate, battery health and ROI figures.** Plus a large set of sensors and five actions.
 
 ## Requirements
 
@@ -51,9 +51,9 @@ Start at the [documentation index](docs/index.md).
 | [Configuration](docs/configuration.md) | Every setup step and option |
 | [Tariff](docs/tariff.md) | Rate periods, which rate wins, bill line items |
 | [Sensors](docs/sensors.md) | Every sensor |
-| [Entities](docs/entities.md) | Switches, numbers and the button |
-| [Actions](docs/actions.md) | The six actions |
-| [Dashboard](docs/dashboard.md) | The generated dashboard |
+| [Entities](docs/entities.md) | Switches and numbers |
+| [Actions](docs/actions.md) | The five actions |
+| [Dashboard](docs/dashboard.md) | The dashboard that builds itself, and how to add it |
 | [Energy dashboard](docs/energy-dashboard.md) | Sensors for the Home Assistant Energy dashboard |
 | [Long-term statistics](docs/long-term-statistics.md) | State classes and midnight reset |
 | [Automation examples](docs/automations.md) | Ready-to-use automations |

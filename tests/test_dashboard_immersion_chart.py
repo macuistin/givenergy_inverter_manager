@@ -143,7 +143,7 @@ class TestTheHeaterTile:
         heading = next(i for i, c in enumerate(cards) if c.get("heading") == "Heater on or off")
         assert cards.index(_heater_tiles(config)[0]) == heading + 1
 
-    def test_it_does_nothing_when_tapped_and_shows_the_heater_power(self):
+    def test_it_shows_the_heater_power_and_has_no_controls(self):
         (tile,) = _heater_tiles(seen_for(switch=True))
         assert tile["name"] == "Heater power"
         assert tile["entity"] == IDS["immersion_power"]

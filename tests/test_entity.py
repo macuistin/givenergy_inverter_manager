@@ -6,17 +6,14 @@ Home Assistant suite (tests/ha_e2e) checks its device.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
-
 import pytest
 
-from custom_components.givenergy_inverter_manager import button, number, switch
+from custom_components.givenergy_inverter_manager import number, switch
 from custom_components.givenergy_inverter_manager.const import (
     DEVICE_MANUFACTURER,
     DOMAIN,
     INTEGRATION_VERSION,
     NAME,
-    SERVICE_GET_DASHBOARD_YAML,
 )
 from custom_components.givenergy_inverter_manager.entity import GivEnergyEntity
 from tests.test_coordinator import FakeCoordinator, _cfg
@@ -41,7 +38,6 @@ def _entities():
         number.ImmersionTargetTempNumber(coord),
         number.ImmersionMinTempNumber(coord),
         number.ImmersionHysteresisNumber(coord),
-        button.GivEnergyRefreshDashboardButton(coord),
     ]
 
 
@@ -73,22 +69,3 @@ def test_unique_ids_are_unchanged():
         == f"{ENTRY_ID}_charge_target_override_enabled"
     )
     assert ids["GivEnergyChargeTargetOverride"] == f"{ENTRY_ID}_charge_target_override"
-    assert ids["GivEnergyRefreshDashboardButton"] == f"{ENTRY_ID}_refresh_dashboard"
-
-
-def test_refresh_button_stays_available_when_the_coordinator_fails():
-    coord = _coordinator()
-    coord.last_update_success = False
-
-    assert button.GivEnergyRefreshDashboardButton(coord).available is True
-
-
-async def test_pressing_the_refresh_button_calls_the_dashboard_service():
-    coord = _coordinator()
-    coord.hass.services.async_call = AsyncMock()
-
-    await button.GivEnergyRefreshDashboardButton(coord).async_press()
-
-    coord.hass.services.async_call.assert_awaited_once_with(
-        DOMAIN, SERVICE_GET_DASHBOARD_YAML, blocking=True
-    )

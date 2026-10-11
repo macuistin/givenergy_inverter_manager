@@ -36,13 +36,12 @@ class Registry:
     """Looks up our entities and skips those that are missing or disabled.
 
     A card that points at a disabled entity shows "Entity not available", so the
-    generator leaves such rows out and remembers what it dropped.
+    generator leaves such rows out.
     """
 
     def __init__(self, registry, entry_id: str) -> None:
         self._reg = registry
         self._entry_id = entry_id
-        self.disabled: dict[str, str] = {}
 
     def get(self, unique_id_suffix: str) -> str | None:
         """Return the entity_id for one of our entities, or None if unusable."""
@@ -56,8 +55,6 @@ class Registry:
             return None
         registered = self._reg.async_get(entity_id)
         if registered is not None and registered.disabled_by is not None:
-            label = registered.name or registered.original_name or entity_id
-            self.disabled.setdefault(entity_id, label)
             return None
         return entity_id
 

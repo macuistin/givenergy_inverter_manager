@@ -88,9 +88,8 @@ Precedence: among all timed periods active at the current time, the cheapest win
 - **Sensors:** 144, of which 85 are enabled by default. Every sensor, with unit, state class and description, is in [docs/sensors.md](docs/sensors.md). That page is generated from `sensor.py` and a test fails when it is out of date.
 - **Switches (5):** `auto_immersion`, `immersion_managed`, `immersion_schedule`, `skip_charge_override` and `charge_target_override_enabled`.
 - **Numbers (4):** `charge_target_override`, and the immersion target temperature, minimum temperature and restart gap.
-- **Button (1):** Refresh Dashboard.
 
-What each switch, number and button does is in [docs/entities.md](docs/entities.md).
+What each switch and number does is in [docs/entities.md](docs/entities.md).
 
 ---
 

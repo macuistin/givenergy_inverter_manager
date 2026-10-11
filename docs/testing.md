@@ -17,7 +17,7 @@ python3 -m venv .venv
 
 `tests/conftest.py` replaces `homeassistant` in `sys.modules` before collection. The tests run from any directory. Source paths come from `ROOT` and `PKG` in `tests/helpers.py`, never from the working directory. `pyproject.toml` adds `--ignore=tests/ha_e2e` so this suite never imports the real Home Assistant tests.
 
-`tests/test_dashboard_example.py` is a golden test for `docs/dashboard-example.yaml`. After an intended change to the dashboard generator, regenerate the file with `UPDATE_DASHBOARD_EXAMPLE=1 python -m pytest tests/test_dashboard_example.py` and review the diff.
+`tests/test_dashboard_matrix.py` pins the dashboard for a grid of installs, for an administrator and for another user. After an intended change to the dashboard builder, regenerate the golden file with `UPDATE_DASHBOARD_MATRIX=1 python -m pytest tests/test_dashboard_matrix.py`, and compare the dashboards before and after section by section.
 
 `tests/test_dashboard_strategy.py` runs the strategy JavaScript under `node` when `node` is installed, and skips those tests otherwise.
 

@@ -412,7 +412,7 @@ class Builder:
         flow = self._flow_entities(shown)
         if not flow:
             return None
-        card = flow_card(flow) if self.cards.use(POWER_FLOW_CARD) else flow_fallback(flow)
+        card = flow_card(flow) if self.cards.installed(POWER_FLOW_CARD) else flow_fallback(flow)
         return {**card, "grid_options": {"columns": FULL}} if card else None
 
     def _flow(self) -> list:

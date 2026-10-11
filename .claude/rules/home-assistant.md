@@ -25,7 +25,7 @@ Each rule is checked by a test or by the Home Assistant source. The test is name
   start async work from one, use `hass.async_create_task` or the coordinator's `_create_task`.
   An `async def` handed to a sync hook never runs.
 - No blocking calls in the event loop. File and recorder work goes through
-  `hass.async_add_executor_job` (see `_write_placeholder` in `__init__.py`).
+  `hass.async_add_executor_job` (see `async_detect_test_instance` in `coordinator.py`).
 
 ## State and attributes
 

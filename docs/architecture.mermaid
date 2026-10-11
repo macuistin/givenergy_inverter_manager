@@ -10,10 +10,9 @@ graph TD
         SENSOR["sensor.py\n144 read-only sensors\nvalue_fn lambdas on CoordinatorData"]
         SWITCH["switch.py\nAuto immersion divert\nImmersion managed\nForce skip charge\nEnable charge target override"]
         NUMBER["number.py\nCharge target override\nImmersion target · minimum · restart gap"]
-        BUTTON["button.py\nRefresh dashboard"]
-        DASH["services.py\nSix actions, registered in async_setup\nincluding get_dashboard_yaml"]
+        DASH["services.py\nFive actions, registered in async_setup"]
         BUILD["dashboard/\nBuilds the Lovelace dict\nfrom the entity registry"]
-        STRAT["strategy.py\nOptional Lovelace strategy"]
+        STRAT["strategy.py\nLovelace strategy and its websocket command"]
         CF["config_flow.py\n7-step setup wizard\nReconfigure · Options flow\nRate period parser"]
         MISC["repairs.py · diagnostics.py\nlogging.py"]
     end
@@ -54,9 +53,8 @@ graph TD
     COORD -->|"CoordinatorData"| SENSOR
     COORD -->|"CoordinatorData\noverride_*"| SWITCH
     COORD -->|"CoordinatorData\noverride_charge_target"| NUMBER
-    BUTTON -->|"calls get_dashboard_yaml"| DASH
     SENSOR --> REP
-    DASH --> BUILD
+    STRAT --> BUILD
 
     %% Config flow uses discovery at setup time only
     CF --> DISC_GTC

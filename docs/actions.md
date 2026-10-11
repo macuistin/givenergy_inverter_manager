@@ -1,30 +1,19 @@
 # Actions
 
-The integration registers six actions under `givenergy_inverter_manager`. Run them from **Developer Tools → Actions**, or from scripts and automations.
+The integration registers five actions under `givenergy_inverter_manager`. Run them from **Developer Tools → Actions**, or from scripts and automations.
 
-- All six use the first loaded entry, and `compare_tariff` also lists every loaded entry. They stay registered while at least one entry is loaded. With no loaded entry, each one fails with the error "not configured".
+- All five use the first loaded entry, and `compare_tariff` also lists every loaded entry. They stay registered while at least one entry is loaded. With no loaded entry, each one fails with the error "not configured".
 - Four of them return data. Read it with `response_variable`.
 - The examples use `action:`. Home Assistant releases before 2024.8 call it `service:`.
+- The `get_dashboard_yaml` action of earlier versions is gone. The dashboard builds itself. See [Dashboard](dashboard.md#moving-from-the-generated-file).
 
 | Action | Fields | Returns |
 |---|---|---|
-| [`get_dashboard_yaml`](#get_dashboard_yaml) | none | nothing |
 | [`suggest_appliance_run`](#suggest_appliance_run) | `appliance_name`, `appliance_power_w` | nothing |
 | [`get_roi_summary`](#get_roi_summary) | none | ROI figures |
 | [`compare_tariff`](#compare_tariff) | `rate`, optional `standing_charge`, `export_rate`, `discount_rate`, `vat_rate`, `pso_levy` | cost comparison |
 | [`year_on_year_summary`](#year_on_year_summary) | none | month against last year |
 | [`export_energy_data`](#export_energy_data) | none | file path and rows written |
-
-## get_dashboard_yaml
-
-Writes the Lovelace dashboard to `givenergy_dashboard.yaml` in the Home Assistant config folder, then shows the persistent notification **GivEnergy Dashboard Ready** with setup steps. The **Refresh Dashboard** button calls this action. See [Dashboard](dashboard.md).
-
-- Entity IDs come from the entity registry, so renamed entities are picked up.
-- It fails with "GivEnergy Inverter Manager is not configured" when no entry exists, and with a write error when the config folder is read-only.
-
-```yaml
-action: givenergy_inverter_manager.get_dashboard_yaml
-```
 
 ## suggest_appliance_run
 

@@ -18,9 +18,9 @@ This documentation matches version 0.17.2.
 | Page | Contents |
 |---|---|
 | [Sensors](sensors.md) | Every sensor with unit, state class and enabled-by-default (generated from the code) |
-| [Entities](entities.md) | Switches, numbers and the button |
-| [Actions](actions.md) | The six actions the integration registers |
-| [Dashboard](dashboard.md) | The generated Lovelace dashboard and the HTML report cards |
+| [Entities](entities.md) | Switches and numbers |
+| [Actions](actions.md) | The five actions the integration registers |
+| [Dashboard](dashboard.md) | The Lovelace dashboard that builds itself, and the HTML report cards |
 | [Energy dashboard](energy-dashboard.md) | Which sensors to pick in Home Assistant's Energy dashboard |
 | [Long-term statistics](long-term-statistics.md) | Why daily sensors use state class `total` and reset at midnight |
 | [Automation examples](automations.md) | Ready-to-use automations |

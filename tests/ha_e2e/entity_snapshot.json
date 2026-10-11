@@ -1,10 +1,5 @@
 [
  {
-  "entity_id": "button.givenergy_inverter_manager_refresh_dashboard",
-  "key": "refresh_dashboard",
-  "name": "Refresh Dashboard"
- },
- {
   "entity_id": "number.givenergy_inverter_manager_cheap_rate_floor_soc",
   "key": "cheap_rate_floor_soc",
   "name": "Cheap rate floor SoC"

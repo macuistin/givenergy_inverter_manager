@@ -1,18 +1,17 @@
 """
 strategy.py - serves the dashboard as a Lovelace strategy.
 
-With this, a dashboard's whole configuration can be:
+The dashboard is a strategy. Its whole configuration is:
 
     strategy:
       type: custom:givenergy-manager
 
-The frontend loads a small JavaScript file from this integration. The file calls
-a websocket command that returns the same dashboard the get_dashboard_yaml
-service writes, built from the current registry and options each time the
-dashboard opens.
+The frontend loads a small JavaScript file from this integration. The file calls a websocket
+command that builds the dashboard from the current registry and options each time the
+dashboard opens, and lists the strategy under Community dashboards when a dashboard is added.
 
-Nothing here is required by the rest of the integration. The service and the
-generated file work without it.
+The command reads the connection's user to decide whether the Settings view is built. Nothing
+else in the integration needs the strategy.
 """
 
 from __future__ import annotations

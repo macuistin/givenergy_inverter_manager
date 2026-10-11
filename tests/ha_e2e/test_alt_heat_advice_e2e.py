@@ -7,15 +7,12 @@ the reload. Clearing the cost removes the sensor. A cost sensor overrides the sa
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-import yaml
 from conftest import MIDDAY, SERIAL, full_config_data, serialise_schema
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_ALT_HEAT_COST,
@@ -24,6 +21,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_SWITCH,
     DOMAIN,
 )
+from custom_components.givenergy_inverter_manager.strategy import async_dashboard_for_websocket
 from tests.dashboard_support import all_cards
 from tests.dashboard_visibility import seen
 
@@ -252,11 +250,7 @@ class TestDashboardTile:
     ):
         hass = hass_in_scenario
         await set_up(hass, config_entry)
-        async_mock_service(hass, "persistent_notification", "create")
-        await hass.services.async_call(DOMAIN, "get_dashboard_yaml", blocking=True)
-        await hass.async_block_till_done()
-        path = Path(hass.config.config_dir) / "givenergy_dashboard.yaml"
-        stored = yaml.safe_load(path.read_text(encoding="utf-8"))
+        stored = await async_dashboard_for_websocket(hass, is_admin=True)
         assert "Cheapest way to heat the water" not in await self.shown_headings(hass, stored)
 
         await save_alt_options(hass, config_entry, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL})

@@ -30,7 +30,7 @@ number example. Keep install-specific analysis in the PR discussion.
 
 - `docs/sensors.md` is generated. After a sensor change run `python scripts/gen_sensor_docs.py`.
   `tests/test_docs_sensor_table.py` fails when it is stale.
-- `docs/dashboard-example.yaml` is a golden file. See `.claude/rules/dashboard.md`.
+- `tests/golden_dashboard_matrix.json` is a golden file. See `.claude/rules/dashboard.md`.
 - `strings.json` and `translations/en.json` are byte identical. Edit `strings.json`, then copy it.
 - Update the doc that describes the behaviour in the same change as the code.
 

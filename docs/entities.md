@@ -45,9 +45,3 @@ The seven controls (Dry run, Verbose logging and the five numbers marked as cont
 The three immersion temperature numbers are restored after a restart and saved to the integration's data. Changing one of them updates the running integration. It does not reload it.
 
 The restart gap stops rapid switching near the target. With the defaults the heater turns off at 55 °C and does not restart until the water drops below 50 °C.
-
-## Button
-
-| Entity | What it does |
-|---|---|
-| Refresh Dashboard | Runs the `get_dashboard_yaml` action, which rewrites `givenergy_dashboard.yaml` in the config folder. See [Dashboard](dashboard.md) |
