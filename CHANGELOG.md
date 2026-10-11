@@ -13,7 +13,9 @@ an evening reading on the minimum SoC is no longer mistaken for a night that end
   to the start of the charge window, the window adds charge up to the target at the charge rate the
   plan uses, and the battery runs down again to sunrise, never below the minimum SoC. The window is
   sized for the SoC the battery will have when it opens. A skipped night, no timed charge window, or a
-  window that is over gives the same figure as the one without a charge. Its attributes are
+  window that is over gives the same figure as the one without a charge. It reads the learned
+  per-slot load profile the charge plan uses, and the flat daily average until there is a usable
+  profile. The figure without a charge keeps the flat average, and `basis` says which load was used. Its attributes are
   `soc_at_charge_start`, `charge_added_pct`, `charge_window` and `basis`. Nothing reads it, so the
   charge plan and the night survival sensors are unchanged. It is enabled by default.
 
@@ -21,7 +23,10 @@ an evening reading on the minimum SoC is no longer mistaken for a night that end
 - Estimated SoC at Sunrise is now Estimated SoC at Sunrise Without a Charge, and its description says
   it ignores tonight's planned charge and holds at the minimum SoC when the battery would run flat.
   The key, the unique ID and the value are unchanged, so history, statistics and automations carry on.
-  An install made before this change keeps its entity ID. A new install builds it from the new name.
+  An install made before this change keeps its entity ID. A new install gets a different entity ID
+  for this sensor, `sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge`,
+  because Home Assistant builds it from the name. Use the entity ID shown on your install in
+  automations and cards.
 - The Battery view shows Sunrise (no charge) and Sunrise (with charge) in Tonight's charge plan, where
   it showed one At sunrise tile. The Battery overnight section of the Battery detail view shows the
   same two tiles under the outlook.

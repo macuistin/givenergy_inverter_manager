@@ -260,6 +260,15 @@ def _slot_loads_kwh(avg_daily_kwh: float, load_profile: list[float] | None) -> l
     return [avg_daily_kwh / 48] * 48
 
 
+def usable_slot_loads_kwh(
+    avg_daily_kwh: float, load_profile: list[float] | None
+) -> list[float] | None:
+    """The 48 slot loads the charge simulation uses, or None when there is no usable profile."""
+    if not _profile_usable(load_profile):
+        return None
+    return _slot_loads_kwh(avg_daily_kwh, load_profile)
+
+
 @dataclass(frozen=True)
 class _SimulatedDay:
     """One day to simulate: the solar forecast, the battery size and the load per slot."""

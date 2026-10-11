@@ -452,7 +452,8 @@ DESCRIPTIONS: dict[str, str] = {
         "from now to sunrise on the house load, ignoring tonight's planned charge. It holds at "
         "the minimum SoC when the battery would run flat, so in the evening it can read the "
         "minimum although a charge is planned. This is the figure the Battery Overnight "
-        "Outlook and Confidence sensors judge. While solar is generating it covers tonight's "
+        "Outlook and Confidence sensors judge. It spreads the daily average load evenly over "
+        "the hours, the flat load. While solar is generating it covers tonight's "
         "8 hour pre-solar window from the current SoC. See Estimated SoC at Sunrise With the "
         "Planned Charge for the same night with the charge in it."
     ),
@@ -463,7 +464,9 @@ DESCRIPTIONS: dict[str, str] = {
         "sized for the SoC the battery will have when it opens, as the plan writes it. On a "
         "skipped night, with no timed charge window, or once the window is over, it equals "
         "Estimated SoC at Sunrise Without a Charge. It does not feed Battery Overnight Outlook "
-        "or Confidence. Attributes: `soc_at_charge_start` (the SoC when the window opens), "
+        "or Confidence. It reads the learned per-slot load profile the charge plan uses (scaled "
+        "to the daily average), and falls back to the flat average until there is a usable "
+        "profile. `basis` says which. Attributes: `soc_at_charge_start` (the SoC when the window opens), "
         "`charge_added_pct` (points the window adds), `charge_window` (for example `02:00 to "
         "04:35`) and `basis` (in words, what the figure assumes)."
     ),

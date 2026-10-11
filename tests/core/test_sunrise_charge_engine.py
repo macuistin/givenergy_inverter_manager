@@ -20,6 +20,8 @@ from custom_components.givenergy_inverter_manager.core.sunrise_charge import (
     BASIS_RATE_UNKNOWN,
     BASIS_REACHES_TARGET,
     BASIS_SKIPPED,
+    LOAD_NOTE_FLAT,
+    LOAD_NOTE_PER_SLOT,
 )
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
@@ -30,6 +32,10 @@ INVERTER_W = 3600.0
 BASE_W = 550.0
 MIN_SOC = 10.0
 EVENING = datetime(2026, 6, 15, 19, 0)
+
+# A learned day: the evening and the day use energy, the small hours hardly any.
+# 16 night slots (00:00 to 08:00) weigh 0.05, the other 32 weigh 1.0.
+NIGHT_PROFILE = [0.05] * 16 + [1.0] * 32
 
 SINGLE_NIGHT_PERIOD = [{"name": "Night", "rate": 0.1644, "start": "23:00", "end": "08:00"}]
 
@@ -93,7 +99,7 @@ class TestTheEveningFromTheReview:
         assert projection.soc_at_charge_start == pytest.approx(66.0 - _pct(0.55 * 7))
         assert projection.charge_added_pct == pytest.approx(90.0 - projection.soc_at_charge_start)
         assert projection.charge_window == "02:00 to 04:00"
-        assert projection.basis == BASIS_REACHES_TARGET
+        assert projection.basis.startswith(BASIS_REACHES_TARGET)
 
     def test_the_two_figures_are_far_apart_because_of_the_charge(self, data):
         assert data.sunrise_with_charge.soc - data.estimated_soc_at_sunrise > 40.0
@@ -123,7 +129,7 @@ class TestTheCharge:
     def test_a_battery_above_the_target_when_the_window_opens_adds_nothing(self):
         data = _data(datetime(2026, 6, 15, 23, 0), 95.0, override_charge_target=50)
         projection = data.sunrise_with_charge
-        assert projection.basis == BASIS_ABOVE_TARGET
+        assert projection.basis.startswith(BASIS_ABOVE_TARGET)
         assert projection.charge_added_pct == 0.0
         assert projection.soc_at_charge_start == pytest.approx(95.0 - _pct(0.55 * 3))
 
@@ -133,12 +139,12 @@ class TestTheCharge:
         assert data.published_charge_window.text == "02:00 to 04:40"
         projection = data.sunrise_with_charge
         assert projection.charge_window == "02:00 to 08:00"
-        assert projection.basis == BASIS_RATE_LIMITED
+        assert projection.basis.startswith(BASIS_RATE_LIMITED)
         assert projection.soc == pytest.approx(66.0 - _pct(0.55 * 7) + _pct(1.0 * 6))
 
     def test_an_unknown_charge_rate_assumes_the_target(self):
         data = _data(EVENING, 66.0, rate_w=None)
-        assert data.sunrise_with_charge.basis == BASIS_RATE_UNKNOWN
+        assert data.sunrise_with_charge.basis.startswith(BASIS_RATE_UNKNOWN)
         assert data.sunrise_with_charge.soc == pytest.approx(90.0 - _pct(0.55 * 4))
 
     def test_a_window_across_midnight_before_it_opens(self):
@@ -183,7 +189,7 @@ def _path() -> list[tuple[float, bool]]:
     return rows
 
 
-def _series(*, carry_state: bool) -> list[tuple[datetime, float, float]]:
+def _series(*, carry_state: bool, load_profile=None) -> list[tuple[datetime, float, float]]:
     """(time, figure without a charge, figure with it) every 5 minutes from 19:00 to 08:00."""
     held_charge, held_sunrise, held_solar = HeldCharge(), HeldSunrise(), HeldSolarDay()
     path = _path()
@@ -196,6 +202,7 @@ def _series(*, carry_state: bool) -> list[tuple[datetime, float, float]]:
             soc,
             base_w=HEAVY_W,
             charging=charging,
+            load_profile=load_profile,
             held_charge=held_charge,
             held_sunrise=held_sunrise if carry_state else HeldSunrise(),
             held_solar=held_solar,
@@ -264,6 +271,70 @@ class TestStabilityThroughTheNight:
         """The figure that night survival reads stays on the floor while the charge runs."""
         overnight = [no_charge for now, no_charge, _ in paced if now < datetime(2026, 6, 16, 3, 0)]
         assert set(overnight) == {MIN_SOC}
+
+
+class TestThePerSlotLoadProfile:
+    """The figure with the charge reads the learned per-slot load, the one without stays flat."""
+
+    @pytest.fixture(scope="class")
+    def profiled(self):
+        return _data(EVENING, 66.0, load_profile=NIGHT_PROFILE)
+
+    def test_the_review_evening_reads_near_the_target(self, profiled):
+        assert 88.0 <= profiled.sunrise_with_charge.soc <= 90.0
+
+    def test_the_figure_without_a_charge_and_survival_stay_on_the_flat_load(self, profiled):
+        flat = _data(EVENING, 66.0)
+        assert profiled.estimated_soc_at_sunrise == flat.estimated_soc_at_sunrise == MIN_SOC
+        assert profiled.will_survive_night is flat.will_survive_night is False
+        assert profiled.survival_reason == flat.survival_reason
+
+    def test_the_basis_says_the_per_slot_profile_was_used(self, profiled):
+        assert profiled.sunrise_with_charge.basis.endswith(LOAD_NOTE_PER_SLOT)
+
+    def test_without_a_profile_the_flat_load_is_used_and_the_basis_says_so(self):
+        data = _data(EVENING, 66.0)
+        assert data.sunrise_with_charge.basis.endswith(LOAD_NOTE_FLAT)
+        assert data.sunrise_with_charge.soc == pytest.approx(90.0 - _pct(0.55 * 4))
+
+    @pytest.mark.parametrize("profile", [[1.0] * 47, [0.0] * 48, [-1.0] + [1.0] * 47])
+    def test_an_unusable_profile_falls_back_to_the_flat_load(self, profile):
+        data = _data(EVENING, 66.0, load_profile=profile)
+        assert data.sunrise_with_charge.basis.endswith(LOAD_NOTE_FLAT)
+        assert data.sunrise_with_charge.soc == pytest.approx(90.0 - _pct(0.55 * 4))
+
+    def test_a_skipped_night_is_the_flat_figure_whatever_the_profile(self):
+        data = _data(
+            EVENING, 66.0, override_skip_charge=True, override_charge_target=None,
+            load_profile=NIGHT_PROFILE,
+        )
+        assert data.sunrise_with_charge.soc == data.estimated_soc_at_sunrise
+        assert data.sunrise_with_charge.basis == BASIS_SKIPPED
+
+
+@pytest.fixture(scope="module")
+def paced_profiled():
+    return _series(carry_state=True, load_profile=NIGHT_PROFILE)
+
+
+class TestStabilityWithThePerSlotLoadProfile:
+    def test_the_figure_stays_near_the_target_until_the_window_is_over(self, paced_profiled):
+        planned = [w for now, _, w in paced_profiled if now < datetime(2026, 6, 16, 4, 0)]
+        assert min(planned) >= 80.0
+
+    def test_no_jump_over_15_points_before_sunrise(self, paced_profiled):
+        before_sunrise = [w for now, _, w in paced_profiled if now < SUNRISE]
+        assert max(_steps(before_sunrise)) <= 15.0
+
+    def test_no_jump_at_midnight(self, paced_profiled):
+        by_time = {now: w for now, _, w in paced_profiled}
+        midnight = datetime(2026, 6, 16, 0, 0)
+        around = [by_time[midnight + timedelta(minutes=m)] for m in range(-30, 35, STEP_MINUTES)]
+        assert max(_steps(around)) <= 15.0
+
+    def test_the_figure_without_a_charge_still_sits_on_the_floor_all_evening(self, paced_profiled):
+        evening = [n for now, n, _ in paced_profiled if now.hour >= 19]
+        assert evening and all(value == MIN_SOC for value in evening)
 
 
 class TestTheHoldForTheFigureWithTheCharge:

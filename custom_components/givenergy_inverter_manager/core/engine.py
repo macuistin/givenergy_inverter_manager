@@ -124,14 +124,19 @@ from .rules import (
     calculate_overnight_charge_target,
     decide_ev_charger_action,
     should_divert_to_immersion,
+    usable_slot_loads_kwh,
 )
 from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
 from .sunrise_charge import (
+    LOAD_NOTE_FLAT,
+    LOAD_NOTE_PER_SLOT,
     BatteryNow,
     PlannedCharge,
     SunriseWithCharge,
     flat_load,
     project_sunrise_with_charge,
+    slot_load,
+    with_load_note,
 )
 from .sunrise_hold import (
     HeldSunrise,
@@ -1356,7 +1361,11 @@ def _planned_charge(data: CoordinatorData, cycle: _Cycle) -> PlannedCharge:
 def _project_sunrise_with_charge(
     data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float, held: HeldSunrise
 ) -> None:
-    """The SoC at sunrise with the planned charge, on the load estimate night survival uses.
+    """The SoC at sunrise with the planned charge.
+
+    The load is the per-slot profile the charge simulation uses, scaled to the daily average,
+    or the flat average when there is no usable profile. The figure without a charge, which
+    night survival reads, always uses the flat average.
 
     The published figure moves at the battery's own pace, as the one without a charge does.
     Night survival reads the figure without a charge and does not read this one.
@@ -1368,8 +1377,11 @@ def _project_sunrise_with_charge(
         min_soc=float(data.battery_min_soc),
         soc_without_charge=data.estimated_soc_at_sunrise,
     )
-    projection = project_sunrise_with_charge(
-        battery, cycle.now, _planned_charge(data, cycle), flat_load(avg_daily_kwh / 24)
+    slots = usable_slot_loads_kwh(avg_daily_kwh, cycle.forecast.load_profile)
+    load = flat_load(avg_daily_kwh / 24) if slots is None else slot_load(slots)
+    projection = with_load_note(
+        project_sunrise_with_charge(battery, cycle.now, _planned_charge(data, cycle), load),
+        LOAD_NOTE_FLAT if slots is None else LOAD_NOTE_PER_SLOT,
     )
     paced = published_sunrise_soc(
         held,

@@ -24,10 +24,14 @@ from custom_components.givenergy_inverter_manager.core.sunrise_charge import (
     BASIS_RATE_UNKNOWN,
     BASIS_REACHES_TARGET,
     BASIS_SKIPPED,
+    LOAD_NOTE_FLAT,
+    LOAD_NOTE_PER_SLOT,
     BatteryNow,
     PlannedCharge,
     flat_load,
     project_sunrise_with_charge,
+    slot_load,
+    with_load_note,
 )
 
 CAPACITY_KWH = 9.5
@@ -295,3 +299,43 @@ def test_the_flat_load_is_the_same_every_hour():
     load = flat_load(0.6)
     assert load(0, 60) == pytest.approx(0.6)
     assert load(1000, 90) == pytest.approx(0.9)
+
+
+class TestSlotLoad:
+    def test_a_whole_slot_is_its_energy(self):
+        slots = [0.1 * (n + 1) for n in range(48)]
+        assert slot_load(slots)(60, 30) == pytest.approx(0.3)
+
+    def test_a_span_across_slots_is_the_sum_of_their_shares(self):
+        slots = [float(n) for n in range(48)]
+        # 00:15 to 01:15: half of slot 0, all of slot 1, half of slot 2.
+        assert slot_load(slots)(15, 60) == pytest.approx(0.0 * 0.5 + 1.0 + 2.0 * 0.5)
+
+    def test_it_wraps_at_midnight(self):
+        slots = [1.0] * 47 + [2.0]
+        assert slot_load(slots)(23 * 60 + 30, 60) == pytest.approx(2.0 + 1.0)
+
+    def test_a_start_past_midnight_wraps(self):
+        slots = [float(n) for n in range(48)]
+        assert slot_load(slots)(24 * 60 + 30, 30) == pytest.approx(1.0)
+
+    def test_a_flat_profile_matches_the_flat_load(self):
+        slots = [0.25] * 48
+        assert slot_load(slots)(1000, 345) == pytest.approx(flat_load(0.5)(1000, 345))
+
+    def test_the_projection_uses_the_profile_it_is_given(self):
+        quiet = [0.0] * 48
+        result = project_sunrise_with_charge(_battery(), _at(19), _plan(), slot_load(quiet))
+        assert result.soc_at_charge_start == 66.0
+        assert result.soc == pytest.approx(90.0)
+
+
+class TestLoadNote:
+    def test_a_charged_night_says_which_load_it_used(self):
+        result = project_sunrise_with_charge(_battery(), _at(19), _plan(), _flat())
+        assert with_load_note(result, LOAD_NOTE_PER_SLOT).basis.endswith(LOAD_NOTE_PER_SLOT)
+        assert with_load_note(result, LOAD_NOTE_FLAT).basis.endswith(LOAD_NOTE_FLAT)
+
+    def test_a_night_with_no_charge_is_left_as_it_is(self):
+        result = project_sunrise_with_charge(_battery(), _at(19), _plan(skipped=True), _flat())
+        assert with_load_note(result, LOAD_NOTE_PER_SLOT) == result

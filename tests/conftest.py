@@ -366,4 +366,5 @@ def _run(
         held_sunrise=kwargs.get("held_sunrise"),
         held_solar=kwargs.get("held_solar"),
         heat_log=kwargs.get("heat_log"),
+        load_profile=kwargs.get("load_profile"),
     )

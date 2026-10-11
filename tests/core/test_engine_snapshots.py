@@ -80,7 +80,8 @@ is pinned in tests/core/test_oil_schedule.py and tests/core/test_oil_schedule_en
 The sunrise_with_charge leaf was added for the Estimated SoC at Sunrise With the Planned Charge
 sensor. The fresh snapshot gained it as None and all 255 cases gained it, because every cycle
 projects the night. Nothing else moved, so estimated_soc_at_sunrise and the survival leaves are
-unchanged. The projection is pinned in tests/core/test_sunrise_charge.py and
+unchanged. The leaf was regenerated once more when it started reading the per-slot load profile and
+noting the load in its basis: 162 of the 255 cases moved, and only that leaf. The projection is pinned in tests/core/test_sunrise_charge.py and
 tests/core/test_sunrise_charge_engine.py.
 
 The immersion_planned_heating leaf was added for the planned heating sentence. The fresh snapshot

@@ -15,6 +15,10 @@ from conftest import PREFIX, Scenario
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
+from custom_components.givenergy_inverter_manager.core.sunrise_charge import (
+    LOAD_NOTE_FLAT,
+    LOAD_NOTE_PER_SLOT,
+)
 
 CHARGE_RATE = f"number.{PREFIX}_battery_charge_rate"
 
@@ -87,6 +91,8 @@ async def test_the_attributes_make_the_figure_obvious(hass, loaded_entry):
     assert re.fullmatch(r"02:00 to \d\d:\d\d", attributes["charge_window"])
     assert attributes["basis"] == data.sunrise_with_charge.basis
     assert isinstance(attributes["basis"], str) and attributes["basis"]
+    # A new install has no learned load profile yet, so the flat daily average is used.
+    assert attributes["basis"].endswith(LOAD_NOTE_FLAT)
 
 
 async def test_night_survival_is_still_judged_without_the_charge(hass, loaded_entry):
@@ -118,3 +124,24 @@ async def test_both_sensors_are_enabled_and_keep_their_unique_ids(hass, loaded_e
         assert entry.disabled_by is None
         assert entry.unique_id == f"{loaded_entry.entry_id}_{key}"
         assert state is not None
+
+
+async def test_a_learned_load_profile_lifts_the_figure_and_the_basis_says_so(hass, loaded_entry):
+    await _refresh(hass, loaded_entry)
+    _, flat = _sensor(hass, loaded_entry, "estimated_soc_at_sunrise_with_charge")
+    _, without_before = _sensor(hass, loaded_entry, "estimated_soc_at_sunrise")
+
+    # Two complete days that use almost nothing between 00:00 and 08:00.
+    quiet_night = [0.01] * 16 + [0.4] * 32
+    loaded_entry.runtime_data._acc.state.slot_load_history = [
+        {"date": f"2026-06-{day}", "slots": quiet_night, "coverage": 1.0} for day in (13, 14)
+    ]
+    await _refresh(hass, loaded_entry)
+
+    _, profiled = _sensor(hass, loaded_entry, "estimated_soc_at_sunrise_with_charge")
+    _, without_after = _sensor(hass, loaded_entry, "estimated_soc_at_sunrise")
+    assert profiled.attributes["basis"].endswith(LOAD_NOTE_PER_SLOT)
+    assert float(profiled.state) > float(flat.state)
+    assert 85.0 <= float(profiled.state) <= 90.0
+    # The figure night survival reads does not use the profile.
+    assert without_after.state == without_before.state

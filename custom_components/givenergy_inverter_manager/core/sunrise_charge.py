@@ -29,7 +29,7 @@ Pure Python, no Home Assistant imports.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, time
 
 from ..const import SOLAR_SUNRISE_HOUR
@@ -52,9 +52,30 @@ BASIS_RATE_UNKNOWN = "The charge rate is not known, so the battery is assumed to
 BASIS_ABOVE_TARGET = "The battery is already at the target when the window opens, so none is added"
 
 
+LOAD_NOTE_PER_SLOT = "Load: the per-slot profile."
+LOAD_NOTE_FLAT = "Load: the flat daily average, as there is no per-slot profile yet."
+
+_SLOT_MINUTES = _MINUTES_PER_DAY // 48
+
+
 def flat_load(hourly_kwh: float) -> LoadModel:
     """The same load every hour, as night survival uses it."""
     return lambda _from_minute, minutes: hourly_kwh * minutes / 60
+
+
+def slot_load(slots_kwh: list[float]) -> LoadModel:
+    """The load of 48 half hour slots, the first starting at midnight, wrapping at midnight."""
+
+    def used(from_minute: float, minutes: float) -> float:
+        total, position, left = 0.0, from_minute % _MINUTES_PER_DAY, minutes
+        while left > 1e-9:
+            to_boundary = _SLOT_MINUTES - position % _SLOT_MINUTES
+            span = min(left, to_boundary)
+            total += slots_kwh[int(position // _SLOT_MINUTES) % 48] * span / _SLOT_MINUTES
+            position, left = (position + span) % _MINUTES_PER_DAY, left - span
+        return total
+
+    return used
 
 
 @dataclass(frozen=True)
@@ -208,3 +229,14 @@ def project_sunrise_with_charge(
         charge_window=window.text,
         basis=basis,
     )
+
+
+def with_load_note(projection: SunriseWithCharge, note: str) -> SunriseWithCharge:
+    """The projection with its basis saying which load it used (LOAD_NOTE_*).
+
+    A night with no charge in it is the figure without a charge, which always reads the flat
+    load, so it is left as it is.
+    """
+    if projection.charge_window is None:
+        return projection
+    return replace(projection, basis=f"{projection.basis}. {note}")
