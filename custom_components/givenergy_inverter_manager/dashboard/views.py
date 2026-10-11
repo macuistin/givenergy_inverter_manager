@@ -62,16 +62,9 @@ from .cards import (
     toggle_tile,
     view_config,
 )
-from .charts import (
-    ImmersionEntities,
-    apex_immersion_chart,
-    apex_solar_days_chart,
-    builtin_immersion_chart,
-    flow_card,
-    flow_fallback,
-)
+from .charts import ImmersionEntities, builtin_immersion_chart, flow_card, flow_fallback
 from .devices import Devices, with_visibility
-from .hacs import APEX_CARD, POWER_FLOW_CARD, HacsCards
+from .hacs import POWER_FLOW_CARD, HacsCards
 from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
     MANAGED_HELP,
@@ -105,13 +98,11 @@ SUB_BATTERY = "battery-detail"
 SUB_SETTINGS = "settings"
 TABS = frozenset({TAB_POWER_FLOW, TAB_TODAY, TAB_BILL, TAB_BATTERY})
 
-# How far back the new charts reach, and how tall they are: grid rows for a built-in graph,
-# pixels for an apexcharts-card chart. A bill period is a calendar month, so 31 days always
-# holds the one in progress. The solar chart reads recorder history, kept 10 days by default.
+# How far back the charts reach, and how tall they are in grid rows. A bill period is a
+# calendar month, so 31 days always holds the one in progress.
 _BILL_COST_DAYS = 31
 _SOLAR_DAYS = 7
 _CHART_ROWS = 5
-_CHART_PIXELS = 300
 
 # The rate sensors report a bare currency amount, and their unit stays that for the long-term
 # statistics. So the tile name says what the amount is for.
@@ -503,24 +494,17 @@ class Builder:
 
     # -- Immersion sub-view --
 
-    def _immersion_chart(self, entities: ImmersionEntities, device: Device) -> dict | None:
-        """An immersion chart in apexcharts-card, or a built-in card when it is not installed.
-
-        Only a device that exists makes the file ask for apexcharts-card. A chart that waits
-        for a device that is not there yet still picks its card, but adds no note about it.
-        """
-        if device in self.devices.present:
-            use_apex = self.cards.use(APEX_CARD)
-        else:
-            use_apex = self.cards.installed(APEX_CARD)
-        build = apex_immersion_chart if use_apex else builtin_immersion_chart
-        return build(entities)
+    def _heater_tile(self) -> dict | None:
+        """The heater's power now: its rated watts while it is on, 0 while it is off."""
+        return tile_card(
+            self.immersion("immersion_power"), "Heater power", color=IMMERSION, icon="mdi:flash"
+        )
 
     def _temperature_card(self, shown: frozenset[Device]) -> dict | None:
         """The water temperature chart.
 
         With the thermostat (the switch and the sensor together) it adds the target and minimum
-        lines, and the heater shaded while it is on.
+        lines, and the heater's power as a line.
         """
         both = Device.IMMERSION_THERMOSTAT in shown
         entities = ImmersionEntities(
@@ -529,26 +513,33 @@ class Builder:
             self.thermostat("immersion_min_temp") if both else None,
             self.immersion("immersion_power") if both else None,
         )
-        return self._immersion_chart(entities, Device.IMMERSION_SENSOR)
+        return builtin_immersion_chart(entities)
 
     def _water_temperature(self) -> dict | None:
-        """The water temperature chart, while there is a sensor. Not drawn without one."""
+        """The water temperature chart, while there is a sensor. Not drawn without one.
+
+        With the switch as well, a tile above it says whether the heater is on.
+        """
         cards = self.devices.variants((Device.IMMERSION_THERMOSTAT,), self._temperature_card)
         return group(
             heading_card("Water temperature", "mdi:thermometer-water"),
-            [self.devices.show_with(card, Device.IMMERSION_SENSOR) for card in cards],
+            [
+                self.devices.show_with(
+                    self._heater_tile(), Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR
+                ),
+                *[self.devices.show_with(card, Device.IMMERSION_SENSOR) for card in cards],
+            ],
         )
 
     def _heater_on_off(self) -> dict | None:
         """The heater on or off, for a switch with no temperature sensor.
 
-        With a sensor the temperature chart shades the heater, so this section hides itself.
+        With a sensor the water temperature section carries the heater, so this one hides itself.
         """
         entities = ImmersionEntities(None, None, None, self.immersion("immersion_power"))
-        chart = self._immersion_chart(entities, Device.IMMERSION_SWITCH)
         return group(
             heading_card("Heater on or off", "mdi:flash"),
-            [chart],
+            [self._heater_tile(), builtin_immersion_chart(entities)],
             visibility=[
                 *self.devices.visible_with(Device.IMMERSION_SWITCH),
                 *self.devices.visible_without(Device.IMMERSION_SENSOR),
@@ -558,8 +549,8 @@ class Builder:
     def immersion_sections(self) -> list:
         """Sub-view: the water temperature, why the heater is on or off, and what it used.
 
-        Each section follows its own device. A sensor with a switch shades the heater on the
-        temperature chart. A switch with no sensor gets a small heater chart instead, and a
+        Each section follows its own device. A sensor with a switch adds the heater to the
+        temperature section. A switch with no sensor gets a small heater chart instead, and a
         sensor with no switch shows no heater or reason.
         """
         switch = Device.IMMERSION_SWITCH
@@ -890,21 +881,15 @@ class Builder:
         ]
 
     def _solar_days(self) -> dict | None:
-        """The forecast beside what was generated, for each of the last 7 days.
+        """What was generated on each of the last 7 days, with a forecast sensor set.
 
-        Built with a forecast sensor set. Only apexcharts-card can plot the forecast, which
-        keeps no long-term statistics, so without it the chart shows what was generated.
+        The forecast sensor keeps no long-term statistics, so only the generated energy is
+        plotted. The Against the forecast section above holds the forecast figures.
         """
         actual = self.entity("solar_today")
-        forecast = self.entity("solar_forecast_raw_today")
-        if not (self.has_forecast and actual and forecast):
+        if not (self.has_forecast and actual and self.entity("solar_forecast_raw_today")):
             return None
-        if self.cards.use(APEX_CARD):
-            card = apex_solar_days_chart(forecast, actual, _SOLAR_DAYS, _CHART_PIXELS)
-        else:
-            card = statistics_graph(
-                [entity_row(actual, "Generated")], "day", _SOLAR_DAYS, _CHART_ROWS
-            )
+        card = statistics_graph([entity_row(actual, "Generated")], "day", _SOLAR_DAYS, _CHART_ROWS)
         return group(heading_card(f"Last {_SOLAR_DAYS} days", "mdi:calendar-week"), [card])
 
     # -- Bill --

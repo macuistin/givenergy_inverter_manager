@@ -393,7 +393,6 @@ def _guarded_by(conditions: list[dict], device_name: str) -> bool:
 # Cards that list many entities cannot hide one row. They are built once for each
 # combination of devices, and the variants test below covers them.
 _LISTS = ("custom:power-flow-card-plus", "entities", "statistics-graph", "history-graph")
-_CHARTS = ("custom:apexcharts-card",)
 
 
 def test_every_card_that_names_a_device_entity_is_hidden_without_that_device():
@@ -404,7 +403,7 @@ def test_every_card_that_names_a_device_entity_is_hidden_without_that_device():
         for section in view["sections"]:
             cards = _cards_with_their_conditions(section["cards"], section.get("visibility", []))
             for card, conditions in cards:
-                if card["type"] in (*_LISTS, *_CHARTS):
+                if card["type"] in _LISTS:
                     continue
                 for entity_id in _device_entities_named_by(card):
                     device = DEVICE_ENTITY_IDS[entity_id]
@@ -414,13 +413,13 @@ def test_every_card_that_names_a_device_entity_is_hidden_without_that_device():
 
 
 def test_every_list_card_that_names_a_device_entity_carries_a_condition():
-    """The cards that list entities, and the charts, are shown only for the right devices."""
+    """The cards that list entities are shown only for the right devices."""
     config = generated_for(ev=True, switch=True, sensor=True)
     for view in config["views"]:
         for section in view["sections"]:
             cards = _cards_with_their_conditions(section["cards"], section.get("visibility", []))
             for card, conditions in cards:
-                if card["type"] in (*_LISTS, *_CHARTS) and _device_entities_named_by(card):
+                if card["type"] in _LISTS and _device_entities_named_by(card):
                     assert conditions, (view["path"], card["type"])
 
 

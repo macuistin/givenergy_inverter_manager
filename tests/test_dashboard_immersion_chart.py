@@ -1,9 +1,9 @@
 """
 The immersion chart for every combination of the switch and the temperature sensor.
 
-The heater's power is a fixed number, so the dashboard shows only whether it is on: a pale band
-on the water temperature chart. A switch with no sensor gets a small chart of the band alone.
-There is no separate heater power chart.
+The chart is a built-in history graph, so it needs no custom card. It draws the heater's power
+as a line beside the temperatures, and a tile above it says whether the heater is on. A switch
+with no sensor gets a small chart of the heater alone and its own tile.
 """
 
 from __future__ import annotations
@@ -13,28 +13,12 @@ import itertools
 import pytest
 
 from tests.dashboard_support import default_entity_ids, view_cards
-from tests.dashboard_visibility import generated_for, seen_for
+from tests.dashboard_visibility import seen_for
 
 IDS = default_entity_ids()
 SWITCH_AND_SENSOR = [(False, True, True), (True, True, True)]
 COMBINATIONS = list(itertools.product([False, True], repeat=3))
-APEX = "custom:apexcharts-card"
-_NO_APEX = ["/hacsfiles/power-flow-card-plus/power-flow-card-plus.js"]
-
-HEATER_SERIES = {
-    "entity": IDS["immersion_power"],
-    "name": "Heater on",
-    "type": "area",
-    "curve": "stepline",
-    "color": "#ff8a80",
-    "opacity": 0.15,
-    "stroke_width": 0,
-    "yaxis_id": "heater",
-    "transform": "return x > 0 ? 1 : 0;",
-    "show": {"in_header": False, "legend_value": False},
-}
-TEMP_AXIS = {"id": "temp", "decimals": 0}
-HEATER_AXIS = {"id": "heater", "min": 0, "max": 1, "decimals": 0, "show": False}
+_APEX_URL = "/hacsfiles/apexcharts-card/apexcharts-card.js"
 
 
 def _label(combination: tuple[bool, bool, bool]) -> str:
@@ -48,7 +32,7 @@ def _immersion(config: dict) -> dict:
 
 
 def _charts(config: dict) -> list[dict]:
-    return [c for c in view_cards(_immersion(config)) if c["type"] == APEX]
+    return [c for c in view_cards(_immersion(config)) if c["type"] == "history-graph"]
 
 
 def _headings(config: dict) -> list[str]:
@@ -56,7 +40,15 @@ def _headings(config: dict) -> list[str]:
 
 
 def _plotted(config: dict) -> list[str]:
-    return [s["entity"] for chart in _charts(config) for s in chart["series"]]
+    return [row["entity"] for chart in _charts(config) for row in chart["entities"]]
+
+
+def _heater_tiles(config: dict) -> list[dict]:
+    return [
+        c
+        for c in view_cards(_immersion(config))
+        if c["type"] == "tile" and c["entity"] == IDS["immersion_power"]
+    ]
 
 
 @pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
@@ -69,11 +61,11 @@ class TestEveryCombination:
         _, switch, sensor = combination
         assert len(_charts(self._seen(combination))) == (1 if switch or sensor else 0)
 
-    def test_the_heater_is_a_series_only_with_the_switch(self, combination):
+    def test_the_heater_is_a_row_only_with_the_switch(self, combination):
         _, switch, _ = combination
         assert (IDS["immersion_power"] in _plotted(self._seen(combination))) == switch
 
-    def test_the_temperature_is_a_series_only_with_the_sensor(self, combination):
+    def test_the_temperature_is_a_row_only_with_the_sensor(self, combination):
         _, _, sensor = combination
         assert (IDS["immersion_water_temperature"] in _plotted(self._seen(combination))) == sensor
 
@@ -96,6 +88,10 @@ class TestEveryCombination:
         _, _, sensor = combination
         assert ("Water temperature" in _headings(self._seen(combination))) == sensor
 
+    def test_a_heater_tile_is_shown_exactly_with_the_switch(self, combination):
+        _, switch, _ = combination
+        assert len(_heater_tiles(self._seen(combination))) == (1 if switch else 0)
+
 
 class TestTheTemperatureChartWithTheHeater:
     @pytest.fixture(params=SWITCH_AND_SENSOR, ids=_label)
@@ -104,111 +100,58 @@ class TestTheTemperatureChartWithTheHeater:
         (chart,) = _charts(seen_for(ev=ev, switch=switch, sensor=sensor))
         return chart
 
-    def test_the_series_are_the_temperatures_then_the_heater(self, chart):
-        assert [s["name"] for s in chart["series"]] == ["Water", "Target", "Minimum", "Heater on"]
+    def test_the_rows_are_the_temperatures_then_the_heater(self, chart):
+        assert [row["name"] for row in chart["entities"]] == [
+            "Water",
+            "Target",
+            "Minimum",
+            "Heater power",
+        ]
+        assert chart["entities"][-1]["entity"] == IDS["immersion_power"]
 
-    def test_the_heater_series_is_exactly_the_pale_stepped_band(self, chart):
-        assert chart["series"][-1] == HEATER_SERIES
-
-    def test_every_temperature_series_is_smooth_on_the_temperature_axis(self, chart):
-        temperatures = chart["series"][:-1]
-        assert {s["curve"] for s in temperatures} == {"smooth"}
-        assert {s["yaxis_id"] for s in temperatures} == {"temp"}
-
-    def test_each_series_sets_its_own_line_width(self, chart):
-        widths = {s["name"]: s["stroke_width"] for s in chart["series"]}
-        assert widths == {"Water": 2, "Target": 1, "Minimum": 1, "Heater on": 0}
-
-    def test_the_axes_are_the_temperature_and_the_hidden_on_off_axis(self, chart):
-        assert chart["yaxis"] == [TEMP_AXIS, HEATER_AXIS]
-
-    def test_the_chart_spans_12_hours_with_no_header_at_full_width(self, chart):
-        assert chart["graph_span"] == "12h"
-        assert chart["header"] == {"show": False}
-        assert chart["grid_options"] == {"columns": "full"}
+    def test_the_chart_spans_12_hours_at_full_width(self, chart):
+        assert chart["hours_to_show"] == 12
+        assert chart["grid_options"]["columns"] == "full"
 
 
 class TestTheTemperatureChartWithoutTheHeater:
-    @pytest.fixture
-    def chart(self) -> dict:
+    def test_it_draws_the_water_only(self):
         (chart,) = _charts(seen_for(sensor=True))
-        return chart
-
-    def test_it_draws_the_water_only(self, chart):
-        assert [s["name"] for s in chart["series"]] == ["Water"]
-        assert chart["series"][0]["yaxis_id"] == "temp"
-        assert chart["series"][0]["curve"] == "smooth"
-
-    def test_it_has_no_heater_axis_and_no_heater_entity(self, chart):
-        assert chart["yaxis"] == [TEMP_AXIS]
+        assert [row["name"] for row in chart["entities"]] == ["Water"]
         assert IDS["immersion_power"] not in str(chart)
 
 
 class TestTheHeaterChartWithoutASensor:
-    @pytest.fixture
-    def chart(self) -> dict:
+    def test_it_holds_the_heater_row_only(self):
         (chart,) = _charts(seen_for(switch=True))
-        return chart
-
-    def test_it_holds_the_on_off_band_only(self, chart):
-        assert chart["series"] == [HEATER_SERIES]
-        assert chart["yaxis"] == [HEATER_AXIS]
-
-
-class TestNoGlobalStroke:
-    """A global stroke curve or width overrides each series' own, so the band would ramp or show a line."""
-
-    def test_no_generated_apex_chart_sets_apex_config_stroke(self):
-        charts = [
-            card
-            for ev, switch, sensor in COMBINATIONS
-            for view in generated_for(ev=ev, switch=switch, sensor=sensor)["views"]
-            for card in view_cards(view)
-            if card["type"] == APEX
+        assert [(r["name"], r["entity"]) for r in chart["entities"]] == [
+            ("Heater power", IDS["immersion_power"])
         ]
-        assert charts
-        for chart in charts:
-            assert "stroke" not in chart["apex_config"]
-
-    def test_apex_config_stroke_has_neither_curve_nor_width(self):
-        config = generated_for(ev=True, switch=True, sensor=True)
-        charts = [c for v in config["views"] for c in view_cards(v) if c["type"] == APEX]
-        assert charts
-        for chart in charts:
-            stroke = chart["apex_config"].get("stroke", {})
-            assert "curve" not in stroke
-            assert "width" not in stroke
 
 
-class TestWithoutApexchartsCard:
-    """The built-in history graph draws the heater's power as a line, not as a band."""
+class TestTheHeaterTile:
+    def test_it_sits_in_the_water_section_with_both_devices(self):
+        config = seen_for(switch=True, sensor=True)
+        cards = view_cards(_immersion(config))
+        heading = next(i for i, c in enumerate(cards) if c.get("heading") == "Water temperature")
+        tile = _heater_tiles(config)[0]
+        assert cards.index(tile) == heading + 1
 
-    @staticmethod
-    def _graphs(**devices) -> list[dict]:
-        config = seen_for(resources=_NO_APEX, **devices)
-        return [c for c in view_cards(_immersion(config)) if c["type"] == "history-graph"]
+    def test_it_sits_in_the_heater_section_with_the_switch_alone(self):
+        config = seen_for(switch=True)
+        cards = view_cards(_immersion(config))
+        heading = next(i for i, c in enumerate(cards) if c.get("heading") == "Heater on or off")
+        assert cards.index(_heater_tiles(config)[0]) == heading + 1
 
-    @staticmethod
-    def _rows(graph: dict) -> list[tuple[str, str]]:
-        return [(r["name"], r["entity"]) for r in graph["entities"]]
+    def test_it_does_nothing_when_tapped_and_shows_the_heater_power(self):
+        (tile,) = _heater_tiles(seen_for(switch=True))
+        assert tile["name"] == "Heater power"
+        assert tile["entity"] == IDS["immersion_power"]
+        assert "features" not in tile
 
-    def test_a_sensor_and_a_switch_give_one_graph_with_the_heater_row(self):
-        (graph,) = self._graphs(switch=True, sensor=True)
-        rows = self._rows(graph)
-        assert [name for name, _ in rows] == ["Water", "Target", "Minimum", "Heater power"]
-        assert rows[-1][1] == IDS["immersion_power"]
 
-    def test_a_sensor_alone_gives_the_water_row_only(self):
-        (graph,) = self._graphs(sensor=True)
-        assert [name for name, _ in self._rows(graph)] == ["Water"]
-
-    def test_a_switch_alone_gives_the_heater_row_only(self):
-        (graph,) = self._graphs(switch=True)
-        assert [name for name, _ in self._rows(graph)] == ["Heater power"]
-
-    def test_no_device_gives_no_graph(self):
-        assert self._graphs() == []
-
-    def test_no_energy_statistics_graph_is_left(self):
-        config = seen_for(resources=_NO_APEX, switch=True, sensor=True)
-        assert not [c for c in view_cards(_immersion(config)) if c["type"] == "statistics-graph"]
+@pytest.mark.parametrize("resources", [None, [], [_APEX_URL]], ids=["unknown", "none", "apex"])
+def test_the_chart_is_the_same_whatever_custom_cards_are_installed(resources):
+    shown = seen_for(resources=resources, switch=True, sensor=True)
+    assert _charts(shown) == _charts(seen_for(switch=True, sensor=True))
+    assert "apexcharts" not in str(shown)

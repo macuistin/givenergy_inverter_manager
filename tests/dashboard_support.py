@@ -51,6 +51,11 @@ _OTHER_ENTITIES = _switch_and_number_names()
 
 ALL_DEVICES = frozenset(Device)
 
+# The Lovelace resources of an install that has power-flow-card-plus from HACS. The dashboard
+# uses that card only when it is seen to be installed, so tests that look at the card start
+# from this. A test that wants no resources, or unreadable ones, passes [] or None.
+POWER_FLOW_RESOURCES = ["/hacsfiles/power-flow-card-plus/power-flow-card-plus.js"]
+
 MINIMAL_CONFIG: dict = {}
 
 FULL_CONFIG: dict = {
@@ -225,7 +230,7 @@ def dashboard_text(
     config: dict | None = None,
     registry: FakeRegistry | None = None,
     *,
-    resources: list[str] | None = None,
+    resources: list[str] | None = POWER_FLOW_RESOURCES,
     admin_ids: tuple[str, ...] = (ADMIN_ID,),
     is_admin: bool = True,
     ev_brand: str | None = "myenergi",
@@ -245,7 +250,7 @@ def dashboard_dict(
     config: dict | None = None,
     registry: FakeRegistry | None = None,
     *,
-    resources: list[str] | None = None,
+    resources: list[str] | None = POWER_FLOW_RESOURCES,
     admin_ids: tuple[str, ...] = (ADMIN_ID,),
     is_admin: bool = True,
     ev_brand: str | None = "myenergi",

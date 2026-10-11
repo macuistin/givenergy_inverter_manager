@@ -138,8 +138,8 @@ async def test_features_from_the_config_entry_show_up(hass, loaded_entry):
     assert "inverter_temperature" in text
 
 
-async def test_the_heater_is_shaded_on_the_water_temperature_chart(hass, loaded_entry):
-    """With a switch and a sensor, one chart draws the registered entities and the heater band."""
+async def test_the_heater_is_a_row_of_the_water_temperature_chart(hass, loaded_entry):
+    """With a switch and a sensor, one chart draws the registered entities and the heater."""
     text, _ = await _generate(hass)
     registry = er.async_get(hass)
     entry_id = loaded_entry.entry_id
@@ -153,14 +153,12 @@ async def test_the_heater_is_shaded_on_the_water_temperature_chart(hass, loaded_
         )
     ]
     view = next(v for v in _shown(hass, text)["views"] if v["path"] == "immersion")
-    charts = [c for c in view_cards(view) if c["type"] == "custom:apexcharts-card"]
+    charts = [c for c in view_cards(view) if c["type"] == "history-graph"]
     headings = [c["heading"] for c in view_cards(view) if c["type"] == "heading"]
 
     assert len(charts) == 1
-    assert [s["entity"] for s in charts[0]["series"]] == real
-    assert charts[0]["series"][-1]["name"] == "Heater on"
-    assert charts[0]["series"][-1]["curve"] == "stepline"
-    assert "stroke" not in charts[0]["apex_config"]
+    assert [row["entity"] for row in charts[0]["entities"]] == real
+    assert charts[0]["entities"][-1]["name"] == "Heater power"
     assert "Heater power" not in headings
     assert "Heater on or off" not in headings
 
@@ -275,7 +273,7 @@ async def test_generated_file_falls_back_when_cards_are_not_registered(hass, loa
     assert "not installed" in text[: text.index("views:")]
 
 
-async def test_generated_file_keeps_the_cards_that_are_registered(hass, loaded_entry):
+async def test_generated_file_keeps_the_power_flow_card_that_is_registered(hass, loaded_entry):
     resources = await _setup_lovelace(hass)
     for url in (
         "/hacsfiles/power-flow-card-plus/power-flow-card-plus.js",
@@ -284,8 +282,15 @@ async def test_generated_file_keeps_the_cards_that_are_registered(hass, loaded_e
         await resources.async_create_item({"res_type": "module", "url": url})
     text, _ = await _generate(hass)
     assert "custom:power-flow-card-plus" in text
-    assert "custom:apexcharts-card" in text
+    assert "apexcharts" not in text
     assert "not installed" not in text
+
+
+async def test_generated_file_uses_core_cards_when_lovelace_is_not_loaded(hass, loaded_entry):
+    """No readable resource list means the card cannot be seen, so the core card is used."""
+    assert "lovelace" not in hass.data
+    text, _ = await _generate(hass)
+    assert "custom:" not in text
 
 
 async def test_settings_are_visible_to_the_real_administrators_only(hass, loaded_entry):
@@ -336,6 +341,11 @@ async def test_live_dashboard_matches_the_docs_example(hass, loaded_entry_with_c
     await hass.async_block_till_done()
     assert loaded_entry.state is ConfigEntryState.LOADED
     await discover_the_charger(hass, loaded_entry)
+    # The example uses power-flow-card-plus, which is drawn only when it is seen to be installed.
+    resources = await _setup_lovelace(hass)
+    await resources.async_create_item(
+        {"res_type": "module", "url": "/hacsfiles/power-flow-card-plus/power-flow-card-plus.js"}
+    )
 
     text, _ = await _generate(hass)
 

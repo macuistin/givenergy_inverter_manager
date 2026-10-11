@@ -246,25 +246,25 @@ class TestPowerFlowTabChanges:
         )
 
     def test_immersion_section_absent_without_temperature_sensor(self):
-        """A switch but no temperature sensor gives the rows but no apexcharts charts."""
+        """A switch but no temperature sensor gives the rows and a heater chart, no water chart."""
         from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_SWITCH
 
         text = shown_text({CONF_IMMERSION_SWITCH: "switch.immersion_heater"}, ev_brand=None)
         immersion = _cards(text, "immersion")
-        assert not [c for c in immersion if c["type"] == "history-graph"]
+        charts = [c for c in immersion if c["type"] == "history-graph"]
+        assert [r["name"] for c in charts for r in c["entities"]] == ["Heater power"]
         assert eid("immersion_water_temperature") not in text
         assert eid("immersion_today") in text
 
     def test_immersion_section_present_when_configured(self):
-        """With a temperature sensor and a switch, the sub-view has one apexcharts chart."""
+        """With a temperature sensor and a switch, the sub-view has one built-in history graph."""
         yaml_text = shown_text()
 
-        assert "apexcharts-card" in yaml_text, "Immersion section must use apexcharts-card"
-        assert "graph_span: 12h" in yaml_text, "Must show 12 hours of history"
+        assert "apexcharts" not in yaml_text
         assert eid("immersion_water_temperature") in yaml_text
-        charts = [c for c in _cards(yaml_text, "immersion") if c["type"].startswith("custom:")]
+        charts = [c for c in _cards(yaml_text, "immersion") if c["type"] == "history-graph"]
         assert len(charts) == 1
-        assert charts[0]["header"] == {"show": False}
+        assert charts[0]["hours_to_show"] == 12, "Must show 12 hours of history"
 
 
 class TestDashboardImprovements:
@@ -399,9 +399,10 @@ class TestSolarForecastCards:
         assert tiles["% of forecast"] == eid("solar_actual_vs_forecast_pct")
         assert tiles["Plan forecast"] == eid("solar_forecast_kwh_today")
 
-    def test_solar_graph_in_today_view_uses_statistics(self):
+    def test_solar_graphs_in_the_solar_view_use_statistics(self):
         graphs = [c for c in _cards(_build(), "solar") if c.get("type") == "statistics-graph"]
-        assert [[r["entity"] for r in g["entities"]] for g in graphs] == [[eid("solar_today")]]
+        assert [g["period"] for g in graphs] == ["hour", "day"]
+        assert [[r["entity"] for r in g["entities"]] for g in graphs] == [[eid("solar_today")]] * 2
 
 
 class TestSoCHistoryChart:
@@ -427,7 +428,7 @@ class TestYamlSerialisation:
         assert yaml.safe_load(_build()) == self._dict()
 
     def test_no_anchors_or_aliases(self):
-        """Shared sub-dicts (the apex config) must be written out, not aliased."""
+        """Shared sub-dicts (the grid options) must be written out, not aliased."""
         import re
 
         assert not re.search(r"[&*]id\d+", _build())
@@ -933,9 +934,7 @@ class TestStatisticsGraphs:
             for c in _cards(shown_text(), path)
             if c["type"] == "statistics-graph"
         ]
-        assert [g["period"] for g in graphs] == ["hour", "day"] or [
-            g["period"] for g in graphs
-        ] == ["day", "hour"]
+        assert sorted(g["period"] for g in graphs) == ["day", "day", "hour"]
         for g in graphs:
             assert g["stat_types"] == ["change"]
             assert g["chart_type"] == "bar"
@@ -1064,13 +1063,19 @@ class TestMissingHacsCards:
     def _shown(self, resources) -> str:
         return shown_text(resources=resources)
 
-    def test_unknown_resources_keep_the_custom_cards(self):
+    def test_unknown_resources_use_the_built_in_cards(self):
+        """The custom card is used only when it is seen to be installed."""
         types = self._types(None)
-        assert {"custom:power-flow-card-plus", "custom:apexcharts-card"} <= types
+        assert "custom:power-flow-card-plus" not in types
+        assert not {t for t in types if t.startswith("custom:")}
 
-    def test_both_installed_keep_the_custom_cards(self):
+    def test_the_power_flow_card_is_used_when_its_resource_is_registered(self):
+        assert "custom:power-flow-card-plus" in self._types([_PFC])
+
+    def test_apexcharts_card_is_never_used_even_when_installed(self):
         types = self._types([_PFC, _APEX])
-        assert {"custom:power-flow-card-plus", "custom:apexcharts-card"} <= types
+        assert "custom:power-flow-card-plus" in types
+        assert "custom:apexcharts-card" not in types
 
     def test_no_resources_means_no_custom_cards(self):
         types = self._types([])
@@ -1091,7 +1096,7 @@ class TestMissingHacsCards:
         assert eid("ev_power") in rows
         assert eid("immersion_power") in rows
 
-    def test_immersion_charts_fall_back_to_built_in_cards(self):
+    def test_immersion_chart_is_a_built_in_card(self):
         text = self._shown([_PFC])
         assert "custom:apexcharts-card" not in text
         cards = _cards(text, "immersion")
@@ -1111,16 +1116,11 @@ class TestMissingHacsCards:
         header = self._text([])
         header = header[: header.index("views:")]
         assert "power-flow-card-plus" in header
-        assert "apexcharts-card" in header
         assert "not installed" in header
 
     def test_header_has_no_note_when_cards_are_present(self):
         header = self._text([_PFC, _APEX])
         assert "not installed" not in header[: header.index("views:")]
-
-    def test_no_apex_note_without_an_immersion_sensor(self):
-        text = dashboard_text(MINIMAL_CONFIG, resources=[_PFC], ev_brand=None)
-        assert "not installed" not in text[: text.index("views:")]
 
     def test_fallback_dashboard_references_only_usable_entities(self):
         assert _referenced(self._text([])) <= set(default_entity_ids().values())
@@ -1256,12 +1256,11 @@ class TestSubViews:
         ]
         assert len(bars) == 2  # the Now section and the Battery tab
 
-    def test_the_heater_is_a_stepped_band_on_the_temperature_chart(self):
-        """The sensor only updates on change, so a smooth line would draw false ramps."""
-        charts = [c for c in _cards(_build(), "immersion") if c["type"] == "custom:apexcharts-card"]
-        heater = [s for c in charts for s in c["series"] if s["entity"] == eid("immersion_power")]
+    def test_the_heater_is_a_row_of_the_temperature_chart(self):
+        """The built-in history graph steps between values, so it draws no false ramps."""
+        charts = [c for c in _cards(_build(), "immersion") if c["type"] == "history-graph"]
+        heater = [r for c in charts for r in c["entities"] if r["entity"] == eid("immersion_power")]
         assert heater
-        assert {s["curve"] for s in heater} == {"stepline"}
         assert "Immersion Power Today" not in yaml.dump(charts)
 
     def test_no_immersion_or_ev_view_is_shown_without_the_devices(self):
@@ -1362,7 +1361,7 @@ class TestSectionsLayout:
         graphs = [
             c
             for c in all_cards(self._views())
-            if c["type"] in {"history-graph", "statistics-graph", "custom:apexcharts-card"}
+            if c["type"] in {"history-graph", "statistics-graph"}
             or c["type"].startswith("custom:power-flow")
         ]
         assert graphs

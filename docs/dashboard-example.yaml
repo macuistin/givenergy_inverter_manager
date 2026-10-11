@@ -3,8 +3,6 @@
 #
 # The live power flow requires power-flow-card-plus from HACS:
 #   https://github.com/flixlix/power-flow-card-plus
-# The immersion and solar forecast charts require apexcharts-card from HACS:
-#   https://github.com/RomRider/apexcharts-card
 # All other views use only built-in HA cards.
 #
 # To use: Settings → Dashboards → new blank dashboard
@@ -907,37 +905,28 @@ views:
       heading: Water temperature
       heading_style: title
       icon: mdi:thermometer-water
-    - type: custom:apexcharts-card
-      header:
-        show: false
-      graph_span: 12h
-      yaxis:
-      - id: temp
-        decimals: 0
-      apex_config:
-        chart:
-          height: 180
-          zoom:
-            enabled: false
-        tooltip:
-          shared: true
-          followCursor: true
-        markers:
-          size: 0
-          hover:
-            size: 5
-        legend:
-          show: true
-          position: bottom
-      series:
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_immersion_heater_power
+      name: Heater power
+      icon: mdi:flash
+      color: orange
+      grid_options:
+        columns: 6
+      visibility:
+      - condition: state
+        entity: switch.givenergy_inverter_manager_immersion_heater_managed
+        state_not: unavailable
+      - condition: state
+        entity: sensor.givenergy_inverter_manager_immersion_water_temperature
+        state_not: unavailable
+    - type: history-graph
+      entities:
       - entity: sensor.givenergy_inverter_manager_immersion_water_temperature
         name: Water
-        color: '#03a9f4'
-        stroke_width: 2
-        curve: smooth
-        yaxis_id: temp
+      hours_to_show: 12
       grid_options:
         columns: full
+        rows: 4
       visibility:
       - condition: state
         entity: number.givenergy_inverter_manager_immersion_target_temperature
@@ -945,66 +934,20 @@ views:
       - condition: state
         entity: sensor.givenergy_inverter_manager_immersion_water_temperature
         state_not: unavailable
-    - type: custom:apexcharts-card
-      header:
-        show: false
-      graph_span: 12h
-      yaxis:
-      - id: temp
-        decimals: 0
-      - id: heater
-        min: 0
-        max: 1
-        decimals: 0
-        show: false
-      apex_config:
-        chart:
-          height: 180
-          zoom:
-            enabled: false
-        tooltip:
-          shared: true
-          followCursor: true
-        markers:
-          size: 0
-          hover:
-            size: 5
-        legend:
-          show: true
-          position: bottom
-      series:
+    - type: history-graph
+      entities:
       - entity: sensor.givenergy_inverter_manager_immersion_water_temperature
         name: Water
-        color: '#03a9f4'
-        stroke_width: 2
-        curve: smooth
-        yaxis_id: temp
       - entity: number.givenergy_inverter_manager_immersion_target_temperature
         name: Target
-        color: '#f44336'
-        stroke_width: 1
-        curve: smooth
-        yaxis_id: temp
       - entity: number.givenergy_inverter_manager_immersion_minimum_temperature
         name: Minimum
-        color: '#ff9800'
-        stroke_width: 1
-        curve: smooth
-        yaxis_id: temp
       - entity: sensor.givenergy_inverter_manager_immersion_heater_power
-        name: Heater on
-        type: area
-        curve: stepline
-        color: '#ff8a80'
-        opacity: 0.15
-        stroke_width: 0
-        yaxis_id: heater
-        transform: 'return x > 0 ? 1 : 0;'
-        show:
-          in_header: false
-          legend_value: false
+        name: Heater power
+      hours_to_show: 12
       grid_options:
         columns: full
+        rows: 4
       visibility:
       - condition: state
         entity: number.givenergy_inverter_manager_immersion_target_temperature
@@ -1025,46 +968,21 @@ views:
       heading: Heater on or off
       heading_style: title
       icon: mdi:flash
-    - type: custom:apexcharts-card
-      header:
-        show: false
-      graph_span: 12h
-      yaxis:
-      - id: heater
-        min: 0
-        max: 1
-        decimals: 0
-        show: false
-      apex_config:
-        chart:
-          height: 180
-          zoom:
-            enabled: false
-        tooltip:
-          shared: true
-          followCursor: true
-        markers:
-          size: 0
-          hover:
-            size: 5
-        legend:
-          show: true
-          position: bottom
-      series:
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_immersion_heater_power
+      name: Heater power
+      icon: mdi:flash
+      color: orange
+      grid_options:
+        columns: 6
+    - type: history-graph
+      entities:
       - entity: sensor.givenergy_inverter_manager_immersion_heater_power
-        name: Heater on
-        type: area
-        curve: stepline
-        color: '#ff8a80'
-        opacity: 0.15
-        stroke_width: 0
-        yaxis_id: heater
-        transform: 'return x > 0 ? 1 : 0;'
-        show:
-          in_header: false
-          legend_value: false
+        name: Heater power
+      hours_to_show: 12
       grid_options:
         columns: full
+        rows: 4
   - type: grid
     visibility:
     - condition: state
@@ -1624,53 +1542,18 @@ views:
       heading: Last 7 days
       heading_style: title
       icon: mdi:calendar-week
-    - type: custom:apexcharts-card
-      header:
-        show: false
-      graph_span: 7d
-      span:
-        end: day
-      yaxis:
-      - min: 0
-        decimals: 0
-      apex_config:
-        chart:
-          height: 300
-          zoom:
-            enabled: false
-        tooltip:
-          shared: true
-          followCursor: true
-        markers:
-          size: 0
-          hover:
-            size: 5
-        legend:
-          show: true
-          position: bottom
-      series:
-      - entity: sensor.givenergy_inverter_manager_solar_forecast_today_provider
-        name: Forecast
-        type: column
-        color: '#78909c'
-        group_by:
-          func: max
-          duration: 1d
-        float_precision: 1
-        show:
-          datalabels: true
+    - type: statistics-graph
+      entities:
       - entity: sensor.givenergy_inverter_manager_solar_generation_today
         name: Generated
-        type: column
-        color: '#ffc107'
-        group_by:
-          func: max
-          duration: 1d
-        float_precision: 1
-        show:
-          datalabels: true
+      chart_type: bar
+      period: day
+      days_to_show: 7
+      stat_types:
+      - change
       grid_options:
         columns: full
+        rows: 5
 - title: Tariff
   icon: mdi:table
   path: tariff

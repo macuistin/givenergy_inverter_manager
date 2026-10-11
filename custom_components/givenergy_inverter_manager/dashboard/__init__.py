@@ -29,14 +29,11 @@ The EV charger, the immersion switch and the immersion temperature sensor are op
 card that needs one is hidden by a visibility condition until the device exists (devices.py),
 so a stored dashboard follows a device that comes or goes with no new file.
 
-Power flow view requires power-flow-card-plus from HACS:
+The Power Flow tab uses power-flow-card-plus from HACS when the Lovelace resources list it, and
+an entities card when they do not:
   https://github.com/flixlix/power-flow-card-plus
 
-The immersion chart (the water temperature, with the heater shaded while it is on) needs
-apexcharts-card from HACS:
-  https://github.com/RomRider/apexcharts-card
-
-All other views use only built-in HA Lovelace cards.
+The immersion chart is a built-in history graph, and every other view uses built-in cards too.
 
 The package is split by what changes together:
   registry.py   finds our entities in the entity registry

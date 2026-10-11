@@ -1,5 +1,5 @@
 """
-hacs.py - the custom cards from HACS, and the fallbacks used when they are not installed.
+hacs.py - the one optional custom card from HACS, and the fallback used when it is not installed.
 """
 
 from __future__ import annotations
@@ -39,13 +39,7 @@ POWER_FLOW_CARD = HacsCard(
     "# The live power flow requires power-flow-card-plus from HACS:\n"
     "#   https://github.com/flixlix/power-flow-card-plus\n",
 )
-APEX_CARD = HacsCard(
-    "apexcharts-card",
-    "https://github.com/RomRider/apexcharts-card",
-    "# The immersion and solar forecast charts require apexcharts-card from HACS:\n"
-    "#   https://github.com/RomRider/apexcharts-card\n",
-)
-HACS_CARDS = (POWER_FLOW_CARD, APEX_CARD)
+HACS_CARDS = (POWER_FLOW_CARD,)
 
 
 class HacsCards:
@@ -70,13 +64,13 @@ class HacsCards:
         return False
 
     def installed(self, card: HacsCard) -> bool:
-        """True unless the Lovelace resources are known and do not include this card.
+        """True when the Lovelace resources list this card.
 
-        Unknown resources (None) mean the generator could not read them, in which
-        case the custom card is assumed to be there, as it always was.
+        Unreadable resources (None) count as not installed. The dashboard works with core
+        cards alone, so a card is used only when it is seen to be there.
         """
         if self._resources is None:
-            return True
+            return False
         return any(card.name in url.lower() for url in self._resources)
 
 

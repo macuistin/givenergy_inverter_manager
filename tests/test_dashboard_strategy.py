@@ -201,7 +201,7 @@ class TestDashboardForWebsocket:
 
     def test_returns_the_dashboard_dict(self):
         result = self._run([_loaded_entry()])
-        assert result == dashboard_dict(ev_brand=None)
+        assert result == dashboard_dict(ev_brand=None, resources=None)
         assert [v["path"] for v in result["views"]][:3] == ["power-flow", "today", "bill"]
 
     def test_none_without_a_config_entry(self):
@@ -217,7 +217,7 @@ class TestDashboardForWebsocket:
                 _loaded_entry(),
             ]
         )
-        assert result == dashboard_dict(ev_brand=None)
+        assert result == dashboard_dict(ev_brand=None, resources=None)
 
 
 class TestRegisterOnce:
