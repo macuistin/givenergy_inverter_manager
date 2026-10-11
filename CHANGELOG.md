@@ -2,6 +2,26 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+Saving vs Grid Today and Net Saving Today no longer read as a loss after a cheap overnight charge.
+
+**Changes**
+- **Saving values change on every install.** Saving vs Grid Today and Net Saving Today now add the
+  value of the change in the energy the battery holds since midnight. Energy bought to fill the
+  battery was counted as cost on the day it was bought, while the battery had not yet given it
+  back, so the saving read negative in the morning and recovered through the day. The change is
+  (SoC now minus SoC at the start of the day) times the battery capacity, valued at the average
+  cost of the grid energy that went into the battery today, or at the cheapest rate in the tariff
+  when none did. A fall in SoC is valued the same way, so a day that drains the battery is charged
+  for the energy it used. A day with no change in SoC reads as before. See
+  [Concepts](docs/concepts.md#saving-and-the-energy-in-the-battery).
+- Both sensors have two new attributes, `stored_energy_value` and `stored_energy_change_kwh`, so
+  the figure can be checked by hand.
+- Today's start of day SoC and the cost of the grid energy stored are saved with today's totals.
+  Existing stored data loads unchanged. On the day you update, the start of the day SoC is the
+  first reading after the update, so that day's stored energy value starts at 0.
+
 ## v0.17.1
 
 Small dashboard clarity fixes found by previewing v0.17.0 in a real install.

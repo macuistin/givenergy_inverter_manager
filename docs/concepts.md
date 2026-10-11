@@ -284,6 +284,27 @@ Other brands get the signals and the base-rate alert only.
 
 Every cycle the grid import is priced at the current rate, after supplier discount and VAT, and split between the EV, the immersion and the rest of the house by their share of the house load. Import above the load went into the battery and stays in the rest of the house. Export earns the export rate. See [Tariff](tariff.md#bill-line-items).
 
+### Saving and the energy in the battery
+
+**Saving vs Grid Today** is what the house load would have cost from the grid at the time it ran, minus what you paid (import cost minus export earnings). Energy bought to fill the battery is part of what you paid, but it only earns its keep when the battery gives it back. Counted alone, the saving reads negative after a cheap overnight charge and recovers through the day. So the saving also counts the energy the battery holds:
+
+saving = load priced at the grid rate at the time, minus net import cost, plus stored energy value
+
+- **Stored energy change.** (SoC now minus SoC at the start of the day) times the battery capacity from the options. The start of the day is the first SoC the integration reads after midnight, and it is saved with today's totals, so a restart keeps it. A fall in SoC makes the change negative.
+- **Value of each kWh.** The average cost of the grid energy that went into the battery today, after discount and VAT. That energy is the AC charge counter's rise, priced at the rate in force when it rose. When none went in, it is the cheapest rate in the tariff, after discount and VAT.
+- **Stored energy value.** The change times the value of each kWh. It is added to Saving vs Grid Today, and so to Net Saving Today. Both sensors show it in the `stored_energy_value` attribute, with the change in kWh in `stored_energy_change_kwh`. Divide one by the other for the value of each kWh.
+
+Why this rule. The grid energy stored today is the only energy the battery was bought with, so its average cost is what a stored kWh cost. Solar stored has no purchase price, and counting it at 0 would pull the average down, so it is left out. With no grid charge there is nothing to average, and the cheapest rate is the lowest price the battery could have been filled at. A fall in stored energy uses the same value, so a day that charges and a day that discharges the same energy cancel when the charge was bought at the cheapest rate.
+
+Example, a 10 kWh battery on a tariff whose cheapest rate is 0.10 after discount and VAT. The battery starts the day at 40% and 4 kWh are bought overnight at 0.10, which costs 0.40. By 11:00 solar has covered 1 kWh of load that would have cost 0.30 from the grid, and the battery stands at 80%. Without the stored energy the saving is 0.30 minus 0.40, which is -0.10. The battery holds 4 kWh more than at midnight, worth 4 times 0.10, which is 0.40. The saving is -0.10 plus 0.40, which is 0.30. When the battery later supplies the evening load, the stored energy value falls by what that energy cost and the load saving rises by what the grid would have charged for it. The saving ends the day higher than it stood at 11:00.
+
+What to expect:
+
+- The stored energy value follows the SoC. The saving rises as the battery charges and falls as it drains, by the value of the energy that moved.
+- Days add up. Each day starts at 0 and carries its own stored energy value. A week that ends at the SoC it began at adds nothing overall when the energy was bought at the cheapest rate. Energy bought at a dearer rate and later valued at the cheapest rate leaves the difference in the week, and that difference is a real cost.
+- With no battery capacity set, or while the SoC reading is unavailable, the stored energy value is 0 and the saving is the load minus net import cost. Without the AC charge counter every kWh is valued at the cheapest rate.
+- On the day you update, the start of the day SoC is the first reading after the update, so that day's stored energy value starts at 0.
+
 ### Self-sufficiency, solar share and self-consumption
 
 Three percentages answer three questions. **Self-sufficiency** is the share of what the house used that did not have to be drawn from the grid at the time. **Solar share** is the share of what the house used that your own solar covered: solar generated minus exported, over the house load. Grid import does not change it. **Self-consumption** is the share of your solar that you used on site rather than exported. The house load includes the EV charger and the immersion in all three.
