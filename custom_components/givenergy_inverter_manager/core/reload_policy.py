@@ -7,8 +7,9 @@ module states the rule once, per key, over the merged config (setup data under s
 
   RELOAD_KEYS   changing the value changes what is set up: the wiring, the immersion switch
                 and sensor, and the few settings read once at setup.
-  PRESENCE_KEYS reload only when the group goes from nothing set to something set, or back.
-                The alternative-heating advice device exists while any of them is set.
+  PRESENCE_KEYS reload only when the device they decide appears or goes. The alternative
+                heating advice device exists while alt_heat_enabled is on and a cost or a cost
+                sensor is set. Changing the value of a key inside that group is live.
   LIVE_KEYS     the coordinator reads the value from the merged config on every cycle, or
                 (the three immersion temperatures) the update listener copies it on.
 
@@ -27,7 +28,10 @@ unless noted):
                          cheap_rate_floor_soc, battery_cost_eur, battery_throughput_budget_kwh.
   forecast               forecast_entity_p10, forecast_entity_d2, carbon_intensity_entity,
                          forecast_conservatism. forecast_provider is stored and never read.
-  hot water              immersion_wattage_w, immersion_ready_times.
+  hot water              immersion_wattage_w, immersion_ready_times, alt_heat_label,
+                         alt_heat_cost_unit. The label, unit and cost reach the advice through
+                         _read_alt_heat_cost and _collect_raw every cycle, so a change shows
+                         at once (the update listener asks for a refresh).
   immersion temperatures immersion_target_temp_c, immersion_min_temp_c, immersion_hysteresis_c:
                          cached on the coordinator, copied by apply_config_change.
   EV                     car_efficiency_kwh_per_100km.
@@ -44,11 +48,17 @@ Kept as RELOAD although re-read each cycle, because something else uses them onc
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
 from ..const import (
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_COST_ENTITY,
+    CONF_ALT_HEAT_COST_UNIT,
+    CONF_ALT_HEAT_ENABLED,
+    CONF_ALT_HEAT_LABEL,
     CONF_BASE_RATE,
     CONF_BASE_RATE_NAME,
     CONF_BATTERY_CAPACITY,
@@ -86,8 +96,6 @@ from ..const import (
     CONF_INVERTER_MAX_OUTPUT,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
-    CONF_OIL_PRICE_ENTITY,
-    CONF_OIL_PRICE_PER_LITRE,
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
@@ -102,6 +110,7 @@ from ..const import (
     CONF_VAT_RATE,
     CONF_VERBOSE_LOGGING,
 )
+from .devices import alt_heat_configured
 
 
 class Effect(StrEnum):
@@ -136,12 +145,23 @@ RELOAD_KEYS: frozenset[str] = frozenset(
     }
 )
 
-# Keys that decide one optional device together. Changing a value inside the group is live.
-# The group reloads only when it goes from all unset to some set, or back.
-PRESENCE_GROUPS: tuple[frozenset[str], ...] = (
-    frozenset({CONF_OIL_PRICE_PER_LITRE, CONF_OIL_PRICE_ENTITY}),
+
+@dataclass(frozen=True)
+class PresenceGroup:
+    """Keys that decide one optional device together, and the test that says it is there."""
+
+    keys: frozenset[str]
+    present: Callable[[Mapping[str, Any]], bool]
+
+
+# Changing a value inside a group is live. A group reloads only when its device appears or goes.
+PRESENCE_GROUPS: tuple[PresenceGroup, ...] = (
+    PresenceGroup(
+        frozenset({CONF_ALT_HEAT_ENABLED, CONF_ALT_HEAT_COST, CONF_ALT_HEAT_COST_ENTITY}),
+        alt_heat_configured,
+    ),
 )
-PRESENCE_KEYS: frozenset[str] = frozenset().union(*PRESENCE_GROUPS)
+PRESENCE_KEYS: frozenset[str] = frozenset().union(*(group.keys for group in PRESENCE_GROUPS))
 
 # The three immersion temperatures the number entities write to entry.data.
 IMMERSION_TEMP_KEYS: frozenset[str] = frozenset(
@@ -185,6 +205,8 @@ LIVE_KEYS: frozenset[str] = frozenset(
         # Hot water and EV
         CONF_IMMERSION_WATTAGE,
         CONF_IMMERSION_READY_TIMES,
+        CONF_ALT_HEAT_LABEL,
+        CONF_ALT_HEAT_COST_UNIT,
         CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     }
     | TARIFF_TRIGGER_KEYS
@@ -203,21 +225,10 @@ def changed_keys(old: Mapping[str, Any], new: Mapping[str, Any]) -> frozenset[st
     return frozenset(key for key in {*old, *new} if _value(old, key) != _value(new, key))
 
 
-def _any_set(config: Mapping[str, Any], group: frozenset[str]) -> bool:
-    return any(bool(_value(config, key)) for key in group)
-
-
-def _presence_flipped(
-    old: Mapping[str, Any], new: Mapping[str, Any], group: frozenset[str]
-) -> bool:
-    """True when nothing in *group* was set before and something is now, or the reverse."""
-    return _any_set(old, group) != _any_set(new, group)
-
-
 def _needs_reload(key: str, old: Mapping[str, Any], new: Mapping[str, Any]) -> bool:
     if key in PRESENCE_KEYS:
-        group = next(g for g in PRESENCE_GROUPS if key in g)
-        return _presence_flipped(old, new, group)
+        group = next(g for g in PRESENCE_GROUPS if key in g.keys)
+        return group.present(old) != group.present(new)
     return key not in LIVE_KEYS
 
 

@@ -151,22 +151,39 @@ IMMERSION_RATE_RUN_MIN_RISE_C = 2.0
 # The rate used is the median of the last few runs, so one run during a shower does not skew it.
 IMMERSION_RATE_RUNS_KEPT = 5
 IMMERSION_SWITCH_COOLDOWN_MINUTES = 10  # min between auto on/off writes to the real switch
-# ── Oil water heating advice (core/alt_heat_advice.py) ────────────────────────────
-# Some homes also heat the same cylinder with an oil boiler, through a second coil. With an
-# oil price set, a sensor says when the oil system is the cheaper way to heat the water.
-# Advice only: the integration never switches the oil system. The price is the only setting.
-CONF_OIL_PRICE_PER_LITRE = "oil_price_per_litre"
-CONF_OIL_PRICE_ENTITY = "oil_price_entity"
-# Fixed assumptions, not options. A typical boiler in service sits between an older
-# non-condensing boiler (about 75 to 80%) and a new condensing one (about 90% or more). 85% leans
-# low on purpose, so oil is not suggested on an efficiency the boiler does not reach in summer,
-# when it heats only the cylinder.
+# ── Alternative water heating advice (core/alt_heat_advice.py) ────────────────────
+# Some homes also heat the same cylinder another way: an oil or gas boiler, a heat pump or solid
+# fuel, through a second coil. With the setting on and a cost set, a sensor says when that is the
+# cheaper way to heat the water. Advice only: the integration never switches the other system.
+CONF_ALT_HEAT_ENABLED = "alt_heat_enabled"
+CONF_ALT_HEAT_LABEL = "alt_heat_label"
+CONF_ALT_HEAT_COST_UNIT = "alt_heat_cost_unit"
+CONF_ALT_HEAT_COST = "alt_heat_cost"
+CONF_ALT_HEAT_COST_ENTITY = "alt_heat_cost_entity"
+# What the cost is the cost of. A litre is the price of a litre of heating oil, turned into heat
+# with the two fixed assumptions below. A kWh of heat is the cost of one kWh delivered to the
+# water, boiler efficiency already included.
+ALT_HEAT_UNIT_LITRE = "litre"
+ALT_HEAT_UNIT_KWH_HEAT = "kwh_heat"
+ALT_HEAT_UNITS = (ALT_HEAT_UNIT_LITRE, ALT_HEAT_UNIT_KWH_HEAT)
+DEFAULT_ALT_HEAT_UNIT = ALT_HEAT_UNIT_LITRE
+DEFAULT_ALT_HEAT_LABEL = "Oil"
+ALT_HEAT_LABEL_MAX_LENGTH = 20
+# The oil price options of 0.17 and earlier. Setup converts them once
+# (core/alt_heat_conversion.py) and nothing reads them afterwards. They are not CONF_ names
+# because they are no longer options.
+LEGACY_OIL_PRICE_PER_LITRE = "oil_price_per_litre"
+LEGACY_OIL_PRICE_ENTITY = "oil_price_entity"
+# Fixed assumptions for the litre unit, not options. A typical boiler in service sits between an
+# older non-condensing boiler (about 75 to 80%) and a new condensing one (about 90% or more). 85%
+# leans low on purpose, so oil is not suggested on an efficiency the boiler does not reach in
+# summer, when it heats only the cylinder.
 OIL_BOILER_EFFICIENCY_PCT = 85  # %
 # The commonly quoted energy content of kerosene heating oil.
 OIL_KWH_PER_LITRE = 10.35  # kWh per litre of fuel
 ALT_HEAT_ADVICE_HORIZON_HOURS = 24  # how far ahead the cheapest hours are looked for
-# A suggested oil schedule (core/alt_heat_schedule.py) is learned from a rolling record of the
-# immersion's grid heating. Fixed assumptions, not options.
+# A suggested alternative heating schedule (core/alt_heat_schedule.py) is learned from a rolling
+# record of the immersion's grid heating. Fixed assumptions, not options.
 # Complete days kept, plus the day in progress. Two weeks hold every weekday twice, so a weekly
 # habit shows up twice, and an old habit drops out within a fortnight of it ending.
 ALT_HEAT_SCHEDULE_RECORD_DAYS = 14

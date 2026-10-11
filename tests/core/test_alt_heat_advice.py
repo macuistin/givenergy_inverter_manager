@@ -1,7 +1,8 @@
-"""Unit tests for the water heating advice: oil against electricity (core, no Home Assistant).
+"""Unit tests for the water heating advice: the alternative against electricity (core).
 
-Figures are chosen to be round. The advice takes the oil's cost per kWh of heat, so the tests
-give it directly. The tariff is 0.30 by day and 0.15 from 23:00 to 08:00, with no discount and
+These run with the default label, Oil, so the sentences are the ones the oil advice always had.
+Figures are chosen to be round. The advice takes the cost per kWh of heat, so the tests give it
+directly. The tariff is 0.30 by day and 0.15 from 23:00 to 08:00, with no discount and
 no VAT, unless a test says otherwise.
 """
 
@@ -12,10 +13,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.const import (
-    OIL_BOILER_EFFICIENCY_PCT,
-    OIL_KWH_PER_LITRE,
-)
 from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
     ALL_DAY,
     SOURCE_ALTERNATIVE,
@@ -23,7 +20,6 @@ from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
     SOURCE_SOLAR,
     AdviceInputs,
     advise_water_heating,
-    litre_heat_cost_per_kwh,
 )
 from custom_components.givenergy_inverter_manager.core.alt_heat_start import WaterReading
 from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
@@ -58,23 +54,6 @@ def at(hour: int, minute: int = 0, day: int = 15) -> datetime:
 
 def advise(now: datetime, per_kwh: float, tariff=TIMED, **kwargs):
     return advise_water_heating(AdviceInputs(tariff, now, per_kwh, **kwargs))
-
-
-class TestOilCost:
-    def test_it_is_the_price_over_the_heat_a_litre_gives(self):
-        heat_per_litre = OIL_KWH_PER_LITRE * OIL_BOILER_EFFICIENCY_PCT / 100
-        assert litre_heat_cost_per_kwh(1.00) == pytest.approx(1.00 / heat_per_litre)
-
-    def test_the_assumptions_are_a_typical_boiler_and_kerosene(self):
-        assert OIL_KWH_PER_LITRE == pytest.approx(10.35)
-        assert OIL_BOILER_EFFICIENCY_PCT == 85
-
-    def test_a_dearer_litre_costs_more_per_kwh(self):
-        assert litre_heat_cost_per_kwh(1.20) > litre_heat_cost_per_kwh(0.90)
-
-    def test_a_negative_price_is_refused(self):
-        with pytest.raises(ValueError, match="oil price"):
-            litre_heat_cost_per_kwh(-0.1)
 
 
 class TestElectricityCost:

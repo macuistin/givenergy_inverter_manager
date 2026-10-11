@@ -20,7 +20,8 @@ from custom_components.givenergy_inverter_manager.accumulation import (
     _serialize,
 )
 from custom_components.givenergy_inverter_manager.const import (
-    CONF_OIL_PRICE_PER_LITRE,
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_ENABLED,
     DOMAIN,
 )
 
@@ -81,7 +82,7 @@ def _sensor(hass, entry):
 class TestWithAnOilPrice:
     @pytest.fixture
     def config_entry(self):
-        return _entry({CONF_OIL_PRICE_PER_LITRE: CHEAP_OIL})
+        return _entry({CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL})
 
     async def test_a_week_of_stored_heating_gives_the_schedule_attributes(
         self, hass, hass_in_scenario, freezer, config_entry, hass_storage

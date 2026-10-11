@@ -1147,12 +1147,12 @@ views:
         state_not: 'on'
     - type: markdown
       content: |-
-        {% set text = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'alt_schedule_suggestion') %}{% set days = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'alt_schedule_days') %}{% if text -%}
+        {% set text = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'alt_schedule_suggestion') %}{% set days = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'alt_schedule_days') %}{% set label = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'alt_label') or 'Oil' %}{% set word = label if label == label | upper else label | lower %}{% if text -%}
         {{ text }}
         {%- elif days -%}
-        No regular oil schedule would save enough yet, from the last {{ days }} days of heating.
+        No regular {{ word }} schedule would save enough yet, from the last {{ days }} days of heating.
         {%- else -%}
-        Still learning when the immersion heats the water at rates above oil. A suggested oil schedule appears after 7 days.
+        Still learning when the immersion heats the water at rates above {{ word }}. A suggested {{ word }} schedule appears after 7 days.
         {%- endif %}
       grid_options:
         columns: full

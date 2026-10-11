@@ -432,34 +432,143 @@ class TestOptionsFlowSections:
         assert data["immersion_temp_sensor_entity"] == "sensor.cylinder"
         assert data["immersion_wattage_w"] == pytest.approx(2800.0)
 
-    def test_oil_section_is_saved_to_options(self):
+    ALT_SECTION = {
+        "alt_heat_enabled": True,
+        "alt_heat_label": "Gas",
+        "alt_heat_cost_unit": "kwh_heat",
+        "alt_heat_cost": 0.08,
+        "alt_heat_cost_entity": "sensor.gas_heat_cost",
+    }
+
+    def test_alt_heat_section_is_saved_to_options(self):
         flow = self._make_flow()
+        data = self._submit(flow, alt_heat_settings=dict(self.ALT_SECTION))
+        assert data["alt_heat_enabled"] is True
+        assert data["alt_heat_label"] == "Gas"
+        assert data["alt_heat_cost_unit"] == "kwh_heat"
+        assert data["alt_heat_cost"] == pytest.approx(0.08)
+        assert data["alt_heat_cost_entity"] == "sensor.gas_heat_cost"
+
+    def test_the_label_is_saved_cleaned(self):
+        flow = self._make_flow()
+        section = {**self.ALT_SECTION, "alt_heat_label": "  Heat   pump "}
+        assert self._submit(flow, alt_heat_settings=section)["alt_heat_label"] == "Heat pump"
+
+    def test_a_cleared_cost_is_removed_and_a_cleared_entity_saved_empty(self):
+        """The frontend omits a cleared field. No cost means no advice."""
+        flow = self._make_flow()
+        flow._options = {
+            "alt_heat_enabled": True,
+            "alt_heat_cost": 0.95,
+            "alt_heat_cost_entity": "sensor.heat_cost",
+        }
+        data = self._submit(flow, alt_heat_settings={"alt_heat_enabled": True})
+        assert data["alt_heat_enabled"] is True
+        assert "alt_heat_cost" not in data
+        assert data["alt_heat_cost_entity"] == ""
+
+    def test_switching_it_off_keeps_the_cost_for_next_time(self):
+        flow = self._make_flow()
+        flow._options = {"alt_heat_enabled": True, "alt_heat_cost": 0.95}
         data = self._submit(
-            flow,
-            oil_settings={"oil_price_per_litre": 0.95, "oil_price_entity": "sensor.oil_price"},
+            flow, alt_heat_settings={"alt_heat_enabled": False, "alt_heat_cost": 0.95}
         )
-        assert data["oil_price_per_litre"] == pytest.approx(0.95)
-        assert data["oil_price_entity"] == "sensor.oil_price"
+        assert data["alt_heat_enabled"] is False
+        assert data["alt_heat_cost"] == pytest.approx(0.95)
 
-    def test_a_cleared_oil_price_is_removed_and_a_cleared_entity_saved_empty(self):
-        """The frontend omits a cleared field. No price means no oil advice."""
+    def test_a_section_that_leaves_out_the_label_and_unit_keeps_them(self):
         flow = self._make_flow()
-        flow._options = {"oil_price_per_litre": 0.95, "oil_price_entity": "sensor.oil_price"}
-        data = self._submit(flow, oil_settings={})
-        assert "oil_price_per_litre" not in data
-        assert data["oil_price_entity"] == ""
+        flow._options = {"alt_heat_label": "Gas", "alt_heat_cost_unit": "kwh_heat"}
+        data = self._submit(flow, alt_heat_settings={"alt_heat_enabled": True})
+        assert data["alt_heat_label"] == "Gas"
+        assert data["alt_heat_cost_unit"] == "kwh_heat"
 
-    def test_unsent_oil_section_leaves_the_saved_oil_price(self):
+    def test_unsent_alt_heat_section_leaves_what_was_saved(self):
         flow = self._make_flow()
-        flow._options = {"oil_price_per_litre": 0.95, "oil_price_entity": "sensor.oil_price"}
+        flow._options = {
+            "alt_heat_enabled": True,
+            "alt_heat_label": "Oil",
+            "alt_heat_cost_unit": "litre",
+            "alt_heat_cost": 0.95,
+            "alt_heat_cost_entity": "sensor.heat_cost",
+        }
         data = self._submit(flow)
-        assert data["oil_price_per_litre"] == pytest.approx(0.95)
-        assert data["oil_price_entity"] == "sensor.oil_price"
+        assert data["alt_heat_enabled"] is True
+        assert data["alt_heat_label"] == "Oil"
+        assert data["alt_heat_cost"] == pytest.approx(0.95)
+        assert data["alt_heat_cost_entity"] == "sensor.heat_cost"
 
-    def test_no_oil_option_is_saved_when_none_was_ever_set(self):
+    def test_no_alt_heat_option_is_saved_when_none_was_ever_set(self):
         data = self._submit(self._make_flow())
+        for key in (
+            "alt_heat_enabled",
+            "alt_heat_label",
+            "alt_heat_cost_unit",
+            "alt_heat_cost",
+            "alt_heat_cost_entity",
+        ):
+            assert key not in data
+
+    def test_the_old_oil_keys_are_never_written(self):
+        flow = self._make_flow()
+        data = self._submit(flow, alt_heat_settings=dict(self.ALT_SECTION))
         assert "oil_price_per_litre" not in data
         assert "oil_price_entity" not in data
+
+    @pytest.mark.parametrize(
+        ("label", "error"),
+        [
+            ("", "alt_heat_label_empty"),
+            ("   ", "alt_heat_label_empty"),
+            (None, "alt_heat_label_empty"),
+            ("x" * 21, "alt_heat_label_too_long"),
+            ("x" * 500, "alt_heat_label_too_long"),
+        ],
+    )
+    def test_a_label_that_is_empty_or_too_long_is_refused_while_it_is_on(self, label, error):
+        from custom_components.givenergy_inverter_manager.config_flow import (
+            _alt_heat_label_errors,
+        )
+
+        section = {**self.ALT_SECTION, "alt_heat_label": label}
+        assert _alt_heat_label_errors({"alt_heat_settings": section}) == {"base": error}
+
+    @pytest.mark.parametrize("label", ["Oil", "Heat pump", "x" * 20, "  y  "])
+    def test_a_good_label_is_accepted(self, label):
+        from custom_components.givenergy_inverter_manager.config_flow import (
+            _alt_heat_label_errors,
+        )
+
+        section = {**self.ALT_SECTION, "alt_heat_label": label}
+        assert _alt_heat_label_errors({"alt_heat_settings": section}) == {}
+
+    def test_a_section_with_no_label_at_all_is_not_refused(self):
+        from custom_components.givenergy_inverter_manager.config_flow import (
+            _alt_heat_label_errors,
+        )
+
+        assert _alt_heat_label_errors({"alt_heat_settings": {"alt_heat_enabled": True}}) == {}
+
+    def test_the_label_is_not_checked_while_it_is_off_or_not_sent(self):
+        from custom_components.givenergy_inverter_manager.config_flow import (
+            _alt_heat_label_errors,
+        )
+
+        off = {"alt_heat_enabled": False, "alt_heat_label": ""}
+        assert _alt_heat_label_errors({"alt_heat_settings": off}) == {}
+        assert _alt_heat_label_errors({}) == {}
+
+    def test_a_refused_label_shows_the_form_again_and_saves_nothing(self):
+        import asyncio
+
+        flow = self._make_flow()
+        flow._show_form = lambda user_input, errors: ("form", errors)
+        section = {**self.ALT_SECTION, "alt_heat_label": "x" * 21}
+        result = asyncio.run(
+            flow.async_step_init({**self._tariff_input(), "alt_heat_settings": section})
+        )
+        assert result == ("form", {"base": "alt_heat_label_too_long"})
+        flow.async_create_entry.assert_not_called()
 
     def test_unsent_forecast_section_leaves_the_saved_forecast(self):
         import asyncio

@@ -528,16 +528,22 @@
               "immersion_ready_times": "Times of day the water has to be at its target temperature, as HH:MM, for example 07:00 and 19:00. Used only while Immersion Scheduled Heating is on and a water temperature sensor is set. Empty means none."
             }
           },
-          "oil_settings": {
-            "name": "Oil water heating",
-            "description": "Optional. If an oil boiler also heats the hot water cylinder, set the price of a litre of oil and a sensor says when the oil system is cheaper than the immersion. This is advice only: the integration does not control the oil boiler. It needs an immersion switch to compare with, and clearing both fields removes it. The advice assumes a boiler efficiency of 85% and 10.35 kWh of energy in a litre of heating oil.",
+          "alt_heat_settings": {
+            "name": "Alternative water heating",
+            "description": "Optional. If something else also heats the hot water cylinder, such as an oil or gas boiler or a heat pump, turn this on and give its cost. A sensor then says when it is cheaper than the immersion. This is advice only: the integration does not control the other system. It needs an immersion switch to compare with, and it does nothing until a cost or a cost sensor is set. For a litre of oil the advice assumes a boiler efficiency of 85% and 10.35 kWh of energy in a litre.",
             "data": {
-              "oil_price_per_litre": "Oil price per litre",
-              "oil_price_entity": "Oil price sensor"
+              "alt_heat_enabled": "I have another way to heat the water",
+              "alt_heat_label": "Name",
+              "alt_heat_cost_unit": "The cost is",
+              "alt_heat_cost": "Cost",
+              "alt_heat_cost_entity": "Cost sensor"
             },
             "data_description": {
-              "oil_price_per_litre": "Price of a litre of heating oil, in your currency. Empty means no oil advice.",
-              "oil_price_entity": "Optional sensor or number that holds the price of a litre. While it has a value it is used instead of the price above."
+              "alt_heat_enabled": "Turn on to get advice on when the other system is cheaper than the immersion.",
+              "alt_heat_label": "Your word for it, such as Oil, Gas or Heat pump, up to 20 characters. The advice sentences use it.",
+              "alt_heat_cost_unit": "A litre is the price of a litre of heating oil, which the integration turns into heat. A kWh of heat is what one kWh delivered to the water costs, with the efficiency of the boiler or the heat pump already included.",
+              "alt_heat_cost": "The cost in your currency, for a litre or for a kWh of heat as chosen above. Empty means no advice.",
+              "alt_heat_cost_entity": "Optional sensor or number that holds the cost. While it reads a number above zero it is used instead of the cost above, in the same unit."
             }
           },
           "ev_settings": {
@@ -557,7 +563,17 @@
       "rate_period_zero_length": "A rate period cannot start and end at the same time. Change its start or end time, or clear its name to remove it.",
       "rate_period_duplicate_name": "Rate period names must be different from each other and from the base rate name.",
       "tariff_change_date_in_past": "The rates cannot start in the past, because costs already recorded are not recalculated. Clear the date to apply the rates now, or choose a later date.",
-      "immersion_ready_time_invalid": "Enter each hot water ready time as HH:MM, for example 07:00."
+      "immersion_ready_time_invalid": "Enter each hot water ready time as HH:MM, for example 07:00.",
+      "alt_heat_label_empty": "Give the alternative water heating a name, such as Oil, Gas or Heat pump.",
+      "alt_heat_label_too_long": "The name of the alternative water heating can be at most 20 characters."
+    }
+  },
+  "selector": {
+    "alt_heat_cost_unit": {
+      "options": {
+        "litre": "The price of a litre of oil",
+        "kwh_heat": "The cost of a kWh of heat"
+      }
     }
   },
   "entity": {

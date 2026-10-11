@@ -51,6 +51,11 @@ from homeassistant.util import dt as dt_util
 
 from .accumulation import AccumulationStore
 from .const import (
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_COST_ENTITY,
+    CONF_ALT_HEAT_COST_UNIT,
+    CONF_ALT_HEAT_ENABLED,
+    CONF_ALT_HEAT_LABEL,
     CONF_BATTERY_CAPACITY,
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
@@ -79,11 +84,10 @@ from .const import (
     CONF_INVERTER_MAX_OUTPUT,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
-    CONF_OIL_PRICE_ENTITY,
-    CONF_OIL_PRICE_PER_LITRE,
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
     CONF_TARIFF_REVIEWED_ON,
+    DEFAULT_ALT_HEAT_UNIT,
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
@@ -102,6 +106,8 @@ from .const import (
     GIVTCP_RATE_TOLERANCE_PCT,
     UPDATE_INTERVAL_SECONDS,
 )
+from .core.alt_heat_cost import heat_cost_per_kwh
+from .core.alt_heat_label import clean_label
 from .core.battery import BatteryStats, battery_cost_prompt_due
 from .core.charge_hold import HeldCharge
 from .core.engine import (
@@ -889,7 +895,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._read_power_inputs(cfg, raw, unavailable)
         self._read_system_limits(cfg, raw)
         self._read_immersion_inputs(cfg, raw, unavailable)
-        raw.oil_price_per_litre = self._read_oil_price(cfg)
+        self._read_alt_heat(cfg, raw)
         raw.unavailable_inputs = tuple(unavailable)
         self._read_forecasts(cfg, raw)
         raw.carbon_intensity_gco2 = self._read_optional_float(
@@ -930,19 +936,23 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             if raw.immersion_temp is None:
                 unavailable.append("immersion_temp")
 
-    def _read_oil_price(self, cfg: dict) -> float | None:
-        """The price of a litre of oil: the sensor when it reads one, else the saved number.
+    def _read_alt_heat(self, cfg: dict, raw: RawSensorValues) -> None:
+        """Set the cost of a kWh of heat from the alternative, and its label.
 
-        None when neither gives a price, or there is no immersion switch to compare oil with,
-        which means no oil advice and nothing to evaluate.
+        The cost is None, and so is the advice, when the setting is off, there is no immersion
+        switch to compare with, or neither the cost sensor nor the saved cost gives a price.
+        The sensor wins while it reads a positive number. The unit applies to either source.
         """
-        if not cfg.get(CONF_IMMERSION_SWITCH):
-            return None
-        from_sensor = self._read_optional_float(cfg.get(CONF_OIL_PRICE_ENTITY))
-        if from_sensor is not None and from_sensor > 0:
-            return from_sensor
-        saved = cfg.get(CONF_OIL_PRICE_PER_LITRE)
-        return float(saved) if saved else None
+        raw.alt_heat_label = clean_label(cfg.get(CONF_ALT_HEAT_LABEL))
+        if not (cfg.get(CONF_ALT_HEAT_ENABLED) and cfg.get(CONF_IMMERSION_SWITCH)):
+            return
+        cost = self._read_optional_float(cfg.get(CONF_ALT_HEAT_COST_ENTITY))
+        if cost is None or cost <= 0:
+            saved = cfg.get(CONF_ALT_HEAT_COST)
+            cost = float(saved) if saved else None
+        if cost is not None:
+            unit = cfg.get(CONF_ALT_HEAT_COST_UNIT, DEFAULT_ALT_HEAT_UNIT)
+            raw.alt_heat_cost_per_kwh = heat_cost_per_kwh(unit, cost)
 
     def _read_forecasts(self, cfg: dict, raw: RawSensorValues) -> None:
         raw.forecast_kwh_tomorrow = self._read_forecast_kwh(cfg.get(CONF_FORECAST_ENTITY))

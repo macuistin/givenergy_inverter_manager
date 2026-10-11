@@ -2175,52 +2175,102 @@ class TestReadOptionalFloatProxy:
         coord._read_optional_float("sensor.temp")  # must not raise
 
 
-class TestOilPriceRead:
-    """The oil price: the sensor when it reads a price, else the saved number, else none."""
+class TestAltHeatRead:
+    """Alternative heating: the cost of a kWh of heat, from the sensor or the saved number."""
+
+    OIL_PER_KWH = 1.0 / (10.35 * 0.85)
 
     def _coord(self, **cfg):
         coord = FakeCoordinator(cfg=_cfg())
-        coord.set_state("sensor.oil", "1.10")
-        return coord, {"immersion_switch_entity": "switch.heater", **cfg}
+        coord.set_state("sensor.heat_cost", "1.10")
+        base = {"immersion_switch_entity": "switch.heater", "alt_heat_enabled": True}
+        return coord, {**base, **cfg}
+
+    def _raw(self, coord, cfg):
+        from custom_components.givenergy_inverter_manager.core.engine import RawSensorValues
+
+        raw = RawSensorValues()
+        coord._read_alt_heat(cfg, raw)
+        return raw
 
     def _read(self, coord, cfg):
-        return coord._read_oil_price(cfg)
+        return self._raw(coord, cfg).alt_heat_cost_per_kwh
 
-    def test_no_oil_settings_means_no_price(self):
+    def test_no_cost_means_no_advice(self):
         coord, cfg = self._coord()
         assert self._read(coord, cfg) is None
 
-    def test_the_saved_number_is_the_price(self):
-        coord, cfg = self._coord(oil_price_per_litre=0.95)
-        assert self._read(coord, cfg) == pytest.approx(0.95)
+    def test_the_saved_litre_price_is_turned_into_a_cost_per_kwh_of_heat(self):
+        coord, cfg = self._coord(alt_heat_cost=1.0)
+        assert self._read(coord, cfg) == pytest.approx(self.OIL_PER_KWH)
+
+    def test_the_unit_defaults_to_the_litre(self):
+        coord, cfg = self._coord(alt_heat_cost=1.0)
+        assert "alt_heat_cost_unit" not in cfg
+        assert self._read(coord, cfg) == pytest.approx(self.OIL_PER_KWH)
+
+    def test_a_cost_per_kwh_of_heat_is_used_as_it_is(self):
+        coord, cfg = self._coord(alt_heat_cost=0.08, alt_heat_cost_unit="kwh_heat")
+        assert self._read(coord, cfg) == pytest.approx(0.08)
 
     def test_the_sensor_overrides_the_number(self):
-        coord, cfg = self._coord(oil_price_per_litre=0.95, oil_price_entity="sensor.oil")
+        coord, cfg = self._coord(alt_heat_cost=0.95, alt_heat_cost_entity="sensor.heat_cost")
+        assert self._read(coord, cfg) == pytest.approx(1.10 * self.OIL_PER_KWH)
+
+    def test_the_unit_applies_to_the_sensor_too(self):
+        coord, cfg = self._coord(
+            alt_heat_cost=0.95, alt_heat_cost_entity="sensor.heat_cost", alt_heat_cost_unit="kwh_heat"
+        )
         assert self._read(coord, cfg) == pytest.approx(1.10)
 
     def test_the_sensor_alone_is_enough(self):
-        coord, cfg = self._coord(oil_price_entity="sensor.oil")
-        assert self._read(coord, cfg) == pytest.approx(1.10)
+        coord, cfg = self._coord(alt_heat_cost_entity="sensor.heat_cost")
+        assert self._read(coord, cfg) == pytest.approx(1.10 * self.OIL_PER_KWH)
 
     @pytest.mark.parametrize("state", ["unavailable", "unknown", "cheap", "0", "-1"])
-    def test_a_sensor_that_does_not_read_a_price_leaves_the_number(self, state):
-        coord, cfg = self._coord(oil_price_per_litre=0.95, oil_price_entity="sensor.oil")
-        coord.set_state("sensor.oil", state)
-        assert self._read(coord, cfg) == pytest.approx(0.95)
+    def test_a_sensor_that_does_not_read_a_cost_leaves_the_number(self, state):
+        coord, cfg = self._coord(alt_heat_cost=0.95, alt_heat_cost_entity="sensor.heat_cost")
+        coord.set_state("sensor.heat_cost", state)
+        assert self._read(coord, cfg) == pytest.approx(0.95 * self.OIL_PER_KWH)
 
-    def test_a_sensor_that_does_not_read_a_price_with_no_number_gives_none(self):
-        coord, cfg = self._coord(oil_price_entity="sensor.oil")
-        coord.set_state("sensor.oil", "unavailable")
+    def test_a_sensor_that_does_not_read_a_cost_with_no_number_gives_none(self):
+        coord, cfg = self._coord(alt_heat_cost_entity="sensor.heat_cost")
+        coord.set_state("sensor.heat_cost", "unavailable")
         assert self._read(coord, cfg) is None
 
     def test_without_an_immersion_switch_there_is_nothing_to_compare_with(self):
-        coord, cfg = self._coord(oil_price_per_litre=0.95)
+        coord, cfg = self._coord(alt_heat_cost=0.95)
         del cfg["immersion_switch_entity"]
         assert self._read(coord, cfg) is None
 
+    def test_switched_off_there_is_no_advice_whatever_is_set(self):
+        coord, cfg = self._coord(alt_heat_cost=0.95, alt_heat_enabled=False)
+        assert self._read(coord, cfg) is None
+
+    def test_never_switched_on_there_is_no_advice(self):
+        coord, cfg = self._coord(alt_heat_cost=0.95)
+        del cfg["alt_heat_enabled"]
+        assert self._read(coord, cfg) is None
+
     def test_an_emptied_sensor_choice_is_ignored(self):
-        coord, cfg = self._coord(oil_price_per_litre=0.95, oil_price_entity="")
-        assert self._read(coord, cfg) == pytest.approx(0.95)
+        coord, cfg = self._coord(alt_heat_cost=0.95, alt_heat_cost_entity="")
+        assert self._read(coord, cfg) == pytest.approx(0.95 * self.OIL_PER_KWH)
+
+    def test_the_label_is_read_and_cleaned(self):
+        coord, cfg = self._coord(alt_heat_cost=0.95, alt_heat_label="  Heat   pump ")
+        assert self._raw(coord, cfg).alt_heat_label == "Heat pump"
+
+    def test_no_label_reads_as_oil(self):
+        coord, cfg = self._coord(alt_heat_cost=0.95)
+        assert self._raw(coord, cfg).alt_heat_label == "Oil"
+
+    def test_a_very_long_label_is_cut(self):
+        coord, cfg = self._coord(alt_heat_cost=0.95, alt_heat_label="g" * 300)
+        assert self._raw(coord, cfg).alt_heat_label == "g" * 20
+
+    def test_the_label_is_read_even_when_there_is_no_advice(self):
+        coord, cfg = self._coord(alt_heat_label="Gas")
+        assert self._raw(coord, cfg).alt_heat_label == "Gas"
 
 
 ZAPPI_PLUG = "sensor.myenergi_zappi_plug_status"

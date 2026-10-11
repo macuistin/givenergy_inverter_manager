@@ -32,6 +32,14 @@ from homeassistant.util import dt as dt_util
 
 from .config_helpers import effective_config
 from .const import (
+    ALT_HEAT_LABEL_MAX_LENGTH,
+    ALT_HEAT_UNIT_KWH_HEAT,
+    ALT_HEAT_UNIT_LITRE,
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_COST_ENTITY,
+    CONF_ALT_HEAT_COST_UNIT,
+    CONF_ALT_HEAT_ENABLED,
+    CONF_ALT_HEAT_LABEL,
     CONF_BASE_RATE,
     CONF_BASE_RATE_NAME,
     CONF_BATTERY_CAPACITY,
@@ -68,8 +76,6 @@ from .const import (
     CONF_INVERTER_MAX_OUTPUT,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
-    CONF_OIL_PRICE_ENTITY,
-    CONF_OIL_PRICE_PER_LITRE,
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
@@ -82,6 +88,8 @@ from .const import (
     CONF_VAT_RATE,
     CONF_VERBOSE_LOGGING,
     CURRENCIES,
+    DEFAULT_ALT_HEAT_LABEL,
+    DEFAULT_ALT_HEAT_UNIT,
     DEFAULT_BASE_RATE,
     DEFAULT_BASE_RATE_NAME,
     DEFAULT_BATTERY_CAPACITY,
@@ -113,6 +121,7 @@ from .const import (
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
+from .core.alt_heat_label import clean_label
 from .core.immersion_ready import parse_ready_times
 from .core.tariff import (
     TariffSubmission,
@@ -190,8 +199,8 @@ _NUMBER_BOUNDS: dict[str, _Bounds] = {
     CONF_IMMERSION_TARGET_TEMP: _Bounds(40, 75, 1, "°C"),
     CONF_IMMERSION_MIN_TEMP: _Bounds(30, 60, 1, "°C"),
     CONF_CAR_EFFICIENCY_KWH_PER_100KM: _Bounds(5, 40, 0.1, "kWh/100km"),
-    # A box, not a slider: a slider cannot be left empty, and empty means no oil advice.
-    CONF_OIL_PRICE_PER_LITRE: _Bounds(0.001, 5, 0.001, mode="box"),
+    # A box, not a slider: a slider cannot be left empty, and empty means no advice.
+    CONF_ALT_HEAT_COST: _Bounds(0.001, 5, 0.001, mode="box"),
 }
 
 # What each price field is quoted per. The currency code comes from the form.
@@ -200,7 +209,6 @@ _PRICE_PER: dict[str, str] = {
     CONF_EXPORT_RATE: "kWh",
     CONF_STANDING_CHARGE: "day",
     CONF_PSO_LEVY: "month",
-    CONF_OIL_PRICE_PER_LITRE: "litre",
 }
 
 
@@ -241,6 +249,16 @@ def _forecast_provider_selector() -> selector.SelectSelector:
                 ),
                 selector.SelectOptionDict(value=FORECAST_PROVIDER_SOLCAST, label="Solcast"),
             ]
+        )
+    )
+
+
+def _alt_heat_unit_selector() -> selector.SelectSelector:
+    """Litre or kWh of heat. The option labels are in strings.json under selector."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[ALT_HEAT_UNIT_LITRE, ALT_HEAT_UNIT_KWH_HEAT],
+            translation_key=CONF_ALT_HEAT_COST_UNIT,
         )
     )
 
@@ -445,6 +463,25 @@ def _ready_time_errors(user_input: dict) -> dict[str, str]:
     submitted = user_input.get("immersion_settings", {}).get(CONF_IMMERSION_READY_TIMES) or []
     if not all(parse_ready_times([item]) for item in submitted):
         return {"base": "immersion_ready_time_invalid"}
+    return {}
+
+
+def _alt_heat_label_errors(user_input: dict) -> dict[str, str]:
+    """A label has to hold something and fit the sentences, while the setting is on.
+
+    A label left empty or too long is refused rather than cut, so what the user typed is what
+    the sentences say. Only a submitted section with a label is checked.
+    """
+    submitted = user_input.get("alt_heat_settings")
+    if not submitted or not submitted.get(CONF_ALT_HEAT_ENABLED):
+        return {}
+    if CONF_ALT_HEAT_LABEL not in submitted:
+        return {}
+    label = " ".join(str(submitted[CONF_ALT_HEAT_LABEL] or "").split())
+    if not label:
+        return {"base": "alt_heat_label_empty"}
+    if len(label) > ALT_HEAT_LABEL_MAX_LENGTH:
+        return {"base": "alt_heat_label_too_long"}
     return {}
 
 
@@ -939,7 +976,7 @@ _OPTIONAL_IMMERSION_KEYS = (
 )
 
 
-_OIL_PRICE_ENTITY_DOMAINS = ["sensor", "input_number"]
+_ALT_HEAT_COST_ENTITY_DOMAINS = ["sensor", "input_number"]
 
 
 class GivEnergyOptionsFlow(config_entries.OptionsFlow):
@@ -993,7 +1030,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         self._store_optional_entities(user_input, "immersion_settings", _OPTIONAL_IMMERSION_KEYS)
         self._store_floats(user_input.get("immersion_settings", {}), (CONF_IMMERSION_WATTAGE,))
         self._store_ready_times(user_input.get("immersion_settings"))
-        self._store_oil_settings(user_input.get("oil_settings"))
+        self._store_alt_heat_settings(user_input.get("alt_heat_settings"))
         self._store_floats(
             user_input.get("ev_settings", {}), (CONF_CAR_EFFICIENCY_KWH_PER_100KM,)
         )
@@ -1013,19 +1050,27 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         for key in keys:
             self._options[key] = submitted.get(key, "")
 
-    def _store_oil_settings(self, submitted: dict | None) -> None:
-        """Store the oil section. A price the section leaves out was cleared, so it is removed.
+    def _store_alt_heat_settings(self, submitted: dict | None) -> None:
+        """Store the alternative heating section.
 
-        No saved price means no oil advice. A section the submission does not carry at all is
-        left as saved.
+        The switch, label and unit are saved when the section carries them, so a client that
+        sends only some fields keeps the rest as saved. A cost the section leaves out was
+        cleared, so it is removed. A cleared cost sensor is saved empty, like the immersion
+        entities. A section the submission does not carry at all is left as saved.
         """
         if submitted is None:
             return
-        if CONF_OIL_PRICE_PER_LITRE in submitted:
-            self._options[CONF_OIL_PRICE_PER_LITRE] = float(submitted[CONF_OIL_PRICE_PER_LITRE])
+        if CONF_ALT_HEAT_ENABLED in submitted:
+            self._options[CONF_ALT_HEAT_ENABLED] = bool(submitted[CONF_ALT_HEAT_ENABLED])
+        if CONF_ALT_HEAT_LABEL in submitted:
+            self._options[CONF_ALT_HEAT_LABEL] = clean_label(submitted[CONF_ALT_HEAT_LABEL])
+        if CONF_ALT_HEAT_COST_UNIT in submitted:
+            self._options[CONF_ALT_HEAT_COST_UNIT] = submitted[CONF_ALT_HEAT_COST_UNIT]
+        if CONF_ALT_HEAT_COST in submitted:
+            self._options[CONF_ALT_HEAT_COST] = float(submitted[CONF_ALT_HEAT_COST])
         else:
-            self._options.pop(CONF_OIL_PRICE_PER_LITRE, None)
-        self._options[CONF_OIL_PRICE_ENTITY] = submitted.get(CONF_OIL_PRICE_ENTITY, "")
+            self._options.pop(CONF_ALT_HEAT_COST, None)
+        self._options[CONF_ALT_HEAT_COST_ENTITY] = submitted.get(CONF_ALT_HEAT_COST_ENTITY, "")
 
     def _store_ready_times(self, submitted: dict | None) -> None:
         """Store the ready times of the immersion section as sorted HH:MM, empty when cleared."""
@@ -1068,6 +1113,7 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             _rate_period_errors(rate_periods, _base_rate_name(tariff))
             or _change_date_errors(user_input, dt_util.now().date())
             or _ready_time_errors(user_input)
+            or _alt_heat_label_errors(user_input)
         )
 
     def _show_form(
@@ -1102,8 +1148,8 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
         fields[vol.Required("hardware_settings")] = self._hardware_section()
         # Optional, so a client that omits the section keeps the saved devices.
         fields[vol.Optional("immersion_settings")] = self._immersion_section()
-        # Optional, so a client that omits the section keeps the saved oil price.
-        fields[vol.Optional("oil_settings")] = self._oil_section(currency)
+        # Optional, so a client that omits the section keeps the saved alternative heating.
+        fields[vol.Optional("alt_heat_settings")] = self._alt_heat_section(currency)
         fields[vol.Required("ev_settings")] = self._ev_section()
         return fields
 
@@ -1281,21 +1327,34 @@ class GivEnergyOptionsFlow(config_entries.OptionsFlow):
             {"collapsed": True},
         )
 
-    def _oil_section(self, currency: object) -> object:
-        """Return the oil section: the price of a litre, and a sensor that overrides it.
+    def _alt_heat_section(self, currency: object) -> object:
+        """Return the alternative heating section: on or off, a label, the cost and its unit.
 
-        Both are empty until the user has an oil boiler to compare. With neither set there is
-        no oil advice. The boiler efficiency and the fuel's energy content are fixed
-        assumptions (const.py), not options.
+        A kWh of heat is the cost of one kWh delivered to the water, efficiency included. A
+        litre is the price of a litre of oil, turned into heat with the fixed assumptions in
+        const.py (a boiler efficiency and the energy in a litre), which are not options. With
+        no cost and no cost sensor there is no advice.
         """
         return section(
             vol.Schema(
                 {
-                    self._optional_key(CONF_OIL_PRICE_PER_LITRE): _price_selector(
-                        CONF_OIL_PRICE_PER_LITRE, currency
+                    vol.Optional(
+                        CONF_ALT_HEAT_ENABLED,
+                        default=bool(self._get(CONF_ALT_HEAT_ENABLED, False)),
+                    ): selector.BooleanSelector(),
+                    vol.Optional(
+                        CONF_ALT_HEAT_LABEL,
+                        default=str(self._get(CONF_ALT_HEAT_LABEL, DEFAULT_ALT_HEAT_LABEL)),
+                    ): selector.TextSelector(),
+                    vol.Optional(
+                        CONF_ALT_HEAT_COST_UNIT,
+                        default=str(self._get(CONF_ALT_HEAT_COST_UNIT, DEFAULT_ALT_HEAT_UNIT)),
+                    ): _alt_heat_unit_selector(),
+                    self._optional_key(CONF_ALT_HEAT_COST): _number_selector(
+                        CONF_ALT_HEAT_COST, _currency_code(currency)
                     ),
-                    self._optional_key(CONF_OIL_PRICE_ENTITY): _entity_selector(
-                        _OIL_PRICE_ENTITY_DOMAINS
+                    self._optional_key(CONF_ALT_HEAT_COST_ENTITY): _entity_selector(
+                        _ALT_HEAT_COST_ENTITY_DOMAINS
                     ),
                 }
             ),

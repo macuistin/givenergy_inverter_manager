@@ -51,6 +51,7 @@ from ..const import (
     CONF_SURPLUS_DIVERT_MIN_W,
     CONF_SURPLUS_DIVERT_SOC,
     CURRENCIES,
+    DEFAULT_ALT_HEAT_LABEL,
     DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_BATTERY_THROUGHPUT_BUDGET,
@@ -83,12 +84,7 @@ from ..const import (
 )
 from ..discovery import EVCharger, EVChargerState
 from ..logging import get_logger
-from .alt_heat_advice import (
-    AdviceInputs,
-    WaterHeatingAdvice,
-    advise_water_heating,
-    litre_heat_cost_per_kwh,
-)
+from .alt_heat_advice import AdviceInputs, WaterHeatingAdvice, advise_water_heating
 from .alt_heat_schedule import (
     AltHeatSchedule,
     ImmersionHeatLog,
@@ -202,9 +198,12 @@ class RawSensorValues:
     # Times of day the water has to be at its target, and the heating rate the coordinator
     # learned or assumed for the plan (degrees per hour, 0.0 when unknown) and where it came from.
     immersion_ready_times: tuple[time, ...] = ()
-    # The price of a litre of oil, None when no oil price is set (no oil advice). The coordinator
-    # resolves the price sensor over the saved number.
-    oil_price_per_litre: float | None = None
+    # What a kWh of heat costs from the alternative water heating, None when it is off or has no
+    # cost (no advice). The coordinator resolves the cost sensor over the saved number and turns
+    # the unit into a cost per kWh of heat (core/alt_heat_cost.py). The label is the user's word
+    # for it, as the advice sentences say it.
+    alt_heat_cost_per_kwh: float | None = None
+    alt_heat_label: str = DEFAULT_ALT_HEAT_LABEL
     immersion_heating_rate_c_per_h: float = 0.0
     immersion_rate_source: str = ""
     forecast_kwh_tomorrow: float | None = None
@@ -289,10 +288,11 @@ class CoordinatorData:
     immersion_expected_ready: bool | None = None
     # What scheduled heating plans, in a sentence. None without scheduled heating or a reading.
     immersion_planned_heating: str | None = None
-    # Oil against electricity for heating the water. None while no oil price is set.
+    # The alternative heating against electricity for the water. None while it has no cost.
     water_heating_advice: WaterHeatingAdvice | None = None
-    # The oil windows the immersion's grid heating suggests. None while no oil price is set or
-    # the record holds fewer than ALT_HEAT_SCHEDULE_MIN_DAYS days. A separate line from the advice.
+    # The windows the immersion's grid heating suggests for the alternative. None while it has no
+    # cost or the record holds fewer than ALT_HEAT_SCHEDULE_MIN_DAYS days. A separate line from
+    # the advice.
     alt_heat_schedule: AltHeatSchedule | None = None
     immersion_heating_rate_c_per_h: float | None = None
     immersion_rate_source: str = ""
@@ -585,7 +585,7 @@ def accumulate_energy(
 def record_immersion_grid_heat(
     log: ImmersionHeatLog, raw: RawSensorValues, window: AccumulationWindow
 ) -> None:
-    """Add the immersion's grid energy this step, and its cost, to the oil schedule record.
+    """Add the immersion's grid energy this step, and its cost, to the alternative schedule record.
 
     Only energy that solar surplus did not cover counts. A step with the heater off still notes
     the day, so a day with no grid heating counts as a day watched.
@@ -1093,7 +1093,7 @@ def _solar_surplus_to_divert(data: CoordinatorData, cycle: _Cycle) -> bool:
 
 
 def _water_reading(raw: RawSensorValues) -> WaterReading | None:
-    """The water as the oil advice reads it, None without a temperature reading."""
+    """The water as the alternative heating advice reads it, None without a reading."""
     if raw.immersion_temp is None:
         return None
     return WaterReading(
@@ -1106,15 +1106,16 @@ def _water_reading(raw: RawSensorValues) -> WaterReading | None:
 
 
 def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
-    """Oil against electricity for the water. Nothing is worked out without an oil price."""
-    price = cycle.raw.oil_price_per_litre
-    if price is None:
+    """The alternative against electricity for the water. Nothing is worked out without a cost."""
+    cost = cycle.raw.alt_heat_cost_per_kwh
+    if cost is None:
         return
     data.water_heating_advice = advise_water_heating(
         AdviceInputs(
             tariff=cycle.tariff,
             now=cycle.now,
-            alt_cost_per_kwh=litre_heat_cost_per_kwh(price),
+            alt_cost_per_kwh=cost,
+            label=cycle.raw.alt_heat_label,
             ready_times=cycle.raw.immersion_ready_times,
             solar_surplus=_solar_surplus_to_divert(data, cycle),
             currency_symbol=data.currency_symbol,
@@ -1127,17 +1128,18 @@ def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
 def _set_alt_heat_schedule(
     data: CoordinatorData, cycle: _Cycle, log: ImmersionHeatLog | None
 ) -> None:
-    """The oil windows the record suggests. Nothing without an oil price or a record."""
-    price = cycle.raw.oil_price_per_litre
-    if price is None or log is None:
+    """The windows the record suggests. Nothing without a cost or a record."""
+    cost = cycle.raw.alt_heat_cost_per_kwh
+    if cost is None or log is None:
         return
     data.alt_heat_schedule = suggest_alt_heat_schedule(
         log,
         ScheduleQuery(
             today=cycle.now.date(),
-            alt_cost_per_kwh=litre_heat_cost_per_kwh(price),
+            alt_cost_per_kwh=cost,
             heater_kw=cycle.raw.immersion_wattage_w / 1000,
             currency_symbol=data.currency_symbol,
+            label=cycle.raw.alt_heat_label,
         ),
     )
 
@@ -1457,7 +1459,7 @@ def _accumulate_energy_today(
     )
     for rolling_acc in accumulators.rolling():
         accumulate_energy(rolling_acc, cycle.raw, window)
-    if accumulators.heat_log is not None and cycle.raw.oil_price_per_litre is not None:
+    if accumulators.heat_log is not None and cycle.raw.alt_heat_cost_per_kwh is not None:
         record_immersion_grid_heat(accumulators.heat_log, cycle.raw, window)
     # Override today's physical kWh with GivTCP's own daily counters when available.
     # GivTCP reads directly from the inverter's metering, which is more accurate than

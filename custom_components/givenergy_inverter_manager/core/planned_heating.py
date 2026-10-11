@@ -12,8 +12,8 @@ changes neither. The sentence says one of these things:
 
 With no ready time the sentence covers the cheap window alone. The water counts as ready when it
 is at or above the temperature the immersion restarts at, or the run would be under 5 minutes
-(WaterReading.needs_heating), the same test the oil start uses. The immersion itself may still
-add a few minutes just before a ready time to reach the exact target.
+(WaterReading.needs_heating), the same test the alternative heating start uses. The immersion
+itself may still add a few minutes just before a ready time to reach the exact target.
 
 Pure Python, no Home Assistant imports.
 """

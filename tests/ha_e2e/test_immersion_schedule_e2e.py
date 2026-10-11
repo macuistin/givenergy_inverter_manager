@@ -26,12 +26,13 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import (
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_ENABLED,
     CONF_DRY_RUN,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_READY_TIMES,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
-    CONF_OIL_PRICE_PER_LITRE,
     DOMAIN,
 )
 
@@ -598,7 +599,7 @@ class TestOilStartForAReadyTime:
 
     @pytest.fixture
     def config_entry(self):
-        return _entry(**{CONF_IMMERSION_READY_TIMES: ["19:00"], CONF_OIL_PRICE_PER_LITRE: 0.05})
+        return _entry(**{CONF_IMMERSION_READY_TIMES: ["19:00"], CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: 0.05})
 
     async def test_cold_water_gets_a_start_time_and_the_immersion_stays_off(
         self, hass, loaded_entry, real_switch, freezer

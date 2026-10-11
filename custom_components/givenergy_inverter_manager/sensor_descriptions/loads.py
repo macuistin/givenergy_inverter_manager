@@ -1,4 +1,4 @@
-"""Controllable loads: the EV charger, the immersion heater and the oil water heating advice."""
+"""Controllable loads: the EV charger, the immersion heater and the alternative heating advice."""
 
 from __future__ import annotations
 

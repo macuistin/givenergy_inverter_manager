@@ -212,8 +212,8 @@ class Builder:
         """An entity of the immersion switch. Its expected ID while none is configured."""
         return self.devices.entity(Device.IMMERSION_SWITCH, suffix)
 
-    def oil_advice(self, suffix: str) -> str | None:
-        """An entity of the oil advice. Its expected ID while no oil price is set."""
+    def alt_heat_advice(self, suffix: str) -> str | None:
+        """An entity of the alternative heating advice. Its expected ID while it is not set."""
         return self.devices.entity(Device.ALTERNATIVE_HEAT, suffix)
 
     def water_sensor(self, suffix: str) -> str | None:
@@ -569,21 +569,23 @@ class Builder:
         """The next hot water ready time and the planned heating, while scheduled heating is on.
 
         Needs both devices, because scheduled heating does. The sensor's attributes carry the
-        time and the plan, so no helper sensor is needed. With an oil price it adds the oil
-        advice sentence, which names when to start the oil for this ready time.
+        time and the plan, so no helper sensor is needed. With alternative heating it adds the
+        advice sentence, which names when to start it for this ready time.
         """
         sensor = self.water_sensor("immersion_water_temperature")
         schedule = self.thermostat("immersion_schedule")
         if not (sensor and schedule):
             return None
         devices = self.devices
-        oil = attribute_markdown(self.oil_advice("water_heating_cheapest_source"), "suggestion")
+        advice = attribute_markdown(
+            self.alt_heat_advice("water_heating_cheapest_source"), "suggestion"
+        )
         return group(
             heading_card("Ready by", "mdi:clock-check-outline"),
             [
                 markdown_card(ready_by_template(sensor)),
                 markdown_card(planned_heating_template(sensor)),
-                devices.show_with(oil, Device.ALTERNATIVE_HEAT),
+                devices.show_with(advice, Device.ALTERNATIVE_HEAT),
             ],
             visibility=[
                 *devices.visible_with(Device.IMMERSION_THERMOSTAT, Device.IMMERSION_SENSOR),
@@ -592,12 +594,12 @@ class Builder:
         )
 
     def _alt_heat_section(self) -> dict[str, Any] | None:
-        """The cheapest way to heat the water, while an oil price is set. Advice only.
+        """The cheapest way to heat the water, while alternative heating is set. Advice only.
 
         The live suggestion shows only while Immersion Scheduled Heating is off. While it is
         on, the Ready by section prints the same sentence, so the page holds one copy.
         """
-        source = self.oil_advice("water_heating_cheapest_source")
+        source = self.alt_heat_advice("water_heating_cheapest_source")
         scheduled = self.thermostat("immersion_schedule")
         suggestion = attribute_markdown(source, "suggestion")
         return group(
@@ -612,7 +614,7 @@ class Builder:
 
     @staticmethod
     def _alt_heat_schedule_line(source: str | None) -> dict | None:
-        """The suggested oil schedule, apart from the live suggestion above it."""
+        """The suggested alternative heating schedule, apart from the live suggestion above it."""
         return markdown_card(alt_heat_schedule_template(source)) if source else None
 
     def _when(self, *devices: Device) -> dict[str, list[dict]]:

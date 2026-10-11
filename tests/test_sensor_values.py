@@ -332,7 +332,7 @@ class TestImmersionWaterAttributes:
 
 
 class TestWaterHeatingAdvice:
-    def _data(self):
+    def _data(self, **advice_fields):
         from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
             WaterHeatingAdvice,
         )
@@ -348,6 +348,7 @@ class TestWaterHeatingAdvice:
             horizon="ready_by",
             horizon_ends="07:00",
             cheapest_source_in_horizon="electricity",
+            **advice_fields,
         )
         return make_data(water_heating_advice=advice)
 
@@ -361,6 +362,7 @@ class TestWaterHeatingAdvice:
     def test_the_attributes_carry_the_sentence_and_the_figures(self):
         assert values.water_heating_attributes(self._data()) == {
             "suggestion": "Oil is cheaper than electricity until 23:00.",
+            "alt_label": "Oil",
             "alt_cost_per_kwh": 0.2,
             "electricity_cost_per_kwh": 0.3,
             "cheapest_electricity_cost_per_kwh": 0.15,
@@ -370,6 +372,18 @@ class TestWaterHeatingAdvice:
             "horizon_ends": "07:00",
             "cheapest_source_in_horizon": "electricity",
         }
+
+
+    def test_the_label_is_an_attribute_so_the_dashboard_can_name_the_alternative(self):
+        attrs = values.water_heating_attributes(self._data(label="Heat pump"))
+        assert attrs["alt_label"] == "Heat pump"
+
+    def test_the_state_is_the_same_whatever_the_label(self):
+        assert values.water_heating_source(self._data(label="Heat pump")) == "alternative"
+
+    def test_no_attribute_still_carries_the_word_oil(self):
+        attrs = values.water_heating_attributes(self._data(label="Gas"))
+        assert not [name for name in attrs if "oil" in name]
 
 
 class TestOilStartAttributes:

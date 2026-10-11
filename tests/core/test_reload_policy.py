@@ -93,9 +93,14 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     "cheap_rate_floor_soc": (40, 45, LIVE),
     "skip_charge_soc_threshold_pct": (75, 80, LIVE),
     "forecast_conservatism": (0.35, 0.4, LIVE),
-    # Oil price: the value is live while something stays set (rows below). Presence reloads.
-    "oil_price_per_litre": (0.9, 1.1, LIVE),
-    "oil_price_entity": ("sensor.a", "sensor.b", LIVE),
+    # Alternative heating. The coordinator reads the label, the unit, the cost and the cost
+    # sensor every cycle, so a new value is live while the advice device stays as it is. The
+    # device appears and goes with the setting, the cost and the cost sensor: tests below.
+    "alt_heat_enabled": (True, False, LIVE),
+    "alt_heat_label": ("Oil", "Gas", LIVE),
+    "alt_heat_cost_unit": ("litre", "kwh_heat", LIVE),
+    "alt_heat_cost": (0.9, 1.1, LIVE),
+    "alt_heat_cost_entity": ("sensor.a", "sensor.b", LIVE),
 }
 
 # Names in the forms that are not stored under their own key: the discovery pickers, the
@@ -156,32 +161,63 @@ def test_saving_an_unchanged_key_does_nothing(key):
     assert change_effect({key: old}, {key: old}) is Effect.NONE
 
 
-@pytest.mark.parametrize(
-    ("key", "value"),
-    [
-        ("oil_price_per_litre", 0.95),
-        ("oil_price_entity", "sensor.oil_price"),
-    ],
-)
-def test_setting_or_clearing_an_oil_price_reloads(key, value):
-    assert change_effect({}, {key: value}) is RELOAD
-    assert change_effect({key: value}, {}) is RELOAD
-    assert change_effect({key: value}, {key: ""}) is RELOAD
-    assert change_effect({key: value}, {key: None}) is RELOAD
+ON = {"alt_heat_enabled": True}
+COST = {"alt_heat_cost": 0.95}
+SENSOR = {"alt_heat_cost_entity": "sensor.heat_cost"}
 
 
-def test_a_zero_oil_price_is_not_a_price():
-    assert change_effect({"oil_price_per_litre": 0.0}, {"oil_price_per_litre": 0.95}) is RELOAD
+class TestTheAdviceDeviceAppearsAndGoes:
+    """Alternative heating is a device while it is on and has a cost or a cost sensor."""
 
+    @pytest.mark.parametrize("cost", [COST, SENSOR], ids=["cost", "sensor"])
+    def test_turning_it_on_with_a_cost_reloads(self, cost):
+        assert change_effect(cost, {**cost, **ON}) is RELOAD
+        assert change_effect({**cost, **ON}, cost) is RELOAD
+        assert change_effect({**cost, "alt_heat_enabled": False}, {**cost, **ON}) is RELOAD
 
-def test_swapping_one_oil_price_source_for_the_other_stays_live():
-    only_litre = {"oil_price_per_litre": 0.95}
-    only_sensor = {"oil_price_entity": "sensor.oil_price"}
-    both = {**only_litre, **only_sensor}
+    @pytest.mark.parametrize(
+        ("key", "value"),
+        [("alt_heat_cost", 0.95), ("alt_heat_cost_entity", "sensor.heat_cost")],
+    )
+    def test_setting_or_clearing_the_cost_while_on_reloads(self, key, value):
+        assert change_effect(ON, {**ON, key: value}) is RELOAD
+        assert change_effect({**ON, key: value}, ON) is RELOAD
+        assert change_effect({**ON, key: value}, {**ON, key: ""}) is RELOAD
+        assert change_effect({**ON, key: value}, {**ON, key: None}) is RELOAD
 
-    assert change_effect(only_litre, only_sensor) is LIVE
-    assert change_effect(only_litre, both) is LIVE
-    assert change_effect(both, only_sensor) is LIVE
+    @pytest.mark.parametrize(
+        ("key", "value"),
+        [("alt_heat_cost", 0.95), ("alt_heat_cost_entity", "sensor.heat_cost")],
+    )
+    def test_setting_or_clearing_the_cost_while_off_stays_live(self, key, value):
+        assert change_effect({}, {key: value}) is LIVE
+        assert change_effect({key: value}, {}) is LIVE
+
+    def test_turning_it_on_with_no_cost_is_live(self):
+        assert change_effect({}, ON) is LIVE
+        assert change_effect(ON, {}) is LIVE
+
+    def test_a_zero_cost_is_not_a_cost(self):
+        assert change_effect({**ON, "alt_heat_cost": 0.0}, {**ON, "alt_heat_cost": 0.95}) is RELOAD
+        assert change_effect({**ON, "alt_heat_cost": 0.0}, ON) is LIVE
+
+    def test_a_new_cost_while_on_stays_live(self):
+        assert change_effect({**ON, **COST}, {**ON, "alt_heat_cost": 1.2}) is LIVE
+
+    def test_swapping_the_cost_for_the_cost_sensor_stays_live(self):
+        both = {**COST, **SENSOR}
+        assert change_effect({**ON, **COST}, {**ON, **SENSOR}) is LIVE
+        assert change_effect({**ON, **COST}, {**ON, **both}) is LIVE
+        assert change_effect({**ON, **both}, {**ON, **SENSOR}) is LIVE
+
+    def test_a_new_label_or_unit_while_on_stays_live(self):
+        base = {**ON, **COST, "alt_heat_label": "Oil", "alt_heat_cost_unit": "litre"}
+        assert change_effect(base, {**base, "alt_heat_label": "Gas"}) is LIVE
+        assert change_effect(base, {**base, "alt_heat_cost_unit": "kwh_heat"}) is LIVE
+
+    def test_the_cost_and_the_setting_changing_together_reload_once(self):
+        assert change_effect({}, {**ON, **COST}) is RELOAD
+        assert change_effect({**ON, **COST}, {}) is RELOAD
 
 
 def test_a_key_the_policy_does_not_know_reloads():

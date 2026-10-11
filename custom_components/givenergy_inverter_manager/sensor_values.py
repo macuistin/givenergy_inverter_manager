@@ -225,13 +225,13 @@ def immersion_water_attributes(data: CoordinatorData) -> dict[str, Any] | None:
 
 
 def water_heating_source(data: CoordinatorData) -> str | None:
-    """Return the cheapest source to heat the water now, None without an oil price."""
+    """Return the cheapest source to heat the water now, None without advice."""
     advice = data.water_heating_advice
     return None if advice is None else advice.source
 
 
 def _alt_start_attributes(advice: WaterHeatingAdvice) -> dict[str, Any]:
-    """The oil start for the next ready time. Absent unless oil should be started."""
+    """The start for the next ready time. Absent unless the alternative should be started."""
     start = advice.alt_start
     if start is None or start.start_by is None:
         return {}
@@ -243,7 +243,7 @@ def _alt_start_attributes(advice: WaterHeatingAdvice) -> dict[str, Any]:
 
 
 def _alt_schedule_attributes(schedule: AltHeatSchedule | None) -> dict[str, Any]:
-    """The suggested oil schedule. Absent until the record holds a week of days.
+    """The suggested alternative heating schedule. Absent until the record holds a week of days.
 
     From then on the list and the days are always there, and the list is empty when nothing is
     worth suggesting. The sentence is only there with a suggestion. None of this is in the
@@ -268,6 +268,7 @@ def water_heating_attributes(data: CoordinatorData) -> dict[str, Any] | None:
         return None
     attributes = {
         "suggestion": advice.suggestion,
+        "alt_label": advice.label,
         "alt_cost_per_kwh": round(advice.alt_cost_per_kwh, 4),
         "electricity_cost_per_kwh": round(advice.electricity_cost_per_kwh, 4),
         "cheapest_electricity_cost_per_kwh": round(advice.cheapest_electricity_cost_per_kwh, 4),

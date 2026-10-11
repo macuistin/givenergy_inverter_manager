@@ -12,6 +12,7 @@ from ..const import (
     ATTR_FULL_TEXT,
     CONF_CURRENCY,
     CURRENCIES,
+    DEFAULT_ALT_HEAT_LABEL,
     DEFAULT_CURRENCY,
     IMMERSION_SWITCH_COOLDOWN_MINUTES,
 )
@@ -98,23 +99,28 @@ def planned_heating_template(sensor: str) -> str:
 
 
 def alt_heat_schedule_template(source: str) -> str:
-    """The suggested oil schedule line, read from the cheapest source sensor.
+    """The suggested alternative heating schedule line, read from the cheapest source sensor.
 
-    The sensor holds oil_schedule_suggestion only while there is a schedule to suggest, and
-    oil_schedule_days only from the first week of data. A Lovelace condition cannot test for an
-    attribute, so the card says which of the two it is waiting on.
+    The sensor holds alt_schedule_suggestion only while there is a schedule to suggest, and
+    alt_schedule_days only from the first week of data. A Lovelace condition cannot test for an
+    attribute, so the card says which of the two it is waiting on. The label comes from the
+    sensor's alt_label attribute, so a change of label shows without regenerating the dashboard.
+    Inside a sentence it is lower case unless it is all capitals (core/alt_heat_label.py).
     """
     return (
         f"{{% set text = state_attr('{source}', 'alt_schedule_suggestion') %}}"
         f"{{% set days = state_attr('{source}', 'alt_schedule_days') %}}"
+        f"{{% set label = state_attr('{source}', 'alt_label') or '{DEFAULT_ALT_HEAT_LABEL}' %}}"
+        "{% set word = label if label == label | upper else label | lower %}"
         "{% if text -%}\n"
         "{{ text }}\n"
         "{%- elif days -%}\n"
-        "No regular oil schedule would save enough yet, from the last {{ days }} days of "
+        "No regular {{ word }} schedule would save enough yet, from the last {{ days }} days of "
         "heating.\n"
         "{%- else -%}\n"
-        "Still learning when the immersion heats the water at rates above oil. A suggested oil "
-        f"schedule appears after {ALT_HEAT_SCHEDULE_MIN_DAYS} days.\n"
+        "Still learning when the immersion heats the water at rates above {{ word }}. A "
+        "suggested {{ word }} schedule appears after "
+        f"{ALT_HEAT_SCHEDULE_MIN_DAYS} days.\n"
         "{%- endif %}"
     )
 
