@@ -27,6 +27,10 @@ controls of controls.py (dry run and verbose logging):
     When on, overrides the overnight charge decision to skip charging
     regardless of what the forecast says. Useful for manually preventing
     a charge on a night when the battery is already adequate.
+
+Names and icons are translated: the entity's translation key is its unique id suffix, and
+strings.json and icons.json hold the rest. optional_devices.DeviceEntity.name repeats the
+English name for the dashboard, and tests/test_translations.py keeps the two equal.
 """
 
 from __future__ import annotations
@@ -46,13 +50,7 @@ from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .core.devices import Device
 from .entity import GivEnergyEntity
 from .logging import get_logger
-from .optional_devices import (
-    AUTO_IMMERSION,
-    IMMERSION_MANAGED,
-    IMMERSION_SCHEDULE,
-    async_add_entities_per_device,
-    present_devices,
-)
+from .optional_devices import async_add_entities_per_device, present_devices
 
 _LOG = get_logger(__name__)
 
@@ -113,7 +111,7 @@ class GivEnergyAutoImmersionSwitch(
 ):
     """Switch to enable/disable automatic immersion divert logic."""
 
-    _attr_name = AUTO_IMMERSION.name
+    _attr_translation_key = "auto_immersion"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
@@ -150,7 +148,7 @@ class GivEnergyImmersionControlSwitch(GivEnergyEntity, SwitchEntity):
     lets the user override it.
     """
 
-    _attr_name = IMMERSION_MANAGED.name
+    _attr_translation_key = "immersion_managed"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
@@ -180,8 +178,7 @@ class GivEnergyImmersionScheduleSwitch(GivEnergyEntity, RestoreEntity, SwitchEnt
     the flag every cycle, so turning it on or off takes effect at the next update.
     """
 
-    _attr_name = IMMERSION_SCHEDULE.name
-    _attr_icon = "mdi:water-boiler-auto"
+    _attr_translation_key = "immersion_schedule"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
@@ -215,7 +212,7 @@ class GivEnergySkipChargeOverrideSwitch(GivEnergyEntity, SwitchEntity):
     engine run, not just the current in-memory snapshot.
     """
 
-    _attr_name = "Force Skip Overnight Charge"
+    _attr_translation_key = "skip_charge_override"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
@@ -251,8 +248,7 @@ class GivEnergyChargeTargetOverrideSwitch(
     meaningful SoC percentage, never a confusing "0 = auto" sentinel.
     """
 
-    _attr_name = "Enable Charge Target Override"
-    _attr_icon = "mdi:battery-charging-outline"
+    _attr_translation_key = "charge_target_override_enabled"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)

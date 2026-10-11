@@ -22,6 +22,7 @@ from custom_components.givenergy_inverter_manager.const import (
 )
 from custom_components.givenergy_inverter_manager.core.devices import Device
 from custom_components.givenergy_inverter_manager.sensor_descriptions import SENSOR_DESCRIPTIONS
+from tests.helpers import PKG
 
 EV = Device.EV_CHARGER
 SWITCH = Device.IMMERSION_SWITCH
@@ -108,16 +109,38 @@ class TestWhatNeedsWhat:
         assert len(keys) == len(set(keys))
 
     def test_the_switch_and_number_names_are_the_ones_the_entities_use(self):
+        """The dashboard predicts an absent device's entity id from DeviceEntity.name.
+
+        Home Assistant builds the real id from the translated name, so the two must agree.
+        """
+        import json
+
+        entity = json.loads((PKG / "strings.json").read_text(encoding="utf-8"))["entity"]
+        for device_entity in od.DEVICE_ENTITIES:
+            if device_entity.platform not in ("switch", "number"):
+                continue
+            translated = entity[device_entity.platform][device_entity.key]["name"]
+            assert translated == device_entity.name, device_entity.key
+
+    def test_the_entity_classes_translate_their_name_by_the_unique_id_suffix(self):
         from custom_components.givenergy_inverter_manager import number, switch
 
-        assert switch.GivEnergyAutoImmersionSwitch._attr_name == od.AUTO_IMMERSION.name
-        assert switch.GivEnergyImmersionControlSwitch._attr_name == od.IMMERSION_MANAGED.name
+        assert switch.GivEnergyAutoImmersionSwitch._attr_translation_key == od.AUTO_IMMERSION.key
         assert (
-            switch.GivEnergyImmersionScheduleSwitch._attr_name == od.IMMERSION_SCHEDULE.name
+            switch.GivEnergyImmersionControlSwitch._attr_translation_key
+            == od.IMMERSION_MANAGED.key
         )
-        assert number.ImmersionTargetTempNumber._attr_name == od.IMMERSION_TARGET.name
-        assert number.ImmersionMinTempNumber._attr_name == od.IMMERSION_MINIMUM.name
-        assert number.ImmersionHysteresisNumber._attr_name == od.IMMERSION_RESTART_GAP.name
+        assert (
+            switch.GivEnergyImmersionScheduleSwitch._attr_translation_key
+            == od.IMMERSION_SCHEDULE.key
+        )
+        coordinator = SimpleNamespace(entry=SimpleNamespace(entry_id="entry"))
+        for cls, device_entity in (
+            (number.ImmersionTargetTempNumber, od.IMMERSION_TARGET),
+            (number.ImmersionMinTempNumber, od.IMMERSION_MINIMUM),
+            (number.ImmersionHysteresisNumber, od.IMMERSION_RESTART_GAP),
+        ):
+            assert cls(coordinator)._attr_translation_key == device_entity.key
 
 
 def _entry(config=None, brand=None):

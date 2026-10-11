@@ -21,6 +21,10 @@ Provides one override number, three immersion temperature controls and five tuni
     Cheap rate floor SoC, skip-charge SoC threshold and forecast conservatism, on every
     install. Immersion divert minimum SoC and minimum surplus, only while an immersion switch
     is set. Each writes the saved option it always used.
+
+Names and icons are translated: the entity's translation key is its unique id suffix, and
+strings.json and icons.json hold the rest. optional_devices.DeviceEntity.name repeats the
+English name for the dashboard, and tests/test_translations.py keeps the two equal.
 """
 
 from __future__ import annotations
@@ -43,12 +47,7 @@ from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
 from .core.devices import Device
 from .entity import GivEnergyEntity
 from .logging import get_logger
-from .optional_devices import (
-    IMMERSION_MINIMUM,
-    IMMERSION_RESTART_GAP,
-    IMMERSION_TARGET,
-    async_add_entities_per_device,
-)
+from .optional_devices import async_add_entities_per_device
 
 _LOG = get_logger(__name__)
 
@@ -90,13 +89,12 @@ class GivEnergyChargeTargetOverride(
     Range 10-100% — no zero sentinel, no hidden mode logic.
     """
 
-    _attr_name = "Overnight Charge Target Override"
+    _attr_translation_key = "charge_target_override"
     _attr_native_min_value = 10
     _attr_native_max_value = 100
     _attr_native_step = 5
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_mode = NumberMode.SLIDER
-    _attr_icon = "mdi:battery-charging-80"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
@@ -130,7 +128,6 @@ class _ImmersionNumberBase(GivEnergyEntity, RestoreNumber, NumberEntity):
 
     _attr_mode = NumberMode.SLIDER
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
-    _attr_icon = "mdi:thermometer"
 
     def __init__(
         self,
@@ -141,6 +138,7 @@ class _ImmersionNumberBase(GivEnergyEntity, RestoreNumber, NumberEntity):
     ) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{key}"
+        self._attr_translation_key = key
         self._config_key = config_key
         self._value: float = default
 
@@ -175,7 +173,6 @@ class _ImmersionNumberBase(GivEnergyEntity, RestoreNumber, NumberEntity):
 class ImmersionTargetTempNumber(_ImmersionNumberBase):
     """Upper temperature — immersion turns off when water reaches this."""
 
-    _attr_name = IMMERSION_TARGET.name
     _attr_native_min_value = 40.0
     _attr_native_max_value = 75.0
     _attr_native_step = 1.0
@@ -199,7 +196,6 @@ class ImmersionTargetTempNumber(_ImmersionNumberBase):
 class ImmersionMinTempNumber(_ImmersionNumberBase):
     """Lower temperature — immersion forced on below this (legionella / restart threshold)."""
 
-    _attr_name = IMMERSION_MINIMUM.name
     _attr_native_min_value = 30.0
     _attr_native_max_value = 60.0
     _attr_native_step = 1.0
@@ -220,7 +216,6 @@ class ImmersionMinTempNumber(_ImmersionNumberBase):
 class ImmersionHysteresisNumber(_ImmersionNumberBase):
     """Restart gap — how many degrees below target before restarting is allowed."""
 
-    _attr_name = IMMERSION_RESTART_GAP.name
     _attr_native_min_value = 1.0
     _attr_native_max_value = 15.0
     _attr_native_step = 1.0

@@ -13,6 +13,7 @@ One line per card. A card is listed as merged only when its pull request is merg
 | CT1 | Dry run switch and the test instance marker file | In the controls PR (`r018/controls`). The marker forces dry run in the coordinator, the snapshot, the sensor, the log and the diagnostics |
 | CT2 | Immersion divert thresholds as numbers | In the controls PR. Created only while an immersion switch is set |
 | CT3 | Verbose logging, cheap rate floor, skip-charge threshold and forecast conservatism | In the controls PR. The wizard and Configure page fields are gone |
+| CT4 | Translations and icons for every switch and number | In the controls PR. `entity-translations` and `icon-translations` are done |
 
 Merged cards: none yet.
 

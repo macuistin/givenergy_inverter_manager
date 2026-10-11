@@ -38,6 +38,10 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   Configure page never changes a control, even when you moved one while the page was open.
 - A new install starts with dry run on. The last setup page says so. Turn the Dry run switch off
   when the decisions look right. An install that already exists keeps the dry run setting it had.
+- Every switch and number now takes its name and its icon from the translation files, as the
+  sensors do. The names and entity IDs are unchanged. The Auto Immersion Divert, Immersion Heater
+  (Managed), Force Skip Overnight Charge, Enable Charge Target Override and the three immersion
+  temperature numbers show the icons listed in `icons.json`.
 - The dashboard's Settings view has a Dry run switch, a Tuning section and the two immersion
   divert sliders. The dry run banner says how to go live: turn off the Dry run switch in Settings.
 - Estimated SoC at Sunrise is now Estimated SoC at Sunrise Without a Charge, and its description says

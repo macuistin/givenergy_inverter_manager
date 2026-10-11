@@ -60,9 +60,9 @@ rules:
   entity-category: done        # EntityCategory.DIAGNOSTIC on operational sensors
   entity-device-class: done    # SensorDeviceClass used where appropriate
   entity-disabled-by-default: done  # yesterday/week/month/forecast/HTML report sensors disabled by default
-  entity-translations: todo    # sensors and the refresh button are translated; the 4 switches and 4 numbers set _attr_name in code
+  entity-translations: done    # every sensor, switch, number and the refresh button has a translation_key and a name in strings.json
   exception-translations: done # ConfigEntryNotReady and UpdateFailed use translation_key
-  icon-translations: todo      # icons.json covers the sensors and the button; switches and numbers have no translation_key, so their entries are unused
+  icon-translations: done      # icons.json covers every sensor, switch, number and the button by translation_key
   reconfiguration-flow: done   # async_step_reconfigure re-uses the tariff step schema; it edits tariff values only
   repair-issues: done          # givtcp_entities_missing and min_soc_too_high repair issues, each with a learn_more_url
   stale-devices:
