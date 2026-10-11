@@ -99,3 +99,46 @@ def test_reload_keys_names_only_the_keys_that_reload():
 
     assert reload_policy.reload_keys(old, new) == {"immersion_switch_entity", "currency"}
     assert reload_policy.reload_keys(old, old) == frozenset()
+
+
+def test_the_setup_summary_says_dry_run_is_on():
+    from custom_components.givenergy_inverter_manager.core.wizard_changes import setup_summary
+
+    text = setup_summary({}, None, tariff_asked=False)
+
+    assert "Dry run is on. Nothing is sent to your inverter, immersion or EV charger" in text
+
+
+def test_the_setup_summary_says_when_the_tariff_was_left_for_later():
+    from custom_components.givenergy_inverter_manager.core.wizard_changes import setup_summary
+
+    text = setup_summary({}, None, tariff_asked=False)
+
+    assert "Tariff: not set yet." in text
+    assert "placeholder rate" in text
+    assert "Cheapest rate" not in text
+
+
+def test_the_setup_summary_lists_the_tariff_the_charger_and_the_sensors():
+    from custom_components.givenergy_inverter_manager.core.wizard_changes import setup_summary
+
+    values = {
+        "inverter_serial": "ab1",
+        "base_rate": 0.3,
+        "base_rate_name": "Day",
+        "rate_periods": [{"name": "Night", "rate": 0.12, "start": "23:00", "end": "08:00"}],
+        "battery_capacity_kwh": 9.5,
+        "inverter_max_output_kw": 5.0,
+        "forecast_entity": "sensor.f",
+        "immersion_switch_entity": "switch.h",
+    }
+
+    text = setup_summary(values, "Zappi", tariff_asked=True)
+
+    assert "- Inverter: ab1." in text
+    assert "Cheapest rate in your saved tariff: Night at 0.1200 EUR/kWh, 23:00 to 08:00" in text
+    assert "Base rate: Day 0.3000. Timed rates: Night 0.1200 (23:00 to 08:00)." in text
+    assert "Battery 9.5 kWh, inverter 5 kW." in text
+    assert "EV charger: Zappi." in text
+    assert "Solar forecast sensor: sensor.f." in text
+    assert "Hot water: immersion switch switch.h." in text

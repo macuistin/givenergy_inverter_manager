@@ -454,3 +454,28 @@ async def test_every_page_keeps_its_keys_in_the_page_table(hass, loaded_entry):
     names = {f["name"] for form in forms.values() for f in every_field(form["fields"])}
 
     assert names - form_only <= stored
+
+
+async def test_last_step_is_true_only_on_the_last_tariff_screen_of_a_single_page(
+    hass, loaded_entry
+):
+    result = await open_options(hass, loaded_entry, {"tariff": {}})
+    assert result["last_step"] is False
+    result = await submit(manager(hass), result, edit_rates=True, edit_bill=True)
+    assert result["step_id"] == "tariff_rates"
+    assert result["last_step"] is False
+    result = await submit(manager(hass), result)
+    assert result["step_id"] == "bill"
+    assert result["last_step"] is True
+    manager(hass).async_abort(result["flow_id"])
+
+
+async def test_the_tariff_screens_are_not_the_last_when_another_page_follows(hass, loaded_entry):
+    result = await open_options(hass, loaded_entry, {"tariff": {}, "ev": {}})
+    result = await submit(manager(hass), result, edit_bill=True)
+    assert result["step_id"] == "bill"
+    assert result["last_step"] is False
+    result = await submit(manager(hass), result)
+    assert result["step_id"] == "ev"
+    assert result["last_step"] is False
+    manager(hass).async_abort(result["flow_id"])
