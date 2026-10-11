@@ -156,9 +156,7 @@ For the EV load, the dashboard uses the first of these entities that exists, els
 
 ### Immersion (sub-view)
 
-![Immersion view with the water temperature chart, the heater shaded while it is on, and the reason for the divert decision.](images/dashboard-immersion.png)
-
-This screenshot is from an earlier version, which drew the heater as a shaded band. The chart is now a history graph with the heater's power as a line.
+![Immersion view with the water temperature and heater power graphs, the reason for the divert decision, the ready-by plan, the cheapest way to heat the water, and the settings in force.](images/dashboard-immersion.png)
 
 Each section shows only while the device it needs exists.
 
@@ -235,7 +233,7 @@ Like the table, the list is read from your options each time the dashboard opens
 
 ### Battery
 
-![Battery view with state of charge graph, tonight's charge plan and the charge settings in force.](images/dashboard-battery.png)
+![Battery view with the state of charge graph, tonight's charge plan with the sunrise figures without and with the planned charge, and the charge settings in force.](images/dashboard-battery.png)
 
 - **Battery**: state of charge with a bar, battery power with a 24-hour trend, and a 24-hour history of state of charge. The heading opens Battery detail.
 - **Tonight's charge plan**: the plan in one sentence first, then Target if charging (the target the plan would set if tonight charges, which is not a promise that it does, on a full-width tile), Sunrise (no charge) and Sunrise (with charge) on full-width tiles (the estimated state of charge at sunrise without and with tonight's planned charge), Est. cost and Rate floor (the cheap rate floor). The sentence is the Tonight's charge plan sensor, and says outright whether tonight charges (`Target 78% · Add 34% · Cost €0.51`) or is skipped (`Skip charge · Plan forecast 8.2 kWh · SoC 64%`). The sensor is enabled by default. If you disabled it, the tiles show alone.
@@ -251,7 +249,7 @@ State of charge and power are not drawn on one graph, because a percentage and w
 
 ### Settings (sub-view, administrators only)
 
-![Settings view with the charge target slider, the skip tonight toggle and the immersion heater controls.](images/dashboard-settings.png)
+![Settings view with the Dry run switch, the overnight charging controls, the Tuning sliders and the immersion heater controls.](images/dashboard-settings.png)
 
 - **Dry run**: the Dry run switch. Turn it off to go live. It cannot be turned off on a test instance.
 - **Overnight charging**: a Target override slider, and the Override on and Skip tonight switches. They carry the names the Battery tab gives the same settings.
