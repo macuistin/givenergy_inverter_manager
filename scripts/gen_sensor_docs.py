@@ -482,10 +482,12 @@ DESCRIPTIONS: dict[str, str] = {
         "The charge plan does not skip a night this sensor calls Critical."
     ),
     "night_survival_confidence": (
-        "Safe, Warning (within 5 points of minimum SoC) or Critical. "
-        "The attributes say why and give the numbers. `outlook` and `summary` say it in "
-        "words for the dashboard, for example Lasts the night, with the charge expected at "
-        "sunrise."
+        "Safe, Warning (within 5 points of minimum SoC) or Critical, judged without a "
+        "charge. The attributes say why and give the numbers. `outlook` and `summary` say it "
+        "in words for the dashboard, for example Lasts the night, with the charge expected at "
+        "sunrise. While tonight's planned charge counts, `summary` and `explanation` also "
+        "give the figure with it and say whether it covers a Warning or Critical night. The "
+        "level does not change."
     ),
     "cheap_rate_floor_status": "State of the cheap rate floor top-up, or Inactive.",
     "immersion_divert_reason": "Why the immersion is on or off.",

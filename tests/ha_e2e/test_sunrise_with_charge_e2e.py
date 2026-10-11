@@ -9,10 +9,14 @@ the charge window and says where the night ends.
 from __future__ import annotations
 
 import re
+from datetime import timedelta
 
 import pytest
 from conftest import PREFIX, Scenario
+from homeassistant.config_entries import RELOAD_AFTER_UPDATE_DELAY
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
 from custom_components.givenergy_inverter_manager.core.sunrise_charge import (
@@ -145,3 +149,46 @@ async def test_a_learned_load_profile_lifts_the_figure_and_the_basis_says_so(has
     assert 85.0 <= float(profiled.state) <= 90.0
     # The figure night survival reads does not use the profile.
     assert without_after.state == without_before.state
+
+
+async def _enable_overnight_confidence(hass, entry) -> str:
+    """Battery Overnight Confidence is disabled by default. Enable it and wait for the reload."""
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.entry_id}_night_survival_confidence"
+    )
+    assert entity_id
+    registry.async_update_entity(entity_id, disabled_by=None)
+    async_fire_time_changed(
+        hass, dt_util.utcnow() + timedelta(seconds=RELOAD_AFTER_UPDATE_DELAY + 1)
+    )
+    await hass.async_block_till_done()
+    return entity_id
+
+
+async def test_the_overnight_text_says_what_the_planned_charge_adds(hass, loaded_entry):
+    entity_id = await _enable_overnight_confidence(hass, loaded_entry)
+    await _refresh(hass, loaded_entry)
+    data = loaded_entry.runtime_data.data
+
+    state = hass.states.get(entity_id)
+    assert state.state == "Critical"
+    assert state.attributes["outlook"] == "May run low"
+    assert state.attributes["summary"] == (
+        f"May run low without a charge · tonight's charge covers it, "
+        f"about {data.sunrise_with_charge.soc:.0f}% at sunrise"
+    )
+    assert state.attributes["explanation"].startswith("Battery may run low. Estimated shortfall:")
+    assert "Tonight's planned charge covers this" in state.attributes["explanation"]
+    assert len(state.attributes["summary"]) <= 100
+
+
+async def test_a_skipped_night_gives_the_overnight_text_one_figure(hass, loaded_entry):
+    entity_id = await _enable_overnight_confidence(hass, loaded_entry)
+    loaded_entry.runtime_data.override_skip_charge = True
+    await _refresh(hass, loaded_entry)
+
+    state = hass.states.get(entity_id)
+    assert state.state == "Critical"
+    assert state.attributes["summary"] == "May run low"
+    assert "planned charge" not in state.attributes["explanation"]

@@ -730,6 +730,59 @@ class TestNightSurvivalConfidence:
         assert attrs["explanation"] == "Runs out"
         assert attrs["outlook"] == "May run low"
 
+    @staticmethod
+    def _night_with_charge(survive, sunrise_soc, soc_with_charge, **fields):
+        from custom_components.givenergy_inverter_manager.core.sunrise_charge import (
+            BASIS_REACHES_TARGET,
+            SunriseWithCharge,
+        )
+
+        projection = SunriseWithCharge(
+            soc_with_charge, 25.5, 60.0, "02:00 to 04:00", BASIS_REACHES_TARGET
+        )
+        reason = "Battery may run low. Estimated shortfall: 1.8kWh before solar starts."
+        return make_data(
+            survival_reason=reason if not survive else "Battery should last until solar.",
+            will_survive_night=survive,
+            estimated_soc_at_sunrise=sunrise_soc,
+            battery_min_soc=10,
+            sunrise_with_charge=projection,
+            **fields,
+        )
+
+    def test_the_attributes_give_the_figure_with_a_planned_charge_that_counts(self):
+        data = self._night_with_charge(False, 10.0, 89.2)
+        attrs = values.night_survival_attributes(data)
+        assert attrs["summary"] == (
+            "May run low without a charge · tonight's charge covers it, about 89% at sunrise"
+        )
+        assert attrs["explanation"].endswith("Tonight's planned charge covers this: about 89% at sunrise.")
+
+    def test_the_level_ignores_the_planned_charge(self):
+        assert values.night_survival_confidence(self._night_with_charge(False, 10.0, 89.2)) == "Critical"
+        assert values.night_survival_confidence(self._night_with_charge(True, 12.0, 89.2)) == "Warning"
+        assert values.night_survival_confidence(self._night_with_charge(True, 40.0, 89.2)) == "Safe"
+
+    @pytest.mark.parametrize(
+        "fields",
+        [
+            {"charge_window": None, "charge_added_pct": 0.0, "soc_at_charge_start": None},
+            {"charge_added_pct": 0.0},
+        ],
+        ids=["no window, so no charge", "window that adds nothing"],
+    )
+    def test_a_projection_with_no_charge_in_it_leaves_one_figure(self, fields):
+        from dataclasses import replace
+
+        data = self._night_with_charge(True, 40.0, 89.2)
+        data = replace(data, sunrise_with_charge=replace(data.sunrise_with_charge, **fields))
+        assert values.night_survival_attributes(data)["summary"] == "Lasts the night · 40% at sunrise"
+
+    def test_one_figure_before_the_first_projection(self):
+        data = self._night(sunrise_soc=40.0)
+        assert data.sunrise_with_charge is None
+        assert values.night_survival_attributes(data)["summary"] == "Lasts the night · 40% at sunrise"
+
 
 class TestSunriseWithCharge:
     @staticmethod
