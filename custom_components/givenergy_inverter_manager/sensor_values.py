@@ -403,6 +403,22 @@ def register_write_attributes(data: CoordinatorData) -> dict[str, Any]:
     return {"recent_writes": newest_first(data.register_write_log)}
 
 
+# ── Savings ──────────────────────────────────────────────────────────────────
+
+
+def saving_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """The part of the saving that is stored energy, so the figure can be checked by hand.
+
+    stored_energy_change_kwh is None while the battery capacity is unknown, because the
+    change in kWh cannot be worked out then and the value is 0.
+    """
+    known = data.battery_capacity_kwh > 0
+    return {
+        "stored_energy_value": round(data.stored_energy_value, 4),
+        "stored_energy_change_kwh": round(data.stored_energy_change_kwh, 3) if known else None,
+    }
+
+
 # ── Self-sufficiency ─────────────────────────────────────────────────────────
 
 

@@ -370,9 +370,15 @@ DESCRIPTIONS: dict[str, str] = {
     "immersion_savings_today": "Diverted solar kWh times (current rate minus export rate).",
     "saving_vs_grid_today": (
         "House load priced at the rate in force when it ran, minus net import cost "
-        "(import cost minus export earnings)."
+        "(import cost minus export earnings), plus the value of the change in the energy the "
+        "battery holds since midnight. The `stored_energy_value` and `stored_energy_change_kwh` "
+        "attributes show that last part, so the figure can be checked by hand. "
+        "See [Concepts](concepts.md#saving-and-the-energy-in-the-battery)."
     ),
-    "net_saving_today": "Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set.",
+    "net_saving_today": (
+        "Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. "
+        "It carries the same `stored_energy_value` and `stored_energy_change_kwh` attributes."
+    ),
     "net_position_today": "Export earnings minus import cost.",
     "self_sufficiency": (
         "Share of the house load, EV and immersion included, that did not come from the grid "
