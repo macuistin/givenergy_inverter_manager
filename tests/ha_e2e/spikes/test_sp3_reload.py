@@ -8,8 +8,10 @@ The throwaway flows and fixtures are in sp3_support.py. See docs/design/spikes/S
 
 from __future__ import annotations
 
+import inspect
 import logging
 
+import pytest
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -33,6 +35,13 @@ from sp3_support import (  # noqa: F401
 # ---------------------------------------------------------------------------------------------
 
 DEPRECATION = "has an update listener and should use it for scheduling a reload"
+
+# The warning is in the 2026.9.4 source. Home Assistant 2026.5.0 does not have it, so the two
+# tests that measure the log are skipped there. Everything else in this module runs on both.
+needs_the_deprecation = pytest.mark.skipif(
+    DEPRECATION not in inspect.getsource(config_entries),
+    reason="this Home Assistant release does not log the update listener deprecation",
+)
 
 
 async def _reconfigure(hass: HomeAssistant, entry: MockConfigEntry, host: str) -> dict:
@@ -68,6 +77,7 @@ async def test_update_and_abort_with_unchanged_data_does_not_notify_the_listener
     assert (wizard.unloads, wizard.setups) == (0, 1)
 
 
+@needs_the_deprecation
 async def test_update_reload_and_abort_with_a_listener_logs_the_2026_12_deprecation(
     hass, wizard, caplog
 ):
@@ -90,6 +100,7 @@ async def test_update_reload_and_abort_with_a_listener_logs_the_2026_12_deprecat
     assert wizard.setups == 3
 
 
+@needs_the_deprecation
 async def test_the_deprecation_is_logged_once_per_run_for_an_integration(hass, wizard, caplog):
     entry = await loaded_entry(hass)
     with mock_config_flow(DOMAIN, ReloadFlow):
