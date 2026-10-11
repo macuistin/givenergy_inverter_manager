@@ -2,11 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.18.0
 
-Two sunrise figures, saving values that count the battery, a forecast correction that follows cloudy weeks, seven settings that are now controls, alternative water heating in place of the oil price, and a shorter setup and Configure wizard.
+Setup and Configure become short wizards, seven settings become controls, alternative water heating replaces the oil price, the dashboard builds itself, and the saving and sunrise figures count the battery.
 
-**Features**
+**Setup and settings**
 - Seven settings are now entities you can change at any time, and they take effect on the next
   30-second cycle with no reload: **Dry run** and **Verbose logging** (switches), and **Immersion
   divert minimum SoC**, **Immersion divert minimum surplus**, **Cheap rate floor SoC**,
@@ -20,24 +20,6 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   Dry Run Mode Active sensor says so in its `test_instance` attribute, and the dashboard banner says
   it is a test instance. The file is read at start-up. Delete it and restart to go live. See
   [Dry run](docs/configuration.md#dry-run).
-- New sensor Estimated SoC at Sunrise With the Planned Charge (`estimated_soc_at_sunrise_with_charge`).
-  It projects the battery to the next 08:00 with tonight's planned charge in it: the battery runs down
-  to the start of the charge window, the window adds charge up to the target at the charge rate the
-  plan uses, and the battery runs down again to sunrise, never below the minimum SoC. The window is
-  sized for the SoC the battery will have when it opens. A skipped night, no timed charge window, or a
-  window that is over gives the same figure as the one without a charge. It reads the learned
-  per-slot load profile the charge plan uses, and the flat daily average until there is a usable
-  profile. The figure without a charge keeps the flat average, and `basis` says which load was used. Its attributes are
-  `soc_at_charge_start`, `charge_added_pct`, `charge_window` and `basis`. Nothing reads it, so the
-  charge plan and the night survival sensors are unchanged. It is enabled by default.
-
-- **Alternative water heating** replaces the oil price. Under Configure, tick **Hot water** and open
-  **Another way to heat the water**, turn on **I have another way to heat the water**, give it a name (Oil, Gas, Heat pump, up to 20
-  characters), choose what the cost is (the price of a litre of oil, or the cost of one kWh of heat
-  delivered to the water) and enter it. A cost sensor can override the cost. The advice, the start
-  time, the keep-warm run and the recurring schedule then use your name, for example `Gas is cheaper
-  than electricity until 23:00`. The integration still only advises: it never switches the other
-  system. Changing the name, the unit or a cost applies on the next cycle with no reload.
 - **A shorter setup.** The first screen lists what was found and will be used (the inverter, an EV
   charger, a Solcast or Forecast.Solar sensor) and asks what to set up now. Only the pages you tick
   follow, always in the same order, then a confirm screen. A flat-rate home with nothing else is three
@@ -56,13 +38,6 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   discovery finds, and lets you use the found ones or choose them by hand. It refuses entities of a
   different inverter and reloads once. Before, the only way to point the integration at other entities
   was to remove it and add it again. See [Reconfigure](docs/configuration.md#reconfigure).
-- Some attributes that change often are no longer written to the history database: the ready-by
-  plan on the water temperature sensor, the night survival numbers, the self-sufficiency
-  breakdown, the register writes, the GivTCP rate differences and the alternative heating costs,
-  times and schedule. They stay on the entity, so dashboards and automations read them as before.
-  Home Assistant stops storing a new set of attributes each time one of them moves.
-
-**Changes**
 - **The tariff is edited in Configure only.** Reconfigure used to be the tariff form. Use Configure,
   tick **Tariff**. A dated rate change is its own tick box, **Schedule a rate change**, with a start
   date and a switch to cancel the ones already scheduled. **Confirm the tariff is current** records
@@ -76,8 +51,6 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   stored value, untouched. Setup also no longer asks for the immersion target and minimum
   temperatures, the battery limits or the car efficiency. The defaults apply, the immersion
   temperatures are numbers on the device page, and the rest are one tick away in Configure.
-- Clearing the alternative heating cost in Configure now saves an empty value instead of removing the
-  saved key, so it also overrides a cost entered at setup.
 - Dry run, verbose logging, the cheap rate floor, the skip-charge threshold and forecast
   conservatism are no longer on the Configure page, and the setup wizard no longer asks for them,
   the immersion divert thresholds or the other tuning values. Use the controls above. Saving the
@@ -88,8 +61,54 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   sensors do. The names and entity IDs are unchanged. The Auto Immersion Divert, Immersion Heater
   (Managed), Force Skip Overnight Charge, Enable Charge Target Override and the three immersion
   temperature numbers show the icons listed in `icons.json`.
-- The dashboard's Settings view has a Dry run switch, a Tuning section and the two immersion
-  divert sliders. The dry run banner says how to go live: turn off the Dry run switch in Settings.
+- Saving Configure no longer reloads the integration for most changes. A tariff edit, a
+  threshold, dry run, verbose logging, the forecast and carbon sensors (except the main forecast
+  sensor), element power, ready-by times and the car efficiency now apply straight away, and
+  entities stay available. The integration still reloads when you change the immersion switch or
+  water temperature sensor, the main forecast sensor, the currency, the inverter entities, or when
+  alternative water heating appears or goes (turned on with a cost set, turned off, or its last cost
+  cleared).
+- Changing a rate period on the options page now moves the time the charge target is written to
+  the inverter, without a reload. Before, the new time only took effect after the reload the save
+  caused.
+- Some attributes that change often are no longer written to the history database: the ready-by
+  plan on the water temperature sensor, the night survival numbers, the self-sufficiency
+  breakdown, the register writes, the GivTCP rate differences and the alternative heating costs,
+  times and schedule. They stay on the entity, so dashboards and automations read them as before.
+  Home Assistant stops storing a new set of attributes each time one of them moves.
+
+**Water heating**
+- **Alternative water heating** replaces the oil price. Under Configure, tick **Hot water** and open
+  **Another way to heat the water**, turn on **I have another way to heat the water**, give it a name (Oil, Gas, Heat pump, up to 20
+  characters), choose what the cost is (the price of a litre of oil, or the cost of one kWh of heat
+  delivered to the water) and enter it. A cost sensor can override the cost. The advice, the start
+  time, the keep-warm run and the recurring schedule then use your name, for example `Gas is cheaper
+  than electricity until 23:00`. The integration still only advises: it never switches the other
+  system. Changing the name, the unit or a cost applies on the next cycle with no reload.
+- **Oil price settings convert on their own.** On the first start after the update, an install with
+  an oil price or an oil price sensor gets Alternative water heating switched on with the name Oil,
+  the price of a litre as the unit, and the same price or sensor. The two old options are removed.
+  Your advice reads as it did. Nothing needs doing in the options.
+- **Attributes of Water Heating Cheapest Source are renamed.** The state `oil` is now `alternative`.
+  `oil_start_by`, `oil_run_minutes`, `oil_for_ready_time`, `oil_schedule`, `oil_schedule_saving`,
+  `oil_schedule_days`, `oil_schedule_suggestion`, `oil_cost_per_kwh`, `oil_saving_per_kwh` and
+  `oil_keep_warm` begin `alt_` instead, and `best_hours_for_oil` is `best_hours_for_alt`. There is a
+  new `alt_label` attribute with your name for the alternative. The entity ID and the unique ID do
+  not change. The old names are not kept.
+- Clearing the alternative heating cost in Configure now saves an empty value instead of removing the
+  saved key, so it also overrides a cost entered at setup.
+
+**Battery and savings**
+- New sensor Estimated SoC at Sunrise With the Planned Charge (`estimated_soc_at_sunrise_with_charge`).
+  It projects the battery to the next 08:00 with tonight's planned charge in it: the battery runs down
+  to the start of the charge window, the window adds charge up to the target at the charge rate the
+  plan uses, and the battery runs down again to sunrise, never below the minimum SoC. The window is
+  sized for the SoC the battery will have when it opens. A skipped night, no timed charge window, or a
+  window that is over gives the same figure as the one without a charge. It reads the learned
+  per-slot load profile the charge plan uses, and the flat daily average until there is a usable
+  profile. The figure without a charge keeps the flat average, and `basis` says which load was used. Its attributes are
+  `soc_at_charge_start`, `charge_added_pct`, `charge_window` and `basis`. Nothing reads it, so the
+  charge plan and the night survival sensors are unchanged. It is enabled by default.
 - Estimated SoC at Sunrise is now Estimated SoC at Sunrise Without a Charge, and its description says
   it ignores tonight's planned charge and holds at the minimum SoC when the battery would run flat.
   The key, the unique ID and the value are unchanged, so history, statistics and automations carry on.
@@ -100,6 +119,21 @@ Two sunrise figures, saving values that count the battery, a forecast correction
 - The Battery view shows Sunrise (no charge) and Sunrise (with charge) in Tonight's charge plan, where
   it showed one At sunrise tile. The Battery overnight section of the Battery detail view shows the
   same two tiles under the outlook.
+- The Battery overnight text says what tonight's planned charge adds. Battery Overnight Confidence
+  judges the night without a charge, so with a charge planned it could read `May run low` in the
+  evening while the battery ended the night near the target. While a planned charge counts, the
+  `summary` attribute (the Now tile) gives both figures, for example
+  `Lasts the night · 36% at sunrise without a charge, about 89% with tonight's charge`. A Warning or
+  May run low says whether the charge covers it, for example
+  `May run low without a charge · tonight's charge covers it, about 67% at sunrise`, or
+  `May run low, even with tonight's charge · about 13% at sunrise`. The `explanation` attribute
+  (the Battery detail view) says the same in a sentence. A charge counts when a timed window adds
+  charge before 08:00. On a skipped night, with no timed window, or once the window is over, the text
+  gives the one figure as before. The level, the outlook phrase and every decision are unchanged, and
+  there are no new entities or attributes.
+- The Warning sentence the Battery detail view falls back to, when Battery Overnight Confidence has no
+  `explanation`, now says the figure is without a charge and gives the figure with the planned
+  charge when one adds something.
 - **Saving values change on every install.** Saving vs Grid Today and Net Saving Today now add the
   value of the change in the energy the battery holds since midnight. Energy bought to fill the
   battery was counted as cost on the day it was bought, while the battery had not yet given it
@@ -120,48 +154,8 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   one odd day does not swing it.
 - The charge reason says when the factor sits on a limit, for example
   `x0.40 recent accuracy (at the lower limit)`.
-- The Battery overnight text says what tonight's planned charge adds. Battery Overnight Confidence
-  judges the night without a charge, so with a charge planned it could read `May run low` in the
-  evening while the battery ended the night near the target. While a planned charge counts, the
-  `summary` attribute (the Now tile) gives both figures, for example
-  `Lasts the night · 36% at sunrise without a charge, about 89% with tonight's charge`. A Warning or
-  May run low says whether the charge covers it, for example
-  `May run low without a charge · tonight's charge covers it, about 67% at sunrise`, or
-  `May run low, even with tonight's charge · about 13% at sunrise`. The `explanation` attribute
-  (the Battery detail view) says the same in a sentence. A charge counts when a timed window adds
-  charge before 08:00. On a skipped night, with no timed window, or once the window is over, the text
-  gives the one figure as before. The level, the outlook phrase and every decision are unchanged, and
-  there are no new entities or attributes.
-- The Warning sentence the Battery detail view falls back to, when Battery Overnight Confidence has no
-  `explanation`, now says the figure is without a charge and gives the figure with the planned
-  charge when one adds something.
-- Saving Configure no longer reloads the integration for most changes. A tariff edit, a
-  threshold, dry run, verbose logging, the forecast and carbon sensors (except the main forecast
-  sensor), element power, ready-by times and the car efficiency now apply straight away, and
-  entities stay available. The integration still reloads when you change the immersion switch or
-  water temperature sensor, the main forecast sensor, the currency, the inverter entities, or when
-  alternative water heating appears or goes (turned on with a cost set, turned off, or its last cost
-  cleared).
-- Changing a rate period on the options page now moves the time the charge target is written to
-  the inverter, without a reload. Before, the new time only took effect after the reload the save
-  caused.
-- A tag such as `v0.18.0b1` now publishes a GitHub pre-release. HACS offers it when you turn on
-  **Show beta versions**. `scripts/set_version.py` sets the version in the six files that state it.
-- Home Assistant 2026.5.0 is now the minimum, up from 2026.2.0. Home Assistant 2026.5 itself needs
-  Python 3.14.2 or newer. HACS offers this version only to installs on 2026.5.0 or later.
 - A battery capacity of 0 no longer stops the charge plan with an error. The plan skips and says the
   capacity is not set.
-
-- **Oil price settings convert on their own.** On the first start after the update, an install with
-  an oil price or an oil price sensor gets Alternative water heating switched on with the name Oil,
-  the price of a litre as the unit, and the same price or sensor. The two old options are removed.
-  Your advice reads as it did. Nothing needs doing in the options.
-- **Attributes of Water Heating Cheapest Source are renamed.** The state `oil` is now `alternative`.
-  `oil_start_by`, `oil_run_minutes`, `oil_for_ready_time`, `oil_schedule`, `oil_schedule_saving`,
-  `oil_schedule_days`, `oil_schedule_suggestion`, `oil_cost_per_kwh`, `oil_saving_per_kwh` and
-  `oil_keep_warm` begin `alt_` instead, and `best_hours_for_oil` is `best_hours_for_alt`. There is a
-  new `alt_label` attribute with your name for the alternative. The entity ID and the unique ID do
-  not change. The old names are not kept.
 
 **Dashboard**
 - **The dashboard builds itself and is added from Community dashboards.** Go to **Settings →
@@ -199,6 +193,14 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   to add, so the card stays for them. On a test instance, turning dry run off is not a step.
 - The dry run banner on the Power Flow tab now also shows tonight's charge plan, beside the last
   skipped action.
+- The dashboard's Settings view has a Dry run switch, a Tuning section and the two immersion
+  divert sliders. The dry run banner says how to go live: turn off the Dry run switch in Settings.
+
+**Build and testing**
+- A tag such as `v0.18.0b1` now publishes a GitHub pre-release. HACS offers it when you turn on
+  **Show beta versions**. `scripts/set_version.py` sets the version in the six files that state it.
+- Home Assistant 2026.5.0 is now the minimum, up from 2026.2.0. Home Assistant 2026.5 itself needs
+  Python 3.14.2 or newer. HACS offers this version only to installs on 2026.5.0 or later.
 
 **Fixes**
 - The battery warning example in Automation examples used `below: 10` on the SoC at sunrise, which
@@ -208,24 +210,12 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   change its threshold.
 
 **Upgrading**
-- Nothing to change for the wizards. Your saved settings are untouched, and no stored data moves. If you
-  used Reconfigure to edit the tariff, use Configure, tick **Tariff** instead. If you want to point the
-  integration at other GivTCP entities, Reconfigure now does it.
-- Nothing to change for the controls. Each one shows the value your install already had, whether it
-  was saved at setup or on the Configure page, and nothing is copied or reset. Check that the Dry
-  run switch shows what you expect.
-- If an automation, template or card reads the Water Heating Cheapest Source state `oil` or one of
-  the `oil_` attributes, change it to the names above. The dashboard reads the new names.
-- The dashboard now builds itself, so it has the two Sunrise tiles and the new Settings controls
-  with no file to generate. See the Dashboard group above for how to add it.
-- Troubleshooting has a new entry, Why does SoC at sunrise read 10%?, and Concepts explains the two
-  figures under Battery overnight.
-- Charge targets can rise on cloudy weeks, because the plan now trusts the forecast less. Nothing needs
-  changing in the options.
-- Add the dashboard from **Settings → Dashboards → Add dashboard → Community dashboards →
-  GivEnergy**, then delete the old dashboard and `givenergy_dashboard.yaml`, and remove any
-  automation that calls `get_dashboard_yaml`. Reload the browser tab first if GivEnergy is not
-  listed.
+- Add the dashboard from **Settings → Dashboards → Add dashboard → Community dashboards → GivEnergy**, then delete the old dashboard and `givenergy_dashboard.yaml`, and remove any automation that calls `get_dashboard_yaml`. Reload the browser tab first if GivEnergy is not listed. It has the two Sunrise tiles and the new Settings controls with no file to generate.
+- The wizards and the controls need nothing from you. Your saved settings are untouched, each control shows the value your install already had, and no stored data moves. Check that the Dry run switch shows what you expect.
+- If you used Reconfigure to edit the tariff, use Configure and tick **Tariff** instead. Reconfigure now points the integration at other GivTCP entities.
+- If an automation, template or card reads the Water Heating Cheapest Source state `oil` or one of the `oil_` attributes, change it to the names in the Water heating group. The dashboard reads the new names.
+- Charge targets can rise on cloudy weeks, because the plan now trusts the forecast less. Nothing needs changing in the options. Saving values change on every install, as described under Battery and savings.
+- Home Assistant 2026.5.0 or later, on Python 3.14.2 or later, is required. HACS offers this version only to installs that meet it.
 
 ## v0.17.2
 
