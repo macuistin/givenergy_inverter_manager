@@ -50,6 +50,52 @@ _RESET_FIELDS = {
 
 _LOG = logging.getLogger(__name__)
 
+# Attributes that stay visible live but are not written to the recorder. Home Assistant stores a
+# new set of attributes whenever one changes, even when the state did not, and sends a
+# state_changed event. These change often or are long, so they would write a row each time. The
+# list is one class attribute, so a name has to be unique across the sensors.
+_UNRECORDED_ATTRIBUTES = frozenset(
+    {
+        "html",
+        ATTR_FULL_TEXT,
+        # Charge register writes and outside changes, newest first.
+        "recent_writes",
+        # Night survival: the live numbers behind the level.
+        "battery_soc",
+        "estimated_soc_at_sunrise",
+        "minimum_soc",
+        "warning_below_soc",
+        # Self-sufficiency: where the period's energy came from.
+        "house_load_kwh",
+        "from_grid_kwh",
+        "grid_to_battery_kwh",
+        "from_solar_and_battery_kwh",
+        # The water temperature: the ready-by plan.
+        "ready_by",
+        "expected_ready",
+        "heating_rate_c_per_h",
+        "heating_rate_source",
+        "planned_heating",
+        # Alternative heating: the costs behind the advice, its timings and the learned schedule.
+        "alt_cost_per_kwh",
+        "electricity_cost_per_kwh",
+        "cheapest_electricity_cost_per_kwh",
+        "alt_saving_per_kwh",
+        "best_hours_for_alt",
+        "horizon_ends",
+        "alt_start_by",
+        "alt_run_minutes",
+        "alt_for_ready_time",
+        "alt_keep_warm",
+        "alt_schedule",
+        "alt_schedule_saving",
+        "alt_schedule_days",
+        "alt_schedule_suggestion",
+        # How GivTCP's rates differ from the tariff.
+        "givtcp_rate_differences",
+    }
+)
+
 
 # Coordinator-driven — no parallel updates needed
 PARALLEL_UPDATES = 0
@@ -82,7 +128,7 @@ class GivEnergyManagerSensor(GivEnergyEntity, SensorEntity):
     """A sensor entity for GivEnergy Inverter Manager."""
 
     entity_description: GivEnergyManagerSensorDescription
-    _unrecorded_attributes = frozenset({"html", ATTR_FULL_TEXT})
+    _unrecorded_attributes = _UNRECORDED_ATTRIBUTES
 
     def __init__(
         self,

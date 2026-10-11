@@ -783,7 +783,8 @@ class TestBatteryWearFormulaAgreement:
 
 
 def test_html_and_full_text_attributes_are_not_recorded():
-    assert GivEnergyManagerSensor._unrecorded_attributes == frozenset({"html", "full_text"})
+    """The full list is pinned in tests/test_unrecorded_attributes.py."""
+    assert {"html", "full_text"} <= GivEnergyManagerSensor._unrecorded_attributes
 
 
 class TestSensorEntity:
