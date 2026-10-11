@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.givenergy_inverter_manager.const import (
+    CONF_CURRENCY,
     CONF_EXPORT_RATE,
     CONF_IMMERSION_HYSTERESIS,
     CONF_IMMERSION_MIN_TEMP,
@@ -57,7 +58,31 @@ async def test_every_immersion_slider_skips_the_reload(hass, loaded_entry):
     assert loaded_entry.data[CONF_IMMERSION_HYSTERESIS] == 8
 
 
-async def test_a_change_to_other_data_still_reloads(hass, loaded_entry):
+async def test_a_change_to_a_reload_key_still_reloads(hass, loaded_entry):
+    coordinator = loaded_entry.runtime_data
+    hass.config_entries.async_update_entry(
+        loaded_entry, data={**loaded_entry.data, CONF_CURRENCY: "GBP"}
+    )
+    await hass.async_block_till_done()
+
+    assert loaded_entry.state is ConfigEntryState.LOADED
+    assert loaded_entry.runtime_data is not coordinator
+    assert loaded_entry.runtime_data.data.currency_symbol == "£"
+
+
+async def test_a_mixed_change_still_reloads(hass, loaded_entry):
+    coordinator = loaded_entry.runtime_data
+    hass.config_entries.async_update_entry(
+        loaded_entry,
+        data={**loaded_entry.data, CONF_IMMERSION_TARGET_TEMP: 65, CONF_CURRENCY: "GBP"},
+    )
+    await hass.async_block_till_done()
+
+    assert loaded_entry.runtime_data is not coordinator
+    assert loaded_entry.runtime_data.data.currency_symbol == "£"
+
+
+async def test_a_change_to_a_live_key_applies_without_a_reload(hass, loaded_entry):
     coordinator = loaded_entry.runtime_data
     hass.config_entries.async_update_entry(
         loaded_entry, data={**loaded_entry.data, CONF_EXPORT_RATE: 0.25}
@@ -65,20 +90,8 @@ async def test_a_change_to_other_data_still_reloads(hass, loaded_entry):
     await hass.async_block_till_done()
 
     assert loaded_entry.state is ConfigEntryState.LOADED
-    assert loaded_entry.runtime_data is not coordinator
-    assert loaded_entry.runtime_data.export_rate == pytest.approx(0.25)
-
-
-async def test_a_mixed_change_still_reloads(hass, loaded_entry):
-    coordinator = loaded_entry.runtime_data
-    hass.config_entries.async_update_entry(
-        loaded_entry,
-        data={**loaded_entry.data, CONF_IMMERSION_TARGET_TEMP: 65, CONF_EXPORT_RATE: 0.26},
-    )
-    await hass.async_block_till_done()
-
-    assert loaded_entry.runtime_data is not coordinator
-    assert loaded_entry.runtime_data.export_rate == pytest.approx(0.26)
+    assert loaded_entry.runtime_data is coordinator
+    assert coordinator.export_rate == pytest.approx(0.25)
 
 
 async def test_an_outside_change_to_a_slider_key_updates_the_coordinator(hass, loaded_entry):
@@ -90,6 +103,20 @@ async def test_an_outside_change_to_a_slider_key_updates_the_coordinator(hass, l
 
     assert loaded_entry.runtime_data is coordinator
     assert coordinator.immersion_hysteresis_c == 3
+
+
+async def test_a_moved_slider_survives_a_reload(hass, loaded_entry):
+    """The value is stored in the entry, so a restart does not fall back to the defaults."""
+    await _number(hass, loaded_entry, "immersion_target_temp").async_set_native_value(62)
+    await _number(hass, loaded_entry, "immersion_hysteresis").async_set_native_value(8)
+    await hass.async_block_till_done()
+
+    await hass.config_entries.async_reload(loaded_entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = loaded_entry.runtime_data
+    assert coordinator.immersion_target_temp == 62
+    assert coordinator.immersion_hysteresis_c == 8
 
 
 async def test_a_target_below_the_minimum_is_stored_clamped(hass, loaded_entry):

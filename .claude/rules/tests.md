@@ -1,0 +1,46 @@
+---
+description: "Test layout, what each suite proves, and the rules for new and changed tests"
+paths:
+  - "tests/**"
+---
+
+# Tests
+
+## Two suites
+
+- `tests/` (not `tests/ha_e2e`) is the unit suite. `tests/conftest.py` replaces `homeassistant` with
+  stubs before collection, so it runs fast and from any directory. Use `ROOT` and `PKG` from
+  `tests/helpers.py` for paths, never the working directory.
+- `tests/ha_e2e/` runs the integration in a real Home Assistant (`pytest-homeassistant-custom-component`).
+  It needs its own virtualenv and `requirements-test-e2e.txt`, and it is run from the repo root.
+  Its own `pytest.ini` keeps `tests/conftest.py` from loading. Never run both suites in one process.
+- A green unit suite does not prove Home Assistant behaviour. Setup, unload, reload, the registries,
+  the config, reconfigure and options flows, state limits and recorder attributes are proved only by
+  `tests/ha_e2e/`. Put the test there when the claim is about Home Assistant.
+- `tests/test_config_flow_schemas.py` uses the real selector classes. Run it after any schema change.
+- Nothing talks to a real inverter. End-to-end tests capture writes with `async_mock_service` or use
+  `tools/mock_givtcp.py` (`tests/ha_e2e/test_write_sequence_e2e.py`).
+
+## Writing tests
+
+- A bug fix has a test that fails without the fix. Revert the fix, run the test, see it fail, then
+  restore the fix. Name the test in the PR.
+- Test behaviour: call the coordinator, entity, flow or core function and assert on the result.
+  Do not read a source file and assert a string is in it. `ROADMAP.md` lists the ones left to replace.
+- Never weaken a test to get green. Do not delete it, loosen an assertion, widen a tolerance, add
+  `skip`, or add `xfail` for a failure you caused. A test that is wrong gets fixed in its own commit
+  with the reason in the message. `xfail(strict=True)` is only for a documented existing defect.
+- Do not re-implement production logic in a test body. Call the real function. The flat adapters in
+  `tests/core/flat_engine.py` and `flat_rules.py` add no logic.
+- Control time. Pass `now`, or freeze the clock in end-to-end tests (`MIDDAY` and `CHEAP_NIGHT` in
+  `tests/ha_e2e/conftest.py`). Do not depend on the date the test runs.
+- A new sensor, platform, option or form field needs the matching tests. See `/add-sensor`.
+- A new option, constant or entity needs a justification in the PR. Search `const.py` first.
+- Tests with `xfail`, `skip` or a long `sleep` need a one-line reason beside them.
+
+## Before pushing
+
+Run `ruff check custom_components tests scripts tools`, the unit suite and the end-to-end suite. CI
+runs the unit and end-to-end suites on Python 3.14 against Home Assistant 2026.5.0 and the latest
+release. If you did not run the
+end-to-end suite, say so in the PR under "Testing".

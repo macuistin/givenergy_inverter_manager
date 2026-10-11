@@ -6,10 +6,9 @@ import json
 from pathlib import Path
 
 import pytest
-from conftest import MIDDAY
+from conftest import MIDDAY, serialise_schema
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import config_validation as cv
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_BATTERY_SOC,
@@ -27,7 +26,7 @@ def scenario():
 
 
 def _fields(result) -> list[dict]:
-    fields = cv.to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    fields = serialise_schema(result["data_schema"])
     assert isinstance(fields, list), fields
     return fields
 

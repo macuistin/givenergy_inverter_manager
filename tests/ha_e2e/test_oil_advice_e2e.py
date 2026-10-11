@@ -11,10 +11,9 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import MIDDAY, SERIAL, full_config_data
+from conftest import MIDDAY, SERIAL, full_config_data, serialise_schema
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 
@@ -67,7 +66,7 @@ async def save_oil_options(hass, entry, oil: dict | None, *, unsent: bool = Fals
     {} is the section with both fields cleared. With *unsent* the section is left out.
     """
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    fields = cv.to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    fields = serialise_schema(result["data_schema"])
     payload = _form_values(fields)
     payload.pop("oil_settings", None)
     if not unsent:

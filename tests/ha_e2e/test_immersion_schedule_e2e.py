@@ -18,10 +18,10 @@ from conftest import (
     SERIAL,
     SOLAR,
     full_config_data,
+    serialise_schema,
 )
 from homeassistant.components.switch import DATA_COMPONENT
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -101,7 +101,7 @@ async def save_options(
     """Open the options form and save it as the frontend would, with these immersion values."""
     result = await hass.config_entries.options.async_init(entry.entry_id)
     payload = _form_values(
-        cv.to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+        serialise_schema(result["data_schema"])
     )
     section_values = payload["immersion_settings"]
     if immersion is not None:

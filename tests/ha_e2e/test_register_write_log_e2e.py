@@ -49,6 +49,9 @@ async def _write_target(entry, target_soc: int) -> None:
 
 
 async def _recent_writes(hass, entry) -> list[dict]:
+    # Let the state change listeners run first. Home Assistant 2026.5 runs them a tick after
+    # async_set, later releases run them inside it.
+    await hass.async_block_till_done()
     await entry.runtime_data.async_refresh()
     await hass.async_block_till_done()
     registry = er.async_get(hass)

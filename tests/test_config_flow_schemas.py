@@ -24,7 +24,7 @@ import pytest
 # We must temporarily replace them with real modules for these tests.
 #
 # NOTE: homeassistant must be installed in the test environment, at the floor in
-# hacs.json (2026.2.0). Run:  pip install -r requirements-test.txt
+# hacs.json (2026.5.0). Run:  pip install -r requirements-test.txt
 # ───────────────────────────────────────────────────────────────────────────────
 
 _HA_MODULES_TO_RESTORE = [

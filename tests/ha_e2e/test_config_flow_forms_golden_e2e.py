@@ -22,10 +22,10 @@ from conftest import (
     SOC,
     SOLAR,
     full_config_data,
+    serialise_schema,
     set_givtcp_states,
 )
 from homeassistant.config_entries import SOURCE_USER
-from homeassistant.helpers import config_validation as cv
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import (
@@ -70,7 +70,7 @@ def scenario():
 def _describe(result) -> dict:
     """Serialise a flow result the way the frontend API does."""
     schema = result.get("data_schema")
-    fields = cv.to_field_list(schema, custom_serializer=cv.custom_serializer) if schema else []
+    fields = serialise_schema(schema) if schema else []
     return {
         "step_id": result["step_id"],
         "errors": result.get("errors"),

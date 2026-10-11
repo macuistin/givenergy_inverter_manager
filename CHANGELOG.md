@@ -64,6 +64,22 @@ Two sunrise figures, saving values that count the battery, and a forecast correc
 - The Warning sentence the Battery detail view falls back to, when Battery Overnight Confidence has no
   `explanation`, now says the figure is without a charge and gives the figure with the planned
   charge when one adds something.
+- Saving the options page no longer reloads the integration for most changes. A tariff edit, a
+  threshold, dry run, verbose logging, the forecast and carbon sensors (except the main forecast
+  sensor), element power, ready-by times and the car efficiency now apply straight away, and
+  entities stay available. The integration still reloads when you change the immersion switch or
+  water temperature sensor, the main forecast sensor, the currency, the inverter entities, or when
+  you set the first oil price or clear the last one.
+- Changing a rate period on the options page now moves the time the charge target is written to
+  the inverter, without a reload. Before, the new time only took effect after the reload the save
+  caused.
+- Reconfigure no longer reloads the integration unless you change the currency.
+- A tag such as `v0.18.0b1` now publishes a GitHub pre-release. HACS offers it when you turn on
+  **Show beta versions**. `scripts/set_version.py` sets the version in the six files that state it.
+- Home Assistant 2026.5.0 is now the minimum, up from 2026.2.0. Home Assistant 2026.5 itself needs
+  Python 3.14.2 or newer. HACS offers this version only to installs on 2026.5.0 or later.
+- A battery capacity of 0 no longer stops the charge plan with an error. The plan skips and says the
+  capacity is not set.
 
 **Fixes**
 - The battery warning example in Automation examples used `below: 10` on the SoC at sunrise, which

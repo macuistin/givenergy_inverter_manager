@@ -66,3 +66,7 @@ home-assistant_v2.db
 # Secrets
 secrets.yaml
 .env
+
+# Claude Code: personal settings and worktrees stay local, rules and skills are shared
+.claude/settings.local.json
+.claude/worktrees/

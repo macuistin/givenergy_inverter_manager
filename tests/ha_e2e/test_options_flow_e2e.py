@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from conftest import FORECAST, MIDDAY, SERIAL, full_config_data
+from conftest import FORECAST, MIDDAY, SERIAL, full_config_data, serialise_schema
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import config_validation as cv
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import (
@@ -54,7 +53,7 @@ def config_entry(request):
 
 def _serialise(result) -> list[dict]:
     """Convert the form schema the way the frontend API does."""
-    fields = cv.to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    fields = serialise_schema(result["data_schema"])
     assert isinstance(fields, list), f"form schema did not serialise: {fields!r}"
     return fields
 
@@ -109,6 +108,56 @@ async def test_options_accept_empty_forecast_and_carbon_selection(hass, loaded_e
     # The update listener reloads the entry. It must come back LOADED, not unavailable.
     assert loaded_entry.state is ConfigEntryState.LOADED
     assert loaded_entry.runtime_data.last_update_success
+
+
+def _every_field(fields: list[dict]) -> list[dict]:
+    """The fields of a serialised form, with the fields inside sections included."""
+    found = []
+    for field in fields:
+        if field.get("type") == "expandable":
+            found += _every_field(field["schema"])
+        else:
+            found.append(field)
+    return found
+
+
+async def test_no_entity_or_select_field_defaults_to_an_empty_string(hass, loaded_entry):
+    """An empty string default fails entity and select validation when the form is submitted.
+
+    Text fields may default to an empty string, as an empty rate period name does.
+    """
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+
+    empty = [
+        f["name"]
+        for f in _every_field(_serialise(result))
+        if f.get("default") == "" and set(f["selector"]) & {"entity", "select"}
+    ]
+
+    assert empty == []
+    hass.config_entries.options.async_abort(result["flow_id"])
+
+
+async def test_every_threshold_is_its_own_field_with_a_default(hass, loaded_entry):
+    """Each threshold sits on its own schema key. Two sharing a key raised a TypeError."""
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    section = next(f for f in _serialise(result) if f["name"] == "threshold_settings")
+
+    fields = {f["name"]: f for f in section["schema"]}
+
+    assert set(fields) == {
+        "battery_min_soc_pct",
+        "cheap_rate_floor_soc",
+        "overnight_charge_target_pct",
+        "skip_charge_soc_threshold_pct",
+        "battery_cost_eur",
+        "battery_throughput_budget_kwh",
+        "dry_run",
+        "verbose_logging",
+    }
+    assert all("default" in field for field in fields.values())
+    assert fields["cheap_rate_floor_soc"]["default"] == 40
+    hass.config_entries.options.async_abort(result["flow_id"])
 
 
 async def test_options_form_reopens_after_empty_submission(hass, loaded_entry):

@@ -415,6 +415,17 @@ def _build_decision(inputs: ChargeInputs, plan: _ChargePlan) -> ChargeDecision:
     )
 
 
+def _no_capacity_plan(inputs: ChargeInputs) -> _ChargePlan:
+    """A battery with no capacity has nothing to charge, and the simulation divides by it."""
+    return _ChargePlan(
+        target_soc=inputs.min_soc,
+        skip_charge=True,
+        reason="Skip: the battery capacity is not set, so there is nothing to plan.",
+        forecast_kwh=0.0,
+        cost_to_charge=0.0,
+    )
+
+
 def _winter_plan(inputs: ChargeInputs, month: int) -> _ChargePlan:
     """Solar is negligible in Dec-Feb, so always fill the battery.
 
@@ -612,6 +623,8 @@ def calculate_overnight_charge_target(
     and estimate_will_survive_night), so the plan never skips a charge the survival
     sensor calls Critical. inputs.solar_power_w tells it whether the sun is still up.
     """
+    if inputs.battery_capacity_kwh <= 0:
+        return _build_decision(inputs, _no_capacity_plan(inputs))
     if dt.month in CHARGE_WINTER_MONTHS:
         return _build_decision(inputs, _winter_plan(inputs, dt.month))
 

@@ -80,6 +80,18 @@ class TestDiscoverGivTCPInverters:
         inverters = discover_givtcp_inverters(states)
         assert inverters[0].entities.get("battery_soc") == "sensor.givtcp_SN2_battery_soc"
 
+    def test_finds_the_inverter_temperature_under_givtcps_spelling(self):
+        from custom_components.givenergy_inverter_manager.discovery.givtcp import (
+            discover_givtcp_inverters,
+        )
+
+        states = _serial_entity("givtcp_SN6")
+        states["sensor.givtcp_SN6_invertor_temperature"] = _State(state="41.5")
+        inverters = discover_givtcp_inverters(states)
+        assert inverters[0].entities.get("inverter_temp") == (
+            "sensor.givtcp_SN6_invertor_temperature"
+        )
+
     def test_reads_battery_capacity_from_sensor_state(self):
         from custom_components.givenergy_inverter_manager.discovery.givtcp import (
             discover_givtcp_inverters,
