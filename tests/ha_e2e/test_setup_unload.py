@@ -132,6 +132,22 @@ async def test_setup_retries_when_givtcp_is_absent(
     await hass.config_entries.async_unload(config_entry.entry_id)
 
 
+async def test_a_failed_first_refresh_gives_the_translated_reason(
+    hass, hass_in_scenario, service_calls, config_entry
+):
+    """Home Assistant retries the setup and shows the message the integration translated."""
+    for state in list(hass.states.async_all()):
+        hass.states.async_remove(state.entity_id)
+
+    config_entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(config_entry.entry_id)
+
+    assert config_entry.state is ConfigEntryState.SETUP_RETRY
+    assert config_entry.error_reason_translation_domain == DOMAIN
+    assert config_entry.error_reason_translation_key == "givtcp_unavailable"
+    await hass.config_entries.async_unload(config_entry.entry_id)
+
+
 async def test_bill_start_day_comes_from_options_over_data(hass_in_scenario, service_calls):
     """The accumulation reset day follows the options flow, which writes entry.options."""
     from conftest import SERIAL, full_config_data

@@ -509,14 +509,6 @@ class TestCheapRateFloorPlumbing:
             "without it the floor status is calculated but never surfaced in HA."
         )
 
-    def test_config_option_in_options_flow(self):
-
-        src = (PKG / "config_flow.py").read_text()
-        assert "CONF_CHEAP_RATE_FLOOR_SOC" in src, (
-            "cheap_rate_floor_soc must appear in the options flow — "
-            "without it the floor is fixed at 40% with no way to change it."
-        )
-
     def test_strings_have_floor_label(self):
         import json
 

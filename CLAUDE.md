@@ -168,8 +168,10 @@ is the closest ini file, so `tests/conftest.py` (the stubs) never loads. `docs/t
 the detail. The test counts above drift, so re-measure before quoting them.
 
 Prefer a test that drives behaviour (a coordinator, entity or flow call and an assertion on the
-result) over one that reads a source file and asserts a string is present. The remaining
-source-grep tests are listed for replacement in `ROADMAP.md`.
+result) over one that reads a source file and asserts a string is present. No test reads a
+Python source file to assert behaviour. `tests/test_metadata.py` is the exception on purpose: it
+checks repository rules (the Home Assistant floor, core purity, quality scale claims) that have no
+runtime behaviour to drive.
 
 **Before adding a new sensor:** add its description to the matching theme module in
 `custom_components/givenergy_inverter_manager/sensor_descriptions/` (keep the join order in its

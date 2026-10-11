@@ -518,13 +518,6 @@ class TestOptionsFlowSections:
         assert data[CONF_FORECAST_ENTITY_D2] == ""
         assert data[CONF_CARBON_INTENSITY_ENTITY] == ""
 
-    def test_selectors_have_no_empty_string_default(self):
-        """An empty-string default fails EntitySelector validation in the HA frontend."""
-        import re
-
-        src = (PKG / "config_flow.py").read_text()
-        assert not re.findall(r"default=self\._get\(\w+,\s*\"\"\)", src)
-
     def test_optional_key_prefills_saved_value_without_default(self, real_vol):
         flow = self._make_flow()
         flow._config_entry.options = {"forecast_entity": "sensor.forecast_today"}
@@ -547,51 +540,6 @@ class TestOptionsFlowSections:
         data = flow.async_create_entry.call_args.kwargs["data"]
         assert CONF_BATTERY_CAPACITY not in data
 
-    def test_each_optional_has_exactly_one_schema_key(self, real_vol):
-        """Every vol.Optional in the options flow must have exactly one schema key.
-
-        Regression test for: CONF_CHEAP_RATE_FLOOR_SOC accidentally inserted as a
-        positional argument inside vol.Optional(CONF_BATTERY_MIN_SOC, ...), causing
-        'TypeError: Optional.__init__() got multiple values for argument default'.
-        The existing test mocks vol.Optional so it cannot catch this class of bug.
-        """
-        import re
-
-        src = (PKG / "config_flow.py").read_text()
-        # Find every vol.Optional( call and check that the first positional arg
-        # is not followed by another CONF_ constant before the default= keyword
-        bad = re.findall(
-            r"vol\.Optional\(\s*(CONF_\w+)\s*,\s*(CONF_\w+|DEFAULT_\w+)\s*(?!,\s*description)",
-            src,
-        )
-        assert not bad, (
-            f"vol.Optional calls with multiple positional CONF/DEFAULT args found: {bad}\n"
-            "Each schema key must be its own vol.Optional entry."
-        )
-
-    def test_cheap_rate_floor_is_separate_schema_key(self):
-        """CONF_CHEAP_RATE_FLOOR_SOC must be its own vol.Optional entry,
-        not a positional argument inside another key's vol.Optional call."""
-
-        src = (PKG / "config_flow.py").read_text()
-        # Find the threshold_settings section
-        section_start = src.find("threshold_settings")
-        section_end = src.find(")", src.find("vol.Schema", section_start))
-        section = src[section_start:section_end]
-        # CONF_CHEAP_RATE_FLOOR_SOC must appear as the first arg of its own vol.Optional,
-        # not alongside another key
-        import re
-
-        optional_calls = re.findall(r"vol\.Optional\(\s*(\w+)\s*(?:,\s*(\w+))?", section)
-        for call in optional_calls:
-            first_arg, second_arg = call
-            if first_arg == "CONF_BATTERY_MIN_SOC":
-                assert second_arg != "CONF_CHEAP_RATE_FLOOR_SOC", (
-                    "CONF_CHEAP_RATE_FLOOR_SOC must not appear as a positional arg "
-                    "inside vol.Optional(CONF_BATTERY_MIN_SOC, ...) — it must be its "
-                    "own separate vol.Optional entry."
-                )
-
     def test_no_separate_tariff_thresholds_forecast_steps(self):
         """The old multi-step methods must not exist on the options flow."""
         from custom_components.givenergy_inverter_manager.config_flow import GivEnergyOptionsFlow
@@ -604,32 +552,6 @@ class TestOptionsFlowSections:
 
 class TestReconfigureStep:
     """Config flow must expose async_step_reconfigure for the HA quality scale."""
-
-    def test_reconfigure_step_exists(self):
-
-        src = (PKG / "config_flow.py").read_text()
-        assert "async def async_step_reconfigure" in src, (
-            "async_step_reconfigure is required for the reconfiguration-flow quality scale item."
-        )
-
-    def test_reconfigure_leaves_the_reload_to_the_update_listener(self):
-
-        src = (PKG / "config_flow.py").read_text()
-        reconf = src[src.find("async def async_step_reconfigure") :]
-        reconf = reconf[: reconf.find("\n    async def ")]
-        assert "async_update_entry" in reconf
-        assert "async_reload" not in reconf, (
-            "The entry update listener already reloads; an explicit reload reloads twice."
-        )
-
-    def test_reconfigure_uses_abort_reason(self):
-
-        src = (PKG / "config_flow.py").read_text()
-        reconf = src[src.find("async def async_step_reconfigure") :]
-        reconf = reconf[: reconf.find("\n    async def ")]
-        assert "reconfigure_successful" in reconf, (
-            "Reconfigure must abort with 'reconfigure_successful' on success."
-        )
 
     def test_abort_reason_in_strings(self):
         import json
@@ -661,23 +583,6 @@ class TestReconfigureStep:
 
 class TestExceptionTranslations:
     """Exceptions must use translation_key for the HA quality scale."""
-
-    def test_first_refresh_failure_is_left_to_home_assistant(self):
-        """HA turns a failed first refresh into ConfigEntryNotReady, with the
-        translation carried by the UpdateFailed raised in the coordinator."""
-        src = (PKG / "__init__.py").read_text()
-        assert "async_config_entry_first_refresh()" in src
-        assert "raise ConfigEntryNotReady" not in src, (
-            "Do not wrap the first refresh. HA already raises ConfigEntryNotReady."
-        )
-
-    def test_update_failed_uses_translation_key(self):
-
-        src = (PKG / "coordinator.py").read_text()
-        raise_block = src[src.find("raise UpdateFailed") :][:200]
-        assert "translation_key" in raise_block, (
-            "UpdateFailed must use translation_key for exception-translations."
-        )
 
     def test_exception_keys_in_strings(self):
         import json

@@ -105,6 +105,20 @@ async def test_an_outside_change_to_a_slider_key_updates_the_coordinator(hass, l
     assert coordinator.immersion_hysteresis_c == 3
 
 
+async def test_a_moved_slider_survives_a_reload(hass, loaded_entry):
+    """The value is stored in the entry, so a restart does not fall back to the defaults."""
+    await _number(hass, loaded_entry, "immersion_target_temp").async_set_native_value(62)
+    await _number(hass, loaded_entry, "immersion_hysteresis").async_set_native_value(8)
+    await hass.async_block_till_done()
+
+    await hass.config_entries.async_reload(loaded_entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = loaded_entry.runtime_data
+    assert coordinator.immersion_target_temp == 62
+    assert coordinator.immersion_hysteresis_c == 8
+
+
 async def test_a_target_below_the_minimum_is_stored_clamped(hass, loaded_entry):
     coordinator = loaded_entry.runtime_data
     await _number(hass, loaded_entry, "immersion_target_temp").async_set_native_value(45)

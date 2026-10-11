@@ -71,6 +71,14 @@ async def test_reconfigure_form_shows_the_values_in_force(hass, loaded_entry):
     hass.config_entries.flow.async_abort(result["flow_id"])
 
 
+async def test_reconfigure_is_offered_as_its_own_step(hass, loaded_entry):
+    result = await loaded_entry.start_reconfigure_flow(hass)
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+    hass.config_entries.flow.async_abort(result["flow_id"])
+
+
 async def test_reconfigure_wins_over_saved_options(hass, loaded_entry):
     hass.config_entries.async_update_entry(loaded_entry, options={CONF_EXPORT_RATE: 0.21})
     await hass.async_block_till_done()
