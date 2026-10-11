@@ -77,6 +77,12 @@ The oil_schedule leaf was added for the suggested oil schedule. The fresh snapsh
 None. No case moved, because none passes a record of the immersion's grid heating. The behaviour
 is pinned in tests/core/test_oil_schedule.py and tests/core/test_oil_schedule_engine.py.
 
+The sunrise_with_charge leaf was added for the Estimated SoC at Sunrise With the Planned Charge
+sensor. The fresh snapshot gained it as None and all 255 cases gained it, because every cycle
+projects the night. Nothing else moved, so estimated_soc_at_sunrise and the survival leaves are
+unchanged. The projection is pinned in tests/core/test_sunrise_charge.py and
+tests/core/test_sunrise_charge_engine.py.
+
 The immersion_planned_heating leaf was added for the planned heating sentence. The fresh snapshot
 gained it as None. No case moved, because none turns scheduled heating on. The behaviour is pinned
 in tests/core/test_planned_heating.py and tests/core/test_immersion_scheduled.py.
