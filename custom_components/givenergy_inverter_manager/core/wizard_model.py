@@ -94,7 +94,7 @@ PAGE_KEYS: dict[str, tuple[str, ...]] = {
         CONF_VAT_RATE,
         CONF_DISCOUNT_RATE,
     ),
-    "tariff_changes": (CONF_TARIFF_CHANGES,),
+    "schedule_change": (CONF_TARIFF_CHANGES,),
     "battery": (
         CONF_BATTERY_CAPACITY,
         CONF_INVERTER_MAX_OUTPUT,
@@ -125,7 +125,7 @@ PAGE_KEYS: dict[str, tuple[str, ...]] = {
 
 # The steps each checklist page runs through. Only the tariff has more than one.
 PAGE_STEPS: dict[str, tuple[str, ...]] = {
-    "tariff": ("tariff", "tariff_rates", "bill", "tariff_changes"),
+    "tariff": ("tariff", "tariff_rates", "bill", "schedule_change"),
 }
 
 # The keys a checklist page may write, the review date and the dated changes included.
@@ -160,6 +160,24 @@ KEY_DEFAULTS: dict[str, Any] = {
     CONF_ALT_HEAT_COST_UNIT: DEFAULT_ALT_HEAT_UNIT,
     CONF_CAR_EFFICIENCY_KWH_PER_100KM: DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
 }
+
+
+# Every form error a wizard page can return. The form shows the text under this key in
+# strings.json (config.error or options.error), so each one needs a line there.
+ERROR_KEYS: tuple[str, ...] = (
+    "base_rate_required",
+    "base_rate_name_missing",
+    "rate_period_zero_length",
+    "rate_period_duplicate_name",
+    "rate_period_name_missing",
+    "too_many_periods",
+    "tariff_change_date_in_past",
+    "immersion_ready_time_invalid",
+    "alt_heat_label_empty",
+    "alt_heat_label_too_long",
+    "missing_entities",
+    "nothing_ticked",
+)
 
 
 class Mode(StrEnum):
@@ -213,8 +231,12 @@ class Validation:
 
 
 def is_unset(value: Any) -> bool:
-    """None and an empty string both mean unset, as in core/reload_policy.py."""
-    return value is None or value == ""
+    """None, an empty string and an empty list all mean nothing is set.
+
+    None and the empty string are unset in core/reload_policy.py too. An empty list is what a
+    cleared list of ready times looks like.
+    """
+    return value is None or value == "" or value == []
 
 
 def same_value(left: Any, right: Any) -> bool:

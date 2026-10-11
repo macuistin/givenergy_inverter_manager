@@ -2,7 +2,10 @@
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.config_flow import _ordinal, _tariff_summary
+from custom_components.givenergy_inverter_manager.core.wizard_tariff import ordinal as _ordinal
+from custom_components.givenergy_inverter_manager.core.wizard_tariff import (
+    tariff_summary as _tariff_summary,
+)
 
 
 @pytest.mark.parametrize(

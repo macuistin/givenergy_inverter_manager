@@ -8,13 +8,21 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from conftest import MIDDAY, SERIAL, full_config_data, serialise_schema
+from conftest import MIDDAY, SERIAL, full_config_data
 from homeassistant.components.repairs import repairs_flow_manager
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from wizard_support import (
+    field_names,
+    initial_data,
+    open_options,
+    options_wizard,
+    serialised,
+    submit,
+)
 
 import custom_components.givenergy_inverter_manager as integration
 from custom_components.givenergy_inverter_manager import repairs
@@ -43,28 +51,6 @@ def scenario():
     return MIDDAY
 
 
-def _serialise(result) -> list[dict]:
-    return serialise_schema(result["data_schema"])
-
-
-def _initial_data(fields: list[dict]) -> dict:
-    data: dict = {}
-    for field in fields:
-        if field.get("type") == "expandable":
-            data[field["name"]] = _initial_data(field["schema"])
-        elif "default" in field:
-            data[field["name"]] = field["default"]
-    return data
-
-
-def payload(result, **sections: dict) -> dict:
-    """What the frontend submits: every default pre-filled, then the given section values."""
-    data = _initial_data(_serialise(result))
-    for name, values in sections.items():
-        data[name] = {**data.get(name, {}), **values}
-    return data
-
-
 def _change(day: str, base: float = NEW_BASE) -> dict:
     return {
         "effective": day,
@@ -75,12 +61,9 @@ def _change(day: str, base: float = NEW_BASE) -> dict:
     }
 
 
-async def _save(hass, entry, user_input_fn):
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert result["type"] is FlowResultType.FORM
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input=user_input_fn(result)
-    )
+async def _save(hass, entry, steps: dict):
+    """Run the options wizard through *steps* and let the entry settle."""
+    result = await options_wizard(hass, entry, steps)
     await hass.async_block_till_done()
     return result
 
@@ -98,11 +81,10 @@ class TestRecordingAChange:
         result = await _save(
             hass,
             loaded_entry,
-            lambda r: payload(
-                r,
-                tariff_settings={CONF_BASE_RATE: NEW_BASE, CONF_EXPORT_RATE: NEW_EXPORT},
-                tariff_change={"effective_from": LATER},
-            ),
+            {
+                "tariff": {CONF_BASE_RATE: NEW_BASE, CONF_EXPORT_RATE: NEW_EXPORT},
+                "schedule_change": {"effective_from": LATER},
+            },
         )
 
         assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -116,29 +98,30 @@ class TestRecordingAChange:
         assert loaded_entry.runtime_data.export_rate == pytest.approx(0.195)
         assert loaded_entry.state is ConfigEntryState.LOADED
 
-    async def test_the_charges_in_the_same_submission_apply_now(self, hass, loaded_entry):
+    async def test_the_charges_in_the_same_run_apply_now(self, hass, loaded_entry):
         await _save(
             hass,
             loaded_entry,
-            lambda r: payload(
-                r,
-                tariff_settings={CONF_BASE_RATE: NEW_BASE, CONF_VAT_RATE: 13.5},
-                tariff_change={"effective_from": LATER},
-            ),
+            {
+                "tariff": {CONF_BASE_RATE: NEW_BASE},
+                "bill": {CONF_VAT_RATE: 13.5},
+                "schedule_change": {"effective_from": LATER},
+            },
         )
 
         assert loaded_entry.options[CONF_VAT_RATE] == pytest.approx(13.5)
+        assert [c["effective"] for c in loaded_entry.options[CONF_TARIFF_CHANGES]] == [LATER]
 
-    async def test_the_form_lists_the_scheduled_change_on_reopening(self, hass, loaded_entry):
+    async def test_the_tariff_screen_lists_the_scheduled_change_on_reopening(
+        self, hass, loaded_entry
+    ):
         await _save(
             hass,
             loaded_entry,
-            lambda r: payload(
-                r, tariff_settings={CONF_BASE_RATE: NEW_BASE}, tariff_change={"effective_from": LATER}
-            ),
+            {"tariff": {CONF_BASE_RATE: NEW_BASE}, "schedule_change": {"effective_from": LATER}},
         )
 
-        result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+        result = await open_options(hass, loaded_entry, {"tariff": {}})
         summary = result["description_placeholders"]["tariff_summary"]
         assert "Scheduled rate changes:" in summary
         assert f"From {LATER}: Day 0.4000" in summary
@@ -148,14 +131,14 @@ class TestRecordingAChange:
         result = await _save(
             hass,
             loaded_entry,
-            lambda r: payload(
-                r,
-                tariff_settings={CONF_BASE_RATE: NEW_BASE},
-                tariff_change={"effective_from": "2026-06-14"},
-            ),
+            {
+                "tariff": {CONF_BASE_RATE: NEW_BASE},
+                "schedule_change": {"effective_from": "2026-06-14"},
+            },
         )
 
         assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "schedule_change"
         assert result["errors"] == {"base": "tariff_change_date_in_past"}
         assert CONF_TARIFF_CHANGES not in loaded_entry.options
         assert CONF_BASE_RATE not in loaded_entry.options
@@ -164,57 +147,41 @@ class TestRecordingAChange:
         await _save(
             hass,
             loaded_entry,
-            lambda r: payload(
-                r, tariff_settings={CONF_BASE_RATE: NEW_BASE}, tariff_change={"effective_from": TODAY}
-            ),
+            {"tariff": {CONF_BASE_RATE: NEW_BASE}, "schedule_change": {"effective_from": TODAY}},
         )
 
         assert loaded_entry.options[CONF_BASE_RATE] == pytest.approx(NEW_BASE)
         assert CONF_TARIFF_CHANGES not in loaded_entry.options
 
-    async def test_a_client_that_omits_the_rate_sections_dates_the_periods_in_force(
+    async def test_dating_the_rates_without_opening_the_rows_dates_the_periods_in_force(
         self, hass, loaded_entry
     ):
-        def sparse(result):
-            data = payload(
-                result,
-                tariff_settings={CONF_BASE_RATE: NEW_BASE},
-                tariff_change={"effective_from": LATER},
-            )
-            return {k: v for k, v in data.items() if not k.startswith("rate_period_")}
-
-        await _save(hass, loaded_entry, sparse)
+        await _save(
+            hass,
+            loaded_entry,
+            {"tariff": {CONF_BASE_RATE: NEW_BASE}, "schedule_change": {"effective_from": LATER}},
+        )
 
         (change,) = loaded_entry.options[CONF_TARIFF_CHANGES]
         assert [p["name"] for p in change[CONF_RATE_PERIODS]] == ["Night", "Nightboost"]
         in_force = loaded_entry.runtime_data._effective_cfg()[CONF_RATE_PERIODS]
         assert [p["name"] for p in in_force] == ["Night", "Nightboost"]
 
-    async def test_a_client_that_omits_the_change_section_keeps_what_is_scheduled(
-        self, hass, loaded_entry
-    ):
+    async def test_a_save_that_is_not_dated_keeps_what_is_scheduled(self, hass, loaded_entry):
         await _set_options(hass, loaded_entry, **{CONF_TARIFF_CHANGES: [_change(LATER)]})
 
-        def sparse(result):
-            data = payload(result, tariff_settings={CONF_VAT_RATE: 13.5})
-            data.pop("tariff_change", None)
-            return {k: v for k, v in data.items() if not k.startswith("rate_period_")}
-
-        await _save(hass, loaded_entry, sparse)
+        await _save(hass, loaded_entry, {"tariff": {}, "bill": {CONF_VAT_RATE: 13.5}})
 
         assert [c["effective"] for c in loaded_entry.options[CONF_TARIFF_CHANGES]] == [LATER]
         assert loaded_entry.options[CONF_VAT_RATE] == pytest.approx(13.5)
+        assert CONF_BASE_RATE not in loaded_entry.options
 
     async def test_a_second_change_for_the_same_date_replaces_the_first(self, hass, loaded_entry):
         for base in (0.38, 0.41):
             await _save(
                 hass,
                 loaded_entry,
-                lambda r, base=base: payload(
-                    r,
-                    tariff_settings={CONF_BASE_RATE: base},
-                    tariff_change={"effective_from": LATER},
-                ),
+                {"tariff": {CONF_BASE_RATE: base}, "schedule_change": {"effective_from": LATER}},
             )
 
         (change,) = loaded_entry.options[CONF_TARIFF_CHANGES]
@@ -225,22 +192,26 @@ class TestCancellingAChange:
     async def test_the_cancel_switch_is_offered_only_while_a_change_is_scheduled(
         self, hass, loaded_entry
     ):
-        result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
-        section = next(f for f in _serialise(result) if f["name"] == "tariff_change")
-        assert [f["name"] for f in section["schema"]] == ["effective_from"]
+        steps = {"tariff": {}, "schedule_change": {}}
+        result = await open_options(hass, loaded_entry, steps)
+        result = await submit(hass.config_entries.options, result, edit_rates=False, schedule_change=True)
+        assert result["step_id"] == "schedule_change"
+        assert field_names(result) == ["effective_from"]
         hass.config_entries.options.async_abort(result["flow_id"])
 
         await _set_options(hass, loaded_entry, **{CONF_TARIFF_CHANGES: [_change(LATER)]})
-        result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
-        section = next(f for f in _serialise(result) if f["name"] == "tariff_change")
-        assert [f["name"] for f in section["schema"]] == ["effective_from", "cancel_scheduled"]
+        result = await open_options(hass, loaded_entry, steps)
+        result = await submit(hass.config_entries.options, result, schedule_change=True)
+        assert field_names(result) == ["effective_from", "cancel_scheduled"]
         hass.config_entries.options.async_abort(result["flow_id"])
 
     async def test_cancelling_removes_the_scheduled_change(self, hass, loaded_entry):
         await _set_options(hass, loaded_entry, **{CONF_TARIFF_CHANGES: [_change(LATER)]})
 
         await _save(
-            hass, loaded_entry, lambda r: payload(r, tariff_change={"cancel_scheduled": True})
+            hass,
+            loaded_entry,
+            {"tariff": {}, "schedule_change": {"cancel_scheduled": True}},
         )
 
         assert CONF_TARIFF_CHANGES not in loaded_entry.options
@@ -264,17 +235,17 @@ class TestAChangeTakingEffect:
         assert coordinator.export_rate == pytest.approx(NEW_EXPORT)
         assert loaded_entry.state is ConfigEntryState.LOADED
 
-    async def test_the_form_shows_the_rates_in_force_once_a_change_started(
+    async def test_the_screens_show_the_rates_in_force_once_a_change_started(
         self, hass, loaded_entry
     ):
         await _set_options(hass, loaded_entry, **{CONF_TARIFF_CHANGES: [_change(TODAY)]})
 
-        result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
-
-        defaults = _initial_data(_serialise(result))["tariff_settings"]
+        result = await open_options(hass, loaded_entry, {"tariff": {}})
+        defaults = initial_data(serialised(result))
         assert defaults[CONF_BASE_RATE] == pytest.approx(NEW_BASE)
         assert defaults[CONF_EXPORT_RATE] == pytest.approx(NEW_EXPORT)
-        assert defaults[CONF_BASE_RATE_NAME] == "Standard"
+        result = await submit(hass.config_entries.options, result, edit_bill=True)
+        assert initial_data(serialised(result))[CONF_BASE_RATE_NAME] == "Standard"
         hass.config_entries.options.async_abort(result["flow_id"])
 
     async def test_saving_without_a_date_sets_the_rates_from_now_over_a_started_change(
@@ -282,41 +253,47 @@ class TestAChangeTakingEffect:
     ):
         await _set_options(hass, loaded_entry, **{CONF_TARIFF_CHANGES: [_change(TODAY)]})
 
-        await _save(hass, loaded_entry, lambda r: payload(r, tariff_settings={CONF_BASE_RATE: 0.37}))
+        await _save(hass, loaded_entry, {"tariff": {CONF_BASE_RATE: 0.37}})
 
         assert loaded_entry.options[CONF_BASE_RATE] == pytest.approx(0.37)
         assert CONF_TARIFF_CHANGES not in loaded_entry.options
         assert loaded_entry.runtime_data._effective_cfg()[CONF_BASE_RATE] == pytest.approx(0.37)
 
-    async def test_reconfigure_ends_a_started_change_and_keeps_a_scheduled_one(
+    async def test_saving_a_charge_over_a_started_change_keeps_its_rates(self, hass, loaded_entry):
+        """The rates in force stay in force when only the charges change."""
+        await _set_options(hass, loaded_entry, **{CONF_TARIFF_CHANGES: [_change(TODAY)]})
+
+        await _save(hass, loaded_entry, {"tariff": {}, "bill": {CONF_VAT_RATE: 13.5}})
+
+        cfg = loaded_entry.runtime_data._effective_cfg()
+        assert cfg[CONF_BASE_RATE] == pytest.approx(NEW_BASE)
+        assert cfg[CONF_BASE_RATE_NAME] == "Standard"
+        assert cfg[CONF_VAT_RATE] == pytest.approx(13.5)
+
+    async def test_saving_the_tariff_ends_a_started_change_and_keeps_a_scheduled_one(
         self, hass, loaded_entry
     ):
         await _set_options(
             hass, loaded_entry, **{CONF_TARIFF_CHANGES: [_change(TODAY), _change(LATER, 0.5)]}
         )
 
-        result = await loaded_entry.start_reconfigure_flow(hass)
-        form = {f["name"]: f.get("default") for f in _serialise(result) if "default" in f}
-        assert form[CONF_BASE_RATE] == pytest.approx(NEW_BASE)
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"],
-            user_input={**_initial_data(_serialise(result)), CONF_BASE_RATE: 0.37},
-        )
+        result = await open_options(hass, loaded_entry, {"tariff": {}})
+        assert initial_data(serialised(result))[CONF_BASE_RATE] == pytest.approx(NEW_BASE)
+        await submit(hass.config_entries.options, result, base_rate=0.37)
         await hass.async_block_till_done()
 
-        assert result["type"] is FlowResultType.ABORT
-        assert loaded_entry.data[CONF_BASE_RATE] == pytest.approx(0.37)
+        assert loaded_entry.options[CONF_BASE_RATE] == pytest.approx(0.37)
         assert [c["effective"] for c in loaded_entry.options[CONF_TARIFF_CHANGES]] == [LATER]
         assert loaded_entry.options[CONF_TARIFF_REVIEWED_ON] == TODAY
 
 
 class TestNoChangeRecorded:
-    async def test_saving_the_form_unchanged_adds_no_dated_keys_and_keeps_the_review_date(
+    async def test_saving_the_screens_unchanged_adds_no_dated_keys_and_keeps_the_review_date(
         self, hass, loaded_entry
     ):
         await _set_options(hass, loaded_entry, **{CONF_TARIFF_REVIEWED_ON: "2026-01-01"})
 
-        await _save(hass, loaded_entry, payload)
+        await _save(hass, loaded_entry, {"tariff": {}, "bill": {}})
 
         assert CONF_TARIFF_CHANGES not in loaded_entry.options
         assert loaded_entry.options[CONF_TARIFF_REVIEWED_ON] == "2026-01-01"
@@ -326,10 +303,21 @@ class TestNoChangeRecorded:
     ):
         await _set_options(hass, loaded_entry, **{CONF_TARIFF_REVIEWED_ON: "2026-01-01"})
 
-        await _save(hass, loaded_entry, lambda r: payload(r, tariff_settings={CONF_BASE_RATE: 0.37}))
+        await _save(hass, loaded_entry, {"tariff": {CONF_BASE_RATE: 0.37}})
 
         assert loaded_entry.options[CONF_BASE_RATE] == pytest.approx(0.37)
         assert loaded_entry.options[CONF_TARIFF_REVIEWED_ON] == TODAY
+
+    async def test_confirming_the_tariff_is_current_moves_only_the_review_date(
+        self, hass, loaded_entry
+    ):
+        await _set_options(hass, loaded_entry, **{CONF_TARIFF_REVIEWED_ON: "2026-01-01"})
+
+        await _save(hass, loaded_entry, {"tariff": {"confirm_current": True}})
+
+        assert loaded_entry.options[CONF_TARIFF_REVIEWED_ON] == TODAY
+        assert CONF_BASE_RATE not in loaded_entry.options
+        assert CONF_TARIFF_CHANGES not in loaded_entry.options
 
 
 ISSUE = repairs.ISSUE_TARIFF_REVIEW_DUE
@@ -438,7 +426,7 @@ class TestStaleTariffRepair:
         await _load(hass, entry)
         assert _issue(hass) is not None
 
-        await _save(hass, entry, lambda r: payload(r, tariff_settings={CONF_BASE_RATE: 0.37}))
+        await _save(hass, entry, {"tariff": {CONF_BASE_RATE: 0.37}})
         await entry.runtime_data.async_refresh()
 
         assert _issue(hass) is None

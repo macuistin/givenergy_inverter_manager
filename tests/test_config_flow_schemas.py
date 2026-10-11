@@ -72,12 +72,11 @@ def real_vol(real_ha_selector):
     return vol
 
 
-# ── Schema builder under test ─────────────────────────────────────────────────
+# ── Schema builders under test ────────────────────────────────────────────────
 
 
-def _get_flow_class(real_ha_selector, real_vol):
-    """Import GivEnergyInverterManagerConfigFlow using real HA + voluptuous."""
-    # Patch in real modules before importing config_flow
+def _wizard(real_ha_selector, real_vol):
+    """Import the wizard schema builders using real HA + voluptuous."""
     import homeassistant.helpers.selector  # noqa: F401
     import voluptuous
 
@@ -86,82 +85,86 @@ def _get_flow_class(real_ha_selector, real_vol):
     )
     sys.modules["voluptuous"] = voluptuous
 
-    # Force re-import of config_flow with real modules
-    cf_name = "custom_components.givenergy_inverter_manager.config_flow"
-    if cf_name in sys.modules:
-        del sys.modules[cf_name]
-
-    # Also remove any cached sub-imports that reference stubs
+    # Force re-import with real modules, so nothing keeps a reference to a stub.
     for key in list(sys.modules.keys()):
         if "givenergy_inverter_manager" in key:
             del sys.modules[key]
 
-    from custom_components.givenergy_inverter_manager.config_flow import (
-        GivEnergyInverterManagerConfigFlow,
+    from custom_components.givenergy_inverter_manager.core import wizard_model
+    from custom_components.givenergy_inverter_manager.wizard import schemas
+
+    return schemas, wizard_model
+
+
+def _ctx(wizard_model, mode="setup", **current):
+    from datetime import date
+
+    return wizard_model.PageContext(
+        wizard_model.Mode(mode), date(2031, 6, 15), current=current, home_currency="EUR"
     )
 
-    return GivEnergyInverterManagerConfigFlow
+
+def _all_schemas(schemas, wizard_model, mode):
+    ctx = _ctx(wizard_model, mode)
+    return {
+        "tariff": schemas.tariff_schema(ctx),
+        "rates": schemas.rates_schema(ctx, 3, "IE"),
+        "bill": schemas.bill_schema(ctx),
+        "schedule": schemas.schedule_schema(ctx),
+        "battery": schemas.battery_schema(ctx),
+        "forecast": schemas.forecast_schema(ctx),
+        "hot_water": schemas.hot_water_schema(ctx),
+        "ev": schemas.ev_schema(ctx),
+    }
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 
-class TestTariffSchemaConstruction:
-    """The tariff schema must build without raising under real HA selectors."""
+class TestSchemaConstruction:
+    """Every page schema must build without raising under real HA selectors."""
 
-    def test_build_tariff_schema_does_not_raise(self, real_ha_selector, real_vol):
-        """_build_tariff_schema() must succeed — catches step < 1e-3 etc."""
-        flow_class = _get_flow_class(real_ha_selector, real_vol)
-        # staticmethod — call on class directly
-        schema = flow_class._build_tariff_schema()
-        assert schema is not None
+    @pytest.mark.parametrize("mode", ["setup", "options"])
+    def test_every_page_schema_builds(self, real_ha_selector, real_vol, mode):
+        """Catches step < 1e-3 and the like at construction time."""
+        schemas, model = _wizard(real_ha_selector, real_vol)
 
-    def test_tariff_schema_is_vol_schema(self, real_ha_selector, real_vol):
-        """Result must be a voluptuous Schema."""
-        import voluptuous as vol
+        built = _all_schemas(schemas, model, mode)
 
-        flow_class = _get_flow_class(real_ha_selector, real_vol)
-        schema = flow_class._build_tariff_schema()
-        assert isinstance(schema, vol.Schema)
+        assert all(isinstance(schema, real_vol.Schema) for schema in built.values())
 
-    def test_tariff_schema_accepts_valid_defaults(self, real_ha_selector, real_vol):
-        """Schema must accept a dict including rate period sections without raising."""
-        from custom_components.givenergy_inverter_manager.config_flow import (
-            _periods_to_slot_defaults,
-        )
-        from custom_components.givenergy_inverter_manager.const import (
-            DEFAULT_BASE_RATE,
-            DEFAULT_BASE_RATE_NAME,
-            DEFAULT_BILL_START_DAY,
-            DEFAULT_CURRENCY,
-            DEFAULT_DISCOUNT_RATE,
-            DEFAULT_EXPORT_RATE,
-            DEFAULT_PSO_LEVY,
-            DEFAULT_RATE_PERIODS,
-            DEFAULT_STANDING_CHARGE,
-            DEFAULT_VAT_RATE,
-        )
+    def test_the_setup_tariff_schema_accepts_a_valid_submission(self, real_ha_selector, real_vol):
+        schemas, model = _wizard(real_ha_selector, real_vol)
+        schema = schemas.tariff_schema(_ctx(model))
 
-        flow_class = _get_flow_class(real_ha_selector, real_vol)
-        schema = flow_class._build_tariff_schema()
+        validated = schema({"base_rate": 0.3, "export_rate": 0.1, "rate_count": "2"})
 
-        slots = _periods_to_slot_defaults(DEFAULT_RATE_PERIODS)
-        valid_data = {
-            "base_rate": DEFAULT_BASE_RATE,
-            "base_rate_name": DEFAULT_BASE_RATE_NAME,
-            "export_rate": DEFAULT_EXPORT_RATE,
-            "standing_charge_per_day": DEFAULT_STANDING_CHARGE,
-            "pso_levy_per_month": DEFAULT_PSO_LEVY,
-            "vat_rate": DEFAULT_VAT_RATE,
-            "discount_rate": DEFAULT_DISCOUNT_RATE,
-            "bill_start_day": DEFAULT_BILL_START_DAY,
-            "currency": DEFAULT_CURRENCY,
-            "rate_period_1": slots[0],
-            "rate_period_2": slots[1],
-        }
-        # Should not raise
-        result = schema(valid_data)
-        assert result is not None
+        assert validated["rate_count"] == "2"
+
+    def test_the_setup_tariff_schema_needs_both_rates_and_has_no_placeholder(
+        self, real_ha_selector, real_vol
+    ):
+        schemas, model = _wizard(real_ha_selector, real_vol)
+        schema = schemas.tariff_schema(_ctx(model))
+
+        with pytest.raises(real_vol.error.MultipleInvalid):
+            schema({"rate_count": "0"})
+
+    def test_a_rate_row_accepts_what_the_form_sends(self, real_ha_selector, real_vol):
+        schemas, model = _wizard(real_ha_selector, real_vol)
+        schema = schemas.rates_schema(_ctx(model), 2, "IE")
+
+        row = {"name": "Night", "rate": 0.12, "start": "23:00:00", "end": "08:00:00"}
+        validated = schema({"rate_period_1": row, "rate_period_2": {**row, "name": "Peak"}})
+
+        assert validated["rate_period_1"]["start"] == "23:00:00"
+
+    def test_the_rates_schema_has_exactly_as_many_rows_as_asked(self, real_ha_selector, real_vol):
+        schemas, model = _wizard(real_ha_selector, real_vol)
+
+        for count in (1, 3, 5):
+            schema = schemas.rates_schema(_ctx(model), count, None)
+            assert [str(k) for k in schema.schema] == [f"rate_period_{i}" for i in range(1, count + 1)]
 
 
 class TestNumberSelectorStepConstraint:
@@ -205,74 +208,69 @@ def _selector_units(schema):
 
 
 _MONEY_FIELDS = {
-    "base_rate": "kWh",
-    "export_rate": "kWh",
     "standing_charge_per_day": "day",
     "pso_levy_per_month": "month",
 }
 
 
-class TestTariffSchemaCurrencyUnits:
-    def test_default_is_eur(self, real_ha_selector, real_vol):
-        flow_class = _get_flow_class(real_ha_selector, real_vol)
-        units = _selector_units(flow_class._build_tariff_schema())
+class TestCurrencyUnits:
+    def test_default_is_the_home_currency_and_that_falls_back_to_eur(
+        self, real_ha_selector, real_vol
+    ):
+        schemas, model = _wizard(real_ha_selector, real_vol)
+        units = _selector_units(schemas.tariff_schema(_ctx(model)))
         assert units["base_rate"] == "EUR/kWh"
         assert units["export_rate"] == "EUR/kWh"
-        assert units["standing_charge_per_day"] == "EUR/day"
-        assert units["pso_levy_per_month"] == "EUR/month"
-        assert units["rate_period_1.rate"] == "EUR/kWh"
+        assert _selector_units(schemas.bill_schema(_ctx(model)))["standing_charge_per_day"] == (
+            "EUR/day"
+        )
+        assert _selector_units(schemas.rates_schema(_ctx(model), 1, None))[
+            "rate_period_1.rate"
+        ] == ("EUR/kWh")
 
     @pytest.mark.parametrize("code", ["GBP", "USD", "SEK"])
-    def test_saved_currency_sets_every_money_unit(self, real_ha_selector, real_vol, code):
-        flow_class = _get_flow_class(real_ha_selector, real_vol)
-        units = _selector_units(flow_class._build_tariff_schema(values={"currency": code}))
+    def test_a_saved_currency_sets_every_money_unit(self, real_ha_selector, real_vol, code):
+        schemas, model = _wizard(real_ha_selector, real_vol)
+        ctx = _ctx(model, "options", currency=code, base_rate=0.3, export_rate=0.1)
+
+        tariff = _selector_units(schemas.tariff_schema(ctx))
+        bill = _selector_units(schemas.bill_schema(ctx))
+        rows = _selector_units(schemas.rates_schema(ctx, 2, None))
+
+        assert tariff["base_rate"] == f"{code}/kWh"
+        assert tariff["export_rate"] == f"{code}/kWh"
         for field, per in _MONEY_FIELDS.items():
-            assert units[field] == f"{code}/{per}"
-        assert units["rate_period_1.rate"] == f"{code}/kWh"
-        assert units["rate_period_2.rate"] == f"{code}/kWh"
+            assert bill[field] == f"{code}/{per}"
+        assert rows["rate_period_1.rate"] == f"{code}/kWh"
+        assert rows["rate_period_2.rate"] == f"{code}/kWh"
 
-    def test_explicit_currency_wins_over_saved_values(self, real_ha_selector, real_vol):
-        flow_class = _get_flow_class(real_ha_selector, real_vol)
-        schema = flow_class._build_tariff_schema(values={"currency": "EUR"}, currency="GBP")
-        assert _selector_units(schema)["base_rate"] == "GBP/kWh"
+    def test_the_battery_cost_shows_the_symbol_of_the_saved_currency(
+        self, real_ha_selector, real_vol
+    ):
+        schemas, model = _wizard(real_ha_selector, real_vol)
 
-    def test_unknown_currency_falls_back_to_eur(self, real_ha_selector, real_vol):
-        flow_class = _get_flow_class(real_ha_selector, real_vol)
-        units = _selector_units(flow_class._build_tariff_schema(values={"currency": "XYZ"}))
-        assert units["base_rate"] == "EUR/kWh"
+        gbp = _selector_units(schemas.battery_schema(_ctx(model, "options", currency="GBP")))
+        eur = _selector_units(schemas.battery_schema(_ctx(model, "options", currency="EUR")))
 
+        assert gbp["battery_cost_eur"] == "£"
+        assert eur["battery_cost_eur"] == "€"
 
-class TestOptionsFlowCurrencyUnits:
-    @staticmethod
-    def _form_schema(real_ha_selector, real_vol, data):
-        import asyncio
-        from unittest.mock import MagicMock
+    def test_an_unknown_currency_falls_back_to_eur(self, real_ha_selector, real_vol):
+        schemas, model = _wizard(real_ha_selector, real_vol)
+        ctx = _ctx(model, "options", currency="XYZ", base_rate=0.3, export_rate=0.1)
 
-        _get_flow_class(real_ha_selector, real_vol)
-        config_flow = importlib.import_module(
-            "custom_components.givenergy_inverter_manager.config_flow"
+        assert _selector_units(schemas.tariff_schema(ctx))["base_rate"] == "EUR/kWh"
+
+    def test_the_currency_entered_on_the_bill_screen_wins_for_the_rows_after_it(
+        self, real_ha_selector, real_vol
+    ):
+        from datetime import date
+
+        schemas, model = _wizard(real_ha_selector, real_vol)
+        ctx = model.PageContext(
+            model.Mode.SETUP, date(2031, 6, 15), pending={"currency": "GBP"}, home_currency="EUR"
         )
-        entry = MagicMock()
-        entry.options = {}
-        entry.data = data
-        flow = config_flow.GivEnergyOptionsFlow(entry)
-        flow.async_show_form = MagicMock(return_value={"type": "form"})
-        asyncio.run(flow.async_step_init(None))
-        return flow.async_show_form.call_args.kwargs["data_schema"]
 
-    def test_gbp_entry_shows_gbp_units(self, real_ha_selector, real_vol):
-        schema = self._form_schema(real_ha_selector, real_vol, {"currency": "GBP"})
-        units = _selector_units(schema)
-        assert units["tariff_settings.base_rate"] == "GBP/kWh"
-        assert units["tariff_settings.export_rate"] == "GBP/kWh"
-        assert units["tariff_settings.standing_charge_per_day"] == "GBP/day"
-        assert units["tariff_settings.pso_levy_per_month"] == "GBP/month"
-        assert units["rate_period_1.rate"] == "GBP/kWh"
-        assert units["threshold_settings.battery_cost_eur"] == "£"
-
-    def test_eur_entry_is_unchanged(self, real_ha_selector, real_vol):
-        schema = self._form_schema(real_ha_selector, real_vol, {"currency": "EUR"})
-        units = _selector_units(schema)
-        assert units["tariff_settings.base_rate"] == "EUR/kWh"
-        assert units["rate_period_1.rate"] == "EUR/kWh"
-        assert units["threshold_settings.battery_cost_eur"] == "€"
+        assert _selector_units(schemas.rates_schema(ctx, 1, None))["rate_period_1.rate"] == (
+            "GBP/kWh"
+        )

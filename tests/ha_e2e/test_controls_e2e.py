@@ -24,6 +24,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import EntityCategory
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.icon import async_get_icons
+from wizard_support import open_options, submit
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_BASE_RATE,
@@ -157,20 +158,16 @@ class TestWritingAControl:
         assert loaded_entry.options[CONF_BASE_RATE] == 0.52
         assert loaded_entry.options[CONF_SKIP_CHARGE_SOC_THRESHOLD] == 90
 
-    async def test_saving_the_options_form_does_not_undo_a_control_changed_meanwhile(
+    async def test_saving_an_options_page_does_not_undo_a_control_changed_meanwhile(
         self, hass, loaded_entry
     ):
-        """The form is opened, a control is moved, then the form is saved."""
-        from test_reload_policy_e2e import frontend_payload
-
-        result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
-        payload = frontend_payload(
-            result, threshold_settings={"overnight_charge_target_pct": 90}
-        )
+        """The page is opened, a control is moved, then the page is saved."""
+        result = await open_options(hass, loaded_entry, {"battery": {}})
+        assert result["step_id"] == "battery"
         await set_control(hass, loaded_entry, CONF_DRY_RUN, True)
         await set_control(hass, loaded_entry, CONF_CHEAP_RATE_FLOOR_SOC, 10)
 
-        await hass.config_entries.options.async_configure(result["flow_id"], user_input=payload)
+        await submit(hass.config_entries.options, result, overnight_charge_target_pct=90)
         await hass.async_block_till_done()
 
         assert loaded_entry.options["overnight_charge_target_pct"] == 90
@@ -178,14 +175,12 @@ class TestWritingAControl:
         assert loaded_entry.options[CONF_CHEAP_RATE_FLOOR_SOC] == 10
         assert value_of(hass, loaded_entry, CONF_DRY_RUN) == "on"
 
-    async def test_a_control_key_sent_to_the_form_is_not_accepted(self, hass, loaded_entry):
-        result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    async def test_a_control_key_sent_to_a_page_is_not_accepted(self, hass, loaded_entry):
+        result = await open_options(hass, loaded_entry, {"battery": {}})
         from homeassistant.data_entry_flow import InvalidData
-        from test_reload_policy_e2e import frontend_payload
 
-        payload = frontend_payload(result, threshold_settings={CONF_DRY_RUN: True})
         with pytest.raises(InvalidData):
-            await hass.config_entries.options.async_configure(result["flow_id"], user_input=payload)
+            await submit(hass.config_entries.options, result, **{CONF_DRY_RUN: True})
 
     async def test_the_entity_shows_the_new_value_at_once(self, hass, loaded_entry):
         await control(hass, loaded_entry, CONF_FORECAST_CONSERVATISM).async_set_native_value(0.9)

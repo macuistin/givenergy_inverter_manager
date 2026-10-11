@@ -201,7 +201,7 @@ def clean_forecast(values: Mapping[str, Any]) -> dict[str, Any]:
 def forecast_summary(cfg: Mapping[str, Any]) -> str:
     """The forecast on one line."""
     sensor = cfg.get(CONF_FORECAST_ENTITY)
-    return f"forecast sensor {sensor}" if sensor else "no forecast sensor, a seasonal estimate"
+    return f"forecast sensor: {sensor}" if sensor else "forecast: none, a seasonal estimate is used"
 
 
 # ── Hot water and alternative heating ─────────────────────────────────────────
@@ -258,7 +258,19 @@ def validate_hot_water(values: Mapping[str, Any], _ctx: PageContext) -> Validati
     return Validation(errors=errors, warnings=_hot_water_warnings(values))
 
 
+_ALT_HEAT_KEYS = (
+    CONF_ALT_HEAT_ENABLED,
+    CONF_ALT_HEAT_LABEL,
+    CONF_ALT_HEAT_COST_UNIT,
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_COST_ENTITY,
+)
+
+
 def _clean_alt_heat(values: Mapping[str, Any]) -> dict[str, Any]:
+    """The alternative heating values, or none when the submission carries no such section."""
+    if not any(key in values for key in _ALT_HEAT_KEYS):
+        return {}
     cleaned: dict[str, Any] = {}
     if CONF_ALT_HEAT_ENABLED in values:
         cleaned[CONF_ALT_HEAT_ENABLED] = bool(values[CONF_ALT_HEAT_ENABLED])

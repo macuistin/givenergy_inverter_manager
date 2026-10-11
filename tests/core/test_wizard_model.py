@@ -66,7 +66,7 @@ def test_the_checklists_name_only_pages_that_exist():
 
 
 def test_the_tariff_page_runs_four_steps_and_the_others_one():
-    assert PAGE_STEPS["tariff"] == ("tariff", "tariff_rates", "bill", "tariff_changes")
+    assert PAGE_STEPS["tariff"] == ("tariff", "tariff_rates", "bill", "schedule_change")
     assert set(PAGE_STEPS) == {"tariff"}
 
 
@@ -87,6 +87,9 @@ def test_a_page_may_write_its_own_keys_and_the_tariff_may_write_the_review_date(
         (5, 5.0, True),
         ("a", "b", False),
         ([], [], True),
+        ([], None, True),
+        ([], "", True),
+        ([], [{"name": "Night"}], False),
     ],
 )
 def test_same_value(left, right, same):

@@ -39,6 +39,7 @@ from ..const import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
+    CONF_INVERTER_SERIAL,
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
@@ -49,7 +50,8 @@ from ..const import (
 )
 from .reload_policy import Effect, change_effect, changed_keys, reload_keys
 from .wizard_model import KEY_DEFAULTS, is_unset
-from .wizard_tariff import periods_text
+from .wizard_pages import battery_summary, forecast_summary, hot_water_summary
+from .wizard_tariff import periods_text, tariff_summary
 
 LABELS: dict[str, str] = {
     CONF_BASE_RATE: "Base rate",
@@ -120,7 +122,7 @@ def show(key: str, value: Any) -> str:
         return _periods(value)
     if key == CONF_TARIFF_CHANGES:
         return _changes(value)
-    if is_unset(value) or value == []:
+    if is_unset(value):
         return _NOT_SET
     if isinstance(value, bool):
         return "on" if value else "off"
@@ -163,3 +165,45 @@ def confirm_text(before: Mapping[str, Any], after: Mapping[str, Any]) -> str:
     lines = describe_changes(before, after)
     body = "\n".join(f"- {line}" for line in lines) if lines else "No values changed."
     return f"{body}\n\n{effect_line(before, after)}"
+
+
+# ── The setup wizard confirm step ─────────────────────────────────────────────
+
+DRY_RUN_SENTENCE = (
+    "Dry run is on. Nothing is sent to your inverter, immersion or EV charger until you "
+    "turn off the Dry run switch."
+)
+NO_TARIFF_SENTENCE = (
+    "Tariff: not set yet. Costs and the overnight plan use a placeholder rate until you set "
+    "the tariff under Configure."
+)
+
+
+def _tariff_lines(values: Mapping[str, Any]) -> list[str]:
+    rows = values.get(CONF_RATE_PERIODS) or []
+    base_name = values.get(CONF_BASE_RATE_NAME, KEY_DEFAULTS[CONF_BASE_RATE_NAME])
+    return [
+        tariff_summary(values),
+        f"Base rate: {base_name} {float(values[CONF_BASE_RATE]):.4f}. "
+        f"Timed rates: {periods_text(rows) or 'none'}.",
+    ]
+
+
+def _sentence(text: str) -> str:
+    """*text* with its first letter in capitals and the rest left as written."""
+    return text[:1].upper() + text[1:]
+
+
+def setup_summary(values: Mapping[str, Any], charger: str | None, *, tariff_asked: bool) -> str:
+    """The setup confirm step: what was found, what was entered, and that dry run is on."""
+    serial = values.get(CONF_INVERTER_SERIAL)
+    lines = [f"Inverter: {serial}."] if serial else []
+    lines += _tariff_lines(values) if tariff_asked else [NO_TARIFF_SENTENCE]
+    lines += [
+        f"{_sentence(battery_summary(values))}.",
+        f"EV charger: {charger or 'none found, one is picked up when it appears'}.",
+        f"Solar {forecast_summary(values)}.",
+        f"Hot water: {hot_water_summary(values)}.",
+        DRY_RUN_SENTENCE,
+    ]
+    return "\n".join(f"- {line}" for line in lines if line)

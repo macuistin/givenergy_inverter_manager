@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from conftest import MIDDAY, serialise_schema
+from conftest import MIDDAY
 from controls_support import (
     BRIEF_DEFAULTS,
     CONTROL_KEYS,
@@ -13,6 +13,7 @@ from controls_support import (
 )
 from homeassistant.config_entries import ConfigEntryState
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from wizard_support import every_field, walk_options_forms
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_SWITCH,
@@ -131,18 +132,11 @@ class TestTheUpgradeKeepsEveryValue:
         for key, value in self.OLD_DATA.items():
             assert upgraded.data[key] == value
 
-    async def test_the_options_form_no_longer_offers_them(self, hass, upgraded):
-        result = await hass.config_entries.options.async_init(upgraded.entry_id)
-        offered = {
-            field["name"] for section in _fields(result) for field in section.get("schema", [])
-        }
+    async def test_no_options_page_offers_them(self, hass, upgraded):
+        forms = await walk_options_forms(hass, upgraded)
+        offered = {field["name"] for form in forms.values() for field in every_field(form["fields"])}
         assert offered
         assert offered.isdisjoint(CONTROL_KEYS)
-        hass.config_entries.options.async_abort(result["flow_id"])
-
-
-def _fields(result) -> list[dict]:
-    return serialise_schema(result["data_schema"])
 
 
 class TestTheDivertThresholdsFollowTheImmersionSwitch:

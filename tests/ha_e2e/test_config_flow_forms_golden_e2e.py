@@ -1,8 +1,9 @@
 """Golden snapshot of every config, reconfigure and options form the frontend receives.
 
 The snapshot holds the serialised schema (field order, keys, defaults, suggested values,
-selector configs, sections) plus the step id, errors and description placeholders.
-It pins the forms so a refactor of config_flow.py cannot change what the user sees.
+selector configs, sections) plus the step id, last_step, errors and description placeholders,
+for the setup wizard, reconfigure (the inverter connection) and the options wizard.
+It pins the forms so a refactor of the wizards cannot change what the user sees.
 If the golden file is missing the test writes it and fails, so a deliberate change to a
 form is one reviewed diff of the JSON file.
 """
@@ -15,6 +16,7 @@ from pathlib import Path
 import pytest
 from conftest import (
     BATTERY_POWER,
+    FORECAST,
     GRID,
     LOAD,
     MIDDAY,
@@ -27,6 +29,7 @@ from conftest import (
 )
 from homeassistant.config_entries import SOURCE_USER
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from wizard_support import open_options, submit, walk_options_forms
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_BASE_RATE_NAME,
@@ -34,32 +37,28 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_BATTERY_COST,
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
-    CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_CURRENCY,
-    CONF_DRY_RUN,
     CONF_EXPORT_RATE,
     CONF_FORECAST_ENTITY,
-    CONF_FORECAST_PROVIDER,
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
     CONF_RATE_PERIODS,
     CONF_SOLAR_POWER,
-    CONF_VERBOSE_LOGGING,
     DOMAIN,
 )
 
 GOLDEN = Path(__file__).parent / "golden" / "config_flow_forms.json"
 
-MANUAL_INPUT = {
-    "discovered_inverter": "__manual__",
+FIVE = {
     CONF_SOLAR_POWER: SOLAR,
     CONF_BATTERY_SOC: SOC,
     CONF_BATTERY_POWER: BATTERY_POWER,
     CONF_GRID_POWER: GRID,
     CONF_HOUSE_LOAD: LOAD,
-    CONF_BATTERY_CAPACITY: 9.5,
 }
 ZERO_LENGTH_SLOT = {"name": "Empty", "rate": 0.01, "start": "00:00:00", "end": "00:00:00"}
+TARIFF = {"base_rate": 0.3, "export_rate": 0.1}
+ROWS = {"rate_period_1": {"rate": 0.12}, "rate_period_2": {"rate": 0.2}}
 
 
 @pytest.fixture
@@ -73,21 +72,11 @@ def _describe(result) -> dict:
     fields = serialise_schema(schema) if schema else []
     return {
         "step_id": result["step_id"],
+        "last_step": result.get("last_step"),
         "errors": result.get("errors"),
         "placeholders": result.get("description_placeholders"),
         "fields": fields,
     }
-
-
-def _initial_data(fields: list[dict]) -> dict:
-    """What the frontend submits untouched: every default, recursing into sections."""
-    data: dict = {}
-    for field in fields:
-        if field.get("type") == "expandable":
-            data[field["name"]] = _initial_data(field["schema"])
-        elif "default" in field:
-            data[field["name"]] = field["default"]
-    return data
 
 
 def _entry(data: dict, options: dict | None = None) -> MockConfigEntry:
@@ -108,95 +97,120 @@ def _data_without(*keys: str) -> dict:
     return data
 
 
-async def _setup_forms(hass, prefix: str, first_input: dict | None) -> dict:
-    """Walk the setup wizard with defaults, recording the form shown at each step."""
+async def _setup_forms(hass, prefix: str) -> dict:
+    """Walk the setup wizard with every page ticked, recording each form and each error."""
     forms = {}
     flow = hass.config_entries.flow
     result = await flow.async_init(DOMAIN, context={"source": SOURCE_USER})
-    forms[f"{prefix}.inverter"] = _describe(result)
-    result = await flow.async_configure(result["flow_id"], user_input=first_input)
-    for step in ("tariff", "forecast", "immersion", "ev", "battery", "confirm"):
+    forms[f"{prefix}.system"] = _describe(result)
+    offered = next(f for f in serialise_schema(result["data_schema"]) if f["name"] == "pages")
+    pages = offered["selector"]["select"]["options"]
+    result = await submit(flow, result, pages=pages)
+    if result["step_id"] == "inverter_entities":
+        forms[f"{prefix}.inverter_entities"] = _describe(result)
+        result = await submit(flow, result, **FIVE)
+    while result["step_id"] != "confirm":
+        step = result["step_id"]
         forms[f"{prefix}.{step}"] = _describe(result)
+        values = {}
         if step == "tariff":
-            invalid = await flow.async_configure(
-                result["flow_id"], user_input={"rate_period_3": ZERO_LENGTH_SLOT, CONF_CURRENCY: "EUR"}
-            )
+            invalid = await submit(flow, result, base_rate=0, export_rate=0.1)
             forms[f"{prefix}.tariff_with_error"] = _describe(invalid)
-        if step != "confirm":
-            result = await flow.async_configure(result["flow_id"], user_input={})
+            values = {**TARIFF, "rate_count": "2"}
+        if step == "tariff_rates":
+            invalid = await submit(flow, result, rate_period_1=ZERO_LENGTH_SLOT, **{"rate_period_2": {"rate": 0.2}})
+            forms[f"{prefix}.tariff_rates_with_error"] = _describe(invalid)
+            values = ROWS
+        if step == "hot_water":
+            # A warning shows the form once more with a note, then the same submission goes on.
+            values = {"alt_heat": {"alt_heat_enabled": True}}
+            result = await submit(flow, result, **values)
+            forms[f"{prefix}.hot_water_with_warning"] = _describe(result)
+        result = await submit(flow, result, **values)
+    forms[f"{prefix}.confirm"] = _describe(result)
     flow.async_abort(result["flow_id"])
     return forms
 
 
-async def _options_form(hass, entry: MockConfigEntry, submit: dict | None = None) -> dict:
+async def _options_forms(hass, entry: MockConfigEntry, prefix: str) -> dict:
+    """Every form of the options wizard with every page and tariff screen ticked."""
     entry.add_to_hass(hass)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    if submit is not None:
-        payload = {**_initial_data(_describe(result)["fields"]), **submit}
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"], user_input=payload
-        )
-    description = _describe(result)
-    hass.config_entries.options.async_abort(result["flow_id"])
-    return description
+    forms = {}
+    for step_id, form in (await walk_options_forms(hass, entry)).items():
+        forms[f"{prefix}.{step_id}"] = _describe(form["result"])
+    return forms
 
 
-async def _reconfigure_form(hass, entry: MockConfigEntry, submit: dict | None = None) -> dict:
+async def _options_errors(hass, entry: MockConfigEntry, prefix: str) -> dict:
     entry.add_to_hass(hass)
+    forms = {}
+    manager = hass.config_entries.options
+    result = await open_options(hass, entry, {"tariff": {}, "tariff_rates": {}})
+    result = await submit(manager, result, rate_count="3", edit_rates=True)
+    bad = await submit(manager, result, rate_period_3=ZERO_LENGTH_SLOT)
+    forms[f"{prefix}.tariff_rates_with_error"] = _describe(bad)
+    manager.async_abort(bad["flow_id"])
+    result = await open_options(hass, entry, {"tariff": {}, "schedule_change": {}})
+    result = await submit(manager, result, schedule_change=True)
+    bad = await submit(manager, result, effective_from="2000-01-01")
+    forms[f"{prefix}.schedule_change_with_error"] = _describe(bad)
+    manager.async_abort(bad["flow_id"])
+    return forms
+
+
+async def _reconfigure_forms(hass, entry: MockConfigEntry, prefix: str) -> dict:
+    entry.add_to_hass(hass)
+    forms = {}
+    flow = hass.config_entries.flow
     result = await entry.start_reconfigure_flow(hass)
-    if submit is not None:
-        payload = {**_initial_data(_describe(result)["fields"]), **submit}
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], user_input=payload
-        )
-    description = _describe(result)
-    hass.config_entries.flow.async_abort(result["flow_id"])
-    return description
+    forms[f"{prefix}.reconfigure"] = _describe(result)
+    manual = await submit(flow, result, source="manual")
+    forms[f"{prefix}.reconfigure_manual"] = _describe(manual)
+    bad = await submit(flow, manual, **{**FIVE, CONF_SOLAR_POWER: "sensor.not_there"})
+    forms[f"{prefix}.reconfigure_manual_with_error"] = _describe(bad)
+    flow.async_abort(bad["flow_id"])
+    return forms
 
 
 async def _collect_forms(hass) -> dict:
     forms: dict = {}
-    forms.update(await _setup_forms(hass, "setup_manual", MANUAL_INPUT))
+    # Nothing discovered: the first screen asks for the capacity and the five entities.
+    for entity_id in list(hass.states.async_entity_ids()):
+        hass.states.async_remove(entity_id)
+    flow = hass.config_entries.flow
+    result = await flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    forms["setup_manual.system"] = _describe(result)
+    result = await submit(flow, result, pages=[])
+    forms["setup_manual.inverter_entities"] = _describe(result)
+    flow.async_abort(result["flow_id"])
+
     set_givtcp_states(hass, MIDDAY)
-    forms.update(
-        await _setup_forms(hass, "setup_auto", {"discovered_inverter": SERIAL, CONF_BATTERY_CAPACITY: 9.5})
-    )
+    forms.update(await _setup_forms(hass, "setup_auto"))
+    hass.states.async_remove(FORECAST)
+    forms.update(await _setup_forms(hass, "setup_auto_no_forecast"))
 
     overrides = {
         CONF_EXPORT_RATE: 0.0,
         CONF_CURRENCY: "GBP",
-        CONF_CHEAP_RATE_FLOOR_SOC: 0,
         CONF_BATTERY_CAPACITY: 13.5,
         CONF_BATTERY_COST: 4500,
-        CONF_DRY_RUN: True,
-        CONF_VERBOSE_LOGGING: True,
-        CONF_FORECAST_ENTITY: "",
-        CONF_FORECAST_PROVIDER: "forecast_solar",
         CONF_BASE_RATE_NAME: "Standard",
         CONF_RATE_PERIODS: [],
+        CONF_FORECAST_ENTITY: "",
     }
-    forms["reconfigure_data_only"] = await _reconfigure_form(hass, _entry(full_config_data()))
-    forms["reconfigure_with_options"] = await _reconfigure_form(
-        hass, _entry(full_config_data(), overrides)
+    forms.update(await _reconfigure_forms(hass, _entry(full_config_data()), "reconfigure"))
+    forms.update(await _options_forms(hass, _entry(full_config_data()), "options_data_only"))
+    forms.update(
+        await _options_forms(
+            hass,
+            _entry(_data_without("forecast_entity", "carbon_intensity_entity", "base_rate_name")),
+            "options_no_optional_data",
+        )
     )
-    forms["reconfigure_with_error"] = await _reconfigure_form(
-        hass, _entry(full_config_data(), overrides), submit={"rate_period_2": ZERO_LENGTH_SLOT}
+    forms.update(
+        await _options_forms(hass, _entry(full_config_data(), overrides), "options_with_overrides")
     )
-    forms["options_data_only"] = await _options_form(hass, _entry(full_config_data()))
-    forms["options_no_optional_data"] = await _options_form(
-        hass,
-        _entry(
-            _data_without(
-                "forecast_provider", "forecast_entity", "carbon_intensity_entity", "base_rate_name"
-            )
-        ),
-    )
-    forms["options_with_overrides"] = await _options_form(hass, _entry(full_config_data(), overrides))
-    forms["options_with_error"] = await _options_form(
-        hass,
-        _entry(full_config_data()),
-        submit={"rate_period_1": ZERO_LENGTH_SLOT},
-    )
+    forms.update(await _options_errors(hass, _entry(full_config_data()), "options"))
     return json.loads(json.dumps(forms))
 
 

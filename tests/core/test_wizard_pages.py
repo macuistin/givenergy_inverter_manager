@@ -170,7 +170,7 @@ class TestForecast:
         assert sensor_check("sensor.f", {"sensor.f": _state("3", None)}) == "sensor.f reads 3."
 
     def test_the_summary(self):
-        assert forecast_summary({"forecast_entity": "sensor.f"}) == "forecast sensor sensor.f"
+        assert forecast_summary({"forecast_entity": "sensor.f"}) == "forecast sensor: sensor.f"
         assert "seasonal estimate" in forecast_summary({})
 
 
@@ -218,6 +218,11 @@ class TestHotWater:
 
     def test_a_label_the_form_did_not_send_is_left_alone(self):
         assert "alt_heat_label" not in clean_hot_water({})
+
+    def test_a_submission_without_the_alternative_heating_section_leaves_it_alone(self):
+        cleaned = clean_hot_water({"immersion_switch_entity": "switch.h"})
+
+        assert not {k for k in cleaned if k.startswith("alt_heat")}
 
     @pytest.mark.parametrize(
         ("label", "error"),

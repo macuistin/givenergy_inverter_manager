@@ -1,514 +1,197 @@
 {
   "config": {
     "step": {
-      "inverter": {
-        "title": "GivEnergy Inverter",
-        "description": "Select your GivTCP inverter.\n\n{status}",
+      "system": {
+        "title": "Your system",
+        "description": "{progress}\n\nWhat was found on your system:\n\n{found}\n\nChoose what to set up now. You can skip any of it and set it up later from Configure.",
         "data": {
-          "discovered_inverter": "Detected inverter",
-          "solar_power_entity": "Solar power sensor",
-          "battery_soc_entity": "Battery SoC sensor",
-          "battery_power_entity": "Battery power sensor",
-          "grid_power_entity": "Grid power sensor",
-          "house_load_entity": "House load sensor",
           "battery_capacity_kwh": "Battery capacity (kWh)",
-          "target_soc_entity": "Charge target control entity (optional)",
-          "inverter_max_output_kw": "Inverter max output (kW)",
-          "enable_charge_target_entity": "Enable charge target switch (optional)",
-          "enable_charge_schedule_entity": "Enable charge schedule switch (optional)",
-          "charge_start_time_entity": "Charge start time slot 1 (optional)",
-          "charge_end_time_entity": "Charge end time slot 1 (optional)"
+          "inverter_max_output_kw": "Inverter maximum output (kW)",
+          "discovered_inverter": "Inverter",
+          "pages": "What would you like to set up now?"
         },
         "data_description": {
-          "discovered_inverter": "The GivTCP inverter to manage. Choose Manual entry to pick the sensors yourself.",
+          "battery_capacity_kwh": "Usable capacity of all battery modules in kWh. GivTCP did not report it.",
+          "inverter_max_output_kw": "Maximum AC output of the inverter in kW, for example 5 for a 5 kW inverter. GivTCP does not report it.",
+          "discovered_inverter": "Which GivTCP inverter to manage. All the others are ignored.",
+          "pages": "The inverter is always set up. Tick what else to set up now. A tariff is needed for costs and the overnight plan. Anything you skip can be set up later from Configure."
+        }
+      },
+      "inverter_entities": {
+        "title": "Inverter entities",
+        "description": "{progress}\n\nNo complete GivTCP inverter was found, so choose the five entities by hand. Check that GivTCP is running if you expected one.",
+        "data": {
+          "solar_power_entity": "Solar power sensor",
+          "battery_soc_entity": "Battery charge sensor",
+          "battery_power_entity": "Battery power sensor",
+          "grid_power_entity": "Grid power sensor",
+          "house_load_entity": "House load sensor"
+        },
+        "data_description": {
           "solar_power_entity": "Sensor reporting solar generation in watts.",
-          "battery_soc_entity": "Sensor reporting battery charge in %.",
+          "battery_soc_entity": "Sensor reporting the battery charge in %.",
           "battery_power_entity": "Sensor reporting battery power in watts. GivTCP reports positive for discharging.",
           "grid_power_entity": "Sensor reporting grid power in watts. GivTCP reports positive for export.",
-          "house_load_entity": "Sensor reporting house load in watts.",
-          "battery_capacity_kwh": "Usable capacity of all battery modules in kWh.",
-          "inverter_max_output_kw": "Maximum AC output of the inverter in kW."
+          "house_load_entity": "Sensor reporting house load in watts."
         }
       },
       "tariff": {
-        "title": "Electricity Tariff",
-        "description": "{scheduling_status}\n\n{scheduling_detail}\n\nThe **base rate** applies whenever no timed rate period is active. **Rate periods** apply only inside their window, and the cheapest active one wins. Rates are per kWh before VAT. Leave a period name empty to remove that slot.",
+        "title": "Electricity tariff",
+        "description": "{progress}\n\n{warnings}Enter the rates from your bill or tariff sheet. A flat-rate home enters one rate and chooses 0 time-of-day rates. Rates are per kWh before VAT.",
         "data": {
           "base_rate": "Base rate",
-          "base_rate_name": "Base rate name",
-          "export_rate": "Export / CEG rate",
-          "standing_charge_per_day": "Standing charge per day",
-          "pso_levy_per_month": "PSO levy per billing period",
-          "vat_rate": "VAT rate (%)",
-          "discount_rate": "Supplier discount (%)",
-          "bill_start_day": "First day of your billing period",
-          "currency": "Currency"
+          "export_rate": "Export rate",
+          "rate_count": "Time-of-day rates besides the base rate"
         },
         "data_description": {
-          "base_rate": "Rate per kWh, before VAT, that applies outside the timed rate periods.",
-          "base_rate_name": "Name shown on the rate sensors while the base rate applies, for example Day.",
-          "export_rate": "Amount per kWh paid for energy sent to the grid, such as a feed-in or export guarantee rate. VAT and the supplier discount are not applied to it.",
-          "standing_charge_per_day": "Fixed charge per day, before VAT. 0 means no standing charge.",
-          "pso_levy_per_month": "Flat amount charged once per billing period, before VAT. It is named after the Irish public service obligation levy. Use it for any flat per-period charge. The bill sensors spread it evenly across the days. 0 means no levy.",
-          "vat_rate": "Percentage added to energy, the standing charge and the levy. Read it from your bill. 0 means no VAT.",
-          "discount_rate": "Percentage taken off the energy rate only, before VAT is added. It does not apply to the standing charge or the levy. 0 means no discount.",
-          "bill_start_day": "If your bill runs from the 16th to the 15th, enter 16.",
-          "currency": "Symbol used on cost sensors. It does not convert any amounts."
+          "base_rate": "The price of one kWh before VAT, outside any time-of-day rate. A flat-rate home enters its one rate here.",
+          "export_rate": "What your supplier pays for each kWh you export. Enter 0 if nothing is paid.",
+          "rate_count": "0 means one rate all day. 1 adds, for example, a night rate. The next screen has that many rows."
         },
         "sections": {
+          "bill_details": {
+            "name": "Bill details",
+            "description": "Currency, standing charge, levy, VAT, discount and the day your bill starts. Open it when you have your bill to hand. You can set these later from Configure.",
+            "data": {
+              "currency": "Currency",
+              "base_rate_name": "Base rate name",
+              "bill_start_day": "Bill start day",
+              "standing_charge_per_day": "Standing charge per day",
+              "pso_levy_per_month": "Fixed levy per billing period",
+              "vat_rate": "VAT (%)",
+              "discount_rate": "Supplier discount (%)"
+            },
+            "data_description": {
+              "currency": "The currency of your bill. It sets the unit of every cost sensor, and changing it reloads the integration.",
+              "base_rate_name": "What the base rate is called, for example Day. It has to differ from the names of the time-of-day rates.",
+              "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill.",
+              "standing_charge_per_day": "The fixed daily charge on your bill. Enter 0 if there is none.",
+              "pso_levy_per_month": "A fixed monthly levy, if your bill has one. It is on your bill as a fixed charge. Enter 0 if there is none.",
+              "vat_rate": "The VAT percentage on your bill. Enter 0 if there is none.",
+              "discount_rate": "A percentage taken off the energy charge before VAT, such as a direct debit discount. Enter 0 if there is none."
+            }
+          }
+        }
+      },
+      "tariff_rates": {
+        "title": "Time-of-day rates",
+        "description": "{progress}\n\n{warnings}One row for each time-of-day rate you chose. Rates are per kWh before VAT.",
+        "sections": {
           "rate_period_1": {
-            "name": "Rate period 1",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
+            "name": "Rate 1",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
             "data": {
               "name": "Name",
               "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
+              "start": "Starts",
+              "end": "Ends"
             },
             "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
             }
           },
           "rate_period_2": {
-            "name": "Rate period 2",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
+            "name": "Rate 2",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
             "data": {
               "name": "Name",
               "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
+              "start": "Starts",
+              "end": "Ends"
             },
             "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
             }
           },
           "rate_period_3": {
-            "name": "Rate period 3",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
+            "name": "Rate 3",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
             "data": {
               "name": "Name",
               "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
+              "start": "Starts",
+              "end": "Ends"
             },
             "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
             }
           },
           "rate_period_4": {
-            "name": "Rate period 4",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
+            "name": "Rate 4",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
             "data": {
               "name": "Name",
               "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
+              "start": "Starts",
+              "end": "Ends"
             },
             "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
             }
           },
           "rate_period_5": {
-            "name": "Rate period 5",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
+            "name": "Rate 5",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
             "data": {
               "name": "Name",
               "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
+              "start": "Starts",
+              "end": "Ends"
             },
             "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
             }
           }
         }
       },
       "forecast": {
-        "title": "Solar Forecast (optional)",
-        "description": "Connect a solar forecast integration to enable smart overnight charging decisions. Without this, a seasonal estimate is used.",
+        "title": "Solar forecast",
+        "description": "{progress}\n\n{warnings}Connect a solar forecast for smarter overnight charging. Without one a seasonal estimate is used.\n\n{detected}\n\nWhat the sensors read now:\n{check}",
         "data": {
-          "forecast_provider": "Forecast provider",
-          "forecast_entity": "Tomorrow's forecast sensor",
-          "forecast_entity_p10": "Pessimistic (P10) forecast sensor",
-          "forecast_entity_d2": "Day-after-tomorrow forecast sensor",
-          "carbon_intensity_entity": "Grid carbon intensity sensor"
+          "forecast_entity": "Solar forecast sensor",
+          "forecast_entity_p10": "Pessimistic forecast sensor (optional)",
+          "forecast_entity_d2": "Day after tomorrow forecast sensor (optional)",
+          "carbon_intensity_entity": "Carbon intensity sensor (optional)"
         },
         "data_description": {
-          "forecast_provider": "Which integration supplies your forecast. This is a note only, the sensors below are what the integration reads.",
-          "forecast_entity": "Sensor giving tomorrow's expected solar energy in kWh. Empty means a seasonal estimate from your latitude is used.",
-          "forecast_entity_p10": "Optional. Leave empty with Solcast: the integration reads the estimate10 attribute of the tomorrow forecast sensor by itself. For another service, a sensor whose state is the pessimistic (P10) forecast for tomorrow in kWh. With neither, forecast conservatism has no effect.",
-          "forecast_entity_d2": "Optional sensor giving the forecast for the day after tomorrow in kWh. It is read but does not change the charge target yet.",
-          "carbon_intensity_entity": "Optional sensor in g CO2/kWh that feeds the carbon sensors. Empty means those sensors have no data."
+          "forecast_entity": "A sensor reporting tomorrow's solar generation in kWh or Wh, such as Solcast or Forecast.Solar. Without one a seasonal estimate is used.",
+          "forecast_entity_p10": "A sensor with the pessimistic (P10) forecast for tomorrow. Solcast sensors carry it themselves, so this is rarely needed.",
+          "forecast_entity_d2": "A sensor with the forecast for the day after tomorrow, used to look further ahead.",
+          "carbon_intensity_entity": "A sensor reporting grid carbon intensity in g CO2/kWh."
         }
       },
-      "immersion": {
-        "title": "Immersion Heater (optional)",
-        "description": "Configure your immersion heater to absorb solar surplus automatically.",
+      "hot_water": {
+        "title": "Hot water",
+        "description": "{progress}\n\n{warnings}The immersion heater, when the water has to be hot, and another way to heat it. Every field is optional.\n\n{candidates}\n\nWhat the sensors read now:\n{check}",
         "data": {
           "immersion_switch_entity": "Immersion switch",
-          "immersion_wattage_w": "Element power (W)",
-          "immersion_temp_sensor_entity": "Water temperature sensor",
-          "immersion_target_temp_c": "Target temperature (°C)",
-          "immersion_min_temp_c": "Minimum temperature (°C)"
+          "immersion_temp_sensor_entity": "Hot water temperature sensor (optional)",
+          "immersion_wattage_w": "Immersion element power (W)",
+          "immersion_ready_times": "Hot water ready-by times"
         },
         "data_description": {
-          "immersion_switch_entity": "Switch that turns the immersion heater on and off. Empty means the heater is not controlled.",
-          "immersion_wattage_w": "Power of the heating element in watts, used to judge how much solar surplus it needs.",
-          "immersion_temp_sensor_entity": "Optional water temperature sensor in °C. Empty means the heater is not stopped or started by temperature.",
-          "immersion_target_temp_c": "Water temperature in °C at which the heater switches off. The Immersion Target Temperature number changes it later.",
-          "immersion_min_temp_c": "Below this water temperature in °C the heater is forced on, as a guard against legionella. The Immersion Minimum Temperature number changes it later."
-        }
-      },
-      "ev": {
-        "title": "EV Charger (optional)",
-        "description": "Supports Zappi, Wallbox, OCPP, Ohme, and Easee. Select a detected charger or enter entities manually.",
-        "data": {
-          "discovered_charger": "Detected charger",
-          "car_efficiency_kwh_per_100km": "Car efficiency (kWh/100km)"
-        },
-        "data_description": {
-          "discovered_charger": "The EV charger found on your system. Choose None / Manual entry if you have none. The charger is found automatically either way.",
-          "car_efficiency_kwh_per_100km": "Energy your car uses per 100 km in kWh, used to turn charged energy into kilometres."
-        }
-      },
-      "battery": {
-        "title": "Battery Management",
-        "description": "Set the overnight charging limit and the battery protection level. The other tuning settings are controls on the device page, so you can change them any time without reconfiguring.",
-        "data": {
-          "battery_min_soc_pct": "Minimum battery SoC (%)",
-          "overnight_charge_target_pct": "Maximum overnight charge target (%)"
-        },
-        "data_description": {
-          "battery_min_soc_pct": "Charge level in % that counts as empty. It is also written as the charge target on nights when charging is skipped, so keep it low.",
-          "overnight_charge_target_pct": "Upper limit in % for the charge target calculated each night."
-        }
-      },
-      "confirm": {
-        "title": "Check your settings",
-        "description": "{summary}\n\nSelect Submit to finish. You can change all of these later from Configure."
-      },
-      "reconfigure": {
-        "title": "Reconfigure GivEnergy Inverter Manager",
-        "description": "Update your tariff. Values you already saved on the Configure page are replaced by what you enter here. To change the inverter entities, remove and re-add the integration.",
-        "data": {
-          "base_rate": "Base rate",
-          "base_rate_name": "Base rate name",
-          "export_rate": "Export / CEG rate",
-          "standing_charge_per_day": "Standing charge per day",
-          "pso_levy_per_month": "PSO levy per billing period",
-          "vat_rate": "VAT rate (%)",
-          "discount_rate": "Supplier discount (%)",
-          "bill_start_day": "First day of your billing period",
-          "currency": "Currency"
-        },
-        "data_description": {
-          "base_rate": "Rate per kWh, before VAT, that applies outside the timed rate periods.",
-          "base_rate_name": "Name shown on the rate sensors while the base rate applies, for example Day.",
-          "export_rate": "Amount per kWh paid for energy sent to the grid, such as a feed-in or export guarantee rate. VAT and the supplier discount are not applied to it.",
-          "standing_charge_per_day": "Fixed charge per day, before VAT. 0 means no standing charge.",
-          "pso_levy_per_month": "Flat amount charged once per billing period, before VAT. It is named after the Irish public service obligation levy. Use it for any flat per-period charge. The bill sensors spread it evenly across the days. 0 means no levy.",
-          "vat_rate": "Percentage added to energy, the standing charge and the levy. Read it from your bill. 0 means no VAT.",
-          "discount_rate": "Percentage taken off the energy rate only, before VAT is added. It does not apply to the standing charge or the levy. 0 means no discount.",
-          "bill_start_day": "If your bill runs from the 16th to the 15th, enter 16.",
-          "currency": "Symbol used on cost sensors. It does not convert any amounts."
+          "immersion_switch_entity": "The switch that turns your immersion heater on and off. Leave it empty if you have none. Changing it reloads the integration.",
+          "immersion_temp_sensor_entity": "A sensor reading the temperature of the hot water cylinder. Ready-by times and the temperature controls need it. Changing it reloads the integration.",
+          "immersion_wattage_w": "The power of the heating element in watts. It is on the element or in the heater's manual.",
+          "immersion_ready_times": "Times of day the water has to be hot, as HH:MM, for example 07:00. Up to four a day. They share the one target temperature."
         },
         "sections": {
-          "rate_period_1": {
-            "name": "Rate period 1",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
-            "data": {
-              "name": "Name",
-              "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
-            },
-            "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
-            }
-          },
-          "rate_period_2": {
-            "name": "Rate period 2",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
-            "data": {
-              "name": "Name",
-              "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
-            },
-            "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
-            }
-          },
-          "rate_period_3": {
-            "name": "Rate period 3",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
-            "data": {
-              "name": "Name",
-              "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
-            },
-            "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
-            }
-          },
-          "rate_period_4": {
-            "name": "Rate period 4",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
-            "data": {
-              "name": "Name",
-              "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
-            },
-            "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
-            }
-          },
-          "rate_period_5": {
-            "name": "Rate period 5",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
-            "data": {
-              "name": "Name",
-              "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
-            },
-            "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
-            }
-          }
-        }
-      }
-    },
-    "error": {
-      "missing_entities": "One or more required inverter entities are missing. Please check your GivTCP installation.",
-      "rate_periods_text": "{message}",
-      "rate_period_zero_length": "A rate period cannot start and end at the same time. Change its start or end time, or clear its name to remove it.",
-      "rate_period_duplicate_name": "Rate period names must be different from each other and from the base rate name."
-    },
-    "abort": {
-      "already_configured": "Already configured",
-      "reconfigure_successful": "Re-configuration was successful"
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "GivEnergy Inverter Manager Settings",
-        "description": "{tariff_summary}\n\nChanges apply when you save, and most take effect at once. Changing the immersion switch or sensor, the main forecast sensor or the currency reloads the integration, so entities are unavailable for a few seconds.",
-        "sections": {
-          "tariff_settings": {
-            "name": "Tariff",
-            "description": "Electricity rates and billing configuration.",
-            "data": {
-              "base_rate": "Base rate",
-              "base_rate_name": "Base rate name",
-              "export_rate": "Export / CEG rate",
-              "standing_charge_per_day": "Standing charge per day",
-              "pso_levy_per_month": "PSO levy per billing period",
-              "vat_rate": "VAT rate (%)",
-              "discount_rate": "Supplier discount (%)",
-              "bill_start_day": "First day of your billing period",
-              "currency": "Currency"
-            },
-            "data_description": {
-              "base_rate": "Rate per kWh, before VAT, that applies outside the timed rate periods.",
-              "base_rate_name": "Name shown on the rate sensors while the base rate applies, for example Day.",
-              "export_rate": "Amount per kWh paid for energy sent to the grid, such as a feed-in or export guarantee rate. VAT and the supplier discount are not applied to it.",
-              "standing_charge_per_day": "Fixed charge per day, before VAT. 0 means no standing charge.",
-              "pso_levy_per_month": "Flat amount charged once per billing period, before VAT. It is named after the Irish public service obligation levy. Use it for any flat per-period charge. The bill sensors spread it evenly across the days. 0 means no levy.",
-              "vat_rate": "Percentage added to energy, the standing charge and the levy. Read it from your bill. 0 means no VAT.",
-              "discount_rate": "Percentage taken off the energy rate only, before VAT is added. It does not apply to the standing charge or the levy. 0 means no discount.",
-              "bill_start_day": "If your bill runs from the 16th to the 15th, enter 16.",
-              "currency": "Symbol used on cost sensors. It does not convert any amounts."
-            }
-          },
-          "rate_period_1": {
-            "name": "Rate period 1",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
-            "data": {
-              "name": "Name",
-              "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
-            },
-            "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
-            }
-          },
-          "rate_period_2": {
-            "name": "Rate period 2",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
-            "data": {
-              "name": "Name",
-              "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
-            },
-            "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
-            }
-          },
-          "rate_period_3": {
-            "name": "Rate period 3",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
-            "data": {
-              "name": "Name",
-              "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
-            },
-            "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
-            }
-          },
-          "rate_period_4": {
-            "name": "Rate period 4",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
-            "data": {
-              "name": "Name",
-              "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
-            },
-            "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
-            }
-          },
-          "rate_period_5": {
-            "name": "Rate period 5",
-            "description": "Optional timed rate that overrides the base rate. Leave the name empty to remove this slot.",
-            "data": {
-              "name": "Name",
-              "rate": "Rate",
-              "start": "Window start",
-              "end": "Window end"
-            },
-            "data_description": {
-              "name": "Name shown on the rate sensors. Leave it empty to remove this slot.",
-              "rate": "Rate per kWh, before VAT, during this window. 0 means free electricity.",
-              "start": "Time the window begins, for example 23:00.",
-              "end": "Time the window ends, for example 08:00. A window that ends before it starts runs overnight. Start and end must be different times."
-            }
-          },
-          "tariff_change": {
-            "name": "Dated rate change",
-            "description": "Start the rates in the Tariff and Rate period sections on a later date. Energy recorded before the date keeps the old rates, and nothing already recorded is recalculated. The standing charge, levy, VAT, discount and currency apply as soon as you save.",
-            "data": {
-              "effective_from": "Rates start on",
-              "cancel_scheduled": "Cancel scheduled rate changes"
-            },
-            "data_description": {
-              "effective_from": "Choose a date after today to schedule the base rate, its name, the timed rate periods and the export rate. Leave it empty to apply them now. The date cannot be in the past.",
-              "cancel_scheduled": "Remove every rate change that has not started yet. Rates already in force stay as they are."
-            }
-          },
-          "threshold_settings": {
-            "name": "Battery & charging thresholds",
-            "description": "Battery limits and battery cost. Dry run, verbose logging and the other tuning settings are controls on the device page.",
-            "data": {
-              "battery_min_soc_pct": "Minimum battery SoC (%)",
-              "overnight_charge_target_pct": "Maximum overnight charge target (%)",
-              "battery_cost_eur": "Battery cost (EUR)",
-              "battery_throughput_budget_kwh": "Daily battery throughput budget (kWh)"
-            },
-            "data_description": {
-              "battery_min_soc_pct": "Charge level in % that counts as empty. It is also written as the charge target on nights when charging is skipped, so keep it low.",
-              "overnight_charge_target_pct": "Upper limit in % for the charge target calculated each night.",
-              "battery_cost_eur": "What the battery cost, used to put a wear cost on each kWh cycled. 0 turns the wear check off.",
-              "battery_throughput_budget_kwh": "Optional cap on kWh charged plus discharged per day. 0 turns the budget sensors off."
-            }
-          },
-          "forecast_settings": {
-            "name": "Solar forecast",
-            "description": "Connect a forecast integration for smarter overnight charging. Without this, a seasonal estimate is used.",
-            "data": {
-              "forecast_provider": "Forecast provider",
-              "forecast_entity": "Tomorrow's forecast sensor",
-              "forecast_entity_p10": "Pessimistic (P10) forecast sensor",
-              "forecast_entity_d2": "Day-after-tomorrow forecast sensor",
-              "carbon_intensity_entity": "Grid carbon intensity sensor"
-            },
-            "data_description": {
-              "forecast_provider": "Which integration supplies your forecast. This is a note only, the sensors below are what the integration reads.",
-              "forecast_entity": "Sensor giving tomorrow's expected solar energy in kWh. Empty means a seasonal estimate from your latitude is used.",
-              "forecast_entity_p10": "Optional. Leave empty with Solcast: the integration reads the estimate10 attribute of the tomorrow forecast sensor by itself. For another service, a sensor whose state is the pessimistic (P10) forecast for tomorrow in kWh. With neither, forecast conservatism has no effect.",
-              "forecast_entity_d2": "Optional sensor giving the forecast for the day after tomorrow in kWh. It is read but does not change the charge target yet.",
-              "carbon_intensity_entity": "Optional sensor in g CO2/kWh that feeds the carbon sensors. Empty means those sensors have no data."
-            }
-          },
-          "hardware_settings": {
-            "name": "Hardware",
-            "description": "Update these when you add battery modules or change the inverter.",
-            "data": {
-              "battery_capacity_kwh": "Battery capacity (kWh)",
-              "inverter_max_output_kw": "Inverter max output (kW)"
-            },
-            "data_description": {
-              "battery_capacity_kwh": "Usable capacity of all battery modules in kWh.",
-              "inverter_max_output_kw": "Maximum AC output of the inverter in kW."
-            }
-          },
-          "immersion_settings": {
-            "name": "Immersion heater",
-            "description": "Add, change or clear the immersion heater at any time. Saving reloads the integration and the heater controls and the Immersion dashboard view appear or disappear. The target and minimum temperatures are changed with the Immersion Target Temperature and Immersion Minimum Temperature numbers.",
-            "data": {
-              "immersion_switch_entity": "Immersion switch",
-              "immersion_temp_sensor_entity": "Water temperature sensor",
-              "immersion_wattage_w": "Element power (W)",
-              "immersion_ready_times": "Hot water ready by"
-            },
-            "data_description": {
-              "immersion_switch_entity": "Switch that turns the immersion heater on and off. Empty means the heater is not controlled.",
-              "immersion_temp_sensor_entity": "Optional water temperature sensor in °C. Empty means the heater is not stopped or started by temperature.",
-              "immersion_wattage_w": "Power of the heating element in watts, used to judge how much solar surplus it needs.",
-              "immersion_ready_times": "Times of day the water has to be at its target temperature, as HH:MM, for example 07:00 and 19:00. Used only while Immersion Scheduled Heating is on and a water temperature sensor is set. Empty means none."
-            }
-          },
-          "alt_heat_settings": {
+          "alt_heat": {
             "name": "Alternative water heating",
             "description": "Optional. If something else also heats the hot water cylinder, such as an oil or gas boiler or a heat pump, turn this on and give its cost. A sensor then says when it is cheaper than the immersion. This is advice only: the integration does not control the other system. It needs an immersion switch to compare with, and it does nothing until a cost or a cost sensor is set. For a litre of oil the advice assumes a boiler efficiency of 85% and 10.35 kWh of energy in a litre.",
             "data": {
@@ -516,32 +199,328 @@
               "alt_heat_label": "Name",
               "alt_heat_cost_unit": "The cost is",
               "alt_heat_cost": "Cost",
-              "alt_heat_cost_entity": "Cost sensor"
+              "alt_heat_cost_entity": "Cost sensor (optional)"
             },
             "data_description": {
-              "alt_heat_enabled": "Turn on to get advice on when the other system is cheaper than the immersion.",
-              "alt_heat_label": "Your word for it, such as Oil, Gas or Heat pump, up to 20 characters. The advice sentences use it.",
-              "alt_heat_cost_unit": "A litre is the price of a litre of heating oil, which the integration turns into heat. A kWh of heat is what one kWh delivered to the water costs, with the efficiency of the boiler or the heat pump already included.",
-              "alt_heat_cost": "The cost in your currency, for a litre or for a kWh of heat as chosen above. Empty means no advice.",
-              "alt_heat_cost_entity": "Optional sensor or number that holds the cost. While it reads a number above zero it is used instead of the cost above, in the same unit."
-            }
-          },
-          "ev_settings": {
-            "name": "Electric vehicle",
-            "description": "Used to convert kWh charged into km added.",
-            "data": {
-              "car_efficiency_kwh_per_100km": "Car efficiency (kWh/100km)"
-            },
-            "data_description": {
-              "car_efficiency_kwh_per_100km": "Energy your car uses per 100 km in kWh, used to turn charged energy into kilometres."
+              "alt_heat_enabled": "Turn on if something else also heats the cylinder, such as an oil or gas boiler or a heat pump.",
+              "alt_heat_label": "Your word for it, such as Oil, Gas or Heat pump, up to 20 characters. It appears in the advice sentences.",
+              "alt_heat_cost_unit": "A litre is the price of a litre of heating oil. A kWh of heat is the cost of one kWh delivered to the water, efficiency included.",
+              "alt_heat_cost": "The cost in your currency, in the unit above. Leave it empty if you use a cost sensor.",
+              "alt_heat_cost_entity": "A sensor or input number with the cost. It overrides the cost above while it reads a positive number."
             }
           }
+        }
+      },
+      "confirm": {
+        "title": "Check your settings",
+        "description": "{progress}\n\n{warnings}{summary}\n\nSelect Submit to finish. You can change all of these later from Configure."
+      },
+      "reconfigure": {
+        "title": "Inverter connection",
+        "description": "Which GivTCP entities this integration reads.\n\nIn use now:\n{current}\n\nFound for this inverter:\n{found}\n\nTo change the tariff, use Configure on the integration.",
+        "data": {
+          "source": "Which entities to use"
+        },
+        "data_description": {
+          "source": "Use the entities that were found, or choose them by hand. Saving reloads the integration once."
+        }
+      },
+      "reconfigure_manual": {
+        "title": "Choose the entities",
+        "description": "Pick the GivTCP entities by hand. The five power sensors are required and the rest are optional. They have to belong to the inverter this entry was created for.",
+        "data": {
+          "solar_power_entity": "Solar power sensor",
+          "battery_soc_entity": "Battery charge sensor",
+          "battery_power_entity": "Battery power sensor",
+          "grid_power_entity": "Grid power sensor",
+          "house_load_entity": "House load sensor",
+          "inverter_temp_entity": "Inverter temperature sensor (optional)",
+          "target_soc_entity": "Charge target control (optional)",
+          "enable_charge_target_entity": "Enable charge target switch (optional)",
+          "enable_charge_schedule_entity": "Enable charge schedule switch (optional)",
+          "charge_start_time_entity": "Charge start time, slot 1 (optional)",
+          "charge_end_time_entity": "Charge end time, slot 1 (optional)"
+        },
+        "data_description": {
+          "solar_power_entity": "Sensor reporting solar generation in watts.",
+          "battery_soc_entity": "Sensor reporting the battery charge in %.",
+          "battery_power_entity": "Sensor reporting battery power in watts. GivTCP reports positive for discharging.",
+          "grid_power_entity": "Sensor reporting grid power in watts. GivTCP reports positive for export.",
+          "house_load_entity": "Sensor reporting house load in watts.",
+          "inverter_temp_entity": "Sensor reporting the inverter temperature.",
+          "target_soc_entity": "The number entity that sets the battery charge target.",
+          "enable_charge_target_entity": "The switch that turns the charge target on.",
+          "enable_charge_schedule_entity": "The switch that turns the charge schedule on.",
+          "charge_start_time_entity": "The select entity for the start of charge slot 1.",
+          "charge_end_time_entity": "The select entity for the end of charge slot 1."
         }
       }
     },
     "error": {
-      "rate_period_zero_length": "A rate period cannot start and end at the same time. Change its start or end time, or clear its name to remove it.",
-      "rate_period_duplicate_name": "Rate period names must be different from each other and from the base rate name.",
+      "missing_entities": "A required inverter entity is missing or unavailable. Check that GivTCP is running and publishing.",
+      "rate_period_zero_length": "A rate cannot start and end at the same time. Change its start or end time.",
+      "rate_period_duplicate_name": "Rate names must be different from each other and from the base rate name.",
+      "rate_period_name_missing": "Give every time-of-day rate a name, such as Night.",
+      "base_rate_required": "Enter a base rate above 0, or add a time-of-day rate that covers the whole day.",
+      "base_rate_name_missing": "Give the base rate a name, such as Day.",
+      "too_many_periods": "At most 5 time-of-day rates are supported."
+    },
+    "abort": {
+      "already_configured": "This inverter is already set up",
+      "already_in_progress": "Setup of this inverter is already in progress",
+      "reconfigure_successful": "The inverter connection was updated",
+      "wrong_inverter": "These entities belong to a different inverter than the one this entry was set up for. Add that inverter as a new entry instead."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "What would you like to change?",
+        "description": "{progress}\n\nTick the pages to go through. Only those pages are shown, and nothing is saved until the last screen. Most changes apply at once. Changing the immersion switch or sensor, the main forecast sensor or the currency reloads the integration, so entities are unavailable for a few seconds.",
+        "data": {
+          "pages": "Pages to change"
+        },
+        "data_description": {
+          "pages": "Each line shows what is set now. Tick nothing to leave without changing anything."
+        }
+      },
+      "tariff": {
+        "title": "Tariff",
+        "description": "{progress}\n\n{warnings}{tariff_summary}\n\nChange the rates here. Tick the boxes below for what to edit on the next screens.",
+        "data": {
+          "base_rate": "Base rate",
+          "export_rate": "Export rate",
+          "rate_count": "Time-of-day rates besides the base rate",
+          "edit_rates": "Edit the time-of-day rates",
+          "edit_bill": "Edit bill details",
+          "schedule_change": "Schedule a rate change",
+          "confirm_current": "Confirm the tariff is current"
+        },
+        "data_description": {
+          "base_rate": "The price of one kWh before VAT, outside any time-of-day rate. A flat-rate home enters its one rate here.",
+          "export_rate": "What your supplier pays for each kWh you export. Enter 0 if nothing is paid.",
+          "rate_count": "0 means one rate all day. 1 adds, for example, a night rate. The next screen has that many rows.",
+          "edit_rates": "Opens the rate rows. It opens by itself when you change the count above.",
+          "edit_bill": "Opens currency, standing charge, levy, VAT, discount and the bill start day.",
+          "schedule_change": "Start the rates on this screen on a later date. Asks for the date next.",
+          "confirm_current": "Records today as the day you checked the tariff, so the yearly review reminder resets."
+        }
+      },
+      "tariff_rates": {
+        "title": "Time-of-day rates",
+        "description": "{progress}\n\n{warnings}One row for each time-of-day rate you chose. Rates are per kWh before VAT.",
+        "sections": {
+          "rate_period_1": {
+            "name": "Rate 1",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Starts",
+              "end": "Ends"
+            },
+            "data_description": {
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
+            }
+          },
+          "rate_period_2": {
+            "name": "Rate 2",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Starts",
+              "end": "Ends"
+            },
+            "data_description": {
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
+            }
+          },
+          "rate_period_3": {
+            "name": "Rate 3",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Starts",
+              "end": "Ends"
+            },
+            "data_description": {
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
+            }
+          },
+          "rate_period_4": {
+            "name": "Rate 4",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Starts",
+              "end": "Ends"
+            },
+            "data_description": {
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
+            }
+          },
+          "rate_period_5": {
+            "name": "Rate 5",
+            "description": "A timed rate that applies only between its start and end times. The cheapest rate active at any moment wins.",
+            "data": {
+              "name": "Name",
+              "rate": "Rate",
+              "start": "Starts",
+              "end": "Ends"
+            },
+            "data_description": {
+              "name": "What the rate is called, for example Night. Each name has to be different, and different from the base rate name.",
+              "rate": "The price of one kWh before VAT.",
+              "start": "When the rate starts.",
+              "end": "When the rate ends. An end before the start means it runs past midnight."
+            }
+          }
+        }
+      },
+      "bill": {
+        "title": "Bill details",
+        "description": "{progress}\n\n{warnings}Currency, standing charge, levy, VAT, discount and the day your bill starts.",
+        "data": {
+          "currency": "Currency",
+          "base_rate_name": "Base rate name",
+          "bill_start_day": "Bill start day",
+          "standing_charge_per_day": "Standing charge per day",
+          "pso_levy_per_month": "Fixed levy per billing period",
+          "vat_rate": "VAT (%)",
+          "discount_rate": "Supplier discount (%)"
+        },
+        "data_description": {
+          "currency": "The currency of your bill. It sets the unit of every cost sensor, and changing it reloads the integration.",
+          "base_rate_name": "What the base rate is called, for example Day. It has to differ from the names of the time-of-day rates.",
+          "bill_start_day": "The day of the month your billing period starts, from 1 to 28. It is on your bill.",
+          "standing_charge_per_day": "The fixed daily charge on your bill. Enter 0 if there is none.",
+          "pso_levy_per_month": "A fixed monthly levy, if your bill has one. It is on your bill as a fixed charge. Enter 0 if there is none.",
+          "vat_rate": "The VAT percentage on your bill. Enter 0 if there is none.",
+          "discount_rate": "A percentage taken off the energy charge before VAT, such as a direct debit discount. Enter 0 if there is none."
+        }
+      },
+      "schedule_change": {
+        "title": "Schedule a rate change",
+        "description": "{progress}\n\n{warnings}Start the rates you just entered on a later date. Energy recorded before the date keeps the old rates, and nothing already recorded is recalculated. The standing charge, levy, VAT, discount and currency apply as soon as you save.",
+        "data": {
+          "effective_from": "Start date",
+          "cancel_scheduled": "Cancel the scheduled rate changes"
+        },
+        "data_description": {
+          "effective_from": "The date the rates you entered start. Leave it empty to apply them now. Energy recorded before the date keeps the old rates.",
+          "cancel_scheduled": "Removes every rate change that has not started yet."
+        }
+      },
+      "battery": {
+        "title": "Battery and charging",
+        "description": "{progress}\n\n{warnings}Battery and inverter limits. Dry run, verbose logging and the other tuning settings are controls on the device page.",
+        "data": {
+          "battery_capacity_kwh": "Battery capacity (kWh)",
+          "inverter_max_output_kw": "Inverter maximum output (kW)",
+          "battery_min_soc_pct": "Battery minimum charge (%)",
+          "overnight_charge_target_pct": "Overnight charge cap (%)",
+          "battery_cost_eur": "Battery cost",
+          "battery_throughput_budget_kwh": "Daily throughput budget (kWh)"
+        },
+        "data_description": {
+          "battery_capacity_kwh": "Usable capacity of all battery modules in kWh.",
+          "inverter_max_output_kw": "Maximum AC output of the inverter in kW, for example 5 for a 5 kW inverter. GivTCP does not report it.",
+          "battery_min_soc_pct": "The battery is never planned below this charge. It protects the battery and keeps a reserve.",
+          "overnight_charge_target_pct": "The most the overnight plan will ever charge the battery to.",
+          "battery_cost_eur": "What the battery cost to install, in your currency. It is used to work out the wear cost of each kWh. Enter 0 to turn the check off.",
+          "battery_throughput_budget_kwh": "An optional daily limit on energy charged plus discharged. Enter 0 for no limit."
+        }
+      },
+      "forecast": {
+        "title": "Solar forecast",
+        "description": "{progress}\n\n{warnings}Connect a solar forecast for smarter overnight charging. Without one a seasonal estimate is used.\n\n{detected}\n\nWhat the sensors read now:\n{check}",
+        "data": {
+          "forecast_entity": "Solar forecast sensor",
+          "forecast_entity_p10": "Pessimistic forecast sensor (optional)",
+          "forecast_entity_d2": "Day after tomorrow forecast sensor (optional)",
+          "carbon_intensity_entity": "Carbon intensity sensor (optional)"
+        },
+        "data_description": {
+          "forecast_entity": "A sensor reporting tomorrow's solar generation in kWh or Wh, such as Solcast or Forecast.Solar. Without one a seasonal estimate is used.",
+          "forecast_entity_p10": "A sensor with the pessimistic (P10) forecast for tomorrow. Solcast sensors carry it themselves, so this is rarely needed.",
+          "forecast_entity_d2": "A sensor with the forecast for the day after tomorrow, used to look further ahead.",
+          "carbon_intensity_entity": "A sensor reporting grid carbon intensity in g CO2/kWh."
+        }
+      },
+      "hot_water": {
+        "title": "Hot water",
+        "description": "{progress}\n\n{warnings}The immersion heater, when the water has to be hot, and another way to heat it. Every field is optional.\n\n{candidates}\n\nWhat the sensors read now:\n{check}",
+        "data": {
+          "immersion_switch_entity": "Immersion switch",
+          "immersion_temp_sensor_entity": "Hot water temperature sensor (optional)",
+          "immersion_wattage_w": "Immersion element power (W)",
+          "immersion_ready_times": "Hot water ready-by times"
+        },
+        "data_description": {
+          "immersion_switch_entity": "The switch that turns your immersion heater on and off. Leave it empty if you have none. Changing it reloads the integration.",
+          "immersion_temp_sensor_entity": "A sensor reading the temperature of the hot water cylinder. Ready-by times and the temperature controls need it. Changing it reloads the integration.",
+          "immersion_wattage_w": "The power of the heating element in watts. It is on the element or in the heater's manual.",
+          "immersion_ready_times": "Times of day the water has to be hot, as HH:MM, for example 07:00. Up to four a day. They share the one target temperature."
+        },
+        "sections": {
+          "alt_heat": {
+            "name": "Alternative water heating",
+            "description": "Optional. If something else also heats the hot water cylinder, such as an oil or gas boiler or a heat pump, turn this on and give its cost. A sensor then says when it is cheaper than the immersion. This is advice only: the integration does not control the other system. It needs an immersion switch to compare with, and it does nothing until a cost or a cost sensor is set. For a litre of oil the advice assumes a boiler efficiency of 85% and 10.35 kWh of energy in a litre.",
+            "data": {
+              "alt_heat_enabled": "I have another way to heat the water",
+              "alt_heat_label": "Name",
+              "alt_heat_cost_unit": "The cost is",
+              "alt_heat_cost": "Cost",
+              "alt_heat_cost_entity": "Cost sensor (optional)"
+            },
+            "data_description": {
+              "alt_heat_enabled": "Turn on if something else also heats the cylinder, such as an oil or gas boiler or a heat pump.",
+              "alt_heat_label": "Your word for it, such as Oil, Gas or Heat pump, up to 20 characters. It appears in the advice sentences.",
+              "alt_heat_cost_unit": "A litre is the price of a litre of heating oil. A kWh of heat is the cost of one kWh delivered to the water, efficiency included.",
+              "alt_heat_cost": "The cost in your currency, in the unit above. Leave it empty if you use a cost sensor.",
+              "alt_heat_cost_entity": "A sensor or input number with the cost. It overrides the cost above while it reads a positive number."
+            }
+          }
+        }
+      },
+      "ev": {
+        "title": "EV charger",
+        "description": "{progress}\n\n{warnings}Used to convert kWh charged into km added.\n\n{charger}",
+        "data": {
+          "car_efficiency_kwh_per_100km": "Car efficiency (kWh per 100 km)"
+        },
+        "data_description": {
+          "car_efficiency_kwh_per_100km": "Used to turn the kWh charged into km added. A typical electric car uses about 15."
+        }
+      },
+      "confirm": {
+        "title": "Check the changes",
+        "description": "{progress}\n\n{warnings}{changes}\n\nSelect Submit to save."
+      }
+    },
+    "error": {
+      "nothing_ticked": "Tick at least one page, or close this window to leave without changing anything.",
+      "rate_period_zero_length": "A rate cannot start and end at the same time. Change its start or end time.",
+      "rate_period_duplicate_name": "Rate names must be different from each other and from the base rate name.",
+      "rate_period_name_missing": "Give every time-of-day rate a name, such as Night.",
+      "base_rate_required": "Enter a base rate above 0, or add a time-of-day rate that covers the whole day.",
+      "base_rate_name_missing": "Give the base rate a name, such as Day.",
+      "too_many_periods": "At most 5 time-of-day rates are supported.",
       "tariff_change_date_in_past": "The rates cannot start in the past, because costs already recorded are not recalculated. Clear the date to apply the rates now, or choose a later date.",
       "immersion_ready_time_invalid": "Enter each hot water ready time as HH:MM, for example 07:00.",
       "alt_heat_label_empty": "Give the alternative water heating a name, such as Oil, Gas or Heat pump.",
@@ -553,6 +532,29 @@
       "options": {
         "litre": "The price of a litre of oil",
         "kwh_heat": "The cost of a kWh of heat"
+      }
+    },
+    "setup_pages": {
+      "options": {
+        "tariff": "Electricity tariff, needed for costs and the overnight plan",
+        "forecast": "Solar forecast, none was found so you can pick a sensor",
+        "hot_water": "Hot water, an immersion switch and ready-by times"
+      }
+    },
+    "rate_count": {
+      "options": {
+        "0": "None, one rate all day",
+        "1": "1 time-of-day rate, for example night",
+        "2": "2 time-of-day rates",
+        "3": "3 time-of-day rates",
+        "4": "4 time-of-day rates",
+        "5": "5 time-of-day rates"
+      }
+    },
+    "source": {
+      "options": {
+        "found": "Use the entities that were found",
+        "manual": "Choose the entities by hand"
       }
     }
   },
