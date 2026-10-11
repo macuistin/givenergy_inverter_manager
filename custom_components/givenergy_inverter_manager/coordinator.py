@@ -117,6 +117,7 @@ from .core.engine import (
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
+from .core.reload_policy import IMMERSION_TEMP_KEYS, TARIFF_TRIGGER_KEYS
 from .core.rules import monthly_solar_fractions
 from .core.solar_day import HeldSolarDay
 from .core.sunrise_hold import HeldSunrise
@@ -219,6 +220,14 @@ def _is_stale(state) -> bool:
     return state is None or state.state in ("unavailable", "unknown")
 
 
+# The coordinator attribute that caches each immersion temperature option.
+_IMMERSION_TEMP_ATTRS: dict[str, str] = {
+    CONF_IMMERSION_TARGET_TEMP: "immersion_target_temp",
+    CONF_IMMERSION_MIN_TEMP: "immersion_min_temp",
+    CONF_IMMERSION_HYSTERESIS: "immersion_hysteresis_c",
+}
+
+
 def _cheapest_period(tariff):
     """The timed rate period with the lowest rate."""
     return min(tariff.rate_periods, key=lambda p: p.rate)
@@ -310,6 +319,31 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # Decides when the real immersion switch is turned on or off. Runs every cycle, so
         # diversion works whether or not the managed switch entity is enabled.
         self.immersion = ImmersionActuator(self._immersion_ports())
+
+    async def async_apply_config_change(self, changed: frozenset[str]) -> None:
+        """Bring the running coordinator in line with a saved change that needs no reload.
+
+        The cycle re-reads the merged config itself. A few things hold state of their own: the
+        export rate and bill start day, the immersion temperatures (cached from the number
+        entities), the charge-target write trigger (built from the tariff) and the held charge
+        recommendation. A reload used to reset them all, so a live change does it here.
+        """
+        self._apply_cached_rates(self._effective_cfg())
+        if changed & IMMERSION_TEMP_KEYS:
+            self._copy_immersion_temps(self.entry.data)
+        if changed & TARIFF_TRIGGER_KEYS:
+            self._register_charge_target_listener()
+        # The temperature numbers and the review date need no new cycle. Anything else may
+        # change what the sensors show, so one runs now rather than in up to 30 seconds.
+        if changed - IMMERSION_TEMP_KEYS - {CONF_TARIFF_REVIEWED_ON}:
+            self._held_charge.release()
+            await self.async_request_refresh()
+
+    def _copy_immersion_temps(self, cfg: Mapping) -> None:
+        """Set the three cached immersion temperatures from *cfg*, keeping those it lacks."""
+        for key, attr in _IMMERSION_TEMP_ATTRS.items():
+            if cfg.get(key) is not None:
+                setattr(self, attr, float(cfg[key]))
 
     def _init_writer(self) -> None:
         # Every inverter register write goes through the writer: read-before-write, cooldown,
@@ -1338,9 +1372,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._acc.save_battery_stats(self._battery_stats)
             self._acc.schedule_save()
         cfg = self._effective_cfg()
+        self._apply_cached_rates(cfg)
+        self._check_config_repair_issues(cfg)
+
+    def _apply_cached_rates(self, cfg: dict) -> None:
+        """Copy the two config values the coordinator keeps outside the snapshot."""
         self._acc.update_bill_start_day(self._configured_bill_start_day(cfg))
         self.export_rate = float(cfg.get(CONF_EXPORT_RATE, 0.0))
-        self._check_config_repair_issues(cfg)
 
     def _require_givtcp_publishing(self, cfg: dict) -> None:
         """Fail the cycle when GivTCP's solar and battery sensors are both stale.

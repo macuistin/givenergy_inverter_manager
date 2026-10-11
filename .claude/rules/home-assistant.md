@@ -61,8 +61,10 @@ Each rule is checked by a test or by the Home Assistant source. The test is name
   reload. Do not call `async_update_reload_and_abort`: Home Assistant 2026.9 reports it for an entry
   with an update listener and removes it in 2026.12. `async_update_and_abort` is the helper that
   does what reconfigure does here.
-- The update listener skips the reload when only the immersion temperature numbers or the tariff
-  review date changed (`_reload_relevant`). Add a new live setting there, not a new reload path.
+- `core/reload_policy.py` decides whether an options save reloads (`change_effect`). A new option
+  key reloads until it is in `LIVE_KEYS`. Add a key there only when the coordinator reads it from
+  `_effective_cfg()` on every cycle or `async_apply_config_change` copies it on, and add its row to
+  `tests/core/test_reload_policy.py`.
 - Every form field has a label and help text in `strings.json`.
   `translations/en.json` is a byte copy of `strings.json` (`tests/test_translations.py`).
 - Text for config, options, entities, issues, exceptions and services lives in `strings.json`.

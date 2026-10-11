@@ -119,6 +119,10 @@ RATE_NAME = "Rate per kWh"
 AVERAGE_RATE_NAME = "Avg import/kWh"
 # What the night survival sensors are called to a person: does the battery last the night.
 OVERNIGHT_NAME = "Battery overnight"
+# The two sunrise figures differ by tonight's planned charge, so each name says which it is.
+# Both are full width: a half tile fits 15 characters and these are longer.
+SUNRISE_NO_CHARGE_NAME = "Sunrise (no charge)"
+SUNRISE_WITH_CHARGE_NAME = "Sunrise (with charge)"
 
 
 # ── Views ────────────────────────────────────────────────────────────────────
@@ -967,6 +971,20 @@ class Builder:
             ],
         )
 
+    def _sunrise_tiles(self) -> list:
+        """The charge expected at sunrise without and with tonight's planned charge."""
+        return [
+            self.tile(
+                "estimated_soc_at_sunrise", SUNRISE_NO_CHARGE_NAME, color=BATTERY, columns=FULL
+            ),
+            self.tile(
+                "estimated_soc_at_sunrise_with_charge",
+                SUNRISE_WITH_CHARGE_NAME,
+                color=BATTERY,
+                columns=FULL,
+            ),
+        ]
+
     def _charge_plan(self) -> dict | None:
         """The plan's sentence first: it says whether tonight charges or is skipped."""
         return group(
@@ -976,8 +994,8 @@ class Builder:
                 self.tile(
                     "overnight_charge_target", "Target if charging", color=BATTERY, columns=FULL
                 ),
+                *self._sunrise_tiles(),
                 self.tile("overnight_charge_cost", "Est. cost", color=GRID),
-                self.tile("estimated_soc_at_sunrise", "At sunrise", color=BATTERY),
                 self.tile(
                     "cheap_rate_floor_status", "Rate floor", color=GRID, icon="mdi:floor-plan"
                 ),
@@ -1047,7 +1065,8 @@ class Builder:
         return [
             grid_section(
                 heading_block(
-                    heading_card(OVERNIGHT_NAME, "mdi:weather-night"), self._night_survival()
+                    heading_card(OVERNIGHT_NAME, "mdi:weather-night"),
+                    [*self._night_survival(), *self._sunrise_tiles()],
                 ),
                 heading_block(
                     subheading_card("Tonight's charge target", "mdi:battery-charging"),

@@ -210,6 +210,7 @@ KEY_GROUPS: dict[str, str] = {
             "overnight_charge_window",
             "overnight_charge_cost",
             "estimated_soc_at_sunrise",
+            "estimated_soc_at_sunrise_with_charge",
             "night_survival_reason",
             "night_survival_confidence",
             "cheap_rate_floor_status",
@@ -453,8 +454,28 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",
     "estimated_soc_at_sunrise": (
-        "Projected SoC when solar starts, taken as 08:00. While solar is generating "
-        "it covers tonight's 8 hour pre-solar window from the current SoC."
+        "Projected SoC when solar starts, taken as 08:00, if no charge happens: the battery "
+        "from now to sunrise on the house load, ignoring tonight's planned charge. It holds at "
+        "the minimum SoC when the battery would run flat, so in the evening it can read the "
+        "minimum although a charge is planned. This is the figure the Battery Overnight "
+        "Outlook and Confidence sensors judge. It spreads the daily average load evenly over "
+        "the hours, the flat load. While solar is generating it covers tonight's "
+        "8 hour pre-solar window from the current SoC. See Estimated SoC at Sunrise With the "
+        "Planned Charge for the same night with the charge in it."
+    ),
+    "estimated_soc_at_sunrise_with_charge": (
+        "Projected SoC at the next 08:00 with tonight's planned charge in it: the battery runs "
+        "down to the start of the charge window, the window adds charge up to the target, and "
+        "the battery runs down again to sunrise, never below the minimum SoC. The window is "
+        "sized for the SoC the battery will have when it opens, as the plan writes it. On a "
+        "skipped night, with no timed charge window, or once the window is over, it equals "
+        "Estimated SoC at Sunrise Without a Charge. It does not feed Battery Overnight Outlook "
+        "or Confidence. It reads the learned per-slot load profile the charge plan uses (scaled "
+        "to the daily average), and falls back to the flat average until there is a usable "
+        "profile. `basis` says which. Attributes: `soc_at_charge_start` (the SoC when the window "
+        "opens), "
+        "`charge_added_pct` (points the window adds), `charge_window` (for example `02:00 to "
+        "04:35`) and `basis` (in words, what the figure assumes)."
     ),
     "night_survival_reason": (
         "Whether the battery should last until 08:00, with any shortfall. "
@@ -574,15 +595,22 @@ RENAMED_SENSORS: tuple[tuple[str, str, str], ...] = (
     ("peak_import_fraction_today", "Peak rate import fraction", "Base rate import fraction"),
     ("night_survival_reason", "Battery Night Survival Status", "Battery Overnight Outlook"),
     ("night_survival_confidence", "Night Survival Confidence", "Battery Overnight Confidence"),
+    (
+        "estimated_soc_at_sunrise",
+        "Estimated SoC at Sunrise",
+        "Estimated SoC at Sunrise Without a Charge",
+    ),
 )
 RENAMED_NOTE = (
     "The base rate sensors were renamed because they measure the base rate, the rate that "
     "applies while no timed rate period is active. They are not a peak band, and no peak band "
     "is configured. The two overnight sensors were renamed because night survival read like "
-    "an alarm: they tell whether the battery lasts the night. In both groups the key and the "
-    "unique ID did not change, so history, statistics and automations carry on. An install "
-    "made before a rename keeps its old entity IDs, which still contain `peak` or "
-    "`night_survival`. A new install builds entity IDs from the new names."
+    "an alarm: they tell whether the battery lasts the night. The sunrise estimate was renamed "
+    "because it leaves tonight's planned charge out, and a second sensor now gives the "
+    "figure with the charge. In every group the key and the unique ID did not change, so "
+    "history, statistics and automations carry on. An install made before a rename keeps its "
+    "old entity IDs, which still contain `peak`, `night_survival` or the plain "
+    "`estimated_soc_at_sunrise`. A new install builds entity IDs from the new names."
 )
 RETIRED_NOTE = (
     "These sensors were removed. The integration never writes or advises forced battery "

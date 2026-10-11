@@ -659,6 +659,40 @@ class TestStatusSensors:
         assert fn(self._night(sunrise_soc=40.0, min_soc=10)) == "Safe"
 
 
+class TestSunriseSensors:
+    """The estimate at sunrise comes with and without tonight's planned charge."""
+
+    def test_the_figure_without_a_charge_keeps_its_key_and_unit(self):
+        description = _BY_KEY["estimated_soc_at_sunrise"]
+        assert description.translation_key == "estimated_soc_at_sunrise"
+        assert description.native_unit_of_measurement == "%"
+        assert description.state_class is SensorStateClass.MEASUREMENT
+
+    def test_the_figure_with_the_charge_is_a_percentage_measurement(self):
+        description = _BY_KEY["estimated_soc_at_sunrise_with_charge"]
+        assert description.translation_key == "estimated_soc_at_sunrise_with_charge"
+        assert description.native_unit_of_measurement == "%"
+        assert description.state_class is SensorStateClass.MEASUREMENT
+        assert description.device_class is _BY_KEY["estimated_soc_at_sunrise"].device_class
+
+    def test_the_figure_with_the_charge_is_enabled_and_needs_no_device(self):
+        description = _BY_KEY["estimated_soc_at_sunrise_with_charge"]
+        assert description.entity_registry_enabled_default is True
+        assert description.requires is None
+        assert description.entity_category is None
+
+    def test_its_state_and_attributes_come_from_the_projection(self):
+        description = _BY_KEY["estimated_soc_at_sunrise_with_charge"]
+        data = CoordinatorData()
+        assert description.value_fn(data) is None
+        assert description.attrs_fn(data) is None
+
+    def test_the_figure_without_a_charge_is_still_the_night_survival_input(self):
+        data = CoordinatorData()
+        data.estimated_soc_at_sunrise = 12.345
+        assert _lambda_for("estimated_soc_at_sunrise")(data) == pytest.approx(12.3)
+
+
 class TestPowerBalanceSensors:
     def test_net_solar_surplus_rounds(self):
         fn = _lambda_for("net_solar_surplus_w")

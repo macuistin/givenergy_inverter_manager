@@ -731,6 +731,65 @@ class TestNightSurvivalConfidence:
         assert attrs["outlook"] == "May run low"
 
 
+class TestSunriseWithCharge:
+    @staticmethod
+    def _projection(**fields):
+        from custom_components.givenergy_inverter_manager.core.sunrise_charge import (
+            BASIS_REACHES_TARGET,
+            SunriseWithCharge,
+        )
+
+        defaults = {
+            "soc": 66.84,
+            "soc_at_charge_start": 25.5263,
+            "charge_added_pct": 64.4737,
+            "charge_window": "02:00 to 04:00",
+            "basis": BASIS_REACHES_TARGET,
+        }
+        return SunriseWithCharge(**{**defaults, **fields})
+
+    def test_none_before_the_first_cycle(self):
+        assert values.sunrise_with_charge_soc(make_data()) is None
+        assert values.sunrise_with_charge_attributes(make_data()) is None
+
+    def test_the_state_is_the_figure_to_a_tenth(self):
+        data = make_data(sunrise_with_charge=self._projection())
+        assert values.sunrise_with_charge_soc(data) == 66.8
+
+    def test_the_attributes_say_what_the_figure_is_made_of(self):
+        data = make_data(sunrise_with_charge=self._projection())
+        assert values.sunrise_with_charge_attributes(data) == {
+            "soc_at_charge_start": 25.5,
+            "charge_added_pct": 64.5,
+            "charge_window": "02:00 to 04:00",
+            "basis": "The planned charge takes the battery up to the target",
+        }
+
+    def test_a_night_with_no_charge_leaves_the_charge_attributes_empty(self):
+        data = make_data(
+            sunrise_with_charge=self._projection(
+                soc_at_charge_start=None,
+                charge_added_pct=0.0,
+                charge_window=None,
+                basis="No charge planned tonight, so this is the figure without a charge",
+            )
+        )
+        attributes = values.sunrise_with_charge_attributes(data)
+        assert attributes["soc_at_charge_start"] is None
+        assert attributes["charge_window"] is None
+        assert attributes["charge_added_pct"] == 0.0
+
+    def test_the_night_survival_outlook_ignores_the_figure_with_the_charge(self):
+        data = make_data(
+            survival_reason="Battery may run low.",
+            will_survive_night=False,
+            estimated_soc_at_sunrise=10.0,
+            battery_min_soc=10,
+            sunrise_with_charge=self._projection(soc=89.0),
+        )
+        assert values.night_survival_confidence(data) == "Critical"
+
+
 class TestRegisterWriteAttributes:
     def test_recent_writes_are_listed_newest_first(self):
         log = [

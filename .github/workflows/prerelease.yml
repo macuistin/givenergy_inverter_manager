@@ -1,0 +1,42 @@
+name: Publish pre-release
+
+# A beta or release candidate tag publishes a GitHub pre-release, which HACS offers under
+# "Show beta versions". Tag creation is restricted to the maintainer in the repository's
+# tag ruleset, because this workflow runs for whoever can push a matching tag.
+# For another release line, change the two tag patterns.
+on:
+  push:
+    tags:
+      - "v0.18.0b*"
+      - "v0.18.0rc*"
+
+permissions:
+  contents: read
+
+# A release is never cancelled part way, so a second tag waits for the first.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  prerelease:
+    name: Publish pre-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Tag matches the version in the files
+        run: python scripts/set_version.py --check "${GITHUB_REF_NAME}"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${GITHUB_REF_NAME}"
+          --verify-tag
+          --prerelease
+          --title "${GITHUB_REF_NAME}"
+          --generate-notes

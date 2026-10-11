@@ -6,6 +6,9 @@ both change in steps a battery cannot follow: the day's energy total resets at m
 window flips from this morning to tonight at sunrise and from tonight's pre-solar hours to the
 whole evening when solar fades. Each step moved the sensor by 15 points or more in one cycle.
 
+The figure with the planned charge steps for the same reasons, and by as much when the load
+estimate resets at midnight, so it is held the same way.
+
 The battery cannot move faster than the inverter can charge or discharge it, so neither can an
 honest estimate of its charge. The published value follows the calculated one at no more than
 that rate, and a step becomes a ramp of about half an hour. The Night Survival Status and
@@ -25,10 +28,21 @@ STALE_AFTER_S = 3600.0
 
 @dataclass
 class HeldSunrise:
-    """The estimate currently published and when it was published. Mutated by the engine."""
+    """The estimate currently published and when it was published. Mutated by the engine.
+
+    with_charge holds the figure with tonight's planned charge the same way. It is made on
+    first use, so a coordinator holds the one object for both.
+    """
 
     soc: float | None = None
     at: datetime | None = None
+    with_charge: HeldSunrise | None = None
+
+    def charged(self) -> HeldSunrise:
+        """The hold for the figure with the planned charge."""
+        if self.with_charge is None:
+            self.with_charge = HeldSunrise()
+        return self.with_charge
 
 
 @dataclass(frozen=True)

@@ -45,8 +45,8 @@ number example. Keep install-specific analysis in the PR discussion.
 - Never rebase, amend or force-push a branch that has an open PR. Address review feedback with new
   commits on top, so reviewers see only what changed.
 - When a lower PR merges, retarget the next one to `main` and merge `main` into it.
-- CI runs on every PR whatever its base: lint, unit tests on 3.13 and 3.14, the real Home Assistant
-  suite, Hassfest, HACS and CodeQL (`docs/testing.md`).
+- CI runs on every PR whatever its base: lint, the unit and real Home Assistant suites on the
+  2026.5.0 floor and on the latest release, Hassfest, HACS and CodeQL (`docs/testing.md`).
 
 ## Changelog and version
 
@@ -57,5 +57,6 @@ number example. Keep install-specific analysis in the PR discussion.
 - Releases are cut with `/release`. A version bump changes six places together: `const.py`
   (`INTEGRATION_VERSION`), `manifest.json`, `pyproject.toml`, `README.md` ("Current version:"),
   `docs/index.md` ("This documentation matches version") and `REQUIREMENTS.md` ("The current
-  release is"). `tests/test_metadata.py` checks the first five.
+  release is"). `python scripts/set_version.py X.Y.Z` writes all six and `--check` compares them.
+  `tests/test_metadata.py` checks them too.
 - `ROADMAP.md` holds planned work only. What shipped is in `CHANGELOG.md`.

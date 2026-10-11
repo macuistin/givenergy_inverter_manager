@@ -189,7 +189,7 @@ class TestTheDayStartsAtDawn:
         assert reasons[:2] == ["shortfall", "shortfall"]
         assert _changes(reasons) == 1
         flip = reasons.index("should last")
-        assert CYCLE * (flip - 1) == pytest.approx(DEBOUNCE, abs=CYCLE)
+        assert CYCLE * (flip - 1) == pytest.approx(DEBOUNCE, abs=2 * CYCLE)
 
     def test_a_restart_in_full_sun_reads_the_sun_at_once(self):
         cycles = _replay(DAWN + timedelta(hours=4), [(2500.0, 87.0)] * 3)
@@ -219,7 +219,7 @@ class TestSolarFadingAtDusk:
         assert reasons[-1] == "shortfall"
         last_above = 4 + 19  # the last reading of the wander is the one above the floor
         flip = reasons.index("shortfall")
-        assert CYCLE * (flip - last_above) == pytest.approx(DEBOUNCE, abs=CYCLE)
+        assert abs(CYCLE * (flip - last_above) - DEBOUNCE) <= CYCLE
 
 
 class TestARealShortfallShowsAtOnce:

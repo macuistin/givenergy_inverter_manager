@@ -4,9 +4,31 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
-Saving vs Grid Today and Net Saving Today no longer read as a loss after a cheap overnight charge.
+Two sunrise figures, saving values that count the battery, and a forecast correction that follows cloudy weeks.
+
+**Features**
+- New sensor Estimated SoC at Sunrise With the Planned Charge (`estimated_soc_at_sunrise_with_charge`).
+  It projects the battery to the next 08:00 with tonight's planned charge in it: the battery runs down
+  to the start of the charge window, the window adds charge up to the target at the charge rate the
+  plan uses, and the battery runs down again to sunrise, never below the minimum SoC. The window is
+  sized for the SoC the battery will have when it opens. A skipped night, no timed charge window, or a
+  window that is over gives the same figure as the one without a charge. It reads the learned
+  per-slot load profile the charge plan uses, and the flat daily average until there is a usable
+  profile. The figure without a charge keeps the flat average, and `basis` says which load was used. Its attributes are
+  `soc_at_charge_start`, `charge_added_pct`, `charge_window` and `basis`. Nothing reads it, so the
+  charge plan and the night survival sensors are unchanged. It is enabled by default.
 
 **Changes**
+- Estimated SoC at Sunrise is now Estimated SoC at Sunrise Without a Charge, and its description says
+  it ignores tonight's planned charge and holds at the minimum SoC when the battery would run flat.
+  The key, the unique ID and the value are unchanged, so history, statistics and automations carry on.
+  An install made before this change keeps its entity ID. A new install gets a different entity ID
+  for this sensor, `sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge`,
+  because Home Assistant builds it from the name. Use the entity ID shown on your install in
+  automations and cards.
+- The Battery view shows Sunrise (no charge) and Sunrise (with charge) in Tonight's charge plan, where
+  it showed one At sunrise tile. The Battery overnight section of the Battery detail view shows the
+  same two tiles under the outlook.
 - **Saving values change on every install.** Saving vs Grid Today and Net Saving Today now add the
   value of the change in the energy the battery holds since midnight. Energy bought to fill the
   battery was counted as cost on the day it was bought, while the battery had not yet given it
@@ -27,8 +49,27 @@ Saving vs Grid Today and Net Saving Today no longer read as a loss after a cheap
   one odd day does not swing it.
 - The charge reason says when the factor sits on a limit, for example
   `x0.40 recent accuracy (at the lower limit)`.
+- Saving the options page no longer reloads the integration for most changes. A tariff edit, a
+  threshold, dry run, verbose logging, the forecast and carbon sensors (except the main forecast
+  sensor), element power, ready-by times and the car efficiency now apply straight away, and
+  entities stay available. The integration still reloads when you change the immersion switch or
+  water temperature sensor, the main forecast sensor, the currency, the inverter entities, or when
+  you set the first oil price or clear the last one.
+- Changing a rate period on the options page now moves the time the charge target is written to
+  the inverter, without a reload. Before, the new time only took effect after the reload the save
+  caused.
+- Reconfigure no longer reloads the integration unless you change the currency.
+- A tag such as `v0.18.0b1` now publishes a GitHub pre-release. HACS offers it when you turn on
+  **Show beta versions**. `scripts/set_version.py` sets the version in the six files that state it.
+- Home Assistant 2026.5.0 is now the minimum, up from 2026.2.0. Home Assistant 2026.5 itself needs
+  Python 3.14.2 or newer. HACS offers this version only to installs on 2026.5.0 or later.
+- A battery capacity of 0 no longer stops the charge plan with an error. The plan skips and says the
+  capacity is not set.
 
 **Upgrading**
+- Generate the dashboard file again, or use the strategy dashboard, to get the two Sunrise tiles.
+- Troubleshooting has a new entry, Why does SoC at sunrise read 10%?, and Concepts explains the two
+  figures under Battery overnight.
 - Charge targets can rise on cloudy weeks, because the plan now trusts the forecast less. Nothing needs
   changing in the options.
 

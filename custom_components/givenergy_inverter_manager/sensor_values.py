@@ -398,6 +398,28 @@ def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     )
 
 
+def sunrise_with_charge_soc(data: CoordinatorData) -> float | None:
+    """Return the SoC at sunrise with tonight's planned charge, None before the first cycle."""
+    projection = data.sunrise_with_charge
+    return None if projection is None else round(projection.soc, 1)
+
+
+def sunrise_with_charge_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Return what the figure is made of, None before the first cycle.
+
+    soc_at_charge_start and charge_window are None on a night with no charge in the figure.
+    """
+    projection = data.sunrise_with_charge
+    if projection is None:
+        return None
+    return {
+        "soc_at_charge_start": _round_or_none(projection.soc_at_charge_start, 1),
+        "charge_added_pct": round(projection.charge_added_pct, 1),
+        "charge_window": projection.charge_window,
+        "basis": projection.basis,
+    }
+
+
 def register_write_attributes(data: CoordinatorData) -> dict[str, Any]:
     """The recent writes and outside changes to the charge entities, newest first."""
     return {"recent_writes": newest_first(data.register_write_log)}

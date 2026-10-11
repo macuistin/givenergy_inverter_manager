@@ -5,6 +5,7 @@ from __future__ import annotations
 from conftest import (
     BATTERY_POWER,
     GRID,
+    INV_TEMP,
     LOAD,
     MIDDAY,
     SERIAL,
@@ -22,6 +23,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
     CONF_INVERTER_SERIAL,
+    CONF_INVERTER_TEMP_ENTITY,
     CONF_SOLAR_POWER,
     DOMAIN,
 )
@@ -106,6 +108,7 @@ async def test_discovered_inverter_is_offered_and_creates_entry(
     try:
         assert entry.unique_id == SERIAL
         assert entry.data[CONF_SOLAR_POWER] == SOLAR
+        assert entry.data[CONF_INVERTER_TEMP_ENTITY] == INV_TEMP
         assert entry.state is ConfigEntryState.LOADED
     finally:
         await hass.config_entries.async_unload(entry.entry_id)

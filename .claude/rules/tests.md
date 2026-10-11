@@ -41,5 +41,6 @@ paths:
 ## Before pushing
 
 Run `ruff check custom_components tests scripts tools`, the unit suite and the end-to-end suite. CI
-runs the unit suite on Python 3.13 and 3.14 and the end-to-end suite on 3.14. If you did not run the
+runs the unit and end-to-end suites on Python 3.14 against Home Assistant 2026.5.0 and the latest
+release. If you did not run the
 end-to-end suite, say so in the PR under "Testing".

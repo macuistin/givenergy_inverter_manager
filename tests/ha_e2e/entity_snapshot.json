@@ -200,9 +200,14 @@
   "name": "Estimated Overnight Charge Cost"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_estimated_soc_at_sunrise",
+  "entity_id": "sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge",
+  "key": "estimated_soc_at_sunrise_with_charge",
+  "name": "Estimated SoC at Sunrise With the Planned Charge"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge",
   "key": "estimated_soc_at_sunrise",
-  "name": "Estimated SoC at Sunrise"
+  "name": "Estimated SoC at Sunrise Without a Charge"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_ev_charger_state",

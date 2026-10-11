@@ -818,15 +818,21 @@ views:
       grid_options:
         columns: full
     - type: tile
+      entity: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge
+      name: Sunrise (no charge)
+      color: green
+      grid_options:
+        columns: full
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge
+      name: Sunrise (with charge)
+      color: green
+      grid_options:
+        columns: full
+    - type: tile
       entity: sensor.givenergy_inverter_manager_estimated_overnight_charge_cost
       name: Est. cost
       color: blue
-      grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise
-      name: At sunrise
-      color: green
       grid_options:
         columns: 6
     - type: tile
@@ -1716,10 +1722,22 @@ views:
         {% if state_attr('sensor.givenergy_inverter_manager_battery_overnight_confidence', 'explanation') -%}
         {{ state_attr('sensor.givenergy_inverter_manager_battery_overnight_confidence', 'explanation') }}
         {%- elif level | lower == 'warning' -%}
-        The battery should last until solar starts, but only just. It is expected to reach {% if has_value('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') %}about {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') | float(0) | round(0) | int }}% at sunrise{% else %}the minimum at sunrise{% endif %}, close to your minimum charge. A warning shows when the estimate is within 5 points of the minimum.
+        The battery should last until solar starts, but only just. It is expected to reach {% if has_value('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge') %}about {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge') | float(0) | round(0) | int }}% at sunrise{% else %}the minimum at sunrise{% endif %}, close to your minimum charge. A warning shows when the estimate is within 5 points of the minimum.
         {%- else -%}
         {{ state_attr('sensor.givenergy_inverter_manager_battery_overnight_outlook', 'full_text') or states('sensor.givenergy_inverter_manager_battery_overnight_outlook') }}
         {%- endif %}
+      grid_options:
+        columns: full
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge
+      name: Sunrise (no charge)
+      color: green
+      grid_options:
+        columns: full
+    - type: tile
+      entity: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge
+      name: Sunrise (with charge)
+      color: green
       grid_options:
         columns: full
     - type: heading

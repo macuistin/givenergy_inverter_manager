@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from conftest import SOLAR, TARGET_SOC
+from conftest import SOC, SOLAR, TARGET_SOC
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.helpers import entity_registry as er
@@ -130,6 +130,22 @@ async def test_setup_retries_when_givtcp_is_absent(
     assert not await hass.config_entries.async_setup(config_entry.entry_id)
     assert config_entry.state is ConfigEntryState.SETUP_RETRY
     await hass.config_entries.async_unload(config_entry.entry_id)
+
+
+async def test_a_silent_givtcp_fails_the_cycle_with_a_translated_reason(hass, loaded_entry):
+    """The failure carries the translation key, so Home Assistant can show the user a message."""
+    from homeassistant.helpers.update_coordinator import UpdateFailed
+
+    hass.states.async_set(SOLAR, "unavailable")
+    hass.states.async_set(SOC, "unavailable")
+    coordinator = loaded_entry.runtime_data
+
+    await coordinator.async_refresh()
+
+    assert coordinator.last_update_success is False
+    assert isinstance(coordinator.last_exception, UpdateFailed)
+    assert coordinator.last_exception.translation_domain == DOMAIN
+    assert coordinator.last_exception.translation_key == "givtcp_unavailable"
 
 
 async def test_bill_start_day_comes_from_options_over_data(hass_in_scenario, service_calls):

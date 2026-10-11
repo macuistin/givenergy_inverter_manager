@@ -49,21 +49,21 @@ action:
 
 ## Alert when the battery may run flat
 
-Warns if the estimated SoC at 08:00 falls below 10%.
+Warns if the estimated SoC at 08:00, with tonight's planned charge, falls below 10%. The sensor without a charge reads the minimum all evening on a night with a charge planned, so it is the wrong one for this alert.
 
 ```yaml
 alias: Battery overnight warning
 trigger:
   - platform: numeric_state
-    entity_id: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise
+    entity_id: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge
     below: 10
 action:
   - service: notify.mobile_app_your_phone
     data:
       title: GivEnergy, battery may run flat
       message: >
-        Estimated SoC at sunrise:
-        {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise') }}%.
+        Estimated SoC at sunrise with the planned charge:
+        {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge') }}%.
         {{ states('sensor.givenergy_inverter_manager_battery_overnight_outlook') }}
 ```
 

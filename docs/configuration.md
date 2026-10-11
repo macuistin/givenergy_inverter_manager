@@ -3,7 +3,7 @@
 Every setup step and every option, with ranges and defaults taken from the config flow.
 
 - **Setup** is a seven-step wizard: inverter, tariff, forecast, immersion, EV, battery, then a read-only confirmation summary.
-- **Configure** opens a single options page with collapsible sections. Saving it reloads the integration.
+- **Configure** opens a single options page with collapsible sections. Saving it applies most changes at once. It reloads the integration only when the change affects which entities exist (see [Options](#options)).
 - **Reconfigure** edits the tariff only.
 
 Every field has a label and a one-line help text in the form. [Field meanings](#field-meanings) explains the ones that caused mistakes.
@@ -157,7 +157,9 @@ A read-only summary lists the cheapest rate, the billing period (for example "Yo
 
 ## Options
 
-Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. Saving reloads the integration, so entities are unavailable for a few seconds. Saved options override the values entered at setup.
+Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. Saved options override the values entered at setup.
+
+Most changes apply on the next 30-second cycle with no reload: the tariff, battery and charging thresholds, dry run, verbose logging, the forecast and carbon sensors other than the main forecast sensor, element power, ready-by times and the car efficiency. Changing a rate period also moves the time the charge target is written. The integration reloads, and entities are unavailable for a few seconds, when you change the main forecast sensor, the currency, the immersion switch or the water temperature sensor, or when you set or clear the oil price (the first one set, or the last one cleared).
 
 The sections run in the order they are used most: Tariff, the five rate periods, Dated rate change, Battery & charging thresholds, Solar forecast, Hardware, Immersion heater, Oil water heating, Electric vehicle. Only Tariff opens expanded, and a rate period opens expanded when it has a name. The first line of the page states the cheapest rate in the saved tariff and the billing period, so a wrong rate slot or bill start day shows before you save.
 
@@ -206,7 +208,7 @@ Update these when you add battery modules or change the inverter.
 | Element power | `immersion_wattage_w` | from setup | 500 to 6000 W |
 | Hot water ready by | `immersion_ready_times` | none | times as `HH:MM`, for example `07:00` and `19:00` |
 
-Both devices are optional and can be added, changed or cleared at any time, without a restart. Saving reloads the integration. The Immersion Heater (Managed) switch is created while an immersion switch is set and removed when it is cleared. The Immersion view and tiles of the dashboard follow the same two fields. A heater with no temperature sensor is switched on and off by solar surplus alone, and the target and minimum temperatures have no effect without a sensor.
+Both devices are optional and can be added, changed or cleared at any time, without a restart. Changing either one reloads the integration. The Immersion Heater (Managed) switch is created while an immersion switch is set and removed when it is cleared. The Immersion view and tiles of the dashboard follow the same two fields. A heater with no temperature sensor is switched on and off by solar surplus alone, and the target and minimum temperatures have no effect without a sensor.
 
 **Hot water ready by** lists the times the water has to be at its target temperature. It takes effect only while **Immersion Scheduled Heating** is on and a water temperature sensor is set. With no temperature sensor the ready times are ignored, because the integration cannot tell when the target is reached. An entry that is not `HH:MM` is refused, and the times are saved in order. The planning is described in [Concepts](concepts.md#scheduled-immersion-heating), which also covers moving from the heater's own timers and from home automations: switch the other timers off, turn **Immersion Scheduled Heating** on and enter the times here. Leave the field empty for the cheapest window alone.
 
@@ -221,7 +223,7 @@ Leave a field empty to clear it. The values saved here override the ones entered
 
 Optional. Set it when an oil boiler also heats the hot water cylinder, through a second coil. The Water Heating Cheapest Source sensor then says whether electricity, solar surplus or oil is the cheapest way to heat the water, and when oil is worth using. It is advice only. The integration never switches the oil boiler.
 
-With neither field set, nothing is created and nothing is worked out. The sensor needs an immersion switch as well, because it compares oil with the immersion, so an oil price with no immersion switch creates no sensor. Set the price, the switch or both at any time, without a restart. Saving reloads the integration, and the Immersion view of the dashboard shows or hides its Cheapest way to heat the water section to match. Clear both the price and the price sensor to remove the oil sensor.
+With neither field set, nothing is created and nothing is worked out. The sensor needs an immersion switch as well, because it compares oil with the immersion, so an oil price with no immersion switch creates no sensor. Set the price, the switch or both at any time, without a restart. Setting the first price, or clearing the last one, reloads the integration. Changing a price that is already set does not. The Immersion view of the dashboard shows or hides its Cheapest way to heat the water section to match. Clear both the price and the price sensor to remove the oil sensor.
 
 **Oil price sensor.** Pick a sensor or number that holds the price of a litre, for example one fed by your supplier or a helper you update by hand. While it reads a price above zero it is used instead of the number. When it is unavailable or not a number, the saved number is used. With no saved number as well, the sensor is unavailable until the price can be read.
 
@@ -248,7 +250,7 @@ Details as in setup step 3. Clear an entity field to remove the saved entity.
 
 ## Reconfigure
 
-**Settings → Devices & Services → GivEnergy Inverter Manager → ⋮ → Reconfigure** shows the tariff form, pre-filled with the values in force, and saves it to the setup data. It also removes any saved Configure-page values for the same tariff keys, because saved options override setup data. It also ends any dated rate change that has started, and keeps the ones that have not. The integration reloads once. To change inverter entities, remove and re-add the integration.
+**Settings → Devices & Services → GivEnergy Inverter Manager → ⋮ → Reconfigure** shows the tariff form, pre-filled with the values in force, and saves it to the setup data. It also removes any saved Configure-page values for the same tariff keys, because saved options override setup data. It also ends any dated rate change that has started, and keeps the ones that have not. Changing the currency reloads the integration once. Every other tariff change applies without a reload. To change inverter entities, remove and re-add the integration.
 
 ## Things to know
 

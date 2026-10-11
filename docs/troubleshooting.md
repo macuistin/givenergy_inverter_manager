@@ -49,7 +49,7 @@ The repair clears on its own once both entities exist again.
 
 - **"Entity is neither a valid entity ID nor a valid UUID" on save.** This was a bug in v0.2.1 when a forecast or carbon intensity field was empty. Update to v0.3.0. In v0.3.0 an empty field saves as empty, and clearing a saved entity removes it.
 - **Battery divert threshold or surplus is not on the page.** They are set at setup only. See [Configuration](configuration.md#step-6-battery).
-- **Entities went unavailable after saving.** Saving reloads the integration. It takes a few seconds. If entities have not recovered after 30 seconds, check the log for errors.
+- **Entities went unavailable after saving.** Changing the immersion switch or sensor, the main forecast sensor, the currency or the oil price (when it is first set or last cleared) reloads the integration. It takes a few seconds. If entities have not recovered after 30 seconds, check the log for errors.
 
 ## Battery minimum SoC is set too high
 
@@ -57,7 +57,7 @@ The repair **Battery minimum SoC is set too high** appears when the saved minimu
 
 1. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**.
 2. In the Battery & charging thresholds section, set **Minimum battery SoC** to 10 to 20.
-3. Save. The repair clears on the next update cycle after the integration reloads.
+3. Save. The repair clears on the next update cycle.
 
 ## Other charge slots are active
 
@@ -88,7 +88,7 @@ To set it from the repair:
 
 1. Open **Settings → System → Repairs** and open **Battery cost is not set**.
 2. Enter what the battery cost, then select **Submit**.
-3. The value is saved to the integration options and the integration reloads. Every other saved option is kept. The repair clears on the next update cycle.
+3. The value is saved to the integration options. Every other saved option is kept. The repair clears on the next update cycle.
 
 You can also set **Battery cost** under **Configure**, in the Battery & charging thresholds section.
 
@@ -196,6 +196,15 @@ logger:
   logs:
     custom_components.givenergy_inverter_manager: debug
 ```
+
+## Why does SoC at sunrise read 10%?
+
+There are two sunrise figures, and they answer different questions.
+
+- **Estimated SoC at Sunrise Without a Charge** is what the battery would have at 08:00 if nothing charged it. It leaves tonight's planned charge out, and it stops at the minimum SoC when the battery would run flat. In the evening, with the battery at 50 to 65% and a charge planned for the cheap period, it can read the minimum (10% by default) from dusk until the charge starts. That is the figure Battery Overnight Outlook and Confidence judge, so a "May run low" in the evening is a shortfall without the planned charge.
+- **Estimated SoC at Sunrise With the Planned Charge** adds the planned charge window, up to the target, then runs the battery down to 08:00. This is the one to read for where the night will end. Its attributes say how: `soc_at_charge_start` is the SoC when the window opens, `charge_added_pct` is what the window adds, `charge_window` is the window used and `basis` says it in words.
+
+If both read the same, no charge counts: tonight is skipped, no timed charge window is set, or the window is over. A with-charge figure well below the target means the window is too short to reach it at the charge rate, or the load estimate is high. The no-charge figure always spreads the daily average evenly, so it is pessimistic for a quiet night. The with-charge figure uses the learned per-slot load profile once there is one, and its `basis` attribute says which load it used. Check **Overnight Charge Window** and **Overnight Charge Reason**. See [Battery overnight](concepts.md#battery-overnight).
 
 ## The immersion does not turn on
 

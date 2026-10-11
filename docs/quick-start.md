@@ -15,7 +15,7 @@ Ten minutes from install to a working dashboard. Start with dry run on, so the i
 4. **Inverter.** Confirm the detected inverter, battery capacity and maximum inverter output. If nothing is detected, see [Troubleshooting](troubleshooting.md#setup-finds-no-inverter).
 5. **Tariff.** The form is pre-filled with placeholder values. Replace every one with the values from your own bill or tariff sheet. Any tariff with timed rates works, and so does a flat rate. See [Tariff](tariff.md).
 6. **Forecast, immersion, EV charger, battery.** Fill in what you have and submit the rest as is. Each step can stay at its defaults. See [Configuration](configuration.md).
-7. Turn on dry run. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**, expand **Battery & charging thresholds**, switch on **Dry run mode** and submit. The integration reloads.
+7. Turn on dry run. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**, expand **Battery & charging thresholds**, switch on **Dry run mode** and submit. It takes effect on the next update cycle.
 8. Check the readings (next section).
 9. Press **Refresh Dashboard** on the device page, then add the generated file as a dashboard. See [Dashboard](dashboard.md).
 10. When the decisions look right, switch **Dry run mode** off.

@@ -124,9 +124,21 @@ from .rules import (
     calculate_overnight_charge_target,
     decide_ev_charger_action,
     should_divert_to_immersion,
+    usable_slot_loads_kwh,
 )
 from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
 from .stored_energy import stored_energy_change
+from .sunrise_charge import (
+    LOAD_NOTE_FLAT,
+    LOAD_NOTE_PER_SLOT,
+    BatteryNow,
+    PlannedCharge,
+    SunriseWithCharge,
+    flat_load,
+    project_sunrise_with_charge,
+    slot_load,
+    with_load_note,
+)
 from .sunrise_hold import (
     HeldSunrise,
     SunriseReading,
@@ -317,6 +329,8 @@ class CoordinatorData:
     cheap_run_remaining_minutes: float | None = None
     rate_savings_vs_daytime: float = 0.0
     estimated_soc_at_sunrise: float = 0.0
+    # The same night with tonight's planned charge in it. None before the first cycle.
+    sunrise_with_charge: SunriseWithCharge | None = None
     survival_reason: str = ""
     ev_charger_brand: str = ""
     ev_charger_name: str = ""
@@ -1329,6 +1343,61 @@ def _calculate_night_survival(
         ),
     )
     held.soc, held.at = data.estimated_soc_at_sunrise, cycle.now
+    _project_sunrise_with_charge(data, cycle, avg_daily_kwh, held.charged())
+
+
+def _planned_charge(data: CoordinatorData, cycle: _Cycle) -> PlannedCharge:
+    """Tonight's plan as the sensors publish it, and the sizing it applies to the window."""
+    decision = data.published_charge_decision
+    rate_w = cycle.raw.battery_charge_rate_w
+    target = float(decision.target_soc) if decision else 0.0
+    return PlannedCharge(
+        window=data.published_charge_window,
+        target_soc=target,
+        skipped=decision is None or decision.skip_charge,
+        charge_power_kw=rate_w / 1000 if rate_w is not None and rate_w > 0 else 0.0,
+        size_window=lambda soc: plan_charge_window(
+            cycle.tariff,
+            ChargeNeed(soc, target, cycle.raw.battery_capacity_kwh, rate_w),
+        ),
+    )
+
+
+def _project_sunrise_with_charge(
+    data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float, held: HeldSunrise
+) -> None:
+    """The SoC at sunrise with the planned charge.
+
+    The load is the per-slot profile the charge simulation uses, scaled to the daily average,
+    or the flat average when there is no usable profile. The figure without a charge, which
+    night survival reads, always uses the flat average.
+
+    The published figure moves at the battery's own pace, as the one without a charge does.
+    Night survival reads the figure without a charge and does not read this one.
+    """
+    raw = cycle.raw
+    battery = BatteryNow(
+        soc=raw.battery_soc,
+        capacity_kwh=raw.battery_capacity_kwh,
+        min_soc=float(data.battery_min_soc),
+        soc_without_charge=data.estimated_soc_at_sunrise,
+    )
+    slots = usable_slot_loads_kwh(avg_daily_kwh, cycle.forecast.load_profile)
+    load = flat_load(avg_daily_kwh / 24) if slots is None else slot_load(slots)
+    projection = with_load_note(
+        project_sunrise_with_charge(battery, cycle.now, _planned_charge(data, cycle), load),
+        LOAD_NOTE_FLAT if slots is None else LOAD_NOTE_PER_SLOT,
+    )
+    paced = published_sunrise_soc(
+        held,
+        SunriseReading(
+            projection.soc,
+            cycle.now,
+            max_battery_swing_pct_per_hour(raw.inverter_max_w, raw.battery_capacity_kwh),
+        ),
+    )
+    held.soc, held.at = paced, cycle.now
+    data.sunrise_with_charge = replace(projection, soc=paced)
 
 
 def _live_grid_cost_rate(cycle: _Cycle) -> float:

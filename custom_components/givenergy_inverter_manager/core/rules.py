@@ -260,6 +260,15 @@ def _slot_loads_kwh(avg_daily_kwh: float, load_profile: list[float] | None) -> l
     return [avg_daily_kwh / 48] * 48
 
 
+def usable_slot_loads_kwh(
+    avg_daily_kwh: float, load_profile: list[float] | None
+) -> list[float] | None:
+    """The 48 slot loads the charge simulation uses, or None when there is no usable profile."""
+    if not _profile_usable(load_profile):
+        return None
+    return _slot_loads_kwh(avg_daily_kwh, load_profile)
+
+
 @dataclass(frozen=True)
 class _SimulatedDay:
     """One day to simulate: the solar forecast, the battery size and the load per slot."""
@@ -403,6 +412,17 @@ def _build_decision(inputs: ChargeInputs, plan: _ChargePlan) -> ChargeDecision:
         battery_capacity=inputs.battery_capacity_kwh,
         car_plugged_in=inputs.car_plugged_in,
         cost_to_charge=plan.cost_to_charge,
+    )
+
+
+def _no_capacity_plan(inputs: ChargeInputs) -> _ChargePlan:
+    """A battery with no capacity has nothing to charge, and the simulation divides by it."""
+    return _ChargePlan(
+        target_soc=inputs.min_soc,
+        skip_charge=True,
+        reason="Skip: the battery capacity is not set, so there is nothing to plan.",
+        forecast_kwh=0.0,
+        cost_to_charge=0.0,
     )
 
 
@@ -603,6 +623,8 @@ def calculate_overnight_charge_target(
     and estimate_will_survive_night), so the plan never skips a charge the survival
     sensor calls Critical. inputs.solar_power_w tells it whether the sun is still up.
     """
+    if inputs.battery_capacity_kwh <= 0:
+        return _build_decision(inputs, _no_capacity_plan(inputs))
     if dt.month in CHARGE_WINTER_MONTHS:
         return _build_decision(inputs, _winter_plan(inputs, dt.month))
 

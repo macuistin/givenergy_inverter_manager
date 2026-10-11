@@ -44,6 +44,7 @@ def test_the_renamed_sensors_are_the_peak_keyed_and_overnight_ones(renamed):
         "peak_import_fraction_today",
         "night_survival_reason",
         "night_survival_confidence",
+        "estimated_soc_at_sunrise",
     }
 
 

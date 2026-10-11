@@ -1938,22 +1938,6 @@ class TestTimezoneHandling:
             "UTC 22:30 should still be the Day rate — proves the distinction matters."
         )
 
-    def test_coordinator_uses_local_time(self):
-
-        src = (PKG / "coordinator.py").read_text()
-        assert "dt_util.as_local(datetime.now" in src, (
-            "coordinator must use dt_util.as_local() — without this, rate periods "
-            "activate 1h late in summer (Ireland GMT+1)."
-        )
-
-    def test_midnight_reset_uses_local_midnight(self):
-
-        src = (PKG / "coordinator.py").read_text()
-        assert "dt_util.as_local(now).replace(hour=0" in src, (
-            "_midnight_reset must use as_local — without this, daily accumulators "
-            "reset at UTC midnight (01:00 local in summer)."
-        )
-
 
 class TestImmersionNumberGuards:
     """Cross-entity guards prevent min >= target (which causes short-cycling)
@@ -1995,16 +1979,6 @@ class TestImmersionNumberGuards:
         asyncio.run(entity._apply(58.0))  # above target - 1 = 54°C
         assert entity._value <= coord.immersion_target_temp - 1, (
             "Min must be at least 1°C below target to prevent short-cycling."
-        )
-
-    def test_persist_writes_to_entry_data(self):
-        """_persist must call async_update_entry so values survive HA restart."""
-
-        src = (PKG / "number.py").read_text()
-        assert "async_update_entry" in src, (
-            "Number entities must persist values to entry.data via async_update_entry. "
-            "Without this, coordinator reads stale config defaults on the first cycle "
-            "after a restart (entity state restored after first coordinator update)."
         )
 
 
@@ -2100,11 +2074,21 @@ class TestCheapRateFloor:
         result = asyncio.run(coord._maybe_apply_cheap_rate_floor(self._now_at(2, 30), raw, cfg))
         assert result == "", f"Floor of 0 must disable feature, got: {result!r}"
 
-    def test_floor_resets_at_midnight(self):
-        """_floor_top_up_applied flag must reset at midnight so next night works."""
+    def test_floor_tops_up_again_after_midnight(self):
+        """A top-up made tonight must not stop the one due tomorrow night."""
+        import asyncio
 
-        src = (PKG / "coordinator.py").read_text()
-        assert "_floor_top_up_applied = False" in src
+        coord = FakeCoordinator(cfg=_cfg())
+        coord._floor_top_up_applied = True
+        raw = _raw(battery_soc=20.0)
+        cfg = _nightboost_cfg()
+        before = asyncio.run(coord._maybe_apply_cheap_rate_floor(self._now_at(2, 30), raw, cfg))
+        assert "already applied" in before.lower()
+
+        coord._midnight_reset(datetime(2024, 7, 10, 23, 0, tzinfo=timezone.utc))
+
+        after = asyncio.run(coord._maybe_apply_cheap_rate_floor(self._now_at(2, 30), raw, cfg))
+        assert "topping up" in after.lower(), after
 
 
 class TestCheapRateFloorOutcomes:
@@ -2333,11 +2317,18 @@ class TestEntityUnavailable:
     when the data source stops publishing rather than holding stale values.
     """
 
-    def test_update_failed_imported(self):
-        """UpdateFailed must be imported to signal entity unavailability."""
+    @pytest.mark.asyncio
+    async def test_the_failed_cycle_carries_the_translation_for_the_user(self):
+        from homeassistant.helpers.update_coordinator import UpdateFailed
 
-        src = (PKG / "coordinator.py").read_text()
-        assert "UpdateFailed" in src
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.set_state("sensor.solar", "unavailable")
+        coord.set_state("sensor.battery_soc", "unavailable")
+        with pytest.raises(UpdateFailed) as failed:
+            await coord._async_update_data()
+        assert failed.value.translation_domain == "givenergy_inverter_manager"
+        assert failed.value.translation_key == "givtcp_unavailable"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("stale", ["unavailable", "unknown"])
@@ -2777,14 +2768,6 @@ class TestInverterTemperature:
             "sensor.givtcp_fd2309f069_inverter_temperature",
         ]
 
-    def test_inverter_temp_in_discovery_map(self):
-        src = (PKG / "config_flow.py").read_text()
-        assert "inverter_temp" in src
-        assert "CONF_INVERTER_TEMP_ENTITY" in src
-
-    def test_inverter_temp_suffix_in_givtcp_discovery(self):
-        src = (PKG / "discovery/givtcp.py").read_text()
-        assert "_invertor_temperature" in src
 class TestMissedSolar:
     """Missed solar accumulates when battery full, exporting, no flex load active."""
 
