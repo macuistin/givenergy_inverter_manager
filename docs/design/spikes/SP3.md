@@ -12,12 +12,12 @@ Do these work in a real Home Assistant, in a setup flow and in an options flow?
 
 ## Method
 
-`tests/ha_e2e/spikes/test_sp3_wizard_pattern.py` registers a throwaway handler (domain `sp3_wizard`) with `mock_integration` and `mock_config_flow`. It is removed after each test and nothing under `custom_components/` is used. The integration registers an update listener that calls `async_schedule_reload`, as `givenergy_inverter_manager` does. Flows are driven through the real flow managers, and one test goes through the REST view the frontend uses (`/api/config/config_entries/flow`).
+`tests/ha_e2e/spikes/sp3_support.py` defines a throwaway handler and its fixtures, and three modules use it: `test_sp3_config_flow.py` (setup flow), `test_sp3_options_flow.py` (options flow) and `test_sp3_reload.py` (`async_update_and_abort` and the deprecation). The handler is registered (domain `sp3_wizard`) with `mock_integration` and `mock_config_flow`. It is removed after each test and nothing under `custom_components/` is used. The integration registers an update listener that calls `async_schedule_reload`, as `givenergy_inverter_manager` does. Flows are driven through the real flow managers, and one test goes through the REST view the frontend uses (`/api/config/config_entries/flow`).
 
 Run with real Home Assistant 2026.9.4 (the version `requirements-test-e2e.txt` pins):
 
 ```
-python -m pytest tests/ha_e2e/spikes/test_sp3_wizard_pattern.py -q
+python -m pytest tests/ha_e2e/spikes/test_sp3_config_flow.py tests/ha_e2e/spikes/test_sp3_options_flow.py tests/ha_e2e/spikes/test_sp3_reload.py -q
 ```
 
 ## Result: yes
