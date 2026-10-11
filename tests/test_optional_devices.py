@@ -27,7 +27,7 @@ EV = Device.EV_CHARGER
 SWITCH = Device.IMMERSION_SWITCH
 SENSOR = Device.IMMERSION_SENSOR
 THERMOSTAT = Device.IMMERSION_THERMOSTAT
-OIL = Device.OIL_ADVICE
+OIL = Device.ALTERNATIVE_HEAT
 
 
 def _needing(device: Device) -> set[str]:

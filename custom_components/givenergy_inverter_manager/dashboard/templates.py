@@ -8,12 +8,12 @@ from dataclasses import dataclass
 from datetime import date
 
 from ..const import (
+    ALT_HEAT_SCHEDULE_MIN_DAYS,
     ATTR_FULL_TEXT,
     CONF_CURRENCY,
     CURRENCIES,
     DEFAULT_CURRENCY,
     IMMERSION_SWITCH_COOLDOWN_MINUTES,
-    OIL_SCHEDULE_MIN_DAYS,
 )
 from ..core.tariff import TariffChange, TariffConfig, build_tariff
 from .cards import state_ref
@@ -97,7 +97,7 @@ def planned_heating_template(sensor: str) -> str:
     )
 
 
-def oil_schedule_template(source: str) -> str:
+def alt_heat_schedule_template(source: str) -> str:
     """The suggested oil schedule line, read from the cheapest source sensor.
 
     The sensor holds oil_schedule_suggestion only while there is a schedule to suggest, and
@@ -105,8 +105,8 @@ def oil_schedule_template(source: str) -> str:
     attribute, so the card says which of the two it is waiting on.
     """
     return (
-        f"{{% set text = state_attr('{source}', 'oil_schedule_suggestion') %}}"
-        f"{{% set days = state_attr('{source}', 'oil_schedule_days') %}}"
+        f"{{% set text = state_attr('{source}', 'alt_schedule_suggestion') %}}"
+        f"{{% set days = state_attr('{source}', 'alt_schedule_days') %}}"
         "{% if text -%}\n"
         "{{ text }}\n"
         "{%- elif days -%}\n"
@@ -114,7 +114,7 @@ def oil_schedule_template(source: str) -> str:
         "heating.\n"
         "{%- else -%}\n"
         "Still learning when the immersion heats the water at rates above oil. A suggested oil "
-        f"schedule appears after {OIL_SCHEDULE_MIN_DAYS} days.\n"
+        f"schedule appears after {ALT_HEAT_SCHEDULE_MIN_DAYS} days.\n"
         "{%- endif %}"
     )
 

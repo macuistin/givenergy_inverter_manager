@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.const import OIL_SCHEDULE_MIN_DAYS
-from custom_components.givenergy_inverter_manager.dashboard.templates import oil_schedule_template
+from custom_components.givenergy_inverter_manager.const import ALT_HEAT_SCHEDULE_MIN_DAYS
+from custom_components.givenergy_inverter_manager.dashboard.templates import (
+    alt_heat_schedule_template,
+)
 from tests.dashboard_visibility import seen_for
 from tests.test_dashboard import _render
 from tests.test_dashboard_devices import OIL_SENTINEL, _oil_section_cards
@@ -21,26 +23,26 @@ SENTENCE = "Over the last 10 days the immersion used about 15 kWh. Running the o
 
 def _text(**attrs) -> str:
     attributes = {(OIL_SENTINEL, name): value for name, value in attrs.items()}
-    return _render(oil_schedule_template(OIL_SENTINEL), lambda entity: "oil", attributes).strip()
+    return _render(alt_heat_schedule_template(OIL_SENTINEL), lambda entity: "oil", attributes).strip()
 
 
 class TestTheText:
     def test_it_prints_the_sentence_when_there_is_one(self):
-        assert _text(oil_schedule_suggestion=SENTENCE, oil_schedule_days=10) == SENTENCE
+        assert _text(alt_schedule_suggestion=SENTENCE, alt_schedule_days=10) == SENTENCE
 
     def test_before_a_week_of_data_it_says_it_is_still_learning(self):
         text = _text()
         assert "learning" in text
-        assert f"{OIL_SCHEDULE_MIN_DAYS} days" in text
+        assert f"{ALT_HEAT_SCHEDULE_MIN_DAYS} days" in text
 
     def test_with_a_week_and_nothing_to_suggest_it_says_so_and_the_days(self):
-        text = _text(oil_schedule_days=9, oil_schedule=[])
+        text = _text(alt_schedule_days=9, alt_schedule=[])
         assert "9 days" in text
         assert "no regular" in text.lower()
 
     def test_it_never_prints_none(self):
         assert "None" not in _text()
-        assert "None" not in _text(oil_schedule_days=9)
+        assert "None" not in _text(alt_schedule_days=9)
 
 
 class TestTheSection:
@@ -51,7 +53,7 @@ class TestTheSection:
     def test_the_line_follows_the_live_suggestion(self):
         live, schedule = self._markdown()
         assert f"state_attr('{OIL_SENTINEL}', 'suggestion')" in live["content"]
-        assert f"state_attr('{OIL_SENTINEL}', 'oil_schedule_suggestion')" in schedule["content"]
+        assert f"state_attr('{OIL_SENTINEL}', 'alt_schedule_suggestion')" in schedule["content"]
 
     @pytest.mark.parametrize("switch", [False, True], ids=["no-switch", "switch"])
     @pytest.mark.parametrize("oil", [False, True], ids=["no-oil", "oil"])

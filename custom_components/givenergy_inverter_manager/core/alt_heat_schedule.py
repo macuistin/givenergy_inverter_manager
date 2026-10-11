@@ -1,5 +1,5 @@
 """
-oil_schedule.py: a recurring oil schedule, learned from when the immersion heats the water.
+alt_heat_schedule.py: a recurring oil schedule, learned from when the immersion heats the water.
 
 The immersion sometimes heats the water from the grid at a rate that costs more than oil, for
 example a top-up after the midday showers. This module keeps a rolling record of that heating
@@ -15,16 +15,18 @@ out, so a price change applies to the whole record at once.
 The suggestion:
 
   1. An hour of the day counts as a habit when the immersion used at least
-     OIL_SCHEDULE_MIN_HOUR_KWH from the grid in it, at a cost per kWh above oil, on at least one
-     day in OIL_SCHEDULE_REPEAT_ONE_IN.
+     ALT_HEAT_SCHEDULE_MIN_HOUR_KWH from the grid in it, at a cost per kWh above oil, on at
+     least one
+     day in ALT_HEAT_SCHEDULE_REPEAT_ONE_IN.
   2. Adjacent habit hours are joined into one block.
   3. Each block becomes an oil window that ends where the immersion started, the start of the
      block's first hour, so the oil runs just before it and the immersion finds the water at
      the target. The run is as long as the immersion took on the days it ran, at the
-     immersion's heating rate (the oil_start.py assumption: an oil coil heats at least as fast).
+     immersion's heating rate (the alt_heat_start.py assumption: an oil coil heats at least as
+     fast).
   4. The saving of a window is what the dearer-than-oil grid heat in its hours would have saved
-     at the oil price. Windows under OIL_SCHEDULE_MIN_SAVING_PER_WEEK are dropped, and the best
-     OIL_SCHEDULE_MAX_WINDOWS stay.
+     at the oil price. Windows under ALT_HEAT_SCHEDULE_MIN_SAVING_PER_WEEK are dropped, and the best
+     ALT_HEAT_SCHEDULE_MAX_WINDOWS stay.
 
 Advice only. The integration never switches the oil system. Pure Python, no Home Assistant
 imports.
@@ -37,14 +39,14 @@ from datetime import date, datetime, timedelta
 from itertools import groupby
 
 from ..const import (
-    OIL_SCHEDULE_MAX_WINDOWS,
-    OIL_SCHEDULE_MIN_DAYS,
-    OIL_SCHEDULE_MIN_HOUR_KWH,
-    OIL_SCHEDULE_MIN_SAVING_PER_WEEK,
-    OIL_SCHEDULE_RECORD_DAYS,
-    OIL_SCHEDULE_REPEAT_ONE_IN,
+    ALT_HEAT_SCHEDULE_MAX_WINDOWS,
+    ALT_HEAT_SCHEDULE_MIN_DAYS,
+    ALT_HEAT_SCHEDULE_MIN_HOUR_KWH,
+    ALT_HEAT_SCHEDULE_MIN_SAVING_PER_WEEK,
+    ALT_HEAT_SCHEDULE_RECORD_DAYS,
+    ALT_HEAT_SCHEDULE_REPEAT_ONE_IN,
 )
-from .oil_start import round_up_run_minutes
+from .alt_heat_start import round_up_run_minutes
 
 HOURS_PER_DAY = 24
 _MINUTES_PER_HOUR = 60
@@ -106,7 +108,7 @@ class ImmersionHeatLog:
 
     def completed(self, today: date) -> list[HeatDay]:
         """The complete days within the record, today's still in progress left out."""
-        oldest = (today - timedelta(days=OIL_SCHEDULE_RECORD_DAYS)).isoformat()
+        oldest = (today - timedelta(days=ALT_HEAT_SCHEDULE_RECORD_DAYS)).isoformat()
         return [d for d in self.days if oldest <= d.date < today.isoformat()]
 
     def to_storage(self) -> list[dict]:
@@ -136,7 +138,7 @@ class ImmersionHeatLog:
 
     def _forget_old_days(self) -> None:
         newest = date.fromisoformat(self.days[-1].date)
-        oldest = (newest - timedelta(days=OIL_SCHEDULE_RECORD_DAYS)).isoformat()
+        oldest = (newest - timedelta(days=ALT_HEAT_SCHEDULE_RECORD_DAYS)).isoformat()
         self.days = [d for d in self.days if d.date >= oldest]
 
 
@@ -145,13 +147,13 @@ class ScheduleQuery:
     """What the suggestion needs besides the record: the oil price per kWh of heat, the heater."""
 
     today: date
-    oil_cost_per_kwh: float
+    alt_cost_per_kwh: float
     heater_kw: float
     currency_symbol: str
 
 
 @dataclass(frozen=True)
-class OilSchedule:
+class AltHeatSchedule:
     """What the record says. windows are "HH:MM to HH:MM", empty when there is nothing to suggest.
 
     days is how many complete days were read. saving is over those days, in the configured
@@ -190,17 +192,17 @@ def _clock(minute: int) -> str:
     return f"{minute // _MINUTES_PER_HOUR:02d}:{minute % _MINUTES_PER_HOUR:02d}"
 
 
-def _is_dear(day: HeatDay, hour: int, oil: float) -> bool:
+def _is_dear(day: HeatDay, hour: int, alt: float) -> bool:
     """True when the immersion heated from the grid this hour at a rate above oil."""
     kwh = day.kwh[hour]
-    return kwh >= OIL_SCHEDULE_MIN_HOUR_KWH and day.cost[hour] > kwh * oil
+    return kwh >= ALT_HEAT_SCHEDULE_MIN_HOUR_KWH and day.cost[hour] > kwh * alt
 
 
-def _summarise_hour(days: list[HeatDay], hour: int, oil: float) -> _Hour:
-    dear = [day for day in days if _is_dear(day, hour, oil)]
+def _summarise_hour(days: list[HeatDay], hour: int, alt: float) -> _Hour:
+    dear = [day for day in days if _is_dear(day, hour, alt)]
     kwh = sum(day.kwh[hour] for day in dear)
     cost = sum(day.cost[hour] for day in dear)
-    return _Hour(len(dear), kwh, cost - kwh * oil)
+    return _Hour(len(dear), kwh, cost - kwh * alt)
 
 
 def _runs(flags: list[bool]) -> list[range]:
@@ -218,7 +220,7 @@ def _window(
 ) -> _Window:
     """The oil window for a block, ending at the block's first hour. Its start is not set here."""
     kwh = sum(hours[h].kwh for h in block)
-    ran_on = sum(1 for d in days if any(_is_dear(d, h, query.oil_cost_per_kwh) for h in block))
+    ran_on = sum(1 for d in days if any(_is_dear(d, h, query.alt_cost_per_kwh) for h in block))
     run = round_up_run_minutes(kwh / ran_on / query.heater_kw)
     end = block.start * _MINUTES_PER_HOUR
     return _Window(
@@ -243,9 +245,9 @@ def _after_earlier_heating(window: _Window, earlier_end: int | None) -> _Window:
 
 
 def _all_windows(days: list[HeatDay], query: ScheduleQuery) -> list[_Window]:
-    oil = query.oil_cost_per_kwh
-    hours = [_summarise_hour(days, hour, oil) for hour in range(HOURS_PER_DAY)]
-    needed = -(-len(days) // OIL_SCHEDULE_REPEAT_ONE_IN)
+    alt = query.alt_cost_per_kwh
+    hours = [_summarise_hour(days, hour, alt) for hour in range(HOURS_PER_DAY)]
+    needed = -(-len(days) // ALT_HEAT_SCHEDULE_REPEAT_ONE_IN)
     windows, earlier_end = [], None
     for block in _runs([hour.dear_days >= needed for hour in hours]):
         windows.append(_after_earlier_heating(_window(days, hours, block, query), earlier_end))
@@ -261,9 +263,9 @@ def _best_windows(days: list[HeatDay], query: ScheduleQuery) -> list[_Window]:
     worth = [
         w
         for w in _all_windows(days, query)
-        if w.saving / weeks >= OIL_SCHEDULE_MIN_SAVING_PER_WEEK
+        if w.saving / weeks >= ALT_HEAT_SCHEDULE_MIN_SAVING_PER_WEEK
     ]
-    best = sorted(worth, key=lambda w: w.saving, reverse=True)[:OIL_SCHEDULE_MAX_WINDOWS]
+    best = sorted(worth, key=lambda w: w.saving, reverse=True)[:ALT_HEAT_SCHEDULE_MAX_WINDOWS]
     return sorted(best, key=lambda w: w.end_minute)
 
 
@@ -289,15 +291,17 @@ def _sentence(days: int, windows: list[_Window], symbol: str) -> str:
     )
 
 
-def suggest_oil_schedule(log: ImmersionHeatLog, query: ScheduleQuery) -> OilSchedule | None:
-    """The suggested oil windows, None until the record holds OIL_SCHEDULE_MIN_DAYS days."""
+def suggest_alt_heat_schedule(
+    log: ImmersionHeatLog, query: ScheduleQuery
+) -> AltHeatSchedule | None:
+    """The suggested oil windows, None until the record holds ALT_HEAT_SCHEDULE_MIN_DAYS days."""
     days = log.completed(query.today)
-    if len(days) < OIL_SCHEDULE_MIN_DAYS:
+    if len(days) < ALT_HEAT_SCHEDULE_MIN_DAYS:
         return None
     windows = _best_windows(days, query)
     if not windows:
-        return OilSchedule(len(days))
-    return OilSchedule(
+        return AltHeatSchedule(len(days))
+    return AltHeatSchedule(
         days=len(days),
         windows=tuple(w.label for w in windows),
         saving=sum(w.saving for w in windows),

@@ -342,14 +342,14 @@ def test_the_oil_advice_waits_for_its_sensor_in_a_file_made_without_one():
     stored = generated_for(switch=True)
     states = states_with({Device.IMMERSION_SWITCH})
     assert _oil_section_cards(seen(stored, states)) == []
-    states = states_with({Device.IMMERSION_SWITCH, Device.OIL_ADVICE})
+    states = states_with({Device.IMMERSION_SWITCH, Device.ALTERNATIVE_HEAT})
     assert _oil_section_cards(seen(stored, states)) != []
 
 
 def test_the_oil_advice_hides_while_the_sensor_is_unavailable():
     """With the price sensor unreadable and no saved number there is no advice to show."""
     stored = generated_for(switch=True, oil=True)
-    devices = {Device.IMMERSION_SWITCH, Device.OIL_ADVICE}
+    devices = {Device.IMMERSION_SWITCH, Device.ALTERNATIVE_HEAT}
     states = states_with(devices, {OIL_SENTINEL: "unavailable"})
     assert _oil_section_cards(seen(stored, states)) == []
 
@@ -361,7 +361,7 @@ def test_the_oil_advice_goes_when_the_price_is_cleared_without_regenerating():
 
 
 def test_the_oil_advice_sentinel_is_the_oil_sensor():
-    assert SENTINELS[Device.OIL_ADVICE] == "water_heating_cheapest_source"
+    assert SENTINELS[Device.ALTERNATIVE_HEAT] == "water_heating_cheapest_source"
 
 
 # ── the conditions themselves ────────────────────────────────────────────────
@@ -547,7 +547,7 @@ ALL_OIL_DEVICES = {
     Device.IMMERSION_SWITCH,
     Device.IMMERSION_SENSOR,
     Device.IMMERSION_THERMOSTAT,
-    Device.OIL_ADVICE,
+    Device.ALTERNATIVE_HEAT,
 }
 
 
@@ -562,7 +562,7 @@ def test_the_oil_suggestion_shows_once_in_the_section_that_fits_scheduled_heatin
 def test_the_oil_suggestion_stays_in_the_cheapest_section_while_scheduled_heating_cannot_exist():
     """With no temperature sensor there is no schedule switch and no Ready by section."""
     stored = generated_for(switch=True, oil=True)
-    devices = {Device.IMMERSION_SWITCH, Device.OIL_ADVICE}
+    devices = {Device.IMMERSION_SWITCH, Device.ALTERNATIVE_HEAT}
     assert _suggestion_homes(seen(stored, states_with(devices))) == [OIL_HEADING]
 
 
@@ -587,7 +587,7 @@ def test_the_oil_suggestion_arrives_in_a_file_made_before_the_price_was_set():
             Device.IMMERSION_SWITCH,
             Device.IMMERSION_SENSOR,
             Device.IMMERSION_THERMOSTAT,
-            Device.OIL_ADVICE,
+            Device.ALTERNATIVE_HEAT,
         }
     )
     assert _oil_cards_in_ready_by(seen(stored, after)) != []

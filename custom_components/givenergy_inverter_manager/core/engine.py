@@ -83,6 +83,19 @@ from ..const import (
 )
 from ..discovery import EVCharger, EVChargerState
 from ..logging import get_logger
+from .alt_heat_advice import (
+    AdviceInputs,
+    WaterHeatingAdvice,
+    advise_water_heating,
+    litre_heat_cost_per_kwh,
+)
+from .alt_heat_schedule import (
+    AltHeatSchedule,
+    ImmersionHeatLog,
+    ScheduleQuery,
+    suggest_alt_heat_schedule,
+)
+from .alt_heat_start import WaterReading
 from .battery import (
     BatteryStats,
     NightEstimateInputs,
@@ -99,14 +112,6 @@ from .charge_window import (
 )
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
-from .oil_advice import (
-    AdviceInputs,
-    WaterHeatingAdvice,
-    advise_water_heating,
-    oil_heat_cost_per_kwh,
-)
-from .oil_schedule import ImmersionHeatLog, OilSchedule, ScheduleQuery, suggest_oil_schedule
-from .oil_start import WaterReading
 from .planned_heating import PlanQuery, describe_planned_heating
 from .rules import (
     ChargeDecision,
@@ -287,8 +292,8 @@ class CoordinatorData:
     # Oil against electricity for heating the water. None while no oil price is set.
     water_heating_advice: WaterHeatingAdvice | None = None
     # The oil windows the immersion's grid heating suggests. None while no oil price is set or
-    # the record holds fewer than OIL_SCHEDULE_MIN_DAYS days. A separate line from the advice.
-    oil_schedule: OilSchedule | None = None
+    # the record holds fewer than ALT_HEAT_SCHEDULE_MIN_DAYS days. A separate line from the advice.
+    alt_heat_schedule: AltHeatSchedule | None = None
     immersion_heating_rate_c_per_h: float | None = None
     immersion_rate_source: str = ""
     today: EnergyAccumulator = field(default_factory=EnergyAccumulator)
@@ -1109,7 +1114,7 @@ def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
         AdviceInputs(
             tariff=cycle.tariff,
             now=cycle.now,
-            oil_cost_per_kwh=oil_heat_cost_per_kwh(price),
+            alt_cost_per_kwh=litre_heat_cost_per_kwh(price),
             ready_times=cycle.raw.immersion_ready_times,
             solar_surplus=_solar_surplus_to_divert(data, cycle),
             currency_symbol=data.currency_symbol,
@@ -1119,16 +1124,18 @@ def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
     )
 
 
-def _set_oil_schedule(data: CoordinatorData, cycle: _Cycle, log: ImmersionHeatLog | None) -> None:
+def _set_alt_heat_schedule(
+    data: CoordinatorData, cycle: _Cycle, log: ImmersionHeatLog | None
+) -> None:
     """The oil windows the record suggests. Nothing without an oil price or a record."""
     price = cycle.raw.oil_price_per_litre
     if price is None or log is None:
         return
-    data.oil_schedule = suggest_oil_schedule(
+    data.alt_heat_schedule = suggest_alt_heat_schedule(
         log,
         ScheduleQuery(
             today=cycle.now.date(),
-            oil_cost_per_kwh=oil_heat_cost_per_kwh(price),
+            alt_cost_per_kwh=litre_heat_cost_per_kwh(price),
             heater_kw=cycle.raw.immersion_wattage_w / 1000,
             currency_symbol=data.currency_symbol,
         ),
@@ -1640,7 +1647,7 @@ def build_coordinator_data(
     avg_daily_kwh = estimate_avg_daily_kwh(_baseline_house_kwh(data.today), now)
 
     _set_decisions(data, cycle, avg_daily_kwh, previous.held_charge)
-    _set_oil_schedule(data, cycle, accumulators.heat_log)
+    _set_alt_heat_schedule(data, cycle, accumulators.heat_log)
     _set_money_fields(data, cycle, accumulators)
     _calculate_ev_km(data, accumulators.today, inputs.cfg)
     _calculate_night_survival(data, cycle, avg_daily_kwh, previous.held_sunrise)

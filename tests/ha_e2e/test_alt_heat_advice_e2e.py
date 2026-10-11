@@ -131,12 +131,12 @@ class TestAddedLater:
         assert entity_id is not None
         await refresh(hass, config_entry)
         state = hass.states.get(entity_id)
-        assert state.state == "oil"
+        assert state.state == "alternative"
         # This install has a water temperature of 48.2, under the minimum of 50 plus the restart
         # gap of 5, so the suggestion is the keep-warm run, not the plain sentence.
         assert "run the oil water heating for about" in state.attributes["suggestion"]
-        assert state.attributes["oil_keep_warm"] == state.attributes["suggestion"]
-        assert state.attributes["oil_saving_per_kwh"] > 0
+        assert state.attributes["alt_keep_warm"] == state.attributes["suggestion"]
+        assert state.attributes["alt_saving_per_kwh"] > 0
 
     async def test_a_dear_price_says_electricity(self, hass_in_scenario, config_entry):
         hass = hass_in_scenario
@@ -145,7 +145,7 @@ class TestAddedLater:
         await refresh(hass, config_entry)
         state = hass.states.get(sensor_id(hass, config_entry))
         assert state.state == "electricity"
-        assert state.attributes["best_hours_for_oil"] == []
+        assert state.attributes["best_hours_for_alt"] == []
 
     async def test_clearing_the_price_removes_the_sensor(self, hass_in_scenario, config_entry):
         hass = hass_in_scenario
@@ -204,7 +204,7 @@ class TestPriceSensor:
         await set_up(hass, config_entry)
         entity_id = sensor_id(hass, config_entry)
         await refresh(hass, config_entry)
-        assert hass.states.get(entity_id).state == "oil"
+        assert hass.states.get(entity_id).state == "alternative"
 
         hass.states.async_set(PRICE_SENSOR, str(DEAR_OIL))
         await refresh(hass, config_entry)

@@ -29,7 +29,7 @@ class Device(StrEnum):
     # The switch and the sensor together. Target, minimum and restart gap only act then.
     IMMERSION_THERMOSTAT = "immersion_thermostat"
     # An oil price and the immersion switch together. The advice compares the two.
-    OIL_ADVICE = "oil_advice"
+    ALTERNATIVE_HEAT = "alternative_heat"
 
 
 def installed_devices(
@@ -44,6 +44,6 @@ def installed_devices(
         Device.IMMERSION_SWITCH: switch,
         Device.IMMERSION_SENSOR: sensor,
         Device.IMMERSION_THERMOSTAT: switch and sensor,
-        Device.OIL_ADVICE: switch and oil_price,
+        Device.ALTERNATIVE_HEAT: switch and oil_price,
     }
     return frozenset(device for device, here in present.items() if here)

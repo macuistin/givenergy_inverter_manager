@@ -24,8 +24,8 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
+from .core.alt_heat_schedule import ImmersionHeatLog
 from .core.immersion_rate import keep_run
-from .core.oil_schedule import ImmersionHeatLog
 from .core.rules import (
     ForecastAccuracy,
     build_load_profile,
@@ -291,7 +291,7 @@ class AccumulationState:
     immersion_heating_rates: list = field(default_factory=list)
 
     # The immersion's grid heating by local hour for the last 14 complete days and today, with
-    # what it cost. Filled only while an oil price is set. See core/oil_schedule.py.
+    # what it cost. Filled only while an oil price is set. See core/alt_heat_schedule.py.
     immersion_heat_log: ImmersionHeatLog = field(default_factory=ImmersionHeatLog)
 
     # Rolling 12-month export snapshots — one entry per completed billing month,

@@ -56,16 +56,16 @@ def test_an_oil_price_alone_is_no_device():
 
 
 def test_a_switch_alone_has_no_oil_advice():
-    assert Device.OIL_ADVICE not in installed_devices(SWITCH, ev_charger_found=False)
+    assert Device.ALTERNATIVE_HEAT not in installed_devices(SWITCH, ev_charger_found=False)
 
 
 @pytest.mark.parametrize("price", [OIL_PRICE, OIL_PRICE_SENSOR, {**OIL_PRICE, **OIL_PRICE_SENSOR}])
 def test_an_oil_price_and_a_switch_give_the_oil_advice(price):
     devices = installed_devices({**SWITCH, **price}, ev_charger_found=False)
-    assert devices == {Device.IMMERSION_SWITCH, Device.OIL_ADVICE}
+    assert devices == {Device.IMMERSION_SWITCH, Device.ALTERNATIVE_HEAT}
 
 
 @pytest.mark.parametrize("empty", [None, "", 0, 0.0])
 def test_an_unset_oil_price_is_no_oil_advice(empty):
     config = {**SWITCH, CONF_OIL_PRICE_PER_LITRE: empty, CONF_OIL_PRICE_ENTITY: empty}
-    assert Device.OIL_ADVICE not in installed_devices(config, ev_charger_found=False)
+    assert Device.ALTERNATIVE_HEAT not in installed_devices(config, ev_charger_found=False)

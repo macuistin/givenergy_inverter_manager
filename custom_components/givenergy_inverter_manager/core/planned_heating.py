@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, time
 
+from .alt_heat_start import WaterReading
 from .immersion_ready import (
     HeatingSpan,
     ReadyInputs,
@@ -31,7 +32,6 @@ from .immersion_ready import (
     plan_ready,
 )
 from .immersion_window import WindowOpening, next_window_opening
-from .oil_start import WaterReading
 from .tariff import TariffConfig
 
 _NO_READY_TIME = "No ready time is set."

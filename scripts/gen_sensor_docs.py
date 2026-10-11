@@ -501,23 +501,23 @@ DESCRIPTIONS: dict[str, str] = {
         "cost of a kWh of heat from the grid (after discount and VAT), from solar surplus (the "
         "export rate) and from oil (the price of a litre over 85% of 10.35 kWh). Advice only: "
         "the integration does not control the oil boiler. The `suggestion` attribute is a "
-        "sentence saying what to do and until when. Other attributes: `oil_cost_per_kwh`, "
+        "sentence saying what to do and until when. Other attributes: `alt_cost_per_kwh`, "
         "`electricity_cost_per_kwh`, `cheapest_electricity_cost_per_kwh` (to the next ready time "
-        "or 24 hours), `oil_saving_per_kwh` (negative when oil is dearer), `best_hours_for_oil`, "
+        "or 24 hours), `alt_saving_per_kwh` (negative when oil is dearer), `best_hours_for_alt`, "
         "`horizon`, `horizon_ends` and `cheapest_source_in_horizon`. With a water temperature "
         "reading it also says whether the water needs heating. While scheduled heating is on and "
         "a ready time is set, and oil is cheaper than the grid the immersion plan would use, it "
-        "adds `oil_start_by` (local time), `oil_run_minutes` and `oil_for_ready_time`: start the "
+        "adds `alt_start_by` (local time), `alt_run_minutes` and `alt_for_ready_time`: start the "
         "oil then and the immersion only tops up. Absent when no oil start is needed. "
-        "`oil_keep_warm` is a sentence, present while the water is at or below the lower of the "
+        "`alt_keep_warm` is a sentence, present while the water is at or below the lower of the "
         "minimum temperature plus the restart gap and the target less the restart gap, solar "
         "surplus is not heating it and oil is cheaper than the grid now. The suggestion puts the "
         "oil start first, then the keep-warm run. "
         "After 7 days of the immersion's grid heating it also suggests a recurring oil schedule, "
-        "apart from `suggestion`: `oil_schedule` (a list of `HH:MM to HH:MM` windows, empty when "
-        "nothing is worth suggesting), `oil_schedule_saving` (saved over the record, in your "
-        "currency), `oil_schedule_days` (complete days read, up to 14) and "
-        "`oil_schedule_suggestion` (the sentence, only with a schedule). All four are absent "
+        "apart from `suggestion`: `alt_schedule` (a list of `HH:MM to HH:MM` windows, empty when "
+        "nothing is worth suggesting), `alt_schedule_saving` (saved over the record, in your "
+        "currency), `alt_schedule_days` (complete days read, up to 14) and "
+        "`alt_schedule_suggestion` (the sentence, only with a schedule). All four are absent "
         "before 7 days. Use them in your own automations: the integration does not switch the "
         "oil system. "
         "Unavailable while the price cannot be read."
@@ -573,7 +573,7 @@ REQUIRES_NOTES: dict[str, str] = {
     "IMMERSION_SWITCH": "Created only with an immersion switch.",
     "IMMERSION_SENSOR": "Created only with an immersion temperature sensor.",
     "IMMERSION_THERMOSTAT": "Created only with an immersion switch and temperature sensor.",
-    "OIL_ADVICE": "Created only with an oil price and an immersion switch.",
+    "ALTERNATIVE_HEAT": "Created only with an oil price and an immersion switch.",
 }
 
 RETIRED_SENSORS: tuple[tuple[str, str], ...] = (

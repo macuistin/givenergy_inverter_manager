@@ -16,16 +16,16 @@ from custom_components.givenergy_inverter_manager.const import (
     OIL_BOILER_EFFICIENCY_PCT,
     OIL_KWH_PER_LITRE,
 )
-from custom_components.givenergy_inverter_manager.core.oil_advice import (
+from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
     ALL_DAY,
+    SOURCE_ALTERNATIVE,
     SOURCE_ELECTRICITY,
-    SOURCE_OIL,
     SOURCE_SOLAR,
     AdviceInputs,
     advise_water_heating,
-    oil_heat_cost_per_kwh,
+    litre_heat_cost_per_kwh,
 )
-from custom_components.givenergy_inverter_manager.core.oil_start import WaterReading
+from custom_components.givenergy_inverter_manager.core.alt_heat_start import WaterReading
 from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
 
 DUBLIN = ZoneInfo("Europe/Dublin")
@@ -63,18 +63,18 @@ def advise(now: datetime, per_kwh: float, tariff=TIMED, **kwargs):
 class TestOilCost:
     def test_it_is_the_price_over_the_heat_a_litre_gives(self):
         heat_per_litre = OIL_KWH_PER_LITRE * OIL_BOILER_EFFICIENCY_PCT / 100
-        assert oil_heat_cost_per_kwh(1.00) == pytest.approx(1.00 / heat_per_litre)
+        assert litre_heat_cost_per_kwh(1.00) == pytest.approx(1.00 / heat_per_litre)
 
     def test_the_assumptions_are_a_typical_boiler_and_kerosene(self):
         assert OIL_KWH_PER_LITRE == pytest.approx(10.35)
         assert OIL_BOILER_EFFICIENCY_PCT == 85
 
     def test_a_dearer_litre_costs_more_per_kwh(self):
-        assert oil_heat_cost_per_kwh(1.20) > oil_heat_cost_per_kwh(0.90)
+        assert litre_heat_cost_per_kwh(1.20) > litre_heat_cost_per_kwh(0.90)
 
     def test_a_negative_price_is_refused(self):
         with pytest.raises(ValueError, match="oil price"):
-            oil_heat_cost_per_kwh(-0.1)
+            litre_heat_cost_per_kwh(-0.1)
 
 
 class TestElectricityCost:
@@ -93,7 +93,7 @@ class TestElectricityCost:
         taxed = build_tariff(
             {"base_rate": 0.30, "rate_periods": [], "vat_rate": 10, "discount_rate": 10}
         )
-        assert advise(at(12), 0.29, taxed).source == SOURCE_OIL
+        assert advise(at(12), 0.29, taxed).source == SOURCE_ALTERNATIVE
         assert advise(at(12), 0.30, taxed).source == SOURCE_ELECTRICITY
 
     def test_the_cheapest_electricity_is_the_cheapest_rate_in_the_next_day(self):
@@ -110,7 +110,7 @@ class TestOilDearerThanEveryRate:
         for hour in range(24):
             advice = advise(at(hour), 0.40)
             assert advice.source == SOURCE_ELECTRICITY, hour
-            assert advice.oil_hours == (), hour
+            assert advice.alt_hours == (), hour
 
     def test_the_sentence_says_electricity_is_cheaper_for_the_day(self):
         advice = advise(at(12), 0.40)
@@ -118,7 +118,7 @@ class TestOilDearerThanEveryRate:
         assert "immersion" in advice.suggestion
 
     def test_the_saving_of_oil_is_negative(self):
-        assert advise(at(12), 0.40).oil_saving_per_kwh == pytest.approx(0.30 - 0.40)
+        assert advise(at(12), 0.40).alt_saving_per_kwh == pytest.approx(0.30 - 0.40)
 
 
 class TestOilBetweenTheBaseRateAndTheCheapWindow:
@@ -126,8 +126,8 @@ class TestOilBetweenTheBaseRateAndTheCheapWindow:
 
     def test_in_the_day_oil_is_the_cheapest_source(self):
         advice = advise(at(12), 0.20)
-        assert advice.source == SOURCE_OIL
-        assert advice.oil_saving_per_kwh == pytest.approx(0.10)
+        assert advice.source == SOURCE_ALTERNATIVE
+        assert advice.alt_saving_per_kwh == pytest.approx(0.10)
 
     def test_the_sentence_names_the_end_of_the_oil_hours_and_the_saving(self):
         advice = advise(at(12), 0.20)
@@ -139,7 +139,7 @@ class TestOilBetweenTheBaseRateAndTheCheapWindow:
     def test_in_the_cheap_window_electricity_is_the_cheapest_source(self):
         advice = advise(at(1), 0.20)
         assert advice.source == SOURCE_ELECTRICITY
-        assert advice.oil_saving_per_kwh == pytest.approx(-0.05)
+        assert advice.alt_saving_per_kwh == pytest.approx(-0.05)
 
     def test_the_sentence_in_the_window_says_when_oil_is_cheaper(self):
         advice = advise(at(1), 0.20)
@@ -147,20 +147,20 @@ class TestOilBetweenTheBaseRateAndTheCheapWindow:
         assert "Oil is cheaper than electricity from 08:00 to 23:00" in advice.suggestion
 
     def test_the_best_hours_for_oil_are_the_day_rate_hours(self):
-        assert advise(at(12), 0.20).oil_hours == ("12:00 to 23:00", "08:00 to 12:00")
+        assert advise(at(12), 0.20).alt_hours == ("12:00 to 23:00", "08:00 to 12:00")
 
     def test_asked_in_the_night_the_hours_start_when_the_day_rate_does(self):
-        assert advise(at(1), 0.20).oil_hours == ("08:00 to 23:00",)
+        assert advise(at(1), 0.20).alt_hours == ("08:00 to 23:00",)
 
     def test_the_source_flips_when_the_night_rate_starts(self):
-        assert advise(at(22, 59), 0.20).source == SOURCE_OIL
+        assert advise(at(22, 59), 0.20).source == SOURCE_ALTERNATIVE
         assert advise(at(23), 0.20).source == SOURCE_ELECTRICITY
 
 
 class TestWaitingForAnotherWindow:
     def test_oil_now_mentions_a_cheaper_electricity_window_to_come(self):
         advice = advise(at(18), 0.12, NIGHT_BOOST)
-        assert advice.source == SOURCE_OIL
+        assert advice.source == SOURCE_ALTERNATIVE
         assert "If the water can wait, electricity is cheapest from 02:00 to 04:00" in advice.suggestion
 
     def test_no_such_sentence_when_oil_beats_every_window(self):
@@ -179,7 +179,7 @@ class TestWaitingForAnotherWindow:
 
     def test_a_ready_time_before_the_cheap_window_leaves_oil_the_cheapest(self):
         advice = advise(at(18), 0.12, NIGHT_BOOST, ready_times=(time(22, 0),))
-        assert advice.cheapest_source_in_horizon == SOURCE_OIL
+        assert advice.cheapest_source_in_horizon == SOURCE_ALTERNATIVE
         assert advice.cheapest_electricity_cost_per_kwh == pytest.approx(0.30)
         assert "can wait" not in advice.suggestion
 
@@ -190,7 +190,7 @@ class TestWaitingForAnotherWindow:
 
     def test_the_best_hours_are_still_the_whole_day_with_a_ready_time(self):
         with_ready = advise(at(18), 0.20, ready_times=(time(21, 0),))
-        assert with_ready.oil_hours == advise(at(18), 0.20).oil_hours
+        assert with_ready.alt_hours == advise(at(18), 0.20).alt_hours
 
 
 class TestSolarSurplus:
@@ -206,16 +206,16 @@ class TestSolarSurplus:
             {"base_rate": 0.30, "export_rate": 0.25, "rate_periods": [], **NO_TAX}
         )
         advice = advise(at(12), 0.20, rich, solar_surplus=True)
-        assert advice.source == SOURCE_OIL
-        assert advice.oil_saving_per_kwh == pytest.approx(0.05)
+        assert advice.source == SOURCE_ALTERNATIVE
+        assert advice.alt_saving_per_kwh == pytest.approx(0.05)
 
     def test_the_saving_is_against_the_cheapest_electric_source(self):
         with_surplus = advise(at(12), 0.20, solar_surplus=True)
-        assert with_surplus.oil_saving_per_kwh == pytest.approx(0.15 - 0.20)
-        assert advise(at(12), 0.20).oil_saving_per_kwh == pytest.approx(0.10)
+        assert with_surplus.alt_saving_per_kwh == pytest.approx(0.15 - 0.20)
+        assert advise(at(12), 0.20).alt_saving_per_kwh == pytest.approx(0.10)
 
     def test_with_no_surplus_the_export_rate_is_not_a_source(self):
-        assert advise(at(12), 0.20).source == SOURCE_OIL
+        assert advise(at(12), 0.20).source == SOURCE_ALTERNATIVE
 
     def test_free_solar_beats_free_oil(self):
         free_export = build_tariff(
@@ -225,7 +225,7 @@ class TestSolarSurplus:
         assert advice.source == SOURCE_SOLAR
 
     def test_the_hours_for_oil_ignore_solar(self):
-        assert advise(at(12), 0.20, solar_surplus=True).oil_hours == advise(at(12), 0.20).oil_hours
+        assert advise(at(12), 0.20, solar_surplus=True).alt_hours == advise(at(12), 0.20).alt_hours
 
     def test_the_day_ahead_counts_solar_as_a_source_when_it_is_there_now(self):
         advice = advise(at(18), 0.20, solar_surplus=True)
@@ -235,15 +235,15 @@ class TestSolarSurplus:
 class TestFlatTariff:
     def test_oil_cheaper_than_the_one_rate_is_cheaper_all_day(self):
         advice = advise(at(12), 0.20, FLAT)
-        assert advice.source == SOURCE_OIL
-        assert advice.oil_hours == (ALL_DAY,)
+        assert advice.source == SOURCE_ALTERNATIVE
+        assert advice.alt_hours == (ALL_DAY,)
         assert "for the next 24 hours" in advice.suggestion
         assert "until" not in advice.suggestion
 
     def test_oil_dearer_than_the_one_rate_is_never_suggested(self):
         advice = advise(at(12), 0.40, FLAT)
         assert advice.source == SOURCE_ELECTRICITY
-        assert advice.oil_hours == ()
+        assert advice.alt_hours == ()
 
     def test_the_cheapest_electricity_is_the_one_rate(self):
         assert advise(at(12), 0.20, FLAT).cheapest_electricity_cost_per_kwh == pytest.approx(0.30)
@@ -270,7 +270,7 @@ class TestEdges:
             }
         )
         advice = advise(at(21), 0.20, reverse)
-        assert advice.oil_hours == ("17:00 to 20:00",)
+        assert advice.alt_hours == ("17:00 to 20:00",)
         assert advice.source == SOURCE_ELECTRICITY
 
     def test_a_peak_after_now_gives_oil_hours_that_start_later(self):
@@ -282,14 +282,14 @@ class TestEdges:
             }
         )
         advice = advise(at(12), 0.20, peak)
-        assert advice.oil_hours == ("17:00 to 20:00",)
+        assert advice.alt_hours == ("17:00 to 20:00",)
         assert "Oil is cheaper than electricity from 17:00 to 20:00" in advice.suggestion
 
     def test_a_day_ahead_that_gains_an_hour_still_ends_at_the_same_clock_time(self):
         """The clocks go back in the small hours of 25 October, so the next 24 hours end at 11:00."""
         before_change = datetime(2026, 10, 24, 12, 0, tzinfo=DUBLIN)
         advice = advise(before_change, 0.20)
-        assert advice.oil_hours == ("12:00 to 23:00", "08:00 to 11:00")
+        assert advice.alt_hours == ("12:00 to 23:00", "08:00 to 11:00")
 
 
 # -- the water, the ready-by oil start and the keep-warm run --
@@ -315,15 +315,15 @@ class TestTheOilStartSentence:
         )
 
     def test_the_start_and_the_ready_time_are_in_the_data(self):
-        start = advise(at(15), 0.20, water=water(), **READY).oil_start
+        start = advise(at(15), 0.20, water=water(), **READY).alt_start
         assert (start.start_by, start.run_minutes, start.ready_at) == (at(15, 32), 104, at(19))
 
     def test_the_source_and_the_other_figures_are_what_they_were(self):
         with_water = advise(at(15), 0.20, water=water(), **READY)
         without = advise(at(15), 0.20, **READY)
-        assert with_water.source == without.source == SOURCE_OIL
-        assert with_water.oil_hours == without.oil_hours
-        assert with_water.oil_saving_per_kwh == without.oil_saving_per_kwh
+        assert with_water.source == without.source == SOURCE_ALTERNATIVE
+        assert with_water.alt_hours == without.alt_hours
+        assert with_water.alt_saving_per_kwh == without.alt_saving_per_kwh
 
     def test_a_flat_tariff_suggests_a_start_too(self):
         advice = advise(at(15), 0.20, FLAT, water=water(), **READY)
@@ -345,23 +345,23 @@ class TestTheOilStartSentence:
 
     def test_two_ready_times_give_the_next_one(self):
         both = {"ready_times": (time(7), time(19)), "scheduled_heating": True}
-        assert advise(at(8), 0.20, FLAT, water=water(), **both).oil_start.ready_at == at(19)
-        assert advise(at(20), 0.20, FLAT, water=water(), **both).oil_start.ready_at == at(
+        assert advise(at(8), 0.20, FLAT, water=water(), **both).alt_start.ready_at == at(19)
+        assert advise(at(20), 0.20, FLAT, water=water(), **both).alt_start.ready_at == at(
             7, day=16
         )
 
     def test_scheduled_heating_off_means_no_immersion_to_top_up_so_no_start(self):
         advice = advise(at(15), 0.20, water=water(), ready_times=(time(19),))
-        assert advice.oil_start is None
+        assert advice.alt_start is None
         assert advice.suggestion.endswith("Heat the water with the oil system now.")
 
     def test_no_ready_time_means_no_start(self):
         advice = advise(at(15), 0.20, water=water(), scheduled_heating=True)
-        assert advice.oil_start is None
+        assert advice.alt_start is None
 
     def test_no_water_reading_leaves_the_sentence_as_it_was(self):
         advice = advise(at(15), 0.20, **READY)
-        assert advice.oil_start is None
+        assert advice.alt_start is None
         assert advice.suggestion.endswith("Heat the water with the oil system now.")
 
 
@@ -370,7 +370,7 @@ class TestNoStartForATrivialTopUp:
 
     def test_water_at_54_point_4_says_no_heating_is_needed_and_not_a_start(self):
         advice = advise(at(15), 0.20, water=water(temp=54.4, gap=4.0), **READY)
-        assert advice.oil_start is None
+        assert advice.alt_start is None
         assert advice.suggestion == (
             "For the 19:00 ready time: the water is expected to be ready with no heating needed."
         )
@@ -386,16 +386,16 @@ class TestNoStartForATrivialTopUp:
 
     def test_cold_water_still_gets_a_start(self):
         advice = advise(at(15), 0.20, water=water(temp=40.0, gap=4.0), **READY)
-        assert advice.oil_start.start_by == at(15, 32)
+        assert advice.alt_start.start_by == at(15, 32)
         assert "turn the oil water heating on at 15:32" in advice.suggestion
 
     def test_water_just_below_the_restart_threshold_gets_a_start(self):
         advice = advise(at(15), 0.20, water=water(temp=50.9, gap=4.0), **READY)
-        assert advice.oil_start.start_by is not None
+        assert advice.alt_start.start_by is not None
 
     def test_water_at_the_restart_threshold_gets_none(self):
         advice = advise(at(15), 0.20, water=water(temp=51.0, gap=4.0), **READY)
-        assert advice.oil_start is None
+        assert advice.alt_start is None
         assert "no heating needed" in advice.suggestion
 
     def test_without_scheduled_heating_the_sentence_is_the_plain_one(self):
@@ -411,7 +411,7 @@ class TestNoStartForATrivialTopUp:
 class TestNoOilStartNeeded:
     def test_electricity_in_the_cheap_slot_beats_oil_for_the_morning(self):
         advice = advise(at(1), 0.20, water=water(), ready_times=(time(7),), scheduled_heating=True)
-        assert advice.oil_start.start_by is None
+        assert advice.alt_start.start_by is None
         assert advice.suggestion == (
             "For the 07:00 ready time: electricity is cheaper than oil, so the immersion will "
             "heat the water."
@@ -419,7 +419,7 @@ class TestNoOilStartNeeded:
 
     def test_the_night_band_before_a_morning_ready_time_beats_oil_even_when_oil_is_cheaper_now(self):
         advice = advise(at(15), 0.20, water=water(), ready_times=(time(7),), scheduled_heating=True)
-        assert advice.source == SOURCE_OIL
+        assert advice.source == SOURCE_ALTERNATIVE
         assert "For tomorrow's 07:00 ready time: electricity is cheaper than oil" in advice.suggestion
 
     def test_solar_surplus_cheaper_than_oil_leaves_it_to_the_immersion(self):
@@ -432,7 +432,7 @@ class TestNoOilStartNeeded:
 
     def test_water_already_at_the_target_says_there_is_nothing_to_heat(self):
         advice = advise(at(15), 0.20, water=water(temp=55.0), **READY)
-        assert advice.oil_start is None
+        assert advice.alt_start is None
         assert advice.suggestion == (
             "Oil is cheaper than electricity until 23:00 (saves about €0.10 per kWh of heat). "
             + AT_TARGET
@@ -500,5 +500,5 @@ class TestKeepWarm:
         advice = advise(
             at(15), 0.16, water=self.COLD_ISH, ready_times=(time(7),), scheduled_heating=True
         )
-        assert advice.oil_start.start_by is None
+        assert advice.alt_start.start_by is None
         assert advice.suggestion == self.TEXT

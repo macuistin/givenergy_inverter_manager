@@ -1,5 +1,5 @@
 """
-oil_start.py: when to start the oil water heating so the oil does the work, not the immersion.
+alt_heat_start.py: when to start the oil water heating so the oil does the work, not the immersion.
 
 Two pieces of advice, both from the water temperature, the immersion's own heating rate and the
 margin the ready-by plan uses:
@@ -91,12 +91,12 @@ class StartQuery:
     tariff: TariffConfig
     now: datetime
     water: WaterReading
-    oil_cost_per_kwh: float
+    alt_cost_per_kwh: float
     solar_cost: float | None = None
 
 
 @dataclass(frozen=True)
-class OilStart:
+class AltHeatStart:
     """The oil run for one ready time. start_by is None when oil is not the cheaper heat.
 
     electric_cost_per_kwh is what the immersion plan costs per kWh of heat, or the export rate
@@ -122,7 +122,7 @@ def _to_the_minute(moment: datetime) -> datetime:
     return moment.replace(second=0, microsecond=0)
 
 
-def suggest_oil_start(query: StartQuery, ready_at: datetime) -> OilStart | None:
+def suggest_alt_heat_start(query: StartQuery, ready_at: datetime) -> AltHeatStart | None:
     """The oil run for this ready time, None when the water needs no heating (see needs_heating)."""
     if not query.water.needs_heating:
         return None
@@ -131,14 +131,14 @@ def suggest_oil_start(query: StartQuery, ready_at: datetime) -> OilStart | None:
     grid = query.tariff.effective_import_rate(placed.average_rate)
     by_solar = query.solar_cost is not None and query.solar_cost < grid
     electric = query.solar_cost if by_solar else grid
-    saving = electric - query.oil_cost_per_kwh
+    saving = electric - query.alt_cost_per_kwh
     run_minutes = _whole_minutes(needed)
     if saving <= 0:
-        return OilStart(ready_at, electric, by_solar, saving, run_minutes, None, False)
+        return AltHeatStart(ready_at, electric, by_solar, saving, run_minutes, None, False)
     latest = shift_real(placed.starts_at, -timedelta(minutes=run_minutes))
     late = elapsed_seconds(query.now, latest) < 0
     start = _to_the_minute(query.now if late else latest)
-    return OilStart(ready_at, electric, by_solar, saving, run_minutes, start, late)
+    return AltHeatStart(ready_at, electric, by_solar, saving, run_minutes, start, late)
 
 
 def round_up_run_minutes(hours: float) -> int:
@@ -147,13 +147,13 @@ def round_up_run_minutes(hours: float) -> int:
     return max(steps, 1) * _RUN_ROUND_MINUTES
 
 
-def keep_warm_minutes(water: WaterReading, grid_cost_now: float, oil_cost: float) -> int | None:
+def keep_warm_minutes(water: WaterReading, grid_cost_now: float, alt_cost: float) -> int | None:
     """Minutes of oil to lift cooling water to the target, None when it is not worth running.
 
     Rounded up to a multiple of five. The caller leaves solar surplus out: surplus that is
     already heating the water needs no oil.
     """
-    if water.temp > water.keep_warm_below or oil_cost >= grid_cost_now:
+    if water.temp > water.keep_warm_below or alt_cost >= grid_cost_now:
         return None
     needed = water.hours_to_target
     if needed <= 0:

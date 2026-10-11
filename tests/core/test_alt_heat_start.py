@@ -14,15 +14,15 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from custom_components.givenergy_inverter_manager.const import CHARGE_WINDOW_MARGIN
-from custom_components.givenergy_inverter_manager.core.immersion_ready import (
-    ReadyInputs,
-    plan_ready,
-)
-from custom_components.givenergy_inverter_manager.core.oil_start import (
+from custom_components.givenergy_inverter_manager.core.alt_heat_start import (
     StartQuery,
     WaterReading,
     keep_warm_minutes,
-    suggest_oil_start,
+    suggest_alt_heat_start,
+)
+from custom_components.givenergy_inverter_manager.core.immersion_ready import (
+    ReadyInputs,
+    plan_ready,
 )
 from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
 
@@ -51,7 +51,7 @@ def water(temp: float = 40.0, min_temp: float = 45.0, gap: float = 5.0) -> Water
 
 def suggest(now, ready, tariff=TIMED, oil=0.20, solar=None, reading=None):
     query = StartQuery(tariff, now, reading or water(), oil, solar)
-    return suggest_oil_start(query, ready)
+    return suggest_alt_heat_start(query, ready)
 
 
 class TestTheOilStart:

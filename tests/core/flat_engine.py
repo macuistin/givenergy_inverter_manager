@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any
 
 from custom_components.givenergy_inverter_manager.core import engine
+from custom_components.givenergy_inverter_manager.core.alt_heat_schedule import ImmersionHeatLog
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.engine import (
@@ -23,7 +24,6 @@ from custom_components.givenergy_inverter_manager.core.engine import (
     PreviousCycle,
     RawSensorValues,
 )
-from custom_components.givenergy_inverter_manager.core.oil_schedule import ImmersionHeatLog
 from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator, TariffConfig

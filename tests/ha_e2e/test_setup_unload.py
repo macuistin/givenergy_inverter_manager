@@ -36,7 +36,7 @@ async def test_platforms_register_expected_entities(hass, loaded_entry):
     # The full config has an immersion switch and sensor but no EV charger to discover and
     # no oil price.
     assert len(by_domain["sensor"]) == len(
-        [d for d in SENSOR_DESCRIPTIONS if d.requires not in (Device.EV_CHARGER, Device.OIL_ADVICE)]
+        [d for d in SENSOR_DESCRIPTIONS if d.requires not in (Device.EV_CHARGER, Device.ALTERNATIVE_HEAT)]
     )
     assert len(by_domain["switch"]) == 5  # includes the immersion switches
     assert len(by_domain["number"]) == 4

@@ -608,9 +608,9 @@ class TestOilStartForAReadyTime:
         at(freezer, "12:00:00")
         await cycle(hass, loaded_entry)
         attributes = hass.states.get(self.OIL_SENSOR).attributes
-        assert attributes["oil_for_ready_time"] == "19:00"
-        assert "16:00" < attributes["oil_start_by"] < "17:30"
-        assert attributes["oil_run_minutes"] > 0
+        assert attributes["alt_for_ready_time"] == "19:00"
+        assert "16:00" < attributes["alt_start_by"] < "17:30"
+        assert attributes["alt_run_minutes"] > 0
         assert attributes["suggestion"].startswith("For the 19:00 ready time: turn the oil water")
         assert real_switch.calls == []
 
@@ -622,7 +622,7 @@ class TestOilStartForAReadyTime:
         at(freezer, "12:00:00")
         await cycle(hass, loaded_entry)
         attributes = hass.states.get(self.OIL_SENSOR).attributes
-        assert "oil_keep_warm" in attributes
+        assert "alt_keep_warm" in attributes
         assert attributes["suggestion"].startswith("For the 19:00 ready time")
 
     async def test_warm_water_has_no_start_and_no_keep_warm(
@@ -633,6 +633,6 @@ class TestOilStartForAReadyTime:
         at(freezer, "12:00:00")
         await cycle(hass, loaded_entry)
         attributes = hass.states.get(self.OIL_SENSOR).attributes
-        assert "oil_start_by" not in attributes
-        assert "oil_keep_warm" not in attributes
+        assert "alt_start_by" not in attributes
+        assert "alt_keep_warm" not in attributes
         assert attributes["suggestion"].endswith("so there is nothing to heat.")

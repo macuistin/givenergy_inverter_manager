@@ -10,9 +10,9 @@ from custom_components.givenergy_inverter_manager.const import (
     OIL_BOILER_EFFICIENCY_PCT,
     OIL_KWH_PER_LITRE,
 )
-from custom_components.givenergy_inverter_manager.core.oil_advice import (
+from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
+    SOURCE_ALTERNATIVE,
     SOURCE_ELECTRICITY,
-    SOURCE_OIL,
     SOURCE_SOLAR,
 )
 from tests.conftest import _raw, _run
@@ -44,8 +44,8 @@ class TestWhenThereIsAdvice:
 
     def test_with_a_price_the_advice_compares_it_with_the_tariff(self):
         advice = advice_at(12, oil_price_per_litre=price_for(0.20))
-        assert advice.source == SOURCE_OIL
-        assert advice.oil_cost_per_kwh == pytest.approx(0.20)
+        assert advice.source == SOURCE_ALTERNATIVE
+        assert advice.alt_cost_per_kwh == pytest.approx(0.20)
         assert advice.electricity_cost_per_kwh == pytest.approx(0.30)
 
     def test_in_the_cheap_window_electricity_is_the_cheaper_source(self):
@@ -74,13 +74,13 @@ class TestWhatItReads:
         advice = advice_at(
             12, solar_power_w=4500.0, battery_soc=20.0, oil_price_per_litre=price_for(0.20)
         )
-        assert advice.source == SOURCE_OIL
+        assert advice.source == SOURCE_ALTERNATIVE
 
     def test_a_small_surplus_is_not_solar(self):
         advice = advice_at(
             12, solar_power_w=450.0, battery_soc=95.0, oil_price_per_litre=price_for(0.20)
         )
-        assert advice.source == SOURCE_OIL
+        assert advice.source == SOURCE_ALTERNATIVE
 
     def test_the_ready_times_set_the_horizon_even_with_scheduled_heating_off(self):
         advice = advice_at(
@@ -110,7 +110,7 @@ def cycle(hour: int, minute: int = 0, **raw):
 class TestTheOilStart:
     def test_cold_water_and_cheaper_oil_get_a_start_for_the_next_ready_time(self):
         advice = cycle(15, oil_price_per_litre=price_for(0.20), **READY_AT_19).water_heating_advice
-        assert advice.oil_start.start_by == datetime(2026, 12, 15, 15, 32)
+        assert advice.alt_start.start_by == datetime(2026, 12, 15, 15, 32)
         assert advice.suggestion.startswith(
             "For the 19:00 ready time: turn the oil water heating on at 15:32 (about 104 minutes)."
         )
@@ -129,24 +129,24 @@ class TestTheOilStart:
     def test_scheduled_heating_off_gives_no_start(self):
         raw = {**READY_AT_19, "immersion_schedule_enabled": False}
         advice = cycle(15, oil_price_per_litre=price_for(0.20), **raw).water_heating_advice
-        assert advice.oil_start is None
+        assert advice.alt_start is None
 
     def test_no_temperature_reading_gives_no_start_and_the_old_sentence(self):
         raw = {**READY_AT_19, "immersion_temp": None}
         advice = cycle(15, oil_price_per_litre=price_for(0.20), **raw).water_heating_advice
-        assert advice.oil_start is None
+        assert advice.alt_start is None
         assert advice.suggestion.endswith("Heat the water with the oil system now.")
 
     def test_water_at_the_target_gets_no_start_and_says_so(self):
         raw = {**READY_AT_19, "immersion_temp": 56.0}
         advice = cycle(15, oil_price_per_litre=price_for(0.20), **raw).water_heating_advice
-        assert advice.oil_start is None
+        assert advice.alt_start is None
         assert advice.suggestion.endswith("so there is nothing to heat.")
 
     def test_electricity_cheaper_for_the_ready_time_gives_no_start(self):
         raw = {**READY_AT_19, "immersion_ready_times": (time(7, 0),)}
         advice = cycle(1, oil_price_per_litre=price_for(0.20), **raw).water_heating_advice
-        assert advice.oil_start.start_by is None
+        assert advice.alt_start.start_by is None
 
     def test_no_oil_price_gives_no_advice_at_all(self):
         assert cycle(15, **READY_AT_19).water_heating_advice is None

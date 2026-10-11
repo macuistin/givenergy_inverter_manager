@@ -333,16 +333,18 @@ class TestImmersionWaterAttributes:
 
 class TestWaterHeatingAdvice:
     def _data(self):
-        from custom_components.givenergy_inverter_manager.core.oil_advice import WaterHeatingAdvice
+        from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
+            WaterHeatingAdvice,
+        )
 
         advice = WaterHeatingAdvice(
-            source="oil",
+            source="alternative",
             suggestion="Oil is cheaper than electricity until 23:00.",
-            oil_cost_per_kwh=0.2000004,
+            alt_cost_per_kwh=0.2000004,
             electricity_cost_per_kwh=0.3,
             cheapest_electricity_cost_per_kwh=0.15,
-            oil_saving_per_kwh=0.0999996,
-            oil_hours=("12:00 to 23:00",),
+            alt_saving_per_kwh=0.0999996,
+            alt_hours=("12:00 to 23:00",),
             horizon="ready_by",
             horizon_ends="07:00",
             cheapest_source_in_horizon="electricity",
@@ -350,7 +352,7 @@ class TestWaterHeatingAdvice:
         return make_data(water_heating_advice=advice)
 
     def test_the_state_is_the_cheapest_source(self):
-        assert values.water_heating_source(self._data()) == "oil"
+        assert values.water_heating_source(self._data()) == "alternative"
 
     def test_no_state_without_advice(self):
         assert values.water_heating_source(make_data()) is None
@@ -359,11 +361,11 @@ class TestWaterHeatingAdvice:
     def test_the_attributes_carry_the_sentence_and_the_figures(self):
         assert values.water_heating_attributes(self._data()) == {
             "suggestion": "Oil is cheaper than electricity until 23:00.",
-            "oil_cost_per_kwh": 0.2,
+            "alt_cost_per_kwh": 0.2,
             "electricity_cost_per_kwh": 0.3,
             "cheapest_electricity_cost_per_kwh": 0.15,
-            "oil_saving_per_kwh": 0.1,
-            "best_hours_for_oil": ["12:00 to 23:00"],
+            "alt_saving_per_kwh": 0.1,
+            "best_hours_for_alt": ["12:00 to 23:00"],
             "horizon": "ready_by",
             "horizon_ends": "07:00",
             "cheapest_source_in_horizon": "electricity",
@@ -374,10 +376,12 @@ class TestOilStartAttributes:
     def _data(self, start_by, keep_warm=None):
         from datetime import datetime
 
-        from custom_components.givenergy_inverter_manager.core.oil_advice import WaterHeatingAdvice
-        from custom_components.givenergy_inverter_manager.core.oil_start import OilStart
+        from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
+            WaterHeatingAdvice,
+        )
+        from custom_components.givenergy_inverter_manager.core.alt_heat_start import AltHeatStart
 
-        start = OilStart(
+        start = AltHeatStart(
             ready_at=datetime(2026, 12, 15, 19, 0),
             electric_cost_per_kwh=0.3,
             by_solar=False,
@@ -387,17 +391,17 @@ class TestOilStartAttributes:
             late=False,
         )
         advice = WaterHeatingAdvice(
-            source="oil",
+            source="alternative",
             suggestion="s",
-            oil_cost_per_kwh=0.2,
+            alt_cost_per_kwh=0.2,
             electricity_cost_per_kwh=0.3,
             cheapest_electricity_cost_per_kwh=0.3,
-            oil_saving_per_kwh=0.1,
-            oil_hours=(),
+            alt_saving_per_kwh=0.1,
+            alt_hours=(),
             horizon="ready_by",
             horizon_ends="19:00",
-            cheapest_source_in_horizon="oil",
-            oil_start=start,
+            cheapest_source_in_horizon="alternative",
+            alt_start=start,
             keep_warm=keep_warm,
         )
         return make_data(water_heating_advice=advice)
@@ -406,44 +410,48 @@ class TestOilStartAttributes:
         from datetime import datetime
 
         attrs = values.water_heating_attributes(self._data(datetime(2026, 12, 15, 16, 30)))
-        assert attrs["oil_start_by"] == "16:30"
-        assert attrs["oil_run_minutes"] == 90
-        assert attrs["oil_for_ready_time"] == "19:00"
-        assert "oil_keep_warm" not in attrs
+        assert attrs["alt_start_by"] == "16:30"
+        assert attrs["alt_run_minutes"] == 90
+        assert attrs["alt_for_ready_time"] == "19:00"
+        assert "alt_keep_warm" not in attrs
 
     def test_no_start_leaves_the_three_attributes_out(self):
         attrs = values.water_heating_attributes(self._data(None))
-        assert not {"oil_start_by", "oil_run_minutes", "oil_for_ready_time"} & set(attrs)
+        assert not {"alt_start_by", "alt_run_minutes", "alt_for_ready_time"} & set(attrs)
 
     def test_keep_warm_is_the_sentence_or_absent(self):
-        assert values.water_heating_attributes(self._data(None, "Run the oil."))["oil_keep_warm"] == "Run the oil."
-        assert "oil_keep_warm" not in values.water_heating_attributes(self._data(None))
+        assert values.water_heating_attributes(self._data(None, "Run the oil."))["alt_keep_warm"] == "Run the oil."
+        assert "alt_keep_warm" not in values.water_heating_attributes(self._data(None))
 
 
 class TestOilScheduleAttributes:
-    """oil_schedule, oil_schedule_saving, oil_schedule_days and the sentence, apart from suggestion."""
+    """alt_schedule, alt_schedule_saving, alt_schedule_days and the sentence, apart from suggestion."""
 
     SENTENCE = "Over the last 10 days the immersion used about 15 kWh. Running the oil from 12:30 to 13:00."
 
     def _data(self, schedule):
-        from custom_components.givenergy_inverter_manager.core.oil_advice import WaterHeatingAdvice
+        from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
+            WaterHeatingAdvice,
+        )
 
         advice = WaterHeatingAdvice(
-            source="oil",
+            source="alternative",
             suggestion="Live suggestion.",
-            oil_cost_per_kwh=0.2,
+            alt_cost_per_kwh=0.2,
             electricity_cost_per_kwh=0.3,
             cheapest_electricity_cost_per_kwh=0.3,
-            oil_saving_per_kwh=0.1,
-            oil_hours=(),
+            alt_saving_per_kwh=0.1,
+            alt_hours=(),
             horizon="next_24_hours",
             horizon_ends="12:00",
-            cheapest_source_in_horizon="oil",
+            cheapest_source_in_horizon="alternative",
         )
-        return make_data(water_heating_advice=advice, oil_schedule=schedule)
+        return make_data(water_heating_advice=advice, alt_heat_schedule=schedule)
 
     def _schedule(self, **fields):
-        from custom_components.givenergy_inverter_manager.core.oil_schedule import OilSchedule
+        from custom_components.givenergy_inverter_manager.core.alt_heat_schedule import (
+            AltHeatSchedule,
+        )
 
         defaults = {
             "days": 10,
@@ -451,14 +459,14 @@ class TestOilScheduleAttributes:
             "saving": 5.8765,
             "sentence": self.SENTENCE,
         }
-        return OilSchedule(**{**defaults, **fields})
+        return AltHeatSchedule(**{**defaults, **fields})
 
     def test_with_a_suggestion_the_four_attributes_are_present(self):
         attrs = values.water_heating_attributes(self._data(self._schedule()))
-        assert attrs["oil_schedule"] == ["12:30 to 13:00", "18:00 to 19:00"]
-        assert attrs["oil_schedule_saving"] == 5.88
-        assert attrs["oil_schedule_days"] == 10
-        assert attrs["oil_schedule_suggestion"] == self.SENTENCE
+        assert attrs["alt_schedule"] == ["12:30 to 13:00", "18:00 to 19:00"]
+        assert attrs["alt_schedule_saving"] == 5.88
+        assert attrs["alt_schedule_days"] == 10
+        assert attrs["alt_schedule_suggestion"] == self.SENTENCE
 
     def test_the_schedule_is_not_mixed_into_the_live_suggestion(self):
         attrs = values.water_heating_attributes(self._data(self._schedule()))
@@ -466,19 +474,19 @@ class TestOilScheduleAttributes:
 
     def test_before_a_week_of_data_none_of_them_is_present(self):
         attrs = values.water_heating_attributes(self._data(None))
-        assert not {k for k in attrs if k.startswith("oil_schedule")}
+        assert not {k for k in attrs if k.startswith("alt_schedule")}
 
     def test_with_a_week_and_nothing_to_suggest_the_list_is_empty_and_there_is_no_sentence(self):
         attrs = values.water_heating_attributes(
             self._data(self._schedule(windows=(), saving=0.0, sentence=None))
         )
-        assert attrs["oil_schedule"] == []
-        assert attrs["oil_schedule_saving"] == 0
-        assert attrs["oil_schedule_days"] == 10
-        assert "oil_schedule_suggestion" not in attrs
+        assert attrs["alt_schedule"] == []
+        assert attrs["alt_schedule_saving"] == 0
+        assert attrs["alt_schedule_days"] == 10
+        assert "alt_schedule_suggestion" not in attrs
 
     def test_no_attributes_at_all_without_advice(self):
-        assert values.water_heating_attributes(make_data(oil_schedule=self._schedule())) is None
+        assert values.water_heating_attributes(make_data(alt_heat_schedule=self._schedule())) is None
 
 
 class TestCheapRateAttributes:

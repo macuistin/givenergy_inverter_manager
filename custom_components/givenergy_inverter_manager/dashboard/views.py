@@ -78,10 +78,10 @@ from .templates import (
     PLAN_FORECAST_CAPTION,
     RESTART_GAP_HELP,
     EnergySources,
+    alt_heat_schedule_template,
     currency_symbol,
     energy_devices_template,
     energy_sources_template,
-    oil_schedule_template,
     planned_heating_template,
     ready_by_template,
     survival_template,
@@ -214,7 +214,7 @@ class Builder:
 
     def oil_advice(self, suffix: str) -> str | None:
         """An entity of the oil advice. Its expected ID while no oil price is set."""
-        return self.devices.entity(Device.OIL_ADVICE, suffix)
+        return self.devices.entity(Device.ALTERNATIVE_HEAT, suffix)
 
     def water_sensor(self, suffix: str) -> str | None:
         """An entity of the immersion temperature sensor, expected while none is configured."""
@@ -552,7 +552,7 @@ class Builder:
             self._heater_on_off(),
             group(heading_card("Why", "mdi:help-circle-outline"), [reason], **self._when(switch)),
             self._ready_by(),
-            self._oil_advice_section(),
+            self._alt_heat_section(),
             group(
                 heading_card("Today", "mdi:calendar-today"),
                 [
@@ -583,7 +583,7 @@ class Builder:
             [
                 markdown_card(ready_by_template(sensor)),
                 markdown_card(planned_heating_template(sensor)),
-                devices.show_with(oil, Device.OIL_ADVICE),
+                devices.show_with(oil, Device.ALTERNATIVE_HEAT),
             ],
             visibility=[
                 *devices.visible_with(Device.IMMERSION_THERMOSTAT, Device.IMMERSION_SENSOR),
@@ -591,7 +591,7 @@ class Builder:
             ],
         )
 
-    def _oil_advice_section(self) -> dict[str, Any] | None:
+    def _alt_heat_section(self) -> dict[str, Any] | None:
         """The cheapest way to heat the water, while an oil price is set. Advice only.
 
         The live suggestion shows only while Immersion Scheduled Heating is off. While it is
@@ -605,15 +605,15 @@ class Builder:
             [
                 tile_card(source, "Cheapest source", color=IMMERSION, columns=FULL),
                 with_visibility(suggestion, self.devices.visible_while_off(scheduled)),
-                self._oil_schedule_line(source),
+                self._alt_heat_schedule_line(source),
             ],
-            **self._when(Device.OIL_ADVICE),
+            **self._when(Device.ALTERNATIVE_HEAT),
         )
 
     @staticmethod
-    def _oil_schedule_line(source: str | None) -> dict | None:
+    def _alt_heat_schedule_line(source: str | None) -> dict | None:
         """The suggested oil schedule, apart from the live suggestion above it."""
-        return markdown_card(oil_schedule_template(source)) if source else None
+        return markdown_card(alt_heat_schedule_template(source)) if source else None
 
     def _when(self, *devices: Device) -> dict[str, list[dict]]:
         """The section option that shows a section while these devices are present."""

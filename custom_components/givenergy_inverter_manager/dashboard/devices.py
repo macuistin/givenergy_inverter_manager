@@ -34,7 +34,7 @@ SENTINELS: dict[Device, str] = {
     Device.IMMERSION_SWITCH: "immersion_managed",
     Device.IMMERSION_SENSOR: "immersion_water_temperature",
     Device.IMMERSION_THERMOSTAT: "immersion_target_temp",
-    Device.OIL_ADVICE: "water_heating_cheapest_source",
+    Device.ALTERNATIVE_HEAT: "water_heating_cheapest_source",
 }
 
 _STRINGS = Path(__file__).resolve().parent.parent / "strings.json"
