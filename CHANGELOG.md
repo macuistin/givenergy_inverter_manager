@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- The immersion chart on the Immersion view is taller, so the axis labels of the temperature chart and the heater power chart no longer run into each other.
+
 ## v0.18.0
 
 Setup and Configure become short wizards, seven settings become controls, alternative water heating replaces the oil price, the dashboard builds itself, and the saving and sunrise figures count the battery.
