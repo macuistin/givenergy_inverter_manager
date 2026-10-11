@@ -748,8 +748,8 @@ class TestBatteryWearFormulaAgreement:
         assert cost_per_kwh * throughput == pytest.approx(3000.0 / BATTERY_RATED_CYCLES, rel=1e-6)
 
 
-def test_html_attribute_is_not_recorded():
-    assert GivEnergyManagerSensor._unrecorded_attributes == frozenset({"html"})
+def test_html_and_full_text_attributes_are_not_recorded():
+    assert GivEnergyManagerSensor._unrecorded_attributes == frozenset({"html", "full_text"})
 
 
 class TestSensorEntity:

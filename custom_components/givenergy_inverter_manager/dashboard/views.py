@@ -14,7 +14,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
-from ..const import CONF_FORECAST_ENTITY, CONF_INVERTER_SERIAL, CONF_INVERTER_TEMP_ENTITY
+from ..const import (
+    ATTR_FULL_TEXT,
+    CONF_FORECAST_ENTITY,
+    CONF_INVERTER_SERIAL,
+    CONF_INVERTER_TEMP_ENTITY,
+)
 from ..core.devices import Device
 from ..core.tariff import (
     build_tariff,
@@ -537,7 +542,7 @@ class Builder:
         sensor with no switch shows no heater or reason.
         """
         switch = Device.IMMERSION_SWITCH
-        reason = state_markdown(self.entity("immersion_divert_reason"))
+        reason = state_markdown(self.entity("immersion_divert_reason"), ATTR_FULL_TEXT)
         return [
             self._water_temperature(),
             self._heater_on_off(),
@@ -663,7 +668,7 @@ class Builder:
                 [
                     tile_card(self.ev("ev_draining_battery"), "Drains battery", color=BATTERY),
                     tile_card(self.ev("ev_solar_surplus_available"), "Solar surplus", color=SOLAR),
-                    state_markdown(decision),
+                    state_markdown(decision, ATTR_FULL_TEXT),
                 ],
                 **shown,
             ),
@@ -1046,7 +1051,7 @@ class Builder:
                 ),
                 heading_block(
                     subheading_card("Tonight's charge target", "mdi:battery-charging"),
-                    [state_markdown(self.entity("overnight_charge_reason"))],
+                    [state_markdown(self.entity("overnight_charge_reason"), ATTR_FULL_TEXT)],
                 ),
             ),
             self._battery_health(),
@@ -1067,7 +1072,7 @@ class Builder:
         if level:
             return [markdown_card(survival_template(level, status, sunrise))]
         if status:
-            return [markdown_card(state_ref(status))]
+            return [markdown_card(state_ref(status, ATTR_FULL_TEXT))]
         return []
 
     # -- Settings --
@@ -1083,7 +1088,7 @@ class Builder:
             "services, GivEnergy Inverter Manager, Configure."
         )
         if skipped := self.entity("dry_run_last_skipped"):
-            text += f"\n\n**Last skipped action:** {state_ref(skipped)}"
+            text += f"\n\n**Last skipped action:** {state_ref(skipped, ATTR_FULL_TEXT)}"
         return group(
             heading_card("Dry run is on", "mdi:test-tube"),
             [markdown_card(text)],
@@ -1119,7 +1124,7 @@ class Builder:
 
     def _divert_decision(self) -> list:
         """The divert reason under a label, so a sentence among controls says what it is."""
-        reason = state_markdown(self.entity("immersion_divert_reason"))
+        reason = state_markdown(self.entity("immersion_divert_reason"), ATTR_FULL_TEXT)
         heading = subheading_card("Heater decision now", "mdi:help-circle-outline")
         return heading_block(heading, [reason])
 

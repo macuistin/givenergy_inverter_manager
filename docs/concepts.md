@@ -121,6 +121,8 @@ The calculation runs every cycle. The result is written to GivTCP once a day. Th
 
 The factor raises the forecast, up to 1.2, when the service runs low. The charge reason names each step that applied. Setup details are in [Configuration](configuration.md#forecast-accuracy-correction).
 
+**A long reason.** Home Assistant keeps a state of at most 255 characters, and the reason can be longer when several steps applied. The **Overnight Charge Reason** state is then cut at the end of a sentence or clause and ends with `…`. While the state is cut, the whole reason is in the `full_text` attribute of the same sensor, and the Battery overnight card of the dashboard shows it. Every sensor with a text state works the same way, for example **Battery Overnight Outlook**, **Immersion Divert Reason** and **EV Mode Decision**.
+
 The winter and shoulder month lists are fixed calendar months. They follow northern hemisphere seasons. The seasonal solar estimate does use your latitude.
 
 The average daily load is today's house energy so far, less the EV charger's energy and the immersion heater's energy, scaled up to 24 hours. It is at least 5 kWh, and 15 kWh in the first 30 minutes after midnight. The car and the heater are left out because each is a separate, flexible load that runs for a few hours, not all day, and the per-slot load history leaves both out too. The only effect of a plugged-in car on the target is the 10 point buffer in step 6.
