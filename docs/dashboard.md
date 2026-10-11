@@ -217,7 +217,7 @@ Figures for the current bill period, so you can hold them against your supplier 
 
 - **Bill so far**: Accrued bill, Projected bill, Import cost and Export credit. A **Tariff** button in the heading opens the Tariff sub-view.
 - **This bill period**: Days elapsed, Days left, Avg import/kWh and Cheap share (the cheap rate share of import).
-- **Cost per day, last 31 days**: a bar graph of the import cost and the export credit of each day, so you can see which days made the bill. It reads long-term statistics, so it stays empty until Home Assistant has compiled them (up to an hour), and it reaches back 31 days because a bill period is a calendar month at most. The file cannot mark where your bill period starts, because that moves each month.
+- **Cost per day, last 31 days**: a bar graph of the import cost and the export credit of each day, so you can see which days made the bill. It reads long-term statistics, so it stays empty until Home Assistant has compiled them (up to an hour), and it reaches back 31 days because a bill period is a calendar month at most. The graph cannot mark where your bill period starts, because that moves each month.
 
 Days Elapsed in Bill Period, Average Import Rate This Month and Cheap rate import fraction this month are disabled by default. Enable them to see those tiles.
 
