@@ -149,6 +149,24 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
+async def _ensure_dashboard_placeholder(hass: HomeAssistant) -> None:
+    """Create a placeholder dashboard file so YAML-mode lovelace can reference it at once.
+
+    Without it the user would have to run Refresh Dashboard before the dashboard loads.
+    """
+    dashboard_path = os.path.join(hass.config.config_dir, DASHBOARD_FILENAME)
+
+    def _write_placeholder() -> bool:
+        if os.path.exists(dashboard_path):
+            return False
+        with open(dashboard_path, "w", encoding="utf-8") as fh:
+            fh.write("views: []\n")
+        return True
+
+    if await hass.async_add_executor_job(_write_placeholder):
+        _LOG.info("Created dashboard placeholder at %s", dashboard_path)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> bool:
     """Set up GivEnergy Inverter Manager from a config entry."""
     _LOG.debug("Setting up entry %s (%s)", entry.entry_id, entry.title)
@@ -187,19 +205,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
     except Exception:
         _LOG.exception("Could not register the dashboard strategy")
 
-    # Create a placeholder dashboard file so YAML-mode lovelace can reference it
-    # immediately without requiring the user to run Refresh Dashboard first.
-    dashboard_path = os.path.join(hass.config.config_dir, DASHBOARD_FILENAME)
-
-    def _write_placeholder() -> bool:
-        if os.path.exists(dashboard_path):
-            return False
-        with open(dashboard_path, "w", encoding="utf-8") as fh:
-            fh.write("views: []\n")
-        return True
-
-    if await hass.async_add_executor_job(_write_placeholder):
-        _LOG.info("Created dashboard placeholder at %s", dashboard_path)
+    await _ensure_dashboard_placeholder(hass)
 
     # Emit startup entity config to the verbose logger (opt-in, debug only)
     cfg = dict(entry.data)
