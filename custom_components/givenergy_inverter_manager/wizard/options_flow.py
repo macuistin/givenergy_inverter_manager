@@ -40,7 +40,6 @@ from ..core.wizard_model import (
     OPTION_PAGES,
     PAGE_KEYS,
     PAGE_STEPS,
-    Detected,
     Mode,
     PageContext,
     Validation,
@@ -136,9 +135,6 @@ class OptionsSteps(WizardPages):
             states=states_by_id(self.hass),
             home_currency=currency_code(self.hass.config.currency),
         )
-
-    def _detected_now(self) -> Detected:
-        return self._ctx().detected
 
     def _total_steps(self) -> int:
         """The checklist, every step of the ticked pages, and the confirm step when it is shown."""

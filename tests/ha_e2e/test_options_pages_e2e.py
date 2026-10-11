@@ -479,3 +479,49 @@ async def test_the_tariff_screens_are_not_the_last_when_another_page_follows(has
     assert result["step_id"] == "ev"
     assert result["last_step"] is False
     manager(hass).async_abort(result["flow_id"])
+
+
+@pytest.fixture
+def setups(monkeypatch) -> list[str]:
+    """Record every time the integration is set up."""
+    import custom_components.givenergy_inverter_manager as integration
+
+    calls: list[str] = []
+    real = integration.async_setup_entry
+
+    async def counting(hass, entry):
+        calls.append(entry.entry_id)
+        return await real(hass, entry)
+
+    monkeypatch.setattr(integration, "async_setup_entry", counting)
+    return calls
+
+
+async def test_a_tariff_change_applies_without_a_reload(hass, loaded_entry, setups):
+    coordinator = loaded_entry.runtime_data
+
+    await options_wizard(hass, loaded_entry, {"tariff": {"export_rate": 0.25}})
+
+    assert setups == []
+    assert loaded_entry.state is ConfigEntryState.LOADED
+    assert loaded_entry.runtime_data is coordinator
+    assert coordinator.export_rate == pytest.approx(0.25)
+
+
+async def test_a_currency_change_reloads_once(hass, loaded_entry, setups):
+    await options_wizard(hass, loaded_entry, {"tariff": {}, "bill": {"currency": "GBP"}})
+
+    assert len(setups) == 1
+    assert loaded_entry.state is ConfigEntryState.LOADED
+    assert loaded_entry.runtime_data.data.currency_symbol == "£"
+
+
+async def test_saving_every_page_unchanged_does_not_reload_or_write(hass, loaded_entry, setups):
+    before = dict(loaded_entry.options)
+
+    await options_wizard(
+        hass, loaded_entry, {"tariff": {}, "battery": {}, "forecast": {}, "hot_water": {}, "ev": {}}
+    )
+
+    assert setups == []
+    assert dict(loaded_entry.options) == before
