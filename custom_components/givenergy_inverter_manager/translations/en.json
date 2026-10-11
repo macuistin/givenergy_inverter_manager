@@ -1075,11 +1075,11 @@
   "issues": {
     "givtcp_entities_missing": {
       "title": "GivTCP entities not found",
-      "description": "One or more GivTCP sensor entities configured during setup are no longer registered in Home Assistant. This usually means GivTCP was reinstalled with a different inverter serial, or the entity IDs changed.\n\nTo fix: go to **Settings → Integrations → GivEnergy Inverter Manager → Configure** and run the reconfiguration wizard to re-select the correct entities."
+      "description": "One or more GivTCP sensor entities configured during setup are no longer registered in Home Assistant. This usually means GivTCP was reinstalled with a different inverter serial, or the entity IDs changed.\n\nTo fix: go to **Settings → Devices & Services → GivEnergy Inverter Manager**, open the menu and select **Reconfigure**, then use the entities it finds or choose them by hand."
     },
     "min_soc_too_high": {
       "title": "Battery minimum SoC is set too high",
-      "description": "**Battery minimum SoC** is currently {min_soc}%. On nights when charging is skipped, the integration writes this value as the inverter's charge target. A value this high causes the inverter to hold the battery at {min_soc}% all night, importing from the grid instead of discharging.\n\nRecommended value: 10–20%. Go to **Settings → Integrations → GivEnergy Inverter Manager → Configure → Battery** and lower Battery minimum SoC."
+      "description": "**Battery minimum SoC** is currently {min_soc}%. On nights when charging is skipped, the integration writes this value as the inverter's charge target. A value this high causes the inverter to hold the battery at {min_soc}% all night, importing from the grid instead of discharging.\n\nRecommended value: 10–20%. Go to **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**, tick **Battery and charging** and lower the battery minimum charge."
     },
     "other_charge_slots_active": {
       "title": "Other charge slots are active",
@@ -1130,7 +1130,7 @@
         "step": {
           "confirm": {
             "title": "Confirm the tariff rates",
-            "description": "The tariff rates were last saved or confirmed on {last_reviewed}, {days} days ago. A supplier price change leaves every cost figure wrong until the rates here are updated.\n\nCheck the rates against your latest bill. If a rate changed, go to **Settings → Integrations → GivEnergy Inverter Manager → Configure** and save the new rates, or give them a start date. If the rates are correct, select **Submit** to confirm them."
+            "description": "The tariff rates were last saved or confirmed on {last_reviewed}, {days} days ago. A supplier price change leaves every cost figure wrong until the rates here are updated.\n\nCheck the rates against your latest bill. If a rate changed, go to **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**, tick **Tariff** and save the new rates, or tick **Schedule a rate change** to give them a start date. If the rates are correct, select **Submit** to confirm them."
           }
         },
         "abort": {
