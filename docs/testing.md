@@ -44,7 +44,7 @@ If you run `pytest tests/ha_e2e` in the stubbed suite's virtualenv, it reports o
 - Enables every sensor that is disabled by default, reloads, and checks each one has a state.
 - Drives the options flow with the payload the frontend would send, including an empty forecast and carbon selection, and serialises the form schema the way the frontend API does.
 - Walks the config flow for the manual path (no discovered inverters) and the discovered path.
-- Checks that every field in the setup, reconfigure and options forms has a label and help text in `strings.json` and `translations/en.json`.
+- Checks that every field in every setup, reconfigure and options form has a label and help text in `strings.json` and `translations/en.json`, and that every placeholder a description uses is supplied by the flow.
 - Moves the immersion temperature numbers, and saves a slider, a threshold and the dry run switch through the options flow, and checks the integration is not reloaded. Changing the immersion switch is checked to reload.
 - Unloads, reloads and removes the entry.
 

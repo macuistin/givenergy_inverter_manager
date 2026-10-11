@@ -56,7 +56,7 @@ In v0.2.1 they reported `last_reset` with a class that does not allow it, so Hom
 
 Setup also asks for car efficiency (EV step) and the P10, day-after-tomorrow, carbon and conservatism fields (forecast step). The day-after-tomorrow sensor lowers tonight's target when that day's solar would overfill the battery.
 
-See [Configuration](configuration.md#options).
+See [Configuration](configuration.md#configure).
 
 ## New actions
 
