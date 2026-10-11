@@ -155,8 +155,16 @@ class TestForecastCorrectionFactor:
         recs = [self._rec(10, 8)] * 4 + [self._rec(0.4, 0.2), self._rec(10, 0.3)]
         assert forecast_correction_factor(recs) is None
 
+    @pytest.mark.parametrize("actual", [5.0, 4.5])
+    def test_ratios_between_the_old_and_new_floor_are_followed(self, actual):
+        assert forecast_correction_factor([self._rec(10, actual)] * 5) == pytest.approx(actual / 10)
+
     def test_clamped_low(self):
-        assert forecast_correction_factor([self._rec(10, 2)] * 5) == pytest.approx(0.6)
+        assert forecast_correction_factor([self._rec(10, 3)] * 5) == pytest.approx(0.4)
+
+    def test_the_limits_are_0_4_and_1_2(self):
+        assert CHARGE_FORECAST_CORRECTION_MIN == 0.4
+        assert CHARGE_FORECAST_CORRECTION_MAX == 1.2
 
     def test_clamped_high(self):
         assert forecast_correction_factor([self._rec(10, 20)] * 5) == pytest.approx(1.2)
@@ -200,13 +208,37 @@ class TestForecastAccuracy:
         assert accuracy.status == "Applied: x0.80 from 5 usable days"
 
     def test_a_measured_factor_outside_the_limits_is_clamped_and_says_so(self):
-        accuracy = forecast_accuracy([self._rec(10, 4.5)] * 6)
+        accuracy = forecast_accuracy([self._rec(10, 3.0)] * 6)
 
-        assert accuracy.measured_factor == pytest.approx(0.45)
+        assert accuracy.measured_factor == pytest.approx(0.3)
         assert accuracy.applied_factor == pytest.approx(CHARGE_FORECAST_CORRECTION_MIN)
         assert accuracy.status == (
-            "Applied: x0.60 from 6 usable days (measured 0.45, limited to 0.6 to 1.2)"
+            "Applied: x0.40 from 6 usable days (measured 0.30, limited to 0.4 to 1.2)"
         )
+
+    def test_a_measured_factor_of_0_45_is_applied_as_measured(self):
+        accuracy = forecast_accuracy([self._rec(10, 4.5)] * 6)
+
+        assert accuracy.applied_factor == pytest.approx(0.45)
+        assert accuracy.status == "Applied: x0.45 from 6 usable days"
+
+    def test_a_measured_factor_above_the_ceiling_is_clamped_to_it(self):
+        accuracy = forecast_accuracy([self._rec(10, 15.0)] * 5)
+
+        assert accuracy.applied_factor == pytest.approx(CHARGE_FORECAST_CORRECTION_MAX)
+        assert "limited to 0.4 to 1.2" in accuracy.status
+
+    def test_one_extreme_day_cannot_move_the_median_factor(self):
+        accuracy = forecast_accuracy([self._rec(10, 5.0)] * 6 + [self._rec(10, 0.6)])
+
+        assert accuracy.measured_factor == pytest.approx(0.5)
+        assert accuracy.applied_factor == pytest.approx(0.5)
+
+    def test_four_usable_days_below_the_floor_still_give_no_correction(self):
+        accuracy = forecast_accuracy([self._rec(10, 1.0)] * 4 + [self._rec(10, 1.0, clipped=True)])
+
+        assert accuracy.applied_factor is None
+        assert accuracy.status == "Waiting for data: 4 of 5 days"
 
     def test_the_correction_factor_is_the_applied_factor(self):
         recs = [self._rec(10, a) for a in (7, 8, 9, 6, 8)]
@@ -225,6 +257,38 @@ class TestForecastCorrectionApplied:
         plain = _decide()
         assert _decide(forecast_correction=None) == plain
         assert _decide(forecast_correction=1.0) == plain
+
+    def test_a_smaller_factor_gives_a_higher_charge_target(self):
+        old_floor = _decide(forecast_correction=0.6)
+        middle = _decide(forecast_correction=0.5)
+        new_floor = _decide(forecast_correction=CHARGE_FORECAST_CORRECTION_MIN)
+
+        assert old_floor.target_soc < middle.target_soc <= new_floor.target_soc
+        assert new_floor.forecast_kwh == pytest.approx(14.0 * 0.4)
+
+    def test_reason_says_when_the_factor_is_at_the_lower_limit(self):
+        reason = _decide(forecast_correction=0.4).reason
+
+        assert "x0.40 recent accuracy (at the lower limit)" in reason
+
+    def test_reason_says_when_the_factor_is_at_the_upper_limit(self):
+        reason = _decide(forecast_correction=1.2).reason
+
+        assert "x1.20 recent accuracy (at the upper limit)" in reason
+
+    @pytest.mark.parametrize("factor", [0.41, 0.45, 0.6, 0.85, 1.19])
+    def test_reason_does_not_mention_a_limit_inside_the_range(self, factor):
+        reason = _decide(forecast_correction=factor).reason
+
+        assert "recent accuracy" in reason
+        assert "limit" not in reason
+
+    def test_the_limit_note_comes_before_the_p10_blend(self):
+        reason = _decide(
+            forecast_correction=0.4, forecast_kwh_p10=6.0, forecast_conservatism=0.5
+        ).reason
+
+        assert "x0.40 recent accuracy (at the lower limit) (cautious forecast" in reason
 
     def test_correction_applies_before_p10_blend(self):
         decision = _decide(
@@ -267,7 +331,7 @@ class TestConservatismWithoutP10:
 
 
 class TestMeasuredBias:
-    """A forecast that ran about 30% high is corrected without reaching the 0.6 floor."""
+    """A forecast that ran about 30% high is corrected without reaching the 0.4 floor."""
 
     RATIOS = (0.62, 0.88, 1.13, 0.69, 0.66, 0.71, 0.71, 0.61, 1.07, 0.85, 0.79, 0.64, 0.45, 0.53)
 
@@ -303,7 +367,7 @@ class TestChargeScenarios:
         for t in targets:
             assert min_soc + 5 <= t <= 100
 
-    @pytest.mark.parametrize("factor", [0.6, 0.85, 1.0, 1.2])
+    @pytest.mark.parametrize("factor", [0.4, 0.6, 0.85, 1.0, 1.2])
     def test_monotone_with_forecast_correction(self, factor):
         targets = [
             _decide(forecast_kwh=f, forecast_correction=factor).target_soc for f in self.FORECASTS

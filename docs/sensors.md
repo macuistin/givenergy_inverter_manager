@@ -13,6 +13,8 @@ Column guide:
 - **Last reset**: `day`, `week`, `month` or `year` means the sensor reports `last_reset` as the start of that period. `no` means it reports none. See [Long-term statistics](long-term-statistics.md).
 - **Enabled**: whether the sensor is enabled when first created.
 
+Home Assistant keeps a state of at most 255 characters. A sensor whose state is a sentence cuts a longer one at the end of a sentence or clause and ends it with `…`. While it is cut, the sensor carries the whole text in its `full_text` attribute. The attribute is absent when the text fits, and it is kept out of the recorder.
+
 A sensor marked `Created only with ...` exists only while that device is present: an EV charger the integration discovered, the immersion switch, or the immersion temperature sensor. An install without the device has no such sensor, so nothing sits unavailable. The sensor appears by itself when the device appears: when discovery first finds an EV charger, or after an options change that sets the immersion entities (the entry reloads). The registry entries of a device that is gone are removed when the entry next loads. An EV charger's are kept while Home Assistant is starting, because its own integration may not have loaded yet. A dashboard made by the integration follows these changes. See [Dashboard](dashboard.md#devices-you-add-or-remove-later).
 
 ## Live power and flow

@@ -116,10 +116,12 @@ The calculation runs every cycle. The result is written to GivTCP once a day. Th
 
 **Forecast adjustments, in order.** Step 3 adjusts the forecast twice before the simulation uses it:
 
-1. **Accuracy correction.** Multiply by the median of actual solar over forecast for the last 14 days, kept between 0.6 and 1.2. It needs 5 usable days. A new install fills them from the Home Assistant recorder when it first loads (the last value of the forecast sensor before each midnight against that day's GivTCP solar total, about 9 days with the default 10 days of history), so the correction can apply at once. A day with clipping, or with a forecast or solar yield under 0.5 kWh, is not usable, and seeded days are never marked as clipped. A forecast that runs about 30% high gives a factor near 0.7, so the battery charges for 70% of what the service promises.
+1. **Accuracy correction.** Multiply by the median of actual solar over forecast for the last 14 days, kept between 0.4 and 1.2. It needs 5 usable days. When the factor sits on a limit, the charge reason says so, for example `x0.40 recent accuracy (at the lower limit)`. A new install fills them from the Home Assistant recorder when it first loads (the last value of the forecast sensor before each midnight against that day's GivTCP solar total, about 9 days with the default 10 days of history), so the correction can apply at once. A day with clipping, or with a forecast or solar yield under 0.5 kWh, is not usable, and seeded days are never marked as clipped. A forecast that runs about 30% high gives a factor near 0.7, so the battery charges for 70% of what the service promises.
 2. **P10 blend.** If a P10 forecast is available (the P10 sensor, or the `estimate10` attribute of a Solcast forecast sensor) and conservatism is above 0, take `(1 - w) x forecast + w x P10`.
 
 The factor raises the forecast, up to 1.2, when the service runs low. The charge reason names each step that applied. Setup details are in [Configuration](configuration.md#forecast-accuracy-correction).
+
+**A long reason.** Home Assistant keeps a state of at most 255 characters, and the reason can be longer when several steps applied. The **Overnight Charge Reason** state is then cut at the end of a sentence or clause and ends with `…`. While the state is cut, the whole reason is in the `full_text` attribute of the same sensor, and the Battery overnight card of the dashboard shows it. Every sensor with a text state works the same way, for example **Battery Overnight Outlook**, **Immersion Divert Reason** and **EV Mode Decision**.
 
 The winter and shoulder month lists are fixed calendar months. They follow northern hemisphere seasons. The seasonal solar estimate does use your latitude.
 
