@@ -4,7 +4,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
-Two sunrise figures, saving values that count the battery, and a forecast correction that follows cloudy weeks.
+Two sunrise figures, saving values that count the battery, a forecast correction that follows cloudy weeks, and alternative water heating in place of the oil price.
 
 **Features**
 - New sensor Estimated SoC at Sunrise With the Planned Charge (`estimated_soc_at_sunrise_with_charge`).
@@ -17,6 +17,19 @@ Two sunrise figures, saving values that count the battery, and a forecast correc
   profile. The figure without a charge keeps the flat average, and `basis` says which load was used. Its attributes are
   `soc_at_charge_start`, `charge_added_pct`, `charge_window` and `basis`. Nothing reads it, so the
   charge plan and the night survival sensors are unchanged. It is enabled by default.
+
+- **Alternative water heating** replaces the oil price. Under Configure, Alternative water heating,
+  turn on **I have another way to heat the water**, give it a name (Oil, Gas, Heat pump, up to 20
+  characters), choose what the cost is (the price of a litre of oil, or the cost of one kWh of heat
+  delivered to the water) and enter it. A cost sensor can override the cost. The advice, the start
+  time, the keep-warm run and the recurring schedule then use your name, for example `Gas is cheaper
+  than electricity until 23:00`. The integration still only advises: it never switches the other
+  system. Changing the name, the unit or a cost applies on the next cycle with no reload.
+- Some attributes that change often are no longer written to the history database: the ready-by
+  plan on the water temperature sensor, the night survival numbers, the self-sufficiency
+  breakdown, the register writes, the GivTCP rate differences and the alternative heating costs,
+  times and schedule. They stay on the entity, so dashboards and automations read them as before.
+  Home Assistant stops storing a new set of attributes each time one of them moves.
 
 **Changes**
 - Estimated SoC at Sunrise is now Estimated SoC at Sunrise Without a Charge, and its description says
@@ -54,7 +67,8 @@ Two sunrise figures, saving values that count the battery, and a forecast correc
   sensor), element power, ready-by times and the car efficiency now apply straight away, and
   entities stay available. The integration still reloads when you change the immersion switch or
   water temperature sensor, the main forecast sensor, the currency, the inverter entities, or when
-  you set the first oil price or clear the last one.
+  alternative water heating appears or goes (turned on with a cost set, turned off, or its last cost
+  cleared).
 - Changing a rate period on the options page now moves the time the charge target is written to
   the inverter, without a reload. Before, the new time only took effect after the reload the save
   caused.
@@ -66,7 +80,21 @@ Two sunrise figures, saving values that count the battery, and a forecast correc
 - A battery capacity of 0 no longer stops the charge plan with an error. The plan skips and says the
   capacity is not set.
 
+- **Oil price settings convert on their own.** On the first start after the update, an install with
+  an oil price or an oil price sensor gets Alternative water heating switched on with the name Oil,
+  the price of a litre as the unit, and the same price or sensor. The two old options are removed.
+  Your advice reads as it did. Nothing needs doing in the options.
+- **Attributes of Water Heating Cheapest Source are renamed.** The state `oil` is now `alternative`.
+  `oil_start_by`, `oil_run_minutes`, `oil_for_ready_time`, `oil_schedule`, `oil_schedule_saving`,
+  `oil_schedule_days`, `oil_schedule_suggestion`, `oil_cost_per_kwh`, `oil_saving_per_kwh` and
+  `oil_keep_warm` begin `alt_` instead, and `best_hours_for_oil` is `best_hours_for_alt`. There is a
+  new `alt_label` attribute with your name for the alternative. The entity ID and the unique ID do
+  not change. The old names are not kept.
+
 **Upgrading**
+- If an automation, template or card reads the Water Heating Cheapest Source state `oil` or one of
+  the `oil_` attributes, change it to the names above. Generate the dashboard file again, or use the
+  strategy dashboard, so the schedule line reads the new attribute names.
 - Generate the dashboard file again, or use the strategy dashboard, to get the two Sunrise tiles.
 - Troubleshooting has a new entry, Why does SoC at sunrise read 10%?, and Concepts explains the two
   figures under Battery overnight.

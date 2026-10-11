@@ -49,7 +49,7 @@ The repair clears on its own once both entities exist again.
 
 - **"Entity is neither a valid entity ID nor a valid UUID" on save.** This was a bug in v0.2.1 when a forecast or carbon intensity field was empty. Update to v0.3.0. In v0.3.0 an empty field saves as empty, and clearing a saved entity removes it.
 - **Battery divert threshold or surplus is not on the page.** They are set at setup only. See [Configuration](configuration.md#step-6-battery).
-- **Entities went unavailable after saving.** Changing the immersion switch or sensor, the main forecast sensor, the currency or the oil price (when it is first set or last cleared) reloads the integration. It takes a few seconds. If entities have not recovered after 30 seconds, check the log for errors.
+- **Entities went unavailable after saving.** Changing the immersion switch or sensor, the main forecast sensor, the currency, or alternative water heating when it appears or goes (turned on with a cost set, turned off, or its last cost cleared), reloads the integration. It takes a few seconds. If entities have not recovered after 30 seconds, check the log for errors.
 
 ## Battery minimum SoC is set too high
 
@@ -223,6 +223,20 @@ Read **Immersion Divert Reason**. It gives the exact block.
 | `Export rate ... below battery cycle cost` | Battery cost is set and exceeds the export rate. Set battery cost to 0 to turn the check off |
 
 If the reason says to heat but the heater stays off, check that an immersion switch entity was set at setup, and that the 10-minute hold after the last switch has passed. In dry run the real switch is never touched.
+
+## There is no Water Heating Cheapest Source sensor
+
+The sensor exists only while alternative water heating is on, has a cost, and an immersion switch is set. Check the three under **Configure**:
+
+| Missing | Fix |
+|---|---|
+| **I have another way to heat the water** is off | Turn it on under Alternative water heating |
+| No cost and no cost sensor | Set the cost, or a cost sensor, and choose its unit. The log says `no advice until a cost is set` |
+| No immersion switch | Set one under Immersion heater. The advice compares the alternative with the immersion. The log says `no advice until an immersion switch is set` |
+
+Saving reloads the integration once, when the sensor appears or goes. The sensor reads unavailable while the cost sensor has no number and no saved cost is set.
+
+**An automation or card still reads `oil`.** Version 0.18 renamed the sensor's state and attributes. The state `oil` is `alternative`, the attributes that began `oil_` begin `alt_`, and `best_hours_for_oil` is `best_hours_for_alt`. Change the automation or card. The entity ID did not change.
 
 ## The Zappi changed to Eco+
 
