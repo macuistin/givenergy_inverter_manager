@@ -18,10 +18,10 @@ from .const import (
     NIGHT_SURVIVAL_WARNING_MARGIN_PCT,
     POWER_DIRECTION_BAND_W,
 )
+from .core.alt_heat_advice import WaterHeatingAdvice
+from .core.alt_heat_schedule import AltHeatSchedule
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
-from .core.oil_advice import WaterHeatingAdvice
-from .core.oil_schedule import OilSchedule
 from .core.tariff import EnergyAccumulator
 from .core.tariff_check import describe_rate_mismatches
 from .core.write_log import newest_first
@@ -231,25 +231,25 @@ def immersion_water_attributes(data: CoordinatorData) -> dict[str, Any] | None:
 
 
 def water_heating_source(data: CoordinatorData) -> str | None:
-    """Return the cheapest source to heat the water now, None without an oil price."""
+    """Return the cheapest source to heat the water now, None without advice."""
     advice = data.water_heating_advice
     return None if advice is None else advice.source
 
 
-def _oil_start_attributes(advice: WaterHeatingAdvice) -> dict[str, Any]:
-    """The oil start for the next ready time. Absent unless oil should be started."""
-    start = advice.oil_start
+def _alt_start_attributes(advice: WaterHeatingAdvice) -> dict[str, Any]:
+    """The start for the next ready time. Absent unless the alternative should be started."""
+    start = advice.alt_start
     if start is None or start.start_by is None:
         return {}
     return {
-        "oil_start_by": f"{start.start_by:%H:%M}",
-        "oil_run_minutes": start.run_minutes,
-        "oil_for_ready_time": f"{start.ready_at:%H:%M}",
+        "alt_start_by": f"{start.start_by:%H:%M}",
+        "alt_run_minutes": start.run_minutes,
+        "alt_for_ready_time": f"{start.ready_at:%H:%M}",
     }
 
 
-def _oil_schedule_attributes(schedule: OilSchedule | None) -> dict[str, Any]:
-    """The suggested oil schedule. Absent until the record holds a week of days.
+def _alt_schedule_attributes(schedule: AltHeatSchedule | None) -> dict[str, Any]:
+    """The suggested alternative heating schedule. Absent until the record holds a week of days.
 
     From then on the list and the days are always there, and the list is empty when nothing is
     worth suggesting. The sentence is only there with a suggestion. None of this is in the
@@ -258,12 +258,12 @@ def _oil_schedule_attributes(schedule: OilSchedule | None) -> dict[str, Any]:
     if schedule is None:
         return {}
     attributes: dict[str, Any] = {
-        "oil_schedule": list(schedule.windows),
-        "oil_schedule_saving": round(schedule.saving, 2),
-        "oil_schedule_days": schedule.days,
+        "alt_schedule": list(schedule.windows),
+        "alt_schedule_saving": round(schedule.saving, 2),
+        "alt_schedule_days": schedule.days,
     }
     if schedule.sentence is not None:
-        attributes["oil_schedule_suggestion"] = schedule.sentence
+        attributes["alt_schedule_suggestion"] = schedule.sentence
     return attributes
 
 
@@ -274,19 +274,20 @@ def water_heating_attributes(data: CoordinatorData) -> dict[str, Any] | None:
         return None
     attributes = {
         "suggestion": advice.suggestion,
-        "oil_cost_per_kwh": round(advice.oil_cost_per_kwh, 4),
+        "alt_label": advice.label,
+        "alt_cost_per_kwh": round(advice.alt_cost_per_kwh, 4),
         "electricity_cost_per_kwh": round(advice.electricity_cost_per_kwh, 4),
         "cheapest_electricity_cost_per_kwh": round(advice.cheapest_electricity_cost_per_kwh, 4),
-        "oil_saving_per_kwh": round(advice.oil_saving_per_kwh, 4),
-        "best_hours_for_oil": list(advice.oil_hours),
+        "alt_saving_per_kwh": round(advice.alt_saving_per_kwh, 4),
+        "best_hours_for_alt": list(advice.alt_hours),
         "horizon": advice.horizon,
         "horizon_ends": advice.horizon_ends,
         "cheapest_source_in_horizon": advice.cheapest_source_in_horizon,
-        **_oil_start_attributes(advice),
-        **_oil_schedule_attributes(data.oil_schedule),
+        **_alt_start_attributes(advice),
+        **_alt_schedule_attributes(data.alt_heat_schedule),
     }
     if advice.keep_warm is not None:
-        attributes["oil_keep_warm"] = advice.keep_warm
+        attributes["alt_keep_warm"] = advice.keep_warm
     return attributes
 
 
@@ -389,8 +390,20 @@ def night_survival_confidence(data: CoordinatorData) -> str | None:
     return NIGHT_SAFE
 
 
+def _planned_charge_soc(data: CoordinatorData) -> float | None:
+    """The SoC at sunrise with tonight's planned charge, None while no charge counts."""
+    projection = data.sunrise_with_charge
+    if projection is None or not projection.charge_counts:
+        return None
+    return projection.soc
+
+
 def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
-    """Return the attributes that explain the night survival level, None before a cycle."""
+    """Return the attributes that explain the night survival level, None before a cycle.
+
+    The level is judged without a charge. The words also give the figure with tonight's
+    planned charge while one counts.
+    """
     if not data.survival_reason:
         return None
     return survival_attributes(
@@ -400,6 +413,7 @@ def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
             data.battery_min_soc,
             data.battery_soc,
             data.survival_reason,
+            _planned_charge_soc(data),
         )
     )
 

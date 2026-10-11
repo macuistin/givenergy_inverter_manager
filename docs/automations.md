@@ -49,14 +49,14 @@ action:
 
 ## Alert when the battery may run flat
 
-Warns if the estimated SoC at 08:00, with tonight's planned charge, falls below 10%. The sensor without a charge reads the minimum all evening on a night with a charge planned, so it is the wrong one for this alert.
+Warns when the estimated SoC at 08:00, with tonight's planned charge, falls below a level you choose. Set `below` to your own comfort level, for example 30, and keep it above your minimum SoC (10% by default). The sensor without a charge reads the minimum all evening on a night with a charge planned, so it is the wrong one for this alert.
 
 ```yaml
 alias: Battery overnight warning
 trigger:
   - platform: numeric_state
     entity_id: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge
-    below: 10
+    below: 30
 action:
   - service: notify.mobile_app_your_phone
     data:
@@ -65,6 +65,21 @@ action:
         Estimated SoC at sunrise with the planned charge:
         {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge') }}%.
         {{ states('sensor.givenergy_inverter_manager_battery_overnight_outlook') }}
+```
+
+An earlier version of this example used `below: 10`, which could not fire. The estimate never reads below the minimum SoC (10% by default), because it holds at the minimum when the battery would run flat.
+
+**Second trigger option: the overnight status.** Battery Overnight Confidence reads Safe, Warning or Critical. It is disabled by default, so enable it under **Settings → Entities** first. It judges the night without a charge, so on its own it reads Critical on many evenings with a charge planned. Use it as the trigger with the condition below, which keeps the alert for nights the plan does not cover. Replace the `trigger` of the automation above with these two blocks:
+
+```yaml
+trigger:
+  - platform: state
+    entity_id: sensor.givenergy_inverter_manager_battery_overnight_confidence
+    to: Critical
+condition:
+  - condition: numeric_state
+    entity_id: sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge
+    below: 30
 ```
 
 ---

@@ -21,7 +21,8 @@ Provides:
   survival_attributes()
     Says in words why night survival is Safe, Warning or Critical, with the
     numbers behind it, and in plain phrases for the dashboard. Shown in the attributes
-    of the Battery Overnight Confidence sensor.
+    of the Battery Overnight Confidence sensor. While tonight's planned charge counts, the
+    phrases also give the figure with it and say whether it covers a tight or short night.
 
 Note: BatterySession tracking (per-session energy, depth-of-discharge,
 round-trip efficiency) is planned for v0.2.0 when energy accumulation is
@@ -183,13 +184,19 @@ def estimate_will_survive_night(inputs: NightEstimateInputs) -> tuple[bool, floa
 
 @dataclass(frozen=True)
 class SurvivalReport:
-    """The night survival estimate together with the figures it is explained from."""
+    """The night survival estimate together with the figures it is explained from.
+
+    estimated_soc is the figure without a charge, which the verdict is made on.
+    soc_with_charge is the figure with tonight's planned charge, set only while a planned
+    charge counts. It changes the words, never the verdict.
+    """
 
     will_survive: bool
     estimated_soc: float
     min_soc: float
     current_soc: float
     reason: str
+    soc_with_charge: float | None = None
 
 
 # What each level means for tonight, as a person would say it.
@@ -207,25 +214,98 @@ def _outlook(report: SurvivalReport) -> str:
     return OUTLOOK_SAFE
 
 
+def _charge_figure(report: SurvivalReport) -> float | None:
+    """The figure with tonight's charge, when it differs from the one without a charge.
+
+    Both are quoted as whole percentages, so a charge that adds less than a point says nothing.
+    """
+    with_charge = report.soc_with_charge
+    if with_charge is None or round(with_charge) <= round(report.estimated_soc):
+        return None
+    return with_charge
+
+
+def _charge_covers(report: SurvivalReport, with_charge: float) -> bool:
+    """Whether the figure with the charge is clear of the warning margin."""
+    return with_charge >= report.min_soc + NIGHT_SURVIVAL_WARNING_MARGIN_PCT
+
+
 def _summary(report: SurvivalReport, outlook: str) -> str:
-    """The outlook and the expected charge at sunrise. A battery that runs out has no figure."""
+    """The outlook and the expected charge at sunrise. A battery that runs out has no figure.
+
+    When a planned charge counts, both figures are given, and a Warning or May run low says
+    whether the charge covers it.
+    """
+    with_charge = _charge_figure(report)
+    if with_charge is not None:
+        return _summary_with_charge(report, outlook, with_charge)
     if outlook == OUTLOOK_CRITICAL:
         return outlook
     return f"{outlook} · {report.estimated_soc:.0f}% at sunrise"
 
 
+def _summary_with_charge(report: SurvivalReport, outlook: str, with_charge: float) -> str:
+    """The summary of a night with a planned charge in it."""
+    if outlook == OUTLOOK_SAFE:
+        return (
+            f"{outlook} · {report.estimated_soc:.0f}% at sunrise without a charge, "
+            f"about {with_charge:.0f}% with tonight's charge"
+        )
+    if _charge_covers(report, with_charge):
+        return (
+            f"{outlook} without a charge · tonight's charge covers it, "
+            f"about {with_charge:.0f}% at sunrise"
+        )
+    return f"{outlook}, even with tonight's charge · about {with_charge:.0f}% at sunrise"
+
+
+def _sentence(text: str) -> str:
+    """The text as a sentence that ends in a full stop."""
+    return text if text.endswith((".", "!", "?")) else f"{text}."
+
+
+def _near_minimum(report: SurvivalReport) -> str:
+    """How close the figure without a charge is to the minimum SoC."""
+    return f"within {NIGHT_SURVIVAL_WARNING_MARGIN_PCT:g} points of the {report.min_soc:g}% minimum"
+
+
 def _survival_explanation(report: SurvivalReport) -> str:
-    margin = NIGHT_SURVIVAL_WARNING_MARGIN_PCT
     outlook = _outlook(report)
-    if outlook == OUTLOOK_CRITICAL:
-        return report.reason
+    with_charge = _charge_figure(report)
+    if with_charge is not None:
+        return _explanation_with_charge(report, outlook, with_charge)
     if outlook == OUTLOOK_WARNING:
         return (
             "The battery should last until solar starts, but only just. "
             f"It is expected to reach about {report.estimated_soc:.0f}% at sunrise, "
-            f"within {margin:g} points of the {report.min_soc:g}% minimum."
+            f"{_near_minimum(report)}."
         )
     return report.reason
+
+
+def _charge_verdict(report: SurvivalReport, with_charge: float) -> str:
+    """Whether tonight's planned charge covers the risk, in one sentence."""
+    if _charge_covers(report, with_charge):
+        return f"Tonight's planned charge covers this: about {with_charge:.0f}% at sunrise."
+    return f"Tonight's planned charge does not cover this: about {with_charge:.0f}% at sunrise."
+
+
+def _explanation_with_charge(report: SurvivalReport, outlook: str, with_charge: float) -> str:
+    """The explanation of a night with a planned charge in it: both figures, then the cover."""
+    without = f"{report.estimated_soc:.0f}%"
+    if outlook == OUTLOOK_SAFE:
+        return (
+            "The battery should last until solar starts. "
+            f"It is expected to reach about {without} at sunrise without a charge, "
+            f"and about {with_charge:.0f}% with tonight's planned charge."
+        )
+    if outlook == OUTLOOK_WARNING:
+        return (
+            "The battery should last until solar starts, but only just. "
+            f"Without a charge it is expected to reach about {without} at sunrise, "
+            f"{_near_minimum(report)}. {_charge_verdict(report, with_charge)}"
+        )
+    return f"{_sentence(report.reason)} {_charge_verdict(report, with_charge)}"
 
 
 def survival_attributes(report: SurvivalReport) -> dict[str, Any]:
@@ -233,6 +313,9 @@ def survival_attributes(report: SurvivalReport) -> dict[str, Any]:
 
     Critical: the battery runs out before solar starts. Warning: it lasts, but is
     expected to end within the warning margin of the minimum SoC. Safe: otherwise.
+    All three are judged on the night without a charge. While a planned charge counts, the
+    summary and the explanation also give the figure with it and say whether it covers a
+    Warning or Critical night.
     """
     outlook = _outlook(report)
     return {

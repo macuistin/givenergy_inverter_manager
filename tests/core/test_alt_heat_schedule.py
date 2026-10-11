@@ -12,14 +12,14 @@ from datetime import date, datetime
 import pytest
 
 from custom_components.givenergy_inverter_manager.const import (
-    OIL_SCHEDULE_MIN_DAYS,
-    OIL_SCHEDULE_RECORD_DAYS,
+    ALT_HEAT_SCHEDULE_MIN_DAYS,
+    ALT_HEAT_SCHEDULE_RECORD_DAYS,
 )
-from custom_components.givenergy_inverter_manager.core.oil_schedule import (
+from custom_components.givenergy_inverter_manager.core.alt_heat_schedule import (
     HOURS_PER_DAY,
     ImmersionHeatLog,
     ScheduleQuery,
-    suggest_oil_schedule,
+    suggest_alt_heat_schedule,
 )
 
 TODAY = date(2026, 12, 15)
@@ -32,7 +32,7 @@ def at(day: int, hour: int, minute: int = 30) -> datetime:
 
 
 def query(oil: float = OIL, heater_kw: float = 3.0) -> ScheduleQuery:
-    return ScheduleQuery(today=TODAY, oil_cost_per_kwh=oil, heater_kw=heater_kw, currency_symbol="£")
+    return ScheduleQuery(today=TODAY, alt_cost_per_kwh=oil, heater_kw=heater_kw, currency_symbol="£")
 
 
 def heat(log: ImmersionHeatLog, days: range, hour: int, kwh: float, rate: float = DAY_RATE):
@@ -58,52 +58,52 @@ TEN_DAYS = range(5, 15)  # 5 to 14 December, all complete before today
 
 class TestWhenThereIsNothingToSay:
     def test_fewer_than_the_minimum_days_gives_nothing(self):
-        few = range(15 - OIL_SCHEDULE_MIN_DAYS + 1, 15)  # one day short
-        assert suggest_oil_schedule(log_with(few), query()) is None
+        few = range(15 - ALT_HEAT_SCHEDULE_MIN_DAYS + 1, 15)  # one day short
+        assert suggest_alt_heat_schedule(log_with(few), query()) is None
 
     def test_the_minimum_number_of_days_is_enough(self):
-        days = range(15 - OIL_SCHEDULE_MIN_DAYS, 15)
-        result = suggest_oil_schedule(log_with(days), query())
+        days = range(15 - ALT_HEAT_SCHEDULE_MIN_DAYS, 15)
+        result = suggest_alt_heat_schedule(log_with(days), query())
         assert result is not None
-        assert result.days == OIL_SCHEDULE_MIN_DAYS
+        assert result.days == ALT_HEAT_SCHEDULE_MIN_DAYS
 
     def test_today_is_not_counted_while_it_is_in_progress(self):
         log = log_with(range(9, 15))  # six complete days
         heat(log, range(15, 16), 13, 1.5)
-        assert suggest_oil_schedule(log, query()) is None
+        assert suggest_alt_heat_schedule(log, query()) is None
 
     def test_an_empty_record_gives_nothing(self):
-        assert suggest_oil_schedule(ImmersionHeatLog(), query()) is None
+        assert suggest_alt_heat_schedule(ImmersionHeatLog(), query()) is None
 
     def test_heating_in_the_cheap_slot_is_not_dearer_than_oil(self):
-        result = suggest_oil_schedule(log_with(TEN_DAYS, hour=3, rate=NIGHT_RATE), query())
+        result = suggest_alt_heat_schedule(log_with(TEN_DAYS, hour=3, rate=NIGHT_RATE), query())
         assert result.days == 10
         assert result.windows == ()
         assert result.saving == 0.0
         assert result.sentence is None
 
     def test_oil_dearer_than_the_grid_gives_no_windows(self):
-        result = suggest_oil_schedule(log_with(TEN_DAYS), query(oil=0.40))
+        result = suggest_alt_heat_schedule(log_with(TEN_DAYS), query(oil=0.40))
         assert result.windows == ()
         assert result.sentence is None
 
     def test_oil_at_the_price_paid_saves_nothing(self):
-        assert suggest_oil_schedule(log_with(TEN_DAYS), query(oil=DAY_RATE)).windows == ()
+        assert suggest_alt_heat_schedule(log_with(TEN_DAYS), query(oil=DAY_RATE)).windows == ()
 
     def test_days_without_any_grid_heating_give_no_windows(self):
         log = ImmersionHeatLog()
         observed(log, TEN_DAYS)
-        result = suggest_oil_schedule(log, query())
+        result = suggest_alt_heat_schedule(log, query())
         assert result.days == 10
         assert result.windows == ()
 
     def test_a_trivial_saving_is_not_worth_a_schedule(self):
         """0.3 kWh a day at 0.01 over oil is a few pence a week."""
-        result = suggest_oil_schedule(log_with(TEN_DAYS, kwh=0.3), query(oil=0.29))
+        result = suggest_alt_heat_schedule(log_with(TEN_DAYS, kwh=0.3), query(oil=0.29))
         assert result.windows == ()
 
     def test_a_heater_of_no_power_gives_no_windows(self):
-        assert suggest_oil_schedule(log_with(TEN_DAYS), query(heater_kw=0.0)).windows == ()
+        assert suggest_alt_heat_schedule(log_with(TEN_DAYS), query(heater_kw=0.0)).windows == ()
 
 
 class TestWhatCountsAsARepeat:
@@ -112,17 +112,17 @@ class TestWhatCountsAsARepeat:
         log = ImmersionHeatLog()
         observed(log, range(6, 15))
         heat(log, range(6, 8), 13, 1.5)
-        assert suggest_oil_schedule(log, query()).windows == ()
+        assert suggest_alt_heat_schedule(log, query()).windows == ()
 
     def test_an_hour_used_on_a_third_of_the_days_is_a_habit(self):
         log = ImmersionHeatLog()
         observed(log, range(6, 15))
         heat(log, range(6, 9), 13, 1.5)
-        assert suggest_oil_schedule(log, query()).windows == ("12:30 to 13:00",)
+        assert suggest_alt_heat_schedule(log, query()).windows == ("12:30 to 13:00",)
 
     def test_a_trickle_of_grid_energy_is_not_a_heating_run(self):
         """Solar surplus that does not quite cover the heater leaves a little on the grid."""
-        assert suggest_oil_schedule(log_with(TEN_DAYS, kwh=0.1), query()).windows == ()
+        assert suggest_alt_heat_schedule(log_with(TEN_DAYS, kwh=0.1), query()).windows == ()
 
     def test_only_the_days_when_it_was_dearer_than_oil_count(self):
         """The same hour at a rate that varies by day: only the dear days are counted."""
@@ -130,14 +130,14 @@ class TestWhatCountsAsARepeat:
         observed(log, range(6, 15))
         heat(log, range(6, 12), 13, 1.5, rate=0.10)  # six cheap days
         heat(log, range(12, 15), 13, 1.5, rate=0.30)  # three dear days
-        result = suggest_oil_schedule(log, query())
+        result = suggest_alt_heat_schedule(log, query())
         assert result.saving == pytest.approx(3 * 1.5 * (0.30 - OIL))
 
 
 class TestOneWindow:
     @pytest.fixture
     def result(self):
-        return suggest_oil_schedule(log_with(TEN_DAYS), query())
+        return suggest_alt_heat_schedule(log_with(TEN_DAYS), query())
 
     def test_the_oil_window_ends_where_the_immersion_started(self, result):
         """The immersion heated in the 13:00 hour. The oil runs just before that."""
@@ -159,40 +159,40 @@ class TestOneWindow:
 
     def test_a_longer_run_for_more_energy(self):
         """4.5 kWh at 3 kW is an hour and a half."""
-        result = suggest_oil_schedule(log_with(TEN_DAYS, kwh=4.5), query())
+        result = suggest_alt_heat_schedule(log_with(TEN_DAYS, kwh=4.5), query())
         assert result.windows == ("11:30 to 13:00",)
 
     def test_a_smaller_heater_takes_longer_for_the_same_energy(self):
-        result = suggest_oil_schedule(log_with(TEN_DAYS), query(heater_kw=1.5))
+        result = suggest_alt_heat_schedule(log_with(TEN_DAYS), query(heater_kw=1.5))
         assert result.windows == ("12:00 to 13:00",)
 
     def test_adjacent_hours_are_one_window_that_ends_at_the_first(self):
         log = log_with(TEN_DAYS, hour=13, kwh=3.0)
         heat(log, TEN_DAYS, 14, 3.0)
-        result = suggest_oil_schedule(log, query())
+        result = suggest_alt_heat_schedule(log, query())
         assert result.windows == ("11:00 to 13:00",)
 
     def test_a_run_before_midnight_is_shown_across_it(self):
-        result = suggest_oil_schedule(log_with(TEN_DAYS, hour=0, kwh=3.0), query())
+        result = suggest_alt_heat_schedule(log_with(TEN_DAYS, hour=0, kwh=3.0), query())
         assert result.windows == ("23:00 to 00:00",)
 
     def test_the_days_are_the_complete_days_in_the_record(self):
         log = log_with(range(8, 15))
-        assert suggest_oil_schedule(log, query()).days == 7
+        assert suggest_alt_heat_schedule(log, query()).days == 7
 
 
 class TestSeveralWindows:
     def test_two_separate_windows_are_listed_in_time_order(self):
         log = log_with(TEN_DAYS, hour=19, kwh=3.0)
         heat(log, TEN_DAYS, 13, 1.5)
-        result = suggest_oil_schedule(log, query())
+        result = suggest_alt_heat_schedule(log, query())
         assert result.windows == ("12:30 to 13:00", "18:00 to 19:00")
         assert result.saving == pytest.approx(10 * (1.5 + 3.0) * (DAY_RATE - OIL))
 
     def test_the_sentence_lists_both_hours_and_both_windows(self):
         log = log_with(TEN_DAYS, hour=19, kwh=3.0)
         heat(log, TEN_DAYS, 13, 1.5)
-        sentence = suggest_oil_schedule(log, query()).sentence
+        sentence = suggest_alt_heat_schedule(log, query()).sentence
         assert "mostly around 13:00 and 19:00" in sentence
         assert "Running the oil from 12:30 to 13:00 and 18:00 to 19:00" in sentence
         assert "about 45 kWh" in sentence
@@ -201,14 +201,14 @@ class TestSeveralWindows:
         """The 14:00 heating would want three hours, but 13:00 is where the earlier one ends."""
         log = log_with(TEN_DAYS, hour=12, kwh=3.0)
         heat(log, TEN_DAYS, 14, 9.0)
-        result = suggest_oil_schedule(log, query())
+        result = suggest_alt_heat_schedule(log, query())
         assert result.windows == ("11:00 to 12:00", "13:00 to 14:00")
 
     def test_at_most_three_windows_the_biggest_savings_first(self):
         log = ImmersionHeatLog()
         for hour, kwh in ((8, 1.0), (11, 4.0), (15, 3.0), (19, 2.0)):
             heat(log, TEN_DAYS, hour, kwh)
-        result = suggest_oil_schedule(log, query())
+        result = suggest_alt_heat_schedule(log, query())
         assert len(result.windows) == 3
         assert result.windows[0].endswith("to 11:00")
         assert not any(window.endswith("to 08:00") for window in result.windows)
@@ -216,7 +216,7 @@ class TestSeveralWindows:
     def test_a_window_below_the_trivial_saving_is_dropped_but_the_others_stay(self):
         log = log_with(TEN_DAYS, hour=19, kwh=3.0)
         heat(log, TEN_DAYS, 13, 0.3)
-        assert suggest_oil_schedule(log, query()).windows == ("18:00 to 19:00",)
+        assert suggest_alt_heat_schedule(log, query()).windows == ("18:00 to 19:00",)
 
 
 class TestTheRecord:
@@ -260,7 +260,7 @@ class TestTheRecord:
         log = ImmersionHeatLog()
         for day in range(1, 29):
             log.add(datetime(2026, 12, day, 12), 0.1, 0.03)
-        assert len(log.days) == OIL_SCHEDULE_RECORD_DAYS + 1
+        assert len(log.days) == ALT_HEAT_SCHEDULE_RECORD_DAYS + 1
         assert log.days[0].date == "2026-12-14"
         assert log.days[-1].date == "2026-12-28"
 
@@ -270,21 +270,21 @@ class TestTheRecord:
         for day in range(1, 29):
             log.add(datetime(2026, 12, day, 12), 0.1, 0.03)
         numbers = sum(len(d["kwh"]) + len(d["cost"]) for d in log.to_storage())
-        assert numbers == (OIL_SCHEDULE_RECORD_DAYS + 1) * HOURS_PER_DAY * 2
+        assert numbers == (ALT_HEAT_SCHEDULE_RECORD_DAYS + 1) * HOURS_PER_DAY * 2
 
     def test_the_analysis_reads_at_most_fourteen_days(self):
         log = ImmersionHeatLog()
         for day in range(1, 28):
             log.add(datetime(2026, 12, day, 13), 1.5, 0.45)
-        result = suggest_oil_schedule(log, ScheduleQuery(date(2026, 12, 28), OIL, 3.0, "£"))
-        assert result.days == OIL_SCHEDULE_RECORD_DAYS
+        result = suggest_alt_heat_schedule(log, ScheduleQuery(date(2026, 12, 28), OIL, 3.0, "£"))
+        assert result.days == ALT_HEAT_SCHEDULE_RECORD_DAYS
 
 
 class TestStorage:
     def test_the_record_survives_a_round_trip(self):
         log = log_with(TEN_DAYS)
         restored = ImmersionHeatLog.from_storage(log.to_storage())
-        before, after = suggest_oil_schedule(log, query()), suggest_oil_schedule(restored, query())
+        before, after = suggest_alt_heat_schedule(log, query()), suggest_alt_heat_schedule(restored, query())
         assert (after.days, after.windows, after.sentence) == (
             before.days,
             before.windows,

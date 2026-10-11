@@ -114,6 +114,15 @@ class SunriseWithCharge:
     charge_window: str | None
     basis: str
 
+    @property
+    def charge_counts(self) -> bool:
+        """Whether a planned charge is in the figure: a window was used and it added charge.
+
+        A skipped night, no timed window, a window that is over and a battery already at the
+        target all give the figure without a charge, and none of them counts.
+        """
+        return self.charge_window is not None and self.charge_added_pct > 0
+
 
 @dataclass(frozen=True)
 class _Timeline:

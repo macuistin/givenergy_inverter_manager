@@ -1,8 +1,8 @@
-"""The oil water heating advice in real Home Assistant, through the real options flow.
+"""The alternative water heating advice in real Home Assistant, through the real options flow.
 
-With no oil price nothing is created or evaluated. Setting a price in the options (with an
-immersion switch to compare with) creates the sensor after the reload. Clearing it removes the
-sensor. A price sensor overrides the saved number.
+With alternative heating off, or with no cost, nothing is created or evaluated. Turning it on
+with a cost in the options (with an immersion switch to compare with) creates the sensor after
+the reload. Clearing the cost removes the sensor. A cost sensor overrides the saved number.
 """
 
 from __future__ import annotations
@@ -18,16 +18,17 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 
 from custom_components.givenergy_inverter_manager.const import (
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_COST_ENTITY,
+    CONF_ALT_HEAT_ENABLED,
     CONF_IMMERSION_SWITCH,
-    CONF_OIL_PRICE_ENTITY,
-    CONF_OIL_PRICE_PER_LITRE,
     DOMAIN,
 )
 from tests.dashboard_support import all_cards
 from tests.dashboard_visibility import seen
 
 KEY = "water_heating_cheapest_source"
-PRICE_SENSOR = "sensor.oil_price"
+PRICE_SENSOR = "sensor.heat_cost"
 CHEAP_OIL = 0.05  # per litre: oil is far cheaper than any grid rate
 DEAR_OIL = 4.5  # per litre: oil is dearer than any grid rate
 
@@ -60,17 +61,17 @@ def _form_values(fields: list[dict]) -> dict:
     return values
 
 
-async def save_oil_options(hass, entry, oil: dict | None, *, unsent: bool = False) -> None:
-    """Open the options form and save it as the frontend would, with this oil section.
+async def save_alt_options(hass, entry, section: dict | None, *, unsent: bool = False) -> None:
+    """Open the options form and save it as the frontend would, with this alternative section.
 
-    {} is the section with both fields cleared. With *unsent* the section is left out.
+    {} is the section with every field cleared. With *unsent* the section is left out.
     """
     result = await hass.config_entries.options.async_init(entry.entry_id)
     fields = serialise_schema(result["data_schema"])
     payload = _form_values(fields)
-    payload.pop("oil_settings", None)
+    payload.pop("alt_heat_settings", None)
     if not unsent:
-        payload["oil_settings"] = oil or {}
+        payload["alt_heat_settings"] = section or {}
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input=payload
     )
@@ -95,7 +96,7 @@ async def set_up(hass, entry) -> None:
     assert entry.state is ConfigEntryState.LOADED
 
 
-class TestNoOilPrice:
+class TestNoAlternativeHeating:
     @pytest.fixture
     def config_entry(self):
         return _entry(full_config_data())
@@ -111,9 +112,9 @@ class TestNoOilPrice:
     ):
         hass = hass_in_scenario
         await set_up(hass, config_entry)
-        await save_oil_options(hass, config_entry, {})
+        await save_alt_options(hass, config_entry, {})
         assert sensor_id(hass, config_entry) is None
-        assert CONF_OIL_PRICE_PER_LITRE not in config_entry.options
+        assert CONF_ALT_HEAT_COST not in config_entry.options
 
 
 class TestAddedLater:
@@ -121,56 +122,56 @@ class TestAddedLater:
     def config_entry(self):
         return _entry(full_config_data())
 
-    async def test_a_price_in_the_options_creates_the_sensor(
+    async def test_a_cost_in_the_options_creates_the_sensor(
         self, hass_in_scenario, config_entry
     ):
         hass = hass_in_scenario
         await set_up(hass, config_entry)
-        await save_oil_options(hass, config_entry, {CONF_OIL_PRICE_PER_LITRE: CHEAP_OIL})
+        await save_alt_options(hass, config_entry, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL})
         entity_id = sensor_id(hass, config_entry)
         assert entity_id is not None
         await refresh(hass, config_entry)
         state = hass.states.get(entity_id)
-        assert state.state == "oil"
+        assert state.state == "alternative"
         # This install has a water temperature of 48.2, under the minimum of 50 plus the restart
         # gap of 5, so the suggestion is the keep-warm run, not the plain sentence.
         assert "run the oil water heating for about" in state.attributes["suggestion"]
-        assert state.attributes["oil_keep_warm"] == state.attributes["suggestion"]
-        assert state.attributes["oil_saving_per_kwh"] > 0
+        assert state.attributes["alt_keep_warm"] == state.attributes["suggestion"]
+        assert state.attributes["alt_saving_per_kwh"] > 0
 
-    async def test_a_dear_price_says_electricity(self, hass_in_scenario, config_entry):
+    async def test_a_dear_cost_says_electricity(self, hass_in_scenario, config_entry):
         hass = hass_in_scenario
         await set_up(hass, config_entry)
-        await save_oil_options(hass, config_entry, {CONF_OIL_PRICE_PER_LITRE: DEAR_OIL})
+        await save_alt_options(hass, config_entry, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: DEAR_OIL})
         await refresh(hass, config_entry)
         state = hass.states.get(sensor_id(hass, config_entry))
         assert state.state == "electricity"
-        assert state.attributes["best_hours_for_oil"] == []
+        assert state.attributes["best_hours_for_alt"] == []
 
-    async def test_clearing_the_price_removes_the_sensor(self, hass_in_scenario, config_entry):
+    async def test_clearing_the_cost_removes_the_sensor(self, hass_in_scenario, config_entry):
         hass = hass_in_scenario
         await set_up(hass, config_entry)
-        await save_oil_options(hass, config_entry, {CONF_OIL_PRICE_PER_LITRE: CHEAP_OIL})
+        await save_alt_options(hass, config_entry, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL})
         assert sensor_id(hass, config_entry) is not None
-        await save_oil_options(hass, config_entry, {})
+        await save_alt_options(hass, config_entry, {})
         assert sensor_id(hass, config_entry) is None
-        assert CONF_OIL_PRICE_PER_LITRE not in config_entry.options
+        assert CONF_ALT_HEAT_COST not in config_entry.options
 
-    async def test_an_unsent_section_keeps_the_saved_price(self, hass_in_scenario, config_entry):
+    async def test_an_unsent_section_keeps_the_saved_cost(self, hass_in_scenario, config_entry):
         hass = hass_in_scenario
         await set_up(hass, config_entry)
-        await save_oil_options(hass, config_entry, {CONF_OIL_PRICE_PER_LITRE: CHEAP_OIL})
-        await save_oil_options(hass, config_entry, None, unsent=True)
-        assert config_entry.options[CONF_OIL_PRICE_PER_LITRE] == pytest.approx(CHEAP_OIL)
+        await save_alt_options(hass, config_entry, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL})
+        await save_alt_options(hass, config_entry, None, unsent=True)
+        assert config_entry.options[CONF_ALT_HEAT_COST] == pytest.approx(CHEAP_OIL)
         assert sensor_id(hass, config_entry) is not None
 
 
-class TestImmersionSwitchAddedAfterThePrice:
+class TestImmersionSwitchAddedAfterTheCost:
     @pytest.fixture
     def config_entry(self):
         data = full_config_data()
         data.pop(CONF_IMMERSION_SWITCH)
-        return _entry(data, {CONF_OIL_PRICE_PER_LITRE: CHEAP_OIL})
+        return _entry(data, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL})
 
     async def test_there_is_nothing_to_compare_with_until_a_switch_is_set(
         self, hass_in_scenario, config_entry
@@ -188,12 +189,16 @@ class TestImmersionSwitchAddedAfterThePrice:
         assert sensor_id(hass, config_entry) is not None
 
 
-class TestPriceSensor:
+class TestCostSensor:
     @pytest.fixture
     def config_entry(self):
         return _entry(
             full_config_data(),
-            {CONF_OIL_PRICE_PER_LITRE: DEAR_OIL, CONF_OIL_PRICE_ENTITY: PRICE_SENSOR},
+            {
+                CONF_ALT_HEAT_ENABLED: True,
+                CONF_ALT_HEAT_COST: DEAR_OIL,
+                CONF_ALT_HEAT_COST_ENTITY: PRICE_SENSOR,
+            },
         )
 
     async def test_the_sensor_overrides_the_saved_number_and_follows_it(
@@ -204,7 +209,7 @@ class TestPriceSensor:
         await set_up(hass, config_entry)
         entity_id = sensor_id(hass, config_entry)
         await refresh(hass, config_entry)
-        assert hass.states.get(entity_id).state == "oil"
+        assert hass.states.get(entity_id).state == "alternative"
 
         hass.states.async_set(PRICE_SENSOR, str(DEAR_OIL))
         await refresh(hass, config_entry)
@@ -223,7 +228,9 @@ class TestPriceSensor:
         self, hass_in_scenario
     ):
         hass = hass_in_scenario
-        entry = _entry(full_config_data(), {CONF_OIL_PRICE_ENTITY: PRICE_SENSOR})
+        entry = _entry(
+            full_config_data(), {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST_ENTITY: PRICE_SENSOR}
+        )
         hass.states.async_set(PRICE_SENSOR, "unknown")
         await set_up(hass, entry)
         await refresh(hass, entry)
@@ -240,7 +247,7 @@ class TestDashboardTile:
         cards = all_cards(seen(stored, states)["views"])
         return [c["heading"] for c in cards if c["type"] == "heading"]
 
-    async def test_a_stored_file_shows_the_tile_once_an_oil_price_is_set(
+    async def test_a_stored_file_shows_the_tile_once_alternative_heating_is_set(
         self, hass_in_scenario, config_entry
     ):
         hass = hass_in_scenario
@@ -252,9 +259,9 @@ class TestDashboardTile:
         stored = yaml.safe_load(path.read_text(encoding="utf-8"))
         assert "Cheapest way to heat the water" not in await self.shown_headings(hass, stored)
 
-        await save_oil_options(hass, config_entry, {CONF_OIL_PRICE_PER_LITRE: CHEAP_OIL})
+        await save_alt_options(hass, config_entry, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL})
         await refresh(hass, config_entry)
         assert "Cheapest way to heat the water" in await self.shown_headings(hass, stored)
 
-        await save_oil_options(hass, config_entry, {})
+        await save_alt_options(hass, config_entry, {})
         assert "Cheapest way to heat the water" not in await self.shown_headings(hass, stored)

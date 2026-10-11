@@ -71,11 +71,11 @@ tests/core/test_immersion_ready.py and tests/core/test_immersion_scheduled.py.
 
 The water_heating_advice leaf was added for the oil water heating advice. The fresh snapshot
 gained it as None. No case moved, because none sets an oil price. The behaviour is pinned in
-tests/core/test_oil_advice.py and tests/core/test_oil_advice_engine.py.
+tests/core/test_alt_heat_advice.py and tests/core/test_alt_heat_advice_engine.py.
 
 The oil_schedule leaf was added for the suggested oil schedule. The fresh snapshot gained it as
 None. No case moved, because none passes a record of the immersion's grid heating. The behaviour
-is pinned in tests/core/test_oil_schedule.py and tests/core/test_oil_schedule_engine.py.
+is pinned in tests/core/test_alt_heat_schedule.py and tests/core/test_alt_heat_schedule_engine.py.
 
 The sunrise_with_charge leaf was added for the Estimated SoC at Sunrise With the Planned Charge
 sensor. The fresh snapshot gained it as None and all 255 cases gained it, because every cycle
@@ -100,6 +100,11 @@ The test_instance leaf was added for the test instance marker file. The fresh sn
 as False. No case moved, because the engine never sets it: the coordinator copies it onto the
 snapshot after the engine has built it. The behaviour is pinned in
 tests/ha_e2e/test_test_instance_e2e.py and tests/test_test_instance.py.
+
+The oil_schedule leaf was renamed alt_heat_schedule when the oil surface became alternative heating.
+Only the fresh snapshot's key moved. No case moved, because none passes a record of the immersion's
+grid heating. The behaviour is pinned in tests/core/test_alt_heat_schedule.py and
+tests/core/test_alt_heat_schedule_engine.py.
 """
 
 from __future__ import annotations

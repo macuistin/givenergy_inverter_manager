@@ -111,7 +111,7 @@ async def test_fresh_install_dashboard_points_only_at_enabled_entities(hass, loa
     waiting = referenced - _usable_ids(hass, loaded_entry)
     # Only the cards of the devices this install lacks (an EV charger, an oil price), hidden
     # until they arrive.
-    absent = ("EV_CHARGER", "OIL_ADVICE")
+    absent = ("EV_CHARGER", "ALTERNATIVE_HEAT")
     absent_keys = [k for k, device in keys_needing_devices().items() if device in absent]
     assert waiting <= {expected_entity_id(key) for key in absent_keys}
 

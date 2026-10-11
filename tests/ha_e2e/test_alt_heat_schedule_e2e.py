@@ -20,7 +20,8 @@ from custom_components.givenergy_inverter_manager.accumulation import (
     _serialize,
 )
 from custom_components.givenergy_inverter_manager.const import (
-    CONF_OIL_PRICE_PER_LITRE,
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_ENABLED,
     DOMAIN,
 )
 
@@ -81,7 +82,7 @@ def _sensor(hass, entry):
 class TestWithAnOilPrice:
     @pytest.fixture
     def config_entry(self):
-        return _entry({CONF_OIL_PRICE_PER_LITRE: CHEAP_OIL})
+        return _entry({CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL})
 
     async def test_a_week_of_stored_heating_gives_the_schedule_attributes(
         self, hass, hass_in_scenario, freezer, config_entry, hass_storage
@@ -90,10 +91,10 @@ class TestWithAnOilPrice:
         await _set_up(hass_in_scenario, config_entry)
         await _cycle(hass, freezer, config_entry)
         attributes = _sensor(hass, config_entry).attributes
-        assert attributes["oil_schedule_days"] == 8
-        assert attributes["oil_schedule"] == ["12:30 to 13:00"]
-        assert attributes["oil_schedule_saving"] == pytest.approx(3.5, abs=0.1)
-        assert "Running the oil from 12:30 to 13:00" in attributes["oil_schedule_suggestion"]
+        assert attributes["alt_schedule_days"] == 8
+        assert attributes["alt_schedule"] == ["12:30 to 13:00"]
+        assert attributes["alt_schedule_saving"] == pytest.approx(3.5, abs=0.1)
+        assert "Running the oil from 12:30 to 13:00" in attributes["alt_schedule_suggestion"]
 
     async def test_the_live_suggestion_is_left_alone(
         self, hass, hass_in_scenario, freezer, config_entry, hass_storage
@@ -111,7 +112,7 @@ class TestWithAnOilPrice:
         await _set_up(hass_in_scenario, config_entry)
         await _cycle(hass, freezer, config_entry)
         attributes = _sensor(hass, config_entry).attributes
-        assert not {name for name in attributes if name.startswith("oil_schedule")}
+        assert not {name for name in attributes if name.startswith("alt_schedule")}
 
     async def test_the_record_is_read_back_from_storage_and_saved_again(
         self, hass, hass_in_scenario, freezer, config_entry, hass_storage
@@ -158,5 +159,5 @@ class TestWithNoOilPrice:
         _seed(hass_storage, range(7, 15))
         await _set_up(hass_in_scenario, config_entry)
         await _cycle(hass, freezer, config_entry)
-        assert config_entry.runtime_data.data.oil_schedule is None
+        assert config_entry.runtime_data.data.alt_heat_schedule is None
         assert len(config_entry.runtime_data._acc.immersion_heat_log.days) == 8

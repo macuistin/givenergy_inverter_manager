@@ -43,6 +43,8 @@ else:
     )
 
     from custom_components.givenergy_inverter_manager.const import (
+        CONF_ALT_HEAT_COST,
+        CONF_ALT_HEAT_ENABLED,
         CONF_BASE_RATE,
         CONF_BASE_RATE_NAME,
         CONF_BATTERY_CAPACITY,
@@ -75,7 +77,6 @@ else:
         CONF_INVERTER_MAX_OUTPUT,
         CONF_INVERTER_SERIAL,
         CONF_INVERTER_TEMP_ENTITY,
-        CONF_OIL_PRICE_PER_LITRE,
         CONF_OVERNIGHT_CHARGE_TARGET,
         CONF_PSO_LEVY,
         CONF_RATE_PERIODS,
@@ -174,16 +175,21 @@ CHEAP_NIGHT = Scenario(
 def serialise_schema(schema) -> list[dict]:
     """Serialise a form schema to the field list the frontend API receives.
 
-    Home Assistant 2026.5 serialises with voluptuous_serialize. Later releases moved to
-    probatio and expose cv.to_field_list, so the suite uses whichever the release has.
+    Home Assistant 2026.5 serialises with voluptuous_serialize. 2026.9 exposes cv.to_field_list.
+    2026.10 validates with probatio and serialises with probatio.to_field_list. The suite uses
+    whichever the release has.
     """
     from homeassistant.helpers import config_validation as cv
 
     if hasattr(cv, "to_field_list"):
         return cv.to_field_list(schema, custom_serializer=cv.custom_serializer)
-    import voluptuous_serialize
+    try:
+        import probatio
+    except ImportError:
+        import voluptuous_serialize
 
-    return voluptuous_serialize.convert(schema, custom_serializer=cv.custom_serializer)
+        return voluptuous_serialize.convert(schema, custom_serializer=cv.custom_serializer)
+    return probatio.to_field_list(schema, custom_serializer=cv.custom_serializer)
 
 
 def full_config_data() -> dict[str, Any]:
@@ -359,15 +365,20 @@ if not _PLUGIN_MISSING:
     ) -> AsyncGenerator[Any]:
         """Like loaded_entry, on an install with every optional device.
 
-        The Zappi is already there to be discovered, and an oil price is set, so the oil
-        advice has its immersion switch to compare with.
+        The Zappi is already there to be discovered, and alternative heating is on with a
+        cost, so the advice has its immersion switch to compare with.
         """
         hass = hass_in_scenario
         for entity_id, state in ZAPPI_STATES.items():
             hass.states.async_set(entity_id, state)
         config_entry.add_to_hass(hass)
         hass.config_entries.async_update_entry(
-            config_entry, options={**config_entry.options, CONF_OIL_PRICE_PER_LITRE: 1.0}
+            config_entry,
+            options={
+                **config_entry.options,
+                CONF_ALT_HEAT_ENABLED: True,
+                CONF_ALT_HEAT_COST: 1.0,
+            },
         )
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()

@@ -15,9 +15,10 @@ import pytest
 
 from custom_components.givenergy_inverter_manager import optional_devices as od
 from custom_components.givenergy_inverter_manager.const import (
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_ENABLED,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
-    CONF_OIL_PRICE_PER_LITRE,
     DOMAIN,
 )
 from custom_components.givenergy_inverter_manager.core.devices import Device
@@ -28,7 +29,7 @@ EV = Device.EV_CHARGER
 SWITCH = Device.IMMERSION_SWITCH
 SENSOR = Device.IMMERSION_SENSOR
 THERMOSTAT = Device.IMMERSION_THERMOSTAT
-OIL = Device.OIL_ADVICE
+OIL = Device.ALTERNATIVE_HEAT
 
 
 def _needing(device: Device) -> set[str]:
@@ -81,10 +82,10 @@ class TestWhatNeedsWhat:
             "immersion_hysteresis",
         }
 
-    def test_the_oil_advice_needs_an_oil_price_and_the_switch(self):
+    def test_the_advice_needs_alternative_heating_with_a_cost_and_the_switch(self):
         assert _needing(OIL) == {"water_heating_cheapest_source"}
 
-    def test_the_oil_sensor_is_unavailable_until_there_is_advice(self):
+    def test_the_cheapest_source_is_unavailable_until_there_is_advice(self):
         description = next(
             d for d in SENSOR_DESCRIPTIONS if d.key == "water_heating_cheapest_source"
         )
@@ -256,13 +257,19 @@ class TestRemovingOrphans:
         assert _needing(THERMOSTAT) <= removed
         assert _needing(SENSOR) <= removed
 
-    def test_removing_the_switch_removes_the_oil_advice_but_not_the_price(self):
-        entry, _, _ = _entry({CONF_OIL_PRICE_PER_LITRE: 0.95})
+    def test_removing_the_switch_removes_the_advice_but_not_the_cost(self):
+        entry, _, _ = _entry({CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: 0.95})
         removed = self._remove(entry, _registry_with_every_device_entity())
         assert "water_heating_cheapest_source" in removed
 
-    def test_an_oil_price_with_the_switch_keeps_the_oil_advice(self):
-        entry, _, _ = _entry({CONF_IMMERSION_SWITCH: "switch.heater", CONF_OIL_PRICE_PER_LITRE: 0.95})
+    def test_alternative_heating_with_the_switch_keeps_the_advice(self):
+        entry, _, _ = _entry(
+            {
+                CONF_IMMERSION_SWITCH: "switch.heater",
+                CONF_ALT_HEAT_ENABLED: True,
+                CONF_ALT_HEAT_COST: 0.95,
+            }
+        )
         removed = self._remove(entry, _registry_with_every_device_entity())
         assert "water_heating_cheapest_source" not in removed
 

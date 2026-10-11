@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from custom_components.givenergy_inverter_manager.core.alt_heat_start import WaterReading
 from custom_components.givenergy_inverter_manager.core.immersion_ready import (
     ReadyInputs,
     plan_ready,
@@ -20,7 +21,6 @@ from custom_components.givenergy_inverter_manager.core.immersion_ready import (
 from custom_components.givenergy_inverter_manager.core.immersion_window import (
     next_window_opening,
 )
-from custom_components.givenergy_inverter_manager.core.oil_start import WaterReading
 from custom_components.givenergy_inverter_manager.core.planned_heating import (
     PlanQuery,
     describe_planned_heating,

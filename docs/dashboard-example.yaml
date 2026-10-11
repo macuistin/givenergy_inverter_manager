@@ -1149,12 +1149,12 @@ views:
         state_not: 'on'
     - type: markdown
       content: |-
-        {% set text = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'oil_schedule_suggestion') %}{% set days = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'oil_schedule_days') %}{% if text -%}
+        {% set text = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'alt_schedule_suggestion') %}{% set days = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'alt_schedule_days') %}{% set label = state_attr('sensor.givenergy_inverter_manager_water_heating_cheapest_source', 'alt_label') or 'Oil' %}{% set word = label if label == label | upper else label | lower %}{% if text -%}
         {{ text }}
         {%- elif days -%}
-        No regular oil schedule would save enough yet, from the last {{ days }} days of heating.
+        No regular {{ word }} schedule would save enough yet, from the last {{ days }} days of heating.
         {%- else -%}
-        Still learning when the immersion heats the water at rates above oil. A suggested oil schedule appears after 7 days.
+        Still learning when the immersion heats the water at rates above {{ word }}. A suggested {{ word }} schedule appears after 7 days.
         {%- endif %}
       grid_options:
         columns: full
@@ -1724,7 +1724,7 @@ views:
         {% if state_attr('sensor.givenergy_inverter_manager_battery_overnight_confidence', 'explanation') -%}
         {{ state_attr('sensor.givenergy_inverter_manager_battery_overnight_confidence', 'explanation') }}
         {%- elif level | lower == 'warning' -%}
-        The battery should last until solar starts, but only just. It is expected to reach {% if has_value('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge') %}about {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge') | float(0) | round(0) | int }}% at sunrise{% else %}the minimum at sunrise{% endif %}, close to your minimum charge. A warning shows when the estimate is within 5 points of the minimum.
+        The battery should last until solar starts, but only just. Without a charge it is expected to reach {% if has_value('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge') %}about {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_without_a_charge') | float(0) | round(0) | int }}% at sunrise{% else %}the minimum at sunrise{% endif %}, close to your minimum charge.{% if is_number(state_attr('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge', 'charge_added_pct')) and state_attr('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge', 'charge_added_pct') | float(0) > 0 and is_number(states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge')) %} With tonight's planned charge it should reach about {{ states('sensor.givenergy_inverter_manager_estimated_soc_at_sunrise_with_the_planned_charge') | float(0) | round(0) | int }}%.{% endif %} A warning shows when the estimate is within 5 points of the minimum.
         {%- else -%}
         {{ state_attr('sensor.givenergy_inverter_manager_battery_overnight_outlook', 'full_text') or states('sensor.givenergy_inverter_manager_battery_overnight_outlook') }}
         {%- endif %}

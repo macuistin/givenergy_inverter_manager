@@ -150,7 +150,7 @@ class TestWaterHeatingCheapestSourceMetadata:
     def test_it_needs_the_oil_advice_device(self):
         from custom_components.givenergy_inverter_manager.core.devices import Device
 
-        assert _BY_KEY["water_heating_cheapest_source"].requires is Device.OIL_ADVICE
+        assert _BY_KEY["water_heating_cheapest_source"].requires is Device.ALTERNATIVE_HEAT
 
     def test_it_is_a_plain_text_state_with_no_unit_or_state_class(self):
         description = _BY_KEY["water_heating_cheapest_source"]
@@ -783,7 +783,8 @@ class TestBatteryWearFormulaAgreement:
 
 
 def test_html_and_full_text_attributes_are_not_recorded():
-    assert GivEnergyManagerSensor._unrecorded_attributes == frozenset({"html", "full_text"})
+    """The full list is pinned in tests/test_unrecorded_attributes.py."""
+    assert {"html", "full_text"} <= GivEnergyManagerSensor._unrecorded_attributes
 
 
 class TestSensorEntity:

@@ -329,7 +329,7 @@ async def test_options_sections_follow_how_often_they_are_used(hass, loaded_entr
         "forecast_settings",
         "hardware_settings",
         "immersion_settings",
-        "oil_settings",
+        "alt_heat_settings",
         "ev_settings",
     ]
 
@@ -348,7 +348,7 @@ async def test_only_the_tariff_section_is_open_among_the_settings(hass, loaded_e
         "forecast_settings": False,
         "hardware_settings": False,
         "immersion_settings": False,
-        "oil_settings": False,
+        "alt_heat_settings": False,
         "ev_settings": False,
     }
 

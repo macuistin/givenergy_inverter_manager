@@ -10,11 +10,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.const import (
-    OIL_BOILER_EFFICIENCY_PCT,
-    OIL_KWH_PER_LITRE,
-)
-from custom_components.givenergy_inverter_manager.core.oil_schedule import ImmersionHeatLog
+from custom_components.givenergy_inverter_manager.core.alt_heat_schedule import ImmersionHeatLog
 from tests.conftest import _raw, _run
 
 CFG = {
@@ -29,15 +25,10 @@ FULL_CYCLE_KWH = 3.0 * 30 / 3600
 NOON = datetime(2026, 12, 15, 12, 0, 0)
 
 
-def price_for(cost_per_kwh: float) -> float:
-    """The price of a litre that costs this much per kWh of heat."""
-    return cost_per_kwh * OIL_KWH_PER_LITRE * OIL_BOILER_EFFICIENCY_PCT / 100
+ALT_COST = 0.20
 
 
-OIL_PRICE = price_for(0.20)
-
-
-def cycle(log, now=NOON, cfg=CFG, price=OIL_PRICE, last=True, **raw):
+def cycle(log, now=NOON, cfg=CFG, price=ALT_COST, last=True, **raw):
     """One engine cycle with the immersion on and heating from the grid, unless overridden."""
     fields = {
         "solar_power_w": 0.0,
@@ -46,7 +37,7 @@ def cycle(log, now=NOON, cfg=CFG, price=OIL_PRICE, last=True, **raw):
         "house_load_w": 3400.0,
         "grid_power_w": 3400.0,
         "immersion_on": True,
-        "oil_price_per_litre": price,
+        "alt_heat_cost_per_kwh": price,
     }
     fields.update(raw)
     return _run(
@@ -115,7 +106,7 @@ class TestWhatIsRecorded:
         """Home Assistant was down: the energy of the gap is not known."""
         log = ImmersionHeatLog()
         _run(
-            raw=_raw(immersion_on=True, oil_price_per_litre=price_for(0.20)),
+            raw=_raw(immersion_on=True, alt_heat_cost_per_kwh=0.20),
             cfg=CFG,
             now=NOON,
             last_update_time=NOON - timedelta(hours=2),
@@ -143,12 +134,12 @@ class TestWithNoOilPrice:
     def test_nothing_is_suggested_even_with_a_record(self):
         log = ImmersionHeatLog()
         fill(log, range(5, 15))
-        assert cycle(log, price=None).oil_schedule is None
+        assert cycle(log, price=None).alt_heat_schedule is None
         assert log.days[-1].date == "2026-12-14"
 
     def test_without_a_record_the_engine_still_runs(self):
         data = cycle(None)
-        assert data.oil_schedule is None
+        assert data.alt_heat_schedule is None
         assert data.water_heating_advice is not None
 
 
@@ -157,20 +148,20 @@ class TestTheSuggestion:
         log = ImmersionHeatLog()
         fill(log, range(8, 15))
         data = cycle(log)
-        assert data.oil_schedule.days == 7
-        assert data.oil_schedule.windows == ("12:30 to 13:00",)
-        assert data.oil_schedule.saving == pytest.approx(7 * 1.5 * 0.10)
+        assert data.alt_heat_schedule.days == 7
+        assert data.alt_heat_schedule.windows == ("12:30 to 13:00",)
+        assert data.alt_heat_schedule.saving == pytest.approx(7 * 1.5 * 0.10)
 
     def test_six_days_is_not_enough(self):
         log = ImmersionHeatLog()
         fill(log, range(9, 15))
-        assert cycle(log).oil_schedule is None
+        assert cycle(log).alt_heat_schedule is None
 
     def test_today_in_progress_is_not_one_of_the_days(self):
         log = ImmersionHeatLog()
         fill(log, range(9, 15))
         data = cycle(log)
-        assert data.oil_schedule is None
+        assert data.alt_heat_schedule is None
         assert log.days[-1].date == "2026-12-15"
 
     def test_heating_in_the_cheap_slot_gives_no_windows(self):
@@ -178,36 +169,36 @@ class TestTheSuggestion:
         for day in range(5, 15):
             log.add(datetime(2026, 12, day, 3, 30), 1.5, 1.5 * 0.15)
         data = cycle(log)
-        assert data.oil_schedule.days == 10
-        assert data.oil_schedule.windows == ()
-        assert data.oil_schedule.sentence is None
+        assert data.alt_heat_schedule.days == 10
+        assert data.alt_heat_schedule.windows == ()
+        assert data.alt_heat_schedule.sentence is None
 
     def test_dearer_oil_gives_no_windows_for_the_whole_record_at_once(self):
         log = ImmersionHeatLog()
         fill(log, range(5, 15))
-        assert cycle(log).oil_schedule.windows != ()
-        assert cycle(log, price=price_for(0.40)).oil_schedule.windows == ()
+        assert cycle(log).alt_heat_schedule.windows != ()
+        assert cycle(log, price=0.40).alt_heat_schedule.windows == ()
 
     def test_the_live_suggestion_is_not_mixed_with_the_schedule(self):
         log = ImmersionHeatLog()
         fill(log, range(5, 15))
         data = cycle(log)
-        assert data.oil_schedule.sentence is not None
-        assert data.oil_schedule.sentence not in data.water_heating_advice.suggestion
+        assert data.alt_heat_schedule.sentence is not None
+        assert data.alt_heat_schedule.sentence not in data.water_heating_advice.suggestion
         assert "Over the last" not in data.water_heating_advice.suggestion
 
     def test_the_sentence_uses_the_configured_currency(self):
         log = ImmersionHeatLog()
         fill(log, range(5, 15))
-        sentence = cycle(log, cfg={**CFG, "currency": "GBP"}).oil_schedule.sentence
+        sentence = cycle(log, cfg={**CFG, "currency": "GBP"}).alt_heat_schedule.sentence
         assert "would have saved about £1.50 over those days" in sentence
 
     def test_the_days_are_counted_up_to_the_cycle_date(self):
         log = ImmersionHeatLog()
         fill(log, range(5, 15))
-        assert cycle(log, now=datetime(2026, 12, 19, 12)).oil_schedule.days == 10
+        assert cycle(log, now=datetime(2026, 12, 19, 12)).alt_heat_schedule.days == 10
 
     def test_days_older_than_the_record_are_not_read(self):
         log = ImmersionHeatLog()
         fill(log, range(5, 15))
-        assert cycle(log, now=datetime(2026, 12, 30, 12)).oil_schedule is None
+        assert cycle(log, now=datetime(2026, 12, 30, 12)).alt_heat_schedule is None

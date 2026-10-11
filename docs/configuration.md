@@ -156,9 +156,9 @@ A read-only summary lists the cheapest rate, the billing period (for example "Yo
 
 Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. Saved options override the values entered at setup.
 
-Most changes apply on the next 30-second cycle with no reload: the tariff, the battery and charging thresholds, the forecast and carbon sensors other than the main forecast sensor, element power, ready-by times and the car efficiency. Changing a rate period also moves the time the charge target is written. The integration reloads, and entities are unavailable for a few seconds, when you change the main forecast sensor, the currency, the immersion switch or the water temperature sensor, or when you set or clear the oil price (the first one set, or the last one cleared).
+Most changes apply on the next 30-second cycle with no reload: the tariff, battery and charging thresholds, the forecast and carbon sensors other than the main forecast sensor, element power, ready-by times and the car efficiency. Changing a rate period also moves the time the charge target is written. The integration reloads, and entities are unavailable for a few seconds, when you change the main forecast sensor, the currency, the immersion switch or the water temperature sensor, or when alternative water heating appears or goes (you turn it on with a cost or a cost sensor set, or off, or clear the last cost). Changing the label, the unit or a cost that is already set does not reload.
 
-The sections run in the order they are used most: Tariff, the five rate periods, Dated rate change, Battery & charging thresholds, Solar forecast, Hardware, Immersion heater, Oil water heating, Electric vehicle. Only Tariff opens expanded, and a rate period opens expanded when it has a name. The first line of the page states the cheapest rate in the saved tariff and the billing period, so a wrong rate slot or bill start day shows before you save.
+The sections run in the order they are used most: Tariff, the five rate periods, Dated rate change, Battery & charging thresholds, Solar forecast, Hardware, Immersion heater, Alternative water heating, Electric vehicle. Only Tariff opens expanded, and a rate period opens expanded when it has a name. The first line of the page states the cheapest rate in the saved tariff and the billing period, so a wrong rate slot or bill start day shows before you save.
 
 ### Tariff
 
@@ -208,20 +208,27 @@ Both devices are optional and can be added, changed or cleared at any time, with
 
 Leave a field empty to clear it. The values saved here override the ones entered at setup. The target, minimum and restart gap temperatures are not on this page. Change them with the Immersion number entities, see [Entities](entities.md).
 
-### Oil water heating
+### Alternative water heating
 
 | Field | Key | Default | Range |
 |---|---|---|---|
-| Oil price per litre | `oil_price_per_litre` | none | 0.001 to 5, in your currency |
-| Oil price sensor | `oil_price_entity` | none | a `sensor` or `input_number` entity |
+| I have another way to heat the water | `alt_heat_enabled` | off | on or off |
+| Name | `alt_heat_label` | Oil | 1 to 20 characters, for example Oil, Gas or Heat pump |
+| The cost is | `alt_heat_cost_unit` | the price of a litre of oil | the price of a litre of oil, or the cost of a kWh of heat |
+| Cost | `alt_heat_cost` | none | 0.001 to 5, in your currency |
+| Cost sensor | `alt_heat_cost_entity` | none | a `sensor` or `input_number` entity |
 
-Optional. Set it when an oil boiler also heats the hot water cylinder, through a second coil. The Water Heating Cheapest Source sensor then says whether electricity, solar surplus or oil is the cheapest way to heat the water, and when oil is worth using. It is advice only. The integration never switches the oil boiler.
+Optional. Turn it on when something other than the immersion also heats the hot water cylinder, through a second coil: an oil or gas boiler, a heat pump or solid fuel. The Water Heating Cheapest Source sensor then says whether electricity, solar surplus or the alternative is the cheapest way to heat the water, and when the alternative is worth using. It is advice only. The integration never switches the other system.
 
-With neither field set, nothing is created and nothing is worked out. The sensor needs an immersion switch as well, because it compares oil with the immersion, so an oil price with no immersion switch creates no sensor. Set the price, the switch or both at any time, without a restart. Setting the first price, or clearing the last one, reloads the integration. Changing a price that is already set does not. The Immersion view of the dashboard shows or hides its Cheapest way to heat the water section to match. Clear both the price and the price sensor to remove the oil sensor.
+**Name.** Your word for the alternative. The advice sentences use it, for example `Gas is cheaper than electricity until 23:00` and `Heat the water with the gas system now`. The form refuses an empty name and one over 20 characters.
 
-**Oil price sensor.** Pick a sensor or number that holds the price of a litre, for example one fed by your supplier or a helper you update by hand. While it reads a price above zero it is used instead of the number. When it is unavailable or not a number, the saved number is used. With no saved number as well, the sensor is unavailable until the price can be read.
+**The cost is.** Choose **the price of a litre of oil** and the integration turns it into heat: the price divided by 8.8 kWh of heat per litre (a boiler at 85% efficiency and 10.35 kWh of energy in a litre of kerosene). Those two figures are fixed assumptions in the integration, not options. 85% leans low on purpose, so oil is not suggested on an efficiency the boiler does not reach. Choose **the cost of a kWh of heat** for anything else, and enter what one kWh delivered to the water costs, with the efficiency already in it. For a gas boiler at 90% with gas at 0.09 per kWh that is 0.10. For a heat pump with a coefficient of performance of 3 and electricity at 0.30 per kWh it is 0.10.
 
-The cost of heat from oil is the price of a litre divided by the heat a litre gives. Two figures are fixed assumptions in the integration, not options: a boiler efficiency of 85% and 10.35 kWh of energy in a litre of kerosene heating oil. A boiler in service sits between about 75 to 80% for an older non-condensing boiler and 90% or more for a new condensing one. 85% leans low on purpose, so oil is not suggested on an efficiency the boiler does not reach. If your fuel or boiler is very different, adjust the price you enter to match: the price is divided by 8.8 kWh of heat per litre (85% of 10.35).
+**Cost sensor.** Pick a sensor or number that holds the cost in the same unit, for example one fed by your supplier or a helper you update by hand. While it reads a number above zero it is used instead of the cost. When it is unavailable or not a number, the saved cost is used. With no saved cost as well, the advice stops until the cost can be read.
+
+The advice needs the setting on, a cost or a cost sensor, and an immersion switch, because it compares the alternative with the immersion. Missing one of them creates no sensor and writes a warning to the log once at start: `no advice until a cost is set`, or `no advice until an immersion switch is set`. Set them at any time, without a restart. The sensor appears and goes with the setting, so turning it on with a cost set, or clearing the last cost, reloads the integration. Changing the name, the unit or a cost that is already set does not. The Immersion view of the dashboard shows or hides its Cheapest way to heat the water section to match.
+
+**Upgrading from an oil price.** Up to 0.17 this section was Oil water heating, with an oil price per litre and an oil price sensor. On the first start of 0.18 an install with either one set is converted once: the setting is on, the name is Oil, the unit is the price of a litre of oil, the price and the sensor are carried over, and the old options are removed. The advice reads as before.
 
 ### Solar forecast
 

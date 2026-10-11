@@ -49,7 +49,7 @@ The repair clears on its own once both entities exist again.
 
 - **"Entity is neither a valid entity ID nor a valid UUID" on save.** This was a bug in v0.2.1 when a forecast or carbon intensity field was empty. Update to v0.3.0. In v0.3.0 an empty field saves as empty, and clearing a saved entity removes it.
 - **Battery divert threshold or surplus is not on the page.** They are set at setup only. See [Configuration](configuration.md#step-6-battery).
-- **Entities went unavailable after saving.** Changing the immersion switch or sensor, the main forecast sensor, the currency or the oil price (when it is first set or last cleared) reloads the integration. It takes a few seconds. If entities have not recovered after 30 seconds, check the log for errors.
+- **Entities went unavailable after saving.** Changing the immersion switch or sensor, the main forecast sensor, the currency, or alternative water heating when it appears or goes (turned on with a cost set, turned off, or its last cost cleared), reloads the integration. It takes a few seconds. If entities have not recovered after 30 seconds, check the log for errors.
 
 ## Battery minimum SoC is set too high
 
@@ -201,7 +201,7 @@ logger:
 
 There are two sunrise figures, and they answer different questions.
 
-- **Estimated SoC at Sunrise Without a Charge** is what the battery would have at 08:00 if nothing charged it. It leaves tonight's planned charge out, and it stops at the minimum SoC when the battery would run flat. In the evening, with the battery at 50 to 65% and a charge planned for the cheap period, it can read the minimum (10% by default) from dusk until the charge starts. That is the figure Battery Overnight Outlook and Confidence judge, so a "May run low" in the evening is a shortfall without the planned charge.
+- **Estimated SoC at Sunrise Without a Charge** is what the battery would have at 08:00 if nothing charged it. It leaves tonight's planned charge out, and it stops at the minimum SoC when the battery would run flat. In the evening, with the battery at 50 to 65% and a charge planned for the cheap period, it can read the minimum (10% by default) from dusk until the charge starts. That is the figure Battery Overnight Outlook and Confidence judge, so a "May run low" in the evening is a shortfall without the planned charge. While a planned charge counts, the Battery overnight tile and text say so and give both figures, for example `May run low without a charge · tonight's charge covers it, about 67% at sunrise`, and the level stays as it is.
 - **Estimated SoC at Sunrise With the Planned Charge** adds the planned charge window, up to the target, then runs the battery down to 08:00. This is the one to read for where the night will end. Its attributes say how: `soc_at_charge_start` is the SoC when the window opens, `charge_added_pct` is what the window adds, `charge_window` is the window used and `basis` says it in words.
 
 If both read the same, no charge counts: tonight is skipped, no timed charge window is set, or the window is over. A with-charge figure well below the target means the window is too short to reach it at the charge rate, or the load estimate is high. The no-charge figure always spreads the daily average evenly, so it is pessimistic for a quiet night. The with-charge figure uses the learned per-slot load profile once there is one, and its `basis` attribute says which load it used. Check **Overnight Charge Window** and **Overnight Charge Reason**. See [Battery overnight](concepts.md#battery-overnight).
@@ -223,6 +223,20 @@ Read **Immersion Divert Reason**. It gives the exact block.
 | `Export rate ... below battery cycle cost` | Battery cost is set and exceeds the export rate. Set battery cost to 0 to turn the check off |
 
 If the reason says to heat but the heater stays off, check that an immersion switch entity was set at setup, and that the 10-minute hold after the last switch has passed. In dry run the real switch is never touched.
+
+## There is no Water Heating Cheapest Source sensor
+
+The sensor exists only while alternative water heating is on, has a cost, and an immersion switch is set. Check the three under **Configure**:
+
+| Missing | Fix |
+|---|---|
+| **I have another way to heat the water** is off | Turn it on under Alternative water heating |
+| No cost and no cost sensor | Set the cost, or a cost sensor, and choose its unit. The log says `no advice until a cost is set` |
+| No immersion switch | Set one under Immersion heater. The advice compares the alternative with the immersion. The log says `no advice until an immersion switch is set` |
+
+Saving reloads the integration once, when the sensor appears or goes. The sensor reads unavailable while the cost sensor has no number and no saved cost is set.
+
+**An automation or card still reads `oil`.** Version 0.18 renamed the sensor's state and attributes. The state `oil` is `alternative`, the attributes that began `oil_` begin `alt_`, and `best_hours_for_oil` is `best_hours_for_alt`. Change the automation or card. The entity ID did not change.
 
 ## The Zappi changed to Eco+
 

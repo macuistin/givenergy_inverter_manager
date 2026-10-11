@@ -78,10 +78,10 @@ from .templates import (
     PLAN_FORECAST_CAPTION,
     RESTART_GAP_HELP,
     EnergySources,
+    alt_heat_schedule_template,
     currency_symbol,
     energy_devices_template,
     energy_sources_template,
-    oil_schedule_template,
     planned_heating_template,
     ready_by_template,
     survival_template,
@@ -228,9 +228,9 @@ class Builder:
         """An entity of the immersion switch. Its expected ID while none is configured."""
         return self.devices.entity(Device.IMMERSION_SWITCH, suffix)
 
-    def oil_advice(self, suffix: str) -> str | None:
-        """An entity of the oil advice. Its expected ID while no oil price is set."""
-        return self.devices.entity(Device.OIL_ADVICE, suffix)
+    def alt_heat_advice(self, suffix: str) -> str | None:
+        """An entity of the alternative heating advice. Its expected ID while it is not set."""
+        return self.devices.entity(Device.ALTERNATIVE_HEAT, suffix)
 
     def water_sensor(self, suffix: str) -> str | None:
         """An entity of the immersion temperature sensor, expected while none is configured."""
@@ -568,7 +568,7 @@ class Builder:
             self._heater_on_off(),
             group(heading_card("Why", "mdi:help-circle-outline"), [reason], **self._when(switch)),
             self._ready_by(),
-            self._oil_advice_section(),
+            self._alt_heat_section(),
             group(
                 heading_card("Today", "mdi:calendar-today"),
                 [
@@ -585,21 +585,23 @@ class Builder:
         """The next hot water ready time and the planned heating, while scheduled heating is on.
 
         Needs both devices, because scheduled heating does. The sensor's attributes carry the
-        time and the plan, so no helper sensor is needed. With an oil price it adds the oil
-        advice sentence, which names when to start the oil for this ready time.
+        time and the plan, so no helper sensor is needed. With alternative heating it adds the
+        advice sentence, which names when to start it for this ready time.
         """
         sensor = self.water_sensor("immersion_water_temperature")
         schedule = self.thermostat("immersion_schedule")
         if not (sensor and schedule):
             return None
         devices = self.devices
-        oil = attribute_markdown(self.oil_advice("water_heating_cheapest_source"), "suggestion")
+        advice = attribute_markdown(
+            self.alt_heat_advice("water_heating_cheapest_source"), "suggestion"
+        )
         return group(
             heading_card("Ready by", "mdi:clock-check-outline"),
             [
                 markdown_card(ready_by_template(sensor)),
                 markdown_card(planned_heating_template(sensor)),
-                devices.show_with(oil, Device.OIL_ADVICE),
+                devices.show_with(advice, Device.ALTERNATIVE_HEAT),
             ],
             visibility=[
                 *devices.visible_with(Device.IMMERSION_THERMOSTAT, Device.IMMERSION_SENSOR),
@@ -607,13 +609,13 @@ class Builder:
             ],
         )
 
-    def _oil_advice_section(self) -> dict[str, Any] | None:
-        """The cheapest way to heat the water, while an oil price is set. Advice only.
+    def _alt_heat_section(self) -> dict[str, Any] | None:
+        """The cheapest way to heat the water, while alternative heating is set. Advice only.
 
         The live suggestion shows only while Immersion Scheduled Heating is off. While it is
         on, the Ready by section prints the same sentence, so the page holds one copy.
         """
-        source = self.oil_advice("water_heating_cheapest_source")
+        source = self.alt_heat_advice("water_heating_cheapest_source")
         scheduled = self.thermostat("immersion_schedule")
         suggestion = attribute_markdown(source, "suggestion")
         return group(
@@ -621,15 +623,15 @@ class Builder:
             [
                 tile_card(source, "Cheapest source", color=IMMERSION, columns=FULL),
                 with_visibility(suggestion, self.devices.visible_while_off(scheduled)),
-                self._oil_schedule_line(source),
+                self._alt_heat_schedule_line(source),
             ],
-            **self._when(Device.OIL_ADVICE),
+            **self._when(Device.ALTERNATIVE_HEAT),
         )
 
     @staticmethod
-    def _oil_schedule_line(source: str | None) -> dict | None:
-        """The suggested oil schedule, apart from the live suggestion above it."""
-        return markdown_card(oil_schedule_template(source)) if source else None
+    def _alt_heat_schedule_line(source: str | None) -> dict | None:
+        """The suggested alternative heating schedule, apart from the live suggestion above it."""
+        return markdown_card(alt_heat_schedule_template(source)) if source else None
 
     def _when(self, *devices: Device) -> dict[str, list[dict]]:
         """The section option that shows a section while these devices are present."""
@@ -1104,8 +1106,9 @@ class Builder:
         level = self.entity("night_survival_confidence")
         status = self.entity("night_survival_reason")
         sunrise = self.entity("estimated_soc_at_sunrise")
+        with_charge = self.entity("estimated_soc_at_sunrise_with_charge")
         if level:
-            return [markdown_card(survival_template(level, status, sunrise))]
+            return [markdown_card(survival_template(level, status, sunrise, with_charge))]
         if status:
             return [markdown_card(state_ref(status, ATTR_FULL_TEXT))]
         return []

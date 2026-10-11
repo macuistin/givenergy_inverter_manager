@@ -1,4 +1,4 @@
-"""Controllable loads: the EV charger, the immersion heater and the oil water heating advice."""
+"""Controllable loads: the EV charger, the immersion heater and the alternative heating advice."""
 
 from __future__ import annotations
 
@@ -111,7 +111,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     ),
     GivEnergyManagerSensorDescription(
         key="water_heating_cheapest_source",
-        requires=Device.OIL_ADVICE,
+        requires=Device.ALTERNATIVE_HEAT,
         translation_key="water_heating_cheapest_source",
         value_fn=values.water_heating_source,
         available_fn=lambda d: d.water_heating_advice is not None,

@@ -29,7 +29,9 @@ from homeassistant.helpers.typing import ConfigType
 from .config_helpers import effective_config
 from .const import DOMAIN
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
+from .core.alt_heat_conversion import converted_alt_heat
 from .core.default_enabled import keys_to_enable
+from .core.devices import alt_heat_warnings
 from .core.reload_policy import Effect, change_effect, changed_keys
 from .logging import get_logger, log_startup
 from .optional_devices import remove_orphaned_entities
@@ -83,6 +85,27 @@ def _make_update_listener(entry: GivEnergyConfigEntry):
 _RETIRED_ISSUE_IDS: tuple[str, ...] = ("givtcp_rates_differ",)
 
 
+def _convert_oil_price(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Turn the oil price options of 0.17 into alternative heating, once.
+
+    Runs before the coordinator is built, so everything after it reads the new keys. The
+    update listener is not registered yet, so the write does not reload the entry. A second
+    setup finds the saved alt_heat_enabled and does nothing.
+    """
+    converted = converted_alt_heat(entry.data, entry.options)
+    if converted is None:
+        return
+    data, options = converted
+    hass.config_entries.async_update_entry(entry, data=data, options=options)
+    _LOG.info("Converted the oil price settings to alternative heating with the label Oil")
+
+
+def _warn_about_alt_heat(entry: GivEnergyConfigEntry) -> None:
+    """Say once at setup what alternative heating still needs, when it is on and incomplete."""
+    for warning in alt_heat_warnings(effective_config(entry)):
+        _LOG.warning("Alternative water heating is on, but there is %s", warning)
+
+
 def _remove_retired_sensors(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
     """Delete the registry entries of retired sensors that belong to this config entry."""
     registry = er.async_get(hass)
@@ -129,6 +152,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> bool:
     """Set up GivEnergy Inverter Manager from a config entry."""
     _LOG.debug("Setting up entry %s (%s)", entry.entry_id, entry.title)
+
+    _convert_oil_price(hass, entry)
+    _warn_about_alt_heat(entry)
 
     coordinator = GivEnergyCoordinator(hass, entry)
 

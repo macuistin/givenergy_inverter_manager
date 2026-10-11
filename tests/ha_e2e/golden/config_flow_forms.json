@@ -4698,15 +4698,54 @@
     "schema": [
      {
       "selector": {
+       "boolean": {}
+      },
+      "name": "alt_heat_enabled",
+      "required": false,
+      "optional": true,
+      "default": false
+     },
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "alt_heat_label",
+      "required": false,
+      "optional": true,
+      "default": "Oil"
+     },
+     {
+      "selector": {
+       "select": {
+        "options": [
+         "litre",
+         "kwh_heat"
+        ],
+        "translation_key": "alt_heat_cost_unit",
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "alt_heat_cost_unit",
+      "required": false,
+      "optional": true,
+      "default": "litre"
+     },
+     {
+      "selector": {
        "number": {
         "min": 0.001,
         "max": 5.0,
         "step": 0.001,
-        "unit_of_measurement": "EUR/litre",
+        "unit_of_measurement": "EUR",
         "mode": "box"
        }
       },
-      "name": "oil_price_per_litre",
+      "name": "alt_heat_cost",
       "required": false,
       "optional": true
      },
@@ -4721,13 +4760,13 @@
         "reorder": false
        }
       },
-      "name": "oil_price_entity",
+      "name": "alt_heat_cost_entity",
       "required": false,
       "optional": true
      }
     ],
     "expanded": false,
-    "name": "oil_settings",
+    "name": "alt_heat_settings",
     "required": false,
     "optional": true
    },
@@ -5493,15 +5532,54 @@
     "schema": [
      {
       "selector": {
+       "boolean": {}
+      },
+      "name": "alt_heat_enabled",
+      "required": false,
+      "optional": true,
+      "default": false
+     },
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "alt_heat_label",
+      "required": false,
+      "optional": true,
+      "default": "Oil"
+     },
+     {
+      "selector": {
+       "select": {
+        "options": [
+         "litre",
+         "kwh_heat"
+        ],
+        "translation_key": "alt_heat_cost_unit",
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "alt_heat_cost_unit",
+      "required": false,
+      "optional": true,
+      "default": "litre"
+     },
+     {
+      "selector": {
        "number": {
         "min": 0.001,
         "max": 5.0,
         "step": 0.001,
-        "unit_of_measurement": "EUR/litre",
+        "unit_of_measurement": "EUR",
         "mode": "box"
        }
       },
-      "name": "oil_price_per_litre",
+      "name": "alt_heat_cost",
       "required": false,
       "optional": true
      },
@@ -5516,13 +5594,13 @@
         "reorder": false
        }
       },
-      "name": "oil_price_entity",
+      "name": "alt_heat_cost_entity",
       "required": false,
       "optional": true
      }
     ],
     "expanded": false,
-    "name": "oil_settings",
+    "name": "alt_heat_settings",
     "required": false,
     "optional": true
    },
@@ -6294,15 +6372,54 @@
     "schema": [
      {
       "selector": {
+       "boolean": {}
+      },
+      "name": "alt_heat_enabled",
+      "required": false,
+      "optional": true,
+      "default": false
+     },
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "alt_heat_label",
+      "required": false,
+      "optional": true,
+      "default": "Oil"
+     },
+     {
+      "selector": {
+       "select": {
+        "options": [
+         "litre",
+         "kwh_heat"
+        ],
+        "translation_key": "alt_heat_cost_unit",
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "alt_heat_cost_unit",
+      "required": false,
+      "optional": true,
+      "default": "litre"
+     },
+     {
+      "selector": {
        "number": {
         "min": 0.001,
         "max": 5.0,
         "step": 0.001,
-        "unit_of_measurement": "GBP/litre",
+        "unit_of_measurement": "GBP",
         "mode": "box"
        }
       },
-      "name": "oil_price_per_litre",
+      "name": "alt_heat_cost",
       "required": false,
       "optional": true
      },
@@ -6317,13 +6434,13 @@
         "reorder": false
        }
       },
-      "name": "oil_price_entity",
+      "name": "alt_heat_cost_entity",
       "required": false,
       "optional": true
      }
     ],
     "expanded": false,
-    "name": "oil_settings",
+    "name": "alt_heat_settings",
     "required": false,
     "optional": true
    },
@@ -7208,15 +7325,63 @@
     "schema": [
      {
       "selector": {
+       "boolean": {}
+      },
+      "name": "alt_heat_enabled",
+      "description": {
+       "suggested_value": false
+      },
+      "required": false,
+      "optional": true,
+      "default": false
+     },
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "alt_heat_label",
+      "description": {
+       "suggested_value": "Oil"
+      },
+      "required": false,
+      "optional": true,
+      "default": "Oil"
+     },
+     {
+      "selector": {
+       "select": {
+        "options": [
+         "litre",
+         "kwh_heat"
+        ],
+        "translation_key": "alt_heat_cost_unit",
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "alt_heat_cost_unit",
+      "description": {
+       "suggested_value": "litre"
+      },
+      "required": false,
+      "optional": true,
+      "default": "litre"
+     },
+     {
+      "selector": {
        "number": {
         "min": 0.001,
         "max": 5.0,
         "step": 0.001,
-        "unit_of_measurement": "EUR/litre",
+        "unit_of_measurement": "EUR",
         "mode": "box"
        }
       },
-      "name": "oil_price_per_litre",
+      "name": "alt_heat_cost",
       "required": false,
       "optional": true
      },
@@ -7231,13 +7396,13 @@
         "reorder": false
        }
       },
-      "name": "oil_price_entity",
+      "name": "alt_heat_cost_entity",
       "required": false,
       "optional": true
      }
     ],
     "expanded": false,
-    "name": "oil_settings",
+    "name": "alt_heat_settings",
     "required": false,
     "optional": true
    },

@@ -662,6 +662,27 @@ class TestNowSection:
         assert battery["features"] == [{"type": "bar-gauge", "min": 0, "max": 100}]
         assert battery["grid_options"]["rows"] > 1
 
+    def test_the_battery_overnight_tile_reads_the_summary_that_says_what_the_charge_adds(self):
+        """The tile shows the summary attribute, so its text is what the sensor builds tonight.
+
+        A battery that would run flat without a charge still reads May run low, and the tile
+        says in words that tonight's planned charge takes it to about two thirds.
+        """
+        from custom_components.givenergy_inverter_manager import sensor_values
+        from tests.core.test_sunrise_charge_engine import EVENING, _data
+
+        tile = self._now(_build())["cards"][4]
+        assert tile["entity"] == eid("night_survival_confidence")
+        assert tile["state_content"] == ["summary"]
+        assert tile["grid_options"]["columns"] == "full"
+
+        shown = sensor_values.night_survival_attributes(_data(EVENING, 66.0))["summary"]
+        assert shown == (
+            "May run low without a charge · tonight's charge covers it, about 67% at sunrise"
+        )
+        skipped = _data(EVENING, 66.0, override_skip_charge=True, override_charge_target=None)
+        assert sensor_values.night_survival_attributes(skipped)["summary"] == "May run low"
+
     def test_battery_overnight_opens_the_explanation(self):
         """The tile gives a short phrase, so a tap leads to the sentence behind it."""
         tile = self._now(_build())["cards"][4]
@@ -784,17 +805,30 @@ class TestNightSurvivalCard:
 
     _CONF = eid("night_survival_confidence")
     _SUNRISE = eid("estimated_soc_at_sunrise")
+    _WITH_CHARGE = eid("estimated_soc_at_sunrise_with_charge")
     _STATUS = eid("night_survival_reason")
 
     def _card(self, **kw) -> str:
         cards = _cards(_build(**kw), "battery-detail")
         return next(c for c in cards if c["type"] == "markdown")["content"]
 
-    def _text(self, level, *, sunrise="13.6", status="Battery should last.", explanation=None):
+    def _text(
+        self,
+        level,
+        *,
+        sunrise="13.6",
+        status="Battery should last.",
+        explanation=None,
+        with_charge=None,
+        added=None,
+    ):
         states = {self._CONF: level, self._SUNRISE: sunrise, self._STATUS: status}
         attrs = {(self._CONF, "outlook"): _OUTLOOKS[level]} if level in _OUTLOOKS else {}
         if explanation:
             attrs[(self._CONF, "explanation")] = explanation
+        if with_charge is not None:
+            states[self._WITH_CHARGE] = with_charge
+            attrs[(self._WITH_CHARGE, "charge_added_pct")] = added
         return _render(self._card(), lambda e: states.get(e, "unknown"), attrs).strip()
 
     def test_the_level_is_bold_and_comes_first(self):
@@ -805,10 +839,28 @@ class TestNightSurvivalCard:
     def test_warning_is_explained_from_the_sunrise_estimate(self):
         text = self._text("Warning")
         assert text.endswith(
-            "The battery should last until solar starts, but only just. It is expected to "
-            "reach about 14% at sunrise, close to your minimum charge. A warning shows when "
-            "the estimate is within 5 points of the minimum."
+            "The battery should last until solar starts, but only just. Without a charge it "
+            "is expected to reach about 14% at sunrise, close to your minimum charge. A "
+            "warning shows when the estimate is within 5 points of the minimum."
         )
+
+    def test_warning_also_gives_the_figure_with_the_planned_charge_while_one_counts(self):
+        text = self._text("Warning", with_charge="89.2", added=64.5)
+        assert text.endswith(
+            "Without a charge it is expected to reach about 14% at sunrise, close to your "
+            "minimum charge. With tonight's planned charge it should reach about 89%. A "
+            "warning shows when the estimate is within 5 points of the minimum."
+        )
+
+    @pytest.mark.parametrize("added", [0, 0.0, None, "unknown"])
+    def test_warning_leaves_the_planned_charge_out_when_it_adds_nothing(self, added):
+        text = self._text("Warning", with_charge="13.6", added=added)
+        assert "planned charge" not in text
+        assert "about 14% at sunrise, close to your minimum charge." in text
+
+    def test_warning_leaves_the_planned_charge_out_when_its_figure_is_unavailable(self):
+        text = self._text("Warning", with_charge="unavailable", added=64.5)
+        assert "planned charge" not in text
 
     def test_warning_rounds_the_sunrise_estimate_to_whole_percent(self):
         assert "about 16% at sunrise" in self._text("Warning", sunrise="15.8")

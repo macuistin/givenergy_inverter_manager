@@ -26,12 +26,13 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import (
+    CONF_ALT_HEAT_COST,
+    CONF_ALT_HEAT_ENABLED,
     CONF_DRY_RUN,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_READY_TIMES,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
-    CONF_OIL_PRICE_PER_LITRE,
     DOMAIN,
 )
 
@@ -598,7 +599,7 @@ class TestOilStartForAReadyTime:
 
     @pytest.fixture
     def config_entry(self):
-        return _entry(**{CONF_IMMERSION_READY_TIMES: ["19:00"], CONF_OIL_PRICE_PER_LITRE: 0.05})
+        return _entry(**{CONF_IMMERSION_READY_TIMES: ["19:00"], CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: 0.05})
 
     async def test_cold_water_gets_a_start_time_and_the_immersion_stays_off(
         self, hass, loaded_entry, real_switch, freezer
@@ -608,9 +609,9 @@ class TestOilStartForAReadyTime:
         at(freezer, "12:00:00")
         await cycle(hass, loaded_entry)
         attributes = hass.states.get(self.OIL_SENSOR).attributes
-        assert attributes["oil_for_ready_time"] == "19:00"
-        assert "16:00" < attributes["oil_start_by"] < "17:30"
-        assert attributes["oil_run_minutes"] > 0
+        assert attributes["alt_for_ready_time"] == "19:00"
+        assert "16:00" < attributes["alt_start_by"] < "17:30"
+        assert attributes["alt_run_minutes"] > 0
         assert attributes["suggestion"].startswith("For the 19:00 ready time: turn the oil water")
         assert real_switch.calls == []
 
@@ -622,7 +623,7 @@ class TestOilStartForAReadyTime:
         at(freezer, "12:00:00")
         await cycle(hass, loaded_entry)
         attributes = hass.states.get(self.OIL_SENSOR).attributes
-        assert "oil_keep_warm" in attributes
+        assert "alt_keep_warm" in attributes
         assert attributes["suggestion"].startswith("For the 19:00 ready time")
 
     async def test_warm_water_has_no_start_and_no_keep_warm(
@@ -633,6 +634,6 @@ class TestOilStartForAReadyTime:
         at(freezer, "12:00:00")
         await cycle(hass, loaded_entry)
         attributes = hass.states.get(self.OIL_SENSOR).attributes
-        assert "oil_start_by" not in attributes
-        assert "oil_keep_warm" not in attributes
+        assert "alt_start_by" not in attributes
+        assert "alt_keep_warm" not in attributes
         assert attributes["suggestion"].endswith("so there is nothing to heat.")

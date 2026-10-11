@@ -151,41 +151,58 @@ IMMERSION_RATE_RUN_MIN_RISE_C = 2.0
 # The rate used is the median of the last few runs, so one run during a shower does not skew it.
 IMMERSION_RATE_RUNS_KEPT = 5
 IMMERSION_SWITCH_COOLDOWN_MINUTES = 10  # min between auto on/off writes to the real switch
-# ── Oil water heating advice (core/oil_advice.py) ────────────────────────────
-# Some homes also heat the same cylinder with an oil boiler, through a second coil. With an
-# oil price set, a sensor says when the oil system is the cheaper way to heat the water.
-# Advice only: the integration never switches the oil system. The price is the only setting.
-CONF_OIL_PRICE_PER_LITRE = "oil_price_per_litre"
-CONF_OIL_PRICE_ENTITY = "oil_price_entity"
-# Fixed assumptions, not options. A typical boiler in service sits between an older
-# non-condensing boiler (about 75 to 80%) and a new condensing one (about 90% or more). 85% leans
-# low on purpose, so oil is not suggested on an efficiency the boiler does not reach in summer,
-# when it heats only the cylinder.
+# ── Alternative water heating advice (core/alt_heat_advice.py) ────────────────────
+# Some homes also heat the same cylinder another way: an oil or gas boiler, a heat pump or solid
+# fuel, through a second coil. With the setting on and a cost set, a sensor says when that is the
+# cheaper way to heat the water. Advice only: the integration never switches the other system.
+CONF_ALT_HEAT_ENABLED = "alt_heat_enabled"
+CONF_ALT_HEAT_LABEL = "alt_heat_label"
+CONF_ALT_HEAT_COST_UNIT = "alt_heat_cost_unit"
+CONF_ALT_HEAT_COST = "alt_heat_cost"
+CONF_ALT_HEAT_COST_ENTITY = "alt_heat_cost_entity"
+# What the cost is the cost of. A litre is the price of a litre of heating oil, turned into heat
+# with the two fixed assumptions below. A kWh of heat is the cost of one kWh delivered to the
+# water, boiler efficiency already included.
+ALT_HEAT_UNIT_LITRE = "litre"
+ALT_HEAT_UNIT_KWH_HEAT = "kwh_heat"
+ALT_HEAT_UNITS = (ALT_HEAT_UNIT_LITRE, ALT_HEAT_UNIT_KWH_HEAT)
+DEFAULT_ALT_HEAT_UNIT = ALT_HEAT_UNIT_LITRE
+DEFAULT_ALT_HEAT_LABEL = "Oil"
+ALT_HEAT_LABEL_MAX_LENGTH = 20
+# The oil price options of 0.17 and earlier. Setup converts them once
+# (core/alt_heat_conversion.py) and nothing reads them afterwards. They are not CONF_ names
+# because they are no longer options.
+LEGACY_OIL_PRICE_PER_LITRE = "oil_price_per_litre"
+LEGACY_OIL_PRICE_ENTITY = "oil_price_entity"
+# Fixed assumptions for the litre unit, not options. A typical boiler in service sits between an
+# older non-condensing boiler (about 75 to 80%) and a new condensing one (about 90% or more). 85%
+# leans low on purpose, so oil is not suggested on an efficiency the boiler does not reach in
+# summer, when it heats only the cylinder.
 OIL_BOILER_EFFICIENCY_PCT = 85  # %
 # The commonly quoted energy content of kerosene heating oil.
 OIL_KWH_PER_LITRE = 10.35  # kWh per litre of fuel
-OIL_ADVICE_HORIZON_HOURS = 24  # how far ahead the cheapest hours are looked for
-# A suggested oil schedule (core/oil_schedule.py) is learned from a rolling record of the
-# immersion's grid heating. Fixed assumptions, not options.
+ALT_HEAT_ADVICE_HORIZON_HOURS = 24  # how far ahead the cheapest hours are looked for
+# A suggested alternative heating schedule (core/alt_heat_schedule.py) is learned from a rolling
+# record of the immersion's grid heating. Fixed assumptions, not options.
 # Complete days kept, plus the day in progress. Two weeks hold every weekday twice, so a weekly
 # habit shows up twice, and an old habit drops out within a fortnight of it ending.
-OIL_SCHEDULE_RECORD_DAYS = 14
+ALT_HEAT_SCHEDULE_RECORD_DAYS = 14
 # A single week is the shortest record that has seen each weekday once. Before that a pattern
 # could be one busy weekend.
-OIL_SCHEDULE_MIN_DAYS = 7
+ALT_HEAT_SCHEDULE_MIN_DAYS = 7
 # An hour counts as a habit when it recurs on at least one day in this many. A third is two or
 # three days a week: it catches weekday routines and the daily top-up, and leaves out a guest's
 # shower or one cold snap.
-OIL_SCHEDULE_REPEAT_ONE_IN = 3
+ALT_HEAT_SCHEDULE_REPEAT_ONE_IN = 3
 # The least grid energy in one hour that counts as the immersion heating (about 5 minutes of a
 # 3 kW element). Less is solar surplus that did not quite cover the heater.
-OIL_SCHEDULE_MIN_HOUR_KWH = 0.25
+ALT_HEAT_SCHEDULE_MIN_HOUR_KWH = 0.25
 # The least saving a week that is worth a window, in the configured currency. About 13 a year:
 # below it, setting up an automation costs more effort than it returns.
-OIL_SCHEDULE_MIN_SAVING_PER_WEEK = 0.25
+ALT_HEAT_SCHEDULE_MIN_SAVING_PER_WEEK = 0.25
 # Two or three windows is a morning, an afternoon and an evening. More is not a schedule anyone
 # sets up.
-OIL_SCHEDULE_MAX_WINDOWS = 3
+ALT_HEAT_SCHEDULE_MAX_WINDOWS = 3
 DEFAULT_BATTERY_MIN_SOC = 10  # %
 DEFAULT_OVERNIGHT_CHARGE_TARGET = 80  # %
 DEFAULT_SKIP_CHARGE_SOC_THRESHOLD = 75  # %

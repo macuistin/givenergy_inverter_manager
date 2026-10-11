@@ -12,8 +12,8 @@ changes neither. The sentence says one of these things:
 
 With no ready time the sentence covers the cheap window alone. The water counts as ready when it
 is at or above the temperature the immersion restarts at, or the run would be under 5 minutes
-(WaterReading.needs_heating), the same test the oil start uses. The immersion itself may still
-add a few minutes just before a ready time to reach the exact target.
+(WaterReading.needs_heating), the same test the alternative heating start uses. The immersion
+itself may still add a few minutes just before a ready time to reach the exact target.
 
 Pure Python, no Home Assistant imports.
 """
@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, time
 
+from .alt_heat_start import WaterReading
 from .immersion_ready import (
     HeatingSpan,
     ReadyInputs,
@@ -31,7 +32,6 @@ from .immersion_ready import (
     plan_ready,
 )
 from .immersion_window import WindowOpening, next_window_opening
-from .oil_start import WaterReading
 from .tariff import TariffConfig
 
 _NO_READY_TIME = "No ready time is set."
