@@ -96,13 +96,15 @@ def build_dashboard(
     return _generate(hass, entry, facts, registry).config
 
 
-async def async_host_facts(hass: HomeAssistant) -> HostFacts:
-    """Read the Lovelace resources and the administrators the generator needs.
+async def async_host_facts(hass: HomeAssistant, *, is_admin: bool) -> HostFacts:
+    """Read the Lovelace resources, and the administrators when the viewer is one.
 
-    The administrators are read now, so a role change shows once the dashboard is generated
-    again: press Refresh Dashboard, or reload the page of a strategy dashboard.
+    A viewer who is not an administrator gets no administrator list, because the dashboard
+    built for them has no Settings view to put it in. A role change shows when the page of a
+    strategy dashboard is reloaded.
     """
-    return HostFacts(await async_lovelace_resource_urls(hass), await async_admin_user_ids(hass))
+    admin_ids = await async_admin_user_ids(hass) if is_admin else ()
+    return HostFacts(await async_lovelace_resource_urls(hass), admin_ids, is_admin)
 
 
 def _fallback_note(cards: list[HacsCard]) -> str:

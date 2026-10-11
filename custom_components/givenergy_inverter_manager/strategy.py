@@ -35,15 +35,16 @@ _REGISTERED_KEY = f"{DOMAIN}_strategy_registered"
 _EXTRA_MODULE_URL_KEY = "frontend_extra_module_url"
 
 
-async def async_dashboard_for_websocket(hass: HomeAssistant) -> dict | None:
+async def async_dashboard_for_websocket(hass: HomeAssistant, *, is_admin: bool) -> dict | None:
     """Return the dashboard dict for the first loaded config entry, or None if none is loaded.
 
-    This is the entry the get_dashboard_yaml action uses too.
+    *is_admin* is whether the connection's user is an administrator. Only then does the
+    dashboard hold the Settings view.
     """
     entries = loaded_entries(hass)
     if not entries:
         return None
-    facts = await async_host_facts(hass)
+    facts = await async_host_facts(hass, is_admin=is_admin)
     return build_dashboard(hass, entries[0], facts)
 
 
@@ -66,7 +67,9 @@ def _register_websocket_command(hass: HomeAssistant) -> None:
     @websocket_api.websocket_command({vol.Required("type"): WS_TYPE})
     @websocket_api.async_response
     async def ws_dashboard(hass, connection, msg):
-        config = await async_dashboard_for_websocket(hass)
+        # The authenticated user decides who sees Settings. The schema accepts no other field,
+        # so there is nothing in the message a client could use to ask for it.
+        config = await async_dashboard_for_websocket(hass, is_admin=connection.user.is_admin)
         if config is None:
             connection.send_error(
                 msg["id"], websocket_api.ERR_NOT_FOUND, "GivEnergy Inverter Manager is not set up"

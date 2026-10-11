@@ -1,8 +1,8 @@
 """
 Pins the generated dashboard for a grid of installs, so a refactor cannot change it.
 
-Each scenario is a config, a registry (sensors enabled or not), the Lovelace resources and
-the EV charger that is present. The fixture holds a SHA-256 of the YAML for each one.
+Each scenario is a config, a registry (sensors enabled or not), the Lovelace resources, the
+EV charger that is present and whether the viewer is an administrator. The fixture holds a SHA-256 of the YAML for each one.
 When a change to the dashboard is deliberate, regenerate and review the docs example too:
 
     UPDATE_DASHBOARD_MATRIX=1 python -m pytest tests/test_dashboard_matrix.py
@@ -53,6 +53,7 @@ REGISTRIES = {
     ),
 }
 RESOURCES = {"unknown": None, "none": [], "flow": [_PFC], "apex": [_APEX], "both": [_PFC, _APEX]}
+ROLES = {"admin": True, "user": False}
 CHARGERS = {
     "no_ev": {"ev_brand": None, "states": ()},
     "myenergi": {"ev_brand": "myenergi", "states": ()},
@@ -61,17 +62,18 @@ CHARGERS = {
 
 
 def scenario_ids() -> list[str]:
-    grid = itertools.product(CONFIGS, REGISTRIES, RESOURCES, CHARGERS)
+    grid = itertools.product(CONFIGS, REGISTRIES, RESOURCES, CHARGERS, ROLES)
     return ["/".join(parts) for parts in grid]
 
 
 def render_scenario(scenario: str) -> str:
-    config, registry, resources, charger = scenario.split("/")
+    config, registry, resources, charger, role = scenario.split("/")
     devices = devices_of(CONFIGS[config], CHARGERS[charger]["ev_brand"])
     return dashboard_text(
         CONFIGS[config],
         REGISTRIES[registry](devices),
         resources=RESOURCES[resources],
+        is_admin=ROLES[role],
         **CHARGERS[charger],
     )
 

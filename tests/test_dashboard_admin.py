@@ -121,6 +121,15 @@ class TestAdminsAbsent:
         assert _settings_buttons(dashboard) == []
         assert "'navigation_path': 'settings'" not in str(dashboard)
 
+    def test_a_viewer_who_is_not_an_administrator_gets_neither_the_view_nor_the_button(self):
+        dashboard = dashboard_dict(admin_ids=(ADMIN_ID,), is_admin=False)
+        assert _view(dashboard, "settings") is None
+        assert _settings_buttons(dashboard) == []
+        assert "'navigation_path': 'settings'" not in str(dashboard)
+
+    def test_the_administrator_ids_are_not_written_for_a_viewer_who_is_not_one(self):
+        assert ADMIN_ID not in str(dashboard_dict(admin_ids=(ADMIN_ID,), is_admin=False))
+
     def test_a_non_administrator_id_is_never_written_when_it_is_not_passed(self):
         assert "child-user-id" not in str(dashboard_dict(admin_ids=(ADMIN_ID,)))
 

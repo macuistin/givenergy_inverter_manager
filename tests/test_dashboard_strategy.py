@@ -126,13 +126,15 @@ def _user(user_id, *, admin, system=False):
 
 
 class TestDashboardForWebsocket:
-    def _run(self, entries, users=None):
+    def _run(self, entries, users=None, *, is_admin=True):
         users = [_user(ADMIN_ID, admin=True)] if users is None else users
         with fake_hass(FULL_CONFIG, FakeRegistry(enable_all=True)) as hass:
             hass.config_entries.async_entries.return_value = entries
             hass.data = {}
             hass.auth.async_get_users = AsyncMock(return_value=users)
-            return asyncio.run(_strategy().async_dashboard_for_websocket(hass))
+            return asyncio.run(
+                _strategy().async_dashboard_for_websocket(hass, is_admin=is_admin)
+            )
 
     def _settings(self, result):
         return next((v for v in result["views"] if v["path"] == "settings"), None)
@@ -146,6 +148,15 @@ class TestDashboardForWebsocket:
         ]
         settings = self._settings(self._run([_loaded_entry()], users))
         assert settings["visible"] == [{"user": "owner-id"}, {"user": "second-admin-id"}]
+
+    def test_a_viewer_who_is_not_an_administrator_gets_no_settings_view(self):
+        result = self._run([_loaded_entry()], is_admin=False)
+        assert self._settings(result) is None
+        assert "'navigation_path': 'settings'" not in str(result)
+
+    def test_a_viewer_who_is_not_an_administrator_gets_no_administrator_ids(self):
+        users = [_user("owner-id", admin=True)]
+        assert "owner-id" not in str(self._run([_loaded_entry()], users, is_admin=False))
 
     def test_no_settings_view_when_no_user_is_an_administrator(self):
         result = self._run([_loaded_entry()], [_user("child-id", admin=False)])

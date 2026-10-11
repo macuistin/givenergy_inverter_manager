@@ -270,7 +270,7 @@ class TestTheMarkerIsReadOnce:
 
 async def _banner(hass, entry) -> str:
     """The dry run banner's markdown, rendered by Home Assistant's template engine."""
-    dashboard = build_dashboard(hass, entry, await async_host_facts(hass))
+    dashboard = build_dashboard(hass, entry, await async_host_facts(hass, is_admin=True))
     cards = [
         card
         for view in dashboard["views"]

@@ -205,7 +205,8 @@ class Builder:
         registry,
     ) -> None:
         self.cards = HacsCards(facts.resources)
-        self.admin_ids = facts.admin_ids
+        # Settings is built for an administrator and left out for anyone else.
+        self.admin_ids = facts.admin_ids if facts.is_admin else ()
         self.reg = Registry(er.async_get(hass) if registry is None else registry, entry.entry_id)
         self.cfg = entry_config(entry)
         self.external_ev = external_ev_power(hass)

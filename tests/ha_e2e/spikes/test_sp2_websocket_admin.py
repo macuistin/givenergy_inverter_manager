@@ -7,8 +7,9 @@ Proved here (docs/design/spikes/SP2.md):
 * the handler's schema decides what happens to extra client fields (rejected by the existing
   schema, ignored by a schema that allows extras), and neither lets a client claim admin;
 * a role change shows on the next message of a connection that is already open;
-* today's real command sends the Settings view to a read-only user as well, relying on the
-  frontend to hide it (the gap the server-side decision closes).
+* the real command once sent the Settings view to a read-only user as well, relying on the
+  frontend to hide it. The server-side decision closed that gap, and the last test now pins
+  the closed state.
 
 Not provable here: Take control, ``getCreateSuggestions``, ``window.customStrategies`` and the
 distribution card are frontend behaviour, and the frontend package is not installed in this
@@ -142,19 +143,26 @@ async def test_the_real_command_rejects_extra_client_fields(hass, loaded_entry, 
     assert response["error"]["code"] == "invalid_format"
 
 
-async def test_the_real_command_today_sends_the_settings_view_to_a_read_only_user(
+async def test_the_real_command_sends_the_settings_view_to_an_administrator_only(
     hass, loaded_entry, hass_ws_client, hass_read_only_access_token, hass_admin_user
 ):
-    """The gap SP2 closes: hiding is left to the frontend's `visible` list, not the server."""
+    """The gap SP2 found, now closed: the server leaves Settings out for a read-only user.
+
+    This test first pinned the gap (both clients got the view, with hiding left to the
+    frontend's `visible` list). The server-side decision flipped it on purpose. The permanent
+    tests are in tests/ha_e2e/test_dashboard_admin_e2e.py.
+    """
     admin = await hass_ws_client(hass)
     read_only = await hass_ws_client(hass, hass_read_only_access_token)
 
-    for client in (admin, read_only):
-        response = await _ask(client, 1, type=WS_TYPE)
-        assert response["success"] is True
-        settings = next(v for v in response["result"]["views"] if v["path"] == "settings")
-        assert settings["visible"] == [{"user": hass_admin_user.id}]
-        assert settings["sections"], "the view's cards are in the payload"
+    response = await _ask(admin, 1, type=WS_TYPE)
+    settings = next(v for v in response["result"]["views"] if v["path"] == "settings")
+    assert settings["visible"] == [{"user": hass_admin_user.id}]
+    assert settings["sections"]
+
+    response = await _ask(read_only, 1, type=WS_TYPE)
+    assert response["success"] is True
+    assert all(v["path"] != "settings" for v in response["result"]["views"])
 
 
 # ---------------------------------------------------------------------------------------------

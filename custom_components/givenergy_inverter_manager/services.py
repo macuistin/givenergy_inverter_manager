@@ -142,7 +142,7 @@ def _make_get_dashboard_yaml_handler(hass: HomeAssistant):
     async def handle(call: ServiceCall) -> None:
         """Write the generated dashboard to the config directory."""
         entry = primary_entry(hass)
-        facts = await async_host_facts(hass)
+        facts = await async_host_facts(hass, is_admin=True)
         yaml_output, skipped = render_dashboard(hass, entry, facts)
         file_path = await _write_config_file(hass, DASHBOARD_FILENAME, yaml_output)
         _LOG.info("Dashboard YAML written to %s", file_path)

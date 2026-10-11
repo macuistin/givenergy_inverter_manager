@@ -227,6 +227,7 @@ def dashboard_text(
     *,
     resources: list[str] | None = None,
     admin_ids: tuple[str, ...] = (ADMIN_ID,),
+    is_admin: bool = True,
     ev_brand: str | None = "myenergi",
     states: tuple[str, ...] = (),
 ) -> str:
@@ -236,7 +237,8 @@ def dashboard_text(
     config = FULL_CONFIG if config is None else config
     entry = fake_entry(config, ev_brand)
     registry = registry or FakeRegistry(enable_all=True, devices=devices_of(config, ev_brand))
-    return render_dashboard(fake_states_hass(states), entry, HostFacts(resources, admin_ids), registry)[0]
+    facts = HostFacts(resources, admin_ids, is_admin)
+    return render_dashboard(fake_states_hass(states), entry, facts, registry)[0]
 
 
 def dashboard_dict(
@@ -245,6 +247,7 @@ def dashboard_dict(
     *,
     resources: list[str] | None = None,
     admin_ids: tuple[str, ...] = (ADMIN_ID,),
+    is_admin: bool = True,
     ev_brand: str | None = "myenergi",
     states: tuple[str, ...] = (),
 ) -> dict:
@@ -254,4 +257,5 @@ def dashboard_dict(
     config = FULL_CONFIG if config is None else config
     entry = fake_entry(config, ev_brand)
     registry = registry or FakeRegistry(enable_all=True, devices=devices_of(config, ev_brand))
-    return build_dashboard(fake_states_hass(states), entry, HostFacts(resources, admin_ids), registry)
+    facts = HostFacts(resources, admin_ids, is_admin)
+    return build_dashboard(fake_states_hass(states), entry, facts, registry)
