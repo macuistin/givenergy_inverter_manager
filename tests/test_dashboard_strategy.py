@@ -39,7 +39,9 @@ class TestStrategyFile:
         return _strategy().STRATEGY_FILE.read_text(encoding="utf-8")
 
     def test_file_exists_and_is_small(self):
-        assert len(self._source().splitlines()) <= 40
+        # 40 lines until the strategy registered itself in window.customStrategies, gave
+        # create suggestions and a clearer error view. There is still no build step.
+        assert len(self._source().splitlines()) <= 80
 
     def test_no_dependencies_or_build_chain(self):
         source = self._source()
@@ -63,17 +65,27 @@ const fs = require("fs");
 globalThis.HTMLElement = class {};
 const defined = {};
 globalThis.customElements = { get: (n) => defined[n], define: (n, c) => { defined[n] = c; } };
-eval(fs.readFileSync(process.argv[2], "utf8"));
+globalThis.window = { customStrategies: [{ type: "someone-elses" }] };
+const source = fs.readFileSync(process.argv[2], "utf8");
+eval(source);
+const afterFirstLoad = window.customStrategies.map((e) => e.type);
+eval(source);
+const afterSecondLoad = window.customStrategies.map((e) => e.type);
 const Strategy = defined["ll-strategy-givenergy-manager"];
 const calls = [];
 const good = { callWS: async (msg) => { calls.push(msg); return { views: [{ title: "x", cards: [] }] }; } };
-const bad = { callWS: async () => { throw { code: "not_found", message: "not set up" }; } };
+const failing = (err) => ({ callWS: async () => { throw err; } });
 (async () => {
   const ok = await Strategy.generate({}, good);
-  const failed = await Strategy.generate({}, bad);
+  const failed = await Strategy.generate({}, failing({ code: "unknown_error", message: "boom" }));
+  const unloaded = await Strategy.generate({}, failing({ code: "not_found", message: "not set up" }));
+  const listed = window.customStrategies.find((e) => e.type === "givenergy-manager");
   console.log(JSON.stringify({
     names: Object.keys(defined), calls, ok, failedType: failed.views[0].cards[0].type,
     failedText: failed.views[0].cards[0].content,
+    unloadedText: unloaded.views[0].cards[0].content,
+    suggestions: Strategy.getCreateSuggestions({}), noEditor: Strategy.noEditor,
+    afterFirstLoad, afterSecondLoad, listed,
   }));
 })();
 """
@@ -108,7 +120,32 @@ class TestStrategyRunsUnderNode:
 
     def test_generate_shows_a_markdown_card_when_the_command_fails(self, result):
         assert result["failedType"] == "markdown"
-        assert "not set up" in result["failedText"]
+        assert "boom" in result["failedText"]
+
+    def test_the_error_view_links_the_troubleshooting_page(self, result):
+        assert "/docs/troubleshooting.md" in result["failedText"]
+
+    def test_the_error_view_says_when_the_integration_is_not_loaded(self, result):
+        assert "is not loaded" in result["unloadedText"]
+        assert "not_found" not in result["unloadedText"]
+
+    def test_generate_sends_no_field_but_the_type(self, result):
+        assert all(set(call) == {"type"} for call in result["calls"])
+
+    def test_it_suggests_a_title_and_an_icon_for_a_new_dashboard(self, result):
+        assert result["suggestions"] == {"title": "GivEnergy", "icon": "mdi:solar-power-variant"}
+
+    def test_it_is_listed_under_community_dashboards(self, result):
+        assert result["listed"]["type"] == "givenergy-manager"
+        assert result["listed"]["strategyType"] == "dashboard"
+        assert result["listed"]["documentationURL"].endswith("/docs/dashboard.md")
+
+    def test_registering_keeps_other_strategies_and_adds_ours_once(self, result):
+        assert result["afterFirstLoad"] == ["someone-elses", "givenergy-manager"]
+        assert result["afterSecondLoad"] == result["afterFirstLoad"]
+
+    def test_it_has_no_config_editor(self, result):
+        assert result["noEditor"] is True
 
 
 def _loaded_entry(state=ConfigEntryState.LOADED, entry_id=ENTRY_ID):
