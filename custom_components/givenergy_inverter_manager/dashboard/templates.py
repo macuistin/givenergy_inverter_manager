@@ -31,16 +31,35 @@ def _sunrise_phrase(sunrise: str | None) -> str:
     )
 
 
-def survival_template(level: str, status: str | None, sunrise: str | None) -> str:
+def _planned_charge_phrase(with_charge: str | None) -> str:
+    """The figure with tonight's planned charge, as a template fragment, while a charge counts."""
+    if not with_charge:
+        return ""
+    added = f"state_attr('{with_charge}', 'charge_added_pct')"
+    figure = f"states('{with_charge}')"
+    return (
+        f"{{% if is_number({added}) and {added} | float(0) > 0 and is_number({figure}) %}}"
+        f" With tonight's planned charge it should reach about "
+        f"{{{{ states('{with_charge}') | float(0) | round(0) | int }}}}%."
+        "{% endif %}"
+    )
+
+
+def survival_template(
+    level: str, status: str | None, sunrise: str | None, with_charge: str | None = None
+) -> str:
     """The overnight card: the plain outlook, then the explanation attribute or a sentence.
 
     The outlook attribute holds a phrase such as "Lasts the night". An install that lacks it
     shows the level word instead. The heading above the card already says what it is of.
+    The sunrise entity is the figure without a charge. A Warning also gives the figure with
+    tonight's planned charge, from the with_charge entity, while that charge adds something.
     """
     status_text = state_ref(status, ATTR_FULL_TEXT) if status else ""
     warning = (
         "The battery should last until solar starts, but only just. "
-        f"It is expected to reach {_sunrise_phrase(sunrise)}, close to your minimum charge. "
+        f"Without a charge it is expected to reach {_sunrise_phrase(sunrise)}, "
+        f"close to your minimum charge.{_planned_charge_phrase(with_charge)} "
         "A warning shows when the estimate is within 5 points of the minimum."
     )
     return (

@@ -62,6 +62,21 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   one odd day does not swing it.
 - The charge reason says when the factor sits on a limit, for example
   `x0.40 recent accuracy (at the lower limit)`.
+- The Battery overnight text says what tonight's planned charge adds. Battery Overnight Confidence
+  judges the night without a charge, so with a charge planned it could read `May run low` in the
+  evening while the battery ended the night near the target. While a planned charge counts, the
+  `summary` attribute (the Now tile) gives both figures, for example
+  `Lasts the night · 36% at sunrise without a charge, about 89% with tonight's charge`. A Warning or
+  May run low says whether the charge covers it, for example
+  `May run low without a charge · tonight's charge covers it, about 67% at sunrise`, or
+  `May run low, even with tonight's charge · about 13% at sunrise`. The `explanation` attribute
+  (the Battery detail view) says the same in a sentence. A charge counts when a timed window adds
+  charge before 08:00. On a skipped night, with no timed window, or once the window is over, the text
+  gives the one figure as before. The level, the outlook phrase and every decision are unchanged, and
+  there are no new entities or attributes.
+- The Warning sentence the Battery detail view falls back to, when Battery Overnight Confidence has no
+  `explanation`, now says the figure is without a charge and gives the figure with the planned
+  charge when one adds something.
 - Saving the options page no longer reloads the integration for most changes. A tariff edit, a
   threshold, dry run, verbose logging, the forecast and carbon sensors (except the main forecast
   sensor), element power, ready-by times and the car efficiency now apply straight away, and
@@ -90,6 +105,13 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   `oil_keep_warm` begin `alt_` instead, and `best_hours_for_oil` is `best_hours_for_alt`. There is a
   new `alt_label` attribute with your name for the alternative. The entity ID and the unique ID do
   not change. The old names are not kept.
+
+**Fixes**
+- The battery warning example in Automation examples used `below: 10` on the SoC at sunrise, which
+  could not fire, because the figure never reads below the minimum SoC (10% by default). It now reads
+  Estimated SoC at Sunrise With the Planned Charge, with `below: 30` to set to your own comfort
+  level, and offers Battery Overnight Confidence as a second trigger. If you copied the old example,
+  change its threshold.
 
 **Upgrading**
 - If an automation, template or card reads the Water Heating Cheapest Source state `oil` or one of

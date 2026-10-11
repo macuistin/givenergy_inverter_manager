@@ -1090,8 +1090,9 @@ class Builder:
         level = self.entity("night_survival_confidence")
         status = self.entity("night_survival_reason")
         sunrise = self.entity("estimated_soc_at_sunrise")
+        with_charge = self.entity("estimated_soc_at_sunrise_with_charge")
         if level:
-            return [markdown_card(survival_template(level, status, sunrise))]
+            return [markdown_card(survival_template(level, status, sunrise, with_charge))]
         if status:
             return [markdown_card(state_ref(status, ATTR_FULL_TEXT))]
         return []

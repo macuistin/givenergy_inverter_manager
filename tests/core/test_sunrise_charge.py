@@ -135,6 +135,39 @@ class TestNoChargeInTheNight:
         assert result.basis == BASIS_NOT_BEFORE_SUNRISE
 
 
+class TestWhetherAChargeCounts:
+    """The survival text quotes the figure with the charge only while a charge is in it."""
+
+    def test_a_window_that_adds_charge_counts(self):
+        result = project_sunrise_with_charge(_battery(), _at(19), _plan(), _flat())
+        assert result.charge_counts
+
+    def test_a_slow_charge_that_stops_short_of_the_target_still_counts(self):
+        result = project_sunrise_with_charge(_battery(), _at(19), _plan(charge_power_kw=0.5), _flat())
+        assert result.charge_counts
+
+    def test_an_unknown_charge_rate_counts_as_reaching_the_target(self):
+        result = project_sunrise_with_charge(_battery(), _at(19), _plan(charge_power_kw=0.0), _flat())
+        assert result.charge_counts
+
+    def test_a_skipped_night_does_not_count(self):
+        result = project_sunrise_with_charge(_battery(), _at(19), _plan(skipped=True), _flat())
+        assert not result.charge_counts
+
+    def test_no_timed_window_does_not_count(self):
+        plan = PlannedCharge(None, 90.0, False, POWER_KW)
+        assert not project_sunrise_with_charge(_battery(), _at(19), plan, _flat()).charge_counts
+
+    def test_a_window_that_is_over_does_not_count(self):
+        assert not project_sunrise_with_charge(_battery(), _at(5), _plan(), _flat()).charge_counts
+
+    def test_a_battery_already_at_the_target_does_not_count(self):
+        plan = _plan(target_soc=70.0)
+        result = project_sunrise_with_charge(_battery(soc=95.0), _at(19), plan, _flat(0.1))
+        assert result.basis == BASIS_ABOVE_TARGET
+        assert not result.charge_counts
+
+
 class TestTheWindowAddsCharge:
     def test_a_target_below_the_soc_when_the_window_opens_adds_nothing(self):
         battery = _battery(soc=95.0)

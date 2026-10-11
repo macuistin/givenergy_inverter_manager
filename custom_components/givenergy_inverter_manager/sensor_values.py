@@ -384,8 +384,20 @@ def night_survival_confidence(data: CoordinatorData) -> str | None:
     return NIGHT_SAFE
 
 
+def _planned_charge_soc(data: CoordinatorData) -> float | None:
+    """The SoC at sunrise with tonight's planned charge, None while no charge counts."""
+    projection = data.sunrise_with_charge
+    if projection is None or not projection.charge_counts:
+        return None
+    return projection.soc
+
+
 def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
-    """Return the attributes that explain the night survival level, None before a cycle."""
+    """Return the attributes that explain the night survival level, None before a cycle.
+
+    The level is judged without a charge. The words also give the figure with tonight's
+    planned charge while one counts.
+    """
     if not data.survival_reason:
         return None
     return survival_attributes(
@@ -395,6 +407,7 @@ def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
             data.battery_min_soc,
             data.battery_soc,
             data.survival_reason,
+            _planned_charge_soc(data),
         )
     )
 

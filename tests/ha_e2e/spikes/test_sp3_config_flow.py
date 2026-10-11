@@ -8,8 +8,8 @@ The throwaway flows and fixtures are in sp3_support.py. See docs/design/spikes/S
 
 from __future__ import annotations
 
+from conftest import serialise_schema
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import config_validation as cv
 from homeassistant.setup import async_setup_component
 from sp3_support import (  # noqa: F401
     DOMAIN,
@@ -89,7 +89,7 @@ async def test_config_flow_answer_decides_how_many_rate_rows_the_next_form_has(h
         flow["flow_id"], {"base_rate": 0.3, "rate_count": "2"}
     )
     assert (flow["step_id"], flow["last_step"]) == ("tariff_rates", False)
-    names = [f["name"] for f in cv.to_field_list(flow["data_schema"])]
+    names = [f["name"] for f in serialise_schema(flow["data_schema"])]
     assert names == ["name_0", "rate_0", "name_1", "rate_1"]
 
     flow = await hass.config_entries.flow.async_configure(
