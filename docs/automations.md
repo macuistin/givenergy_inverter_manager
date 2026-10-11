@@ -42,7 +42,7 @@ action:
       title: GivEnergy, charge plan
       message: >
         Target {{ states('sensor.givenergy_inverter_manager_recommended_overnight_charge_target') }}%.
-        {{ states('sensor.givenergy_inverter_manager_overnight_charge_reason') }}
+        {{ state_attr('sensor.givenergy_inverter_manager_overnight_charge_reason', 'full_text') or states('sensor.givenergy_inverter_manager_overnight_charge_reason') }}
 ```
 
 ---

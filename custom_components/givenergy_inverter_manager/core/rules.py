@@ -441,12 +441,21 @@ def _seasonal_forecast(
     )
 
 
+def _correction_limit_note(correction: float) -> str:
+    """Say so when the accuracy factor sits on one of its limits."""
+    if correction <= CHARGE_FORECAST_CORRECTION_MIN:
+        return " (at the lower limit)"
+    if correction >= CHARGE_FORECAST_CORRECTION_MAX:
+        return " (at the upper limit)"
+    return ""
+
+
 def _integration_forecast(forecast_kwh: float, correction: float | None) -> _ResolvedForecast:
     """Use the integration's forecast, scaled by how accurate it has recently been."""
     source = "forecast integration"
     if correction is not None and correction != 1.0:
         forecast_kwh *= correction
-        source += f", x{correction:.2f} recent accuracy"
+        source += f", x{correction:.2f} recent accuracy{_correction_limit_note(correction)}"
     return _ResolvedForecast(kwh=forecast_kwh, source=source)
 
 
