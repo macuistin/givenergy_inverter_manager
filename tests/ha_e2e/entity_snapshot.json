@@ -700,6 +700,11 @@
   "name": "Self-sufficiency yesterday"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_setup_progress",
+  "key": "setup_progress",
+  "name": "Setup Progress"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_solar_capture_efficiency_today",
   "key": "solar_capture_efficiency_today",
   "name": "Solar Capture Efficiency Today"

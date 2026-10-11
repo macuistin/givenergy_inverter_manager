@@ -22,6 +22,7 @@ from .core.alt_heat_advice import WaterHeatingAdvice
 from .core.alt_heat_schedule import AltHeatSchedule
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
+from .core.setup_progress import setup_state
 from .core.tariff import EnergyAccumulator
 from .core.tariff_check import describe_rate_mismatches
 from .core.write_log import newest_first
@@ -208,6 +209,16 @@ def dry_run_attributes(data: CoordinatorData) -> dict[str, Any]:
     if data.test_instance:
         attributes["test_instance"] = True
     return attributes
+
+
+def setup_progress_state(data: CoordinatorData) -> str:
+    """complete once every required checklist item is done, incomplete before that."""
+    return setup_state(data.setup_items)
+
+
+def setup_progress_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """The checklist the dashboard card draws, one entry per item, required items first."""
+    return {"items": [item.as_dict() for item in data.setup_items]}
 
 
 def immersion_ready_attributes(data: CoordinatorData) -> dict[str, Any] | None:

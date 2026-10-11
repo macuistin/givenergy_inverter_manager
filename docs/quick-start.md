@@ -17,7 +17,7 @@ Ten minutes from install to a working dashboard. Start with dry run on, so the i
 6. **Forecast, immersion, EV charger, battery.** Fill in what you have and submit the rest as is. Each step can stay at its defaults. See [Configuration](configuration.md).
 7. Check that dry run is on. A new install starts with it on. The **Dry run** switch is in the Configuration section of **Settings → Devices & Services → GivEnergy Inverter Manager**, and on the dashboard's Settings view. It takes effect on the next update cycle.
 8. Check the readings (next section).
-9. Add the dashboard. Go to **Settings → Dashboards → Add dashboard** and pick **GivEnergy** under **Community dashboards**. A notification at setup says the same. See [Dashboard](dashboard.md). The Dashboard first shows a dry run banner and, until the required setup is done, a checklist.
+9. Add the dashboard. Go to **Settings → Dashboards → Add dashboard** and pick **GivEnergy** under **Community dashboards**. A notification at setup says the same. See [Dashboard](dashboard.md). It opens with a dry run banner and, until the required setup is done, a checklist.
 10. When the decisions look right, switch **Dry run** off.
 
 ## Check the readings

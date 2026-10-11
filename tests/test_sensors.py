@@ -101,6 +101,33 @@ class TestBatteryPowerValueFn:
         assert _lambda_for("battery_power")(self._data(2500.456)) == pytest.approx(2500.5)
 
 
+class TestSetupProgressSensor:
+    """The checklist sensor is a diagnostic the dashboard card reads, enabled by default."""
+
+    def test_it_is_a_diagnostic_sensor_with_no_unit_and_no_state_class(self):
+        description = _BY_KEY["setup_progress"]
+        assert description.entity_category is not None
+        assert description.native_unit_of_measurement is None
+        assert description.state_class is None
+        assert description.device_class is None
+
+    def test_it_is_enabled_by_default_because_the_dashboard_reads_it(self):
+        assert _BY_KEY["setup_progress"].entity_registry_enabled_default is True
+
+    def test_it_needs_no_device(self):
+        assert _BY_KEY["setup_progress"].requires is None
+
+    def test_the_entity_publishes_the_state_and_the_items(self):
+        from custom_components.givenergy_inverter_manager.core.setup_progress import SetupItem
+
+        data = CoordinatorData()
+        data.setup_items = (SetupItem("tariff", "Tariff set", False, True),)
+        coordinator = SimpleNamespace(data=data, entry=SimpleNamespace(entry_id="entry"))
+        sensor = GivEnergyManagerSensor(coordinator, _BY_KEY["setup_progress"])
+        assert sensor.native_value == "incomplete"
+        assert sensor.extra_state_attributes["items"][0]["key"] == "tariff"
+
+
 class TestGridPowerMetadata:
     def test_device_class_is_power(self):
         assert _BY_KEY["grid_power"].device_class is SensorDeviceClass.POWER

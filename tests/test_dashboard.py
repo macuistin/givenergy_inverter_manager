@@ -223,6 +223,7 @@ class TestPowerFlowTabChanges:
         assert [s["cards"][0]["heading"] for s in pf_view["sections"]] == [
             "Now",
             "Dry run is on",
+            "Finish setting up",
             "Live power flow",
             "Energy today",
         ]
@@ -316,9 +317,9 @@ class TestIncomeBar:
 
     def test_no_income_markdown_card_on_power_flow(self):
         markdown = [c for c in _cards(_build(), "power-flow") if c["type"] == "markdown"]
-        assert all("dry run" in c["content"].lower() for c in markdown), (
-            "Income bar is now on the grid node — only the dry run banner is markdown"
-        )
+        assert all(
+            "dry run" in c["content"].lower() or "state_attr('" in c["content"] for c in markdown
+        ), "Income bar is now on the grid node: only the dry run banner and the checklist are markdown"
 
     def test_income_bar_references_grid_power(self):
         result = _build()
@@ -721,9 +722,10 @@ class TestLongTextStates:
             assert eid(key) in night, key
 
     def test_markdown_cards_are_valid_jinja(self):
+        checklist = {(eid("setup_progress"), "items"): [{"label": "Tariff set", "done": True, "required": True}]}
         for card in all_cards(yaml.safe_load(_build())["views"]):
             if card["type"] == "markdown":
-                assert _render(card["content"], lambda entity: "x")
+                assert _render(card["content"], lambda entity: "x", checklist)
 
     def test_battery_heading_opens_the_battery_detail_view(self):
         heading = next(c for c in _cards(_build(), "battery") if c["type"] == "heading")

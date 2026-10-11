@@ -14,6 +14,7 @@ from custom_components.givenergy_inverter_manager.const import (
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.rules import forecast_accuracy
+from custom_components.givenergy_inverter_manager.core.setup_progress import SetupItem
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.core.tariff_check import RateMismatch
 
@@ -521,6 +522,35 @@ class TestDryRunAttributes:
 
     def test_off(self):
         assert values.dry_run_attributes(make_data(dry_run=False)) == {"summary": "Off"}
+
+
+class TestSetupProgress:
+    """The state is complete or incomplete. The attributes carry the checklist the card draws."""
+
+    _ITEMS = (
+        SetupItem("tariff", "Tariff set", True, True),
+        SetupItem("forecast", "Solar forecast added", False, True),
+        SetupItem("hot_water", "Hot water", False, False),
+    )
+
+    def test_incomplete_while_a_required_item_is_not_done(self):
+        assert values.setup_progress_state(make_data(setup_items=self._ITEMS)) == "incomplete"
+
+    def test_complete_when_the_required_items_are_done(self):
+        items = (SetupItem("tariff", "Tariff set", True, True), self._ITEMS[2])
+        assert values.setup_progress_state(make_data(setup_items=items)) == "complete"
+
+    def test_incomplete_before_the_first_cycle_has_made_a_checklist(self):
+        assert values.setup_progress_state(make_data()) == "incomplete"
+
+    def test_the_items_attribute_lists_each_item_in_order(self):
+        assert values.setup_progress_attributes(make_data(setup_items=self._ITEMS)) == {
+            "items": [
+                {"key": "tariff", "label": "Tariff set", "done": True, "required": True},
+                {"key": "forecast", "label": "Solar forecast added", "done": False, "required": True},
+                {"key": "hot_water", "label": "Hot water", "done": False, "required": False},
+            ]
+        }
 
 
 class TestGivTCPRateAttributes:

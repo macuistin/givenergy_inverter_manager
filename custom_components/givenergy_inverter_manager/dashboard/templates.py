@@ -75,6 +75,23 @@ def survival_template(
     )
 
 
+def setup_checklist_template(progress: str) -> str:
+    """The setup checklist: each required item as done or to do, then the optional ones left.
+
+    It reads the `items` attribute of the Setup Progress sensor. Optional items that are done
+    are not listed, and the others appear once as available, in smaller text.
+    """
+    return (
+        f"{{% set items = state_attr('{progress}', 'items') or [] %}}"
+        "{% for item in items if item.required %}"
+        "- {{ 'Done' if item.done else 'To do' }}: {{ item.label }}\n"
+        "{% endfor %}"
+        "{% set open = items | rejectattr('required') | rejectattr('done')"
+        " | map(attribute='label') | list %}"
+        "{% if open %}\n<small>Available: {{ open | join(', ') }}</small>{% endif %}"
+    )
+
+
 def ready_by_template(sensor: str) -> str:
     """The card for the next hot water ready time, read from the water temperature sensor.
 

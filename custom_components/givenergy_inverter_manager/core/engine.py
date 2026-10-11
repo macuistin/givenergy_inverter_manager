@@ -127,6 +127,7 @@ from .rules import (
     should_divert_to_immersion,
     usable_slot_loads_kwh,
 )
+from .setup_progress import SetupItem
 from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
 from .stored_energy import stored_energy_change
 from .sunrise_charge import (
@@ -355,6 +356,9 @@ class CoordinatorData:
     test_instance: bool = False
     cheap_rate_floor_status: str = ""
     dry_run_last_skipped: str = ""
+    # The setup checklist. The coordinator fills it after the engine has run, because it needs
+    # the saved config and the cycle's readings together (core/setup_progress.py).
+    setup_items: tuple[SetupItem, ...] = ()
     inverter_temperature: float | None = None
     inverter_temperature_status: str = "Unknown"
     last_reset_time: str = ""

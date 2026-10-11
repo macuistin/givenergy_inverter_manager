@@ -19,6 +19,7 @@ from custom_components.givenergy_inverter_manager.core.alt_heat_advice import Wa
 from custom_components.givenergy_inverter_manager.core.alt_heat_schedule import AltHeatSchedule
 from custom_components.givenergy_inverter_manager.core.alt_heat_start import AltHeatStart
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+from custom_components.givenergy_inverter_manager.core.setup_progress import SetupItem
 from custom_components.givenergy_inverter_manager.core.tariff_check import RateMismatch
 from custom_components.givenergy_inverter_manager.sensor import GivEnergyManagerSensor
 from custom_components.givenergy_inverter_manager.sensor_descriptions import SENSOR_DESCRIPTIONS
@@ -78,6 +79,7 @@ RECORDED = {
     "basis",
     "givtcp_rates_differ",
     "stored_energy_value",
+    "items",  # the setup checklist: it changes when a setup step is done, and rarely otherwise
 }
 
 
@@ -117,6 +119,7 @@ def _everything() -> CoordinatorData:
         keep_warm="Run it.",
     )
     data.alt_heat_schedule = AltHeatSchedule(10, ("12:30 to 13:00",), 5.0, "A sentence.")
+    data.setup_items = (SetupItem("tariff", "Tariff set", True, True),)
     return data
 
 

@@ -77,6 +77,7 @@ from .templates import (
     energy_sources_template,
     planned_heating_template,
     ready_by_template,
+    setup_checklist_template,
     survival_template,
     tariff_changes_table,
     tariff_table,
@@ -487,6 +488,7 @@ class Builder:
             [
                 grid_section(self._now()),
                 self._dry_run_section(),
+                self._setup_checklist(),
                 grid_section(self._flow()),
                 grid_section([*self._totals(), *self._devices()]),
             ]
@@ -1112,10 +1114,27 @@ class Builder:
         )
         if skipped := self.entity("dry_run_last_skipped"):
             text += f"\n\n**Last skipped action:** {state_ref(skipped, ATTR_FULL_TEXT)}"
+        if plan := self.entity("charge_plan"):
+            text += f"\n\n**Tonight's charge plan:** {state_ref(plan)}"
         return group(
             heading_card("Dry run is on", "mdi:test-tube"),
             [markdown_card(text)],
             visibility=[{"condition": "state", "entity": dry_run_active, "state": "True"}],
+        )
+
+    def _setup_checklist(self) -> dict | None:
+        """What is left to set up, shown while Setup Progress says incomplete.
+
+        The state condition is a classic one, so it works on the Home Assistant floor. There is
+        no dismiss button. The card goes when the required items are done.
+        """
+        progress = self.entity("setup_progress")
+        if not progress:
+            return None
+        return group(
+            heading_card("Finish setting up", "mdi:clipboard-check-outline"),
+            [markdown_card(setup_checklist_template(progress))],
+            visibility=[{"condition": "state", "entity": progress, "state": "incomplete"}],
         )
 
     def _dry_run_controls(self) -> dict | None:

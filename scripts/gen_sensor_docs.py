@@ -253,7 +253,7 @@ KEY_GROUPS: dict[str, str] = {
     **dict.fromkeys(("carbon_intensity", "carbon_intensity_status"), "Carbon intensity"),
     **dict.fromkeys(("today_summary", "charge_plan", "week_summary"), "HTML reports"),
     **dict.fromkeys(
-        ("dry_run_active", "dry_run_last_skipped", "integration_version"),
+        ("dry_run_active", "dry_run_last_skipped", "setup_progress", "integration_version"),
         "Dry run and diagnostics",
     ),
     "net_position_this_month": "This month",
@@ -570,6 +570,11 @@ DESCRIPTIONS: dict[str, str] = {
         "`test_instance` attribute is also true."
     ),
     "dry_run_last_skipped": "The last action dry run mode held back.",
+    "setup_progress": (
+        "complete once the required setup is done, incomplete before that. The `items` "
+        "attribute lists each step with whether it is done and whether it is required. "
+        "The dashboard shows a checklist while the state is incomplete."
+    ),
     "integration_version": "Installed integration version.",
 }
 

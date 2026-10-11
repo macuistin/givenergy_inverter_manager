@@ -127,6 +127,7 @@ from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
 from .core.reload_policy import IMMERSION_TEMP_KEYS, TARIFF_TRIGGER_KEYS
 from .core.rules import monthly_solar_fractions
+from .core.setup_progress import SetupFacts, setup_items
 from .core.solar_day import HeldSolarDay
 from .core.sunrise_hold import HeldSunrise
 from .core.tariff import (
@@ -1400,6 +1401,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._remember_cycle(raw, now)
         self._watch_ev_base_rate(data, raw, now)
         self._apply_decisions(data, ev_target_mode, now)
+        self._attach_setup_progress(data, raw, cfg)
         return data
 
     def _begin_cycle(self) -> None:
@@ -1545,6 +1547,21 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._ev_base_rate.raised:
             async_delete_ev_base_rate_issue(self.hass)
         self._ev_base_rate = WatchState()
+
+    def _attach_setup_progress(
+        self, data: CoordinatorData, raw: RawSensorValues, cfg: dict
+    ) -> None:
+        """Work out the setup checklist from the saved config and this cycle's readings."""
+        data.setup_items = setup_items(
+            cfg,
+            SetupFacts(
+                inverter_found=not raw.unavailable_inputs,
+                forecast_readable=raw.forecast_kwh_tomorrow is not None,
+                ev_charger_found=raw.ev_charger_present,
+                dry_run=data.dry_run,
+                test_instance=self.test_instance,
+            ),
+        )
 
     def _apply_decisions(
         self, data: CoordinatorData, ev_target_mode: str | None, now: datetime

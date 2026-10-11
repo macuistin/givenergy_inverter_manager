@@ -88,6 +88,10 @@ The immersion_planned_heating leaf was added for the planned heating sentence. T
 gained it as None. No case moved, because none turns scheduled heating on. The behaviour is pinned
 in tests/core/test_planned_heating.py and tests/core/test_immersion_scheduled.py.
 
+The setup_items leaf was added for the setup checklist. The fresh snapshot gained it as an empty
+list. No case moved, because the coordinator sets it after the engine has built the snapshot. The
+checklist is pinned in tests/core/test_setup_progress.py.
+
 The stored energy value and change in kWh were added to the saving, and today's accumulator gained
 soc_at_start_pct, grid_to_battery_cost and grid_to_battery_priced_kwh. The fresh snapshot gained
 stored_energy_value, stored_energy_change_kwh and the three accumulator leaves on each of today,

@@ -797,6 +797,9 @@
       "dry_run_active": {
         "name": "Dry Run Mode Active"
       },
+      "setup_progress": {
+        "name": "Setup Progress"
+      },
       "dry_run_last_skipped": {
         "name": "Last Skipped Action (Dry Run)"
       },
