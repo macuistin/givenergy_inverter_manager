@@ -64,7 +64,8 @@ def test_pyproject_build_backend_exists():
     assert pyproject["build-system"]["build-backend"] == "setuptools.build_meta"
 
 
-_VERSION = r"[0-9]+(?:\.[0-9]+)*"
+# 0.18.0, 0.18.0b1 or 0.18.0rc1: a beta or release candidate build states its suffix too.
+_VERSION = r"[0-9]+\.[0-9]+\.[0-9]+(?:(?:a|b|rc)[0-9]+)?"
 
 
 def _version_sources() -> dict[str, str]:
@@ -76,6 +77,9 @@ def _version_sources() -> dict[str, str]:
         rf"This documentation matches version ({_VERSION})",
         (ROOT / "docs" / "index.md").read_text(),
     )
+    requirements = re.search(
+        rf"The current release is ({_VERSION})", (ROOT / "REQUIREMENTS.md").read_text()
+    )
     return {
         "const.INTEGRATION_VERSION": INTEGRATION_VERSION,
         "manifest.json": json.loads((PKG / "manifest.json").read_text())["version"],
@@ -84,6 +88,7 @@ def _version_sources() -> dict[str, str]:
         ],
         "README.md": readme.group(1) if readme else "missing 'Current version:' line",
         "docs/index.md": index.group(1) if index else "missing 'matches version' line",
+        "REQUIREMENTS.md": requirements.group(1) if requirements else "missing 'current release'",
     }
 
 
@@ -303,6 +308,34 @@ def test_core_package_does_not_import_home_assistant():
             offenders += [f"{path.name}: {n}" for n in names if n.split(".")[0] == "homeassistant"]
 
     assert offenders == []
+
+
+def test_only_the_prerelease_workflow_can_write_and_only_at_job_level():
+    for path in sorted(_WORKFLOWS.glob("*.yml")):
+        workflow = yaml.safe_load(path.read_text())
+        writers = [
+            name
+            for name, job in workflow["jobs"].items()
+            if (job.get("permissions") or {}).get("contents") == "write"
+        ]
+
+        assert writers == (["prerelease"] if path.name == "prerelease.yml" else []), path.name
+
+
+def test_the_prerelease_workflow_publishes_beta_and_rc_tags_after_checking_the_version():
+    workflow = _workflow("prerelease.yml")
+    job = workflow["jobs"]["prerelease"]
+    runs = [step.get("run", "") for step in job["steps"]]
+
+    assert set(workflow[True]) == {"push"}
+    assert workflow[True]["push"]["tags"] == ["v0.18.0b*", "v0.18.0rc*"]
+    assert "branches" not in workflow[True]["push"]
+    assert any(run.startswith('python scripts/set_version.py --check "${GITHUB_REF_NAME}"') for run in runs)
+    publish = next(run for run in runs if "gh release create" in run)
+    assert "--prerelease" in publish
+    assert "--verify-tag" in publish
+    check_index = next(i for i, run in enumerate(runs) if "set_version.py" in run)
+    assert check_index < runs.index(publish)
 
 
 def test_workflow_actions_are_pinned_to_a_major_version_tag_like_the_others():

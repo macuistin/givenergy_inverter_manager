@@ -188,8 +188,16 @@ the real HA package, which catches `step` constraints, selector validation, and
 section nesting issues, then the e2e config flow tests.
 
 **Version bumps** must change `manifest.json`, `const.INTEGRATION_VERSION`, `pyproject.toml`,
-the `Current version:` line in `README.md` and the `This documentation matches version` line in
-`docs/index.md` together. `tests/test_metadata.py` fails if one is missed.
+the `Current version:` line in `README.md`, the `This documentation matches version` line in
+`docs/index.md` and the `The current release is` line in `REQUIREMENTS.md` together. Run
+`python scripts/set_version.py 0.18.0b1` to write all six, and `python scripts/set_version.py
+--check v0.18.0b1` to check them against a tag. `tests/test_metadata.py` fails if one is missed.
+
+**Pre-releases.** Pushing a tag such as `v0.18.0b1` or `v0.18.0rc1` runs
+`.github/workflows/prerelease.yml`, which checks the tag against the six places and publishes a
+GitHub pre-release. HACS shows it under "Show beta versions". The workflow trusts whoever can push
+a matching tag, so tag creation is restricted to the maintainer in a repository ruleset (a settings
+change, not code). The tag patterns in the workflow name the 0.18.0 line. Change them for the next.
 
 ---
 
