@@ -131,6 +131,43 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   new `alt_label` attribute with your name for the alternative. The entity ID and the unique ID do
   not change. The old names are not kept.
 
+**Dashboard**
+- **The dashboard builds itself and is added from Community dashboards.** Go to **Settings →
+  Dashboards → Add dashboard** and pick **GivEnergy** under **Community dashboards**. It is built
+  from your entities each time it opens, so a new tariff, a new device or an enabled sensor shows
+  after a reload of the page. Nothing is written to a file. On the first start after this update
+  a notification says the same, once. If you already have a dashboard that uses the strategy, the
+  notification is not sent. Home Assistant does not let an integration add a dashboard for you,
+  so you add it yourself. You can rename it, hide it or delete it, and the integration never adds
+  it again. See [Dashboard](docs/dashboard.md).
+- **Removed: the Refresh Dashboard button, the `get_dashboard_yaml` action and the generated
+  file.** The button entity (`button.givenergy_inverter_manager_refresh_dashboard`) is deleted from
+  the entity registry on the first start. The action no longer exists, so an automation or script
+  that calls it fails. The integration no longer writes `givenergy_dashboard.yaml` or the empty
+  placeholder it created at setup. A copy already in your configuration folder is left where it is.
+  Delete it, and the dashboard you made from it, once the new dashboard is in place.
+- **Settings is built for administrators only, by the server.** Home Assistant tells the
+  integration who is asking, and a person who is not an administrator is sent a dashboard with no
+  Settings view and no Settings button, whatever the browser does. The view still lists the
+  administrators who may see it, so a copy of the dashboard kept with Take control hides it too.
+- **No custom card is needed.** The immersion chart is a Home Assistant history graph with the
+  heater's power as a line, and a Heater power tile shows the power now. It no longer shades the
+  times the heater was on. The Last 7 days chart on Solar and forecast plots what was generated
+  each day and no longer plots the forecast, which the tiles above it show. apexcharts-card is not
+  used any more, and you can uninstall it unless another dashboard of yours uses it.
+- **power-flow-card-plus is used only when it is installed.** The dashboard uses it when its URL is
+  in **Settings → Dashboards → Resources**. When the resource list cannot be read, it now uses the
+  built-in entities card, where it used to assume the custom card was there.
+- **A setup checklist.** A new diagnostic sensor, Setup Progress (`sensor.givenergy_inverter_manager_setup_progress`),
+  reads `complete` or `incomplete`. The Power Flow tab shows a Finish setting up card while it is
+  incomplete. It lists what is left: inverter found, tariff set, cheap rate window set, solar
+  forecast added and dry run turned off, and in smaller text the optional hot water and EV charger
+  if you have not set them up. The card has no dismiss button and goes when the required steps are
+  done. A flat rate tariff has no cheap rate window, and an install with no solar forecast has none
+  to add, so the card stays for them. On a test instance, turning dry run off is not a step.
+- The dry run banner on the Power Flow tab now also shows tonight's charge plan, beside the last
+  skipped action.
+
 **Fixes**
 - The battery warning example in Automation examples used `below: 10` on the SoC at sunrise, which
   could not fire, because the figure never reads below the minimum SoC (10% by default). It now reads
@@ -143,14 +180,17 @@ Two sunrise figures, saving values that count the battery, a forecast correction
   was saved at setup or on the Configure page, and nothing is copied or reset. Check that the Dry
   run switch shows what you expect.
 - If an automation, template or card reads the Water Heating Cheapest Source state `oil` or one of
-  the `oil_` attributes, change it to the names above. Generate the dashboard file again, or use the
-  strategy dashboard, so the schedule line reads the new attribute names.
-- Generate the dashboard file again, or use the strategy dashboard, to get the two Sunrise tiles and
-  the new Settings controls.
+  the `oil_` attributes, change it to the names above. The dashboard reads the new names.
+- The dashboard now builds itself, so it has the two Sunrise tiles and the new Settings controls
+  with no file to generate. See the Dashboard group above for how to add it.
 - Troubleshooting has a new entry, Why does SoC at sunrise read 10%?, and Concepts explains the two
   figures under Battery overnight.
 - Charge targets can rise on cloudy weeks, because the plan now trusts the forecast less. Nothing needs
   changing in the options.
+- Add the dashboard from **Settings → Dashboards → Add dashboard → Community dashboards →
+  GivEnergy**, then delete the old dashboard and `givenergy_dashboard.yaml`, and remove any
+  automation that calls `get_dashboard_yaml`. Reload the browser tab first if GivEnergy is not
+  listed.
 
 ## v0.17.2
 

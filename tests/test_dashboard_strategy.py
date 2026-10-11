@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import shutil
 import subprocess
 from types import SimpleNamespace
@@ -103,6 +104,12 @@ def result(tmp_path_factory):
         timeout=30,
     )
     return json.loads(out.stdout)
+
+
+def test_node_is_there_to_run_the_strategy_in_ci():
+    """The node tests below skip without node. CI sets CI=true, and must not skip them quietly."""
+    if os.environ.get("CI"):
+        assert shutil.which("node") is not None, "install node in CI so the strategy JS is tested"
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
