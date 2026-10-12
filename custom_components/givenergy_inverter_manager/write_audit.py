@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
-from .const import GIVTCP_MIN_WRITE_INTERVAL_S, REGISTER_WRITE_LOG_MAX_ENTRIES
+from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.write_log import (
     EXTERNAL_REASON,
     ManagerWriteMemory,
@@ -27,6 +27,7 @@ from .core.write_log import (
     append_bounded,
     is_real_value_change,
 )
+from .inverter.givtcp.constants import GIVTCP_MIN_WRITE_INTERVAL_S
 from .logging import get_logger
 
 if TYPE_CHECKING:
@@ -58,6 +59,10 @@ class WriteAudit:
         self._append(
             WriteLogEntry(self._now().isoformat(), record.entity_id, record.value, record.reason)
         )
+
+    def note(self, entity_id: str, value: str, reason: str) -> None:
+        """Log a note about the manager's own plan, such as a retry. It is not a write."""
+        self._append(WriteLogEntry(self._now().isoformat(), entity_id, value, reason))
 
     def watch(self, hass: HomeAssistant, entity_ids: Iterable[str]) -> Callable[[], None]:
         """Listen for outside changes to these entities. Returns the function that stops it."""

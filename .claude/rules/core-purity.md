@@ -12,7 +12,8 @@ paths:
 
 - `core/` holds decisions, tariff and accumulation maths, and the text of reports. It imports the
   standard library and the package's `const`, `discovery` and `logging` modules. It never imports
-  `homeassistant`. `test_core_package_does_not_import_home_assistant` in `tests/test_metadata.py`
+  `homeassistant`, and it never imports `inverter/` at run time. A type-only import under
+  `TYPE_CHECKING` is allowed, and `core/inverter_values.py` holds the values a backend exchanges. `test_core_package_does_not_import_home_assistant` in `tests/test_metadata.py`
   fails the build if it does.
 - Inputs are plain values and frozen dataclasses (`CycleInputs`, `RawSensorValues`, `TariffConfig`).
   Outputs are values or dataclasses (`CoordinatorData`, `ChargeDecision`). No `hass`, no files, no

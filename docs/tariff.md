@@ -2,6 +2,8 @@
 
 The tariff drives the Current Rate sensors, every cost sensor, the cheap-window charge timing and the bill estimates. Enter it at setup, or change it under **Configure**. Field ranges are in [Configuration](configuration.md#screen-tariff) for setup and [Configuration](configuration.md#tariff) for Configure.
 
+The integration uses only the rates entered here. The day, night and export rates that GivTCP holds are not read, so they never need to match.
+
 ## Rate periods
 
 A tariff is one base rate plus up to five timed rate periods.
@@ -47,26 +49,6 @@ What a dated change covers and does not cover:
 ## Stale tariff repair
 
 The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. A supplier price change leaves every cost figure wrong until the rates are updated, and nothing in Home Assistant tells you. The date counts from the last time you saved a different tariff in Configure, recorded a dated change, ticked **Confirm the tariff is current** or confirmed the rates in the repair. The first time the integration runs with this feature, it records that day, so an upgrade never raises the repair at once. The first repair comes 365 days later at the earliest. See [Troubleshooting](troubleshooting.md#the-tariff-has-not-been-reviewed).
-
-## Comparing with GivTCP's rates
-
-GivTCP can hold its own day, night and export rates. This integration always uses the rates entered here. Many installs keep their rates here and use GivTCP for live data only, so a difference is not raised as a repair.
-
-The comparison is shown as two attributes of the **Current Rate** sensor. Its state does not change.
-
-| Attribute | Value |
-| --- | --- |
-| `givtcp_rates_differ` | `true` when a GivTCP rate is more than 2% away from the rate here, `false` when they agree |
-| `givtcp_rate_differences` | One line for each rate that differs, for example `Day rate: 0.3334 here, 0.395 in GivTCP`. An empty list when they agree |
-
-Both attributes are absent when GivTCP's rates cannot be read. The integration reads the GivTCP sensors `day_rate`, `night_rate` and `export_rate` for your inverter serial. A sensor that is missing, unavailable or 0 counts as not held. Nothing needs setting up.
-
-How the rates are compared:
-
-- The GivTCP day rate is compared with the base rate, and the export rate with the export rate.
-- GivTCP has one night rate. It agrees when it matches any timed rate period, so a tariff with a night and a boost period is not flagged for either. A tariff with no timed period has no night rate to compare.
-
-To be told about a difference, use `state_attr('sensor.givenergy_inverter_manager_current_rate', 'givtcp_rates_differ')` in a template or an automation condition. If a rate is wrong, correct it under **Configure** here, or in GivTCP, where it only affects GivTCP's own cost sensors.
 
 ## Worked example
 

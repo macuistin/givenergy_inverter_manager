@@ -1,5 +1,5 @@
 """
-test_givtcp_writer.py: GivTCPWriter driven directly through its three seams.
+test_writer.py: GivTCPWriter driven directly through its three seams.
 
 A fake state dict and a recording service bus stand in for Home Assistant, so the
 tests need no coordinator.
@@ -13,13 +13,13 @@ import time
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.const import (
+from custom_components.givenergy_inverter_manager.core.write_log import WriteRecord
+from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
     GIVTCP_MAX_WRITE_RETRIES,
     GIVTCP_MIN_WRITE_INTERVAL_S,
     GIVTCP_WRITE_LIFETIME_WARN,
 )
-from custom_components.givenergy_inverter_manager.core.write_log import WriteRecord
-from custom_components.givenergy_inverter_manager.givtcp_writer import (
+from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import (
     GivTCPWriter,
     SwitchState,
     VerifiedWrite,

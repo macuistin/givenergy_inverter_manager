@@ -12,6 +12,7 @@ import pytest
 
 from custom_components.givenergy_inverter_manager.core import engine
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+from custom_components.givenergy_inverter_manager.core.counter_guard import screen
 from custom_components.givenergy_inverter_manager.core.engine import (
     Accumulators,
     CycleInputs,
@@ -27,45 +28,59 @@ from tests.conftest import _nightboost_cfg, _raw
 NOW = datetime(2026, 6, 15, 7, 0, tzinfo=timezone.utc)
 
 
+def _growth(memory: CounterMemory, kwh: float, at: datetime) -> float:
+    """What a reading of the AC charge counter adds to the longer periods."""
+    raw = _raw()
+    raw.ac_charge_energy_today_kwh = kwh
+    screen(memory, raw, at)
+    return memory.ac_charge_rise_kwh
+
+
+MINUTE = timedelta(minutes=1)
+
+
 class TestCounterMemory:
     def test_the_first_reading_counts_in_full(self):
-        assert CounterMemory().growth_since_last(7.5) == pytest.approx(7.5)
+        assert _growth(CounterMemory(), 7.5, NOW) == pytest.approx(7.5)
 
     def test_a_rising_counter_gives_the_rise(self):
         memory = CounterMemory()
-        memory.growth_since_last(7.5)
-        assert memory.growth_since_last(8.0) == pytest.approx(0.5)
+        _growth(memory, 7.5, NOW)
+        assert _growth(memory, 8.0, NOW + MINUTE) == pytest.approx(0.5)
 
     def test_an_unchanged_counter_gives_nothing(self):
         memory = CounterMemory()
-        memory.growth_since_last(7.5)
-        assert memory.growth_since_last(7.5) == 0.0
+        _growth(memory, 7.5, NOW)
+        assert _growth(memory, 7.5, NOW + MINUTE) == 0.0
 
     def test_a_counter_that_fell_has_reset_and_counts_in_full(self):
         memory = CounterMemory()
-        memory.growth_since_last(7.5)
-        assert memory.growth_since_last(0.2) == pytest.approx(0.2)
+        _growth(memory, 7.5, NOW)
+        assert _growth(memory, 0.2, NOW + MINUTE) == pytest.approx(0.2)
 
     def test_the_reading_is_remembered_across_the_reset(self):
         memory = CounterMemory()
-        memory.growth_since_last(7.5)
-        memory.growth_since_last(0.2)
+        _growth(memory, 7.5, NOW)
+        _growth(memory, 0.2, NOW + MINUTE)
         assert memory.ac_charge_kwh == pytest.approx(0.2)
-        assert memory.growth_since_last(0.5) == pytest.approx(0.3)
+        assert _growth(memory, 0.5, NOW + 2 * MINUTE) == pytest.approx(0.3)
 
     def test_a_stale_reading_just_after_midnight_is_not_counted_twice(self):
         """GivTCP can publish yesterday's total for a minute after the reset."""
         memory = CounterMemory()
-        total = memory.growth_since_last(7.5)
-        total += memory.growth_since_last(7.5)  # still yesterday's value after midnight
-        total += memory.growth_since_last(0.0)  # the reset arrives
-        total += memory.growth_since_last(0.4)
+        total = _growth(memory, 7.5, NOW)
+        total += _growth(memory, 7.5, NOW + MINUTE)  # still yesterday's value after midnight
+        total += _growth(memory, 0.0, NOW + 2 * MINUTE)  # the reset arrives
+        total += _growth(memory, 0.4, NOW + 3 * MINUTE)
         assert total == pytest.approx(7.9)
 
 
-def _cycle(raw, accumulators: Accumulators) -> engine.CoordinatorData:
+def _cycle(raw, accumulators: Accumulators, *, minutes: float = 1) -> engine.CoordinatorData:
+    """Run one cycle, the given minutes after the last reading the counter memory holds."""
+    readings = accumulators.counters.readings
+    last = max((at for _, at in readings.values()), default=NOW - MINUTE)
     data, _ = engine.build_coordinator_data(
-        CycleInputs(raw=raw, cfg=_nightboost_cfg(), now=NOW),
+        CycleInputs(raw=raw, cfg=_nightboost_cfg(), now=last + timedelta(minutes=minutes)),
         accumulators,
         PreviousCycle(BatteryStats(), None, None),
         ForecastContext(),
@@ -193,7 +208,7 @@ class TestLongerPeriods:
         accumulators = Accumulators(today=EnergyAccumulator(), week=week, counters=CounterMemory())
         for _night in range(5):
             _cycle(_counter_raw(0.0), accumulators)
-            _cycle(_counter_raw(7.5), accumulators)
+            _cycle(_counter_raw(7.5), accumulators, minutes=150)  # a night of charging
             accumulators = _after_midnight(accumulators)
         assert week.grid_to_battery_kwh == pytest.approx(37.5)
         assert week.self_sufficiency_pct == pytest.approx((1 - (80.0 - 37.5) / 60.0) * 100)

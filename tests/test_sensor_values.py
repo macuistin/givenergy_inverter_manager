@@ -16,7 +16,6 @@ from custom_components.givenergy_inverter_manager.core.engine import Coordinator
 from custom_components.givenergy_inverter_manager.core.rules import forecast_accuracy
 from custom_components.givenergy_inverter_manager.core.setup_progress import SetupItem
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
-from custom_components.givenergy_inverter_manager.core.tariff_check import RateMismatch
 
 
 def make_data(**fields) -> CoordinatorData:
@@ -551,26 +550,6 @@ class TestSetupProgress:
                 {"key": "hot_water", "label": "Hot water", "done": False, "required": False},
             ]
         }
-
-
-class TestGivTCPRateAttributes:
-    def test_lists_each_rate_that_differs(self):
-        mismatch = RateMismatch("Day rate", 0.3334, 0.395)
-        data = make_data(givtcp_rate_mismatches=(mismatch,))
-        assert values.givtcp_rate_attributes(data) == {
-            "givtcp_rates_differ": True,
-            "givtcp_rate_differences": ["Day rate: 0.3334 here, 0.395 in GivTCP"],
-        }
-
-    def test_false_and_empty_when_the_rates_agree(self):
-        data = make_data(givtcp_rate_mismatches=())
-        assert values.givtcp_rate_attributes(data) == {
-            "givtcp_rates_differ": False,
-            "givtcp_rate_differences": [],
-        }
-
-    def test_absent_when_no_givtcp_rate_is_readable(self):
-        assert values.givtcp_rate_attributes(make_data()) is None
 
 
 class TestImportFigures:

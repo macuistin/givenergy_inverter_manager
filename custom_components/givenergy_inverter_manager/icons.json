@@ -72,6 +72,7 @@
       "immersion_cost_today": {"default": "mdi:water-boiler"},
       "dry_run_active": {"default": "mdi:test-tube"},
       "setup_progress": {"default": "mdi:clipboard-check-outline"},
+      "charge_target_conflict": {"default": "mdi:swap-horizontal-bold"},
       "dry_run_last_skipped": {"default": "mdi:skip-next-circle-outline"},
       "import_kwh_cheap_today": {"default": "mdi:transmission-tower-import"},
       "import_kwh_peak_today": {"default": "mdi:transmission-tower-import"},

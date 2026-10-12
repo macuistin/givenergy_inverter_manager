@@ -25,6 +25,9 @@ The rule is one home per setting. A setting is a wizard field (set once, changes
 | Overnight charge cap (`overnight_charge_target_pct`) | Battery and charging | Keep | A ceiling set once. The nightly target is calculated, and the manual override is its own entity |
 | Battery cost (`battery_cost_eur`) | Battery and charging | Keep | Not available from any device. A repair asks for it |
 | Throughput budget (`battery_throughput_budget_kwh`) | Battery and charging | Keep | Optional and off at 0. A candidate to hide if it stays unused |
+| Winter months (`charge_winter_months`) | Battery and charging | Keep | Set once. The default comes from the latitude and is not stored until edited. The seasons differ by hemisphere, so it cannot be a fixed assumption |
+| Shoulder months (`charge_shoulder_months`) | Battery and charging | Keep | Same as the winter months. A month cannot be in both lists |
+| Plan winter charges from the forecast (`charge_winter_uses_forecast`) | Battery and charging | Keep | Off keeps the 100% winter charge. On is for a home whose winter solar is worth planning around |
 | Forecast sensor (`forecast_entity`) | Solar forecast | Detect | Solcast PV Forecast and Forecast.Solar sensors are found and used. The page is offered only when none was found |
 | Day after tomorrow forecast (`forecast_entity_d2`) | Solar forecast | Detect | Found with Solcast. Optional otherwise |
 | Pessimistic forecast (`forecast_entity_p10`) | Solar forecast | Fixed assumption | Solcast's own sensors carry the P10 in an attribute and the coordinator reads it when the field is empty. The field is only for other services |

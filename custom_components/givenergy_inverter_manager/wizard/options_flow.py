@@ -34,6 +34,7 @@ from ..const import (
     DEFAULT_BASE_RATE_NAME,
 )
 from ..core.reload_policy import Effect, change_effect
+from ..core.seasons import season_defaults
 from ..core.tariff import options_after_tariff_save, tariff_in_force
 from ..core.wizard_changes import confirm_text
 from ..core.wizard_model import (
@@ -125,7 +126,11 @@ class OptionsSteps(WizardPages):
     def _ctx(self) -> PageContext:
         if self._detected is None:
             self._detected = detect(states_by_id(self.hass))
-        current = tariff_in_force(effective_config(self.config_entry), self._today())
+        # The season months a user never set are shown at their latitude defaults, so saving the
+        # page unchanged stores nothing for them.
+        current = tariff_in_force(
+            self._with_season_defaults(effective_config(self.config_entry)), self._today()
+        )
         return PageContext(
             Mode.OPTIONS,
             self._today(),
@@ -134,6 +139,7 @@ class OptionsSteps(WizardPages):
             pending=self._values,
             states=states_by_id(self.hass),
             home_currency=currency_code(self.hass.config.currency),
+            latitude=self.hass.config.latitude,
         )
 
     def _total_steps(self) -> int:
@@ -344,6 +350,10 @@ class OptionsSteps(WizardPages):
     def _tariff_part(self) -> dict[str, Any]:
         return {k: v for k, v in self._values.items() if k in _TARIFF_KEYS}
 
+    def _with_season_defaults(self, config: dict[str, Any]) -> dict[str, Any]:
+        """The config with the season months the user never set at their latitude defaults."""
+        return {**season_defaults(self.hass.config.latitude), **config}
+
     def _new_options(self) -> dict[str, Any]:
         """The options after the wizard, built from the options as they are now."""
         entry = self.config_entry
@@ -359,12 +369,15 @@ class OptionsSteps(WizardPages):
             if self._confirm_current:
                 options[CONF_TARIFF_REVIEWED_ON] = today.isoformat()
         other = {k: v for k, v in self._values.items() if k not in _TARIFF_KEYS}
-        options.update(changed_values(other, effective))
+        options.update(changed_values(other, self._with_season_defaults(effective)))
         return options
 
     def _before_and_after(self) -> tuple[dict[str, Any], dict[str, Any]]:
         entry = self.config_entry
-        return effective_config(entry), merge_config(entry.data, self._new_options())
+        return (
+            self._with_season_defaults(effective_config(entry)),
+            self._with_season_defaults(merge_config(entry.data, self._new_options())),
+        )
 
     async def _finish(self) -> Any:
         """Write now when one page was ticked and nothing reloads, else ask first."""

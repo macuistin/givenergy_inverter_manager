@@ -61,7 +61,9 @@ def test_created_issues_carry_learn_more_url():
 
 
 def test_other_charge_slots_issue_is_fixable_and_names_the_slots():
-    from custom_components.givenergy_inverter_manager.discovery import ActiveChargeSlot
+    from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        ActiveChargeSlot,
+    )
 
     ir.async_create_issue.reset_mock()
     slot = ActiveChargeSlot(2, "select.start_2", "select.end_2", "00:00", "08:00")

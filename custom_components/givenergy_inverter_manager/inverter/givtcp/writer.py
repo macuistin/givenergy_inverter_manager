@@ -1,5 +1,5 @@
 """
-givtcp_writer.py: verified, serialised writes to GivTCP entities.
+inverter/givtcp/writer.py: verified, serialised writes to GivTCP entities.
 
 GivEnergy inverters have about 1M lifetime register writes, so every write goes
 through one path that:
@@ -34,14 +34,14 @@ from typing import Any, Protocol
 
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import (
+from ...core.write_log import WriteRecord
+from ...logging import WriteOutcome, get_logger, log_givtcp_write
+from .constants import (
     GIVTCP_MAX_WRITE_RETRIES,
     GIVTCP_MIN_WRITE_INTERVAL_S,
     GIVTCP_WRITE_LIFETIME_WARN,
     GIVTCP_WRITE_RETRY_SLEEP_S,
 )
-from .core.write_log import WriteRecord
-from .logging import WriteOutcome, get_logger, log_givtcp_write
 
 _LOG = get_logger(__name__)
 
@@ -369,6 +369,14 @@ class GivTCPWriter:
     def start_cooldown(self, entity_id: str, value: object) -> None:
         """Record that this value is being written to the entity now."""
         self.last_write_time[(entity_id, value)] = time.monotonic()
+
+    def is_unconfirmed(self, write: VerifiedWrite) -> bool:
+        """True when the entity does not hold the value now, after the writer's own read-backs."""
+        return not write.matches(self._get_state(write.entity_id))
+
+    def release_cooldown(self, write: VerifiedWrite) -> None:
+        """Let the same value be sent again at once, for a retry of a write that did not take."""
+        self.last_write_time.pop(write.cooldown_key, None)
 
     # ── Lifetime register count ───────────────────────────────────────────────
 

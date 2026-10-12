@@ -11,7 +11,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_CHARGE_START_TIME_ENTITY,
     CONF_DRY_RUN,
 )
-from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter
+from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import GivTCPWriter
 from custom_components.givenergy_inverter_manager.repairs import (
     ISSUE_OTHER_CHARGE_SLOTS_ACTIVE,
     LEARN_MORE_URLS,
@@ -101,7 +101,7 @@ class TestDetection:
         await coord._async_update_data()
 
         assert coord.service_calls_for("select", "select_option") == []
-        assert coord._writer.write_count == 0
+        assert coord._backend.write_count == 0
 
     @pytest.mark.asyncio
     async def test_a_slot_set_to_zero_to_zero_raises_nothing_and_clears_the_issue(self):
@@ -205,7 +205,7 @@ class TestClearing:
 
         await coord.async_clear_other_charge_slots()
 
-        assert coord._writer.write_count == 2
+        assert coord._backend.write_count == 2
         assert coord._acc.state.register_write_count == 2
 
     @pytest.mark.asyncio
@@ -228,7 +228,7 @@ class TestDryRun:
 
         assert outcome is ClearOutcome.DRY_RUN
         assert coord.service_calls == []
-        assert coord._writer.write_count == 0
+        assert coord._backend.write_count == 0
         assert _cleared() == 0
 
     @pytest.mark.asyncio
@@ -279,7 +279,7 @@ class TestFailedWrites:
         outcome = await coord.async_clear_other_charge_slots()
 
         assert outcome is ClearOutcome.FAILED
-        assert coord._writer.write_count == 1
+        assert coord._backend.write_count == 1
 
     @pytest.mark.asyncio
     async def test_an_entity_that_vanishes_after_the_write_fails_the_clear(self):

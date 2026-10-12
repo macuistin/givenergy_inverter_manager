@@ -8,6 +8,7 @@ Plans, designs for features that are not built yet, and specifications from othe
   - [SP1: creating a persistent dashboard](spikes/SP1.md)
   - [SP2: the server-side admin check and what needs a browser](spikes/SP2.md)
   - [SP3: the wizard pattern](spikes/SP3.md)
+  - [CC1: can the integration read whether SmartTarget is on?](spikes/CC1.md)
 - [CONFIG_DIET.md](CONFIG_DIET.md): every option the wizards still ask for, and whether to detect it, make it an entity, make it a fixed assumption or keep it.
 - [mock_givtcp.md](mock_givtcp.md): the fake GivTCP used by the write-sequence test.
 

@@ -20,7 +20,6 @@ from custom_components.givenergy_inverter_manager.core.alt_heat_schedule import 
 from custom_components.givenergy_inverter_manager.core.alt_heat_start import AltHeatStart
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.setup_progress import SetupItem
-from custom_components.givenergy_inverter_manager.core.tariff_check import RateMismatch
 from custom_components.givenergy_inverter_manager.sensor import GivEnergyManagerSensor
 from custom_components.givenergy_inverter_manager.sensor_descriptions import SENSOR_DESCRIPTIONS
 
@@ -63,7 +62,6 @@ UNRECORDED: dict[str, set[str]] = {
     "alt_schedule_saving": {"water_heating_cheapest_source"},
     "alt_schedule_days": {"water_heating_cheapest_source"},
     "alt_schedule_suggestion": {"water_heating_cheapest_source"},
-    "givtcp_rate_differences": {"current_rate"},
 }
 
 # Attributes that explain a state and change rarely, or are the only record of why. They stay
@@ -77,7 +75,9 @@ RECORDED = {
     "summary",
     "explanation",
     "basis",
-    "givtcp_rates_differ",
+    "changes",  # Charge Target Conflict: changes only when the suspicion does
+    "last_seen",
+    "target_entity",
     "stored_energy_value",
     "items",  # the setup checklist: it changes when a setup step is done, and rarely otherwise
 }
@@ -94,7 +94,6 @@ def _everything() -> CoordinatorData:
     data.immersion_heating_rate_c_per_h = 10.0
     data.immersion_rate_source = "learned"
     data.immersion_planned_heating = "Heat from 15:00."
-    data.givtcp_rate_mismatches = (RateMismatch("Day rate", 0.3, 0.4),)
     start = AltHeatStart(
         ready_at=datetime(2026, 12, 15, 19),
         electric_cost_per_kwh=0.3,

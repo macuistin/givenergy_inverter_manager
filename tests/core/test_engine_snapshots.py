@@ -56,9 +56,13 @@ moved are survival_reason (all 20), estimated_soc_at_sunrise (8), will_survive_n
 charge_decision with published_charge_decision (4). The new behaviour is pinned in
 test_night_survival_immersion_load.py.
 
-The givtcp_rate_mismatches leaf was added for the GivTCP rate attributes of the Current Rate
-sensor. The fresh snapshot gained it as None. No case moved, because the coordinator sets it
-after the engine has built the snapshot.
+The givtcp_rate_mismatches leaf was removed with the rate comparison. The fresh snapshot lost it
+and no case moved.
+
+The charge_target_conflict leaf was added for the Charge Target Conflict sensor. The fresh snapshot
+gained it as state none, count 0 and no time or entity. No case moved, because the coordinator
+sets it after the engine has built the snapshot. The behaviour is pinned in
+tests/core/test_controller_conflict.py.
 
 The immersion_window_heating leaf was added for heating in the cheapest rate window. The fresh
 snapshot gained it as False. No case moved, because none opts in. The behaviour is pinned in

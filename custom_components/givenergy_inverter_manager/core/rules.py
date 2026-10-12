@@ -37,11 +37,9 @@ from ..const import (
     CHARGE_MIN_TARGET_HEADROOM_PCT,
     CHARGE_PEAK_SOLAR_HOURS,
     CHARGE_SHOULDER_MIN_SOC,
-    CHARGE_SHOULDER_MONTHS,
     CHARGE_SKIP_HEADROOM,
     CHARGE_SOLAR_USABLE_FRACTION,
     CHARGE_STRONG_BUFFER,
-    CHARGE_WINTER_MONTHS,
     CHARGE_WINTER_SKIP_SOC_PCT,
     CLIPPING_THRESHOLD_PERCENT,
     DEFAULT_CURRENCY_SYMBOL,
@@ -57,6 +55,7 @@ from ..discovery.ev_charger import (
 )
 from .battery import NightEstimateInputs, estimate_will_survive_night, hours_until_solar
 from .immersion_ready import ReadyPlan
+from .seasons import NORTHERN_SEASONS, SeasonRules
 
 # ── Seasonal solar fractions ──────────────────────────────────────────────────
 
@@ -348,6 +347,7 @@ class ChargeInputs:
     cheapest_rate: float
     load_profile: list[float] | None = None
     solar_power_w: float = 0.0
+    seasons: SeasonRules = NORTHERN_SEASONS
 
 
 @dataclass(frozen=True)
@@ -441,9 +441,15 @@ def _winter_plan(inputs: ChargeInputs, month: int) -> _ChargePlan:
     )
 
 
-def _seasonal_min_soc(configured_min_soc: int, month: int) -> int:
-    """Shoulder months raise the floor: heating load varies and the forecast is less reliable."""
-    if month in CHARGE_SHOULDER_MONTHS:
+def _seasonal_min_soc(configured_min_soc: int, month: int, seasons: SeasonRules) -> int:
+    """Shoulder months raise the floor: heating load varies and the forecast is less reliable.
+
+    A winter month that plans from the forecast uses the same raised floor, in place of the
+    fixed 100% target.
+    """
+    if month in seasons.shoulder_months or (
+        seasons.winter_uses_forecast and month in seasons.winter_months
+    ):
         return max(configured_min_soc, CHARGE_SHOULDER_MIN_SOC)
     return configured_min_soc
 
@@ -625,13 +631,14 @@ def calculate_overnight_charge_target(
     """
     if inputs.battery_capacity_kwh <= 0:
         return _build_decision(inputs, _no_capacity_plan(inputs))
-    if dt.month in CHARGE_WINTER_MONTHS:
+    seasons = inputs.seasons
+    if dt.month in seasons.winter_months and not seasons.winter_uses_forecast:
         return _build_decision(inputs, _winter_plan(inputs, dt.month))
 
     resolved = _resolve_forecast(inputs, forecast, dt.month)
     tonight = _Tonight(
         inputs=inputs,
-        min_soc=_seasonal_min_soc(inputs.min_soc, dt.month),
+        min_soc=_seasonal_min_soc(inputs.min_soc, dt.month, seasons),
         forecast_kwh=resolved.kwh,
         forecast_source=resolved.source,
         forecast_kwh_d2=forecast.forecast_kwh_d2,
@@ -660,7 +667,7 @@ def available_surplus_w(inputs: SurplusInputs) -> float:
     """
     Solar power left over once the rest of the house and battery charging are served.
 
-    house_load_w is the GivTCP load sensor. It is the inverter-side load and already
+    house_load_w is the inverter's load reading. It is the inverter-side load and already
     includes the immersion's draw while it is on, so that draw is added back (capped at
     house_load_w). Without this the surplus collapses as soon as the element starts,
     and the next cycle switches it off again. Only positive battery_power_w (charging)

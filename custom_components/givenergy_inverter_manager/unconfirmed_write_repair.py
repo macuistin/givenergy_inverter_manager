@@ -25,7 +25,7 @@ from .core.write_confirmation import (
     describe_unconfirmed,
     unconfirmed_step,
 )
-from .givtcp_writer import VerifiedWrite
+from .inverter.givtcp.writer import VerifiedWrite
 from .logging import get_logger
 from .repairs import async_create_write_not_confirmed_issue, async_delete_write_not_confirmed_issue
 

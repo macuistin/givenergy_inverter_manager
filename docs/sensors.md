@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 152 sensors. 101 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 153 sensors. 102 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches and numbers, see [Entities](entities.md).
 
@@ -44,7 +44,7 @@ Read from the tariff you configured. See [Tariff](tariff.md).
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Current Rate | `current_rate` | currency | - | measurement | no | yes | Unit import rate in force now. The `givtcp_rates_differ` and `givtcp_rate_differences` attributes compare the day, night and export rates GivTCP holds with the tariff entered here. See [Tariff](tariff.md#comparing-with-givtcps-rates). Absent when GivTCP's rates cannot be read. |
+| Current Rate | `current_rate` | currency | - | measurement | no | yes | Unit import rate in force now. |
 | Current Rate Period | `current_rate_period` | - | - | none | no | yes | Name of the active period, or the base rate name. |
 | Live Grid Cost Rate | `live_grid_cost_rate` | currency | - | measurement | no | yes | Cost per hour of the current grid flow. Positive when spending, negative when earning. |
 | Next Cheap Rate Start | `next_cheap_rate_start` | - | - | none | no | yes | Start time (HH:MM) of the next period cheaper than the base rate, or Now. The `summary` attribute adds the wait, such as `23:00 (in 8 h 56 min)`, or the time until cheap rates end, such as `Now (ends in 5 h 30 min)`. The end is that of the whole run of periods cheaper than the base rate, so a cheaper period inside a longer one does not cut it short. Absent on a tariff with no cheap period. |
@@ -290,6 +290,7 @@ The state is a one-line summary. The `html` attribute holds a styled report for 
 |---|---|---|---|---|---|---|---|
 | Dry Run Mode Active | `dry_run_active` | - | - | none | no | yes | True when dry run mode is on. The `summary` attribute reads On or Off, for the dashboard tile. On a test instance (see Configuration) the `test_instance` attribute is also true. Diagnostic category. |
 | Setup Progress | `setup_progress` | - | - | none | no | yes | complete once the required setup is done, incomplete before that. The `items` attribute lists each step with whether it is done and whether it is required. The dashboard shows a checklist while the state is incomplete. Diagnostic category. |
+| Charge Target Conflict | `charge_target_conflict` | - | enum | none | no | yes | none, or suspected when something other than this integration seems to be setting the charge target: at least 2 changes to it in the last 3 days that this integration did not send and no Home Assistant user made. The `changes`, `last_seen` and `target_entity` attributes say how many, when the newest was, and which entity. Common causes are GivTCP's SmartTarget, Predbat and the app. The dashboard shows a banner while the state is suspected. It clears after 3 days without a change. Diagnostic category. |
 | Last Skipped Action (Dry Run) | `dry_run_last_skipped` | - | - | none | no | yes | The last action dry run mode held back. Diagnostic category. |
 | Integration Version | `integration_version` | - | - | none | no | no | Installed integration version. Diagnostic category. |
 

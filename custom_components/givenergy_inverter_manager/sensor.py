@@ -91,8 +91,6 @@ _UNRECORDED_ATTRIBUTES = frozenset(
         "alt_schedule_saving",
         "alt_schedule_days",
         "alt_schedule_suggestion",
-        # How GivTCP's rates differ from the tariff.
-        "givtcp_rate_differences",
     }
 )
 

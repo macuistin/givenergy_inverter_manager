@@ -160,6 +160,11 @@
   "name": "Battery Years Remaining (est.)"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_charge_target_conflict",
+  "key": "charge_target_conflict",
+  "name": "Charge Target Conflict"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_cheap_rate_floor",
   "key": "cheap_rate_floor_status",
   "name": "Cheap Rate Floor"

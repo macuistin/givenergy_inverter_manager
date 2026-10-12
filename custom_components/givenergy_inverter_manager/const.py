@@ -284,12 +284,15 @@ PLATFORMS = ["sensor", "switch", "number"]
 # These govern the overnight charge decision logic in rules.py.
 # Named here so behaviour is documented and auditable — not buried as magic numbers.
 
-# Winter months: charge to 100% regardless of forecast. Solar is negligible
-# and grid charging is nearly always the right decision in Ireland (Dec–Feb).
-CHARGE_WINTER_MONTHS: tuple[int, ...] = (12, 1, 2)
-# Shoulder months: raise the min_soc floor to max_soc_target — heating load is
-# variable and the forecast is less reliable than in peak summer.
-CHARGE_SHOULDER_MONTHS: tuple[int, ...] = (3, 4, 10, 11)
+# The winter and shoulder months are settings. They default from the latitude (core/seasons.py)
+# and are saved only when the user edits them.
+CONF_CHARGE_WINTER_MONTHS = "charge_winter_months"
+CONF_CHARGE_SHOULDER_MONTHS = "charge_shoulder_months"
+CONF_CHARGE_WINTER_USES_FORECAST = "charge_winter_uses_forecast"
+
+# In a winter month the charge goes to 100% regardless of forecast, because solar is negligible.
+# In a shoulder month the min_soc floor is raised, because heating load is variable and the
+# forecast is less reliable than in peak summer.
 # Shoulder month min SoC floor (% of battery) — more conservative than summer floor.
 CHARGE_SHOULDER_MIN_SOC = 70  # % — applied instead of battery_min_soc in shoulder months
 # Winter months: the charge is skipped once the battery is at or above this SoC.
@@ -359,7 +362,6 @@ DEFAULT_BATTERY_COST = 0.0  # € — 0 disables the degradation cost check
 # GivTCP can hold its own day, night and export rates. A rate that differs from the one
 # entered here by more than this share of the value here is listed in the attributes of the
 # Current Rate sensor. The rates entered here always win. GivTCP's are shown for comparison only.
-GIVTCP_RATE_TOLERANCE_PCT = 2.0  # % of the rate entered here
 
 # ── Battery throughput budget ─────────────────────────────────────────────────
 # Optional daily cycling budget (kWh charged plus discharged). 0 disables it.
@@ -392,23 +394,34 @@ CONF_SURPLUS_DIVERT_MIN_W = "surplus_divert_min_power_w"
 CONF_CHEAP_RATE_FLOOR_SOC = "cheap_rate_floor_soc"
 DEFAULT_CHEAP_RATE_FLOOR_SOC = 40  # % — 0 disables the floor
 
-# ── GivTCP register write safety ──────────────────────────────────────────────
-# GivEnergy inverters have ~1M total register write capacity. Limiting unnecessary
-# writes protects hardware lifetime. Predbat documents this as a known issue.
-GIVTCP_MAX_WRITE_RETRIES = 3          # attempts per write before giving up
-GIVTCP_WRITE_RETRY_SLEEP_S = 2        # seconds between retry attempts
-GIVTCP_WRITE_LIFETIME_WARN = 500_000  # log a warning at this write count (~50% of rated)
-GIVTCP_MIN_WRITE_INTERVAL_S = 300     # minimum seconds before the same value is rewritten
+# ── Register write log ────────────────────────────────────────────────────────
+# The write safety limits (retries, cooldown, lifetime warning) live in
+# inverter/givtcp/constants.py with the GivTCP adapter.
+# Something other than this integration is suspected of setting the charge target when the write
+# log holds at least this many outside changes with no Home Assistant user inside the window.
+# A missed nightly charge write is tried again this many minutes after the trigger, and not at all
+# when less than the stop margin of the window would remain.
+CHARGE_WRITE_RETRY_OFFSETS_MIN = (2, 5, 10, 20)
+CHARGE_WRITE_RETRY_STOP_BEFORE_END_MIN = 15
+CONFLICT_MIN_CHANGES = 2
+CONFLICT_WINDOW_DAYS = 3
+# A daily energy counter that rises by more than the inverter's maximum power times the time
+# between two readings, times this margin, plus the floor, is not energy. The margin covers a
+# house that draws more than the inverter. A rise of this many times the old value (a counter
+# changing units, as GivTCP 3.6 did for Gateway totals) is logged as a probable unit change.
+COUNTER_RISE_MARGIN = 4.0
+COUNTER_RISE_FLOOR_KWH = 0.5
+COUNTER_UNIT_CHANGE_RATIO = 500
+COUNTER_UNIT_CHANGE_MIN_KWH = 1.0  # below this the old value is too small to compare against
 REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept in the write log
 # How long a running element stays on while a required sensor is unavailable.
 # Same value as the write interval, but a separate setting.
 SENSOR_OUTAGE_HOLD_LIMIT_S = 300
-GIVTCP_MIN_CHARGE_TARGET_PCT = 4      # lowest charge target GivTCP accepts
-GIVTCP_MAX_CHARGE_TARGET_PCT = 100    # highest charge target GivTCP accepts
 # How long every GivTCP power and SoC entity may go without a report before the feed counts as
 # frozen. GivTCP publishes about every 20 to 30 seconds and a cycle is 30 seconds, so ten minutes
-# is twenty missed publishes: an add-on restart passes, an overnight crash trips. The two
-# five-minute values above are a write cooldown and an element hold, not feed ages.
+# is twenty missed publishes: an add-on restart passes, an overnight crash trips. The
+# five-minute write cooldown (inverter/givtcp/constants.py) and the element hold above are not
+# feed ages.
 GIVTCP_FROZEN_AFTER_S = 600
 
 # ── Sensor state text ─────────────────────────────────────────────────────────

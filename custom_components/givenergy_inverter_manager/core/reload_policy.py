@@ -25,7 +25,9 @@ unless noted):
                          live tariff change re-registers it (TARIFF_TRIGGER_KEYS).
   battery and charging   battery_capacity_kwh, inverter_max_output_kw, battery_min_soc_pct,
                          overnight_charge_target_pct, skip_charge_soc_threshold_pct,
-                         cheap_rate_floor_soc, battery_cost_eur, battery_throughput_budget_kwh.
+                         cheap_rate_floor_soc, battery_cost_eur, battery_throughput_budget_kwh,
+                         charge_winter_months, charge_shoulder_months and
+                         charge_winter_uses_forecast (season_rules(cfg, latitude) each cycle).
   forecast               forecast_entity_p10, forecast_entity_d2, carbon_intensity_entity,
                          forecast_conservatism. forecast_provider is stored and never read.
   hot water              immersion_wattage_w, immersion_ready_times, alt_heat_label,
@@ -71,7 +73,10 @@ from ..const import (
     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CARBON_INTENSITY_ENTITY,
     CONF_CHARGE_END_TIME_ENTITY,
+    CONF_CHARGE_SHOULDER_MONTHS,
     CONF_CHARGE_START_TIME_ENTITY,
+    CONF_CHARGE_WINTER_MONTHS,
+    CONF_CHARGE_WINTER_USES_FORECAST,
     CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_CURRENCY,
     CONF_DASHBOARD_URL_PATH,
@@ -200,6 +205,9 @@ LIVE_KEYS: frozenset[str] = frozenset(
         CONF_OVERNIGHT_CHARGE_TARGET,
         CONF_BATTERY_COST,
         CONF_BATTERY_THROUGHPUT_BUDGET,
+        CONF_CHARGE_WINTER_MONTHS,
+        CONF_CHARGE_SHOULDER_MONTHS,
+        CONF_CHARGE_WINTER_USES_FORECAST,
         # Forecast
         CONF_FORECAST_PROVIDER,
         CONF_FORECAST_ENTITY_P10,

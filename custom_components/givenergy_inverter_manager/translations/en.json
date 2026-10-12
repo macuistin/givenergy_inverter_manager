@@ -37,7 +37,7 @@
       },
       "tariff": {
         "title": "Electricity tariff",
-        "description": "{progress}\n\n{warnings}Enter the rates from your bill or tariff sheet. A flat-rate home enters one rate and chooses 0 time-of-day rates. Rates are per kWh before VAT.",
+        "description": "{progress}\n\n{warnings}Enter the rates from your bill or tariff sheet. A flat-rate home enters one rate and chooses 0 time-of-day rates. Rates are per kWh before VAT.{rate_note}",
         "data": {
           "base_rate": "Base rate",
           "export_rate": "Export rate",
@@ -75,7 +75,7 @@
       },
       "tariff_rates": {
         "title": "Time-of-day rates",
-        "description": "{progress}\n\n{warnings}One row for each time-of-day rate you chose. Rates are per kWh before VAT.",
+        "description": "{progress}\n\n{warnings}One row for each time-of-day rate you chose. Rates are per kWh before VAT.{rate_note}",
         "sections": {
           "rate_period_1": {
             "name": "Rate 1",
@@ -435,7 +435,10 @@
           "battery_min_soc_pct": "Battery minimum charge (%)",
           "overnight_charge_target_pct": "Overnight charge cap (%)",
           "battery_cost_eur": "Battery cost",
-          "battery_throughput_budget_kwh": "Daily throughput budget (kWh)"
+          "battery_throughput_budget_kwh": "Daily throughput budget (kWh)",
+          "charge_winter_months": "Winter months",
+          "charge_shoulder_months": "Shoulder months",
+          "charge_winter_uses_forecast": "Plan winter charges from the forecast"
         },
         "data_description": {
           "battery_capacity_kwh": "Usable capacity of all battery modules in kWh.",
@@ -443,7 +446,10 @@
           "battery_min_soc_pct": "The battery is never planned below this charge. It protects the battery and keeps a reserve.",
           "overnight_charge_target_pct": "The most the overnight plan will ever charge the battery to.",
           "battery_cost_eur": "What the battery cost to install, in your currency. It is used to work out the wear cost of each kWh. Enter 0 to turn the check off.",
-          "battery_throughput_budget_kwh": "An optional daily limit on energy charged plus discharged. Enter 0 for no limit."
+          "battery_throughput_budget_kwh": "An optional daily limit on energy charged plus discharged. Enter 0 for no limit.",
+          "charge_winter_months": "In these months the overnight charge goes to 100% whatever the forecast, because solar is small. The list starts from your latitude: December to February in the north, June to August in the south. Leave it empty to turn the rule off.",
+          "charge_shoulder_months": "In these months the minimum charge is raised, because heating load varies and the forecast is less reliable. A month cannot be both winter and shoulder. Leave it empty to turn the rule off.",
+          "charge_winter_uses_forecast": "Off keeps winter at 100%. On plans a winter charge from the forecast, with the shoulder-month minimum as its floor."
         }
       },
       "forecast": {
@@ -524,7 +530,8 @@
       "tariff_change_date_in_past": "The rates cannot start in the past, because costs already recorded are not recalculated. Clear the date to apply the rates now, or choose a later date.",
       "immersion_ready_time_invalid": "Enter each hot water ready time as HH:MM, for example 07:00.",
       "alt_heat_label_empty": "Give the alternative water heating a name, such as Oil, Gas or Heat pump.",
-      "alt_heat_label_too_long": "The name of the alternative water heating can be at most 20 characters."
+      "alt_heat_label_too_long": "The name of the alternative water heating can be at most 20 characters.",
+      "season_months_overlap": "A month cannot be both a winter month and a shoulder month. Take it out of one list."
     }
   },
   "selector": {
@@ -801,6 +808,13 @@
       },
       "setup_progress": {
         "name": "Setup Progress"
+      },
+      "charge_target_conflict": {
+        "name": "Charge Target Conflict",
+        "state": {
+          "none": "None",
+          "suspected": "Suspected"
+        }
       },
       "dry_run_last_skipped": {
         "name": "Last Skipped Action (Dry Run)"
@@ -1130,6 +1144,10 @@
       "title": "GivTCP has stopped updating",
       "description": "GivTCP's solar, battery and load entities in Home Assistant still show their last values, but none has been reported since {last_reported}. They are not unavailable, so nothing else shows a fault.\n\nThe integration has stopped planning, stopped writing to the inverter and made its own entities unavailable, because it would act on readings that no longer move. It resumes by itself when GivTCP reports again.\n\nCheck that GivTCP is running and has not crashed (an upgrade can leave it stopped), that MQTT is connected, and that GivTCP's day rate, night rate and tariff type are filled in. Also check that **Real Time Control** is on, because an upgrade of GivTCP can reset it. The learn more link has the steps."
     },
+    "givtcp_not_answering": {
+      "title": "GivTCP is not getting data from the inverter",
+      "description": "GivTCP is running and reporting to Home Assistant, but it is not getting data from the inverter. {reason}\n\nThe values in Home Assistant are the last good ones, so they look normal while they are old. The integration has stopped planning, stopped writing to the inverter and made its own entities unavailable, because it would act on old readings. It resumes by itself when GivTCP reads the inverter again.\n\nCheck that the inverter is on and on the network, that nothing else is connected to it at the same time, and that GivTCP's log is not full of connection errors. Restarting GivTCP often clears a stuck connection. The learn more link has the steps."
+    },
     "tariff_review_due": {
       "title": "Tariff rates have not been reviewed",
       "fix_flow": {
@@ -1154,6 +1172,9 @@
     },
     "givtcp_frozen": {
       "message": "GivTCP is not updating. Its entities still hold their last values, but none has been reported recently. Check that GivTCP is running and MQTT is connected."
+    },
+    "givtcp_not_answering": {
+      "message": "GivTCP is not getting data from the inverter, so its values are old. Check that the inverter is on and reachable, and that GivTCP is not paused."
     },
     "no_config_entry": {
       "message": "GivEnergy Inverter Manager is not configured. Add the integration in Settings → Integrations before calling this service."

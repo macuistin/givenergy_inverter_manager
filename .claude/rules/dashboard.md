@@ -33,6 +33,9 @@ paths:
   the state of charge sensor, which would feed a percentage to the card as watts.
 - Sensors that reset at midnight are plotted with `statistics-graph`, not `history-graph`, which
   draws a sawtooth.
+- The banners (dry run, charge target conflict) sit together under Now, in that order, each a
+  section with a plain `state` condition on its sensor. At the 2026.5 floor use only `state` and
+  `numeric_state` conditions, because the wider set of condition types needs 2026.10.
 - `tests/golden_dashboard_matrix.json` pins the output for a grid of installs and for an
   administrator and another user. Regenerate it with `/regenerate-goldens` after a deliberate
   change, and compare the dashboards before and after, section by section.

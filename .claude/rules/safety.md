@@ -24,8 +24,25 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
 - A `.givenergy_test_instance` file in the config folder forces dry run on (`TEST_INSTANCE_MARKER`).
   The coordinator reads it once at setup and `_effective_cfg` applies it, so every reader of
   `dry_run` agrees. Never read `CONF_DRY_RUN` straight from the entry in new code.
-- Writes to GivTCP go through `givtcp_writer.py`, which reads before writing, applies a cooldown
-  (`GIVTCP_MIN_WRITE_INTERVAL_S`) and reads back. Do not call a GivTCP service from anywhere else.
+- Only the adapter writes to the inverter. The coordinator decides what to write, checks dry run,
+  and calls the backend (`apply_charge_plan`, `apply_floor_target`, `clear_charge_slot`). The
+  adapter's writes go through `inverter/givtcp/writer.py`, which reads before writing, applies a
+  cooldown (`GIVTCP_MIN_WRITE_INTERVAL_S`) and reads back. Do not call a GivTCP service from
+  anywhere else.
+- A write that the inverter does not take (every read-back shows the old value) raises the repair
+  `write_not_confirmed`. It is never raised in dry run. The decision lives in
+  `core/write_confirmation.py`.
+- The nightly charge write is retried at +2, +5, +10 and +20 minutes after the trigger when it
+  fails, and not when less than 15 minutes of the window would remain (`core/charge_retry.py`).
+  A write has failed when the feed is not live or a sent setting does not hold its value. Each
+  retry goes through the same writer, so it is read back, counted and held to the cooldown, which
+  a setting that did not take releases. Retries and a start-up catch-up call the backend through
+  the coordinator's dry-run check, so dry run sends nothing. Notes about retries use the write
+  log reason `retry`, and they are not writes.
+- Planning and writes stop while the feed is not live. That is a frozen feed (nothing reported for
+  ten minutes, repair `givtcp_feed_frozen`), a paused GivTCP, or old data per GivTCP's `Data_Age`
+  (repair `givtcp_not_answering`). The adapter judges it in `inverter/givtcp/reader.py`
+  (`feed_status`). A new write path checks the same flags and has a test that nothing is sent.
 
 ## What the integration never does
 
@@ -35,6 +52,8 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
 - It never stops or pauses an EV charger. For a Zappi with a charge mode entity it selects Eco+ and
   never Stopped or Fast.
 - The write audit (`write_audit.py`) only records. It never reverts a change and never raises a repair.
+  The Charge Target Conflict sensor and its banner read the log (`core/controller_conflict.py`) and
+  nothing else. A second controller shows there, never as a repair.
 
 ## Optional devices
 

@@ -27,8 +27,7 @@ from ..const import (
     CONF_TARGET_SOC_ENTITY,
 )
 from ..core.wizard_pages import WIRING_REQUIRED
-from ..discovery import GivTCPInverter
-from ..discovery.givtcp import GIVTCP_PREFIX
+from ..inverter.givtcp.discovery import GIVTCP_PREFIX, GivTCPInverter
 
 # discover_givtcp_inverters() entity keys to the config keys they are stored under.
 DISCOVERY_TO_CONF: dict[str, str] = {

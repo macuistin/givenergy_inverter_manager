@@ -112,7 +112,7 @@ async def test_fix_flow_confirms_then_clears_the_slot_and_the_issue(
         (START_2, "00:00:00"),
         (END_2, "00:00:00"),
     ]
-    assert entry.runtime_data._writer.write_count == 2
+    assert entry.runtime_data._backend.write_count == 2
 
     await entry.runtime_data.async_refresh()
     assert _issue(hass) is None

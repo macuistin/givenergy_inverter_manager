@@ -9,6 +9,9 @@ First decide whether the change is intended. A golden failure after a refactor i
 refactor, not a reason to regenerate. Only regenerate when behaviour is meant to change, and pin the
 new behaviour with its own test. Rules: `.claude/rules/core-purity.md`.
 
+A refactor moves no golden file. The one exception is a field the refactor removes or renames,
+and then only that field moves: show in the PR that no other value changed.
+
 Run from the repo root in the unit venv unless stated. Commit the golden change in its own commit
 with the code that caused it, never alone.
 

@@ -29,6 +29,7 @@ The integration looks for a GivTCP inverter by its `sensor.givtcp_<id>_invertor_
 | Enable charge target | `switch..._enable_charge_target` | no, needed to write charge targets |
 | Enable charge schedule | `switch..._enable_charge_schedule` | no, needed to write charge targets |
 | Charge start and end, slot 1 | `select..._charge_start_time_slot_1` and `..._charge_end_time_slot_1` | no, needed to write charge targets |
+| Day, night and export rate | `sensor..._day_rate`, `..._night_rate` and `..._export_rate` | no, offered as starting values on the setup tariff screen only. See [Screen: Tariff](#screen-tariff) |
 | Battery charge rate | `number..._battery_charge_rate` | no, read at the pre-window write to size the charge window. Not stored in the configuration. Without it the window is the cheapest period |
 
 When the five required power sensors are found, the inverter is used with no page of its own. The same screen also finds, uses and announces:
@@ -56,9 +57,11 @@ If no inverter is found, or the one found has sensors missing, the next screen a
 
 | Field | Default | Range |
 |---|---|---|
-| Base rate | none, required | 0 to 5 per kWh |
-| Export rate | none, required | 0 to 1 per kWh |
+| Base rate | none, required. Starts at GivTCP's day rate when you set one | 0 to 5 per kWh |
+| Export rate | none, required. Starts at GivTCP's export rate when you set one | 0 to 1 per kWh |
 | Time-of-day rates besides the base rate | None, one rate all day | 0 to 5 |
+
+**Starting values from GivTCP.** If GivTCP holds a day, night or export rate that you set on its own configuration page, this screen starts from it and says "Taken from GivTCP. Check them against your bill." The day rate starts the base rate, the export rate starts the export rate, and the night rate starts the rate of the first time-of-day row on the next screen. The row's window is never taken from GivTCP. A rate is offered only when GivTCP shows a value above zero that is not one of the values it ships with (0.395 day, 0.155 night, 0.04 export), because a shipped value means the rate was never set. Everything else stays empty. The values are used as they are, per kWh in the currency GivTCP uses, so check them against your bill. Nothing is saved until the confirm screen. The Configure tariff page never reads GivTCP's rates.
 
 The Bill details section is collapsed. Open it when you have your bill to hand. Every field in it has a default that charges nothing, so skipping it is safe.
 
@@ -120,7 +123,7 @@ The first screen has the base rate, the export rate and a select for the number 
 | Schedule a rate change | the date the rates you entered start, and a switch to cancel the changes already scheduled |
 | Confirm the tariff is current | nothing, it records today as the day you checked the tariff |
 
-Raising the count adds blank rows after the saved ones. Lowering it drops the last rows. A count of 0 clears the time-of-day rates and needs no rows screen. Change the rates against your latest bill whenever your supplier changes its prices. See [Tariff](tariff.md). If GivTCP holds day, night or export rates that differ from these, the **Current Rate** sensor lists the differences in its attributes. The rates here always win. See [Tariff](tariff.md#comparing-with-givtcps-rates).
+Raising the count adds blank rows after the saved ones. Lowering it drops the last rows. A count of 0 clears the time-of-day rates and needs no rows screen. Change the rates against your latest bill whenever your supplier changes its prices. See [Tariff](tariff.md). The integration uses only the rates entered here. It does not read the rates GivTCP holds.
 
 **Schedule a rate change.** Sets the date the rates on the Tariff and rows screens start. Leave the date empty to apply them now. Only the base rate and its name, the time-of-day rates and the export rate follow the date. The bill details apply when you save. See [Tariff](tariff.md#change-the-rates-from-a-date). Saving the tariff without a date ends any dated change that has started and keeps the ones that have not.
 
@@ -134,11 +137,15 @@ Raising the count adds blank rows after the saved ones. Lowering it drops the la
 | Overnight charge cap | `overnight_charge_target_pct` | 80 | 20 to 100. The calculated target is capped at this |
 | Battery cost | `battery_cost_eur` | 0 | 0 to 20000 in steps of 100. 0 turns the wear check off |
 | Daily battery throughput budget | `battery_throughput_budget_kwh` | 0 | 0 to 50 in steps of 0.5. 0 turns the budget sensors off |
+| Winter months | `charge_winter_months` | From your latitude: December to February in the north, June to August in the south | Any months. An empty list turns the rule off |
+| Shoulder months | `charge_shoulder_months` | From your latitude: March, April, October and November in the north, April, May, September and October in the south | Any months. An empty list turns the rule off |
+| Plan winter charges from the forecast | `charge_winter_uses_forecast` | Off | On or off |
 
 Update capacity and output when you add battery modules or change the inverter. Dry run, verbose logging, the cheap rate floor and the skip-charge threshold are not here. They are [controls](#controls). The page warns when the Cheap rate floor SoC control is set below the battery minimum charge you enter.
 
 - **Battery cost** sets a wear cost per kWh: cost divided by (2 x capacity x 6000 rated cycles). The immersion rule then refuses to divert when the export rate is lower than that wear cost. It also feeds Net Saving Today and Battery Cycle Cost per kWh.
 - A battery cost of 0 means wear is not counted, so Net Saving Today equals Saving vs Grid Today. After 7 days of battery tracking the repair **Battery cost is not set** asks for the value. See [Troubleshooting](troubleshooting.md#battery-cost-is-not-set).
+- **Winter months and shoulder months** set when the overnight charge goes to 100% and when its minimum is raised. Home Assistant's latitude decides the starting lists, north or south of the equator, and nothing is saved until you edit them, so a house that moves hemisphere changes with it. A month cannot be in both lists. Near the equator the seasons do not apply, so leave a list empty to turn its rule off. **Plan winter charges from the forecast** replaces the 100% winter charge with the normal plan, using the shoulder minimum (70%) as its floor. See [Concepts](concepts.md#overnight-charge-target).
 - **Throughput budget** drives Battery Throughput Budget Used and Status. Status is OK below 80% of the budget, High from 80%, and Over budget above 100%.
 - A minimum SoC above 30 (possible only from older saved values) raises a repair issue, because on skip nights that value is written as the charge target.
 

@@ -24,7 +24,6 @@ from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.setup_progress import setup_state
 from .core.tariff import EnergyAccumulator
-from .core.tariff_check import describe_rate_mismatches
 from .core.write_log import newest_first
 
 GRID_IMPORTING = "Importing"
@@ -302,14 +301,18 @@ def water_heating_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     return attributes
 
 
-def givtcp_rate_attributes(data: CoordinatorData) -> dict[str, Any] | None:
-    """Return how GivTCP's rates compare with the tariff here, None when none is readable."""
-    mismatches = data.givtcp_rate_mismatches
-    if mismatches is None:
-        return None
+def charge_target_conflict_state(data: CoordinatorData) -> str:
+    """none or suspected: whether something else seems to be setting the charge target."""
+    return data.charge_target_conflict.state
+
+
+def charge_target_conflict_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """How many outside changes the suspicion rests on, the newest, and the entity it is about."""
+    status = data.charge_target_conflict
     return {
-        "givtcp_rates_differ": bool(mismatches),
-        "givtcp_rate_differences": describe_rate_mismatches(mismatches),
+        "changes": status.count,
+        "last_seen": status.last_seen_iso,
+        "target_entity": status.entity_id,
     }
 
 

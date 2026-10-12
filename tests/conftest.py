@@ -194,6 +194,7 @@ class _SensorEntityDescription:
     entity_registry_enabled_default: bool = True
     icon: str | None = None
     name: object = None
+    options: list[str] | None = None
     native_unit_of_measurement: str | None = None
     state_class: object = None
     suggested_display_precision: int | None = None
@@ -247,6 +248,7 @@ _ep.AddEntitiesCallback = MagicMock
 if "homeassistant.helpers.event" not in sys.modules:
     sys.modules["homeassistant.helpers.event"] = types.ModuleType("homeassistant.helpers.event")
 sys.modules["homeassistant.helpers.event"].async_track_time_change = lambda *a, **kw: lambda: None
+sys.modules["homeassistant.helpers.event"].async_track_point_in_time = lambda *a, **kw: lambda: None
 sys.modules["homeassistant.helpers.event"].async_track_state_change_event = (
     lambda *a, **kw: lambda: None
 )

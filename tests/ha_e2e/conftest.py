@@ -95,7 +95,7 @@ else:
 SERIAL = "ab1234g567"
 PREFIX = f"givtcp_{SERIAL}"
 
-# Entity IDs follow GivTCP's naming (see const.py and discovery/givtcp.py).
+# Entity IDs follow GivTCP's naming (see const.py and inverter/givtcp/discovery.py).
 SOLAR = f"sensor.{PREFIX}_pv_power"
 SOC = f"sensor.{PREFIX}_soc"
 BATTERY_POWER = f"sensor.{PREFIX}_battery_power"
@@ -298,8 +298,26 @@ if not _PLUGIN_MISSING:
     def _no_write_retry_delay(monkeypatch):
         """Skip the real 2 s sleeps in the GivTCP write retry loops."""
         monkeypatch.setattr(
-            "custom_components.givenergy_inverter_manager.givtcp_writer.GIVTCP_WRITE_RETRY_SLEEP_S",
+            "custom_components.givenergy_inverter_manager.inverter.givtcp.writer.GIVTCP_WRITE_RETRY_SLEEP_S",
             0,
+        )
+
+    @pytest.fixture(autouse=True)
+    def _no_catch_up(monkeypatch):
+        """Keep the start-up catch-up write off, so setup inside the cheap window sends nothing.
+
+        Several scenarios start at 02:30 with no write logged, which is exactly when the
+        integration writes tonight's target as it starts. Most tests want a quiet setup.
+        test_write_sequence_e2e.py checks that setup calls the catch-up and runs the real one.
+        """
+
+        async def no_catch_up(self):
+            return None
+
+        monkeypatch.setattr(
+            "custom_components.givenergy_inverter_manager.coordinator."
+            "GivEnergyCoordinator.async_catch_up_charge_write",
+            no_catch_up,
         )
 
     @pytest.fixture(autouse=True)

@@ -50,6 +50,32 @@ While the feed is frozen the integration stops planning and stops writing to the
 
 After a Home Assistant restart the entities start as freshly reported, so a GivTCP that is already stopped shows as frozen about 10 minutes later.
 
+## GivTCP is not getting data from the inverter
+
+The repair **GivTCP is not getting data from the inverter** appears when GivTCP is running and reporting, but cannot read the inverter. GivTCP 3.6 and later keep publishing the last good data when a read fails, so the entities stay available and look normal while they are old. GivTCP says so in two sensors: `status` shows `paused` when GivTCP has stopped talking to a struggling inverter on purpose, and `Data_Age` counts the seconds since the last good read. The repair appears when the status is `paused`, or when `Data_Age` is over 10 minutes, or is `-1` because nothing has been read yet. Earlier GivTCP releases do not publish `Data_Age`, so a stale feed cannot be seen there and only the frozen check applies.
+
+While it lasts the integration stops planning and stops writing to the inverter, and its entities show unavailable. The log has one warning starting `GivTCP is not getting data from the inverter`, and `GivTCP is reporting again` when it ends. The repair clears by itself on the next cycle.
+
+1. Check that the inverter is powered and on the network.
+2. Check that nothing else is connected to the inverter at the same time. Most inverters allow one connection.
+3. Open the GivTCP log and look for connection or timeout errors.
+4. Restart GivTCP.
+
+## Energy totals jumped after a GivTCP upgrade
+
+GivTCP publishes cumulative energy for the day (solar, import, export, battery charge and discharge, load and AC charge). An upgrade can change what a counter holds. GivTCP 3.6 changed the units of the energy totals on a Gateway, so a counter can step by about a thousand times.
+
+The integration checks every reading against the one before it. A counter can only rise by what the system could deliver in the time between the two readings: the inverter's maximum output times the elapsed time, with a margin of four and a small allowance for rounding. A rise above that is not energy. When it happens:
+
+- Nothing is booked for the step, in today's totals or in the week, month and year.
+- The log has one warning, starting `The ... energy counter went from`, and it says `a probable unit change` when the counter rose by about a thousand times.
+- That counter is left out of today's totals, which fall back to the integration's own sum of power, until the counter falls at the next daily reset. After a step its value is wrong for the rest of the day.
+- A counter that spikes and then falls back to where it was is trusted again as soon as it does, and only what it added since is booked.
+
+If you see the warning after an upgrade, open **Developer Tools → States** and compare the counter with GivTCP's own display. The **Inverter maximum output** setting (**Configure → Battery and charging**) matters here: a value much lower than your real inverter makes the allowance too small for a house that draws a lot. Home Assistant's own Energy dashboard reads the GivTCP sensors directly, so a Gateway total that changed units shows as one large spike there. Correct it in **Developer Tools → Statistics**.
+
+The guard keeps the AC charge baseline across restarts and the other readings in memory only, so a counter that stepped while Home Assistant was down is judged against what it read before the restart, or, for the counters that are not saved, accepted unless it is larger than a day could hold.
+
 ## GivTCP entities not found
 
 The repair **GivTCP entities not found** appears in **Settings → System → Repairs** when the solar power and battery SoC entities chosen at setup no longer exist in Home Assistant. This usually means GivTCP was reinstalled with another serial, or its entity IDs changed.
@@ -172,10 +198,20 @@ Work through this list.
 1. Is the **Dry run** switch on? Then nothing is sent. A new install starts with it on, and a test instance (a `.givenergy_test_instance` file in the configuration folder) keeps it on. See [Configuration](configuration.md#dry-run). **Last Skipped Action (Dry Run)** shows what would have been written.
 2. Were the charge control entities detected? Without a target SoC entity nothing is written. The tariff step of setup shows how many of the five were found.
 3. Does the tariff have at least one timed rate period? With a flat tariff there is no cheap window and no write.
-4. The write happens once a day, one minute before the cheapest timed period starts. If your cheapest period starts at 02:00, that is 01:59. With debug logging on (see the next section), search the log for `Writing charge target`.
+4. The write happens once a day, one minute before the cheapest timed period starts. If your cheapest period starts at 02:00, that is 01:59. If it fails, it is tried again 2, 5, 10 and 20 minutes later, and the **GivTCP Register Write Count** sensor lists each failure in `recent_writes` with the reason `retry`. See [The charge write failed and was retried](#the-charge-write-failed-and-was-retried). With debug logging on (see the next section), search the log for `Writing charge target`.
 5. Is **Force Skip Overnight Charge** on? Then the minimum SoC is written as the target.
 6. Was the same entity written in the last 5 minutes? The write is skipped. With debug logging on, the log says `write cooldown active`.
 7. Check GivTCP's own log for rejected writes. If the integration's log says it wrote a value but could not confirm it, see [Writes to the inverter are not confirmed](#writes-to-the-inverter-are-not-confirmed).
+
+## The charge write failed and was retried
+
+The `recent_writes` attribute of the **GivTCP Register Write Count** sensor shows a line with the reason `retry` each time tonight's charge write failed. The value says which attempt failed, why, and when the next try is, for example `attempt 1 failed: the inverter did not take it, trying again at 02:01`. The write has failed when the inverter feed is not live (see [GivTCP data is frozen](#givtcp-data-is-frozen) and [GivTCP is not getting data from the inverter](#givtcp-is-not-getting-data-from-the-inverter)), or when a setting was sent and the inverter still shows the old value.
+
+- The retries are at +2, +5, +10 and +20 minutes after the trigger. A retry is skipped when less than 15 minutes of the window would remain.
+- Each retry writes the plan as it is then, so a charge target override you set in the meantime is what goes out.
+- If every attempt fails, the last `retry` line starts with `gave up after`, and the inverter keeps its previous target. Check [Writes to the inverter are not confirmed](#writes-to-the-inverter-are-not-confirmed) first.
+- If Home Assistant restarts inside the window and no write was logged since the trigger, the write is made once as it starts.
+- Dry run sends nothing, so nothing is retried.
 
 ## Writes to the inverter are not confirmed
 
@@ -191,6 +227,16 @@ The integration carries on, so the inverter then runs on its old charge window o
 4. **GivTCP can reach the inverter.** Check the GivTCP log for connection errors to the inverter. A write sent while the connection is down is not confirmed either.
 
 After a fix, the next write that the inverter takes ends the warnings. To retry at once, change the charge target by hand and check the entity follows.
+
+## Something else is setting the charge target
+
+The dashboard banner **Something else is setting your charge target** and the diagnostic sensor **Charge Target Conflict** (`suspected`) mean the charge target changed at least twice in the last three days, and this integration did not send those changes. Only this integration should set the target. If two controllers write it, the battery follows whichever wrote last, and tonight's plan may not be what the inverter does.
+
+1. Turn off the other controller. Common ones are GivTCP's SmartTarget (a setting in GivTCP's configuration, off by default), Predbat and any automation of yours that sets the target.
+2. Open the sensor's attributes. `changes` is how many outside changes were counted, `last_seen` is when the newest happened, and `target_entity` is the entity.
+3. To see each change, follow [Find out what changed the charge target](#find-out-what-changed-the-charge-target). A change with a `user_id` is you or someone using Home Assistant on purpose, and is not counted.
+
+The integration cannot tell the causes apart. A change made in the GivEnergy app reaches GivTCP with no Home Assistant user, so it counts too, and so does a plant controller that sets values itself. If you change the target in the app on purpose, expect the banner after two changes. It clears three days after the last one. The integration never undoes a change and never raises a repair for this.
 
 ## Find out what changed the charge target
 

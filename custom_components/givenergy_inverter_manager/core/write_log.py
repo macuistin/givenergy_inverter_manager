@@ -13,9 +13,14 @@ without conversion. The log keeps the newest entries, oldest first.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
 EXTERNAL_REASON = "external"
+# Notes the manager writes about its own plan. They are not writes to the inverter.
+RETRY_REASON = "retry"
+REPLAN_REASON = "replan"
+NOTE_REASONS = frozenset({RETRY_REASON, REPLAN_REASON})
 _UNKNOWN_STATES = frozenset({"unavailable", "unknown", ""})
 
 
@@ -42,6 +47,17 @@ class WriteLogEntry:
     def as_dict(self) -> dict[str, str]:
         """The entry as a dict, leaving out the context fields that are empty."""
         return {k: v for k, v in asdict(self).items() if v is not None}
+
+
+def is_manager_write(entry: Mapping[str, object]) -> bool:
+    """True for a write the manager sent, not an outside change and not a note about the plan."""
+    reason = entry.get("reason")
+    return reason != EXTERNAL_REASON and reason not in NOTE_REASONS
+
+
+def is_retry_note(entry: Mapping[str, object]) -> bool:
+    """True for a note that a nightly write failed and will be, or was, tried again."""
+    return entry.get("reason") == RETRY_REASON
 
 
 def append_bounded(entries: list[dict], entry: WriteLogEntry, limit: int) -> list[dict]:

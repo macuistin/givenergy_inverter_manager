@@ -34,6 +34,9 @@ from ..const import (
     CONF_BILL_START_DAY,
     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CARBON_INTENSITY_ENTITY,
+    CONF_CHARGE_SHOULDER_MONTHS,
+    CONF_CHARGE_WINTER_MONTHS,
+    CONF_CHARGE_WINTER_USES_FORECAST,
     CONF_CURRENCY,
     CONF_DISCOUNT_RATE,
     CONF_EXPORT_RATE,
@@ -57,12 +60,14 @@ from ..const import (
     DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
     DEFAULT_IMMERSION_WATTAGE,
 )
+from ..core.seasons import season_defaults
 from ..core.tariff import scheduled_tariff_changes
 from ..core.wizard_model import KEY_DEFAULTS, Mode, PageContext
 from ..core.wizard_tariff import (
     default_rate_rows,
     night_window,
     rate_count,
+    rate_prefill,
 )
 from .selectors import (
     alt_heat_unit_selector,
@@ -70,6 +75,7 @@ from .selectors import (
     currency_code,
     currency_selector,
     entity_selector,
+    months_selector,
     number_selector,
     price_selector,
     rate_count_selector,
@@ -156,6 +162,16 @@ def bill_schema(ctx: PageContext) -> vol.Schema:
     )
 
 
+def _suggest(key: str, value: float | None) -> vol.Required:
+    """A required field that starts at *value* when there is one, and is empty otherwise.
+
+    A suggested value is shown but is not a default, so the field still has to be filled in.
+    """
+    if value is None:
+        return vol.Required(key)
+    return vol.Required(key, description={"suggested_value": value})
+
+
 def tariff_schema(ctx: PageContext) -> vol.Schema:
     """Base rate, export rate and how many time-of-day rates there are.
 
@@ -165,10 +181,15 @@ def tariff_schema(ctx: PageContext) -> vol.Schema:
     """
     currency = _currency(ctx)
     if ctx.mode is Mode.SETUP:
+        offered = rate_prefill(ctx.rate_defaults)
         return vol.Schema(
             {
-                vol.Required(CONF_BASE_RATE): price_selector(CONF_BASE_RATE, currency),
-                vol.Required(CONF_EXPORT_RATE): price_selector(CONF_EXPORT_RATE, currency),
+                _suggest(CONF_BASE_RATE, offered.day_rate): price_selector(
+                    CONF_BASE_RATE, currency
+                ),
+                _suggest(CONF_EXPORT_RATE, offered.export_rate): price_selector(
+                    CONF_EXPORT_RATE, currency
+                ),
                 vol.Required("rate_count", default="0"): rate_count_selector(),
                 vol.Optional(BILL_SECTION): section(bill_schema(ctx), {"collapsed": True}),
             }
@@ -211,7 +232,8 @@ def _rate_row_section(row: dict[str, Any], currency: str) -> object:
 def rates_schema(ctx: PageContext, count: int, country: str | None) -> vol.Schema:
     """Exactly *count* rows. Saved rows first, then new ones. Fewer rows drops the last."""
     saved = ctx.current.get(CONF_RATE_PERIODS) or []
-    rows = default_rate_rows(count, saved, night_window(country))
+    night = rate_prefill(ctx.rate_defaults).night_rate if ctx.mode is Mode.SETUP else None
+    rows = default_rate_rows(count, saved, night_window(country), night)
     currency = _currency(ctx)
     return vol.Schema(
         {
@@ -230,6 +252,18 @@ def schedule_schema(ctx: PageContext) -> vol.Schema:
 
 
 # ── Battery, forecast, hot water, EV ──────────────────────────────────────────
+
+
+def _month_values(ctx: PageContext, key: str) -> list[str]:
+    """The months in force for a season list, as the strings the selector holds.
+
+    What the user saved, else the defaults for Home Assistant's latitude. Nothing is saved
+    until the user edits the list.
+    """
+    months = ctx.current.get(key)
+    if months is None:
+        months = season_defaults(ctx.latitude)[key]
+    return [str(month) for month in sorted(months)]
 
 
 def battery_schema(ctx: PageContext) -> vol.Schema:
@@ -256,6 +290,17 @@ def battery_schema(ctx: PageContext) -> vol.Schema:
                 CONF_BATTERY_THROUGHPUT_BUDGET,
                 default=float(_value(ctx, CONF_BATTERY_THROUGHPUT_BUDGET)),
             ): number_selector(CONF_BATTERY_THROUGHPUT_BUDGET),
+            vol.Optional(
+                CONF_CHARGE_WINTER_MONTHS, default=_month_values(ctx, CONF_CHARGE_WINTER_MONTHS)
+            ): months_selector(),
+            vol.Optional(
+                CONF_CHARGE_SHOULDER_MONTHS,
+                default=_month_values(ctx, CONF_CHARGE_SHOULDER_MONTHS),
+            ): months_selector(),
+            vol.Optional(
+                CONF_CHARGE_WINTER_USES_FORECAST,
+                default=bool(ctx.current.get(CONF_CHARGE_WINTER_USES_FORECAST, False)),
+            ): selector.BooleanSelector(),
         }
     )
 

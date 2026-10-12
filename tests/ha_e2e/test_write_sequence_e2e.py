@@ -24,10 +24,14 @@ from homeassistant.config_entries import ConfigEntryState
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import CONF_DRY_RUN, DOMAIN
-from custom_components.givenergy_inverter_manager.discovery.givtcp import (
+from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
+from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
     discover_givtcp_inverters,
 )
 from tools.mock_givtcp import UNUSED_SLOT, MockGivTCP, Readings
+
+# Taken at import, before the suite swaps the catch-up for a no-op.
+REAL_CATCH_UP = GivEnergyCoordinator.async_catch_up_charge_write
 
 PREFIX = f"givtcp_{SERIAL}"
 TARGET = f"number.{PREFIX}_target_soc"
@@ -144,6 +148,42 @@ async def test_a_write_moves_the_entity_and_is_recorded_with_its_value(hass_in_s
 def night(mock) -> Readings:
     mock.publish(NIGHT)
     return NIGHT
+
+
+@pytest.mark.parametrize("scenario", [CHEAP_NIGHT], ids=lambda s: s.name)
+async def test_setup_asks_for_the_catch_up_and_it_writes_the_target_once_inside_the_window(
+    hass_in_scenario, mock, night, monkeypatch
+):
+    """The pending retries are lost with a restart, so a start at 02:30 makes the write."""
+    hass = hass_in_scenario
+    asked = []
+
+    async def spy(self) -> None:
+        asked.append(self)
+
+    monkeypatch.setattr(GivEnergyCoordinator, "async_catch_up_charge_write", spy)
+    entry = await _set_up(hass, mock, keep_setup_writes=True)
+    coordinator = entry.runtime_data
+    assert asked == [coordinator]
+    assert mock.sequence() == []
+
+    mock.install()  # setup put Home Assistant's own number and switch services back
+    await REAL_CATCH_UP(coordinator)
+    await hass.async_block_till_done()
+
+    decision = coordinator.data.charge_decision
+    assert mock.sequence() == [
+        ("switch.turn_on", ENABLE_SCHEDULE, None),
+        ("select.select_option", WINDOW_START, "02:00:00"),
+        ("select.select_option", WINDOW_END, "04:00:00"),
+        ("number.set_value", TARGET, decision.target_soc),
+        ("switch.turn_on", ENABLE_TARGET, None),
+    ]
+    # Done once: the log now holds the manager's write, so asking again writes nothing.
+    mock.clear()
+    await REAL_CATCH_UP(coordinator)
+    await hass.async_block_till_done()
+    assert mock.sequence() == []
 
 
 @pytest.mark.parametrize("scenario", [CHEAP_NIGHT], ids=lambda s: s.name)

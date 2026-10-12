@@ -194,6 +194,12 @@ async def _collect_forms(hass) -> dict:
     forms.update(await _setup_forms(hass, "setup_auto"))
     hass.states.async_remove(FORECAST)
     forms.update(await _setup_forms(hass, "setup_auto_no_forecast"))
+    # GivTCP holds rates its user changed: the tariff pages start from them.
+    for suffix, value in (("day_rate", 0.2918), ("night_rate", 0.1432), ("export_rate", 0.1)):
+        hass.states.async_set(f"sensor.givtcp_{SERIAL}_{suffix}", value)
+    forms.update(await _setup_forms(hass, "setup_auto_with_givtcp_rates"))
+    for suffix in ("day_rate", "night_rate", "export_rate"):
+        hass.states.async_remove(f"sensor.givtcp_{SERIAL}_{suffix}")
 
     overrides = {
         CONF_EXPORT_RATE: 0.0,

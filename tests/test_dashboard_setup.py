@@ -53,7 +53,15 @@ def _items(*rows) -> dict:
 class TestTheChecklistSection:
     def test_it_sits_between_the_banner_and_the_flow(self):
         headings = [s["cards"][0].get("heading") for s in _power_flow(dashboard_dict())["sections"]]
-        assert headings == ["Now", BANNER, CHECKLIST, "Live power flow", "Energy today", "Devices"]
+        assert headings == [
+            "Now",
+            BANNER,
+            "Something else is setting your charge target",
+            CHECKLIST,
+            "Live power flow",
+            "Energy today",
+            "Devices",
+        ]
 
     def test_it_holds_a_heading_and_one_markdown_card(self):
         section = _section(dashboard_dict(), CHECKLIST)
@@ -186,3 +194,41 @@ class TestTheDryRunBanner:
     def test_it_uses_no_condition_newer_than_the_floor(self):
         conditions = {c["condition"] for c in _section(dashboard_dict(), BANNER)["visibility"]}
         assert conditions <= {"state", "numeric_state", "screen", "user", "and", "or"}
+
+
+# ── The charge target conflict banner ─────────────────────────────────────────
+
+CONFLICT = IDS["charge_target_conflict"]
+CONFLICT_HEADING = "Something else is setting your charge target"
+
+
+class TestTheChargeConflictBanner:
+    @staticmethod
+    def _headings(state: str | None) -> list[str]:
+        states = states_with(set(), {CONFLICT: state} if state is not None else None)
+        dashboard = seen(dashboard_dict(), states)
+        return [s["cards"][0].get("heading") for s in _power_flow(dashboard)["sections"]]
+
+    def test_it_shows_while_the_sensor_says_suspected(self):
+        assert CONFLICT_HEADING in self._headings("suspected")
+
+    @pytest.mark.parametrize("state", ["none", "unavailable", "unknown"])
+    def test_it_is_hidden_in_every_other_state(self, state):
+        assert CONFLICT_HEADING not in self._headings(state)
+
+    def test_it_sits_next_to_the_dry_run_banner(self):
+        headings = [s["cards"][0].get("heading") for s in _power_flow(dashboard_dict())["sections"]]
+        assert headings.index(CONFLICT_HEADING) == headings.index(BANNER) + 1
+
+    def test_it_uses_only_a_plain_state_condition_and_names_no_product_as_the_cause(self):
+        section = _section(dashboard_dict(), CONFLICT_HEADING)
+        assert section["visibility"] == [
+            {"condition": "state", "entity": CONFLICT, "state": "suspected"}
+        ]
+        text = section["cards"][1]["content"]
+        assert "only this integration sets the target" in text
+        assert "three days" in text
+
+    def test_there_is_no_banner_when_the_sensor_is_not_registered(self):
+        dashboard = dashboard_dict(registry=FakeRegistry(absent={"charge_target_conflict"}))
+        assert _section(dashboard, CONFLICT_HEADING) is None

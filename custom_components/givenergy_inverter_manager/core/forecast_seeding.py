@@ -27,7 +27,7 @@ class RecordedReadings:
     """What the recorder holds for the two sensors, in any order."""
 
     forecasts: Sequence[Reading]  # the tomorrow forecast sensor
-    solar_totals: Sequence[Reading]  # the GivTCP daily solar counter
+    solar_totals: Sequence[Reading]  # the inverter's daily solar counter
 
 
 def local_midnight(day: date, tz: tzinfo) -> datetime:
