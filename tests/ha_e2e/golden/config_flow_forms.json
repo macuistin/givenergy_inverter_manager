@@ -3427,7 +3427,7 @@
   "last_step": true,
   "errors": null,
   "placeholders": {
-   "changes": "- Tariff last confirmed: not set to 2026-10-11\n- Time-of-day rates: Night 0.1644 (23:00 to 08:00), Nightboost 0.0965 (02:00 to 04:00) to Night 0.1000 (23:00 to 08:00)\n\nApplies now. The integration does not reload.",
+   "changes": "- Tariff last confirmed: not set to 2026-06-15\n- Time-of-day rates: Night 0.1644 (23:00 to 08:00), Nightboost 0.0965 (02:00 to 04:00) to Night 0.1000 (23:00 to 08:00)\n\nApplies now. The integration does not reload.",
    "warnings": "",
    "progress": "Step 10 of about 10."
   },
@@ -4160,7 +4160,7 @@
   "last_step": true,
   "errors": null,
   "placeholders": {
-   "changes": "- Base rate name: Day to Day\n- Tariff last confirmed: not set to 2026-10-11\n- Time-of-day rates: Night 0.1644 (23:00 to 08:00), Nightboost 0.0965 (02:00 to 04:00) to Night 0.1000 (23:00 to 08:00)\n\nApplies now. The integration does not reload.",
+   "changes": "- Base rate name: Day to Day\n- Tariff last confirmed: not set to 2026-06-15\n- Time-of-day rates: Night 0.1644 (23:00 to 08:00), Nightboost 0.0965 (02:00 to 04:00) to Night 0.1000 (23:00 to 08:00)\n\nApplies now. The integration does not reload.",
    "warnings": "",
    "progress": "Step 10 of about 10."
   },
@@ -4895,7 +4895,7 @@
   "last_step": true,
   "errors": null,
   "placeholders": {
-   "changes": "- Tariff last confirmed: not set to 2026-10-11\n- Time-of-day rates: none to Night 0.1000 (23:00 to 07:00)\n\nApplies now. The integration does not reload.",
+   "changes": "- Tariff last confirmed: not set to 2026-06-15\n- Time-of-day rates: none to Night 0.1000 (23:00 to 07:00)\n\nApplies now. The integration does not reload.",
    "warnings": "",
    "progress": "Step 10 of about 10."
   },
