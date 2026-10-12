@@ -66,6 +66,12 @@ def scenario():
     return MIDDAY
 
 
+@pytest.fixture(autouse=True)
+def _frozen_day(freezer):
+    """Pin today's date, which the confirm step prints (Tariff last confirmed: ... to <today>)."""
+    freezer.move_to(MIDDAY.frozen_utc)
+
+
 def _describe(result) -> dict:
     """Serialise a flow result the way the frontend API does."""
     schema = result.get("data_schema")
