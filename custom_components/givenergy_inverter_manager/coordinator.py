@@ -126,6 +126,7 @@ from .core.engine import (
 )
 from .core.entity_refs import Registry, resolve
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
+from .core.givtcp_version import MINIMUM_GIVTCP_VERSION, is_older_than_minimum
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
 from .core.inverter_values import ChargePlan, FeedState, InverterValues
@@ -173,6 +174,7 @@ from .repairs import (
     async_create_ev_base_rate_issue,
     async_create_feed_frozen_issue,
     async_create_givtcp_missing_issue,
+    async_create_givtcp_too_old_issue,
     async_create_min_soc_issue,
     async_create_not_answering_issue,
     async_create_other_charge_slots_issue,
@@ -182,6 +184,7 @@ from .repairs import (
     async_delete_ev_base_rate_issue,
     async_delete_feed_frozen_issue,
     async_delete_givtcp_missing_issue,
+    async_delete_givtcp_too_old_issue,
     async_delete_min_soc_issue,
     async_delete_not_answering_issue,
     async_delete_other_charge_slots_issue,
@@ -1485,6 +1488,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         version = self._version_now()
         moved = version != self._version_seen
         self._version_seen = version
+        if moved:
+            self._check_givtcp_version(version)
         if self._update_cycle > 1 and self._update_cycle % SYSTEM_CHECK_EVERY_CYCLES and not moved:
             return
         found = self._system_now()
@@ -1501,6 +1506,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         async_delete_system_different_issue(self.hass)
         if found != stored:
             self._store_identity(found)
+
+    def _check_givtcp_version(self, version: str | None) -> None:
+        """Raise one repair while GivTCP is older than the oldest safe release, clear it after."""
+        if version is not None and is_older_than_minimum(version):
+            async_create_givtcp_too_old_issue(self.hass, version, MINIMUM_GIVTCP_VERSION)
+        else:
+            async_delete_givtcp_too_old_issue(self.hass)
 
     def _version_now(self) -> str | None:
         prefix = device_prefix(self._effective_cfg())

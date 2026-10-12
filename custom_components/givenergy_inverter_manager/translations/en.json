@@ -1186,6 +1186,10 @@
           "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
         }
       }
+    },
+    "givtcp_too_old": {
+      "title": "GivTCP is older than the oldest safe release",
+      "description": "GivTCP reports version {version}. The oldest release this integration is safe on is {minimum}. GivTCP 3.6 and 3.6.1 reset entity ids and mishandle charge slot 2 and PV-only inverters, and releases before 3.6 are not supported.\n\nTo fix: update the GivTCP add-on to {minimum} or later, then restart it. This repair clears by itself once GivTCP reports a newer version. The integration has not changed anything."
     }
   },
   "exceptions": {

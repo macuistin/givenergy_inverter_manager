@@ -320,3 +320,27 @@ async def test_an_entity_that_cannot_be_found_raises_one_repair_after_five_minut
     hass.states.async_set(old, "80")
     await coordinator.async_refresh()
     assert _issue(hass, "givtcp_entities_missing") is None
+
+
+async def test_an_old_givtcp_raises_one_repair_and_it_clears_after_the_update(hass, loaded_entry):
+    hass.states.async_set(f"sensor.{PREFIX}_givtcp_version", "3.6.1")
+
+    await _look(hass, loaded_entry)
+
+    issue = _issue(hass, "givtcp_too_old")
+    assert issue is not None
+    assert issue.is_fixable is False
+    assert issue.translation_placeholders == {"version": "3.6.1", "minimum": "3.6.2"}
+
+    hass.states.async_set(f"sensor.{PREFIX}_givtcp_version", "3.6.3")
+    await _look(hass, loaded_entry)
+
+    assert _issue(hass, "givtcp_too_old") is None
+
+
+async def test_a_version_that_cannot_be_read_raises_no_repair(hass, loaded_entry):
+    hass.states.async_set(f"sensor.{PREFIX}_givtcp_version", "unknown")
+
+    await _look(hass, loaded_entry)
+
+    assert _issue(hass, "givtcp_too_old") is None
