@@ -7,10 +7,11 @@ lines (a test enforces it) and put detail in a rule file, not here.
 ## What this is
 
 A Home Assistant custom integration, distributed through HACS. It reads and writes a GivEnergy
-inverter through an inverter backend, and GivTCP is the only backend today. It plans the overnight charge, diverts solar surplus to an immersion heater and
-an EV charger, and tracks cost across tariff periods. It targets the Silver tier of the Home
-Assistant quality scale. `custom_components/givenergy_inverter_manager/quality_scale.yaml` lists
-which rules are done, exempt or todo. Do not claim a tier the file does not support.
+inverter through an inverter backend, and GivTCP is the only backend today. It plans the overnight
+charge, diverts solar surplus to an immersion heater and an EV charger, and tracks cost across
+tariff periods. It targets the Silver tier of the Home Assistant quality scale.
+`custom_components/givenergy_inverter_manager/quality_scale.yaml` lists which rules are done,
+exempt or todo. Do not claim a tier the file does not support.
 
 ## Layout
 
@@ -24,9 +25,11 @@ inside it.
 | `inverter/` | `backend.py` is the `InverterBackend` interface. It has no Home Assistant import |
 | `inverter/givtcp/` | The GivTCP adapter: discovery, the verified writer and the write constants. The code that knows GivTCP entity names and write order |
 | `core/inverter_values.py` | The frozen values the coordinator and a backend exchange (`InverterValues`, `ChargePlan`, `RateDefaults`, `WriteResult`, `FeedStatus`) |
+| `core/system_types.py`, `core/system_text.py`, `core/entity_refs.py` | System kind and which inverter to manage, the setup text about it, and finding a wired entity again after its id changes. Devices are told apart by entity suffix, never by serial prefix alone |
 | `config_flow.py`, `wizard/`, `core/wizard_*.py` | Setup wizard, options wizard and reconfigure (the inverter connection). `config_flow.py` only registers them. `config_helpers.py` merges entry data and options |
 | `sensor.py`, `sensor_descriptions/` | One entity class and the description table, split by theme |
-| `optional_devices.py`, `core/devices.py` | The EV charger, immersion switch and immersion sensor may be absent or added later |
+| `optional_devices.py`, `core/devices.py`, `discovery/` | The EV charger (`discovery/ev_charger.py`: Zappi, GivEnergy charger and others), immersion switch and immersion sensor may be absent or added later. `discovery/forecast.py` finds the forecast |
+| `controls.py` | The eight tuning controls: three switches and five numbers, each owning one option key |
 | `dashboard/`, `strategy.py` | The Lovelace dashboard strategy and the builder it calls |
 | `repairs.py`, `repair_flows.py`, `services.py` | Repair issues and their fix flows, service actions |
 
@@ -34,9 +37,11 @@ inside it.
 
 - `core/` imports nothing from `homeassistant`, and nothing from `inverter/` at run time.
   `tests/test_metadata.py` enforces both.
-- Only `inverter/givtcp/` builds GivTCP entity names or calls GivTCP services. The coordinator
-  talks to the `InverterBackend` interface. The rate comparison is the one exception until it is
-  removed.
+- Only `inverter/givtcp/` calls GivTCP services and knows its entity names and write order. The
+  coordinator reads and writes through the `InverterBackend` interface. Known leaks, which a new
+  change does not add to: `_check_system` in `coordinator.py` reads GivTCP's version sensor and
+  calls `discover_givtcp_inverters`, and the wizard, `repairs.py`, `write_audit.py`,
+  `unconfirmed_write_repair.py` and `dashboard/views.py` import from `inverter/givtcp/`.
 - `entry.runtime_data` holds the coordinator (`GivEnergyConfigEntry`). Never use `hass.data[DOMAIN]`.
 - `GivEnergyCoordinator` passes `config_entry=entry` to `DataUpdateCoordinator`.
 - `async_reload_entry` calls `hass.config_entries.async_reload(entry.entry_id)`. It does not call
@@ -44,8 +49,9 @@ inside it.
 - Which options saves reload is decided in `core/reload_policy.py` (`change_effect`). A new option
   key reloads until it is placed in `LIVE_KEYS`, and `tests/core/test_reload_policy.py` fails until it
   has a row.
-- A tag such as `v0.18.0b1` or `v0.18.0rc1` publishes a GitHub pre-release
-  (`.github/workflows/prerelease.yml`). `scripts/set_version.py` sets and checks the version.
+- A beta or release candidate tag for the release line in `.github/workflows/prerelease.yml`
+  publishes a GitHub pre-release. `scripts/set_version.py` sets and checks the version. The tag
+  patterns name one release line and move to the next at each release.
 
 ## Commands
 
@@ -85,7 +91,8 @@ integration. The GivTCP adapter negates both on read (`GivTCPReader.read` in
   straight to the consumer unit. Those show as grid import while solar runs. That is a GivTCP and
   wiring limit, not a bug here.
 - GivTCP daily energy counters replace the integrated kWh for today when present
-  (`_apply_daily_counters` in `core/engine.py`).
+  (`_apply_daily_counters` in `core/engine.py`). `core/counter_guard.py` screens them first and
+  drops a rise the inverter could not have delivered, such as a counter that jumped units.
 
 ## Rules by topic
 
@@ -105,7 +112,8 @@ Other inverter projects are studied by writing a specification, never by copying
 specifications are the issues under #366 in the repository.
 
 Outside the integration: `tests/` (unit suite, Home Assistant stubbed), `tests/ha_e2e/` (real
-Home Assistant), `tools/mock_givtcp.py` (fake GivTCP, see `docs/design/mock_givtcp.md`),
+Home Assistant), `tests/fixtures/givtcp_systems/` (one real and several built GivTCP systems),
+`tools/mock_givtcp.py` (fake GivTCP, see `docs/design/mock_givtcp.md`),
 `scripts/gen_sensor_docs.py` and `docs/`.
 
 Skills: `/release` (version bump and changelog), `/regenerate-goldens` (after an intended

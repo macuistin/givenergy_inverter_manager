@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from ..core.system_types import Selection, select_controller
 from ..core.wizard_model import Detected
 from ..discovery import (
     discover_ev_chargers,
@@ -30,9 +31,14 @@ def detect(states: Mapping[str, Any]) -> Detected:
     )
 
 
+def selection_of(detected: Detected) -> Selection:
+    """Which device the selection rules would manage, and whether they would ask."""
+    return select_controller([inverter.facts() for inverter in detected.inverters])
+
+
 def best_inverter(detected: Detected) -> Any:
-    """The inverter to offer first: one with every required sensor, else the first found."""
-    complete = [inverter for inverter in detected.inverters if inverter.is_fully_configured]
-    if complete:
-        return complete[0]
-    return detected.inverters[0] if detected.inverters else None
+    """The inverter to manage: what the selection rules choose, None when none was found."""
+    controller = selection_of(detected).controller
+    if controller is None:
+        return None
+    return next(i for i in detected.inverters if i.serial == controller.serial)

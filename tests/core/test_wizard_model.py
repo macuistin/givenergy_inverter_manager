@@ -22,6 +22,7 @@ from custom_components.givenergy_inverter_manager.core.wizard_model import (
 CONTROL_KEYS = {
     "dry_run",
     "verbose_logging",
+    "charge_replan",
     "surplus_divert_soc_pct",
     "surplus_divert_min_power_w",
     "cheap_rate_floor_soc",

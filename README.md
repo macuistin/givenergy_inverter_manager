@@ -8,7 +8,7 @@
 
 A Home Assistant integration for GivEnergy inverters. It sets the overnight charge target, diverts spare solar to an immersion heater, and tracks energy costs across your tariff periods. It reads and writes Home Assistant entities published by GivTCP over MQTT. No cloud account is needed.
 
-Works with any supplier and any tariff: timed rates (two or three rate periods, or a single overnight window) or a flat rate. Tested on a GivEnergy GIV-HY-5.0 with the Electric Ireland Nightboost tariff. Current version: 0.18.2.
+Works with a flat rate, a day and night rate, or up to five timed rates, from any supplier. It does not support dynamic or half-hourly tariffs. The bill estimate assumes monthly bill periods, one supplier discount, one VAT rate and one flat levy per period. Tested on real hardware on one GivEnergy GIV-HY-5.0 (a single-phase hybrid) with the Electric Ireland Nightboost tariff. Other GivTCP system types are recognised and tested against entity lists only. See [Which serial do I use?](docs/quick-start.md#which-serial-do-i-use). Current version: 0.18.2.
 
 ![The Power Flow view of the dashboard: battery, live power flow and today's energy.](https://raw.githubusercontent.com/macuistin/givenergy_inverter_manager/main/docs/images/dashboard-power-flow.png)
 
@@ -16,7 +16,7 @@ Works with any supplier and any tariff: timed rates (two or three rate periods, 
 
 - **Overnight charge target.** Works out how much to charge tonight from tomorrow's solar forecast and your usage, and writes it to GivTCP once a day, just before your cheapest rate period.
 - **Immersion divert.** Heats water from spare solar, with a minimum temperature, a target and a restart gap.
-- **EV signals.** Reports when solar surplus is available and where the car's power comes from. A Zappi is set to Eco+ when there is enough surplus.
+- **EV signals.** Reports when solar surplus is available and where the car's power comes from. A Zappi is set to Eco+, and a GivEnergy charger to Solar, when there is enough surplus. The GivEnergy charger has not been tested on real hardware.
 - **Cost tracking.** Import cost, export earnings and per-load costs across your timed and base rates, with daily, weekly, monthly and yearly totals.
 - **Bill estimate, battery health and ROI figures.** Plus a large set of sensors and five actions.
 
@@ -24,7 +24,7 @@ Works with any supplier and any tariff: timed rates (two or three rate periods, 
 
 - Home Assistant 2026.5.0 or later (the minimum declared in `hacs.json`). Home Assistant 2026.5 itself needs Python 3.14.2 or newer
 - [GivTCP](https://github.com/britkat1980/giv_tcp) publishing your inverter to Home Assistant over MQTT
-- A GivEnergy hybrid inverter with a battery
+- A GivEnergy inverter with a battery. A single-phase hybrid is the only type tested on real hardware. AC-coupled, All-In-One, three-phase, Gateway and EMS systems are recognised, and the setup screen says which are not tested
 
 ## Install
 

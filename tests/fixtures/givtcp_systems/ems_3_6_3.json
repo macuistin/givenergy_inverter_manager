@@ -1,0 +1,39 @@
+{
+ "description": "An EMS plant: plant values only, no state of charge or PV power, no serial sensor.",
+ "provenance": "synthetic",
+ "givtcp_version": "3.6.3",
+ "source": "Built from the real single-phase hybrid fixture and GivTCP's datapoint reference and release notes (3.6). Not taken from hardware of this kind: the entity names are a reading of the documentation.",
+ "expected": {
+  "kind": "ems",
+  "controller": "EM9012M345",
+  "ask": false,
+  "modules": null,
+  "controller_serial_from": "prefix"
+ },
+ "states": {
+  "select.givtcp_em9012m345_plant_control": {
+   "state": "Auto"
+  },
+  "sensor.givtcp_em9012m345_calculated_load_power": {
+   "state": "900"
+  },
+  "sensor.givtcp_em9012m345_data_age": {
+   "state": "1.0"
+  },
+  "sensor.givtcp_em9012m345_givtcp_version": {
+   "state": "3.6.3"
+  },
+  "sensor.givtcp_em9012m345_inverter_count": {
+   "state": "2"
+  },
+  "sensor.givtcp_em9012m345_measured_load_power": {
+   "state": "900"
+  },
+  "sensor.givtcp_em9012m345_plant_status": {
+   "state": "Normal"
+  },
+  "sensor.givtcp_em9012m345_status": {
+   "state": "online"
+  }
+ }
+}

@@ -11,12 +11,12 @@ The integration must work for any GivTCP user: any supplier, any tariff (timed r
 It has been tested on this setup:
 
 - **Inverter:** GivEnergy GIV-HY-5.0 (5 kW hybrid) with a GivEnergy battery
-- **GivTCP:** v3, running as a Home Assistant add-on. It provides all inverter entity states and write access
+- **GivTCP:** 3.6.3, running as a Home Assistant add-on. It provides all inverter entity states and write access. 3.6.2 is the oldest 3.6 release that is safe: 3.6 and 3.6.1 reset entity ids and mis-handle charge slot 2 and PV-only inverters
 - **EV charger:** Zappi (myenergi integration), controlled through its charge mode select entity
 - **Immersion:** a WiFi-enabled immersion heater with a Home Assistant switch entity and an optional temperature sensor
 - **Tariff:** a base rate plus a night period and a shorter, cheaper boost period inside it (Electric Ireland Home Electric with Nightboost)
 
-Other setups are expected to work. Report any that do not.
+The integration also recognises AC-coupled, All-In-One, three-phase, Gateway and EMS systems, and a GivEnergy EV charger. Those are tested against entity lists built from GivTCP's published datapoint reference and source, not against real hardware, and the setup screen and the README say so. Other setups are expected to work. Report any that do not.
 
 ---
 
@@ -55,6 +55,10 @@ Track daily import cost, export earnings, and standing charges. Project the curr
 **One update interval.** Everything runs on a single 30-second coordinator cycle. There is no separate faster loop for immersion or EV control. This simplifies the architecture at the cost of some latency; 30 seconds is acceptable for all current use cases.
 
 **Write-back happens once per day, and a failed write is retried.** The overnight charge target is written to GivTCP via a time listener registered at startup, not on every 30-second cycle. If that write fails, it is tried again at +2, +5, +10 and +20 minutes after the trigger, while at least 15 minutes of the window remain. This avoids unnecessary writes and matches how GivTCP expects to be driven (same approach as batpred and givenergy-local). Each write is read back and skipped when the value is already set. See [Write protection](docs/concepts.md#write-protection).
+
+**The target can be worked out again inside the window, and that is off by default.** With the Re-plan overnight charge switch on, a check runs once late in the window, when the forecast moves by 15% and 1 kWh, and when an EV charger is plugged in or unplugged. It writes only when the new target is at least 5 points from the last one, at most three times a night, never outside the window, never with a manual override on, and never turns a charge into a skip while one is running. It sends the same plan through the same writer, so the window is never opened or moved. It is off until GivTCP is confirmed to apply a changed target to a charge that is already running. See [Re-planning](docs/concepts.md#re-planning).
+
+**One inverter is managed, chosen by rules.** GivTCP shows each hybrid, All-In-One, Gateway or EMS as its own device, and a prefix may be changed. A Gateway over parallel All-In-Ones is managed and its units are read-only, because a write to a child unit can read back correctly and change nothing. With two or more other inverters the user is asked, and two inverters are never added together. An EMS gets no writes. The integration keeps what it last saw (kind, managed inverter, battery modules) and raises a repair when that changes, and never switches inverter silently.
 
 **GivTCP write sequence is fixed.** The five-step write sequence (enable schedule → set start time → set end time → set target SoC → enable/disable charge target) must not be changed without testing against real hardware. Step 5 (enable_charge_target switch) is particularly subtle: it must be OFF at 100% to avoid the charge-bounce bug documented by givenergy-local.
 
@@ -108,7 +112,7 @@ Requirements the algorithm must keep:
 
 ## EV charger logic
 
-The Zappi (myenergi) and GivEnergy inverter are separate systems with no integration between them. The Zappi uses its own CT clamp; stopping it does not protect the GivEnergy battery (the inverter covers house load from the battery regardless of what the Zappi does). For this reason the integration does not pause or stop the EV charger. It only selects Eco+ on a Zappi with a charge mode entity, when a car is plugged in and solar_surplus_w >= EV_CHARGER_MIN_POWER_W, subject to the write cooldown.
+The Zappi (myenergi) and GivEnergy inverter are separate systems with no integration between them. The Zappi uses its own CT clamp; stopping it does not protect the GivEnergy battery (the inverter covers house load from the battery regardless of what the Zappi does). For this reason the integration does not pause or stop the EV charger. It only selects the mode that means use surplus only, Eco+ on a Zappi and Solar on a GivEnergy charger, never Stopped, Fast, Grid or Hybrid, and never writes the charger's Charge Control or Plug and Go. It does so on a charger with a charge mode entity, when a car is plugged in and solar_surplus_w >= EV_CHARGER_MIN_POWER_W, subject to the write cooldown.
 
 The integration also surfaces signals for the user to act on via HA automations:
 

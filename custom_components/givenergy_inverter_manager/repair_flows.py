@@ -4,6 +4,7 @@ repair_flows.py: the fix flows of the fixable repair issues.
   other_charge_slots_active -> ClearOtherChargeSlotsFlow
   battery_cost_not_set      -> SetBatteryCostFlow
   tariff_review_due         -> ConfirmTariffReviewedFlow
+  system_looks_different    -> AcceptSystemChangeFlow
 
 Imported lazily by repairs.async_create_fix_flow, because it needs the
 `repairs` integration, which the unit test stub of Home Assistant lacks.
@@ -67,6 +68,22 @@ class ConfirmTariffReviewedFlow(ConfirmRepairFlow):
         for entry in loaded:
             options = {**entry.options, CONF_TARIFF_REVIEWED_ON: today}
             self.hass.config_entries.async_update_entry(entry, options=options)
+        return self.async_create_entry(data={})
+
+
+class AcceptSystemChangeFlow(ConfirmRepairFlow):
+    """Ask once, then take the system as it now is as the one to manage."""
+
+    async def async_step_confirm(self, user_input: dict[str, str] | None = None) -> Any:
+        """Record the new identity when confirmed. Nothing else is changed."""
+        if user_input is None:
+            return await super().async_step_confirm()
+        entries = self.hass.config_entries.async_entries(DOMAIN)
+        loaded = [e for e in entries if e.state is ConfigEntryState.LOADED]
+        if not loaded:
+            return self.async_abort(reason="not_loaded")
+        for entry in loaded:
+            entry.runtime_data.accept_system_as_it_is()
         return self.async_create_entry(data={})
 
 

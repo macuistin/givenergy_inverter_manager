@@ -112,6 +112,7 @@ from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
 from .planned_heating import PlanQuery, describe_planned_heating
 from .rules import (
+    SHAPE_REASON,
     ChargeDecision,
     ChargeInputs,
     CheapWindow,
@@ -212,6 +213,8 @@ class RawSensorValues:
     forecast_kwh_tomorrow: float | None = None
     forecast_kwh_p10: float | None = None
     forecast_kwh_d2: float | None = None
+    # The tomorrow forecast's 48 half-hour weights, None when its provider does not give them.
+    forecast_shape_tomorrow: tuple[float, ...] | None = None
     carbon_intensity_gco2: float | None = None
     ev_power_w: float = 0.0
     ev_plugged_in: bool = False
@@ -358,6 +361,10 @@ class CoordinatorData:
     test_instance: bool = False
     cheap_rate_floor_status: str = ""
     dry_run_last_skipped: str = ""
+    # True when the charge plan spread the forecast with the forecast's own shape.
+    solar_shape_used: bool = False
+    # What the last re-plan inside tonight's cheap window did, for the reason sensor to lead with.
+    charge_replan_note: str = ""
     # The setup checklist. The coordinator fills it after the engine has run, because it needs
     # the saved config and the cycle's readings together (core/setup_progress.py).
     setup_items: tuple[SetupItem, ...] = ()
@@ -806,6 +813,7 @@ class ForecastContext:
     # sensors report the next day, so the charge decision reads these for the day it serves.
     today_raw_forecast_kwh: float | None = None
     today_raw_forecast_p10_kwh: float | None = None
+    today_raw_forecast_shape: tuple[float, ...] | None = None
     seasons: SeasonRules | None = None  # None means the northern defaults
 
 
@@ -1204,10 +1212,12 @@ def _solar_forecast(cycle: _Cycle) -> SolarForecast:
         forecast_kwh = forecast.today_raw_forecast_kwh
         forecast_kwh_p10 = forecast.today_raw_forecast_p10_kwh
         forecast_kwh_d2 = raw.forecast_kwh_tomorrow
+        solar_shape = forecast.today_raw_forecast_shape
     else:
         forecast_kwh = raw.forecast_kwh_tomorrow
         forecast_kwh_p10 = raw.forecast_kwh_p10
         forecast_kwh_d2 = raw.forecast_kwh_d2
+        solar_shape = raw.forecast_shape_tomorrow
     return SolarForecast(
         forecast_kwh=forecast_kwh,
         solar_fractions=forecast.solar_fractions,
@@ -1217,6 +1227,7 @@ def _solar_forecast(cycle: _Cycle) -> SolarForecast:
         ),
         forecast_kwh_d2=forecast_kwh_d2,
         forecast_correction=forecast.forecast_correction,
+        solar_shape=solar_shape,
     )
 
 
@@ -1282,6 +1293,7 @@ def _set_overnight_charge(
     reading = HoldReading(cycle.now, _charge_running(data, cycle.raw), max_target)
     held.settle(fresh, reading)
     data.charge_decision = _with_charge_overrides(fresh, cycle.overrides, max_target)
+    data.solar_shape_used = SHAPE_REASON in fresh.reason
     data.published_charge_decision = _with_charge_overrides(
         held.decision, cycle.overrides, max_target
     )

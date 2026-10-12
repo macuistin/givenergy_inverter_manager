@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 
 from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.alt_heat_schedule import ImmersionHeatLog
+from .core.entity_refs import clean_remembered
 from .core.immersion_rate import keep_run
 from .core.rules import (
     ForecastAccuracy,
@@ -32,6 +33,7 @@ from .core.rules import (
     forecast_accuracy,
     forecast_correction_factor,
 )
+from .core.solar_shape import valid_shape
 from .core.tariff import CounterMemory, EnergyAccumulator
 from .core.write_log import restore_entries
 
@@ -276,6 +278,16 @@ class AccumulationState:
     today_raw_forecast_kwh: float = 0.0
     pending_raw_forecast_p10_kwh: float = 0.0
     today_raw_forecast_p10_kwh: float = 0.0
+    # The 48 half-hour weights of the forecast above, remembered on the same path. Empty when the
+    # forecast provider gave none.
+    pending_raw_forecast_shape: list = field(default_factory=list)
+    today_raw_forecast_shape: list = field(default_factory=list)
+    # What the integration last saw of the system it manages (core/system_types.py): kind,
+    # managed inverter, battery modules and the entities it reads. Empty until the first look.
+    system_identity: dict = field(default_factory=dict)
+    # The unique id and platform of each configured GivTCP entity, learned while its entity id
+    # still matched, so it can be found again under a new id (core/entity_refs.py).
+    entity_refs: dict = field(default_factory=dict)
     today_clipping: bool = False
     forecast_ratio_history: list = field(default_factory=list)
 
@@ -374,6 +386,11 @@ class AccumulationStore:
     def today_raw_forecast_p10_kwh(self) -> float | None:
         """Today's raw P10 forecast as it stood before midnight, None when none was seen."""
         return self.state.today_raw_forecast_p10_kwh or None
+
+    @property
+    def today_raw_forecast_shape(self) -> tuple[float, ...] | None:
+        """Today's forecast shape as it stood before midnight, None when none was seen."""
+        return tuple(self.state.today_raw_forecast_shape) or None
 
     @property
     def yesterday_forecast_accuracy_pct(self) -> float:
@@ -535,6 +552,8 @@ class AccumulationStore:
         self.state.pending_raw_forecast_kwh = 0.0
         self.state.today_raw_forecast_p10_kwh = self.state.pending_raw_forecast_p10_kwh
         self.state.pending_raw_forecast_p10_kwh = 0.0
+        self.state.today_raw_forecast_shape = self.state.pending_raw_forecast_shape
+        self.state.pending_raw_forecast_shape = []
         self.state.today_clipping = False
         self.state.last_reset_iso = now.isoformat()
 
@@ -646,13 +665,21 @@ class AccumulationStore:
             self.state.today_forecast_kwh = forecast_kwh
             _LOG.debug("Today's solar forecast recorded: %.1fkWh", forecast_kwh)
 
-    def on_raw_forecast(self, forecast_kwh: float | None, p10_kwh: float | None = None) -> None:
+    def on_raw_forecast(
+        self,
+        forecast_kwh: float | None,
+        p10_kwh: float | None = None,
+        shape: tuple[float, ...] | None = None,
+    ) -> None:
         """Remember the latest raw "tomorrow" forecasts (P50 and P10) from the forecast sensors.
 
-        The values seen last before midnight are the forecasts for the day that starts.
+        The values seen last before midnight are the forecasts for the day that starts. The
+        shape is kept with the total it came with, so a total that arrives with no shape clears
+        the old one.
         """
         if forecast_kwh is not None and forecast_kwh > 0:
             self.state.pending_raw_forecast_kwh = forecast_kwh
+            self.state.pending_raw_forecast_shape = list(shape or ())
         if p10_kwh is not None and p10_kwh > 0:
             self.state.pending_raw_forecast_p10_kwh = p10_kwh
 
@@ -769,6 +796,10 @@ def _serialize_state(state: AccumulationState) -> dict:
         "today_raw_forecast_kwh": state.today_raw_forecast_kwh,
         "pending_raw_forecast_p10_kwh": state.pending_raw_forecast_p10_kwh,
         "today_raw_forecast_p10_kwh": state.today_raw_forecast_p10_kwh,
+        "pending_raw_forecast_shape": list(state.pending_raw_forecast_shape),
+        "today_raw_forecast_shape": list(state.today_raw_forecast_shape),
+        "system_identity": dict(state.system_identity),
+        "entity_refs": {k: dict(v) for k, v in state.entity_refs.items()},
         "today_clipping": state.today_clipping,
         "forecast_ratio_history": [dict(r) for r in state.forecast_ratio_history],
         "slot_load_today": list(state.slot_load_today),
@@ -810,6 +841,11 @@ def _restore_battery_and_forecast(state: AccumulationState, data: dict) -> None:
     state.today_raw_forecast_kwh = float(data.get("today_raw_forecast_kwh", 0.0))
     state.pending_raw_forecast_p10_kwh = float(data.get("pending_raw_forecast_p10_kwh", 0.0))
     state.today_raw_forecast_p10_kwh = float(data.get("today_raw_forecast_p10_kwh", 0.0))
+    state.pending_raw_forecast_shape = _stored_shape(data.get("pending_raw_forecast_shape"))
+    state.today_raw_forecast_shape = _stored_shape(data.get("today_raw_forecast_shape"))
+    stored_identity = data.get("system_identity")
+    state.system_identity = dict(stored_identity) if isinstance(stored_identity, dict) else {}
+    state.entity_refs = clean_remembered(data.get("entity_refs"))
     state.today_clipping = bool(data.get("today_clipping", False))
     state.forecast_ratio_history = [
         dict(r) for r in data.get("forecast_ratio_history", []) if isinstance(r, dict)
@@ -861,3 +897,9 @@ def _deserialize(data: dict) -> AccumulationState:
     _restore_heat_log(state, data)
     _restore_period_history(state, data)
     return state
+
+
+def _stored_shape(stored: object) -> list[float]:
+    """A stored forecast shape as a list, or an empty one when it is missing or not a shape."""
+    shape = valid_shape(stored)
+    return list(shape) if shape is not None else []

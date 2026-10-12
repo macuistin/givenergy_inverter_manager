@@ -9,6 +9,22 @@ Ten minutes from install to a working dashboard. Start with dry run on, so the i
 - Leave GivTCP's SmartTarget off. Only this integration should set the charge target. A banner on the dashboard warns you if something else seems to. See [Something else is setting the charge target](troubleshooting.md#something-else-is-setting-the-charge-target).
 - You know your unit rates, standing charge, VAT rate (if any), discount (if any) and bill start day. They are on your electricity bill or tariff sheet.
 
+## Which serial do I use?
+
+You do not enter a serial. The first screen finds the GivTCP devices in Home Assistant and uses the rules below. The serial you see is the one printed on the inverter label, and it is the name the integration is stored under.
+
+| What GivTCP shows | What the integration manages |
+|---|---|
+| One inverter (hybrid, AC-coupled, All-In-One or three-phase) | That inverter |
+| A Gateway over two or more All-In-Ones in parallel | The Gateway. The All-In-Ones behind it are read-only, because GivEnergy says to control only the Gateway |
+| One All-In-One and a Gateway that is not in parallel | The All-In-One |
+| Two or more other inverters | It asks you to choose one. It never adds two inverters together, and it does not pick for you |
+| An EMS | It cannot write to an EMS. You choose the entities by hand and no charge settings are written |
+
+GivTCP lets you change the device prefix for each inverter, so the entity ids need not start with `givtcp_`. The integration finds a device by what it publishes. A custom prefix works.
+
+**What has been tested.** Only a single-phase hybrid has been run on real hardware. The other types are tested against entity lists built from GivTCP's published datapoint reference, and the screen says "not tested on real hardware" for them. If you run one, please open an issue with an anonymised entity list from **Developer Tools → States**.
+
 ## Steps
 
 1. Install through HACS. Open **HACS → Integrations → Custom repositories**, add `https://github.com/macuistin/givenergy_inverter_manager` with category **Integration**, then install **GivEnergy Inverter Manager**.

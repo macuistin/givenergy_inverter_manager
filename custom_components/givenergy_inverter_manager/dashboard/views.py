@@ -17,7 +17,6 @@ from homeassistant.util import dt as dt_util
 from ..const import (
     ATTR_FULL_TEXT,
     CONF_FORECAST_ENTITY,
-    CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
 )
 from ..core.devices import Device
@@ -27,7 +26,7 @@ from ..core.tariff import (
     scheduled_tariff_changes,
     tariff_in_force,
 )
-from ..inverter.givtcp.discovery import inverter_temperature_entity_ids
+from ..inverter.givtcp.discovery import device_prefix, temperature_entity_ids_for
 from .cards import (
     BAR,
     BATTERY,
@@ -184,8 +183,8 @@ def _has_inverter_temp(hass: HomeAssistant, cfg: dict) -> bool:
     """True when an inverter temperature entity is chosen or GivTCP publishes one."""
     if cfg.get(CONF_INVERTER_TEMP_ENTITY):
         return True
-    serial = cfg.get(CONF_INVERTER_SERIAL)
-    candidates = inverter_temperature_entity_ids(serial) if serial else []
+    prefix = device_prefix(cfg)
+    candidates = temperature_entity_ids_for(prefix) if prefix else []
     return any(hass.states.get(entity_id) is not None for entity_id in candidates)
 
 
@@ -1194,6 +1193,7 @@ class Builder:
                     self.entity("skip_charge_soc_threshold_pct"), "Skip charge above", BATTERY
                 ),
                 slider_tile(self.entity("forecast_conservatism"), "Forecast caution", SOLAR),
+                toggle_tile(self.entity("charge_replan"), "Re-plan charge", BATTERY),
                 toggle_tile(self.entity("verbose_logging"), "Verbose logging", GRID),
             ],
         )

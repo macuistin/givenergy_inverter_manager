@@ -91,6 +91,7 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     # Controls.
     "dry_run": (False, True, LIVE),
     "verbose_logging": (False, True, LIVE),
+    "charge_replan": (False, True, LIVE),
     "surplus_divert_soc_pct": (80, 85, LIVE),
     "surplus_divert_min_power_w": (500, 600, LIVE),
     "cheap_rate_floor_soc": (40, 45, LIVE),

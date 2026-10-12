@@ -1,0 +1,64 @@
+{
+ "description": "A GivEnergy charger (GivEVC) with a car plugged in and not charging, in Grid mode.",
+ "provenance": "synthetic",
+ "givtcp_version": "3.6.3",
+ "source": "Built from the real single-phase hybrid fixture and GivTCP's datapoint reference and release notes (3.6). Not taken from hardware of this kind: the entity names are a reading of the documentation.",
+ "expected": {},
+ "states": {
+  "number.givtcp_evc_ev1234a567_charge_limit": {
+   "state": "32"
+  },
+  "number.givtcp_evc_ev1234a567_import_cap": {
+   "state": "0"
+  },
+  "number.givtcp_evc_ev1234a567_max_session_energy": {
+   "state": "0"
+  },
+  "select.givtcp_evc_ev1234a567_charge_control": {
+   "state": "Start",
+   "attributes": {
+    "options": [
+     "Start",
+     "Stop"
+    ]
+   }
+  },
+  "select.givtcp_evc_ev1234a567_charging_mode": {
+   "state": "Grid",
+   "attributes": {
+    "options": [
+     "Grid",
+     "Solar",
+     "Hybrid"
+    ]
+   }
+  },
+  "sensor.givtcp_evc_ev1234a567_active_power": {
+   "state": "0"
+  },
+  "sensor.givtcp_evc_ev1234a567_charge_session_duration": {
+   "state": "1800"
+  },
+  "sensor.givtcp_evc_ev1234a567_charge_session_energy": {
+   "state": "2.4"
+  },
+  "sensor.givtcp_evc_ev1234a567_charging_state": {
+   "state": "Connected"
+  },
+  "sensor.givtcp_evc_ev1234a567_connection_status": {
+   "state": "Connected"
+  },
+  "sensor.givtcp_evc_ev1234a567_error_code": {
+   "state": "0"
+  },
+  "sensor.givtcp_evc_ev1234a567_meter_energy": {
+   "state": "812.5"
+  },
+  "sensor.givtcp_evc_ev1234a567_serial_number": {
+   "state": "EV1234A567"
+  },
+  "switch.givtcp_evc_ev1234a567_plug_and_go": {
+   "state": "on"
+  }
+ }
+}

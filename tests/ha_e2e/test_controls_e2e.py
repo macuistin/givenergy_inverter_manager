@@ -62,6 +62,7 @@ class TestWhatEachControlIs:
         brief = {
             "dry_run": "mdi:test-tube",
             "verbose_logging": "mdi:text-box-search-outline",
+            "charge_replan": "mdi:battery-sync-outline",
             "surplus_divert_soc_pct": "mdi:battery-charging-high",
             "surplus_divert_min_power_w": "mdi:solar-power",
             "cheap_rate_floor_soc": "mdi:battery-arrow-down-outline",

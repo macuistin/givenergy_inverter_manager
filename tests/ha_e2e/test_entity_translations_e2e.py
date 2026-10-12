@@ -41,7 +41,7 @@ class TestEverySwitchAndNumber:
             for e in er.async_entries_for_config_entry(registry, loaded_entry.entry_id)
             if e.domain in ("switch", "number")
         ]
-        assert len(entries) == 16
+        assert len(entries) == 17
         for entry in entries:
             key = entry.unique_id.removeprefix(f"{loaded_entry.entry_id}_")
             assert entry.translation_key == key, key

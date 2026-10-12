@@ -38,7 +38,8 @@ unless noted):
                          cached on the coordinator, copied by apply_config_change.
   EV                     car_efficiency_kwh_per_100km.
   controls               dry_run (coordinator.is_dry_run and the engine), verbose_logging
-                         (the logger's config accessor), surplus_divert_soc_pct,
+                         (the logger's config accessor), charge_replan (read each cycle by
+                         the re-plan check), surplus_divert_soc_pct,
                          surplus_divert_min_power_w, tariff_reviewed_on (read by the repair
                          check), dashboard_url_path (written once at setup, read by no cycle).
 
@@ -73,6 +74,7 @@ from ..const import (
     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CARBON_INTENSITY_ENTITY,
     CONF_CHARGE_END_TIME_ENTITY,
+    CONF_CHARGE_REPLAN,
     CONF_CHARGE_SHOULDER_MONTHS,
     CONF_CHARGE_START_TIME_ENTITY,
     CONF_CHARGE_WINTER_MONTHS,
@@ -184,6 +186,7 @@ LIVE_KEYS: frozenset[str] = frozenset(
         # Controls
         CONF_DRY_RUN,
         CONF_VERBOSE_LOGGING,
+        CONF_CHARGE_REPLAN,
         CONF_SURPLUS_DIVERT_SOC,
         CONF_SURPLUS_DIVERT_MIN_W,
         CONF_CHEAP_RATE_FLOOR_SOC,

@@ -8,7 +8,7 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
 
-SWITCH_KEYS = ("dry_run", "verbose_logging")
+SWITCH_KEYS = ("dry_run", "verbose_logging", "charge_replan")
 NUMBER_KEYS = (
     "surplus_divert_soc_pct",
     "surplus_divert_min_power_w",
@@ -41,6 +41,7 @@ def control(hass, entry, key: str):
 BRIEF_DEFAULTS = {
     "dry_run": "off",
     "verbose_logging": "off",
+    "charge_replan": "off",
     "surplus_divert_soc_pct": 80.0,
     "surplus_divert_min_power_w": 500.0,
     "cheap_rate_floor_soc": 40.0,

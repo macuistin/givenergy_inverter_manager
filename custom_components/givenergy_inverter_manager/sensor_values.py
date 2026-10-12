@@ -343,7 +343,8 @@ def overnight_charge_target(data: CoordinatorData) -> int | None:
 def overnight_charge_reason(data: CoordinatorData) -> str | None:
     """Return why the published target was recommended, None before the first decision."""
     if data.published_charge_decision:
-        return data.published_charge_decision.reason
+        reason = data.published_charge_decision.reason
+        return f"{data.charge_replan_note} {reason}" if data.charge_replan_note else reason
     return None
 
 
@@ -548,6 +549,16 @@ def solar_capture_efficiency_today(data: CoordinatorData) -> float | None:
 def solar_forecast_raw_today(data: CoordinatorData) -> float | None:
     """Return the provider's own forecast for today, None when none was seen before midnight."""
     return _round_or_none(data.solar_forecast_raw_kwh_today, 3)
+
+
+def solar_forecast_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """Say which solar profile the charge plan spread the forecast with.
+
+    `forecast` when it used the forecast provider's own per-period shape, `standard curve` for
+    the bell curve centred on 13:00 (a provider with no shape, or a night the plan did not
+    simulate).
+    """
+    return {"solar_profile_source": "forecast" if data.solar_shape_used else "standard curve"}
 
 
 def solar_actual_vs_forecast_pct(data: CoordinatorData) -> float | None:

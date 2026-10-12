@@ -98,6 +98,7 @@ class TestAdminsPresent:
                 "immersion_hysteresis",
                 "dry_run",
                 "verbose_logging",
+                "charge_replan",
                 "cheap_rate_floor_soc",
                 "skip_charge_soc_threshold_pct",
                 "forecast_conservatism",

@@ -13,6 +13,23 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from ...const import (
+    CONF_BATTERY_POWER,
+    CONF_BATTERY_SOC,
+    CONF_GRID_POWER,
+    CONF_HOUSE_LOAD,
+    CONF_INVERTER_SERIAL,
+    CONF_SOLAR_POWER,
+    CONF_TARGET_SOC_ENTITY,
+)
+from ...core.system_types import (
+    EMS_SUFFIXES,
+    GATEWAY_SUFFIXES,
+    InverterFacts,
+    SystemKind,
+    classify,
+)
+
 SERIAL_SENSOR_SUFFIX = "_invertor_serial_number"
 GIVTCP_PREFIX = "givtcp_"
 BATTERY_CYCLES_SUFFIX = "_battery_cycles"
@@ -62,6 +79,14 @@ class GivTCPInverter:
     entities: dict[str, str] = field(default_factory=dict)
     missing_entities: list[str] = field(default_factory=list)
     battery_capacity_kwh: float | None = None  # read from sensor state at discovery time
+    kind: SystemKind = SystemKind.UNKNOWN
+    invertor_type: str | None = None  # GivTCP's own word for the model, as published
+    givtcp_version: str | None = None
+    modules: int | None = None  # battery modules found, None when it cannot be told
+    parallel_units: int | None = None  # All-In-Ones a Gateway says are in parallel
+    evidence: tuple[str, ...] = ()
+    confidence: str = "low"
+    suffixes: frozenset[str] = frozenset()  # every suffix the device publishes
 
     @property
     def is_fully_configured(self) -> bool:
@@ -81,59 +106,195 @@ class GivTCPInverter:
         }
         return scheduling.issubset(self.entities.keys())
 
+    def facts(self) -> InverterFacts:
+        """The device as the selection rules and the identity see it."""
+        return InverterFacts(
+            serial=self.serial,
+            prefix=self.prefix,
+            kind=self.kind,
+            complete=self.is_fully_configured,
+            can_schedule=self.has_charge_scheduling,
+            version=self.givtcp_version,
+            modules=self.modules,
+            parallel_units=self.parallel_units,
+            roles=tuple(sorted(self.entities.values())),
+        )
 
-def discover_givtcp_inverters(all_states: dict) -> list[GivTCPInverter]:  # noqa: C901, PLR0912
+
+_NOT_A_SERIAL = frozenset({"", "0", "unknown", "unavailable", "none"})
+_DEVICE_DOMAINS = ("sensor", "number", "switch", "select", "button", "time")
+# A device with no serial sensor is still an inverter-like device when it reports a GivTCP
+# version and one of these: an All-In-One, a Gateway or an EMS may not publish the serial sensor.
+_INVERTER_MARKERS = ("_soc", "_battery_soc", *GATEWAY_SUFFIXES, *EMS_SUFFIXES)
+BATTERY_SERIAL_SUFFIX = "_battery_serial_number"
+VERSION_SUFFIX = "_givtcp_version"
+TYPE_SUFFIX = "_invertor_type"
+
+
+def _usable(state: Any) -> str | None:
+    """The state text, or None when it is missing, unavailable or empty."""
+    text = str(getattr(state, "state", "") or "").strip()
+    return None if text.lower() in ("unavailable", "unknown", "") else text
+
+
+def _candidate_prefixes(all_states: dict) -> list[str]:
+    """Device prefixes that look like an inverter-like device, longest first.
+
+    A device is named by what it publishes, never by a fixed prefix: GivTCP lets the user change
+    it for each inverter (HADEVICEPREFIX). The serial sensor names a device, and so does the
+    version sensor on a device that also publishes a state of charge or a Gateway or EMS value.
     """
-    Scan HA entity states for GivTCP inverters.
+    found: dict[str, str] = {}
+    for entity_id in all_states:
+        if not entity_id.startswith("sensor."):
+            continue
+        name = entity_id[len("sensor.") :]
+        if name.endswith(SERIAL_SENSOR_SUFFIX):
+            found[name[: -len(SERIAL_SENSOR_SUFFIX)]] = entity_id
+    for entity_id in all_states:
+        if entity_id.startswith("sensor.") and entity_id.endswith(VERSION_SUFFIX):
+            prefix = entity_id[len("sensor.") : -len(VERSION_SUFFIX)]
+            if prefix not in found and any(
+                f"sensor.{prefix}{marker}" in all_states for marker in _INVERTER_MARKERS
+            ):
+                found[prefix] = ""
+    return sorted(found, key=len, reverse=True)
 
-    Accepts a dict of {entity_id: state_object} — HA-free and testable.
-    Returns a list of discovered inverters sorted by serial number.
-    Handles both GivTCP v2 (_battery_soc suffix) and v3 (_soc suffix).
-    """
-    inverters: list[GivTCPInverter] = []
 
+def _tail(prefix: str) -> str:
+    """The last word of a device prefix in capitals, which GivTCP makes from the serial."""
+    return prefix.rsplit("_", 1)[-1].upper()
+
+
+def _suffixes_of(prefix: str, others: list[str], all_states: dict) -> dict[str, str]:
+    """{suffix: entity_id} for the entities that belong to *prefix* and to no longer prefix."""
+    longer = [other for other in others if other != prefix and other.startswith(prefix + "_")]
+    owned: dict[str, str] = {}
+    for entity_id in all_states:
+        domain, _, name = entity_id.partition(".")
+        if domain not in _DEVICE_DOMAINS or not name.startswith(prefix + "_"):
+            continue
+        if any(name.startswith(other + "_") for other in longer):
+            continue
+        owned.setdefault(name[len(prefix) :], entity_id)
+    return owned
+
+
+def _count_battery_modules(all_states: dict) -> int:
+    """Battery modules that report a real serial. A module that answers with zeros is a ghost."""
+    count = 0
     for entity_id, state in all_states.items():
-        if GIVTCP_PREFIX not in entity_id:
-            continue
-        if not entity_id.endswith(SERIAL_SENSOR_SUFFIX):
-            continue
+        if entity_id.startswith("sensor.") and entity_id.endswith(BATTERY_SERIAL_SUFFIX):
+            text = _usable(state)
+            if text is not None and text.lower() not in _NOT_A_SERIAL and set(text) != {"0"}:
+                count += 1
+    return count
 
-        without_domain = entity_id.split(".", 1)[1]
-        prefix = without_domain[: -len(SERIAL_SENSOR_SUFFIX)]
-        serial = state.state if state.state not in ("unavailable", "unknown", "") else prefix
 
-        inverter = GivTCPInverter(serial=serial, prefix=prefix, display_name=f"GivTCP {serial}")
+def _read_int(all_states: dict, entity_id: str) -> int | None:
+    text = _usable(all_states.get(entity_id))
+    try:
+        return int(float(text)) if text is not None else None
+    except ValueError:
+        return None
 
-        # ── Battery SoC: try GivTCP v3 name first, fall back to v2 ──────────
-        for soc_suffix in ("_soc", "_battery_soc"):
-            candidate = f"sensor.{prefix}{soc_suffix}"
-            if candidate in all_states:
-                inverter.entities["battery_soc"] = candidate
-                break
-        else:
-            inverter.missing_entities.append(f"sensor.{prefix}_soc")
 
-        # ── All other entities ────────────────────────────────────────────────
-        for key, suffix in ENTITY_SUFFIXES.items():
-            domain = ENTITY_DOMAINS.get(key, "sensor")
-            candidate = f"{domain}.{prefix}{suffix}"
-            if candidate in all_states:
-                inverter.entities[key] = candidate
-            else:
-                inverter.missing_entities.append(candidate)
+def discover_givtcp_inverters(all_states: dict) -> list[GivTCPInverter]:
+    """
+    Scan HA entity states for GivTCP inverter-like devices: hybrids, AC-coupled inverters,
+    All-In-Ones, three-phase inverters, Gateways and EMS plants.
 
-        # ── Read battery capacity value from sensor state ────────────────────
-        cap_eid = inverter.entities.get("battery_capacity_kwh")
-        if cap_eid:
-            cap_state = all_states.get(cap_eid)
-            if cap_state and cap_state.state not in ("unavailable", "unknown", ""):
-                with contextlib.suppress(ValueError, TypeError):
-                    inverter.battery_capacity_kwh = float(cap_state.state)
-
-        inverters.append(inverter)
-
+    Accepts a dict of {entity_id: state_object} — HA-free and testable. Returns the devices
+    sorted by serial number. Devices are found by the entities they publish, not by a fixed
+    `givtcp_` prefix, so a prefix the user changed in GivTCP is found too. Handles both GivTCP v2
+    (_battery_soc suffix) and v3 (_soc suffix).
+    """
+    prefixes = _candidate_prefixes(all_states)
+    inverters = [_build_inverter(prefix, prefixes, all_states) for prefix in prefixes]
+    if len(inverters) == 1:
+        inverters[0].modules = _count_battery_modules(all_states) or None
     inverters.sort(key=lambda i: i.serial)
     return inverters
+
+
+def _build_inverter(prefix: str, prefixes: list[str], all_states: dict) -> GivTCPInverter:
+    owned = _suffixes_of(prefix, prefixes, all_states)
+    serial_state = all_states.get(f"sensor.{prefix}{SERIAL_SENSOR_SUFFIX}")
+    # A device with no serial sensor (a Gateway or an EMS may have none) is named by its prefix.
+    serial = _usable(serial_state) or (prefix if serial_state is not None else _tail(prefix))
+    inverter = GivTCPInverter(serial=serial, prefix=prefix, display_name=f"GivTCP {serial}")
+    inverter.suffixes = frozenset(owned)
+
+    # ── Battery SoC: try GivTCP v3 name first, fall back to v2 ───────────────
+    for soc_suffix in ("_soc", "_battery_soc"):
+        candidate = f"sensor.{prefix}{soc_suffix}"
+        if candidate in all_states:
+            inverter.entities["battery_soc"] = candidate
+            break
+    else:
+        inverter.missing_entities.append(f"sensor.{prefix}_soc")
+
+    # ── All other entities ───────────────────────────────────────────────────
+    for key, suffix in ENTITY_SUFFIXES.items():
+        candidate = f"{ENTITY_DOMAINS.get(key, 'sensor')}.{prefix}{suffix}"
+        if candidate in all_states:
+            inverter.entities[key] = candidate
+        else:
+            inverter.missing_entities.append(candidate)
+
+    # ── Battery capacity value from the sensor state ─────────────────────────
+    cap_state = all_states.get(inverter.entities.get("battery_capacity_kwh", ""))
+    if cap_state is not None and (text := _usable(cap_state)) is not None:
+        with contextlib.suppress(ValueError, TypeError):
+            inverter.battery_capacity_kwh = float(text)
+
+    # ── What kind of device it is ────────────────────────────────────────────
+    inverter.invertor_type = _usable(all_states.get(f"sensor.{prefix}{TYPE_SUFFIX}"))
+    inverter.givtcp_version = _usable(all_states.get(f"sensor.{prefix}{VERSION_SUFFIX}"))
+    inverter.parallel_units = _read_int(all_states, f"sensor.{prefix}_parallel_total_aio_number")
+    verdict = classify(inverter.suffixes, inverter.invertor_type)
+    inverter.kind, inverter.evidence, inverter.confidence = (
+        verdict.kind,
+        verdict.evidence,
+        verdict.confidence,
+    )
+    return inverter
+
+
+# The wiring entities whose names end in a known GivTCP suffix, best first. The device prefix is
+# what is left once the domain and the suffix are taken off.
+_PREFIX_PROBES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (CONF_BATTERY_POWER, ("_battery_power",)),
+    (CONF_SOLAR_POWER, ("_pv_power",)),
+    (CONF_GRID_POWER, ("_grid_power",)),
+    (CONF_HOUSE_LOAD, ("_load_power",)),
+    (CONF_BATTERY_SOC, ("_soc", "_battery_soc")),
+    (CONF_TARGET_SOC_ENTITY, ("_target_soc",)),
+)
+
+
+def device_prefix(cfg: Any) -> str:
+    """The prefix GivTCP gave this inverter's entities, for the entities derived from it.
+
+    GivTCP lets the user change the prefix for each inverter, so it is read from the entities the
+    wiring already names, which discovery or the user chose. A prefix is trusted when it carries
+    the inverter's serial or when two of those entities agree on it, so hand-picked sensors with
+    other names do not produce one. Otherwise it is the default prefix and the serial.
+    """
+    serial = str(cfg.get(CONF_INVERTER_SERIAL) or "")
+    derived = [p for p in (_prefix_from(cfg, key, sfx) for key, sfx in _PREFIX_PROBES) if p]
+    for prefix in derived:
+        if (serial and serial.lower() in prefix.lower()) or derived.count(prefix) >= 2:  # noqa: PLR2004
+            return prefix
+    return f"{GIVTCP_PREFIX}{serial}" if serial else ""
+
+
+def _prefix_from(cfg: Any, key: str, suffixes: tuple[str, ...]) -> str:
+    name = str(cfg.get(key) or "").partition(".")[2]
+    for suffix in suffixes:
+        if len(name) > len(suffix) and name.endswith(suffix):
+            return name[: -len(suffix)]
+    return ""
 
 
 def discover_battery_cycle_entities(all_states: dict) -> list[str]:
@@ -172,9 +333,13 @@ INVERTER_TEMPERATURE_SPELLINGS = ("invertor", "inverter")
 
 def inverter_temperature_entity_ids(serial: str) -> list[str]:
     """The entity ids GivTCP could publish the inverter temperature under, best first."""
+    return temperature_entity_ids_for(f"{GIVTCP_PREFIX}{serial.lower()}")
+
+
+def temperature_entity_ids_for(prefix: str) -> list[str]:
+    """The same, for a device prefix, which GivTCP lets the user change."""
     return [
-        f"sensor.{GIVTCP_PREFIX}{serial.lower()}_{spelling}_temperature"
-        for spelling in INVERTER_TEMPERATURE_SPELLINGS
+        f"sensor.{prefix}_{spelling}_temperature" for spelling in INVERTER_TEMPERATURE_SPELLINGS
     ]
 
 
