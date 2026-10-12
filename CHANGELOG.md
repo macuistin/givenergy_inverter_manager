@@ -2,6 +2,13 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+The integration now notices a GivTCP that is running but cannot read the inverter.
+
+**Fixes**
+- GivTCP 3.6 and later keep publishing the last good data when a read of the inverter fails, so the entities stay available and look normal while they are old. The integration now reads GivTCP's `status` and `Data_Age` sensors. When the status is `paused`, or the data is more than 10 minutes old (or `-1`, nothing read yet), it stops planning and stops writing to the inverter, its entities show unavailable, the log has one warning starting `GivTCP is not getting data from the inverter`, and the repair **GivTCP is not getting data from the inverter** appears. It clears by itself when GivTCP reads the inverter again. Earlier GivTCP releases do not publish `Data_Age`, so only the frozen check applies there. See [GivTCP is not getting data from the inverter](docs/troubleshooting.md#givtcp-is-not-getting-data-from-the-inverter). No entity changes.
+
 ## v0.18.2
 
 The dashboard loads more reliably, shows the combined immersion chart again when apexcharts-card is installed, and names the alternative heating by your label.

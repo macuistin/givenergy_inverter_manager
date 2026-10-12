@@ -1,0 +1,135 @@
+"""
+adapter.py: the GivTCP implementation of InverterBackend.
+
+It is built once per coordinator with the callables the coordinator already has for reading a
+state and calling a service, so a test drives it without Home Assistant.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
+from ...const import (
+    CONF_CHARGE_END_TIME_ENTITY,
+    CONF_CHARGE_START_TIME_ENTITY,
+    CONF_INVERTER_SERIAL,
+    CONF_TARGET_SOC_ENTITY,
+)
+from ...core.inverter_values import (
+    ChargePlan,
+    FeedStatus,
+    InverterIdentity,
+    InverterValues,
+    RateDefaults,
+    WriteResult,
+)
+from . import sequence
+from .discovery import (
+    GIVTCP_PREFIX,
+    ActiveChargeSlot,
+    discover_battery_cycle_entities,
+    find_other_active_charge_slots,
+)
+from .reader import GivTCPReader
+from .writer import CallService, CountListener, GetState, GivTCPWriter, WriteObserver
+
+
+@dataclass(frozen=True)
+class GivTCPPorts:
+    """What the adapter needs from its host: read a state, call a service, hear the count."""
+
+    get_state: GetState
+    call_service: CallService
+    on_count_change: CountListener
+    observer: WriteObserver | None = None
+
+
+class GivTCPBackend:
+    """Reads and writes one GivTCP inverter."""
+
+    def __init__(self, cfg: Mapping[str, Any], ports: GivTCPPorts) -> None:
+        get_state = ports.get_state
+        self._get_state = get_state
+        serial = str(cfg.get(CONF_INVERTER_SERIAL) or "")
+        self._identity = InverterIdentity(
+            serial=serial, prefix=f"{GIVTCP_PREFIX}{serial}", display_name=f"GivTCP {serial}"
+        )
+        self._reader = GivTCPReader(get_state)
+        self.writer = GivTCPWriter(
+            get_state, ports.call_service, ports.on_count_change, ports.observer
+        )
+
+    @property
+    def identity(self) -> InverterIdentity:
+        return self._identity
+
+    def read(self, cfg: Mapping[str, Any]) -> InverterValues:
+        return self._reader.read(cfg)
+
+    def feed_status(self, cfg: Mapping[str, Any], now: datetime) -> FeedStatus:
+        return self._reader.feed_status(cfg, now)
+
+    async def apply_charge_plan(self, cfg: Mapping[str, Any], plan: ChargePlan) -> WriteResult:
+        return await sequence.apply_charge_plan(self.writer, cfg, plan)
+
+    async def apply_floor_target(self, cfg: Mapping[str, Any], soc: int) -> WriteResult:
+        return await sequence.apply_floor_target(self.writer, cfg, soc, self._get_state)
+
+    def other_active_charge_slots(self, cfg: Mapping[str, Any]) -> Sequence[ActiveChargeSlot]:
+        start_entity = cfg.get(CONF_CHARGE_START_TIME_ENTITY)
+        end_entity = cfg.get(CONF_CHARGE_END_TIME_ENTITY)
+        if not (start_entity and end_entity):
+            return []
+        return find_other_active_charge_slots(start_entity, end_entity, self._get_state)
+
+    async def clear_charge_slot(self, slot: ActiveChargeSlot) -> bool:
+        return await sequence.clear_charge_slot(self.writer, slot)
+
+    def read_rate_defaults(self, cfg: Mapping[str, Any]) -> RateDefaults | None:
+        # Filled in by the setup tariff page card, which decides what counts as a default.
+        return None
+
+    def watched_entity_ids(self, cfg: Mapping[str, Any]) -> tuple[str, ...]:
+        keys = (CONF_TARGET_SOC_ENTITY, CONF_CHARGE_START_TIME_ENTITY, CONF_CHARGE_END_TIME_ENTITY)
+        return tuple(cfg[key] for key in keys if cfg.get(key))
+
+    def solar_energy_entity_id(self, cfg: Mapping[str, Any]) -> str | None:
+        serial = cfg.get(CONF_INVERTER_SERIAL)
+        return f"sensor.{GIVTCP_PREFIX}{serial}_pv_energy_today_kwh" if serial else None
+
+    @property
+    def battery_cycle_entities(self) -> list[str]:
+        """The BMS cycle counters found so far, one per battery pack."""
+        return self._reader.battery_cycle_entities
+
+    @battery_cycle_entities.setter
+    def battery_cycle_entities(self, entity_ids: list[str]) -> None:
+        self._reader.battery_cycle_entities = entity_ids
+
+    def rediscover(self, all_states: Mapping[str, Any]) -> None:
+        self.battery_cycle_entities = discover_battery_cycle_entities(dict(all_states))
+
+    def listen_for_confirmations(self, listener: Any) -> None:
+        self.writer.listen_for_confirmations(listener)
+
+    def cooldown_active(self, entity_id: str, name: str, value: object) -> bool:
+        return self.writer.cooldown_active(entity_id, name, value)
+
+    def start_cooldown(self, entity_id: str, value: object) -> None:
+        self.writer.start_cooldown(entity_id, value)
+
+    @property
+    def write_count(self) -> int:
+        return self.writer.write_count
+
+    @write_count.setter
+    def write_count(self, count: int) -> None:
+        self.writer.write_count = count
+
+
+def make_backend(cfg: Mapping[str, Any], ports: GivTCPPorts) -> GivTCPBackend:
+    """The GivTCP backend for the inverter named in cfg."""
+    return GivTCPBackend(cfg, ports)

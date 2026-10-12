@@ -42,7 +42,7 @@ def _register_inverter_like_services(hass) -> None:
 
 async def _write_target(entry, target_soc: int) -> None:
     coordinator = entry.runtime_data
-    coordinator._writer.last_write_time.clear()
+    coordinator._backend.writer.last_write_time.clear()
     cfg = coordinator._effective_cfg()
     cheap = min(build_tariff(cfg).rate_periods, key=lambda p: p.rate)
     await coordinator._async_apply_charge_target(cfg, target_soc, cheap)
@@ -149,19 +149,19 @@ async def test_the_log_and_count_are_saved_soon_after_a_write(
     await hass.async_block_till_done()
 
     saved = hass_storage[_STORAGE_KEY]["data"]
-    assert saved["register_write_count"] == loaded_entry.runtime_data._writer.write_count > 0
+    assert saved["register_write_count"] == loaded_entry.runtime_data._backend.write_count > 0
     assert {e["reason"] for e in saved["register_write_log"]} >= {"charge target"}
 
 
 async def test_the_log_survives_a_reload(hass, loaded_entry, hass_storage):
     _register_inverter_like_services(hass)
     await _write_target(loaded_entry, 62)
-    count = loaded_entry.runtime_data._writer.write_count
+    count = loaded_entry.runtime_data._backend.write_count
 
     await hass.config_entries.async_reload(loaded_entry.entry_id)
     await hass.async_block_till_done()
 
     assert loaded_entry.state is ConfigEntryState.LOADED
-    assert loaded_entry.runtime_data._writer.write_count == count
+    assert loaded_entry.runtime_data._backend.write_count == count
     reasons = {w["reason"] for w in await _recent_writes(hass, loaded_entry)}
     assert "charge target" in reasons

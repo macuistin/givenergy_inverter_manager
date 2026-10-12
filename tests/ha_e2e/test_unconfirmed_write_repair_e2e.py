@@ -61,7 +61,7 @@ def _inverter(hass, takes: Callable[[str], bool]) -> list[tuple[str, str, str]]:
 async def _nightly_write(hass, entry) -> None:
     """Run the once-a-night write the way the time listener does, with the cooldown spent."""
     coordinator = entry.runtime_data
-    coordinator._writer.last_write_time.clear()
+    coordinator._backend.writer.last_write_time.clear()
     coordinator._write_charge_target_to_inverter(dt_util.utcnow())
     await hass.async_block_till_done()
 

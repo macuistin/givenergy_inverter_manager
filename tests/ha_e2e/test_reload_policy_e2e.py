@@ -176,7 +176,7 @@ async def _fire_trigger_at(hass, entry, at: datetime) -> list:
     hass.states.async_set(TARGET_SOC, 4, {"min": 4, "max": 100, "step": 1})  # never skip a write
     await entry.runtime_data.async_refresh()
     writes = async_mock_service(hass, "number", "set_value")
-    entry.runtime_data._writer.last_write_time.clear()
+    entry.runtime_data._backend.writer.last_write_time.clear()
     async_fire_time_changed(hass, at)
     await hass.async_block_till_done()
     return [c for c in writes if c.data["entity_id"] == TARGET_SOC]

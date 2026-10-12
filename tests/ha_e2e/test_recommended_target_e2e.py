@@ -50,7 +50,7 @@ async def _written_target(hass, coordinator) -> int:
     async_mock_service(hass, "select", "select_option")
     # The inverter reads 4%, so the read-before-write check never skips the write.
     hass.states.async_set(TARGET_SOC, 4, {"min": 4, "max": 100, "step": 1})
-    coordinator._writer.last_write_time.clear()
+    coordinator._backend.writer.last_write_time.clear()
     coordinator._write_charge_target_to_inverter(datetime.now(timezone.utc))
     await hass.async_block_till_done()
     targets = [c.data["value"] for c in writes if c.data["entity_id"] == TARGET_SOC]

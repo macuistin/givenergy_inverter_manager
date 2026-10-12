@@ -62,7 +62,7 @@ async def _fire_pre_window_trigger(hass, entry, charge_rate: str | None) -> dict
     coordinator = entry.runtime_data
     await coordinator.async_refresh()
     calls = _mock_writes(hass)
-    coordinator._writer.last_write_time.clear()
+    coordinator._backend.writer.last_write_time.clear()
     async_fire_time_changed(hass, TRIGGER)
     await hass.async_block_till_done()
     return calls

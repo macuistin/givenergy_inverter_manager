@@ -24,8 +24,18 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
 - A `.givenergy_test_instance` file in the config folder forces dry run on (`TEST_INSTANCE_MARKER`).
   The coordinator reads it once at setup and `_effective_cfg` applies it, so every reader of
   `dry_run` agrees. Never read `CONF_DRY_RUN` straight from the entry in new code.
-- Writes to GivTCP go through `inverter/givtcp/writer.py`, which reads before writing, applies a cooldown
-  (`GIVTCP_MIN_WRITE_INTERVAL_S`) and reads back. Do not call a GivTCP service from anywhere else.
+- Only the adapter writes to the inverter. The coordinator decides what to write, checks dry run,
+  and calls the backend (`apply_charge_plan`, `apply_floor_target`, `clear_charge_slot`). The
+  adapter's writes go through `inverter/givtcp/writer.py`, which reads before writing, applies a
+  cooldown (`GIVTCP_MIN_WRITE_INTERVAL_S`) and reads back. Do not call a GivTCP service from
+  anywhere else.
+- A write that the inverter does not take (every read-back shows the old value) raises the repair
+  `write_not_confirmed`. It is never raised in dry run. The decision lives in
+  `core/write_confirmation.py`.
+- Planning and writes stop while the feed is not live. That is a frozen feed (nothing reported for
+  ten minutes, repair `givtcp_feed_frozen`), a paused GivTCP, or old data per GivTCP's `Data_Age`
+  (repair `givtcp_not_answering`). The adapter judges it in `inverter/givtcp/reader.py`
+  (`feed_status`). A new write path checks the same flags and has a test that nothing is sent.
 
 ## What the integration never does
 

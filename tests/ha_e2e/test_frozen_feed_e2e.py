@@ -225,7 +225,7 @@ async def test_no_charge_window_or_target_is_written_while_frozen(
     await _run(hass, entry, freezer, LIMIT + 4 * STEP, publishing=False)
     for sent in calls.values():
         sent.clear()  # anything before the freeze tripped was a live cycle, such as the immersion
-    coordinator._writer.last_write_time.clear()
+    coordinator._backend.writer.last_write_time.clear()
     coordinator._write_charge_target_to_inverter(dt_util.utcnow())
     await hass.async_block_till_done()
     assert {name: len(c) for name, c in calls.items()} == dict.fromkeys(calls, 0)

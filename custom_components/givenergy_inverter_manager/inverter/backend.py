@@ -16,6 +16,7 @@ is going to happen.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
 from ..core.inverter_values import (
@@ -57,7 +58,7 @@ class InverterBackend(Protocol):
         """One read of power, charge, counters and the age of the data, in our sign convention."""
         ...
 
-    def feed_status(self, cfg: Mapping[str, Any]) -> FeedStatus:
+    def feed_status(self, cfg: Mapping[str, Any], now: datetime) -> FeedStatus:
         """Whether the inverter integration is giving live numbers, and why not when it is not."""
         ...
 
@@ -87,3 +88,36 @@ class InverterBackend(Protocol):
     def watched_entity_ids(self, cfg: Mapping[str, Any]) -> tuple[str, ...]:
         """The entities the write audit watches for changes the manager did not make."""
         ...
+
+    def solar_energy_entity_id(self, cfg: Mapping[str, Any]) -> str | None:
+        """The entity that counts today's solar energy, used to seed the forecast history."""
+        ...
+
+    def rediscover(self, all_states: Mapping[str, Any]) -> None:
+        """Look again for entities that can appear after setup, such as battery packs."""
+        ...
+
+    def listen_for_confirmations(self, listener: Any) -> None:
+        """Tell the listener whether the inverter took each value written from now on."""
+        ...
+
+    def cooldown_active(self, entity_id: str, name: str, value: object) -> bool:
+        """True when this value was written to the entity inside the write cooldown window."""
+        ...
+
+    def start_cooldown(self, entity_id: str, value: object) -> None:
+        """Record that this value is being written to the entity now."""
+        ...
+
+    @property
+    def write_count(self) -> int:
+        """Register writes made so far over the life of the inverter."""
+        ...
+
+    @write_count.setter
+    def write_count(self, count: int) -> None: ...
+
+
+def describe_charge_slots(slots: Sequence[ChargeSlot]) -> str:
+    """The slots as one readable line, for example 'Slot 2 (00:00 to 08:00)'."""
+    return ", ".join(slot.label for slot in slots)

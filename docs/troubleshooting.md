@@ -50,6 +50,17 @@ While the feed is frozen the integration stops planning and stops writing to the
 
 After a Home Assistant restart the entities start as freshly reported, so a GivTCP that is already stopped shows as frozen about 10 minutes later.
 
+## GivTCP is not getting data from the inverter
+
+The repair **GivTCP is not getting data from the inverter** appears when GivTCP is running and reporting, but cannot read the inverter. GivTCP 3.6 and later keep publishing the last good data when a read fails, so the entities stay available and look normal while they are old. GivTCP says so in two sensors: `status` shows `paused` when GivTCP has stopped talking to a struggling inverter on purpose, and `Data_Age` counts the seconds since the last good read. The repair appears when the status is `paused`, or when `Data_Age` is over 10 minutes, or is `-1` because nothing has been read yet. Earlier GivTCP releases do not publish `Data_Age`, so a stale feed cannot be seen there and only the frozen check applies.
+
+While it lasts the integration stops planning and stops writing to the inverter, and its entities show unavailable. The log has one warning starting `GivTCP is not getting data from the inverter`, and `GivTCP is reporting again` when it ends. The repair clears by itself on the next cycle.
+
+1. Check that the inverter is powered and on the network.
+2. Check that nothing else is connected to the inverter at the same time. Most inverters allow one connection.
+3. Open the GivTCP log and look for connection or timeout errors.
+4. Restart GivTCP.
+
 ## GivTCP entities not found
 
 The repair **GivTCP entities not found** appears in **Settings → System → Repairs** when the solar power and battery SoC entities chosen at setup no longer exist in Home Assistant. This usually means GivTCP was reinstalled with another serial, or its entity IDs changed.

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from custom_components.givenergy_inverter_manager.core.inverter_values import (
@@ -45,6 +46,10 @@ class FakeInverter:
     plans: list[ChargePlan] = field(default_factory=list)
     floor_targets: list[int] = field(default_factory=list)
     cleared: list[FakeSlot] = field(default_factory=list)
+    solar_entity: str | None = None
+    listener: Any = None
+    write_count: int = 0
+    rediscoveries: int = 0
 
     @property
     def identity(self) -> InverterIdentity:
@@ -53,7 +58,7 @@ class FakeInverter:
     def read(self, cfg: Mapping[str, Any]) -> InverterValues:
         return self.values
 
-    def feed_status(self, cfg: Mapping[str, Any]) -> FeedStatus:
+    def feed_status(self, cfg: Mapping[str, Any], now: datetime) -> FeedStatus:
         return self.status
 
     async def apply_charge_plan(self, cfg: Mapping[str, Any], plan: ChargePlan) -> WriteResult:
@@ -76,3 +81,18 @@ class FakeInverter:
 
     def watched_entity_ids(self, cfg: Mapping[str, Any]) -> tuple[str, ...]:
         return self.watched
+
+    def cooldown_active(self, entity_id: str, name: str, value: object) -> bool:
+        return False
+
+    def start_cooldown(self, entity_id: str, value: object) -> None:
+        pass
+
+    def solar_energy_entity_id(self, cfg: Mapping[str, Any]) -> str | None:
+        return self.solar_entity
+
+    def rediscover(self, all_states: Mapping[str, Any]) -> None:
+        self.rediscoveries += 1
+
+    def listen_for_confirmations(self, listener: Any) -> None:
+        self.listener = listener

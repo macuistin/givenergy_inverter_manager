@@ -61,6 +61,16 @@ class ChargePlan:
     window_end: time
     enable_charge_target: bool  # off at 100%, so the battery does not bounce at the top
 
+    @classmethod
+    def for_target(cls, target_soc: int, window_start: time, window_end: time) -> ChargePlan:
+        """A plan whose enable-charge-target switch follows the rule below.
+
+        Without the switch on, the inverter silently ignores the target register, so it is on
+        for any target below 100%. At 100% it is off, to avoid the charge-bounce bug where the
+        battery oscillates between 99 and 100% when the limit switch is on at 100%.
+        """
+        return cls(target_soc, window_start, window_end, enable_charge_target=target_soc < 100)
+
 
 @dataclass(frozen=True)
 class RateDefaults:
@@ -86,6 +96,7 @@ class FeedState(StrEnum):
     """Whether the inverter integration is giving the manager live numbers."""
 
     PUBLISHING = "publishing"
+    MISSING = "missing"  # the entities are not in the state machine at all
     SILENT = "silent"  # the entities are unavailable
     FROZEN = "frozen"  # the entities hold values but nothing has been reported lately
     PAUSED = "paused"  # the inverter integration has stopped talking to the inverter on purpose

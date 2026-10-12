@@ -38,7 +38,7 @@ def _mock_writes(hass, failing: tuple[str, ...] = ()) -> dict[str, list]:
 
 async def _apply(entry, target_soc: int) -> None:
     coordinator = entry.runtime_data
-    coordinator._writer.last_write_time.clear()
+    coordinator._backend.writer.last_write_time.clear()
     cfg = coordinator._effective_cfg()
     cheap = min(build_tariff(cfg).rate_periods, key=lambda p: p.rate)
     await coordinator._async_apply_charge_target(cfg, target_soc, cheap)

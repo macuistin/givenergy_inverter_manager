@@ -1130,6 +1130,10 @@
       "title": "GivTCP has stopped updating",
       "description": "GivTCP's solar, battery and load entities in Home Assistant still show their last values, but none has been reported since {last_reported}. They are not unavailable, so nothing else shows a fault.\n\nThe integration has stopped planning, stopped writing to the inverter and made its own entities unavailable, because it would act on readings that no longer move. It resumes by itself when GivTCP reports again.\n\nCheck that GivTCP is running and has not crashed (an upgrade can leave it stopped), that MQTT is connected, and that GivTCP's day rate, night rate and tariff type are filled in. Also check that **Real Time Control** is on, because an upgrade of GivTCP can reset it. The learn more link has the steps."
     },
+    "givtcp_not_answering": {
+      "title": "GivTCP is not getting data from the inverter",
+      "description": "GivTCP is running and reporting to Home Assistant, but it is not getting data from the inverter. {reason}\n\nThe values in Home Assistant are the last good ones, so they look normal while they are old. The integration has stopped planning, stopped writing to the inverter and made its own entities unavailable, because it would act on old readings. It resumes by itself when GivTCP reads the inverter again.\n\nCheck that the inverter is on and on the network, that nothing else is connected to it at the same time, and that GivTCP's log is not full of connection errors. Restarting GivTCP often clears a stuck connection. The learn more link has the steps."
+    },
     "tariff_review_due": {
       "title": "Tariff rates have not been reviewed",
       "fix_flow": {
@@ -1154,6 +1158,9 @@
     },
     "givtcp_frozen": {
       "message": "GivTCP is not updating. Its entities still hold their last values, but none has been reported recently. Check that GivTCP is running and MQTT is connected."
+    },
+    "givtcp_not_answering": {
+      "message": "GivTCP is not getting data from the inverter, so its values are old. Check that the inverter is on and reachable, and that GivTCP is not paused."
     },
     "no_config_entry": {
       "message": "GivEnergy Inverter Manager is not configured. Add the integration in Settings → Integrations before calling this service."

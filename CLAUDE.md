@@ -34,6 +34,9 @@ inside it.
 
 - `core/` imports nothing from `homeassistant`, and nothing from `inverter/` at run time.
   `tests/test_metadata.py` enforces both.
+- Only `inverter/givtcp/` builds GivTCP entity names or calls GivTCP services. The coordinator
+  talks to the `InverterBackend` interface. The rate comparison is the one exception until it is
+  removed.
 - `entry.runtime_data` holds the coordinator (`GivEnergyConfigEntry`). Never use `hass.data[DOMAIN]`.
 - `GivEnergyCoordinator` passes `config_entry=entry` to `DataUpdateCoordinator`.
 - `async_reload_entry` calls `hass.config_entries.async_reload(entry.entry_id)`. It does not call
@@ -60,10 +63,11 @@ The end-to-end venv needs `requirements-test-e2e.txt` and Python 3.14.2 or newer
 from the repo root. Use `ROOT` and `PKG` from `tests/helpers.py` for paths, never the working
 directory. Test counts drift, so measure before quoting one.
 
-## GivTCP sign conventions
+## Inverter sign conventions
 
 GivTCP publishes grid and battery power with the opposite sign to the one used inside this
-integration. The coordinator negates both on read (`_collect_raw` in `coordinator.py`).
+integration. The GivTCP adapter negates both on read (`GivTCPReader.read` in
+`inverter/givtcp/reader.py`). `_collect_raw` in `coordinator.py` only merges the result.
 
 | Quantity | GivTCP entity | Inside the integration |
 | --- | --- | --- |

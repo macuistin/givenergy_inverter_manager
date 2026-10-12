@@ -59,6 +59,14 @@ Issues raised:
     is in GivTCP. The cycle fails like a silent feed, so no plan or write comes from old
     readings. The issue clears as soon as GivTCP reports again. The decision lives in
     core/feed_freshness.py.
+
+  givtcp_not_answering
+    GivTCP is running and reporting, but it is not getting data from the inverter: its status
+    sensor says paused, or its Data_Age sensor says the last good read is more than ten
+    minutes old (GivTCP 3.6 and later keep publishing the last good data in that case). Not
+    fixable: the cause is between GivTCP and the inverter. The cycle fails like a frozen feed.
+    The issue clears as soon as GivTCP reads the inverter again. The decision lives in
+    inverter/givtcp/reader.py.
 """
 
 from __future__ import annotations
@@ -89,6 +97,7 @@ ISSUE_BATTERY_COST_NOT_SET = "battery_cost_not_set"
 ISSUE_EV_BASE_RATE_CHARGING = "ev_charging_at_base_rate"
 ISSUE_WRITE_NOT_CONFIRMED = "write_not_confirmed"
 ISSUE_GIVTCP_FEED_FROZEN = "givtcp_feed_frozen"
+ISSUE_GIVTCP_NOT_ANSWERING = "givtcp_not_answering"
 
 TROUBLESHOOTING_URL = (
     "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs/troubleshooting.md"
@@ -102,6 +111,9 @@ LEARN_MORE_URLS: dict[str, str] = {
     ISSUE_EV_BASE_RATE_CHARGING: f"{TROUBLESHOOTING_URL}#ev-is-charging-at-the-base-rate",
     ISSUE_WRITE_NOT_CONFIRMED: f"{TROUBLESHOOTING_URL}#writes-to-the-inverter-are-not-confirmed",
     ISSUE_GIVTCP_FEED_FROZEN: f"{TROUBLESHOOTING_URL}#givtcp-data-is-frozen",
+    ISSUE_GIVTCP_NOT_ANSWERING: (
+        f"{TROUBLESHOOTING_URL}#givtcp-is-not-getting-data-from-the-inverter"
+    ),
 }
 
 # Matches the selector max in config_flow.py. Values above this are legacy
@@ -273,6 +285,25 @@ def async_create_feed_frozen_issue(hass: HomeAssistant, last_reported: str) -> N
 def async_delete_feed_frozen_issue(hass: HomeAssistant) -> None:
     """Clear the frozen-feed repair once GivTCP reports again."""
     async_delete_issue(hass, DOMAIN, ISSUE_GIVTCP_FEED_FROZEN)
+
+
+def async_create_not_answering_issue(hass: HomeAssistant, reason: str) -> None:
+    """Surface a repair issue while GivTCP is not getting data from the inverter."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_GIVTCP_NOT_ANSWERING,
+        is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_GIVTCP_NOT_ANSWERING],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_GIVTCP_NOT_ANSWERING,
+        translation_placeholders={"reason": reason},
+    )
+
+
+def async_delete_not_answering_issue(hass: HomeAssistant) -> None:
+    """Clear the repair once GivTCP reads the inverter again."""
+    async_delete_issue(hass, DOMAIN, ISSUE_GIVTCP_NOT_ANSWERING)
 
 
 async def async_create_fix_flow(
