@@ -4,55 +4,7 @@ One line per card. A card is listed as merged only when its pull request is merg
 
 ## Progress on 0.19.0
 
-The cards are grouped into pull requests in [RELEASE_0.19_PLAN.md](RELEASE_0.19_PLAN.md), section 4. "Blocked" says what is missing, from section 5 of the plan.
-
-| Card | What | State |
-|---|---|---|
-| IB1 | Define the interface and the pure types | Not started |
-| IB2 | Move discovery into the adapter | Not started |
-| IB3 | Move the writer | Not started |
-| IB4 | Move the write sequences out of the coordinator | Not started |
-| IB5 | Move reading and availability | Not started |
-| IB6 | Neutral names in `core/` and in comments | Not started |
-| IB7 | Contract tests and a second fake | Not started |
-| RA1 | Remove the GivTCP rate comparison | Not started |
-| RA2 | Rate defaults on the setup tariff page | Not started |
-| RA3 | Changelog and docs for the rates change | Not started |
-| WS1 | Retry a missed daily write | Not started. Needs a yes from the maintainer on counting an unconfirmed write as failed (plan, section 3 item 2) |
-| WS2 | Re-plan inside the cheap window | Blocked: whether GivTCP applies a changed charge target inside an open window (U2) |
-| WS3 | Make retries and re-plans visible | Not started |
-| CC1 | Spike: can we read whether SmartTarget is on? | Not started |
-| CC2 | Detect another controller | Not started |
-| CC3 | The sensor, the banner and the docs | Not started |
-| FS1 | Spike: what do the forecast providers give us? | Blocked: real Solcast and Forecast.Solar states and attributes for tomorrow (U3) |
-| FS2 | Use the shape in the simulation | Blocked: the FS1 provider data (U3) |
-| FS3 | Say which shape was used | Blocked: the FS1 provider data (U3) |
-| SR1 | Seasonal rules as configuration | Not started |
-| SR2 | Use the settings in the engine | Blocked: a yes or no on the proposed winter behaviour |
-| SR3 | Docs | Not started |
-| SY0 | Fixtures | Blocked: anonymised entity lists for the configurations marked "fixture needed" (U5, Appendix D.6) |
-| SY1 | Discovery that does not assume one inverter or one prefix | Blocked: the SY0 fixtures (U5) |
-| SY2 | Selection rules and the wizard | Blocked: the SY0 fixtures (U5) |
-| SY3 | Docs and honesty | Blocked: the SY0 fixtures (U5) |
-| SY4 | Survive a GivTCP upgrade | Not started. Part can start after IB5 |
-| GE0 | Fixtures for the GivEnergy EV charger | Blocked: an entity list from a GivEnergy EV charger (U4) |
-| GE1 | Discover and read the charger | Not started. Can start on the documented names, with fakes labelled as such |
-| GE2 | Set the charger's mode | Blocked: a yes or no on mapping "use surplus only" to the charger's Solar mode |
-| GE3 | Docs and messages | Not started. Can start on the documented names |
-| HK1 | README accuracy | Not started |
-| HK2 | Progress notes | In the roadmap PR (`r019/roadmap`) |
-| HK3 | Outstanding browser checks | Blocked: the browser checks from the 0.18 spikes, run by the maintainer (U7) |
-| HK4 | Requirements and quality scale | Not started |
-| SP0 | The specification method | In the design docs PR |
-| SP1 | Check the charge simulation against SPEC-001 | Not started. After IB1 to IB5 |
-| SP2 | Write and review the specifications | Not started. A series, not blocking |
-| RM1 | Roadmap: the competitor review | In the roadmap PR (`r019/roadmap`) |
-| RN1 | Changelog | Not started |
-| RN2 | Release | Blocked: a rehearsal on the test instance and one dry-run night, run by the maintainer |
-| RU1 | `CLAUDE.md` | Not started |
-| RU2 | `safety.md` | Not started |
-| RU3 | The other rule files and the skills | Not started |
-| RU4 | Audit | Not started |
+Tracked in GitHub issues, starting at #304: one child per pull request group, one grandchild per card. A closed issue means the card is merged. The grouping is in [RELEASE_0.19_PLAN.md](RELEASE_0.19_PLAN.md).
 
 ## Progress on 0.18.0
 
