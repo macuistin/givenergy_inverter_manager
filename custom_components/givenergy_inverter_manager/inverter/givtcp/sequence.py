@@ -25,7 +25,14 @@ from ...core.inverter_values import ChargePlan, WriteResult
 from ...logging import get_logger
 from .constants import GIVTCP_MAX_CHARGE_TARGET_PCT, GIVTCP_MIN_CHARGE_TARGET_PCT
 from .discovery import UNUSED_SLOT_TIME
-from .writer import GivTCPWriter, SwitchState, state_as_int
+from .writer import (
+    GivTCPWriter,
+    SwitchState,
+    _number_write,
+    _select_write,
+    _switch_write,
+    state_as_int,
+)
 
 _LOG = get_logger(__name__)
 
@@ -118,14 +125,83 @@ async def apply_charge_plan(
             step=5,
         ),
     )
+    failed += _not_confirmed(writer, cfg, plan, set(failed))
     _LOG.info(
-        "Charge target write-back complete: %d%% window %s–%s enable_target=%s",
+        "Charge target write-back complete: %d%% window %s–%s enable_target=%s%s",
         target_soc,
         start_str,
         end_str,
         plan.enable_charge_target,
+        f", not confirmed: {', '.join(failed)}" if failed else "",
     )
     return WriteResult(tuple(failed))
+
+
+def _not_confirmed(
+    writer: GivTCPWriter,
+    cfg: Mapping[str, Any],
+    plan: ChargePlan,
+    already_failed: set[str],
+) -> list[str]:
+    """The settings that were sent but do not hold their value after the read-backs.
+
+    The writer counts a sent write as success even when every read-back showed the old value,
+    because GivTCP can be slow to publish. The plan is not in force until each setting holds, so
+    the caller needs to know, and to be able to send the same values again. The cooldown that
+    stops the same value being sent twice within five minutes is released for each one.
+    """
+    wanted = (
+        (
+            "enable charge schedule",
+            _switch_write(
+                cfg.get(CONF_ENABLE_CHARGE_SCHEDULE), SwitchState.ON, "enable charge schedule", 1
+            ),
+        ),
+        (
+            "charge window start",
+            _select_write(
+                cfg.get(CONF_CHARGE_START_TIME_ENTITY),
+                plan.window_start.strftime("%H:%M:%S"),
+                "charge window start",
+                2,
+            ),
+        ),
+        (
+            "charge window end",
+            _select_write(
+                cfg.get(CONF_CHARGE_END_TIME_ENTITY),
+                plan.window_end.strftime("%H:%M:%S"),
+                "charge window end",
+                3,
+            ),
+        ),
+        (
+            "charge target",
+            _number_write(
+                cfg.get(CONF_TARGET_SOC_ENTITY),
+                clamp_charge_target(plan.target_soc),
+                "charge target",
+                4,
+            ),
+        ),
+        (
+            "enable charge target",
+            _switch_write(
+                cfg.get(CONF_ENABLE_CHARGE_TARGET),
+                SwitchState.ON if plan.enable_charge_target else SwitchState.OFF,
+                "enable charge target",
+                5,
+            ),
+        ),
+    )
+    missed = []
+    for name, write in wanted:
+        if name in already_failed or not write.payload["entity_id"]:
+            continue
+        if writer.is_unconfirmed(write):
+            writer.release_cooldown(write)
+            missed.append(f"{name} (not confirmed)")
+    return missed
 
 
 async def apply_floor_target(

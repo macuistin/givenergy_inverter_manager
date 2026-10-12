@@ -370,6 +370,14 @@ class GivTCPWriter:
         """Record that this value is being written to the entity now."""
         self.last_write_time[(entity_id, value)] = time.monotonic()
 
+    def is_unconfirmed(self, write: VerifiedWrite) -> bool:
+        """True when the entity does not hold the value now, after the writer's own read-backs."""
+        return not write.matches(self._get_state(write.entity_id))
+
+    def release_cooldown(self, write: VerifiedWrite) -> None:
+        """Let the same value be sent again at once, for a retry of a write that did not take."""
+        self.last_write_time.pop(write.cooldown_key, None)
+
     # ── Lifetime register count ───────────────────────────────────────────────
 
     def _count_write(self, record: WriteRecord) -> None:

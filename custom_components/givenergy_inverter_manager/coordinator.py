@@ -48,7 +48,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.event import async_track_point_in_time, async_track_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -100,6 +100,13 @@ from .core.alt_heat_cost import heat_cost_per_kwh
 from .core.alt_heat_label import clean_label
 from .core.battery import BatteryStats, battery_cost_prompt_due
 from .core.charge_hold import HeldCharge
+from .core.charge_retry import (
+    Attempt,
+    WriteWindow,
+    latest_write_window,
+    needs_catch_up,
+    next_retry,
+)
 from .core.controller_conflict import detect_conflict
 from .core.engine import (
     Accumulators,
@@ -127,6 +134,7 @@ from .core.tariff import (
     tariff_in_force,
 )
 from .core.timeutil import elapsed_seconds
+from .core.write_log import RETRY_REASON
 from .discovery import (
     EVCharger,
     discover_ev_chargers,
@@ -273,6 +281,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.export_rate: float = 0.0
         self._unsub_charge_target: Callable[[], None] | None = None
         self._charge_target_trigger_at: tuple[int, int] | None = None
+        # The pending retry of tonight's charge write, and what it needs to run.
+        self._unsub_charge_retry: Callable[[], None] | None = None
+        self._retry_attempt = Attempt()
         self._ev_charger: EVCharger | None = None
         self._ev_base_rate = WatchState()
         self._givtcp_was_unavailable: bool = False
@@ -372,6 +383,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # from the configured tariff, one minute before, so the target is set before charging.
         self.entry.async_on_unload(self._cancel_charge_target_listener)
         self._register_charge_target_listener()
+        self.entry.async_on_unload(self._cancel_charge_retry)
         self._watch_managed_entities()
 
     def _watch_managed_entities(self) -> None:
@@ -461,6 +473,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     async def _call_service(self, domain: str, service: str, data: dict) -> None:
         """Call an HA service and wait for it to finish."""
         await self.hass.services.async_call(domain, service, data, blocking=True)
+
+    def _schedule_at(
+        self, when: datetime, action: Callable[[datetime], None]
+    ) -> Callable[[], None]:
+        """Run the @callback *action* at *when*. Returns the function that cancels it."""
+        return async_track_point_in_time(self.hass, action, when)
 
     def _create_task(self, coro) -> None:
         """Schedule a fire-and-forget coroutine as a task owned by the config entry.
@@ -630,30 +648,95 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         Write tonight's charge target and charge window to the inverter.
 
         Called once per day one minute before the cheap rate window starts. This decides
-        what to write. The backend owns the order of the writes.
+        what to write. The backend owns the order of the writes. A write that fails is tried
+        again at +2, +5, +10 and +20 minutes while enough of the window remains.
         """
+        self._cancel_charge_retry()
+        self._run_charge_write(Attempt())
+
+    def _run_charge_write(self, attempt: Attempt) -> None:
+        """Make one attempt at tonight's write. A failure schedules the next one."""
         cfg = self._effective_cfg()
         if not cfg.get(CONF_TARGET_SOC_ENTITY):
             _LOG.debug("No target SoC entity configured — skipping charge target write-back")
             return
         if self.data is None or self.data.charge_decision is None:
             _LOG.warning("No charge decision available yet — skipping charge target write-back")
+            self._schedule_charge_retry(attempt, "no charge decision yet")
             return
         if self._givtcp_frozen or self._givtcp_not_answering:
             _LOG.warning(
                 "GivTCP data is frozen, so tonight's charge target and window are not written. "
                 "The plan would come from readings that no longer move."
             )
+            self._schedule_charge_retry(attempt, "the inverter feed is not live")
             return
         decision = self.data.charge_decision
-        # The sensors catch up with what is written on the next cycle.
-        self._held_charge.release()
+        if attempt.number == 1:
+            # The sensors catch up with what is written on the next cycle.
+            self._held_charge.release()
         if decision.skip_charge:
-            self._write_minimum_target(cfg, decision)
+            self._write_minimum_target(cfg, decision, attempt)
         else:
-            self._write_overnight_target(cfg, decision)
+            self._write_overnight_target(cfg, decision, attempt)
 
-    def _write_minimum_target(self, cfg: dict, decision) -> None:
+    def _write_window(self) -> WriteWindow | None:
+        """Tonight's trigger and window end, or None for a flat tariff or an unreadable plan."""
+        tariff = build_tariff(self._effective_cfg())
+        if not tariff.rate_periods:
+            return None
+        try:
+            cheap = self._planned_window_period(tariff)
+            return latest_write_window(cheap.start, cheap.end, self._now())
+        except (AttributeError, TypeError, ValueError):
+            return None
+
+    def _schedule_charge_retry(self, attempt: Attempt, why: str) -> None:
+        """Try again at the next retry time, or say the night is given up."""
+        entity = self._effective_cfg().get(CONF_TARGET_SOC_ENTITY) or ""
+        window = attempt.window or self._write_window()
+        when = next_retry(window, self._now()) if window else None
+        attempts = attempt.number
+        plural = "" if attempts == 1 else "s"
+        if when is None:
+            note = f"gave up after {attempts} attempt{plural}: {why}"
+            _LOG.warning("Tonight's charge target was not written: %s", note)
+            self._audit.note(entity, note, RETRY_REASON)
+            return
+        local = dt_util.as_local(when)
+        note = f"attempt {attempts} failed: {why}, trying again at {local:%H:%M}"
+        _LOG.warning("Tonight's charge target write failed (%s). Trying again at %s", why, local)
+        self._audit.note(entity, note, RETRY_REASON)
+        self._retry_attempt = Attempt(window, attempts)
+        self._unsub_charge_retry = self._schedule_at(when, self._charge_retry_due)
+
+    @callback
+    def _charge_retry_due(self, _now: datetime) -> None:
+        self._unsub_charge_retry = None
+        self._run_charge_write(self._retry_attempt.next())
+
+    def _cancel_charge_retry(self) -> None:
+        if self._unsub_charge_retry is not None:
+            self._unsub_charge_retry()
+            self._unsub_charge_retry = None
+
+    async def async_catch_up_charge_write(self) -> None:
+        """After a restart inside the window, write tonight's target if it was not written.
+
+        The write log says whether the manager wrote the target since the trigger. Nothing is
+        stored for this. Outside the window, or with the write done, nothing happens.
+        """
+        entity = self._effective_cfg().get(CONF_TARGET_SOC_ENTITY)
+        window = self._write_window()
+        if not entity or window is None:
+            return
+        log = self._acc.state.register_write_log
+        if needs_catch_up(window, self._now(), log, entity):
+            _LOG.info("Restarted inside the cheap window with no charge write logged: writing now")
+            self._cancel_charge_retry()
+            self._run_charge_write(Attempt(window))
+
+    def _write_minimum_target(self, cfg: dict, decision, attempt: Attempt | None = None) -> None:
         """Write the minimum SoC as the target on a night the charge is skipped.
 
         If the old target (for example 80%) stays in GivTCP, the inverter holds the
@@ -680,10 +763,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             decision.reason,
         )
         self._create_task(
-            self._async_apply_charge_target(cfg, min_soc, _cheapest_period(tariff))
+            self._async_charge_write(cfg, min_soc, _cheapest_period(tariff), attempt or Attempt())
         )
 
-    def _write_overnight_target(self, cfg: dict, decision) -> None:
+    def _write_overnight_target(self, cfg: dict, decision, attempt: Attempt | None = None) -> None:
         """Write the calculated charge target and the planned charge window to GivTCP."""
         tariff = build_tariff(cfg)
         if not tariff.rate_periods:
@@ -709,7 +792,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             window,
             decision.reason,
         )
-        self._create_task(self._async_apply_charge_target(cfg, decision.target_soc, cheap))
+        self._create_task(
+            self._async_charge_write(cfg, decision.target_soc, cheap, attempt or Attempt())
+        )
 
     def _planned_window_period(self, tariff):
         """The cheapest period with its end moved to the planned window end.
@@ -723,13 +808,24 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return cheap
         return replace(cheap, end=window.end)
 
-    async def _async_apply_charge_target(self, cfg: dict, target_soc: int, cheap_period) -> None:
+    async def _async_charge_write(
+        self, cfg: dict, target_soc: int, cheap_period, attempt: Attempt
+    ) -> None:
+        """Send the plan. When the inverter does not take it, schedule the next attempt."""
+        if await self._async_apply_charge_target(cfg, target_soc, cheap_period):
+            if attempt.number > 1:
+                _LOG.info("Tonight's charge target was written on attempt %d", attempt.number)
+            return
+        self._schedule_charge_retry(attempt, "the inverter did not take it")
+
+    async def _async_apply_charge_target(self, cfg: dict, target_soc: int, cheap_period) -> bool:
         """Hand the backend a plan for the target and the window of cheap_period.
 
-        Runs as an async task so the backend can await each write.
+        Runs as an async task so the backend can await each write. True when every setting
+        was sent and holds its value.
         """
         plan = ChargePlan.for_target(target_soc, cheap_period.start, cheap_period.end)
-        await self._backend.apply_charge_plan(cfg, plan)
+        return (await self._backend.apply_charge_plan(cfg, plan)).ok
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

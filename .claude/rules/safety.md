@@ -32,6 +32,13 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
 - A write that the inverter does not take (every read-back shows the old value) raises the repair
   `write_not_confirmed`. It is never raised in dry run. The decision lives in
   `core/write_confirmation.py`.
+- The nightly charge write is retried at +2, +5, +10 and +20 minutes after the trigger when it
+  fails, and not when less than 15 minutes of the window would remain (`core/charge_retry.py`).
+  A write has failed when the feed is not live or a sent setting does not hold its value. Each
+  retry goes through the same writer, so it is read back, counted and held to the cooldown, which
+  a setting that did not take releases. Retries and a start-up catch-up call the backend through
+  the coordinator's dry-run check, so dry run sends nothing. Notes about retries use the write
+  log reason `retry`, and they are not writes.
 - Planning and writes stop while the feed is not live. That is a frozen feed (nothing reported for
   ten minutes, repair `givtcp_feed_frozen`), a paused GivTCP, or old data per GivTCP's `Data_Age`
   (repair `givtcp_not_answering`). The adapter judges it in `inverter/givtcp/reader.py`

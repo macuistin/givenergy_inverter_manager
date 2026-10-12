@@ -175,6 +175,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
     # Home Assistant raises ConfigEntryNotReady, with the translated UpdateFailed
     # message, when the first refresh fails.
     await coordinator.async_config_entry_first_refresh()
+    # A restart inside the cheap window loses the pending retry, so write now if it was missed.
+    await coordinator.async_catch_up_charge_write()
 
     entry.runtime_data = coordinator
 

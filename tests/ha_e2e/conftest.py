@@ -303,6 +303,24 @@ if not _PLUGIN_MISSING:
         )
 
     @pytest.fixture(autouse=True)
+    def _no_catch_up(monkeypatch):
+        """Keep the start-up catch-up write off, so setup inside the cheap window sends nothing.
+
+        Several scenarios start at 02:30 with no write logged, which is exactly when the
+        integration writes tonight's target as it starts. Most tests want a quiet setup.
+        test_write_sequence_e2e.py checks that setup calls the catch-up and runs the real one.
+        """
+
+        async def no_catch_up(self):
+            return None
+
+        monkeypatch.setattr(
+            "custom_components.givenergy_inverter_manager.coordinator."
+            "GivEnergyCoordinator.async_catch_up_charge_write",
+            no_catch_up,
+        )
+
+    @pytest.fixture(autouse=True)
     def _feed_never_frozen(monkeypatch):
         """Keep the frozen-feed check off, because most tests move the clock and publish nothing.
 

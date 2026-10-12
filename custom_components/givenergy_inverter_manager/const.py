@@ -396,6 +396,10 @@ DEFAULT_CHEAP_RATE_FLOOR_SOC = 40  # % — 0 disables the floor
 # inverter/givtcp/constants.py with the GivTCP adapter.
 # Something other than this integration is suspected of setting the charge target when the write
 # log holds at least this many outside changes with no Home Assistant user inside the window.
+# A missed nightly charge write is tried again this many minutes after the trigger, and not at all
+# when less than the stop margin of the window would remain.
+CHARGE_WRITE_RETRY_OFFSETS_MIN = (2, 5, 10, 20)
+CHARGE_WRITE_RETRY_STOP_BEFORE_END_MIN = 15
 CONFLICT_MIN_CHANGES = 2
 CONFLICT_WINDOW_DAYS = 3
 REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept in the write log

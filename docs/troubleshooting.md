@@ -183,10 +183,20 @@ Work through this list.
 1. Is the **Dry run** switch on? Then nothing is sent. A new install starts with it on, and a test instance (a `.givenergy_test_instance` file in the configuration folder) keeps it on. See [Configuration](configuration.md#dry-run). **Last Skipped Action (Dry Run)** shows what would have been written.
 2. Were the charge control entities detected? Without a target SoC entity nothing is written. The tariff step of setup shows how many of the five were found.
 3. Does the tariff have at least one timed rate period? With a flat tariff there is no cheap window and no write.
-4. The write happens once a day, one minute before the cheapest timed period starts. If your cheapest period starts at 02:00, that is 01:59. With debug logging on (see the next section), search the log for `Writing charge target`.
+4. The write happens once a day, one minute before the cheapest timed period starts. If your cheapest period starts at 02:00, that is 01:59. If it fails, it is tried again 2, 5, 10 and 20 minutes later, and the **GivTCP Register Write Count** sensor lists each failure in `recent_writes` with the reason `retry`. See [The charge write failed and was retried](#the-charge-write-failed-and-was-retried). With debug logging on (see the next section), search the log for `Writing charge target`.
 5. Is **Force Skip Overnight Charge** on? Then the minimum SoC is written as the target.
 6. Was the same entity written in the last 5 minutes? The write is skipped. With debug logging on, the log says `write cooldown active`.
 7. Check GivTCP's own log for rejected writes. If the integration's log says it wrote a value but could not confirm it, see [Writes to the inverter are not confirmed](#writes-to-the-inverter-are-not-confirmed).
+
+## The charge write failed and was retried
+
+The `recent_writes` attribute of the **GivTCP Register Write Count** sensor shows a line with the reason `retry` each time tonight's charge write failed. The value says which attempt failed, why, and when the next try is, for example `attempt 1 failed: the inverter did not take it, trying again at 02:01`. The write has failed when the inverter feed is not live (see [GivTCP data is frozen](#givtcp-data-is-frozen) and [GivTCP is not getting data from the inverter](#givtcp-is-not-getting-data-from-the-inverter)), or when a setting was sent and the inverter still shows the old value.
+
+- The retries are at +2, +5, +10 and +20 minutes after the trigger. A retry is skipped when less than 15 minutes of the window would remain.
+- Each retry writes the plan as it is then, so a charge target override you set in the meantime is what goes out.
+- If every attempt fails, the last `retry` line starts with `gave up after`, and the inverter keeps its previous target. Check [Writes to the inverter are not confirmed](#writes-to-the-inverter-are-not-confirmed) first.
+- If Home Assistant restarts inside the window and no write was logged since the trigger, the write is made once as it starts.
+- Dry run sends nothing, so nothing is retried.
 
 ## Writes to the inverter are not confirmed
 

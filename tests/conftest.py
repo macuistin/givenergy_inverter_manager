@@ -248,6 +248,7 @@ _ep.AddEntitiesCallback = MagicMock
 if "homeassistant.helpers.event" not in sys.modules:
     sys.modules["homeassistant.helpers.event"] = types.ModuleType("homeassistant.helpers.event")
 sys.modules["homeassistant.helpers.event"].async_track_time_change = lambda *a, **kw: lambda: None
+sys.modules["homeassistant.helpers.event"].async_track_point_in_time = lambda *a, **kw: lambda: None
 sys.modules["homeassistant.helpers.event"].async_track_state_change_event = (
     lambda *a, **kw: lambda: None
 )

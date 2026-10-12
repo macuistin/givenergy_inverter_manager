@@ -43,6 +43,7 @@ from custom_components.givenergy_inverter_manager.const import (
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
+from custom_components.givenergy_inverter_manager.core.charge_retry import Attempt
 from custom_components.givenergy_inverter_manager.core.charge_window import ChargeWindow
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.ev_base_rate import WatchState
@@ -59,6 +60,7 @@ from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import 
 from custom_components.givenergy_inverter_manager.unconfirmed_write_repair import (
     UnconfirmedWriteRepair,
 )
+from custom_components.givenergy_inverter_manager.write_audit import WriteAudit
 from tests.conftest import _nightboost_cfg, _raw
 from tests.helpers import PKG
 
@@ -267,6 +269,7 @@ class FakeCoordinator(GivEnergyCoordinator):
                 pass
 
         self._acc = _FakeAccStore()
+        self._audit = WriteAudit(self._acc, now=lambda: self._now())
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
@@ -284,6 +287,9 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._givtcp_was_unavailable: bool = False
         self._givtcp_frozen: bool = False
         self._givtcp_not_answering: bool = False
+        self._unsub_charge_retry = None
+        self._retry_attempt = Attempt()
+        self.scheduled: list[tuple[datetime, object]] = []
         self._inputs_unavailable_since = None
         self.immersion = ImmersionActuator(self._immersion_ports())
         self._dry_run_last_skipped: str = ""
@@ -332,6 +338,12 @@ class FakeCoordinator(GivEnergyCoordinator):
 
     def _create_task(self, coro):
         self.tasks_created.append(coro)
+
+    def _schedule_at(self, when, action):
+        """Record the retry instead of asking Home Assistant for a timer."""
+        entry = (when, action)
+        self.scheduled.append(entry)
+        return lambda: self.scheduled.remove(entry)
 
     # ── Test helpers ──────────────────────────────────────────────────────────
 

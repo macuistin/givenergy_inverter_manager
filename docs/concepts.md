@@ -41,7 +41,7 @@ Three things happen on a clock instead of in the cycle.
 | When | What |
 |---|---|
 | 00:00:00 local time | Daily reset. Today moves to yesterday. Monday also resets the week. The bill start day also resets the month and saves a snapshot. 1 January also resets the year. |
-| One minute before the cheapest timed rate period starts, once a day | Write the charge target and window to GivTCP |
+| One minute before the cheapest timed rate period starts, once a day | Write the charge target and window to GivTCP. A write that fails is tried again 2, 5, 10 and 20 minutes later |
 | Every tenth cycle (about 5 minutes) and at midnight | Save accumulated energy and battery statistics |
 | Entry unload and Home Assistant stop | Save accumulated energy and battery statistics |
 

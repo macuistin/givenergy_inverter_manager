@@ -60,6 +60,10 @@ class WriteAudit:
             WriteLogEntry(self._now().isoformat(), record.entity_id, record.value, record.reason)
         )
 
+    def note(self, entity_id: str, value: str, reason: str) -> None:
+        """Log a note about the manager's own plan, such as a retry. It is not a write."""
+        self._append(WriteLogEntry(self._now().isoformat(), entity_id, value, reason))
+
     def watch(self, hass: HomeAssistant, entity_ids: Iterable[str]) -> Callable[[], None]:
         """Listen for outside changes to these entities. Returns the function that stops it."""
         return async_track_state_change_event(hass, list(entity_ids), self._on_state_change)
