@@ -1,8 +1,9 @@
-# Design notes for 0.18.0
+# Design notes
 
-Notes that record decisions and the evidence behind them. They move with the code: a pull request that changes a decision updates the note.
+Notes that last as long as the code they describe: the decisions behind it and the evidence for them. They move with the code, so a pull request that changes a decision updates the note.
 
-- [PROGRESS.md](PROGRESS.md): one line per card, and the open questions.
+Plans, designs for features that are not built yet, and specifications from other projects are GitHub issues, so they can be commented on and closed as they are done. They are not kept here. The planned work and its status are in [ROADMAP.md](../../ROADMAP.md), and each roadmap row links to its design issue.
+
 - Spikes, each with question, method, result, evidence and the decision it supports:
   - [SP1: creating a persistent dashboard](spikes/SP1.md)
   - [SP2: the server-side admin check and what needs a browser](spikes/SP2.md)
