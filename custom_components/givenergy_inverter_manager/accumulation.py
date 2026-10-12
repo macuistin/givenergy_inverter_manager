@@ -346,6 +346,10 @@ class AccumulationStore:
         self._store = _create_store(hass)
         self._bill_start_day = bill_start_day
         self.state = AccumulationState()
+        # Nothing is written until the stored state has been read. A save queued before then
+        # would be handed back by the store as if it were what is on disk, and it would replace
+        # the totals.
+        self._loaded = False
 
     # ── Convenience properties ────────────────────────────────────────────────
 
@@ -468,6 +472,12 @@ class AccumulationStore:
 
     async def async_load(self) -> None:
         """Restore state from HA storage. Safe to call even if no data exists."""
+        try:
+            await self._read_store()
+        finally:
+            self._loaded = True
+
+    async def _read_store(self) -> None:
         data = await self._store.async_load()
         if data is None:
             _LOG.debug("No stored accumulation data — starting fresh")
@@ -485,14 +495,22 @@ class AccumulationStore:
             self.state = AccumulationState()
 
     async def async_save(self) -> None:
-        """Persist current state to HA storage."""
+        """Persist current state to HA storage. Does nothing before the stored state is read."""
+        if not getattr(self, "_loaded", True):
+            return
         try:
             await self._store.async_save(_serialize(self.state))
         except Exception as err:
             _LOG.warning("Could not save accumulation state: %s", err)
 
     def schedule_save(self) -> None:
-        """Queue a save. HA writes it after a short delay, or at shutdown if still pending."""
+        """Queue a save. HA writes it after a short delay, or at shutdown if still pending.
+
+        Does nothing before the stored state is read: the store would return a queued save in
+        place of the file, and the empty state would overwrite the saved totals.
+        """
+        if not getattr(self, "_loaded", True):
+            return
         self._store.async_delay_save(lambda: _serialize(self.state), _SAVE_DELAY_SECONDS)
 
     # ── Event handlers ────────────────────────────────────────────────────────

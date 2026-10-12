@@ -349,6 +349,7 @@ class TestPersistence:
         store.state.today.solar_kwh = 12.5
         store.state.week.solar_kwh = 55.3
         store.state.month.import_kwh = 88.1
+        store._loaded = True  # a running store has read what was saved before it writes
         asyncio.run(store.async_save())
 
         store2 = self._make_store(shared)
@@ -1051,6 +1052,7 @@ class TestScheduleSave:
 
         store = AccumulationStore(MagicMock(), bill_start_day=1)
         store._store = MagicMock()
+        store._loaded = True  # a running store has read what was saved before it writes
 
         store.schedule_save()
         store.state.today.solar_kwh = 7.0
