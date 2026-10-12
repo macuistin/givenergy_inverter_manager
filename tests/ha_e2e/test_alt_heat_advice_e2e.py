@@ -140,7 +140,7 @@ class TestAddedLater:
         hass = hass_in_scenario
         await set_up(hass, config_entry)
         await save_alt_options(hass, config_entry, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL})
-        result = await options_wizard(hass, config_entry, {"battery": {"battery_min_soc_pct": 12}})
+        result = await options_wizard(hass, config_entry, {"charge_planning": {"battery_min_soc_pct": 12}})
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert config_entry.options[CONF_ALT_HEAT_COST] == pytest.approx(CHEAP_OIL)
         assert sensor_id(hass, config_entry) is not None

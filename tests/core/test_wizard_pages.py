@@ -11,7 +11,9 @@ from custom_components.givenergy_inverter_manager.core.wizard_model import Mode,
 from custom_components.givenergy_inverter_manager.core.wizard_pages import (
     alt_heat_label_errors,
     battery_summary,
+    charge_planning_summary,
     clean_battery,
+    clean_charge_planning,
     clean_ev,
     clean_forecast,
     clean_hot_water,
@@ -22,7 +24,7 @@ from custom_components.givenergy_inverter_manager.core.wizard_pages import (
     missing_wiring,
     sensor_check,
     unavailable_wiring,
-    validate_battery,
+    validate_charge_planning,
     validate_forecast,
     validate_hot_water,
 )
@@ -85,8 +87,6 @@ class TestBattery:
             {
                 "battery_capacity_kwh": "13.5",
                 "inverter_max_output_kw": 3.6,
-                "battery_min_soc_pct": 12.0,
-                "overnight_charge_target_pct": 90,
                 "battery_cost_eur": 4500,
                 "battery_throughput_budget_kwh": 0,
             }
@@ -95,29 +95,69 @@ class TestBattery:
         assert cleaned == {
             "battery_capacity_kwh": 13.5,
             "inverter_max_output_kw": 3.6,
-            "battery_min_soc_pct": 12,
-            "overnight_charge_target_pct": 90,
             "battery_cost_eur": 4500.0,
             "battery_throughput_budget_kwh": 0.0,
         }
-        assert clean_battery({"battery_min_soc_pct": 12}) == {"battery_min_soc_pct": 12}
+        assert clean_battery({"battery_capacity_kwh": 12}) == {"battery_capacity_kwh": 12.0}
         assert clean_battery({}) == {}
 
+    def test_the_battery_page_no_longer_stores_the_charge_planning_values(self):
+        assert clean_battery({"battery_min_soc_pct": 12, "overnight_charge_target_pct": 90}) == {}
+
+
+class TestChargePlanning:
+    def test_the_values_are_numbers_and_only_what_was_sent_is_stored(self):
+        cleaned = clean_charge_planning(
+            {"battery_min_soc_pct": 12.0, "overnight_charge_target_pct": 90}
+        )
+
+        assert cleaned == {"battery_min_soc_pct": 12, "overnight_charge_target_pct": 90}
+        assert clean_charge_planning({"battery_min_soc_pct": 12}) == {"battery_min_soc_pct": 12}
+        assert clean_charge_planning({}) == {}
+
+    def test_the_seasons_are_sorted_months_and_a_bool(self):
+        cleaned = clean_charge_planning(
+            {
+                "charge_winter_months": ["12", "1", "2"],
+                "charge_shoulder_months": ["4", "3"],
+                "charge_winter_uses_forecast": 1,
+            }
+        )
+        assert cleaned == {
+            "charge_winter_months": [1, 2, 12],
+            "charge_shoulder_months": [3, 4],
+            "charge_winter_uses_forecast": True,
+        }
+
+    def test_a_month_in_both_lists_is_an_error(self):
+        result = validate_charge_planning(
+            {"charge_winter_months": ["1"], "charge_shoulder_months": ["1", "2"]}, _ctx()
+        )
+        assert result.errors == {"base": "season_months_overlap"}
+
+    def test_the_summary_names_the_minimum_and_the_cap(self):
+        assert (
+            charge_planning_summary(
+                {"battery_min_soc_pct": 12, "overnight_charge_target_pct": 90}
+            )
+            == "minimum charge 12%, overnight cap 90%"
+        )
+
     def test_a_floor_below_the_new_minimum_warns_but_never_blocks(self):
-        result = validate_battery({"battery_min_soc_pct": 20}, _ctx(current={"cheap_rate_floor_soc": 15}))
+        result = validate_charge_planning({"battery_min_soc_pct": 20}, _ctx(current={"cheap_rate_floor_soc": 15}))
 
         assert result.errors == {}
         assert len(result.warnings) == 1
         assert "Cheap rate floor SoC" in result.warnings[0]
 
     def test_a_floor_of_zero_is_off_and_never_warns(self):
-        result = validate_battery({"battery_min_soc_pct": 20}, _ctx(current={"cheap_rate_floor_soc": 0}))
+        result = validate_charge_planning({"battery_min_soc_pct": 20}, _ctx(current={"cheap_rate_floor_soc": 0}))
 
         assert result.warnings == ()
 
     def test_the_default_floor_is_checked_when_none_is_saved(self):
-        assert validate_battery({"battery_min_soc_pct": 30}, _ctx()).warnings == ()
-        assert validate_battery({"battery_min_soc_pct": 45}, _ctx()).warnings != ()
+        assert validate_charge_planning({"battery_min_soc_pct": 30}, _ctx()).warnings == ()
+        assert validate_charge_planning({"battery_min_soc_pct": 45}, _ctx()).warnings != ()
 
     def test_the_summary_names_the_capacity_and_the_inverter(self):
         assert (

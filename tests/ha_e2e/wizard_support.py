@@ -91,7 +91,8 @@ PAGE_OF_STEP = {
     "bill": "tariff",
     "schedule_change": "tariff",
     "battery": "battery",
-    "forecast": "forecast",
+    "charge_planning": "charge_planning",
+    "forecast": "charge_planning",
     "hot_water": "hot_water",
     "ev": "ev",
 }
@@ -117,6 +118,9 @@ async def options_wizard(hass, entry, steps: dict[str, dict[str, Any]], *, confi
     tick boxes follow the tariff steps listed. A step the wizard shows that is not listed fails
     the test. The confirm step is submitted when it is shown and *confirm* is true.
     """
+    if "charge_planning" in steps or "forecast" in steps:
+        # The solar forecast screen always follows the charge planning screen.
+        steps = {"charge_planning": {}, **steps, **{"forecast": steps.get("forecast", {})}}
     result = await open_options(hass, entry, steps)
     manager = hass.config_entries.options
     seen: list[str] = []
@@ -151,7 +155,7 @@ async def walk_options_forms(hass, entry) -> dict[str, dict]:
     forms: dict[str, dict] = {}
     result = await manager.async_init(entry.entry_id)
     forms["init"] = {"fields": serialised(result), "result": result}
-    pages = ["tariff", "battery", "forecast", "hot_water", "ev"]
+    pages = ["tariff", "battery", "charge_planning", "hot_water", "ev"]
     result = await manager.async_configure(result["flow_id"], user_input={"pages": pages})
     while result["type"] is FlowResultType.FORM:
         step_id = result["step_id"]

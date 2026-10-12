@@ -40,7 +40,7 @@ OPTIONAL_ENTITY_KEYS = (
     CONF_FORECAST_ENTITY_D2,
     CONF_CARBON_INTENSITY_ENTITY,
 )
-PAGES = ("tariff", "battery", "forecast", "hot_water", "ev")
+PAGES = ("tariff", "battery", "charge_planning", "hot_water", "ev")
 
 
 @pytest.fixture
@@ -277,10 +277,20 @@ async def test_the_battery_page_has_every_field_with_a_default(hass, loaded_entr
     assert set(fields) == {
         "battery_capacity_kwh",
         "inverter_max_output_kw",
-        "battery_min_soc_pct",
-        "overnight_charge_target_pct",
         "battery_cost_eur",
         "battery_throughput_budget_kwh",
+    }
+    assert all("default" in field for field in fields.values())
+    manager(hass).async_abort(result["flow_id"])
+
+
+async def test_the_charge_planning_page_has_every_field_with_a_default(hass, loaded_entry):
+    result = await open_options(hass, loaded_entry, {"charge_planning": {}})
+
+    fields = {f["name"]: f for f in serialised(result)}
+    assert set(fields) == {
+        "battery_min_soc_pct",
+        "overnight_charge_target_pct",
         "charge_winter_months",
         "charge_shoulder_months",
         "charge_winter_uses_forecast",
@@ -290,21 +300,33 @@ async def test_the_battery_page_has_every_field_with_a_default(hass, loaded_entr
     manager(hass).async_abort(result["flow_id"])
 
 
-async def test_the_battery_page_warns_once_when_the_floor_is_below_the_minimum(
+async def test_the_solar_forecast_screen_follows_the_charge_planning_screen(hass, loaded_entry):
+    result = await open_options(hass, loaded_entry, {"charge_planning": {}})
+    assert result["step_id"] == "charge_planning"
+
+    result = await submit(manager(hass), result)
+
+    assert result["step_id"] == "forecast"
+    assert {f["name"] for f in serialised(result)} == set(OPTIONAL_ENTITY_KEYS)
+    manager(hass).async_abort(result["flow_id"])
+
+
+async def test_the_charge_planning_page_warns_once_when_the_floor_is_below_the_minimum(
     hass, loaded_entry
 ):
     hass.config_entries.async_update_entry(
         loaded_entry, options={**loaded_entry.options, "cheap_rate_floor_soc": 12}
     )
-    result = await open_options(hass, loaded_entry, {"battery": {}})
+    result = await open_options(hass, loaded_entry, {"charge_planning": {}})
 
     result = await submit(manager(hass), result, battery_min_soc_pct=20)
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "battery"
+    assert result["step_id"] == "charge_planning"
     assert "Cheap rate floor SoC" in result["description_placeholders"]["warnings"]
     assert "battery_min_soc_pct" not in loaded_entry.options
 
     result = await submit(manager(hass), result, battery_min_soc_pct=20)
+    result = await submit(manager(hass), result)  # the solar forecast screen
     await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert loaded_entry.options["battery_min_soc_pct"] == 20
@@ -318,6 +340,12 @@ async def test_a_zero_throughput_budget_survives_reopening_the_page(hass, loaded
     result = await open_options(hass, loaded_entry, {"battery": {}})
     assert initial_data(serialised(result))["battery_throughput_budget_kwh"] == 0
     manager(hass).async_abort(result["flow_id"])
+
+
+async def _open_forecast(hass, entry):
+    """The solar forecast screen, which follows the charge planning screen."""
+    result = await open_options(hass, entry, {"charge_planning": {}})
+    return await submit(manager(hass), result)
 
 
 async def test_an_emptied_forecast_and_carbon_selection_is_accepted(hass, loaded_entry):
@@ -339,7 +367,16 @@ async def test_the_pages_reopen_after_an_emptied_submission(hass, loaded_entry):
 
     forms = await walk_options_forms(hass, loaded_entry)
 
-    assert set(forms) >= {"init", "tariff", "battery", "forecast", "hot_water", "ev", "confirm"}
+    assert set(forms) >= {
+        "init",
+        "tariff",
+        "battery",
+        "charge_planning",
+        "forecast",
+        "hot_water",
+        "ev",
+        "confirm",
+    }
     for step_id, form in forms.items():
         assert form["fields"] or step_id == "confirm"
 
@@ -351,7 +388,7 @@ async def test_a_cleared_forecast_stays_cleared_when_the_page_reopens(hass, load
     await options_wizard(hass, loaded_entry, {"forecast": {CONF_FORECAST_ENTITY: None}})
     assert not loaded_entry.runtime_data._effective_cfg().get(CONF_FORECAST_ENTITY)
 
-    result = await open_options(hass, loaded_entry, {"forecast": {}})
+    result = await _open_forecast(hass, loaded_entry)
     suggested = {
         f["name"]: (f.get("description") or {}).get("suggested_value") for f in serialised(result)
     }
@@ -360,7 +397,7 @@ async def test_a_cleared_forecast_stays_cleared_when_the_page_reopens(hass, load
 
 
 async def test_the_forecast_page_says_what_was_found_and_what_the_sensors_read(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"forecast": {}})
+    result = await _open_forecast(hass, loaded_entry)
 
     placeholders = result["description_placeholders"]
     assert placeholders["detected"] == "Found Forecast.Solar: sensor.energy_production_tomorrow."

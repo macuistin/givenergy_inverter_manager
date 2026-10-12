@@ -85,7 +85,7 @@ if TYPE_CHECKING:
 # the only mandatory part of setup, so it has no tick. The EV charger has no setup page: it is
 # found by itself.
 SETUP_PAGES: tuple[str, ...] = ("tariff", "forecast", "hot_water")
-OPTION_PAGES: tuple[str, ...] = ("tariff", "battery", "forecast", "hot_water", "ev")
+OPTION_PAGES: tuple[str, ...] = ("tariff", "battery", "charge_planning", "hot_water", "ev")
 
 # Each page and the flat config keys it owns. The rate count of the tariff page is derived from
 # rate_periods and never stored.
@@ -105,10 +105,12 @@ PAGE_KEYS: dict[str, tuple[str, ...]] = {
     "battery": (
         CONF_BATTERY_CAPACITY,
         CONF_INVERTER_MAX_OUTPUT,
-        CONF_BATTERY_MIN_SOC,
-        CONF_OVERNIGHT_CHARGE_TARGET,
         CONF_BATTERY_COST,
         CONF_BATTERY_THROUGHPUT_BUDGET,
+    ),
+    "charge_planning": (
+        CONF_BATTERY_MIN_SOC,
+        CONF_OVERNIGHT_CHARGE_TARGET,
         CONF_CHARGE_WINTER_MONTHS,
         CONF_CHARGE_SHOULDER_MONTHS,
         CONF_CHARGE_WINTER_USES_FORECAST,
@@ -133,9 +135,11 @@ PAGE_KEYS: dict[str, tuple[str, ...]] = {
     "ev": (CONF_CAR_EFFICIENCY_KWH_PER_100KM,),
 }
 
-# The steps each checklist page runs through. Only the tariff has more than one.
+# The steps each checklist page runs through. The tariff has up to four. Charge planning has two:
+# the planning settings, then the solar forecast sensors, because the forecast shapes the plan.
 PAGE_STEPS: dict[str, tuple[str, ...]] = {
     "tariff": ("tariff", "tariff_rates", "bill", "schedule_change"),
+    "charge_planning": ("charge_planning", "forecast"),
 }
 
 # The keys a checklist page may write, the review date and the dated changes included.

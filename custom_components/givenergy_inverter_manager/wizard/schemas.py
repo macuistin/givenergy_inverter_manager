@@ -267,7 +267,7 @@ def _month_values(ctx: PageContext, key: str) -> list[str]:
 
 
 def battery_schema(ctx: PageContext) -> vol.Schema:
-    """Capacity, inverter output, minimum charge, overnight cap, cost and throughput budget."""
+    """Capacity, inverter output, cost and throughput budget."""
     currency = _currency(ctx)
     return vol.Schema(
         {
@@ -278,18 +278,26 @@ def battery_schema(ctx: PageContext) -> vol.Schema:
                 CONF_INVERTER_MAX_OUTPUT, default=float(_value(ctx, CONF_INVERTER_MAX_OUTPUT))
             ): number_selector(CONF_INVERTER_MAX_OUTPUT),
             vol.Optional(
-                CONF_BATTERY_MIN_SOC, default=_value(ctx, CONF_BATTERY_MIN_SOC)
-            ): number_selector(CONF_BATTERY_MIN_SOC),
-            vol.Optional(
-                CONF_OVERNIGHT_CHARGE_TARGET, default=_value(ctx, CONF_OVERNIGHT_CHARGE_TARGET)
-            ): number_selector(CONF_OVERNIGHT_CHARGE_TARGET),
-            vol.Optional(
                 CONF_BATTERY_COST, default=float(_value(ctx, CONF_BATTERY_COST))
             ): battery_cost_selector(currency),
             vol.Optional(
                 CONF_BATTERY_THROUGHPUT_BUDGET,
                 default=float(_value(ctx, CONF_BATTERY_THROUGHPUT_BUDGET)),
             ): number_selector(CONF_BATTERY_THROUGHPUT_BUDGET),
+        }
+    )
+
+
+def charge_planning_schema(ctx: PageContext) -> vol.Schema:
+    """Minimum charge, overnight cap, the winter and shoulder months and winter behaviour."""
+    return vol.Schema(
+        {
+            vol.Optional(
+                CONF_BATTERY_MIN_SOC, default=_value(ctx, CONF_BATTERY_MIN_SOC)
+            ): number_selector(CONF_BATTERY_MIN_SOC),
+            vol.Optional(
+                CONF_OVERNIGHT_CHARGE_TARGET, default=_value(ctx, CONF_OVERNIGHT_CHARGE_TARGET)
+            ): number_selector(CONF_OVERNIGHT_CHARGE_TARGET),
             vol.Optional(
                 CONF_CHARGE_WINTER_MONTHS, default=_month_values(ctx, CONF_CHARGE_WINTER_MONTHS)
             ): months_selector(),

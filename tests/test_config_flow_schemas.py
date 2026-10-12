@@ -112,6 +112,7 @@ def _all_schemas(schemas, wizard_model, mode):
         "bill": schemas.bill_schema(ctx),
         "schedule": schemas.schedule_schema(ctx),
         "battery": schemas.battery_schema(ctx),
+        "charge_planning": schemas.charge_planning_schema(ctx),
         "forecast": schemas.forecast_schema(ctx),
         "hot_water": schemas.hot_water_schema(ctx),
         "ev": schemas.ev_schema(ctx),
@@ -141,7 +142,7 @@ class TestSchemaConstruction:
 
         assert validated["rate_count"] == "2"
 
-    def test_the_battery_schema_takes_months_as_strings_and_defaults_from_latitude(
+    def test_the_charge_planning_schema_takes_months_as_strings_and_defaults_from_latitude(
         self, real_ha_selector, real_vol
     ):
         schemas, model = _wizard(real_ha_selector, real_vol)
@@ -150,19 +151,19 @@ class TestSchemaConstruction:
         north = model.PageContext(model.Mode.OPTIONS, date(2031, 6, 15), latitude=53.3)
         south = model.PageContext(model.Mode.OPTIONS, date(2031, 6, 15), latitude=-33.9)
 
-        defaults = schemas.battery_schema(north)({})
-        southern = schemas.battery_schema(south)({})
+        defaults = schemas.charge_planning_schema(north)({})
+        southern = schemas.charge_planning_schema(south)({})
 
         assert defaults["charge_winter_months"] == ["1", "2", "12"]
         assert defaults["charge_shoulder_months"] == ["3", "4", "10", "11"]
         assert defaults["charge_winter_uses_forecast"] is False
         assert southern["charge_winter_months"] == ["6", "7", "8"]
 
-    def test_the_battery_schema_accepts_an_empty_month_list_and_refuses_a_bad_month(
+    def test_the_charge_planning_schema_accepts_an_empty_month_list_and_refuses_a_bad_month(
         self, real_ha_selector, real_vol
     ):
         schemas, model = _wizard(real_ha_selector, real_vol)
-        schema = schemas.battery_schema(_ctx(model, "options"))
+        schema = schemas.charge_planning_schema(_ctx(model, "options"))
 
         assert schema({"charge_winter_months": []})["charge_winter_months"] == []
         with pytest.raises(real_vol.error.MultipleInvalid):

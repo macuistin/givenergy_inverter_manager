@@ -48,12 +48,15 @@ from ..core.wizard_model import (
 )
 from ..core.wizard_pages import (
     battery_summary,
+    charge_planning_summary,
     clean_battery,
+    clean_charge_planning,
     clean_ev,
     ev_summary,
     forecast_summary,
     hot_water_summary,
     validate_battery,
+    validate_charge_planning,
 )
 from ..core.wizard_tariff import (
     clean_bill,
@@ -81,6 +84,7 @@ from .schemas import (
     SCHEDULE_CHANGE,
     battery_schema,
     bill_schema,
+    charge_planning_schema,
     ev_schema,
     rates_schema,
     schedule_schema,
@@ -90,8 +94,8 @@ from .selectors import PAGES_KEY, checklist_selector, currency_code
 
 PAGE_TITLES: dict[str, str] = {
     "tariff": "Tariff",
-    "battery": "Battery and charging",
-    "forecast": "Solar forecast",
+    "battery": "Battery",
+    "charge_planning": "Charge planning",
     "hot_water": "Hot water",
     "ev": "EV charger",
 }
@@ -145,7 +149,8 @@ class OptionsSteps(WizardPages):
     def _total_steps(self) -> int:
         """The checklist, every step of the ticked pages, and the confirm step when it is shown."""
         pages = self._ticked or ["tariff"]
-        return 1 + len(pages) + self._extra_steps + (0 if len(pages) == 1 else 1)
+        forecast_step = 1 if "charge_planning" in pages else 0
+        return 1 + len(pages) + self._extra_steps + forecast_step + (0 if len(pages) == 1 else 1)
 
     def _is_last_form(self) -> bool:
         """True when this form is the last one and the confirm step may be skipped."""
@@ -158,7 +163,10 @@ class OptionsSteps(WizardPages):
         return {
             "tariff": tariff_page_summary(current),
             "battery": battery_summary(current),
-            "forecast": forecast_summary(current),
+            "charge_planning": (
+                f"{charge_planning_summary(current)}, {forecast_summary(current)}"
+            ),
+
             "hot_water": hot_water_summary(current),
             "ev": ev_summary(current),
         }
@@ -213,7 +221,10 @@ class OptionsSteps(WizardPages):
         if step_id == "tariff":
             self._plan_tariff_steps(flat)
             return await self._next_substep()
-        if step_id in PAGE_STEPS["tariff"]:
+        if step_id == "charge_planning":
+            self._substeps = ["forecast"]
+            return await self._next_substep()
+        if step_id == "forecast" or step_id in PAGE_STEPS["tariff"]:
             return await self._next_substep()
         return await self._next_page()
 
@@ -307,7 +318,7 @@ class OptionsSteps(WizardPages):
     # ── the other pages ───────────────────────────────────────────────────────
 
     async def async_step_battery(self, user_input: dict[str, Any] | None = None) -> Any:
-        """Capacity, inverter output, minimum charge, overnight cap, cost, throughput budget."""
+        """Capacity, inverter output, cost and throughput budget."""
         ctx = self._ctx()
         view = PageView(
             "battery",
@@ -315,6 +326,22 @@ class OptionsSteps(WizardPages):
             lambda flat: validate_battery(flat, ctx),
             clean_battery,
             last_step=self._is_last_form(),
+        )
+        return await self._page(user_input, view)
+
+    async def async_step_charge_planning(self, user_input: dict[str, Any] | None = None) -> Any:
+        """Minimum charge, overnight cap, the winter and shoulder months and winter behaviour.
+
+        The solar forecast sensors follow on the next screen: this page and that one together
+        are what the overnight plan is worked out from.
+        """
+        ctx = self._ctx()
+        view = PageView(
+            "charge_planning",
+            charge_planning_schema(ctx),
+            lambda flat: validate_charge_planning(flat, ctx),
+            clean_charge_planning,
+            last_step=False,  # the solar forecast screen always follows
         )
         return await self._page(user_input, view)
 

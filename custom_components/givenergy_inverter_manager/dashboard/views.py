@@ -188,6 +188,22 @@ def _has_inverter_temp(hass: HomeAssistant, cfg: dict) -> bool:
     return any(hass.states.get(entity_id) is not None for entity_id in candidates)
 
 
+# What each tuning control does, shown above them on the Settings view.
+_TUNING_NOTE = (
+    "**What these do**\n\n"
+    "- **Cheap rate floor**: during the cheapest rate the battery is topped up to this level when "
+    "it falls below it. 0 turns the top-up off.\n"
+    "- **Skip charge above**: when the battery is above this level and tomorrow's solar forecast "
+    "is good, tonight's grid charge is skipped.\n"
+    "- **Forecast caution**: how far the plan moves from the typical solar forecast towards the "
+    "low one. 0 trusts the typical forecast, 1 plans on the low one.\n"
+    "- **Re-plan charge**: off by default. When on, the overnight target is worked out again while "
+    "the cheap window is open, and a changed target is written, at most three times a night. "
+    "With Dry run on it only records what it would write.\n"
+    "- **Verbose logging**: writes per-cycle detail to the log at debug level."
+)
+
+
 class Builder:
     """Builds the sections of each view from the entities that exist.
 
@@ -1188,6 +1204,7 @@ class Builder:
         return group(
             heading_card("Tuning", "mdi:tune-variant"),
             [
+                markdown_card(_TUNING_NOTE),
                 slider_tile(self.entity("cheap_rate_floor_soc"), "Cheap rate floor", BATTERY),
                 slider_tile(
                     self.entity("skip_charge_soc_threshold_pct"), "Skip charge above", BATTERY

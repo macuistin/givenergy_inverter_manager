@@ -3841,11 +3841,11 @@
        },
        {
         "value": "battery",
-        "label": "Battery and charging: battery 9.5 kWh, inverter 5 kW"
+        "label": "Battery: battery 9.5 kWh, inverter 5 kW"
        },
        {
-        "value": "forecast",
-        "label": "Solar forecast: forecast sensor: sensor.energy_production_tomorrow"
+        "value": "charge_planning",
+        "label": "Charge planning: minimum charge 10%, overnight cap 80%, forecast sensor: sensor.energy_production_tomorrow"
        },
        {
         "value": "hot_water",
@@ -3873,7 +3873,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 2 of about 7.",
+   "progress": "Step 2 of about 8.",
    "warnings": "",
    "tariff_summary": "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00. Your bill runs from the 16th to the 15th."
   },
@@ -3971,7 +3971,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 3 of about 10.",
+   "progress": "Step 3 of about 11.",
    "warnings": ""
   },
   "fields": [
@@ -4032,7 +4032,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 4 of about 10.",
+   "progress": "Step 4 of about 11.",
    "warnings": ""
   },
   "fields": [
@@ -4178,7 +4178,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 5 of about 10.",
+   "progress": "Step 5 of about 11.",
    "warnings": ""
   },
   "fields": [
@@ -4197,7 +4197,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 6 of about 10.",
+   "progress": "Step 6 of about 11.",
    "warnings": ""
   },
   "fields": [
@@ -4234,36 +4234,6 @@
    {
     "selector": {
      "number": {
-      "min": 5.0,
-      "max": 30.0,
-      "step": 1.0,
-      "unit_of_measurement": "%",
-      "mode": "slider"
-     }
-    },
-    "name": "battery_min_soc_pct",
-    "required": false,
-    "optional": true,
-    "default": 10
-   },
-   {
-    "selector": {
-     "number": {
-      "min": 20.0,
-      "max": 100.0,
-      "step": 1.0,
-      "unit_of_measurement": "%",
-      "mode": "slider"
-     }
-    },
-    "name": "overnight_charge_target_pct",
-    "required": false,
-    "optional": true,
-    "default": 80
-   },
-   {
-    "selector": {
-     "number": {
       "min": 0.0,
       "max": 20000.0,
       "step": 100.0,
@@ -4290,6 +4260,47 @@
     "required": false,
     "optional": true,
     "default": 0.0
+   }
+  ]
+ },
+ "options_data_only.charge_planning": {
+  "step_id": "charge_planning",
+  "last_step": false,
+  "errors": {},
+  "placeholders": {
+   "progress": "Step 7 of about 11.",
+   "warnings": ""
+  },
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 5.0,
+      "max": 30.0,
+      "step": 1.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "battery_min_soc_pct",
+    "required": false,
+    "optional": true,
+    "default": 10
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 20.0,
+      "max": 100.0,
+      "step": 1.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "overnight_charge_target_pct",
+    "required": false,
+    "optional": true,
+    "default": 80
    },
    {
     "selector": {
@@ -4444,7 +4455,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 7 of about 10.",
+   "progress": "Step 8 of about 11.",
    "warnings": "",
    "detected": "No Solcast or Forecast.Solar sensor was found.",
    "check": "- sensor.energy_production_tomorrow does not exist.\n- sensor.solcast_pv_forecast_forecast_tomorrow_10 reads 9.8 kWh.\n- sensor.solcast_pv_forecast_forecast_day_3 reads 11.0 kWh.\n- sensor.grid_carbon_intensity reads 187 g/kWh."
@@ -4525,7 +4536,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 8 of about 10.",
+   "progress": "Step 9 of about 11.",
    "warnings": "",
    "candidates": "Switches that look like an immersion heater: switch.immersion_heater.",
    "check": "- switch.immersion_heater reads off.\n- sensor.hot_water_cylinder_temperature reads 48.2 °C."
@@ -4675,7 +4686,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 9 of about 10.",
+   "progress": "Step 10 of about 11.",
    "warnings": "",
    "charger": "No EV charger was found. One is picked up by itself when it appears."
   },
@@ -4704,7 +4715,7 @@
   "placeholders": {
    "changes": "- Tariff last confirmed: not set to 2026-06-15\n- Time-of-day rates: Night 0.1644 (23:00 to 08:00), Nightboost 0.0965 (02:00 to 04:00) to Night 0.1000 (23:00 to 08:00)\n\nApplies now. The integration does not reload.",
    "warnings": "",
-   "progress": "Step 10 of about 10."
+   "progress": "Step 11 of about 11."
   },
   "fields": []
  },
@@ -4726,11 +4737,11 @@
        },
        {
         "value": "battery",
-        "label": "Battery and charging: battery 9.5 kWh, inverter 5 kW"
+        "label": "Battery: battery 9.5 kWh, inverter 5 kW"
        },
        {
-        "value": "forecast",
-        "label": "Solar forecast: forecast: none, a seasonal estimate is used"
+        "value": "charge_planning",
+        "label": "Charge planning: minimum charge 10%, overnight cap 80%, forecast: none, a seasonal estimate is used"
        },
        {
         "value": "hot_water",
@@ -4758,7 +4769,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 2 of about 7.",
+   "progress": "Step 2 of about 8.",
    "warnings": "",
    "tariff_summary": "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00. Your bill runs from the 16th to the 15th."
   },
@@ -4856,7 +4867,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 3 of about 10.",
+   "progress": "Step 3 of about 11.",
    "warnings": ""
   },
   "fields": [
@@ -4917,7 +4928,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 4 of about 10.",
+   "progress": "Step 4 of about 11.",
    "warnings": ""
   },
   "fields": [
@@ -5063,7 +5074,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 5 of about 10.",
+   "progress": "Step 5 of about 11.",
    "warnings": ""
   },
   "fields": [
@@ -5082,7 +5093,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 6 of about 10.",
+   "progress": "Step 6 of about 11.",
    "warnings": ""
   },
   "fields": [
@@ -5119,36 +5130,6 @@
    {
     "selector": {
      "number": {
-      "min": 5.0,
-      "max": 30.0,
-      "step": 1.0,
-      "unit_of_measurement": "%",
-      "mode": "slider"
-     }
-    },
-    "name": "battery_min_soc_pct",
-    "required": false,
-    "optional": true,
-    "default": 10
-   },
-   {
-    "selector": {
-     "number": {
-      "min": 20.0,
-      "max": 100.0,
-      "step": 1.0,
-      "unit_of_measurement": "%",
-      "mode": "slider"
-     }
-    },
-    "name": "overnight_charge_target_pct",
-    "required": false,
-    "optional": true,
-    "default": 80
-   },
-   {
-    "selector": {
-     "number": {
       "min": 0.0,
       "max": 20000.0,
       "step": 100.0,
@@ -5175,6 +5156,47 @@
     "required": false,
     "optional": true,
     "default": 0.0
+   }
+  ]
+ },
+ "options_no_optional_data.charge_planning": {
+  "step_id": "charge_planning",
+  "last_step": false,
+  "errors": {},
+  "placeholders": {
+   "progress": "Step 7 of about 11.",
+   "warnings": ""
+  },
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 5.0,
+      "max": 30.0,
+      "step": 1.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "battery_min_soc_pct",
+    "required": false,
+    "optional": true,
+    "default": 10
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 20.0,
+      "max": 100.0,
+      "step": 1.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "overnight_charge_target_pct",
+    "required": false,
+    "optional": true,
+    "default": 80
    },
    {
     "selector": {
@@ -5329,7 +5351,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 7 of about 10.",
+   "progress": "Step 8 of about 11.",
    "warnings": "",
    "detected": "No Solcast or Forecast.Solar sensor was found.",
    "check": "- sensor.solcast_pv_forecast_forecast_tomorrow_10 reads 9.8 kWh.\n- sensor.solcast_pv_forecast_forecast_day_3 reads 11.0 kWh."
@@ -5404,7 +5426,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 8 of about 10.",
+   "progress": "Step 9 of about 11.",
    "warnings": "",
    "candidates": "Switches that look like an immersion heater: switch.immersion_heater.",
    "check": "- switch.immersion_heater reads off.\n- sensor.hot_water_cylinder_temperature reads 48.2 °C."
@@ -5554,7 +5576,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 9 of about 10.",
+   "progress": "Step 10 of about 11.",
    "warnings": "",
    "charger": "No EV charger was found. One is picked up by itself when it appears."
   },
@@ -5583,7 +5605,7 @@
   "placeholders": {
    "changes": "- Base rate name: Day to Day\n- Tariff last confirmed: not set to 2026-06-15\n- Time-of-day rates: Night 0.1644 (23:00 to 08:00), Nightboost 0.0965 (02:00 to 04:00) to Night 0.1000 (23:00 to 08:00)\n\nApplies now. The integration does not reload.",
    "warnings": "",
-   "progress": "Step 10 of about 10."
+   "progress": "Step 11 of about 11."
   },
   "fields": []
  },
@@ -5605,11 +5627,11 @@
        },
        {
         "value": "battery",
-        "label": "Battery and charging: battery 13.5 kWh, inverter 5 kW"
+        "label": "Battery: battery 13.5 kWh, inverter 5 kW"
        },
        {
-        "value": "forecast",
-        "label": "Solar forecast: forecast: none, a seasonal estimate is used"
+        "value": "charge_planning",
+        "label": "Charge planning: minimum charge 10%, overnight cap 80%, forecast: none, a seasonal estimate is used"
        },
        {
         "value": "hot_water",
@@ -5637,7 +5659,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 2 of about 7.",
+   "progress": "Step 2 of about 8.",
    "warnings": "",
    "tariff_summary": "Cheapest rate in your saved tariff: Standard at 0.3334 GBP/kWh, all day. Your bill runs from the 16th to the 15th."
   },
@@ -5735,7 +5757,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 3 of about 10.",
+   "progress": "Step 3 of about 11.",
    "warnings": ""
   },
   "fields": [
@@ -5795,7 +5817,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 4 of about 10.",
+   "progress": "Step 4 of about 11.",
    "warnings": ""
   },
   "fields": [
@@ -5941,7 +5963,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 5 of about 10.",
+   "progress": "Step 5 of about 11.",
    "warnings": ""
   },
   "fields": [
@@ -5960,7 +5982,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 6 of about 10.",
+   "progress": "Step 6 of about 11.",
    "warnings": ""
   },
   "fields": [
@@ -5997,36 +6019,6 @@
    {
     "selector": {
      "number": {
-      "min": 5.0,
-      "max": 30.0,
-      "step": 1.0,
-      "unit_of_measurement": "%",
-      "mode": "slider"
-     }
-    },
-    "name": "battery_min_soc_pct",
-    "required": false,
-    "optional": true,
-    "default": 10
-   },
-   {
-    "selector": {
-     "number": {
-      "min": 20.0,
-      "max": 100.0,
-      "step": 1.0,
-      "unit_of_measurement": "%",
-      "mode": "slider"
-     }
-    },
-    "name": "overnight_charge_target_pct",
-    "required": false,
-    "optional": true,
-    "default": 80
-   },
-   {
-    "selector": {
-     "number": {
       "min": 0.0,
       "max": 20000.0,
       "step": 100.0,
@@ -6053,6 +6045,47 @@
     "required": false,
     "optional": true,
     "default": 0.0
+   }
+  ]
+ },
+ "options_with_overrides.charge_planning": {
+  "step_id": "charge_planning",
+  "last_step": false,
+  "errors": {},
+  "placeholders": {
+   "progress": "Step 7 of about 11.",
+   "warnings": ""
+  },
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 5.0,
+      "max": 30.0,
+      "step": 1.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "battery_min_soc_pct",
+    "required": false,
+    "optional": true,
+    "default": 10
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 20.0,
+      "max": 100.0,
+      "step": 1.0,
+      "unit_of_measurement": "%",
+      "mode": "slider"
+     }
+    },
+    "name": "overnight_charge_target_pct",
+    "required": false,
+    "optional": true,
+    "default": 80
    },
    {
     "selector": {
@@ -6207,7 +6240,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 7 of about 10.",
+   "progress": "Step 8 of about 11.",
    "warnings": "",
    "detected": "No Solcast or Forecast.Solar sensor was found.",
    "check": "- sensor.solcast_pv_forecast_forecast_tomorrow_10 reads 9.8 kWh.\n- sensor.solcast_pv_forecast_forecast_day_3 reads 11.0 kWh.\n- sensor.grid_carbon_intensity reads 187 g/kWh."
@@ -6285,7 +6318,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 8 of about 10.",
+   "progress": "Step 9 of about 11.",
    "warnings": "",
    "candidates": "Switches that look like an immersion heater: switch.immersion_heater.",
    "check": "- switch.immersion_heater reads off.\n- sensor.hot_water_cylinder_temperature reads 48.2 °C."
@@ -6435,7 +6468,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 9 of about 10.",
+   "progress": "Step 10 of about 11.",
    "warnings": "",
    "charger": "No EV charger was found. One is picked up by itself when it appears."
   },
@@ -6464,7 +6497,7 @@
   "placeholders": {
    "changes": "- Tariff last confirmed: not set to 2026-06-15\n- Time-of-day rates: none to Night 0.1000 (23:00 to 07:00)\n\nApplies now. The integration does not reload.",
    "warnings": "",
-   "progress": "Step 10 of about 10."
+   "progress": "Step 11 of about 11."
   },
   "fields": []
  },

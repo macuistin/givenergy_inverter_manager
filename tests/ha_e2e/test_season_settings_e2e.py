@@ -41,7 +41,7 @@ def lifecycle(monkeypatch):
 
 
 async def test_the_lists_start_from_the_latitude_default_and_nothing_is_saved(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"battery": {}})
+    result = await open_options(hass, loaded_entry, {"charge_planning": {}})
 
     assert _field(result, CONF_CHARGE_WINTER_MONTHS)["default"] == ["1", "2", "12"]
     assert _field(result, CONF_CHARGE_SHOULDER_MONTHS)["default"] == ["3", "4", "10", "11"]
@@ -53,14 +53,14 @@ async def test_the_lists_start_from_the_latitude_default_and_nothing_is_saved(ha
 async def test_a_southern_latitude_starts_from_the_southern_months(hass, loaded_entry):
     hass.config.latitude = -33.9
 
-    result = await open_options(hass, loaded_entry, {"battery": {}})
+    result = await open_options(hass, loaded_entry, {"charge_planning": {}})
 
     assert _field(result, CONF_CHARGE_WINTER_MONTHS)["default"] == ["6", "7", "8"]
     hass.config_entries.options.async_abort(result["flow_id"])
 
 
 async def test_saving_the_page_unchanged_stores_no_season_setting(hass, lifecycle, loaded_entry):
-    result = await options_wizard(hass, loaded_entry, {"battery": {}})
+    result = await options_wizard(hass, loaded_entry, {"charge_planning": {}})
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     for key in (CONF_CHARGE_WINTER_MONTHS, CONF_CHARGE_SHOULDER_MONTHS, CONF_CHARGE_WINTER_USES_FORECAST):
@@ -74,7 +74,7 @@ async def test_editing_the_months_saves_them_and_does_not_reload(hass, lifecycle
         hass,
         loaded_entry,
         {
-            "battery": {
+            "charge_planning": {
                 CONF_CHARGE_WINTER_MONTHS: ["11", "12", "1", "2"],
                 CONF_CHARGE_SHOULDER_MONTHS: ["3", "4", "10"],
                 CONF_CHARGE_WINTER_USES_FORECAST: True,
@@ -93,7 +93,7 @@ async def test_editing_the_months_saves_them_and_does_not_reload(hass, lifecycle
 
 
 async def test_a_month_in_both_lists_is_refused(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"battery": {}})
+    result = await open_options(hass, loaded_entry, {"charge_planning": {}})
 
     result = await submit(
         hass.config_entries.options,
@@ -107,7 +107,7 @@ async def test_a_month_in_both_lists_is_refused(hass, loaded_entry):
 
 
 async def test_an_empty_list_is_allowed_and_turns_the_rule_off(hass, loaded_entry):
-    result = await options_wizard(hass, loaded_entry, {"battery": {CONF_CHARGE_WINTER_MONTHS: []}})
+    result = await options_wizard(hass, loaded_entry, {"charge_planning": {CONF_CHARGE_WINTER_MONTHS: []}})
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -116,7 +116,7 @@ async def test_an_empty_list_is_allowed_and_turns_the_rule_off(hass, loaded_entr
 
 async def test_the_coordinator_plans_with_the_months_that_were_saved(hass, loaded_entry):
     """MIDDAY is in June. Making June a winter month charges to the cap."""
-    await options_wizard(hass, loaded_entry, {"battery": {CONF_CHARGE_WINTER_MONTHS: ["6"]}})
+    await options_wizard(hass, loaded_entry, {"charge_planning": {CONF_CHARGE_WINTER_MONTHS: ["6"]}})
     await hass.async_block_till_done()
 
     await loaded_entry.runtime_data.async_refresh()

@@ -49,6 +49,7 @@ OPTIONS_STEPS = {
     "bill",
     "schedule_change",
     "battery",
+    "charge_planning",
     "forecast",
     "hot_water",
     "ev",

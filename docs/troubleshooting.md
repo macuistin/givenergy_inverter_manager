@@ -72,7 +72,7 @@ The integration checks every reading against the one before it. A counter can on
 - That counter is left out of today's totals, which fall back to the integration's own sum of power, until the counter falls at the next daily reset. After a step its value is wrong for the rest of the day.
 - A counter that spikes and then falls back to where it was is trusted again as soon as it does, and only what it added since is booked.
 
-If you see the warning after an upgrade, open **Developer Tools → States** and compare the counter with GivTCP's own display. The **Inverter maximum output** setting (**Configure → Battery and charging**) matters here: a value much lower than your real inverter makes the allowance too small for a house that draws a lot. Home Assistant's own Energy dashboard reads the GivTCP sensors directly, so a Gateway total that changed units shows as one large spike there. Correct it in **Developer Tools → Statistics**.
+If you see the warning after an upgrade, open **Developer Tools → States** and compare the counter with GivTCP's own display. The **Inverter maximum output** setting (**Configure → Battery**) matters here: a value much lower than your real inverter makes the allowance too small for a house that draws a lot. Home Assistant's own Energy dashboard reads the GivTCP sensors directly, so a Gateway total that changed units shows as one large spike there. Correct it in **Developer Tools → Statistics**.
 
 The guard keeps the AC charge baseline across restarts and the other readings in memory only, so a counter that stepped while Home Assistant was down is judged against what it read before the restart, or, for the counters that are not saved, accepted unless it is larger than a day could hold.
 
@@ -129,7 +129,7 @@ If it is found and the mode never changes, the **EV Protection Reason** sensor s
 
 The repair **Battery minimum SoC is set too high** appears when the saved minimum SoC is above 30%. Older versions accepted higher values. On a skip night the integration writes the minimum SoC as the charge target, so a high value holds the battery at that level all night and imports from the grid.
 
-1. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure** and tick **Battery and charging**.
+1. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure** and tick **Battery**.
 2. Set **Battery minimum charge** to 10 to 20.
 3. Submit. The repair clears on the next update cycle.
 
@@ -164,7 +164,7 @@ To set it from the repair:
 2. Enter what the battery cost, then select **Submit**.
 3. The value is saved to the integration options. Every other saved option is kept. The repair clears on the next update cycle.
 
-You can also set **Battery cost** under **Configure**, on the Battery and charging page.
+You can also set **Battery cost** under **Configure**, on the Battery page.
 
 The repair appears once. If you do not want wear counted, select **Ignore** and it stays out of the way. It is raised again only if the cost is set and then set back to 0.
 

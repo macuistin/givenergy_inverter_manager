@@ -223,7 +223,7 @@ class TestUnticked:
         return _entry(full_config_data())
 
     async def test_a_page_that_was_not_ticked_keeps_the_devices(self, hass, loaded_entry):
-        result = await options_wizard(hass, loaded_entry, {"battery": {"battery_min_soc_pct": 12}})
+        result = await options_wizard(hass, loaded_entry, {"charge_planning": {"battery_min_soc_pct": 12}})
 
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert CONF_IMMERSION_SWITCH not in loaded_entry.options
