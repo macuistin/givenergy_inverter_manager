@@ -7,6 +7,12 @@ state. Each case stores the call's inputs and every CoordinatorData field that d
 a fresh CoordinatorData(), so a refactor must reproduce the whole snapshot, not just the
 fields the other tests happen to read.
 
+109 of the 255 cases were regenerated when the overnight target gained a 25% floor. Only
+charge_decision, published_charge_decision (the same value on a first cycle) and, in 13 cases,
+sunrise_with_charge moved. Those cases planned a target below 25% on a sunny forecast and now plan
+25 with the reason ending "Raised to the 25% floor." The floor is pinned in
+tests/core/test_charge_summer_floor.py.
+
 The 26 cases made before 08:00 were regenerated when the charge decision started reading
 the forecast remembered before midnight, so only their charge_decision changed. The new
 behaviour is pinned in test_forecast_day.py.

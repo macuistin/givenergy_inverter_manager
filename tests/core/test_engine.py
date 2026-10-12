@@ -1955,7 +1955,8 @@ class TestOvermorrowReachesEngine:
     _NOW = datetime(2026, 6, 15, 22, 0)
 
     def _decision(self, d2):
-        raw = _raw(battery_soc=40.0, battery_capacity_kwh=19.0, forecast_kwh_tomorrow=5.0)
+        # A small forecast keeps the target above the 25% floor, so the reduction shows.
+        raw = _raw(battery_soc=40.0, battery_capacity_kwh=19.0, forecast_kwh_tomorrow=2.0)
         raw.forecast_kwh_d2 = d2
         data, _ = _run(raw=raw, now=self._NOW)
         return data.charge_decision
