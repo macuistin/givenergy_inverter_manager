@@ -2,7 +2,9 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.18.2
+
+The dashboard loads more reliably, shows the combined immersion chart again when apexcharts-card is installed, and names the alternative heating by your label.
 
 **Fixes**
 - The Immersion view shows the heater shaded behind the water temperature in one chart again, when apexcharts-card is installed. Without it, the chart is the built-in history graph from v0.18.0. apexcharts-card is optional and only the immersion chart uses it.
