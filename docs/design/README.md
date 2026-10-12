@@ -1,18 +1,9 @@
 # Design notes
 
-Notes that record decisions and the evidence behind them. They move with the code: a pull request that changes a decision updates the note.
+Notes that last as long as the code they describe: the decisions behind it and the evidence for them. They move with the code, so a pull request that changes a decision updates the note.
 
-## Release 0.19 (planned)
+Plans, designs for features that are not built yet, and specifications from other projects are GitHub issues, so they can be commented on and closed as they are done. They are not kept here. The planned work and its status are in [ROADMAP.md](../../ROADMAP.md), and each roadmap row links to its design issue.
 
-The work is tracked in GitHub issues, starting at #304. Each pull request group is a child, and each card is a grandchild with its full text. The specifications from other projects are under #366.
-
-- [RELEASE_0.19_PLAN.md](RELEASE_0.19_PLAN.md): the plan as it stands against the code, what is blocked, and what the maintainer has to supply.
-- [FEATURE_DESIGNS.md](FEATURE_DESIGNS.md): a design for each roadmap feature (flows, pseudocode, vectors, open questions). None is built in 0.19 unless named.
-- [GAP_ANALYSIS.md](GAP_ANALYSIS.md): what other GivEnergy systems do that this integration does not.
-
-## Release 0.18
-
-- [PROGRESS.md](PROGRESS.md): one line per card, and the open questions.
 - Spikes, each with question, method, result, evidence and the decision it supports:
   - [SP1: creating a persistent dashboard](spikes/SP1.md)
   - [SP2: the server-side admin check and what needs a browser](spikes/SP2.md)
