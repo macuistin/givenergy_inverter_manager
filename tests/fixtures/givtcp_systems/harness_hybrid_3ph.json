@@ -1,0 +1,1558 @@
+{
+ "description": "three-phase hybrid, as GivTCP 3.6.4 publishes it from a real capture.",
+ "provenance": "harness",
+ "givtcp_version": "3.6.4",
+ "invertor_type": "Gen 3 - Hybrid_3ph",
+ "capabilities": {
+  "batteries": 6,
+  "device_type": "HYBRID_3PH",
+  "failed_reads": [],
+  "inverter_address": 17,
+  "is_ems": false,
+  "is_gateway": false,
+  "is_hv": true,
+  "is_three_phase": true
+ },
+ "source": "Entity ids GivTCP 3.6.4 creates on its first read of a real, serial-redacted wire capture, taken from GivTCP's own test results (tests/golden). The serial is the capture's redacted one. Every state is unknown except the device type, the serial and the version. Battery modules and the units behind a Gateway are not in it, because GivTCP creates those after a second read.",
+ "expected": {
+  "kind": "three_phase",
+  "controller": "TC2337G000",
+  "ask": false,
+  "modules": null
+ },
+ "states": {
+  "button.givtcp_tc2337g000_reboot_addon": {
+   "state": "unknown"
+  },
+  "button.givtcp_tc2337g000_reboot_invertor": {
+   "state": "unknown"
+  },
+  "button.givtcp_tc2337g000_sync_time": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_active_power_rate": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_battery_charge_rate": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_battery_charge_rate_ac": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_battery_discharge_rate": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_battery_discharge_rate_ac": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_battery_power_cutoff": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_charge_target_soc_1": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_charge_target_soc_10": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_charge_target_soc_2": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_charge_target_soc_3": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_charge_target_soc_4": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_charge_target_soc_5": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_charge_target_soc_6": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_charge_target_soc_7": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_charge_target_soc_8": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_charge_target_soc_9": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_discharge_target_soc_1": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_discharge_target_soc_10": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_discharge_target_soc_2": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_discharge_target_soc_3": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_discharge_target_soc_4": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_discharge_target_soc_5": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_discharge_target_soc_6": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_discharge_target_soc_7": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_discharge_target_soc_8": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_discharge_target_soc_9": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_force_charge_num": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_force_export_num": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_target_soc": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_temp_pause_charge_num": {
+   "state": "unknown"
+  },
+  "number.givtcp_tc2337g000_temp_pause_discharge_num": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_battery_calibration": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_end_time_slot_10": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_end_time_slot_2": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_end_time_slot_3": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_end_time_slot_4": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_end_time_slot_5": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_end_time_slot_6": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_end_time_slot_7": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_end_time_slot_8": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_end_time_slot_9": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_start_time_slot_10": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_start_time_slot_2": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_start_time_slot_3": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_start_time_slot_4": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_start_time_slot_5": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_start_time_slot_6": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_start_time_slot_7": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_start_time_slot_8": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_charge_start_time_slot_9": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_current_rate_type": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_end_time_slot_10": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_end_time_slot_2": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_end_time_slot_3": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_end_time_slot_4": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_end_time_slot_5": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_end_time_slot_6": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_end_time_slot_7": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_end_time_slot_8": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_end_time_slot_9": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_start_time_slot_10": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_start_time_slot_2": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_start_time_slot_3": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_start_time_slot_4": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_start_time_slot_5": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_start_time_slot_6": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_start_time_slot_7": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_start_time_slot_8": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_discharge_start_time_slot_9": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_force_charge": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_force_export": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_mode": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_temp_pause_charge": {
+   "state": "unknown"
+  },
+  "select.givtcp_tc2337g000_temp_pause_discharge": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_ac_charge_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_ac_charge_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_ac_charge_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_calibration_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_capacity_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_charge_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_charge_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_charge_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_discharge_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_discharge_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_discharge_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_ppkwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_priority": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_bms_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_charge_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_charge_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_charge_mos_state": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_cycles": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_design_capacity": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_discharge_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_discharge_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_discharge_mos_state": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_firmware": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_load_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_soc_difference": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_soc_high": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_soc_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_soc_low": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_soh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_stack_1_stack_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_to_grid": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_to_house": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_type": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_battery_value": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_bms_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_boost_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_buck_boost_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_current_rate": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_data_age": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_day_cost": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_day_energy_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_day_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_day_rate": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_day_start_energy_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_dc_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_eps_nominal_frequency": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_eps_phase1_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_eps_phase2_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_eps_phase3_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_export2_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_export2_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_export_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_export_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_export_phase1_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_export_phase2_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_export_phase3_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_export_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_export_rate": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_givtcp_version": {
+   "state": "3.6.4"
+  },
+  "sensor.givtcp_tc2337g000_grid_apparent_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_grid_frequency": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_grid_phase1_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_grid_phase1_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_grid_phase2_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_grid_phase2_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_grid_phase3_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_grid_phase3_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_grid_to_battery": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_grid_to_house": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_10_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_10_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_11_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_11_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_12_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_12_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_13_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_14_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_15_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_16_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_17_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_18_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_19_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_1_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_1_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_20_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_21_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_22_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_23_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_24_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_2_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_2_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_3_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_3_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_4_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_4_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_5_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_5_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_6_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_6_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_7_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_7_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_8_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_8_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_9_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_cell_9_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g050_battery_serial_number": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_10_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_10_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_11_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_11_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_12_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_12_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_13_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_14_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_15_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_16_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_17_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_18_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_19_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_1_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_1_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_20_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_21_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_22_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_23_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_24_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_2_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_2_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_3_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_3_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_4_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_4_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_5_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_5_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_6_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_6_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_7_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_7_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_8_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_8_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_9_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_cell_9_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g051_battery_serial_number": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_10_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_10_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_11_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_11_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_12_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_12_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_13_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_14_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_15_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_16_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_17_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_18_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_19_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_1_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_1_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_20_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_21_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_22_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_23_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_24_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_2_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_2_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_3_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_3_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_4_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_4_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_5_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_5_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_6_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_6_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_7_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_7_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_8_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_8_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_9_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_cell_9_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g052_battery_serial_number": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_10_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_10_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_11_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_11_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_12_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_12_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_13_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_14_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_15_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_16_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_17_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_18_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_19_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_1_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_1_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_20_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_21_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_22_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_23_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_24_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_2_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_2_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_3_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_3_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_4_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_4_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_5_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_5_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_6_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_6_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_7_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_7_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_8_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_8_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_9_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_cell_9_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g053_battery_serial_number": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_10_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_10_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_11_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_11_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_12_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_12_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_13_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_14_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_15_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_16_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_17_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_18_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_19_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_1_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_1_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_20_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_21_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_22_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_23_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_24_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_2_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_2_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_3_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_3_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_4_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_4_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_5_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_5_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_6_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_6_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_7_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_7_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_8_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_8_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_9_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_cell_9_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g054_battery_serial_number": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_10_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_10_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_11_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_11_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_12_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_12_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_13_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_14_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_15_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_16_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_17_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_18_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_19_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_1_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_1_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_20_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_21_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_22_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_23_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_24_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_2_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_2_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_3_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_3_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_4_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_4_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_5_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_5_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_6_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_6_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_7_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_7_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_8_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_8_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_9_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_cell_9_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_hy2336g055_battery_serial_number": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_import_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_import_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_import_ppkwh_today": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_inverter_out_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_inverter_out_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_inverter_power_out": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_inverter_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_invertor_firmware": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_invertor_max_bat_rate": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_invertor_max_inv_rate": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_invertor_serial_number": {
+   "state": "TC2337G000"
+  },
+  "sensor.givtcp_tc2337g000_invertor_software": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_invertor_time": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_invertor_type": {
+   "state": "Gen 3 - Hybrid_3ph"
+  },
+  "sensor.givtcp_tc2337g000_last_updated_time": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_load_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_load_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_load_phase1_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_load_phase2_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_load_phase3_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_load_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter2_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_export_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_export_energy_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_frequency": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_import_energy_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_phase_1_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_phase_1_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_phase_1_power_factor": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_phase_1_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_phase_2_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_phase_2_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_phase_2_power_factor": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_phase_2_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_phase_3_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_phase_3_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_phase_3_power_factor": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id1_phase_3_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_export_energy_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_frequency": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_import_energy_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_phase_1_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_phase_1_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_phase_1_power_factor": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_phase_1_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_phase_2_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_phase_2_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_phase_2_power_factor": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_phase_2_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_phase_3_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_phase_3_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_phase_3_power_factor": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_id2_phase_3_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_meter_import_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_night_cost": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_night_energy_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_night_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_night_rate": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_night_start_energy_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_output_phase1_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_output_phase2_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_output_phase3_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pcs_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_power_factor": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv1_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv1_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv2_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv_current_string_1": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv_current_string_2": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv_power_string_1": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv_power_string_2": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv_voltage_string_1": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_pv_voltage_string_2": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_safe_write_count": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_soc": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_soc_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_solar_to_battery": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_solar_to_grid": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_solar_to_house": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_start_delay_time": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_system_mode": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_time_since_last_update": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_timeout_error": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_tc2337g000_write_count": {
+   "state": "unknown"
+  },
+  "switch.givtcp_tc2337g000_enable_charge_schedule": {
+   "state": "unknown"
+  },
+  "switch.givtcp_tc2337g000_enable_charge_target": {
+   "state": "unknown"
+  },
+  "switch.givtcp_tc2337g000_enable_discharge_schedule": {
+   "state": "unknown"
+  },
+  "switch.givtcp_tc2337g000_force_ac_charge_enable": {
+   "state": "unknown"
+  },
+  "switch.givtcp_tc2337g000_force_charge_enable": {
+   "state": "unknown"
+  },
+  "switch.givtcp_tc2337g000_force_discharge_enable": {
+   "state": "unknown"
+  },
+  "switch.givtcp_tc2337g000_real_time_control": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_end_time_slot_10": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_end_time_slot_2": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_end_time_slot_3": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_end_time_slot_4": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_end_time_slot_5": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_end_time_slot_6": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_end_time_slot_7": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_end_time_slot_8": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_end_time_slot_9": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_start_time_slot_10": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_start_time_slot_2": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_start_time_slot_3": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_start_time_slot_4": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_start_time_slot_5": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_start_time_slot_6": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_start_time_slot_7": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_start_time_slot_8": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_charge_start_time_slot_9": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_end_time_slot_10": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_end_time_slot_2": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_end_time_slot_3": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_end_time_slot_4": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_end_time_slot_5": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_end_time_slot_6": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_end_time_slot_7": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_end_time_slot_8": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_end_time_slot_9": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_start_time_slot_10": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_start_time_slot_2": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_start_time_slot_3": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_start_time_slot_4": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_start_time_slot_5": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_start_time_slot_6": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_start_time_slot_7": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_start_time_slot_8": {
+   "state": "unknown"
+  },
+  "time.givtcp_tc2337g000_discharge_start_time_slot_9": {
+   "state": "unknown"
+  }
+ }
+}

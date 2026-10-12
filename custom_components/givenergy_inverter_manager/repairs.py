@@ -52,11 +52,18 @@ Issues raised:
     setting at the value, and when the integration unloads. The decision lives in
     core/write_confirmation.py and the wiring in unconfirmed_write_repair.py.
 
-  givtcp_too_old
-    GivTCP's version sensor reads older than core/givtcp_version.py's minimum, 3.6.2. 3.6 and
-    3.6.1 reset entity ids and mishandle charge slot 2 and PV-only inverters. Not fixable: the
-    cause is in GivTCP. A version that cannot be read raises nothing. It clears when GivTCP
-    reports the minimum or newer.
+  givtcp_resets_entity_ids
+    GivTCP's version sensor reads 3.6 or 3.6.1. Those releases deleted and recreated an entity
+    whose discovery config changed, so Home Assistant gave it the default entity id again and it
+    lost its name and area. 3.6.2 fixed it, and earlier releases never did it. Not fixable: the
+    cause is in GivTCP. A version that cannot be read raises nothing. The rule lives in
+    core/givtcp_version.py. It clears when GivTCP reports 3.6.2 or newer.
+
+  givtcp_real_time_control_off
+    GivTCP's Real Time Control switch reads off for a few cycles in a row. GivTCP then accepts a
+    write from Home Assistant and does not send it to the inverter, so a charge window or target
+    never changes. Not fixable: the setting is in GivTCP. An upgrade of GivTCP can reset it. The
+    decision lives in core/real_time_control.py. It clears when the switch reads on.
 
   givtcp_feed_frozen
     GivTCP's entities still hold their last values but none has been reported for ten
@@ -105,7 +112,8 @@ ISSUE_WRITE_NOT_CONFIRMED = "write_not_confirmed"
 ISSUE_GIVTCP_FEED_FROZEN = "givtcp_feed_frozen"
 ISSUE_GIVTCP_NOT_ANSWERING = "givtcp_not_answering"
 ISSUE_SYSTEM_LOOKS_DIFFERENT = "system_looks_different"
-ISSUE_GIVTCP_TOO_OLD = "givtcp_too_old"
+ISSUE_GIVTCP_RESETS_IDS = "givtcp_resets_entity_ids"
+ISSUE_REAL_TIME_CONTROL_OFF = "givtcp_real_time_control_off"
 
 TROUBLESHOOTING_URL = (
     "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs/troubleshooting.md"
@@ -123,7 +131,8 @@ LEARN_MORE_URLS: dict[str, str] = {
         f"{TROUBLESHOOTING_URL}#givtcp-is-not-getting-data-from-the-inverter"
     ),
     ISSUE_SYSTEM_LOOKS_DIFFERENT: f"{TROUBLESHOOTING_URL}#the-system-looks-different",
-    ISSUE_GIVTCP_TOO_OLD: f"{TROUBLESHOOTING_URL}#upgrading-givtcp",
+    ISSUE_GIVTCP_RESETS_IDS: f"{TROUBLESHOOTING_URL}#upgrading-givtcp",
+    ISSUE_REAL_TIME_CONTROL_OFF: f"{TROUBLESHOOTING_URL}#real-time-control-is-off",
 }
 
 # Matches the selector max in config_flow.py. Values above this are legacy
@@ -338,23 +347,41 @@ def async_delete_system_different_issue(hass: HomeAssistant) -> None:
     async_delete_issue(hass, DOMAIN, ISSUE_SYSTEM_LOOKS_DIFFERENT)
 
 
-def async_create_givtcp_too_old_issue(hass: HomeAssistant, version: str, minimum: str) -> None:
-    """Surface a repair issue while GivTCP is older than the oldest release that is safe."""
+def async_create_givtcp_resets_ids_issue(hass: HomeAssistant, version: str, fixed_in: str) -> None:
+    """Surface a repair issue while GivTCP is a release that resets entity ids."""
     async_create_issue(
         hass,
         DOMAIN,
-        ISSUE_GIVTCP_TOO_OLD,
+        ISSUE_GIVTCP_RESETS_IDS,
         is_fixable=False,
-        learn_more_url=LEARN_MORE_URLS[ISSUE_GIVTCP_TOO_OLD],
+        learn_more_url=LEARN_MORE_URLS[ISSUE_GIVTCP_RESETS_IDS],
         severity=IssueSeverity.WARNING,
-        translation_key=ISSUE_GIVTCP_TOO_OLD,
-        translation_placeholders={"version": version, "minimum": minimum},
+        translation_key=ISSUE_GIVTCP_RESETS_IDS,
+        translation_placeholders={"version": version, "fixed_in": fixed_in},
     )
 
 
-def async_delete_givtcp_too_old_issue(hass: HomeAssistant) -> None:
-    """Clear the repair once GivTCP is the minimum version or newer."""
-    async_delete_issue(hass, DOMAIN, ISSUE_GIVTCP_TOO_OLD)
+def async_delete_givtcp_resets_ids_issue(hass: HomeAssistant) -> None:
+    """Clear the repair once GivTCP is a release that no longer resets entity ids."""
+    async_delete_issue(hass, DOMAIN, ISSUE_GIVTCP_RESETS_IDS)
+
+
+def async_create_real_time_control_issue(hass: HomeAssistant) -> None:
+    """Surface a repair issue while GivTCP's Real Time Control setting is off."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_REAL_TIME_CONTROL_OFF,
+        is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_REAL_TIME_CONTROL_OFF],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_REAL_TIME_CONTROL_OFF,
+    )
+
+
+def async_delete_real_time_control_issue(hass: HomeAssistant) -> None:
+    """Clear the repair once Real Time Control is on."""
+    async_delete_issue(hass, DOMAIN, ISSUE_REAL_TIME_CONTROL_OFF)
 
 
 async def async_create_fix_flow(

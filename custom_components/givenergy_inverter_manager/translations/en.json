@@ -1187,9 +1187,13 @@
         }
       }
     },
-    "givtcp_too_old": {
-      "title": "GivTCP is older than the oldest safe release",
-      "description": "GivTCP reports version {version}. The oldest release this integration is safe on is {minimum}. GivTCP 3.6 and 3.6.1 reset entity ids and mishandle charge slot 2 and PV-only inverters, and releases before 3.6 are not supported.\n\nTo fix: update the GivTCP add-on to {minimum} or later, then restart it. This repair clears by itself once GivTCP reports a newer version. The integration has not changed anything."
+    "givtcp_real_time_control_off": {
+      "title": "GivTCP's Real Time Control is off",
+      "description": "GivTCP's **Real Time Control** switch has read off for several minutes. While it is off, GivTCP accepts a change from Home Assistant and does not send it to the inverter, so the charge window and target the integration writes never reach it. The inverter keeps its old settings and tonight's charge may not follow the plan.\n\nAn upgrade of GivTCP can reset this setting.\n\nTo fix: open GivTCP's settings (for the add-on, **Settings → Add-ons → GivTCP → Configuration**), turn **Real Time Control** on, save and restart GivTCP. This repair clears by itself when the switch reads on."
+    },
+    "givtcp_resets_entity_ids": {
+      "title": "This GivTCP release resets entity ids",
+      "description": "GivTCP reports version {version}. GivTCP 3.6 and 3.6.1 delete and recreate an entity when its discovery settings change, so Home Assistant gives it the default entity id again and it loses its name and area. {fixed_in} fixed this, and releases before 3.6 do not do it.\n\nThe integration finds an entity again under its new id by itself, so it keeps working, but your own dashboards and automations that use a renamed entity can break.\n\nTo fix: update the GivTCP add-on to {fixed_in} or later, then restart it. This repair clears by itself once GivTCP reports a newer version. The integration has not changed anything."
     }
   },
   "exceptions": {

@@ -1,8 +1,9 @@
 """Every GivTCP system fixture is found, classified and given a controller as it should be.
 
-One real fixture (a single-phase hybrid on GivTCP 3.6.3) and the rest built from GivTCP's
-published datapoint list. See tests/fixtures/givtcp_systems/build.py for which is which. A test
-here keeps the committed files equal to what the builder makes.
+Three kinds of fixture. One real one (a single-phase hybrid on GivTCP 3.6.3). Eight from GivTCP's
+own test results, which run its real code over real wire captures, so the entity ids are the ones
+GivTCP creates (from_harness.py). The rest are built from GivTCP's published datapoint list
+(build.py). A test here keeps the committed files equal to what the builders make.
 """
 
 from __future__ import annotations
@@ -16,10 +17,12 @@ from custom_components.givenergy_inverter_manager.core.system_types import (
     select_controller,
 )
 from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+    ENTITY_DOMAINS,
+    ENTITY_SUFFIXES,
     discover_givtcp_inverters,
 )
 from tests.fixtures import givtcp_systems as fixtures
-from tests.fixtures.givtcp_systems import build
+from tests.fixtures.givtcp_systems import build, from_harness
 
 NAMES = fixtures.names()
 
@@ -37,7 +40,7 @@ class TestTheFixtures:
 
     def test_every_fixture_names_where_it_came_from(self):
         for name in NAMES:
-            assert fixtures.raw(name)["provenance"] in ("real", "synthetic"), name
+            assert fixtures.raw(name)["provenance"] in ("real", "harness", "synthetic"), name
         real = [n for n in NAMES if fixtures.raw(n)["provenance"] == "real"]
         assert real == ["hybrid_gen3_two_batteries_3_6_3"]
 
@@ -45,6 +48,54 @@ class TestTheFixtures:
         text = "".join((fixtures.HERE / f"{n}.json").read_text().lower() for n in NAMES)
         for real_serial in ("fd2309f069", "dz2325g071", "dz2410g556"):
             assert real_serial not in text
+
+
+HARNESS = [n for n in NAMES if fixtures.raw(n)["provenance"] == "harness"]
+
+# The roles the wiring looks for that GivTCP does not publish under the name we look for, by
+# GivTCP's own model. Each is what its real capture shows, not a guess.
+MISSING_ROLES = {
+    "harness_hybrid_gen1": [],
+    "harness_hybrid_gen2": [],
+    "harness_ac": [],
+    "harness_all_in_one": [],
+    # The capture has no battery attached, so there is no battery power or charge level to find.
+    "harness_hybrid_hv_gen3": ["battery_power", "battery_soc"],
+    # Three-phase publishes import_power and export_power, and battery_charge_power and
+    # battery_discharge_power, where the wiring looks for one signed grid and battery power.
+    "harness_hybrid_3ph": ["battery_power", "grid_power", "inverter_temp"],
+    "harness_gateway": ["inverter_temp"],
+    # An EMS reads and controls no battery of its own.
+    "harness_ems": [
+        "solar_power", "house_load", "inverter_temp", "target_soc", "enable_charge_target",
+        "enable_charge_schedule", "charge_start_time", "charge_end_time", "battery_capacity_kwh",
+        "battery_soc",
+    ],
+}
+
+
+class TestTheHarnessFixtures:
+    def test_there_is_one_for_each_model_the_generator_knows(self):
+        assert HARNESS == sorted(f"harness_{m}" for m in from_harness.MODELS)
+
+    def test_each_says_where_it_came_from(self):
+        for name in HARNESS:
+            raw = fixtures.raw(name)
+            assert "GivTCP's own test results" in raw["source"], name
+            assert raw["givtcp_version"] == from_harness.GIVTCP_VERSION, name
+
+    @pytest.mark.parametrize("name", HARNESS)
+    def test_the_wiring_finds_what_the_real_model_publishes(self, name):
+        states = fixtures.states(name)
+        prefix = _selection(name)[1].controller.prefix
+        roles = {**ENTITY_SUFFIXES, "battery_soc": "_soc"}
+        missing = []
+        for role, suffix in roles.items():
+            domain = ENTITY_DOMAINS.get(role, "sensor")
+            suffixes = ["_soc", "_battery_soc"] if role == "battery_soc" else [suffix]
+            if not any(f"{domain}.{prefix}{s}" in states for s in suffixes):
+                missing.append(role)
+        assert sorted(missing) == sorted(MISSING_ROLES[name])
 
 
 @pytest.mark.parametrize("name", [n for n in NAMES if fixtures.raw(n).get("expected")])

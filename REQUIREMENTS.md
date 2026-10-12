@@ -11,7 +11,7 @@ The integration must work for any GivTCP user: any supplier, any tariff (timed r
 It has been tested on this setup:
 
 - **Inverter:** GivEnergy GIV-HY-5.0 (5 kW hybrid) with a GivEnergy battery
-- **GivTCP:** 3.6.3, running as a Home Assistant add-on. It provides all inverter entity states and write access. 3.6.2 is the oldest 3.6 release that is safe: 3.6 and 3.6.1 reset entity ids and mis-handle charge slot 2 and PV-only inverters
+- **GivTCP:** 3.6.3, running as a Home Assistant add-on. It provides all inverter entity states and write access. 3.6.2 is the oldest 3.6 release that is safe: 3.6 and 3.6.1 reset entity ids (3.6 also mishandled charge slot 2 and PV-only inverters, which 3.6.1 fixed). A repair appears on 3.6 and 3.6.1
 - **EV charger:** Zappi (myenergi integration), controlled through its charge mode select entity
 - **Immersion:** a WiFi-enabled immersion heater with a Home Assistant switch entity and an optional temperature sensor
 - **Tariff:** a base rate plus a night period and a shorter, cheaper boost period inside it (Electric Ireland Home Electric with Nightboost)

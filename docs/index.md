@@ -19,6 +19,7 @@ This documentation matches version 0.18.2.
 |---|---|
 | [Sensors](sensors.md) | Every sensor with unit, state class and enabled-by-default (generated from the code) |
 | [Entities](entities.md) | Switches and numbers |
+| [What we know about GivTCP](givtcp.md) | For maintainers: finding the inverter and its entities, the entities we use, how we read and write, what each system kind publishes |
 | [Actions](actions.md) | The five actions the integration registers |
 | [Dashboard](dashboard.md) | The Lovelace dashboard that builds itself, and the HTML report cards |
 | [Energy dashboard](energy-dashboard.md) | Which sensors to pick in Home Assistant's Energy dashboard |

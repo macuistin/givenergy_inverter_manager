@@ -128,6 +128,7 @@ _DEVICE_DOMAINS = ("sensor", "number", "switch", "select", "button", "time")
 _INVERTER_MARKERS = ("_soc", "_battery_soc", *GATEWAY_SUFFIXES, *EMS_SUFFIXES)
 BATTERY_SERIAL_SUFFIX = "_battery_serial_number"
 VERSION_SUFFIX = "_givtcp_version"
+REAL_TIME_CONTROL_SUFFIX = "_real_time_control"
 TYPE_SUFFIX = "_invertor_type"
 
 

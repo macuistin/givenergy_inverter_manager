@@ -126,10 +126,11 @@ from .core.engine import (
 )
 from .core.entity_refs import Registry, resolve
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
-from .core.givtcp_version import MINIMUM_GIVTCP_VERSION, is_older_than_minimum
+from .core.givtcp_version import FIXED_IN_VERSION, resets_entity_ids
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
 from .core.inverter_values import ChargePlan, FeedState, InverterValues
+from .core.real_time_control import next_step as next_real_time_control_step
 from .core.reload_policy import IMMERSION_TEMP_KEYS, TARIFF_TRIGGER_KEYS
 from .core.replan import (
     NightState,
@@ -165,7 +166,11 @@ from .forecast_seeding import async_seed_forecast_accuracy
 from .immersion_actuator import ImmersionActuator, ImmersionPorts
 from .inverter.backend import describe_charge_slots
 from .inverter.givtcp import GivTCPPorts, make_backend
-from .inverter.givtcp.discovery import device_prefix, discover_givtcp_inverters
+from .inverter.givtcp.discovery import (
+    REAL_TIME_CONTROL_SUFFIX,
+    device_prefix,
+    discover_givtcp_inverters,
+)
 from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
@@ -174,20 +179,22 @@ from .repairs import (
     async_create_ev_base_rate_issue,
     async_create_feed_frozen_issue,
     async_create_givtcp_missing_issue,
-    async_create_givtcp_too_old_issue,
+    async_create_givtcp_resets_ids_issue,
     async_create_min_soc_issue,
     async_create_not_answering_issue,
     async_create_other_charge_slots_issue,
+    async_create_real_time_control_issue,
     async_create_system_different_issue,
     async_create_tariff_review_issue,
     async_delete_battery_cost_issue,
     async_delete_ev_base_rate_issue,
     async_delete_feed_frozen_issue,
     async_delete_givtcp_missing_issue,
-    async_delete_givtcp_too_old_issue,
+    async_delete_givtcp_resets_ids_issue,
     async_delete_min_soc_issue,
     async_delete_not_answering_issue,
     async_delete_other_charge_slots_issue,
+    async_delete_real_time_control_issue,
     async_delete_system_different_issue,
     async_delete_tariff_review_issue,
 )
@@ -304,6 +311,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._missing_ref_cycles = 0
         self._renamed_logged: set[str] = set()
         self._version_seen: str | None = None
+        self._rtc_off_cycles = 0
 
     def _init_cycle_state(self) -> None:
         """State threaded across update cycles."""
@@ -1464,6 +1472,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._write_repair.recheck()
         self._check_wired_entities()
         self._check_system()
+        self._check_real_time_control()
 
     def _check_wired_entities(self) -> None:
         """Raise one repair naming wired GivTCP entities that have gone, after a few minutes.
@@ -1477,6 +1486,24 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._missing_ref_cycles += 1
         if self._missing_ref_cycles >= MISSING_ENTITY_CYCLES:
             async_create_givtcp_missing_issue(self.hass, ", ".join(self._missing_refs))
+
+    def _check_real_time_control(self) -> None:
+        """Raise one repair while GivTCP's Real Time Control switch reads off, clear it when on.
+
+        GivTCP ignores writes from Home Assistant while it is off, so the charge settings would
+        never reach the inverter. A switch that is missing, as on an EMS, changes nothing.
+        """
+        prefix = device_prefix(self._effective_cfg())
+        entity_id = f"switch.{prefix}{REAL_TIME_CONTROL_SUFFIX}" if prefix else None
+        state = self._get_optional_state(entity_id)
+        step = next_real_time_control_step(
+            state.state if state is not None else None, self._rtc_off_cycles
+        )
+        self._rtc_off_cycles = step.off_cycles
+        if step.raise_issue:
+            async_create_real_time_control_issue(self.hass)
+        elif step.clear_issue:
+            async_delete_real_time_control_issue(self.hass)
 
     def _check_system(self) -> None:
         """Look at the system again at start-up, every ten cycles and when GivTCP's version moves.
@@ -1508,11 +1535,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._store_identity(found)
 
     def _check_givtcp_version(self, version: str | None) -> None:
-        """Raise one repair while GivTCP is older than the oldest safe release, clear it after."""
-        if version is not None and is_older_than_minimum(version):
-            async_create_givtcp_too_old_issue(self.hass, version, MINIMUM_GIVTCP_VERSION)
+        """Raise one repair while GivTCP is a release that resets entity ids, clear it after."""
+        if version is not None and resets_entity_ids(version):
+            async_create_givtcp_resets_ids_issue(self.hass, version, FIXED_IN_VERSION)
         else:
-            async_delete_givtcp_too_old_issue(self.hass)
+            async_delete_givtcp_resets_ids_issue(self.hass)
 
     def _version_now(self) -> str | None:
         prefix = device_prefix(self._effective_cfg())

@@ -24,7 +24,7 @@ Works with a flat rate, a day and night rate, or up to five timed rates, from an
 
 - Home Assistant 2026.5.0 or later (the minimum declared in `hacs.json`). Home Assistant 2026.5 itself needs Python 3.14.2 or newer
 - [GivTCP](https://github.com/britkat1980/giv_tcp) publishing your inverter to Home Assistant over MQTT
-- A GivEnergy inverter with a battery. A single-phase hybrid is the only type tested on real hardware. AC-coupled, All-In-One, three-phase, Gateway and EMS systems are recognised, and the setup screen says which are not tested
+- A GivEnergy inverter with a battery. A single-phase hybrid is the only type tested on real hardware. AC-coupled, All-In-One, three-phase, Gateway and EMS systems are recognised, and the setup screen says which are not tested. On a three-phase hybrid, setup does not find the grid and battery power entities, because GivTCP publishes each as a pair
 
 ## Install
 
@@ -52,6 +52,7 @@ Start at the [documentation index](docs/index.md).
 | [Tariff](docs/tariff.md) | Rate periods, which rate wins, bill line items |
 | [Sensors](docs/sensors.md) | Every sensor |
 | [Entities](docs/entities.md) | Switches and numbers |
+| [What we know about GivTCP](docs/givtcp.md) | For maintainers: how we find, read and write the inverter through GivTCP |
 | [Actions](docs/actions.md) | The five actions |
 | [Dashboard](docs/dashboard.md) | The dashboard that builds itself, and how to add it |
 | [Energy dashboard](docs/energy-dashboard.md) | Sensors for the Home Assistant Energy dashboard |

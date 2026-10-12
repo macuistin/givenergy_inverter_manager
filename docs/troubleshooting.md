@@ -93,7 +93,7 @@ A new GivTCP version alone is not a change. Neither is a battery module that ans
 What to expect when you move GivTCP from 3.5 to 3.6, and what the integration does about it.
 
 - **Entity ids can be reset.** GivTCP 3.6 and 3.6.1 reset entity ids to their defaults when a discovery setting changed, so a renamed entity goes back to its default id. The integration remembers each wired entity's registry id as well as its entity id, and finds the entity again under its new id by itself. No repair appears. GivTCP 3.6.2 fixed the reset. Use 3.6.2 or later.
-- **Older releases raise a repair.** 3.6 and 3.6.1 also mishandle charge slot 2 and PV-only inverters, so when GivTCP reports a version older than 3.6.2 the repair **GivTCP is older than the oldest safe release** appears. Update the GivTCP add-on to 3.6.2 or later and restart it. The repair clears by itself. It only appears when the version can be read, and nothing is changed or stopped.
+- **A repair names the releases that do it.** When GivTCP reports 3.6 or 3.6.1 the repair **This GivTCP release resets entity ids** appears. Update the GivTCP add-on to 3.6.2 or later and restart it. The repair clears by itself. Releases before 3.6 do not reset ids and raise nothing. It only appears when the version can be read, and nothing is changed or stopped.
 - **Entities can be removed or renamed.** A high-voltage Gen 3 hybrid moves from the three-phase entity set to the single-phase one, and the PV string entities are removed on AC-coupled and All-In-One models. An entity the integration uses that cannot be found by either id raises **GivTCP entities not found**, naming it, after five minutes. See below.
 - **A Gateway's energy totals change units.** See [Energy totals jumped after a GivTCP upgrade](#energy-totals-jumped-after-a-givtcp-upgrade). Home Assistant's Energy dashboard shows one large spike, which you correct in **Developer Tools → Statistics**.
 - **The type can change.** An HV Gen 3 hybrid that GivTCP used to read as three-phase is read as a hybrid from 3.6. That is a different system, so [The system looks different](#the-system-looks-different) appears.
@@ -247,6 +247,15 @@ The `recent_writes` attribute of the **GivTCP Register Write Count** sensor show
 
 With **Re-plan overnight charge** on, the target can also change after a successful write. Those lines have the reason `replan`. See [Re-planning](concepts.md#re-planning).
 
+## Real Time Control is off
+
+The repair **GivTCP's Real Time Control is off** appears when GivTCP's **Real Time Control** switch has read off for three cycles in a row, about a minute and a half. While it is off, GivTCP accepts a change from Home Assistant and does not send it to the inverter. The charge window and target the integration writes never arrive, so tonight's charge may not follow the plan. An upgrade of GivTCP can reset the setting.
+
+1. Open GivTCP's settings. For the add-on that is **Settings → Add-ons → GivTCP → Configuration**.
+2. Turn **Real Time Control** on, save and restart GivTCP.
+
+The repair clears by itself once the switch reads on. A switch that is missing, unknown or unavailable raises nothing, as on an EMS, which has no such switch. Nothing is stopped or changed in the meantime. If the repair does not appear and writes still do not take, see [Writes to the inverter are not confirmed](#writes-to-the-inverter-are-not-confirmed).
+
 ## Writes to the inverter are not confirmed
 
 The integration reads each charge setting back after it writes it. When the inverter still shows the old value after three attempts, the log has a warning like this, with the name of the setting in front:
@@ -255,7 +264,7 @@ The integration reads each charge setting back after it writes it. When the inve
 
 The integration carries on, so the inverter then runs on its old charge window or target. It also raises the repair **The inverter did not take a charge setting**, which lists each setting that did not take and its entity. The repair clears when a later write to the same setting is read back, when the setting is seen at the value on a later cycle, and when the integration is unloaded or reloaded. It is not raised in dry run. Look for the log warning in **Settings → System → Logs** (search for `could not confirm`), and compare the charge target and charge window entities with what the integration says it wrote under **Find out what changed the charge target**. Work through these checks in order.
 
-1. **Real Time Control is on in GivTCP.** GivTCP only sends changes from Home Assistant to the inverter when this setting is on. With it off, a write does not reach the inverter, which keeps its old value. An upgrade of GivTCP can reset it. Open GivTCP's settings (for the add-on, **Settings → Add-ons → GivTCP → Configuration**, or the settings page of your own install), turn **Real Time Control** on, save and restart GivTCP.
+1. **Real Time Control is on in GivTCP.** The repair [Real Time Control is off](#real-time-control-is-off) appears when it is not. GivTCP only sends changes from Home Assistant to the inverter when this setting is on. With it off, a write does not reach the inverter, which keeps its old value. An upgrade of GivTCP can reset it. Open GivTCP's settings (for the add-on, **Settings → Add-ons → GivTCP → Configuration**, or the settings page of your own install), turn **Real Time Control** on, save and restart GivTCP.
 2. **GivTCP is running and publishing.** Open the GivTCP log and look for a crash or a repeated error since the last upgrade or restart. Under **Settings → Devices & Services → MQTT → Configure**, listen to the topic prefix GivTCP publishes under. New messages should keep arriving. If GivTCP is stopped, its entities keep their last values and do not turn `unavailable`, so a stale value does not prove it is working.
 3. **The tariff settings in GivTCP are filled in.** Check that the day rate, the night rate and the tariff type all have a value. An empty day rate stopped GivTCP v3.6.3 from starting. Fill them in, even if you only use the rates in this integration, then restart GivTCP.
 4. **GivTCP can reach the inverter.** Check the GivTCP log for connection errors to the inverter. A write sent while the connection is down is not confirmed either.
