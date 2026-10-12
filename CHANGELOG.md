@@ -2,7 +2,9 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.18.1
+
+The integration now notices a GivTCP that has crashed or stopped taking writes, and two dashboard layout fixes.
 
 **Fixes**
 - The immersion chart on the Immersion view is taller, so the axis labels of the temperature chart and the heater power chart no longer run into each other.
