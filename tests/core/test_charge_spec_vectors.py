@@ -28,7 +28,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.const import CHARGE_MIN_TARGET_HEADROOM_PCT
+from custom_components.givenergy_inverter_manager.const import (
+    CHARGE_MIN_TARGET_HEADROOM_PCT,
+    CHARGE_SUMMER_MIN_TARGET_SOC,
+)
 from custom_components.givenergy_inverter_manager.core.rules import (
     ChargeInputs,
     SolarForecast,
@@ -53,11 +56,12 @@ WEIGHTS = (10, 35, 50, 70)
 # How far toward the low estimate each weight below 50 goes: all of it at 10, 37.5% at 35.
 TOWARD_LOW = {10: 1.0, 35: 0.375}
 
-# What our simulation gives today, by scenario and weight.
+# What our simulation gives today, by scenario and weight. A target below the 25% summer floor
+# (the specification's own floor) is raised to it.
 OURS = {
-    ("A", 10): 63, ("A", 35): 28, ("A", 50): 13, ("A", 70): 9,
-    ("B", 10): 80, ("B", 35): 24, ("B", 50): 9, ("B", 70): 9,
-    ("C", 10): 19, ("C", 35): 9, ("C", 50): 9, ("C", 70): 9,
+    ("A", 10): 63, ("A", 35): 28, ("A", 50): 25, ("A", 70): 25,
+    ("B", 10): 80, ("B", 35): 25, ("B", 50): 25, ("B", 70): 25,
+    ("C", 10): 25, ("C", 35): 25, ("C", 50): 25, ("C", 70): 25,
     ("D", 10): 100, ("D", 35): 100, ("D", 50): 100, ("D", 70): 100,
 }  # fmt: skip
 
@@ -121,11 +125,15 @@ class TestTheScenarios:
 class TestQuestionsInTheSpecification:
     """Questions 2, 3, 5, 6 and 7 of section 2.10, answered by what our code does."""
 
-    def test_q2_we_do_not_leave_room_for_solar_that_would_overflow(self):
-        """With plenty of sun the target falls to the minimum plus its headroom, not to a floor."""
+    def test_q2_with_plenty_of_sun_the_target_falls_to_the_summer_floor(self):
+        """With plenty of sun the simulation alone would stop at the minimum plus its headroom.
+
+        The specification holds a 25% summer floor, and so do we.
+        """
         target = _our_target(1.8, 1.8, 70)
 
-        assert target == RESERVE_PCT + CHARGE_MIN_TARGET_HEADROOM_PCT
+        assert RESERVE_PCT + CHARGE_MIN_TARGET_HEADROOM_PCT < CHARGE_SUMMER_MIN_TARGET_SOC
+        assert target == CHARGE_SUMMER_MIN_TARGET_SOC
 
     def test_q3_the_day_after_correction_is_a_percentage_of_capacity_not_of_the_peak(self):
         """Ours takes half of the day-after forecast above 100% of capacity off the target.

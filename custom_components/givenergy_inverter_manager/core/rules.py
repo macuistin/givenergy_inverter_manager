@@ -40,6 +40,7 @@ from ..const import (
     CHARGE_SKIP_HEADROOM,
     CHARGE_SOLAR_USABLE_FRACTION,
     CHARGE_STRONG_BUFFER,
+    CHARGE_SUMMER_MIN_TARGET_SOC,
     CHARGE_WINTER_SKIP_SOC_PCT,
     CLIPPING_THRESHOLD_PERCENT,
     DEFAULT_CURRENCY_SYMBOL,
@@ -605,6 +606,9 @@ def _simulated_plan(tonight: _Tonight, skip_blocked_note: str) -> _ChargePlan:
         reason += " Car plugged in — added buffer."
 
     target_soc = min(max(target_soc, tonight.min_soc + CHARGE_MIN_TARGET_HEADROOM_PCT), 100)
+    if target_soc < CHARGE_SUMMER_MIN_TARGET_SOC:
+        target_soc = CHARGE_SUMMER_MIN_TARGET_SOC
+        reason += f" Raised to the {CHARGE_SUMMER_MIN_TARGET_SOC}% floor."
     return _ChargePlan(
         target_soc=target_soc,
         skip_charge=False,

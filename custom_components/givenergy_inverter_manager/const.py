@@ -303,6 +303,10 @@ CONF_CHARGE_WINTER_USES_FORECAST = "charge_winter_uses_forecast"
 # forecast is less reliable than in peak summer.
 # Shoulder month min SoC floor (% of battery) — more conservative than summer floor.
 CHARGE_SHOULDER_MIN_SOC = 70  # % — applied instead of battery_min_soc in shoulder months
+# A planned overnight target is never below this, so a very sunny forecast still leaves the battery
+# some charge in case the sun does not arrive. PALM holds the same floor in summer. The shoulder
+# floor above is already higher, so this only matters in the other months.
+CHARGE_SUMMER_MIN_TARGET_SOC = 25  # %
 # Winter months: the charge is skipped once the battery is at or above this SoC.
 CHARGE_WINTER_SKIP_SOC_PCT = 95  # %
 # The overnight target is never planned closer than this to the minimum SoC.
