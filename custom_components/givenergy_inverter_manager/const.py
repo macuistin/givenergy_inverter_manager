@@ -244,6 +244,11 @@ DEFAULT_DRY_RUN = False
 CONF_VERBOSE_LOGGING = "verbose_logging"
 DEFAULT_VERBOSE_LOGGING = False
 
+# Whether the nightly charge target is worked out again while the cheap window is open. Off until
+# GivTCP is confirmed to apply a changed target to a charge that is already running.
+CONF_CHARGE_REPLAN = "charge_replan"
+DEFAULT_CHARGE_REPLAN = False
+
 # ── Inverter temperature thresholds ─────────────────────────────────────────
 INVERTER_TEMP_WARM = 60      # °C — efficiency begins to drop
 INVERTER_TEMP_DERATING = 65  # °C — significant throttling begins
@@ -403,6 +408,17 @@ DEFAULT_CHEAP_RATE_FLOOR_SOC = 40  # % — 0 disables the floor
 # when less than the stop margin of the window would remain.
 CHARGE_WRITE_RETRY_OFFSETS_MIN = (2, 5, 10, 20)
 CHARGE_WRITE_RETRY_STOP_BEFORE_END_MIN = 15
+# Re-planning inside the cheap window. All of it stops when less than REPLAN_MIN_REMAINING_MIN of
+# the window is left. The late check runs once, at the later of 30 minutes after the first write
+# and 60 minutes before the window ends. A new target is written only when it moves the old one by
+# REPLAN_MIN_CHANGE_PTS or more, and at most REPLAN_MAX_WRITES times a night.
+REPLAN_MIN_REMAINING_MIN = 15
+REPLAN_LATE_CHECK_AFTER_MIN = 30
+REPLAN_LATE_CHECK_BEFORE_END_MIN = 60
+REPLAN_FORECAST_CHANGE_PCT = 15
+REPLAN_FORECAST_CHANGE_MIN_KWH = 1.0
+REPLAN_MIN_CHANGE_PTS = 5
+REPLAN_MAX_WRITES = 3
 CONFLICT_MIN_CHANGES = 2
 CONFLICT_WINDOW_DAYS = 3
 # A daily energy counter that rises by more than the inverter's maximum power times the time

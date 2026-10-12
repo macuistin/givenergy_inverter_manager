@@ -358,6 +358,8 @@ class CoordinatorData:
     test_instance: bool = False
     cheap_rate_floor_status: str = ""
     dry_run_last_skipped: str = ""
+    # What the last re-plan inside tonight's cheap window did, for the reason sensor to lead with.
+    charge_replan_note: str = ""
     # The setup checklist. The coordinator fills it after the engine has run, because it needs
     # the saved config and the cycle's readings together (core/setup_progress.py).
     setup_items: tuple[SetupItem, ...] = ()

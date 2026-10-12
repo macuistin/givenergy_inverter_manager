@@ -135,6 +135,20 @@ The average daily load is today's house energy so far, less the EV charger's ene
 
 **Cheap rate floor.** During a timed period cheaper than the base rate, the integration checks SoC against the floor (the Cheap rate floor SoC control, default 40%, 0 turns it off). In the cheapest period the full floor applies. In a cheaper-but-not-cheapest period it only acts when SoC is below the minimum SoC plus 5. When it acts, it writes the floor as the target SoC and turns enable charge target on, once per day.
 
+#### Re-planning
+
+The target is written once, a minute before the cheap window opens. The forecast, the load or a car can change after that, so with the **Re-plan overnight charge** switch on the plan is worked out again while the window is open, and a changed target is written. The switch is off by default, because nobody has yet confirmed that GivTCP applies a new target to a charge that is already running. Turn it on, watch one night with **Dry run** on, and look for `Would re-plan` in **Last Skipped Action (Dry Run)**.
+
+A check starts when one of three things happens:
+
+1. **The late check.** Once, at the later of 30 minutes after the first write and an hour before the window ends.
+2. **The forecast moved.** The forecast the plan uses, or the day after's forecast, is at least 15% and at least 1 kWh away from the figure the last write used. Between midnight and 08:00 the plan uses the forecast remembered before midnight, which does not change, so only the day after's forecast can start a check then.
+3. **The car.** An EV charger was plugged in or unplugged since the last write.
+
+A check writes only when the new target is at least 5 points from the last written one. At most three re-plans are written a night, so a night has at most four target writes. The window is never opened or moved: a re-plan sends the window that was written, and nothing is sent once less than 15 minutes of it remain or after it ends. A manual override (**Force Skip Overnight Charge** or a charge target override) ends re-planning for that night. A night written as a charge is not turned into a skip, because the charge itself lifts the battery over the skip threshold. A new target below the battery's charge is allowed, and the charge simply stops. The write goes through the same writer as the first one, so a value the inverter already holds is not sent again and the cooldown applies.
+
+**Overnight Charge Reason** then starts with what happened, for example `Re-planned at 03:00: the forecast fell by 20%.`, and the write log shows a line with the reason `replan` that says `60% to 75%` and why. A restart inside the window ends re-planning for that night, except that the write log still counts the re-plans already made. Dry run records `Would re-plan the charge target from 60% to 75% (...)` once and sends nothing.
+
 ### Battery overnight
 
 The overnight outlook asks whether the battery lasts until solar starts. It uses the current SoC, the usable capacity above the minimum SoC, the average daily load (see above, so without the EV charger and the immersion heater) spread evenly over 24 hours, and a window of hours:

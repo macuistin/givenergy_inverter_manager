@@ -840,6 +840,11 @@
   "name": "Immersion Scheduled Heating"
  },
  {
+  "entity_id": "switch.givenergy_inverter_manager_re_plan_overnight_charge",
+  "key": "charge_replan",
+  "name": "Re-plan overnight charge"
+ },
+ {
   "entity_id": "switch.givenergy_inverter_manager_verbose_logging",
   "key": "verbose_logging",
   "name": "Verbose logging"

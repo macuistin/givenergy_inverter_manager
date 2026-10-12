@@ -63,6 +63,7 @@ from .const import (
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_CARBON_INTENSITY_ENTITY,
+    CONF_CHARGE_REPLAN,
     CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_DRY_RUN,
     CONF_EXPORT_RATE,
@@ -83,6 +84,7 @@ from .const import (
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
+    DEFAULT_CHARGE_REPLAN,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_DRY_RUN,
     DEFAULT_IMMERSION_HYSTERESIS,
@@ -93,6 +95,7 @@ from .const import (
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DOMAIN,
     FORECAST_P10_ATTRIBUTE,
+    SOLAR_SUNRISE_HOUR,
     TEST_INSTANCE_MARKER,
     UPDATE_INTERVAL_SECONDS,
 )
@@ -123,6 +126,16 @@ from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
 from .core.inverter_values import ChargePlan, FeedState, InverterValues
 from .core.reload_policy import IMMERSION_TEMP_KEYS, TARIFF_TRIGGER_KEYS
+from .core.replan import (
+    NightState,
+    PlanBasis,
+    PlannedWrite,
+    ReplanInputs,
+    ReplanStep,
+    count_replans,
+    decide_replan,
+    replan_note,
+)
 from .core.rules import monthly_solar_fractions
 from .core.seasons import season_rules
 from .core.setup_progress import SetupFacts, setup_items
@@ -135,7 +148,7 @@ from .core.tariff import (
     tariff_in_force,
 )
 from .core.timeutil import elapsed_seconds
-from .core.write_log import RETRY_REASON
+from .core.write_log import REPLAN_REASON, RETRY_REASON
 from .discovery import (
     EVCharger,
     discover_ev_chargers,
@@ -285,6 +298,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # The pending retry of tonight's charge write, and what it needs to run.
         self._unsub_charge_retry: Callable[[], None] | None = None
         self._retry_attempt = Attempt()
+        # Tonight's written plan, for re-planning inside the window, and the sentence the reason
+        # sensor leads with after a re-plan. Both start empty at each night's first write.
+        self._night: NightState | None = None
+        self._replan_note: str = ""
+        self._replan_pending: bool = False
         self._ev_charger: EVCharger | None = None
         self._ev_base_rate = WatchState()
         self._givtcp_was_unavailable: bool = False
@@ -653,6 +671,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         again at +2, +5, +10 and +20 minutes while enough of the window remains.
         """
         self._cancel_charge_retry()
+        self._night = None
+        self._replan_note = ""
         self._run_charge_write(Attempt())
 
     def _run_charge_write(self, attempt: Attempt) -> None:
@@ -751,12 +771,14 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
             return
         min_soc = int(cfg.get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC))
+        basis = self._plan_basis(decision)
         if self.is_dry_run:
             _LOG.info(
                 "DRY RUN: skip_charge=True — would write min target %d%% (%s)",
                 min_soc,
                 decision.reason,
             )
+            self._remember_night(attempt, PlannedWrite(min_soc, _cheapest_period(tariff), basis))
             return
         _LOG.info(
             "skip_charge=True — writing min target %d%% to allow free discharge (%s)",
@@ -764,7 +786,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             decision.reason,
         )
         self._create_task(
-            self._async_charge_write(cfg, min_soc, _cheapest_period(tariff), attempt or Attempt())
+            self._async_charge_write(
+                cfg, PlannedWrite(min_soc, _cheapest_period(tariff), basis), attempt or Attempt()
+            )
         )
 
     def _write_overnight_target(self, cfg: dict, decision, attempt: Attempt | None = None) -> None:
@@ -785,6 +809,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
             _LOG.info("DRY RUN: %s", action)
             self._record_skipped(action)
+            planned = PlannedWrite(decision.target_soc, cheap, self._plan_basis(decision))
+            self._remember_night(attempt, planned)
             return
         _LOG.info(
             "Writing charge target %d%% for %s window %s (reason: %s)",
@@ -794,7 +820,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             decision.reason,
         )
         self._create_task(
-            self._async_charge_write(cfg, decision.target_soc, cheap, attempt or Attempt())
+            self._async_charge_write(
+                cfg,
+                PlannedWrite(decision.target_soc, cheap, self._plan_basis(decision)),
+                attempt or Attempt(),
+            )
         )
 
     def _planned_window_period(self, tariff):
@@ -810,14 +840,107 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         return replace(cheap, end=window.end)
 
     async def _async_charge_write(
-        self, cfg: dict, target_soc: int, cheap_period, attempt: Attempt
+        self, cfg: dict, planned: PlannedWrite, attempt: Attempt
     ) -> None:
         """Send the plan. When the inverter does not take it, schedule the next attempt."""
-        if await self._async_apply_charge_target(cfg, target_soc, cheap_period):
+        if await self._async_apply_charge_target(cfg, planned.target, planned.period):
             if attempt.number > 1:
                 _LOG.info("Tonight's charge target was written on attempt %d", attempt.number)
+            self._remember_night(attempt, planned)
             return
         self._schedule_charge_retry(attempt, "the inverter did not take it")
+
+    def _plan_basis(self, decision) -> PlanBasis:
+        """The figures a charge write rests on, for a later check to compare with.
+
+        The plan reads the day-after forecast from the tomorrow sensor until sunrise and from
+        the day-after sensor from then on (see core/engine.py, _solar_forecast).
+        """
+        cfg = self._effective_cfg()
+        before_sunrise = self._now().hour < SOLAR_SUNRISE_HOUR
+        entity = cfg.get(CONF_FORECAST_ENTITY if before_sunrise else CONF_FORECAST_ENTITY_D2)
+        return PlanBasis(
+            decision.forecast_kwh,
+            decision.car_plugged_in,
+            decision.skip_charge,
+            self._read_forecast_kwh(entity),
+        )
+
+    def _remember_night(self, attempt: Attempt | None, planned: PlannedWrite) -> None:
+        """Keep what tonight's write was based on, for a later check inside the window."""
+        window = (attempt.window if attempt else None) or self._write_window()
+        if window is not None:
+            self._night = NightState(window, planned.period, planned.target, planned.basis)
+
+    def _maybe_replan(self, data: CoordinatorData, now: datetime) -> None:
+        """Work tonight's target out again while the cheap window is open, and write a change.
+
+        Off until the re-plan switch is on. core/replan.py decides, this gathers the inputs and
+        sends the write. Dry run records what would have been written and sends nothing.
+        """
+        data.charge_replan_note = self._replan_note
+        cfg = self._effective_cfg()
+        night, decision = self._night, data.charge_decision
+        if night is None or decision is None or self._replan_pending:
+            return
+        if not cfg.get(CONF_CHARGE_REPLAN, DEFAULT_CHARGE_REPLAN):
+            return
+        entity = cfg.get(CONF_TARGET_SOC_ENTITY) or ""
+        min_soc = int(cfg.get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC))
+        logged = count_replans(self._acc.state.register_write_log, entity, night.window.trigger)
+        result = decide_replan(
+            ReplanInputs(
+                now=now,
+                window=night.window,
+                last_target=night.target,
+                last_basis=night.basis,
+                new_target=min_soc if decision.skip_charge else decision.target_soc,
+                new_basis=self._plan_basis(decision),
+                replans_so_far=max(night.replans, logged),
+                override_active=self.override_charge_enabled or self.override_skip_charge,
+                late_check_done=night.late_check_done,
+            )
+        )
+        night.late_check_done = night.late_check_done or result.late_check_ran
+        if result.write:
+            self._replan(cfg, ReplanStep(night, result, self._plan_basis(decision), now))
+
+    def _replan(self, cfg: dict, step: ReplanStep) -> None:
+        night, result = step.night, step.result
+        if self.is_dry_run:
+            action = (
+                f"Would re-plan the charge target from {night.target}% to {result.target}% "
+                f"({result.reason})"
+            )
+            _LOG.info("DRY RUN: %s", action)
+            self._record_skipped(action)
+            night.wrote(result.target, step.basis, replan=True)
+            return
+        entity = cfg.get(CONF_TARGET_SOC_ENTITY) or ""
+        _LOG.info(
+            "Re-planning the charge target from %d%% to %d%%: %s",
+            night.target,
+            result.target,
+            result.reason,
+        )
+        note = f"{night.target}% to {result.target}%: {result.reason}"
+        self._audit.note(entity, note, REPLAN_REASON)
+        self._replan_pending = True
+        self._create_task(self._async_replan_write(cfg, step))
+
+    async def _async_replan_write(self, cfg: dict, step: ReplanStep) -> None:
+        """Send the new target into the window as written. The writer skips what is unchanged."""
+        night, result = step.night, step.result
+        try:
+            taken = await self._async_apply_charge_target(cfg, result.target, night.period)
+        finally:
+            self._replan_pending = False
+        if not taken:
+            _LOG.warning("The inverter did not take the re-planned charge target")
+            return
+        night.wrote(result.target, step.basis, replan=True)
+        self._replan_note = replan_note(step.at, result.reason)
+        self._held_charge.release()
 
     async def _async_apply_charge_target(self, cfg: dict, target_soc: int, cheap_period) -> bool:
         """Hand the backend a plan for the target and the window of cheap_period.
@@ -1235,6 +1358,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         log_cycle(_LOG, CycleSnapshot(self._update_cycle, now, raw, data))
         self._remember_cycle(raw, now)
         self._watch_ev_base_rate(data, raw, now)
+        self._maybe_replan(data, now)
         self._apply_decisions(data, ev_target_mode, now)
         self._attach_setup_progress(data, raw, cfg)
         return data

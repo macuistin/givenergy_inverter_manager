@@ -290,6 +290,9 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._givtcp_not_answering: bool = False
         self._unsub_charge_retry = None
         self._retry_attempt = Attempt()
+        self._night = None
+        self._replan_note = ""
+        self._replan_pending = False
         self.scheduled: list[tuple[datetime, object]] = []
         self._inputs_unavailable_since = None
         self.immersion = ImmersionActuator(self._immersion_ports())

@@ -26,7 +26,7 @@ BRIEF_NUMBERS = {
     "skip_charge_soc_threshold_pct": (75, 20, 100, 1),
     "forecast_conservatism": (0.35, 0.0, 1.0, 0.05),
 }
-BRIEF_SWITCHES = ("dry_run", "verbose_logging")
+BRIEF_SWITCHES = ("dry_run", "verbose_logging", "charge_replan")
 
 
 class FakeEntries:
@@ -67,7 +67,7 @@ class TestTheTableMatchesTheBrief:
         actual = {s.key: (s.default, s.low, s.high, s.step) for s in controls.NUMBER_SPECS}
         assert actual == BRIEF_NUMBERS
 
-    def test_the_two_switches_are_dry_run_and_verbose_logging(self):
+    def test_the_switches_are_dry_run_verbose_logging_and_replan(self):
         coordinator = _coordinator()
         assert [s._option_key for s in controls.control_switches(coordinator)] == list(
             BRIEF_SWITCHES

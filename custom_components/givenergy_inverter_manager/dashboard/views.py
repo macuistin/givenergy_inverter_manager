@@ -1194,6 +1194,7 @@ class Builder:
                     self.entity("skip_charge_soc_threshold_pct"), "Skip charge above", BATTERY
                 ),
                 slider_tile(self.entity("forecast_conservatism"), "Forecast caution", SOLAR),
+                toggle_tile(self.entity("charge_replan"), "Re-plan charge", BATTERY),
                 toggle_tile(self.entity("verbose_logging"), "Verbose logging", GRID),
             ],
         )

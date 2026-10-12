@@ -408,6 +408,7 @@ async def test_no_page_asks_for_a_control_or_a_retired_setting(hass, loaded_entr
         {
             "dry_run",
             "verbose_logging",
+            "charge_replan",
             "surplus_divert_soc_pct",
             "surplus_divert_min_power_w",
             "cheap_rate_floor_soc",

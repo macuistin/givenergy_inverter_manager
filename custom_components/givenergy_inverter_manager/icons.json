@@ -158,6 +158,7 @@
     "switch": {
       "dry_run": {"default": "mdi:test-tube"},
       "verbose_logging": {"default": "mdi:text-box-search-outline"},
+      "charge_replan": {"default": "mdi:battery-sync-outline"},
       "auto_immersion": {"default": "mdi:water-boiler-auto"},
       "immersion_managed": {"default": "mdi:water-boiler"},
       "immersion_schedule": {"default": "mdi:water-boiler-auto"},

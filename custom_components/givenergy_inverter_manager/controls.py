@@ -2,10 +2,10 @@
 controls.py - the tuning controls: switches and numbers that each own one saved option.
 
 A setting is either a form field (set once, changes rarely) or a control (a knob the user tries,
-watches and adjusts), never both. The seven controls here write the flat option key they were
+watches and adjusts), never both. The eight controls here write the flat option key they were
 always stored under, so no data moves and an install keeps the value it had:
 
-  switches  dry_run, verbose_logging
+  switches  dry_run, verbose_logging, charge_replan
   numbers   surplus_divert_soc_pct, surplus_divert_min_power_w, cheap_rate_floor_soc,
             skip_charge_soc_threshold_pct, forecast_conservatism
 
@@ -29,6 +29,7 @@ from homeassistant.exceptions import ServiceValidationError
 
 from .config_helpers import effective_config
 from .const import (
+    CONF_CHARGE_REPLAN,
     CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_DRY_RUN,
     CONF_FORECAST_CONSERVATISM,
@@ -36,6 +37,7 @@ from .const import (
     CONF_SURPLUS_DIVERT_MIN_W,
     CONF_SURPLUS_DIVERT_SOC,
     CONF_VERBOSE_LOGGING,
+    DEFAULT_CHARGE_REPLAN,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_DRY_RUN,
     DEFAULT_FORECAST_CONSERVATISM,
@@ -217,10 +219,11 @@ class DryRunSwitch(ControlSwitch):
 
 
 def control_switches(coordinator: GivEnergyCoordinator) -> list[ControlSwitch]:
-    """The two switch controls."""
+    """The three switch controls."""
     return [
         DryRunSwitch(coordinator),
         ControlSwitch(coordinator, CONF_VERBOSE_LOGGING, DEFAULT_VERBOSE_LOGGING),
+        ControlSwitch(coordinator, CONF_CHARGE_REPLAN, DEFAULT_CHARGE_REPLAN),
     ]
 
 

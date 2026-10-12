@@ -213,6 +213,8 @@ The `recent_writes` attribute of the **GivTCP Register Write Count** sensor show
 - If Home Assistant restarts inside the window and no write was logged since the trigger, the write is made once as it starts.
 - Dry run sends nothing, so nothing is retried.
 
+With **Re-plan overnight charge** on, the target can also change after a successful write. Those lines have the reason `replan`. See [Re-planning](concepts.md#re-planning).
+
 ## Writes to the inverter are not confirmed
 
 The integration reads each charge setting back after it writes it. When the inverter still shows the old value after three attempts, the log has a warning like this, with the name of the setting in front:

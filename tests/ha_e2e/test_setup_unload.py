@@ -38,9 +38,9 @@ async def test_platforms_register_expected_entities(hass, loaded_entry):
     assert len(by_domain["sensor"]) == len(
         [d for d in SENSOR_DESCRIPTIONS if d.requires not in (Device.EV_CHARGER, Device.ALTERNATIVE_HEAT)]
     )
-    # The five switches include the immersion ones. The two controls (dry run, verbose logging)
-    # make seven.
-    assert len(by_domain["switch"]) == 7
+    # The five switches include the immersion ones. The three controls (dry run, verbose logging,
+    # re-plan) make eight.
+    assert len(by_domain["switch"]) == 8
     # Four before the controls: the override and the three immersion temperatures. The controls
     # add the floor, the skip-charge threshold and forecast conservatism, and, with an immersion
     # switch, the two divert thresholds.

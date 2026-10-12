@@ -343,7 +343,8 @@ def overnight_charge_target(data: CoordinatorData) -> int | None:
 def overnight_charge_reason(data: CoordinatorData) -> str | None:
     """Return why the published target was recommended, None before the first decision."""
     if data.published_charge_decision:
-        return data.published_charge_decision.reason
+        reason = data.published_charge_decision.reason
+        return f"{data.charge_replan_note} {reason}" if data.charge_replan_note else reason
     return None
 
 

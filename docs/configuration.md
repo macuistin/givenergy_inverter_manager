@@ -259,6 +259,7 @@ A control is a setting you try, watch and adjust. It is an entity on the device 
 |---|---|---|---|---|---|
 | Dry run | switch | `dry_run` | off, on for a new install | on or off | On: decisions and sensors update and nothing is sent to the inverter, the immersion or the EV charger. See [Dry run](#dry-run) |
 | Verbose logging | switch | `verbose_logging` | off | on or off | Writes per-cycle detail at debug level. Also enable debug logging for the integration, or the lines will not appear. See [Troubleshooting](troubleshooting.md#a-charge-decision-looks-wrong) |
+| Re-plan overnight charge | switch | `charge_replan` | off | on or off | On: while the cheap window is open the charge target is worked out again, and a changed target is written. See [Re-planning](concepts.md#re-planning) |
 | Immersion divert minimum SoC | number | `surplus_divert_soc_pct` | 80 | 50 to 100 in steps of 5 | Solar surplus only goes to the immersion once the battery is above this percentage. Needs an immersion switch |
 | Immersion divert minimum surplus | number | `surplus_divert_min_power_w` | 500 | 100 to 2000 W in steps of 100 | The smallest solar surplus that starts diverting power to the immersion. Needs an immersion switch |
 | Cheap rate floor SoC | number | `cheap_rate_floor_soc` | 40 | 0 to 80 in steps of 5 | During the cheapest rate window the battery is topped up if it falls below this percentage. 0 turns the top-up off |

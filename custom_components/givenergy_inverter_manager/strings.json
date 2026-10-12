@@ -1067,6 +1067,9 @@
       "verbose_logging": {
         "name": "Verbose logging"
       },
+      "charge_replan": {
+        "name": "Re-plan overnight charge"
+      },
       "skip_charge_override": {
         "name": "Force Skip Overnight Charge"
       },
