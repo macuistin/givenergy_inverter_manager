@@ -88,13 +88,24 @@ One list, merged from Part A section 12 and Appendix C. Items with a default pro
 7. **Minimum GivTCP version.** Default: the wizard warns below 3.6.2. 3.6 and 3.6.1 reset entity ids and mis-handle slot 2 and PV-only inverters. 3.5 keeps working where the fixtures show it does.
 8. **Package layout.** Default: the layout in Part A section 5.2.
 9. **Fixtures**, highest priority first (Appendix D.6): parallel All-In-Ones with a gateway at two GivTCP versions; an All-In-One with and without a gateway; three-phase; an HV Gen 3 hybrid before and after 3.6; a hybrid with several batteries; AC-coupled; two inverters; a custom prefix. Each as an anonymised entity list with the GivTCP version.
-10. **The charge target test (U8).** A real charge on a per-slot-target inverter, to prove that `Target_SOC` with `Enable_Charge_Target` stops the charge. If it does not, the write sequence needs its own card.
-11. **Entity checks on a live GivTCP (M10).** Confirm which of `Charge_Target_SOC_1`, `Invertor_Type`, `Data_Age`, `GivTCP_Version`, `Battery_Capacity_kWh` and `Battery_Capacity_kWh_calc` exist, with their exact states.
+10. **The charge target test (U8).** One system is already evidence (section 7). The first night on GivTCP 3.6.3 checks it again. A real charge on a second per-slot-target inverter, or an All-In-One, would settle it. If `Target_SOC` does not stop the charge there, the write sequence needs its own card.
+11. **Entity checks on a live GivTCP (M10).** Done for one hybrid (section 7). Repeat on any other system type that is supplied as a fixture.
 
-## 7. Evidence still to collect that needs no one
+## 7. Evidence already collected from one live install
 
-- Read-only checks on the maintainer's own GivTCP for item 11 and for U1 (any entity with "smart" or "palm" in its name), so some of this list shrinks before anyone is asked.
-- A link check of every URL in the roadmap text (card RM1). Links are checked with an HTTP request and each failure is listed in the pull request.
+Read-only, on 12 October 2026, from one single-phase hybrid on GivTCP 3.6.3. It answers some of the questions above for that system only. It is not a fixture and no other system type is covered.
+
+| Question | Finding | Effect on the plan |
+|---|---|---|
+| `Data_Age` exists (item 2, U10) | Yes: `sensor.givtcp_<serial>_data_age`, a number of seconds (read as 1.2), updated on each poll | `is_publishing()` can read it where present. The check still needs the `last_reported` rule for GivTCP 3.5 |
+| `Invertor_Type` (U10) | `sensor.givtcp_<serial>_invertor_type` reads `Hybrid_gen3`. The exact string is `Hybrid_gen3`, with an underscore and a lower-case generation | SY1 classification can match this string for this kind. Other kinds still need fixtures |
+| `GivTCP_Version` | `sensor.givtcp_<serial>_givtcp_version` reads `3.6.3` | Version is readable. 3.6.3 exists, so the supported floor in item 7 is a floor and not a pin |
+| SmartTarget or PALM entity (U1, CC1) | No entity has "smart" or "palm" in its name | CC1 is answered: no entity. CC2 stays behaviour based |
+| Per-slot targets (U8) | `Charge_Target_SOC_1` to `_10` exist as numbers, all reading 100 and never changed in the last seven days. Over the same days the manager wrote `Target_SOC` (86, 88, 90) with `Enable_Charge_Target` on, and the battery stopped at about the written target on the nights it had time to reach it | On this inverter `Target_SOC` with `Enable_Charge_Target` stops the charge while slot 1's own target reads 100. That was on GivTCP 3.5. The first night on 3.6.3 repeats the test. U8 is partly answered for one system, and a real charge on another per-slot inverter is still wanted |
+| Battery capacity (C29) | `Battery_Capacity_kWh` exists (19.046). No `Battery_Capacity_kWh_calc` entity was found | C29 reads `Battery_Capacity_kWh`. The `_calc` variant is not on this system |
+| Publish behaviour | The SoC sensor did not move `last_reported` for over an hour while its value stayed the same, so GivTCP publishes it only on a change. Grid and load power change nearly every poll | The frozen-feed rule needs several sensors quiet, as built. Prefer `Data_Age` |
+
+Still to collect without anyone's help: a link check of every URL in the roadmap text (card RM1). Each failure is listed in the pull request that adds the text.
 
 ## 8. Risks added by the plan
 
