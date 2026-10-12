@@ -62,9 +62,15 @@ from .cards import (
     toggle_tile,
     view_config,
 )
-from .charts import ImmersionEntities, builtin_immersion_chart, flow_card, flow_fallback
+from .charts import (
+    ImmersionEntities,
+    apex_immersion_chart,
+    builtin_immersion_chart,
+    flow_card,
+    flow_fallback,
+)
 from .devices import Devices, with_visibility
-from .hacs import POWER_FLOW_CARD, HacsCards
+from .hacs import APEX_CARD, POWER_FLOW_CARD, HacsCards
 from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
     MANAGED_HELP,
@@ -72,6 +78,7 @@ from .templates import (
     RESTART_GAP_HELP,
     EnergySources,
     alt_heat_schedule_template,
+    cheapest_source_template,
     currency_symbol,
     energy_devices_template,
     energy_sources_template,
@@ -503,6 +510,14 @@ class Builder:
             self.immersion("immersion_power"), "Heater power", color=IMMERSION, icon="mdi:flash"
         )
 
+    def _immersion_chart(self, entities: ImmersionEntities) -> dict | None:
+        """The immersion chart. apexcharts-card draws the heater as a band behind the water
+        temperature, in one chart, when it is installed. Otherwise a history graph draws the
+        temperatures and the heater's power as two charts in one card."""
+        if self.cards.installed(APEX_CARD):
+            return apex_immersion_chart(entities)
+        return builtin_immersion_chart(entities)
+
     def _temperature_card(self, shown: frozenset[Device]) -> dict | None:
         """The water temperature chart.
 
@@ -516,7 +531,7 @@ class Builder:
             self.thermostat("immersion_min_temp") if both else None,
             self.immersion("immersion_power") if both else None,
         )
-        return builtin_immersion_chart(entities)
+        return self._immersion_chart(entities)
 
     def _water_temperature(self) -> dict | None:
         """The water temperature chart, while there is a sensor. Not drawn without one.
@@ -542,7 +557,7 @@ class Builder:
         entities = ImmersionEntities(None, None, None, self.immersion("immersion_power"))
         return group(
             heading_card("Heater on or off", "mdi:flash"),
-            [self._heater_tile(), builtin_immersion_chart(entities)],
+            [self._heater_tile(), self._immersion_chart(entities)],
             visibility=[
                 *self.devices.visible_with(Device.IMMERSION_SWITCH),
                 *self.devices.visible_without(Device.IMMERSION_SENSOR),
@@ -616,7 +631,7 @@ class Builder:
         return group(
             heading_card("Cheapest way to heat the water", "mdi:fire-circle"),
             [
-                tile_card(source, "Cheapest source", color=IMMERSION, columns=FULL),
+                markdown_card(cheapest_source_template(source)) if source else None,
                 with_visibility(suggestion, self.devices.visible_while_off(scheduled)),
                 self._alt_heat_schedule_line(source),
             ],

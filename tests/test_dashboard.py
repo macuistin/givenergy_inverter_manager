@@ -1032,10 +1032,10 @@ class TestMissingHacsCards:
     def test_the_power_flow_card_is_used_when_its_resource_is_registered(self):
         assert "custom:power-flow-card-plus" in self._types([_PFC])
 
-    def test_apexcharts_card_is_never_used_even_when_installed(self):
-        types = self._types([_PFC, _APEX])
-        assert "custom:power-flow-card-plus" in types
-        assert "custom:apexcharts-card" not in types
+    def test_apexcharts_card_draws_the_immersion_chart_only_when_installed(self):
+        installed = self._types([_PFC, _APEX])
+        assert "custom:apexcharts-card" in installed
+        assert "custom:apexcharts-card" not in self._types([_PFC])
 
     def test_no_resources_means_no_custom_cards(self):
         types = self._types([])

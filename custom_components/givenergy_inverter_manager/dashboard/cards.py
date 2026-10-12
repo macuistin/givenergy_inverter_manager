@@ -36,6 +36,20 @@ MAX_COLUMNS = 3
 # ── Card primitives ──────────────────────────────────────────────────────────
 
 
+def apex_config(height: int = 180) -> dict:
+    """The apexcharts options shared by the charts.
+
+    It sets no stroke. A global stroke curve or width overrides the per-series ones, so each
+    series carries its own stroke_width and curve.
+    """
+    return {
+        "chart": {"height": height, "zoom": {"enabled": False}},
+        "tooltip": {"shared": True, "followCursor": True},
+        "markers": {"size": 0, "hover": {"size": 5}},
+        "legend": {"show": False},
+    }
+
+
 def present(items: list) -> list:
     return [item for item in items if item is not None]
 

@@ -150,8 +150,33 @@ class TestTheHeaterTile:
         assert "features" not in tile
 
 
-@pytest.mark.parametrize("resources", [None, [], [_APEX_URL]], ids=["unknown", "none", "apex"])
-def test_the_chart_is_the_same_whatever_custom_cards_are_installed(resources):
+@pytest.mark.parametrize("resources", [None, []], ids=["unknown", "none"])
+def test_without_apexcharts_card_the_chart_is_a_history_graph(resources):
     shown = seen_for(resources=resources, switch=True, sensor=True)
     assert _charts(shown) == _charts(seen_for(switch=True, sensor=True))
     assert "apexcharts" not in str(shown)
+
+
+def test_with_apexcharts_card_one_chart_shades_the_heater_behind_the_water_temperature():
+    """The heater is on or off, so one chart shows the temperature and when the heater ran."""
+    shown = seen_for(resources=[_APEX_URL], switch=True, sensor=True)
+    cards = [c for c in view_cards(_immersion(shown)) if c["type"] == "custom:apexcharts-card"]
+    assert len(cards) == 1
+    assert not _charts(shown)
+    series = {s["name"]: s for s in cards[0]["series"]}
+    assert set(series) == {"Water", "Target", "Minimum", "Heater on"}
+    heater = series["Heater on"]
+    assert heater["entity"] == IDS["immersion_power"]
+    assert heater["type"] == "area"
+    assert heater["curve"] == "stepline"
+    assert heater["transform"] == "return x > 0 ? 1 : 0;"
+    assert {a["id"]: a.get("show", True) for a in cards[0]["yaxis"]} == {
+        "temp": True,
+        "heater": False,
+    }
+
+
+def test_with_apexcharts_card_a_switch_alone_gets_a_heater_band_chart():
+    shown = seen_for(resources=[_APEX_URL], switch=True, sensor=False)
+    cards = [c for c in view_cards(_immersion(shown)) if c["type"] == "custom:apexcharts-card"]
+    assert [s["name"] for card in cards for s in card["series"]] == ["Heater on"]

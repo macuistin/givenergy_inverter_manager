@@ -107,6 +107,23 @@ async def test_strategy_file_is_served_and_added_to_the_frontend(
     assert (await client.get(STRATEGY_URL_PATH)).status == 200
 
 
+async def test_the_strategy_file_can_be_cached_by_the_browser(
+    hass, hass_in_scenario, service_calls, config_entry, hass_client
+):
+    """Home Assistant waits 5 seconds for the strategy element, so a repeat visit must not
+    wait on the network. The ?v= on the module URL changes with the version, so a cached copy
+    never outlives an update."""
+    assert await async_setup_component(hass, "http", {})
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    client = await hass_client()
+    response = await client.get(STRATEGY_URL_PATH)
+    assert "max-age" in response.headers.get("Cache-Control", "")
+    assert MODULE_URL.endswith(f"?v={INTEGRATION_VERSION}")
+
+
 async def test_setup_without_a_frontend_still_serves_the_file(
     hass, hass_in_scenario, service_calls, config_entry, hass_client
 ):
