@@ -61,12 +61,20 @@ from tests.helpers import PKG
 # ── Minimal HA state stub ─────────────────────────────────────────────────────
 
 
-class FakeState:
-    """Minimal stub for an HA state object."""
+_ALWAYS_FRESH = datetime(9999, 1, 1, tzinfo=timezone.utc)
 
-    def __init__(self, state: str, attributes: dict | None = None):
+
+class FakeState:
+    """Minimal stub for an HA state object.
+
+    A state is reported "just now" by default: the stub's last_reported is far in the future, so
+    a coordinator with any patched clock reads the feed as live. A test of a frozen feed sets it.
+    """
+
+    def __init__(self, state: str, attributes: dict | None = None, last_reported=None):
         self.state = state
         self.attributes = attributes or {}
+        self.last_reported = last_reported or _ALWAYS_FRESH
 
 
 # ── FakeCoordinator ───────────────────────────────────────────────────────────
@@ -271,6 +279,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._floor_top_up_applied: bool = False
         self.override_skip_charge = False
         self._givtcp_was_unavailable: bool = False
+        self._givtcp_frozen: bool = False
         self._inputs_unavailable_since = None
         self.immersion = ImmersionActuator(self._immersion_ports())
         self._dry_run_last_skipped: str = ""

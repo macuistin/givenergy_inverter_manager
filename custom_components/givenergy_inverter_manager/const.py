@@ -405,6 +405,11 @@ REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept i
 SENSOR_OUTAGE_HOLD_LIMIT_S = 300
 GIVTCP_MIN_CHARGE_TARGET_PCT = 4      # lowest charge target GivTCP accepts
 GIVTCP_MAX_CHARGE_TARGET_PCT = 100    # highest charge target GivTCP accepts
+# How long every GivTCP power and SoC entity may go without a report before the feed counts as
+# frozen. GivTCP publishes about every 20 to 30 seconds and a cycle is 30 seconds, so ten minutes
+# is twenty missed publishes: an add-on restart passes, an overnight crash trips. The two
+# five-minute values above are a write cooldown and an element hold, not feed ages.
+GIVTCP_FROZEN_AFTER_S = 600
 
 # ── Sensor state text ─────────────────────────────────────────────────────────
 # Home Assistant stores a state of up to 255 characters (homeassistant.const

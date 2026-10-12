@@ -123,6 +123,7 @@ from .core.engine import (
     build_coordinator_data,
 )
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
+from .core.feed_freshness import frozen_age_s, newest_report
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
 from .core.reload_policy import IMMERSION_TEMP_KEYS, TARIFF_TRIGGER_KEYS
@@ -159,12 +160,14 @@ from .repairs import (
     ClearOutcome,
     async_create_battery_cost_issue,
     async_create_ev_base_rate_issue,
+    async_create_feed_frozen_issue,
     async_create_givtcp_missing_issue,
     async_create_min_soc_issue,
     async_create_other_charge_slots_issue,
     async_create_tariff_review_issue,
     async_delete_battery_cost_issue,
     async_delete_ev_base_rate_issue,
+    async_delete_feed_frozen_issue,
     async_delete_givtcp_missing_issue,
     async_delete_min_soc_issue,
     async_delete_other_charge_slots_issue,
@@ -225,6 +228,17 @@ def _waiting_for_cheapest_text(soc: float, period, cheapest) -> str:
     )
 
 
+# The entities read every cycle that GivTCP keeps publishing. The feed is frozen only when none
+# of them has reported lately, so one that GivTCP publishes less often cannot trip it alone.
+_FEED_KEYS = (
+    CONF_SOLAR_POWER,
+    CONF_BATTERY_SOC,
+    CONF_BATTERY_POWER,
+    CONF_GRID_POWER,
+    CONF_HOUSE_LOAD,
+)
+
+
 def _is_stale(state) -> bool:
     """True when an entity is missing or reports unavailable or unknown."""
     return state is None or state.state in ("unavailable", "unknown")
@@ -278,6 +292,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._init_immersion(entry.data)
         self._init_writer()
         self._register_time_listeners()
+        self.entry.async_on_unload(self._clear_feed_frozen_issue)
 
     async def async_detect_test_instance(self) -> None:
         """Look for the test instance marker file once, in the executor, and remember the answer.
@@ -315,6 +330,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._ev_base_rate = WatchState()
         self._battery_cycle_entities: list[str] = []
         self._givtcp_was_unavailable: bool = False
+        # True from the cycle that finds GivTCP's entities frozen until one reports again.
+        self._givtcp_frozen: bool = False
         self._inputs_unavailable_since: datetime | None = None
         # Last action dry run skipped. The engine builds a fresh snapshot each cycle,
         # so the value lives here and is copied onto every new snapshot.
@@ -745,6 +762,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         if self.data is None or self.data.charge_decision is None:
             _LOG.warning("No charge decision available yet — skipping charge target write-back")
+            return
+        if self._givtcp_frozen:
+            _LOG.warning(
+                "GivTCP data is frozen, so tonight's charge target and window are not written. "
+                "The plan would come from readings that no longer move."
+            )
             return
         decision = self.data.charge_decision
         # The sensors catch up with what is written on the next cycle.
@@ -1442,7 +1465,45 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 translation_domain="givenergy_inverter_manager",
                 translation_key="givtcp_unavailable",
             )
+        self._require_feed_moving(cfg)
         self._note_givtcp_publishing()
+
+    def _require_feed_moving(self, cfg: dict) -> None:
+        """Fail the cycle when GivTCP's entities hold values but none has been reported lately.
+
+        An add-on that crashes leaves its MQTT entities at their last values, neither unavailable
+        nor unknown. The newest report across the entities read each cycle is the signal, never
+        a value, so a reading that is steady while GivTCP publishes stays fresh. A silent feed
+        has already been handled, and a missing entity has no report to judge.
+        """
+        states = (self._get_optional_state(cfg.get(key)) for key in _FEED_KEYS)
+        newest = newest_report(state.last_reported for state in states if state is not None)
+        if frozen_age_s(newest, self._now()) is None:
+            return
+        self._note_givtcp_frozen(newest)
+        raise UpdateFailed(
+            translation_domain="givenergy_inverter_manager",
+            translation_key="givtcp_frozen",
+        )
+
+    def _note_givtcp_frozen(self, newest: datetime) -> None:
+        """Say once that the feed is frozen, raise the repair, and stop the gap from counting."""
+        if self._givtcp_frozen:
+            return
+        self._givtcp_frozen = True
+        since = dt_util.as_local(newest).strftime("%d %b %H:%M")
+        _LOG.warning(
+            "GivTCP data is frozen, not unavailable: nothing has been reported since %s and the "
+            "entities still hold their last values. Planning and charge writes are paused until "
+            "GivTCP reports again. Check GivTCP is running and MQTT is connected.",
+            since,
+        )
+        async_create_feed_frozen_issue(self.hass, since)
+        # Energy over the gap is unknown, so the first cycle after it adds none.
+        self._last_update = None
+
+    def _clear_feed_frozen_issue(self) -> None:
+        async_delete_feed_frozen_issue(self.hass)
 
     def _note_givtcp_silent(self, solar, battery) -> None:
         if not self._givtcp_was_unavailable:
@@ -1458,6 +1519,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._givtcp_was_unavailable:
             _LOG.info("GivTCP is publishing data again — resuming normal operation.")
             self._givtcp_was_unavailable = False
+        if self._givtcp_frozen:
+            _LOG.info("GivTCP is reporting again — resuming normal operation.")
+            self._givtcp_frozen = False
+            async_delete_feed_frozen_issue(self.hass)
         async_delete_givtcp_missing_issue(self.hass)
 
     def _read_inputs(self, cfg: dict, now: datetime) -> RawSensorValues:

@@ -302,6 +302,18 @@ if not _PLUGIN_MISSING:
             0,
         )
 
+    @pytest.fixture(autouse=True)
+    def _feed_never_frozen(monkeypatch):
+        """Keep the frozen-feed check off, because most tests move the clock and publish nothing.
+
+        Many tests tick the frozen clock by minutes or days and read the result without GivTCP
+        publishing again, which is the one thing the check calls a frozen feed. A test of the
+        check itself (test_frozen_feed_e2e.py) overrides this fixture with a no-op.
+        """
+        from custom_components.givenergy_inverter_manager.core import feed_freshness
+
+        monkeypatch.setitem(feed_freshness.frozen_age_s.__globals__, "GIVTCP_FROZEN_AFTER_S", 1e12)
+
     @pytest.fixture(params=[MIDDAY, CHEAP_NIGHT], ids=lambda s: s.name)
     def scenario(request) -> Scenario:
         return request.param

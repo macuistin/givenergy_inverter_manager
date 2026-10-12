@@ -31,9 +31,24 @@ The integration marks every entity unavailable when **both** the solar power sen
 Related behaviour:
 
 - If only one of the two sensors drops out, the integration keeps running and reads the missing value as 0.
-- The integration judges by the entity's state, not its age. If GivTCP leaves the last value in place when it stops, the integration keeps using it.
+- If GivTCP stops and its entities keep their last values, they are not `unavailable`, so this check does not fire. A separate check looks at when the entities were last reported, not at their value. See [GivTCP data is frozen](#givtcp-data-is-frozen).
 - At startup, a failed first read raises "First data fetch failed" and Home Assistant retries the setup on its own.
 - If both entities are missing from Home Assistant entirely, the repair **GivTCP entities not found** appears. See [GivTCP entities not found](#givtcp-entities-not-found).
+
+## GivTCP data is frozen
+
+The repair **GivTCP has stopped updating** appears when GivTCP's solar, battery and load entities still hold values, but none of them has been reported for 10 minutes. This is what a crashed GivTCP add-on looks like: MQTT keeps the last retained values, so the entities are not `unavailable` and look normal while nothing moves. For example, the state of charge sits at one number all night.
+
+The check uses the time each entity was last reported, which Home Assistant refreshes on every publish even when the value is the same. A steady reading, such as a battery at 100%, does not trip it while GivTCP is running. A GivTCP restart of a few minutes does not trip it either.
+
+While the feed is frozen the integration stops planning and stops writing to the inverter, because every figure would come from old readings. Its entities show unavailable, the same as when GivTCP is silent. A held charge plan is kept and resumes when the feed does. The log has one warning starting `GivTCP data is frozen, not unavailable`, and `GivTCP is reporting again` when it ends. The repair clears by itself on the next cycle after GivTCP reports.
+
+1. Open the GivTCP log and look for a crash or an error since the last upgrade or restart.
+2. Check that GivTCP's day rate, night rate and tariff type are filled in. An empty day rate stopped GivTCP v3.6.3 from starting.
+3. Check that GivTCP's **Real Time Control** is on. An upgrade can reset it, and writes to the inverter are then not confirmed. See [Writes to the inverter are not confirmed](#writes-to-the-inverter-are-not-confirmed).
+4. Restart GivTCP and check that **Settings → Devices & Services → MQTT** shows it connected.
+
+After a Home Assistant restart the entities start as freshly reported, so a GivTCP that is already stopped shows as frozen about 10 minutes later.
 
 ## GivTCP entities not found
 
