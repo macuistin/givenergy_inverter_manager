@@ -349,7 +349,7 @@ def test_the_prerelease_workflow_publishes_beta_and_rc_tags_after_checking_the_v
     runs = [step.get("run", "") for step in job["steps"]]
 
     assert set(workflow[True]) == {"push"}
-    assert workflow[True]["push"]["tags"] == ["v0.18.0b*", "v0.18.0rc*"]
+    assert workflow[True]["push"]["tags"] == ["v0.19.0b*", "v0.19.0rc*"]
     assert "branches" not in workflow[True]["push"]
     assert any(run.startswith('python scripts/set_version.py --check "${GITHUB_REF_NAME}"') for run in runs)
     publish = next(run for run in runs if "gh release create" in run)

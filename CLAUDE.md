@@ -44,7 +44,7 @@ inside it.
 - Which options saves reload is decided in `core/reload_policy.py` (`change_effect`). A new option
   key reloads until it is placed in `LIVE_KEYS`, and `tests/core/test_reload_policy.py` fails until it
   has a row.
-- A tag such as `v0.18.0b1` or `v0.18.0rc1` publishes a GitHub pre-release
+- A tag such as `v0.19.0b1` or `v0.19.0rc1` publishes a GitHub pre-release
   (`.github/workflows/prerelease.yml`). `scripts/set_version.py` sets and checks the version.
 
 ## Commands
