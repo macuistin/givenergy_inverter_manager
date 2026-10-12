@@ -19,6 +19,8 @@ Each rule is checked by a test or by the Home Assistant source. The test is name
   registry entry. A repair issue goes in `_RETIRED_ISSUE_IDS` the same way.
 - A setting the user tunes is a control (`controls.py`), not a form field. It writes its own option
   key through `async_set_option`, shows the value in force, and the key is in `LIVE_KEYS`.
+- Inverter entity names are built only in `inverter/givtcp/`, and only the adapter calls inverter
+  services. The coordinator uses the `InverterBackend` interface (`inverter/backend.py`).
 - Every platform sets `PARALLEL_UPDATES` (`tests/test_metadata.py`). All entities use
   `_attr_has_entity_name = True` through `GivEnergyEntity`.
 - Listeners and other hooks that Home Assistant calls synchronously are `@callback` functions. To

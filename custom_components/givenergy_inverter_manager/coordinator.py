@@ -77,7 +77,6 @@ from .const import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
-    CONF_INVERTER_SERIAL,
     CONF_TARGET_SOC_ENTITY,
     CONF_TARIFF_REVIEWED_ON,
     DEFAULT_ALT_HEAT_UNIT,
@@ -94,7 +93,6 @@ from .const import (
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DOMAIN,
     FORECAST_P10_ATTRIBUTE,
-    GIVTCP_RATE_TOLERANCE_PCT,
     TEST_INSTANCE_MARKER,
     UPDATE_INTERVAL_SECONDS,
 )
@@ -127,12 +125,10 @@ from .core.tariff import (
     stale_tariff_age_days,
     tariff_in_force,
 )
-from .core.tariff_check import GivTCPRates, RateMismatch, find_rate_mismatches
 from .core.timeutil import elapsed_seconds
 from .discovery import (
     EVCharger,
     discover_ev_chargers,
-    givtcp_rate_entity_ids,
     update_charger_state,
 )
 from .forecast_seeding import async_seed_forecast_accuracy
@@ -1033,28 +1029,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         else:
             async_delete_battery_cost_issue(self.hass)
 
-    def _read_givtcp_rates(self, cfg: dict) -> GivTCPRates:
-        """GivTCP's day, night and export rates. A rate that is not readable above zero is None."""
-        serial = cfg.get(CONF_INVERTER_SERIAL)
-        if not serial:
-            return GivTCPRates()
-        values = {
-            name: self._read_optional_float(entity_id)
-            for name, entity_id in givtcp_rate_entity_ids(serial).items()
-        }
-        held = {name: v for name, v in values.items() if v is not None and v > 0}
-        return GivTCPRates(day=held.get("day"), night=held.get("night"), export=held.get("export"))
-
-    def _compare_givtcp_rates(self, cfg: dict) -> tuple[RateMismatch, ...] | None:
-        """The GivTCP rates that differ from the tariff entered here, None when none is readable.
-
-        The result only feeds attributes of the Current Rate sensor. It never raises a repair.
-        """
-        rates = self._read_givtcp_rates(cfg)
-        if not rates.any_held:
-            return None
-        return tuple(find_rate_mismatches(build_tariff(cfg), rates, GIVTCP_RATE_TOLERANCE_PCT))
-
     def _check_tariff_review(self, cfg: dict[str, Any]) -> None:
         """Raise the repair issue once the tariff has gone unreviewed for too long, else clear it.
 
@@ -1153,7 +1127,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             ),
         )
         self._attach_stored_totals(data)
-        data.givtcp_rate_mismatches = self._compare_givtcp_rates(cfg)
         self.immersion.annotate_divert_reason(data, raw.immersion_temp)
         self._record_forecast(raw, data)
         data.cheap_rate_floor_status = await self._maybe_apply_cheap_rate_floor(now, raw, cfg)

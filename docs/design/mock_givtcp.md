@@ -2,6 +2,10 @@
 
 `tools/mock_givtcp.py` is the device side of every write the integration makes. It exists so a test can assert the exact commands sent to the inverter, the immersion switch and the Zappi, with nothing real in reach (brief card FN3).
 
+## Where it is used
+
+`tests/ha_e2e/test_write_sequence_e2e.py` drives the whole integration against it. `tests/ha_e2e/test_backend_contract_e2e.py` runs the shared backend contract (`tests/backend_contract.py`) on the GivTCP adapter over it, so any inverter backend meets the same checks.
+
 ## What it does
 
 - Publishes the entity states GivTCP publishes, with the names `inverter/givtcp/discovery.py` expects: `sensor.givtcp_<serial>_pv_power`, `_soc`, `_battery_power`, `_grid_power`, `_load_power`, `_invertor_temperature`, `_invertor_serial_number`, `_battery_capacity_kwh`, the seven daily energy counters, and the controls `number.givtcp_<serial>_target_soc`, `switch.givtcp_<serial>_enable_charge_target`, `switch.givtcp_<serial>_enable_charge_schedule`, `select.givtcp_<serial>_charge_start_time_slot_1` and `_charge_end_time_slot_1`. Readings use GivTCP's own sign convention (grid positive when exporting, battery positive when discharging).

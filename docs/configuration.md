@@ -120,7 +120,7 @@ The first screen has the base rate, the export rate and a select for the number 
 | Schedule a rate change | the date the rates you entered start, and a switch to cancel the changes already scheduled |
 | Confirm the tariff is current | nothing, it records today as the day you checked the tariff |
 
-Raising the count adds blank rows after the saved ones. Lowering it drops the last rows. A count of 0 clears the time-of-day rates and needs no rows screen. Change the rates against your latest bill whenever your supplier changes its prices. See [Tariff](tariff.md). If GivTCP holds day, night or export rates that differ from these, the **Current Rate** sensor lists the differences in its attributes. The rates here always win. See [Tariff](tariff.md#comparing-with-givtcps-rates).
+Raising the count adds blank rows after the saved ones. Lowering it drops the last rows. A count of 0 clears the time-of-day rates and needs no rows screen. Change the rates against your latest bill whenever your supplier changes its prices. See [Tariff](tariff.md). The integration uses only the rates entered here. It does not read the rates GivTCP holds.
 
 **Schedule a rate change.** Sets the date the rates on the Tariff and rows screens start. Leave the date empty to apply them now. Only the base rate and its name, the time-of-day rates and the export rate follow the date. The bill details apply when you save. See [Tariff](tariff.md#change-the-rates-from-a-date). Saving the tariff without a date ends any dated change that has started and keeps the ones that have not.
 

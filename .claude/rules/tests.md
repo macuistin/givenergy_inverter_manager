@@ -21,6 +21,17 @@ paths:
 - Nothing talks to a real inverter. End-to-end tests capture writes with `async_mock_service` or use
   `tools/mock_givtcp.py` (`tests/ha_e2e/test_write_sequence_e2e.py`).
 
+## Fakes and the backend contract
+
+- `tests/fakes/fake_inverter.py` is a backend that implements only the `InverterBackend`
+  interface. Test the coordinator's choices against it, with no GivTCP entity name in the test.
+- `tests/backend_contract.py` is what any backend must do: reads in the integration's sign
+  convention, the feed states, the charge plan (including the 100% case), the floor, other
+  slots and failed writes. Each backend subclasses `BackendContract` with a harness that knows
+  its own inverter side. `tests/inverter/test_backend_contract.py` runs it on the fake and the
+  GivTCP adapter, and `tests/ha_e2e/test_backend_contract_e2e.py` runs it on the adapter over
+  `tools/mock_givtcp.py`. A new backend starts from a passing contract.
+
 ## Writing tests
 
 - A bug fix has a test that fails without the fix. Revert the fix, run the test, see it fail, then

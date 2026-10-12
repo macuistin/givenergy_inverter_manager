@@ -289,7 +289,7 @@ class TariffConfig:
 
 @dataclass
 class CounterMemory:
-    """The last reading of each GivTCP daily counter that feeds the longer periods.
+    """The last reading of each inverter daily counter that feeds the longer periods.
 
     A daily counter drops to zero at midnight. The memory outlives the midnight reset so a
     stale reading just after it is not added a second time.
@@ -330,7 +330,7 @@ class EnergyAccumulator:
     zappi_kwh: float = 0.0
     immersion_kwh: float = 0.0
     house_kwh: float = 0.0
-    # The part of import_kwh that went into the battery (GivTCP's AC charge counter). It is
+    # The part of import_kwh that went into the battery (the inverter's AC charge counter). It is
     # stored, not used, so it does not count as the grid supplying the house.
     grid_to_battery_kwh: float = 0.0
     # What the grid energy that went into the battery cost, and the kWh that cost covers. Both

@@ -359,7 +359,6 @@ DEFAULT_BATTERY_COST = 0.0  # € — 0 disables the degradation cost check
 # GivTCP can hold its own day, night and export rates. A rate that differs from the one
 # entered here by more than this share of the value here is listed in the attributes of the
 # Current Rate sensor. The rates entered here always win. GivTCP's are shown for comparison only.
-GIVTCP_RATE_TOLERANCE_PCT = 2.0  # % of the rate entered here
 
 # ── Battery throughput budget ─────────────────────────────────────────────────
 # Optional daily cycling budget (kWh charged plus discharged). 0 disables it.

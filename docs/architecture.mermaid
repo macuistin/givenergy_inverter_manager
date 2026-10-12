@@ -5,7 +5,7 @@ graph TD
     subgraph HA["Home Assistant Layer  (HA-dependent)"]
         direction TB
         INIT["__init__.py\nSetup · Unload\nRegisters the strategy"]
-        COORD["coordinator.py\nHA proxy\n· reads hass.states → RawSensorValues\n· computes solar_fractions from hass.config.latitude\n· calls build_coordinator_data()\n· applies GivTCP, EV and immersion service calls\n· registers time listeners"]
+        COORD["coordinator.py\nHA proxy\n· reads hass.states → RawSensorValues\n· computes solar_fractions from hass.config.latitude\n· calls build_coordinator_data()\n· reads and writes the inverter through an InverterBackend\n· applies EV and immersion service calls\n· registers time listeners"]
         ACC["accumulation.py\nAccumulationStore\nHA Storage: today · week · month · year\nper-slot load profile"]
         SENSOR["sensor.py\n144 read-only sensors\nvalue_fn lambdas on CoordinatorData"]
         SWITCH["switch.py\nAuto immersion divert\nImmersion managed\nForce skip charge\nEnable charge target override"]
@@ -26,6 +26,7 @@ graph TD
         REP["core/reporting.py\nHTML report builders"]
         TIME["core/timeutil.py\nelapsed_seconds()\nreal_time_after()"]
         DISC_EV["discovery/ev_charger.py\nEVCharger · EVChargerBrand\ndiscover_ev_chargers()\nupdate_charger_state()"]
+        INV["inverter/backend.py\nInverterBackend interface\ncore/inverter_values.py\nInverterValues · ChargePlan · FeedStatus"]
         DISC_GTC["inverter/givtcp/discovery.py\nGivTCPInverter\ndiscover_givtcp_inverters()\nget_suggested_entities()"]
         CONST["const.py\nConfig keys · Defaults\nAlgorithm parameters (CHARGE_*, SOLAR_*, BATTERY_*)\nCurrencies · Thresholds"]
         OPT["core/optimizer.py\n(backward-compat shim\n→ re-exports from rules.py)"]
@@ -34,6 +35,8 @@ graph TD
     %% Coordinator ↔ Engine
     COORD -->|"RawSensorValues\ncfg dict · overrides\nsolar_fractions · load profile"| ENG
     ENG -->|"CoordinatorData\nev_target_mode"| COORD
+    COORD <-->|"InverterValues\nChargePlan"| INV
+    INV --- DISC_GTC
     COORD <-->|"energy totals\nslot loads"| ACC
 
     %% Engine internal deps

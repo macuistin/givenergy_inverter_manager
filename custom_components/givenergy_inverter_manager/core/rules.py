@@ -660,7 +660,7 @@ def available_surplus_w(inputs: SurplusInputs) -> float:
     """
     Solar power left over once the rest of the house and battery charging are served.
 
-    house_load_w is the GivTCP load sensor. It is the inverter-side load and already
+    house_load_w is the inverter's load reading. It is the inverter-side load and already
     includes the immersion's draw while it is on, so that draw is added back (capped at
     house_load_w). Without this the surplus collapses as soon as the element starts,
     and the next cycle switches it off again. Only positive battery_power_w (charging)

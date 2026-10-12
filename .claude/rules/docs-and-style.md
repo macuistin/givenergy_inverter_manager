@@ -53,6 +53,9 @@ number example. Keep install-specific analysis in the PR discussion.
 - `CHANGELOG.md` has `## Unreleased` at the top. A change a user can see or that changes stored
   data adds bullets there, in plain words: what changes, what the user sees, what to do on upgrade.
   Use the existing groups (`**Changes**`, `**Fixes**`, `**Upgrading**`).
+- A removed or renamed attribute goes under `**Removed**` with what it showed, so a template that
+  used it can be found.
+- A change that makes a rule untrue changes the rule in the same PR.
 - Changes with no user effect (tests, CI, contributor docs, these rules) get no entry.
 - Releases are cut with `/release`. A version bump changes six places together: `const.py`
   (`INTEGRATION_VERSION`), `manifest.json`, `pyproject.toml`, `README.md` ("Current version:"),

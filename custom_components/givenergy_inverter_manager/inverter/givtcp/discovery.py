@@ -157,6 +157,14 @@ def get_suggested_entities(inverter: GivTCPInverter) -> dict[str, str]:
     return dict(inverter.entities)
 
 
+# GivTCP keeps its own day, night and export rates as sensors named by the inverter serial. The
+# setup tariff page offers them as starting values and nothing else reads them.
+GIVTCP_RATE_SUFFIXES: dict[str, str] = {
+    "day": "_day_rate",
+    "night": "_night_rate",
+    "export": "_export_rate",
+}
+
 # GivTCP names the temperature sensor "invertor". The other spelling is tried second, in case
 # a GivTCP release or a renamed entity uses it.
 INVERTER_TEMPERATURE_SPELLINGS = ("invertor", "inverter")

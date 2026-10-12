@@ -6,6 +6,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 The integration now notices a GivTCP that is running but cannot read the inverter.
 
+**Removed**
+- The comparison with GivTCP's rates. The **Current Rate** sensor no longer has the attributes `givtcp_rates_differ` (whether a GivTCP rate was more than 2% from the one entered here) and `givtcp_rate_differences` (one line for each rate that differed). The integration always used only the rates entered here, and it no longer reads the rates GivTCP holds. A template or automation that used either attribute now reads nothing, so remove it. Nothing else changes: the rates entered here still win, dated rate changes work as before, and the reminder to confirm the tariff is current stays.
+
 **Fixes**
 - GivTCP 3.6 and later keep publishing the last good data when a read of the inverter fails, so the entities stay available and look normal while they are old. The integration now reads GivTCP's `status` and `Data_Age` sensors. When the status is `paused`, or the data is more than 10 minutes old (or `-1`, nothing read yet), it stops planning and stops writing to the inverter, its entities show unavailable, the log has one warning starting `GivTCP is not getting data from the inverter`, and the repair **GivTCP is not getting data from the inverter** appears. It clears by itself when GivTCP reads the inverter again. Earlier GivTCP releases do not publish `Data_Age`, so only the frozen check applies there. See [GivTCP is not getting data from the inverter](docs/troubleshooting.md#givtcp-is-not-getting-data-from-the-inverter). No entity changes.
 

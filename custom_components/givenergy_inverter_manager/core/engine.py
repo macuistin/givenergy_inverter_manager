@@ -155,7 +155,6 @@ from .tariff import (
     build_tariff,
     tariff_in_force,
 )
-from .tariff_check import RateMismatch
 from .timeutil import elapsed_seconds, local_time_on
 
 _LOG = get_logger(__name__)
@@ -220,19 +219,19 @@ class RawSensorValues:
     unavailable_inputs: tuple[str, ...] = ()
     # Seconds the current unavailable_inputs outage has lasted (0.0 when none)
     unavailable_for_s: float = 0.0
-    # GivTCP daily energy counters — authoritative when present, None → fall back to integration
+    # Inverter daily energy counters — authoritative when present, None → fall back to integration
     solar_energy_today_kwh: float | None = None
     import_energy_today_kwh: float | None = None
     export_energy_today_kwh: float | None = None
     charge_energy_today_kwh: float | None = None
     discharge_energy_today_kwh: float | None = None
     load_energy_today_kwh: float | None = None
-    # Grid energy that went into the battery today (GivTCP's AC charge counter), part of
+    # Grid energy that went into the battery today (the inverter's AC charge counter), part of
     # import_energy_today_kwh. None when the entity is missing: self-sufficiency counts all import.
     ac_charge_energy_today_kwh: float | None = None
     # Lifetime cycle count reported by the battery BMS (highest single pack), None if unknown
     battery_lifetime_cycles: float | None = None
-    # The GivTCP battery charge rate setting in W, None when the entity is not readable
+    # The inverter's battery charge rate setting in W, None when the entity is not readable
     battery_charge_rate_w: float | None = None
 
     def __post_init__(self) -> None:
@@ -302,7 +301,7 @@ class CoordinatorData:
     month: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     year: EnergyAccumulator = field(default_factory=EnergyAccumulator)
     yesterday: EnergyAccumulator = field(default_factory=EnergyAccumulator)
-    # True while GivTCP's AC charge counter is readable, so grid_to_battery_kwh is measured.
+    # True while the inverter's AC charge counter is readable, so grid_to_battery_kwh is measured.
     grid_to_battery_counter_available: bool = False
     battery_stats: BatteryStats = field(default_factory=BatteryStats)
     accrued_bill: float = 0.0
@@ -376,8 +375,6 @@ class CoordinatorData:
     register_write_log: list[dict] = field(default_factory=list)  # oldest first
     carbon_intensity_gco2: float | None = None
     carbon_intensity_status: str = "Unknown"
-    # GivTCP rates that differ from the tariff here. None when no GivTCP rate is readable.
-    givtcp_rate_mismatches: tuple[RateMismatch, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -474,7 +471,7 @@ def _accumulate_immersion_savings(acc: EnergyAccumulator, step: _Step) -> None:
 def _accumulate_loads(acc: EnergyAccumulator, step: _Step) -> None:
     """Integrate solar generation and the three loads over the step."""
     raw = step.raw
-    # Ignore sensor noise — GivTCP may return a small positive value at night.
+    # Ignore sensor noise — the inverter integration may return a small positive value at night.
     # 10W threshold filters this without affecting any real generation reading.
     solar_w = raw.solar_power_w if raw.solar_power_w >= SOLAR_NOISE_FLOOR_W else 0.0
     acc.solar_kwh += (solar_w / 1000) * step.elapsed_h
@@ -892,7 +889,7 @@ def _apply_derived_power(data: CoordinatorData, raw: RawSensorValues) -> None:
 
     Which loads each power figure includes:
 
-    house_load_w: the GivTCP load sensor as read. It is the inverter-side load and
+    house_load_w: the inverter's load reading as read. It is the inverter-side load and
         includes the immersion while it is on. Loads wired outside the inverter are
         not in it. The cost split, rest_of_house_w and the per-slot baseline all assume
         the EV charger's draw is inside it too.
@@ -1467,10 +1464,10 @@ def _accumulate_energy_today(
         accumulate_energy(rolling_acc, cycle.raw, window)
     if accumulators.heat_log is not None and cycle.raw.alt_heat_cost_per_kwh is not None:
         record_immersion_grid_heat(accumulators.heat_log, cycle.raw, window)
-    # Override today's physical kWh with GivTCP's own daily counters when available.
-    # GivTCP reads directly from the inverter's metering, which is more accurate than
-    # integrating 30-second power readings. Financial fields (costs, earnings) remain
-    # integration-based since GivTCP has no tariff knowledge.
+    # Override today's physical kWh with the inverter's own daily counters when available.
+    # The inverter integration reads directly from the inverter's metering, which is more
+    # accurate than integrating 30-second power readings. Financial fields (costs, earnings) remain
+    # integration-based since the inverter integration has no tariff knowledge.
     _carry_grid_to_battery(accumulators, cycle)
     _apply_daily_counters(accumulators.today, cycle.raw)
     _bookmark_start_of_day_soc(accumulators.today, cycle.raw)
@@ -1548,14 +1545,14 @@ def _set_carbon_intensity(data: CoordinatorData, raw: RawSensorValues) -> None:
 
 def _apply_daily_counters(acc: EnergyAccumulator, raw: RawSensorValues) -> None:
     """
-    Override today's physical kWh fields with GivTCP daily energy counters.
+    Override today's physical kWh fields with the inverter's daily energy counters.
 
-    GivTCP reads energy directly from the inverter's own metering, avoiding the
+    The inverter integration reads energy directly from the inverter's own metering, avoiding the
     small rounding errors introduced by integrating 30-second power readings.
     Only fields where the counter is present (not None) are overridden. The exception is
     grid_to_battery_kwh, which reads 0 without its counter.
     Financial fields (costs, earnings, per-period breakdown) are left unchanged
-    — they require tariff knowledge that GivTCP doesn't have.
+    — they require tariff knowledge that the inverter integration doesn't have.
     """
     if raw.solar_energy_today_kwh is not None:
         acc.solar_kwh = raw.solar_energy_today_kwh

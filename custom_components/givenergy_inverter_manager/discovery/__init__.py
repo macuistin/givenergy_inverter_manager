@@ -14,7 +14,6 @@ from .forecast import (
     discover_forecast_sensors,
     discover_immersion_switch_candidates,
 )
-from .givtcp import givtcp_rate_entity_ids
 
 __all__ = [
     "ZAPPI_ECO_PLUS_MODE",
@@ -25,6 +24,5 @@ __all__ = [
     "discover_ev_chargers",
     "discover_forecast_sensors",
     "discover_immersion_switch_candidates",
-    "givtcp_rate_entity_ids",
     "update_charger_state",
 ]
