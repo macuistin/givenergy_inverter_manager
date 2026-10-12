@@ -253,7 +253,13 @@ KEY_GROUPS: dict[str, str] = {
     **dict.fromkeys(("carbon_intensity", "carbon_intensity_status"), "Carbon intensity"),
     **dict.fromkeys(("today_summary", "charge_plan", "week_summary"), "HTML reports"),
     **dict.fromkeys(
-        ("dry_run_active", "dry_run_last_skipped", "setup_progress", "integration_version"),
+        (
+            "dry_run_active",
+            "dry_run_last_skipped",
+            "charge_target_conflict",
+            "setup_progress",
+            "integration_version",
+        ),
         "Dry run and diagnostics",
     ),
     "net_position_this_month": "This month",
@@ -565,6 +571,14 @@ DESCRIPTIONS: dict[str, str] = {
         "`test_instance` attribute is also true."
     ),
     "dry_run_last_skipped": "The last action dry run mode held back.",
+    "charge_target_conflict": (
+        "none, or suspected when something other than this integration seems to be setting the "
+        "charge target: at least 2 changes to it in the last 3 days that this integration did "
+        "not send and no Home Assistant user made. The `changes`, `last_seen` and `target_entity` "
+        "attributes say how many, when the newest was, and which entity. Common causes are "
+        "GivTCP's SmartTarget, Predbat and the app. The dashboard shows a banner while the "
+        "state is suspected. It clears after 3 days without a change."
+    ),
     "setup_progress": (
         "complete once the required setup is done, incomplete before that. The `items` "
         "attribute lists each step with whether it is done and whether it is required. "

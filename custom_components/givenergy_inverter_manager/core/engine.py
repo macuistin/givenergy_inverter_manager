@@ -106,6 +106,7 @@ from .charge_window import (
     cheap_run_remaining_minutes,
     plan_charge_window,
 )
+from .controller_conflict import ConflictStatus
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
 from .planned_heating import PlanQuery, describe_planned_heating
@@ -373,6 +374,8 @@ class CoordinatorData:
     forecast_accuracy: ForecastAccuracy | None = None
     register_write_count: int = 0
     register_write_log: list[dict] = field(default_factory=list)  # oldest first
+    # Whether something else is changing the charge target, read from the write log.
+    charge_target_conflict: ConflictStatus = field(default_factory=ConflictStatus)
     carbon_intensity_gco2: float | None = None
     carbon_intensity_status: str = "Unknown"
 

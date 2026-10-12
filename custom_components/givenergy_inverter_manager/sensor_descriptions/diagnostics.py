@@ -6,6 +6,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import EntityCategory, UnitOfTemperature
 
 from .. import sensor_values as values
+from ..core.controller_conflict import STATE_NONE, STATE_SUSPECTED
 from .base import GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
@@ -68,6 +69,16 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:clipboard-check-outline",
         attrs_fn=values.setup_progress_attributes,
         value_fn=values.setup_progress_state,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="charge_target_conflict",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="charge_target_conflict",
+        device_class=SensorDeviceClass.ENUM,
+        options=[STATE_NONE, STATE_SUSPECTED],
+        icon="mdi:swap-horizontal-bold",
+        attrs_fn=values.charge_target_conflict_attributes,
+        value_fn=values.charge_target_conflict_state,
     ),
     GivEnergyManagerSensorDescription(
         key="dry_run_last_skipped",

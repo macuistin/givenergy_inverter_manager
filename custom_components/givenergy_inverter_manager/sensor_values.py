@@ -301,6 +301,21 @@ def water_heating_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     return attributes
 
 
+def charge_target_conflict_state(data: CoordinatorData) -> str:
+    """none or suspected: whether something else seems to be setting the charge target."""
+    return data.charge_target_conflict.state
+
+
+def charge_target_conflict_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """How many outside changes the suspicion rests on, the newest, and the entity it is about."""
+    status = data.charge_target_conflict
+    return {
+        "changes": status.count,
+        "last_seen": status.last_seen_iso,
+        "target_entity": status.entity_id,
+    }
+
+
 def average_import_rate(accumulator: EnergyAccumulator) -> float | None:
     """Return the average price paid per imported kWh, None when nothing was imported."""
     if accumulator.import_kwh > 0:

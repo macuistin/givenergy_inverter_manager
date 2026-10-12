@@ -75,6 +75,9 @@ RECORDED = {
     "summary",
     "explanation",
     "basis",
+    "changes",  # Charge Target Conflict: changes only when the suspicion does
+    "last_seen",
+    "target_entity",
     "stored_energy_value",
     "items",  # the setup checklist: it changes when a setup step is done, and rarely otherwise
 }

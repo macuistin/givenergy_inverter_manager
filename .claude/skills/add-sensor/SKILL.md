@@ -22,6 +22,12 @@ All integration paths are under `custom_components/givenergy_inverter_manager/`.
    - A sensor that is meaningless without an EV charger, immersion switch or immersion sensor sets
      `requires=Device.<X>`. A sensor with a text state needs no extra work, `native_value` fits it.
    - Rarely useful sensors set `entity_registry_enabled_default=False`.
+   - A diagnostic sensor sets `entity_category=EntityCategory.DIAGNOSTIC`. A sensor with a fixed
+     set of states sets `device_class=SensorDeviceClass.ENUM` and `options=[...]`, and its
+     translation lists each state under `state` (see `charge_target_conflict`). Its attributes go
+     in `attrs_fn`, and each name is placed in `tests/test_unrecorded_attributes.py`. Never name an
+     attribute `entity_id`: Home Assistant reads that as a group.
+   - A sensor that a dashboard card reads also needs an entry in `icons.json`.
 3. Add the name under `entity.sensor.<key>` in `strings.json`, then copy the file over
    `translations/en.json`:
    `cp custom_components/givenergy_inverter_manager/strings.json custom_components/givenergy_inverter_manager/translations/en.json`

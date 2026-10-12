@@ -194,6 +194,7 @@ class _SensorEntityDescription:
     entity_registry_enabled_default: bool = True
     icon: str | None = None
     name: object = None
+    options: list[str] | None = None
     native_unit_of_measurement: str | None = None
     state_class: object = None
     suggested_display_precision: int | None = None

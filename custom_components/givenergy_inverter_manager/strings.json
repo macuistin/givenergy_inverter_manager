@@ -802,6 +802,13 @@
       "setup_progress": {
         "name": "Setup Progress"
       },
+      "charge_target_conflict": {
+        "name": "Charge Target Conflict",
+        "state": {
+          "none": "None",
+          "suspected": "Suspected"
+        }
+      },
       "dry_run_last_skipped": {
         "name": "Last Skipped Action (Dry Run)"
       },

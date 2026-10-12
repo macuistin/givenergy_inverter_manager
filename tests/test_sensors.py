@@ -945,3 +945,51 @@ class TestGridToBattery:
             "basis",
         }
         assert attrs["from_grid_kwh"] == pytest.approx(4.6)
+
+
+# ── Charge Target Conflict ────────────────────────────────────────────────────
+
+
+class TestChargeTargetConflict:
+    """A diagnostic enum sensor: none or suspected, with the count, the newest and the entity."""
+
+    def test_it_is_a_diagnostic_enum_with_the_two_states(self):
+        from homeassistant.const import EntityCategory
+
+        description = _BY_KEY["charge_target_conflict"]
+        assert description.entity_category is EntityCategory.DIAGNOSTIC
+        assert description.device_class is SensorDeviceClass.ENUM
+        assert description.options == ["none", "suspected"]
+
+    def test_it_has_no_unit_and_no_state_class(self):
+        description = _BY_KEY["charge_target_conflict"]
+        assert description.native_unit_of_measurement is None
+        assert description.state_class is None
+
+    def test_the_value_is_the_state_of_the_status(self):
+        from custom_components.givenergy_inverter_manager.core.controller_conflict import (
+            ConflictStatus,
+        )
+
+        description = _BY_KEY["charge_target_conflict"]
+        data = CoordinatorData()
+        assert description.value_fn(data) == "none"
+        data.charge_target_conflict = ConflictStatus("suspected", 2, "2031-03-04T12:00:00", "number.t")
+        assert description.value_fn(data) == "suspected"
+
+    def test_the_attributes_say_how_many_when_and_which_entity(self):
+        from custom_components.givenergy_inverter_manager.core.controller_conflict import (
+            ConflictStatus,
+        )
+
+        data = CoordinatorData()
+        data.charge_target_conflict = ConflictStatus("suspected", 2, "2031-03-04T12:00:00", "number.t")
+
+        assert _BY_KEY["charge_target_conflict"].attrs_fn(data) == {
+            "changes": 2,
+            "last_seen": "2031-03-04T12:00:00",
+            "target_entity": "number.t",
+        }
+
+    def test_no_attribute_is_called_entity_id(self):
+        assert "entity_id" not in _BY_KEY["charge_target_conflict"].attrs_fn(CoordinatorData())

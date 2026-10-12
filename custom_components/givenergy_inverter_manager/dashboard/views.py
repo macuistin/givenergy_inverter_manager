@@ -495,6 +495,7 @@ class Builder:
             [
                 grid_section(self._now()),
                 self._dry_run_section(),
+                self._charge_conflict_section(),
                 self._setup_checklist(),
                 grid_section(self._flow()),
                 grid_section(self._totals()),
@@ -1136,6 +1137,29 @@ class Builder:
             heading_card("Dry run is on", "mdi:test-tube"),
             [markdown_card(text)],
             visibility=[{"condition": "state", "entity": dry_run_active, "state": "True"}],
+        )
+
+    def _charge_conflict_section(self) -> dict | None:
+        """A banner, shown only while Charge Target Conflict says suspected.
+
+        It names no product, because a change made in the GivEnergy app looks the same as
+        SmartTarget or Predbat. The state condition is a classic one, so it works on the
+        Home Assistant floor.
+        """
+        conflict = self.entity("charge_target_conflict")
+        if not conflict:
+            return None
+        text = (
+            "This integration saw the charge target change without a write from it. Common "
+            "causes are GivTCP's SmartTarget, Predbat or the app. Turn that off so only this "
+            "integration sets the target. This message clears after three days without a change."
+        )
+        return group(
+            heading_card(
+                "Something else is setting your charge target", "mdi:swap-horizontal-bold"
+            ),
+            [markdown_card(text)],
+            visibility=[{"condition": "state", "entity": conflict, "state": "suspected"}],
         )
 
     def _setup_checklist(self) -> dict | None:

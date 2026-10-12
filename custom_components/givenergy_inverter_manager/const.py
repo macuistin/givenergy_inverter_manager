@@ -394,6 +394,10 @@ DEFAULT_CHEAP_RATE_FLOOR_SOC = 40  # % — 0 disables the floor
 # ── Register write log ────────────────────────────────────────────────────────
 # The write safety limits (retries, cooldown, lifetime warning) live in
 # inverter/givtcp/constants.py with the GivTCP adapter.
+# Something other than this integration is suspected of setting the charge target when the write
+# log holds at least this many outside changes with no Home Assistant user inside the window.
+CONFLICT_MIN_CHANGES = 2
+CONFLICT_WINDOW_DAYS = 3
 REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept in the write log
 # How long a running element stays on while a required sensor is unavailable.
 # Same value as the write interval, but a separate setting.

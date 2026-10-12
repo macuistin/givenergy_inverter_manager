@@ -223,6 +223,7 @@ class TestPowerFlowTabChanges:
         assert [s["cards"][0]["heading"] for s in pf_view["sections"]] == [
             "Now",
             "Dry run is on",
+            "Something else is setting your charge target",
             "Finish setting up",
             "Live power flow",
             "Energy today",
@@ -319,8 +320,11 @@ class TestIncomeBar:
     def test_no_income_markdown_card_on_power_flow(self):
         markdown = [c for c in _cards(_build(), "power-flow") if c["type"] == "markdown"]
         assert all(
-            "dry run" in c["content"].lower() or "state_attr('" in c["content"] for c in markdown
-        ), "Income bar is now on the grid node: only the dry run banner and the checklist are markdown"
+            "dry run" in c["content"].lower()
+            or "charge target" in c["content"].lower()
+            or "state_attr('" in c["content"]
+            for c in markdown
+        ), "Income bar is now on the grid node: only the banners and the checklist are markdown"
 
     def test_income_bar_references_grid_power(self):
         result = _build()

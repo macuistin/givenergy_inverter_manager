@@ -203,6 +203,16 @@ The integration carries on, so the inverter then runs on its old charge window o
 
 After a fix, the next write that the inverter takes ends the warnings. To retry at once, change the charge target by hand and check the entity follows.
 
+## Something else is setting the charge target
+
+The dashboard banner **Something else is setting your charge target** and the diagnostic sensor **Charge Target Conflict** (`suspected`) mean the charge target changed at least twice in the last three days, and this integration did not send those changes. Only this integration should set the target. If two controllers write it, the battery follows whichever wrote last, and tonight's plan may not be what the inverter does.
+
+1. Turn off the other controller. Common ones are GivTCP's SmartTarget (a setting in GivTCP's configuration, off by default), Predbat and any automation of yours that sets the target.
+2. Open the sensor's attributes. `changes` is how many outside changes were counted, `last_seen` is when the newest happened, and `target_entity` is the entity.
+3. To see each change, follow [Find out what changed the charge target](#find-out-what-changed-the-charge-target). A change with a `user_id` is you or someone using Home Assistant on purpose, and is not counted.
+
+The integration cannot tell the causes apart. A change made in the GivEnergy app reaches GivTCP with no Home Assistant user, so it counts too, and so does a plant controller that sets values itself. If you change the target in the app on purpose, expect the banner after two changes. It clears three days after the last one. The integration never undoes a change and never raises a repair for this.
+
 ## Find out what changed the charge target
 
 The charge target, the charge window start and the charge window end can be changed by the integration, by you, by an automation, by GivTCP or by the inverter app. The integration keeps a log of the last 20 changes to these entities, plus the switches it turns on and off with them.

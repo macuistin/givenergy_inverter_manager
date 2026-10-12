@@ -6,6 +6,7 @@ Ten minutes from install to a working dashboard. Start with dry run on, so the i
 
 - GivTCP is running and its entities appear in Home Assistant. Open **Developer Tools → States** and search for `givtcp_`. You should see entities such as `sensor.givtcp_<serial>_pv_power`.
 - GivTCP's **Real Time Control** setting is on, and its day rate, night rate and tariff type are filled in. Without Real Time Control the inverter ignores the charge settings the integration writes. See [Writes to the inverter are not confirmed](troubleshooting.md#writes-to-the-inverter-are-not-confirmed).
+- Leave GivTCP's SmartTarget off. Only this integration should set the charge target. A banner on the dashboard warns you if something else seems to. See [Something else is setting the charge target](troubleshooting.md#something-else-is-setting-the-charge-target).
 - You know your unit rates, standing charge, VAT rate (if any), discount (if any) and bill start day. They are on your electricity bill or tariff sheet.
 
 ## Steps

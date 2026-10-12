@@ -45,6 +45,8 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
 - It never stops or pauses an EV charger. For a Zappi with a charge mode entity it selects Eco+ and
   never Stopped or Fast.
 - The write audit (`write_audit.py`) only records. It never reverts a change and never raises a repair.
+  The Charge Target Conflict sensor and its banner read the log (`core/controller_conflict.py`) and
+  nothing else. A second controller shows there, never as a repair.
 
 ## Optional devices
 

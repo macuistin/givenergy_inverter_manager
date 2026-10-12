@@ -100,6 +100,7 @@ from .core.alt_heat_cost import heat_cost_per_kwh
 from .core.alt_heat_label import clean_label
 from .core.battery import BatteryStats, battery_cost_prompt_due
 from .core.charge_hold import HeldCharge
+from .core.controller_conflict import detect_conflict
 from .core.engine import (
     Accumulators,
     CoordinatorData,
@@ -1127,6 +1128,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             ),
         )
         self._attach_stored_totals(data)
+        data.charge_target_conflict = detect_conflict(
+            data.register_write_log, cfg.get(CONF_TARGET_SOC_ENTITY), now
+        )
         self.immersion.annotate_divert_reason(data, raw.immersion_temp)
         self._record_forecast(raw, data)
         data.cheap_rate_floor_status = await self._maybe_apply_cheap_rate_floor(now, raw, cfg)
