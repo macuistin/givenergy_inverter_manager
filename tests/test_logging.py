@@ -437,12 +437,13 @@ class TestManifest:
         )
 
     def test_version_is_string(self):
-        """version must be a semver string."""
+        """version must be MAJOR.MINOR.PATCH, with a beta or release candidate suffix allowed."""
+        import re
+
         manifest = self._manifest()
         version = manifest.get("version", "")
-        parts = version.split(".")
-        assert len(parts) == 3 and all(p.isdigit() for p in parts), (
-            f"manifest version must be 'MAJOR.MINOR.PATCH', got: {version!r}"
+        assert re.fullmatch(r"\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?", version), (
+            f"manifest version must be 'MAJOR.MINOR.PATCH' or with b1 or rc1, got: {version!r}"
         )
 
     def test_keys_are_sorted_correctly(self):

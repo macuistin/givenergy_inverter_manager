@@ -13,8 +13,10 @@ paths:
 - `core/` holds decisions, tariff and accumulation maths, and the text of reports. It imports the
   standard library and the package's `const`, `discovery` and `logging` modules. It never imports
   `homeassistant`, and it never imports `inverter/` at run time. A type-only import under
-  `TYPE_CHECKING` is allowed, and `core/inverter_values.py` holds the values a backend exchanges. `test_core_package_does_not_import_home_assistant` in `tests/test_metadata.py`
-  fails the build if it does.
+  `TYPE_CHECKING` is allowed, and `core/inverter_values.py` holds the values a backend exchanges.
+  `test_core_package_does_not_import_home_assistant` and
+  `test_core_package_does_not_import_the_inverter_package_at_run_time` in `tests/test_metadata.py`
+  fail the build if it does.
 - Inputs are plain values and frozen dataclasses (`CycleInputs`, `RawSensorValues`, `TariffConfig`).
   Outputs are values or dataclasses (`CoordinatorData`, `ChargeDecision`). No `hass`, no files, no
   network.
@@ -23,6 +25,10 @@ paths:
 - Anything Home Assistant specific goes in `coordinator.py` or a platform file, which calls `core/`.
   Keep value logic longer than one expression out of the description tables: put it in
   `sensor_values.py` (pure) and test it in `tests/test_sensor_values.py`.
+- A rule that depends on the season, the solar shape or a counter takes it as an input. The winter
+  and shoulder months are settings (`season_rules` in `core/seasons.py`, defaults from the
+  latitude), the forecast shape comes from `core/solar_shape.py`, and a counter is screened by
+  `core/counter_guard.py`. Never hard-code months or trust a counter in a new rule.
 - Decision text (`reason` strings) is output. Changing a reason changes the golden files below.
 
 ## Golden files

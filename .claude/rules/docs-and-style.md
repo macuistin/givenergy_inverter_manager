@@ -52,7 +52,8 @@ number example. Keep install-specific analysis in the PR discussion.
 
 - `CHANGELOG.md` has `## Unreleased` at the top. A change a user can see or that changes stored
   data adds bullets there, in plain words: what changes, what the user sees, what to do on upgrade.
-  Use the existing groups (`**Changes**`, `**Fixes**`, `**Upgrading**`).
+  Use the groups the section already has: `**Removed**`, `**Added**`, `**Changed**`, `**Fixes**`
+  and `**Upgrading**`.
 - A removed or renamed attribute goes under `**Removed**` with what it showed, so a template that
   used it can be found.
 - A change that makes a rule untrue changes the rule in the same PR.

@@ -31,6 +31,16 @@ paths:
   its own inverter side. `tests/inverter/test_backend_contract.py` runs it on the fake and the
   GivTCP adapter, and `tests/ha_e2e/test_backend_contract_e2e.py` runs it on the adapter over
   `tools/mock_givtcp.py`. A new backend starts from a passing contract.
+- `tests/fixtures/givtcp_systems/` holds the entity states of whole GivTCP systems (hybrid, AC
+  coupled, All-In-One, three-phase, Gateway, EMS, a charger on its own and more). Only
+  `hybrid_gen3_two_batteries_3_6_3.json` is from real hardware. `build.py` writes the others from
+  it and GivTCP's datapoint list, and `tests/inverter/givtcp/test_system_fixtures.py` fails when a
+  file differs from what `build.py` makes. Change `build.py`, then run
+  `python tests/fixtures/givtcp_systems/build.py`. Do not edit a fixture by hand. Test system
+  detection against these files, not a hand-built dict.
+- `tools/mock_givtcp.py` adds optional devices with `add_immersion`, `add_zappi` and `add_givevc`.
+  It owns only the entities a write may reach, so a write to any other entity lands in
+  `other_calls` and the charger tests assert that stays empty.
 
 ## Writing tests
 

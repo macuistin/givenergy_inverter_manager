@@ -16,18 +16,19 @@ Each rule is checked by a test or by the Home Assistant source. The test is name
 - A rename changes only the display name (`tests/test_renamed_sensors.py`). Old names are listed in
   `docs/sensors.md` under "Renamed sensors".
 - To retire a sensor, add its key to `_RETIRED_SENSOR_KEYS` in `__init__.py`. Setup then deletes its
-  registry entry. A repair issue goes in `_RETIRED_ISSUE_IDS` the same way.
-- A setting the user tunes is a control (`controls.py`), not a form field. It writes its own option
-  key through `async_set_option`, shows the value in force, and the key is in `LIVE_KEYS`.
-- Inverter entity names are built only in `inverter/givtcp/`, and only the adapter calls inverter
-  services. The coordinator uses the `InverterBackend` interface (`inverter/backend.py`).
+  registry entry. A button goes in `_RETIRED_BUTTON_KEYS`, a repair issue in `_RETIRED_ISSUE_IDS`.
+- A setting the user tunes is a control (`controls.py`: three switches, five numbers), not a form
+  field. It writes its own option key through `async_set_option`, shows the value in force, and the
+  key is in `LIVE_KEYS`. A setting made once, such as the winter months, is a form field.
+- Inverter entity names are built in `inverter/givtcp/`, and only the adapter calls inverter
+  services. The coordinator uses `InverterBackend` (`inverter/backend.py`). `CLAUDE.md` lists the leaks.
 - Every platform sets `PARALLEL_UPDATES` (`tests/test_metadata.py`). All entities use
   `_attr_has_entity_name = True` through `GivEnergyEntity`.
 - Listeners and other hooks that Home Assistant calls synchronously are `@callback` functions. To
   start async work from one, use `hass.async_create_task` or the coordinator's `_create_task`.
   An `async def` handed to a sync hook never runs.
-- No blocking calls in the event loop. File and recorder work goes through
-  `hass.async_add_executor_job` (see `async_detect_test_instance` in `coordinator.py`).
+- No blocking calls in the event loop. File work goes through `hass.async_add_executor_job`
+  (see `async_detect_test_instance` in `coordinator.py`).
 
 ## State and attributes
 
@@ -36,30 +37,29 @@ Each rule is checked by a test or by the Home Assistant source. The test is name
 - Text goes through `fit_state` in `core/text_state.py`. `GivEnergyManagerSensor.native_value` already
   does this. A cut state ends in `…` and the whole text is in the `full_text` attribute
   (`ATTR_FULL_TEXT`). `STATE_MAX_LENGTH` in `const.py` repeats the limit because `core/` cannot import
-  Home Assistant. Do not write a second cutting helper.
-- `tests/test_state_length.py` and `tests/ha_e2e/test_state_length_e2e.py` audit every text sensor.
-  A new text sensor needs no new test. It must be in `SENSOR_DESCRIPTIONS`.
-- Attributes of one state stay under 16 KiB (`MAX_STATE_ATTRS_BYTES` in the recorder). Large or
-  text-heavy attributes (`html`, `full_text`) are listed in `_unrecorded_attributes`. That is a class
-  attribute on `GivEnergyManagerSensor`, a `frozenset`. Add a new large attribute to it.
+  Home Assistant. Do not write a second cutting helper. `tests/test_state_length.py` and
+  `tests/ha_e2e/test_state_length_e2e.py` audit every text sensor in `SENSOR_DESCRIPTIONS`.
+- Attributes of one state stay under 16 KiB (`MAX_STATE_ATTRS_BYTES`). Large ones (`html`,
+  `full_text`) go in the `_unrecorded_attributes` frozenset on `GivEnergyManagerSensor`.
 - `state_class` and `device_class` follow Home Assistant's `DEVICE_CLASS_STATE_CLASSES`
   (`tests/test_sensor_integrity.py` checks every description against it):
   - monetary totals that accumulate: `TOTAL`. Estimates and projections: `None`. A price per
     unit has no monetary device class and uses `MEASUREMENT`
   - energy that resets daily, weekly, monthly or yearly: `TOTAL` with `is_daily_total=True` or
     `reset_period`, which makes the entity report `last_reset`
-  - yesterday, trailing 12 month and forecast sensors are not cumulative: `None`
-  - live power: `MEASUREMENT`
+  - live power: `MEASUREMENT`. Yesterday, trailing 12 month and forecast sensors: `None`
 
 ## Config and options flows
 
-- The setup wizard is a checklist of pages: `system`, then only the ticked pages (`tariff`,
-  `tariff_rates`, `forecast`, `hot_water`), then `confirm`. The options wizard is the same pages plus
-  `battery`, `ev`, `bill` and `schedule_change`. Page logic is in `core/wizard_*.py`, the flow steps
-  in `wizard/`, and `config_flow.py` only registers the handlers. Reconfigure is the inverter connection.
+- The setup wizard is a checklist of pages: `system` (then `inverter_entities` when discovery cannot
+  wire the inverter), only the ticked pages (`tariff`, `tariff_rates`, `forecast`, `hot_water`),
+  then `confirm`. The options wizard is the same pages plus `battery` (which holds the winter and
+  shoulder months), `ev`, `bill` and `schedule_change`. Page logic is in `core/wizard_*.py`, the
+  flow steps in `wizard/`, and `config_flow.py` only registers the handlers. Reconfigure is the
+  inverter connection.
 - `NumberSelector` needs `step >= 0.001` or `"any"`. A smaller step fails validation.
   `tests/test_config_flow_schemas.py` runs the real selectors.
-- A time selector returns `HH:MM:SS`. Rate periods are stored as `HH:MM` (`rows_from_sections` in `core/wizard_tariff.py`).
+- A time selector returns `HH:MM:SS`. Rate periods are stored as `HH:MM` (`rows_from_sections`).
 - A wizard keeps plain values on the handler and stores nothing until `confirm`. The options wizard
   reads `config_entry.options` when it writes (never in `__init__`) and returns the current options
   with only the changed keys replaced, so a control moved meanwhile keeps its value. A page that was

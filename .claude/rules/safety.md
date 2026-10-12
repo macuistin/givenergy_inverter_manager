@@ -38,11 +38,14 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
   retry goes through the same writer, so it is read back, counted and held to the cooldown, which
   a setting that did not take releases. Retries and a start-up catch-up call the backend through
   the coordinator's dry-run check, so dry run sends nothing. Notes about retries use the write
-  log reason `retry`, and they are not writes.
+  log reason `retry`, and they are not writes. Re-planning inside the cheap window
+  (`core/replan.py`, on only while the `charge_replan` switch is on) follows the same rules: it
+  writes at most three times a night, never outside the window and never with a manual override,
+  through the same checked writer. Its notes use the reason `replan`.
 - Planning and writes stop while the feed is not live. That is a frozen feed (nothing reported for
   ten minutes, repair `givtcp_feed_frozen`), a paused GivTCP, or old data per GivTCP's `Data_Age`
-  (repair `givtcp_not_answering`). The adapter judges it in `inverter/givtcp/reader.py`
-  (`feed_status`). A new write path checks the same flags and has a test that nothing is sent.
+  (repair `givtcp_not_answering`, feed state `stale`). The adapter judges it in
+  `inverter/givtcp/reader.py` (`feed_status`). A new write path checks the same flags and has a test that nothing is sent.
 
 ## What the integration never does
 
@@ -54,7 +57,9 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
   writes Charge Control or Plug and Go. `pick_surplus_mode` skips any option with a forbidden word.
 - The write audit (`write_audit.py`) only records. It never reverts a change and never raises a repair.
   The Charge Target Conflict sensor and its banner read the log (`core/controller_conflict.py`) and
-  nothing else. A second controller shows there, never as a repair.
+  nothing else. A second controller shows there, never as a repair. A system that changed kind
+  (repair `system_looks_different`) is reported and never followed: the stored inverter stays the
+  one managed until the user changes it.
 
 ## Optional devices
 

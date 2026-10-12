@@ -17,8 +17,8 @@ paths:
 - The server decides who sees Settings: `ws_dashboard` reads `connection.user.is_admin` and the
   message carries no other field. The Settings view still carries a `visible` list of the
   administrators, so a copy made with Take control hides it from other users.
-- Entity ids come from the entity registry (`Registry.get` in `registry.py`), so the file holds the
-  ids the install really has. A row or card is included only when its entity is registered and enabled.
+- Entity ids come from the entity registry (`Registry.get` in `registry.py`), so the dashboard holds
+  the ids the install really has. A row or card is included only when its entity is registered and enabled.
 - Optional devices come and go, so a stored dashboard must outlive a change. A card that needs one
   carries a visibility condition on a sentinel entity of that device (`SENTINELS` in `devices.py`).
   While the device is absent, the card points at the id the entity will get (`expected_entity_id`).
