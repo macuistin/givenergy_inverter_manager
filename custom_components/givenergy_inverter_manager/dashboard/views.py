@@ -490,7 +490,8 @@ class Builder:
                 self._dry_run_section(),
                 self._setup_checklist(),
                 grid_section(self._flow()),
-                grid_section([*self._totals(), *self._devices()]),
+                grid_section(self._totals()),
+                grid_section(self._devices()),
             ]
         )
 
