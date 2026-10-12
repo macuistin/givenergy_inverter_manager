@@ -7,6 +7,13 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 **Fixes**
 - The immersion chart on the Immersion view is taller, so the axis labels of the temperature chart and the heater power chart no longer run into each other.
 
+**Docs**
+- Troubleshooting has a new entry, **Writes to the inverter are not confirmed**. If the log says a charge
+  setting was written but could not be confirmed, the inverter is still on its old charge window or
+  target. The entry lists what to check in GivTCP: that **Real Time Control** is on (an upgrade of GivTCP
+  can reset it), that GivTCP is running and publishing, and that its day rate, night rate and tariff type
+  are filled in. The quick start and the requirements list now mention Real Time Control.
+
 ## v0.18.0
 
 Setup and Configure become short wizards, seven settings become controls, alternative water heating replaces the oil price, the dashboard builds itself, and the saving and sunrise figures count the battery.

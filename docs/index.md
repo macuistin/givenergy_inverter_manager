@@ -58,3 +58,5 @@ The charge target rules are in [Concepts](concepts.md#overnight-charge-target). 
 - A GivEnergy hybrid inverter with a battery.
 
 Charge targets can only be written when GivTCP exposes its charge control entities. See [Configuration](configuration.md#screen-your-system).
+
+GivTCP's **Real Time Control** setting must be on for the inverter to take those writes. See [Writes to the inverter are not confirmed](troubleshooting.md#writes-to-the-inverter-are-not-confirmed).

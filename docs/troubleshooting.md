@@ -160,7 +160,22 @@ Work through this list.
 4. The write happens once a day, one minute before the cheapest timed period starts. If your cheapest period starts at 02:00, that is 01:59. With debug logging on (see the next section), search the log for `Writing charge target`.
 5. Is **Force Skip Overnight Charge** on? Then the minimum SoC is written as the target.
 6. Was the same entity written in the last 5 minutes? The write is skipped. With debug logging on, the log says `write cooldown active`.
-7. Check GivTCP's own log for rejected writes.
+7. Check GivTCP's own log for rejected writes. If the integration's log says it wrote a value but could not confirm it, see [Writes to the inverter are not confirmed](#writes-to-the-inverter-are-not-confirmed).
+
+## Writes to the inverter are not confirmed
+
+The integration reads each charge setting back after it writes it. When the inverter still shows the old value after three attempts, the log has a warning like this, with the name of the setting in front:
+
+`wrote 75 but could not confirm after 3 attempts`
+
+The integration carries on, so the inverter then runs on its old charge window or target. Look for the same warning in **Settings → System → Logs** (search for `could not confirm`), and compare the charge target and charge window entities with what the integration says it wrote under **Find out what changed the charge target**. Work through these checks in order.
+
+1. **Real Time Control is on in GivTCP.** GivTCP only sends changes from Home Assistant to the inverter when this setting is on. With it off, a write does not reach the inverter, which keeps its old value. An upgrade of GivTCP can reset it. Open GivTCP's settings (for the add-on, **Settings → Add-ons → GivTCP → Configuration**, or the settings page of your own install), turn **Real Time Control** on, save and restart GivTCP.
+2. **GivTCP is running and publishing.** Open the GivTCP log and look for a crash or a repeated error since the last upgrade or restart. Under **Settings → Devices & Services → MQTT → Configure**, listen to the topic prefix GivTCP publishes under. New messages should keep arriving. If GivTCP is stopped, its entities keep their last values and do not turn `unavailable`, so a stale value does not prove it is working.
+3. **The tariff settings in GivTCP are filled in.** Check that the day rate, the night rate and the tariff type all have a value. An empty day rate stopped GivTCP v3.6.3 from starting. Fill them in, even if you only use the rates in this integration, then restart GivTCP.
+4. **GivTCP can reach the inverter.** Check the GivTCP log for connection errors to the inverter. A write sent while the connection is down is not confirmed either.
+
+After a fix, the next write that the inverter takes ends the warnings. To retry at once, change the charge target by hand and check the entity follows.
 
 ## Find out what changed the charge target
 
