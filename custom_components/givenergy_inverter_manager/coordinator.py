@@ -1520,7 +1520,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             _LOG.info("GivTCP is publishing data again — resuming normal operation.")
             self._givtcp_was_unavailable = False
         if self._givtcp_frozen:
-            _LOG.info("GivTCP is reporting again — resuming normal operation.")
+            _LOG.info("GivTCP is reporting again. Resuming normal operation.")
             self._givtcp_frozen = False
             async_delete_feed_frozen_issue(self.hass)
         async_delete_givtcp_missing_issue(self.hass)
