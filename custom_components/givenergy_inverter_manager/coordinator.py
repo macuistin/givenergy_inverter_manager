@@ -95,6 +95,7 @@ from .const import (
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DOMAIN,
     FORECAST_P10_ATTRIBUTE,
+    FORECAST_PERIOD_ATTRIBUTES,
     SOLAR_SUNRISE_HOUR,
     TEST_INSTANCE_MARKER,
     UPDATE_INTERVAL_SECONDS,
@@ -140,6 +141,7 @@ from .core.rules import monthly_solar_fractions
 from .core.seasons import season_rules
 from .core.setup_progress import SetupFacts, setup_items
 from .core.solar_day import HeldSolarDay
+from .core.solar_shape import solar_shape_from_periods
 from .core.sunrise_hold import HeldSunrise
 from .core.tariff import (
     build_tariff,
@@ -1054,6 +1056,24 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw.forecast_kwh_tomorrow = self._read_forecast_kwh(cfg.get(CONF_FORECAST_ENTITY))
         raw.forecast_kwh_p10 = self._read_p10_forecast(cfg)
         raw.forecast_kwh_d2 = self._read_forecast_kwh(cfg.get(CONF_FORECAST_ENTITY_D2))
+        raw.forecast_shape_tomorrow = self._read_forecast_shape(cfg.get(CONF_FORECAST_ENTITY))
+
+    def _read_forecast_shape(self, entity_id: str | None) -> tuple[float, ...] | None:
+        """The 48 half-hour weights of a forecast sensor's own per-period figures, or None.
+
+        Solcast puts them in the `detailedForecast` attribute (30-minute periods) and
+        `detailedHourly`, and lets a user switch either off. A sensor without them, such as
+        Forecast.Solar's, has no shape and the plan keeps its standard curve.
+        """
+        state = self._get_optional_state(entity_id)
+        if state is None:
+            return None
+        zone = dt_util.get_default_time_zone()
+        for attribute in FORECAST_PERIOD_ATTRIBUTES:
+            shape = solar_shape_from_periods(state.attributes.get(attribute), zone)
+            if shape is not None:
+                return shape
+        return None
 
     def _read_p10_forecast(self, cfg: dict) -> float | None:
         """The pessimistic forecast: the configured P10 sensor, else the forecast sensor's own.
@@ -1346,6 +1366,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 forecast_accuracy=self._acc.forecast_accuracy,
                 today_raw_forecast_kwh=self._acc.today_raw_forecast_kwh,
                 today_raw_forecast_p10_kwh=self._acc.today_raw_forecast_p10_kwh,
+                today_raw_forecast_shape=self._acc.today_raw_forecast_shape,
             ),
         )
         self._attach_stored_totals(data)
@@ -1522,7 +1543,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     def _record_forecast(self, raw: RawSensorValues, data: CoordinatorData) -> None:
         """Feed the forecast accuracy tracking and note whether the inverter is clipping."""
-        self._acc.on_raw_forecast(raw.forecast_kwh_tomorrow, raw.forecast_kwh_p10)
+        self._acc.on_raw_forecast(
+            raw.forecast_kwh_tomorrow, raw.forecast_kwh_p10, raw.forecast_shape_tomorrow
+        )
         if data.is_clipping:
             self._acc.note_clipping()
         if data.charge_decision is not None and data.charge_decision.forecast_kwh > 0:

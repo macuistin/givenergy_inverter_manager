@@ -83,6 +83,9 @@ FORECAST_PROVIDER_FORECAST_SOLAR = "forecast_solar"
 FORECAST_PROVIDER_SOLCAST = "solcast"
 # Attribute of a Solcast forecast sensor holding that period's P10 total in kWh.
 FORECAST_P10_ATTRIBUTE = "estimate10"
+# Solcast's per-period forecast attributes, in the order the plan prefers them: 30-minute periods,
+# then hourly ones. Each period has `period_start` and `pv_estimate` (average kW).
+FORECAST_PERIOD_ATTRIBUTES = ("detailedForecast", "detailedHourly")
 # Solcast P10/P50 conservatism blend (0.0 = pure P50, 1.0 = pure P10).
 # When Solcast is configured as the forecast provider and exposes separate P10/P90
 # entities, this weight controls how pessimistic the forecast is.

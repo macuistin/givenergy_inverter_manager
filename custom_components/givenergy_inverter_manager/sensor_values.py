@@ -551,6 +551,16 @@ def solar_forecast_raw_today(data: CoordinatorData) -> float | None:
     return _round_or_none(data.solar_forecast_raw_kwh_today, 3)
 
 
+def solar_forecast_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """Say which solar profile the charge plan spread the forecast with.
+
+    `forecast` when it used the forecast provider's own per-period shape, `standard curve` for
+    the bell curve centred on 13:00 (a provider with no shape, or a night the plan did not
+    simulate).
+    """
+    return {"solar_profile_source": "forecast" if data.solar_shape_used else "standard curve"}
+
+
 def solar_actual_vs_forecast_pct(data: CoordinatorData) -> float | None:
     """Return today's solar as a percentage of the provider's forecast for today.
 

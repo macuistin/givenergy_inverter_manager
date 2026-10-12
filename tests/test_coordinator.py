@@ -244,6 +244,7 @@ class FakeCoordinator(GivEnergyCoordinator):
             on_raw_forecast = AccumulationStore.on_raw_forecast
             today_raw_forecast_kwh = AccumulationStore.today_raw_forecast_kwh
             today_raw_forecast_p10_kwh = AccumulationStore.today_raw_forecast_p10_kwh
+            today_raw_forecast_shape = AccumulationStore.today_raw_forecast_shape
             note_clipping = AccumulationStore.note_clipping
 
             bill_start_day = 1

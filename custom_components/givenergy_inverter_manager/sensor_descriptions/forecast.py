@@ -19,6 +19,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:weather-sunny-alert",
         entity_registry_enabled_default=True,
         value_fn=lambda d: round(d.solar_forecast_kwh_today, 3),
+        attrs_fn=values.solar_forecast_attributes,
     ),
     GivEnergyManagerSensorDescription(
         key="solar_forecast_raw_today",

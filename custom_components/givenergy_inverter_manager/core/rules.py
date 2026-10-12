@@ -56,6 +56,7 @@ from ..discovery.ev_charger import (
 from .battery import NightEstimateInputs, estimate_will_survive_night, hours_until_solar
 from .immersion_ready import ReadyPlan
 from .seasons import NORTHERN_SEASONS, SeasonRules
+from .solar_shape import valid_shape
 
 # ── Seasonal solar fractions ──────────────────────────────────────────────────
 
@@ -115,6 +116,9 @@ def _make_solar_slot_weights() -> tuple[float, ...]:
 
 # Normalized per-slot solar weights — built once, reused every cycle.
 _SOLAR_SLOT_WEIGHTS: tuple[float, ...] = _make_solar_slot_weights()
+
+# The clause the reason carries when the plan used the forecast's own shape.
+SHAPE_REASON = "Solar follows your forecast's shape."
 
 
 _PROFILE_DAY_WEIGHTS = (1.0, 0.85, 0.7, 0.6, 0.5, 0.45, 0.4)
@@ -275,13 +279,14 @@ class _SimulatedDay:
     forecast_kwh: float
     battery_capacity_kwh: float
     slot_loads_kwh: list[float]
+    solar_weights: tuple[float, ...] = _SOLAR_SLOT_WEIGHTS
 
 
 def _simulate_min_soc(start_soc_pct: float, day: _SimulatedDay) -> float:
     """Simulate one day starting from start_soc_pct. Return the minimum SoC reached."""
     soc_pct = start_soc_pct
     min_reached = start_soc_pct
-    for weight, slot_load_kwh in zip(_SOLAR_SLOT_WEIGHTS, day.slot_loads_kwh, strict=True):
+    for weight, slot_load_kwh in zip(day.solar_weights, day.slot_loads_kwh, strict=True):
         net_pct = (day.forecast_kwh * weight - slot_load_kwh) / day.battery_capacity_kwh * 100
         soc_pct = max(0.0, min(100.0, soc_pct + net_pct))
         min_reached = min(min_reached, soc_pct)
@@ -360,6 +365,9 @@ class SolarForecast:
     forecast_conservatism: float = 0.0
     forecast_kwh_d2: float | None = None
     forecast_correction: float | None = None
+    # The forecast's own 48 half-hour weights, when its provider gives them. Used only with a
+    # forecast total from the same provider, never with the seasonal estimate.
+    solar_shape: tuple[float, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -377,6 +385,7 @@ class _Tonight:
     forecast_kwh: float
     forecast_source: str
     forecast_kwh_d2: float | None
+    solar_shape: tuple[float, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -578,6 +587,7 @@ def _simulated_plan(tonight: _Tonight, skip_blocked_note: str) -> _ChargePlan:
         tonight.forecast_kwh,
         inputs.battery_capacity_kwh,
         _slot_loads_kwh(inputs.average_daily_consumption_kwh, inputs.load_profile),
+        tonight.solar_shape or _SOLAR_SLOT_WEIGHTS,
     )
     target_soc = _find_minimum_charge_target(day, tonight.min_soc)
     reason = (
@@ -586,6 +596,8 @@ def _simulated_plan(tonight: _Tonight, skip_blocked_note: str) -> _ChargePlan:
     )
     if _profile_usable(inputs.load_profile):
         reason += " Per-slot load profile used."
+    if tonight.solar_shape is not None:
+        reason += f" {SHAPE_REASON}"
 
     reduction = _overmorrow_reduction(tonight)
     if reduction > 0:
@@ -604,6 +616,13 @@ def _simulated_plan(tonight: _Tonight, skip_blocked_note: str) -> _ChargePlan:
         forecast_kwh=tonight.forecast_kwh,
         cost_to_charge=_cost_to_charge(inputs, target_soc),
     )
+
+
+def usable_solar_shape(forecast: SolarForecast) -> tuple[float, ...] | None:
+    """The forecast's shape when the plan will use it: a real forecast total and a valid shape."""
+    if forecast.forecast_kwh is None:
+        return None
+    return valid_shape(forecast.solar_shape)
 
 
 def calculate_overnight_charge_target(
@@ -642,6 +661,7 @@ def calculate_overnight_charge_target(
         forecast_kwh=resolved.kwh,
         forecast_source=resolved.source,
         forecast_kwh_d2=forecast.forecast_kwh_d2,
+        solar_shape=usable_solar_shape(forecast),
     )
     skip = _try_skip(tonight, dt)
     if skip.skips:
