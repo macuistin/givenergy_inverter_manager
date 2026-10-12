@@ -89,7 +89,7 @@ async def _serve_strategy_file(hass: HomeAssistant) -> None:
         return
     try:
         await hass.http.async_register_static_paths(
-            [StaticPathConfig(STRATEGY_URL_PATH, str(STRATEGY_FILE), cache_headers=False)]
+            [StaticPathConfig(STRATEGY_URL_PATH, str(STRATEGY_FILE), cache_headers=True)]
         )
     except RuntimeError as err:
         _LOG.warning("Could not serve the dashboard strategy file: %s", err)

@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- The dashboard's JavaScript file is now cached by the browser. Home Assistant waits only 5 seconds for a dashboard to register, and on a busy Home Assistant (just after a restart, or with many custom cards) the file could arrive too late and the dashboard showed "Timeout waiting for strategy element ll-strategy-dashboard-givenergy-manager to be registered". A repeat visit now reads the file from the browser cache. An update still loads the new file, because the address carries the version. If you see the message anyway, reload the page once.
+
 ## v0.18.1
 
 The integration now notices a GivTCP that has crashed or stopped taking writes, and two dashboard layout fixes.
