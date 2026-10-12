@@ -1,0 +1,364 @@
+{
+ "description": "EMS, as GivTCP 3.6.4 publishes it from a real capture.",
+ "provenance": "harness",
+ "givtcp_version": "3.6.4",
+ "invertor_type": "Ems",
+ "capabilities": {
+  "batteries": 0,
+  "device_type": "EMS",
+  "failed_reads": [],
+  "inverter_address": 17,
+  "is_ems": true,
+  "is_gateway": false,
+  "is_hv": false,
+  "is_three_phase": false
+ },
+ "source": "Entity ids GivTCP 3.6.4 creates on its first read of a real, serial-redacted wire capture, taken from GivTCP's own test results (tests/golden). The serial is the capture's redacted one. Every state is unknown except the device type, the serial and the version. Battery modules and the units behind a Gateway are not in it, because GivTCP creates those after a second read.",
+ "expected": {
+  "kind": "ems",
+  "controller": "EMS2522000",
+  "ask": false,
+  "modules": null
+ },
+ "states": {
+  "number.givtcp_ems2522000_car_charge_boost": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_car_charge_count": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_ems_charge_target_soc_1": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_ems_charge_target_soc_2": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_ems_charge_target_soc_3": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_ems_discharge_target_soc_1": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_ems_discharge_target_soc_2": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_ems_discharge_target_soc_3": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_export_power_limit": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_export_target_soc_1": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_export_target_soc_2": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_export_target_soc_3": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_plant_charge_compensation": {
+   "state": "unknown"
+  },
+  "number.givtcp_ems2522000_plant_discharge_compensation": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_car_charge_mode": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_ems_charge_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_ems_charge_end_time_slot_2": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_ems_charge_end_time_slot_3": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_ems_charge_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_ems_charge_start_time_slot_2": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_ems_charge_start_time_slot_3": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_ems_discharge_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_ems_discharge_end_time_slot_2": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_ems_discharge_end_time_slot_3": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_ems_discharge_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_ems_discharge_start_time_slot_2": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_ems_discharge_start_time_slot_3": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_export_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_export_end_time_slot_2": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_export_end_time_slot_3": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_export_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_export_start_time_slot_2": {
+   "state": "unknown"
+  },
+  "select.givtcp_ems2522000_export_start_time_slot_3": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_battery_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_calculated_load_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_ce2231g001_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_ce2231g001_serial_number": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_ce2231g001_soc": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_ce2231g001_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_ce2231g001_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_ce2231g002_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_ce2231g002_serial_number": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_ce2231g002_soc": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_ce2231g002_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_ce2231g002_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_data_age": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_export_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_export_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_export_limit": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_generation_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_generation_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_generation_load_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_givtcp_version": {
+   "state": "3.6.4"
+  },
+  "sensor.givtcp_ems2522000_grid_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_import_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_import_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_inverter_count": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_inverter_in_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_inverter_in_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_inverter_out_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_inverter_out_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_invertor_firmware": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_invertor_serial_number": {
+   "state": "EMS2522000"
+  },
+  "sensor.givtcp_ems2522000_invertor_time": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_invertor_type": {
+   "state": "Ems"
+  },
+  "sensor.givtcp_ems2522000_last_updated_time": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_measured_load_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_1_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_1_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_2_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_2_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_3_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_3_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_4_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_4_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_5_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_5_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_6_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_6_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_7_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_7_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_8_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_8_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_meter_count": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_other_battery_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_plant_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_remaining_battery_wh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_safe_write_count": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_serial_number": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_time_since_last_update": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_timeout_error": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_total_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_ems2522000_write_count": {
+   "state": "unknown"
+  },
+  "switch.givtcp_ems2522000_plant_control": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_ems_charge_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_ems_charge_end_time_slot_2": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_ems_charge_end_time_slot_3": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_ems_charge_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_ems_charge_start_time_slot_2": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_ems_charge_start_time_slot_3": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_ems_discharge_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_ems_discharge_end_time_slot_2": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_ems_discharge_end_time_slot_3": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_ems_discharge_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_ems_discharge_start_time_slot_2": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_ems_discharge_start_time_slot_3": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_export_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_export_end_time_slot_2": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_export_end_time_slot_3": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_export_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_export_start_time_slot_2": {
+   "state": "unknown"
+  },
+  "time.givtcp_ems2522000_export_start_time_slot_3": {
+   "state": "unknown"
+  }
+ }
+}

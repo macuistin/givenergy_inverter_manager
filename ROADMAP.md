@@ -186,6 +186,7 @@ Comment on a GitHub issue to weigh in.
 | Cycle count is an estimate when GivTCP publishes no BMS counter | Can differ from the battery's own counter | Counts discharge only since v0.4.0 |
 | Monetary sensors use a currency symbol as the unit | Newer Home Assistant versions may reject statistics | C14 |
 | Tested on one single-phase hybrid | All-In-One, gateway, three-phase, EMS and several-inverter systems are found but not proved on real hardware | N3, S19 |
+| A three-phase hybrid publishes import and export power and battery charge and discharge power as separate entities | Setup does not find its grid power or battery power, because it looks for one signed entity of each. Taken from GivTCP's own test results on a real capture. A signed value would have to be worked out from the pairs | N3 |
 | A parallel All-In-One is a child inverter and a Gateway may offer no controls | A write can read back correctly and change nothing. The integration controls the gateway or the plant device only | N3, N23 |
 | On AC-coupled and All-In-One systems the solar energy counters may count battery output | Forecast accuracy and solar share could read high. Not yet verified | N11 |
 | The immersion is switched on and off, never varied | A small surplus may be partly met from the battery or the grid | Won't have |

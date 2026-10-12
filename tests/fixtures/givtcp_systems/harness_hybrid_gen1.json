@@ -1,0 +1,613 @@
+{
+ "description": "Hybrid Gen 1, as GivTCP 3.6.4 publishes it from a real capture.",
+ "provenance": "harness",
+ "givtcp_version": "3.6.4",
+ "invertor_type": "Hybrid_gen1",
+ "capabilities": {
+  "batteries": 2,
+  "device_type": "HYBRID_GEN1",
+  "failed_reads": [],
+  "inverter_address": 17,
+  "is_ems": false,
+  "is_gateway": false,
+  "is_hv": false,
+  "is_three_phase": false
+ },
+ "source": "Entity ids GivTCP 3.6.4 creates on its first read of a real, serial-redacted wire capture, taken from GivTCP's own test results (tests/golden). The serial is the capture's redacted one. Every state is unknown except the device type, the serial and the version. Battery modules and the units behind a Gateway are not in it, because GivTCP creates those after a second read.",
+ "expected": {
+  "kind": "hybrid",
+  "controller": "SA2114G000",
+  "ask": false,
+  "modules": null
+ },
+ "states": {
+  "button.givtcp_sa2114g000_reboot_addon": {
+   "state": "unknown"
+  },
+  "button.givtcp_sa2114g000_reboot_invertor": {
+   "state": "unknown"
+  },
+  "button.givtcp_sa2114g000_sync_time": {
+   "state": "unknown"
+  },
+  "number.givtcp_sa2114g000_active_power_rate": {
+   "state": "unknown"
+  },
+  "number.givtcp_sa2114g000_battery_charge_rate": {
+   "state": "unknown"
+  },
+  "number.givtcp_sa2114g000_battery_discharge_rate": {
+   "state": "unknown"
+  },
+  "number.givtcp_sa2114g000_battery_power_cutoff": {
+   "state": "unknown"
+  },
+  "number.givtcp_sa2114g000_battery_power_reserve": {
+   "state": "unknown"
+  },
+  "number.givtcp_sa2114g000_force_charge_num": {
+   "state": "unknown"
+  },
+  "number.givtcp_sa2114g000_force_export_num": {
+   "state": "unknown"
+  },
+  "number.givtcp_sa2114g000_target_soc": {
+   "state": "unknown"
+  },
+  "number.givtcp_sa2114g000_temp_pause_charge_num": {
+   "state": "unknown"
+  },
+  "number.givtcp_sa2114g000_temp_pause_discharge_num": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_battery_calibration": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_charge_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_charge_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_current_rate_type": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_discharge_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_discharge_end_time_slot_2": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_discharge_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_discharge_start_time_slot_2": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_force_charge": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_force_export": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_mode": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_temp_pause_charge": {
+   "state": "unknown"
+  },
+  "select.givtcp_sa2114g000_temp_pause_discharge": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_ac_charge_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_ac_charge_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_ac_charge_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_calibration_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_capacity_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_charge_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_charge_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_discharge_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_discharge_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_ppkwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_stack_1_bms_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_stack_1_bms_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_throughput_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_throughput_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_to_grid": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_to_house": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_type": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_value": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_battery_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_capacity": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_10_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_11_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_12_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_13_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_14_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_15_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_16_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_1_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_1_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_2_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_2_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_3_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_3_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_4_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_4_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_5_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_6_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_7_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_8_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cell_9_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cells": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_charge_mos_state": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_cycles": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_design_capacity": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_discharge_mos_state": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_firmware_version": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_remaining_capacity": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_serial_number": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_soc": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_bg2134g000_battery_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_charge_completion_time": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_charge_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_charge_time_remaining": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_current_rate": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_data_age": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_day_cost": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_day_energy_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_day_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_day_rate": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_day_start_energy_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_discharge_completion_time": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_discharge_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_discharge_time_remaining": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_capacity": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_10_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_11_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_12_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_13_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_14_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_15_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_16_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_1_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_1_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_2_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_2_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_3_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_3_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_4_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_4_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_5_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_6_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_7_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_8_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cell_9_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cells": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_charge_mos_state": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_cycles": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_design_capacity": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_discharge_mos_state": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_firmware_version": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_remaining_capacity": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_serial_number": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_soc": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_dz2228g000_battery_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_eps_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_export_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_export_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_export_limit": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_export_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_export_rate": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_givtcp_version": {
+   "state": "3.6.4"
+  },
+  "sensor.givtcp_sa2114g000_grid_current": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_grid_frequency": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_grid_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_grid_to_battery": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_grid_to_house": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_grid_voltage": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_import_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_import_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_import_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_import_ppkwh_today": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_inverter_output_frequency": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_invertor_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_invertor_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_invertor_firmware": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_invertor_max_bat_rate": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_invertor_max_inv_rate": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_invertor_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_invertor_serial_number": {
+   "state": "SA2114G000"
+  },
+  "sensor.givtcp_sa2114g000_invertor_temperature": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_invertor_time": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_invertor_type": {
+   "state": "Hybrid_gen1"
+  },
+  "sensor.givtcp_sa2114g000_last_updated_time": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_load_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_load_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_load_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_meter_type": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_modbus_version": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_night_cost": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_night_energy_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_night_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_night_rate": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_night_start_energy_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_pv_current_string_1": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_pv_current_string_2": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_pv_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_pv_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_pv_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_pv_power_string_1": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_pv_power_string_2": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_pv_voltage_string_1": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_pv_voltage_string_2": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_safe_write_count": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_self_consumption_energy_today_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_self_consumption_energy_total_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_self_consumption_power": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_soc": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_soc_kwh": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_solar_to_battery": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_solar_to_grid": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_solar_to_house": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_status": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_time_since_last_update": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_timeout_error": {
+   "state": "unknown"
+  },
+  "sensor.givtcp_sa2114g000_write_count": {
+   "state": "unknown"
+  },
+  "switch.givtcp_sa2114g000_eco_mode": {
+   "state": "unknown"
+  },
+  "switch.givtcp_sa2114g000_enable_charge_schedule": {
+   "state": "unknown"
+  },
+  "switch.givtcp_sa2114g000_enable_charge_target": {
+   "state": "unknown"
+  },
+  "switch.givtcp_sa2114g000_enable_discharge_schedule": {
+   "state": "unknown"
+  },
+  "switch.givtcp_sa2114g000_real_time_control": {
+   "state": "unknown"
+  },
+  "time.givtcp_sa2114g000_charge_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_sa2114g000_charge_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_sa2114g000_discharge_end_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_sa2114g000_discharge_end_time_slot_2": {
+   "state": "unknown"
+  },
+  "time.givtcp_sa2114g000_discharge_start_time_slot_1": {
+   "state": "unknown"
+  },
+  "time.givtcp_sa2114g000_discharge_start_time_slot_2": {
+   "state": "unknown"
+  }
+ }
+}
