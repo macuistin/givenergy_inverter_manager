@@ -2,7 +2,7 @@
 
 Home Assistant integration for GivEnergy inverters. It reads inverter data from GivTCP over MQTT, sets the overnight charge target, diverts spare solar to an immersion heater, and tracks energy costs across your tariff periods. Nothing leaves your network: the integration only reads and writes Home Assistant entities.
 
-This documentation matches version 0.18.0.
+This documentation matches version 0.18.1.
 
 ## Start here
 
@@ -58,3 +58,5 @@ The charge target rules are in [Concepts](concepts.md#overnight-charge-target). 
 - A GivEnergy hybrid inverter with a battery.
 
 Charge targets can only be written when GivTCP exposes its charge control entities. See [Configuration](configuration.md#screen-your-system).
+
+GivTCP's **Real Time Control** setting must be on for the inverter to take those writes. See [Writes to the inverter are not confirmed](troubleshooting.md#writes-to-the-inverter-are-not-confirmed).

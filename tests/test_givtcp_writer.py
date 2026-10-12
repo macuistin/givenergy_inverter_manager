@@ -341,3 +341,64 @@ class TestSerialisation:
         )
         assert results == [True, True]
         assert len(bus.calls) == 1
+
+
+class _Listener:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, str]] = []
+
+    def confirmed(self, write: VerifiedWrite) -> None:
+        self.events.append(("confirmed", write.entity_id))
+
+    def not_confirmed(self, write: VerifiedWrite) -> None:
+        self.events.append(("not_confirmed", write.entity_id))
+
+
+class TestConfirmationListener:
+    @pytest.fixture
+    def listener(self, writer) -> _Listener:
+        listener = _Listener()
+        writer.listen_for_confirmations(listener)
+        return listener
+
+    async def test_a_write_that_reads_back_is_confirmed(self, writer, listener):
+        await writer.set_number("number.n", 62, "charge target")
+        assert listener.events == [("confirmed", "number.n")]
+
+    async def test_a_write_that_reads_back_late_is_confirmed_by_the_retry(
+        self, writer, bus, listener
+    ):
+        bus.settle_on = 2
+        bus.states["number.n"] = _State("80")
+        await writer.set_number("number.n", 62, "charge target")
+        assert listener.events == [("confirmed", "number.n")]
+
+    async def test_an_entity_already_at_the_value_is_confirmed_without_a_call(
+        self, writer, bus, listener
+    ):
+        bus.states["number.n"] = _State("62")
+        await writer.set_number("number.n", 62, "charge target")
+        assert bus.calls == []
+        assert listener.events == [("confirmed", "number.n")]
+
+    async def test_every_attempt_reading_back_the_old_value_is_reported_once(
+        self, writer, bus, listener
+    ):
+        bus.settle_on = None
+        bus.states["number.n"] = _State("80")
+        assert await writer.set_number("number.n", 62, "charge target") is True
+        assert len(bus.calls) == GIVTCP_MAX_WRITE_RETRIES
+        assert listener.events == [("not_confirmed", "number.n")]
+
+    async def test_a_failed_call_is_not_a_missing_confirmation(self, writer, bus, listener):
+        bus.error = RuntimeError("rejected")
+        assert await writer.set_number("number.n", 62, "charge target") is False
+        assert listener.events == []
+
+    async def test_a_write_skipped_by_the_cooldown_says_nothing(self, writer, bus, listener):
+        bus.settle_on = None
+        bus.states["number.n"] = _State("80")
+        await writer.set_number("number.n", 62, "charge target")
+        listener.events.clear()
+        await writer.set_number("number.n", 62, "charge target")
+        assert listener.events == []

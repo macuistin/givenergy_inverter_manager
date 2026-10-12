@@ -43,6 +43,22 @@ Issues raised:
     issue is created once per base-rate stretch of a session and cleared when the session
     ends or the rate drops. Dismissing it keeps it dismissed until then. The decision lives
     in core/ev_base_rate.py. An install with no charger never reaches it.
+
+  write_not_confirmed
+    A charge setting was written to GivTCP and every read-back still showed the old value, so
+    the inverter did not take it. The usual causes are GivTCP's Real Time Control being off
+    and GivTCP not publishing. Not fixable: the cause is in GivTCP. One issue lists every
+    setting that did not take. It clears when a later write, or a later look, finds each
+    setting at the value, and when the integration unloads. The decision lives in
+    core/write_confirmation.py and the wiring in unconfirmed_write_repair.py.
+
+  givtcp_feed_frozen
+    GivTCP's entities still hold their last values but none has been reported for ten
+    minutes, as when the GivTCP add-on crashes and MQTT keeps the retained values. The
+    entities are not unavailable, so nothing else shows the fault. Not fixable: the cause
+    is in GivTCP. The cycle fails like a silent feed, so no plan or write comes from old
+    readings. The issue clears as soon as GivTCP reports again. The decision lives in
+    core/feed_freshness.py.
 """
 
 from __future__ import annotations
@@ -71,6 +87,8 @@ ISSUE_OTHER_CHARGE_SLOTS_ACTIVE = "other_charge_slots_active"
 ISSUE_TARIFF_REVIEW_DUE = "tariff_review_due"
 ISSUE_BATTERY_COST_NOT_SET = "battery_cost_not_set"
 ISSUE_EV_BASE_RATE_CHARGING = "ev_charging_at_base_rate"
+ISSUE_WRITE_NOT_CONFIRMED = "write_not_confirmed"
+ISSUE_GIVTCP_FEED_FROZEN = "givtcp_feed_frozen"
 
 TROUBLESHOOTING_URL = (
     "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs/troubleshooting.md"
@@ -82,6 +100,8 @@ LEARN_MORE_URLS: dict[str, str] = {
     ISSUE_TARIFF_REVIEW_DUE: f"{TROUBLESHOOTING_URL}#the-tariff-has-not-been-reviewed",
     ISSUE_BATTERY_COST_NOT_SET: f"{TROUBLESHOOTING_URL}#battery-cost-is-not-set",
     ISSUE_EV_BASE_RATE_CHARGING: f"{TROUBLESHOOTING_URL}#ev-is-charging-at-the-base-rate",
+    ISSUE_WRITE_NOT_CONFIRMED: f"{TROUBLESHOOTING_URL}#writes-to-the-inverter-are-not-confirmed",
+    ISSUE_GIVTCP_FEED_FROZEN: f"{TROUBLESHOOTING_URL}#givtcp-data-is-frozen",
 }
 
 # Matches the selector max in config_flow.py. Values above this are legacy
@@ -215,6 +235,44 @@ def async_create_ev_base_rate_issue(
 def async_delete_ev_base_rate_issue(hass: HomeAssistant) -> None:
     """Clear the base-rate charging repair issue once the session ends or the rate drops."""
     async_delete_issue(hass, DOMAIN, ISSUE_EV_BASE_RATE_CHARGING)
+
+
+def async_create_write_not_confirmed_issue(hass: HomeAssistant, settings: str) -> None:
+    """Surface a repair issue naming each setting the inverter did not take."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_WRITE_NOT_CONFIRMED,
+        is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_WRITE_NOT_CONFIRMED],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_WRITE_NOT_CONFIRMED,
+        translation_placeholders={"settings": settings},
+    )
+
+
+def async_delete_write_not_confirmed_issue(hass: HomeAssistant) -> None:
+    """Clear the repair once every setting that did not take is at its value, or on unload."""
+    async_delete_issue(hass, DOMAIN, ISSUE_WRITE_NOT_CONFIRMED)
+
+
+def async_create_feed_frozen_issue(hass: HomeAssistant, last_reported: str) -> None:
+    """Surface a repair issue while GivTCP's entities hold values that no longer update."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_GIVTCP_FEED_FROZEN,
+        is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_GIVTCP_FEED_FROZEN],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_GIVTCP_FEED_FROZEN,
+        translation_placeholders={"last_reported": last_reported},
+    )
+
+
+def async_delete_feed_frozen_issue(hass: HomeAssistant) -> None:
+    """Clear the frozen-feed repair once GivTCP reports again."""
+    async_delete_issue(hass, DOMAIN, ISSUE_GIVTCP_FEED_FROZEN)
 
 
 async def async_create_fix_flow(
