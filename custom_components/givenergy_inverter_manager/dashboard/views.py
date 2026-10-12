@@ -27,7 +27,7 @@ from ..core.tariff import (
     scheduled_tariff_changes,
     tariff_in_force,
 )
-from ..discovery import inverter_temperature_entity_ids
+from ..inverter.givtcp.discovery import inverter_temperature_entity_ids
 from .cards import (
     BAR,
     BATTERY,

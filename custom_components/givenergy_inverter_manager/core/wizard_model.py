@@ -15,7 +15,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..const import (
     CONF_ALT_HEAT_COST,
@@ -71,7 +71,10 @@ from ..const import (
     DEFAULT_STANDING_CHARGE,
     DEFAULT_VAT_RATE,
 )
-from ..discovery import EVCharger, ForecastSensors, GivTCPInverter
+from ..discovery import EVCharger, ForecastSensors
+
+if TYPE_CHECKING:
+    from ..inverter.givtcp.discovery import GivTCPInverter
 
 # What the setup wizard offers to set up, and what the options wizard offers to change, in the
 # fixed order the pages are shown whatever order the client sends the ticks in. The inverter is

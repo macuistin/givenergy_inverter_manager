@@ -15,9 +15,9 @@ from ..core.wizard_model import Detected
 from ..discovery import (
     discover_ev_chargers,
     discover_forecast_sensors,
-    discover_givtcp_inverters,
     discover_immersion_switch_candidates,
 )
+from ..inverter.givtcp.discovery import discover_givtcp_inverters
 
 
 def detect(states: Mapping[str, Any]) -> Detected:

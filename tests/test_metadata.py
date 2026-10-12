@@ -310,6 +310,27 @@ def test_core_package_does_not_import_home_assistant():
     assert offenders == []
 
 
+def test_core_package_does_not_import_the_inverter_package_at_run_time():
+    """core/ may name an inverter type under TYPE_CHECKING and nothing else."""
+    offenders = []
+    for path in sorted((PKG / "core").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        type_only = {
+            id(node)
+            for guard in ast.walk(tree)
+            if isinstance(guard, ast.If) and "TYPE_CHECKING" in ast.unparse(guard.test)
+            for node in ast.walk(guard)
+        }
+        for node in ast.walk(tree):
+            if id(node) in type_only or not isinstance(node, ast.ImportFrom):
+                continue
+            module = f"{'.' * node.level}{node.module or ''}"
+            if module.lstrip(".").split(".")[0] == "inverter":
+                offenders.append(f"{path.name}: {module}")
+
+    assert offenders == []
+
+
 def test_only_the_prerelease_workflow_can_write_and_only_at_job_level():
     for path in sorted(_WORKFLOWS.glob("*.yml")):
         workflow = yaml.safe_load(path.read_text())

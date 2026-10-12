@@ -6,8 +6,8 @@ lines (a test enforces it) and put detail in a rule file, not here.
 
 ## What this is
 
-A Home Assistant custom integration, distributed through HACS. It reads GivTCP entities for a
-GivEnergy inverter, plans the overnight charge, diverts solar surplus to an immersion heater and
+A Home Assistant custom integration, distributed through HACS. It reads and writes a GivEnergy
+inverter through an inverter backend, and GivTCP is the only backend today. It plans the overnight charge, diverts solar surplus to an immersion heater and
 an EV charger, and tracks cost across tariff periods. It targets the Silver tier of the Home
 Assistant quality scale. `custom_components/givenergy_inverter_manager/quality_scale.yaml` lists
 which rules are done, exempt or todo. Do not claim a tier the file does not support.
@@ -20,7 +20,10 @@ inside it.
 | Path | Role |
 | --- | --- |
 | `core/` | Pure Python decisions, tariff, accumulation maths and report text. No `homeassistant` imports |
-| `coordinator.py` | Thin Home Assistant bridge: reads states, calls `core/`, applies writes, runs timers |
+| `coordinator.py` | Home Assistant bridge: asks the inverter backend for readings, calls `core/`, decides what to write and sends it through the backend, runs timers |
+| `inverter/` | `backend.py` is the `InverterBackend` interface. It has no Home Assistant import |
+| `inverter/givtcp/` | The GivTCP adapter: discovery, the verified writer and the write constants. The code that knows GivTCP entity names and write order |
+| `core/inverter_values.py` | The frozen values the coordinator and a backend exchange (`InverterValues`, `ChargePlan`, `RateDefaults`, `WriteResult`, `FeedStatus`) |
 | `config_flow.py`, `wizard/`, `core/wizard_*.py` | Setup wizard, options wizard and reconfigure (the inverter connection). `config_flow.py` only registers them. `config_helpers.py` merges entry data and options |
 | `sensor.py`, `sensor_descriptions/` | One entity class and the description table, split by theme |
 | `optional_devices.py`, `core/devices.py` | The EV charger, immersion switch and immersion sensor may be absent or added later |
@@ -29,7 +32,8 @@ inside it.
 
 ## Architecture rules
 
-- `core/` imports nothing from `homeassistant`. `tests/test_metadata.py` enforces it.
+- `core/` imports nothing from `homeassistant`, and nothing from `inverter/` at run time.
+  `tests/test_metadata.py` enforces both.
 - `entry.runtime_data` holds the coordinator (`GivEnergyConfigEntry`). Never use `hass.data[DOMAIN]`.
 - `GivEnergyCoordinator` passes `config_entry=entry` to `DataUpdateCoordinator`.
 - `async_reload_entry` calls `hass.config_entries.async_reload(entry.entry_id)`. It does not call
@@ -92,6 +96,9 @@ Read the file that matches the code you are changing.
 | `.claude/rules/dashboard.md` | The dashboard strategy, who sees Settings, HACS cards and the golden file |
 | `.claude/rules/python-style.md` | Clean Code limits that ruff enforces |
 | `.claude/rules/docs-and-style.md` | UK English, docs, commits, PRs, changelog, version bump |
+
+Other inverter projects are studied by writing a specification, never by copying their code. The
+specifications are the issues under #366 in the repository.
 
 Outside the integration: `tests/` (unit suite, Home Assistant stubbed), `tests/ha_e2e/` (real
 Home Assistant), `tools/mock_givtcp.py` (fake GivTCP, see `docs/design/mock_givtcp.md`),

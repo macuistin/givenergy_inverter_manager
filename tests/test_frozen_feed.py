@@ -11,7 +11,7 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from custom_components.givenergy_inverter_manager.const import GIVTCP_FROZEN_AFTER_S
 from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
-from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter
+from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import GivTCPWriter
 from custom_components.givenergy_inverter_manager.repairs import (
     ISSUE_GIVTCP_FEED_FROZEN,
     LEARN_MORE_URLS,

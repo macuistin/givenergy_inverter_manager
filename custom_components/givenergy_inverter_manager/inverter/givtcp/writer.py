@@ -1,5 +1,5 @@
 """
-givtcp_writer.py: verified, serialised writes to GivTCP entities.
+inverter/givtcp/writer.py: verified, serialised writes to GivTCP entities.
 
 GivEnergy inverters have about 1M lifetime register writes, so every write goes
 through one path that:
@@ -34,14 +34,14 @@ from typing import Any, Protocol
 
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import (
+from ...core.write_log import WriteRecord
+from ...logging import WriteOutcome, get_logger, log_givtcp_write
+from .constants import (
     GIVTCP_MAX_WRITE_RETRIES,
     GIVTCP_MIN_WRITE_INTERVAL_S,
     GIVTCP_WRITE_LIFETIME_WARN,
     GIVTCP_WRITE_RETRY_SLEEP_S,
 )
-from .core.write_log import WriteRecord
-from .logging import WriteOutcome, get_logger, log_givtcp_write
 
 _LOG = get_logger(__name__)
 

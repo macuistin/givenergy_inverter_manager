@@ -392,23 +392,18 @@ CONF_SURPLUS_DIVERT_MIN_W = "surplus_divert_min_power_w"
 CONF_CHEAP_RATE_FLOOR_SOC = "cheap_rate_floor_soc"
 DEFAULT_CHEAP_RATE_FLOOR_SOC = 40  # % — 0 disables the floor
 
-# ── GivTCP register write safety ──────────────────────────────────────────────
-# GivEnergy inverters have ~1M total register write capacity. Limiting unnecessary
-# writes protects hardware lifetime. Predbat documents this as a known issue.
-GIVTCP_MAX_WRITE_RETRIES = 3          # attempts per write before giving up
-GIVTCP_WRITE_RETRY_SLEEP_S = 2        # seconds between retry attempts
-GIVTCP_WRITE_LIFETIME_WARN = 500_000  # log a warning at this write count (~50% of rated)
-GIVTCP_MIN_WRITE_INTERVAL_S = 300     # minimum seconds before the same value is rewritten
+# ── Register write log ────────────────────────────────────────────────────────
+# The write safety limits (retries, cooldown, lifetime warning) live in
+# inverter/givtcp/constants.py with the GivTCP adapter.
 REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept in the write log
 # How long a running element stays on while a required sensor is unavailable.
 # Same value as the write interval, but a separate setting.
 SENSOR_OUTAGE_HOLD_LIMIT_S = 300
-GIVTCP_MIN_CHARGE_TARGET_PCT = 4      # lowest charge target GivTCP accepts
-GIVTCP_MAX_CHARGE_TARGET_PCT = 100    # highest charge target GivTCP accepts
 # How long every GivTCP power and SoC entity may go without a report before the feed counts as
 # frozen. GivTCP publishes about every 20 to 30 seconds and a cycle is 30 seconds, so ten minutes
-# is twenty missed publishes: an add-on restart passes, an overnight crash trips. The two
-# five-minute values above are a write cooldown and an element hold, not feed ages.
+# is twenty missed publishes: an add-on restart passes, an overnight crash trips. The
+# five-minute write cooldown (inverter/givtcp/constants.py) and the element hold above are not
+# feed ages.
 GIVTCP_FROZEN_AFTER_S = 600
 
 # ── Sensor state text ─────────────────────────────────────────────────────────

@@ -102,8 +102,6 @@ from .const import (
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
     DOMAIN,
     FORECAST_P10_ATTRIBUTE,
-    GIVTCP_MAX_CHARGE_TARGET_PCT,
-    GIVTCP_MIN_CHARGE_TARGET_PCT,
     GIVTCP_RATE_TOLERANCE_PCT,
     TEST_INSTANCE_MARKER,
     UPDATE_INTERVAL_SECONDS,
@@ -140,20 +138,26 @@ from .core.tariff import (
 from .core.tariff_check import GivTCPRates, RateMismatch, find_rate_mismatches
 from .core.timeutil import elapsed_seconds
 from .discovery import (
-    UNUSED_SLOT_TIME,
-    ActiveChargeSlot,
     EVCharger,
-    describe_charge_slots,
-    discover_battery_cycle_entities,
     discover_ev_chargers,
-    find_other_active_charge_slots,
     givtcp_rate_entity_ids,
-    inverter_temperature_entity_ids,
     update_charger_state,
 )
 from .forecast_seeding import async_seed_forecast_accuracy
-from .givtcp_writer import GivTCPWriter, SwitchState, state_as_int
 from .immersion_actuator import ImmersionActuator, ImmersionPorts
+from .inverter.givtcp.constants import (
+    GIVTCP_MAX_CHARGE_TARGET_PCT,
+    GIVTCP_MIN_CHARGE_TARGET_PCT,
+)
+from .inverter.givtcp.discovery import (
+    UNUSED_SLOT_TIME,
+    ActiveChargeSlot,
+    describe_charge_slots,
+    discover_battery_cycle_entities,
+    find_other_active_charge_slots,
+    inverter_temperature_entity_ids,
+)
+from .inverter.givtcp.writer import GivTCPWriter, SwitchState, state_as_int
 from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,

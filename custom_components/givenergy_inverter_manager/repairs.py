@@ -76,7 +76,7 @@ from homeassistant.helpers.issue_registry import (
 )
 
 from .const import DOMAIN
-from .discovery import ActiveChargeSlot, describe_charge_slots
+from .inverter.givtcp.discovery import ActiveChargeSlot, describe_charge_slots
 
 if TYPE_CHECKING:
     from homeassistant.components.repairs import RepairsFlow

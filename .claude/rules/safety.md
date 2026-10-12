@@ -24,7 +24,7 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
 - A `.givenergy_test_instance` file in the config folder forces dry run on (`TEST_INSTANCE_MARKER`).
   The coordinator reads it once at setup and `_effective_cfg` applies it, so every reader of
   `dry_run` agrees. Never read `CONF_DRY_RUN` straight from the entry in new code.
-- Writes to GivTCP go through `givtcp_writer.py`, which reads before writing, applies a cooldown
+- Writes to GivTCP go through `inverter/givtcp/writer.py`, which reads before writing, applies a cooldown
   (`GIVTCP_MIN_WRITE_INTERVAL_S`) and reads back. Do not call a GivTCP service from anywhere else.
 
 ## What the integration never does

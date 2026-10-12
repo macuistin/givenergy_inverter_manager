@@ -11,7 +11,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_CHARGE_START_TIME_ENTITY,
     CONF_DRY_RUN,
 )
-from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter
+from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import GivTCPWriter
 from custom_components.givenergy_inverter_manager.repairs import (
     ISSUE_OTHER_CHARGE_SLOTS_ACTIVE,
     LEARN_MORE_URLS,
