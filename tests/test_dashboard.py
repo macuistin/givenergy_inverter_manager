@@ -217,7 +217,7 @@ class TestPowerFlowTabChanges:
             "Clipping must be secondary_info_entity on solar — not a separate large card."
         )
 
-    def test_power_flow_sections_are_now_flow_and_totals(self):
+    def test_power_flow_sections_are_now_flow_totals_and_devices(self):
         parsed = yaml.safe_load(_build())
         pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
         assert [s["cards"][0]["heading"] for s in pf_view["sections"]] == [
@@ -226,6 +226,7 @@ class TestPowerFlowTabChanges:
             "Finish setting up",
             "Live power flow",
             "Energy today",
+            "Devices",
         ]
 
     def test_live_cost_rate_shown_as_grid_secondary_info(self):
