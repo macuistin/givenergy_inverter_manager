@@ -14,6 +14,9 @@ from .hacs import POWER_FLOW_CARD
 
 # ── Immersion chart ──────────────────────────────────────────────────────────
 
+_ROWS_TEMPERATURE = 5
+_ROWS_WITH_HEATER = 9
+
 
 @dataclass(frozen=True)
 class ImmersionEntities:
@@ -44,7 +47,11 @@ def builtin_immersion_chart(ent: ImmersionEntities) -> dict | None:
         {"type": "history-graph"},
         hours_to_show=12,
     )
-    return graph_card(card) if card else None
+    # The graph draws the temperatures in degrees and the heater in watts as two charts, one
+    # above the other. Each needs about four grid rows, or the axis labels run into each other.
+    if not card:
+        return None
+    return graph_card(card, _ROWS_WITH_HEATER if ent.heater else _ROWS_TEMPERATURE)
 
 
 # ── Content helpers ──────────────────────────────────────────────────────────
