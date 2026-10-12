@@ -284,12 +284,15 @@ PLATFORMS = ["sensor", "switch", "number"]
 # These govern the overnight charge decision logic in rules.py.
 # Named here so behaviour is documented and auditable — not buried as magic numbers.
 
-# Winter months: charge to 100% regardless of forecast. Solar is negligible
-# and grid charging is nearly always the right decision in Ireland (Dec–Feb).
-CHARGE_WINTER_MONTHS: tuple[int, ...] = (12, 1, 2)
-# Shoulder months: raise the min_soc floor to max_soc_target — heating load is
-# variable and the forecast is less reliable than in peak summer.
-CHARGE_SHOULDER_MONTHS: tuple[int, ...] = (3, 4, 10, 11)
+# The winter and shoulder months are settings. They default from the latitude (core/seasons.py)
+# and are saved only when the user edits them.
+CONF_CHARGE_WINTER_MONTHS = "charge_winter_months"
+CONF_CHARGE_SHOULDER_MONTHS = "charge_shoulder_months"
+CONF_CHARGE_WINTER_USES_FORECAST = "charge_winter_uses_forecast"
+
+# In a winter month the charge goes to 100% regardless of forecast, because solar is negligible.
+# In a shoulder month the min_soc floor is raised, because heating load is variable and the
+# forecast is less reliable than in peak summer.
 # Shoulder month min SoC floor (% of battery) — more conservative than summer floor.
 CHARGE_SHOULDER_MIN_SOC = 70  # % — applied instead of battery_min_soc in shoulder months
 # Winter months: the charge is skipped once the battery is at or above this SoC.

@@ -33,6 +33,9 @@ from ..const import (
     CONF_BATTERY_THROUGHPUT_BUDGET,
     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CARBON_INTENSITY_ENTITY,
+    CONF_CHARGE_SHOULDER_MONTHS,
+    CONF_CHARGE_WINTER_MONTHS,
+    CONF_CHARGE_WINTER_USES_FORECAST,
     CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_FORECAST_ENTITY,
     CONF_FORECAST_ENTITY_D2,
@@ -52,6 +55,7 @@ from ..const import (
 )
 from .alt_heat_label import clean_label
 from .immersion_ready import parse_ready_times
+from .seasons import overlapping_months
 from .wizard_model import PageContext, Validation
 
 # Ready-by times: up to four a day is what the planning is built for. More is allowed.
@@ -107,7 +111,11 @@ def unavailable_wiring(values: Mapping[str, Any], states: Mapping[str, Any]) -> 
 
 
 def validate_battery(values: Mapping[str, Any], ctx: PageContext) -> Validation:
-    """Warn when the cheap rate floor (a control) sits below the minimum charge being set."""
+    """A month in both season lists is an error. Warn when the floor sits below the minimum."""
+    if overlapping_months(
+        values.get(CONF_CHARGE_WINTER_MONTHS), values.get(CONF_CHARGE_SHOULDER_MONTHS)
+    ):
+        return Validation(errors={"base": "season_months_overlap"})
     floor = ctx.current.get(CONF_CHEAP_RATE_FLOOR_SOC, DEFAULT_CHEAP_RATE_FLOOR_SOC)
     minimum = values.get(CONF_BATTERY_MIN_SOC)
     if minimum is not None and floor and float(floor) < float(minimum):
@@ -131,6 +139,17 @@ def clean_battery(values: Mapping[str, Any]) -> dict[str, Any]:
     for key in (CONF_BATTERY_MIN_SOC, CONF_OVERNIGHT_CHARGE_TARGET):
         if key in values:
             cleaned[key] = int(values[key])
+    return {**cleaned, **_clean_seasons(values)}
+
+
+def _clean_seasons(values: Mapping[str, Any]) -> dict[str, Any]:
+    """The season month lists as sorted month numbers, and the winter behaviour as a bool."""
+    cleaned: dict[str, Any] = {}
+    for key in (CONF_CHARGE_WINTER_MONTHS, CONF_CHARGE_SHOULDER_MONTHS):
+        if key in values:
+            cleaned[key] = sorted({int(month) for month in values[key]})
+    if CONF_CHARGE_WINTER_USES_FORECAST in values:
+        cleaned[CONF_CHARGE_WINTER_USES_FORECAST] = bool(values[CONF_CHARGE_WINTER_USES_FORECAST])
     return cleaned
 
 

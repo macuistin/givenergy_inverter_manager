@@ -137,11 +137,15 @@ Raising the count adds blank rows after the saved ones. Lowering it drops the la
 | Overnight charge cap | `overnight_charge_target_pct` | 80 | 20 to 100. The calculated target is capped at this |
 | Battery cost | `battery_cost_eur` | 0 | 0 to 20000 in steps of 100. 0 turns the wear check off |
 | Daily battery throughput budget | `battery_throughput_budget_kwh` | 0 | 0 to 50 in steps of 0.5. 0 turns the budget sensors off |
+| Winter months | `charge_winter_months` | From your latitude: December to February in the north, June to August in the south | Any months. An empty list turns the rule off |
+| Shoulder months | `charge_shoulder_months` | From your latitude: March, April, October and November in the north, April, May, September and October in the south | Any months. An empty list turns the rule off |
+| Plan winter charges from the forecast | `charge_winter_uses_forecast` | Off | On or off |
 
 Update capacity and output when you add battery modules or change the inverter. Dry run, verbose logging, the cheap rate floor and the skip-charge threshold are not here. They are [controls](#controls). The page warns when the Cheap rate floor SoC control is set below the battery minimum charge you enter.
 
 - **Battery cost** sets a wear cost per kWh: cost divided by (2 x capacity x 6000 rated cycles). The immersion rule then refuses to divert when the export rate is lower than that wear cost. It also feeds Net Saving Today and Battery Cycle Cost per kWh.
 - A battery cost of 0 means wear is not counted, so Net Saving Today equals Saving vs Grid Today. After 7 days of battery tracking the repair **Battery cost is not set** asks for the value. See [Troubleshooting](troubleshooting.md#battery-cost-is-not-set).
+- **Winter months and shoulder months** set when the overnight charge goes to 100% and when its minimum is raised. Home Assistant's latitude decides the starting lists, north or south of the equator, and nothing is saved until you edit them, so a house that moves hemisphere changes with it. A month cannot be in both lists. Near the equator the seasons do not apply, so leave a list empty to turn its rule off. **Plan winter charges from the forecast** replaces the 100% winter charge with the normal plan, using the shoulder minimum (70%) as its floor. See [Concepts](concepts.md#overnight-charge-target).
 - **Throughput budget** drives Battery Throughput Budget Used and Status. Status is OK below 80% of the budget, High from 80%, and Over budget above 100%.
 - A minimum SoC above 30 (possible only from older saved values) raises a repair issue, because on skip nights that value is written as the charge target.
 

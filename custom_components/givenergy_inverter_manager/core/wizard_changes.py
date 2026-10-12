@@ -28,6 +28,9 @@ from ..const import (
     CONF_BILL_START_DAY,
     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CARBON_INTENSITY_ENTITY,
+    CONF_CHARGE_SHOULDER_MONTHS,
+    CONF_CHARGE_WINTER_MONTHS,
+    CONF_CHARGE_WINTER_USES_FORECAST,
     CONF_CURRENCY,
     CONF_DISCOUNT_RATE,
     CONF_EXPORT_RATE,
@@ -72,6 +75,9 @@ LABELS: dict[str, str] = {
     CONF_OVERNIGHT_CHARGE_TARGET: "Overnight charge cap",
     CONF_BATTERY_COST: "Battery cost",
     CONF_BATTERY_THROUGHPUT_BUDGET: "Daily throughput budget",
+    CONF_CHARGE_WINTER_MONTHS: "Winter months",
+    CONF_CHARGE_SHOULDER_MONTHS: "Shoulder months",
+    CONF_CHARGE_WINTER_USES_FORECAST: "Plan winter charges from the forecast",
     CONF_FORECAST_ENTITY: "Forecast sensor",
     CONF_FORECAST_ENTITY_P10: "Pessimistic forecast sensor",
     CONF_FORECAST_ENTITY_D2: "Day after tomorrow forecast sensor",
@@ -116,8 +122,32 @@ def _changes(value: Any) -> str:
     return ", ".join(str(item.get("effective")) for item in value if isinstance(item, dict))
 
 
+_MONTH_NAMES = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+
+
+def _month_names(value: Any) -> str:
+    if not isinstance(value, (list, tuple)) or not value:
+        return "none"
+    return ", ".join(_MONTH_NAMES[int(m) - 1] for m in sorted(value) if 1 <= int(m) <= 12)
+
+
 def show(key: str, value: Any) -> str:
     """One config value in words."""
+    if key in (CONF_CHARGE_WINTER_MONTHS, CONF_CHARGE_SHOULDER_MONTHS):
+        return _month_names(value)
     if key == CONF_RATE_PERIODS:
         return _periods(value)
     if key == CONF_TARIFF_CHANGES:

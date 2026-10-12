@@ -32,6 +32,9 @@ from ..const import (
     CONF_BILL_START_DAY,
     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CARBON_INTENSITY_ENTITY,
+    CONF_CHARGE_SHOULDER_MONTHS,
+    CONF_CHARGE_WINTER_MONTHS,
+    CONF_CHARGE_WINTER_USES_FORECAST,
     CONF_CURRENCY,
     CONF_DISCOUNT_RATE,
     CONF_EXPORT_RATE,
@@ -106,6 +109,9 @@ PAGE_KEYS: dict[str, tuple[str, ...]] = {
         CONF_OVERNIGHT_CHARGE_TARGET,
         CONF_BATTERY_COST,
         CONF_BATTERY_THROUGHPUT_BUDGET,
+        CONF_CHARGE_WINTER_MONTHS,
+        CONF_CHARGE_SHOULDER_MONTHS,
+        CONF_CHARGE_WINTER_USES_FORECAST,
     ),
     "forecast": (
         CONF_FORECAST_ENTITY,
@@ -160,6 +166,7 @@ KEY_DEFAULTS: dict[str, Any] = {
     CONF_BATTERY_THROUGHPUT_BUDGET: DEFAULT_BATTERY_THROUGHPUT_BUDGET,
     CONF_IMMERSION_WATTAGE: DEFAULT_IMMERSION_WATTAGE,
     CONF_ALT_HEAT_ENABLED: False,
+    CONF_CHARGE_WINTER_USES_FORECAST: False,
     CONF_ALT_HEAT_LABEL: DEFAULT_ALT_HEAT_LABEL,
     CONF_ALT_HEAT_COST_UNIT: DEFAULT_ALT_HEAT_UNIT,
     CONF_CAR_EFFICIENCY_KWH_PER_100KM: DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
@@ -219,6 +226,7 @@ class PageContext:
     states: Mapping[str, Any] = field(default_factory=dict)
     home_currency: str = DEFAULT_CURRENCY
     rate_defaults: RateDefaults | None = None  # what the inverter integration holds, setup only
+    latitude: float = 0.0  # Home Assistant's, for the default seasons
 
     def value(self, key: str, default: Any = None) -> Any:
         """The value of *key*: entered earlier in this run, else in force, else *default*."""

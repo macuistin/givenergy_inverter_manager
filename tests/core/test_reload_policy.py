@@ -73,6 +73,9 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     "overnight_charge_target_pct": (80, 90, LIVE),
     "battery_cost_eur": (0.0, 5000.0, LIVE),
     "battery_throughput_budget_kwh": (0.0, 12.5, LIVE),
+    "charge_winter_months": ([12, 1, 2], [11, 12, 1, 2], LIVE),
+    "charge_shoulder_months": ([3, 4, 10, 11], [3, 4], LIVE),
+    "charge_winter_uses_forecast": (False, True, LIVE),
     # Forecast.
     "forecast_provider": ("solcast", "forecast_solar", LIVE),
     "forecast_entity_p10": ("sensor.a", "sensor.b", LIVE),

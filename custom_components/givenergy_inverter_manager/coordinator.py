@@ -124,6 +124,7 @@ from .core.immersion_ready import parse_ready_times
 from .core.inverter_values import ChargePlan, FeedState, InverterValues
 from .core.reload_policy import IMMERSION_TEMP_KEYS, TARIFF_TRIGGER_KEYS
 from .core.rules import monthly_solar_fractions
+from .core.seasons import season_rules
 from .core.setup_progress import SetupFacts, setup_items
 from .core.solar_day import HeldSolarDay
 from .core.sunrise_hold import HeldSunrise
@@ -1213,6 +1214,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             ),
             ForecastContext(
                 solar_fractions=self._solar_fractions,
+                seasons=season_rules(cfg, self.hass.config.latitude),
                 solar_forecast_kwh_today=self._acc.today_forecast_kwh,
                 yesterday_forecast_accuracy_pct=self._acc.yesterday_forecast_accuracy_pct,
                 forecast_accuracy_7day_avg_pct=self._acc.forecast_accuracy_7day_avg_pct,

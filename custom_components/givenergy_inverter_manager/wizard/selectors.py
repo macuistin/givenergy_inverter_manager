@@ -154,6 +154,29 @@ def rate_count_selector() -> selector.SelectSelector:
     )
 
 
+_MONTHS = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+
+
+def months_selector() -> selector.SelectSelector:
+    """A list of the twelve months, to tick any number of them. The values are 1 to 12."""
+    return checklist_selector(
+        [selector.SelectOptionDict(value=str(n), label=name) for n, name in enumerate(_MONTHS, 1)]
+    )
+
+
 def checklist_selector(
     options: list[selector.SelectOptionDict] | list[str], translation_key: str | None = None
 ) -> selector.SelectSelector:

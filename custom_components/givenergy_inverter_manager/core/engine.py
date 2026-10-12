@@ -128,6 +128,7 @@ from .rules import (
     should_divert_to_immersion,
     usable_slot_loads_kwh,
 )
+from .seasons import NORTHERN_SEASONS, SeasonRules
 from .setup_progress import SetupItem
 from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
 from .stored_energy import stored_energy_change
@@ -804,6 +805,7 @@ class ForecastContext:
     # sensors report the next day, so the charge decision reads these for the day it serves.
     today_raw_forecast_kwh: float | None = None
     today_raw_forecast_p10_kwh: float | None = None
+    seasons: SeasonRules | None = None  # None means the northern defaults
 
 
 @dataclass(frozen=True)
@@ -1185,6 +1187,7 @@ def _charge_inputs(cycle: _Cycle, avg_daily_kwh: float) -> ChargeInputs:
         cheapest_rate=cycle.tariff.get_cheapest_rate().rate,
         load_profile=cycle.forecast.load_profile,
         solar_power_w=cycle.night_solar_w,
+        seasons=cycle.forecast.seasons or NORTHERN_SEASONS,
     )
 
 

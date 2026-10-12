@@ -281,6 +281,9 @@ async def test_the_battery_page_has_every_field_with_a_default(hass, loaded_entr
         "overnight_charge_target_pct",
         "battery_cost_eur",
         "battery_throughput_budget_kwh",
+        "charge_winter_months",
+        "charge_shoulder_months",
+        "charge_winter_uses_forecast",
     }
     assert all("default" in field for field in fields.values())
     assert fields["overnight_charge_target_pct"]["default"] == 80

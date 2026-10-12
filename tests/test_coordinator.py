@@ -118,6 +118,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         entry.async_on_unload = lambda fn: fn  # returns the cancel fn itself
 
         hass = MagicMock()
+        hass.config.latitude = 53.3  # Ireland, so the northern seasons apply
         hass.states.get = lambda eid: self._states.get(eid)
         # async_create_task receives a coroutine — close it immediately so it
         # doesn't linger and trigger an "unawaited coroutine" warning at GC time.
