@@ -39,7 +39,7 @@ OPTIONAL_ENTITY_KEYS = (
     CONF_FORECAST_ENTITY_D2,
     CONF_CARBON_INTENSITY_ENTITY,
 )
-PAGES = ("tariff", "battery", "forecast", "hot_water", "ev")
+PAGES = ("tariff", "battery", "charge_planning", "hot_water", "ev")
 
 
 @pytest.fixture
@@ -91,7 +91,10 @@ async def test_each_checklist_line_carries_the_current_status(hass, loaded_entry
 
     labels = {o["value"]: o["label"] for o in serialised(result)[0]["selector"]["select"]["options"]}
     assert labels["tariff"] == "Tariff: Day 0.3334 EUR/kWh, export 0.1950, 2 time-of-day rates"
-    assert labels["battery"] == "Battery and charging: battery 9.5 kWh, inverter 5 kW"
+    assert labels["battery"] == "Battery: battery 9.5 kWh, inverter 5 kW"
+    assert labels["charge_planning"].startswith(
+        "Charge planning: minimum charge 10%, overnight cap 80%, forecast"
+    )
     assert labels["hot_water"].startswith("Hot water: immersion switch switch.immersion_heater")
     assert labels["ev"] == "EV charger: car efficiency 15 kWh per 100 km"
     manager(hass).async_abort(result["flow_id"])
@@ -131,8 +134,10 @@ async def test_a_single_page_shows_only_that_page(hass, loaded_entry, page):
     result = await manager(hass).async_configure(result["flow_id"], user_input={"pages": [page]})
 
     assert result["step_id"] == page
-    assert result["last_step"] is (page != "tariff")
-    result = await submit(manager(hass), result)
+    # The tariff and charge planning pages run on to further screens.
+    assert result["last_step"] is (page not in ("tariff", "charge_planning"))
+    while result["type"] is FlowResultType.FORM:
+        result = await submit(manager(hass), result)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert loaded_entry.state is ConfigEntryState.LOADED
 
@@ -182,8 +187,10 @@ async def test_last_step_is_false_until_the_confirm_step_of_a_longer_run(hass, l
 
 async def test_nothing_is_written_before_the_last_screen(hass, loaded_entry):
     before = dict(loaded_entry.options)
-    result = await open_options(hass, loaded_entry, {"battery": {}, "ev": {}})
+    result = await open_options(hass, loaded_entry, {"charge_planning": {}, "ev": {}})
     result = await submit(manager(hass), result, battery_min_soc_pct=15)
+    assert result["step_id"] == "forecast"
+    result = await submit(manager(hass), result)
     result = await submit(manager(hass), result, car_efficiency_kwh_per_100km=19.0)
     assert result["step_id"] == "confirm"
     assert dict(loaded_entry.options) == before
@@ -194,10 +201,13 @@ async def test_nothing_is_written_before_the_last_screen(hass, loaded_entry):
 
 
 async def test_one_page_that_applies_live_skips_the_confirm_step(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"battery": {}})
-    assert result["last_step"] is True
+    result = await open_options(hass, loaded_entry, {"charge_planning": {}})
+    assert result["last_step"] is False  # the solar forecast screen follows
 
     result = await submit(manager(hass), result, battery_min_soc_pct=15)
+    assert result["step_id"] == "forecast"
+    assert result["last_step"] is True
+    result = await submit(manager(hass), result)
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert loaded_entry.options["battery_min_soc_pct"] == 15
@@ -217,8 +227,9 @@ async def test_one_page_that_reloads_still_asks_to_confirm(hass, loaded_entry):
 
 
 async def test_the_confirm_step_lists_each_change_and_says_it_applies_now(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"battery": {}, "ev": {}})
+    result = await open_options(hass, loaded_entry, {"charge_planning": {}, "ev": {}})
     result = await submit(manager(hass), result, battery_min_soc_pct=15)
+    result = await submit(manager(hass), result)
     result = await submit(manager(hass), result, car_efficiency_kwh_per_100km=19.0)
 
     text = result["description_placeholders"]["changes"]
@@ -260,8 +271,11 @@ async def test_a_page_writes_only_its_own_keys(hass, loaded_entry, page):
     await hass.async_block_till_done()
     changes = {
         "tariff": {"tariff": {"export_rate": 0.31}},
-        "battery": {"battery": {"battery_min_soc_pct": 12}},
-        "forecast": {"forecast": {"forecast_entity_p10": "sensor.other_p10"}},
+        "battery": {"battery": {"battery_capacity_kwh": 12.0}},
+        "charge_planning": {
+            "charge_planning": {"battery_min_soc_pct": 12},
+            "forecast": {"forecast_entity_p10": "sensor.other_p10"},
+        },
         "hot_water": {"hot_water": {"immersion_wattage_w": 2800}},
         "ev": {"ev": {"car_efficiency_kwh_per_100km": 17.5}},
     }[page]
@@ -281,7 +295,7 @@ async def test_a_value_equal_to_what_is_in_force_is_never_written(hass, loaded_e
     before = dict(loaded_entry.options)
 
     await options_wizard(
-        hass, loaded_entry, {"battery": {}, "forecast": {}, "hot_water": {}, "ev": {}}
+        hass, loaded_entry, {"battery": {}, "charge_planning": {}, "hot_water": {}, "ev": {}}
     )
 
     assert dict(loaded_entry.options) == before
@@ -289,12 +303,13 @@ async def test_a_value_equal_to_what_is_in_force_is_never_written(hass, loaded_e
 
 async def test_a_control_moved_while_a_page_is_open_keeps_its_value(hass, loaded_entry):
     """The options are read when the wizard writes, not when it opened."""
-    result = await open_options(hass, loaded_entry, {"battery": {}})
+    result = await open_options(hass, loaded_entry, {"charge_planning": {}})
     hass.config_entries.async_update_entry(
         loaded_entry, options={**loaded_entry.options, "dry_run": True, "cheap_rate_floor_soc": 15}
     )
 
-    await submit(manager(hass), result, battery_min_soc_pct=12)
+    result = await submit(manager(hass), result, battery_min_soc_pct=12)
+    await submit(manager(hass), result)
     await hass.async_block_till_done()
 
     assert loaded_entry.options["battery_min_soc_pct"] == 12
@@ -305,8 +320,9 @@ async def test_a_control_moved_while_a_page_is_open_keeps_its_value(hass, loaded
 async def test_a_control_moved_between_the_confirm_step_and_its_submit_keeps_its_value(
     hass, loaded_entry
 ):
-    result = await open_options(hass, loaded_entry, {"battery": {}, "ev": {}})
+    result = await open_options(hass, loaded_entry, {"charge_planning": {}, "ev": {}})
     result = await submit(manager(hass), result, battery_min_soc_pct=12)
+    result = await submit(manager(hass), result)
     result = await submit(manager(hass), result, car_efficiency_kwh_per_100km=18.0)
     assert result["step_id"] == "confirm"
     hass.config_entries.async_update_entry(

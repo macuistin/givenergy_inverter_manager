@@ -163,12 +163,13 @@ class TestWritingAControl:
         self, hass, loaded_entry
     ):
         """The page is opened, a control is moved, then the page is saved."""
-        result = await open_options(hass, loaded_entry, {"battery": {}})
-        assert result["step_id"] == "battery"
+        result = await open_options(hass, loaded_entry, {"charge_planning": {}})
+        assert result["step_id"] == "charge_planning"
         await set_control(hass, loaded_entry, CONF_DRY_RUN, True)
         await set_control(hass, loaded_entry, CONF_CHEAP_RATE_FLOOR_SOC, 10)
 
-        await submit(hass.config_entries.options, result, overnight_charge_target_pct=90)
+        result = await submit(hass.config_entries.options, result, overnight_charge_target_pct=90)
+        await submit(hass.config_entries.options, result)  # the solar forecast screen
         await hass.async_block_till_done()
 
         assert loaded_entry.options["overnight_charge_target_pct"] == 90
@@ -177,7 +178,7 @@ class TestWritingAControl:
         assert value_of(hass, loaded_entry, CONF_DRY_RUN) == "on"
 
     async def test_a_control_key_sent_to_a_page_is_not_accepted(self, hass, loaded_entry):
-        result = await open_options(hass, loaded_entry, {"battery": {}})
+        result = await open_options(hass, loaded_entry, {"charge_planning": {}})
         from homeassistant.data_entry_flow import InvalidData
 
         with pytest.raises(InvalidData):

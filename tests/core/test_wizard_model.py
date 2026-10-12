@@ -63,16 +63,22 @@ def test_the_checklists_name_only_pages_that_exist():
     assert set(SETUP_PAGES) <= set(PAGE_KEYS)
     assert set(OPTION_PAGES) <= set(PAGE_KEYS)
     assert SETUP_PAGES == ("tariff", "forecast", "hot_water")
-    assert OPTION_PAGES == ("tariff", "battery", "forecast", "hot_water", "ev")
+    assert OPTION_PAGES == ("tariff", "battery", "charge_planning", "hot_water", "ev")
 
 
-def test_the_tariff_page_runs_four_steps_and_the_others_one():
+def test_the_tariff_page_runs_four_steps_charge_planning_two_and_the_others_one():
     assert PAGE_STEPS["tariff"] == ("tariff", "tariff_rates", "bill", "schedule_change")
-    assert set(PAGE_STEPS) == {"tariff"}
+    assert PAGE_STEPS["charge_planning"] == ("charge_planning", "forecast")
+    assert set(PAGE_STEPS) == {"tariff", "charge_planning"}
 
 
 def test_a_page_may_write_its_own_keys_and_the_tariff_may_write_the_review_date():
     assert PAGE_WRITES["battery"] == set(PAGE_KEYS["battery"])
+    # Charge planning runs two screens, so it may write the keys of both.
+    assert PAGE_WRITES["charge_planning"] == set(PAGE_KEYS["charge_planning"]) | set(
+        PAGE_KEYS["forecast"]
+    )
+    assert not set(PAGE_KEYS["battery"]) & set(PAGE_KEYS["charge_planning"])
     assert const.CONF_TARIFF_REVIEWED_ON in PAGE_WRITES["tariff"]
     assert const.CONF_TARIFF_CHANGES in PAGE_WRITES["tariff"]
     assert const.CONF_TARIFF_REVIEWED_ON not in PAGE_WRITES["hot_water"]

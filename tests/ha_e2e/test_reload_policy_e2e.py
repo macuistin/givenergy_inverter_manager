@@ -97,7 +97,7 @@ async def test_a_slider_move_does_not_reload(hass, lifecycle, loaded_entry):
 async def test_a_threshold_change_does_not_reload(hass, lifecycle, loaded_entry):
     coordinator = loaded_entry.runtime_data
 
-    await _save_options(hass, loaded_entry, {"battery": {CONF_OVERNIGHT_CHARGE_TARGET: 90}})
+    await _save_options(hass, loaded_entry, {"charge_planning": {CONF_OVERNIGHT_CHARGE_TARGET: 90}})
 
     _assert_applied_live(loaded_entry, coordinator, lifecycle)
     assert loaded_entry.options[CONF_OVERNIGHT_CHARGE_TARGET] == 90
@@ -137,7 +137,7 @@ async def test_saving_every_page_unchanged_does_not_reload(hass, lifecycle, load
     coordinator = loaded_entry.runtime_data
 
     await _save_options(
-        hass, loaded_entry, {"tariff": {}, "battery": {}, "forecast": {}, "hot_water": {}, "ev": {}}
+        hass, loaded_entry, {"tariff": {}, "battery": {}, "charge_planning": {}, "hot_water": {}, "ev": {}}
     )
 
     _assert_applied_live(loaded_entry, coordinator, lifecycle)

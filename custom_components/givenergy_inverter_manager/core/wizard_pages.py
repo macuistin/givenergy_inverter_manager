@@ -50,8 +50,10 @@ from ..const import (
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_SOLAR_POWER,
     DEFAULT_ALT_HEAT_UNIT,
+    DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
+    DEFAULT_OVERNIGHT_CHARGE_TARGET,
 )
 from .alt_heat_label import clean_label
 from .immersion_ready import parse_ready_times
@@ -110,7 +112,7 @@ def unavailable_wiring(values: Mapping[str, Any], states: Mapping[str, Any]) -> 
 # ── Battery ───────────────────────────────────────────────────────────────────
 
 
-def validate_battery(values: Mapping[str, Any], ctx: PageContext) -> Validation:
+def validate_charge_planning(values: Mapping[str, Any], ctx: PageContext) -> Validation:
     """A month in both season lists is an error. Warn when the floor sits below the minimum."""
     if overlapping_months(
         values.get(CONF_CHARGE_WINTER_MONTHS), values.get(CONF_CHARGE_SHOULDER_MONTHS)
@@ -128,6 +130,11 @@ def validate_battery(values: Mapping[str, Any], ctx: PageContext) -> Validation:
     return Validation()
 
 
+def validate_battery(values: Mapping[str, Any], ctx: PageContext) -> Validation:  # noqa: ARG001
+    """The battery limits have nothing to cross-check: each is a range the form enforces."""
+    return Validation()
+
+
 def clean_battery(values: Mapping[str, Any]) -> dict[str, Any]:
     """The battery limits the form sends, as numbers. A field not sent is left out."""
     cleaned: dict[str, Any] = {}
@@ -136,6 +143,12 @@ def clean_battery(values: Mapping[str, Any]) -> dict[str, Any]:
             cleaned[key] = float(values[key])
     if CONF_BATTERY_THROUGHPUT_BUDGET in values:
         cleaned[CONF_BATTERY_THROUGHPUT_BUDGET] = float(values[CONF_BATTERY_THROUGHPUT_BUDGET])
+    return cleaned
+
+
+def clean_charge_planning(values: Mapping[str, Any]) -> dict[str, Any]:
+    """The charge planning settings the form sends. A field not sent is left out."""
+    cleaned: dict[str, Any] = {}
     for key in (CONF_BATTERY_MIN_SOC, CONF_OVERNIGHT_CHARGE_TARGET):
         if key in values:
             cleaned[key] = int(values[key])
@@ -151,6 +164,13 @@ def _clean_seasons(values: Mapping[str, Any]) -> dict[str, Any]:
     if CONF_CHARGE_WINTER_USES_FORECAST in values:
         cleaned[CONF_CHARGE_WINTER_USES_FORECAST] = bool(values[CONF_CHARGE_WINTER_USES_FORECAST])
     return cleaned
+
+
+def charge_planning_summary(cfg: Mapping[str, Any]) -> str:
+    """The charge planning limits on one line."""
+    minimum = int(cfg.get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC))
+    cap = int(cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
+    return f"minimum charge {minimum}%, overnight cap {cap}%"
 
 
 def battery_summary(cfg: Mapping[str, Any]) -> str:

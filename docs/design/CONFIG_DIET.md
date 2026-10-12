@@ -19,15 +19,15 @@ The rule is one home per setting. A setting is a wizard field (set once, changes
 | Fixed levy (`pso_levy_per_month`) | Bill details | Keep | On the bill. The key name is kept, the screen says per billing period |
 | VAT (`vat_rate`) | Bill details | Keep | On the bill |
 | Supplier discount (`discount_rate`) | Bill details | Keep | On the bill |
-| Battery capacity (`battery_capacity_kwh`) | System, Battery and charging | Detect | GivTCP reports it, so setup asks only when it did not. The field stays in Configure for a battery that grows |
-| Inverter maximum output (`inverter_max_output_kw`) | System, Battery and charging | Keep | GivTCP does not report it. The default is 5 kW and the field is always visible |
-| Battery minimum charge (`battery_min_soc_pct`) | Battery and charging | Keep | A protection level set once. It has a repair when set too high |
-| Overnight charge cap (`overnight_charge_target_pct`) | Battery and charging | Keep | A ceiling set once. The nightly target is calculated, and the manual override is its own entity |
-| Battery cost (`battery_cost_eur`) | Battery and charging | Keep | Not available from any device. A repair asks for it |
-| Throughput budget (`battery_throughput_budget_kwh`) | Battery and charging | Keep | Optional and off at 0. A candidate to hide if it stays unused |
-| Winter months (`charge_winter_months`) | Battery and charging | Keep | Set once. The default comes from the latitude and is not stored until edited. The seasons differ by hemisphere, so it cannot be a fixed assumption |
-| Shoulder months (`charge_shoulder_months`) | Battery and charging | Keep | Same as the winter months. A month cannot be in both lists |
-| Plan winter charges from the forecast (`charge_winter_uses_forecast`) | Battery and charging | Keep | Off keeps the 100% winter charge. On is for a home whose winter solar is worth planning around |
+| Battery capacity (`battery_capacity_kwh`) | System, Battery | Detect | GivTCP reports it, so setup asks only when it did not. The field stays in Configure for a battery that grows |
+| Inverter maximum output (`inverter_max_output_kw`) | System, Battery | Keep | GivTCP does not report it. The default is 5 kW and the field is always visible |
+| Battery minimum charge (`battery_min_soc_pct`) | Charge planning | Keep | A protection level set once. It has a repair when set too high |
+| Overnight charge cap (`overnight_charge_target_pct`) | Charge planning | Keep | A ceiling set once. The nightly target is calculated, and the manual override is its own entity |
+| Battery cost (`battery_cost_eur`) | Battery | Keep | Not available from any device. A repair asks for it |
+| Throughput budget (`battery_throughput_budget_kwh`) | Battery | Keep | Optional and off at 0. A candidate to hide if it stays unused |
+| Winter months (`charge_winter_months`) | Charge planning | Keep | Set once. The default comes from the latitude and is not stored until edited. The seasons differ by hemisphere, so it cannot be a fixed assumption |
+| Shoulder months (`charge_shoulder_months`) | Charge planning | Keep | Same as the winter months. A month cannot be in both lists |
+| Plan winter charges from the forecast (`charge_winter_uses_forecast`) | Charge planning | Keep | Off keeps the 100% winter charge. On is for a home whose winter solar is worth planning around |
 | Forecast sensor (`forecast_entity`) | Solar forecast | Detect | Solcast PV Forecast and Forecast.Solar sensors are found and used. The page is offered only when none was found |
 | Day after tomorrow forecast (`forecast_entity_d2`) | Solar forecast | Detect | Found with Solcast. Optional otherwise |
 | Pessimistic forecast (`forecast_entity_p10`) | Solar forecast | Fixed assumption | Solcast's own sensors carry the P10 in an attribute and the coordinator reads it when the field is empty. The field is only for other services |

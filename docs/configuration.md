@@ -106,7 +106,7 @@ The step count at the top of each screen ("Step 2 of about 4.") is recomputed af
 
 Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. The first screen is a checklist, "What would you like to change?", with nothing ticked. Each line shows what is set now. Tick the pages to go through. Saved options override the values entered at setup.
 
-The pages run in a fixed order whatever order they were ticked in: Tariff, Battery and charging, Solar forecast, Hot water, EV charger. The last screen lists every change before and after in plain words, then says either "Applies now" or "Reloads the integration because you changed ...". That screen is skipped when exactly one page was ticked and its change applies at once, so a one-field edit is two screens. A page that was not ticked is never rewritten, and a value you leave as it was is not written at all. The wizard saves the options as they are at the end, so a control you moved while it was open keeps its new value.
+The pages run in a fixed order whatever order they were ticked in: Tariff, Battery, Charge planning (which ends with the solar forecast screen), Hot water, EV charger. The last screen lists every change before and after in plain words, then says either "Applies now" or "Reloads the integration because you changed ...". That screen is skipped when exactly one page was ticked and its change applies at once, so a one-field edit is two screens. A page that was not ticked is never rewritten, and a value you leave as it was is not written at all. The wizard saves the options as they are at the end, so a control you moved while it was open keeps its new value.
 
 Most changes apply on the next 30-second cycle with no reload: the tariff, battery and charging settings, the forecast and carbon sensors other than the main forecast sensor, element power, ready-by times and the car efficiency. Changing a time-of-day rate also moves the time the charge target is written. The integration reloads, and entities are unavailable for a few seconds, when you change the main forecast sensor, the currency, the immersion switch or the water temperature sensor, or when alternative water heating appears or goes (you turn it on with a cost or a cost sensor set, or off, or clear the last cost). Changing the label, the unit or a cost that is already set does not reload.
 
@@ -127,29 +127,40 @@ Raising the count adds blank rows after the saved ones. Lowering it drops the la
 
 **Schedule a rate change.** Sets the date the rates on the Tariff and rows screens start. Leave the date empty to apply them now. Only the base rate and its name, the time-of-day rates and the export rate follow the date. The bill details apply when you save. See [Tariff](tariff.md#change-the-rates-from-a-date). Saving the tariff without a date ends any dated change that has started and keeps the ones that have not.
 
-### Battery and charging
+### Battery
 
 | Field | Key | Default | Range |
 |---|---|---|---|
 | Battery capacity | `battery_capacity_kwh` | from setup | 1 to 100 kWh |
 | Inverter maximum output | `inverter_max_output_kw` | from setup, else 5 | 1 to 20 kW |
-| Battery minimum charge | `battery_min_soc_pct` | 10 | 5 to 30 |
-| Overnight charge cap | `overnight_charge_target_pct` | 80 | 20 to 100. The calculated target is capped at this |
 | Battery cost | `battery_cost_eur` | 0 | 0 to 20000 in steps of 100. 0 turns the wear check off |
 | Daily battery throughput budget | `battery_throughput_budget_kwh` | 0 | 0 to 50 in steps of 0.5. 0 turns the budget sensors off |
+
+Update capacity and output when you add battery modules or change the inverter. The charge target and the seasons are on the Charge planning page.
+
+- **Battery cost** sets a wear cost per kWh: cost divided by (2 x capacity x 6000 rated cycles). The immersion rule then refuses to divert when the export rate is lower than that wear cost. It also feeds Net Saving Today and Battery Cycle Cost per kWh.
+- A battery cost of 0 means wear is not counted, so Net Saving Today equals Saving vs Grid Today. After 7 days of battery tracking the repair **Battery cost is not set** asks for the value. See [Troubleshooting](troubleshooting.md#battery-cost-is-not-set).
+- **Throughput budget** drives Battery Throughput Budget Used and Status. Status is OK below 80% of the budget, High from 80%, and Over budget above 100%.
+
+### Charge planning
+
+Two screens: what shapes tonight's overnight charge, then the solar forecast sensors it is worked out from.
+
+| Field | Key | Default | Range |
+|---|---|---|---|
+| Battery minimum charge | `battery_min_soc_pct` | 10 | 5 to 30 |
+| Overnight charge cap | `overnight_charge_target_pct` | 80 | 20 to 100. The calculated target is capped at this |
 | Winter months | `charge_winter_months` | From your latitude: December to February in the north, June to August in the south | Any months. An empty list turns the rule off |
 | Shoulder months | `charge_shoulder_months` | From your latitude: March, April, October and November in the north, April, May, September and October in the south | Any months. An empty list turns the rule off |
 | Plan winter charges from the forecast | `charge_winter_uses_forecast` | Off | On or off |
 
-Update capacity and output when you add battery modules or change the inverter. Dry run, verbose logging, the cheap rate floor and the skip-charge threshold are not here. They are [controls](#controls). The page warns when the Cheap rate floor SoC control is set below the battery minimum charge you enter.
+Dry run, verbose logging, the cheap rate floor, the skip-charge threshold, forecast caution and the re-plan switch are not here. They are [controls](#controls). The page warns when the Cheap rate floor SoC control is set below the battery minimum charge you enter.
 
-- **Battery cost** sets a wear cost per kWh: cost divided by (2 x capacity x 6000 rated cycles). The immersion rule then refuses to divert when the export rate is lower than that wear cost. It also feeds Net Saving Today and Battery Cycle Cost per kWh.
-- A battery cost of 0 means wear is not counted, so Net Saving Today equals Saving vs Grid Today. After 7 days of battery tracking the repair **Battery cost is not set** asks for the value. See [Troubleshooting](troubleshooting.md#battery-cost-is-not-set).
-- **Winter months and shoulder months** set when the overnight charge goes to 100% and when its minimum is raised. Home Assistant's latitude decides the starting lists, north or south of the equator, and nothing is saved until you edit them, so a house that moves hemisphere changes with it. A month cannot be in both lists. Near the equator the seasons do not apply, so leave a list empty to turn its rule off. **Plan winter charges from the forecast** replaces the 100% winter charge with the normal plan, using the shoulder minimum (70%) as its floor. See [Concepts](concepts.md#overnight-charge-target).
-- **Throughput budget** drives Battery Throughput Budget Used and Status. Status is OK below 80% of the budget, High from 80%, and Over budget above 100%.
+- **Winter months and shoulder months** set when the overnight charge goes to 100% and when its minimum is raised. Home Assistant's latitude decides the starting lists, north or south of the equator, and nothing is saved until you edit them, so a house that moves hemisphere changes with it. A month cannot be in both lists. Near the equator the seasons do not apply, so leave a list empty to turn its rule off.
+- **Plan winter charges from the forecast** changes only what a winter month does. Off, a winter month charges to 100%. On, a winter month runs the normal plan from the forecast, with the shoulder-month minimum (at least 70%) as its floor. It does not turn the other settings off: **Winter months** still says which months are winter, **Shoulder months** still raises the minimum in its own months, and the overnight cap still applies. With the winter list empty the tick has nothing to act on.
 - A minimum SoC above 30 (possible only from older saved values) raises a repair issue, because on skip nights that value is written as the charge target.
 
-### Solar forecast
+### Solar forecast (the second Charge planning screen)
 
 | Field | Key | Notes |
 |---|---|---|
