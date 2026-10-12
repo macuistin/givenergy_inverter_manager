@@ -170,6 +170,7 @@ from .repairs import (
     async_delete_other_charge_slots_issue,
     async_delete_tariff_review_issue,
 )
+from .unconfirmed_write_repair import UnconfirmedWriteRepair
 from .write_audit import WriteAudit
 
 _LOG = get_logger(__name__)
@@ -385,6 +386,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             on_count_change=self._save_register_write_count,
             observer=self._audit,
         )
+        # A setting the inverter does not take raises a repair. It clears when a later write or
+        # look finds the value, and when the integration unloads.
+        self._write_repair = UnconfirmedWriteRepair(
+            self.hass, lambda: self.is_dry_run, lambda entity_id: self._get_state(entity_id)
+        )
+        self._writer.listen_for_confirmations(self._write_repair)
+        self.entry.async_on_unload(self._write_repair.clear)
 
     def _register_time_listeners(self) -> None:
         self.entry.async_on_unload(
@@ -1413,6 +1421,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         cfg = self._effective_cfg()
         self._apply_cached_rates(cfg)
         self._check_config_repair_issues(cfg)
+        self._write_repair.recheck()
 
     def _apply_cached_rates(self, cfg: dict) -> None:
         """Copy the two config values the coordinator keeps outside the snapshot."""

@@ -26,7 +26,7 @@ inverter --> GivTCP --> MQTT --> Home Assistant entities (sensor.givtcp_<serial>
 Every 30 seconds the coordinator runs these steps in order.
 
 1. Merge configuration. Saved options override the values entered at setup.
-2. Raise or clear the repair issues: one for a minimum SoC above 30%, one for other charge slots with a window set, one for a battery cost of 0 after a week of battery tracking, one for a car charging from the grid at the base rate.
+2. Raise or clear the repair issues: one for a minimum SoC above 30%, one for other charge slots with a window set, one for a battery cost of 0 after a week of battery tracking, one for a car charging from the grid at the base rate, and one while a charge setting reads back the old value after every write attempt (the repair clears when a later write or look finds the value).
 3. Check GivTCP. If both the solar power sensor and the battery SoC sensor are `unavailable`, `unknown` or missing, the cycle fails and every entity of the integration becomes unavailable until GivTCP returns. See [Troubleshooting](troubleshooting.md#all-entities-are-unavailable).
 4. Look for an EV charger. Until one is found with its power, session and charge mode entities, discovery repeats about every 5 minutes (every tenth cycle). Entities that appear later are added with no reload.
 5. Read the sensors: solar power, battery SoC, battery power, grid power, house load, the optional immersion temperature, forecasts, carbon intensity and inverter temperature, the EV charger, and the GivTCP daily energy counters.
@@ -58,6 +58,8 @@ GivTCP writes use registers with a limited lifetime. Each write helper:
 - reads the entity back after 2 seconds and retries up to 3 times;
 - catches an error from the service call, logs it and carries on instead of stopping the task;
 - counts each write in the GivTCP Register Write Count sensor, and logs a warning at 500,000 writes. The count is saved with the accumulated energy and survives restarts. It counts writes that were sent. A write skipped because the entity already holds the value is not counted, so a night where only the charge target changed adds 1. Each write is also listed, with its reason, in the sensor's `recent_writes` attribute. See [Find out what changed the charge target](troubleshooting.md#find-out-what-changed-the-charge-target).
+
+When every attempt reads back the old value, the log has a `could not confirm` warning and the repair **The inverter did not take a charge setting** appears. It lists each setting and its entity, once, and clears when a later write is read back, when the entity is later seen at the value, and when the integration unloads. It is never raised in dry run, where nothing is sent. See [Writes to the inverter are not confirmed](troubleshooting.md#writes-to-the-inverter-are-not-confirmed).
 
 If writing the target SoC fails, the charge target is not enabled, so the inverter is not limited to an old target. Charge targets are limited to 4 to 100%, the range GivTCP accepts.
 

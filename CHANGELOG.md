@@ -6,6 +6,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 **Fixes**
 - The immersion chart on the Immersion view is taller, so the axis labels of the temperature chart and the heater power chart no longer run into each other.
+- A charge setting the inverter does not take now raises a repair. When the integration writes the charge window or target and every read-back still shows the old value, as happens when GivTCP's **Real Time Control** setting is off, the repair **The inverter did not take a charge setting** lists each setting and its entity. Before, only a log warning said so, and the inverter charged on its old slot. The repair clears when a later write is read back, when the setting is later seen at the value, and when the integration unloads. It is never raised in dry run. Check **Real Time Control** in GivTCP, then see [Writes to the inverter are not confirmed](docs/troubleshooting.md#writes-to-the-inverter-are-not-confirmed). No entity changes.
 
 **Docs**
 - Troubleshooting has a new entry, **Writes to the inverter are not confirmed**. If the log says a charge

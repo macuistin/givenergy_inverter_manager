@@ -52,6 +52,9 @@ from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldS
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.givtcp_writer import GivTCPWriter, SwitchState
 from custom_components.givenergy_inverter_manager.immersion_actuator import ImmersionActuator
+from custom_components.givenergy_inverter_manager.unconfirmed_write_repair import (
+    UnconfirmedWriteRepair,
+)
 from tests.conftest import _nightboost_cfg, _raw
 from tests.helpers import PKG
 
@@ -277,6 +280,11 @@ class FakeCoordinator(GivEnergyCoordinator):
             call_service=lambda domain, service, data: self._call_service(domain, service, data),
             on_count_change=self._save_register_write_count,
         )
+        # The same wiring as GivEnergyCoordinator._init_writer, against the stubbed hass.
+        self._write_repair = UnconfirmedWriteRepair(
+            self.hass, lambda: self.is_dry_run, lambda eid: self._get_state(eid)
+        )
+        self._writer.listen_for_confirmations(self._write_repair)
         self._slot_load_today: list[float] = [0.0] * 48
         self._slot_load_history: list[list[float]] = []
 

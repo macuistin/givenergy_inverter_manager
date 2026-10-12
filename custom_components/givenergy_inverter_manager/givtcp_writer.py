@@ -16,6 +16,9 @@ changes made by anyone else.
 Writes are serialised with a lock. Two callers (the charge-target task and the
 cheap-rate floor in the update cycle) never interleave their service calls.
 
+A confirmation listener hears when a write was read back as the requested value, and when
+every attempt read back the old one. The coordinator uses it to raise and clear a repair.
+
 The writer holds no Home Assistant objects. The coordinator hands it three
 callables, so the tests drive it with a fake state dict and a recording bus.
 """
@@ -70,6 +73,26 @@ class _NoObserver:
         pass
 
     def write_failed(self, record: WriteRecord) -> None:
+        pass
+
+
+class ConfirmationListener(Protocol):
+    """Hears whether the inverter took each value the writer sent."""
+
+    def confirmed(self, write: VerifiedWrite) -> None:
+        """The entity holds the value, found before the call or read back after it."""
+
+    def not_confirmed(self, write: VerifiedWrite) -> None:
+        """Every attempt read back something other than the value."""
+
+
+class _NoConfirmations:
+    """The default listener: nobody is listening."""
+
+    def confirmed(self, write: VerifiedWrite) -> None:
+        pass
+
+    def not_confirmed(self, write: VerifiedWrite) -> None:
         pass
 
 
@@ -182,9 +205,14 @@ class GivTCPWriter:
         self._call_service = call_service
         self._on_count_change = on_count_change
         self._observer: WriteObserver = observer or _NoObserver()
+        self._confirmations: ConfirmationListener = _NoConfirmations()
         self._lock = asyncio.Lock()
         self.write_count: int = 0
         self.last_write_time: dict[tuple[str, object], float] = {}
+
+    def listen_for_confirmations(self, listener: ConfirmationListener) -> None:
+        """Tell *listener* whether the inverter took each value from now on."""
+        self._confirmations = listener
 
     # ── Typed entry points ────────────────────────────────────────────────────
 
@@ -218,8 +246,9 @@ class GivTCPWriter:
         """Write once, serialised, and confirm by reading the state back.
 
         Returns True when the entity is at the value or the value was sent. A
-        read-back that never matches is logged but still counts as sent, because
-        GivTCP can be slow to publish the new state. Returns False when the
+        read-back that never matches is logged and reported to the confirmation
+        listener, but still counts as sent, because GivTCP can be slow to publish
+        the new state. Returns False when the
         service call raised or the entity is unusable.
         """
         async with self._lock:
@@ -235,6 +264,7 @@ class GivTCPWriter:
         if current is None or not write.matches(current):
             return False
         _LOG.debug("%s: already %s, skipping write", write.name, write.shown)
+        self._confirmations.confirmed(write)
         return True
 
     async def _send_until_confirmed(self, write: VerifiedWrite) -> bool:
@@ -254,6 +284,7 @@ class GivTCPWriter:
                 ),
             )
             if accepted:
+                self._confirmations.confirmed(write)
                 return True
             self._warn_mismatch(write, actual, attempt)
         _LOG.warning(
@@ -262,6 +293,7 @@ class GivTCPWriter:
             write.shown,
             GIVTCP_MAX_WRITE_RETRIES,
         )
+        self._confirmations.not_confirmed(write)
         return True
 
     async def _send(self, write: VerifiedWrite) -> bool:
