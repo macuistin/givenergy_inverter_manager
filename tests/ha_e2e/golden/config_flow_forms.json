@@ -140,7 +140,7 @@
   "last_step": false,
   "errors": null,
   "placeholders": {
-   "found": "- Inverter: GivTCP ab1234g567, all sensors found and used.\n- EV charger: none found. One is picked up by itself when it appears.\n- Solar forecast: Forecast.Solar (sensor.energy_production_tomorrow), found and used.",
+   "found": "- Inverter: GivTCP ab1234g567 (hybrid inverter), all sensors found and used.\n- EV charger: none found. One is picked up by itself when it appears.\n- Solar forecast: Forecast.Solar (sensor.energy_production_tomorrow), found and used.",
    "progress": "Step 1 of about 3."
   },
   "fields": [
@@ -1183,7 +1183,7 @@
   "last_step": false,
   "errors": null,
   "placeholders": {
-   "found": "- Inverter: GivTCP ab1234g567, all sensors found and used.\n- EV charger: none found. One is picked up by itself when it appears.\n- Solar forecast: none found.",
+   "found": "- Inverter: GivTCP ab1234g567 (hybrid inverter), all sensors found and used.\n- EV charger: none found. One is picked up by itself when it appears.\n- Solar forecast: none found.",
    "progress": "Step 1 of about 3."
   },
   "fields": [
@@ -2296,7 +2296,7 @@
   "last_step": false,
   "errors": null,
   "placeholders": {
-   "found": "- Inverter: GivTCP ab1234g567, all sensors found and used.\n- EV charger: none found. One is picked up by itself when it appears.\n- Solar forecast: none found.",
+   "found": "- Inverter: GivTCP ab1234g567 (hybrid inverter), all sensors found and used.\n- EV charger: none found. One is picked up by itself when it appears.\n- Solar forecast: none found.",
    "progress": "Step 1 of about 3."
   },
   "fields": [

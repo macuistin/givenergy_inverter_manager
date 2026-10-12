@@ -48,6 +48,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_point_in_time, async_track_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -78,6 +79,7 @@ from .const import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
+    CONF_INVERTER_SERIAL,
     CONF_TARGET_SOC_ENTITY,
     CONF_TARIFF_REVIEWED_ON,
     DEFAULT_ALT_HEAT_UNIT,
@@ -122,6 +124,7 @@ from .core.engine import (
     RawSensorValues,
     build_coordinator_data,
 )
+from .core.entity_refs import Registry, resolve
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
@@ -143,6 +146,7 @@ from .core.setup_progress import SetupFacts, setup_items
 from .core.solar_day import HeldSolarDay
 from .core.solar_shape import solar_shape_from_periods
 from .core.sunrise_hold import HeldSunrise
+from .core.system_types import SystemIdentity, identity_of, select_controller, what_changed
 from .core.tariff import (
     build_tariff,
     last_tariff_review,
@@ -160,6 +164,7 @@ from .forecast_seeding import async_seed_forecast_accuracy
 from .immersion_actuator import ImmersionActuator, ImmersionPorts
 from .inverter.backend import describe_charge_slots
 from .inverter.givtcp import GivTCPPorts, make_backend
+from .inverter.givtcp.discovery import device_prefix, discover_givtcp_inverters
 from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
@@ -171,6 +176,7 @@ from .repairs import (
     async_create_min_soc_issue,
     async_create_not_answering_issue,
     async_create_other_charge_slots_issue,
+    async_create_system_different_issue,
     async_create_tariff_review_issue,
     async_delete_battery_cost_issue,
     async_delete_ev_base_rate_issue,
@@ -179,12 +185,18 @@ from .repairs import (
     async_delete_min_soc_issue,
     async_delete_not_answering_issue,
     async_delete_other_charge_slots_issue,
+    async_delete_system_different_issue,
     async_delete_tariff_review_issue,
 )
 from .unconfirmed_write_repair import UnconfirmedWriteRepair
 from .write_audit import WriteAudit
 
 _LOG = get_logger(__name__)
+
+# A wired entity must be missing this many cycles in a row (five minutes) before the repair.
+MISSING_ENTITY_CYCLES = 10
+# The system is looked at again every tenth cycle, and at once when GivTCP's version changes.
+SYSTEM_CHECK_EVERY_CYCLES = 10
 
 _REDISCOVER_EVERY_N_CYCLES = 10  # 10 × 30s ≈ 5 minutes
 
@@ -259,6 +271,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # read the current CONF_VERBOSE_LOGGING flag without a restart.
         GivLogger.register(self._effective_cfg)
         self._init_cycle_state()
+        self._init_system_watch()
         self._init_manual_overrides()
         self._init_immersion(entry.data)
         self._init_writer()
@@ -280,6 +293,14 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 "to the inverter, the immersion or the EV charger. Delete the file to go live.",
                 marker,
             )
+
+    def _init_system_watch(self) -> None:
+        """What the entity and system checks remember between cycles."""
+        # GivTCP entities in the wiring that resolve to nothing, and for how many cycles in a row.
+        self._missing_refs: tuple[str, ...] = ()
+        self._missing_ref_cycles = 0
+        self._renamed_logged: set[str] = set()
+        self._version_seen: str | None = None
 
     def _init_cycle_state(self) -> None:
         """State threaded across update cycles."""
@@ -486,6 +507,14 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     def _get_optional_state(self, entity_id: str | None):
         """Like _get_state, but an unconfigured entity id gives None."""
         return self._get_state(entity_id) if entity_id else None
+
+    def _registry_entry(self, entity_id: str):
+        """The entity registry entry for entity_id, or None."""
+        return er.async_get(self.hass).async_get(entity_id)
+
+    def _registry_entity_id(self, domain: str, platform: str, unique_id: str) -> str | None:
+        """The current entity id of the entity with this unique id, or None."""
+        return er.async_get(self.hass).async_get_entity_id(domain, platform, unique_id)
 
     def _get_all_states(self) -> dict:
         """Return a dict of all current HA entity states keyed by entity_id."""
@@ -968,7 +997,43 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         cfg.update(self.entry.options)
         if self.test_instance:
             cfg[CONF_DRY_RUN] = True
-        return tariff_in_force(cfg, self._now().date())
+        return self._with_current_entities(tariff_in_force(cfg, self._now().date()))
+
+    def _with_current_entities(self, cfg: dict) -> dict:
+        """Point every wired GivTCP entity at the id it has now, learning ids as they match.
+
+        GivTCP 3.6 and 3.6.1 reset entity ids to their defaults, so a stored id can stop matching
+        while the registry still knows the entity by its unique id. An entity found again this way
+        is used with no repair. One that cannot be found is listed in `_missing_refs`.
+        """
+        acc = getattr(self, "_acc", None)
+        if acc is None:
+            return cfg
+        result = resolve(cfg, acc.state.entity_refs, self._entity_registry())
+        if result.learned:
+            acc.state.entity_refs.update(result.learned)
+            schedule = getattr(acc, "schedule_save", None)
+            if schedule is not None:
+                schedule()
+        for key, (old, new) in result.renamed.items():
+            if key not in self._renamed_logged:
+                self._renamed_logged.add(key)
+                _LOG.info("%s is now %s. Using the new id.", old, new)
+        self._missing_refs = tuple(str(cfg[key]) for key in result.missing)
+        return result.cfg
+
+    def _entity_registry(self) -> Registry:
+        return Registry(self._entity_exists, self._entity_identity, self._entity_id_for)
+
+    def _entity_exists(self, entity_id: str) -> bool:
+        return self._get_state(entity_id) is not None or self._registry_entry(entity_id) is not None
+
+    def _entity_identity(self, entity_id: str) -> tuple[str, str] | None:
+        entry = self._registry_entry(entity_id)
+        return (entry.platform, entry.unique_id) if entry is not None else None
+
+    def _entity_id_for(self, domain: str, platform: str, unique_id: str) -> str | None:
+        return self._registry_entity_id(domain, platform, unique_id)
 
     def _configured_bill_start_day(self, cfg: dict | None = None) -> int:
         """Return the bill start day from the effective config (options over data)."""
@@ -1394,6 +1459,82 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._apply_cached_rates(cfg)
         self._check_config_repair_issues(cfg)
         self._write_repair.recheck()
+        self._check_wired_entities()
+        self._check_system()
+
+    def _check_wired_entities(self) -> None:
+        """Raise one repair naming wired GivTCP entities that have gone, after a few minutes.
+
+        A renamed entity was already found again by its registry id and is not listed. The wait
+        keeps a start-up, when GivTCP has not published yet, from raising it.
+        """
+        if not self._missing_refs:
+            self._missing_ref_cycles = 0
+            return
+        self._missing_ref_cycles += 1
+        if self._missing_ref_cycles >= MISSING_ENTITY_CYCLES:
+            async_create_givtcp_missing_issue(self.hass, ", ".join(self._missing_refs))
+
+    def _check_system(self) -> None:
+        """Look at the system again at start-up, every ten cycles and when GivTCP's version moves.
+
+        A change of kind, managed inverter or battery module count raises one repair that names
+        it and keeps the stored identity, so the integration never switches inverter silently.
+        A version or entity-set change alone is recorded without a repair.
+        """
+        version = self._version_now()
+        moved = version != self._version_seen
+        self._version_seen = version
+        if self._update_cycle > 1 and self._update_cycle % SYSTEM_CHECK_EVERY_CYCLES and not moved:
+            return
+        found = self._system_now()
+        if found is None:
+            return
+        stored = SystemIdentity.from_dict(self._acc.state.system_identity)
+        if stored is None:
+            self._store_identity(found)
+            return
+        changes = what_changed(stored, found)
+        if changes:
+            async_create_system_different_issue(self.hass, "; ".join(changes))
+            return
+        async_delete_system_different_issue(self.hass)
+        if found != stored:
+            self._store_identity(found)
+
+    def _version_now(self) -> str | None:
+        prefix = device_prefix(self._effective_cfg())
+        state = self._get_optional_state(f"sensor.{prefix}_givtcp_version") if prefix else None
+        return str(state.state) if state is not None else None
+
+    def _system_now(self) -> SystemIdentity | None:
+        """The identity of the system as it is now, None when our inverter cannot be found.
+
+        It is our inverter's identity, unless the rules would manage another device without
+        asking, such as a Gateway that now sits over it. Then the identity names that device, so
+        the change is reported rather than followed.
+        """
+        serial = str(self._effective_cfg().get(CONF_INVERTER_SERIAL) or "").lower()
+        inverters = discover_givtcp_inverters(self._get_all_states())
+        mine = next((i for i in inverters if i.serial.lower() == serial), None)
+        if mine is None:
+            return None
+        selection = select_controller([i.facts() for i in inverters])
+        chosen = selection.controller
+        if chosen is not None and not selection.ask and chosen.serial.lower() != serial:
+            return identity_of(chosen)
+        return identity_of(mine.facts())
+
+    def _store_identity(self, identity: SystemIdentity) -> None:
+        self._acc.state.system_identity = identity.as_dict()
+        self._acc.schedule_save()
+
+    def accept_system_as_it_is(self) -> None:
+        """Take the system as it is now as the one to manage, and clear the repair."""
+        found = self._system_now()
+        if found is not None:
+            self._store_identity(found)
+        async_delete_system_different_issue(self.hass)
 
     def _apply_cached_rates(self, cfg: dict) -> None:
         """Copy the two config values the coordinator keeps outside the snapshot."""
@@ -1490,7 +1631,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             _LOG.info("GivTCP is reporting again. Resuming normal operation.")
             self._givtcp_not_answering = False
             async_delete_not_answering_issue(self.hass)
-        async_delete_givtcp_missing_issue(self.hass)
+        if self._missing_ref_cycles < MISSING_ENTITY_CYCLES:
+            async_delete_givtcp_missing_issue(self.hass)
 
     def _read_inputs(self, cfg: dict, now: datetime) -> RawSensorValues:
         """Refresh discovery, read every input and note outages and the baseline load."""

@@ -9,7 +9,7 @@ Find your symptom, then follow the steps.
 
 ## Setup finds no inverter
 
-The first screen says "No GivTCP inverter was found" when nothing matches. The wizard looks for an entity whose ID contains `givtcp_` and ends in `_invertor_serial_number`. GivTCP spells "inverter" as "invertor".
+The first screen says "No GivTCP inverter was found" when nothing matches. The wizard looks for an entity that ends in `_invertor_serial_number`, whatever comes before it, so a device prefix you changed in GivTCP is found too. A Gateway or an EMS may have no serial entity, so a device that reports a GivTCP version together with a state of charge, Gateway or EMS values is found as well. GivTCP spells "inverter" as "invertor".
 
 1. Open **Developer Tools → States** and search for `invertor_serial_number`. If nothing appears, GivTCP has not published to Home Assistant yet.
 2. Check GivTCP is running and that it uses the same MQTT broker as Home Assistant. The listen panel under **Settings → Devices & Services → MQTT** shows whether GivTCP is publishing.
@@ -76,15 +76,36 @@ If you see the warning after an upgrade, open **Developer Tools → States** and
 
 The guard keeps the AC charge baseline across restarts and the other readings in memory only, so a counter that stepped while Home Assistant was down is judged against what it read before the restart, or, for the counters that are not saved, accepted unless it is larger than a day could hold.
 
+## The system looks different
+
+The repair **The system looks different** appears in **Settings → System → Repairs** when, since the integration last looked, the inverter it manages changed type, or its number of battery modules changed, or a different device would now be managed (a Gateway that has appeared over it, for example). It names what changed, for example `type hybrid inverter to three-phase inverter` or `battery modules 2 to 3`.
+
+The integration looks at start-up, every five minutes, and when GivTCP's version changes. It keeps managing the inverter it was set up with and changes nothing by itself.
+
+1. If you upgraded GivTCP, the entities the integration uses may have been renamed or removed. Open **Settings → Devices & Services → GivEnergy Inverter Manager**, open the menu and select **Reconfigure**. It shows the entities in use next to the ones it finds now.
+2. Select **Submit** on the repair to say this is the system to manage. The repair then clears, and the next change raises it again.
+3. If you added a second inverter or a Gateway, see [Which serial do I use?](quick-start.md#which-serial-do-i-use).
+
+A new GivTCP version alone is not a change. Neither is a battery module that answers with zeros, which is not counted.
+
+## Upgrading GivTCP
+
+What to expect when you move GivTCP from 3.5 to 3.6, and what the integration does about it.
+
+- **Entity ids can be reset.** GivTCP 3.6 and 3.6.1 reset entity ids to their defaults when a discovery setting changed, so a renamed entity goes back to its default id. The integration remembers each wired entity's registry id as well as its entity id, and finds the entity again under its new id by itself. No repair appears. GivTCP 3.6.2 fixed the reset. Use 3.6.2 or later.
+- **Entities can be removed or renamed.** A high-voltage Gen 3 hybrid moves from the three-phase entity set to the single-phase one, and the PV string entities are removed on AC-coupled and All-In-One models. An entity the integration uses that cannot be found by either id raises **GivTCP entities not found**, naming it, after five minutes. See below.
+- **A Gateway's energy totals change units.** See [Energy totals jumped after a GivTCP upgrade](#energy-totals-jumped-after-a-givtcp-upgrade). Home Assistant's Energy dashboard shows one large spike, which you correct in **Developer Tools → Statistics**.
+- **The type can change.** An HV Gen 3 hybrid that GivTCP used to read as three-phase is read as a hybrid from 3.6. That is a different system, so [The system looks different](#the-system-looks-different) appears.
+
 ## GivTCP entities not found
 
-The repair **GivTCP entities not found** appears in **Settings → System → Repairs** when the solar power and battery SoC entities chosen at setup no longer exist in Home Assistant. This usually means GivTCP was reinstalled with another serial, or its entity IDs changed.
+The repair **GivTCP entities not found** appears in **Settings → System → Repairs** when entities chosen at setup no longer exist in Home Assistant, and the integration cannot find them under another id either. It names them. This usually means GivTCP was reinstalled with another serial, was upgraded and removed or renamed entities, or its entity IDs changed. A single missing entity raises it after five minutes, so a start-up while GivTCP is still publishing does not.
 
 1. Open **Developer Tools → States** and search for `givtcp_`. Note the new serial in the entity IDs.
 2. Open **Settings → Devices & Services → GivEnergy Inverter Manager**, open the menu and select **Reconfigure**. Use the entities it finds, or choose them by hand. Saving reloads the integration once.
 3. If you moved to a different inverter, Reconfigure refuses entities with another serial. Remove the integration and add it again, picking the new inverter. Accumulated energy is kept, because the storage file is not deleted.
 
-The repair clears on its own once both entities exist again.
+The repair clears on its own once the entities exist again.
 
 ## Configure problems
 

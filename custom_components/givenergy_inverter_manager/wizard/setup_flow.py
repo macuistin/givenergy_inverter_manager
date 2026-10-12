@@ -35,6 +35,7 @@ from ..const import (
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_INVERTER_MAX_OUTPUT,
 )
+from ..core.system_text import describe
 from ..core.wizard_changes import setup_summary
 from ..core.wizard_model import SETUP_PAGES, Detected, Mode, PageContext, Validation
 from ..core.wizard_pages import WIRING_REQUIRED, missing_wiring
@@ -50,7 +51,7 @@ from ..core.wizard_tariff import (
     validate_tariff,
 )
 from ..inverter.givtcp import read_rate_defaults
-from .detect import best_inverter, detect
+from .detect import best_inverter, detect, selection_of
 from .flow_base import PageView, WizardPages, ordered, states_by_id
 from .schemas import (
     SETUP_BILL_DEFAULTS,
@@ -99,8 +100,20 @@ class SetupSteps(WizardPages):
             pending=self._values,
             states=states,
             home_currency=currency_code(self.hass.config.currency),
-            rate_defaults=read_rate_defaults(self.unique_id, states.get),  # type: ignore[attr-defined]
+            rate_defaults=read_rate_defaults(
+                self.unique_id,  # type: ignore[attr-defined]
+                states.get,
+                self._chosen_prefix(),
+            ),
         )
+
+    def _chosen_prefix(self) -> str | None:
+        """The entity prefix of the inverter being set up, None before one is chosen."""
+        serial = str(self.unique_id or "").lower()  # type: ignore[attr-defined]
+        for inverter in self._detected_now().inverters:
+            if inverter.serial.lower() == serial:
+                return inverter.prefix
+        return None
 
     def _total_steps(self) -> int:
         """The first screen, the entity screen if needed, the ticked pages, rates and confirm."""
@@ -137,16 +150,7 @@ class SetupSteps(WizardPages):
 
     def _found_text(self) -> str:
         detected = self._detected_now()
-        inverter = best_inverter(detected)
-        if inverter is None:
-            lines = ["No GivTCP inverter was found. You will choose its entities next."]
-        elif inverter.is_fully_configured:
-            lines = [f"Inverter: {inverter.display_name}, all sensors found and used."]
-        else:
-            lines = [
-                f"Inverter: {inverter.display_name}, but some sensors are missing. "
-                "You will choose them next."
-            ]
+        lines = describe(selection_of(detected))
         charger = detected.ev_chargers[0].display_name if detected.ev_chargers else None
         lines.append(
             f"EV charger: {charger}, found and used."
@@ -175,7 +179,7 @@ class SetupSteps(WizardPages):
         detected = self._detected_now()
         best = best_inverter(detected)
         fields: dict[Any, Any] = {}
-        if len(detected.inverters) > 1:
+        if selection_of(detected).ask:
             fields[vol.Optional(CHOSEN_INVERTER, default=best.serial)] = selector.SelectSelector(
                 selector.SelectSelectorConfig(options=self._inverter_options())
             )

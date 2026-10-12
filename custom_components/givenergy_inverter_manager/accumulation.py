@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 
 from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.alt_heat_schedule import ImmersionHeatLog
+from .core.entity_refs import clean_remembered
 from .core.immersion_rate import keep_run
 from .core.rules import (
     ForecastAccuracy,
@@ -281,6 +282,12 @@ class AccumulationState:
     # forecast provider gave none.
     pending_raw_forecast_shape: list = field(default_factory=list)
     today_raw_forecast_shape: list = field(default_factory=list)
+    # What the integration last saw of the system it manages (core/system_types.py): kind,
+    # managed inverter, battery modules and the entities it reads. Empty until the first look.
+    system_identity: dict = field(default_factory=dict)
+    # The unique id and platform of each configured GivTCP entity, learned while its entity id
+    # still matched, so it can be found again under a new id (core/entity_refs.py).
+    entity_refs: dict = field(default_factory=dict)
     today_clipping: bool = False
     forecast_ratio_history: list = field(default_factory=list)
 
@@ -791,6 +798,8 @@ def _serialize_state(state: AccumulationState) -> dict:
         "today_raw_forecast_p10_kwh": state.today_raw_forecast_p10_kwh,
         "pending_raw_forecast_shape": list(state.pending_raw_forecast_shape),
         "today_raw_forecast_shape": list(state.today_raw_forecast_shape),
+        "system_identity": dict(state.system_identity),
+        "entity_refs": {k: dict(v) for k, v in state.entity_refs.items()},
         "today_clipping": state.today_clipping,
         "forecast_ratio_history": [dict(r) for r in state.forecast_ratio_history],
         "slot_load_today": list(state.slot_load_today),
@@ -834,6 +843,9 @@ def _restore_battery_and_forecast(state: AccumulationState, data: dict) -> None:
     state.today_raw_forecast_p10_kwh = float(data.get("today_raw_forecast_p10_kwh", 0.0))
     state.pending_raw_forecast_shape = _stored_shape(data.get("pending_raw_forecast_shape"))
     state.today_raw_forecast_shape = _stored_shape(data.get("today_raw_forecast_shape"))
+    stored_identity = data.get("system_identity")
+    state.system_identity = dict(stored_identity) if isinstance(stored_identity, dict) else {}
+    state.entity_refs = clean_remembered(data.get("entity_refs"))
     state.today_clipping = bool(data.get("today_clipping", False))
     state.forecast_ratio_history = [
         dict(r) for r in data.get("forecast_ratio_history", []) if isinstance(r, dict)

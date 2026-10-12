@@ -1090,7 +1090,7 @@
   "issues": {
     "givtcp_entities_missing": {
       "title": "GivTCP entities not found",
-      "description": "One or more GivTCP sensor entities configured during setup are no longer registered in Home Assistant. This usually means GivTCP was reinstalled with a different inverter serial, or the entity IDs changed.\n\nTo fix: go to **Settings → Devices & Services → GivEnergy Inverter Manager**, open the menu and select **Reconfigure**, then use the entities it finds or choose them by hand."
+      "description": "These GivTCP entities, configured during setup, are no longer in Home Assistant: {entities}. This usually means GivTCP was reinstalled with a different inverter serial, was upgraded and renamed or removed entities, or its entity ids changed. The integration looks each one up again by its registry id, and these could not be found.\n\nTo fix: go to **Settings → Devices & Services → GivEnergy Inverter Manager**, open the menu and select **Reconfigure**, then use the entities it finds or choose them by hand."
     },
     "min_soc_too_high": {
       "title": "Battery minimum SoC is set too high",
@@ -1158,6 +1158,20 @@
           "confirm": {
             "title": "Confirm the tariff rates",
             "description": "The tariff rates were last saved or confirmed on {last_reviewed}, {days} days ago. A supplier price change leaves every cost figure wrong until the rates here are updated.\n\nCheck the rates against your latest bill. If a rate changed, go to **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**, tick **Tariff** and save the new rates, or tick **Schedule a rate change** to give them a start date. If the rates are correct, select **Submit** to confirm them."
+          }
+        },
+        "abort": {
+          "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
+        }
+      }
+    },
+    "system_looks_different": {
+      "title": "The system looks different",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Confirm the system",
+            "description": "Since the integration last looked, this changed: {changes}.\n\nThis happens after GivTCP is upgraded, an inverter is added or replaced, or a battery module is added or removed. The integration keeps managing the inverter it was set up with and has not changed anything.\n\nIf the entities it uses have been renamed or have gone, open **Reconfigure** from the integration's menu first and use the entities it finds. Then select **Submit** to say this is the system to manage. Dismiss this repair to be asked again after the next change."
           }
         },
         "abort": {

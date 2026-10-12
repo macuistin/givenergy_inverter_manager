@@ -18,6 +18,7 @@ import time
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from datetime import time as clock_time
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -111,6 +112,8 @@ class FakeCoordinator(GivEnergyCoordinator):
     """
 
     def __init__(self, cfg: dict | None = None):
+        # entity id -> (platform, unique id) for the registry stubs
+        self.registry: dict[str, tuple[str, str]] = {}
         # Build minimal entry and hass stubs — just enough for __init__
         entry = MagicMock()
         entry.data = cfg or _nightboost_cfg()
@@ -292,6 +295,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._unsub_charge_retry = None
         self._retry_attempt = Attempt()
         self._night = None
+        self._init_system_watch()
         self._replan_note = ""
         self._replan_pending = False
         self.scheduled: list[tuple[datetime, object]] = []
@@ -326,6 +330,16 @@ class FakeCoordinator(GivEnergyCoordinator):
 
     def _get_all_states(self) -> dict:
         return dict(self._states)
+
+    def _registry_entry(self, entity_id: str):
+        found = self.registry.get(entity_id)
+        return SimpleNamespace(platform=found[0], unique_id=found[1]) if found else None
+
+    def _registry_entity_id(self, domain: str, platform: str, unique_id: str):
+        for entity_id, (plat, uid) in self.registry.items():
+            if entity_id.startswith(f"{domain}.") and (plat, uid) == (platform, unique_id):
+                return entity_id
+        return None
 
     async def _call_service(self, domain, service, data):
         self.service_calls.append((domain, service, data))
@@ -1426,8 +1440,6 @@ class TestApplyEvAction:
         cfg = _cfg(**{CONF_DRY_RUN: True})
         coord = FakeCoordinator(cfg=cfg)
         coord._ev_charger = self._charger(mode="Fast")
-        from types import SimpleNamespace
-
         coord.data = SimpleNamespace(dry_run_last_skipped="")
         coord._apply_ev_action("Eco+")
         assert "select.zappi_mode" not in coord._backend.writer.last_write_time

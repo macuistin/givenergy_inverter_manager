@@ -20,7 +20,6 @@ from ...const import (
     CONF_BATTERY_SOC,
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
-    CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
     CONF_SOLAR_POWER,
     GIVTCP_FROZEN_AFTER_S,
@@ -29,7 +28,12 @@ from ...core.feed_freshness import frozen_age_s, newest_report
 from ...core.inverter_values import FeedState, FeedStatus, InverterValues, RateDefaults
 from ...logging import get_logger
 from .constants import GIVTCP_SHIPPED_RATES
-from .discovery import GIVTCP_PREFIX, GIVTCP_RATE_SUFFIXES, inverter_temperature_entity_ids
+from .discovery import (
+    GIVTCP_PREFIX,
+    GIVTCP_RATE_SUFFIXES,
+    device_prefix,
+    temperature_entity_ids_for,
+)
 
 _LOG = get_logger(__name__)
 
@@ -145,9 +149,9 @@ class GivTCPReader:
         An install set up before GivTCP published the temperature has no entity stored.
         """
         entity_ids = [cfg.get(CONF_INVERTER_TEMP_ENTITY) or ""]
-        serial = cfg.get(CONF_INVERTER_SERIAL)
-        if serial:
-            entity_ids += inverter_temperature_entity_ids(serial)
+        prefix = device_prefix(cfg)
+        if prefix:
+            entity_ids += temperature_entity_ids_for(prefix)
         return self._first_optional_float(*entity_ids)
 
     def _battery_lifetime_cycles(self) -> float | None:
@@ -165,10 +169,10 @@ class GivTCPReader:
         Entity IDs are derived from the inverter serial stored in config. A missing or
         unavailable entity reads as None, and the engine then falls back to power integration.
         """
-        serial = cfg.get(CONF_INVERTER_SERIAL)
-        if not serial:
+        prefix = device_prefix(cfg)
+        if not prefix:
             return {}
-        pfx = f"sensor.{GIVTCP_PREFIX}{serial}"
+        pfx = f"sensor.{prefix}"
         return {
             "solar_energy_today_kwh": self._optional_float(f"{pfx}_pv_energy_today_kwh"),
             "import_energy_today_kwh": self._optional_float(f"{pfx}_import_energy_today_kwh"),
@@ -195,10 +199,10 @@ class GivTCPReader:
         None when the serial is unknown or the entity is missing, unavailable or not above
         zero. The charge window is then left as the cheapest period.
         """
-        serial = cfg.get(CONF_INVERTER_SERIAL)
-        if not serial:
+        prefix = device_prefix(cfg)
+        if not prefix:
             return None
-        rate = self._optional_float(f"number.{GIVTCP_PREFIX}{serial}_battery_charge_rate")
+        rate = self._optional_float(f"number.{prefix}_battery_charge_rate")
         return rate if rate is not None and rate > 0 else None
 
     def _data_age_s(self, cfg: Mapping[str, Any]) -> float | None:
@@ -206,24 +210,25 @@ class GivTCPReader:
 
         None where GivTCP does not publish it (older releases), so staleness cannot be seen.
         """
-        serial = cfg.get(CONF_INVERTER_SERIAL)
-        if not serial:
+        prefix = device_prefix(cfg)
+        if not prefix:
             return None
-        return self._optional_float(f"sensor.{GIVTCP_PREFIX}{serial}_data_age")
+        return self._optional_float(f"sensor.{prefix}_data_age")
 
     # ── Rates GivTCP holds ────────────────────────────────────────────────────
 
-    def rate_defaults(self, serial: str | None) -> RateDefaults | None:
+    def rate_defaults(self, serial: str | None, prefix: str | None = None) -> RateDefaults | None:
         """The day, night and export rate GivTCP holds, or None when it holds none worth offering.
 
         A rate is offered only when it is readable, above zero and not the value GivTCP ships
         with, which means the user never set it. GivTCP counts its rates per kWh and this does
         not convert them.
         """
-        if not serial:
+        device = prefix or (f"{GIVTCP_PREFIX}{serial}" if serial else "")
+        if not device:
             return None
         held = {
-            name: self._optional_float(f"sensor.{GIVTCP_PREFIX}{serial}{suffix}")
+            name: self._optional_float(f"sensor.{device}{suffix}")
             for name, suffix in GIVTCP_RATE_SUFFIXES.items()
         }
         usable = {
@@ -269,6 +274,6 @@ class GivTCPReader:
         return FeedStatus(FeedState.PUBLISHING, newest)
 
     def _is_paused(self, cfg: Mapping[str, Any]) -> bool:
-        serial = cfg.get(CONF_INVERTER_SERIAL)
-        state = self._state(f"sensor.{GIVTCP_PREFIX}{serial}_status") if serial else None
+        prefix = device_prefix(cfg)
+        state = self._state(f"sensor.{prefix}_status") if prefix else None
         return state is not None and str(state.state).lower() == PAUSED_STATUS

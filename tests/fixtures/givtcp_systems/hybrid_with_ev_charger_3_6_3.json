@@ -1,0 +1,927 @@
+{
+ "description": "The real hybrid with a GivTCP EV charger device beside it.",
+ "provenance": "synthetic",
+ "givtcp_version": "3.6.3",
+ "source": "Built from the real single-phase hybrid fixture and GivTCP's datapoint reference and release notes (3.6). Not taken from hardware of this kind: the entity names are a reading of the documentation.",
+ "expected": {
+  "kind": "hybrid",
+  "controller": "AB1234G567",
+  "ask": false,
+  "modules": 2,
+  "devices": 1
+ },
+ "states": {
+  "button.givtcp_ab1234g567_reboot_addon": {
+   "state": "unknown"
+  },
+  "button.givtcp_ab1234g567_reboot_invertor": {
+   "state": "unknown"
+  },
+  "button.givtcp_ab1234g567_sync_time": {
+   "state": "2026-10-12T07:22:56+00:00"
+  },
+  "number.givtcp_ab1234g567_active_power_rate": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_battery_charge_rate": {
+   "state": "3600"
+  },
+  "number.givtcp_ab1234g567_battery_charge_rate_ac": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_battery_discharge_rate": {
+   "state": "3600"
+  },
+  "number.givtcp_ab1234g567_battery_discharge_rate_ac": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_battery_power_cutoff": {
+   "state": "4"
+  },
+  "number.givtcp_ab1234g567_battery_power_reserve": {
+   "state": "4"
+  },
+  "number.givtcp_ab1234g567_charge_target_soc_1": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_charge_target_soc_10": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_charge_target_soc_2": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_charge_target_soc_3": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_charge_target_soc_4": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_charge_target_soc_5": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_charge_target_soc_6": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_charge_target_soc_7": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_charge_target_soc_8": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_charge_target_soc_9": {
+   "state": "100"
+  },
+  "number.givtcp_ab1234g567_discharge_target_soc_1": {
+   "state": "4"
+  },
+  "number.givtcp_ab1234g567_discharge_target_soc_10": {
+   "state": "4"
+  },
+  "number.givtcp_ab1234g567_discharge_target_soc_2": {
+   "state": "4"
+  },
+  "number.givtcp_ab1234g567_discharge_target_soc_3": {
+   "state": "4"
+  },
+  "number.givtcp_ab1234g567_discharge_target_soc_4": {
+   "state": "4"
+  },
+  "number.givtcp_ab1234g567_discharge_target_soc_5": {
+   "state": "4"
+  },
+  "number.givtcp_ab1234g567_discharge_target_soc_6": {
+   "state": "4"
+  },
+  "number.givtcp_ab1234g567_discharge_target_soc_7": {
+   "state": "4"
+  },
+  "number.givtcp_ab1234g567_discharge_target_soc_8": {
+   "state": "4"
+  },
+  "number.givtcp_ab1234g567_discharge_target_soc_9": {
+   "state": "4"
+  },
+  "number.givtcp_ab1234g567_force_charge_num": {
+   "state": "0"
+  },
+  "number.givtcp_ab1234g567_force_export_num": {
+   "state": "0"
+  },
+  "number.givtcp_ab1234g567_target_soc": {
+   "state": "90"
+  },
+  "number.givtcp_ab1234g567_temp_pause_charge_num": {
+   "state": "0"
+  },
+  "number.givtcp_ab1234g567_temp_pause_discharge_num": {
+   "state": "0"
+  },
+  "select.givtcp_ab1234g567_battery_calibration": {
+   "state": "Off"
+  },
+  "select.givtcp_ab1234g567_battery_pause_end_time_slot": {
+   "state": "08:00:00"
+  },
+  "select.givtcp_ab1234g567_battery_pause_mode": {
+   "state": "PauseDischarge"
+  },
+  "select.givtcp_ab1234g567_battery_pause_start_time_slot": {
+   "state": "23:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_end_time_slot_1": {
+   "state": "04:35:00"
+  },
+  "select.givtcp_ab1234g567_charge_end_time_slot_10": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_end_time_slot_2": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_end_time_slot_3": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_end_time_slot_4": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_end_time_slot_5": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_end_time_slot_6": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_end_time_slot_7": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_end_time_slot_8": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_end_time_slot_9": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_start_time_slot_1": {
+   "state": "02:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_start_time_slot_10": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_start_time_slot_2": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_start_time_slot_3": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_start_time_slot_4": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_start_time_slot_5": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_start_time_slot_6": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_start_time_slot_7": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_start_time_slot_8": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_charge_start_time_slot_9": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_current_rate_type": {
+   "state": "Day"
+  },
+  "select.givtcp_ab1234g567_discharge_end_time_slot_1": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_end_time_slot_10": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_end_time_slot_2": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_end_time_slot_3": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_end_time_slot_4": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_end_time_slot_5": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_end_time_slot_6": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_end_time_slot_7": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_end_time_slot_8": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_end_time_slot_9": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_start_time_slot_1": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_start_time_slot_10": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_start_time_slot_2": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_start_time_slot_3": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_start_time_slot_4": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_start_time_slot_5": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_start_time_slot_6": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_start_time_slot_7": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_start_time_slot_8": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_discharge_start_time_slot_9": {
+   "state": "00:00:00"
+  },
+  "select.givtcp_ab1234g567_force_charge": {
+   "state": "Normal"
+  },
+  "select.givtcp_ab1234g567_force_export": {
+   "state": "Normal"
+  },
+  "select.givtcp_ab1234g567_mode": {
+   "state": "Eco"
+  },
+  "select.givtcp_ab1234g567_temp_pause_charge": {
+   "state": "Normal"
+  },
+  "select.givtcp_ab1234g567_temp_pause_discharge": {
+   "state": "Normal"
+  },
+  "sensor.givtcp_ab1234g567_ac_charge_energy_today_kwh": {
+   "state": "9.6"
+  },
+  "sensor.givtcp_ab1234g567_ac_charge_energy_total_kwh": {
+   "state": "8514.9"
+  },
+  "sensor.givtcp_ab1234g567_ac_charge_power": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_battery_calibration_status": {
+   "state": "Off"
+  },
+  "sensor.givtcp_ab1234g567_battery_capacity_kwh": {
+   "state": "19.046"
+  },
+  "sensor.givtcp_ab1234g567_battery_charge_energy_today_kwh": {
+   "state": "13.6"
+  },
+  "sensor.givtcp_ab1234g567_battery_charge_energy_total_kwh": {
+   "state": "2741.7"
+  },
+  "sensor.givtcp_ab1234g567_battery_current": {
+   "state": "12.01"
+  },
+  "sensor.givtcp_ab1234g567_battery_discharge_energy_today_kwh": {
+   "state": "3.5"
+  },
+  "sensor.givtcp_ab1234g567_battery_discharge_energy_total_kwh": {
+   "state": "2538.9"
+  },
+  "sensor.givtcp_ab1234g567_battery_power": {
+   "state": "650"
+  },
+  "sensor.givtcp_ab1234g567_battery_ppkwh": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_ab1234g567_battery_throughput_today_kwh": {
+   "state": "17.1"
+  },
+  "sensor.givtcp_ab1234g567_battery_throughput_total_kwh": {
+   "state": "18387.8"
+  },
+  "sensor.givtcp_ab1234g567_battery_to_grid": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_battery_to_house": {
+   "state": "566"
+  },
+  "sensor.givtcp_ab1234g567_battery_type": {
+   "state": "Lithium"
+  },
+  "sensor.givtcp_ab1234g567_battery_value": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_ab1234g567_battery_voltage": {
+   "state": "52.52"
+  },
+  "sensor.givtcp_ab1234g567_charge_completion_time": {
+   "state": "2026-10-29T00:33:44+00:00"
+  },
+  "sensor.givtcp_ab1234g567_charge_power": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_charge_time_remaining": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_combined_generation_power": {
+   "state": "248"
+  },
+  "sensor.givtcp_ab1234g567_current_rate": {
+   "state": "0.4"
+  },
+  "sensor.givtcp_ab1234g567_data_age": {
+   "state": "0.5"
+  },
+  "sensor.givtcp_ab1234g567_day_cost": {
+   "state": "0.08"
+  },
+  "sensor.givtcp_ab1234g567_day_energy_kwh": {
+   "state": "0.2"
+  },
+  "sensor.givtcp_ab1234g567_day_energy_total_kwh": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_day_rate": {
+   "state": "0.4"
+  },
+  "sensor.givtcp_ab1234g567_day_start_energy_kwh": {
+   "state": "26904.4"
+  },
+  "sensor.givtcp_ab1234g567_discharge_completion_time": {
+   "state": "2026-10-13T06:12:50+00:00"
+  },
+  "sensor.givtcp_ab1234g567_discharge_power": {
+   "state": "650"
+  },
+  "sensor.givtcp_ab1234g567_discharge_time_remaining": {
+   "state": "808"
+  },
+  "sensor.givtcp_ab1234g567_eps_power": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_export_energy_today_kwh": {
+   "state": "0.1"
+  },
+  "sensor.givtcp_ab1234g567_export_energy_total_kwh": {
+   "state": "6568.4"
+  },
+  "sensor.givtcp_ab1234g567_export_limit": {
+   "state": "6000"
+  },
+  "sensor.givtcp_ab1234g567_export_power": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_export_rate": {
+   "state": "0.2"
+  },
+  "sensor.givtcp_ab1234g567_givtcp_version": {
+   "state": "3.6.3"
+  },
+  "sensor.givtcp_ab1234g567_grid_current": {
+   "state": "2.87"
+  },
+  "sensor.givtcp_ab1234g567_grid_frequency": {
+   "state": "50.04"
+  },
+  "sensor.givtcp_ab1234g567_grid_power": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_grid_to_battery": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_ab1234g567_grid_to_house": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_grid_voltage": {
+   "state": "247.6"
+  },
+  "sensor.givtcp_ab1234g567_import_energy_today_kwh": {
+   "state": "18.5"
+  },
+  "sensor.givtcp_ab1234g567_import_energy_total_kwh": {
+   "state": "26904.6"
+  },
+  "sensor.givtcp_ab1234g567_import_power": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_import_ppkwh_today": {
+   "state": "0.004"
+  },
+  "sensor.givtcp_ab1234g567_inverter_output_frequency": {
+   "state": "50.03"
+  },
+  "sensor.givtcp_ab1234g567_invertor_energy_today_kwh": {
+   "state": "10.1"
+  },
+  "sensor.givtcp_ab1234g567_invertor_energy_total_kwh": {
+   "state": "20197.3"
+  },
+  "sensor.givtcp_ab1234g567_invertor_firmware": {
+   "state": "D0.318-A0.318"
+  },
+  "sensor.givtcp_ab1234g567_invertor_max_bat_rate": {
+   "state": "3600"
+  },
+  "sensor.givtcp_ab1234g567_invertor_max_inv_rate": {
+   "state": "5000"
+  },
+  "sensor.givtcp_ab1234g567_invertor_power": {
+   "state": "813"
+  },
+  "sensor.givtcp_ab1234g567_invertor_serial_number": {
+   "state": "AB1234G567"
+  },
+  "sensor.givtcp_ab1234g567_invertor_temperature": {
+   "state": "39.3"
+  },
+  "sensor.givtcp_ab1234g567_invertor_time": {
+   "state": "2026-10-12T16:44:20+00:00"
+  },
+  "sensor.givtcp_ab1234g567_invertor_type": {
+   "state": "Hybrid_gen3"
+  },
+  "sensor.givtcp_ab1234g567_last_updated_time": {
+   "state": "2026-10-12T16:44:50+00:00"
+  },
+  "sensor.givtcp_ab1234g567_load_energy_today_kwh": {
+   "state": "18.9"
+  },
+  "sensor.givtcp_ab1234g567_load_energy_total_kwh": {
+   "state": "32018.6"
+  },
+  "sensor.givtcp_ab1234g567_load_power": {
+   "state": "812"
+  },
+  "sensor.givtcp_ab1234g567_meter_type": {
+   "state": "Em115"
+  },
+  "sensor.givtcp_ab1234g567_modbus_version": {
+   "state": "1.40"
+  },
+  "sensor.givtcp_ab1234g567_night_cost": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_ab1234g567_night_energy_kwh": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_ab1234g567_night_energy_total_kwh": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_ab1234g567_night_rate": {
+   "state": "0.14"
+  },
+  "sensor.givtcp_ab1234g567_night_start_energy_kwh": {
+   "state": "26904.4"
+  },
+  "sensor.givtcp_ab1234g567_pv_current_string_1": {
+   "state": "0.4"
+  },
+  "sensor.givtcp_ab1234g567_pv_current_string_2": {
+   "state": "0.4"
+  },
+  "sensor.givtcp_ab1234g567_pv_energy_today_kwh": {
+   "state": "11.9"
+  },
+  "sensor.givtcp_ab1234g567_pv_energy_total_kwh": {
+   "state": "13678.8"
+  },
+  "sensor.givtcp_ab1234g567_pv_power": {
+   "state": "246"
+  },
+  "sensor.givtcp_ab1234g567_pv_power_string_1": {
+   "state": "117"
+  },
+  "sensor.givtcp_ab1234g567_pv_power_string_2": {
+   "state": "129"
+  },
+  "sensor.givtcp_ab1234g567_pv_voltage_string_1": {
+   "state": "283.1"
+  },
+  "sensor.givtcp_ab1234g567_pv_voltage_string_2": {
+   "state": "291.7"
+  },
+  "sensor.givtcp_ab1234g567_safe_write_count": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_self_consumption_energy_today_kwh": {
+   "state": "11.8"
+  },
+  "sensor.givtcp_ab1234g567_self_consumption_energy_total_kwh": {
+   "state": "7110.4"
+  },
+  "sensor.givtcp_ab1234g567_self_consumption_power": {
+   "state": "812"
+  },
+  "sensor.givtcp_ab1234g567_soc": {
+   "state": "50"
+  },
+  "sensor.givtcp_ab1234g567_soc_kwh": {
+   "state": "9.52"
+  },
+  "sensor.givtcp_ab1234g567_solar_to_battery": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_solar_to_grid": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_solar_to_house": {
+   "state": "246"
+  },
+  "sensor.givtcp_ab1234g567_status": {
+   "state": "online"
+  },
+  "sensor.givtcp_ab1234g567_time_since_last_update": {
+   "state": "32.096"
+  },
+  "sensor.givtcp_ab1234g567_timeout_error": {
+   "state": "0"
+  },
+  "sensor.givtcp_ab1234g567_write_count": {
+   "state": "0"
+  },
+  "sensor.givtcp_battery_stack_1_bms_temperature": {
+   "state": "21.0"
+  },
+  "sensor.givtcp_battery_stack_1_bms_voltage": {
+   "state": "52.52"
+  },
+  "sensor.givtcp_cd5678h901_battery_capacity": {
+   "state": "200.0"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_10_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_11_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_12_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_13_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_14_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_15_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_16_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_1_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_2_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_3_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_4_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_5_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_6_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_7_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_8_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cell_9_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_cd5678h901_battery_cells": {
+   "state": "16"
+  },
+  "sensor.givtcp_cd5678h901_battery_cycles": {
+   "state": "573"
+  },
+  "sensor.givtcp_cd5678h901_battery_design_capacity": {
+   "state": "186.0"
+  },
+  "sensor.givtcp_cd5678h901_battery_firmware_version": {
+   "state": "3022"
+  },
+  "sensor.givtcp_cd5678h901_battery_remaining_capacity": {
+   "state": "106.73"
+  },
+  "sensor.givtcp_cd5678h901_battery_serial_number": {
+   "state": "CD5678H901"
+  },
+  "sensor.givtcp_cd5678h901_battery_soc": {
+   "state": "53"
+  },
+  "sensor.givtcp_cd5678h901_battery_temperature": {
+   "state": "22.5"
+  },
+  "sensor.givtcp_cd5678h901_battery_voltage": {
+   "state": "52.5"
+  },
+  "sensor.givtcp_ef2345j234_battery_capacity": {
+   "state": "200.0"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_10_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_11_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_12_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_13_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_14_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_15_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_16_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_1_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_2_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_3_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_4_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_5_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_6_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_7_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_8_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cell_9_voltage": {
+   "state": "3.28"
+  },
+  "sensor.givtcp_ef2345j234_battery_cells": {
+   "state": "16"
+  },
+  "sensor.givtcp_ef2345j234_battery_cycles": {
+   "state": "578"
+  },
+  "sensor.givtcp_ef2345j234_battery_design_capacity": {
+   "state": "186.0"
+  },
+  "sensor.givtcp_ef2345j234_battery_firmware_version": {
+   "state": "3022"
+  },
+  "sensor.givtcp_ef2345j234_battery_remaining_capacity": {
+   "state": "91.68"
+  },
+  "sensor.givtcp_ef2345j234_battery_serial_number": {
+   "state": "EF2345J234"
+  },
+  "sensor.givtcp_ef2345j234_battery_soc": {
+   "state": "46"
+  },
+  "sensor.givtcp_ef2345j234_battery_temperature": {
+   "state": "22.5"
+  },
+  "sensor.givtcp_ef2345j234_battery_voltage": {
+   "state": "52.5"
+  },
+  "sensor.givtcp_evc_ev1234a567_evc_charge_power": {
+   "state": "0"
+  },
+  "sensor.givtcp_evc_ev1234a567_evc_state": {
+   "state": "Idle"
+  },
+  "sensor.givtcp_evc_ev1234a567_givtcp_version": {
+   "state": "3.6.3"
+  },
+  "sensor.givtcp_evc_ev1234a567_status": {
+   "state": "online"
+  },
+  "sensor.givtcp_meter_id1_export_energy_kwh": {
+   "state": "14.8"
+  },
+  "sensor.givtcp_meter_id1_frequency": {
+   "state": "50.04"
+  },
+  "sensor.givtcp_meter_id1_import_energy_kwh": {
+   "state": "690.2"
+  },
+  "sensor.givtcp_meter_id1_phase_1_current": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_meter_id1_phase_1_power": {
+   "state": "0"
+  },
+  "sensor.givtcp_meter_id1_phase_1_power_factor": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_meter_id1_phase_1_voltage": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_meter_id1_phase_2_current": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_meter_id1_phase_2_power": {
+   "state": "0"
+  },
+  "sensor.givtcp_meter_id1_phase_2_power_factor": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_meter_id1_phase_2_voltage": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_meter_id1_phase_3_current": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_meter_id1_phase_3_power": {
+   "state": "0"
+  },
+  "sensor.givtcp_meter_id1_phase_3_power_factor": {
+   "state": "0.0"
+  },
+  "sensor.givtcp_meter_id1_phase_3_voltage": {
+   "state": "0.0"
+  },
+  "switch.givtcp_ab1234g567_eco_mode": {
+   "state": "on"
+  },
+  "switch.givtcp_ab1234g567_enable_charge_schedule": {
+   "state": "on"
+  },
+  "switch.givtcp_ab1234g567_enable_charge_target": {
+   "state": "on"
+  },
+  "switch.givtcp_ab1234g567_enable_discharge_schedule": {
+   "state": "off"
+  },
+  "switch.givtcp_ab1234g567_real_time_control": {
+   "state": "on"
+  },
+  "switch.givtcp_ab1234g567_reboot_addon": {
+   "state": "off"
+  },
+  "switch.givtcp_ab1234g567_reboot_invertor": {
+   "state": "off"
+  },
+  "switch.givtcp_ab1234g567_sync_time": {
+   "state": "off"
+  },
+  "time.givtcp_ab1234g567_battery_pause_end_time_slot": {
+   "state": "08:00:00"
+  },
+  "time.givtcp_ab1234g567_battery_pause_start_time_slot": {
+   "state": "23:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_end_time_slot_1": {
+   "state": "04:35:00"
+  },
+  "time.givtcp_ab1234g567_charge_end_time_slot_10": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_end_time_slot_2": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_end_time_slot_3": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_end_time_slot_4": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_end_time_slot_5": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_end_time_slot_6": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_end_time_slot_7": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_end_time_slot_8": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_end_time_slot_9": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_start_time_slot_1": {
+   "state": "02:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_start_time_slot_10": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_start_time_slot_2": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_start_time_slot_3": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_start_time_slot_4": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_start_time_slot_5": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_start_time_slot_6": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_start_time_slot_7": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_start_time_slot_8": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_charge_start_time_slot_9": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_end_time_slot_1": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_end_time_slot_10": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_end_time_slot_2": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_end_time_slot_3": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_end_time_slot_4": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_end_time_slot_5": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_end_time_slot_6": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_end_time_slot_7": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_end_time_slot_8": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_end_time_slot_9": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_start_time_slot_1": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_start_time_slot_10": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_start_time_slot_2": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_start_time_slot_3": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_start_time_slot_4": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_start_time_slot_5": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_start_time_slot_6": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_start_time_slot_7": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_start_time_slot_8": {
+   "state": "00:00:00"
+  },
+  "time.givtcp_ab1234g567_discharge_start_time_slot_9": {
+   "state": "00:00:00"
+  },
+  "update.givtcp_battery_card_update": {
+   "state": "off"
+  },
+  "update.givtcp_update": {
+   "state": "off"
+  }
+ }
+}

@@ -44,7 +44,7 @@ async def test_the_first_screen_lists_what_was_found_and_the_checklist(
     assert result["step_id"] == "system"
     assert result["last_step"] is False
     found = result["description_placeholders"]["found"]
-    assert "Inverter: GivTCP ab1234g567, all sensors found and used." in found
+    assert "Inverter: GivTCP ab1234g567 (hybrid inverter), all sensors found and used." in found
     assert "EV charger:" in found
     assert "found and used" in found
     assert "Solar forecast: none found." in found

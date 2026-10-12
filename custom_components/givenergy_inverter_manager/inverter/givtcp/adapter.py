@@ -30,6 +30,7 @@ from . import sequence
 from .discovery import (
     GIVTCP_PREFIX,
     ActiveChargeSlot,
+    device_prefix,
     discover_battery_cycle_entities,
     find_other_active_charge_slots,
 )
@@ -55,7 +56,9 @@ class GivTCPBackend:
         self._get_state = get_state
         serial = str(cfg.get(CONF_INVERTER_SERIAL) or "")
         self._identity = InverterIdentity(
-            serial=serial, prefix=f"{GIVTCP_PREFIX}{serial}", display_name=f"GivTCP {serial}"
+            serial=serial,
+            prefix=device_prefix(cfg) or f"{GIVTCP_PREFIX}{serial}",
+            display_name=f"GivTCP {serial}",
         )
         self._reader = GivTCPReader(get_state)
         self.writer = GivTCPWriter(
@@ -89,15 +92,15 @@ class GivTCPBackend:
         return await sequence.clear_charge_slot(self.writer, slot)
 
     def read_rate_defaults(self, cfg: Mapping[str, Any]) -> RateDefaults | None:
-        return self._reader.rate_defaults(cfg.get(CONF_INVERTER_SERIAL))
+        return self._reader.rate_defaults(cfg.get(CONF_INVERTER_SERIAL), device_prefix(cfg))
 
     def watched_entity_ids(self, cfg: Mapping[str, Any]) -> tuple[str, ...]:
         keys = (CONF_TARGET_SOC_ENTITY, CONF_CHARGE_START_TIME_ENTITY, CONF_CHARGE_END_TIME_ENTITY)
         return tuple(cfg[key] for key in keys if cfg.get(key))
 
     def solar_energy_entity_id(self, cfg: Mapping[str, Any]) -> str | None:
-        serial = cfg.get(CONF_INVERTER_SERIAL)
-        return f"sensor.{GIVTCP_PREFIX}{serial}_pv_energy_today_kwh" if serial else None
+        prefix = device_prefix(cfg)
+        return f"sensor.{prefix}_pv_energy_today_kwh" if prefix else None
 
     @property
     def battery_cycle_entities(self) -> list[str]:
@@ -129,9 +132,11 @@ class GivTCPBackend:
         self.writer.write_count = count
 
 
-def read_rate_defaults(serial: str | None, get_state: GetState) -> RateDefaults | None:
+def read_rate_defaults(
+    serial: str | None, get_state: GetState, prefix: str | None = None
+) -> RateDefaults | None:
     """The rates GivTCP holds, for the setup tariff page, before any backend exists."""
-    return GivTCPReader(get_state).rate_defaults(serial)
+    return GivTCPReader(get_state).rate_defaults(serial, prefix)
 
 
 def make_backend(cfg: Mapping[str, Any], ports: GivTCPPorts) -> GivTCPBackend:

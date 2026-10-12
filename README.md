@@ -8,7 +8,7 @@
 
 A Home Assistant integration for GivEnergy inverters. It sets the overnight charge target, diverts spare solar to an immersion heater, and tracks energy costs across your tariff periods. It reads and writes Home Assistant entities published by GivTCP over MQTT. No cloud account is needed.
 
-Works with any supplier and any tariff: timed rates (two or three rate periods, or a single overnight window) or a flat rate. Tested on a GivEnergy GIV-HY-5.0 with the Electric Ireland Nightboost tariff. Current version: 0.18.2.
+Works with any supplier and any tariff: timed rates (two or three rate periods, or a single overnight window) or a flat rate. Tested on real hardware on one GivEnergy GIV-HY-5.0 (a single-phase hybrid) with the Electric Ireland Nightboost tariff. Other GivTCP system types are recognised and tested against entity lists only. See [Which serial do I use?](docs/quick-start.md#which-serial-do-i-use). Current version: 0.18.2.
 
 ![The Power Flow view of the dashboard: battery, live power flow and today's energy.](https://raw.githubusercontent.com/macuistin/givenergy_inverter_manager/main/docs/images/dashboard-power-flow.png)
 

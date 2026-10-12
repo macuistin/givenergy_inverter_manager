@@ -98,6 +98,7 @@ ISSUE_EV_BASE_RATE_CHARGING = "ev_charging_at_base_rate"
 ISSUE_WRITE_NOT_CONFIRMED = "write_not_confirmed"
 ISSUE_GIVTCP_FEED_FROZEN = "givtcp_feed_frozen"
 ISSUE_GIVTCP_NOT_ANSWERING = "givtcp_not_answering"
+ISSUE_SYSTEM_LOOKS_DIFFERENT = "system_looks_different"
 
 TROUBLESHOOTING_URL = (
     "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs/troubleshooting.md"
@@ -114,6 +115,7 @@ LEARN_MORE_URLS: dict[str, str] = {
     ISSUE_GIVTCP_NOT_ANSWERING: (
         f"{TROUBLESHOOTING_URL}#givtcp-is-not-getting-data-from-the-inverter"
     ),
+    ISSUE_SYSTEM_LOOKS_DIFFERENT: f"{TROUBLESHOOTING_URL}#the-system-looks-different",
 }
 
 # Matches the selector max in config_flow.py. Values above this are legacy
@@ -121,7 +123,9 @@ LEARN_MORE_URLS: dict[str, str] = {
 MIN_SOC_HIGH_THRESHOLD = 30
 
 
-def async_create_givtcp_missing_issue(hass: HomeAssistant) -> None:
+def async_create_givtcp_missing_issue(
+    hass: HomeAssistant, entities: str = "the solar and battery entities"
+) -> None:
     """Surface a repair issue when configured GivTCP entities are absent from HA."""
     async_create_issue(
         hass,
@@ -131,6 +135,7 @@ def async_create_givtcp_missing_issue(hass: HomeAssistant) -> None:
         learn_more_url=LEARN_MORE_URLS[ISSUE_GIVTCP_ENTITIES_MISSING],
         severity=IssueSeverity.WARNING,
         translation_key=ISSUE_GIVTCP_ENTITIES_MISSING,
+        translation_placeholders={"entities": entities},
     )
 
 
@@ -306,12 +311,32 @@ def async_delete_not_answering_issue(hass: HomeAssistant) -> None:
     async_delete_issue(hass, DOMAIN, ISSUE_GIVTCP_NOT_ANSWERING)
 
 
+def async_create_system_different_issue(hass: HomeAssistant, changes: str) -> None:
+    """Surface a fixable repair issue when the managed system is not the one last seen."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_SYSTEM_LOOKS_DIFFERENT,
+        is_fixable=True,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_SYSTEM_LOOKS_DIFFERENT],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_SYSTEM_LOOKS_DIFFERENT,
+        translation_placeholders={"changes": changes},
+    )
+
+
+def async_delete_system_different_issue(hass: HomeAssistant) -> None:
+    """Clear the repair once the system is the one last seen, or the user confirmed it."""
+    async_delete_issue(hass, DOMAIN, ISSUE_SYSTEM_LOOKS_DIFFERENT)
+
+
 async def async_create_fix_flow(
     hass: HomeAssistant, issue_id: str, data: dict[str, str | int | float | None] | None
 ) -> RepairsFlow:
     """Home Assistant calls this to fix a fixable issue."""
     # Imported here because the repairs integration is not available to the unit test stub.
     from .repair_flows import (
+        AcceptSystemChangeFlow,
         ClearOtherChargeSlotsFlow,
         ConfirmTariffReviewedFlow,
         SetBatteryCostFlow,
@@ -321,4 +346,6 @@ async def async_create_fix_flow(
         return SetBatteryCostFlow()
     if issue_id == ISSUE_TARIFF_REVIEW_DUE:
         return ConfirmTariffReviewedFlow()
+    if issue_id == ISSUE_SYSTEM_LOOKS_DIFFERENT:
+        return AcceptSystemChangeFlow()
     return ClearOtherChargeSlotsFlow()
