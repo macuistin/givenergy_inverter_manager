@@ -332,9 +332,11 @@ def test_the_oil_advice_shows_only_with_an_oil_price_and_the_switch(oil, switch,
 
 def test_the_oil_advice_tile_and_sentence_read_the_oil_sensor():
     cards = _oil_section_cards(seen_for(switch=True, oil=True))
-    tile = next(c for c in cards if c["type"] == "tile")
-    assert tile["entity"] == OIL_SENTINEL
-    markdown = next(c for c in cards if c["type"] == "markdown")
+    source = next(c for c in cards if "Cheapest source" in c.get("content", ""))
+    assert f"states('{OIL_SENTINEL}')" in source["content"]
+    markdown = next(
+        c for c in cards if c["type"] == "markdown" and "'suggestion'" in c["content"]
+    )
     assert f"state_attr('{OIL_SENTINEL}', 'suggestion')" in markdown["content"]
 
 

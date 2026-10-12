@@ -266,7 +266,7 @@ async def test_generated_file_falls_back_when_cards_are_not_registered(hass, loa
     assert "custom:apexcharts-card" not in text
 
 
-async def test_generated_file_keeps_the_power_flow_card_that_is_registered(hass, loaded_entry):
+async def test_generated_file_keeps_the_cards_that_are_registered(hass, loaded_entry):
     resources = await _setup_lovelace(hass)
     for url in (
         "/hacsfiles/power-flow-card-plus/power-flow-card-plus.js",
@@ -275,7 +275,7 @@ async def test_generated_file_keeps_the_power_flow_card_that_is_registered(hass,
         await resources.async_create_item({"res_type": "module", "url": url})
     text = await _generate(hass)
     assert "custom:power-flow-card-plus" in text
-    assert "apexcharts" not in text
+    assert "custom:apexcharts-card" in text
     assert "not installed" not in text
 
 

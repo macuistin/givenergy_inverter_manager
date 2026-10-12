@@ -151,10 +151,11 @@ def test_the_forecast_figures_stay_in_tiles_beside_the_chart():
 
 
 @pytest.mark.parametrize("resources", [None, [], _FLOW_ONLY, [_APEX_URL]])
-def test_no_custom_chart_is_built_even_when_apexcharts_card_is_installed(resources):
-    text = dashboard_text(resources=resources)
-    assert "apexcharts" not in text
-    assert "custom:apex" not in text
+def test_only_the_immersion_chart_can_use_apexcharts_card(resources):
+    """The Bill and Solar charts are core cards. The immersion chart may use apexcharts-card."""
+    for view in dashboard_dict(resources=resources)["views"]:
+        if view["path"] != "immersion":
+            assert "apexcharts" not in str(view), view["path"]
 
 
 def test_no_history_graph_plots_the_solar_sensors():

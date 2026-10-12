@@ -29,6 +29,7 @@ class HacsCard:
 
 
 POWER_FLOW_CARD = HacsCard("power-flow-card-plus", "https://github.com/flixlix/power-flow-card-plus")
+APEX_CARD = HacsCard("apexcharts-card", "https://github.com/RomRider/apexcharts-card")
 
 
 class HacsCards:

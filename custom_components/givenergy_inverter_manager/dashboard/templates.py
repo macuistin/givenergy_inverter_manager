@@ -134,6 +134,21 @@ def planned_heating_template(sensor: str) -> str:
     )
 
 
+def cheapest_source_template(source: str) -> str:
+    """The cheapest way to heat the water, with the name the user gave the alternative.
+
+    The sensor's state is `electricity`, `solar` or `alternative`, which never changes with the
+    label so automations keep working. The card swaps `alternative` for the sensor's alt_label
+    attribute, so it reads Oil, Gas or whatever was entered, and a new label shows at once.
+    """
+    return (
+        f"{{% set state = states('{source}') %}}"
+        f"{{% set label = state_attr('{source}', 'alt_label') or '{DEFAULT_ALT_HEAT_LABEL}' %}}"
+        "**Cheapest source**\n\n"
+        "{% if state == 'alternative' %}{{ label }}{% else %}{{ state | capitalize }}{% endif %}"
+    )
+
+
 def alt_heat_schedule_template(source: str) -> str:
     """The suggested alternative heating schedule line, read from the cheapest source sensor.
 
