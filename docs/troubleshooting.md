@@ -61,6 +61,21 @@ While it lasts the integration stops planning and stops writing to the inverter,
 3. Open the GivTCP log and look for connection or timeout errors.
 4. Restart GivTCP.
 
+## Energy totals jumped after a GivTCP upgrade
+
+GivTCP publishes cumulative energy for the day (solar, import, export, battery charge and discharge, load and AC charge). An upgrade can change what a counter holds. GivTCP 3.6 changed the units of the energy totals on a Gateway, so a counter can step by about a thousand times.
+
+The integration checks every reading against the one before it. A counter can only rise by what the system could deliver in the time between the two readings: the inverter's maximum output times the elapsed time, with a margin of four and a small allowance for rounding. A rise above that is not energy. When it happens:
+
+- Nothing is booked for the step, in today's totals or in the week, month and year.
+- The log has one warning, starting `The ... energy counter went from`, and it says `a probable unit change` when the counter rose by about a thousand times.
+- That counter is left out of today's totals, which fall back to the integration's own sum of power, until the counter falls at the next daily reset. After a step its value is wrong for the rest of the day.
+- A counter that spikes and then falls back to where it was is trusted again as soon as it does, and only what it added since is booked.
+
+If you see the warning after an upgrade, open **Developer Tools → States** and compare the counter with GivTCP's own display. The **Inverter maximum output** setting (**Configure → Battery and charging**) matters here: a value much lower than your real inverter makes the allowance too small for a house that draws a lot. Home Assistant's own Energy dashboard reads the GivTCP sensors directly, so a Gateway total that changed units shows as one large spike there. Correct it in **Developer Tools → Statistics**.
+
+The guard keeps the AC charge baseline across restarts and the other readings in memory only, so a counter that stepped while Home Assistant was down is judged against what it read before the restart, or, for the counters that are not saved, accepted unless it is larger than a day could hold.
+
 ## GivTCP entities not found
 
 The repair **GivTCP entities not found** appears in **Settings → System → Repairs** when the solar power and battery SoC entities chosen at setup no longer exist in Home Assistant. This usually means GivTCP was reinstalled with another serial, or its entity IDs changed.

@@ -6,6 +6,8 @@ Self-sufficiency read 0 there, because import was larger than the load.
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 from conftest import MIDDAY, PREFIX
 from homeassistant.const import STATE_UNAVAILABLE
@@ -39,15 +41,18 @@ def _state(hass, entry, key: str):
     return hass.states.get(entity_id)
 
 
-async def _refresh(hass, entry) -> None:
+async def _refresh(hass, entry, freezer=None) -> None:
+    """Refresh once. The day's energy arrives over some hours, as the counter guard expects."""
+    if freezer is not None:
+        freezer.tick(timedelta(hours=3))
     await entry.runtime_data.async_refresh()
     await hass.async_block_till_done()
 
 
 @pytest.mark.parametrize("scenario", [MIDDAY], ids=lambda s: s.name)
-async def test_overnight_charge_no_longer_reads_as_zero_self_sufficiency(hass, loaded_entry):
+async def test_overnight_charge_no_longer_reads_as_zero_self_sufficiency(hass, loaded_entry, freezer):
     _publish_the_live_day(hass)
-    await _refresh(hass, loaded_entry)
+    await _refresh(hass, loaded_entry, freezer)
 
     sufficiency = _state(hass, loaded_entry, "self_sufficiency")
     assert float(sufficiency.state) == pytest.approx(59.3, abs=0.05)
@@ -59,9 +64,9 @@ async def test_overnight_charge_no_longer_reads_as_zero_self_sufficiency(hass, l
 
 
 @pytest.mark.parametrize("scenario", [MIDDAY], ids=lambda s: s.name)
-async def test_the_grid_to_battery_sensor_reports_the_counter(hass, loaded_entry):
+async def test_the_grid_to_battery_sensor_reports_the_counter(hass, loaded_entry, freezer):
     _publish_the_live_day(hass)
-    await _refresh(hass, loaded_entry)
+    await _refresh(hass, loaded_entry, freezer)
 
     sensor = _state(hass, loaded_entry, "grid_to_battery_today")
     assert float(sensor.state) == pytest.approx(7.5)
@@ -70,9 +75,9 @@ async def test_the_grid_to_battery_sensor_reports_the_counter(hass, loaded_entry
 
 
 @pytest.mark.parametrize("scenario", [MIDDAY], ids=lambda s: s.name)
-async def test_without_the_counter_the_old_figure_is_kept_and_says_so(hass, loaded_entry):
+async def test_without_the_counter_the_old_figure_is_kept_and_says_so(hass, loaded_entry, freezer):
     _publish_the_live_day(hass, ac_charge_kwh=None)
-    await _refresh(hass, loaded_entry)
+    await _refresh(hass, loaded_entry, freezer)
 
     sufficiency = _state(hass, loaded_entry, "self_sufficiency")
     assert float(sufficiency.state) == 0.0
@@ -83,9 +88,9 @@ async def test_without_the_counter_the_old_figure_is_kept_and_says_so(hass, load
 
 
 @pytest.mark.parametrize("scenario", [MIDDAY], ids=lambda s: s.name)
-async def test_week_and_month_count_the_stored_charge_too(hass, loaded_entry):
+async def test_week_and_month_count_the_stored_charge_too(hass, loaded_entry, freezer):
     _publish_the_live_day(hass)
-    await _refresh(hass, loaded_entry)
+    await _refresh(hass, loaded_entry, freezer)
 
     for key in ("self_sufficiency_this_week", "self_sufficiency_this_month"):
         attributes = _state(hass, loaded_entry, key).attributes
@@ -98,7 +103,7 @@ async def test_the_counter_reset_at_midnight_keeps_the_week_and_clears_today(
     hass, loaded_entry, freezer
 ):
     _publish_the_live_day(hass)
-    await _refresh(hass, loaded_entry)
+    await _refresh(hass, loaded_entry, freezer)
 
     # Local midnight in Europe/Dublin (UTC+1 in June), then GivTCP resets its counters.
     freezer.move_to("2026-06-15 23:00:00+00:00")

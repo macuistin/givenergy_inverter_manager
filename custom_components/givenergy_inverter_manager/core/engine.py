@@ -107,6 +107,7 @@ from .charge_window import (
     plan_charge_window,
 )
 from .controller_conflict import ConflictStatus
+from .counter_guard import screen
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
 from .planned_heating import PlanQuery, describe_planned_heating
@@ -1474,8 +1475,13 @@ def _accumulate_energy_today(
     # The inverter integration reads directly from the inverter's metering, which is more
     # accurate than integrating 30-second power readings. Financial fields (costs, earnings) remain
     # integration-based since the inverter integration has no tariff knowledge.
+    screened = screen(accumulators.counters, cycle.raw, cycle.now)
     _carry_grid_to_battery(accumulators, cycle)
-    _apply_daily_counters(accumulators.today, cycle.raw)
+    _apply_daily_counters(
+        accumulators.today,
+        screened,
+        keep_grid_to_battery="ac_charge" in accumulators.counters.distrusted,
+    )
     _bookmark_start_of_day_soc(accumulators.today, cycle.raw)
     data.grid_to_battery_counter_available = cycle.raw.ac_charge_energy_today_kwh is not None
     data.today = accumulators.today
@@ -1549,7 +1555,9 @@ def _set_carbon_intensity(data: CoordinatorData, raw: RawSensorValues) -> None:
     data.carbon_intensity_status = _carbon_intensity_status(raw.carbon_intensity_gco2)
 
 
-def _apply_daily_counters(acc: EnergyAccumulator, raw: RawSensorValues) -> None:
+def _apply_daily_counters(
+    acc: EnergyAccumulator, raw: RawSensorValues, *, keep_grid_to_battery: bool = False
+) -> None:
     """
     Override today's physical kWh fields with the inverter's daily energy counters.
 
@@ -1572,6 +1580,8 @@ def _apply_daily_counters(acc: EnergyAccumulator, raw: RawSensorValues) -> None:
         acc.battery_discharge_kwh = raw.discharge_energy_today_kwh
     if raw.load_energy_today_kwh is not None:
         acc.house_kwh = raw.load_energy_today_kwh
+    if keep_grid_to_battery:
+        return  # the counter jumped: today keeps what it had until the counter resets
     # No power integration stands in for this counter. Without it nothing comes off import.
     acc.grid_to_battery_kwh = (
         raw.ac_charge_energy_today_kwh if raw.ac_charge_energy_today_kwh is not None else 0.0
@@ -1588,7 +1598,7 @@ def _carry_grid_to_battery(accumulators: Accumulators, cycle: _Cycle) -> None:
     """
     if cycle.raw.ac_charge_energy_today_kwh is None:
         return
-    growth_kwh = accumulators.counters.growth_since_last(cycle.raw.ac_charge_energy_today_kwh)
+    growth_kwh = accumulators.counters.ac_charge_rise_kwh
     for longer_acc in (accumulators.week, accumulators.month, accumulators.year):
         if longer_acc is not None:
             longer_acc.grid_to_battery_kwh += growth_kwh

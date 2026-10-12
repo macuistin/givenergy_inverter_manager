@@ -289,23 +289,27 @@ class TariffConfig:
 
 @dataclass
 class CounterMemory:
-    """The last reading of each inverter daily counter that feeds the longer periods.
+    """The last reading of each inverter daily counter, and which ones to stop trusting.
 
     A daily counter drops to zero at midnight. The memory outlives the midnight reset so a
-    stale reading just after it is not added a second time.
+    stale reading just after it is not added a second time. core/counter_guard.py judges each
+    reading against this memory.
+
+    Only the AC charge baseline is saved. The other readings, their times and the list of
+    counters that jumped live in memory, so a restart starts them fresh.
     """
 
     ac_charge_kwh: float = 0.0
-
-    def growth_since_last(self, current_kwh: float) -> float:
-        """How far the AC charge counter rose since the last reading, all of it after a reset.
-
-        Remembers current_kwh for the next call.
-        """
-        rose = current_kwh >= self.ac_charge_kwh
-        growth_kwh = current_kwh - self.ac_charge_kwh if rose else current_kwh
-        self.ac_charge_kwh = current_kwh
-        return growth_kwh
+    readings: dict[str, tuple[float, datetime]] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    distrusted: set[str] = field(default_factory=set, compare=False, repr=False)
+    # The last reading of each counter that passed, to recognise a counter coming back.
+    last_trusted: dict[str, tuple[float, datetime]] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    # The AC charge rise the last screening allowed. It is the only rise that is booked.
+    ac_charge_rise_kwh: float = field(default=0.0, compare=False, repr=False)
 
 
 @dataclass
