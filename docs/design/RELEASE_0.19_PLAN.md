@@ -2,16 +2,11 @@
 
 Written on 12 October 2026 against `main` at v0.18.1. The brief was written against v0.18.0. This page says what the brief gets wrong or leaves open now, how the cards are grouped into pull requests, what is blocked, and what the maintainer has to supply. No code is written yet.
 
-The documents it works from:
-
-- [RELEASE_0.19_BRIEF.md](RELEASE_0.19_BRIEF.md): goal, decisions, guardrails, every card, the configuration test matrix.
-- [FEATURE_DESIGNS.md](FEATURE_DESIGNS.md): designs for the roadmap features. None is built in 0.19 unless named.
-- [specs/](specs/README.md): the specification method and the specifications from other projects.
-- [RELEASE_0.19_AGENT_NOTES.md](RELEASE_0.19_AGENT_NOTES.md): how the work is run.
+The work is tracked in GitHub issues: #304 is the release, each child is a pull request group, and each grandchild is a card with its full text from the brief. Specifications from other projects are under #366. The designs for the roadmap features are in [FEATURE_DESIGNS.md](FEATURE_DESIGNS.md) and the gap analysis is in [GAP_ANALYSIS.md](GAP_ANALYSIS.md).
 
 ## 1. What 0.19 is
 
-GivTCP stays the only backend but becomes a communication layer behind one small interface. The integration owns the rates, retries a missed charge write, re-plans inside the cheap window, uses the forecast's own shape, makes the seasonal rules settings, warns when something else sets the charge target, supports the GivEnergy EV charger, and finds more system types than one single-phase hybrid. Part A section 1 lists what is out of scope: a direct Modbus backend, dynamic tariffs, export or discharge logic, a second charge window and a new dashboard layout.
+GivTCP stays the only backend but becomes a communication layer behind one small interface. The integration owns the rates, retries a missed charge write, re-plans inside the cheap window, uses the forecast's own shape, makes the seasonal rules settings, warns when something else sets the charge target, supports the GivEnergy EV charger, and finds more system types than one single-phase hybrid. The parent issue lists what is out of scope: a direct Modbus backend, dynamic tariffs, export or discharge logic, a second charge window and a new dashboard layout.
 
 ## 2. What changed after the brief was written
 
@@ -40,7 +35,7 @@ Each item says what I propose. None blocks the cards that can start now unless i
 
 ## 4. How the work is grouped
 
-Order follows Part A section 11. "Moves goldens" lists the golden files that change on purpose.
+Order follows the order in the group issues. "Moves goldens" lists the golden files that change on purpose.
 
 | # | Pull request | Cards | Moves goldens | Blocked by |
 |---|---|---|---|---|
@@ -77,7 +72,7 @@ Pull requests 2 to 10 can start at once. Pull request 6 does not depend on 4 or 
 
 ## 6. What the maintainer is asked for
 
-One list, merged from Part A section 12 and Appendix C. Items with a default proceed on the default unless the maintainer says otherwise.
+One list, merged from the brief's maintainer tasks and Appendix C. Items with a default proceed on the default unless the maintainer says otherwise.
 
 1. **Retry an unconfirmed write?** (section 3, item 2). Default: yes, on the brief's schedule.
 2. **Staleness limit.** Default: 600 seconds, plus `Data_Age` and `status` where they exist.
@@ -86,8 +81,8 @@ One list, merged from Part A section 12 and Appendix C. Items with a default pro
 5. **GivEnergy charger.** Default: Solar for "use surplus only", never Grid, never Charge Control to stop, never Plug and Go off, never Hybrid automatically.
 6. **GivTCP's default rates.** Default: skip 0.395, 0.155 and 0.04 exactly, and pre-fill nothing when all three match.
 7. **Minimum GivTCP version.** Default: the wizard warns below 3.6.2. 3.6 and 3.6.1 reset entity ids and mis-handle slot 2 and PV-only inverters. 3.5 keeps working where the fixtures show it does.
-8. **Package layout.** Default: the layout in Part A section 5.2.
-9. **Fixtures**, highest priority first (Appendix D.6): parallel All-In-Ones with a gateway at two GivTCP versions; an All-In-One with and without a gateway; three-phase; an HV Gen 3 hybrid before and after 3.6; a hybrid with several batteries; AC-coupled; two inverters; a custom prefix. Each as an anonymised entity list with the GivTCP version.
+8. **Package layout.** Default: the layout in the brief's section 5.2.
+9. **Fixtures**, highest priority first (the brief's Appendix D.6): parallel All-In-Ones with a gateway at two GivTCP versions; an All-In-One with and without a gateway; three-phase; an HV Gen 3 hybrid before and after 3.6; a hybrid with several batteries; AC-coupled; two inverters; a custom prefix. Each as an anonymised entity list with the GivTCP version.
 10. **The charge target test (U8).** One system is already evidence (section 7). The first night on GivTCP 3.6.3 checks it again. A real charge on a second per-slot-target inverter, or an All-In-One, would settle it. If `Target_SOC` does not stop the charge there, the write sequence needs its own card.
 11. **Entity checks on a live GivTCP (M10).** Done for one hybrid (section 7). Repeat on any other system type that is supplied as a fixture.
 
@@ -115,4 +110,8 @@ Still to collect without anyone's help: a link check of every URL in the roadmap
 | Retrying an unconfirmed write spends register writes | The write count is a lifetime budget | The brief's caps stay (four retries, 15 minutes before the end), and the count is shown in the log |
 | The brief's Appendix D rests on GivTCP 3.6 documentation read in October 2026 | Entity names and states are unproved until fixtures arrive | No discovery or mapping code without a fixture, as the brief says |
 
-The brief's own risk table (Part A section 14) still applies.
+The brief's own risk table (the brief's risk table) still applies.
+
+## 9. Where to comment
+
+The maintainer's decisions and evidence list is issue #305, as a checklist. Comment there or on the card.

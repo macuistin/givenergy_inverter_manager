@@ -1,15 +1,6 @@
 # What other GivEnergy systems do that this integration does not
 
-> **Where the parts of the 0.19 plan are.** This plan was written as one file in four parts. References such as "Part A" or "Part B section 1.5" mean:
-> 
-> | Part | File |
-> |---|---|
-> | Part 0 (instructions for the agent) | [RELEASE_0.19_AGENT_NOTES.md](RELEASE_0.19_AGENT_NOTES.md) |
-> | Part A (the release brief) | [RELEASE_0.19_BRIEF.md](RELEASE_0.19_BRIEF.md) |
-> | Part B (design pack for the roadmap features) | [FEATURE_DESIGNS.md](FEATURE_DESIGNS.md) |
-> | Part C (specifications extracted from other projects) | [specs/](specs/README.md) |
-> | Part D (gap analysis) | [GAP_ANALYSIS.md](GAP_ANALYSIS.md) |
-> 
+> **Where the rest of the 0.19 plan is.** This page was part of a larger plan. The release brief (cards, tests, order of work), the agent notes and the specifications from other projects are now GitHub issues, so they can be commented on and closed as they are done. Start at #304, which has one child issue per pull request group and one grandchild per card. Specifications are under #366. References such as "Part A", "Part C" or "card IB4" mean the brief's text, which is in the card issues.
 
 ## Part D: What other GivEnergy systems do that this integration does not (reference, read on demand)
 

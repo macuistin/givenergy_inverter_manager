@@ -4,11 +4,10 @@ Notes that record decisions and the evidence behind them. They move with the cod
 
 ## Release 0.19 (planned)
 
+The work is tracked in GitHub issues, starting at #304. Each pull request group is a child, and each card is a grandchild with its full text. The specifications from other projects are under #366.
+
 - [RELEASE_0.19_PLAN.md](RELEASE_0.19_PLAN.md): the plan as it stands against the code, what is blocked, and what the maintainer has to supply.
-- [RELEASE_0.19_BRIEF.md](RELEASE_0.19_BRIEF.md): the release brief. Goal, decisions, guardrails, the inverter backend, every card with its tests, the order of work and the configuration test matrix.
-- [RELEASE_0.19_AGENT_NOTES.md](RELEASE_0.19_AGENT_NOTES.md): how the work is run, one card to one pull request.
-- [FEATURE_DESIGNS.md](FEATURE_DESIGNS.md): a design for each roadmap feature (flows, pseudocode, vectors, open questions). None of these is built in 0.19 unless named.
-- [specs/](specs/README.md): the specification method and the specifications extracted from other projects. Other projects are studied and never copied.
+- [FEATURE_DESIGNS.md](FEATURE_DESIGNS.md): a design for each roadmap feature (flows, pseudocode, vectors, open questions). None is built in 0.19 unless named.
 - [GAP_ANALYSIS.md](GAP_ANALYSIS.md): what other GivEnergy systems do that this integration does not.
 
 ## Release 0.18
