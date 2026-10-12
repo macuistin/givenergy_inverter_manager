@@ -107,6 +107,16 @@ The repair **GivTCP entities not found** appears in **Settings → System → Re
 
 The repair clears on its own once the entities exist again.
 
+## The GivEnergy charger is not found or does not change mode
+
+The integration finds a GivEnergy charger from the entities GivTCP publishes for it, a device called GivEVC. **It has not been tested against a real GivEnergy charger.** If it is not found:
+
+1. In GivTCP's configuration, turn **EVC Enable** on. Without it GivTCP publishes nothing for the charger.
+2. Open **Developer Tools → States** and search for `charging_state`. You need `sensor.<prefix>_charging_state` and `sensor.<prefix>_connection_status` next to each other. If your entity ids differ, open an issue with the list.
+3. GivTCP's README records a firmware bug in charger versions 1.12 and below: the charger's local Modbus port works over WiFi only, not over a cable. Connect the charger by WiFi, or update its firmware.
+
+If it is found and the mode never changes, the **EV Protection Reason** sensor says why. A mode select that offers none of Solar, Surplus, Green or Eco+, or only options with `stop`, `grid`, `fast` or similar in their names, is left alone. The integration never starts or stops a session, never writes Plug and Go, and never selects Grid or Hybrid.
+
 ## Configure problems
 
 - **"Entity is neither a valid entity ID nor a valid UUID" on save.** This was a bug in v0.2.1 when a forecast or carbon intensity field was empty. Update to v0.3.0. In v0.3.0 an empty field saves as empty, and clearing a saved entity removes it.

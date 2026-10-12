@@ -42,6 +42,9 @@ DEFAULT_SERIAL = "ab1234g567"
 DEFAULT_IMMERSION_SWITCH = "switch.immersion_heater"
 DEFAULT_IMMERSION_TEMP = "sensor.hot_water_cylinder_temperature"
 ZAPPI_PREFIX = "myenergi_zappi"
+# The GivEnergy charger GivTCP publishes as the device GivEVC. The datapoint names and the state
+# strings are GivTCP's own. The prefix is a guess, since the documentation gives none.
+EVC_PREFIX = "givtcp_evc_ev1234a567"
 ZAPPI_PLUGGED_IN = "EV Connected"
 ZAPPI_UNPLUGGED = "EV Disconnected"
 
@@ -222,6 +225,31 @@ class MockGivTCP:
         states(f"sensor.{p}_serial_number", "21637627")
         select = f"select.{p}_charge_mode"
         states(select, mode)
+        self._owned.add(select)
+        return select
+
+    def add_givevc(
+        self, *, plugged_in: bool = True, charging: bool = False, mode: str = "Grid"
+    ) -> str:
+        """The entities GivTCP publishes for a GivEnergy charger. Returns the charging mode select.
+
+        Only the charging mode select is owned, so a write to it is recorded in `writes`. Charge
+        Control and Plug and Go are published but not owned: any write to them lands in
+        `other_calls`, which the charger tests assert stays empty.
+        """
+        p = EVC_PREFIX
+        states = self.hass.states.async_set
+        connection = "Connected" if plugged_in else "Not Connected"
+        state = "Charging" if charging else ("Connected" if plugged_in else "Idle")
+        states(f"sensor.{p}_serial_number", "EV1234A567")
+        states(f"sensor.{p}_connection_status", connection)
+        states(f"sensor.{p}_charging_state", state)
+        states(f"sensor.{p}_active_power", 1380 if charging else 0)
+        states(f"sensor.{p}_charge_session_energy", 2.4)
+        states(f"switch.{p}_plug_and_go", "on")
+        states(f"select.{p}_charge_control", "Start", {"options": ["Start", "Stop"]})
+        select = f"select.{p}_charging_mode"
+        states(select, mode, {"options": ["Grid", "Solar", "Hybrid"]})
         self._owned.add(select)
         return select
 

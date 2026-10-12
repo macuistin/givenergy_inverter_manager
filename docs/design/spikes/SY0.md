@@ -33,3 +33,7 @@ All fixtures are in `tests/fixtures/givtcp_systems/`. The real one is a JSON fil
 
 - Entity names for every kind but the single-phase hybrid are a reading of the documentation. A fixture from a real system replaces its synthetic one, and the setup screen's "not tested on real hardware" line is removed for that kind.
 - Charge writes through a Gateway or to an EMS have not been seen to take effect. The integration manages the Gateway only and writes nothing to an EMS.
+
+## The GivEnergy charger (GE0)
+
+No GivEnergy charger has been read. GivTCP's datapoint reference gives the names (`Charging_State`, `Connection_Status`, `Active_Power`, `Charge_Session_Energy`, `Charging_Mode`, `Charge_Control`, `Plug_and_Go`, `Charge_Limit`, `Import_Cap`, `Max_Session_Energy`), and GivTCP's own source (`evc.py`) gives the strings: Charging State is one of Unknown, Idle, Connected, Starting, Charging, Startup Failure, End of Charging, System Failure, Scheduled, Updating and Unstable CP. Connection Status is `Not Connected` or `Connected`. Charging Mode is `Grid`, `Hybrid` or `Solar`, and `Grid` is the default. The fixtures `givenergy_charger_only` and `hybrid_with_ev_charger_3_6_3` use those names under a guessed prefix. The integration finds the device by the suffixes, so the prefix does not matter.

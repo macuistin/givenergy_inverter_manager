@@ -48,11 +48,7 @@ from ..const import (
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
-from ..discovery.ev_charger import (
-    ZAPPI_ECO_PLUS_MODE,
-    EVCharger,
-    EVChargerBrand,
-)
+from ..discovery.ev_charger import SURPLUS_MODE_DEFAULTS, EVCharger
 from .battery import NightEstimateInputs, estimate_will_survive_night, hours_until_solar
 from .immersion_ready import ReadyPlan
 from .seasons import NORTHERN_SEASONS, SeasonRules
@@ -1106,7 +1102,8 @@ def decide_ev_charger_action(
     Rules (in priority order):
       1. No plugged-in vehicle → no change
       2. Surplus below EV_CHARGER_MIN_POWER_W (the charger cannot start) → no change
-      3. Zappi not already in Eco+ → switch to Eco+
+      3. A charger with a surplus-only mode (Eco+ on a Zappi, Solar on a GivEnergy charger)
+         that is not already in it → switch to that mode, never to a stop, pause, fast or grid mode
       4. Otherwise → no change
     """
     if not charger.is_plugged_in:
@@ -1121,14 +1118,18 @@ def decide_ev_charger_action(
             f"not starting"
         )
 
-    if charger.brand == EVChargerBrand.ZAPPI:
-        current = (charger.charge_mode or "").lower()
-        if current not in ("eco+",):
-            return ZAPPI_ECO_PLUS_MODE, (
-                f"Solar surplus {solar_surplus_w:.0f}W available, battery at "
-                f"{battery_soc:.0f}% — switching to Eco+ to absorb surplus"
+    if charger.brand in SURPLUS_MODE_DEFAULTS:
+        target = charger.surplus_mode()
+        if target is None:
+            return None, (
+                f"{charger.display_name} offers no surplus-only mode, so its mode is left as it is"
             )
-        return None, f"Already in Eco+ with {solar_surplus_w:.0f}W surplus"
+        if (charger.charge_mode or "").strip().lower() == target.lower():
+            return None, f"Already in {target} with {solar_surplus_w:.0f}W surplus"
+        return target, (
+            f"Solar surplus {solar_surplus_w:.0f}W available, battery at "
+            f"{battery_soc:.0f}% — switching to {target} to absorb surplus"
+        )
 
     return None, (
         f"Battery SoC {battery_soc:.0f}% OK, surplus {solar_surplus_w:.0f}W — no action needed"

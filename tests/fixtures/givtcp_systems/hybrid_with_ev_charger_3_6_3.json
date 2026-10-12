@@ -1,5 +1,5 @@
 {
- "description": "The real hybrid with a GivTCP EV charger device beside it.",
+ "description": "The real hybrid with a GivTCP EV charger device (GivEVC) beside it, charging in Solar mode.",
  "provenance": "synthetic",
  "givtcp_version": "3.6.3",
  "source": "Built from the real single-phase hybrid fixture and GivTCP's datapoint reference and release notes (3.6). Not taken from hardware of this kind: the entity names are a reading of the documentation.",
@@ -114,6 +114,15 @@
    "state": "0"
   },
   "number.givtcp_ab1234g567_temp_pause_discharge_num": {
+   "state": "0"
+  },
+  "number.givtcp_evc_ev1234a567_charge_limit": {
+   "state": "32"
+  },
+  "number.givtcp_evc_ev1234a567_import_cap": {
+   "state": "0"
+  },
+  "number.givtcp_evc_ev1234a567_max_session_energy": {
    "state": "0"
   },
   "select.givtcp_ab1234g567_battery_calibration": {
@@ -265,6 +274,25 @@
   },
   "select.givtcp_ab1234g567_temp_pause_discharge": {
    "state": "Normal"
+  },
+  "select.givtcp_evc_ev1234a567_charge_control": {
+   "state": "Start",
+   "attributes": {
+    "options": [
+     "Start",
+     "Stop"
+    ]
+   }
+  },
+  "select.givtcp_evc_ev1234a567_charging_mode": {
+   "state": "Solar",
+   "attributes": {
+    "options": [
+     "Grid",
+     "Solar",
+     "Hybrid"
+    ]
+   }
   },
   "sensor.givtcp_ab1234g567_ac_charge_energy_today_kwh": {
    "state": "9.6"
@@ -710,17 +738,29 @@
   "sensor.givtcp_ef2345j234_battery_voltage": {
    "state": "52.5"
   },
-  "sensor.givtcp_evc_ev1234a567_evc_charge_power": {
+  "sensor.givtcp_evc_ev1234a567_active_power": {
+   "state": "1380"
+  },
+  "sensor.givtcp_evc_ev1234a567_charge_session_duration": {
+   "state": "1800"
+  },
+  "sensor.givtcp_evc_ev1234a567_charge_session_energy": {
+   "state": "2.4"
+  },
+  "sensor.givtcp_evc_ev1234a567_charging_state": {
+   "state": "Charging"
+  },
+  "sensor.givtcp_evc_ev1234a567_connection_status": {
+   "state": "Connected"
+  },
+  "sensor.givtcp_evc_ev1234a567_error_code": {
    "state": "0"
   },
-  "sensor.givtcp_evc_ev1234a567_evc_state": {
-   "state": "Idle"
+  "sensor.givtcp_evc_ev1234a567_meter_energy": {
+   "state": "812.5"
   },
-  "sensor.givtcp_evc_ev1234a567_givtcp_version": {
-   "state": "3.6.3"
-  },
-  "sensor.givtcp_evc_ev1234a567_status": {
-   "state": "online"
+  "sensor.givtcp_evc_ev1234a567_serial_number": {
+   "state": "EV1234A567"
   },
   "sensor.givtcp_meter_id1_export_energy_kwh": {
    "state": "14.8"
@@ -790,6 +830,9 @@
   },
   "switch.givtcp_ab1234g567_sync_time": {
    "state": "off"
+  },
+  "switch.givtcp_evc_ev1234a567_plug_and_go": {
+   "state": "on"
   },
   "time.givtcp_ab1234g567_battery_pause_end_time_slot": {
    "state": "08:00:00"

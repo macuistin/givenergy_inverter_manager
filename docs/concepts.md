@@ -301,12 +301,13 @@ All four are absent until the record holds 7 days. The hours are read at hour re
 
 ### EV charger
 
-The integration finds Zappi (myenergi), Wallbox, OCPP, Ohme and Easee chargers by their entity names. It uses the first one found.
+The integration finds Zappi (myenergi), GivEnergy (through GivTCP), Wallbox, OCPP, Ohme and Easee chargers by their entity names. It uses the first one found.
 
 It does four things with the charger:
 
 - **Signals.** EV Solar Surplus reads `Available` at 1380 W of net solar surplus or more. EV Charging Source reports Solar, Grid, Battery or Mixed. EV Draining Battery is `yes` when the charger is charging, is drawing power, and the battery discharges over 200 W. A charger that reports a charging status but draws no power, such as a Zappi waiting for the car, does not count.
-- **Zappi mode.** For a Zappi with a charge mode entity, with a car plugged in and net surplus of at least 1380 W, the integration selects **Eco+** unless the Zappi is already in it. It never selects Stopped. In dry run it records the action and sends nothing.
+- **Surplus mode.** For a Zappi or a GivEnergy charger with a charge mode entity, with a car plugged in and net surplus of at least 1380 W, the integration selects the mode that means "use surplus only" unless the charger is already in it: **Eco+** on a Zappi, **Solar** on a GivEnergy charger. It reads the options the select offers and picks that one by name. A mode with `stop`, `off`, `pause`, `fast`, `boost`, `grid`, `max` or `hybrid` in its name is never selected, so it never selects Stopped or Fast, never Grid, and never Hybrid, which draws a constant 6 A from the grid. A charger whose select offers no surplus-only mode is left alone and the EV Protection Reason says so. In dry run it records the action and sends nothing, and the write skips when the charger is already in the mode and honours the same 300 second cooldown.
+- **GivEnergy charger.** GivTCP publishes it as a device called GivEVC when its EVC setting is on. The integration reads Connection Status and Charging State for the plug and charging state, Active Power and Charge Session Energy, and Charging Mode. It never writes Charge Control, so it never starts or stops a session, and never writes Plug and Go. If you set Grid yourself and surplus appears, the integration moves the charger to Solar, as it does for a Zappi in Fast. **It has not been tested against a real GivEnergy charger.** The entity names are from GivTCP's datapoint reference and the state strings are from its source.
 - **Base-rate alert.** When the car draws at least 1380 W, the grid supplies at least 1380 W, the rate in force is the base rate and the tariff has a cheaper timed band, the repair **EV is charging at the base rate** appears after 5 minutes. It is raised once and clears when the session ends or the rate drops. A flat tariff never raises it, and an install with no charger evaluates nothing. See [Troubleshooting](troubleshooting.md#ev-is-charging-at-the-base-rate).
 - **Cost and distance.** EV energy, cost and kilometres use the car efficiency from the options.
 

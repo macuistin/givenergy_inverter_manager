@@ -47,7 +47,7 @@ class TestTheFixtures:
             assert real_serial not in text
 
 
-@pytest.mark.parametrize("name", [n for n in NAMES if "expected" in fixtures.raw(n)])
+@pytest.mark.parametrize("name", [n for n in NAMES if fixtures.raw(n).get("expected")])
 class TestEachSynthetic:
     def test_it_is_classified_and_the_right_device_is_chosen(self, name):
         expected = fixtures.raw(name)["expected"]

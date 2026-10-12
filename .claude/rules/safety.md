@@ -50,7 +50,8 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
   inverter. The `pre_boost_export_*` sensors were retired for this reason. Do not propose features
   that rely on exporting from the battery.
 - It never stops or pauses an EV charger. For a Zappi with a charge mode entity it selects Eco+ and
-  never Stopped or Fast.
+  never Stopped or Fast. For a GivEnergy charger it selects Solar and never Grid or Hybrid, never
+  writes Charge Control or Plug and Go. `pick_surplus_mode` skips any option with a forbidden word.
 - The write audit (`write_audit.py`) only records. It never reverts a change and never raises a repair.
   The Charge Target Conflict sensor and its banner read the log (`core/controller_conflict.py`) and
   nothing else. A second controller shows there, never as a repair.

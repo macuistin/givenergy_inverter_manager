@@ -34,7 +34,7 @@ The integration looks for a GivTCP inverter by its `sensor.givtcp_<id>_invertor_
 
 When the five required power sensors are found, the inverter is used with no page of its own. The same screen also finds, uses and announces:
 
-- **An EV charger** (Zappi, Wallbox, OCPP, Ohme or Easee). It needs no screen and no choice. The integration keeps looking for one after setup, so a charger added later is picked up.
+- **An EV charger** (Zappi, GivEnergy, Wallbox, OCPP, Ohme or Easee). It needs no screen and no choice. The integration keeps looking for one after setup, so a charger added later is picked up.
 - **A solar forecast sensor** from Solcast PV Forecast or Forecast.Solar. When one is found it is used, and the forecast page is not offered. When none is found you can tick the forecast page.
 - **Your currency**, from the Home Assistant configuration.
 

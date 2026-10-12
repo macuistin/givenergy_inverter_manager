@@ -16,7 +16,7 @@ Works with any supplier and any tariff: timed rates (two or three rate periods, 
 
 - **Overnight charge target.** Works out how much to charge tonight from tomorrow's solar forecast and your usage, and writes it to GivTCP once a day, just before your cheapest rate period.
 - **Immersion divert.** Heats water from spare solar, with a minimum temperature, a target and a restart gap.
-- **EV signals.** Reports when solar surplus is available and where the car's power comes from. A Zappi is set to Eco+ when there is enough surplus.
+- **EV signals.** Reports when solar surplus is available and where the car's power comes from. A Zappi is set to Eco+, and a GivEnergy charger to Solar, when there is enough surplus. The GivEnergy charger has not been tested on real hardware.
 - **Cost tracking.** Import cost, export earnings and per-load costs across your timed and base rates, with daily, weekly, monthly and yearly totals.
 - **Bill estimate, battery health and ROI figures.** Plus a large set of sensors and five actions.
 

@@ -23,6 +23,12 @@ Supported integrations and their entity naming conventions:
                        OCPP states: Available, Preparing, Charging,
                        SuspendedEV, SuspendedEVSE, Finishing
 
+  GivEnergy EVC      — through GivTCP, a device named GivEVC. The prefix is not fixed, so it
+                       is found by what it publishes (sensor.{PREFIX}_charging_state,
+                       sensor.{PREFIX}_connection_status, sensor.{PREFIX}_active_power,
+                       sensor.{PREFIX}_charge_session_energy, select.{PREFIX}_charging_mode).
+                       Modes: Grid, Solar, Hybrid
+
   Ohme               — sensor.ohme_{NAME}_status
                        sensor.ohme_{NAME}_power
 
@@ -46,6 +52,11 @@ GivEnergy. The integration only ever selects Eco+ (never Stopped or Fast), and
 only when a vehicle is plugged in and the net solar surplus is at least
 EV_CHARGER_MIN_POWER_W. Eco+ then self-regulates on the surplus the Zappi CT sees.
 
+A GivEnergy charger is set the same way. Its logical mode "use surplus only" is Solar.
+The integration never selects Grid, never uses Charge Control to stop a session, never turns
+Plug and Go off, and never selects Hybrid, which draws a constant 6 A from the grid. See
+pick_surplus_mode: a charger whose mode select offers no surplus-only option is left alone.
+
 For chargers with no mode select, the ev_draining_battery sensor reports battery
 discharge and users must act on it themselves.
 """
@@ -53,6 +64,7 @@ discharge and users must act on it themselves.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -67,6 +79,7 @@ class EVChargerBrand(StrEnum):
     OCPP = "ocpp"
     OHME = "ohme"
     EASEE = "easee"
+    GIVENERGY = "givenergy_evc"
     GENERIC = "generic"
 
 
@@ -139,7 +152,53 @@ _STATE_MAP: dict[EVChargerBrand, dict[str, EVChargerState]] = {
         "completed": EVChargerState.COMPLETED,
         "ready to charge": EVChargerState.CONNECTED,
     },
+    # GivTCP's own strings (its evc.py): Connection_Status is "Not Connected" or "Connected", and
+    # Charging_State is one of the rest. A failure or an unknown state reads as unknown, so the
+    # plug state from Connection_Status stands.
+    EVChargerBrand.GIVENERGY: {
+        "not connected": EVChargerState.DISCONNECTED,
+        "connected": EVChargerState.CONNECTED,
+        "idle": EVChargerState.CONNECTED,
+        "starting": EVChargerState.CONNECTED,
+        "scheduled": EVChargerState.CONNECTED,
+        "charging": EVChargerState.CHARGING,
+        "end of charging": EVChargerState.COMPLETED,
+        "unknown": EVChargerState.UNKNOWN,
+        "updating": EVChargerState.UNKNOWN,
+        "startup failure": EVChargerState.UNKNOWN,
+        "system failure": EVChargerState.UNKNOWN,
+        "unstable cp": EVChargerState.UNKNOWN,
+    },
 }
+
+# The brands whose charge mode select has an option that means "use surplus only", and the option
+# to use when the select does not say what it offers.
+SURPLUS_MODE_DEFAULTS: dict[EVChargerBrand, str] = {
+    EVChargerBrand.ZAPPI: "Eco+",
+    EVChargerBrand.GIVENERGY: "Solar",
+}
+
+# A mode with any of these words in it is never selected, whatever else it says: it stops, pauses
+# or forces a charge, or draws from the grid.
+FORBIDDEN_MODE_WORDS = ("stop", "off", "pause", "fast", "boost", "grid", "max", "hybrid")
+# What "use surplus only" is called, lower case.
+SURPLUS_MODE_NAMES = ("eco+", "solar", "surplus", "green")
+
+
+def pick_surplus_mode(options: Sequence[str]) -> str | None:
+    """The option that means "use surplus only", or None when the select offers none.
+
+    An option holding a forbidden word is skipped before it is compared, so a list of stop, fast
+    and grid options picks nothing. Hybrid is forbidden too: it takes a constant 6 A from the
+    grid, so it is never chosen automatically.
+    """
+    for option in options:
+        lowered = str(option).strip().lower()
+        if any(word in lowered for word in FORBIDDEN_MODE_WORDS):
+            continue
+        if lowered in SURPLUS_MODE_NAMES:
+            return str(option)
+    return None
 
 # Mode to use when we want to absorb genuine solar surplus (no battery draw)
 ZAPPI_ECO_PLUS_MODE = "Eco+"
@@ -160,7 +219,7 @@ class EVCharger:
     status_entity: str | None = None
     power_entity: str | None = None
     session_energy_entity: str | None = None
-    charge_mode_entity: str | None = None  # select entity (Zappi / some others)
+    charge_mode_entity: str | None = None  # select entity (Zappi, GivEnergy)
     activity_entity: str | None = None  # operating status (Zappi: Boosting, Diverting, Paused)
 
     # Runtime state (populated by coordinator each cycle, NOT at discovery)
@@ -168,6 +227,8 @@ class EVCharger:
     power_w: float = 0.0
     session_kwh: float = 0.0
     charge_mode: str | None = None
+    # The options the charge mode select offers, read each cycle. None until it has been read.
+    charge_mode_options: tuple[str, ...] | None = None
     is_draining_battery: bool = False
 
     def normalise_state(self, raw_state: str) -> EVChargerState:
@@ -221,8 +282,18 @@ class EVCharger:
 
     @property
     def can_set_solar_only_mode(self) -> bool:
-        """True if we can switch to solar-only (Eco+) mode."""
-        return self.brand == EVChargerBrand.ZAPPI and self.charge_mode_entity is not None
+        """True if we can switch to a surplus-only mode (Eco+ on a Zappi, Solar on GivEnergy)."""
+        return self.brand in SURPLUS_MODE_DEFAULTS and self.charge_mode_entity is not None
+
+    def surplus_mode(self) -> str | None:
+        """The mode that means "use surplus only", None when the select offers none.
+
+        From the options the select reports. Before they are read, or when the select reports
+        none, it is the brand's own name for it.
+        """
+        if self.charge_mode_options:
+            return pick_surplus_mode(self.charge_mode_options)
+        return SURPLUS_MODE_DEFAULTS.get(self.brand)
 
 
 # Status entities already warned about. Discovery repeats every 5 minutes while the
@@ -373,6 +444,41 @@ def _discover_easee(all_states: dict) -> list[EVCharger]:
     return chargers
 
 
+def _discover_givenergy_evc(all_states: dict) -> list[EVCharger]:
+    """Discover GivEnergy chargers published by GivTCP, by what the device publishes.
+
+    GivTCP names the device GivEVC and lets the user change the prefix, so the prefix is taken
+    from the charging state sensor, and the connection status sensor must be there too. The
+    inverter's own discovery ignores the device because it has no state of charge.
+    """
+    suffix = "_charging_state"
+    chargers = []
+    for eid in list(all_states):
+        if not eid.startswith("sensor.") or not eid.endswith(suffix):
+            continue
+        prefix = eid[len("sensor.") : -len(suffix)]
+        if f"sensor.{prefix}_connection_status" not in all_states:
+            continue
+        serial_state = all_states.get(f"sensor.{prefix}_serial_number")
+        serial = str(getattr(serial_state, "state", "") or "").strip()
+        if serial.lower() in ("", "unknown", "unavailable"):
+            serial = prefix.rsplit("_", 1)[-1].upper()
+        ch = EVCharger(
+            brand=EVChargerBrand.GIVENERGY,
+            name=f"GivEnergy EVC {serial}",
+            serial=serial,
+            display_name=f"GivEnergy EVC ({serial})",
+            status_entity=f"sensor.{prefix}_connection_status",
+            activity_entity=eid,
+        )
+        _maybe(ch, "power_entity", all_states, f"sensor.{prefix}_active_power")
+        _maybe(ch, "session_energy_entity", all_states, f"sensor.{prefix}_charge_session_energy")
+        _maybe(ch, "charge_mode_entity", all_states, f"select.{prefix}_charging_mode")
+        _warn_if_power_missing(ch)
+        chargers.append(ch)
+    return chargers
+
+
 def discover_ev_chargers(all_states: dict) -> list[EVCharger]:
     """
     Scan HA entity states for known EV charger integrations.
@@ -384,7 +490,14 @@ def discover_ev_chargers(all_states: dict) -> list[EVCharger]:
     Returns a list of discovered chargers sorted by brand then serial.
     """
     chargers: list[EVCharger] = []
-    for fn in (_discover_zappi, _discover_wallbox, _discover_ocpp, _discover_ohme, _discover_easee):
+    for fn in (
+        _discover_zappi,
+        _discover_wallbox,
+        _discover_ocpp,
+        _discover_ohme,
+        _discover_easee,
+        _discover_givenergy_evc,
+    ):
         chargers.extend(fn(all_states))
     chargers.sort(key=lambda c: (c.brand.value, c.serial))
     return chargers
@@ -394,6 +507,14 @@ def _maybe(ch: EVCharger, attr: str, all_states: dict, eid: str) -> None:
     """Set charger attribute only if the entity actually exists in HA."""
     if eid in all_states:
         setattr(ch, attr, eid)
+
+
+def _options_of(state: object) -> tuple[str, ...] | None:
+    """The options a select reports in its `options` attribute, None when it reports none."""
+    options = getattr(state, "attributes", {}).get("options")
+    if not isinstance(options, (list, tuple)) or not options:
+        return None
+    return tuple(str(option) for option in options)
 
 
 def update_charger_state(  # noqa: C901
@@ -448,6 +569,7 @@ def update_charger_state(  # noqa: C901
     raw_mode = _read_state(charger.charge_mode_entity)
     if raw_mode is not None:
         charger.charge_mode = raw_mode
+        charger.charge_mode_options = _options_of(get_state(charger.charge_mode_entity))
 
     charger.is_draining_battery = charger.is_active and battery_power_w < -200
 

@@ -81,6 +81,33 @@ def _base(real: dict) -> dict:
     return copy.deepcopy(real["states"])
 
 
+def _charger(prefix: str, serial: str, connection: str, state: str, mode: str) -> dict:
+    """The entities GivTCP publishes for a GivEnergy charger (GivEVC)."""
+    out = {
+        f"sensor.{prefix}_serial_number": {"state": serial},
+        f"sensor.{prefix}_charging_state": {"state": state},
+        f"sensor.{prefix}_connection_status": {"state": connection},
+        f"sensor.{prefix}_error_code": {"state": "0"},
+        f"sensor.{prefix}_active_power": {"state": "0" if state != "Charging" else "1380"},
+        f"sensor.{prefix}_charge_session_energy": {"state": "2.4"},
+        f"sensor.{prefix}_charge_session_duration": {"state": "1800"},
+        f"sensor.{prefix}_meter_energy": {"state": "812.5"},
+        f"switch.{prefix}_plug_and_go": {"state": "on"},
+        f"select.{prefix}_charge_control": {
+            "state": "Start",
+            "attributes": {"options": ["Start", "Stop"]},
+        },
+        f"select.{prefix}_charging_mode": {
+            "state": mode,
+            "attributes": {"options": ["Grid", "Solar", "Hybrid"]},
+        },
+        f"number.{prefix}_charge_limit": {"state": "32"},
+        f"number.{prefix}_import_cap": {"state": "0"},
+        f"number.{prefix}_max_session_energy": {"state": "0"},
+    }
+    return out
+
+
 def build() -> dict[str, dict]:  # noqa: PLR0915
     real = load_real()
     out: dict[str, dict] = {}
@@ -237,16 +264,22 @@ def build() -> dict[str, dict]:  # noqa: PLR0915
         kind="hybrid", controller="AB1234G567", ask=False, modules=2,
     )
 
-    # SYS-16: a GivEnergy EV charger beside the inverter is not an inverter.
+    # SYS-16: a GivEnergy EV charger beside the inverter is not an inverter. The datapoint names
+    # and the state strings are GivTCP's own (DATAPOINTS.md and evc.py). The prefix is a guess.
     states = _base(real)
-    for suffix, value in (("givtcp_version", "3.6.3"), ("status", "online"),
-                          ("evc_charge_power", "0"), ("evc_state", "Idle")):
-        states[f"sensor.givtcp_evc_ev1234a567_{suffix}"] = {"state": value}
+    states.update(_charger("givtcp_evc_ev1234a567", "EV1234A567", "Connected", "Charging", "Solar"))
     out["hybrid_with_ev_charger_3_6_3"] = _fixture(
         "hybrid_with_ev_charger_3_6_3",
-        "The real hybrid with a GivTCP EV charger device beside it.",
+        "The real hybrid with a GivTCP EV charger device (GivEVC) beside it, charging in Solar mode.",
         states,
         kind="hybrid", controller="AB1234G567", ask=False, modules=2, devices=1,
+    )
+
+    # A charger on its own, as the charger tests use it.
+    out["givenergy_charger_only"] = _fixture(
+        "givenergy_charger_only",
+        "A GivEnergy charger (GivEVC) with a car plugged in and not charging, in Grid mode.",
+        _charger("givtcp_evc_ev1234a567", "EV1234A567", "Connected", "Connected", "Grid"),
     )
     return out
 
