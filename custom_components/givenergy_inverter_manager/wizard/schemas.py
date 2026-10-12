@@ -63,6 +63,7 @@ from ..core.wizard_tariff import (
     default_rate_rows,
     night_window,
     rate_count,
+    rate_prefill,
 )
 from .selectors import (
     alt_heat_unit_selector,
@@ -156,6 +157,16 @@ def bill_schema(ctx: PageContext) -> vol.Schema:
     )
 
 
+def _suggest(key: str, value: float | None) -> vol.Required:
+    """A required field that starts at *value* when there is one, and is empty otherwise.
+
+    A suggested value is shown but is not a default, so the field still has to be filled in.
+    """
+    if value is None:
+        return vol.Required(key)
+    return vol.Required(key, description={"suggested_value": value})
+
+
 def tariff_schema(ctx: PageContext) -> vol.Schema:
     """Base rate, export rate and how many time-of-day rates there are.
 
@@ -165,10 +176,15 @@ def tariff_schema(ctx: PageContext) -> vol.Schema:
     """
     currency = _currency(ctx)
     if ctx.mode is Mode.SETUP:
+        offered = rate_prefill(ctx.rate_defaults)
         return vol.Schema(
             {
-                vol.Required(CONF_BASE_RATE): price_selector(CONF_BASE_RATE, currency),
-                vol.Required(CONF_EXPORT_RATE): price_selector(CONF_EXPORT_RATE, currency),
+                _suggest(CONF_BASE_RATE, offered.day_rate): price_selector(
+                    CONF_BASE_RATE, currency
+                ),
+                _suggest(CONF_EXPORT_RATE, offered.export_rate): price_selector(
+                    CONF_EXPORT_RATE, currency
+                ),
                 vol.Required("rate_count", default="0"): rate_count_selector(),
                 vol.Optional(BILL_SECTION): section(bill_schema(ctx), {"collapsed": True}),
             }
@@ -211,7 +227,8 @@ def _rate_row_section(row: dict[str, Any], currency: str) -> object:
 def rates_schema(ctx: PageContext, count: int, country: str | None) -> vol.Schema:
     """Exactly *count* rows. Saved rows first, then new ones. Fewer rows drops the last."""
     saved = ctx.current.get(CONF_RATE_PERIODS) or []
-    rows = default_rate_rows(count, saved, night_window(country))
+    night = rate_prefill(ctx.rate_defaults).night_rate if ctx.mode is Mode.SETUP else None
+    rows = default_rate_rows(count, saved, night_window(country), night)
     currency = _currency(ctx)
     return vol.Schema(
         {

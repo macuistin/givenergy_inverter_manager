@@ -244,3 +244,67 @@ class TestText:
         assert "Day 0.3300 GBP/kWh, export 0.2000" in line
         assert "1 time-of-day rate" in line
         assert "rates" not in line
+
+
+# ── Starting values from the inverter integration ─────────────────────────────
+
+
+class TestRatePrefill:
+    def test_a_readable_rate_above_zero_is_offered(self):
+        from custom_components.givenergy_inverter_manager.core.inverter_values import RateDefaults
+        from custom_components.givenergy_inverter_manager.core.wizard_tariff import rate_prefill
+
+        offered = rate_prefill(RateDefaults(day_rate=0.29, night_rate=0.14, export_rate=0.1))
+
+        assert (offered.day_rate, offered.night_rate, offered.export_rate) == (0.29, 0.14, 0.1)
+
+    @pytest.mark.parametrize("value", [None, 0, 0.0, -0.1])
+    def test_a_missing_zero_or_negative_rate_is_not_offered(self, value):
+        from custom_components.givenergy_inverter_manager.core.inverter_values import RateDefaults
+        from custom_components.givenergy_inverter_manager.core.wizard_tariff import rate_prefill
+
+        offered = rate_prefill(RateDefaults(day_rate=value, night_rate=value, export_rate=value))
+
+        assert offered == RateDefaults()
+
+    def test_nothing_held_offers_nothing(self):
+        from custom_components.givenergy_inverter_manager.core.inverter_values import RateDefaults
+        from custom_components.givenergy_inverter_manager.core.wizard_tariff import rate_prefill
+
+        assert rate_prefill(None) == RateDefaults()
+
+    def test_each_rate_is_judged_on_its_own(self):
+        from custom_components.givenergy_inverter_manager.core.inverter_values import RateDefaults
+        from custom_components.givenergy_inverter_manager.core.wizard_tariff import rate_prefill
+
+        offered = rate_prefill(RateDefaults(day_rate=0.29, night_rate=0, export_rate=None))
+
+        assert (offered.day_rate, offered.night_rate, offered.export_rate) == (0.29, None, None)
+
+    def test_the_note_appears_only_when_a_value_was_offered(self):
+        from custom_components.givenergy_inverter_manager.core.wizard_tariff import (
+            RATE_NOTE,
+            rate_note,
+        )
+
+        assert rate_note(None, None) == ""
+        assert rate_note(None, 0.1) == f"\n\n{RATE_NOTE}"
+
+    def test_the_night_rate_goes_to_the_first_new_row_and_the_window_is_not_taken(self):
+        from custom_components.givenergy_inverter_manager.core.wizard_tariff import (
+            default_rate_rows,
+        )
+
+        rows = default_rate_rows(2, [], ("23:00", "07:00"), night_rate=0.14)
+
+        assert [r["rate"] for r in rows] == [0.14, None]
+        assert (rows[0]["start"], rows[0]["end"]) == ("23:00:00", "07:00:00")
+
+    def test_a_saved_first_row_keeps_its_own_rate(self):
+        from custom_components.givenergy_inverter_manager.core.wizard_tariff import (
+            default_rate_rows,
+        )
+
+        saved = [{"name": "Night", "rate": 0.2, "start": "00:00", "end": "05:00"}]
+
+        assert default_rate_rows(1, saved, ("23:00", "07:00"), night_rate=0.14)[0]["rate"] == 0.2

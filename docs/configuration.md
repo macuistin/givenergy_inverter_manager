@@ -29,6 +29,7 @@ The integration looks for a GivTCP inverter by its `sensor.givtcp_<id>_invertor_
 | Enable charge target | `switch..._enable_charge_target` | no, needed to write charge targets |
 | Enable charge schedule | `switch..._enable_charge_schedule` | no, needed to write charge targets |
 | Charge start and end, slot 1 | `select..._charge_start_time_slot_1` and `..._charge_end_time_slot_1` | no, needed to write charge targets |
+| Day, night and export rate | `sensor..._day_rate`, `..._night_rate` and `..._export_rate` | no, offered as starting values on the setup tariff screen only. See [Screen: Tariff](#screen-tariff) |
 | Battery charge rate | `number..._battery_charge_rate` | no, read at the pre-window write to size the charge window. Not stored in the configuration. Without it the window is the cheapest period |
 
 When the five required power sensors are found, the inverter is used with no page of its own. The same screen also finds, uses and announces:
@@ -56,9 +57,11 @@ If no inverter is found, or the one found has sensors missing, the next screen a
 
 | Field | Default | Range |
 |---|---|---|
-| Base rate | none, required | 0 to 5 per kWh |
-| Export rate | none, required | 0 to 1 per kWh |
+| Base rate | none, required. Starts at GivTCP's day rate when you set one | 0 to 5 per kWh |
+| Export rate | none, required. Starts at GivTCP's export rate when you set one | 0 to 1 per kWh |
 | Time-of-day rates besides the base rate | None, one rate all day | 0 to 5 |
+
+**Starting values from GivTCP.** If GivTCP holds a day, night or export rate that you set on its own configuration page, this screen starts from it and says "Taken from GivTCP. Check them against your bill." The day rate starts the base rate, the export rate starts the export rate, and the night rate starts the rate of the first time-of-day row on the next screen. The row's window is never taken from GivTCP. A rate is offered only when GivTCP shows a value above zero that is not one of the values it ships with (0.395 day, 0.155 night, 0.04 export), because a shipped value means the rate was never set. Everything else stays empty. The values are used as they are, per kWh in the currency GivTCP uses, so check them against your bill. Nothing is saved until the confirm screen. The Configure tariff page never reads GivTCP's rates.
 
 The Bill details section is collapsed. Open it when you have your bill to hand. Every field in it has a default that charges nothing, so skipping it is safe.
 

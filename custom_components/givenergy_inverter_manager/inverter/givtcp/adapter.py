@@ -89,8 +89,7 @@ class GivTCPBackend:
         return await sequence.clear_charge_slot(self.writer, slot)
 
     def read_rate_defaults(self, cfg: Mapping[str, Any]) -> RateDefaults | None:
-        # Filled in by the setup tariff page card, which decides what counts as a default.
-        return None
+        return self._reader.rate_defaults(cfg.get(CONF_INVERTER_SERIAL))
 
     def watched_entity_ids(self, cfg: Mapping[str, Any]) -> tuple[str, ...]:
         keys = (CONF_TARGET_SOC_ENTITY, CONF_CHARGE_START_TIME_ENTITY, CONF_CHARGE_END_TIME_ENTITY)
@@ -128,6 +127,11 @@ class GivTCPBackend:
     @write_count.setter
     def write_count(self, count: int) -> None:
         self.writer.write_count = count
+
+
+def read_rate_defaults(serial: str | None, get_state: GetState) -> RateDefaults | None:
+    """The rates GivTCP holds, for the setup tariff page, before any backend exists."""
+    return GivTCPReader(get_state).rate_defaults(serial)
 
 
 def make_backend(cfg: Mapping[str, Any], ports: GivTCPPorts) -> GivTCPBackend:

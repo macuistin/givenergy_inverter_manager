@@ -187,7 +187,8 @@
   "errors": {},
   "placeholders": {
    "progress": "Step 2 of about 4.",
-   "warnings": ""
+   "warnings": "",
+   "rate_note": ""
   },
   "fields": [
    {
@@ -392,7 +393,8 @@
   },
   "placeholders": {
    "progress": "Step 2 of about 4.",
-   "warnings": ""
+   "warnings": "",
+   "rate_note": ""
   },
   "fields": [
    {
@@ -625,7 +627,8 @@
   "errors": {},
   "placeholders": {
    "progress": "Step 3 of about 5.",
-   "warnings": ""
+   "warnings": "",
+   "rate_note": ""
   },
   "fields": [
    {
@@ -736,7 +739,8 @@
   },
   "placeholders": {
    "progress": "Step 3 of about 5.",
-   "warnings": ""
+   "warnings": "",
+   "rate_note": ""
   },
   "fields": [
    {
@@ -1227,7 +1231,8 @@
   "errors": {},
   "placeholders": {
    "progress": "Step 2 of about 5.",
-   "warnings": ""
+   "warnings": "",
+   "rate_note": ""
   },
   "fields": [
    {
@@ -1432,7 +1437,8 @@
   },
   "placeholders": {
    "progress": "Step 2 of about 5.",
-   "warnings": ""
+   "warnings": "",
+   "rate_note": ""
   },
   "fields": [
    {
@@ -1665,7 +1671,8 @@
   "errors": {},
   "placeholders": {
    "progress": "Step 3 of about 6.",
-   "warnings": ""
+   "warnings": "",
+   "rate_note": ""
   },
   "fields": [
    {
@@ -1776,7 +1783,8 @@
   },
   "placeholders": {
    "progress": "Step 3 of about 6.",
-   "warnings": ""
+   "warnings": "",
+   "rate_note": ""
   },
   "fields": [
    {
@@ -2273,6 +2281,1127 @@
   ]
  },
  "setup_auto_no_forecast.confirm": {
+  "step_id": "confirm",
+  "last_step": true,
+  "errors": null,
+  "placeholders": {
+   "summary": "- Inverter: ab1234g567.\n- Cheapest rate in your saved tariff: Night at 0.1200 EUR/kWh, 23:00 to 07:00. Your bill runs from the 1st to the last day of the month.\n- Base rate: Day 0.3000. Timed rates: Night 0.1200 (23:00 to 07:00), Peak 0.2000 (17:00 to 19:00).\n- Battery 9.5 kWh, inverter 5 kW.\n- EV charger: none found, one is picked up when it appears.\n- Solar forecast: none, a seasonal estimate is used.\n- Hot water: no immersion switch, alternative heating: Oil.\n- Dry run is on. Nothing is sent to your inverter, immersion or EV charger until you turn off the Dry run switch.",
+   "warnings": "- Alternative heating gives no advice until an immersion switch is set.\n- Alternative heating gives no advice until a cost or a cost sensor is set.",
+   "progress": "Step 6 of about 6."
+  },
+  "fields": []
+ },
+ "setup_auto_with_givtcp_rates.system": {
+  "step_id": "system",
+  "last_step": false,
+  "errors": null,
+  "placeholders": {
+   "found": "- Inverter: GivTCP ab1234g567, all sensors found and used.\n- EV charger: none found. One is picked up by itself when it appears.\n- Solar forecast: none found.",
+   "progress": "Step 1 of about 3."
+  },
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 1.0,
+      "max": 20.0,
+      "step": 0.1,
+      "unit_of_measurement": "kW",
+      "mode": "slider"
+     }
+    },
+    "name": "inverter_max_output_kw",
+    "required": false,
+    "optional": true,
+    "default": 5.0
+   },
+   {
+    "selector": {
+     "select": {
+      "options": [
+       "tariff",
+       "forecast",
+       "hot_water"
+      ],
+      "multiple": true,
+      "mode": "list",
+      "translation_key": "setup_pages",
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "pages",
+    "required": true,
+    "default": [
+     "tariff"
+    ]
+   }
+  ]
+ },
+ "setup_auto_with_givtcp_rates.tariff": {
+  "step_id": "tariff",
+  "last_step": false,
+  "errors": {},
+  "placeholders": {
+   "progress": "Step 2 of about 5.",
+   "warnings": "",
+   "rate_note": "\n\nTaken from GivTCP. Check them against your bill."
+  },
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "base_rate",
+    "description": {
+     "suggested_value": 0.2918
+    },
+    "required": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "export_rate",
+    "description": {
+     "suggested_value": 0.1
+    },
+    "required": true
+   },
+   {
+    "selector": {
+     "select": {
+      "options": [
+       "0",
+       "1",
+       "2",
+       "3",
+       "4",
+       "5"
+      ],
+      "translation_key": "rate_count",
+      "mode": "dropdown",
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "rate_count",
+    "required": true,
+    "default": "0"
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "select": {
+        "options": [
+         {
+          "value": "EUR",
+          "label": "EUR (€)"
+         },
+         {
+          "value": "GBP",
+          "label": "GBP (£)"
+         },
+         {
+          "value": "USD",
+          "label": "USD ($)"
+         },
+         {
+          "value": "SEK",
+          "label": "SEK (kr)"
+         },
+         {
+          "value": "NOK",
+          "label": "NOK (kr)"
+         },
+         {
+          "value": "DKK",
+          "label": "DKK (kr)"
+         },
+         {
+          "value": "AUD",
+          "label": "AUD (A$)"
+         },
+         {
+          "value": "CAD",
+          "label": "CAD (C$)"
+         },
+         {
+          "value": "NZD",
+          "label": "NZD (NZ$)"
+         },
+         {
+          "value": "ZAR",
+          "label": "ZAR (R)"
+         }
+        ],
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "currency",
+      "required": true,
+      "default": "EUR"
+     },
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "base_rate_name",
+      "required": false,
+      "optional": true,
+      "default": "Day"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 28.0,
+        "step": 1.0,
+        "mode": "slider"
+       }
+      },
+      "name": "bill_start_day",
+      "required": true,
+      "default": 1
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/day",
+        "mode": "slider"
+       }
+      },
+      "name": "standing_charge_per_day",
+      "required": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.01,
+        "unit_of_measurement": "EUR/month",
+        "mode": "slider"
+       }
+      },
+      "name": "pso_levy_per_month",
+      "required": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 30.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "vat_rate",
+      "required": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "discount_rate",
+      "required": true,
+      "default": 0.0
+     }
+    ],
+    "expanded": false,
+    "name": "bill_details",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "setup_auto_with_givtcp_rates.tariff_with_error": {
+  "step_id": "tariff",
+  "last_step": false,
+  "errors": {
+   "base": "base_rate_required"
+  },
+  "placeholders": {
+   "progress": "Step 2 of about 5.",
+   "warnings": "",
+   "rate_note": "\n\nTaken from GivTCP. Check them against your bill."
+  },
+  "fields": [
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 5.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "base_rate",
+    "description": {
+     "suggested_value": 0.0
+    },
+    "required": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.001,
+      "unit_of_measurement": "EUR/kWh",
+      "mode": "slider"
+     }
+    },
+    "name": "export_rate",
+    "description": {
+     "suggested_value": 0.1
+    },
+    "required": true
+   },
+   {
+    "selector": {
+     "select": {
+      "options": [
+       "0",
+       "1",
+       "2",
+       "3",
+       "4",
+       "5"
+      ],
+      "translation_key": "rate_count",
+      "mode": "dropdown",
+      "multiple": false,
+      "custom_value": false,
+      "sort": false
+     }
+    },
+    "name": "rate_count",
+    "description": {
+     "suggested_value": "0"
+    },
+    "required": true,
+    "default": "0"
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "select": {
+        "options": [
+         {
+          "value": "EUR",
+          "label": "EUR (€)"
+         },
+         {
+          "value": "GBP",
+          "label": "GBP (£)"
+         },
+         {
+          "value": "USD",
+          "label": "USD ($)"
+         },
+         {
+          "value": "SEK",
+          "label": "SEK (kr)"
+         },
+         {
+          "value": "NOK",
+          "label": "NOK (kr)"
+         },
+         {
+          "value": "DKK",
+          "label": "DKK (kr)"
+         },
+         {
+          "value": "AUD",
+          "label": "AUD (A$)"
+         },
+         {
+          "value": "CAD",
+          "label": "CAD (C$)"
+         },
+         {
+          "value": "NZD",
+          "label": "NZD (NZ$)"
+         },
+         {
+          "value": "ZAR",
+          "label": "ZAR (R)"
+         }
+        ],
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "currency",
+      "description": {
+       "suggested_value": "EUR"
+      },
+      "required": true,
+      "default": "EUR"
+     },
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "base_rate_name",
+      "description": {
+       "suggested_value": "Day"
+      },
+      "required": false,
+      "optional": true,
+      "default": "Day"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 1.0,
+        "max": 28.0,
+        "step": 1.0,
+        "mode": "slider"
+       }
+      },
+      "name": "bill_start_day",
+      "description": {
+       "suggested_value": 1.0
+      },
+      "required": true,
+      "default": 1
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/day",
+        "mode": "slider"
+       }
+      },
+      "name": "standing_charge_per_day",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.01,
+        "unit_of_measurement": "EUR/month",
+        "mode": "slider"
+       }
+      },
+      "name": "pso_levy_per_month",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 30.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "vat_rate",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": true,
+      "default": 0.0
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 20.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "slider"
+       }
+      },
+      "name": "discount_rate",
+      "description": {
+       "suggested_value": 0.0
+      },
+      "required": true,
+      "default": 0.0
+     }
+    ],
+    "expanded": false,
+    "name": "bill_details",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "setup_auto_with_givtcp_rates.tariff_rates": {
+  "step_id": "tariff_rates",
+  "last_step": false,
+  "errors": {},
+  "placeholders": {
+   "progress": "Step 3 of about 6.",
+   "warnings": "",
+   "rate_note": "\n\nTaken from GivTCP. Check them against your bill."
+  },
+  "fields": [
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": true,
+      "default": "Night"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": true,
+      "default": 0.1432
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": true,
+      "default": "23:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": true,
+      "default": "07:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "required": true,
+      "default": "Peak"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "required": true
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "required": true,
+      "default": "17:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "required": true,
+      "default": "19:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "setup_auto_with_givtcp_rates.tariff_rates_with_error": {
+  "step_id": "tariff_rates",
+  "last_step": false,
+  "errors": {
+   "base": "rate_period_zero_length"
+  },
+  "placeholders": {
+   "progress": "Step 3 of about 6.",
+   "warnings": "",
+   "rate_note": "\n\nTaken from GivTCP. Check them against your bill."
+  },
+  "fields": [
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": "Empty"
+      },
+      "required": true,
+      "default": "Night"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.01
+      },
+      "required": true,
+      "default": 0.1432
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": true,
+      "default": "23:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "00:00:00"
+      },
+      "required": true,
+      "default": "07:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_1",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "name",
+      "description": {
+       "suggested_value": "Peak"
+      },
+      "required": true,
+      "default": "Peak"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.0,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider"
+       }
+      },
+      "name": "rate",
+      "description": {
+       "suggested_value": 0.2
+      },
+      "required": true
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "start",
+      "description": {
+       "suggested_value": "17:00:00"
+      },
+      "required": true,
+      "default": "17:00:00"
+     },
+     {
+      "selector": {
+       "time": {}
+      },
+      "name": "end",
+      "description": {
+       "suggested_value": "19:00:00"
+      },
+      "required": true,
+      "default": "19:00:00"
+     }
+    ],
+    "expanded": true,
+    "name": "rate_period_2",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "setup_auto_with_givtcp_rates.forecast": {
+  "step_id": "forecast",
+  "last_step": false,
+  "errors": {},
+  "placeholders": {
+   "progress": "Step 4 of about 6.",
+   "warnings": "",
+   "detected": "No Solcast or Forecast.Solar sensor was found.",
+   "check": "No sensor is set yet."
+  },
+  "fields": [
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "forecast_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "forecast_entity_p10",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "forecast_entity_d2",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "carbon_intensity_entity",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "setup_auto_with_givtcp_rates.hot_water": {
+  "step_id": "hot_water",
+  "last_step": false,
+  "errors": {},
+  "placeholders": {
+   "progress": "Step 5 of about 6.",
+   "warnings": "",
+   "candidates": "Switches that look like an immersion heater: switch.immersion_heater.",
+   "check": "No sensor is set yet."
+  },
+  "fields": [
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "switch"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_switch_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_temp_sensor_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 500.0,
+      "max": 6000.0,
+      "step": 100.0,
+      "unit_of_measurement": "W",
+      "mode": "slider"
+     }
+    },
+    "name": "immersion_wattage_w",
+    "required": false,
+    "optional": true,
+    "default": 3000.0
+   },
+   {
+    "selector": {
+     "text": {
+      "multiple": true,
+      "multiline": false
+     }
+    },
+    "name": "immersion_ready_times",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "boolean": {}
+      },
+      "name": "alt_heat_enabled",
+      "required": false,
+      "optional": true,
+      "default": false
+     },
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "alt_heat_label",
+      "required": false,
+      "optional": true,
+      "default": "Oil"
+     },
+     {
+      "selector": {
+       "select": {
+        "options": [
+         "litre",
+         "kwh_heat"
+        ],
+        "translation_key": "alt_heat_cost_unit",
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "alt_heat_cost_unit",
+      "required": false,
+      "optional": true,
+      "default": "litre"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.001,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR",
+        "mode": "box"
+       }
+      },
+      "name": "alt_heat_cost",
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor",
+         "input_number"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "alt_heat_cost_entity",
+      "required": false,
+      "optional": true
+     }
+    ],
+    "expanded": false,
+    "name": "alt_heat",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "setup_auto_with_givtcp_rates.hot_water_with_warning": {
+  "step_id": "hot_water",
+  "last_step": false,
+  "errors": {},
+  "placeholders": {
+   "progress": "Step 5 of about 6.",
+   "warnings": "Check: Alternative heating gives no advice until an immersion switch is set.\n\nCheck: Alternative heating gives no advice until a cost or a cost sensor is set.\n\n",
+   "candidates": "Switches that look like an immersion heater: switch.immersion_heater.",
+   "check": "No sensor is set yet."
+  },
+  "fields": [
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "switch"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_switch_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_temp_sensor_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 500.0,
+      "max": 6000.0,
+      "step": 100.0,
+      "unit_of_measurement": "W",
+      "mode": "slider"
+     }
+    },
+    "name": "immersion_wattage_w",
+    "description": {
+     "suggested_value": 3000.0
+    },
+    "required": false,
+    "optional": true,
+    "default": 3000.0
+   },
+   {
+    "selector": {
+     "text": {
+      "multiple": true,
+      "multiline": false
+     }
+    },
+    "name": "immersion_ready_times",
+    "required": false,
+    "optional": true
+   },
+   {
+    "type": "expandable",
+    "schema": [
+     {
+      "selector": {
+       "boolean": {}
+      },
+      "name": "alt_heat_enabled",
+      "description": {
+       "suggested_value": true
+      },
+      "required": false,
+      "optional": true,
+      "default": false
+     },
+     {
+      "selector": {
+       "text": {
+        "multiline": false,
+        "multiple": false
+       }
+      },
+      "name": "alt_heat_label",
+      "description": {
+       "suggested_value": "Oil"
+      },
+      "required": false,
+      "optional": true,
+      "default": "Oil"
+     },
+     {
+      "selector": {
+       "select": {
+        "options": [
+         "litre",
+         "kwh_heat"
+        ],
+        "translation_key": "alt_heat_cost_unit",
+        "multiple": false,
+        "custom_value": false,
+        "sort": false
+       }
+      },
+      "name": "alt_heat_cost_unit",
+      "description": {
+       "suggested_value": "litre"
+      },
+      "required": false,
+      "optional": true,
+      "default": "litre"
+     },
+     {
+      "selector": {
+       "number": {
+        "min": 0.001,
+        "max": 5.0,
+        "step": 0.001,
+        "unit_of_measurement": "EUR",
+        "mode": "box"
+       }
+      },
+      "name": "alt_heat_cost",
+      "required": false,
+      "optional": true
+     },
+     {
+      "selector": {
+       "entity": {
+        "domain": [
+         "sensor",
+         "input_number"
+        ],
+        "multiple": false,
+        "reorder": false
+       }
+      },
+      "name": "alt_heat_cost_entity",
+      "required": false,
+      "optional": true
+     }
+    ],
+    "expanded": false,
+    "name": "alt_heat",
+    "required": false,
+    "optional": true
+   }
+  ]
+ },
+ "setup_auto_with_givtcp_rates.confirm": {
   "step_id": "confirm",
   "last_step": true,
   "errors": null,

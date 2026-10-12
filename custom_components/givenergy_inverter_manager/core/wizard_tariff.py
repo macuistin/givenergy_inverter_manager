@@ -34,6 +34,7 @@ from ..const import (
     DEFAULT_CURRENCY,
     TARIFF_RATE_KEYS,
 )
+from .inverter_values import RateDefaults
 from .tariff import TariffSubmission, build_tariff, scheduled_tariff_changes
 from .wizard_model import KEY_DEFAULTS, Validation, changed_values, same_value
 
@@ -75,13 +76,41 @@ def count_from_input(user_input: Mapping[str, Any]) -> int:
         return 0
 
 
+RATE_NOTE = "Taken from GivTCP. Check them against your bill."
+
+
+def rate_prefill(held: RateDefaults | None) -> RateDefaults:
+    """The rates worth offering as starting values: readable and above zero, else None.
+
+    A missing, zero or negative rate is not offered, so the field stays empty. Which values
+    mean "never set" is the inverter backend's call and is already removed from *held*.
+    """
+
+    def usable(value: float | None) -> float | None:
+        return float(value) if isinstance(value, (int, float)) and value > 0 else None
+
+    if held is None:
+        return RateDefaults()
+    return RateDefaults(
+        day_rate=usable(held.day_rate),
+        night_rate=usable(held.night_rate),
+        export_rate=usable(held.export_rate),
+    )
+
+
+def rate_note(*offered: float | None) -> str:
+    """The line that says where the starting values came from, or nothing when none was offered."""
+    return f"\n\n{RATE_NOTE}" if any(value is not None for value in offered) else ""
+
+
 def default_rate_rows(
-    count: int, saved: list[dict], window: tuple[str, str]
+    count: int, saved: list[dict], window: tuple[str, str], night_rate: float | None = None
 ) -> list[dict[str, Any]]:
     """The rows to show: the saved ones first, then new ones with a name and a window.
 
     Raising the count adds blank rows (no rate, so the user has to type one). Lowering it drops
-    the last ones. Times are HH:MM:SS, as the time selector wants them.
+    the last ones. Times are HH:MM:SS, as the time selector wants them. *night_rate* is the
+    rate of the first new row when one is known. The window is never taken from it.
     """
     rows: list[dict[str, Any]] = []
     for index in range(count):
@@ -96,7 +125,10 @@ def default_rate_rows(
                 }
             )
             continue
-        rows.append(_new_row(index, window))
+        row = _new_row(index, window)
+        if index == 0:
+            row["rate"] = night_rate
+        rows.append(row)
     return rows
 
 

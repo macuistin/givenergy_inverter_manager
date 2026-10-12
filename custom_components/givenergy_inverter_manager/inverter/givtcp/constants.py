@@ -8,3 +8,7 @@ GIVTCP_WRITE_LIFETIME_WARN = 500_000  # log a warning at this write count (~50% 
 GIVTCP_MIN_WRITE_INTERVAL_S = 300     # minimum seconds before the same value is rewritten
 GIVTCP_MIN_CHARGE_TARGET_PCT = 4      # lowest charge target GivTCP accepts
 GIVTCP_MAX_CHARGE_TARGET_PCT = 100    # highest charge target GivTCP accepts
+
+# The rates GivTCP holds until its user changes them: day, night and export, per kWh. A rate
+# equal to one of these has most likely never been set, so it is not offered as a starting value.
+GIVTCP_SHIPPED_RATES = {"day": 0.395, "night": 0.155, "export": 0.04}

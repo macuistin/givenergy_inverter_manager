@@ -37,7 +37,7 @@
       },
       "tariff": {
         "title": "Electricity tariff",
-        "description": "{progress}\n\n{warnings}Enter the rates from your bill or tariff sheet. A flat-rate home enters one rate and chooses 0 time-of-day rates. Rates are per kWh before VAT.",
+        "description": "{progress}\n\n{warnings}Enter the rates from your bill or tariff sheet. A flat-rate home enters one rate and chooses 0 time-of-day rates. Rates are per kWh before VAT.{rate_note}",
         "data": {
           "base_rate": "Base rate",
           "export_rate": "Export rate",
@@ -75,7 +75,7 @@
       },
       "tariff_rates": {
         "title": "Time-of-day rates",
-        "description": "{progress}\n\n{warnings}One row for each time-of-day rate you chose. Rates are per kWh before VAT.",
+        "description": "{progress}\n\n{warnings}One row for each time-of-day rate you chose. Rates are per kWh before VAT.{rate_note}",
         "sections": {
           "rate_period_1": {
             "name": "Rate 1",

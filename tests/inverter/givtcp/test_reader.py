@@ -142,3 +142,32 @@ class TestFeedStatus:
 
     def test_a_data_age_that_cannot_be_read_does_not_count_against_the_feed(self):
         assert _reader(_states(data_age="unavailable")).feed_status(CFG, NOW).is_publishing
+
+
+class TestRateDefaults:
+    def _rates(self, **rates: str):
+        states = _states(**{f"{k}_rate": v for k, v in rates.items()})
+        return _reader(states).rate_defaults(SERIAL)
+
+    def test_rates_the_user_set_are_returned(self):
+        held = self._rates(day="0.2918", night="0.1432", export="0.1")
+
+        assert (held.day_rate, held.night_rate, held.export_rate) == (0.2918, 0.1432, 0.1)
+
+    def test_the_rates_givtcp_ships_with_are_not_returned(self):
+        assert self._rates(day="0.395", night="0.155", export="0.04") is None
+
+    def test_a_shipped_default_is_skipped_but_a_changed_rate_beside_it_is_kept(self):
+        held = self._rates(day="0.395", night="0.1432", export="0.04")
+
+        assert (held.day_rate, held.night_rate, held.export_rate) == (None, 0.1432, None)
+
+    @pytest.mark.parametrize("value", ["0", "-0.1", "unavailable", "unknown", "not a number"])
+    def test_a_zero_negative_or_unreadable_rate_is_not_returned(self, value):
+        assert self._rates(day=value, night=value, export=value) is None
+
+    def test_no_rate_sensors_gives_none(self):
+        assert _reader(_states()).rate_defaults(SERIAL) is None
+
+    def test_no_serial_gives_none(self):
+        assert _reader(_states(day_rate="0.3")).rate_defaults(None) is None

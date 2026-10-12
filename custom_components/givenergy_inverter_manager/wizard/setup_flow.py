@@ -42,11 +42,14 @@ from ..core.wizard_tariff import (
     clean_bill,
     clean_tariff,
     count_from_input,
+    rate_note,
+    rate_prefill,
     rows_from_sections,
     validate_bill,
     validate_rates,
     validate_tariff,
 )
+from ..inverter.givtcp import read_rate_defaults
 from .detect import best_inverter, detect
 from .flow_base import PageView, WizardPages, ordered, states_by_id
 from .schemas import (
@@ -88,13 +91,15 @@ class SetupSteps(WizardPages):
         return self._detected
 
     def _ctx(self) -> PageContext:
+        states = states_by_id(self.hass)
         return PageContext(
             Mode.SETUP,
             dt_util.now().date(),
             detected=self._detected_now(),
             pending=self._values,
-            states=states_by_id(self.hass),
+            states=states,
             home_currency=currency_code(self.hass.config.currency),
+            rate_defaults=read_rate_defaults(self.unique_id, states.get),  # type: ignore[attr-defined]
         )
 
     def _total_steps(self) -> int:
@@ -286,8 +291,14 @@ class SetupSteps(WizardPages):
 
     def _tariff_view(self) -> PageView:
         ctx = self._ctx()
+        offered = rate_prefill(ctx.rate_defaults)
         return PageView(
-            "tariff", tariff_schema(ctx), self._validate_tariff, self._store_tariff, last_step=False
+            "tariff",
+            tariff_schema(ctx),
+            self._validate_tariff,
+            self._store_tariff,
+            {"rate_note": rate_note(offered.day_rate, offered.export_rate)},
+            last_step=False,
         )
 
     @staticmethod
@@ -318,6 +329,7 @@ class SetupSteps(WizardPages):
             rates_schema(ctx, count, country),
             lambda flat: validate_rates(rows(flat), base),
             lambda flat: {CONF_RATE_PERIODS: rows(flat)},
+            {"rate_note": rate_note(rate_prefill(ctx.rate_defaults).night_rate)},
             last_step=False,
         )
 

@@ -72,6 +72,7 @@ from ..const import (
     DEFAULT_VAT_RATE,
 )
 from ..discovery import EVCharger, ForecastSensors
+from .inverter_values import RateDefaults
 
 if TYPE_CHECKING:
     from ..inverter.givtcp.discovery import GivTCPInverter
@@ -217,6 +218,7 @@ class PageContext:
     pending: Mapping[str, Any] = field(default_factory=dict)
     states: Mapping[str, Any] = field(default_factory=dict)
     home_currency: str = DEFAULT_CURRENCY
+    rate_defaults: RateDefaults | None = None  # what the inverter integration holds, setup only
 
     def value(self, key: str, default: Any = None) -> Any:
         """The value of *key*: entered earlier in this run, else in force, else *default*."""

@@ -26,9 +26,10 @@ from ...const import (
     GIVTCP_FROZEN_AFTER_S,
 )
 from ...core.feed_freshness import frozen_age_s, newest_report
-from ...core.inverter_values import FeedState, FeedStatus, InverterValues
+from ...core.inverter_values import FeedState, FeedStatus, InverterValues, RateDefaults
 from ...logging import get_logger
-from .discovery import GIVTCP_PREFIX, inverter_temperature_entity_ids
+from .constants import GIVTCP_SHIPPED_RATES
+from .discovery import GIVTCP_PREFIX, GIVTCP_RATE_SUFFIXES, inverter_temperature_entity_ids
 
 _LOG = get_logger(__name__)
 
@@ -209,6 +210,36 @@ class GivTCPReader:
         if not serial:
             return None
         return self._optional_float(f"sensor.{GIVTCP_PREFIX}{serial}_data_age")
+
+    # ── Rates GivTCP holds ────────────────────────────────────────────────────
+
+    def rate_defaults(self, serial: str | None) -> RateDefaults | None:
+        """The day, night and export rate GivTCP holds, or None when it holds none worth offering.
+
+        A rate is offered only when it is readable, above zero and not the value GivTCP ships
+        with, which means the user never set it. GivTCP counts its rates per kWh and this does
+        not convert them.
+        """
+        if not serial:
+            return None
+        held = {
+            name: self._optional_float(f"sensor.{GIVTCP_PREFIX}{serial}{suffix}")
+            for name, suffix in GIVTCP_RATE_SUFFIXES.items()
+        }
+        usable = {
+            name: value
+            for name, value in held.items()
+            if value is not None
+            and value > 0
+            and round(value, 4) != GIVTCP_SHIPPED_RATES[name]
+        }
+        if not usable:
+            return None
+        return RateDefaults(
+            day_rate=usable.get("day"),
+            night_rate=usable.get("night"),
+            export_rate=usable.get("export"),
+        )
 
     # ── Is GivTCP giving live numbers ─────────────────────────────────────────
 
