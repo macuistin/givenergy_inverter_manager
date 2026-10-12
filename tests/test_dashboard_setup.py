@@ -53,7 +53,7 @@ def _items(*rows) -> dict:
 class TestTheChecklistSection:
     def test_it_sits_between_the_banner_and_the_flow(self):
         headings = [s["cards"][0].get("heading") for s in _power_flow(dashboard_dict())["sections"]]
-        assert headings == ["Now", BANNER, CHECKLIST, "Live power flow", "Energy today"]
+        assert headings == ["Now", BANNER, CHECKLIST, "Live power flow", "Energy today", "Devices"]
 
     def test_it_holds_a_heading_and_one_markdown_card(self):
         section = _section(dashboard_dict(), CHECKLIST)

@@ -6,6 +6,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 **Fixes**
 - The immersion chart on the Immersion view is taller, so the axis labels of the temperature chart and the heater power chart no longer run into each other.
+- On the Power Flow view, Devices is its own section instead of sitting under Energy today. On a tablet, where the view has two columns, the two columns now come out even and the empty space under the power flow card is gone. On a laptop and a phone nothing moves.
 
 ## v0.18.0
 
