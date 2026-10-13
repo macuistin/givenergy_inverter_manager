@@ -69,3 +69,18 @@ Decision these checks feed (brief section 12, SP2 row): if Take control does not
 - Floor 2026.5.0 and the latest release: only 2026.9.4 is installed.
 - Everything in the frontend table.
 - That the read-only user in the harness behaves like a real non-admin user with a real long-lived session; the tests use the plugin's mock users and tokens.
+
+## Manual checks, run on 13 October 2026
+
+Run in a browser on Home Assistant 2026.10.1 with the integration at 0.19.0b5. The version floor, 2026.5.0, was not run in a browser.
+
+| Item | Result |
+|---|---|
+| `window.customStrategies` registration | **Registered.** The console lists the strategy with `type: givenergy-manager`, `strategyType: dashboard`, the name GivEnergy, a description and a documentation URL. The premise above (`undefined` today) no longer holds: the strategy registers itself |
+| Community dashboards listing | **Works.** GivEnergy is listed with its description under Community dashboards in **Add dashboard** |
+| Creating from the strategy | **Works**, both from that entry and from the raw configuration `strategy: {type: custom:givenergy-manager}` |
+| Take control | **Offered and works** on a dashboard made from the strategy. The Settings view for a non-administrator after taking control was not tested. The Settings view keeps its `visible` user list, which covers it |
+| Distribution card | **Accepts** the solar, battery, grid, house load, immersion and EV power sensors. It is a share-of-total bar over positive values, so mixing sources and consumers is misleading. Zero and negative values are greyed out and left out of the bar |
+| `getCreateSuggestions` | Not separately tested. The create dialog showed the name and description. Whether the title and icon were pre-filled was not reported |
+
+Decision: Take control works, so the dashboard docs do not say "copy to a personal dashboard". The distribution card does not reject the entities, but the Overview does not use it, so it is documented as an optional card only.
