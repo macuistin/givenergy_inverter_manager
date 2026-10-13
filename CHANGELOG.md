@@ -2,7 +2,7 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.19.2
 
 **Fixes**
 - The dashboard waits for the integration after a restart instead of showing "Unknown command". Right after Home Assistant starts, the dashboard's command is not registered yet, or the integration has not finished loading, and the dashboard showed an error that stayed until the page was refreshed. It now asks again every two seconds, for up to a minute, while Home Assistant shows its loading screen, and builds as soon as the integration is ready. Separately, Home Assistant gives the browser 5 seconds to find the dashboard's script and does not try again, so a page that got the script late showed "Timeout waiting for strategy element". The script now looks for that error when it loads, and for twelve seconds after, and if it finds it asks the dashboard to build again. A page that never got the script, because it was served before the integration was ready, still needs a hard refresh. See [the dashboard shows an error](docs/troubleshooting.md#the-dashboard-is-missing-or-shows-an-error).
