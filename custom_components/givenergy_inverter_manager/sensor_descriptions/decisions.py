@@ -15,6 +15,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="overnight_charge_target",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
+        attrs_fn=values.overnight_charge_attributes,
         value_fn=values.overnight_charge_target,
     ),
     GivEnergyManagerSensorDescription(

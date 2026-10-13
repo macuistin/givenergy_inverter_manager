@@ -579,14 +579,23 @@ class TestPublishedChargeRecommendation:
     """The target and reason sensors read the held copy, never the fresh decision."""
 
     @staticmethod
-    def _decision(target_soc, reason):
+    def _decision(target_soc, reason, skip_charge=False):
         class Decision:
             pass
 
         decision = Decision()
         decision.target_soc = target_soc
         decision.reason = reason
+        decision.skip_charge = skip_charge
         return decision
+
+    def test_the_plan_attribute_says_whether_the_target_is_a_goal_or_held_on_a_skipped_night(self):
+        goal = make_data(published_charge_decision=self._decision(95, "held"))
+        held = make_data(published_charge_decision=self._decision(80, "held", skip_charge=True))
+
+        assert values.overnight_charge_attributes(goal) == {"plan": "charge"}
+        assert values.overnight_charge_attributes(held) == {"plan": "skip"}
+        assert values.overnight_charge_attributes(make_data()) is None
 
     def test_none_before_the_first_decision(self):
         data = make_data(charge_decision=self._decision(90, "fresh"))
