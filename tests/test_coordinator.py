@@ -290,6 +290,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._floor_top_up_applied: bool = False
         self.override_skip_charge = False
         self._givtcp_was_unavailable: bool = False
+        self._silent_cycles = 0
         self._givtcp_frozen: bool = False
         self._givtcp_not_answering: bool = False
         self._unsub_charge_retry = None
@@ -2475,18 +2476,43 @@ class TestLogWhenUnavailable:
         coord._givtcp_was_unavailable = False
         return coord
 
-    @pytest.mark.asyncio
-    async def test_logs_warning_on_first_offline(self, caplog):
-        # Arrange
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-        coord = self._make_coord()
-        # Act
+    async def _silent_cycles(self, coord, count, caplog):
         import logging
+
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
         with caplog.at_level(logging.WARNING):
-            with pytest.raises(UpdateFailed):
-                await coord._async_update_data()
-        # Assert
-        assert any("GivTCP has stopped" in r.message for r in caplog.records)
+            for _ in range(count):
+                with pytest.raises(UpdateFailed):
+                    await coord._async_update_data()
+
+    @pytest.mark.asyncio
+    async def test_a_start_up_that_is_silent_for_two_cycles_logs_no_warning(self, caplog):
+        coord = self._make_coord()
+
+        await self._silent_cycles(coord, 2, caplog)
+
+        assert not any("GivTCP has stopped" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_logs_warning_when_silent_for_three_cycles_in_a_row(self, caplog):
+        coord = self._make_coord()
+
+        await self._silent_cycles(coord, 3, caplog)
+
+        assert sum("GivTCP has stopped" in r.message for r in caplog.records) == 1
+
+    @pytest.mark.asyncio
+    async def test_one_cycle_of_data_resets_the_count(self, caplog):
+        coord = self._make_coord()
+        await self._silent_cycles(coord, 2, caplog)
+        coord.set_states(_default_states())
+        await coord._async_update_data()
+        coord._states.clear()
+
+        await self._silent_cycles(coord, 2, caplog)
+
+        assert not any("GivTCP has stopped" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_does_not_repeat_warning_when_still_offline(self, caplog):
