@@ -2,7 +2,7 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.19.1
 
 **Fixes**
 - The dashboard works in a browser that opens Home Assistant while it is still starting. The dashboard script was only added to the page once the integration had finished loading, which can take a minute after a restart. A page loaded before that carried no script, so the dashboard showed "Timeout waiting for strategy element ll-strategy-dashboard-givenergy-manager to be registered", the Community dashboards entry was missing, and choosing it did nothing, until a hard refresh. The script is now added when the integration is first set up, before any config entry.
