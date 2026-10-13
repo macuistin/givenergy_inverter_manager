@@ -8,7 +8,7 @@ from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL, UrlManager
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.setup import async_setup_component
 
-from custom_components.givenergy_inverter_manager.const import INTEGRATION_VERSION
+from custom_components.givenergy_inverter_manager.const import DOMAIN, INTEGRATION_VERSION
 from custom_components.givenergy_inverter_manager.strategy import (
     STRATEGY_FILE,
     STRATEGY_URL_PATH,
@@ -96,6 +96,19 @@ async def test_strategy_file_is_served_and_added_to_the_frontend(
     assert "Could not serve" not in caplog.text
     assert hass.data[DATA_EXTRA_MODULE_URL].urls == {MODULE_URL}
     assert (await client.get(STRATEGY_URL_PATH)).status == 200
+
+
+async def test_the_strategy_is_added_to_the_frontend_before_any_entry_is_set_up(
+    hass, hass_in_scenario, service_calls
+):
+    """A page served while the entry is still loading must already carry the script."""
+    hass.data[DATA_EXTRA_MODULE_URL] = UrlManager(lambda action, url: None, [])
+    assert await async_setup_component(hass, "http", {})
+
+    assert await async_setup_component(hass, DOMAIN, {})
+    await hass.async_block_till_done()
+
+    assert hass.data[DATA_EXTRA_MODULE_URL].urls == {MODULE_URL}
 
 
 async def test_the_strategy_file_can_be_cached_by_the_browser(
