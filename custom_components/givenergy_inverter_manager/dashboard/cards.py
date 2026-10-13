@@ -132,8 +132,11 @@ def tile_card(  # noqa: PLR0913
 
 
 def toggle_tile(entity: str | None, name: str, color: str) -> dict | None:
-    """A tile with an on/off switch beside the name."""
-    return tile_card(entity, name, color=color, features=[TOGGLE], inline=True)
+    """A tile with an on/off switch beside the name, the full width of its section.
+
+    Home Assistant gives a tile with an inline feature at least 12 columns, so it says so.
+    """
+    return tile_card(entity, name, columns=FULL, color=color, features=[TOGGLE], inline=True)
 
 
 def readonly_tile(entity: str | None, name: str, color: str) -> dict[str, Any] | None:
@@ -145,9 +148,9 @@ def readonly_tile(entity: str | None, name: str, color: str) -> dict[str, Any] |
     return tile_card(entity, name, color=color, nav={"action": "none"})
 
 
-def stepper_tile(entity: str | None, name: str, color: str) -> dict | None:
-    """A tile with − and + buttons under the name, two to a row."""
-    return tile_card(entity, name, color=color, features=[STEPPER])
+def stepper_tile(entity: str | None, name: str, color: str, columns: int | str = 6) -> dict | None:
+    """A tile with − and + buttons under the name, two to a row unless given the full width."""
+    return tile_card(entity, name, columns=columns, color=color, features=[STEPPER])
 
 
 def heading_card(

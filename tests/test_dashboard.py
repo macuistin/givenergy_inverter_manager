@@ -1231,15 +1231,16 @@ class TestSubViews:
             "Immersion",
         ]
 
-    def test_battery_soc_is_a_line_on_now_and_a_bar_on_the_plan_tab_and_never_a_gauge(self):
+    def test_battery_soc_tiles_draw_their_last_day_and_never_a_bar_or_gauge(self):
+        """A bar of the charge repeats the number beside it, so the tiles draw a line instead."""
         cards = all_cards(self._views())
         assert not [c for c in cards if c["type"] == "gauge"]
-        battery = {
-            c["features"][0]["type"]
+        battery = [
+            c["features"]
             for c in cards
             if c["type"] == "tile" and c["entity"] == eid("battery_soc")
-        }
-        assert battery == {"trend-graph", "bar-gauge"}
+        ]
+        assert battery == [[{"type": "trend-graph", "hours_to_show": 24}]] * 2
 
     def test_the_heater_is_a_row_of_the_temperature_chart(self):
         """The built-in history graph steps between values, so it draws no false ramps."""
@@ -1451,9 +1452,35 @@ class TestResponsiveLayout:
             "Cheap rate floor": "full",
             "Skip charge above": "full",
             "Forecast caution": "full",
-            "Re-plan charge": 6,
-            "Verbose logging": 6,
+            "Re-plan charge": "full",
+            "Verbose logging": "full",
         }
+
+    def test_every_toggle_tile_says_it_takes_the_full_width(self):
+        """Home Assistant gives a tile with an inline toggle at least 12 columns."""
+        toggles = [
+            c
+            for c in all_cards(self._views())
+            if c["type"] == "tile" and c.get("features_position") == "inline"
+        ]
+        assert toggles
+        assert {c["grid_options"]["columns"] for c in toggles} == {"full"}
+
+    def test_hot_water_spans_two_rows_so_fine_tuning_fills_the_tablet_gap(self):
+        settings = next(v for v in self._views() if v["path"] == "settings")
+        spans = {s["cards"][0]["heading"]: s.get("row_span", 1) for s in settings["sections"]}
+        assert spans == {"Dry run": 1, "Hot water": 2, "Fine-tuning": 1}
+
+    def test_no_stepper_is_left_alone_at_half_width(self):
+        """Charge to and Restart drop would each sit beside an empty half, so they are full."""
+        settings = next(v for v in self._views() if v["path"] == "settings")
+        widths = {
+            c["name"]: c["grid_options"]["columns"]
+            for c in view_cards(settings)
+            if c["type"] == "tile" and c.get("features", [{}])[0].get("type") == "numeric-input"
+        }
+        assert widths["Charge to"] == widths["Restart drop"] == "full"
+        assert widths["Heat to"] == widths["Never below"] == 6
 
 
 class TestRecentChanges:

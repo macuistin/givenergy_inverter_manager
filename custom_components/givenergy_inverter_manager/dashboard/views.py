@@ -1035,7 +1035,7 @@ class Builder:
         return group(
             heading_card("Battery", "mdi:battery-heart-variant"),
             [
-                tile_card(battery_soc, "Charge", color=BATTERY, features=[BAR]),
+                tile_card(battery_soc, "Charge", color=BATTERY, features=[TREND]),
                 self.tile("battery_power", "Power", color=BATTERY, features=[TREND]),
                 graph_card(history) if history else None,
             ],
@@ -1280,7 +1280,9 @@ class Builder:
                 toggle_tile(
                     self.entity("charge_target_override_enabled"), FIXED_TARGET_NAME, BATTERY
                 ),
-                stepper_tile(self.entity("charge_target_override"), CHARGE_TO_NAME, BATTERY),
+                stepper_tile(
+                    self.entity("charge_target_override"), CHARGE_TO_NAME, BATTERY, columns=FULL
+                ),
                 toggle_tile(self.entity("skip_charge_override"), "Skip tonight", BATTERY),
             ],
         )
@@ -1348,10 +1350,11 @@ class Builder:
             self.devices.show_with(schedule, Device.IMMERSION_THERMOSTAT),
             *[
                 self.devices.show_with(
-                    stepper_tile(self.thermostat(suffix), name, IMMERSION),
+                    stepper_tile(self.thermostat(suffix), name, IMMERSION, columns=width),
                     Device.IMMERSION_THERMOSTAT,
                 )
-                for suffix, name in _THERMOSTAT_SETTINGS
+                # Two to a row, and the third takes the row it would otherwise leave half empty.
+                for (suffix, name), width in zip(_THERMOSTAT_SETTINGS, (6, 6, FULL), strict=True)
             ],
         ]
 
@@ -1374,6 +1377,8 @@ class Builder:
                 *self._immersion_thermostat_controls(),
                 *self._thermostat_help(),
             ],
+            # Two rows tall, so on a tablet Fine-tuning sits under the first section beside it.
+            row_span=2,
             **self._when(Device.IMMERSION_SWITCH),
         )
 
@@ -1382,9 +1387,9 @@ class Builder:
 
         Three sections of one column, so a laptop shows them side by side with no column left
         empty: Dry run, Tonight's charge and the recent changes, then Hot water, then
-        Fine-tuning. A section's height is its own, so the short first one is not followed by
-        another in its column. Empty without an administrator ID, so the view is left out and
-        no one sees it.
+        Fine-tuning. Hot water spans two rows, so on a tablet Fine-tuning goes under the first
+        section instead of below the taller Hot water. Empty without an administrator ID, so
+        the view is left out and no one sees it.
         """
         if not self.admin_ids:
             return []
