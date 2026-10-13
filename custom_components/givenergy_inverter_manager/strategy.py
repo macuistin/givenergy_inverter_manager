@@ -14,9 +14,8 @@ The command reads the connection's user to decide whether the Settings view is b
 else in the integration needs the strategy.
 
 Home Assistant gives the browser one chance, 5 seconds, to find the strategy's element, and does
-not try again. A page that loaded the script late shows "Timeout waiting for strategy element"
-until it is reloaded. Once setup is done the integration tells the dashboards that use it to
-build again (`async_nudge_dashboards`), so a page that has the script by then recovers by itself.
+not try again. The script copes on its side: it asks again while the command is not ready yet,
+and rebuilds the dashboard if it finds the timeout message on the page when it loads.
 """
 
 from __future__ import annotations
@@ -38,8 +37,6 @@ STRATEGY_TYPE = "custom:givenergy-manager"
 STRATEGY_URL_PATH = f"/{DOMAIN}/givenergy-manager-strategy.js"
 STRATEGY_FILE = Path(__file__).parent / "frontend" / "givenergy-manager-strategy.js"
 _REGISTERED_KEY = f"{DOMAIN}_strategy_registered"
-_NUDGED_KEY = f"{DOMAIN}_dashboards_nudged"
-EVENT_LOVELACE_UPDATED = "lovelace_updated"
 _EXTRA_MODULE_URL_KEY = "frontend_extra_module_url"
 
 
@@ -107,45 +104,3 @@ async def _serve_strategy_file(hass: HomeAssistant) -> None:
     from homeassistant.components import frontend  # noqa: PLC0415
 
     frontend.add_extra_js_url(hass, f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}")
-
-
-async def async_nudge_dashboards(hass: HomeAssistant) -> int:
-    """Tell open dashboards that use this strategy to build again, once per Home Assistant run.
-
-    Home Assistant sends `lovelace_updated` when a dashboard is saved, and an open dashboard
-    fetches its configuration again, which builds the strategy again. A page that had not yet
-    loaded the strategy script when it first asked will have it now. Only storage dashboards
-    whose configuration names this strategy get the event, and every failure to read a
-    dashboard is skipped, because this is a courtesy and never part of setup. Returns how many
-    dashboards were told.
-    """
-    if hass.data.get(_NUDGED_KEY):
-        return 0
-    hass.data[_NUDGED_KEY] = True
-    nudged = 0
-    for url_path in await _dashboards_using_the_strategy(hass):
-        hass.bus.async_fire(EVENT_LOVELACE_UPDATED, {"url_path": url_path})
-        nudged += 1
-    return nudged
-
-
-async def _dashboards_using_the_strategy(hass: HomeAssistant) -> list[str | None]:
-    try:
-        from homeassistant.components.lovelace.const import LOVELACE_DATA  # noqa: PLC0415
-
-        dashboards = dict(hass.data[LOVELACE_DATA].dashboards)
-    except Exception:  # noqa: BLE001 - another integration's internals, so any failure means none
-        _LOG.debug("The dashboards could not be listed, so none is told to build again")
-        return []
-    found: list[str | None] = []
-    for url_path, dashboard in dashboards.items():
-        if getattr(dashboard, "mode", None) != "storage":
-            continue
-        try:
-            config = await dashboard.async_load(False)
-        except Exception:  # noqa: BLE001 - a dashboard with no saved configuration, or one that cannot be read
-            continue
-        strategy = config.get("strategy") if isinstance(config, dict) else None
-        if isinstance(strategy, dict) and strategy.get("type") == STRATEGY_TYPE:
-            found.append(url_path)
-    return found

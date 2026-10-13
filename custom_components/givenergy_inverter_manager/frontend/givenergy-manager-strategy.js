@@ -22,6 +22,7 @@ function describe(err) {
 // check below finds that card and asks the dashboard panel to build again, which it does on the
 // same event it receives when the connection to Home Assistant comes back.
 const TIMEOUT_TEXT = /Timeout waiting for strategy element ll-strategy-(dashboard-)?givenergy-manager/i;
+const NOT_READY_CODES = ["unknown_command", "not_found"];
 const CHECK_AFTER_MS = [0, 1000, 3000, 6000, 12000];
 const MAX_REBUILDS = 2;
 const MAX_NODES = 6000;
@@ -53,13 +54,27 @@ class GivEnergyManagerStrategy extends HTMLElement {
     return { title: "GivEnergy", icon: "mdi:solar-power-variant" };
   }
 
+  // Right after Home Assistant starts, the command may not be registered yet ("unknown_command")
+  // or the integration may not have finished loading ("not_found"). The dashboard asks again
+  // until it is, for up to retryForMs, while Home Assistant shows its loading screen.
+  static retryEveryMs = 2000;
+  static retryForMs = 60000;
+
   static async generate(_config, hass) {
-    try {
-      return await hass.callWS({ type: WS_TYPE });
-    } catch (err) {
-      const help = `See the [troubleshooting page](${DOCS}/troubleshooting.md).`;
-      const content = `${describe(err)}\n\n${help}`;
-      return { views: [{ title: "GivEnergy", cards: [{ type: "markdown", content }] }] };
+    const started = Date.now();
+    for (;;) {
+      try {
+        return await hass.callWS({ type: WS_TYPE });
+      } catch (err) {
+        const notReadyYet = err && NOT_READY_CODES.includes(err.code);
+        if (notReadyYet && Date.now() - started < this.retryForMs) {
+          await new Promise((resolve) => setTimeout(resolve, this.retryEveryMs));
+          continue;
+        }
+        const help = `See the [troubleshooting page](${DOCS}/troubleshooting.md).`;
+        const content = `${describe(err)}\n\n${help}`;
+        return { views: [{ title: "GivEnergy", cards: [{ type: "markdown", content }] }] };
+      }
     }
   }
 }

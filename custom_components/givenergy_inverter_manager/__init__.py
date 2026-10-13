@@ -36,7 +36,7 @@ from .dashboard_notice import async_announce_dashboard, async_dismiss_announceme
 from .logging import get_logger, log_startup
 from .optional_devices import remove_orphaned_entities
 from .services import async_register_services, async_unregister_services, loaded_entries
-from .strategy import async_nudge_dashboards, async_register_strategy
+from .strategy import async_register_strategy
 
 _LOG = get_logger(__name__)
 
@@ -205,7 +205,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
 
     try:
         await async_register_strategy(hass)
-        await async_nudge_dashboards(hass)
     except Exception:
         _LOG.exception("Could not register the dashboard strategy")
 

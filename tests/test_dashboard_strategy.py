@@ -42,8 +42,9 @@ class TestStrategyFile:
     def test_file_exists_and_is_small(self):
         # 40 lines until the strategy registered itself in window.customStrategies, gave
         # create suggestions and a clearer error view, then the recovery from Home Assistant's
-        # 5-second timeout. There is still no build step.
-        assert len(self._source().splitlines()) <= 110
+        # 5-second timeout and the wait for the command after a restart. There is still no
+        # build step.
+        assert len(self._source().splitlines()) <= 130
 
     def test_no_dependencies_or_build_chain(self):
         source = self._source()
@@ -78,10 +79,26 @@ const calls = [];
 const good = { callWS: async (msg) => { calls.push(msg); return { views: [{ title: "x", cards: [] }] }; } };
 const failing = (err) => ({ callWS: async () => { throw err; } });
 (async () => {
+  Strategy.retryForMs = 0;
   const ok = await Strategy.generate({}, good);
   const failed = await Strategy.generate({}, failing({ code: "unknown_error", message: "boom" }));
   const unloaded = await Strategy.generate({}, failing({ code: "not_found", message: "not set up" }));
   const listed = window.customStrategies.find((e) => e.type === "givenergy-manager");
+  Strategy.retryEveryMs = 1;
+  Strategy.retryForMs = 5000;
+  let attempts = 0;
+  const slowStart = { callWS: async () => {
+    attempts += 1;
+    if (attempts < 4) throw { code: attempts % 2 ? "unknown_command" : "not_found", message: "not yet" };
+    return { views: [{ title: "ready" }] };
+  } };
+  const afterRetries = await Strategy.generate({}, slowStart);
+  let otherCalls = 0;
+  const otherFailure = await Strategy.generate({}, { callWS: async () => { otherCalls += 1; throw { code: "unknown_error", message: "boom" }; } });
+  Strategy.retryForMs = 30;
+  let neverReadyCalls = 0;
+  const neverReady = await Strategy.generate({}, { callWS: async () => { neverReadyCalls += 1; throw { code: "unknown_command", message: "Unknown command." }; } });
+  const retries = { afterRetries, attempts, otherCalls, otherText: otherFailure.views[0].cards[0].content, neverReadyCalls, neverReadyText: neverReady.views[0].cards[0].content };
   const text = (value) => ({ nodeType: 3, nodeValue: value, childNodes: [] });
   const element = (children, shadow) => ({ nodeType: 1, childNodes: children, shadowRoot: shadow });
   const page = (message) => element([element([], element([text(message)]))]);
@@ -99,7 +116,7 @@ const failing = (err) => ({ callWS: async () => { throw err; } });
     rebuildCalls: rebuilt.length,
   };
   console.log(JSON.stringify({
-    recovery,
+    recovery, retries,
     names: Object.keys(defined), calls, ok, failedType: failed.views[0].cards[0].type,
     failedText: failed.views[0].cards[0].content,
     unloadedText: unloaded.views[0].cards[0].content,
@@ -187,6 +204,21 @@ class TestStrategyRunsUnderNode:
 
     def test_the_search_stops_on_a_huge_page(self, result):
         assert result["recovery"]["hugePage"] is False
+
+    def test_it_asks_again_while_the_command_is_not_ready_and_builds_when_it_is(self, result):
+        retries = result["retries"]
+        assert retries["afterRetries"] == {"views": [{"title": "ready"}]}
+        assert retries["attempts"] == 4
+
+    def test_it_does_not_retry_an_error_that_waiting_will_not_fix(self, result):
+        retries = result["retries"]
+        assert retries["otherCalls"] == 1
+        assert "boom" in retries["otherText"]
+
+    def test_it_gives_up_with_the_error_view_when_it_never_becomes_ready(self, result):
+        retries = result["retries"]
+        assert retries["neverReadyCalls"] > 1
+        assert "Unknown command" in retries["neverReadyText"]
 
     def test_the_recovery_is_skipped_where_there_is_no_page(self, result):
         # The harness has no document, so loading the script scheduled nothing and raised nothing.
@@ -285,86 +317,3 @@ class TestRegisterOnce:
 
         assert websocket.call_count == 1
         assert served.call_count == 1
-
-
-class _FakeDashboard:
-    def __init__(self, mode, config=None, error=None):
-        self.mode = mode
-        self._config = config
-        self._error = error
-
-    async def async_load(self, force):
-        if self._error:
-            raise self._error
-        return self._config
-
-
-class _FakeBus:
-    def __init__(self):
-        self.fired = []
-
-    def async_fire(self, event_type, data):
-        self.fired.append((event_type, data))
-
-
-def _hass_with_dashboards(monkeypatch, dashboards):
-    import sys
-    import types
-
-    const = types.ModuleType("homeassistant.components.lovelace.const")
-    const.LOVELACE_DATA = "lovelace"
-    monkeypatch.setitem(sys.modules, "homeassistant.components.lovelace.const", const)
-    return SimpleNamespace(
-        data={"lovelace": SimpleNamespace(dashboards=dashboards)}, bus=_FakeBus()
-    )
-
-
-class TestNudgeDashboards:
-    OURS = {"strategy": {"type": "custom:givenergy-manager"}}
-
-    def test_only_storage_dashboards_that_name_the_strategy_are_told(self, monkeypatch):
-        strategy = _strategy()
-        hass = _hass_with_dashboards(
-            monkeypatch,
-            {
-                "givenergy-auto": _FakeDashboard("storage", self.OURS),
-                "other-strategy": _FakeDashboard(
-                    "storage", {"strategy": {"type": "custom:something-else"}}
-                ),
-                "cards": _FakeDashboard("storage", {"views": []}),
-                "from-yaml": _FakeDashboard("yaml", self.OURS),
-                "unsaved": _FakeDashboard("storage", error=RuntimeError("no config")),
-            },
-        )
-
-        told = asyncio.run(strategy.async_nudge_dashboards(hass))
-
-        assert told == 1
-        assert hass.bus.fired == [("lovelace_updated", {"url_path": "givenergy-auto"})]
-
-    def test_a_second_call_in_the_same_run_tells_no_one(self, monkeypatch):
-        strategy = _strategy()
-        hass = _hass_with_dashboards(
-            monkeypatch, {"givenergy-auto": _FakeDashboard("storage", self.OURS)}
-        )
-
-        asyncio.run(strategy.async_nudge_dashboards(hass))
-        again = asyncio.run(strategy.async_nudge_dashboards(hass))
-
-        assert again == 0
-        assert len(hass.bus.fired) == 1
-
-    def test_the_default_dashboard_is_told_with_no_url_path(self, monkeypatch):
-        strategy = _strategy()
-        hass = _hass_with_dashboards(monkeypatch, {None: _FakeDashboard("storage", self.OURS)})
-
-        asyncio.run(strategy.async_nudge_dashboards(hass))
-
-        assert hass.bus.fired == [("lovelace_updated", {"url_path": None})]
-
-    def test_no_lovelace_data_tells_no_one_and_raises_nothing(self):
-        strategy = _strategy()
-        hass = SimpleNamespace(data={}, bus=_FakeBus())
-
-        assert asyncio.run(strategy.async_nudge_dashboards(hass)) == 0
-        assert hass.bus.fired == []
