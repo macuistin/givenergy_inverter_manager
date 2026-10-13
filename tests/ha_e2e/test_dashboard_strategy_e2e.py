@@ -140,3 +140,38 @@ async def test_setup_without_a_frontend_still_serves_the_file(
     assert DATA_EXTRA_MODULE_URL not in hass.data
     client = await hass_client()
     assert (await client.get(STRATEGY_URL_PATH)).status == 200
+
+
+async def test_a_dashboard_that_uses_the_strategy_is_told_to_build_again_after_setup(
+    hass, hass_in_scenario, service_calls, config_entry, hass_ws_client
+):
+    """An open page that loaded the script late recovers when Home Assistant says the dashboard
+    changed. Only a storage dashboard that names this strategy is told."""
+    from homeassistant.components.lovelace.const import EVENT_LOVELACE_UPDATED
+    from pytest_homeassistant_custom_component.common import async_capture_events
+
+    assert await async_setup_component(hass, "http", {})
+    assert await async_setup_component(hass, "websocket_api", {})
+    assert await async_setup_component(hass, "lovelace", {})
+    client = await hass_ws_client(hass)
+
+    async def create(url_path, config):
+        await client.send_json_auto_id(
+            {"type": "lovelace/dashboards/create", "url_path": url_path, "title": url_path}
+        )
+        created = await client.receive_json()
+        assert created["success"], created
+        await client.send_json_auto_id(
+            {"type": "lovelace/config/save", "url_path": url_path, "config": config}
+        )
+        assert (await client.receive_json())["success"]
+
+    await create("givenergy-test", {"strategy": {"type": "custom:givenergy-manager"}})
+    await create("cards-only", {"views": [{"title": "x", "cards": []}]})
+
+    events = async_capture_events(hass, EVENT_LOVELACE_UPDATED)
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert [e.data["url_path"] for e in events] == ["givenergy-test"]

@@ -247,3 +247,86 @@ class TestRegisterOnce:
 
         assert websocket.call_count == 1
         assert served.call_count == 1
+
+
+class _FakeDashboard:
+    def __init__(self, mode, config=None, error=None):
+        self.mode = mode
+        self._config = config
+        self._error = error
+
+    async def async_load(self, force):
+        if self._error:
+            raise self._error
+        return self._config
+
+
+class _FakeBus:
+    def __init__(self):
+        self.fired = []
+
+    def async_fire(self, event_type, data):
+        self.fired.append((event_type, data))
+
+
+def _hass_with_dashboards(monkeypatch, dashboards):
+    import sys
+    import types
+
+    const = types.ModuleType("homeassistant.components.lovelace.const")
+    const.LOVELACE_DATA = "lovelace"
+    monkeypatch.setitem(sys.modules, "homeassistant.components.lovelace.const", const)
+    return SimpleNamespace(
+        data={"lovelace": SimpleNamespace(dashboards=dashboards)}, bus=_FakeBus()
+    )
+
+
+class TestNudgeDashboards:
+    OURS = {"strategy": {"type": "custom:givenergy-manager"}}
+
+    def test_only_storage_dashboards_that_name_the_strategy_are_told(self, monkeypatch):
+        strategy = _strategy()
+        hass = _hass_with_dashboards(
+            monkeypatch,
+            {
+                "givenergy-auto": _FakeDashboard("storage", self.OURS),
+                "other-strategy": _FakeDashboard(
+                    "storage", {"strategy": {"type": "custom:something-else"}}
+                ),
+                "cards": _FakeDashboard("storage", {"views": []}),
+                "from-yaml": _FakeDashboard("yaml", self.OURS),
+                "unsaved": _FakeDashboard("storage", error=RuntimeError("no config")),
+            },
+        )
+
+        told = asyncio.run(strategy.async_nudge_dashboards(hass))
+
+        assert told == 1
+        assert hass.bus.fired == [("lovelace_updated", {"url_path": "givenergy-auto"})]
+
+    def test_a_second_call_in_the_same_run_tells_no_one(self, monkeypatch):
+        strategy = _strategy()
+        hass = _hass_with_dashboards(
+            monkeypatch, {"givenergy-auto": _FakeDashboard("storage", self.OURS)}
+        )
+
+        asyncio.run(strategy.async_nudge_dashboards(hass))
+        again = asyncio.run(strategy.async_nudge_dashboards(hass))
+
+        assert again == 0
+        assert len(hass.bus.fired) == 1
+
+    def test_the_default_dashboard_is_told_with_no_url_path(self, monkeypatch):
+        strategy = _strategy()
+        hass = _hass_with_dashboards(monkeypatch, {None: _FakeDashboard("storage", self.OURS)})
+
+        asyncio.run(strategy.async_nudge_dashboards(hass))
+
+        assert hass.bus.fired == [("lovelace_updated", {"url_path": None})]
+
+    def test_no_lovelace_data_tells_no_one_and_raises_nothing(self):
+        strategy = _strategy()
+        hass = SimpleNamespace(data={}, bus=_FakeBus())
+
+        assert asyncio.run(strategy.async_nudge_dashboards(hass)) == 0
+        assert hass.bus.fired == []
