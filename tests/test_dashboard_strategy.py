@@ -41,8 +41,9 @@ class TestStrategyFile:
 
     def test_file_exists_and_is_small(self):
         # 40 lines until the strategy registered itself in window.customStrategies, gave
-        # create suggestions and a clearer error view. There is still no build step.
-        assert len(self._source().splitlines()) <= 80
+        # create suggestions and a clearer error view, then the recovery from Home Assistant's
+        # 5-second timeout. There is still no build step.
+        assert len(self._source().splitlines()) <= 110
 
     def test_no_dependencies_or_build_chain(self):
         source = self._source()
@@ -81,7 +82,24 @@ const failing = (err) => ({ callWS: async () => { throw err; } });
   const failed = await Strategy.generate({}, failing({ code: "unknown_error", message: "boom" }));
   const unloaded = await Strategy.generate({}, failing({ code: "not_found", message: "not set up" }));
   const listed = window.customStrategies.find((e) => e.type === "givenergy-manager");
+  const text = (value) => ({ nodeType: 3, nodeValue: value, childNodes: [] });
+  const element = (children, shadow) => ({ nodeType: 1, childNodes: children, shadowRoot: shadow });
+  const page = (message) => element([element([], element([text(message)]))]);
+  const rebuilt = [];
+  const rebuild = () => rebuilt.push(1);
+  const recover = (root) => Strategy.recoverIfTimedOut(root, rebuild);
+  const recovery = {
+    inShadowRoot: recover(page("Error: Timeout waiting for strategy element ll-strategy-dashboard-givenergy-manager to be registered")),
+    legacyName: recover(page("Timeout waiting for strategy element ll-strategy-givenergy-manager to be registered")),
+    otherStrategy: recover(page("Timeout waiting for strategy element ll-strategy-dashboard-maintenance-supporter to be registered")),
+    healthyPage: recover(page("Battery 100%")),
+    emptyPage: recover(element([])),
+    noPage: recover(null),
+    hugePage: recover(element(Array.from({ length: 20000 }, () => text("nothing here")))),
+    rebuildCalls: rebuilt.length,
+  };
   console.log(JSON.stringify({
+    recovery,
     names: Object.keys(defined), calls, ok, failedType: failed.views[0].cards[0].type,
     failedText: failed.views[0].cards[0].content,
     unloadedText: unloaded.views[0].cards[0].content,
@@ -153,6 +171,26 @@ class TestStrategyRunsUnderNode:
 
     def test_it_has_no_config_editor(self, result):
         assert result["noEditor"] is True
+
+    def test_it_asks_for_a_rebuild_when_the_page_shows_the_timeout_for_its_strategy(self, result):
+        recovery = result["recovery"]
+        assert recovery["inShadowRoot"] is True
+        assert recovery["legacyName"] is True
+
+    def test_it_leaves_other_pages_and_other_strategies_alone(self, result):
+        recovery = result["recovery"]
+        assert not recovery["otherStrategy"]
+        assert not recovery["healthyPage"]
+        assert not recovery["emptyPage"]
+        assert not recovery["noPage"]
+        assert recovery["rebuildCalls"] == 2
+
+    def test_the_search_stops_on_a_huge_page(self, result):
+        assert result["recovery"]["hugePage"] is False
+
+    def test_the_recovery_is_skipped_where_there_is_no_page(self, result):
+        # The harness has no document, so loading the script scheduled nothing and raised nothing.
+        assert "ll-strategy-givenergy-manager" in result["names"]
 
 
 def _loaded_entry(state=ConfigEntryState.LOADED, entry_id=ENTRY_ID):

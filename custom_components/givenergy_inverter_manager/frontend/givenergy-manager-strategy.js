@@ -17,8 +17,37 @@ function describe(err) {
   return `GivEnergy Inverter Manager could not build the dashboard: ${reason}`;
 }
 
+// Home Assistant gives a strategy 5 seconds to define its element and does not try again. When
+// this script arrives later than that, the page shows an error card that names the element. The
+// check below finds that card and asks the dashboard panel to build again, which it does on the
+// same event it receives when the connection to Home Assistant comes back.
+const TIMEOUT_TEXT = /Timeout waiting for strategy element ll-strategy-(dashboard-)?givenergy-manager/i;
+const CHECK_AFTER_MS = [0, 1000, 3000, 6000, 12000];
+const MAX_REBUILDS = 2;
+const MAX_NODES = 6000;
+
 class GivEnergyManagerStrategy extends HTMLElement {
   static noEditor = true;
+
+  // True when the page shows Home Assistant's timeout for this strategy and `rebuild` was called.
+  // The search goes through shadow roots, because the error card is drawn inside one, and stops
+  // after MAX_NODES nodes so a large page costs little.
+  static recoverIfTimedOut(root, rebuild) {
+    const pending = [root];
+    let seen = 0;
+    while (pending.length && seen < MAX_NODES) {
+      const node = pending.pop();
+      seen += 1;
+      if (!node) continue;
+      if (node.nodeType === 3 && TIMEOUT_TEXT.test(node.nodeValue || "")) {
+        rebuild();
+        return true;
+      }
+      if (node.shadowRoot) pending.push(node.shadowRoot);
+      for (const child of Array.from(node.childNodes || [])) pending.push(child);
+    }
+    return false;
+  }
 
   static getCreateSuggestions(_hass) {
     return { title: "GivEnergy", icon: "mdi:solar-power-variant" };
@@ -51,4 +80,18 @@ if (!window.customStrategies.some((entry) => entry.type === NAME)) {
     description: "Power flow, cost, battery and hot water for a GivEnergy inverter.",
     documentationURL: `${DOCS}/dashboard.md`,
   });
+}
+
+// A page that got this script late recovers by itself. It is skipped where there is no page.
+if (typeof document !== "undefined" && typeof window.setTimeout === "function") {
+  const rebuild = () =>
+    window.dispatchEvent(new CustomEvent("connection-status", { detail: "connected" }));
+  let rebuilds = 0;
+  for (const delay of CHECK_AFTER_MS) {
+    window.setTimeout(() => {
+      if (rebuilds < MAX_REBUILDS && GivEnergyManagerStrategy.recoverIfTimedOut(document, rebuild)) {
+        rebuilds += 1;
+      }
+    }, delay);
+  }
 }

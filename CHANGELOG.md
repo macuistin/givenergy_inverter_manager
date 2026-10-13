@@ -5,7 +5,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 ## Unreleased
 
 **Fixes**
-- An open dashboard rebuilds itself once the integration has finished starting. Home Assistant gives the browser 5 seconds to find the dashboard's script and does not try again, so a page that got the script late showed "Timeout waiting for strategy element" until it was reloaded. When setup finishes, the integration now sends Home Assistant's own "dashboard updated" event for each dashboard that uses it, once per start. A page that has the script by then recovers without a refresh. A page that never got the script still needs a hard refresh. Only dashboards stored in the UI that name this strategy are told. See [the dashboard shows an error](docs/troubleshooting.md#the-dashboard-is-missing-or-shows-an-error).
+- A dashboard that got the integration's script late rebuilds itself. Home Assistant gives the browser 5 seconds to find the dashboard's script and does not try again, so a page that got the script late showed "Timeout waiting for strategy element" until it was reloaded. Two things now help. The script looks for that error on the page when it loads, and for twelve seconds after, and if it finds it asks the dashboard to build again, using the same event Home Assistant sends when the connection returns. And when setup finishes, the integration sends Home Assistant's own "dashboard updated" event for each dashboard stored in the UI that uses it, once per start. A page that never got the script still needs a hard refresh. See [the dashboard shows an error](docs/troubleshooting.md#the-dashboard-is-missing-or-shows-an-error).
 
 ## v0.19.1
 
