@@ -14,9 +14,8 @@ from custom_components.givenergy_inverter_manager.strategy import (
     STRATEGY_URL_PATH,
     WS_TYPE,
     async_dashboard_for_websocket,
+    strategy_module_url,
 )
-
-MODULE_URL = f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}"
 
 
 async def test_websocket_command_returns_the_dashboard(hass, loaded_entry, hass_ws_client):
@@ -83,7 +82,7 @@ async def test_strategy_file_is_served_and_added_to_the_frontend(
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    assert hass.data[DATA_EXTRA_MODULE_URL].urls == {MODULE_URL}
+    assert hass.data[DATA_EXTRA_MODULE_URL].urls == {strategy_module_url(hass)}
 
     client = await hass_client()
     response = await client.get(STRATEGY_URL_PATH)
@@ -94,7 +93,7 @@ async def test_strategy_file_is_served_and_added_to_the_frontend(
     assert await hass.config_entries.async_reload(config_entry.entry_id)
     await hass.async_block_till_done()
     assert "Could not serve" not in caplog.text
-    assert hass.data[DATA_EXTRA_MODULE_URL].urls == {MODULE_URL}
+    assert hass.data[DATA_EXTRA_MODULE_URL].urls == {strategy_module_url(hass)}
     assert (await client.get(STRATEGY_URL_PATH)).status == 200
 
 
@@ -108,15 +107,14 @@ async def test_the_strategy_is_added_to_the_frontend_before_any_entry_is_set_up(
     assert await async_setup_component(hass, DOMAIN, {})
     await hass.async_block_till_done()
 
-    assert hass.data[DATA_EXTRA_MODULE_URL].urls == {MODULE_URL}
+    assert hass.data[DATA_EXTRA_MODULE_URL].urls == {strategy_module_url(hass)}
 
 
-async def test_the_strategy_file_can_be_cached_by_the_browser(
+async def test_the_browser_checks_its_copy_of_the_strategy_file_before_using_it(
     hass, hass_in_scenario, service_calls, config_entry, hass_client
 ):
-    """Home Assistant waits 5 seconds for the strategy element, so a repeat visit must not
-    wait on the network. The ?v= on the module URL changes with the version, so a cached copy
-    never outlives an update."""
+    """A long cache lifetime kept a wrong response for weeks, so an ordinary refresh did not
+    mend it. The file is kept but checked first, and the unchanged file costs a 304."""
     assert await async_setup_component(hass, "http", {})
     config_entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(config_entry.entry_id)
@@ -124,8 +122,32 @@ async def test_the_strategy_file_can_be_cached_by_the_browser(
 
     client = await hass_client()
     response = await client.get(STRATEGY_URL_PATH)
-    assert "max-age" in response.headers.get("Cache-Control", "")
-    assert MODULE_URL.endswith(f"?v={INTEGRATION_VERSION}")
+    assert response.status == 200
+    assert response.headers["Cache-Control"] == "no-cache"
+    assert "max-age" not in response.headers["Cache-Control"]
+    assert response.headers["Content-Type"].split(";")[0] in {
+        "text/javascript",
+        "application/javascript",
+    }
+    assert await response.text() == STRATEGY_FILE.read_text(encoding="utf-8")
+
+    unchanged = await client.get(STRATEGY_URL_PATH, headers={"If-None-Match": response.headers["ETag"]})
+    assert unchanged.status == 304
+
+
+async def test_the_module_address_is_new_for_each_start_and_fixed_within_one(
+    hass, hass_in_scenario, service_calls, config_entry
+):
+    hass.data[DATA_EXTRA_MODULE_URL] = UrlManager(lambda action, url: None, [])
+    assert await async_setup_component(hass, "http", {})
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    url = strategy_module_url(hass)
+    assert url == strategy_module_url(hass)
+    assert url.startswith(f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}&boot=")
+    assert hass.data[DATA_EXTRA_MODULE_URL].urls == {url}
 
 
 async def test_setup_without_a_frontend_still_serves_the_file(

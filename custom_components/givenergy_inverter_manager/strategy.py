@@ -20,6 +20,7 @@ and rebuilds the dashboard if it finds the timeout message on the page when it l
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from homeassistant.core import HomeAssistant
@@ -37,6 +38,7 @@ STRATEGY_TYPE = "custom:givenergy-manager"
 STRATEGY_URL_PATH = f"/{DOMAIN}/givenergy-manager-strategy.js"
 STRATEGY_FILE = Path(__file__).parent / "frontend" / "givenergy-manager-strategy.js"
 _REGISTERED_KEY = f"{DOMAIN}_strategy_registered"
+_BOOT_KEY = f"{DOMAIN}_strategy_boot"
 _EXTRA_MODULE_URL_KEY = "frontend_extra_module_url"
 
 
@@ -85,16 +87,45 @@ def _register_websocket_command(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_dashboard)
 
 
-async def _serve_strategy_file(hass: HomeAssistant) -> None:
-    from homeassistant.components.http import StaticPathConfig  # noqa: PLC0415
+def strategy_module_url(hass: HomeAssistant) -> str:
+    """The address the page imports the script from, which is new for each Home Assistant start.
 
+    The version tells releases apart. The start time tells starts apart, so a wrong response a
+    browser kept from one start's first seconds is never asked for again after the next start.
+    """
+    if _BOOT_KEY not in hass.data:
+        hass.data[_BOOT_KEY] = str(int(time.time()))
+    boot = hass.data[_BOOT_KEY]
+    return f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}&boot={boot}"
+
+
+def _strategy_file_view():
+    """The view that serves the script. It is built here so this module imports without one."""
+    from aiohttp import web  # noqa: PLC0415
+    from homeassistant.components.http import HomeAssistantView  # noqa: PLC0415
+
+    class StrategyFileView(HomeAssistantView):
+        """The dashboard script. The browser asks the server whether its copy is current."""
+
+        url = STRATEGY_URL_PATH
+        name = f"{DOMAIN}:strategy_file"
+        requires_auth = False
+
+        async def get(self, request: web.Request) -> web.StreamResponse:
+            # no-cache means keep a copy but check it first. The ETag makes the check a small
+            # 304 while the file is unchanged, and a copy that is wrong mends itself on the next
+            # load. A long lifetime would keep a wrong copy for weeks.
+            return web.FileResponse(STRATEGY_FILE, headers={"Cache-Control": "no-cache"})
+
+    return StrategyFileView()
+
+
+async def _serve_strategy_file(hass: HomeAssistant) -> None:
     if getattr(hass, "http", None) is None:
         _LOG.debug("No HTTP server, so the dashboard strategy file is not served")
         return
     try:
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(STRATEGY_URL_PATH, str(STRATEGY_FILE), cache_headers=True)]
-        )
+        hass.http.register_view(_strategy_file_view())
     except RuntimeError as err:
         _LOG.warning("Could not serve the dashboard strategy file: %s", err)
         return
@@ -103,4 +134,4 @@ async def _serve_strategy_file(hass: HomeAssistant) -> None:
         return
     from homeassistant.components import frontend  # noqa: PLC0415
 
-    frontend.add_extra_js_url(hass, f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}")
+    frontend.add_extra_js_url(hass, strategy_module_url(hass))

@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- The dashboard script is checked with Home Assistant each time it loads, instead of being kept for 31 days, and its address changes at each Home Assistant start. After one restart a browser kept a wrong copy of the script for that address, so the dashboard failed on every ordinary refresh and only a hard refresh (Ctrl+Shift+R) mended it. The browser still keeps a copy, and a copy that has not changed costs a small 304 reply from the server. A wrong copy now mends itself on the next load, and a new start asks for a new address. See [the dashboard shows an error](docs/troubleshooting.md#the-dashboard-is-missing-or-shows-an-error).
+
 ## v0.19.2
 
 **Fixes**
