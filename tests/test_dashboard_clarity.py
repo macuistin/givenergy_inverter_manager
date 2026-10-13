@@ -161,23 +161,21 @@ def test_a_file_made_before_the_charger_arrived_shows_the_new_sections_when_it_d
 # ── Battery detail ───────────────────────────────────────────────────────────
 
 
-def test_battery_health_holds_the_battery_and_the_inverter_has_its_own_section():
+def test_health_holds_the_battery_and_the_inverter():
     sections = _sections(dashboard_dict(), "plan")
-    assert _tile_names(sections["Battery health"]) == ["Total cycles", "Life remaining", "Since full"]
-    assert _tile_names(sections["Inverter"]) == ["Temperature", "Status"]
+    assert _tile_names(sections["Health"]) == [
+        "Total cycles",
+        "Life remaining",
+        "Since full",
+        "Inverter temp",
+        "Inverter status",
+    ]
 
 
-def test_the_inverter_section_is_left_out_without_an_inverter_temperature_entity():
+def test_the_inverter_tiles_are_left_out_without_an_inverter_temperature_entity():
     config = {k: v for k, v in FULL_CONFIG.items() if k != CONF_INVERTER_TEMP_ENTITY}
     sections = _sections(dashboard_dict(config, FakeRegistry(enable_all=True)), "plan")
-    assert "Inverter" not in sections
-    assert "Battery health" in sections
-
-
-def test_the_inverter_section_heading_does_not_stand_alone():
-    registry = FakeRegistry(enable_all=True, absent={"inverter_temperature", "inverter_temperature_status"})
-    config = dashboard_dict(FULL_CONFIG, registry)
-    assert "Inverter" not in _sections(config, "plan")
+    assert _tile_names(sections["Health"]) == ["Total cycles", "Life remaining", "Since full"]
 
 
 @pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
@@ -185,16 +183,12 @@ def test_the_plan_tab_does_not_depend_on_the_devices(combination):
     ev, switch, sensor = combination
     shown = _view(seen_for(ev=ev, switch=switch, sensor=sensor), "plan")
     assert [s["cards"][0]["heading"] for s in shown["sections"]] == [
-        "Tonight's charge plan",
-        "Battery",
+        "Tonight's charge",
         "Battery overnight",
-        "Charge settings in force",
-        "Bill so far",
-        "This bill period",
+        "Battery",
+        "Bill",
         "Cost per day, last 31 days",
-        "Tariff in use",
-        "Battery health",
-        "Inverter",
+        "Health",
     ]
 
 
@@ -263,26 +257,33 @@ def test_the_immersion_settings_in_force_explain_the_settings_the_install_has(co
 
 @pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
 def test_the_settings_view_explains_the_settings_the_install_has(combination):
+    """Hot water explains Heat now. Fine-tuning explains each of its numbers in one card."""
     ev, switch, sensor = combination
     shown = seen_for(ev=ev, switch=switch, sensor=sensor)
-    text = _markdown(_sections(shown, "settings").get("Hot water", []))
-    assert (MANAGED in text) == switch
-    assert (RESTART_GAP in text) == (switch and sensor)
+    sections = _sections(shown, "settings")
+    assert (MANAGED in _markdown(sections.get("Hot water", []))) == switch
+    (note,) = _markdown(sections["Fine-tuning"])
+    assert note.startswith("- **Cheap rate floor**")
+    assert ("**Min battery**" in note) == switch
+    assert ("**Restart drop**" in note) == (switch and sensor)
 
 
-def test_each_help_line_follows_the_controls_it_explains():
-    """The divert help follows the divert numbers, and the rest follow the thermostat."""
-    cards = _sections(seen_for(switch=True, sensor=True), "settings")["Hot water"]
-    names = [c.get("name") for c in cards]
-    help_at = {
-        c["content"].split("**")[1]: i
-        for i, c in enumerate(cards)
-        if c["type"] == "markdown" and c["content"].startswith("**")
-    }
-    assert help_at["Use spare solar"] > names.index("Min surplus")
-    assert help_at["Use spare solar"] < names.index("Scheduled heat")
-    assert help_at["Heat now"] > names.index("Restart drop")
-    assert help_at["Restart drop"] > names.index("Restart drop")
+def test_the_fine_tuning_note_follows_its_controls():
+    cards = _sections(seen_for(switch=True, sensor=True), "settings")["Fine-tuning"]
+    kinds = [c["type"] for c in cards]
+    assert kinds[-1] == "markdown"
+    assert "markdown" not in kinds[:-1]
+    names = [c["name"] for c in cards if c["type"] == "tile"]
+    assert names == [
+        "Cheap rate floor",
+        "Skip charge above",
+        "Forecast caution",
+        "Min battery",
+        "Min surplus",
+        "Restart drop",
+        "Re-plan charge",
+        "Verbose logging",
+    ]
 
 
 def test_the_help_comes_after_the_tiles_of_the_immersion_view():

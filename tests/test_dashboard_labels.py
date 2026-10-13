@@ -51,8 +51,8 @@ class TestRatesSayPerKwh:
         assert {path for path, _ in _tiles_of(_IDS["avg_import_rate_this_month"])} == {"plan"}
 
     def test_the_tariff_table_gives_every_rate_per_kwh(self):
-        plan = next(v for v in _views() if v["path"] == "plan")
-        tariff = next(s for s in plan["sections"] if s["cards"][0]["heading"] == "Tariff in use")
+        view = next(v for v in _views() if v["path"] == "tariff")
+        tariff = next(s for s in view["sections"] if s["cards"][0]["heading"] == "Tariff in use")
         table = next(c["content"] for c in tariff["cards"] if c["type"] == "markdown")
         header = table.splitlines()[0]
         assert "Rate per kWh" in header
@@ -85,26 +85,30 @@ def _battery_seen(heading: str, switch_state: str) -> list[dict]:
 
 class TestTonightsChargePlan:
     def test_the_plan_sentence_is_the_first_element(self):
-        first = _battery_section("Tonight's charge plan")[0]
+        first = _battery_section("Tonight's charge")[0]
         assert first["type"] == "markdown"
         assert first["content"] == f"{{{{ states('{_IDS['charge_plan']}') }}}}"
 
     def test_the_other_tiles_stay_after_it(self):
-        names = [c["name"] for c in _battery_section("Tonight's charge plan")[1:]]
+        names = [c["name"] for c in _battery_section("Tonight's charge")[1:]]
         assert names == [
-            "Target if charging",
+            "Target",
+            "Est. cost",
             "Sunrise (no charge)",
             "Sunrise (with charge)",
-            "Est. cost",
+            "Fixed target",
+            "Charge to",
+            "Skip tonight",
+            "Dry run",
             "Rate floor",
         ]
 
     def test_the_section_works_while_the_plan_sensor_is_off(self):
         cards = _battery_section(
-            "Tonight's charge plan", registry=FakeRegistry(absent={"charge_plan"})
+            "Tonight's charge", registry=FakeRegistry(absent={"charge_plan"})
         )
         assert {c["type"] for c in cards} == {"tile"}
-        assert cards[0]["name"] == "Target if charging"
+        assert cards[0]["name"] == "Target"
 
 
 class TestTheTwoSunriseFigures:
@@ -135,8 +139,8 @@ class TestTheTwoSunriseFigures:
         assert "At sunrise" not in names
 
     def test_the_two_tiles_sit_together_in_the_charge_plan(self):
-        names = [c["name"] for c in _battery_section("Tonight's charge plan") if "name" in c]
-        assert names[1:3] == [self._NO_CHARGE, self._WITH_CHARGE]
+        names = [c["name"] for c in _battery_section("Tonight's charge") if "name" in c]
+        assert names[2:4] == [self._NO_CHARGE, self._WITH_CHARGE]
 
     def test_the_plan_tab_shows_them_once_in_tonights_charge_plan(self):
         """The overnight section beside it explains the outlook and does not repeat them."""
@@ -159,20 +163,21 @@ class TestTheTwoSunriseFigures:
 
 class TestChargeSettingsInForce:
     def _names(self, switch_state: str) -> list[str]:
-        return [c.get("name") for c in _battery_seen("Charge settings in force", switch_state)]
+        return [c.get("name") for c in _battery_seen("Tonight's charge", switch_state)]
 
     def test_the_override_value_shows_only_while_the_override_is_on(self):
         assert "Charge to" in self._names("on")
         assert "Charge to" not in self._names("off")
 
-    def test_the_override_switch_always_shows(self):
+    def test_the_fixed_target_shows_only_while_it_is_on(self):
+        """Tonight's charge lists only what changes it tonight, so an unused switch is hidden."""
         assert "Fixed target" in self._names("on")
-        assert "Fixed target" in self._names("off")
+        assert "Fixed target" not in self._names("off")
 
     def test_the_value_is_hidden_by_a_condition_on_the_switch_state(self):
         card = next(
             c
-            for c in _battery_section("Charge settings in force")
+            for c in _battery_section("Tonight's charge")
             if c.get("name") == "Charge to"
         )
         assert card["visibility"] == [
@@ -185,7 +190,7 @@ class TestChargeSettingsInForce:
 
     def test_dry_run_reads_on_or_off_from_the_summary_attribute(self):
         card = next(
-            c for c in _battery_section("Charge settings in force") if c.get("name") == "Dry run"
+            c for c in _battery_section("Tonight's charge") if c.get("name") == "Dry run"
         )
         assert card["entity"] == _IDS["dry_run_active"]
         assert card["state_content"] == ["summary"]

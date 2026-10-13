@@ -63,12 +63,12 @@ def _config(*changes: dict, reviewed: date | None = None, **extra) -> dict:
 
 
 def _tariff_section(view: dict) -> dict:
-    """The section of the Plan tab that holds the tariff in use."""
+    """The section of the Tariff view that holds the tariff in use."""
     return next(s for s in view["sections"] if s["cards"][0].get("heading") == "Tariff in use")
 
 
 def _tariff(config: dict) -> list[dict]:
-    view = next(v for v in dashboard_dict(config)["views"] if v["path"] == "plan")
+    view = next(v for v in dashboard_dict(config)["views"] if v["path"] == "tariff")
     return view_cards({"sections": [_tariff_section(view)]})
 
 
@@ -141,7 +141,7 @@ def test_the_tariff_in_use_is_untouched_by_a_change_ahead():
 
 def test_the_changes_sit_under_the_tariff_in_use_in_the_same_section():
     config = dashboard_dict(_config(_change(_AHEAD)))
-    view = next(v for v in config["views"] if v["path"] == "plan")
+    view = next(v for v in config["views"] if v["path"] == "tariff")
     section = _tariff_section(view)
     kinds = [(c["type"], c.get("heading")) for c in section["cards"]]
     assert kinds == [
@@ -199,7 +199,7 @@ def _tariff_view_seen(ev: bool, switch: bool, sensor: bool) -> dict:
     config[CONF_TARIFF_CHANGES] = [_change(_AHEAD)]
     generated = dashboard_dict(config, ev_brand=brand)
     shown = seen(generated, states_with(devices_of(config, brand)))
-    view = next(v for v in shown["views"] if v["path"] == "plan")
+    view = next(v for v in shown["views"] if v["path"] == "tariff")
     return {"sections": [_tariff_section(view)]}
 
 

@@ -76,7 +76,6 @@ from .devices import Devices, with_visibility
 from .hacs import APEX_CARD, POWER_FLOW_CARD, HacsCards
 from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
-    DIVERT_HELP,
     MANAGED_HELP,
     PLAN_FORECAST_CAPTION,
     RESTART_GAP_HELP,
@@ -104,6 +103,7 @@ TAB_TODAY = "today"
 TAB_PLAN = "plan"
 SUB_IMMERSION = "immersion"
 SUB_EV = "ev-charger"
+SUB_TARIFF = "tariff"
 SUB_SETTINGS = "settings"
 TABS = frozenset({TAB_NOW, TAB_TODAY, TAB_PLAN})
 
@@ -112,7 +112,7 @@ TABS = frozenset({TAB_NOW, TAB_TODAY, TAB_PLAN})
 _BILL_COST_DAYS = 31
 _SOLAR_DAYS = 7
 _CHART_ROWS = 5
-_LOGBOOK_HOURS = 7 * 24
+_LOGBOOK_HOURS = 24
 
 # The rate sensors report a bare currency amount, and their unit stays that for the long-term
 # statistics. So the tile name says what the amount is for.
@@ -202,19 +202,19 @@ def _has_inverter_temp(hass: HomeAssistant, cfg: dict) -> bool:
     return any(hass.states.get(entity_id) is not None for entity_id in candidates)
 
 
-# What each tuning control does, shown above them on the Settings view.
-_TUNING_NOTE = (
-    "**What these do**\n\n"
-    "- **Cheap rate floor**: during the cheapest rate the battery is topped up to this level when "
-    "it falls below it. 0 turns the top-up off.\n"
-    "- **Skip charge above**: when the battery is above this level and tomorrow's solar forecast "
-    "is good, tonight's grid charge is skipped.\n"
-    "- **Forecast caution**: how far the plan moves from the typical solar forecast towards the "
-    "low one. 0 trusts the typical forecast, 1 plans on the low one.\n"
-    "- **Re-plan charge**: off by default. When on, the overnight target is worked out again while "
-    "the cheap window is open, and a changed target is written, at most three times a night. "
-    "With Dry run on it only records what it would write.\n"
-    "- **Verbose logging**: writes per-cycle detail to the log at debug level."
+# What each tuning control does, in a line each, under them on the Settings view. The heater
+# lines are added only while the heater is there.
+_TUNING_LINES = (
+    "- **Cheap rate floor**: in the cheapest rate, top the battery up to this. 0 is off.",
+    "- **Skip charge above**: skip tonight's charge above this, if tomorrow looks sunny.",
+    "- **Forecast caution**: 0 plans on the typical forecast, 1 on the low one.",
+    "- **Re-plan charge**: work the target out again in the cheap window, three times at most.",
+)
+_HEATER_TUNING_LINE = (
+    "- **Min battery**, **Min surplus**: spare solar goes to the water only above both."
+)
+_THERMOSTAT_TUNING_LINE = (
+    "- **Restart drop**: how far the water falls below the target before it heats again."
 )
 
 
@@ -969,25 +969,19 @@ class Builder:
 
     # -- Bill --
 
-    def _bill_so_far(self) -> dict | None:
+    def _bill(self) -> dict | None:
+        """The bill period in one section. A Tariff button opens the rates the sums use."""
+        tariff = self.go(SUB_TARIFF)
+        badges = [button_badge("mdi:table", "Tariff", tariff)] if tariff else None
         return group(
-            heading_card("Bill so far", "mdi:receipt-text"),
+            heading_card("Bill", "mdi:receipt-text", badges=badges),
             [
                 self.tile("accrued_bill", "Accrued bill", color=GRID),
                 self.tile("projected_bill", "Projected bill", color=GRID),
                 self.tile("import_cost_this_month", "Import cost", color=GRID),
                 self.tile("export_earnings_this_month", "Export credit", color=BATTERY),
-            ],
-        )
-
-    def _bill_period(self) -> dict | None:
-        return group(
-            heading_card("This bill period", "mdi:calendar-month"),
-            [
-                self.tile("days_in_period", "Days elapsed"),
                 self.tile("days_remaining_in_period", "Days left"),
                 self.tile("avg_import_rate_this_month", AVERAGE_RATE_NAME, color=GRID),
-                self.tile("cheap_import_fraction_this_month", "Cheap share", color=GRID),
             ],
         )
 
@@ -1012,115 +1006,116 @@ class Builder:
         heading = subheading_card("Scheduled rate changes", "mdi:calendar-clock")
         return heading_block(heading, [markdown_card(text) if text else None])
 
-    def _tariff(self) -> dict | None:
-        """The rates and charges the bill sums use, and the rate changes to come.
+    def tariff_sections(self) -> list:
+        """Sub-view: the rates and charges the bill sums use, and the rate changes to come.
 
         Both are read from the options each time the strategy dashboard opens.
         """
         today = dt_util.now().date()
         in_force = tariff_in_force(self.cfg, today)
         table = markdown_card(tariff_table(build_tariff(in_force), self.cfg))
-        return grid_section(
-            heading_block(heading_card("Tariff in use", "mdi:table"), [table]),
-            self._scheduled_changes(today),
-        )
+        return [
+            grid_section(
+                heading_block(heading_card("Tariff in use", "mdi:table"), [table]),
+                self._scheduled_changes(today),
+            )
+        ]
 
     # -- Battery --
 
     def _battery_now(self) -> dict | None:
-        battery_soc = self.entity("battery_soc")
-        history = entity_list_card(
-            [entity_row(battery_soc, "Charge")], {"type": "history-graph"}, hours_to_show=24
-        )
+        """The charge and the power, each with its last 24 hours drawn as a line."""
         return group(
             heading_card("Battery", "mdi:battery-heart-variant"),
             [
-                tile_card(battery_soc, "Charge", color=BATTERY, features=[TREND]),
+                self.tile("battery_soc", "Charge", color=BATTERY, features=[TREND]),
                 self.tile("battery_power", "Power", color=BATTERY, features=[TREND]),
-                graph_card(history) if history else None,
             ],
         )
 
-    def _sunrise_tiles(self) -> list:
-        """The charge expected at sunrise without and with tonight's planned charge."""
-        return [
-            self.tile(
-                "estimated_soc_at_sunrise", SUNRISE_NO_CHARGE_NAME, color=BATTERY, columns=FULL
-            ),
-            self.tile(
-                "estimated_soc_at_sunrise_with_charge",
-                SUNRISE_WITH_CHARGE_NAME,
-                color=BATTERY,
-                columns=FULL,
-            ),
-        ]
-
-    def _charge_plan(self) -> dict | None:
-        """The plan's sentence first: it says whether tonight charges or is skipped."""
-        return group(
-            heading_card("Tonight's charge plan", "mdi:weather-night"),
-            [
-                state_markdown(self.entity("charge_plan")),
-                self.tile(
-                    "overnight_charge_target", "Target if charging", color=BATTERY, columns=FULL
-                ),
-                *self._sunrise_tiles(),
-                self.tile("overnight_charge_cost", "Est. cost", color=GRID),
-                self.tile(
-                    "cheap_rate_floor_status", "Rate floor", color=GRID, icon="mdi:floor-plan"
-                ),
-            ],
-        )
-
-    def _target_override_tile(self) -> dict | None:
-        """The override value, shown only while the override is on and so in force."""
-        switch = self.entity("charge_target_override_enabled")
+    def _while_on(self, switch_suffix: str, tile: dict | None) -> dict | None:
+        """A tile shown only while this switch is on, so a setting shows only while in force."""
+        switch = self.entity(switch_suffix)
         if switch is None:
             return None
-        tile = readonly_tile(self.entity("charge_target_override"), CHARGE_TO_NAME, BATTERY)
         return with_visibility(tile, self.devices.visible_while_on(switch))
 
-    def _charge_settings_in_force(self) -> dict[str, Any] | None:
-        """The charge settings as they stand, to read. Administrators change them."""
-        return group(
-            heading_card("Charge settings in force", "mdi:tune"),
-            [
+    def _in_force(self) -> list:
+        """The settings that change tonight, each shown only while it does.
+
+        Everyone can read them here. Administrators change them in Settings.
+        """
+        dry_run = self.entity("dry_run_active")
+        floor = self.entity("cheap_rate_floor_status")
+        return [
+            self._while_on(
+                "charge_target_override_enabled",
                 readonly_tile(
                     self.entity("charge_target_override_enabled"), FIXED_TARGET_NAME, BATTERY
                 ),
-                self._target_override_tile(),
+            ),
+            self._while_on(
+                "charge_target_override_enabled",
+                readonly_tile(self.entity("charge_target_override"), CHARGE_TO_NAME, BATTERY),
+            ),
+            self._while_on(
+                "skip_charge_override",
                 readonly_tile(self.entity("skip_charge_override"), "Skip tonight", BATTERY),
-                self.tile(
-                    "dry_run_active",
-                    "Dry run",
-                    color=GRID,
-                    icon="mdi:test-tube",
-                    state_content=["summary"],
+            ),
+            with_visibility(
+                tile_card(
+                    dry_run, "Dry run", color=GRID, icon="mdi:test-tube", state_content=["summary"]
                 ),
+                [{"condition": "state", "entity": dry_run, "state": "True"}],
+            )
+            if dry_run
+            else None,
+            with_visibility(
+                tile_card(floor, "Rate floor", color=GRID, icon="mdi:floor-plan"),
+                [{"condition": "state", "entity": floor, "state_not": "Inactive"}],
+            )
+            if floor
+            else None,
+        ]
+
+    def _charge_plan(self) -> dict | None:
+        """The plan's sentence first: it says whether tonight charges or is skipped.
+
+        What changes tonight's charge shows under it only while it is in force.
+        """
+        return group(
+            heading_card("Tonight's charge", "mdi:weather-night"),
+            [
+                state_markdown(self.entity("charge_plan")),
+                self.tile("overnight_charge_target", "Target", color=BATTERY),
+                self.tile("overnight_charge_cost", "Est. cost", color=GRID),
+                self.tile(
+                    "estimated_soc_at_sunrise", SUNRISE_NO_CHARGE_NAME, color=BATTERY, columns=FULL
+                ),
+                self.tile(
+                    "estimated_soc_at_sunrise_with_charge",
+                    SUNRISE_WITH_CHARGE_NAME,
+                    color=BATTERY,
+                    columns=FULL,
+                ),
+                *self._in_force(),
             ],
         )
 
-    def _battery_health(self) -> dict | None:
+    def _health(self) -> dict | None:
+        """The battery's wear and the inverter's temperature, in one section."""
         return group(
-            heading_card("Battery health", "mdi:battery-heart-variant"),
+            heading_card("Health", "mdi:battery-heart-variant"),
             [
                 self.tile("battery_cycles", "Total cycles", color=BATTERY),
                 self.tile("battery_remaining_life", "Life remaining", color=BATTERY),
                 self.tile(
                     "days_since_full_charge", "Since full", color=BATTERY, icon="mdi:battery-check"
                 ),
-            ],
-        )
-
-    def _inverter_health(self) -> dict | None:
-        """The inverter's temperature and status, under a heading of their own."""
-        return group(
-            heading_card("Inverter", "mdi:thermometer"),
-            [
-                tile_card(self.inverter_temp("inverter_temperature"), "Temperature", color=GRID),
+                tile_card(self.inverter_temp("inverter_temperature"), "Inverter temp", color=GRID),
                 tile_card(
                     self.inverter_temp("inverter_temperature_status"),
-                    "Status",
+                    "Inverter status",
                     color=GRID,
                     icon="mdi:thermometer-alert",
                 ),
@@ -1135,24 +1130,23 @@ class Builder:
                 self._night_survival(),
             ),
             heading_block(
-                subheading_card("Tonight's charge target", "mdi:battery-charging"),
+                subheading_card("Why this target", "mdi:battery-charging"),
                 [state_markdown(self.entity("overnight_charge_reason"), ATTR_FULL_TEXT)],
             ),
         )
 
     def plan_sections(self) -> list:
-        """Tonight's charge and the battery first, then the bill and the tariff it uses."""
+        """Six sections: tonight, why, the battery, the bill, the cost per day, health.
+
+        The tariff table is one tap away, on its own view.
+        """
         return [
             self._charge_plan(),
-            self._battery_now(),
             self._overnight(),
-            self._charge_settings_in_force(),
-            self._bill_so_far(),
-            self._bill_period(),
+            self._battery_now(),
+            self._bill(),
             self._bill_cost_per_day(),
-            self._tariff(),
-            self._battery_health(),
-            self._inverter_health(),
+            self._health(),
         ]
 
     def _night_survival(self) -> list:
@@ -1243,35 +1237,59 @@ class Builder:
         )
 
     def _tuning_controls(self) -> dict | None:
-        """The tuning knobs that apply to every install. The divert ones sit with the heater.
+        """The numbers set once and left: the charge plan's and the heater's.
 
         The numbers take the width of the section, because their names do not fit half of it.
+        A line each under them says what they do.
         """
-        full = {"columns": FULL}
+        heater, thermostat = Device.IMMERSION_SWITCH, Device.IMMERSION_THERMOSTAT
+        show = self.devices.show_with
         return group(
             heading_card("Fine-tuning", "mdi:tune-variant"),
             [
-                markdown_card(_TUNING_NOTE),
-                *[
-                    {**tile, "grid_options": full} if tile else None
-                    for tile in (
-                        stepper_tile(
-                            self.entity("cheap_rate_floor_soc"), "Cheap rate floor", BATTERY
-                        ),
-                        stepper_tile(
-                            self.entity("skip_charge_soc_threshold_pct"),
-                            "Skip charge above",
-                            BATTERY,
-                        ),
-                        stepper_tile(
-                            self.entity("forecast_conservatism"), "Forecast caution", SOLAR
-                        ),
-                    )
-                ],
+                stepper_tile(
+                    self.entity("cheap_rate_floor_soc"), "Cheap rate floor", BATTERY, FULL
+                ),
+                stepper_tile(
+                    self.entity("skip_charge_soc_threshold_pct"),
+                    "Skip charge above",
+                    BATTERY,
+                    FULL,
+                ),
+                stepper_tile(self.entity("forecast_conservatism"), "Forecast caution", SOLAR, FULL),
+                show(
+                    stepper_tile(
+                        self.immersion("surplus_divert_soc_pct"), "Min battery", IMMERSION
+                    ),
+                    heater,
+                ),
+                show(
+                    stepper_tile(
+                        self.immersion("surplus_divert_min_power_w"), "Min surplus", IMMERSION
+                    ),
+                    heater,
+                ),
+                show(
+                    stepper_tile(
+                        self.thermostat("immersion_hysteresis"), "Restart drop", IMMERSION, FULL
+                    ),
+                    thermostat,
+                ),
                 toggle_tile(self.entity("charge_replan"), "Re-plan charge", BATTERY),
                 toggle_tile(self.entity("verbose_logging"), "Verbose logging", GRID),
+                *self.devices.variants((heater, thermostat), self._tuning_note),
             ],
         )
+
+    @staticmethod
+    def _tuning_note(shown: frozenset[Device]) -> dict:
+        """A line for each control above, the heater's only for the devices of *shown*."""
+        lines = [*_TUNING_LINES]
+        if Device.IMMERSION_SWITCH in shown:
+            lines.append(_HEATER_TUNING_LINE)
+        if Device.IMMERSION_THERMOSTAT in shown:
+            lines.append(_THERMOSTAT_TUNING_LINE)
+        return markdown_card("\n".join(lines))
 
     def _charging_controls(self) -> list:
         return heading_block(
@@ -1280,8 +1298,12 @@ class Builder:
                 toggle_tile(
                     self.entity("charge_target_override_enabled"), FIXED_TARGET_NAME, BATTERY
                 ),
-                stepper_tile(
-                    self.entity("charge_target_override"), CHARGE_TO_NAME, BATTERY, columns=FULL
+                # The target to charge to is used only with a fixed target, so it shows only then.
+                self._while_on(
+                    "charge_target_override_enabled",
+                    stepper_tile(
+                        self.entity("charge_target_override"), CHARGE_TO_NAME, BATTERY, FULL
+                    ),
                 ),
                 toggle_tile(self.entity("skip_charge_override"), "Skip tonight", BATTERY),
             ],
@@ -1330,7 +1352,7 @@ class Builder:
         return logbook_card(self._settings_entities(shown), _LOGBOOK_HOURS)
 
     def _recent_changes(self) -> list:
-        """What changed a setting in the last week, under Tonight's charge.
+        """What changed a setting in the last day, under Tonight's charge.
 
         The list names the heater's settings only while the heater is there, so it is built
         once for each combination of the switch and the thermostat.
@@ -1341,21 +1363,22 @@ class Builder:
         return heading_block(subheading_card("Recent changes", "mdi:history"), cards)
 
     def _immersion_thermostat_controls(self) -> list:
-        """The scheduled heating toggle and the temperature steppers.
-
-        They act only with a switch and a sensor, so only then show.
-        """
-        schedule = toggle_tile(self.thermostat("immersion_schedule"), SCHEDULE_NAME, IMMERSION)
+        """Scheduled heating and the two temperatures. They need a switch and a sensor."""
+        thermostat = Device.IMMERSION_THERMOSTAT
+        show = self.devices.show_with
         return [
-            self.devices.show_with(schedule, Device.IMMERSION_THERMOSTAT),
-            *[
-                self.devices.show_with(
-                    stepper_tile(self.thermostat(suffix), name, IMMERSION, columns=width),
-                    Device.IMMERSION_THERMOSTAT,
-                )
-                # Two to a row, and the third takes the row it would otherwise leave half empty.
-                for (suffix, name), width in zip(_THERMOSTAT_SETTINGS, (6, 6, FULL), strict=True)
-            ],
+            show(
+                toggle_tile(self.thermostat("immersion_schedule"), SCHEDULE_NAME, IMMERSION),
+                thermostat,
+            ),
+            show(
+                stepper_tile(self.thermostat("immersion_target_temp"), "Heat to", IMMERSION),
+                thermostat,
+            ),
+            show(
+                stepper_tile(self.thermostat("immersion_min_temp"), "Never below", IMMERSION),
+                thermostat,
+            ),
         ]
 
     def _divert_decision(self) -> list:
@@ -1363,22 +1386,16 @@ class Builder:
         return [state_markdown(self.entity("immersion_divert_reason"), ATTR_FULL_TEXT)]
 
     def _immersion_controls(self) -> dict | None:
+        """What is changed day to day. The divert numbers and restart drop are in Fine-tuning."""
         return group(
             heading_card("Hot water", "mdi:water-boiler"),
             [
                 *self._divert_decision(),
                 toggle_tile(self.immersion("auto_immersion"), AUTO_DIVERT_NAME, IMMERSION),
                 toggle_tile(self.immersion("immersion_managed"), MANAGED_NAME, IMMERSION),
-                stepper_tile(self.immersion("surplus_divert_soc_pct"), "Min battery", IMMERSION),
-                stepper_tile(
-                    self.immersion("surplus_divert_min_power_w"), "Min surplus", IMMERSION
-                ),
-                markdown_card(DIVERT_HELP),
                 *self._immersion_thermostat_controls(),
-                *self._thermostat_help(),
+                markdown_card(MANAGED_HELP),
             ],
-            # Two rows tall, so on a tablet Fine-tuning sits under the first section beside it.
-            row_span=2,
             **self._when(Device.IMMERSION_SWITCH),
         )
 
@@ -1387,15 +1404,18 @@ class Builder:
 
         Three sections of one column, so a laptop shows them side by side with no column left
         empty: Dry run, Tonight's charge and the recent changes, then Hot water, then
-        Fine-tuning. Hot water spans two rows, so on a tablet Fine-tuning goes under the first
-        section instead of below the taller Hot water. Empty without an administrator ID, so
-        the view is left out and no one sees it.
+        Fine-tuning. The first is two rows tall, so on a tablet Fine-tuning sits under Hot water.
+        Empty without an administrator ID, so the view is left out and no one sees it.
         """
         if not self.admin_ids:
             return []
         return [
+            # Two rows tall, so on a tablet Fine-tuning sits under Hot water beside it.
             grid_section(
-                self._dry_run_controls(), self._charging_controls(), self._recent_changes()
+                self._dry_run_controls(),
+                self._charging_controls(),
+                self._recent_changes(),
+                row_span=2,
             ),
             self._immersion_controls(),
             self._tuning_controls(),
@@ -1432,6 +1452,7 @@ TAB_VIEWS = (
 SUBVIEWS = (
     ViewSpec("Immersion", "mdi:water-boiler", SUB_IMMERSION, Builder.immersion_sections, TAB_NOW),
     ViewSpec("EV charger", "mdi:ev-station", SUB_EV, Builder.ev_sections, TAB_NOW),
+    ViewSpec("Tariff", "mdi:table", SUB_TARIFF, Builder.tariff_sections, TAB_PLAN),
     ViewSpec(
         "Settings",
         "mdi:tune",

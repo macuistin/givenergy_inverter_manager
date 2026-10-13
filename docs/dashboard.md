@@ -115,7 +115,7 @@ Tiles are the main building block. They are horizontal, two to a row in a one-co
 
 The controls use tile features: − and + buttons on the number entities, so a value such as 45 °C or 25% is easy to set exactly, and a toggle on the switches. They sit in the Settings sub-view, which only administrators see. Everywhere else a tile shows a setting's value and does nothing when tapped. Charts take the full width of their section.
 
-The dashboard has three tabs: **Now**, **Today** and **Plan & bill**. The detail of each tab sits lower on the same tab, so only three things open a sub-view: the Immersion and EV charger tiles under Devices on Now, and the Settings button in the Now heading (administrators only). The back arrow at the top of a sub-view returns to Now. A heading or tile that opens another tab or view shows a chevron or opens it when tapped.
+The dashboard has three tabs: **Now**, **Today** and **Plan & bill**. The detail of each tab sits lower on the same tab, so only four things open a sub-view: the Immersion and EV charger tiles under Devices on Now, the Settings button in the Now heading (administrators only), and the Tariff button in the Bill heading on Plan & bill. The back arrow at the top of a sub-view returns to the tab that opened it. A heading or tile that opens another tab or view shows a chevron or opens it when tapped.
 
 The Immersion and EV charger sub-views are always built so a device added later has somewhere to show, and their tiles are hidden until the device exists.
 
@@ -198,24 +198,21 @@ The graphs on the Today and Plan & bill tabs are statistics graphs, not history 
 
 ### Plan & bill
 
-Tonight's charge and the battery first, then the figures for the current bill period, so you can hold them against your supplier bill, and the tariff they use.
+Six sections: tonight, why, the battery, the bill, the cost per day and the health of the battery and inverter.
 
-- **Tonight's charge plan**: the plan in one sentence first, then Target if charging (the target the plan would set if tonight charges, which is not a promise that it does, on a full-width tile), Sunrise (no charge) and Sunrise (with charge) on full-width tiles (the estimated state of charge at sunrise without and with tonight's planned charge), Est. cost and Rate floor (the cheap rate floor). The sentence is the Tonight's charge plan sensor, and says outright whether tonight charges (`Target 78% · Add 34% · Cost €0.51`) or is skipped (`Skip charge · Plan forecast 8.2 kWh · SoC 64%`). The sensor is enabled by default. If you disabled it, the tiles show alone.
-- **Battery**: state of charge and battery power, each with a 24-hour trend, and a 24-hour history of state of charge. State of charge and power are not drawn on one graph, because a percentage and watts share no scale.
-- **Battery overnight**: the outlook in bold, with no repeat of the heading, then why. Where the Battery Overnight Confidence sensor has an `explanation` attribute, that is shown, with the figure with tonight's planned charge and whether it covers the night while a charge counts. Otherwise a Warning is explained from the estimated state of charge at sunrise without a charge ("about 14% at sunrise without a charge, close to your minimum charge") and, when a charge adds something, the figure with the planned charge. Safe and Critical show the Battery Overnight Outlook text, which carries any kWh shortfall. Without the confidence sensor, which is disabled by default, only the status text is shown. The two Sunrise figures it judges are in Tonight's charge plan, so they are not repeated here. Under the outlook comes the reason for tonight's charge target. Both are sentences, and a tile cuts them off, so they sit in Markdown cards. The cards print the `full_text` attribute of the sensor when it has one and otherwise its state, because the state of a long reason is cut to 255 characters. The divert reason and the EV mode decision cards do the same.
-- **Charge settings in force**: Fixed target, the Charge to value, Skip tonight and Dry run, to read. Charge to shows only while Fixed target is on, because the value is not used otherwise. Dry run reads On or Off. Change all four in Settings.
-- **Bill so far**: Accrued bill, Projected bill, Import cost and Export credit.
-- **This bill period**: Days elapsed, Days left, Avg import/kWh and Cheap share (the cheap rate share of import).
+- **Tonight's charge**: the plan in one sentence first, then Target (the target the plan would set if tonight charges, which is not a promise that it does) and Est. cost, then Sunrise (no charge) and Sunrise (with charge), the estimated state of charge at sunrise without and with tonight's planned charge. The sentence is the Tonight's charge plan sensor, and says outright whether tonight charges (`Target 78% · Add 34% · Cost €0.51`) or is skipped (`Skip charge · Plan forecast 8.2 kWh · SoC 64%`). Below them, a tile shows each thing that changes tonight's charge, only while it does: Fixed target with its Charge to value, Skip tonight, Dry run and the cheap rate floor. Everyone can read them here, and administrators change them in Settings.
+- **Battery overnight**: the outlook in bold, with no repeat of the heading, then why. Where the Battery Overnight Confidence sensor has an `explanation` attribute, that is shown, with the figure with tonight's planned charge and whether it covers the night while a charge counts. Otherwise a Warning is explained from the estimated state of charge at sunrise without a charge ("about 14% at sunrise without a charge, close to your minimum charge") and, when a charge adds something, the figure with the planned charge. Safe and Critical show the Battery Overnight Outlook text, which carries any kWh shortfall. Without the confidence sensor, which is disabled by default, only the status text is shown. The two Sunrise figures it judges are in Tonight's charge plan, so they are not repeated here. Under it, **Why this target** gives the reason for tonight's charge target. Both are sentences, and a tile cuts them off, so they sit in Markdown cards. The cards print the `full_text` attribute of the sensor when it has one and otherwise its state, because the state of a long reason is cut to 255 characters. The divert reason and the EV mode decision cards do the same.
+- **Battery**: state of charge and battery power, each with a line of the last 24 hours.
+- **Bill**: Accrued bill, Projected bill, Import cost, Export credit, Days left and Avg import/kWh. A **Tariff** button in the heading opens the Tariff sub-view.
 - **Cost per day, last 31 days**: a bar graph of the import cost and the export credit of each day, so you can see which days made the bill. It runs across the whole view. It reaches back 31 days because a bill period is a calendar month at most. The graph cannot mark where your bill period starts, because that moves each month.
-- **Tariff in use**: see below.
-- **Battery health**: total cycles, life remaining and days since full charge.
-- **Inverter**: the inverter temperature and status. The section needs an inverter temperature entity.
+- **Health**: total cycles, life remaining, days since full charge, and with an inverter temperature entity the inverter's temperature and status.
 
 Days Elapsed in Bill Period, Average Import Rate This Month and Cheap rate import fraction this month are disabled by default. Enable them to see those tiles.
 
 Accrued Bill This Period is worked out line by line from the month totals: energy less the supplier saving, standing charge, PSO levy and VAT, minus the export credit. Projected Bill This Period scales it to the whole period. See [Tariff](tariff.md#bill-sensors). Import cost this month is the import energy for the period after discount and VAT. It leaves out the standing charge, the PSO levy and the export credit.
 
-#### Tariff in use
+### Tariff (sub-view)
+
 
 A table of the base rate and each timed rate period with its window, the rate, and the rate billed per kWh after the supplier discount and VAT. It also lists the export rate, standing charge, PSO levy and bill start day.
 
@@ -227,12 +224,11 @@ Like the table, the list is read from your options each time the dashboard opens
 
 ### Settings (sub-view, administrators only)
 
-- **Dry run**: the Dry run switch. Turn it off to go live. It cannot be turned off on a test instance.
-- **Tonight's charge**: the Fixed target switch, the Charge to number and the Skip tonight switch. They carry the names Plan & bill gives the same settings. Under them, **Recent changes** lists what changed any setting on this view in the last week, from Home Assistant's logbook. It names the immersion settings only while the immersion switch exists.
-- **Hot water** (needs the immersion switch): the divert reason in words first, so the controls below read against what the heater is doing now. Then Use spare solar (Auto Immersion Divert) and Heat now (Immersion Heater Managed), and Min battery and Min surplus, the battery charge and the spare power that must be reached before solar goes to the water. A short line says what those three do. With a temperature sensor as well: Scheduled heat (Immersion Scheduled Heating), Heat to, Never below and Restart drop. The same two lines as on the Immersion view explain Heat now and Restart drop, each only while its controls exist.
-- **Fine-tuning**: a short note on what each control does, then the cheap rate floor, the skip-charge threshold and forecast caution, the Re-plan charge switch and the Verbose logging switch.
+Three sections. The first is two rows tall, so on a tablet Fine-tuning sits under Hot water, and on a laptop the three sit side by side.
 
-Settings is three sections of one column: Dry run with Tonight's charge, Hot water, and Fine-tuning. On a laptop they sit side by side. Hot water is two rows tall, so on a tablet Fine-tuning sits under the first section, beside Hot water.
+- **Dry run**: the Dry run switch. Turn it off to go live. It cannot be turned off on a test instance. Under it, **Tonight's charge**: the Fixed target switch, the Charge to number while Fixed target is on, and the Skip tonight switch. Under them, **Recent changes** lists what changed any setting on this view in the last day, from Home Assistant's logbook. It names the immersion settings only while the immersion switch exists.
+- **Hot water** (needs the immersion switch): the divert reason in words first, so the controls below read against what the heater is doing now. Then Use spare solar (Auto Immersion Divert) and Heat now (Immersion Heater Managed). With a temperature sensor as well: Scheduled heat (Immersion Scheduled Heating), Heat to and Never below. A line says what Heat now does.
+- **Fine-tuning**: the numbers you set once and leave. The cheap rate floor, the skip-charge threshold and forecast caution, with the immersion switch Min battery and Min surplus (the battery charge and the spare power before solar goes to the water), and with a sensor as well Restart drop. Then the Re-plan charge and Verbose logging switches, and one card with a line on each.
 
 The view is left out when there is no administrator to show it to. The dry run banner is not here. It sits on the Now tab and appears only while Dry Run Mode Active is true.
 
