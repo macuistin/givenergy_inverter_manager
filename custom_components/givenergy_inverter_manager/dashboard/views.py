@@ -1087,7 +1087,7 @@ class Builder:
             heading_card("Tonight's charge", "mdi:weather-night"),
             [
                 state_markdown(self.entity("charge_plan")),
-                self.tile("overnight_charge_target", "Target", color=BATTERY),
+                *self._target_tiles(),
                 self.tile("overnight_charge_cost", "Est. cost", color=GRID),
                 self.tile(
                     "estimated_soc_at_sunrise", SUNRISE_NO_CHARGE_NAME, color=BATTERY, columns=FULL
@@ -1101,6 +1101,26 @@ class Builder:
                 *self._in_force(),
             ],
         )
+
+    def _target_tiles(self) -> list[dict | None]:
+        """The target as a goal on a night that charges, and as the level held on a skipped one.
+
+        A skipped night still has a number: the seasonal minimum plus a buffer, which is what
+        is written as the charge target so the inverter does not import to hold the battery
+        higher. Labelled "Target" beside "Skip charge" it read as a charge goal.
+        """
+        entity = self.entity("overnight_charge_target")
+        if entity is None:
+            return []
+        charge = with_visibility(
+            self.tile("overnight_charge_target", "Target", color=BATTERY),
+            [{"condition": "state", "entity": entity, "attribute": "plan", "state_not": "skip"}],
+        )
+        held = with_visibility(
+            self.tile("overnight_charge_target", "Hold at", color=BATTERY),
+            [{"condition": "state", "entity": entity, "attribute": "plan", "state": "skip"}],
+        )
+        return [charge, held]
 
     def _health(self) -> dict | None:
         """The battery's wear and the inverter's temperature, in one section."""

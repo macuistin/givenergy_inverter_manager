@@ -93,6 +93,7 @@ class TestTonightsChargePlan:
         names = [c["name"] for c in _battery_section("Tonight's charge")[1:]]
         assert names == [
             "Target",
+            "Hold at",
             "Est. cost",
             "Sunrise (no charge)",
             "Sunrise (with charge)",
@@ -102,6 +103,27 @@ class TestTonightsChargePlan:
             "Dry run",
             "Rate floor",
         ]
+
+    def test_the_target_reads_as_held_on_a_skipped_night_and_as_a_goal_otherwise(self):
+        tiles = {c["name"]: c for c in _battery_section("Tonight's charge")[1:3]}
+
+        assert tiles["Target"]["visibility"] == [
+            {
+                "condition": "state",
+                "entity": _IDS["overnight_charge_target"],
+                "attribute": "plan",
+                "state_not": "skip",
+            }
+        ]
+        assert tiles["Hold at"]["visibility"] == [
+            {
+                "condition": "state",
+                "entity": _IDS["overnight_charge_target"],
+                "attribute": "plan",
+                "state": "skip",
+            }
+        ]
+        assert tiles["Target"]["entity"] == tiles["Hold at"]["entity"]
 
     def test_the_section_works_while_the_plan_sensor_is_off(self):
         cards = _battery_section(
@@ -140,7 +162,7 @@ class TestTheTwoSunriseFigures:
 
     def test_the_two_tiles_sit_together_in_the_charge_plan(self):
         names = [c["name"] for c in _battery_section("Tonight's charge") if "name" in c]
-        assert names[2:4] == [self._NO_CHARGE, self._WITH_CHARGE]
+        assert names[3:5] == [self._NO_CHARGE, self._WITH_CHARGE]
 
     def test_the_plan_tab_shows_them_once_in_tonights_charge_plan(self):
         """The overnight section beside it explains the outlook and does not repeat them."""

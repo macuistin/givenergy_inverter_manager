@@ -340,6 +340,14 @@ def overnight_charge_target(data: CoordinatorData) -> int | None:
     return None
 
 
+def overnight_charge_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """Whether the published target is a charge goal or the level held on a skipped night."""
+    decision = data.published_charge_decision
+    if decision is None:
+        return None
+    return {"plan": "skip" if decision.skip_charge else "charge"}
+
+
 def overnight_charge_reason(data: CoordinatorData) -> str | None:
     """Return why the published target was recommended, None before the first decision."""
     if data.published_charge_decision:
