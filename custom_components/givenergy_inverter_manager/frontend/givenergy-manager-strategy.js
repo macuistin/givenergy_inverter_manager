@@ -25,7 +25,7 @@ const TIMEOUT_TEXT = /Timeout waiting for strategy element ll-strategy-(dashboar
 const NOT_READY_CODES = ["unknown_command", "not_found"];
 const CHECK_AFTER_MS = [0, 1000, 3000, 6000, 12000];
 const MAX_REBUILDS = 2;
-const MAX_NODES = 6000;
+const MAX_NODES = 60000;
 
 class GivEnergyManagerStrategy extends HTMLElement {
   static noEditor = true;
@@ -79,9 +79,15 @@ class GivEnergyManagerStrategy extends HTMLElement {
   }
 }
 
-for (const name of ["ll-strategy-givenergy-manager", "ll-strategy-dashboard-givenergy-manager"]) {
-  if (!customElements.get(name)) {
-    customElements.define(name, class extends GivEnergyManagerStrategy {});
+// The name Home Assistant 2026.5+ looks for comes first, and each define stands alone, so one
+// failure cannot stop the other and is written to the console.
+for (const name of ["ll-strategy-dashboard-givenergy-manager", "ll-strategy-givenergy-manager"]) {
+  try {
+    if (!customElements.get(name)) {
+      customElements.define(name, class extends GivEnergyManagerStrategy {});
+    }
+  } catch (err) {
+    console.error(`GivEnergy Inverter Manager: could not define ${name}`, err);
   }
 }
 
