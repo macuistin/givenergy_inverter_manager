@@ -143,8 +143,19 @@ def _enable_newly_default_sensors(hass: HomeAssistant, entry: GivEnergyConfigEnt
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register the service actions once, independent of any config entry."""
+    """Register the service actions and the dashboard strategy once, before any config entry.
+
+    The browser is given the strategy script in the page Home Assistant serves. A page loaded
+    while the entry is still setting up, as the browser reloads after a restart, would carry no
+    script, so the dashboard failed with "Timeout waiting for strategy element" and the
+    Community dashboards entry was missing until a hard refresh. Adding it here puts it in
+    every page served from then on, not only those after the entry finished loading.
+    """
     await async_register_services(hass)
+    try:
+        await async_register_strategy(hass)
+    except Exception:
+        _LOG.exception("Could not register the dashboard strategy")
     return True
 
 

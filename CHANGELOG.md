@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- The dashboard works in a browser that opens Home Assistant while it is still starting. The dashboard script was only added to the page once the integration had finished loading, which can take a minute after a restart. A page loaded before that carried no script, so the dashboard showed "Timeout waiting for strategy element ll-strategy-dashboard-givenergy-manager to be registered", the Community dashboards entry was missing, and choosing it did nothing, until a hard refresh. The script is now added when the integration is first set up, before any config entry.
+
 ## v0.19.0
 
 GivTCP is now one communication layer behind a small interface, and 0.19 builds on it. The integration finds more GivTCP system types and says which are tested, retries a missed charge write, can re-plan inside the cheap window, follows the shape of a Solcast forecast, sets a GivEnergy EV charger, and tells you when something else sets the charge target or the system changes. It also notices a GivTCP that is running but cannot read the inverter. Only a single-phase hybrid has been tested on real hardware. The other system types, the GivEnergy charger and the re-plan switch have not.
