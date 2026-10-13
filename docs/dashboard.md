@@ -86,6 +86,10 @@ The strategy dashboard always has the layout the integration gives it. To change
 
 If Home Assistant does not offer Take control for this dashboard, build your own dashboard from the cards you want. The sections of this page name what each view holds.
 
+### Adding a Distribution card
+
+Home Assistant's Distribution card accepts this integration's power sensors. It draws one bar from the positive values and greys out zero and negative ones, such as a grid sensor that is exporting. It shows each entry's share of the total, so chart things on one side of the flow together. Use the consumers (**House Load**, **Immersion Heater Power**, **EV Charging Power**) or the sources, not both. Mixing solar and house load counts the same energy twice.
+
 ## HACS cards
 
 The dashboard needs no custom card. It is built from the cards that come with Home Assistant.
