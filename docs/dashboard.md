@@ -10,7 +10,7 @@ The integration builds a Lovelace dashboard for you, filled in with your real en
 
 When the integration is first set up, a notification says the same. The integration cannot create the dashboard for you, because Home Assistant gives an integration no supported way to do it. Adding it takes one pick, and the dashboard is yours: rename it, hide it or delete it as you like. The integration never adds it again.
 
-If **GivEnergy** is not listed, reload the browser tab so the frontend loads the integration's strategy file, then try again. If it is still missing, add a new dashboard from scratch, open it, then the three-dot menu, **Edit dashboard**, then the three-dot menu again and **Raw configuration editor**. Use this as the whole configuration:
+If **GivEnergy** is not listed, reload the browser tab so the frontend loads the integration's strategy file, then try again. A page opened in the first minutes after a restart, or on a phone app that keeps no cache, can miss the file because Home Assistant allows it only 5 seconds. A refresh or two fixes it. See [the timeout error](troubleshooting.md#the-dashboard-is-missing-or-shows-an-error). If it is still missing, add a new dashboard from scratch, open it, then the three-dot menu, **Edit dashboard**, then the three-dot menu again and **Raw configuration editor**. Use this as the whole configuration:
 
 ```yaml
 strategy:
