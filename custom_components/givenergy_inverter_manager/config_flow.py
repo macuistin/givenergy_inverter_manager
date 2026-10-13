@@ -2,7 +2,7 @@
 config_flow.py - registers the handlers of GivEnergy Inverter Manager.
 
 The setup wizard (a checklist of what to set up, then only those pages, then a confirm step),
-the options wizard ("What would you like to change?") and reconfigure (the inverter connection)
+Configure (a menu of pages, saved once at the end) and reconfigure (the inverter connection)
 share their page functions. The steps are in the wizard package and the page logic in
 core/wizard_*.py. Nothing is stored until a confirm step.
 """

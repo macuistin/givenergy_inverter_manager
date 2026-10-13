@@ -178,7 +178,7 @@ def alt_heat_schedule_template(source: str) -> str:
 
 # What two immersion settings do, in words. Their names say little on their own.
 MANAGED_HELP = (
-    "**Managed**: turn it on to force a heating run until the water reaches the target. "
+    "**Heat now**: turn it on to force a heating run until the water reaches the target. "
     f"Turn it off to hold the heater off for {IMMERSION_SWITCH_COOLDOWN_MINUTES} minutes."
 )
 PLAN_FORECAST_CAPTION = (
@@ -186,7 +186,7 @@ PLAN_FORECAST_CAPTION = (
     "and corrected by past accuracy."
 )
 RESTART_GAP_HELP = (
-    "**Restart gap**: how far the water must fall below the target before a new heating run "
+    "**Restart drop**: how far the water must fall below the target before a new heating run "
     "starts."
 )
 

@@ -191,7 +191,6 @@ ERROR_KEYS: tuple[str, ...] = (
     "alt_heat_label_empty",
     "alt_heat_label_too_long",
     "missing_entities",
-    "nothing_ticked",
 )
 
 

@@ -190,13 +190,14 @@ class TestEveryCombination:
         today = _view(self._seen(combination), "today")
         assert "Where today's energy came from" in _titles(today)
 
-    def test_the_cost_view_lists_the_ev_and_immersion_costs_for_the_devices_present(self, combination):
+    def test_the_cost_section_lists_the_ev_and_immersion_costs_for_the_devices_present(self, combination):
         ev, switch, _ = combination
-        names = [
-            c["name"]
-            for c in view_cards(_view(self._seen(combination), "cost"))
-            if c["type"] == "tile"
-        ]
+        cost = next(
+            s for s in _view(self._seen(combination), "today")["sections"]
+            if s["cards"][0].get("heading") == "Cost"
+        )
+        names = [c["name"] for c in cost["cards"] if c["type"] == "tile"]
+        assert "Rest of house" in names
         assert ("EV charging" in names) == ev
         assert ("Immersion" in names) == switch
         assert ("Immersion solar saving" in names) == switch
@@ -217,7 +218,9 @@ class TestEveryCombination:
     def test_the_cost_history_plots_only_the_costs_that_exist(self, combination):
         ev, switch, _ = combination
         graphs = [
-            c for c in view_cards(_view(self._seen(combination), "cost")) if c["type"] == "statistics-graph"
+            c
+            for c in view_cards(_view(self._seen(combination), "today"))
+            if c["type"] == "statistics-graph" and IDS["house_cost_today"] in str(c["entities"])
         ]
         assert len(graphs) == 1
         plotted = {row["entity"] for row in graphs[0]["entities"]}
@@ -228,7 +231,7 @@ class TestEveryCombination:
         ev, switch, sensor = combination
         config = self._seen(combination)
         nothing = seen_for()
-        for path in ("bill", "battery", "tariff", "battery-detail", "solar"):
+        for path in ("plan",):
             assert _view(config, path) == _view(nothing, path), path
 
 
@@ -297,12 +300,12 @@ def test_a_cylinder_sensor_added_later_shows_its_chart_in_the_old_file():
     after = seen(stored, _states((False, True, True)))
     assert "Water temperature" not in _titles(_view(before, "immersion"))
     assert "Water temperature" in _titles(_view(after, "immersion"))
-    assert "Target temp" not in [c["name"] for c in view_cards(_view(before, "immersion")) if c["type"] == "tile"]
-    assert "Target temp" in [c["name"] for c in view_cards(_view(after, "immersion")) if c["type"] == "tile"]
+    assert "Heat to" not in [c["name"] for c in view_cards(_view(before, "immersion")) if c["type"] == "tile"]
+    assert "Heat to" in [c["name"] for c in view_cards(_view(after, "immersion")) if c["type"] == "tile"]
     scheduled = [c["name"] for c in view_cards(_view(before, "immersion")) if c["type"] == "tile"]
-    assert "Scheduled" not in scheduled
+    assert "Scheduled heat" not in scheduled
     scheduled = [c["name"] for c in view_cards(_view(after, "immersion")) if c["type"] == "tile"]
-    assert "Scheduled" in scheduled
+    assert "Scheduled heat" in scheduled
 
 
 # ── the oil advice tile ──────────────────────────────────────────────────────

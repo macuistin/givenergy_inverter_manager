@@ -15,7 +15,7 @@
       "max": 100.0,
       "step": 0.1,
       "unit_of_measurement": "kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "battery_capacity_kwh",
@@ -29,7 +29,7 @@
       "max": 20.0,
       "step": 0.1,
       "unit_of_measurement": "kW",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "inverter_max_output_kw",
@@ -151,7 +151,7 @@
       "max": 20.0,
       "step": 0.1,
       "unit_of_measurement": "kW",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "inverter_max_output_kw",
@@ -198,7 +198,7 @@
       "max": 5.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "base_rate",
@@ -211,7 +211,7 @@
       "max": 1.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "export_rate",
@@ -328,7 +328,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/day",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "standing_charge_per_day",
@@ -342,7 +342,7 @@
         "max": 20.0,
         "step": 0.01,
         "unit_of_measurement": "EUR/month",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "pso_levy_per_month",
@@ -404,7 +404,7 @@
       "max": 5.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "base_rate",
@@ -420,7 +420,7 @@
       "max": 1.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "export_rate",
@@ -552,7 +552,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/day",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "standing_charge_per_day",
@@ -569,7 +569,7 @@
         "max": 20.0,
         "step": 0.01,
         "unit_of_measurement": "EUR/month",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "pso_levy_per_month",
@@ -652,7 +652,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -701,7 +701,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -767,7 +767,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -828,7 +828,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -913,7 +913,7 @@
       "max": 6000.0,
       "step": 100.0,
       "unit_of_measurement": "W",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "immersion_wattage_w",
@@ -1057,7 +1057,7 @@
       "max": 6000.0,
       "step": 100.0,
       "unit_of_measurement": "W",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "immersion_wattage_w",
@@ -1194,7 +1194,7 @@
       "max": 20.0,
       "step": 0.1,
       "unit_of_measurement": "kW",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "inverter_max_output_kw",
@@ -1242,7 +1242,7 @@
       "max": 5.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "base_rate",
@@ -1255,7 +1255,7 @@
       "max": 1.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "export_rate",
@@ -1372,7 +1372,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/day",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "standing_charge_per_day",
@@ -1386,7 +1386,7 @@
         "max": 20.0,
         "step": 0.01,
         "unit_of_measurement": "EUR/month",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "pso_levy_per_month",
@@ -1448,7 +1448,7 @@
       "max": 5.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "base_rate",
@@ -1464,7 +1464,7 @@
       "max": 1.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "export_rate",
@@ -1596,7 +1596,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/day",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "standing_charge_per_day",
@@ -1613,7 +1613,7 @@
         "max": 20.0,
         "step": 0.01,
         "unit_of_measurement": "EUR/month",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "pso_levy_per_month",
@@ -1696,7 +1696,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -1745,7 +1745,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -1811,7 +1811,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -1872,7 +1872,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -2026,7 +2026,7 @@
       "max": 6000.0,
       "step": 100.0,
       "unit_of_measurement": "W",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "immersion_wattage_w",
@@ -2170,7 +2170,7 @@
       "max": 6000.0,
       "step": 100.0,
       "unit_of_measurement": "W",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "immersion_wattage_w",
@@ -2307,7 +2307,7 @@
       "max": 20.0,
       "step": 0.1,
       "unit_of_measurement": "kW",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "inverter_max_output_kw",
@@ -2355,7 +2355,7 @@
       "max": 5.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "base_rate",
@@ -2371,7 +2371,7 @@
       "max": 1.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "export_rate",
@@ -2491,7 +2491,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/day",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "standing_charge_per_day",
@@ -2505,7 +2505,7 @@
         "max": 20.0,
         "step": 0.01,
         "unit_of_measurement": "EUR/month",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "pso_levy_per_month",
@@ -2567,7 +2567,7 @@
       "max": 5.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "base_rate",
@@ -2583,7 +2583,7 @@
       "max": 1.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "export_rate",
@@ -2715,7 +2715,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/day",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "standing_charge_per_day",
@@ -2732,7 +2732,7 @@
         "max": 20.0,
         "step": 0.01,
         "unit_of_measurement": "EUR/month",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "pso_levy_per_month",
@@ -2815,7 +2815,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -2865,7 +2865,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -2931,7 +2931,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -2993,7 +2993,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -3147,7 +3147,7 @@
       "max": 6000.0,
       "step": 100.0,
       "unit_of_measurement": "W",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "immersion_wattage_w",
@@ -3291,7 +3291,7 @@
       "max": 6000.0,
       "step": 100.0,
       "unit_of_measurement": "W",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "immersion_wattage_w",
@@ -3825,47 +3825,102 @@
  },
  "options_data_only.init": {
   "step_id": "init",
-  "last_step": false,
-  "errors": {},
+  "last_step": null,
+  "errors": null,
   "placeholders": {
-   "progress": "Step 1 of about 2."
+   "tariff_summary_line": "Day 0.3334 EUR/kWh, export 0.1950, 2 time-of-day rates",
+   "battery_summary": "battery 9.5 kWh, inverter 5 kW",
+   "charge_planning_summary": "minimum charge 10%, overnight cap 80%, forecast sensor: sensor.energy_production_tomorrow",
+   "hot_water_summary": "immersion switch switch.immersion_heater",
+   "ev_summary": "car efficiency 15 kWh per 100 km",
+   "unsaved": "",
+   "save_note": "Applies at once."
   },
   "fields": [
    {
-    "selector": {
-     "select": {
-      "options": [
-       {
-        "value": "tariff",
-        "label": "Tariff: Day 0.3334 EUR/kWh, export 0.1950, 2 time-of-day rates"
-       },
-       {
-        "value": "battery",
-        "label": "Battery: battery 9.5 kWh, inverter 5 kW"
-       },
-       {
-        "value": "charge_planning",
-        "label": "Charge planning: minimum charge 10%, overnight cap 80%, forecast sensor: sensor.energy_production_tomorrow"
-       },
-       {
-        "value": "hot_water",
-        "label": "Hot water: immersion switch switch.immersion_heater"
-       },
-       {
-        "value": "ev",
-        "label": "EV charger: car efficiency 15 kWh per 100 km"
-       }
-      ],
-      "multiple": true,
-      "mode": "list",
-      "custom_value": false,
-      "sort": false
-     }
-    },
-    "name": "pages",
-    "required": true,
-    "default": []
+    "type": "select",
+    "options": [
+     [
+      "tariff_menu",
+      "tariff_menu"
+     ],
+     [
+      "battery",
+      "battery"
+     ],
+     [
+      "charge_planning",
+      "charge_planning"
+     ],
+     [
+      "hot_water",
+      "hot_water"
+     ],
+     [
+      "ev",
+      "ev"
+     ]
+    ],
+    "name": "next_step_id",
+    "required": false
    }
+  ],
+  "menu_options": [
+   "tariff_menu",
+   "battery",
+   "charge_planning",
+   "hot_water",
+   "ev"
+  ]
+ },
+ "options_data_only.tariff_menu": {
+  "step_id": "tariff_menu",
+  "last_step": null,
+  "errors": null,
+  "placeholders": {
+   "tariff_summary": "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00. Your bill runs from the 16th to the 15th.",
+   "reviewed": ""
+  },
+  "fields": [
+   {
+    "type": "select",
+    "options": [
+     [
+      "tariff",
+      "tariff"
+     ],
+     [
+      "tariff_rates",
+      "tariff_rates"
+     ],
+     [
+      "bill",
+      "bill"
+     ],
+     [
+      "schedule_change",
+      "schedule_change"
+     ],
+     [
+      "tariff_reviewed",
+      "tariff_reviewed"
+     ],
+     [
+      "init",
+      "init"
+     ]
+    ],
+    "name": "next_step_id",
+    "required": false
+   }
+  ],
+  "menu_options": [
+   "tariff",
+   "tariff_rates",
+   "bill",
+   "schedule_change",
+   "tariff_reviewed",
+   "init"
   ]
  },
  "options_data_only.tariff": {
@@ -3873,7 +3928,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 2 of about 8.",
+   "progress": "",
    "warnings": "",
    "tariff_summary": "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00. Your bill runs from the 16th to the 15th."
   },
@@ -3885,7 +3940,7 @@
       "max": 5.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "base_rate",
@@ -3899,7 +3954,7 @@
       "max": 1.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "export_rate",
@@ -3927,42 +3982,6 @@
     "name": "rate_count",
     "required": true,
     "default": "2"
-   },
-   {
-    "selector": {
-     "boolean": {}
-    },
-    "name": "edit_rates",
-    "required": false,
-    "optional": true,
-    "default": false
-   },
-   {
-    "selector": {
-     "boolean": {}
-    },
-    "name": "edit_bill",
-    "required": false,
-    "optional": true,
-    "default": false
-   },
-   {
-    "selector": {
-     "boolean": {}
-    },
-    "name": "schedule_change",
-    "required": false,
-    "optional": true,
-    "default": false
-   },
-   {
-    "selector": {
-     "boolean": {}
-    },
-    "name": "confirm_current",
-    "required": false,
-    "optional": true,
-    "default": false
    }
   ]
  },
@@ -3971,7 +3990,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 3 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -3996,7 +4015,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -4032,7 +4051,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 4 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -4122,7 +4141,7 @@
       "max": 5.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/day",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "standing_charge_per_day",
@@ -4136,7 +4155,7 @@
       "max": 20.0,
       "step": 0.01,
       "unit_of_measurement": "EUR/month",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "pso_levy_per_month",
@@ -4178,7 +4197,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 5 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -4197,7 +4216,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 6 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -4208,7 +4227,7 @@
       "max": 100.0,
       "step": 0.1,
       "unit_of_measurement": "kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "battery_capacity_kwh",
@@ -4223,7 +4242,7 @@
       "max": 20.0,
       "step": 0.1,
       "unit_of_measurement": "kW",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "inverter_max_output_kw",
@@ -4238,7 +4257,7 @@
       "max": 20000.0,
       "step": 100.0,
       "unit_of_measurement": "€",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "battery_cost_eur",
@@ -4253,7 +4272,7 @@
       "max": 50.0,
       "step": 0.5,
       "unit_of_measurement": "kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "battery_throughput_budget_kwh",
@@ -4268,7 +4287,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 7 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -4455,7 +4474,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 8 of about 11.",
+   "progress": "",
    "warnings": "",
    "detected": "No Solcast or Forecast.Solar sensor was found.",
    "check": "- sensor.energy_production_tomorrow does not exist.\n- sensor.solcast_pv_forecast_forecast_tomorrow_10 reads 9.8 kWh.\n- sensor.solcast_pv_forecast_forecast_day_3 reads 11.0 kWh.\n- sensor.grid_carbon_intensity reads 187 g/kWh."
@@ -4536,7 +4555,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 9 of about 11.",
+   "progress": "",
    "warnings": "",
    "candidates": "Switches that look like an immersion heater: switch.immersion_heater.",
    "check": "- switch.immersion_heater reads off.\n- sensor.hot_water_cylinder_temperature reads 48.2 °C."
@@ -4583,7 +4602,7 @@
       "max": 6000.0,
       "step": 100.0,
       "unit_of_measurement": "W",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "immersion_wattage_w",
@@ -4686,7 +4705,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 10 of about 11.",
+   "progress": "",
    "warnings": "",
    "charger": "No EV charger was found. One is picked up by itself when it appears."
   },
@@ -4698,7 +4717,7 @@
       "max": 40.0,
       "step": 0.1,
       "unit_of_measurement": "kWh/100km",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "car_efficiency_kwh_per_100km",
@@ -4714,54 +4733,108 @@
   "errors": null,
   "placeholders": {
    "changes": "- Tariff last confirmed: not set to 2026-06-15\n- Time-of-day rates: Night 0.1644 (23:00 to 08:00), Nightboost 0.0965 (02:00 to 04:00) to Night 0.1000 (23:00 to 08:00)\n\nApplies now. The integration does not reload.",
-   "warnings": "",
-   "progress": "Step 11 of about 11."
+   "warnings": ""
   },
   "fields": []
  },
  "options_no_optional_data.init": {
   "step_id": "init",
-  "last_step": false,
-  "errors": {},
+  "last_step": null,
+  "errors": null,
   "placeholders": {
-   "progress": "Step 1 of about 2."
+   "tariff_summary_line": "Day 0.3334 EUR/kWh, export 0.1950, 2 time-of-day rates",
+   "battery_summary": "battery 9.5 kWh, inverter 5 kW",
+   "charge_planning_summary": "minimum charge 10%, overnight cap 80%, forecast: none, a seasonal estimate is used",
+   "hot_water_summary": "immersion switch switch.immersion_heater",
+   "ev_summary": "car efficiency 15 kWh per 100 km",
+   "unsaved": "",
+   "save_note": "Applies at once."
   },
   "fields": [
    {
-    "selector": {
-     "select": {
-      "options": [
-       {
-        "value": "tariff",
-        "label": "Tariff: Day 0.3334 EUR/kWh, export 0.1950, 2 time-of-day rates"
-       },
-       {
-        "value": "battery",
-        "label": "Battery: battery 9.5 kWh, inverter 5 kW"
-       },
-       {
-        "value": "charge_planning",
-        "label": "Charge planning: minimum charge 10%, overnight cap 80%, forecast: none, a seasonal estimate is used"
-       },
-       {
-        "value": "hot_water",
-        "label": "Hot water: immersion switch switch.immersion_heater"
-       },
-       {
-        "value": "ev",
-        "label": "EV charger: car efficiency 15 kWh per 100 km"
-       }
-      ],
-      "multiple": true,
-      "mode": "list",
-      "custom_value": false,
-      "sort": false
-     }
-    },
-    "name": "pages",
-    "required": true,
-    "default": []
+    "type": "select",
+    "options": [
+     [
+      "tariff_menu",
+      "tariff_menu"
+     ],
+     [
+      "battery",
+      "battery"
+     ],
+     [
+      "charge_planning",
+      "charge_planning"
+     ],
+     [
+      "hot_water",
+      "hot_water"
+     ],
+     [
+      "ev",
+      "ev"
+     ]
+    ],
+    "name": "next_step_id",
+    "required": false
    }
+  ],
+  "menu_options": [
+   "tariff_menu",
+   "battery",
+   "charge_planning",
+   "hot_water",
+   "ev"
+  ]
+ },
+ "options_no_optional_data.tariff_menu": {
+  "step_id": "tariff_menu",
+  "last_step": null,
+  "errors": null,
+  "placeholders": {
+   "tariff_summary": "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00. Your bill runs from the 16th to the 15th.",
+   "reviewed": ""
+  },
+  "fields": [
+   {
+    "type": "select",
+    "options": [
+     [
+      "tariff",
+      "tariff"
+     ],
+     [
+      "tariff_rates",
+      "tariff_rates"
+     ],
+     [
+      "bill",
+      "bill"
+     ],
+     [
+      "schedule_change",
+      "schedule_change"
+     ],
+     [
+      "tariff_reviewed",
+      "tariff_reviewed"
+     ],
+     [
+      "init",
+      "init"
+     ]
+    ],
+    "name": "next_step_id",
+    "required": false
+   }
+  ],
+  "menu_options": [
+   "tariff",
+   "tariff_rates",
+   "bill",
+   "schedule_change",
+   "tariff_reviewed",
+   "init"
   ]
  },
  "options_no_optional_data.tariff": {
@@ -4769,7 +4842,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 2 of about 8.",
+   "progress": "",
    "warnings": "",
    "tariff_summary": "Cheapest rate in your saved tariff: Nightboost at 0.0965 EUR/kWh, 02:00 to 04:00. Your bill runs from the 16th to the 15th."
   },
@@ -4781,7 +4854,7 @@
       "max": 5.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "base_rate",
@@ -4795,7 +4868,7 @@
       "max": 1.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "export_rate",
@@ -4823,42 +4896,6 @@
     "name": "rate_count",
     "required": true,
     "default": "2"
-   },
-   {
-    "selector": {
-     "boolean": {}
-    },
-    "name": "edit_rates",
-    "required": false,
-    "optional": true,
-    "default": false
-   },
-   {
-    "selector": {
-     "boolean": {}
-    },
-    "name": "edit_bill",
-    "required": false,
-    "optional": true,
-    "default": false
-   },
-   {
-    "selector": {
-     "boolean": {}
-    },
-    "name": "schedule_change",
-    "required": false,
-    "optional": true,
-    "default": false
-   },
-   {
-    "selector": {
-     "boolean": {}
-    },
-    "name": "confirm_current",
-    "required": false,
-    "optional": true,
-    "default": false
    }
   ]
  },
@@ -4867,7 +4904,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 3 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -4892,7 +4929,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -4928,7 +4965,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 4 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -5018,7 +5055,7 @@
       "max": 5.0,
       "step": 0.001,
       "unit_of_measurement": "EUR/day",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "standing_charge_per_day",
@@ -5032,7 +5069,7 @@
       "max": 20.0,
       "step": 0.01,
       "unit_of_measurement": "EUR/month",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "pso_levy_per_month",
@@ -5074,7 +5111,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 5 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -5093,7 +5130,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 6 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -5104,7 +5141,7 @@
       "max": 100.0,
       "step": 0.1,
       "unit_of_measurement": "kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "battery_capacity_kwh",
@@ -5119,7 +5156,7 @@
       "max": 20.0,
       "step": 0.1,
       "unit_of_measurement": "kW",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "inverter_max_output_kw",
@@ -5134,7 +5171,7 @@
       "max": 20000.0,
       "step": 100.0,
       "unit_of_measurement": "€",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "battery_cost_eur",
@@ -5149,7 +5186,7 @@
       "max": 50.0,
       "step": 0.5,
       "unit_of_measurement": "kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "battery_throughput_budget_kwh",
@@ -5164,7 +5201,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 7 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -5351,7 +5388,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 8 of about 11.",
+   "progress": "",
    "warnings": "",
    "detected": "No Solcast or Forecast.Solar sensor was found.",
    "check": "- sensor.solcast_pv_forecast_forecast_tomorrow_10 reads 9.8 kWh.\n- sensor.solcast_pv_forecast_forecast_day_3 reads 11.0 kWh."
@@ -5426,7 +5463,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 9 of about 11.",
+   "progress": "",
    "warnings": "",
    "candidates": "Switches that look like an immersion heater: switch.immersion_heater.",
    "check": "- switch.immersion_heater reads off.\n- sensor.hot_water_cylinder_temperature reads 48.2 °C."
@@ -5473,7 +5510,7 @@
       "max": 6000.0,
       "step": 100.0,
       "unit_of_measurement": "W",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "immersion_wattage_w",
@@ -5576,7 +5613,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 10 of about 11.",
+   "progress": "",
    "warnings": "",
    "charger": "No EV charger was found. One is picked up by itself when it appears."
   },
@@ -5588,7 +5625,7 @@
       "max": 40.0,
       "step": 0.1,
       "unit_of_measurement": "kWh/100km",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "car_efficiency_kwh_per_100km",
@@ -5604,54 +5641,103 @@
   "errors": null,
   "placeholders": {
    "changes": "- Base rate name: Day to Day\n- Tariff last confirmed: not set to 2026-06-15\n- Time-of-day rates: Night 0.1644 (23:00 to 08:00), Nightboost 0.0965 (02:00 to 04:00) to Night 0.1000 (23:00 to 08:00)\n\nApplies now. The integration does not reload.",
-   "warnings": "",
-   "progress": "Step 11 of about 11."
+   "warnings": ""
   },
   "fields": []
  },
  "options_with_overrides.init": {
   "step_id": "init",
-  "last_step": false,
-  "errors": {},
+  "last_step": null,
+  "errors": null,
   "placeholders": {
-   "progress": "Step 1 of about 2."
+   "tariff_summary_line": "Standard 0.3334 GBP/kWh, export 0.0000",
+   "battery_summary": "battery 13.5 kWh, inverter 5 kW",
+   "charge_planning_summary": "minimum charge 10%, overnight cap 80%, forecast: none, a seasonal estimate is used",
+   "hot_water_summary": "immersion switch switch.immersion_heater",
+   "ev_summary": "car efficiency 15 kWh per 100 km",
+   "unsaved": "",
+   "save_note": "Applies at once."
   },
   "fields": [
    {
-    "selector": {
-     "select": {
-      "options": [
-       {
-        "value": "tariff",
-        "label": "Tariff: Standard 0.3334 GBP/kWh, export 0.0000"
-       },
-       {
-        "value": "battery",
-        "label": "Battery: battery 13.5 kWh, inverter 5 kW"
-       },
-       {
-        "value": "charge_planning",
-        "label": "Charge planning: minimum charge 10%, overnight cap 80%, forecast: none, a seasonal estimate is used"
-       },
-       {
-        "value": "hot_water",
-        "label": "Hot water: immersion switch switch.immersion_heater"
-       },
-       {
-        "value": "ev",
-        "label": "EV charger: car efficiency 15 kWh per 100 km"
-       }
-      ],
-      "multiple": true,
-      "mode": "list",
-      "custom_value": false,
-      "sort": false
-     }
-    },
-    "name": "pages",
-    "required": true,
-    "default": []
+    "type": "select",
+    "options": [
+     [
+      "tariff_menu",
+      "tariff_menu"
+     ],
+     [
+      "battery",
+      "battery"
+     ],
+     [
+      "charge_planning",
+      "charge_planning"
+     ],
+     [
+      "hot_water",
+      "hot_water"
+     ],
+     [
+      "ev",
+      "ev"
+     ]
+    ],
+    "name": "next_step_id",
+    "required": false
    }
+  ],
+  "menu_options": [
+   "tariff_menu",
+   "battery",
+   "charge_planning",
+   "hot_water",
+   "ev"
+  ]
+ },
+ "options_with_overrides.tariff_menu": {
+  "step_id": "tariff_menu",
+  "last_step": null,
+  "errors": null,
+  "placeholders": {
+   "tariff_summary": "Cheapest rate in your saved tariff: Standard at 0.3334 GBP/kWh, all day. Your bill runs from the 16th to the 15th.",
+   "reviewed": ""
+  },
+  "fields": [
+   {
+    "type": "select",
+    "options": [
+     [
+      "tariff",
+      "tariff"
+     ],
+     [
+      "bill",
+      "bill"
+     ],
+     [
+      "schedule_change",
+      "schedule_change"
+     ],
+     [
+      "tariff_reviewed",
+      "tariff_reviewed"
+     ],
+     [
+      "init",
+      "init"
+     ]
+    ],
+    "name": "next_step_id",
+    "required": false
+   }
+  ],
+  "menu_options": [
+   "tariff",
+   "bill",
+   "schedule_change",
+   "tariff_reviewed",
+   "init"
   ]
  },
  "options_with_overrides.tariff": {
@@ -5659,7 +5745,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 2 of about 8.",
+   "progress": "",
    "warnings": "",
    "tariff_summary": "Cheapest rate in your saved tariff: Standard at 0.3334 GBP/kWh, all day. Your bill runs from the 16th to the 15th."
   },
@@ -5671,7 +5757,7 @@
       "max": 5.0,
       "step": 0.001,
       "unit_of_measurement": "GBP/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "base_rate",
@@ -5685,7 +5771,7 @@
       "max": 1.0,
       "step": 0.001,
       "unit_of_measurement": "GBP/kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "export_rate",
@@ -5713,42 +5799,6 @@
     "name": "rate_count",
     "required": true,
     "default": "0"
-   },
-   {
-    "selector": {
-     "boolean": {}
-    },
-    "name": "edit_rates",
-    "required": false,
-    "optional": true,
-    "default": false
-   },
-   {
-    "selector": {
-     "boolean": {}
-    },
-    "name": "edit_bill",
-    "required": false,
-    "optional": true,
-    "default": false
-   },
-   {
-    "selector": {
-     "boolean": {}
-    },
-    "name": "schedule_change",
-    "required": false,
-    "optional": true,
-    "default": false
-   },
-   {
-    "selector": {
-     "boolean": {}
-    },
-    "name": "confirm_current",
-    "required": false,
-    "optional": true,
-    "default": false
    }
   ]
  },
@@ -5757,7 +5807,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 3 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -5782,7 +5832,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "GBP/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -5817,7 +5867,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 4 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -5907,7 +5957,7 @@
       "max": 5.0,
       "step": 0.001,
       "unit_of_measurement": "GBP/day",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "standing_charge_per_day",
@@ -5921,7 +5971,7 @@
       "max": 20.0,
       "step": 0.01,
       "unit_of_measurement": "GBP/month",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "pso_levy_per_month",
@@ -5963,7 +6013,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 5 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -5982,7 +6032,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 6 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -5993,7 +6043,7 @@
       "max": 100.0,
       "step": 0.1,
       "unit_of_measurement": "kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "battery_capacity_kwh",
@@ -6008,7 +6058,7 @@
       "max": 20.0,
       "step": 0.1,
       "unit_of_measurement": "kW",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "inverter_max_output_kw",
@@ -6023,7 +6073,7 @@
       "max": 20000.0,
       "step": 100.0,
       "unit_of_measurement": "£",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "battery_cost_eur",
@@ -6038,7 +6088,7 @@
       "max": 50.0,
       "step": 0.5,
       "unit_of_measurement": "kWh",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "battery_throughput_budget_kwh",
@@ -6053,7 +6103,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 7 of about 11.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -6240,7 +6290,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 8 of about 11.",
+   "progress": "",
    "warnings": "",
    "detected": "No Solcast or Forecast.Solar sensor was found.",
    "check": "- sensor.solcast_pv_forecast_forecast_tomorrow_10 reads 9.8 kWh.\n- sensor.solcast_pv_forecast_forecast_day_3 reads 11.0 kWh.\n- sensor.grid_carbon_intensity reads 187 g/kWh."
@@ -6318,7 +6368,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 9 of about 11.",
+   "progress": "",
    "warnings": "",
    "candidates": "Switches that look like an immersion heater: switch.immersion_heater.",
    "check": "- switch.immersion_heater reads off.\n- sensor.hot_water_cylinder_temperature reads 48.2 °C."
@@ -6365,7 +6415,7 @@
       "max": 6000.0,
       "step": 100.0,
       "unit_of_measurement": "W",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "immersion_wattage_w",
@@ -6468,7 +6518,7 @@
   "last_step": false,
   "errors": {},
   "placeholders": {
-   "progress": "Step 10 of about 11.",
+   "progress": "",
    "warnings": "",
    "charger": "No EV charger was found. One is picked up by itself when it appears."
   },
@@ -6480,7 +6530,7 @@
       "max": 40.0,
       "step": 0.1,
       "unit_of_measurement": "kWh/100km",
-      "mode": "slider"
+      "mode": "box"
      }
     },
     "name": "car_efficiency_kwh_per_100km",
@@ -6496,19 +6546,18 @@
   "errors": null,
   "placeholders": {
    "changes": "- Tariff last confirmed: not set to 2026-06-15\n- Time-of-day rates: none to Night 0.1000 (23:00 to 07:00)\n\nApplies now. The integration does not reload.",
-   "warnings": "",
-   "progress": "Step 11 of about 11."
+   "warnings": ""
   },
   "fields": []
  },
  "options.tariff_rates_with_error": {
   "step_id": "tariff_rates",
-  "last_step": true,
+  "last_step": false,
   "errors": {
    "base": "rate_period_zero_length"
   },
   "placeholders": {
-   "progress": "Step 3 of about 3.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [
@@ -6536,7 +6585,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -6598,7 +6647,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -6660,7 +6709,7 @@
         "max": 5.0,
         "step": 0.001,
         "unit_of_measurement": "EUR/kWh",
-        "mode": "slider"
+        "mode": "box"
        }
       },
       "name": "rate",
@@ -6701,12 +6750,12 @@
  },
  "options.schedule_change_with_error": {
   "step_id": "schedule_change",
-  "last_step": true,
+  "last_step": false,
   "errors": {
    "base": "tariff_change_date_in_past"
   },
   "placeholders": {
-   "progress": "Step 3 of about 3.",
+   "progress": "",
    "warnings": ""
   },
   "fields": [

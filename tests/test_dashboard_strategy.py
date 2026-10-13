@@ -209,7 +209,7 @@ class TestDashboardForWebsocket:
     def test_returns_the_dashboard_dict(self):
         result = self._run([_loaded_entry()])
         assert result == dashboard_dict(ev_brand=None, resources=None)
-        assert [v["path"] for v in result["views"]][:3] == ["power-flow", "today", "bill"]
+        assert [v["path"] for v in result["views"]][:3] == ["power-flow", "today", "plan"]
 
     def test_none_without_a_config_entry(self):
         assert self._run([]) is None

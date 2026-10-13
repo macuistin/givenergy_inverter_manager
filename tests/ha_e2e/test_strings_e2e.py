@@ -72,13 +72,34 @@ def _unfilled_placeholders(strings: dict, kind: str, result) -> list[str]:
     return sorted(f"{kind}.{result['step_id']}: {name}" for name in used - given)
 
 
+def _menu_problems(strings: dict, kind: str, result) -> list[str]:
+    """Each menu option needs a label and a line under it, with every placeholder supplied."""
+    step = strings[kind]["step"].get(result["step_id"], {})
+    labels = step.get("menu_options", {})
+    lines = step.get("menu_option_descriptions", {})
+    given = set(result.get("description_placeholders") or {})
+    problems = []
+    for option in result["menu_options"]:
+        where = f"{kind}.{result['step_id']}"
+        if not labels.get(option):
+            problems.append(f"{where}.menu_options.{option}")
+        if not lines.get(option):
+            problems.append(f"{where}.menu_option_descriptions.{option}")
+        for name in _placeholders_in(lines.get(option, "")) - given:
+            problems.append(f"{where}: {name}")
+    return problems
+
+
 async def _assert_all_labelled(forms, kind: str) -> None:
     assert forms
     for file_name in STRING_FILES:
         strings = json.loads((_COMPONENT / file_name).read_text(encoding="utf-8"))
         problems = []
         for result in forms:
-            problems += _missing(strings, kind, result["step_id"], _fields(result))
+            if result["type"] is FlowResultType.MENU:
+                problems += _menu_problems(strings, kind, result)
+            else:
+                problems += _missing(strings, kind, result["step_id"], _fields(result))
             problems += _unfilled_placeholders(strings, kind, result)
         assert not problems, f"{file_name} is missing:\n" + "\n".join(problems)
 
@@ -145,7 +166,7 @@ async def test_both_reconfigure_forms_are_fully_labelled(hass, loaded_entry):
 async def test_every_options_form_is_fully_labelled(hass, loaded_entry):
     forms = await walk_options_forms(hass, loaded_entry)
     assert set(forms) >= {
-        "init", "tariff", "tariff_rates", "bill", "schedule_change",
+        "init", "tariff_menu", "tariff", "tariff_rates", "bill", "schedule_change",
         "battery", "forecast", "hot_water", "ev", "confirm",
     }
     await _assert_all_labelled([form["result"] for form in forms.values()], "options")

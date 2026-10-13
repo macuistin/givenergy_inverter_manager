@@ -62,9 +62,14 @@ def _config(*changes: dict, reviewed: date | None = None, **extra) -> dict:
     return config
 
 
+def _tariff_section(view: dict) -> dict:
+    """The section of the Tariff view that holds the tariff in use."""
+    return next(s for s in view["sections"] if s["cards"][0].get("heading") == "Tariff in use")
+
+
 def _tariff(config: dict) -> list[dict]:
     view = next(v for v in dashboard_dict(config)["views"] if v["path"] == "tariff")
-    return view_cards(view)
+    return view_cards({"sections": [_tariff_section(view)]})
 
 
 def _changes_card(config: dict) -> dict | None:
@@ -137,7 +142,7 @@ def test_the_tariff_in_use_is_untouched_by_a_change_ahead():
 def test_the_changes_sit_under_the_tariff_in_use_in_the_same_section():
     config = dashboard_dict(_config(_change(_AHEAD)))
     view = next(v for v in config["views"] if v["path"] == "tariff")
-    (section,) = view["sections"]
+    section = _tariff_section(view)
     kinds = [(c["type"], c.get("heading")) for c in section["cards"]]
     assert kinds == [
         ("heading", "Tariff in use"),
@@ -194,11 +199,12 @@ def _tariff_view_seen(ev: bool, switch: bool, sensor: bool) -> dict:
     config[CONF_TARIFF_CHANGES] = [_change(_AHEAD)]
     generated = dashboard_dict(config, ev_brand=brand)
     shown = seen(generated, states_with(devices_of(config, brand)))
-    return next(v for v in shown["views"] if v["path"] == "tariff")
+    view = next(v for v in shown["views"] if v["path"] == "tariff")
+    return {"sections": [_tariff_section(view)]}
 
 
 @pytest.mark.parametrize("combination", COMBINATIONS, ids=lambda c: "-".join(map(str, map(int, c))))
-def test_the_tariff_view_is_the_same_for_every_combination_of_devices(combination):
+def test_the_tariff_section_is_the_same_for_every_combination_of_devices(combination):
     """The tariff has no device, so the table shows whatever devices the install has."""
     view = _tariff_view_seen(*combination)
     assert [c.get("heading") for c in view_cards(view)] == [

@@ -59,7 +59,7 @@ class TestTheChecklistSection:
             "Something else is setting your charge target",
             CHECKLIST,
             "Live power flow",
-            "Energy today",
+            "Today so far",
             "Devices",
         ]
 

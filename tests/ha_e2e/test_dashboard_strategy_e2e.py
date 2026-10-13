@@ -31,21 +31,12 @@ async def test_websocket_command_returns_the_dashboard(hass, loaded_entry, hass_
     assert [v["path"] for v in views if not v.get("subview")] == [
         "power-flow",
         "today",
-        "bill",
-        "battery",
+        "plan",
     ]
     assert {v["type"] for v in views} == {"sections"}
     sub_views = {v["path"] for v in views if v.get("subview")}
-    assert sub_views <= {
-        "immersion",
-        "ev-charger",
-        "cost",
-        "solar",
-        "tariff",
-        "battery-detail",
-        "settings",
-    }
-    assert {"cost", "tariff", "battery-detail", "settings"} <= sub_views
+    assert sub_views <= {"immersion", "ev-charger", "tariff", "settings"}
+    assert {"tariff", "settings"} <= sub_views
 
 
 async def test_websocket_command_reports_when_the_entry_is_not_loaded(
@@ -77,9 +68,9 @@ async def test_websocket_command_sees_changed_options_without_regenerating(
     await client.send_json({"id": 1, "type": WS_TYPE})
     response = await client.receive_json()
 
-    tariff = next(v for v in response["result"]["views"] if v["path"] == "tariff")
-    cards = [card for section in tariff["sections"] for card in section["cards"]]
-    table = next(c for c in cards if c["type"] == "markdown")["content"]
+    view = next(v for v in response["result"]["views"] if v["path"] == "tariff")
+    tariff = next(s for s in view["sections"] if s["cards"][0].get("heading") == "Tariff in use")
+    table = next(c for c in tariff["cards"] if c["type"] == "markdown")["content"]
     assert "€0.4321" in table
 
 

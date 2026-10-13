@@ -19,7 +19,9 @@ from wizard_support import (
     field_names,
     initial_data,
     open_options,
+    open_page,
     options_wizard,
+    save_changes,
     serialised,
     submit,
 )
@@ -192,16 +194,13 @@ class TestCancellingAChange:
     async def test_the_cancel_switch_is_offered_only_while_a_change_is_scheduled(
         self, hass, loaded_entry
     ):
-        steps = {"tariff": {}, "schedule_change": {}}
-        result = await open_options(hass, loaded_entry, steps)
-        result = await submit(hass.config_entries.options, result, edit_rates=False, schedule_change=True)
+        result = await open_page(hass, loaded_entry, "schedule_change")
         assert result["step_id"] == "schedule_change"
         assert field_names(result) == ["effective_from"]
         hass.config_entries.options.async_abort(result["flow_id"])
 
         await _set_options(hass, loaded_entry, **{CONF_TARIFF_CHANGES: [_change(LATER)]})
-        result = await open_options(hass, loaded_entry, steps)
-        result = await submit(hass.config_entries.options, result, schedule_change=True)
+        result = await open_page(hass, loaded_entry, "schedule_change")
         assert field_names(result) == ["effective_from", "cancel_scheduled"]
         hass.config_entries.options.async_abort(result["flow_id"])
 
@@ -244,7 +243,8 @@ class TestAChangeTakingEffect:
         defaults = initial_data(serialised(result))
         assert defaults[CONF_BASE_RATE] == pytest.approx(NEW_BASE)
         assert defaults[CONF_EXPORT_RATE] == pytest.approx(NEW_EXPORT)
-        result = await submit(hass.config_entries.options, result, edit_bill=True)
+        hass.config_entries.options.async_abort(result["flow_id"])
+        result = await open_page(hass, loaded_entry, "bill")
         assert initial_data(serialised(result))[CONF_BASE_RATE_NAME] == "Standard"
         hass.config_entries.options.async_abort(result["flow_id"])
 
@@ -279,8 +279,8 @@ class TestAChangeTakingEffect:
 
         result = await open_options(hass, loaded_entry, {"tariff": {}})
         assert initial_data(serialised(result))[CONF_BASE_RATE] == pytest.approx(NEW_BASE)
-        await submit(hass.config_entries.options, result, base_rate=0.37)
-        await hass.async_block_till_done()
+        result = await submit(hass.config_entries.options, result, base_rate=0.37)
+        await save_changes(hass, result)
 
         assert loaded_entry.options[CONF_BASE_RATE] == pytest.approx(0.37)
         assert [c["effective"] for c in loaded_entry.options[CONF_TARIFF_CHANGES]] == [LATER]
@@ -313,7 +313,7 @@ class TestNoChangeRecorded:
     ):
         await _set_options(hass, loaded_entry, **{CONF_TARIFF_REVIEWED_ON: "2026-01-01"})
 
-        await _save(hass, loaded_entry, {"tariff": {"confirm_current": True}})
+        await _save(hass, loaded_entry, {"tariff_reviewed": {}})
 
         assert loaded_entry.options[CONF_TARIFF_REVIEWED_ON] == TODAY
         assert CONF_BASE_RATE not in loaded_entry.options

@@ -66,7 +66,8 @@ async def save_options(hass, entry, immersion: dict | None = None) -> None:
         values = {CONF_IMMERSION_SWITCH: None, CONF_IMMERSION_TEMP_SENSOR: None, **immersion}
     result = await options_wizard(hass, entry, {"hot_water": values})
     await hass.async_block_till_done()
-    assert result["type"] is FlowResultType.CREATE_ENTRY, result
+    # An unchanged run ends at the menu, which offers no save: nothing is written.
+    assert result["type"] in (FlowResultType.CREATE_ENTRY, FlowResultType.MENU), result
     assert entry.state is ConfigEntryState.LOADED
 
 

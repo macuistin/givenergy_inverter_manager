@@ -62,7 +62,8 @@ async def test_a_southern_latitude_starts_from_the_southern_months(hass, loaded_
 async def test_saving_the_page_unchanged_stores_no_season_setting(hass, lifecycle, loaded_entry):
     result = await options_wizard(hass, loaded_entry, {"charge_planning": {}})
 
-    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["type"] is FlowResultType.MENU
+    assert "confirm" not in result["menu_options"]  # nothing to save
     for key in (CONF_CHARGE_WINTER_MONTHS, CONF_CHARGE_SHOULDER_MONTHS, CONF_CHARGE_WINTER_USES_FORECAST):
         assert key not in loaded_entry.options
 

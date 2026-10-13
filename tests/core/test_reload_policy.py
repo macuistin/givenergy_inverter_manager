@@ -115,11 +115,8 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
 # and cancel box of a dated change, and the fields inside a rate row.
 FORM_ONLY_NAMES = {
     "pages",
+    "next_step_id",
     "rate_count",
-    "edit_rates",
-    "edit_bill",
-    "schedule_change",
-    "confirm_current",
     "discovered_inverter",
     "source",
     "effective_from",

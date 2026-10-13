@@ -172,21 +172,21 @@ def _generated(**registry) -> dict:
     return dashboard_dict(FULL_CONFIG, FakeRegistry(enable_all=True, **registry))
 
 
-class TestEnergyTodayTiles:
+class TestTodaySoFarTiles:
     def _tiles(self, config: dict) -> dict[str, dict]:
-        section = _section(_view(config, "power-flow"), "Energy today")
+        section = _section(_view(config, "power-flow"), "Today so far")
         return {c["name"]: c for c in section["cards"] if c["type"] == "tile"}
 
     def test_self_sufficiency_joins_the_four_totals(self):
         tiles = self._tiles(_generated())
-        totals = [n for n in tiles if n in {"Generated", "Used", "Imported", "Exported", "Self-sufficient"}]
-        assert totals == ["Generated", "Used", "Imported", "Exported", "Self-sufficient"]
+        totals = [n for n in tiles if n in {"Solar", "Home used", "Imported", "Exported", "Self-sufficient"}]
+        assert totals == ["Solar", "Home used", "Imported", "Exported", "Self-sufficient"]
         assert tiles["Self-sufficient"]["entity"] == IDS["self_sufficiency"]
 
     def test_a_tile_is_left_out_when_its_sensor_is_missing(self):
         tiles = self._tiles(_generated(absent={"self_sufficiency"}))
         assert "Self-sufficient" not in tiles
-        assert "Used" in tiles
+        assert "Home used" in tiles
 
 
 class TestTheSourcesGroup:
@@ -195,7 +195,7 @@ class TestTheSourcesGroup:
 
     def test_it_sits_under_energy_on_the_today_tab(self):
         headings = [s["cards"][0].get("heading") for s in _view(_generated(), "today")["sections"]]
-        assert headings[:2] == ["Energy", HEADING]
+        assert headings[:3] == ["Today hour by hour", "Energy", HEADING]
 
     def test_it_reads_the_self_sufficiency_house_and_import_sensors(self):
         group = self._group(_generated())
@@ -259,7 +259,7 @@ class TestSelfSufficiencyIsShownOnce:
         assert [c for c in cards if c["type"] == "tile" and c["entity"] == CARD] == []
 
     def test_the_power_flow_tile_stays(self):
-        tiles = TestEnergyTodayTiles()._tiles(_generated())
+        tiles = TestTodaySoFarTiles()._tiles(_generated())
         assert tiles["Self-sufficient"]["entity"] == CARD
 
     @pytest.mark.parametrize("missing", ["house_kwh_today", "import_today"])

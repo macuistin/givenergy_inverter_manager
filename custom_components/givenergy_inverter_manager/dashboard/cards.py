@@ -25,12 +25,19 @@ NIGHT = "indigo"
 HEX = {IMMERSION: "#FF9800", EV: "#009688"}
 
 BAR = {"type": "bar-gauge", "min": 0, "max": 100}
-SLIDER = {"type": "numeric-input", "style": "slider"}
+# A setting is set with − and + buttons. A slider across the whole tile is hard to set to an
+# exact value such as 45 °C or 25%.
+STEPPER = {"type": "numeric-input", "style": "buttons"}
 TOGGLE = {"type": "toggle"}
 TREND = {"type": "trend-graph", "hours_to_show": 24}
 
 FULL = "full"
 MAX_COLUMNS = 3
+# A section this wide holds the power flow, and one as wide as the view holds a chart or a
+# banner. Home Assistant narrows a span to the columns the screen has, so a phone still shows
+# one column.
+WIDE = {"column_span": 2}
+WHOLE_WIDTH = {"column_span": MAX_COLUMNS}
 
 
 # ── Card primitives ──────────────────────────────────────────────────────────
@@ -125,8 +132,11 @@ def tile_card(  # noqa: PLR0913
 
 
 def toggle_tile(entity: str | None, name: str, color: str) -> dict | None:
-    """A tile with an on/off switch beside the name."""
-    return tile_card(entity, name, color=color, features=[TOGGLE], inline=True)
+    """A tile with an on/off switch beside the name, the full width of its section.
+
+    Home Assistant gives a tile with an inline feature at least 12 columns, so it says so.
+    """
+    return tile_card(entity, name, columns=FULL, color=color, features=[TOGGLE], inline=True)
 
 
 def readonly_tile(entity: str | None, name: str, color: str) -> dict[str, Any] | None:
@@ -138,9 +148,9 @@ def readonly_tile(entity: str | None, name: str, color: str) -> dict[str, Any] |
     return tile_card(entity, name, color=color, nav={"action": "none"})
 
 
-def slider_tile(entity: str | None, name: str, color: str) -> dict | None:
-    """A full-width tile with a slider under the name."""
-    return tile_card(entity, name, columns=FULL, color=color, features=[SLIDER])
+def stepper_tile(entity: str | None, name: str, color: str, columns: int | str = 6) -> dict | None:
+    """A tile with − and + buttons under the name, two to a row unless given the full width."""
+    return tile_card(entity, name, columns=columns, color=color, features=[STEPPER])
 
 
 def heading_card(
@@ -219,6 +229,9 @@ def view_config(title: str, icon: str, path: str, sections: list, **extra) -> di
         "path": path,
         "type": "sections",
         "max_columns": MAX_COLUMNS,
+        # A section that fits a gap left by a wider one moves up into it, so the power flow
+        # sits beside Now even while a view-wide banner follows Now.
+        "dense_section_placement": True,
         **extra,
         "sections": present(sections),
     }
@@ -245,6 +258,32 @@ def statistics_graph(rows: list, period: str, days: int, height: int = 4) -> dic
         stat_types=["change"],
     )
     return graph_card(card, height) if card else None
+
+
+def stacked_hourly_graph(rows: list, height: int) -> dict | None:
+    """Stacked bars of the energy each hour over the last day, one colour per row."""
+    card = entity_list_card(
+        rows,
+        {"type": "statistics-graph"},
+        chart_type="bar-stack",
+        period="hour",
+        days_to_show=1,
+        stat_types=["change"],
+    )
+    return graph_card(card, height) if card else None
+
+
+def logbook_card(entities: list[str | None], hours: int) -> dict | None:
+    """What changed these entities lately, newest first. None when none of them exists."""
+    present_ids = [entity for entity in entities if entity]
+    if not present_ids:
+        return None
+    return {
+        "type": "logbook",
+        "target": {"entity_id": present_ids},
+        "hours_to_show": hours,
+        "grid_options": {"columns": FULL},
+    }
 
 
 def entity_list_card(rows: list, head: dict, **tail) -> dict | None:
