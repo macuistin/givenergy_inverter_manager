@@ -205,6 +205,9 @@ _LOG = get_logger(__name__)
 
 # A wired entity must be missing this many cycles in a row (five minutes) before the repair.
 MISSING_ENTITY_CYCLES = 10
+# GivTCP's entities read unavailable for the first seconds after Home Assistant starts. The
+# "stopped publishing" warning waits this many silent cycles in a row, so a start-up raises none.
+SILENT_WARN_CYCLES = 3
 # The system is looked at again every tenth cycle, and at once when GivTCP's version changes.
 SYSTEM_CHECK_EVERY_CYCLES = 10
 
@@ -340,6 +343,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._ev_charger: EVCharger | None = None
         self._ev_base_rate = WatchState()
         self._givtcp_was_unavailable: bool = False
+        self._silent_cycles = 0
         # True from the cycle that finds GivTCP's entities frozen until one reports again.
         self._givtcp_frozen: bool = False
         # True from the cycle that finds GivTCP paused or its data old until it reads again.
@@ -1649,7 +1653,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         async_delete_not_answering_issue(self.hass)
 
     def _note_givtcp_silent(self, *, missing: bool) -> None:
-        if not self._givtcp_was_unavailable:
+        self._silent_cycles += 1
+        if not self._givtcp_was_unavailable and self._silent_cycles >= SILENT_WARN_CYCLES:
             _LOG.warning(
                 "GivTCP has stopped publishing data — solar and battery sensors "
                 "are unavailable. Check GivTCP is running and MQTT is connected."
@@ -1659,6 +1664,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             async_create_givtcp_missing_issue(self.hass)
 
     def _note_givtcp_publishing(self) -> None:
+        self._silent_cycles = 0
         if self._givtcp_was_unavailable:
             _LOG.info("GivTCP is publishing data again — resuming normal operation.")
             self._givtcp_was_unavailable = False
