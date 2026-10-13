@@ -317,3 +317,24 @@ class TestRegisterOnce:
 
         assert websocket.call_count == 1
         assert served.call_count == 1
+
+
+class TestModuleUrl:
+    def test_the_address_carries_the_version_and_the_start(self, monkeypatch):
+        strategy = _strategy()
+        monkeypatch.setattr(strategy.time, "time", lambda: 1_700_000_000.9)
+        hass = SimpleNamespace(data={})
+
+        url = strategy.strategy_module_url(hass)
+
+        assert url == f"{strategy.STRATEGY_URL_PATH}?v={strategy.INTEGRATION_VERSION}&boot=1700000000"
+
+    def test_the_address_is_fixed_within_a_start_and_new_for_the_next(self, monkeypatch):
+        strategy = _strategy()
+        clock = iter([1_700_000_000, 1_700_000_500])
+        monkeypatch.setattr(strategy.time, "time", lambda: next(clock))
+        first_start = SimpleNamespace(data={})
+        second_start = SimpleNamespace(data={})
+
+        assert strategy.strategy_module_url(first_start) == strategy.strategy_module_url(first_start)
+        assert strategy.strategy_module_url(second_start) != strategy.strategy_module_url(first_start)
