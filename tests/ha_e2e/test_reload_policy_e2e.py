@@ -75,7 +75,8 @@ def lifecycle(monkeypatch):
 async def _save_options(hass, entry, steps: dict) -> None:
     """Run the options wizard through *steps* as the frontend would and check it saved."""
     result = await options_wizard(hass, entry, steps)
-    assert result["type"] is FlowResultType.CREATE_ENTRY, result
+    # An unchanged run ends at the menu, which offers no save: nothing is written.
+    assert result["type"] in (FlowResultType.CREATE_ENTRY, FlowResultType.MENU), result
 
 
 def _assert_applied_live(entry, coordinator, lifecycle) -> None:

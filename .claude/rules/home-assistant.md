@@ -53,10 +53,10 @@ Each rule is checked by a test or by the Home Assistant source. The test is name
 
 - The setup wizard is a checklist of pages: `system` (then `inverter_entities` when discovery cannot
   wire the inverter), only the ticked pages (`tariff`, `tariff_rates`, `forecast`, `hot_water`),
-  then `confirm`. The options wizard is the same pages plus `battery` (which holds the winter and
-  shoulder months), `ev`, `bill` and `schedule_change`. Page logic is in `core/wizard_*.py`, the
-  flow steps in `wizard/`, and `config_flow.py` only registers the handlers. Reconfigure is the
-  inverter connection.
+  then `confirm`. Configure is a menu (`init`): `tariff_menu` (`tariff`, `tariff_rates`, `bill`,
+  `schedule_change`, `tariff_reviewed`), `battery`, `charge_planning` then `forecast`, `hot_water`,
+  `ev`. Each page returns to its menu, and `confirm` shows once a value would change. Logic is in
+  `core/wizard_*.py`, steps in `wizard/`. Prices, costs and sizes use `mode: box` (`NUMBER_BOUNDS`).
 - `NumberSelector` needs `step >= 0.001` or `"any"`. A smaller step fails validation.
   `tests/test_config_flow_schemas.py` runs the real selectors.
 - A time selector returns `HH:MM:SS`. Rate periods are stored as `HH:MM` (`rows_from_sections`).

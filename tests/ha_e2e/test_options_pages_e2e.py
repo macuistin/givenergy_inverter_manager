@@ -16,9 +16,12 @@ from wizard_support import (
     field_names,
     initial_data,
     open_options,
+    open_page,
     options_wizard,
+    save_changes,
     serialised,
     submit,
+    to_confirm,
     walk_options_forms,
 )
 
@@ -118,7 +121,7 @@ async def test_a_tariff_change_takes_effect_and_the_rate_rows_are_untouched(hass
 async def test_the_rates_screen_has_as_many_rows_as_the_count_says(hass, loaded_entry):
     result = await open_options(hass, loaded_entry, {"tariff": {}, "tariff_rates": {}})
     assert initial_data(serialised(result))["rate_count"] == "2"
-    result = await submit(manager(hass), result, rate_count="4", edit_rates=False)
+    result = await submit(manager(hass), result, rate_count="4")
 
     assert result["step_id"] == "tariff_rates"
     assert field_names(result) == ["rate_period_1", "rate_period_2", "rate_period_3", "rate_period_4"]
@@ -139,7 +142,8 @@ async def test_raising_the_count_opens_the_rows_by_itself_and_saves_the_new_row(
 
     row = {"name": "Evening", "rate": 0.4, "start": "17:00:00", "end": "19:00:00"}
     result = await submit(manager(hass), result, rate_period_3=row)
-    await hass.async_block_till_done()
+    assert result["step_id"] == "tariff_menu"
+    result = await save_changes(hass, result)
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert [p["name"] for p in loaded_entry.options[CONF_RATE_PERIODS]] == [
@@ -157,7 +161,7 @@ async def test_lowering_the_count_drops_the_last_rows_in_one_screen(hass, loaded
     assert result["step_id"] == "tariff_rates"
     assert field_names(result) == ["rate_period_1"]
     result = await submit(manager(hass), result)
-    await hass.async_block_till_done()
+    await save_changes(hass, result)
 
     assert [p["name"] for p in loaded_entry.options[CONF_RATE_PERIODS]] == ["Night"]
 
@@ -165,16 +169,16 @@ async def test_lowering_the_count_drops_the_last_rows_in_one_screen(hass, loaded
 async def test_a_count_of_zero_clears_the_rates_without_a_rates_screen(hass, loaded_entry):
     result = await open_options(hass, loaded_entry, {"tariff": {}})
     result = await submit(manager(hass), result, rate_count="0")
-    await hass.async_block_till_done()
+    assert result["step_id"] == "tariff_menu"  # no rows to edit
+    result = await save_changes(hass, result)
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert loaded_entry.options[CONF_RATE_PERIODS] == []
     assert loaded_entry.state is ConfigEntryState.LOADED
 
 
-async def test_the_rates_screen_can_be_opened_with_the_tick_box(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"tariff": {}})
-    result = await submit(manager(hass), result, edit_rates=True)
+async def test_the_rates_screen_opens_from_the_tariff_menu(hass, loaded_entry):
+    result = await open_page(hass, loaded_entry, "tariff_rates")
 
     assert result["step_id"] == "tariff_rates"
     assert len(field_names(result)) == 2
@@ -182,8 +186,7 @@ async def test_the_rates_screen_can_be_opened_with_the_tick_box(hass, loaded_ent
 
 
 async def test_the_bill_screen_has_the_bill_details_and_saves_them(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"tariff": {}, "bill": {}})
-    result = await submit(manager(hass), result, edit_bill=True)
+    result = await open_page(hass, loaded_entry, "bill")
     assert result["step_id"] == "bill"
     assert field_names(result) == [
         "currency",
@@ -195,7 +198,7 @@ async def test_the_bill_screen_has_the_bill_details_and_saves_them(hass, loaded_
         "discount_rate",
     ]
     result = await submit(manager(hass), result, vat_rate=13.5, currency="GBP")
-    await hass.async_block_till_done()
+    result = await to_confirm(manager(hass), result)
 
     assert result["step_id"] == "confirm"
     assert "- Currency: EUR to GBP" in result["description_placeholders"]["changes"]
@@ -210,8 +213,8 @@ SLOT_EMPTY = {"name": "Empty", "rate": 0.01, "start": "00:00:00", "end": "00:00:
 
 
 async def _rates_screen(hass, entry, count: str):
-    result = await open_options(hass, entry, {"tariff": {}, "tariff_rates": {}})
-    return await submit(manager(hass), result, rate_count=count, edit_rates=True)
+    result = await open_page(hass, entry, "tariff")
+    return await submit(manager(hass), result, rate_count=count)
 
 
 async def test_the_rates_screen_rejects_a_zero_length_row_and_keeps_what_was_typed(
@@ -249,8 +252,7 @@ async def test_the_rates_screen_rejects_a_row_named_like_the_base_rate(hass, loa
 async def test_the_bill_screen_rejects_a_base_name_that_a_timed_rate_already_uses(
     hass, loaded_entry
 ):
-    result = await open_options(hass, loaded_entry, {"tariff": {}, "bill": {}})
-    result = await submit(manager(hass), result, edit_bill=True)
+    result = await open_page(hass, loaded_entry, "bill")
     result = await submit(manager(hass), result, base_rate_name="NIGHT")
 
     assert result["step_id"] == "bill"
@@ -327,7 +329,7 @@ async def test_the_charge_planning_page_warns_once_when_the_floor_is_below_the_m
 
     result = await submit(manager(hass), result, battery_min_soc_pct=20)
     result = await submit(manager(hass), result)  # the solar forecast screen
-    await hass.async_block_till_done()
+    result = await save_changes(hass, result)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert loaded_entry.options["battery_min_soc_pct"] == 20
 
@@ -354,7 +356,8 @@ async def test_an_emptied_forecast_and_carbon_selection_is_accepted(hass, loaded
         hass, loaded_entry, {"forecast": dict.fromkeys(OPTIONAL_ENTITY_KEYS)}
     )
 
-    assert result["type"] is FlowResultType.CREATE_ENTRY
+    # Saved when a sensor was set, and back at the menu with nothing to save when none was.
+    assert result["type"] in (FlowResultType.CREATE_ENTRY, FlowResultType.MENU)
     for key in OPTIONAL_ENTITY_KEYS:
         assert not loaded_entry.runtime_data._effective_cfg().get(key)
     assert loaded_entry.state is ConfigEntryState.LOADED
@@ -378,7 +381,7 @@ async def test_the_pages_reopen_after_an_emptied_submission(hass, loaded_entry):
         "confirm",
     }
     for step_id, form in forms.items():
-        assert form["fields"] or step_id == "confirm"
+        assert form["fields"] or step_id in ("init", "tariff_menu", "confirm")
 
 
 async def test_a_cleared_forecast_stays_cleared_when_the_page_reopens(hass, loaded_entry):
@@ -430,7 +433,8 @@ async def test_a_hot_water_warning_is_shown_once_and_never_blocks_saving(hass, l
     assert "temperature sensor" in result["description_placeholders"]["warnings"]
 
     result = await submit(manager(hass), result, **values)
-    assert result["step_id"] == "confirm"  # clearing the sensor changes the device set
+    assert result["step_id"] == "init"
+    result = await to_confirm(manager(hass), result)
     assert "temperature sensor" in result["description_placeholders"]["warnings"]
     await manager(hass).async_configure(result["flow_id"], user_input={})
     await hass.async_block_till_done()
@@ -480,10 +484,6 @@ async def test_every_page_keeps_its_keys_in_the_page_table(hass, loaded_entry):
     form_only = {
         "pages",
         "rate_count",
-        "edit_rates",
-        "edit_bill",
-        "schedule_change",
-        "confirm_current",
         "effective_from",
         "cancel_scheduled",
         "name",
@@ -497,29 +497,41 @@ async def test_every_page_keeps_its_keys_in_the_page_table(hass, loaded_entry):
     assert names - form_only <= stored
 
 
-async def test_last_step_is_true_only_on_the_last_tariff_screen_of_a_single_page(
+@pytest.mark.parametrize("step", ["tariff", "tariff_rates", "bill", "schedule_change"])
+async def test_every_tariff_screen_returns_to_the_tariff_menu(hass, loaded_entry, step):
+    """No tariff screen is the last: each comes back to the tariff menu, and Save is elsewhere."""
+    result = await open_page(hass, loaded_entry, step)
+    assert result["last_step"] is False
+    result = await submit(manager(hass), result)
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "tariff_menu"
+    manager(hass).async_abort(result["flow_id"])
+
+
+async def test_the_tariff_menu_offers_the_rows_only_while_there_is_a_timed_rate(
     hass, loaded_entry
 ):
-    result = await open_options(hass, loaded_entry, {"tariff": {}})
-    assert result["last_step"] is False
-    result = await submit(manager(hass), result, edit_rates=True, edit_bill=True)
-    assert result["step_id"] == "tariff_rates"
-    assert result["last_step"] is False
-    result = await submit(manager(hass), result)
-    assert result["step_id"] == "bill"
-    assert result["last_step"] is True
+    result = await open_page(hass, loaded_entry, "tariff")
+    result = await submit(manager(hass), result, rate_count="0")
+    assert "tariff_rates" not in result["menu_options"]
+    assert result["menu_options"][-1] == "init"
     manager(hass).async_abort(result["flow_id"])
 
 
-async def test_the_tariff_screens_are_not_the_last_when_another_page_follows(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"tariff": {}, "ev": {}})
-    result = await submit(manager(hass), result, edit_bill=True)
-    assert result["step_id"] == "bill"
-    assert result["last_step"] is False
-    result = await submit(manager(hass), result)
-    assert result["step_id"] == "ev"
-    assert result["last_step"] is False
-    manager(hass).async_abort(result["flow_id"])
+async def test_the_tariff_is_still_current_records_today_when_saved(hass, loaded_entry):
+    from wizard_support import choose
+
+    hass.config_entries.async_update_entry(
+        loaded_entry, options={**loaded_entry.options, "tariff_reviewed_on": "2020-01-01"}
+    )
+    await hass.async_block_till_done()
+    result = await open_page(hass, loaded_entry, "tariff_reviewed")
+    assert result["step_id"] == "tariff_menu"
+    assert "confirmed as current" in result["description_placeholders"]["reviewed"]
+    result = await choose(manager(hass), result, "init")
+    assert "confirm" in result["menu_options"]
+    await save_changes(hass, result)
+    assert loaded_entry.options["tariff_reviewed_on"] != "2020-01-01"
 
 
 @pytest.fixture

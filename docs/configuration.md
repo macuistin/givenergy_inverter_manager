@@ -3,7 +3,7 @@
 Every setup screen and every option, with ranges and defaults taken from the wizards.
 
 - **Setup** is a short wizard. It shows what it found and a checklist of what to set up now, then only the pages you ticked, then a confirm screen. A flat-rate home with nothing else is three screens.
-- **Configure** is the same pages as a wizard: "What would you like to change?" You tick the pages to change and only those are shown. The last screen lists every change before and after and says whether it applies now or reloads the integration.
+- **Configure** is a menu of the same pages. Each line shows what is set now. Open a page, change it, and it brings you back to the menu. **Save changes** appears once something has changed, and lists every change before and after and whether it applies now or reloads the integration.
 - **Reconfigure** is the inverter connection: which GivTCP entities the integration reads. The tariff is in Configure.
 
 Every field has a label and a one-line help text in the form. [Field meanings](#field-meanings) explains the ones that caused mistakes. A wizard has no Back button, so every page works with its optional fields empty, and nothing is saved until the last screen. Close the dialog at any point to leave without saving.
@@ -100,13 +100,13 @@ A read-only summary lists the inverter, the cheapest rate, the billing period (f
 | Day and night, with an immersion | 5 (plus hot water) |
 | Tariff set up later | 2 (your system, confirm) |
 
-The step count at the top of each screen ("Step 2 of about 4.") is recomputed after every screen.
+The step count at the top of each setup screen ("Step 2 of about 4.") is recomputed after every screen. Configure has no step count, because it is a menu.
 
 ## Configure
 
-Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. The first screen is a checklist, "What would you like to change?", with nothing ticked. Each line shows what is set now. Tick the pages to go through. Saved options override the values entered at setup.
+Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**. The first screen is a menu: Tariff, Battery, Charge planning, Hot water and EV charger, each with a line on what is set now. Saved options override the values entered at setup.
 
-The pages run in a fixed order whatever order they were ticked in: Tariff, Battery, Charge planning (which ends with the solar forecast screen), Hot water, EV charger. The last screen lists every change before and after in plain words, then says either "Applies now" or "Reloads the integration because you changed ...". That screen is skipped when exactly one page was ticked and its change applies at once, so a one-field edit is two screens. A page that was not ticked is never rewritten, and a value you leave as it was is not written at all. The wizard saves the options as they are at the end, so a control you moved while it was open keeps its new value.
+Pick a page, change it and submit, and it brings you back to the menu. Charge planning has a second screen, the solar forecast. Nothing is saved yet: the menu lists what you changed above it, and **Save changes** appears at the bottom with a note on whether the save applies at once or reloads the integration. Choose it to see every change before and after in plain words, then Submit to save. Close the window to leave without saving. A page you did not open is never rewritten, and a value you leave as it was is not written at all. Configure saves the options as they are when you submit, so a control you moved while it was open keeps its new value.
 
 Most changes apply on the next 30-second cycle with no reload: the tariff, battery and charging settings, the forecast and carbon sensors other than the main forecast sensor, element power, ready-by times and the car efficiency. Changing a time-of-day rate also moves the time the charge target is written. The integration reloads, and entities are unavailable for a few seconds, when you change the main forecast sensor, the currency, the immersion switch or the water temperature sensor, or when alternative water heating appears or goes (you turn it on with a cost or a cost sensor set, or off, or clear the last cost). Changing the label, the unit or a cost that is already set does not reload.
 
@@ -114,14 +114,18 @@ A warning, such as ready-by times with no temperature sensor, shows once at the 
 
 ### Tariff
 
-The first screen has the base rate, the export rate and a select for the number of time-of-day rates, filled in with what is saved (the rates in force today, if a dated change has started). The first line states the cheapest rate in the saved tariff and the billing period, so a wrong rate or bill start day shows before you save. Four tick boxes choose what comes next:
+Tariff opens a menu of its own. Its first line states the cheapest rate in the saved tariff and the billing period, so a wrong rate or bill start day shows before you save.
 
-| Tick box | Opens |
+| Menu line | Opens |
 |---|---|
-| Edit the time-of-day rates | one screen with a row for each rate. It opens by itself when you change the count |
-| Edit bill details | currency, base rate name, bill start day, standing charge, levy, VAT and discount |
+| Rates | the base rate, the export rate and a select for the number of time-of-day rates, filled in with what is saved (the rates in force today, if a dated change has started). Changing the count opens the rows next |
+| Time-of-day rates | one screen with a row for each rate. Shown while there is at least one |
+| Bill details | currency, base rate name, bill start day, standing charge, levy, VAT and discount |
 | Schedule a rate change | the date the rates you entered start, and a switch to cancel the changes already scheduled |
-| Confirm the tariff is current | nothing, it records today as the day you checked the tariff |
+| The tariff is still current | nothing to fill in. It records today as the day you checked the tariff when you save |
+| Back | the main menu |
+
+Prices, costs and sizes are typed in a box, so a figure from a bill can be entered exactly.
 
 Raising the count adds blank rows after the saved ones. Lowering it drops the last rows. A count of 0 clears the time-of-day rates and needs no rows screen. Change the rates against your latest bill whenever your supplier changes its prices. See [Tariff](tariff.md). The integration uses only the rates entered here. It does not read the rates GivTCP holds.
 

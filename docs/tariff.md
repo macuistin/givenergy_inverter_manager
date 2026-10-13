@@ -31,10 +31,10 @@ The cheapest timed period also sets when the overnight charge is written and whi
 
 When your supplier changes its prices from a set date, record the new rates with that date. You do not need to be at the screen on the day.
 
-1. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure** and tick **Tariff**.
-2. Enter the new base rate and export rate. Tick **Edit the time-of-day rates** to change the rows, and **Edit bill details** if the base rate name changes.
-3. Tick **Schedule a rate change**, then choose the date in **Rates start on** on its screen.
-4. Submit. The Tariff screen of the next Configure lists the change, and the current rates stay in force until the date.
+1. Open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure** and choose **Tariff**.
+2. In the Tariff menu, open **Rates** and enter the new base rate and export rate. Open **Time-of-day rates** to change the rows, and **Bill details** if the base rate name changes.
+3. Open **Schedule a rate change** and choose the date in **Rates start on**.
+4. Go **Back**, choose **Save changes** and submit. The Tariff menu of the next Configure lists the change, and the current rates stay in force until the date.
 
 From the first update cycle on the chosen date, the new rates apply. Before it, the old rates apply. The date is the day in Home Assistant's time zone, so a cheap window that crosses midnight on the day before uses the old rates up to midnight and the new rates after it.
 
@@ -43,12 +43,12 @@ What a dated change covers and does not cover:
 - **Covered:** the base rate and its name, the timed rate periods and the export rate.
 - **Not dated:** the standing charge, the flat levy, VAT, the supplier discount, the bill start day and the currency. They apply as soon as you save, because the bill sensors work out one bill from one value of each. Change them on the day, or on the day you notice.
 - **Nothing is recalculated.** Costs and totals already recorded keep the rates that applied when the energy was used. The date cannot be in the past. If your supplier changed prices before you updated the rates, save the new rates without a date. They apply from that moment, and the costs recorded in between stay as they are.
-- **Several changes** can wait at once, one for each date. Recording a second change for the same date replaces the first. Tick **Schedule a rate change** and select **Cancel the scheduled rate changes** to remove every change that has not started.
+- **Several changes** can wait at once, one for each date. Recording a second change for the same date replaces the first. Open **Schedule a rate change** and select **Cancel the scheduled rate changes** to remove every change that has not started.
 - **Later edits.** Once a change has started, its rates are the ones shown on the Tariff screen. Saving the tariff without a date sets the rates from now on. A change that has not started yet is kept.
 
 ## Stale tariff repair
 
-The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. A supplier price change leaves every cost figure wrong until the rates are updated, and nothing in Home Assistant tells you. The date counts from the last time you saved a different tariff in Configure, recorded a dated change, ticked **Confirm the tariff is current** or confirmed the rates in the repair. The first time the integration runs with this feature, it records that day, so an upgrade never raises the repair at once. The first repair comes 365 days later at the earliest. See [Troubleshooting](troubleshooting.md#the-tariff-has-not-been-reviewed).
+The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. A supplier price change leaves every cost figure wrong until the rates are updated, and nothing in Home Assistant tells you. The date counts from the last time you saved a different tariff in Configure, recorded a dated change, chose **The tariff is still current** or confirmed the rates in the repair. The first time the integration runs with this feature, it records that day, so an upgrade never raises the repair at once. The first repair comes 365 days later at the earliest. See [Troubleshooting](troubleshooting.md#the-tariff-has-not-been-reviewed).
 
 ## Worked example
 

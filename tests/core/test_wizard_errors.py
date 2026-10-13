@@ -52,5 +52,5 @@ def test_every_error_a_validator_returns_is_listed():
     assert _produced() <= set(ERROR_KEYS)
 
 
-def test_every_listed_error_except_the_checklist_one_is_returned_by_a_validator():
-    assert set(ERROR_KEYS) - _produced() == {"nothing_ticked"}
+def test_every_listed_error_is_returned_by_a_validator():
+    assert set(ERROR_KEYS) == _produced()

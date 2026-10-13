@@ -1,14 +1,12 @@
-"""The options wizard against a real flow manager, including the forms the frontend receives.
+"""Configure against a real flow manager, including the forms the frontend receives.
 
-"What would you like to change?" is a checklist. Only the ticked pages are shown, in a fixed
-order, and nothing is written until the last screen. The page logic has its own unit tests
+Configure is a menu of pages. Each page comes back to the menu, Save changes shows once
+something has changed, and nothing is written until the changes are saved. The page logic has its own unit tests
 (tests/core/test_wizard_*.py). These prove what only Home Assistant proves: routing, last_step,
 the one write, what reloads, and that every form serialises for the frontend.
 """
 
 from __future__ import annotations
-
-import itertools
 
 import pytest
 from conftest import MIDDAY, SERIAL, full_config_data
@@ -16,9 +14,10 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from wizard_support import (
+    choose,
     open_options,
+    open_page,
     options_wizard,
-    serialised,
     submit,
 )
 
@@ -68,131 +67,115 @@ def manager(hass):
     return hass.config_entries.options
 
 
-# ── The checklist ─────────────────────────────────────────────────────────────
+MENU = ["tariff_menu", "battery", "charge_planning", "hot_water", "ev"]
 
 
-async def test_the_checklist_offers_the_five_pages_with_nothing_ticked(hass, loaded_entry):
-    result = await manager(hass).async_init(loaded_entry.entry_id)
-
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "init"
-    assert result["last_step"] is False
-    (field,) = serialised(result)
-    assert field["name"] == "pages"
-    assert field["default"] == []
-    assert field["selector"]["select"]["multiple"] is True
-    assert field["selector"]["select"]["mode"] == "list"
-    assert [o["value"] for o in field["selector"]["select"]["options"]] == list(PAGES)
-    manager(hass).async_abort(result["flow_id"])
-
-
-async def test_each_checklist_line_carries_the_current_status(hass, loaded_entry):
-    result = await manager(hass).async_init(loaded_entry.entry_id)
-
-    labels = {o["value"]: o["label"] for o in serialised(result)[0]["selector"]["select"]["options"]}
-    assert labels["tariff"] == "Tariff: Day 0.3334 EUR/kWh, export 0.1950, 2 time-of-day rates"
-    assert labels["battery"] == "Battery: battery 9.5 kWh, inverter 5 kW"
-    assert labels["charge_planning"].startswith(
-        "Charge planning: minimum charge 10%, overnight cap 80%, forecast"
-    )
-    assert labels["hot_water"].startswith("Hot water: immersion switch switch.immersion_heater")
-    assert labels["ev"] == "EV charger: car efficiency 15 kWh per 100 km"
-    manager(hass).async_abort(result["flow_id"])
-
-
-async def test_ticking_nothing_asks_again_and_writes_nothing(hass, loaded_entry):
-    before = dict(loaded_entry.options)
-    result = await manager(hass).async_init(loaded_entry.entry_id)
-
-    result = await manager(hass).async_configure(result["flow_id"], user_input={"pages": []})
-
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "init"
-    assert result["errors"] == {"base": "nothing_ticked"}
-    assert dict(loaded_entry.options) == before
-    manager(hass).async_abort(result["flow_id"])
-
-
-async def test_the_pages_run_in_a_fixed_order_whatever_order_the_client_sends(hass, loaded_entry):
-    result = await manager(hass).async_init(loaded_entry.entry_id)
-    result = await manager(hass).async_configure(
-        result["flow_id"], user_input={"pages": ["ev", "hot_water", "battery"]}
-    )
-    seen = []
-    while result["type"] is FlowResultType.FORM and result["step_id"] != "confirm":
-        seen.append(result["step_id"])
-        result = await submit(manager(hass), result)
-
-    assert seen == ["battery", "hot_water", "ev"]
+async def save(hass, result):
+    """Choose Save changes on the menu *result*, then submit the confirm form."""
+    result = await choose(manager(hass), result, "confirm")
     assert result["step_id"] == "confirm"
+    return await manager(hass).async_configure(result["flow_id"], user_input={})
+
+
+# ── The menu ──────────────────────────────────────────────────────────────────
+
+
+async def test_the_menu_offers_the_five_pages_and_no_save_before_a_change(hass, loaded_entry):
+    result = await manager(hass).async_init(loaded_entry.entry_id)
+
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "init"
+    assert result["menu_options"] == MENU
+    assert result["description_placeholders"]["unsaved"] == ""
     manager(hass).async_abort(result["flow_id"])
 
 
-@pytest.mark.parametrize("page", PAGES)
-async def test_a_single_page_shows_only_that_page(hass, loaded_entry, page):
+async def test_each_menu_line_carries_the_current_status(hass, loaded_entry):
     result = await manager(hass).async_init(loaded_entry.entry_id)
-    result = await manager(hass).async_configure(result["flow_id"], user_input={"pages": [page]})
 
-    assert result["step_id"] == page
-    # The tariff and charge planning pages run on to further screens.
-    assert result["last_step"] is (page not in ("tariff", "charge_planning"))
-    while result["type"] is FlowResultType.FORM:
-        result = await submit(manager(hass), result)
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert loaded_entry.state is ConfigEntryState.LOADED
-
-
-@pytest.mark.parametrize(
-    "ticked",
-    [
-        combo
-        for size in range(1, len(PAGES) + 1)
-        for combo in itertools.combinations(PAGES, size)
-    ],
-    ids=lambda combo: "+".join(combo),
-)
-async def test_every_combination_of_ticked_pages_walks_to_the_end(hass, loaded_entry, ticked):
-    """Each page can be skipped. Whatever is ticked, the wizard ends and the entry stays loaded."""
-    result = await manager(hass).async_init(loaded_entry.entry_id)
-    result = await manager(hass).async_configure(
-        result["flow_id"], user_input={"pages": list(ticked)}
+    lines = result["description_placeholders"]
+    assert lines["tariff_summary_line"] == "Day 0.3334 EUR/kWh, export 0.1950, 2 time-of-day rates"
+    assert lines["battery_summary"] == "battery 9.5 kWh, inverter 5 kW"
+    assert lines["charge_planning_summary"].startswith(
+        "minimum charge 10%, overnight cap 80%, forecast"
     )
-    seen = []
-    while result["type"] is FlowResultType.FORM:
-        seen.append(result["step_id"])
-        result = await submit(manager(hass), result)
-    await hass.async_block_till_done()
+    assert lines["hot_water_summary"].startswith("immersion switch switch.immersion_heater")
+    assert lines["ev_summary"] == "car efficiency 15 kWh per 100 km"
+    manager(hass).async_abort(result["flow_id"])
 
-    assert [s for s in seen if s in PAGES] == [p for p in PAGES if p in ticked]
-    assert ("confirm" in seen) is (len(ticked) > 1)
+
+@pytest.mark.parametrize("page", ["battery", "charge_planning", "hot_water", "ev"])
+async def test_each_page_returns_to_the_menu(hass, loaded_entry, page):
+    """A page submitted unchanged comes back to the menu, which still offers no save."""
+    result = await open_page(hass, loaded_entry, page)
+    assert result["last_step"] is False
+    result = await submit(manager(hass), result)
+    if page == "charge_planning":
+        assert result["step_id"] == "forecast"  # the second screen of charge planning
+        result = await submit(manager(hass), result)
+
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "init"
+    assert "confirm" not in result["menu_options"]
+    manager(hass).async_abort(result["flow_id"])
+
+
+async def test_a_change_adds_save_changes_and_lists_it_above_the_menu(hass, loaded_entry):
+    result = await open_page(hass, loaded_entry, "ev")
+    result = await submit(manager(hass), result, car_efficiency_kwh_per_100km=19.0)
+
+    assert result["menu_options"] == [*MENU, "confirm"]
+    unsaved = result["description_placeholders"]["unsaved"]
+    assert "Car efficiency: 15 kWh per 100 km to 19 kWh per 100 km" in unsaved
+    assert result["description_placeholders"]["save_note"] == "Applies at once."
+    manager(hass).async_abort(result["flow_id"])
+
+
+async def test_save_changes_says_when_it_reloads(hass, loaded_entry):
+    result = await open_page(hass, loaded_entry, "hot_water")
+    result = await submit(manager(hass), result, immersion_switch_entity="switch.second_heater")
+
+    note = result["description_placeholders"]["save_note"]
+    assert note == "Reloads the integration, so entities are unavailable for a few seconds."
+    manager(hass).async_abort(result["flow_id"])
+
+
+async def test_several_pages_are_saved_in_one_write(hass, loaded_entry):
+    result = await open_page(hass, loaded_entry, "charge_planning")
+    result = await submit(manager(hass), result, battery_min_soc_pct=15)
+    result = await submit(manager(hass), result)
+    result = await choose(manager(hass), result, "ev")
+    result = await submit(manager(hass), result, car_efficiency_kwh_per_100km=19.0)
+
+    result = await save(hass, result)
+
     assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert loaded_entry.options["battery_min_soc_pct"] == 15
+    assert loaded_entry.options["car_efficiency_kwh_per_100km"] == 19.0
     assert loaded_entry.state is ConfigEntryState.LOADED
 
 
 # ── last_step and what is written when ────────────────────────────────────────
 
 
-async def test_last_step_is_false_until_the_confirm_step_of_a_longer_run(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"battery": {}, "ev": {}})
-    assert result["step_id"] == "battery"
+async def test_last_step_is_true_only_on_the_confirm_form(hass, loaded_entry):
+    result = await open_page(hass, loaded_entry, "battery")
     assert result["last_step"] is False
-    result = await submit(manager(hass), result)
-    assert result["step_id"] == "ev"
-    assert result["last_step"] is False
-    result = await submit(manager(hass), result)
+    result = await submit(manager(hass), result, battery_capacity_kwh=12.0)
+    result = await choose(manager(hass), result, "confirm")
     assert result["step_id"] == "confirm"
     assert result["last_step"] is True
     manager(hass).async_abort(result["flow_id"])
 
 
-async def test_nothing_is_written_before_the_last_screen(hass, loaded_entry):
+async def test_nothing_is_written_before_save_changes(hass, loaded_entry):
     before = dict(loaded_entry.options)
-    result = await open_options(hass, loaded_entry, {"charge_planning": {}, "ev": {}})
+    result = await open_page(hass, loaded_entry, "charge_planning")
     result = await submit(manager(hass), result, battery_min_soc_pct=15)
-    assert result["step_id"] == "forecast"
     result = await submit(manager(hass), result)
+    result = await choose(manager(hass), result, "ev")
     result = await submit(manager(hass), result, car_efficiency_kwh_per_100km=19.0)
-    assert result["step_id"] == "confirm"
+    assert result["step_id"] == "init"
     assert dict(loaded_entry.options) == before
 
     manager(hass).async_abort(result["flow_id"])
@@ -200,37 +183,13 @@ async def test_nothing_is_written_before_the_last_screen(hass, loaded_entry):
     assert dict(loaded_entry.options) == before
 
 
-async def test_one_page_that_applies_live_skips_the_confirm_step(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"charge_planning": {}})
-    assert result["last_step"] is False  # the solar forecast screen follows
-
-    result = await submit(manager(hass), result, battery_min_soc_pct=15)
-    assert result["step_id"] == "forecast"
-    assert result["last_step"] is True
-    result = await submit(manager(hass), result)
-
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert loaded_entry.options["battery_min_soc_pct"] == 15
-
-
-async def test_one_page_that_reloads_still_asks_to_confirm(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"hot_water": {}})
-    result = await submit(manager(hass), result, immersion_switch_entity="switch.second_heater")
-
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "confirm"
-    text = result["description_placeholders"]["changes"]
-    assert "Immersion switch: switch.immersion_heater to switch.second_heater" in text
-    assert "Reloads the integration because you changed immersion switch." in text
-    assert "immersion_switch_entity" not in loaded_entry.options
-    manager(hass).async_abort(result["flow_id"])
-
-
 async def test_the_confirm_step_lists_each_change_and_says_it_applies_now(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"charge_planning": {}, "ev": {}})
+    result = await open_page(hass, loaded_entry, "charge_planning")
     result = await submit(manager(hass), result, battery_min_soc_pct=15)
     result = await submit(manager(hass), result)
+    result = await choose(manager(hass), result, "ev")
     result = await submit(manager(hass), result, car_efficiency_kwh_per_100km=19.0)
+    result = await choose(manager(hass), result, "confirm")
 
     text = result["description_placeholders"]["changes"]
     assert "- Battery minimum charge: 10% to 15%" in text
@@ -241,13 +200,15 @@ async def test_the_confirm_step_lists_each_change_and_says_it_applies_now(hass, 
     assert loaded_entry.options["battery_min_soc_pct"] == 15
 
 
-async def test_the_confirm_step_of_an_untouched_run_says_nothing_changes(hass, loaded_entry):
-    result = await open_options(hass, loaded_entry, {"battery": {}, "ev": {}})
-    result = await submit(manager(hass), result)
-    result = await submit(manager(hass), result)
+async def test_the_confirm_step_says_when_it_reloads(hass, loaded_entry):
+    result = await open_page(hass, loaded_entry, "hot_water")
+    result = await submit(manager(hass), result, immersion_switch_entity="switch.second_heater")
+    result = await choose(manager(hass), result, "confirm")
 
     text = result["description_placeholders"]["changes"]
-    assert text == "No values changed.\n\nNothing changes."
+    assert "Immersion switch: switch.immersion_heater to switch.second_heater" in text
+    assert "Reloads the integration because you changed immersion switch." in text
+    assert "immersion_switch_entity" not in loaded_entry.options
     manager(hass).async_abort(result["flow_id"])
 
 
@@ -302,14 +263,15 @@ async def test_a_value_equal_to_what_is_in_force_is_never_written(hass, loaded_e
 
 
 async def test_a_control_moved_while_a_page_is_open_keeps_its_value(hass, loaded_entry):
-    """The options are read when the wizard writes, not when it opened."""
+    """The options are read when Configure writes, not when it opened."""
     result = await open_options(hass, loaded_entry, {"charge_planning": {}})
     hass.config_entries.async_update_entry(
         loaded_entry, options={**loaded_entry.options, "dry_run": True, "cheap_rate_floor_soc": 15}
     )
 
     result = await submit(manager(hass), result, battery_min_soc_pct=12)
-    await submit(manager(hass), result)
+    result = await submit(manager(hass), result)
+    await save(hass, result)
     await hass.async_block_till_done()
 
     assert loaded_entry.options["battery_min_soc_pct"] == 12
@@ -323,7 +285,9 @@ async def test_a_control_moved_between_the_confirm_step_and_its_submit_keeps_its
     result = await open_options(hass, loaded_entry, {"charge_planning": {}, "ev": {}})
     result = await submit(manager(hass), result, battery_min_soc_pct=12)
     result = await submit(manager(hass), result)
+    result = await choose(manager(hass), result, "ev")
     result = await submit(manager(hass), result, car_efficiency_kwh_per_100km=18.0)
+    result = await choose(manager(hass), result, "confirm")
     assert result["step_id"] == "confirm"
     hass.config_entries.async_update_entry(
         loaded_entry, options={**loaded_entry.options, "skip_charge_soc_threshold_pct": 90}

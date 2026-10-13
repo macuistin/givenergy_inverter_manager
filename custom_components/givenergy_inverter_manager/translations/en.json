@@ -263,7 +263,10 @@
       "rate_period_name_missing": "Give every time-of-day rate a name, such as Night.",
       "base_rate_required": "Enter a base rate above 0, or add a time-of-day rate that covers the whole day.",
       "base_rate_name_missing": "Give the base rate a name, such as Day.",
-      "too_many_periods": "At most 5 time-of-day rates are supported."
+      "too_many_periods": "At most 5 time-of-day rates are supported.",
+      "immersion_ready_time_invalid": "Enter each hot water ready time as HH:MM, for example 07:00.",
+      "alt_heat_label_empty": "Give the alternative water heating a name, such as Oil, Gas or Heat pump.",
+      "alt_heat_label_too_long": "The name of the alternative water heating can be at most 20 characters."
     },
     "abort": {
       "already_configured": "This inverter is already set up",
@@ -275,40 +278,42 @@
   "options": {
     "step": {
       "init": {
-        "title": "What would you like to change?",
-        "description": "{progress}\n\nTick the pages to go through. Only those pages are shown, and nothing is saved until the last screen. Most changes apply at once. Changing the immersion switch or sensor, the main forecast sensor or the currency reloads the integration, so entities are unavailable for a few seconds.",
-        "data": {
-          "pages": "Pages to change"
+        "title": "Configure",
+        "description": "{unsaved}Pick a page to change. Nothing is saved until you choose **Save changes**.",
+        "menu_options": {
+          "tariff_menu": "Tariff",
+          "battery": "Battery",
+          "charge_planning": "Charge planning",
+          "hot_water": "Hot water",
+          "ev": "EV charger",
+          "confirm": "Save changes"
         },
-        "data_description": {
-          "pages": "Each line shows what is set now. Tick nothing to leave without changing anything."
+        "menu_option_descriptions": {
+          "tariff_menu": "{tariff_summary_line}",
+          "battery": "{battery_summary}",
+          "charge_planning": "{charge_planning_summary}",
+          "hot_water": "{hot_water_summary}",
+          "ev": "{ev_summary}",
+          "confirm": "{save_note}"
         }
       },
       "tariff": {
         "title": "Tariff",
-        "description": "{progress}\n\n{warnings}{tariff_summary}\n\nChange the rates here. Tick the boxes below for what to edit on the next screens.",
+        "description": "{warnings}{tariff_summary}",
         "data": {
           "base_rate": "Base rate",
           "export_rate": "Export rate",
-          "rate_count": "Time-of-day rates besides the base rate",
-          "edit_rates": "Edit the time-of-day rates",
-          "edit_bill": "Edit bill details",
-          "schedule_change": "Schedule a rate change",
-          "confirm_current": "Confirm the tariff is current"
+          "rate_count": "Time-of-day rates besides the base rate"
         },
         "data_description": {
           "base_rate": "The price of one kWh before VAT, outside any time-of-day rate. A flat-rate home enters its one rate here.",
           "export_rate": "What your supplier pays for each kWh you export. Enter 0 if nothing is paid.",
-          "rate_count": "0 means one rate all day. 1 adds, for example, a night rate. The next screen has that many rows.",
-          "edit_rates": "Opens the rate rows. It opens by itself when you change the count above.",
-          "edit_bill": "Opens currency, standing charge, levy, VAT, discount and the bill start day.",
-          "schedule_change": "Start the rates on this screen on a later date. Asks for the date next.",
-          "confirm_current": "Records today as the day you checked the tariff, so the yearly review reminder resets."
+          "rate_count": "0 means one rate all day. 1 adds, for example, a night rate. When you change the count, the rate rows open next."
         }
       },
       "tariff_rates": {
         "title": "Time-of-day rates",
-        "description": "{progress}\n\n{warnings}One row for each time-of-day rate you chose. Rates are per kWh before VAT.",
+        "description": "{warnings}One row for each time-of-day rate you chose. Rates are per kWh before VAT.",
         "sections": {
           "rate_period_1": {
             "name": "Rate 1",
@@ -394,7 +399,7 @@
       },
       "bill": {
         "title": "Bill details",
-        "description": "{progress}\n\n{warnings}Currency, standing charge, levy, VAT, discount and the day your bill starts.",
+        "description": "{warnings}Currency, standing charge, levy, VAT, discount and the day your bill starts.",
         "data": {
           "currency": "Currency",
           "base_rate_name": "Base rate name",
@@ -416,7 +421,7 @@
       },
       "schedule_change": {
         "title": "Schedule a rate change",
-        "description": "{progress}\n\n{warnings}Start the rates you just entered on a later date. Energy recorded before the date keeps the old rates, and nothing already recorded is recalculated. The standing charge, levy, VAT, discount and currency apply as soon as you save.",
+        "description": "{warnings}Start the rates you just entered on a later date. Energy recorded before the date keeps the old rates, and nothing already recorded is recalculated. The standing charge, levy, VAT, discount and currency apply as soon as you save.",
         "data": {
           "effective_from": "Start date",
           "cancel_scheduled": "Cancel the scheduled rate changes"
@@ -428,7 +433,7 @@
       },
       "battery": {
         "title": "Battery",
-        "description": "{progress}\n\n{warnings}Battery and inverter limits. The charge target and the seasons are under Charge planning.",
+        "description": "{warnings}Battery and inverter limits. The charge target and the seasons are under Charge planning.",
         "data": {
           "battery_capacity_kwh": "Battery capacity (kWh)",
           "inverter_max_output_kw": "Inverter maximum output (kW)",
@@ -444,7 +449,7 @@
       },
       "charge_planning": {
         "title": "Charge planning",
-        "description": "{progress}\n\n{warnings}What shapes tonight's overnight charge: the minimum charge, the most it will charge to, and the winter and shoulder months. Dry run, the skip threshold, forecast caution and the re-plan switch are controls on the device page.",
+        "description": "{warnings}What shapes tonight's overnight charge: the minimum charge, the most it will charge to, and the winter and shoulder months. Dry run, the skip threshold, forecast caution and the re-plan switch are controls on the device page.",
         "data": {
           "battery_min_soc_pct": "Battery minimum charge (%)",
           "overnight_charge_target_pct": "Overnight charge cap (%)",
@@ -462,7 +467,7 @@
       },
       "forecast": {
         "title": "Solar forecast",
-        "description": "{progress}\n\n{warnings}Connect a solar forecast for smarter overnight charging. Without one a seasonal estimate is used.\n\n{detected}\n\nWhat the sensors read now:\n{check}",
+        "description": "{warnings}Connect a solar forecast for smarter overnight charging. Without one a seasonal estimate is used.\n\n{detected}\n\nWhat the sensors read now:\n{check}",
         "data": {
           "forecast_entity": "Solar forecast sensor",
           "forecast_entity_p10": "Pessimistic forecast sensor (optional)",
@@ -478,7 +483,7 @@
       },
       "hot_water": {
         "title": "Hot water",
-        "description": "{progress}\n\n{warnings}The immersion heater, when the water has to be hot, and another way to heat it. Every field is optional.\n\n{candidates}\n\nWhat the sensors read now:\n{check}",
+        "description": "{warnings}The immersion heater, when the water has to be hot, and another way to heat it. Every field is optional.\n\n{candidates}\n\nWhat the sensors read now:\n{check}",
         "data": {
           "immersion_switch_entity": "Immersion switch",
           "immersion_temp_sensor_entity": "Hot water temperature sensor (optional)",
@@ -514,7 +519,7 @@
       },
       "ev": {
         "title": "EV charger",
-        "description": "{progress}\n\n{warnings}Used to convert kWh charged into km added.\n\n{charger}",
+        "description": "{warnings}Used to convert kWh charged into km added.\n\n{charger}",
         "data": {
           "car_efficiency_kwh_per_100km": "Car efficiency (kWh per 100 km)"
         },
@@ -524,11 +529,30 @@
       },
       "confirm": {
         "title": "Check the changes",
-        "description": "{progress}\n\n{warnings}{changes}\n\nSelect Submit to save."
+        "description": "{warnings}{changes}\n\nSelect Submit to save."
+      },
+      "tariff_menu": {
+        "title": "Tariff",
+        "description": "{tariff_summary}{reviewed}",
+        "menu_options": {
+          "tariff": "Rates",
+          "tariff_rates": "Time-of-day rates",
+          "bill": "Bill details",
+          "schedule_change": "Schedule a rate change",
+          "tariff_reviewed": "The tariff is still current",
+          "init": "Back"
+        },
+        "menu_option_descriptions": {
+          "tariff": "The base rate, the export rate and how many time-of-day rates there are.",
+          "tariff_rates": "The name, price and hours of each time-of-day rate.",
+          "bill": "Currency, standing charge, levy, VAT, discount and the day your bill starts.",
+          "schedule_change": "Start new rates on a later date.",
+          "tariff_reviewed": "Record today as the day you checked the tariff, so the yearly reminder resets.",
+          "init": "Back to the other pages."
+        }
       }
     },
     "error": {
-      "nothing_ticked": "Tick at least one page, or close this window to leave without changing anything.",
       "rate_period_zero_length": "A rate cannot start and end at the same time. Change its start or end time.",
       "rate_period_duplicate_name": "Rate names must be different from each other and from the base rate name.",
       "rate_period_name_missing": "Give every time-of-day rate a name, such as Night.",
@@ -1114,7 +1138,7 @@
           }
         },
         "abort": {
-          "dry_run": "Dry run is on, so nothing was changed. Turn it off in the integration options to clear the slots.",
+          "dry_run": "Dry run is on, so nothing was changed. Turn off the Dry run switch (on the device page or the dashboard's Settings) to clear the slots.",
           "write_failed": "GivTCP did not accept every write. The slots that are still active stay listed. Check that GivTCP is running, then try again.",
           "not_loaded": "GivEnergy Inverter Manager is not loaded. Reload it, then try again."
         }

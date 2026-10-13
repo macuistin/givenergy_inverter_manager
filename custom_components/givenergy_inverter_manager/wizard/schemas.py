@@ -85,10 +85,6 @@ ALT_HEAT_SECTION = "alt_heat"
 BILL_SECTION = "bill_details"
 CHANGE_DATE = "effective_from"
 CANCEL_SCHEDULED = "cancel_scheduled"
-EDIT_RATES = "edit_rates"
-EDIT_BILL = "edit_bill"
-SCHEDULE_CHANGE = "schedule_change"
-CONFIRM_CURRENT = "confirm_current"
 _ALT_HEAT_COST_DOMAINS = ["sensor", "input_number"]
 
 # What a new install starts the bill details at: nothing is charged until the user says so.
@@ -176,8 +172,8 @@ def tariff_schema(ctx: PageContext) -> vol.Schema:
     """Base rate, export rate and how many time-of-day rates there are.
 
     Setup has no defaults for the two rates and carries the bill details in a collapsed
-    section. The options wizard pre-fills the rates and the count, and offers tick boxes for
-    what to edit next.
+    section. Configure pre-fills the rates and the count. Its tariff menu opens the other
+    screens.
     """
     currency = _currency(ctx)
     if ctx.mode is Mode.SETUP:
@@ -204,10 +200,6 @@ def tariff_schema(ctx: PageContext) -> vol.Schema:
                 CONF_EXPORT_RATE, default=float(_value(ctx, CONF_EXPORT_RATE))
             ): price_selector(CONF_EXPORT_RATE, currency),
             vol.Required("rate_count", default=saved): rate_count_selector(),
-            vol.Optional(EDIT_RATES, default=False): selector.BooleanSelector(),
-            vol.Optional(EDIT_BILL, default=False): selector.BooleanSelector(),
-            vol.Optional(SCHEDULE_CHANGE, default=False): selector.BooleanSelector(),
-            vol.Optional(CONFIRM_CURRENT, default=False): selector.BooleanSelector(),
         }
     )
 

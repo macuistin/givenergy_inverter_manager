@@ -29,7 +29,7 @@ from conftest import (
 )
 from homeassistant.config_entries import SOURCE_USER
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-from wizard_support import open_options, submit, walk_options_forms
+from wizard_support import open_page, submit, walk_options_forms
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_BASE_RATE_NAME,
@@ -82,6 +82,7 @@ def _describe(result) -> dict:
         "errors": result.get("errors"),
         "placeholders": result.get("description_placeholders"),
         "fields": fields,
+        **({"menu_options": list(result["menu_options"])} if "menu_options" in result else {}),
     }
 
 
@@ -139,7 +140,7 @@ async def _setup_forms(hass, prefix: str) -> dict:
 
 
 async def _options_forms(hass, entry: MockConfigEntry, prefix: str) -> dict:
-    """Every form of the options wizard with every page and tariff screen ticked."""
+    """Every form and menu of Configure, each page opened from its menu."""
     entry.add_to_hass(hass)
     forms = {}
     for step_id, form in (await walk_options_forms(hass, entry)).items():
@@ -151,13 +152,12 @@ async def _options_errors(hass, entry: MockConfigEntry, prefix: str) -> dict:
     entry.add_to_hass(hass)
     forms = {}
     manager = hass.config_entries.options
-    result = await open_options(hass, entry, {"tariff": {}, "tariff_rates": {}})
-    result = await submit(manager, result, rate_count="3", edit_rates=True)
+    result = await open_page(hass, entry, "tariff")
+    result = await submit(manager, result, rate_count="3")
     bad = await submit(manager, result, rate_period_3=ZERO_LENGTH_SLOT)
     forms[f"{prefix}.tariff_rates_with_error"] = _describe(bad)
     manager.async_abort(bad["flow_id"])
-    result = await open_options(hass, entry, {"tariff": {}, "schedule_change": {}})
-    result = await submit(manager, result, schedule_change=True)
+    result = await open_page(hass, entry, "schedule_change")
     bad = await submit(manager, result, effective_from="2000-01-01")
     forms[f"{prefix}.schedule_change_with_error"] = _describe(bad)
     manager.async_abort(bad["flow_id"])

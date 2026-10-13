@@ -1,20 +1,18 @@
 """
-options_flow.py - the options wizard: "What would you like to change?"
+options_flow.py - Configure: a menu of pages, each opened, changed and returned from.
 
-  init           a checklist of pages, each with a one-line status of what is set now
-  tariff         base rate, export rate, how many time-of-day rates, and tick boxes for what
-                 to edit next, then in this order: tariff_rates, bill, schedule_change
-  battery, forecast, hot_water, ev   one form each
+  init           the menu: Tariff, Battery, Charge planning, Hot water, EV charger, each with a
+                 line on what is set now, and Save changes once something has changed
+  tariff_menu    Rates, Time-of-day rates, Bill details, Schedule a rate change, The tariff is
+                 still current, and Back
+  tariff, tariff_rates, bill, schedule_change, battery, charge_planning (then forecast),
+  hot_water, ev  one form each, then back to the menu they were opened from
   confirm        every changed value before and after, and whether it applies now or reloads
 
-Only the ticked pages are shown, in a fixed order. The pages collect values on the handler and
-write nothing. The one write happens at the end, as a read-modify-write of the options as they
-are at that moment (never a copy taken when the wizard opened), so a control moved while the
-wizard was open keeps its new value. A page that was not ticked is never rewritten, and a value
-equal to what is already in force is not written at all.
-
-The confirm step is skipped when exactly one page was ticked and its change applies without a
-reload.
+The pages collect values on the handler and write nothing. The one write happens at confirm,
+as a read-modify-write of the options as they are at that moment (never a copy taken when the
+flow opened), so a control moved while Configure was open keeps its new value. A page that was
+not opened is never rewritten, and a value equal to what is already in force is not written.
 """
 
 from __future__ import annotations
@@ -23,7 +21,6 @@ from datetime import date
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.helpers import selector
 from homeassistant.util import dt as dt_util
 
 from ..config_helpers import effective_config, merge_config
@@ -38,7 +35,6 @@ from ..core.seasons import season_defaults
 from ..core.tariff import options_after_tariff_save, tariff_in_force
 from ..core.wizard_changes import confirm_text
 from ..core.wizard_model import (
-    OPTION_PAGES,
     PAGE_KEYS,
     PAGE_STEPS,
     Mode,
@@ -74,14 +70,10 @@ from ..core.wizard_tariff import (
     validate_tariff,
 )
 from .detect import detect
-from .flow_base import PageView, WizardPages, ordered, states_by_id
+from .flow_base import PageView, WizardPages, states_by_id
 from .schemas import (
     CANCEL_SCHEDULED,
     CHANGE_DATE,
-    CONFIRM_CURRENT,
-    EDIT_BILL,
-    EDIT_RATES,
-    SCHEDULE_CHANGE,
     battery_schema,
     bill_schema,
     charge_planning_schema,
@@ -90,15 +82,10 @@ from .schemas import (
     schedule_schema,
     tariff_schema,
 )
-from .selectors import PAGES_KEY, checklist_selector, currency_code
+from .selectors import currency_code
 
-PAGE_TITLES: dict[str, str] = {
-    "tariff": "Tariff",
-    "battery": "Battery",
-    "charge_planning": "Charge planning",
-    "hot_water": "Hot water",
-    "ev": "EV charger",
-}
+# The main menu, in order. The tariff opens a menu of its own.
+MENU_PAGES: tuple[str, ...] = ("tariff_menu", "battery", "charge_planning", "hot_water", "ev")
 _TARIFF_KEYS = frozenset(
     key for step in PAGE_STEPS["tariff"] for key in PAGE_KEYS[step]
 )
@@ -112,15 +99,11 @@ class OptionsSteps(WizardPages):
 
     def _init_options(self) -> None:
         self._init_wizard()
-        self._ticked: list[str] = []
-        self._queue: list[str] = []
-        self._substeps: list[str] = []
-        self._rate_count = 0
+        self._rate_count: int | None = None
         self._edit_date: date | None = None
         self._cancel_scheduled = False
         self._confirm_current = False
         self._tariff_touched = False
-        self._extra_steps = 0
 
     # ── Context ───────────────────────────────────────────────────────────────
 
@@ -146,107 +129,125 @@ class OptionsSteps(WizardPages):
             latitude=self.hass.config.latitude,
         )
 
-    def _total_steps(self) -> int:
-        """The checklist, every step of the ticked pages, and the confirm step when it is shown."""
-        pages = self._ticked or ["tariff"]
-        forecast_step = 1 if "charge_planning" in pages else 0
-        return 1 + len(pages) + self._extra_steps + forecast_step + (0 if len(pages) == 1 else 1)
+    def _progress(self) -> str:
+        """A menu has no fixed order of steps, so there is no step count to show."""
+        return ""
 
-    def _is_last_form(self) -> bool:
-        """True when this form is the last one and the confirm step may be skipped."""
-        return len(self._ticked) == 1 and not self._queue and not self._substeps
-
-    # ── init: the checklist ───────────────────────────────────────────────────
+    # ── init: the menu ────────────────────────────────────────────────────────
 
     def _page_summaries(self) -> dict[str, str]:
         current = self._ctx().current
         return {
-            "tariff": tariff_page_summary(current),
-            "battery": battery_summary(current),
-            "charge_planning": (
+            "tariff_summary_line": tariff_page_summary(current),
+            "battery_summary": battery_summary(current),
+            "charge_planning_summary": (
                 f"{charge_planning_summary(current)}, {forecast_summary(current)}"
             ),
-
-            "hot_water": hot_water_summary(current),
-            "ev": ev_summary(current),
+            "hot_water_summary": hot_water_summary(current),
+            "ev_summary": ev_summary(current),
         }
 
-    def _checklist_options(self) -> list[selector.SelectOptionDict]:
-        summaries = self._page_summaries()
-        return [
-            selector.SelectOptionDict(value=page, label=f"{PAGE_TITLES[page]}: {summaries[page]}")
-            for page in OPTION_PAGES
-        ]
-
-    def _show_init(self, errors: dict[str, str] | None = None) -> Any:
-        schema = vol.Schema(
-            {vol.Required(PAGES_KEY, default=[]): checklist_selector(self._checklist_options())}
-        )
-        return self.async_show_form(  # type: ignore[attr-defined]
-            step_id="init",
-            data_schema=schema,
-            errors=errors or {},
-            last_step=False,
-            description_placeholders={"progress": self._progress()},
-        )
+    def _pending(self) -> tuple[str, Effect | None]:
+        """The changes not saved yet, as text, and whether saving them reloads. Empty if none."""
+        if self._new_options() == dict(self.config_entry.options):
+            return "", None
+        before, after = self._before_and_after()
+        changes = confirm_text(before, after)
+        if self._confirm_current:
+            changes = f"{changes}\n\nThe tariff is confirmed as current today."
+        return changes, change_effect(before, after)
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> Any:
-        """Step 1: what would you like to change? Nothing is ticked to begin with."""
-        if user_input is None:
-            return self._show_init()
-        self._ticked = ordered(user_input.get(PAGES_KEY) or [], OPTION_PAGES)
-        if not self._ticked:
-            return self._show_init({"base": "nothing_ticked"})
-        self._queue = list(self._ticked)
-        return await self._next_page()
+        """The menu. Each page comes back here, and Save changes shows once one has changed."""
+        changes, effect = self._pending()
+        options = [*MENU_PAGES]
+        if changes:
+            options.append("confirm")
+        unsaved = (
+            f"**Not saved yet**\n\n{changes}\n\n"
+            if changes
+            else ""
+        )
+        save_note = (
+            "Reloads the integration, so entities are unavailable for a few seconds."
+            if effect is Effect.RELOAD
+            else "Applies at once."
+        )
+        return self.async_show_menu(  # type: ignore[attr-defined]
+            step_id="init",
+            menu_options=options,
+            description_placeholders={
+                **self._page_summaries(),
+                "unsaved": unsaved,
+                "save_note": save_note,
+            },
+        )
 
     # ── Routing ───────────────────────────────────────────────────────────────
 
-    async def _next_page(self) -> Any:
-        """Go to the next ticked page, or finish when none is left."""
-        self._step_no += 1
-        if self._queue:
-            page = self._queue.pop(0)
-            return await getattr(self, f"async_step_{page}")()
-        return await self._finish()
-
-    async def _next_substep(self) -> Any:
-        """Go to the next tariff screen the ticks asked for, else the next page."""
-        if self._substeps:
-            self._step_no += 1
-            return await getattr(self, f"async_step_{self._substeps.pop(0)}")()
-        return await self._next_page()
-
     async def _after_page(self, step_id: str, flat: dict[str, Any]) -> Any:
         if step_id == "tariff":
-            self._plan_tariff_steps(flat)
-            return await self._next_substep()
+            return await self._after_tariff(flat)
         if step_id == "charge_planning":
-            self._substeps = ["forecast"]
-            return await self._next_substep()
-        if step_id == "forecast" or step_id in PAGE_STEPS["tariff"]:
-            return await self._next_substep()
-        return await self._next_page()
+            # The solar forecast is the second screen of charge planning.
+            return await self.async_step_forecast()
+        if step_id in PAGE_STEPS["tariff"]:
+            return await self.async_step_tariff_menu()
+        return await self.async_step_init()
+
+    # ── the tariff menu ───────────────────────────────────────────────────────
+
+    def _saved_rate_count(self) -> int:
+        return rate_count(self._ctx().current.get(CONF_RATE_PERIODS))
+
+    def _current_rate_count(self) -> int:
+        """The count chosen on the Rates screen, else the count of the rates as they stand."""
+        if self._rate_count is not None:
+            return self._rate_count
+        pending = self._values.get(CONF_RATE_PERIODS)
+        return len(pending) if pending is not None else self._saved_rate_count()
+
+    async def async_step_tariff_menu(self, user_input: dict[str, Any] | None = None) -> Any:
+        """What to change in the tariff. Time-of-day rates shows while there is at least one."""
+        options = ["tariff"]
+        if self._current_rate_count() > 0:
+            options.append("tariff_rates")
+        options += ["bill", "schedule_change", "tariff_reviewed", "init"]
+        ctx = self._ctx()
+        scheduled = scheduled_changes_summary(ctx.current, ctx.today)
+        summary = tariff_summary(ctx.current)
+        reviewed = (
+            "\n\nThe tariff will be confirmed as current today when you save."
+            if self._confirm_current
+            else ""
+        )
+        return self.async_show_menu(  # type: ignore[attr-defined]
+            step_id="tariff_menu",
+            menu_options=options,
+            description_placeholders={
+                "tariff_summary": f"{summary}\n\n{scheduled}" if scheduled else summary,
+                "reviewed": reviewed,
+            },
+        )
+
+    async def async_step_tariff_reviewed(self, user_input: dict[str, Any] | None = None) -> Any:
+        """Record today as the day the tariff was checked, so the yearly reminder resets."""
+        self._tariff_touched = True
+        self._confirm_current = True
+        return await self.async_step_tariff_menu()
 
     # ── tariff and its screens ────────────────────────────────────────────────
 
-    def _plan_tariff_steps(self, flat: dict[str, Any]) -> None:
-        """Decide which of the rates, bill and schedule screens follow the tariff screen."""
-        saved = rate_count(self._ctx().current.get(CONF_RATE_PERIODS))
+    async def _after_tariff(self, flat: dict[str, Any]) -> Any:
+        """After Rates: the rate rows when the count changed to one or more, else the menu."""
+        before = self._current_rate_count()
         self._rate_count = count_from_input(flat)
         self._tariff_touched = True
-        self._confirm_current = bool(flat.get(CONFIRM_CURRENT))
-        editing_rows = bool(flat.get(EDIT_RATES)) or self._rate_count != saved
-        self._substeps = []
-        if self._rate_count == 0 and saved > 0:
+        if self._rate_count == 0 and self._saved_rate_count() > 0:
             self._values[CONF_RATE_PERIODS] = []
-        if self._rate_count > 0 and editing_rows:
-            self._substeps.append("tariff_rates")
-        if flat.get(EDIT_BILL):
-            self._substeps.append("bill")
-        if flat.get(SCHEDULE_CHANGE):
-            self._substeps.append("schedule_change")
-        self._extra_steps = len(self._substeps)
+        if self._rate_count > 0 and self._rate_count != before:
+            return await self.async_step_tariff_rates()
+        return await self.async_step_tariff_menu()
 
     def _tariff_view(self) -> PageView:
         ctx = self._ctx()
@@ -267,7 +268,7 @@ class OptionsSteps(WizardPages):
         return await self._page(user_input, self._tariff_view())
 
     def _rows(self, flat: dict[str, Any]) -> list[dict[str, Any]]:
-        return rows_from_sections(flat, self._rate_count)
+        return rows_from_sections(flat, self._current_rate_count())
 
     def _base_name(self) -> str:
         ctx = self._ctx()
@@ -278,12 +279,15 @@ class OptionsSteps(WizardPages):
         ctx = self._ctx()
         view = PageView(
             "tariff_rates",
-            rates_schema(ctx, self._rate_count, self.hass.config.country),
+            rates_schema(ctx, self._current_rate_count(), self.hass.config.country),
             lambda flat: validate_rates(self._rows(flat), self._base_name()),
-            lambda flat: {CONF_RATE_PERIODS: self._rows(flat)},
-            last_step=self._is_last_form(),
+            self._store_rows,
         )
         return await self._page(user_input, view)
+
+    def _store_rows(self, flat: dict[str, Any]) -> dict[str, Any]:
+        self._tariff_touched = True
+        return {CONF_RATE_PERIODS: self._rows(flat)}
 
     async def async_step_bill(self, user_input: dict[str, Any] | None = None) -> Any:
         """Currency, base rate name, bill start day, standing charge, levy, VAT, discount."""
@@ -293,8 +297,7 @@ class OptionsSteps(WizardPages):
             "bill",
             bill_schema(ctx),
             lambda flat: validate_bill(flat, periods),
-            clean_bill,
-            last_step=self._is_last_form(),
+            self._touch_tariff(clean_bill),
         )
         return await self._page(user_input, view)
 
@@ -306,16 +309,24 @@ class OptionsSteps(WizardPages):
             return validate_change_date(_date_of(flat), ctx.today)
 
         def keep(flat: dict[str, Any]) -> dict[str, Any]:
+            self._tariff_touched = True
             self._edit_date = _date_of(flat)
             self._cancel_scheduled = bool(flat.get(CANCEL_SCHEDULED))
             return {}
 
-        view = PageView(
-            "schedule_change", schedule_schema(ctx), check, keep, last_step=self._is_last_form()
-        )
+        view = PageView("schedule_change", schedule_schema(ctx), check, keep)
         return await self._page(user_input, view)
 
     # ── the other pages ───────────────────────────────────────────────────────
+
+    def _touch_tariff(self, clean: Any) -> Any:
+        """*clean*, and note that the tariff was changed, so the save rebuilds it."""
+
+        def store(flat: dict[str, Any]) -> dict[str, Any]:
+            self._tariff_touched = True
+            return clean(flat)
+
+        return store
 
     async def async_step_battery(self, user_input: dict[str, Any] | None = None) -> Any:
         """Capacity, inverter output, cost and throughput budget."""
@@ -325,7 +336,6 @@ class OptionsSteps(WizardPages):
             battery_schema(ctx),
             lambda flat: validate_battery(flat, ctx),
             clean_battery,
-            last_step=self._is_last_form(),
         )
         return await self._page(user_input, view)
 
@@ -341,7 +351,6 @@ class OptionsSteps(WizardPages):
             charge_planning_schema(ctx),
             lambda flat: validate_charge_planning(flat, ctx),
             clean_charge_planning,
-            last_step=False,  # the solar forecast screen always follows
         )
         return await self._page(user_input, view)
 
@@ -368,7 +377,6 @@ class OptionsSteps(WizardPages):
             lambda _flat: Validation(),
             clean_ev,
             {"charger": charger},
-            last_step=self._is_last_form(),
         )
         return await self._page(user_input, view)
 
@@ -406,13 +414,6 @@ class OptionsSteps(WizardPages):
             self._with_season_defaults(merge_config(entry.data, self._new_options())),
         )
 
-    async def _finish(self) -> Any:
-        """Write now when one page was ticked and nothing reloads, else ask first."""
-        before, after = self._before_and_after()
-        if len(self._ticked) == 1 and change_effect(before, after) is not Effect.RELOAD:
-            return self.async_create_entry(title="", data=self._new_options())  # type: ignore[attr-defined]
-        return await self.async_step_confirm()
-
     async def async_step_confirm(self, user_input: dict[str, Any] | None = None) -> Any:
         """Every change before and after, and whether it applies now or reloads."""
         if user_input is not None:
@@ -426,7 +427,6 @@ class OptionsSteps(WizardPages):
             description_placeholders={
                 "changes": confirm_text(before, after),
                 "warnings": ("\n".join(f"- {n}" for n in notes) + "\n\n") if notes else "",
-                "progress": self._progress(),
             },
         )
 

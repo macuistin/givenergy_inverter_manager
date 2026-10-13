@@ -24,7 +24,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import EntityCategory
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.icon import async_get_icons
-from wizard_support import open_options, submit
+from wizard_support import open_options, save_changes, submit
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_BASE_RATE,
@@ -169,8 +169,8 @@ class TestWritingAControl:
         await set_control(hass, loaded_entry, CONF_CHEAP_RATE_FLOOR_SOC, 10)
 
         result = await submit(hass.config_entries.options, result, overnight_charge_target_pct=90)
-        await submit(hass.config_entries.options, result)  # the solar forecast screen
-        await hass.async_block_till_done()
+        result = await submit(hass.config_entries.options, result)  # the solar forecast screen
+        await save_changes(hass, result)
 
         assert loaded_entry.options["overnight_charge_target_pct"] == 90
         assert loaded_entry.options[CONF_DRY_RUN] is True

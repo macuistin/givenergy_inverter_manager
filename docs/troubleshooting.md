@@ -121,7 +121,7 @@ If it is found and the mode never changes, the **EV Protection Reason** sensor s
 ## Configure problems
 
 - **"Entity is neither a valid entity ID nor a valid UUID" on save.** This was a bug in v0.2.1 when a forecast or carbon intensity field was empty. Update to v0.3.0. In v0.3.0 an empty field saves as empty, and clearing a saved entity removes it.
-- **Configure shows a checklist, not one long page.** Tick the pages you want to change. Only those are shown, and the last screen lists every change before saving. See [Configuration](configuration.md#configure).
+- **Configure shows a menu, not one long page.** Open the page you want to change, then choose **Save changes**, which lists every change before saving. See [Configuration](configuration.md#configure).
 - **Battery divert threshold or surplus is not in Configure.** They are controls, with the other tuning settings. See [Configuration](configuration.md#controls).
 - **A page shows a note starting "Check:" and does not move on.** It is a warning, for example ready-by times with no temperature sensor. Submit the page again to keep what you entered.
 - **Entities went unavailable after saving.** Changing the immersion switch or sensor, the main forecast sensor, the currency, or alternative water heating when it appears or goes (turned on with a cost set, turned off, or its last cost cleared), reloads the integration. It takes a few seconds. If entities have not recovered after 30 seconds, check the log for errors.
@@ -191,7 +191,7 @@ If the repair appears while the car should be on solar, check that **Grid Power*
 
 ## The tariff has not been reviewed
 
-The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. The date counts from the last saved change to the tariff, the last dated change recorded, the last time you ticked **Confirm the tariff is current** in Configure, or the last time you confirmed the rates in the repair. The first run after an upgrade records that day, so the repair appears 365 days later at the earliest. The repair does not change anything and does not affect any sensor.
+The repair **Tariff rates have not been reviewed** appears when the tariff has gone 365 days without being saved changed or confirmed. The date counts from the last saved change to the tariff, the last dated change recorded, the last time you chose **The tariff is still current** in Configure's Tariff menu, or the last time you confirmed the rates in the repair. The first run after an upgrade records that day, so the repair appears 365 days later at the earliest. The repair does not change anything and does not affect any sensor.
 
 1. Check the rates against your latest bill.
 2. If a rate changed, open **Settings → Devices & Services → GivEnergy Inverter Manager → Configure**, tick **Tariff** and save the new rates. To start them on a later date, tick **Schedule a rate change**. See [Tariff](tariff.md#change-the-rates-from-a-date).

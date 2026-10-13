@@ -44,6 +44,7 @@ SETUP_STEPS = {
 }
 OPTIONS_STEPS = {
     "init",
+    "tariff_menu",
     "tariff",
     "tariff_rates",
     "bill",
@@ -84,9 +85,11 @@ def test_every_error_a_wizard_page_can_return_has_text():
     options = set(strings["options"]["error"])
     config = set(strings["config"]["error"])
 
+    # The setup wizard shows the hot water page too, so its errors need setup text as well.
     setup_errors = {"missing_entities", "rate_period_zero_length", "rate_period_duplicate_name",
                     "rate_period_name_missing", "base_rate_required", "base_rate_name_missing",
-                    "too_many_periods"}
+                    "too_many_periods", "immersion_ready_time_invalid", "alt_heat_label_empty",
+                    "alt_heat_label_too_long"}
     assert set(ERROR_KEYS) <= options | config
     assert setup_errors <= config
     assert set(ERROR_KEYS) - {"missing_entities"} <= options

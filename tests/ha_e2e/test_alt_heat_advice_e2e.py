@@ -54,7 +54,8 @@ async def save_alt_options(hass, entry, section: dict) -> None:
     {} is the section with every field left empty.
     """
     result = await options_wizard(hass, entry, {"hot_water": {"alt_heat": Only(section)}})
-    assert result["type"] is FlowResultType.CREATE_ENTRY, result
+    # An unchanged run ends at the menu, which offers no save: nothing is written.
+    assert result["type"] in (FlowResultType.CREATE_ENTRY, FlowResultType.MENU), result
     assert entry.state is ConfigEntryState.LOADED
 
 
