@@ -15,7 +15,7 @@ import sys
 import textwrap
 
 import pytest
-from homeassistant.components.sensor import SensorStateClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 
 from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
 from custom_components.givenergy_inverter_manager.sensor_descriptions.base import CURRENCY_UNIT
@@ -84,6 +84,25 @@ _PERIOD_KEYS = {
     },
     "year": {"solar_this_year", "export_this_year", "export_earnings_this_year"},
 }
+
+
+# The sensors the dashboard's "Cost per day" bars draw side by side. They are kept to one device
+# class, because the immersion one alone lacked it and its bar failed to draw.
+_COST_HISTORY_KEYS = {
+    "house_cost_today",
+    "zappi_cost_today",
+    "immersion_cost_today",
+    "export_earnings_today",
+}
+
+
+class TestCostHistorySensors:
+    def test_the_cost_per_day_sensors_are_all_monetary_totals(self):
+        found = {d.key: d for d in SENSOR_DESCRIPTIONS if d.key in _COST_HISTORY_KEYS}
+        assert set(found) == _COST_HISTORY_KEYS
+        for key, description in found.items():
+            assert description.device_class is SensorDeviceClass.MONETARY, key
+            assert description.state_class is SensorStateClass.TOTAL, key
 
 
 class TestResetPeriods:
