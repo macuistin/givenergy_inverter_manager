@@ -33,6 +33,11 @@ paths:
   the state of charge sensor, which would feed a percentage to the card as watts.
 - Sensors that reset at midnight are plotted with `statistics-graph`, not `history-graph`, which
   draws a sawtooth.
+- Three tabs (Now, Today, Plan & bill) and three sub-views (Immersion, EV charger, Settings).
+  Detail goes lower on its tab, not into a new sub-view. Every view has `max_columns: 3` and
+  `dense_section_placement`. The power flow section is `WIDE` (two columns), and a banner or a
+  view-wide chart is `WHOLE_WIDTH` (`cards.py`). A tile two to a row fits 15 characters.
+- Numbers are set with the `STEPPER` feature (− and + buttons), never a slider.
 - The banners (dry run, charge target conflict) sit together under Now, in that order, each a
   section with a plain `state` condition on its sensor. At the 2026.5 floor use only `state` and
   `numeric_state` conditions, because the wider set of condition types needs 2026.10.

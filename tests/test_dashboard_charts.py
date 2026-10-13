@@ -43,11 +43,23 @@ def _view(config: dict, path: str) -> dict:
 
 
 def _charts(config: dict, path: str) -> list[dict]:
-    return [
-        c
-        for c in view_cards(_view(config, path))
-        if c["type"] in ("statistics-graph", "history-graph")
-    ]
+    """The charts of a view. "bill" and "solar" name the bill chart on the Plan tab and the
+    charts of solar on the Today tab, which each had a view of their own."""
+    if path == "bill":
+        plan = _view(config, "plan")
+        cards = [
+            card
+            for section in plan["sections"]
+            if section["cards"][0].get("heading", "").startswith("Cost per day")
+            for card in section["cards"]
+        ]
+    elif path == "solar":
+        cards = [
+            c for c in view_cards(_view(config, "today")) if IDS["solar_today"] in str(c.get("entities"))
+        ]
+    else:
+        cards = view_cards(_view(config, path))
+    return [c for c in cards if c["type"] in ("statistics-graph", "history-graph")]
 
 
 def _headings(config: dict, path: str) -> list[str]:
@@ -75,7 +87,7 @@ def test_the_bill_view_plots_the_cost_of_each_day():
 
 
 def test_the_bill_chart_says_what_it_plots_and_how_far_back():
-    assert "Cost per day, last 31 days" in _headings(dashboard_dict(), "bill")
+    assert "Cost per day, last 31 days" in _headings(dashboard_dict(), "plan")
 
 
 def test_the_bill_chart_holds_a_whole_bill_period():
@@ -114,7 +126,7 @@ def test_with_no_cost_sensor_there_is_no_chart_and_no_lone_heading():
     registry = FakeRegistry(enable_all=True, absent={"import_cost_today", "export_earnings_today"})
     bill = dashboard_dict(registry=registry)
     assert _charts(bill, "bill") == []
-    assert not any(h.startswith("Cost per day") for h in _headings(bill, "bill"))
+    assert not any(h.startswith("Cost per day") for h in _headings(bill, "plan"))
 
 
 # ── Solar and forecast ───────────────────────────────────────────────────────
@@ -142,11 +154,11 @@ def test_the_solar_chart_takes_the_full_width():
 
 
 def test_the_solar_view_says_it_is_the_last_7_days():
-    assert "Last 7 days" in _headings(dashboard_dict(), "solar")
+    assert "Last 7 days" in _headings(dashboard_dict(), "today")
 
 
 def test_the_forecast_figures_stay_in_tiles_beside_the_chart():
-    shown = {c["entity"] for c in view_cards(_view(dashboard_dict(), "solar")) if c["type"] == "tile"}
+    shown = {c["entity"] for c in view_cards(_view(dashboard_dict(), "today")) if c["type"] == "tile"}
     assert {IDS["solar_forecast_raw_today"], IDS["solar_actual_vs_forecast_pct"]} <= shown
 
 
@@ -168,14 +180,14 @@ def test_no_history_graph_plots_the_solar_sensors():
 
 def test_without_a_forecast_sensor_there_is_no_forecast_chart():
     config = dashboard_dict(_NO_FORECAST)
-    assert "Last 7 days" not in _headings(config, "solar")
+    assert "Last 7 days" not in _headings(config, "today")
     assert [c["type"] for c in _charts(config, "solar")] == ["statistics-graph"]
 
 
 def test_a_forecast_sensor_that_is_disabled_leaves_the_chart_out():
     registry = FakeRegistry(enable_all=True, absent={"solar_forecast_raw_today"})
     config = dashboard_dict(registry=registry)
-    assert "Last 7 days" not in _headings(config, "solar")
+    assert "Last 7 days" not in _headings(config, "today")
     assert [c["type"] for c in _charts(config, "solar")] == ["statistics-graph"]
 
 

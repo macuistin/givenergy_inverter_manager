@@ -112,7 +112,7 @@ class TestAdminsPresent:
 
     def test_the_settings_view_is_not_a_tab(self):
         tabs = [v["path"] for v in dashboard_dict()["views"] if not v.get("subview")]
-        assert tabs == ["power-flow", "today", "bill", "battery"]
+        assert tabs == ["power-flow", "today", "plan"]
 
 
 class TestAdminsAbsent:
@@ -144,8 +144,13 @@ class TestAdminsAbsent:
 
 
 def _without_settings_button(view: dict) -> dict:
-    """A copy of the view without the Settings button, which only an admin dashboard has."""
+    """A copy of the view without the Settings button and the repairs card.
+
+    Only an admin dashboard has them: only an administrator can open Settings or act on a repair.
+    """
     stripped = copy.deepcopy(view)
+    for section in stripped["sections"]:
+        section["cards"] = [c for c in section["cards"] if c["type"] != "repairs"]
     for card in (c for section in stripped["sections"] for c in section["cards"]):
         if "badges" in card:
             del card["badges"]
@@ -218,7 +223,7 @@ class TestStateStaysOnTheMainDashboard:
 
     def test_the_charge_settings_are_on_the_battery_tab(self):
         ids = default_entity_ids()
-        battery = {c["entity"] for c in view_cards(_view(dashboard_dict(), "battery")) if "entity" in c}
+        battery = {c["entity"] for c in view_cards(_view(dashboard_dict(), "plan")) if "entity" in c}
         assert {ids[k] for k in ("charge_target_override", "skip_charge_override")} <= battery
 
     def test_the_immersion_settings_are_on_the_immersion_sub_view(self):
@@ -232,7 +237,7 @@ class TestStateStaysOnTheMainDashboard:
         assert "Dry run is on" in headings
 
     def test_the_tariff_is_still_readable_by_everyone(self):
-        assert _shown_to_everyone(_view(dashboard_dict(), "tariff"))
+        assert _shown_to_everyone(_view(dashboard_dict(), "plan"))
 
     def test_tiles_of_a_setting_do_nothing_when_tapped(self):
         ids = default_entity_ids()

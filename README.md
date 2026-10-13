@@ -10,7 +10,7 @@ A Home Assistant integration for GivEnergy inverters. It sets the overnight char
 
 Works with a flat rate, a day and night rate, or up to five timed rates, from any supplier. It does not support dynamic or half-hourly tariffs. The bill estimate assumes monthly bill periods, one supplier discount, one VAT rate and one flat levy per period. Tested on real hardware on one GivEnergy GIV-HY-5.0 (a single-phase hybrid) with the Electric Ireland Nightboost tariff. Other GivTCP system types are recognised and tested against entity lists only. See [Which serial do I use?](docs/quick-start.md#which-serial-do-i-use). Current version: 0.18.2.
 
-![The Power Flow view of the dashboard: battery, live power flow and today's energy.](https://raw.githubusercontent.com/macuistin/givenergy_inverter_manager/main/docs/images/dashboard-power-flow.png)
+![The Now tab of the dashboard: battery, live power flow and today's energy.](https://raw.githubusercontent.com/macuistin/givenergy_inverter_manager/main/docs/images/dashboard-power-flow.png)
 
 ## What it does
 

@@ -10,7 +10,6 @@ import yaml
 from tests.dashboard_support import (
     FULL_CONFIG,
     FakeRegistry,
-    all_cards,
     dashboard_dict,
     dashboard_text,
     default_entity_ids,
@@ -49,11 +48,12 @@ class TestRatesSayPerKwh:
         assert {path for path, _ in _tiles_of(_IDS["current_rate"])} == {"power-flow", "today"}
 
     def test_the_average_rate_is_labelled_on_bill(self):
-        assert {path for path, _ in _tiles_of(_IDS["avg_import_rate_this_month"])} == {"bill"}
+        assert {path for path, _ in _tiles_of(_IDS["avg_import_rate_this_month"])} == {"plan"}
 
     def test_the_tariff_table_gives_every_rate_per_kwh(self):
-        tariff = next(v for v in _views() if v["path"] == "tariff")
-        table = next(c["content"] for c in all_cards([tariff]) if c["type"] == "markdown")
+        plan = next(v for v in _views() if v["path"] == "plan")
+        tariff = next(s for s in plan["sections"] if s["cards"][0]["heading"] == "Tariff in use")
+        table = next(c["content"] for c in tariff["cards"] if c["type"] == "markdown")
         header = table.splitlines()[0]
         assert "Rate per kWh" in header
         assert "Billed per kWh" in header
@@ -69,7 +69,7 @@ class TestRatesSayPerKwh:
 
 def _battery_section(heading: str, *, registry=None) -> list[dict]:
     parsed = yaml.safe_load(dashboard_text(registry=registry))
-    view = next(v for v in parsed["views"] if v["path"] == "battery")
+    view = next(v for v in parsed["views"] if v["path"] == "plan")
     section = next(s for s in view["sections"] if s["cards"][0]["heading"] == heading)
     return section["cards"][1:]
 
@@ -78,7 +78,7 @@ def _battery_seen(heading: str, switch_state: str) -> list[dict]:
     config = dashboard_dict(FULL_CONFIG, ev_brand="myenergi")
     devices = devices_of(FULL_CONFIG, "myenergi")
     states = states_with(devices, {_IDS["charge_target_override_enabled"]: switch_state})
-    view = next(v for v in seen(config, states)["views"] if v["path"] == "battery")
+    view = next(v for v in seen(config, states)["views"] if v["path"] == "plan")
     section = next(s for s in view["sections"] if s["cards"][0]["heading"] == heading)
     return section["cards"][1:]
 
@@ -119,42 +119,40 @@ class TestTheTwoSunriseFigures:
         view = next(v for v in config["views"] if v["path"] == path)
         return {c["name"]: c for c in view_cards(view) if c.get("type") == "tile"}
 
-    @pytest.mark.parametrize("path", ["battery", "battery-detail"])
-    def test_each_figure_has_a_tile_that_says_which_it_is(self, path):
-        tiles = self._tiles(path)
+    def test_each_figure_has_a_tile_that_says_which_it_is(self):
+        tiles = self._tiles("plan")
         assert tiles[self._NO_CHARGE]["entity"] == _IDS["estimated_soc_at_sunrise"]
         assert tiles[self._WITH_CHARGE]["entity"] == _IDS["estimated_soc_at_sunrise_with_charge"]
 
-    @pytest.mark.parametrize("path", ["battery", "battery-detail"])
-    def test_the_names_are_full_width_and_fit_the_tile(self, path):
+    def test_the_names_are_full_width_and_fit_the_tile(self):
         for name in (self._NO_CHARGE, self._WITH_CHARGE):
-            tile = self._tiles(path)[name]
+            tile = self._tiles("plan")[name]
             assert tile["grid_options"]["columns"] == "full"
             assert len(name) <= 22
 
     def test_the_old_at_sunrise_tile_is_gone(self):
-        names = {name for path in ("battery", "battery-detail") for name in self._tiles(path)}
+        names = set(self._tiles("plan"))
         assert "At sunrise" not in names
 
     def test_the_two_tiles_sit_together_in_the_charge_plan(self):
         names = [c["name"] for c in _battery_section("Tonight's charge plan") if "name" in c]
         assert names[1:3] == [self._NO_CHARGE, self._WITH_CHARGE]
 
-    def test_the_detail_view_shows_them_under_the_outlook_in_the_overnight_section(self):
+    def test_the_plan_tab_shows_them_once_in_tonights_charge_plan(self):
+        """The overnight section beside it explains the outlook and does not repeat them."""
         config = yaml.safe_load(dashboard_text())
-        view = next(v for v in config["views"] if v["path"] == "battery-detail")
+        view = next(v for v in config["views"] if v["path"] == "plan")
+        names = [c.get("name") for c in view_cards(view)]
+        assert names.count(self._NO_CHARGE) == names.count(self._WITH_CHARGE) == 1
         overnight = next(
             s for s in view["sections"] if s["cards"][0].get("heading") == "Battery overnight"
         )
-        kinds = [c["type"] for c in overnight["cards"]]
-        names = [c.get("name") for c in overnight["cards"]]
-        assert kinds[:2] == ["heading", "markdown"]
-        assert names[2:4] == [self._NO_CHARGE, self._WITH_CHARGE]
+        assert [c["type"] for c in overnight["cards"]][:2] == ["heading", "markdown"]
+        assert self._NO_CHARGE not in [c.get("name") for c in overnight["cards"]]
 
-    @pytest.mark.parametrize("path", ["battery", "battery-detail"])
-    def test_a_tile_is_left_out_while_its_sensor_is_not_there(self, path):
+    def test_a_tile_is_left_out_while_its_sensor_is_not_there(self):
         absent = FakeRegistry(absent={"estimated_soc_at_sunrise_with_charge"})
-        tiles = self._tiles(path, registry=absent)
+        tiles = self._tiles("plan", registry=absent)
         assert self._WITH_CHARGE not in tiles
         assert self._NO_CHARGE in tiles
 
@@ -164,18 +162,18 @@ class TestChargeSettingsInForce:
         return [c.get("name") for c in _battery_seen("Charge settings in force", switch_state)]
 
     def test_the_override_value_shows_only_while_the_override_is_on(self):
-        assert "Target override" in self._names("on")
-        assert "Target override" not in self._names("off")
+        assert "Charge to" in self._names("on")
+        assert "Charge to" not in self._names("off")
 
     def test_the_override_switch_always_shows(self):
-        assert "Override on" in self._names("on")
-        assert "Override on" in self._names("off")
+        assert "Fixed target" in self._names("on")
+        assert "Fixed target" in self._names("off")
 
     def test_the_value_is_hidden_by_a_condition_on_the_switch_state(self):
         card = next(
             c
             for c in _battery_section("Charge settings in force")
-            if c.get("name") == "Target override"
+            if c.get("name") == "Charge to"
         )
         assert card["visibility"] == [
             {
@@ -219,8 +217,8 @@ class TestBatteryOvernight:
         assert tile["state_content"] == ["summary"]
         assert tile["grid_options"]["columns"] == "full"
 
-    def test_the_tile_opens_battery_detail(self):
-        assert self._tile()["tap_action"]["navigation_path"] == "battery-detail"
+    def test_the_tile_opens_the_plan_tab(self):
+        assert self._tile()["tap_action"]["navigation_path"] == "plan"
 
     def test_the_battery_tile_stays_beside_the_rate_and_cost_tiles(self):
         now = next(v for v in _views() if v["path"] == "power-flow")["sections"][0]["cards"]
@@ -234,7 +232,7 @@ class TestBatteryOvernight:
         header_free = text[text.index("views:") :]
         assert "survival" not in header_free.lower()
 
-    def test_the_detail_view_heading_says_battery_overnight(self):
-        detail = next(v for v in _views() if v["path"] == "battery-detail")
-        headings = [c["heading"] for c in view_cards(detail) if c["type"] == "heading"]
-        assert headings[0] == "Battery overnight"
+    def test_the_plan_tab_has_a_battery_overnight_heading(self):
+        plan = next(v for v in _views() if v["path"] == "plan")
+        headings = [c["heading"] for c in view_cards(plan) if c["type"] == "heading"]
+        assert "Battery overnight" in headings

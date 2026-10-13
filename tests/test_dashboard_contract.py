@@ -41,7 +41,7 @@ class TestBuildOrder:
         builder = Builder(fake_states_hass(), fake_entry({}), HostFacts(), RecordingRegistry())
         builder.build_subviews()
         assert builder.go("settings") is None
-        assert builder.go("tariff") is not None
+        assert builder.go("plan") is not None
 
     def test_a_device_sub_view_is_linked_before_the_device_exists(self):
         """Its cards wait for the device, so a stored dashboard can open it when it arrives."""

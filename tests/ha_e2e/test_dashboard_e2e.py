@@ -157,8 +157,8 @@ async def test_the_heater_is_a_row_of_the_water_temperature_chart(hass, loaded_e
     assert "Heater on or off" not in headings
 
 
-async def test_energy_today_tiles_point_at_the_registered_forecast_sensors(hass, loaded_entry):
-    """Forecast and % of forecast sit in Energy today and name the IDs Home Assistant assigned."""
+async def test_today_so_far_tiles_point_at_the_registered_forecast_sensors(hass, loaded_entry):
+    """The forecast tiles sit in Today so far and name the IDs Home Assistant assigned."""
     text = await _generate(hass)
     registry = er.async_get(hass)
     forecast = registry.async_get_entity_id(
@@ -169,11 +169,11 @@ async def test_energy_today_tiles_point_at_the_registered_forecast_sensors(hass,
     )
     view = next(v for v in yaml.safe_load(text)["views"] if v["path"] == "power-flow")
     section = next(
-        s for s in view["sections"] if s["cards"][0].get("heading") == "Energy today"
+        s for s in view["sections"] if s["cards"][0].get("heading") == "Today so far"
     )
     tiles = {c["name"]: c["entity"] for c in section["cards"] if c["type"] == "tile"}
-    assert tiles["Forecast"] == forecast
-    assert tiles["% of forecast"] == tracking
+    assert tiles["Solar forecast"] == forecast
+    assert tiles["Of forecast"] == tracking
 
 
 async def test_a_charger_found_after_the_file_was_written_shows_up_with_no_regeneration(
