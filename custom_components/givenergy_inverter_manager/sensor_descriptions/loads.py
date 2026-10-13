@@ -96,6 +96,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         translation_key="immersion_cost_today",
         native_unit_of_measurement=CURRENCY_UNIT,
         suggested_display_precision=MONEY_PRECISION,
+        device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.today.immersion_cost, 4),
     ),
