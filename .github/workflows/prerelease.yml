@@ -3,12 +3,13 @@ name: Publish pre-release
 # A beta or release candidate tag publishes a GitHub pre-release, which HACS offers under
 # "Show beta versions". Tag creation is restricted to the maintainer in the repository's
 # tag ruleset, because this workflow runs for whoever can push a matching tag.
-# For another release line, change the two tag patterns.
+# For another release line, change the two tag patterns. A final tag such as v0.19.1 has no b
+# or rc in it, so it does not match.
 on:
   push:
     tags:
-      - "v0.19.0b*"
-      - "v0.19.0rc*"
+      - "v0.19.*b*"
+      - "v0.19.*rc*"
 
 permissions:
   contents: read

@@ -12,6 +12,10 @@ dashboard opens, and lists the strategy under Community dashboards when a dashbo
 
 The command reads the connection's user to decide whether the Settings view is built. Nothing
 else in the integration needs the strategy.
+
+Home Assistant gives the browser one chance, 5 seconds, to find the strategy's element, and does
+not try again. The script copes on its side: it asks again while the command is not ready yet,
+and rebuilds the dashboard if it finds the timeout message on the page when it loads.
 """
 
 from __future__ import annotations

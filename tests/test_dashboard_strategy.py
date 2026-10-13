@@ -41,8 +41,10 @@ class TestStrategyFile:
 
     def test_file_exists_and_is_small(self):
         # 40 lines until the strategy registered itself in window.customStrategies, gave
-        # create suggestions and a clearer error view. There is still no build step.
-        assert len(self._source().splitlines()) <= 80
+        # create suggestions and a clearer error view, then the recovery from Home Assistant's
+        # 5-second timeout and the wait for the command after a restart. There is still no
+        # build step.
+        assert len(self._source().splitlines()) <= 130
 
     def test_no_dependencies_or_build_chain(self):
         source = self._source()
@@ -77,11 +79,44 @@ const calls = [];
 const good = { callWS: async (msg) => { calls.push(msg); return { views: [{ title: "x", cards: [] }] }; } };
 const failing = (err) => ({ callWS: async () => { throw err; } });
 (async () => {
+  Strategy.retryForMs = 0;
   const ok = await Strategy.generate({}, good);
   const failed = await Strategy.generate({}, failing({ code: "unknown_error", message: "boom" }));
   const unloaded = await Strategy.generate({}, failing({ code: "not_found", message: "not set up" }));
   const listed = window.customStrategies.find((e) => e.type === "givenergy-manager");
+  Strategy.retryEveryMs = 1;
+  Strategy.retryForMs = 5000;
+  let attempts = 0;
+  const slowStart = { callWS: async () => {
+    attempts += 1;
+    if (attempts < 4) throw { code: attempts % 2 ? "unknown_command" : "not_found", message: "not yet" };
+    return { views: [{ title: "ready" }] };
+  } };
+  const afterRetries = await Strategy.generate({}, slowStart);
+  let otherCalls = 0;
+  const otherFailure = await Strategy.generate({}, { callWS: async () => { otherCalls += 1; throw { code: "unknown_error", message: "boom" }; } });
+  Strategy.retryForMs = 30;
+  let neverReadyCalls = 0;
+  const neverReady = await Strategy.generate({}, { callWS: async () => { neverReadyCalls += 1; throw { code: "unknown_command", message: "Unknown command." }; } });
+  const retries = { afterRetries, attempts, otherCalls, otherText: otherFailure.views[0].cards[0].content, neverReadyCalls, neverReadyText: neverReady.views[0].cards[0].content };
+  const text = (value) => ({ nodeType: 3, nodeValue: value, childNodes: [] });
+  const element = (children, shadow) => ({ nodeType: 1, childNodes: children, shadowRoot: shadow });
+  const page = (message) => element([element([], element([text(message)]))]);
+  const rebuilt = [];
+  const rebuild = () => rebuilt.push(1);
+  const recover = (root) => Strategy.recoverIfTimedOut(root, rebuild);
+  const recovery = {
+    inShadowRoot: recover(page("Error: Timeout waiting for strategy element ll-strategy-dashboard-givenergy-manager to be registered")),
+    legacyName: recover(page("Timeout waiting for strategy element ll-strategy-givenergy-manager to be registered")),
+    otherStrategy: recover(page("Timeout waiting for strategy element ll-strategy-dashboard-maintenance-supporter to be registered")),
+    healthyPage: recover(page("Battery 100%")),
+    emptyPage: recover(element([])),
+    noPage: recover(null),
+    hugePage: recover(element(Array.from({ length: 20000 }, () => text("nothing here")))),
+    rebuildCalls: rebuilt.length,
+  };
   console.log(JSON.stringify({
+    recovery, retries,
     names: Object.keys(defined), calls, ok, failedType: failed.views[0].cards[0].type,
     failedText: failed.views[0].cards[0].content,
     unloadedText: unloaded.views[0].cards[0].content,
@@ -153,6 +188,41 @@ class TestStrategyRunsUnderNode:
 
     def test_it_has_no_config_editor(self, result):
         assert result["noEditor"] is True
+
+    def test_it_asks_for_a_rebuild_when_the_page_shows_the_timeout_for_its_strategy(self, result):
+        recovery = result["recovery"]
+        assert recovery["inShadowRoot"] is True
+        assert recovery["legacyName"] is True
+
+    def test_it_leaves_other_pages_and_other_strategies_alone(self, result):
+        recovery = result["recovery"]
+        assert not recovery["otherStrategy"]
+        assert not recovery["healthyPage"]
+        assert not recovery["emptyPage"]
+        assert not recovery["noPage"]
+        assert recovery["rebuildCalls"] == 2
+
+    def test_the_search_stops_on_a_huge_page(self, result):
+        assert result["recovery"]["hugePage"] is False
+
+    def test_it_asks_again_while_the_command_is_not_ready_and_builds_when_it_is(self, result):
+        retries = result["retries"]
+        assert retries["afterRetries"] == {"views": [{"title": "ready"}]}
+        assert retries["attempts"] == 4
+
+    def test_it_does_not_retry_an_error_that_waiting_will_not_fix(self, result):
+        retries = result["retries"]
+        assert retries["otherCalls"] == 1
+        assert "boom" in retries["otherText"]
+
+    def test_it_gives_up_with_the_error_view_when_it_never_becomes_ready(self, result):
+        retries = result["retries"]
+        assert retries["neverReadyCalls"] > 1
+        assert "Unknown command" in retries["neverReadyText"]
+
+    def test_the_recovery_is_skipped_where_there_is_no_page(self, result):
+        # The harness has no document, so loading the script scheduled nothing and raised nothing.
+        assert "ll-strategy-givenergy-manager" in result["names"]
 
 
 def _loaded_entry(state=ConfigEntryState.LOADED, entry_id=ENTRY_ID):
