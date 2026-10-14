@@ -120,6 +120,22 @@ def cheap_run_minutes(tariff: TariffConfig) -> int:
     return _extend_run(_cheaper_than_base(tariff), _minute_of_day(cheapest.start), _span(cheapest))
 
 
+def window_stays_cheap(tariff: TariffConfig, start: time, end: time) -> bool:
+    """True when every minute from *start* to *end* is at a rate below the base rate.
+
+    A window whose start equals its end is unused and counts as cheap. A tariff with no period
+    below the base rate has no cheap hours to protect, so any window counts as cheap too.
+    """
+    cheaper = _cheaper_than_base(tariff)
+    first, last = _minute_of_day(start), _minute_of_day(end)
+    if not cheaper or first == last:
+        return True
+    return all(
+        any(_reach_from(period, first + offset) > 0 for period in cheaper)
+        for offset in range(_minutes_from(first, last))
+    )
+
+
 def cheap_run_remaining_minutes(tariff: TariffConfig, now: datetime) -> float | None:
     """Minutes from *now* to the end of the cheaper-than-base run *now* sits in, else None.
 

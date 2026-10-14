@@ -286,12 +286,22 @@ The integration cannot tell the causes apart. A change made in the GivEnergy app
 The charge target, the charge window start and the charge window end can be changed by the integration, by you, by an automation, by GivTCP or by the inverter app. The integration keeps a log of the last 20 changes to these entities, plus the switches it turns on and off with them.
 
 1. Open **Developer Tools → States** and search for `register_write_count`. The **GivTCP Register Write Count** sensor holds the log in its `recent_writes` attribute, newest first.
-2. Read each entry. `time`, `entity_id` and `value` say what changed and when. `reason` says why: `charge target`, `charge window start`, `charge window end`, `floor top-up`, `clear other slot` and similar mean the integration wrote it. `external` means something else changed it.
+2. Read each entry. `time`, `entity_id` and `value` say what changed and when. `reason` says why: `charge target`, `charge window start`, `charge window end`, `floor top-up`, `clear other slot` and similar mean the integration wrote it. `window repair` is a note that the integration set the window back. `external` means something else changed it.
 3. For an `external` entry, look at `user_id` and `parent_id`. A `user_id` is the Home Assistant user who made the change, for example from a dashboard card. Look it up under **Settings → People**. A `parent_id` is the context of the automation or script that made the change. Search your automation traces for it.
 4. If `user_id` and `parent_id` are both empty, the change did not come through a Home Assistant service call. GivTCP, the inverter app or the inverter itself made it.
 5. Search **Settings → System → Logs** for `outside the manager` to see the same entries as log lines, with the old and new value.
 
 The integration only records these changes. It does not undo them. The log is saved with the integration's other stored data, so it survives restarts. The `external` entries cover the charge target, window start and window end entities only.
+
+## The charge window was put back
+
+The write log shows a `window repair` line, or the dry run line `Would repair the charge window`. The integration found slot 1 running into the day rate and set it back to the planned window. The line says what the window was, for example `the window was 02:00 to 00:10, past the cheap rate, set back to 02:00 to 04:00`.
+
+1. Find out who moved it. Follow [Find out what changed the charge target](#find-out-what-changed-the-charge-target). The `external` entry for the charge window end has the time and, for a change made in Home Assistant, the `user_id`.
+2. If you want a window outside the cheap hours, turn on **Enable Charge Target Override** or **Force Skip Overnight Charge**. The integration leaves the window alone while either is on.
+3. If the same window keeps coming back, something else is writing it. The integration repairs it at most three times a day, then stops. Turn off the other writer, for example GivTCP's own schedule or Predbat.
+
+Only the window start and end are written. The charge target and the switches are left as they are. A schedule the integration has never written over is not touched.
 
 ## A charge decision looks wrong
 

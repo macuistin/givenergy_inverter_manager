@@ -12,6 +12,7 @@ ever sees a write that is going to happen.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import time
 from typing import Any
 
 from ...const import (
@@ -202,6 +203,23 @@ def _not_confirmed(
             writer.release_cooldown(write)
             missed.append(f"{name} (not confirmed)")
     return missed
+
+
+async def apply_charge_window(
+    writer: GivTCPWriter, cfg: Mapping[str, Any], start: time, end: time
+) -> bool:
+    """Set slot 1 start, then end, and leave the target and the switches as they are."""
+    return await writer.set_select(
+        cfg.get(CONF_CHARGE_START_TIME_ENTITY),
+        start.strftime("%H:%M:%S"),
+        "charge window start",
+        step=2,
+    ) and await writer.set_select(
+        cfg.get(CONF_CHARGE_END_TIME_ENTITY),
+        end.strftime("%H:%M:%S"),
+        "charge window end",
+        step=3,
+    )
 
 
 async def apply_floor_target(

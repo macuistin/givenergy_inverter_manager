@@ -6,6 +6,10 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 **Fixes**
 - The dashboard script records when it ran, so a page that shows "Timeout waiting for strategy element" can say whether the script ran at all. In the browser console, `window.givenergyManagerStrategy` shows when the script ran and which names it defined or failed to define. When the script finds the timeout and builds the dashboard again, it also writes that record to the console. See [the dashboard shows an error](docs/troubleshooting.md#the-dashboard-is-missing-or-shows-an-error).
+- A charge window that something else moved into the day rate is put back within a minute. Slot 1 is written for the cheap rate period, but a change from the Home Assistant app, GivTCP's schedule or the GivEnergy app can stretch it. A window ending at 00:10 with a start of 02:00 runs for 22 hours, so the battery charged at the day rate from the evening and the plan did not say so. Now, when the window on the inverter covers any minute that is not below the base rate, the integration writes the planned window back (the start and end only, not the target) and logs a `window repair` line in the write log. It leaves the window alone when a manual charge or skip override is on, when the integration has never written to the inverter, and after three repairs in a day. Dry run records `Would repair the charge window` and sends nothing. See [The charge window was put back](docs/troubleshooting.md#the-charge-window-was-put-back).
+
+**Changed**
+- Tonight's charge plan says when the charge runs. The sensor now reads `Target 95% · 02:00 to 04:00 · Add 32% · Cost €0.74`, and the plan report has a **Charge window** row. A night with the charge skipped is unchanged.
 
 ## v0.19.3
 
