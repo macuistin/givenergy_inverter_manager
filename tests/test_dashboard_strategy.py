@@ -42,9 +42,9 @@ class TestStrategyFile:
     def test_file_exists_and_is_small(self):
         # 40 lines until the strategy registered itself in window.customStrategies, gave
         # create suggestions and a clearer error view, then the recovery from Home Assistant's
-        # 5-second timeout and the wait for the command after a restart. There is still no
-        # build step.
-        assert len(self._source().splitlines()) <= 130
+        # 5-second timeout, the wait for the command after a restart and a record of when the
+        # script ran. There is still no build step.
+        assert len(self._source().splitlines()) <= 140
 
     def test_no_dependencies_or_build_chain(self):
         source = self._source()

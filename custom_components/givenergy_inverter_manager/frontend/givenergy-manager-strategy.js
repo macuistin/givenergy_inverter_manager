@@ -9,6 +9,15 @@ const WS_TYPE = "givenergy_inverter_manager/dashboard";
 const NAME = "givenergy-manager";
 const DOCS = "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs";
 
+// Filled in as the script runs. On a page that shows the timeout, type
+// `window.givenergyManagerStrategy` in the console: no value means this script never ran, and a
+// value says when it ran (ms since the page started) and which names it defined.
+const trace = (window.givenergyManagerStrategy = {
+  ranAtMs: typeof performance !== "undefined" ? Math.round(performance.now()) : null,
+  defined: [],
+  errors: [],
+});
+
 function describe(err) {
   if (err && err.code === "not_found") {
     return "GivEnergy Inverter Manager is not loaded. Check Settings > Devices & services.";
@@ -86,7 +95,9 @@ for (const name of ["ll-strategy-dashboard-givenergy-manager", "ll-strategy-give
     if (!customElements.get(name)) {
       customElements.define(name, class extends GivEnergyManagerStrategy {});
     }
+    trace.defined.push(name);
   } catch (err) {
+    trace.errors.push(String(err));
     console.error(`GivEnergy Inverter Manager: could not define ${name}`, err);
   }
 }
@@ -105,8 +116,10 @@ if (!window.customStrategies.some((entry) => entry.type === NAME)) {
 
 // A page that got this script late recovers by itself. It is skipped where there is no page.
 if (typeof document !== "undefined" && typeof window.setTimeout === "function") {
-  const rebuild = () =>
+  const rebuild = () => {
+    console.warn("GivEnergy Inverter Manager: dashboard timed out, building again", trace);
     window.dispatchEvent(new CustomEvent("connection-status", { detail: "connected" }));
+  };
   let rebuilds = 0;
   for (const delay of CHECK_AFTER_MS) {
     window.setTimeout(() => {
