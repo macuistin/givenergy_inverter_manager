@@ -132,3 +132,15 @@ export_energy_data:
     config directory, then shows a persistent notification. Use response_variable
     to read the file path and the rows written.
   fields: {}
+
+get_dashboard_yaml:
+  name: Get dashboard YAML
+  description: >
+    Returns the GivEnergy dashboard as YAML text, the same dashboard the strategy builds. Nothing
+    is written to a file. Use it as a fallback when the GivEnergy dashboard shows "Timeout waiting
+    for strategy element". Run it from Developer Tools > Actions, copy the `yaml` value, then add
+    a dashboard (Settings > Dashboards > Add dashboard > New dashboard from scratch), open it,
+    choose Edit dashboard > Raw configuration editor and paste. Run it again after you change the
+    tariff or the devices, because the pasted copy does not update itself. The Settings view is
+    included only when an administrator runs the action.
+  fields: {}

@@ -22,13 +22,24 @@ How it works: the integration serves a small JavaScript file at `/givenergy_inve
 - The strategy needs a loaded config entry. Without one the dashboard shows a short message that the integration is not loaded.
 - Reload the browser tab after you first set up or upgrade the integration, so the frontend loads the file.
 
+## A fallback that needs no script
+
+The dashboard needs its script to load in the browser. If a device keeps showing "Timeout waiting for strategy element", use a copy that does not need the script:
+
+1. Open **Developer Tools → Actions**, choose `givenergy_inverter_manager.get_dashboard_yaml` and press **Perform action**.
+2. Copy the `yaml` value from the response.
+3. Go to **Settings → Dashboards → Add dashboard → New dashboard from scratch**, give it a name and open it.
+4. Choose the pencil, then the three dots, then **Raw configuration editor**. Replace what is there with the YAML and save.
+
+The copy is a plain dashboard, so it works on any device that can open a dashboard. It does not follow your devices or your tariff. Run the action again and paste again after you change either. The copy has a Settings view, because an administrator ran the action. To hide it from other people, delete the view with `path: settings` from the pasted text. See [Actions](actions.md#get_dashboard_yaml).
+
 ## Moving from the generated file
 
-Versions before 0.18 wrote `givenergy_dashboard.yaml` to the configuration folder. The Refresh Dashboard button and the `get_dashboard_yaml` action wrote it again on request. Both are gone, and so is the file the integration used to create.
+Versions before 0.18 wrote `givenergy_dashboard.yaml` to the configuration folder. The Refresh Dashboard button wrote it again on request. The button, and the file the integration used to create, are gone. The `get_dashboard_yaml` action is back as the fallback above and returns text. It does not write a file.
 
 1. Add the dashboard as above.
 2. Delete the old dashboard, and `givenergy_dashboard.yaml` if it is still in the configuration folder. The integration no longer reads or writes it.
-3. Remove any automation or script that calls `givenergy_inverter_manager.get_dashboard_yaml`. The call now fails.
+3. Remove any automation or script that expects `get_dashboard_yaml` to write `givenergy_dashboard.yaml`. The action now returns the text and writes no file.
 
 A dashboard from the file keeps showing what it showed, but it no longer follows your devices or your tariff.
 

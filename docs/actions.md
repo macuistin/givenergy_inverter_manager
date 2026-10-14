@@ -1,11 +1,11 @@
 # Actions
 
-The integration registers five actions under `givenergy_inverter_manager`. Run them from **Developer Tools → Actions**, or from scripts and automations.
+The integration registers six actions under `givenergy_inverter_manager`. Run them from **Developer Tools → Actions**, or from scripts and automations.
 
-- All five use the first loaded entry, and `compare_tariff` also lists every loaded entry. They stay registered while at least one entry is loaded. With no loaded entry, each one fails with the error "not configured".
-- Four of them return data. Read it with `response_variable`.
+- All six use the first loaded entry, and `compare_tariff` also lists every loaded entry. They stay registered while at least one entry is loaded. With no loaded entry, each one fails with the error "not configured".
+- Five of them return data. Read it with `response_variable`. `get_dashboard_yaml` returns only data.
 - The examples use `action:`. Home Assistant releases before 2024.8 call it `service:`.
-- The `get_dashboard_yaml` action of earlier versions is gone. The dashboard builds itself. See [Dashboard](dashboard.md#moving-from-the-generated-file).
+- The `get_dashboard_yaml` action of versions before 0.18 wrote a file. The action of 0.19.4 and later writes nothing and returns the dashboard as text. See [Dashboard](dashboard.md#a-fallback-that-needs-no-script).
 
 | Action | Fields | Returns |
 |---|---|---|
@@ -14,6 +14,7 @@ The integration registers five actions under `givenergy_inverter_manager`. Run t
 | [`compare_tariff`](#compare_tariff) | `rate`, optional `standing_charge`, `export_rate`, `discount_rate`, `vat_rate`, `pso_levy` | cost comparison |
 | [`year_on_year_summary`](#year_on_year_summary) | none | month against last year |
 | [`export_energy_data`](#export_energy_data) | none | file path and rows written |
+| [`get_dashboard_yaml`](#get_dashboard_yaml) | none | the dashboard as YAML text |
 
 ## suggest_appliance_run
 
@@ -131,3 +132,14 @@ Columns: `period`, `solar_kwh`, `import_kwh`, `export_kwh`, `battery_throughput_
 Rows: `today`, `yesterday`, `this_week`, `this_month`, `this_year`, then one `month_snapshot_NN` row per completed bill period. `month_snapshot_01` is the most recent.
 
 In snapshot rows, `self_sufficiency_pct` is solar divided by house energy, capped at 100.
+
+## get_dashboard_yaml
+
+Returns the GivEnergy dashboard as YAML text, the same dashboard the dashboard script builds. Nothing is written to a file. It is a fallback for when the dashboard shows "Timeout waiting for strategy element". See [A fallback that needs no script](dashboard.md#a-fallback-that-needs-no-script).
+
+```yaml
+action: givenergy_inverter_manager.get_dashboard_yaml
+response_variable: dashboard
+```
+
+The response holds `yaml` (the dashboard as text) and `views` (how many views it has). The Settings view is in it only when a Home Assistant administrator runs the action. A call with no user, such as an automation, gets the dashboard without Settings.
