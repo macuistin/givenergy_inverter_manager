@@ -133,6 +133,7 @@ class BackendContract:
 
         harness.backend.read(harness.cfg)
         harness.backend.feed_status(harness.cfg, harness.now)
+        harness.backend.read_charge_window(harness.cfg)
         harness.backend.other_active_charge_slots(harness.cfg)
         harness.backend.watched_entity_ids(harness.cfg)
 
@@ -203,6 +204,19 @@ class BackendContract:
 
         assert not result.ok
         assert harness.enable_target() is False
+
+    # ── the window alone ──────────────────────────────────────────────────────
+
+    async def test_the_window_can_be_set_alone_and_read_back(self, harness):
+        harness.set_target(50)
+        before = harness.enable_target()
+
+        assert await harness.backend.apply_charge_window(harness.cfg, START, END) is True
+
+        assert harness.window() == (START_TEXT, END_TEXT)
+        assert harness.backend.read_charge_window(harness.cfg) == ("00:30", "04:30")
+        assert harness.target() == 50
+        assert harness.enable_target() == before
 
     # ── other charge slots ────────────────────────────────────────────────────
 

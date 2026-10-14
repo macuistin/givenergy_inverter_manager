@@ -55,6 +55,7 @@ from homeassistant.util import dt as dt_util
 
 from .accumulation import AccumulationStore
 from .const import (
+    CHARGE_WRITE_RETRY_OFFSETS_MIN,
     CONF_ALT_HEAT_COST,
     CONF_ALT_HEAT_COST_ENTITY,
     CONF_ALT_HEAT_COST_UNIT,
@@ -64,6 +65,7 @@ from .const import (
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_CARBON_INTENSITY_ENTITY,
+    CONF_CHARGE_END_TIME_ENTITY,
     CONF_CHARGE_REPLAN,
     CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_DRY_RUN,
@@ -156,7 +158,8 @@ from .core.tariff import (
     tariff_in_force,
 )
 from .core.timeutil import elapsed_seconds
-from .core.write_log import REPLAN_REASON, RETRY_REASON
+from .core.window_guard import GuardInputs, GuardState, decide_repair, parse_clock
+from .core.write_log import REPLAN_REASON, RETRY_REASON, WINDOW_REPAIR_REASON
 from .discovery import (
     EVCharger,
     discover_ev_chargers,
@@ -340,6 +343,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._night: NightState | None = None
         self._replan_note: str = ""
         self._replan_pending: bool = False
+        self._window_guard = GuardState()
         self._ev_charger: EVCharger | None = None
         self._ev_base_rate = WatchState()
         self._givtcp_was_unavailable: bool = False
@@ -951,6 +955,61 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if result.write:
             self._replan(cfg, ReplanStep(night, result, self._plan_basis(decision), now))
 
+    def _maybe_repair_window(self, now: datetime) -> None:
+        """Put slot 1 back inside the cheap hours when something else moved it past them.
+
+        core/window_guard.py decides. Dry run records what would be written and sends nothing.
+        A write is tried at most once every few minutes, the same spacing as the charge write
+        retries, and the guard stops after REPLAN_MAX_WRITES repairs in a day.
+        """
+        cfg = self._effective_cfg()
+        tariff = build_tariff(cfg)
+        entity = cfg.get(CONF_CHARGE_END_TIME_ENTITY)
+        if self._window_guard.pending or not tariff.rate_periods or not entity:
+            return
+        live = self._backend.read_charge_window(cfg)
+        planned = self._planned_window_period(tariff)
+        repair = decide_repair(
+            GuardInputs(
+                tariff=tariff,
+                live_start=parse_clock(live[0]) if live else None,
+                live_end=parse_clock(live[1]) if live else None,
+                planned_start=planned.start,
+                planned_end=planned.end,
+                override_active=self.override_charge_enabled or self.override_skip_charge,
+                log=self._acc.state.register_write_log,
+                entity_id=entity,
+                today=now.date(),
+            )
+        )
+        if repair is None:
+            self._window_guard.reported = ""
+            return
+        if self.is_dry_run:
+            if self._window_guard.reported != repair.note:
+                self._window_guard.reported = repair.note
+                action = f"Would repair the charge window: {repair.note}"
+                _LOG.info("DRY RUN: %s", action)
+                self._record_skipped(action)
+            return
+        gap = timedelta(minutes=CHARGE_WRITE_RETRY_OFFSETS_MIN[1])
+        if self._window_guard.last_try is not None and now - self._window_guard.last_try < gap:
+            return
+        _LOG.warning("Charge window is outside the cheap hours, repairing it: %s", repair.note)
+        self._window_guard.last_try = now
+        self._window_guard.pending = True
+        self._audit.note(entity, repair.note, WINDOW_REPAIR_REASON)
+        self._create_task(self._async_repair_window(cfg, repair))
+
+    async def _async_repair_window(self, cfg: dict, repair) -> None:
+        """Send the window start and end. The target and the switches are left alone."""
+        try:
+            taken = await self._backend.apply_charge_window(cfg, repair.start, repair.end)
+        finally:
+            self._window_guard.pending = False
+        if not taken:
+            _LOG.warning("The inverter did not take the repaired charge window")
+
     def _replan(self, cfg: dict, step: ReplanStep) -> None:
         night, result = step.night, step.result
         if self.is_dry_run:
@@ -1460,6 +1519,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._remember_cycle(raw, now)
         self._watch_ev_base_rate(data, raw, now)
         self._maybe_replan(data, now)
+        self._maybe_repair_window(now)
         self._apply_decisions(data, ev_target_mode, now)
         self._attach_setup_progress(data, raw, cfg)
         return data

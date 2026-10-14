@@ -212,7 +212,7 @@ def _plan_target_row(cd: "ChargeDecision") -> str:
     )
 
 
-def _plan_rows(cd: "ChargeDecision", sym: str) -> list[str]:
+def _plan_rows(cd: "ChargeDecision", sym: str, window_text: str | None = None) -> list[str]:
     decision_str = (
         "✅ Skip charge — solar will cover demand"
         if cd.skip_charge
@@ -223,6 +223,7 @@ def _plan_rows(cd: "ChargeDecision", sym: str) -> list[str]:
         _row("Decision", decision_str, "", _S["highlight"]),
         _row("Current SoC", f"{cd.current_soc:.0f}%"),
         _plan_target_row(cd),
+        *([_row("Charge window", window_text)] if window_text and not cd.skip_charge else []),
         _row("Plan forecast", f"{cd.forecast_kwh:.1f} kWh"),
         _row("Battery", f"{cd.battery_capacity:.1f} kWh capacity"),
         _row("EV plugged in", "Yes" if cd.car_plugged_in else "No"),
@@ -244,7 +245,8 @@ def build_charge_plan_html(data: "CoordinatorData") -> str:
     cd = data.charge_decision
     if cd is None:
         return _table(_no_decision_rows())
-    return _table(_plan_rows(cd, data.currency_symbol))
+    window = data.published_charge_window
+    return _table(_plan_rows(cd, data.currency_symbol, window.text if window else None))
 
 
 def build_charge_plan_state(data: "CoordinatorData") -> str:
@@ -255,8 +257,11 @@ def build_charge_plan_state(data: "CoordinatorData") -> str:
         return "No charge decision yet"
     if cd.skip_charge:
         return f"Skip charge · Plan forecast {cd.forecast_kwh:.1f} kWh · SoC {cd.current_soc:.0f}%"
+    window = data.published_charge_window
+    when = f"{window.text} · " if window is not None else ""
     return fit_state(
         f"Target {cd.target_soc}% · "
+        f"{when}"
         f"Add {max(0, cd.target_soc - cd.current_soc):.0f}% · "
         f"Cost {sym}{cd.cost_to_charge:.2f}"
     ).state

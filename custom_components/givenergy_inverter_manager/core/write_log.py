@@ -20,7 +20,8 @@ EXTERNAL_REASON = "external"
 # Notes the manager writes about its own plan. They are not writes to the inverter.
 RETRY_REASON = "retry"
 REPLAN_REASON = "replan"
-NOTE_REASONS = frozenset({RETRY_REASON, REPLAN_REASON})
+WINDOW_REPAIR_REASON = "window repair"
+NOTE_REASONS = frozenset({RETRY_REASON, REPLAN_REASON, WINDOW_REPAIR_REASON})
 _UNKNOWN_STATES = frozenset({"unavailable", "unknown", ""})
 
 

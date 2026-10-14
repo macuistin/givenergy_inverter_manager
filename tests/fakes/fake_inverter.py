@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, time
 from typing import Any
 
 from custom_components.givenergy_inverter_manager.core.inverter_values import (
@@ -23,6 +23,7 @@ from custom_components.givenergy_inverter_manager.core.inverter_values import (
 )
 
 UNUSED = "00:00:00"
+UNREADABLE = "unavailable"
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,7 @@ class FakeInverter:
     plans: list[ChargePlan] = field(default_factory=list)
     floor_targets: list[int] = field(default_factory=list)
     cleared: list[FakeSlot] = field(default_factory=list)
+    window_writes: list[tuple[str, str]] = field(default_factory=list)
     target_soc: int = 50
     enable_target: bool = False
     window: tuple[str, str] = (UNUSED, UNUSED)
@@ -93,6 +95,19 @@ class FakeInverter:
         self.enable_target = True
         self.device_writes += 2
         return WriteResult(self.fail_steps)
+
+    def read_charge_window(self, cfg: Mapping[str, Any]) -> tuple[str, str] | None:
+        if UNREADABLE in self.window:
+            return None
+        return (self.window[0][:5], self.window[1][:5])
+
+    async def apply_charge_window(self, cfg: Mapping[str, Any], start: time, end: time) -> bool:
+        if self.fail_steps:
+            return False
+        self.window = (start.strftime("%H:%M:%S"), end.strftime("%H:%M:%S"))
+        self.window_writes.append(self.window)
+        self.device_writes += 2
+        return True
 
     def other_active_charge_slots(self, cfg: Mapping[str, Any]) -> Sequence[FakeSlot]:
         return tuple(self.slots)

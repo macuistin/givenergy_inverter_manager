@@ -375,7 +375,7 @@ def _split_trailing_number(entity_id: str) -> tuple[str, int] | None:
     return (match["stem"], int(match["number"])) if match else None
 
 
-def _clock_time(state: Any) -> str | None:
+def clock_time(state: Any) -> str | None:
     """The state as HH:MM, or None for a missing, unavailable or non-time state."""
     match = _CLOCK_TIME.match(str(state.state).strip()) if state is not None else None
     return f"{int(match['hour']):02d}:{match['minute']}" if match else None
@@ -384,7 +384,7 @@ def _clock_time(state: Any) -> str | None:
 def _active_slot(
     number: int, start_id: str, end_id: str, get_state: Callable[[str], Any]
 ) -> ActiveChargeSlot | None:
-    start, end = _clock_time(get_state(start_id)), _clock_time(get_state(end_id))
+    start, end = clock_time(get_state(start_id)), clock_time(get_state(end_id))
     if start is None or end is None or start == end:
         return None
     return ActiveChargeSlot(number, start_id, end_id, start, end)
