@@ -35,6 +35,7 @@ from .logging import get_logger
 _LOG = get_logger(__name__)
 
 _EXPORT_FILENAME = "givenergy_energy_export.csv"
+DASHBOARD_FILENAME = "givenergy_dashboard.yaml"
 
 
 def loaded_entries(hass: HomeAssistant) -> list[ConfigEntry]:
@@ -551,12 +552,18 @@ def _make_dashboard_yaml_handler(hass: HomeAssistant):
     """Return the get_dashboard_yaml service handler bound to *hass*."""
 
     async def handle(call: ServiceCall) -> dict:
-        """Return the dashboard the strategy builds, as YAML text. Nothing is written."""
+        """Return the dashboard the strategy builds, as YAML text.
+
+        The file is written only when the call asks for it with write_file.
+        """
         entry = primary_entry(hass)
         facts = await async_host_facts(hass, is_admin=await _caller_is_admin(hass, call))
         config = build_dashboard(hass, entry, facts)
         text = yaml.safe_dump(config, sort_keys=False, allow_unicode=True)
-        return {"yaml": text, "views": len(config.get("views", []))}
+        response: dict = {"yaml": text, "views": len(config.get("views", []))}
+        if call.data.get("write_file"):
+            response["file"] = await _write_config_file(hass, DASHBOARD_FILENAME, text)
+        return response
 
     return handle
 

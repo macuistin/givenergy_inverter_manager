@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 import yaml
 from homeassistant.core import Context
@@ -11,10 +13,10 @@ from custom_components.givenergy_inverter_manager.const import DOMAIN
 from custom_components.givenergy_inverter_manager.strategy import async_dashboard_for_websocket
 
 
-async def _run(hass, user=None) -> dict:
+async def _run(hass, user=None, **data) -> dict:
     context = Context(user_id=user.id) if user else Context()
     return await hass.services.async_call(
-        DOMAIN, "get_dashboard_yaml", {}, blocking=True, return_response=True, context=context
+        DOMAIN, "get_dashboard_yaml", data, blocking=True, return_response=True, context=context
     )
 
 
@@ -53,3 +55,29 @@ async def test_the_action_says_so_when_the_integration_is_not_loaded(hass, loade
 
     with pytest.raises(ServiceValidationError):
         await _run(hass)
+
+
+async def test_no_file_is_written_unless_asked_for(hass, loaded_entry, hass_admin_user):
+    response = await _run(hass, hass_admin_user)
+
+    assert "file" not in response
+    assert not Path(hass.config.path("givenergy_dashboard.yaml")).exists()
+
+
+async def test_write_file_saves_the_same_yaml_in_the_config_folder(
+    hass, loaded_entry, hass_admin_user
+):
+    response = await _run(hass, hass_admin_user, write_file=True)
+
+    path = Path(response["file"])
+    assert path == Path(hass.config.path("givenergy_dashboard.yaml"))
+    assert path.read_text(encoding="utf-8") == response["yaml"]
+
+
+async def test_write_file_replaces_the_file_it_wrote_before(hass, loaded_entry, hass_admin_user):
+    path = Path(hass.config.path("givenergy_dashboard.yaml"))
+    path.write_text("old", encoding="utf-8")
+
+    await _run(hass, hass_admin_user, write_file=True)
+
+    assert path.read_text(encoding="utf-8").startswith("views:")

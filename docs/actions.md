@@ -5,7 +5,7 @@ The integration registers six actions under `givenergy_inverter_manager`. Run th
 - All six use the first loaded entry, and `compare_tariff` also lists every loaded entry. They stay registered while at least one entry is loaded. With no loaded entry, each one fails with the error "not configured".
 - Five of them return data. Read it with `response_variable`. `get_dashboard_yaml` returns only data.
 - The examples use `action:`. Home Assistant releases before 2024.8 call it `service:`.
-- The `get_dashboard_yaml` action of versions before 0.18 wrote a file. The action of 0.19.4 and later writes nothing and returns the dashboard as text. See [Dashboard](dashboard.md#a-fallback-that-needs-no-script).
+- The `get_dashboard_yaml` action of versions before 0.18 wrote a file. The action of 0.19.5 and later returns the dashboard as text, and writes a file only when you ask. See [Dashboard](dashboard.md#a-fallback-that-needs-no-script).
 
 | Action | Fields | Returns |
 |---|---|---|
@@ -14,7 +14,7 @@ The integration registers six actions under `givenergy_inverter_manager`. Run th
 | [`compare_tariff`](#compare_tariff) | `rate`, optional `standing_charge`, `export_rate`, `discount_rate`, `vat_rate`, `pso_levy` | cost comparison |
 | [`year_on_year_summary`](#year_on_year_summary) | none | month against last year |
 | [`export_energy_data`](#export_energy_data) | none | file path and rows written |
-| [`get_dashboard_yaml`](#get_dashboard_yaml) | none | the dashboard as YAML text |
+| [`get_dashboard_yaml`](#get_dashboard_yaml) | optional `write_file` | the dashboard as YAML text |
 
 ## suggest_appliance_run
 
@@ -135,11 +135,20 @@ In snapshot rows, `self_sufficiency_pct` is solar divided by house energy, cappe
 
 ## get_dashboard_yaml
 
-Returns the GivEnergy dashboard as YAML text, the same dashboard the dashboard script builds. Nothing is written to a file. It is a fallback for when the dashboard shows "Timeout waiting for strategy element". See [A fallback that needs no script](dashboard.md#a-fallback-that-needs-no-script).
+Returns the GivEnergy dashboard as YAML text, the same dashboard the dashboard script builds. It is a fallback for when the dashboard shows "Timeout waiting for strategy element". See [A fallback that needs no script](dashboard.md#a-fallback-that-needs-no-script).
 
 ```yaml
 action: givenergy_inverter_manager.get_dashboard_yaml
 response_variable: dashboard
 ```
 
-The response holds `yaml` (the dashboard as text) and `views` (how many views it has). The Settings view is in it only when a Home Assistant administrator runs the action. A call with no user, such as an automation, gets the dashboard without Settings.
+With `write_file: true` it also writes the text to `givenergy_dashboard.yaml` in the configuration folder, replacing the file, for a [YAML dashboard](dashboard.md#keep-it-in-a-file-instead).
+
+```yaml
+action: givenergy_inverter_manager.get_dashboard_yaml
+data:
+  write_file: true
+response_variable: dashboard
+```
+
+The response holds `yaml` (the dashboard as text), `views` (how many views it has) and, with `write_file`, `file` (the path written). The Settings view is in it only when a Home Assistant administrator runs the action. A call with no user, such as an automation, gets the dashboard without Settings.
