@@ -2,7 +2,7 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.19.4
 
 **Fixes**
 - The dashboard script records when it ran, so a page that shows "Timeout waiting for strategy element" can say whether the script ran at all. In the browser console, `window.givenergyManagerStrategy` shows when the script ran and which names it defined or failed to define. When the script finds the timeout and builds the dashboard again, it also writes that record to the console. See [the dashboard shows an error](docs/troubleshooting.md#the-dashboard-is-missing-or-shows-an-error).
