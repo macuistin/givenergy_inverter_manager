@@ -52,6 +52,7 @@ from custom_components.givenergy_inverter_manager.core.immersion_rate import Run
 from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+from custom_components.givenergy_inverter_manager.core.window_guard import GuardState
 from custom_components.givenergy_inverter_manager.immersion_actuator import ImmersionActuator
 from custom_components.givenergy_inverter_manager.inverter.givtcp import GivTCPPorts, make_backend
 from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import (
@@ -299,6 +300,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._init_system_watch()
         self._replan_note = ""
         self._replan_pending = False
+        self._window_guard = GuardState()
         self.scheduled: list[tuple[datetime, object]] = []
         self._inputs_unavailable_since = None
         self.immersion = ImmersionActuator(self._immersion_ports())

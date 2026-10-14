@@ -16,7 +16,7 @@ is going to happen.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import datetime, time
 from typing import Any, Protocol, runtime_checkable
 
 from ..core.inverter_values import (
@@ -71,6 +71,17 @@ class InverterBackend(Protocol):
 
     async def apply_floor_target(self, cfg: Mapping[str, Any], soc: int) -> WriteResult:
         """Raise the target to a cheap-rate floor. A higher target already set is kept."""
+        ...
+
+    def read_charge_window(self, cfg: Mapping[str, Any]) -> tuple[str, str] | None:
+        """The start and end of the manager's charge window as the inverter holds it, HH:MM.
+
+        None when either is missing, unavailable or not a clock time. Reads only.
+        """
+        ...
+
+    async def apply_charge_window(self, cfg: Mapping[str, Any], start: time, end: time) -> bool:
+        """Set the window start and end and nothing else. False when a write was not taken."""
         ...
 
     def other_active_charge_slots(self, cfg: Mapping[str, Any]) -> Sequence[ChargeSlot]:

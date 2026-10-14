@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time
 from typing import Any
 
 from ...const import (
@@ -30,6 +30,7 @@ from . import sequence
 from .discovery import (
     GIVTCP_PREFIX,
     ActiveChargeSlot,
+    clock_time,
     device_prefix,
     discover_battery_cycle_entities,
     find_other_active_charge_slots,
@@ -80,6 +81,17 @@ class GivTCPBackend:
 
     async def apply_floor_target(self, cfg: Mapping[str, Any], soc: int) -> WriteResult:
         return await sequence.apply_floor_target(self.writer, cfg, soc, self._get_state)
+
+    def read_charge_window(self, cfg: Mapping[str, Any]) -> tuple[str, str] | None:
+        start_entity = cfg.get(CONF_CHARGE_START_TIME_ENTITY)
+        end_entity = cfg.get(CONF_CHARGE_END_TIME_ENTITY)
+        if not (start_entity and end_entity):
+            return None
+        start, end = (clock_time(self._get_state(e)) for e in (start_entity, end_entity))
+        return (start, end) if start is not None and end is not None else None
+
+    async def apply_charge_window(self, cfg: Mapping[str, Any], start: time, end: time) -> bool:
+        return await sequence.apply_charge_window(self.writer, cfg, start, end)
 
     def other_active_charge_slots(self, cfg: Mapping[str, Any]) -> Sequence[ActiveChargeSlot]:
         start_entity = cfg.get(CONF_CHARGE_START_TIME_ENTITY)
