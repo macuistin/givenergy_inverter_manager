@@ -1,8 +1,10 @@
 """
 services.py — service actions for GivEnergy Inverter Manager.
 
-Registers the appliance, tariff, ROI, year-on-year and export actions. The dashboard is not
-an action: it is the strategy in strategy.py, built each time the dashboard opens.
+Registers the appliance, tariff, ROI, year-on-year, export and dashboard YAML actions. The
+dashboard itself is the strategy in strategy.py, built each time the dashboard opens. The
+dashboard YAML action returns the same dashboard as text, for a fallback that needs no
+strategy script: paste it into a dashboard's raw configuration editor.
 """
 
 from __future__ import annotations
@@ -11,6 +13,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
+import yaml
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
@@ -19,17 +22,20 @@ from .const import (
     DOMAIN,
     SERVICE_COMPARE_TARIFF,
     SERVICE_EXPORT_ENERGY_DATA,
+    SERVICE_GET_DASHBOARD_YAML,
     SERVICE_GET_ROI_SUMMARY,
     SERVICE_SUGGEST_APPLIANCE,
     SERVICE_YEAR_ON_YEAR,
 )
 from .core.rules import ApplianceRequest, RateContext, SiteReadings, suggest_appliance_run
 from .core.tariff import BillBreakdown, TariffConfig, build_tariff
+from .dashboard import async_host_facts, build_dashboard
 from .logging import get_logger
 
 _LOG = get_logger(__name__)
 
 _EXPORT_FILENAME = "givenergy_energy_export.csv"
+DASHBOARD_FILENAME = "givenergy_dashboard.yaml"
 
 
 def loaded_entries(hass: HomeAssistant) -> list[ConfigEntry]:
@@ -529,6 +535,39 @@ def _make_export_handler(hass: HomeAssistant):
     return handle
 
 
+# ── get_dashboard_yaml ───────────────────────────────────────────────────────
+
+
+async def _caller_is_admin(hass: HomeAssistant, call: ServiceCall) -> bool:
+    """True when a Home Assistant administrator ran the action.
+
+    A call with no user, such as an automation, gets the dashboard without Settings.
+    """
+    user_id = call.context.user_id
+    user = await hass.auth.async_get_user(user_id) if user_id else None
+    return bool(user and user.is_admin)
+
+
+def _make_dashboard_yaml_handler(hass: HomeAssistant):
+    """Return the get_dashboard_yaml service handler bound to *hass*."""
+
+    async def handle(call: ServiceCall) -> dict:
+        """Return the dashboard the strategy builds, as YAML text.
+
+        The file is written only when the call asks for it with write_file.
+        """
+        entry = primary_entry(hass)
+        facts = await async_host_facts(hass, is_admin=await _caller_is_admin(hass, call))
+        config = build_dashboard(hass, entry, facts)
+        text = yaml.safe_dump(config, sort_keys=False, allow_unicode=True)
+        response: dict = {"yaml": text, "views": len(config.get("views", []))}
+        if call.data.get("write_file"):
+            response["file"] = await _write_config_file(hass, DASHBOARD_FILENAME, text)
+        return response
+
+    return handle
+
+
 # ── registration ─────────────────────────────────────────────────────────────
 
 
@@ -547,6 +586,7 @@ _SERVICES = (
     _ServiceSpec(SERVICE_COMPARE_TARIFF, _make_compare_tariff_handler, SupportsResponse.OPTIONAL),
     _ServiceSpec(SERVICE_YEAR_ON_YEAR, _make_year_on_year_handler, SupportsResponse.OPTIONAL),
     _ServiceSpec(SERVICE_EXPORT_ENERGY_DATA, _make_export_handler, SupportsResponse.OPTIONAL),
+    _ServiceSpec(SERVICE_GET_DASHBOARD_YAML, _make_dashboard_yaml_handler, SupportsResponse.ONLY),
 )
 
 

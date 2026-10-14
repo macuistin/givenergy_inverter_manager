@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Added**
+- The `get_dashboard_yaml` action is back as a fallback for a dashboard that keeps showing "Timeout waiting for strategy element". It returns the same dashboard the script builds, as YAML text. Paste it into a new dashboard's raw configuration editor and the copy needs no script, so it loads on any device. A new **Write file** option, off by default, also writes the text to `givenergy_dashboard.yaml` in the configuration folder, for a YAML-mode dashboard that you set up once and refresh by running the action. The copy does not follow your devices or your tariff, so run the action again after you change either. The Settings view is in the text only when a Home Assistant administrator runs the action. See [A fallback that needs no script](docs/dashboard.md#a-fallback-that-needs-no-script).
+
 ## v0.19.4
 
 **Fixes**

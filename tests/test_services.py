@@ -23,12 +23,14 @@ ALL_SERVICES = {
     "compare_tariff",
     "year_on_year_summary",
     "export_energy_data",
+    "get_dashboard_yaml",
 }
 RESPONSE_SERVICES = {
     "get_roi_summary",
     "compare_tariff",
     "year_on_year_summary",
     "export_energy_data",
+    "get_dashboard_yaml",
 }
 
 

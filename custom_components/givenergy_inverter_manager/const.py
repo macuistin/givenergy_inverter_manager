@@ -25,6 +25,7 @@ SERVICE_COMPARE_TARIFF = "compare_tariff"
 SERVICE_YEAR_ON_YEAR = "year_on_year_summary"
 SERVICE_EXPORT_ENERGY_DATA = "export_energy_data"
 SERVICE_GET_ROI_SUMMARY = "get_roi_summary"
+SERVICE_GET_DASHBOARD_YAML = "get_dashboard_yaml"
 
 # ── GivTCP inverter entities ────────────────────────────────────────────────
 CONF_INVERTER_SERIAL = "inverter_serial"  # persisted serial — used as unique_id
