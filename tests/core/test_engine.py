@@ -1348,6 +1348,53 @@ class TestReportingGaps:
         assert "Skip" in state
         assert "12.0" in state
 
+    def _charging(self):
+        from dataclasses import replace
+        from datetime import time
+
+        from custom_components.givenergy_inverter_manager.core.charge_window import ChargeWindow
+
+        data = self._data()
+        data.charge_decision = replace(
+            data.charge_decision, skip_charge=False, target_soc=95, current_soc=63.0
+        )
+        data.published_charge_window = ChargeWindow(
+            time(2, 0), time(4, 0), extended=False, expected_kwh=None, finish_time=None
+        )
+        return data
+
+    def test_charge_plan_state_says_when_the_charge_runs(self):
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_charge_plan_state,
+        )
+
+        assert build_charge_plan_state(self._charging()) == (
+            "Target 95% · 02:00 to 04:00 · Add 32% · Cost €0.00"
+        )
+
+    def test_charge_plan_state_without_a_window_is_as_before(self):
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_charge_plan_state,
+        )
+
+        data = self._charging()
+        data.published_charge_window = None
+
+        assert build_charge_plan_state(data) == "Target 95% · Add 32% · Cost €0.00"
+
+    def test_charge_plan_html_has_a_charge_window_row_on_a_charge_night_only(self):
+        from custom_components.givenergy_inverter_manager.core.reporting import (
+            build_charge_plan_html,
+        )
+
+        charging = self._charging()
+        assert "Charge window" in build_charge_plan_html(charging)
+        assert "02:00 to 04:00" in build_charge_plan_html(charging)
+
+        skipping = self._data()
+        skipping.published_charge_window = charging.published_charge_window
+        assert "Charge window" not in build_charge_plan_html(skipping)
+
     def test_week_summary_shows_7day_accuracy_when_present(self):
         from custom_components.givenergy_inverter_manager.core.reporting import (
             build_week_summary_html,
