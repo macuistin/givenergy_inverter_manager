@@ -144,8 +144,21 @@ def _money(symbol: str, value: float) -> str:
     return f"{sign}{symbol}{abs(value):.2f}"
 
 
-def _by_period(values: Mapping[str, float]) -> str:
-    return "<br>".join(f"{escape(name)} {kwh:.2f}" for name, kwh in values.items()) or "-"
+def _imported(row: Mapping[str, Any]) -> str:
+    """The day's import in kWh, then the part of it by rate period.
+
+    The split began later than the totals on the day the integration was updated, so a day can
+    hold more import than its periods add up to. The rest is shown as "not split", so a figure
+    is never shown next to a cost that it does not match.
+    """
+    total = float(row.get("import_kwh", 0.0))
+    split = row.get("import_kwh_by_period", {})
+    lines = [f"<b>{total:.2f}</b>"]
+    lines += [f"{escape(name)} {kwh:.2f}" for name, kwh in split.items()]
+    rest = total - sum(split.values())
+    if rest > _EPSILON_KWH:
+        lines.append(f"not split {rest:.2f}")
+    return "<br>".join(lines)
 
 
 def _label(row: Mapping[str, Any], *, live: bool) -> str:
@@ -161,7 +174,7 @@ def _day_cells(row: Mapping[str, Any], symbol: str, label: str) -> list[str]:
     imported = sum(row.get("import_cost_by_period", {}).values())
     return [
         label,
-        _by_period(row.get("import_kwh_by_period", {})),
+        _imported(row),
         _money(symbol, imported),
         f"{row.get('export_kwh', 0.0):.2f}",
         _money(symbol, row.get("export_credit", 0.0)),

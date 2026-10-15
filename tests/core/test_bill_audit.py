@@ -135,7 +135,31 @@ class TestTheDays:
     def test_imports_are_listed_by_rate_period(self):
         _, html = current_period_audit(_running())
 
-        assert "Night 8.00<br>Day 2.00" in html
+        assert "<b>10.00</b><br>Night 8.00<br>Day 2.00" in html
+
+    def test_a_day_whose_split_is_short_of_its_import_says_so(self):
+        # The per-period kWh began counting part way through the day the integration was updated.
+        today = _acc(5.0, 1.0, 0.5, 0.1, 6.0, 2.0)
+        today.import_kwh_by_period = {"Day": 1.5}
+        running = RunningPeriod(
+            days=[],
+            month=today,
+            today=today,
+            today_date=date(2026, 10, 15),
+            tariff=TARIFF,
+            symbol=SYMBOL,
+            days_in=30,
+            period_days=30,
+        )
+
+        _, html = current_period_audit(running)
+
+        assert "<b>5.00</b><br>Day 1.50<br>not split 3.50" in html
+
+    def test_a_fully_split_day_has_no_not_split_line(self):
+        _, html = current_period_audit(_running())
+
+        assert "not split" not in html
 
     def test_days_that_were_not_recorded_show_as_one_row_that_makes_the_totals_add_up(self):
         _, html = current_period_audit(_running(5, recorded=2))
