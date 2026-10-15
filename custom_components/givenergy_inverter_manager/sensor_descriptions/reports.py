@@ -30,6 +30,13 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         html_fn=build_charge_plan_html,
     ),
     GivEnergyManagerSensorDescription(
+        key="tariff_in_use",
+        translation_key="tariff_in_use",
+        icon="mdi:table",
+        value_fn=lambda data: data.tariff_report_state,
+        html_fn=lambda data: data.tariff_report_html,
+    ),
+    GivEnergyManagerSensorDescription(
         key="week_summary",
         translation_key="week_summary",
         icon="mdi:calendar-week-outline",

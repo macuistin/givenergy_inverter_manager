@@ -1009,8 +1009,15 @@ class Builder:
     def tariff_sections(self) -> list:
         """Sub-view: the rates and charges the bill sums use, and the rate changes to come.
 
-        Both are read from the options each time the strategy dashboard opens.
+        With the Tariff in use sensor, one card shows its HTML, which is built from the options
+        each cycle. Without it, both are read from the options when the dashboard is built.
         """
+        if report := self.entity("tariff_in_use"):
+            # The report sensor builds the tables from the options each cycle, so a pasted
+            # copy of the dashboard follows a tariff change without a rebuild.
+            live = markdown_card(f"{{{{ state_attr('{report}', 'html') }}}}")
+            heading = heading_card("Tariff in use", "mdi:table")
+            return [grid_section(heading_block(heading, [live]))]
         today = dt_util.now().date()
         in_force = tariff_in_force(self.cfg, today)
         table = markdown_card(tariff_table(build_tariff(in_force), self.cfg))

@@ -424,9 +424,11 @@ async def test_the_sources_card_waits_while_the_totals_are_unavailable(hass, loa
 
 
 async def test_scheduled_rate_changes_in_the_options_show_on_the_tariff_view(hass, loaded_entry):
-    """The Tariff view lists a dated change from the real entry options, and not before one is set."""
+    """The Tariff view reads the report sensor, which lists a dated change from the real options."""
+    report = default_entity_ids()["tariff_in_use"]
     text = await _generate(hass)
-    assert "Scheduled rate changes" not in text
+    assert "state_attr(" in text and report in text
+    assert "Scheduled rate changes" not in hass.states.get(report).attributes["html"]
     starts = dt_util.now().date() + timedelta(days=30)
     change = {
         "effective": starts.isoformat(),
@@ -439,7 +441,10 @@ async def test_scheduled_rate_changes_in_the_options_show_on_the_tariff_view(has
     hass.config_entries.async_update_entry(loaded_entry, options=options)
     await hass.async_block_till_done()
 
-    text = await _generate(hass)
-    assert "Scheduled rate changes" in text
-    assert f"| {starts.day} {starts:%b %Y} | Day €0.4000 | Night 23:00 to 08:00 €0.2000 | €0.2100 |" in text
-    assert "Tariff last reviewed on 2 Jan 2026." in text
+    html = hass.states.get(report).attributes["html"]
+    assert "Scheduled rate changes" in html
+    assert f"{starts.day} {starts:%b %Y}" in html
+    assert "Day €0.4000" in html
+    assert "Night 23:00 to 08:00 €0.2000" in html
+    assert "Tariff last reviewed on 2 Jan 2026." in html
+    assert await _generate(hass) == text, "the dashboard text does not hold the rates"

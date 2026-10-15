@@ -31,7 +31,7 @@ The dashboard needs its script to load in the browser. If a device keeps showing
 3. Go to **Settings → Dashboards → Add dashboard → New dashboard from scratch**, give it a name and open it.
 4. Choose the pencil, then the three dots, then **Raw configuration editor**. Replace what is there with the YAML and save.
 
-This copy is a plain dashboard, so it works on any device that can open a dashboard. It does not follow your devices or your tariff. Run the action again and paste again after you change either. The copy has a Settings view, because an administrator ran the action. To hide it from other people, delete the view with `path: settings` from the pasted text. See [Actions](actions.md#get_dashboard_yaml).
+This copy is a plain dashboard, so it works on any device that can open a dashboard. The Tariff view follows your tariff, because it reads the **Tariff in use** sensor. The rest does not follow a new device, so run the action again and paste again after you add or remove one. The copy has a Settings view, because an administrator ran the action. To hide it from other people, delete the view with `path: settings` from the pasted text. See [Actions](actions.md#get_dashboard_yaml).
 
 ### Keep it in a file instead
 
@@ -63,7 +63,7 @@ Versions before 0.18 wrote `givenergy_dashboard.yaml` to the configuration folde
 2. Delete the old dashboard, and `givenergy_dashboard.yaml` if it is still in the configuration folder. The integration no longer reads or writes it.
 3. Remove any automation or script that calls `get_dashboard_yaml` without expecting it to return text. The action returns the text, and writes the file only with **Write file** on.
 
-A dashboard from the file keeps showing what it showed, but it no longer follows your devices or your tariff.
+A dashboard from the file keeps showing what it showed, but it no longer follows your devices. Its Tariff view follows your tariff.
 
 ## What changes on its own
 

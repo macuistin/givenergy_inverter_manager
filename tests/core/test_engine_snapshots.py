@@ -38,6 +38,11 @@ its end. The fresh snapshot gained it as None and 217 of the 255 cases gained it
 have a charge_window. On the first cycle it equals charge_window. Nothing else moved. The hold is
 pinned in test_charge_hold.py and test_decision_stability.py.
 
+The tariff_report_state and tariff_report_html leaves were added when the Tariff in use sensor was
+added. Only the fresh snapshot gained them (both empty), and none of the 255 cases moved, because the
+coordinator fills them from the saved options and the engine never does. The report is pinned in
+tests/core/test_tariff_report.py.
+
 The cheap_run_remaining_minutes leaf was added for the Cheap from tile: 49 of the 255 cases gained
 it, and the fresh snapshot gained it as None. Nothing else moved.
 

@@ -24,6 +24,7 @@ from custom_components.givenergy_inverter_manager.const import (
 )
 from tests.dashboard_support import (
     FULL_CONFIG,
+    FakeRegistry,
     dashboard_dict,
     dashboard_text,
     devices_of,
@@ -67,8 +68,15 @@ def _tariff_section(view: dict) -> dict:
     return next(s for s in view["sections"] if s["cards"][0].get("heading") == "Tariff in use")
 
 
+def _without_the_report(config: dict) -> FakeRegistry:
+    """A registry with no Tariff in use sensor, so the view builds its own tables."""
+    devices = devices_of(config, "myenergi")
+    return FakeRegistry(enable_all=True, devices=devices, absent={"tariff_in_use"})
+
+
 def _tariff(config: dict) -> list[dict]:
-    view = next(v for v in dashboard_dict(config)["views"] if v["path"] == "tariff")
+    dashboard = dashboard_dict(config, _without_the_report(config))
+    view = next(v for v in dashboard["views"] if v["path"] == "tariff")
     return view_cards({"sections": [_tariff_section(view)]})
 
 
@@ -140,8 +148,9 @@ def test_the_tariff_in_use_is_untouched_by_a_change_ahead():
 
 
 def test_the_changes_sit_under_the_tariff_in_use_in_the_same_section():
-    config = dashboard_dict(_config(_change(_AHEAD)))
-    view = next(v for v in config["views"] if v["path"] == "tariff")
+    config = _config(_change(_AHEAD))
+    dashboard = dashboard_dict(config, _without_the_report(config))
+    view = next(v for v in dashboard["views"] if v["path"] == "tariff")
     section = _tariff_section(view)
     kinds = [(c["type"], c.get("heading")) for c in section["cards"]]
     assert kinds == [
@@ -197,7 +206,7 @@ def test_the_heading_is_a_subheading_under_the_tariff():
 def _tariff_view_seen(ev: bool, switch: bool, sensor: bool) -> dict:
     config, brand = install(ev=ev, switch=switch, sensor=sensor)
     config[CONF_TARIFF_CHANGES] = [_change(_AHEAD)]
-    generated = dashboard_dict(config, ev_brand=brand)
+    generated = dashboard_dict(config, _without_the_report(config), ev_brand=brand)
     shown = seen(generated, states_with(devices_of(config, brand)))
     view = next(v for v in shown["views"] if v["path"] == "tariff")
     return {"sections": [_tariff_section(view)]}
@@ -217,6 +226,7 @@ def test_the_tariff_section_is_the_same_for_every_combination_of_devices(combina
 
 
 def test_the_generated_file_holds_the_table():
-    text = dashboard_text(_config(_change(_AHEAD)))
+    config = _config(_change(_AHEAD))
+    text = dashboard_text(config, _without_the_report(config))
     assert HEADING in text
     assert f"| {_AHEAD.day} {_AHEAD:%b %Y} | Day €0.4000 |" in text

@@ -31,6 +31,7 @@ from tests.dashboard_support import (
     all_cards,
     dashboard_text,
     default_entity_ids,
+    devices_of,
     view_cards,
 )
 from tests.dashboard_visibility import seen_for, shown_text
@@ -1001,7 +1002,12 @@ class TestBillView:
         assert "Bill Prediction" not in titles
 
     def _tariff_markdown(self, config=None) -> str:
-        cards = _section_cards(_build(config=config), "tariff", "Tariff in use")
+        """The table the view builds itself, which it does when the Tariff in use sensor is off."""
+        shown = FULL_CONFIG if config is None else config
+        registry = FakeRegistry(
+            enable_all=True, devices=devices_of(shown, "myenergi"), absent={"tariff_in_use"}
+        )
+        cards = _section_cards(_build(config=config, registry=registry), "tariff", "Tariff in use")
         return next(c for c in cards if c["type"] == "markdown")["content"]
 
     def test_tariff_table_lists_base_rate_and_periods(self):

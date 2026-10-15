@@ -277,6 +277,9 @@ class CoordinatorData:
     current_rate: float = 0.0
     live_grid_cost_rate: float = 0.0  # €/hr, positive=spending, negative=earning
     currency_symbol: str = DEFAULT_CURRENCY_SYMBOL
+    # The rates in force, built from the saved options each cycle. See core/reporting.py.
+    tariff_report_state: str = ""
+    tariff_report_html: str = ""
     is_clipping: bool = False
     charge_decision: ChargeDecision | None = None
     charge_window: ChargeWindow | None = None

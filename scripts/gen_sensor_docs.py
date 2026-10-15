@@ -251,7 +251,9 @@ KEY_GROUPS: dict[str, str] = {
         "Solar forecast",
     ),
     **dict.fromkeys(("carbon_intensity", "carbon_intensity_status"), "Carbon intensity"),
-    **dict.fromkeys(("today_summary", "charge_plan", "week_summary"), "HTML reports"),
+    **dict.fromkeys(
+        ("today_summary", "charge_plan", "week_summary", "tariff_in_use"), "HTML reports"
+    ),
     **dict.fromkeys(
         (
             "dry_run_active",
@@ -564,6 +566,7 @@ DESCRIPTIONS: dict[str, str] = {
     "carbon_intensity_status": "Low (under 200), Medium (under 400) or High, in g CO2/kWh.",
     "today_summary": "Solar, import cost, immersion savings and self-sufficiency for today.",
     "charge_plan": "Tonight's target, the percentage to add and the cost, or Skip charge.",
+    "tariff_in_use": "The rates in force today in one line. The html attribute holds the tables.",
     "week_summary": "Solar, import cost and self-sufficiency for this week.",
     "dry_run_active": (
         "True when dry run mode is on. The `summary` attribute reads On or Off, "
