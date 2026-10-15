@@ -160,6 +160,16 @@
   "name": "Battery Years Remaining (est.)"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_bill_audit",
+  "key": "bill_audit",
+  "name": "Bill audit"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_bill_without_solar_or_battery",
+  "key": "bill_without_solar",
+  "name": "Bill Without Solar or Battery"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_charge_target_conflict",
   "key": "charge_target_conflict",
   "name": "Charge Target Conflict"
@@ -188,6 +198,21 @@
   "entity_id": "sensor.givenergy_inverter_manager_cheapest_tariff_rate",
   "key": "cheapest_rate",
   "name": "Cheapest Tariff Rate"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_cost_without_solar_or_battery_this_month",
+  "key": "cost_without_solar_this_month",
+  "name": "Cost Without Solar or Battery This Month"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_cost_without_solar_or_battery_this_week",
+  "key": "cost_without_solar_this_week",
+  "name": "Cost Without Solar or Battery This Week"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_cost_without_solar_or_battery_today",
+  "key": "cost_without_solar_today",
+  "name": "Cost Without Solar or Battery Today"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_current_rate",
@@ -648,6 +673,11 @@
   "entity_id": "sensor.givenergy_inverter_manager_overnight_charge_window",
   "key": "overnight_charge_window",
   "name": "Overnight Charge Window"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_previous_bill_audit",
+  "key": "previous_bill_audit",
+  "name": "Previous bill audit"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_projected_bill_this_period",

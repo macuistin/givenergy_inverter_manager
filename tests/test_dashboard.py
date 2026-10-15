@@ -1469,6 +1469,7 @@ class TestResponsiveLayout:
             ("power-flow", "Finish setting up"),
             ("today", "Today hour by hour"),
             ("plan", "Cost per day, last 31 days"),
+            ("plan", "Bill audit"),
         }
 
     def test_settings_is_three_sections_of_one_column_so_a_laptop_fills_every_column(self):

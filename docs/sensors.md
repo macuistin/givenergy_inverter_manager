@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 154 sensors. 103 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 160 sensors. 109 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches and numbers, see [Entities](entities.md).
 
@@ -95,6 +95,7 @@ Money sensors use the currency symbol you chose in the tariff. A cost, earning, 
 | EV Charging Cost Today | `zappi_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the EV charger, after the supplier discount and VAT. Standing charge and levy are not included, so it is higher than the EV energy times the bare rate by the discount and VAT factor. Created only with an EV charger. |
 | House Cost Today | `house_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the rest of the house, after the supplier discount and VAT. Includes grid energy stored in the battery. |
 | Net Financial Position Today | `net_position_today` | currency | monetary | total | day | no | Export earnings minus import cost. |
+| Cost Without Solar or Battery Today | `cost_without_solar_today` | currency | monetary | total | day | yes | What the house used would have cost from the grid at the rates in force when it was used, with the supplier discount and VAT, as Import Cost prices what was imported. |
 | Immersion Cost Today | `immersion_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the immersion, after the supplier discount and VAT. Created only with an immersion switch. |
 | Import cost at cheap rate | `import_cost_cheap_today` | currency | - | total | day | yes | Import cost while a timed rate period was active. |
 | Import cost at base rate | `import_cost_peak_today` | currency | - | total | day | yes | Import cost while no timed rate period was active, so at the base rate. With no timed rate period set, all import cost. |
@@ -122,6 +123,7 @@ Estimates for the current bill period. See [Tariff](tariff.md#bill-line-items).
 | Accrued Bill This Period | `accrued_bill` | currency | monetary | total | month | yes | Bill so far this period: energy less the supplier saving, standing charge and PSO levy, VAT, minus export earnings. |
 | Projected Bill This Period | `projected_bill` | currency | monetary | none | no | yes | Accrued bill spread over the whole bill period. |
 | Days Remaining in Bill Period | `days_remaining_in_period` | days | - | measurement | no | yes | Days left in the bill period after today. |
+| Bill Without Solar or Battery | `bill_without_solar` | currency | monetary | total | month | yes | The same bill for the same use with no solar and no battery: all the house used, at the rates in force when it was used, with the standing charge, PSO levy and VAT, and no export credit. Compare with Accrued Bill. |
 | Days Elapsed in Bill Period | `days_in_period` | days | - | measurement | no | no | Day of the bill period, 1 on the bill start day. |
 
 ## Battery
@@ -228,6 +230,7 @@ Resets at midnight on Monday. Reports `last_reset` as the start of the week.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
+| Cost Without Solar or Battery This Week | `cost_without_solar_this_week` | currency | monetary | total | week | yes | What the house used would have cost from the grid at the rates in force when it was used, with the supplier discount and VAT, as Import Cost prices what was imported. |
 | Solar generated this week | `solar_this_week` | kWh | energy | total | week | yes | - |
 | Grid import this week | `import_this_week` | kWh | energy | total | week | yes | - |
 | Grid export this week | `export_this_week` | kWh | energy | total | week | yes | - |
@@ -246,6 +249,7 @@ Resets at midnight on the bill start day chosen at setup. Reports `last_reset` a
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
+| Cost Without Solar or Battery This Month | `cost_without_solar_this_month` | currency | monetary | total | month | yes | What the house used would have cost from the grid at the rates in force when it was used, with the supplier discount and VAT, as Import Cost prices what was imported. |
 | Solar generated this month | `solar_this_month` | kWh | energy | total | month | yes | - |
 | Grid import this month | `import_this_month` | kWh | energy | total | month | yes | - |
 | Grid export this month | `export_this_month` | kWh | energy | total | month | yes | - |
@@ -283,6 +287,8 @@ The state is a one-line summary. The `html` attribute holds a styled report for 
 | Today's energy summary | `today_summary` | - | - | none | no | no | Solar, import cost, immersion savings and self-sufficiency for today. |
 | Tonight's charge plan | `charge_plan` | - | - | none | no | yes | Tonight's target, the percentage to add and the cost, or Skip charge. |
 | Tariff in use | `tariff_in_use` | - | - | none | no | yes | The rates in force today in one line. The html attribute holds the tables. |
+| Bill audit | `bill_audit` | - | - | none | no | yes | The bill period day by day, as a bill. The `html` attribute holds the tables and the bill beside the same bill with no solar or battery. |
+| Previous bill audit | `previous_bill_audit` | - | - | none | no | yes | The same for the bill period that ended last, from its archive. |
 | This week's energy summary | `week_summary` | - | - | none | no | no | Solar, import cost and self-sufficiency for this week. |
 
 ## Dry run and diagnostics

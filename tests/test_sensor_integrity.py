@@ -69,6 +69,7 @@ _PERIOD_KEYS = {
         "import_kwh_cheap_this_week",
         "import_kwh_peak_this_week",
         "immersion_savings_this_week",
+        "cost_without_solar_this_week",
     },
     "month": {
         "accrued_bill",
@@ -81,6 +82,8 @@ _PERIOD_KEYS = {
         "import_kwh_peak_this_month",
         "immersion_savings_this_month",
         "net_position_this_month",
+        "cost_without_solar_this_month",
+        "bill_without_solar",
     },
     "year": {"solar_this_year", "export_this_year", "export_earnings_this_year"},
 }

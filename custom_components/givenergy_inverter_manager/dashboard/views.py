@@ -978,11 +978,29 @@ class Builder:
             [
                 self.tile("accrued_bill", "Accrued bill", color=GRID),
                 self.tile("projected_bill", "Projected bill", color=GRID),
+                self.tile("bill_without_solar", "Without solar", color=GRID),
                 self.tile("import_cost_this_month", "Import cost", color=GRID),
                 self.tile("export_earnings_this_month", "Export credit", color=BATTERY),
                 self.tile("days_remaining_in_period", "Days left"),
                 self.tile("avg_import_rate_this_month", AVERAGE_RATE_NAME, color=GRID),
             ],
+        )
+
+    def _html_report(self, suffix: str) -> dict | None:
+        """A card that shows a report sensor's HTML. None while that sensor is missing."""
+        entity = self.entity(suffix)
+        return markdown_card(f"{{{{ state_attr('{entity}', 'html') }}}}") if entity else None
+
+    def _bill_audit(self) -> dict | None:
+        """The bill period day by day, as a bill, and the one before it.
+
+        The cards read the report sensors, so a copy of the dashboard pasted from the action
+        follows each day with no rebuild.
+        """
+        return group(
+            heading_card("Bill audit", "mdi:receipt-text-outline"),
+            [self._html_report("bill_audit"), self._html_report("previous_bill_audit")],
+            **WHOLE_WIDTH,
         )
 
     def _bill_cost_per_day(self) -> dict | None:
@@ -1163,7 +1181,7 @@ class Builder:
         )
 
     def plan_sections(self) -> list:
-        """Six sections: tonight, why, the battery, the bill, the cost per day, health.
+        """Seven sections: tonight, why, the battery, the bill, the cost per day, the audit, health.
 
         The tariff table is one tap away, on its own view.
         """
@@ -1173,6 +1191,7 @@ class Builder:
             self._battery_now(),
             self._bill(),
             self._bill_cost_per_day(),
+            self._bill_audit(),
             self._health(),
         ]
 

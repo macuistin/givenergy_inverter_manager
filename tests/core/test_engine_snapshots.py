@@ -43,6 +43,14 @@ added. Only the fresh snapshot gained them (both empty), and none of the 255 cas
 coordinator fills them from the saved options and the engine never does. The report is pinned in
 tests/core/test_tariff_report.py.
 
+The bill audit added the kWh imported and used in each rate period (import_kwh_by_period and
+house_kwh_by_period on the five accumulators), the bill without solar (bill_without_solar) and the
+four audit report fields. The fresh snapshot gained all of them. Every one of the 255 cases gained
+bill_without_solar, because every case works out a bill, and the cases that accumulated energy
+gained the per-period kWh: 114 of today's house use, 31 of today's import, with the week, month and
+year in proportion. No other leaf moved. The kWh are pinned in tests/core/test_period_kwh.py and
+the audit in tests/core/test_bill_audit.py.
+
 The cheap_run_remaining_minutes leaf was added for the Cheap from tile: 49 of the 255 cases gained
 it, and the fresh snapshot gained it as None. Nothing else moved.
 

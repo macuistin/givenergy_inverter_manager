@@ -280,6 +280,11 @@ class CoordinatorData:
     # The rates in force, built from the saved options each cycle. See core/reporting.py.
     tariff_report_state: str = ""
     tariff_report_html: str = ""
+    # The bill audit of this period and of the one before, built by the coordinator each cycle.
+    bill_audit_state: str = ""
+    bill_audit_html: str = ""
+    previous_bill_audit_state: str = ""
+    previous_bill_audit_html: str = ""
     is_clipping: bool = False
     charge_decision: ChargeDecision | None = None
     charge_window: ChargeWindow | None = None
@@ -314,6 +319,8 @@ class CoordinatorData:
     grid_to_battery_counter_available: bool = False
     battery_stats: BatteryStats = field(default_factory=BatteryStats)
     accrued_bill: float = 0.0
+    # The same bill for the same use with no solar and no battery, and no export credit.
+    bill_without_solar: float = 0.0
     projected_bill: float = 0.0
     days_in_period: int = 0
     days_remaining: int = 0
@@ -445,6 +452,9 @@ def _accumulate_import(acc: EnergyAccumulator, step: _Step) -> None:
     kwh = (step.raw.grid_power_w / 1000) * step.elapsed_h
     period_cost = step.tariff.calculate_import_cost(kwh, step.now)
     acc.import_kwh += kwh
+    acc.import_kwh_by_period[step.period_name] = (
+        acc.import_kwh_by_period.get(step.period_name, 0.0) + kwh
+    )
     acc.import_cost_by_period[step.period_name] = (
         acc.import_cost_by_period.get(step.period_name, 0.0) + period_cost
     )
@@ -494,6 +504,9 @@ def _accumulate_loads(acc: EnergyAccumulator, step: _Step) -> None:
     acc.immersion_kwh += (step.immersion_w / 1000) * step.elapsed_h
     house_step_kwh = (raw.house_load_w / 1000) * step.elapsed_h
     acc.house_kwh += house_step_kwh
+    acc.house_kwh_by_period[step.period_name] = (
+        acc.house_kwh_by_period.get(step.period_name, 0.0) + house_step_kwh
+    )
     acc.grid_equivalent_load_cost += step.tariff.calculate_import_cost(house_step_kwh, step.now)
 
 
@@ -1515,6 +1528,11 @@ def _set_bill_fields(data: CoordinatorData, cycle: _Cycle, accumulators: Accumul
         bill_acc.export_earnings,
     )
     data.accrued_bill = bill.total
+    data.bill_without_solar = tariff.calculate_bill(
+        tariff.energy_cost_from_import_cost(bill_acc.grid_equivalent_load_cost),
+        days_in,
+        period_days,
+    ).total
     data.projected_bill = bill.total / days_in * period_days if days_in > 0 else 0.0
     data.days_in_period = days_in
     data.days_remaining = days_remaining

@@ -68,6 +68,7 @@ from .const import (
     CONF_CHARGE_END_TIME_ENTITY,
     CONF_CHARGE_REPLAN,
     CONF_CHEAP_RATE_FLOOR_SOC,
+    CONF_CURRENCY,
     CONF_DRY_RUN,
     CONF_EXPORT_RATE,
     CONF_FORECAST_ENTITY,
@@ -84,12 +85,15 @@ from .const import (
     CONF_INVERTER_SERIAL,
     CONF_TARGET_SOC_ENTITY,
     CONF_TARIFF_REVIEWED_ON,
+    CURRENCIES,
     DEFAULT_ALT_HEAT_UNIT,
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_COST,
     DEFAULT_BATTERY_MIN_SOC,
     DEFAULT_CHARGE_REPLAN,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
+    DEFAULT_CURRENCY,
+    DEFAULT_CURRENCY_SYMBOL,
     DEFAULT_DRY_RUN,
     DEFAULT_IMMERSION_HYSTERESIS,
     DEFAULT_IMMERSION_MIN_TEMP,
@@ -107,6 +111,8 @@ from .const import (
 from .core.alt_heat_cost import heat_cost_per_kwh
 from .core.alt_heat_label import clean_label
 from .core.battery import BatteryStats, battery_cost_prompt_due
+from .core.bill_audit import RunningPeriod, current_period_audit, previous_period_audit
+from .core.bill_days import tariff_snapshot
 from .core.charge_hold import HeldCharge
 from .core.charge_retry import (
     Attempt,
@@ -706,7 +712,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         midnight = dt_util.as_local(now).replace(hour=0, minute=0, second=0, microsecond=0)
         self._last_reset_time = midnight.isoformat()
         self._floor_top_up_applied = False
-        self._acc.on_midnight(midnight)
+        finished = midnight.date() - timedelta(days=1)
+        # The saved options, not the merge that applies today's rates: a change that starts on
+        # the new day must not price the day that just ended.
+        saved = {**self.entry.data, **self.entry.options}
+        tariff = tariff_snapshot(tariff_in_force(saved, finished))
+        self._acc.on_midnight(midnight, tariff)
         self._register_charge_target_listener()
         self.hass.async_create_task(self._acc.async_save())
         self._last_update = None
@@ -1512,6 +1523,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._attach_stored_totals(data)
         data.tariff_report_state = build_tariff_state(cfg, now.date())
         data.tariff_report_html = build_tariff_html(cfg, now.date())
+        self._attach_bill_audit(data, cfg, now)
         data.charge_target_conflict = detect_conflict(
             data.register_write_log, cfg.get(CONF_TARGET_SOC_ENTITY), now
         )
@@ -1777,6 +1789,29 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         immersion_w = raw.immersion_wattage_w if raw.immersion_on else 0.0
         baseline_w = max(0.0, raw.house_load_w - immersion_w - raw.ev_power_w)
         self._acc.record_slot_load(now, slot, (baseline_w / 1000) * elapsed_h, elapsed_h)
+
+    def _attach_bill_audit(self, data: CoordinatorData, cfg: dict, now: datetime) -> None:
+        """Build the audit of this bill period and of the one before it."""
+        state = self._acc.state
+        tariff = build_tariff(tariff_in_force(cfg, now.date()))
+        symbol = CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), DEFAULT_CURRENCY_SYMBOL)
+        days_in = tariff.days_in_current_bill_period(now)
+        data.bill_audit_state, data.bill_audit_html = current_period_audit(
+            RunningPeriod(
+                state.bill_days,
+                state.month,
+                state.today,
+                now.date(),
+                tariff,
+                symbol,
+                days_in,
+                days_in + tariff.days_remaining_in_bill_period(now),
+            )
+        )
+        last = state.monthly_snapshots[-1] if state.monthly_snapshots else None
+        data.previous_bill_audit_state, data.previous_bill_audit_html = previous_period_audit(
+            last, tariff_snapshot(cfg), symbol
+        )
 
     def _attach_stored_totals(self, data: CoordinatorData) -> None:
         """Copy the period start times, write count and trailing totals onto the snapshot."""

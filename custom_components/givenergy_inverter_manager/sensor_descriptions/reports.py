@@ -37,6 +37,20 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         html_fn=lambda data: data.tariff_report_html,
     ),
     GivEnergyManagerSensorDescription(
+        key="bill_audit",
+        translation_key="bill_audit",
+        icon="mdi:receipt-text-outline",
+        value_fn=lambda data: data.bill_audit_state,
+        html_fn=lambda data: data.bill_audit_html,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="previous_bill_audit",
+        translation_key="previous_bill_audit",
+        icon="mdi:receipt-text-clock-outline",
+        value_fn=lambda data: data.previous_bill_audit_state,
+        html_fn=lambda data: data.previous_bill_audit_html,
+    ),
+    GivEnergyManagerSensorDescription(
         key="week_summary",
         translation_key="week_summary",
         icon="mdi:calendar-week-outline",

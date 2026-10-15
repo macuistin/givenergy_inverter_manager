@@ -169,6 +169,7 @@ KEY_GROUPS: dict[str, str] = {
             "saving_vs_grid_today",
             "net_saving_today",
             "net_position_today",
+            "cost_without_solar_today",
         ),
         "Cost and savings today",
     ),
@@ -184,7 +185,13 @@ KEY_GROUPS: dict[str, str] = {
         "Efficiency today",
     ),
     **dict.fromkeys(
-        ("accrued_bill", "projected_bill", "days_remaining_in_period", "days_in_period"),
+        (
+            "accrued_bill",
+            "projected_bill",
+            "bill_without_solar",
+            "days_remaining_in_period",
+            "days_in_period",
+        ),
         "Bill",
     ),
     **dict.fromkeys(
@@ -252,7 +259,15 @@ KEY_GROUPS: dict[str, str] = {
     ),
     **dict.fromkeys(("carbon_intensity", "carbon_intensity_status"), "Carbon intensity"),
     **dict.fromkeys(
-        ("today_summary", "charge_plan", "week_summary", "tariff_in_use"), "HTML reports"
+        (
+            "today_summary",
+            "charge_plan",
+            "week_summary",
+            "tariff_in_use",
+            "bill_audit",
+            "previous_bill_audit",
+        ),
+        "HTML reports",
     ),
     **dict.fromkeys(
         (
@@ -273,6 +288,11 @@ SUFFIX_GROUPS: tuple[tuple[str, str], ...] = (
     ("_this_month", "This month"),
     ("_this_year", "This year and trailing 12 months"),
     ("_trailing_12m", "This year and trailing 12 months"),
+)
+
+_WITHOUT_SOLAR = (
+    "What the house used would have cost from the grid at the rates in force when it was used, "
+    "with the supplier discount and VAT, as Import Cost prices what was imported."
 )
 
 DESCRIPTIONS: dict[str, str] = {
@@ -411,6 +431,19 @@ DESCRIPTIONS: dict[str, str] = {
         "VAT, minus export earnings."
     ),
     "projected_bill": "Accrued bill spread over the whole bill period.",
+    "bill_without_solar": (
+        "The same bill for the same use with no solar and no battery: all the house used, at the "
+        "rates in force when it was used, with the standing charge, PSO levy and VAT, and no "
+        "export credit. Compare with Accrued Bill."
+    ),
+    "cost_without_solar_today": _WITHOUT_SOLAR,
+    "cost_without_solar_this_week": _WITHOUT_SOLAR,
+    "cost_without_solar_this_month": _WITHOUT_SOLAR,
+    "bill_audit": (
+        "The bill period day by day, as a bill. The `html` attribute holds the tables and the "
+        "bill beside the same bill with no solar or battery."
+    ),
+    "previous_bill_audit": "The same for the bill period that ended last, from its archive.",
     "days_remaining_in_period": "Days left in the bill period after today.",
     "days_in_period": "Day of the bill period, 1 on the bill start day.",
     "battery_cycles": (

@@ -358,6 +358,10 @@ class EnergyAccumulator:
 
     # ── Cost attribution per rate period and load ─────────────────────────────
     import_cost_by_period: dict[str, float] = field(default_factory=dict)
+    # kWh imported, and kWh the house used, in each rate period. They are what the bill audit
+    # lists beside the cost, and are empty on a period that began before they were kept.
+    import_kwh_by_period: dict[str, float] = field(default_factory=dict)
+    house_kwh_by_period: dict[str, float] = field(default_factory=dict)
     export_earnings: float = 0.0
     zappi_cost: float = 0.0
     immersion_cost: float = 0.0  # import cost attributable to immersion heater

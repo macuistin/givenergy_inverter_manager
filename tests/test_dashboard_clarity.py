@@ -188,6 +188,7 @@ def test_the_plan_tab_does_not_depend_on_the_devices(combination):
         "Battery",
         "Bill",
         "Cost per day, last 31 days",
+        "Bill audit",
         "Health",
     ]
 
