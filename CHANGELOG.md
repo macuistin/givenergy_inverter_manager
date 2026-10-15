@@ -2,7 +2,7 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.19.6
 
 **Added**
 - A bill audit. The Plan & bill tab now has a **Bill audit** section that lays the running bill period out day by day, like a supplier bill: the kWh imported in each rate period and what they cost, the kWh exported and the credit, and the kWh the house used. Under the days is the bill, with the standing charge, PSO levy, VAT and export credit, beside the same bill with no solar and no battery, and the difference. The total is the Bill sensors' total. At midnight each finished day is added to the bill period's list, and at the end of the period the list is archived with that period's snapshot and the next starts empty. The first day of a period stores the tariff in force, and a later day stores it only when it changed, so a mid-bill change is recorded on its day and an archived period keeps the rates it was billed at. New sensors: **Bill audit** and **Previous bill audit** (the `html` attribute holds the tables), and **Cost Without Solar or Battery** for today, this week and this month and **Bill Without Solar or Battery**, which show what the house's use would have cost from the grid with no solar and no battery. Days before this update have no row, and the audit shows them as one "not itemised" line. See [Bill audit](docs/concepts.md#bill-audit-and-the-cost-without-solar-or-battery).
