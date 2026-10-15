@@ -234,7 +234,7 @@ class FakeCoordinator(GivEnergyCoordinator):
             def trailing_12m_export_earnings(self):
                 return round(sum(s.get("export_earnings", 0.0) for s in self.state.monthly_snapshots), 3)
 
-            def on_midnight(self, now):
+            def on_midnight(self, now, tariff=None):
                 self.state.yesterday = self.state.today
                 self.state.today = EnergyAccumulator()
                 if self.state.slot_load_date and self.state.slot_load_date < now.date().isoformat():

@@ -22,6 +22,7 @@ from . import (
     today,
     today_breakdown,
     week,
+    without_solar,
     yesterday,
 )
 from .base import GivEnergyManagerSensorDescription
@@ -31,6 +32,7 @@ SENSOR_DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
     *tariff.DESCRIPTIONS,
     *today.DESCRIPTIONS,
     *bill.DESCRIPTIONS,
+    *without_solar.DESCRIPTIONS,
     *battery.DESCRIPTIONS,
     *decisions.DESCRIPTIONS,
     *loads.DESCRIPTIONS,

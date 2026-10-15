@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 
 from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.alt_heat_schedule import ImmersionHeatLog
+from .core.bill_days import day_row, tariff_in_effect, with_day
 from .core.entity_refs import clean_remembered
 from .core.immersion_rate import keep_run
 from .core.rules import (
@@ -102,6 +103,8 @@ def _core_acc_fields(acc: EnergyAccumulator) -> dict:
         "import_cost_cheap": acc.import_cost_cheap,
         "import_cost_peak": acc.import_cost_peak,
         "import_cost_by_period": dict(acc.import_cost_by_period),
+        "import_kwh_by_period": dict(acc.import_kwh_by_period),
+        "house_kwh_by_period": dict(acc.house_kwh_by_period),
         "export_earnings": acc.export_earnings,
         "zappi_cost": acc.zappi_cost,
         "immersion_cost": acc.immersion_cost,
@@ -314,6 +317,11 @@ class AccumulationState:
     # Each entry is the full _acc_to_dict() output of state.month at reset.
     monthly_snapshots: list = field(default_factory=list)
 
+    # One row per finished day of the current bill period, oldest first. At the end of the period
+    # the rows go into that period's snapshot under "days" and this list starts again. See
+    # core/bill_days.py.
+    bill_days: list = field(default_factory=list)
+
     # Reset timestamps (ISO strings for JSON serialisation)
     week_start_iso: str = ""
     month_start_iso: str = ""
@@ -515,11 +523,16 @@ class AccumulationStore:
 
     # ── Event handlers ────────────────────────────────────────────────────────
 
-    def on_midnight(self, now: datetime) -> None:
+    def on_midnight(self, now: datetime, tariff: dict | None = None) -> None:
         """
         Handle midnight reset.
 
+        *tariff* is the tariff snapshot (core/bill_days.py) in force on the day that ended. A row
+        for that day goes into the bill period before anything is reset, so a day that ends on
+        the bill day is billed in the period it belongs to.
+
         Order of operations:
+          0. Add the finished day to the bill period
           1. Snapshot today → yesterday (before clearing today)
           2. Calculate forecast accuracy for the completed day
           3. Reset today accumulator
@@ -528,6 +541,7 @@ class AccumulationStore:
           6. Reset year accumulator on 1 January
         """
         today_date = now.date()
+        self._record_bill_day(today_date - timedelta(days=1), tariff)
         self.state.yesterday = self.state.today
         self._record_forecast_accuracy()
         self._record_forecast_ratio()
@@ -540,6 +554,21 @@ class AccumulationStore:
             self._reset_month(now)
         if today_date.month == 1 and today_date.day == 1:
             self._reset_year(now)
+
+    def _record_bill_day(self, day: date, tariff: dict | None) -> None:
+        """Add the finished day to the bill period. A day with nothing recorded is left out.
+
+        With no tariff given (a midnight replayed after a restart) the row takes the one in
+        force on the day before, and none when no row has recorded one.
+        """
+        if self.state.today == EnergyAccumulator():
+            return
+        known = tariff if tariff is not None else tariff_in_effect(self.state.bill_days)
+        row = day_row(self.state.today, day)
+        if known is None:
+            self.state.bill_days = [*self.state.bill_days, row]
+        else:
+            self.state.bill_days = with_day(self.state.bill_days, row, known)
 
     def _record_forecast_accuracy(self) -> None:
         """Forecast accuracy for the completed day, kept for the last seven days.
@@ -585,8 +614,15 @@ class AccumulationStore:
         self.state.monthly_export_snapshots = self.state.monthly_export_snapshots[-11:] + [
             round(self.state.month.export_kwh, 3)
         ]
-        full_snapshots = self.state.monthly_snapshots[-11:] + [_acc_to_dict(self.state.month)]
+        closing = {
+            **_acc_to_dict(self.state.month),
+            "days": list(self.state.bill_days),
+            "period_start": self.state.month_start_iso,
+            "period_end": (now.date() - timedelta(days=1)).isoformat(),
+        }
+        full_snapshots = self.state.monthly_snapshots[-11:] + [closing]
         self.state.monthly_snapshots = full_snapshots
+        self.state.bill_days = []
         self.state.month = EnergyAccumulator()
         self.state.month_start_iso = now.isoformat()
         _LOG.debug(
@@ -831,6 +867,7 @@ def _serialize_state(state: AccumulationState) -> dict:
         "immersion_heating_rates": list(state.immersion_heating_rates),
         "monthly_export_snapshots": list(state.monthly_export_snapshots),
         "monthly_snapshots": list(state.monthly_snapshots),
+        "bill_days": [dict(row) for row in state.bill_days],
     }
 
 
@@ -903,6 +940,9 @@ def _restore_period_history(state: AccumulationState, data: dict) -> None:
     state.monthly_snapshots = [
         dict(entry) for entry in data.get("monthly_snapshots", [])
         if isinstance(entry, dict)
+    ]
+    state.bill_days = [
+        dict(row) for row in data.get("bill_days", []) if isinstance(row, dict)
     ]
 
 

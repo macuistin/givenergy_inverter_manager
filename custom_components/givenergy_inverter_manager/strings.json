@@ -1058,6 +1058,24 @@
       "tariff_in_use": {
         "name": "Tariff in use"
       },
+      "cost_without_solar_today": {
+        "name": "Cost Without Solar or Battery Today"
+      },
+      "cost_without_solar_this_week": {
+        "name": "Cost Without Solar or Battery This Week"
+      },
+      "cost_without_solar_this_month": {
+        "name": "Cost Without Solar or Battery This Month"
+      },
+      "bill_without_solar": {
+        "name": "Bill Without Solar or Battery"
+      },
+      "bill_audit": {
+        "name": "Bill audit"
+      },
+      "previous_bill_audit": {
+        "name": "Previous bill audit"
+      },
       "week_summary": {
         "name": "This week's energy summary"
       },

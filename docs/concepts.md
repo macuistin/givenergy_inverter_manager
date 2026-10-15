@@ -317,6 +317,21 @@ Other brands get the signals and the base-rate alert only.
 
 Every cycle the grid import is priced at the current rate, after supplier discount and VAT, and split between the EV, the immersion and the rest of the house by their share of the house load. Import above the load went into the battery and stays in the rest of the house. Export earns the export rate. See [Tariff](tariff.md#bill-line-items).
 
+### Bill audit and the cost without solar or battery
+
+The **Bill audit** sensor lays the running bill period out like a supplier bill. Its `html` attribute holds two tables, shown by the Plan & bill tab:
+
+- **The days.** One row for each finished day, and one for today so far. Each row lists the kWh imported in each rate period, what that cost at the billed rates, the kWh exported and the credit, the kWh the house used, and the **Without** cost, which is what that use would have cost from the grid.
+- **The bill.** Energy at the rates, supplier discount, standing charge, PSO levy, VAT, export credit and the total, in three columns: as billed, with no solar or battery, and the saving.
+
+The total is the Bill sensors' total, because both come from the same period accumulator and the same bill sums. A day that was not recorded, such as one before this was added, shows as one "Earlier, not itemised" row that makes the rows add up to the period.
+
+**Without solar or battery** is the house's whole use, priced as it was used. It is not a guess. Every cycle the integration prices the house load at the rate in force at that moment, with the supplier discount and VAT, the way it prices what you import. The sensors **Cost Without Solar or Battery** (today, this week, this month) show that energy cost. **Bill Without Solar or Battery** adds the standing charge, PSO levy and VAT, takes off no export credit, and sits beside **Accrued Bill**.
+
+**How days are stored.** At midnight the day that ended is added to a list for the bill period. When the period ends, the list goes into that period's saved snapshot and the next period starts empty. The first day of a period also stores the tariff in force, and a later day stores it only when it changed, so a tariff that changes mid-bill is recorded on the day it changed and an old period keeps the rates it was billed at. The **Previous bill audit** sensor shows the last archived period. The integration keeps 12 periods.
+
+**What it does not do.** Each day's cost uses the rates in force that day. The standing charge, PSO levy, VAT and discount in the bill use the tariff in force now, as the Bill sensors do. When the tariff changed during a period, the audit says so.
+
 ### Saving and the energy in the battery
 
 **Saving vs Grid Today** is what the house load would have cost from the grid at the time it ran, minus what you paid (import cost minus export earnings). Energy bought to fill the battery is part of what you paid, but it only earns its keep when the battery gives it back. Counted alone, the saving reads negative after a cheap overnight charge and recovers through the day. So the saving also counts the energy the battery holds:
