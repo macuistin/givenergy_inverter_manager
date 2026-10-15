@@ -31,7 +31,7 @@ The dashboard needs its script to load in the browser. If a device keeps showing
 3. Go to **Settings → Dashboards → Add dashboard → New dashboard from scratch**, give it a name and open it.
 4. Choose the pencil, then the three dots, then **Raw configuration editor**. Replace what is there with the YAML and save.
 
-This copy is a plain dashboard, so it works on any device that can open a dashboard. It does not follow your devices or your tariff. Run the action again and paste again after you change either. The copy has a Settings view, because an administrator ran the action. To hide it from other people, delete the view with `path: settings` from the pasted text. See [Actions](actions.md#get_dashboard_yaml).
+This copy is a plain dashboard, so it works on any device that can open a dashboard. It does not follow your devices or your tariff. Run the action again and paste again after you change either. The copy has a Settings view, because an administrator ran the action. The view, and the Settings button on the Now tab, are already shown only to administrators, so leave both in place. If you delete the view, delete the button too, or it points nowhere. See [Actions](actions.md#get_dashboard_yaml).
 
 ### Keep it in a file instead
 
