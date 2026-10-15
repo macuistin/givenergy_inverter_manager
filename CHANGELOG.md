@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- The bill audit's imported kWh no longer disagrees with its cost on the day the integration is updated. The per-rate-period kWh began counting at the update, part way through that day, so a day could show 0.00 kWh at a rate beside a cost. Each day now shows its total imported kWh in bold, the part of it split by rate period, and a "not split" line for the rest.
+
 ## v0.19.6
 
 **Added**
