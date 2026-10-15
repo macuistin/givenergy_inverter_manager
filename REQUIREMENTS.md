@@ -144,7 +144,7 @@ Supported charger brands for monitoring: Zappi (myenergi), Wallbox, OCPP, Ohme, 
 
 ## Versions
 
-The current release is 0.19.6. What each release shipped is in [CHANGELOG.md](CHANGELOG.md). Planned work is in the same file, ranked as Must, Should, Could and Nice.
+The current release is 0.19.7. What each release shipped is in [CHANGELOG.md](CHANGELOG.md). Planned work is in the same file, ranked as Must, Should, Could and Nice.
 
 ---
 
