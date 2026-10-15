@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Added**
+- A new sensor, **Tariff in use**, holds the rates and charges in force today as a table, and the rate changes still to come, in its `html` attribute. It is built from your saved options each cycle. The Tariff view shows it with a markdown card, so a dashboard pasted from `get_dashboard_yaml` follows a tariff change with no rebuild. A dashboard built without the sensor keeps its own table. The state is one line of rates, such as `Day €0.3650 · Night €0.1800`. See [Sensors](docs/sensors.md).
+
 ## v0.19.5
 
 **Added**

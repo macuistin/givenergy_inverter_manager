@@ -144,6 +144,7 @@ from .core.replan import (
     decide_replan,
     replan_note,
 )
+from .core.reporting import build_tariff_html, build_tariff_state
 from .core.rules import monthly_solar_fractions
 from .core.seasons import season_rules
 from .core.setup_progress import SetupFacts, setup_items
@@ -1509,6 +1510,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             ),
         )
         self._attach_stored_totals(data)
+        data.tariff_report_state = build_tariff_state(cfg, now.date())
+        data.tariff_report_html = build_tariff_html(cfg, now.date())
         data.charge_target_conflict = detect_conflict(
             data.register_write_log, cfg.get(CONF_TARGET_SOC_ENTITY), now
         )

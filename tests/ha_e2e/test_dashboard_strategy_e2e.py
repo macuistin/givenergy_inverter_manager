@@ -16,6 +16,7 @@ from custom_components.givenergy_inverter_manager.strategy import (
     async_dashboard_for_websocket,
     strategy_module_url,
 )
+from tests.dashboard_support import default_entity_ids
 
 
 async def test_websocket_command_returns_the_dashboard(hass, loaded_entry, hass_ws_client):
@@ -69,8 +70,12 @@ async def test_websocket_command_sees_changed_options_without_regenerating(
 
     view = next(v for v in response["result"]["views"] if v["path"] == "tariff")
     tariff = next(s for s in view["sections"] if s["cards"][0].get("heading") == "Tariff in use")
-    table = next(c for c in tariff["cards"] if c["type"] == "markdown")["content"]
-    assert "€0.4321" in table
+    card = next(c for c in tariff["cards"] if c["type"] == "markdown")["content"]
+    report = default_entity_ids()["tariff_in_use"]
+    # The card reads the report sensor, which holds the new rate, so the card text never does.
+    assert report in card
+    assert "€0.4321" in hass.states.get(report).attributes["html"]
+    assert "0.4321" not in card
 
 
 async def test_strategy_file_is_served_and_added_to_the_frontend(

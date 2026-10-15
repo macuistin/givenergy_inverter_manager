@@ -51,7 +51,12 @@ class TestRatesSayPerKwh:
         assert {path for path, _ in _tiles_of(_IDS["avg_import_rate_this_month"])} == {"plan"}
 
     def test_the_tariff_table_gives_every_rate_per_kwh(self):
-        view = next(v for v in _views() if v["path"] == "tariff")
+        """The table the view builds itself, which it does when the Tariff in use sensor is off."""
+        registry = FakeRegistry(
+            enable_all=True, devices=devices_of(FULL_CONFIG, "myenergi"), absent={"tariff_in_use"}
+        )
+        views = yaml.safe_load(dashboard_text(FULL_CONFIG, registry))["views"]
+        view = next(v for v in views if v["path"] == "tariff")
         tariff = next(s for s in view["sections"] if s["cards"][0]["heading"] == "Tariff in use")
         table = next(c["content"] for c in tariff["cards"] if c["type"] == "markdown")
         header = table.splitlines()[0]

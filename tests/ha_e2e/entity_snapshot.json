@@ -790,6 +790,11 @@
   "name": "Solar vs provider forecast"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_tariff_in_use",
+  "key": "tariff_in_use",
+  "name": "Tariff in use"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_this_week_s_energy_summary",
   "key": "week_summary",
   "name": "This week's energy summary"

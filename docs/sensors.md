@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 153 sensors. 102 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 154 sensors. 103 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches and numbers, see [Entities](entities.md).
 
@@ -282,6 +282,7 @@ The state is a one-line summary. The `html` attribute holds a styled report for 
 |---|---|---|---|---|---|---|---|
 | Today's energy summary | `today_summary` | - | - | none | no | no | Solar, import cost, immersion savings and self-sufficiency for today. |
 | Tonight's charge plan | `charge_plan` | - | - | none | no | yes | Tonight's target, the percentage to add and the cost, or Skip charge. |
+| Tariff in use | `tariff_in_use` | - | - | none | no | yes | The rates in force today in one line. The html attribute holds the tables. |
 | This week's energy summary | `week_summary` | - | - | none | no | no | Solar, import cost and self-sufficiency for this week. |
 
 ## Dry run and diagnostics

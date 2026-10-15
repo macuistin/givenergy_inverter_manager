@@ -19,8 +19,19 @@ notification triggers.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import date
+from html import escape
+from typing import TYPE_CHECKING, Any
 
+from ..const import CONF_CURRENCY, CURRENCIES, DEFAULT_CURRENCY, DEFAULT_CURRENCY_SYMBOL
+from .tariff import (
+    TariffChange,
+    TariffConfig,
+    build_tariff,
+    last_tariff_review,
+    scheduled_tariff_changes,
+    tariff_in_force,
+)
 from .text_state import fit_state
 
 if TYPE_CHECKING:
@@ -265,6 +276,113 @@ def build_charge_plan_state(data: "CoordinatorData") -> str:
         f"Add {max(0, cd.target_soc - cd.current_soc):.0f}% · "
         f"Cost {sym}{cd.cost_to_charge:.2f}"
     ).state
+
+
+# ── Tariff in use ─────────────────────────────────────────────────────────────
+
+_TD = "padding:5px 8px;vertical-align:top;"
+_TD_RIGHT = _TD + "text-align:right;font-weight:600;"
+_TH = (
+    "padding:5px 8px;text-align:left;font-size:11px;font-weight:700;"
+    "text-transform:uppercase;letter-spacing:0.08em;color:var(--secondary-text-color);"
+)
+
+
+def _symbol(cfg: dict[str, Any]) -> str:
+    return CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), DEFAULT_CURRENCY_SYMBOL)
+
+
+def _day_in_words(day: date) -> str:
+    return f"{day.day} {day:%b %Y}"
+
+
+def _grid(headers: list[str], rows: list[list[str]]) -> str:
+    """A table whose last columns are right-aligned numbers."""
+    last = len(headers) - 1
+    head = "".join(
+        f'<th style="{_TH}{"text-align:right;" if i >= last - 1 and last > 1 else ""}">{h}</th>'
+        for i, h in enumerate(headers)
+    )
+    body = "".join(
+        f'<tr style="{_S["tr_mid"]}">'
+        + "".join(
+            f'<td style="{_TD_RIGHT if i >= last - 1 and last > 1 else _TD}">{cell}</td>'
+            for i, cell in enumerate(row)
+        )
+        + "</tr>"
+        for row in rows
+    )
+    return f'<table style="{_S["table"]}"><tr>{head}</tr>{body}</table>'
+
+
+def _rate_rows(tariff: TariffConfig, symbol: str) -> list[list[str]]:
+    billed = (1 - tariff.discount_rate / 100) * (1 + tariff.vat_rate / 100)
+    rows = [[escape(tariff.base_rate_name), "all other times", tariff.base_rate]]
+    rows += [
+        [escape(p.name), f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate] for p in tariff.rate_periods
+    ]
+    return [[n, w, f"{symbol}{r:.4f}", f"{symbol}{r * billed:.4f}"] for n, w, r in rows]
+
+
+def _other_charge_rows(tariff: TariffConfig, symbol: str) -> list[list[str]]:
+    return [
+        ["Export rate", f"{symbol}{tariff.export_rate:.4f} per kWh"],
+        ["Standing charge", f"{symbol}{tariff.standing_charge:.4f} per day"],
+        ["PSO levy", f"{symbol}{tariff.pso_levy:.2f} per bill period"],
+        ["Bill starts on day", str(tariff.bill_start_day)],
+    ]
+
+
+def _change_row(change: TariffChange, cfg: dict[str, Any], symbol: str) -> list[str]:
+    rates = build_tariff({**cfg, **change.rates})
+    timed = "<br>".join(
+        f"{escape(p.name)} {p.start:%H:%M} to {p.end:%H:%M} {symbol}{p.rate:.4f}"
+        for p in rates.rate_periods
+    )
+    base = f"{escape(rates.base_rate_name)} {symbol}{rates.base_rate:.4f}"
+    export = f"{symbol}{rates.export_rate:.4f}"
+    return [_day_in_words(change.effective), base, timed or "none", export]
+
+
+def build_tariff_html(cfg: dict[str, Any], today: date) -> str:
+    """The tariff in force today, the other charges and the rate changes still to come.
+
+    Built from the saved options each cycle, so a card that shows it follows a tariff change
+    with no rebuild of the dashboard.
+    """
+    symbol = _symbol(cfg)
+    tariff = build_tariff(tariff_in_force(cfg, today))
+    parts = [
+        f'<div style="{_S["section"]}">Tariff in use</div>',
+        _grid(["Period", "Window", "Rate per kWh", "Billed per kWh"], _rate_rows(tariff, symbol)),
+        f'<div style="{_S["detail"]}">Billed per kWh is the rate less the '
+        f"{tariff.discount_rate:g}% discount, plus {tariff.vat_rate:g}% VAT. "
+        "Where periods overlap, the cheapest applies.</div>",
+        _grid(["Other charge", "Value"], _other_charge_rows(tariff, symbol)),
+    ]
+    if changes := scheduled_tariff_changes(cfg, today):
+        parts += [
+            f'<div style="{_S["section"]}">Scheduled rate changes</div>',
+            _grid(
+                ["From", "Base rate", "Timed rates", "Export rate per kWh"],
+                [_change_row(change, cfg, symbol) for change in changes],
+            ),
+            f'<div style="{_S["detail"]}">A change replaces the base rate, the timed rates '
+            "and the export rate from its date. The other charges stay as above.</div>",
+        ]
+    if reviewed := last_tariff_review(cfg):
+        when = _day_in_words(reviewed)
+        parts.append(f'<div style="{_S["detail"]}">Tariff last reviewed on {when}.</div>')
+    return "".join(parts)
+
+
+def build_tariff_state(cfg: dict[str, Any], today: date) -> str:
+    """The rates in force in one line, such as `Day 0.3650 · Night 0.1800`."""
+    symbol = _symbol(cfg)
+    tariff = build_tariff(tariff_in_force(cfg, today))
+    rates = [(tariff.base_rate_name, tariff.base_rate)]
+    rates += [(p.name, p.rate) for p in tariff.rate_periods]
+    return fit_state(" · ".join(f"{name} {symbol}{rate:.4f}" for name, rate in rates)).state
 
 
 # ── Weekly summary ────────────────────────────────────────────────────────────

@@ -136,6 +136,7 @@
       "forecast_accuracy_7day_avg_pct": {"default": "mdi:bullseye-arrow"},
       "today_summary": {"default": "mdi:text-box-outline"},
       "charge_plan": {"default": "mdi:battery-charging-80"},
+      "tariff_in_use": {"default": "mdi:table"},
       "week_summary": {"default": "mdi:text-box-outline"},
       "battery_power": {"default": "mdi:battery-charging"},
       "immersion_power": {"default": "mdi:water-boiler"},

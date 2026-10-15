@@ -140,7 +140,7 @@ get_dashboard_yaml:
     as a fallback when the GivEnergy dashboard shows "Timeout waiting for strategy element". Copy
     the `yaml` value into a new dashboard's raw configuration editor, or turn on Write file and
     point a YAML dashboard at `givenergy_dashboard.yaml` in the configuration folder. Run it
-    again after you change the tariff or the devices, because a copy does not update itself. The
+    again after you add or remove a device, because a copy does not update itself. The Tariff view follows your tariff. The
     Settings view is included only when an administrator runs the action.
   fields:
     write_file:
