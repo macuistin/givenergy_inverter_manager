@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 160 sensors. 109 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 161 sensors. 110 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches and numbers, see [Entities](entities.md).
 
@@ -180,6 +180,7 @@ These sensors exist only while a supported charger is discovered, and appear whe
 | EV Charger State | `ev_charger_state` | - | - | none | no | yes | disconnected, connected, charging, paused, boosting, completed or unknown. Charging and boosting need the charger to be drawing power. Created only with an EV charger. EV charger needed. |
 | EV Charging Power | `ev_power` | W | power | measurement | no | yes | EV charger power. Created only with an EV charger. EV charger needed. |
 | EV Session Energy | `ev_session_energy` | kWh | energy | total_increasing | no | yes | Energy of the current session, as reported by the charger. Created only with an EV charger. EV charger needed. |
+| EV Session Cost | `ev_session_cost` | currency | monetary | none | no | yes | Cost of the current charging session, or of the last one while the car is unplugged. A session runs from plug-in to unplug and keeps counting across midnight. Each step is priced as EV Charging Cost Today prices it, so solar that reached the car costs nothing. Attributes: `session_energy_kwh`, `started`, `ended` (empty while charging), `recent_sessions` (the last 10 finished sessions, newest first) and `recent_table` (the same as a markdown table). Created only with an EV charger. EV charger needed. |
 | EV km Charged Today | `ev_km_charged_today` | km | - | total | day | no | EV energy today divided by car efficiency. Empty with no EV energy. Created only with an EV charger. |
 | EV Cost per km Today | `ev_cost_per_km_today` | currency | - | measurement | no | no | EV cost today divided by km charged. Created only with an EV charger. |
 | EV Draining Battery | `ev_draining_battery` | - | - | none | no | yes | yes while the charger is charging, drawing power, and the battery discharges over 200 W. Created only with an EV charger. EV charger needed. Diagnostic category. |

@@ -35,6 +35,9 @@ UNRECORDED: dict[str, set[str]] = {
     "html": set(),  # report sensors, through html_fn
     "full_text": set(),  # any sentence sensor whose state was cut
     "recent_writes": {"register_write_count"},
+    "session_energy_kwh": {"ev_session_cost"},
+    "recent_sessions": {"ev_session_cost"},
+    "recent_table": {"ev_session_cost"},
     "battery_soc": {"night_survival_confidence"},
     "estimated_soc_at_sunrise": {"night_survival_confidence"},
     "minimum_soc": {"night_survival_confidence"},
@@ -80,6 +83,8 @@ RECORDED = {
     "target_entity",
     "stored_energy_value",
     "items",  # the setup checklist: it changes when a setup step is done, and rarely otherwise
+    "started",  # EV session cost: changes once a session
+    "ended",
 }
 
 

@@ -9,6 +9,7 @@ table and references these functions by name.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from .const import (
@@ -22,6 +23,7 @@ from .core.alt_heat_advice import WaterHeatingAdvice
 from .core.alt_heat_schedule import AltHeatSchedule
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
+from .core.ev_session import EVSession, EVSessionLog, recent_table
 from .core.setup_progress import setup_state
 from .core.tariff import EnergyAccumulator
 from .core.write_log import newest_first
@@ -581,3 +583,42 @@ def solar_actual_vs_forecast_pct(data: CoordinatorData) -> float | None:
     if forecast is None:
         return None
     return _percentage(data.today.solar_kwh, forecast, 1)
+
+
+def _ev_session_log(data: CoordinatorData) -> EVSessionLog:
+    return data.ev_sessions if data.ev_sessions is not None else EVSessionLog()
+
+
+def ev_session_cost(data: CoordinatorData) -> float | None:
+    """The cost of the running EV session, else of the last one, None before the first."""
+    session = _ev_session_log(data).latest
+    return round(session.cost, 4) if session is not None else None
+
+
+def _iso_or_none(moment: datetime | None) -> str | None:
+    return moment.isoformat() if moment is not None else None
+
+
+def _session_row(session: EVSession) -> dict[str, Any]:
+    return {
+        "start": session.start.isoformat(),
+        "end": _iso_or_none(session.end),
+        "energy_kwh": round(session.energy_kwh, 3),
+        "cost": round(session.cost, 4),
+        "per_kwh": _round_or_none(session.per_kwh, 4),
+        # The integration does not split the car's energy by source, so no solar share is known.
+        "solar_kwh": None,
+    }
+
+
+def ev_session_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """The session the state shows, and the finished sessions newest first with their table."""
+    log = _ev_session_log(data)
+    session = log.latest
+    return {
+        "session_energy_kwh": round(session.energy_kwh, 3) if session is not None else None,
+        "started": _iso_or_none(session.start if session is not None else None),
+        "ended": _iso_or_none(session.end if session is not None else None),
+        "recent_sessions": [_session_row(s) for s in log.recent],
+        "recent_table": recent_table(log.recent, data.currency_symbol),
+    }

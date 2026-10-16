@@ -444,6 +444,7 @@ COUNTER_RISE_FLOOR_KWH = 0.5
 COUNTER_UNIT_CHANGE_RATIO = 500
 COUNTER_UNIT_CHANGE_MIN_KWH = 1.0  # below this the old value is too small to compare against
 REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept in the write log
+EV_RECENT_SESSIONS_MAX = 10  # finished EV charging sessions kept for the recent charges table
 # How long a running element stays on while a required sensor is unavailable.
 # Same value as the write interval, but a separate setting.
 SENSOR_OUTAGE_HOLD_LIMIT_S = 300

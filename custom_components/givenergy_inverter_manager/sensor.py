@@ -60,6 +60,10 @@ _UNRECORDED_ATTRIBUTES = frozenset(
         ATTR_FULL_TEXT,
         # Charge register writes and outside changes, newest first.
         "recent_writes",
+        # EV session cost: the running session's energy and the finished sessions with their table.
+        "session_energy_kwh",
+        "recent_sessions",
+        "recent_table",
         # Night survival: the live numbers behind the level.
         "battery_soc",
         "estimated_soc_at_sunrise",

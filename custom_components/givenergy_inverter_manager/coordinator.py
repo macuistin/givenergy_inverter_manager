@@ -136,6 +136,7 @@ from .core.engine import (
 )
 from .core.entity_refs import Registry, resolve
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
+from .core.ev_session import EVSession
 from .core.givtcp_version import FIXED_IN_VERSION, resets_entity_ids
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
@@ -1484,6 +1485,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._require_inverter_publishing(cfg)
         now = self._now()
         raw = self._read_inputs(cfg, now)
+        ev_session_before = self._acc.ev_sessions.current
         data, ev_target_mode = build_coordinator_data(
             CycleInputs(
                 raw=raw,
@@ -1505,6 +1507,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 last_reset_time=self._last_reset_time,
                 counters=self._acc.counters,
                 heat_log=self._acc.immersion_heat_log,
+                ev_sessions=self._acc.ev_sessions,
             ),
             PreviousCycle(
                 battery_stats=self._battery_stats,
@@ -1528,6 +1531,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 today_raw_forecast_shape=self._acc.today_raw_forecast_shape,
             ),
         )
+        self._save_when_ev_session_changed(ev_session_before)
         self._attach_stored_totals(data)
         data.tariff_report_state = build_tariff_state(cfg, now.date())
         data.tariff_report_html = build_tariff_html(cfg, now.date())
@@ -1843,6 +1847,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         data.previous_bill_audit_state, data.previous_bill_audit_html = previous_period_audit(
             last, tariff_snapshot(cfg), symbol
         )
+
+    def _save_when_ev_session_changed(self, before: EVSession | None) -> None:
+        """Queue a save when a charging session started or ended, so a crash cannot lose it."""
+        if self._acc.ev_sessions.current is not before:
+            self._acc.schedule_save()
 
     def _attach_stored_totals(self, data: CoordinatorData) -> None:
         """Copy the period start times, write count and trailing totals onto the snapshot."""

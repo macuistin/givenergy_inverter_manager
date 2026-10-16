@@ -143,6 +143,10 @@ without a day-after forecast sensor. Only charge_decision and published_charge_d
 a case made before 08:00 that read the tomorrow sensor as the day after: its target went from 87
 to 100. The behaviour is pinned in tests/core/test_forecast_day.py and
 tests/core/test_midnight_charge_replay.py.
+
+The ev_sessions leaf was added for the EV Session Cost sensor. The fresh snapshot gained it as
+None. No case moved, because none passes an EV session log. The behaviour is pinned in
+tests/core/test_ev_session.py and tests/core/test_ev_session_engine.py.
 """
 
 from __future__ import annotations

@@ -238,6 +238,7 @@ KEY_GROUPS: dict[str, str] = {
             "ev_charger_state",
             "ev_power",
             "ev_session_energy",
+            "ev_session_cost",
             "ev_km_charged_today",
             "ev_cost_per_km_today",
             "ev_draining_battery",
@@ -570,6 +571,14 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "ev_power": "EV charger power.",
     "ev_session_energy": "Energy of the current session, as reported by the charger.",
+    "ev_session_cost": (
+        "Cost of the current charging session, or of the last one while the car is unplugged. "
+        "A session runs from plug-in to unplug and keeps counting across midnight. Each step is "
+        "priced as EV Charging Cost Today prices it, so solar that reached the car costs nothing. "
+        "Attributes: `session_energy_kwh`, `started`, `ended` (empty while charging), "
+        "`recent_sessions` (the last 10 finished sessions, newest first) and `recent_table` "
+        "(the same as a markdown table)."
+    ),
     "ev_km_charged_today": "EV energy today divided by car efficiency. Empty with no EV energy.",
     "ev_cost_per_km_today": "EV cost today divided by km charged.",
     "ev_draining_battery": (

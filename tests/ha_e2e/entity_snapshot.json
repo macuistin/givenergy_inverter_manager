@@ -305,6 +305,11 @@
   "name": "EV Mode Decision"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_ev_session_cost",
+  "key": "ev_session_cost",
+  "name": "EV Session Cost"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_ev_session_energy",
   "key": "ev_session_energy",
   "name": "EV Session Energy"

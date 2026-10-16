@@ -111,6 +111,7 @@ from .charge_window import (
 )
 from .controller_conflict import ConflictStatus
 from .counter_guard import screen
+from .ev_session import EVSessionLog, EVSessionStep, track_session
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
 from .planned_heating import PlanQuery, describe_planned_heating
@@ -379,6 +380,8 @@ class CoordinatorData:
     immersion_configured: bool = True
     ev_charging_source: str = "Not charging"
     ev_solar_surplus_available: bool = False
+    # The running EV session and the last finished ones. None without a charger or a stored log.
+    ev_sessions: EVSessionLog | None = None
     dry_run: bool = False
     # True while the test instance marker file exists. Set by the coordinator, which owns the file.
     test_instance: bool = False
@@ -796,6 +799,39 @@ def _process_ev_charger(
 
 
 @dataclass(frozen=True)
+class _EVTotals:
+    """Today's EV energy and EV cost at one moment of the cycle."""
+
+    energy_kwh: float
+    cost: float
+
+    @classmethod
+    def of(cls, today: EnergyAccumulator) -> _EVTotals:
+        return cls(today.zappi_kwh, today.zappi_cost)
+
+    def step_since(
+        self, before: _EVTotals, charger_state: EVChargerState, now: datetime
+    ) -> EVSessionStep:
+        """The EV energy and cost today's totals counted since *before*, as a session step."""
+        return EVSessionStep(
+            now=now,
+            charger_state=charger_state,
+            energy_kwh=self.energy_kwh - before.energy_kwh,
+            cost=self.cost - before.cost,
+        )
+
+
+def _track_ev_session(
+    data: CoordinatorData, log: EVSessionLog | None, step: EVSessionStep
+) -> None:
+    """Add the cycle to the EV session log, when the coordinator passed one."""
+    if log is None:
+        return
+    track_session(log, step)
+    data.ev_sessions = log
+
+
+@dataclass(frozen=True)
 class Accumulators:
     """The running energy accumulators, plus when today's was last reset.
 
@@ -811,6 +847,7 @@ class Accumulators:
     last_reset_time: str = ""
     counters: CounterMemory = field(default_factory=CounterMemory)
     heat_log: ImmersionHeatLog | None = None
+    ev_sessions: EVSessionLog | None = None
 
     def rolling(self) -> tuple[EnergyAccumulator, ...]:
         """The accumulators that integrate live power, today's first. Yesterday is a record."""
@@ -1720,6 +1757,7 @@ def build_coordinator_data(
     cycle = _start_cycle(inputs, forecast, now, previous.held_solar)
     _set_tariff_fields(data, cycle)
     _set_battery_stats(data, cycle, previous)
+    ev_before = _EVTotals.of(accumulators.today)
     _accumulate_energy_today(data, cycle, accumulators, previous.last_update_time)
     avg_daily_kwh = estimate_avg_daily_kwh(_baseline_house_kwh(data.today), now)
 
@@ -1732,4 +1770,7 @@ def build_coordinator_data(
 
     if inputs.ev_charger is None:
         return data, None
-    return data, _process_ev_charger(data, inputs.ev_charger, inputs.raw)
+    ev_target_mode = _process_ev_charger(data, inputs.ev_charger, inputs.raw)
+    step = _EVTotals.of(accumulators.today).step_since(ev_before, inputs.ev_charger.state, now)
+    _track_ev_session(data, accumulators.ev_sessions, step)
+    return data, ev_target_mode

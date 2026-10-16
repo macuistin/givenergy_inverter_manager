@@ -993,3 +993,83 @@ class TestChargeTargetConflict:
 
     def test_no_attribute_is_called_entity_id(self):
         assert "entity_id" not in _BY_KEY["charge_target_conflict"].attrs_fn(CoordinatorData())
+
+
+class TestEvSessionCostSensor:
+    """EV Session Cost: a money value with no state class, for the charger only."""
+
+    @staticmethod
+    def _data_with_sessions():
+        from custom_components.givenergy_inverter_manager.core.ev_session import (
+            EVSession,
+            EVSessionLog,
+        )
+
+        finished = EVSession(
+            start=datetime(2031, 10, 15, 23, 10, tzinfo=timezone.utc),
+            end=datetime(2031, 10, 16, 6, 40, tzinfo=timezone.utc),
+            energy_kwh=31.6,
+            cost=3.43,
+        )
+        data = CoordinatorData()
+        data.currency_symbol = "€"
+        data.ev_sessions = EVSessionLog(recent=[finished])
+        return data, finished
+
+    def test_metadata(self):
+        from custom_components.givenergy_inverter_manager.core.devices import Device
+        from custom_components.givenergy_inverter_manager.sensor_descriptions.base import (
+            CURRENCY_UNIT,
+        )
+
+        description = _BY_KEY["ev_session_cost"]
+        assert description.device_class is SensorDeviceClass.MONETARY
+        assert description.native_unit_of_measurement == CURRENCY_UNIT
+        assert description.state_class is None
+        assert description.requires is Device.EV_CHARGER
+        assert not description.is_daily_total
+
+    def test_no_session_yet_reads_unknown(self):
+        description = _BY_KEY["ev_session_cost"]
+        data = CoordinatorData()
+        assert description.value_fn(data) is None
+        attrs = description.attrs_fn(data)
+        assert attrs["recent_sessions"] == []
+        assert attrs["recent_table"] == "No finished charges yet."
+        assert attrs["started"] is None
+        assert attrs["ended"] is None
+
+    def test_unplugged_shows_the_last_session(self):
+        description = _BY_KEY["ev_session_cost"]
+        data, finished = self._data_with_sessions()
+        assert description.value_fn(data) == pytest.approx(3.43)
+        attrs = description.attrs_fn(data)
+        assert attrs["session_energy_kwh"] == pytest.approx(31.6)
+        assert attrs["started"] == "2031-10-15T23:10:00+00:00"
+        assert attrs["ended"] == "2031-10-16T06:40:00+00:00"
+        assert attrs["recent_sessions"] == [
+            {
+                "start": "2031-10-15T23:10:00+00:00",
+                "end": "2031-10-16T06:40:00+00:00",
+                "energy_kwh": 31.6,
+                "cost": 3.43,
+                "per_kwh": 0.1085,
+                "solar_kwh": None,
+            }
+        ]
+        assert "| 15 Oct, 23:10 to 06:40 | 31.6 kWh | €3.43 | €0.109 |" in attrs["recent_table"]
+
+    def test_a_running_session_shows_itself_with_no_end(self):
+        from custom_components.givenergy_inverter_manager.core.ev_session import EVSession
+
+        description = _BY_KEY["ev_session_cost"]
+        data, _ = self._data_with_sessions()
+        running = EVSession(
+            start=datetime(2031, 10, 17, 22, 0, tzinfo=timezone.utc), energy_kwh=2.0, cost=0.25
+        )
+        data.ev_sessions.current = running
+        assert description.value_fn(data) == pytest.approx(0.25)
+        attrs = description.attrs_fn(data)
+        assert attrs["ended"] is None
+        assert attrs["session_energy_kwh"] == pytest.approx(2.0)
+        assert len(attrs["recent_sessions"]) == 1

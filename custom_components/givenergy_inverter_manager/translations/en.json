@@ -820,6 +820,9 @@
       "ev_session_energy": {
         "name": "EV Session Energy"
       },
+      "ev_session_cost": {
+        "name": "EV Session Cost"
+      },
       "ev_km_charged_today": {
         "name": "EV km Charged Today"
       },

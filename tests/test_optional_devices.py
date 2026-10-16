@@ -45,6 +45,7 @@ class TestWhatNeedsWhat:
             "ev_charger_state",
             "ev_power",
             "ev_session_energy",
+            "ev_session_cost",
             "ev_km_charged_today",
             "ev_cost_per_km_today",
             "ev_draining_battery",
