@@ -1040,7 +1040,7 @@ class Builder:
         return day_bars(
             [
                 self.row(self.entity("import_cost_today"), "You paid", COST_HEX),
-                self.row(self.entity("bill_without_solar"), "Would have paid", SOLAR_HEX),
+                self.row(self.entity("cost_without_solar_today"), "Would have paid", SOLAR_HEX),
             ],
             14,
             4,
