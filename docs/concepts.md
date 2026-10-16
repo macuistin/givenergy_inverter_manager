@@ -263,6 +263,26 @@ The words say so once, where the figures are quoted. The sentence `The battery i
 
 The integration only reads the pause. It never writes it, with or without dry run. A temporary pause started from GivTCP's temporary pause controls is not read. The estimates do not model a stopped charge. Instead, when the mode is `PauseCharge` or `PauseBoth` and its window covers part of tonight's planned charge window, the inverter will not charge there, and the repair **The battery pause stops tonight's charge** says so (see [The battery pause stops the charge](troubleshooting.md#the-battery-pause-stops-the-charge)). To let the battery serve the house at night or charge in the cheap window, change the mode in GivTCP.
 
+### Tomorrow's outlook
+
+The **Tomorrow Outlook** sensor estimates what the solar day the charge plan is for should cost. That is the same day the plan uses: tomorrow until midnight, and today from midnight to 08:00.
+
+It runs the plan's own simulation of that day in 48 half-hour slots, with the same forecast (after the accuracy correction and the P10 blend), solar shape, load and battery pause. The battery starts at the level tonight's charge leaves: the target, or the level now on a skipped night or when the battery is already above the target. In each slot:
+
+- When solar and the battery cannot cover the load, the grid covers the rest. The battery stops at the minimum SoC, and in a paused slot the grid covers the whole shortfall.
+- When the battery is full, the solar it cannot take goes to the grid.
+
+Each slot's import is priced at the rate in force at the start of that half hour, after discount and VAT, with the tariff in force on that day, so a dated tariff change counts. Export earns the export rate. Tonight's charge is the **Estimated Overnight Charge Cost** figure.
+
+The state is the import cost plus the charge cost, less the export credit. The attributes hold each line in kWh and money, the battery level at the end of the day and the lowest it reaches, the forecast used, a `basis` sentence that names the forecast source and the load, and a `table` for the dashboard. For example, 2.0 kWh from the grid for €0.60 and 10.0 kWh to the grid for €2.00, with no charge, is a day that earns €1.40. The state is then -1.40 and the table shows `‑€1.40`.
+
+It is an estimate from the plan's model, not a bill:
+
+- The battery starts the day at tonight's level, takes or gives any power the slot needs, and a charge pause is not modelled.
+- The load is the plan's average daily load, without the EV charger and the immersion heater, so solar they would take counts as export. Early in the day the average is a rough guess.
+- The standing charge and the levy are left out, and the charge cost is before discount and VAT, as on its own sensor.
+- Without a forecast sensor it uses the seasonal estimate, and `basis` says so. Without a battery capacity the state is unknown.
+
 ### Immersion divert
 
 The rule runs in this order. The first match wins.

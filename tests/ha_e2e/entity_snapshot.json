@@ -835,6 +835,11 @@
   "name": "Today's energy summary"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_tomorrow_outlook",
+  "key": "tomorrow_outlook",
+  "name": "Tomorrow Outlook"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_tonight_s_charge_plan",
   "key": "charge_plan",
   "name": "Tonight's charge plan"

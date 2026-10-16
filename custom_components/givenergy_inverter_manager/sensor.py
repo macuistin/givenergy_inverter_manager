@@ -91,6 +91,18 @@ _UNRECORDED_ATTRIBUTES = frozenset(
         "alt_schedule_saving",
         "alt_schedule_days",
         "alt_schedule_suggestion",
+        # Tomorrow Outlook: the projected lines, which move with the load estimate, and the table.
+        "import_kwh",
+        "export_kwh",
+        "import_cost",
+        "export_credit",
+        "charge_kwh",
+        "charge_cost",
+        "net_cost",
+        "end_soc_pct",
+        "min_soc_pct",
+        "forecast_kwh",
+        "table",
     }
 )
 

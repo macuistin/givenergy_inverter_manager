@@ -993,3 +993,68 @@ class TestChargeTargetConflict:
 
     def test_no_attribute_is_called_entity_id(self):
         assert "entity_id" not in _BY_KEY["charge_target_conflict"].attrs_fn(CoordinatorData())
+
+
+class TestTomorrowOutlookSensor:
+    """The projected cost of the plan's solar day, a monetary projection with no state class."""
+
+    @staticmethod
+    def _data():
+        from datetime import date
+
+        from custom_components.givenergy_inverter_manager.core.tomorrow_outlook import (
+            TomorrowOutlook,
+        )
+
+        data = CoordinatorData()
+        data.currency_symbol = "€"
+        data.tomorrow_outlook = TomorrowOutlook(
+            on=date(2031, 6, 15),
+            forecast_kwh=25.7432,
+            import_kwh=3.1234,
+            export_kwh=9.4061,
+            import_cost=0.58,
+            export_credit=1.83,
+            charge_kwh=0.0,
+            charge_cost=0.0,
+            end_soc_pct=81.234,
+            min_soc_pct=22.0,
+            basis="Forecast 25.7 kWh from the forecast integration, the per-slot load profile.",
+        )
+        return data
+
+    def test_metadata(self):
+        from custom_components.givenergy_inverter_manager.sensor_descriptions.base import (
+            CURRENCY_UNIT,
+        )
+
+        description = _BY_KEY["tomorrow_outlook"]
+        assert description.device_class is SensorDeviceClass.MONETARY
+        assert description.native_unit_of_measurement == CURRENCY_UNIT
+        assert description.state_class is None
+        assert description.requires is None
+
+    def test_the_state_is_the_net_cost(self):
+        assert _lambda_for("tomorrow_outlook")(self._data()) == pytest.approx(-1.25)
+
+    def test_the_state_is_unknown_without_an_outlook(self):
+        assert _lambda_for("tomorrow_outlook")(CoordinatorData()) is None
+        assert _BY_KEY["tomorrow_outlook"].attrs_fn(CoordinatorData()) is None
+
+    def test_the_attributes(self):
+        attrs = _BY_KEY["tomorrow_outlook"].attrs_fn(self._data())
+        assert {k: v for k, v in attrs.items() if k != "table"} == {
+            "day": "2031-06-15",
+            "import_kwh": 3.12,
+            "export_kwh": 9.41,
+            "import_cost": 0.58,
+            "export_credit": 1.83,
+            "charge_kwh": 0.0,
+            "charge_cost": 0.0,
+            "net_cost": -1.25,
+            "end_soc_pct": 81.2,
+            "min_soc_pct": 22.0,
+            "forecast_kwh": 25.74,
+            "basis": "Forecast 25.7 kWh from the forecast integration, the per-slot load profile.",
+        }
+        assert attrs["table"].endswith("| **Tomorrow** | | **‑€1.25** |")

@@ -24,6 +24,7 @@ from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.setup_progress import setup_state
 from .core.tariff import EnergyAccumulator
+from .core.tomorrow_outlook import outlook_table
 from .core.write_log import newest_first
 
 GRID_IMPORTING = "Importing"
@@ -377,6 +378,33 @@ def overnight_charge_cost(data: CoordinatorData) -> float | None:
     if data.published_charge_decision:
         return round(data.published_charge_decision.cost_to_charge, 3)
     return None
+
+
+def tomorrow_outlook_cost(data: CoordinatorData) -> float | None:
+    """The projected net cost of the solar day the plan is for, None without a projection."""
+    return data.tomorrow_outlook.net_cost if data.tomorrow_outlook else None
+
+
+def tomorrow_outlook_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """The lines behind the projected cost, and the dashboard's table of them."""
+    outlook = data.tomorrow_outlook
+    if outlook is None:
+        return None
+    return {
+        "day": outlook.on.isoformat(),
+        "import_kwh": round(outlook.import_kwh, 2),
+        "export_kwh": round(outlook.export_kwh, 2),
+        "import_cost": outlook.import_cost,
+        "export_credit": outlook.export_credit,
+        "charge_kwh": round(outlook.charge_kwh, 2),
+        "charge_cost": outlook.charge_cost,
+        "net_cost": outlook.net_cost,
+        "end_soc_pct": round(outlook.end_soc_pct, 1),
+        "min_soc_pct": round(outlook.min_soc_pct, 1),
+        "forecast_kwh": round(outlook.forecast_kwh, 2),
+        "basis": outlook.basis,
+        "table": outlook_table(outlook, data.currency_symbol),
+    }
 
 
 def overnight_charge_window(data: CoordinatorData) -> str | None:

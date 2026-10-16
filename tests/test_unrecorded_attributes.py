@@ -11,7 +11,7 @@ tests/ha_e2e/test_unrecorded_attributes_e2e.py proves the recorder side against 
 
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import date, datetime, time
 
 import pytest
 
@@ -20,6 +20,7 @@ from custom_components.givenergy_inverter_manager.core.alt_heat_schedule import 
 from custom_components.givenergy_inverter_manager.core.alt_heat_start import AltHeatStart
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.setup_progress import SetupItem
+from custom_components.givenergy_inverter_manager.core.tomorrow_outlook import TomorrowOutlook
 from custom_components.givenergy_inverter_manager.sensor import GivEnergyManagerSensor
 from custom_components.givenergy_inverter_manager.sensor_descriptions import SENSOR_DESCRIPTIONS
 
@@ -62,6 +63,17 @@ UNRECORDED: dict[str, set[str]] = {
     "alt_schedule_saving": {"water_heating_cheapest_source"},
     "alt_schedule_days": {"water_heating_cheapest_source"},
     "alt_schedule_suggestion": {"water_heating_cheapest_source"},
+    "import_kwh": {"tomorrow_outlook"},
+    "export_kwh": {"tomorrow_outlook"},
+    "import_cost": {"tomorrow_outlook"},
+    "export_credit": {"tomorrow_outlook"},
+    "charge_kwh": {"tomorrow_outlook"},
+    "charge_cost": {"tomorrow_outlook"},
+    "net_cost": {"tomorrow_outlook"},
+    "end_soc_pct": {"tomorrow_outlook"},
+    "min_soc_pct": {"tomorrow_outlook"},
+    "forecast_kwh": {"tomorrow_outlook"},
+    "table": {"tomorrow_outlook"},
 }
 
 # Attributes that explain a state and change rarely, or are the only record of why. They stay
@@ -80,6 +92,7 @@ RECORDED = {
     "target_entity",
     "stored_energy_value",
     "items",  # the setup checklist: it changes when a setup step is done, and rarely otherwise
+    "day",  # Tomorrow Outlook: the date it projects, which changes once a day
 }
 
 
@@ -119,6 +132,19 @@ def _everything() -> CoordinatorData:
     )
     data.alt_heat_schedule = AltHeatSchedule(10, ("12:30 to 13:00",), 5.0, "A sentence.")
     data.setup_items = (SetupItem("tariff", "Tariff set", True, True),)
+    data.tomorrow_outlook = TomorrowOutlook(
+        on=date(2026, 12, 16),
+        forecast_kwh=5.0,
+        import_kwh=3.0,
+        export_kwh=0.0,
+        import_cost=0.6,
+        export_credit=0.0,
+        charge_kwh=4.0,
+        charge_cost=0.4,
+        end_soc_pct=20.0,
+        min_soc_pct=10.0,
+        basis="Forecast 5.0 kWh from the forecast integration, the per-slot load profile.",
+    )
     return data
 
 

@@ -130,6 +130,7 @@ from .rules import (
     available_surplus_w,
     calculate_overnight_charge_target,
     decide_ev_charger_action,
+    planned_day,
     should_divert_to_immersion,
     usable_slot_loads_kwh,
 )
@@ -166,6 +167,7 @@ from .tariff import (
     tariff_in_force,
 )
 from .timeutil import elapsed_seconds, local_time_on
+from .tomorrow_outlook import OutlookInputs, TomorrowOutlook, project_outlook
 
 _LOG = get_logger(__name__)
 
@@ -410,6 +412,9 @@ class CoordinatorData:
     charge_target_conflict: ConflictStatus = field(default_factory=ConflictStatus)
     carbon_intensity_gco2: float | None = None
     carbon_intensity_status: str = "Unknown"
+    # What the solar day the charge plan is for should cost, from the plan's own simulation.
+    # None before the first decision, without a battery capacity or without any forecast.
+    tomorrow_outlook: TomorrowOutlook | None = None
 
 
 @dataclass(frozen=True)
@@ -1230,6 +1235,16 @@ def _charge_inputs(cycle: _Cycle, avg_daily_kwh: float) -> ChargeInputs:
     )
 
 
+def _plans_for_today(now: datetime) -> bool:
+    """True until sunrise, while the solar day the charge plan serves is today."""
+    return now.hour < SOLAR_SUNRISE_HOUR
+
+
+def _plan_day(now: datetime) -> date:
+    """The date of the solar day the charge plan serves: today until sunrise, else tomorrow."""
+    return now.date() if _plans_for_today(now) else now.date() + timedelta(days=1)
+
+
 def _solar_forecast(cycle: _Cycle) -> SolarForecast:
     """The forecasts for the solar day the charge decision serves.
 
@@ -1240,7 +1255,7 @@ def _solar_forecast(cycle: _Cycle) -> SolarForecast:
     and the target does not step at midnight.
     """
     raw, forecast = cycle.raw, cycle.forecast
-    if cycle.now.hour < SOLAR_SUNRISE_HOUR:
+    if _plans_for_today(cycle.now):
         forecast_kwh = forecast.today_raw_forecast_kwh
         forecast_kwh_p10 = forecast.today_raw_forecast_p10_kwh
         forecast_kwh_d2 = (
@@ -1270,6 +1285,26 @@ def _overnight_charge_decision(cycle: _Cycle, avg_daily_kwh: float) -> ChargeDec
         _charge_inputs(cycle, avg_daily_kwh),
         _solar_forecast(cycle),
         cycle.now,
+    )
+
+
+def _set_tomorrow_outlook(data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float) -> None:
+    """Price the plan's day from the level the published plan leaves, at that day's tariff."""
+    decision = data.published_charge_decision
+    if decision is None:
+        return
+    day = planned_day(_charge_inputs(cycle, avg_daily_kwh), _solar_forecast(cycle), cycle.now)
+    if day is None:
+        return
+    on = _plan_day(cycle.now)
+    data.tomorrow_outlook = project_outlook(
+        OutlookInputs(
+            day=day,
+            decision=decision,
+            tariff=build_tariff(tariff_in_force(cycle.cfg, on)),
+            on=on,
+            floor_pct=float(_configured_min_soc(cycle.cfg)),
+        )
     )
 
 
@@ -1683,8 +1718,9 @@ def _start_cycle(
 def _set_decisions(
     data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float, held: HeldCharge
 ) -> None:
-    """The charge target and the immersion divert, both of which honour manual overrides."""
+    """The charge target, its day's outlook and the immersion divert, which honour overrides."""
     _set_overnight_charge(data, cycle, avg_daily_kwh, held)
+    _set_tomorrow_outlook(data, cycle, avg_daily_kwh)
     _set_immersion_decision(data, cycle)
     _set_water_heating_advice(data, cycle)
     _set_inverter_temperature(data, cycle.raw.inverter_temp)

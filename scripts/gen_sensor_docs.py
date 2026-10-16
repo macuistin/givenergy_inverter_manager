@@ -217,6 +217,7 @@ KEY_GROUPS: dict[str, str] = {
             "overnight_charge_reason",
             "overnight_charge_window",
             "overnight_charge_cost",
+            "tomorrow_outlook",
             "estimated_soc_at_sunrise",
             "estimated_soc_at_sunrise_with_charge",
             "night_survival_reason",
@@ -490,6 +491,18 @@ DESCRIPTIONS: dict[str, str] = {
         "`expected_kwh` and `expected_finish`."
     ),
     "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",
+    "tomorrow_outlook": (
+        "What the solar day the charge plan is for should cost: grid import plus tonight's "
+        "charge, less the export credit. The day is tomorrow until midnight and today from "
+        "midnight to 08:00. It runs the plan's own half-hour simulation from the level tonight's "
+        "charge leaves, never below the minimum SoC, and prices each half hour's import at the "
+        "rate in force then, with a dated tariff change on that day. The charge is the "
+        "Estimated Overnight Charge Cost figure. An estimate, not a bill. Unknown without a "
+        "battery capacity. Attributes: `day`, `import_kwh`, `import_cost`, `export_kwh`, "
+        "`export_credit`, `charge_kwh`, `charge_cost`, `net_cost`, `end_soc_pct`, "
+        "`min_soc_pct`, `forecast_kwh`, `basis` (the forecast and load used, in words) and "
+        "`table` (the figures as a markdown table)."
+    ),
     "estimated_soc_at_sunrise": (
         "Projected SoC when solar starts, taken as 08:00, if no charge happens: the battery "
         "from now to sunrise on the house load, ignoring tonight's planned charge. It holds at "

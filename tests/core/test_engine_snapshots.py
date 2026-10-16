@@ -143,6 +143,11 @@ without a day-after forecast sensor. Only charge_decision and published_charge_d
 a case made before 08:00 that read the tomorrow sensor as the day after: its target went from 87
 to 100. The behaviour is pinned in tests/core/test_forecast_day.py and
 tests/core/test_midnight_charge_replay.py.
+
+The tomorrow_outlook leaf was added for the Tomorrow Outlook sensor. The fresh snapshot gained it
+as None and 84 of the 255 cases gained it. The other 171 pass no forecast and no seasonal
+fractions, so they have no outlook. Nothing else moved, also with the plan's day now built by
+_day_to_simulate. The behaviour is pinned in tests/core/test_tomorrow_outlook.py.
 """
 
 from __future__ import annotations
