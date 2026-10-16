@@ -503,11 +503,7 @@ class Builder:
             [
                 entity_badge(self.entity("battery_soc"), "mdi:battery-high", color=BATTERY),
                 entity_badge(self.entity("current_rate"), "mdi:currency-eur", color="purple"),
-                entity_badge(
-                    self.entity("next_cheap_rate_start"),
-                    "mdi:clock-outline",
-                    state_content=["summary"],
-                ),
+                entity_badge(self.entity("next_cheap_rate_start"), "mdi:clock-outline"),
             ]
         )
 
@@ -1295,17 +1291,14 @@ class Builder:
             ]
         )
 
-    def _week_pair(self, energy: str | None, cost: str | None, energy_name: str) -> dict | None:
-        """The last 7 days of energy and of cost, side by side on a laptop."""
+    def _week_pair(self, energy: dict | None, cost: str | None) -> dict | None:
+        """The last 7 days of energy and of cost, side by side on a laptop.
+
+        The energy row carries its name and the device's colour, so the bars match the device.
+        """
+        name = energy["name"] if energy else ""
         charts = [
-            self.chart_title(
-                day_bars(
-                    [self.row(energy, energy_name, SOLAR_HEX)],
-                    _WEEK,
-                    _SMALL_CHART_ROWS,
-                    energy_name,
-                )
-            ),
+            self.chart_title(day_bars([energy], _WEEK, _SMALL_CHART_ROWS, name)),
             self.chart_title(
                 day_bars([self.row(cost, "Cost", COST_HEX)], _WEEK, _SMALL_CHART_ROWS, "Cost")
             ),
@@ -1317,7 +1310,8 @@ class Builder:
     def immersion_sections(self) -> list:
         """Sub-view: the water now, the plan, and the last week of heating and its cost."""
         week = self._week_pair(
-            self.immersion("immersion_today"), self.immersion("immersion_cost_today"), "Heated"
+            self.row(self.immersion("immersion_today"), "Heated", WATER_HEX),
+            self.immersion("immersion_cost_today"),
         )
         return [
             self._water_now(),
@@ -1368,7 +1362,9 @@ class Builder:
 
     def ev_sections(self) -> list:
         """Sub-view: the charger now, the last week of charging and its cost, recent charges."""
-        week = self._week_pair(self.ev("zappi_today"), self.ev("zappi_cost_today"), "Charged")
+        week = self._week_pair(
+            self.row(self.ev("zappi_today"), "Charged", BATTERY_HEX), self.ev("zappi_cost_today")
+        )
         return [
             self._charger_now(),
             with_visibility(week, self.devices.visible_with(Device.EV_CHARGER)),

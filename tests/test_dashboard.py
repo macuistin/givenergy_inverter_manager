@@ -663,11 +663,11 @@ class TestRightNowSection:
         assert {c["type"] for c in chips} == {"entity"}
         assert all(c["show_state"] and c["show_icon"] for c in chips)
 
-    def test_cheap_from_shows_the_countdown_summary_in_one_chip(self):
-        """One chip reads like "23:00 (in 8 h 56 min)", so there is no chip of its own for the wait."""
+    def test_cheap_from_shows_the_start_time_so_the_chips_fit_in_one_row(self):
+        """The summary, such as "23:00 (in 8 h 56 min)", was cut off beside the other chips."""
         chips = self._chips(_build())
         chip = next(c for c in chips if c["entity"] == eid("next_cheap_rate_start"))
-        assert chip["state_content"] == ["summary"]
+        assert "state_content" not in chip
         home = yaml.dump(next(v for v in yaml.safe_load(_build())["views"] if v["path"] == "power-flow"))
         assert eid("hours_to_cheap_rate") not in home
 

@@ -204,6 +204,10 @@ This hides the controls. It is not security. Home Assistant has no permissions f
 
 ### Home energy
 
+![Home energy on a laptop: the live power flow, Right now with its chips and sentence, Today so far, Hot water and EV, and the More buttons.](images/dashboard-home-energy.png)
+
+![Home energy on a phone, with the sections stacked in one column.](images/dashboard-home-energy-mobile.png)
+
 - **Banners**, each shown only while it applies, across the top of the page in this order:
   - **Dry run is on**: the last skipped action and tonight's charge plan, so you can see what the integration would do next, and how to go live. An administrator turns off the Dry run switch in Settings. On a test instance, where a `.givenergy_test_instance` file forces dry run on, it says so and names the file to delete instead.
   - **Something else is setting your charge target**: while Charge Target Conflict reads `suspected`.
@@ -221,7 +225,7 @@ For the EV load, the dashboard uses the first of these entities that exists, els
 
 ### Today (sub-view)
 
-![Today view with a sentence on the day so far, a stacked chart of the last 24 hours, split bars of where the energy came from and what it cost, and the solar of the last 7 days.](images/dashboard-today.png)
+![Today view with a sentence on the day so far, a stacked chart of the last 24 hours, split bars of where the energy came from and what it cost, the day in figures, the solar of the last 7 days and the forecast.](images/dashboard-today.png)
 
 - **Today**: the day so far in one sentence: what solar made against the forecast, what the house used, how self-sufficient it was and what it cost. Under it, **Last 24 hours**: stacked bars of where each hour's energy came from: Solar, From battery (Battery Discharged Today) and From grid (Grid Import Today).
 - **Where it came from**: a split bar of today's energy from solar, the battery and the grid. Then **What it cost**: a split bar of the import cost by what used it, the house, the EV and the hot water (the last two only while that device exists). Then **In numbers**: Solar, Used, Imported and Exported. Then **Solar**: Home use from solar (the Solar Share sensor) and Solar kept at home (the Self Consumption sensor), each as a bar.
@@ -230,6 +234,8 @@ For the EV load, the dashboard uses the first of these entities that exists, els
 Planned on is blended toward the pessimistic estimate and scaled by the accuracy correction, so it can differ from the provider's figure. Judge the day against Forecast. Forecast and Reached read empty on a new install until the first midnight, because the provider forecast is remembered then.
 
 ### Tonight (sub-view)
+
+![Tonight view with whether tonight charges, the overnight outlook, the charge cost and the battery at sunrise, the battery over the last day and a half, the weather and the battery's health.](images/dashboard-tonight.png)
 
 - **Tonight**: whether tonight charges, as a heading, with the Tonight's charge plan line under it. Then the overnight outlook in bold and why: the Battery Overnight Confidence sensor's `explanation` when it has one, otherwise a sentence chosen by its level. Then Charge cost and Sunrise if no charge, and two bars: Battery now and At sunrise (with tonight's planned charge). **Why this plan** folds away the reason for the target. Below, a tile shows each thing that changes tonight's charge, only while it does: Fixed target with its Charge to value, Skip tonight, Dry run and the cheap rate floor. Administrators change them in Settings.
 - **Battery, last day and a half**: the state of charge as a line.
@@ -257,7 +263,7 @@ Days Elapsed in Bill Period and Average Import Rate This Month are disabled by d
 
 ### Hot water (sub-view)
 
-![Hot water view with a sentence on the water, the heater's day in figures, the water temperature chart, the plan for the next ready time, the settings in force and the last 7 days of heating and its cost.](images/dashboard-immersion.png)
+![Hot water view with a sentence on the water, the heater's day in figures, the water temperature chart, the plan for the next ready time, the settings in force and the last 7 days of heating and its cost.](images/dashboard-hot-water.png)
 
 Each section shows only while the device it needs exists.
 
@@ -274,6 +280,8 @@ The sections show only while a charger exists.
 - **Recent charges**: a table of the last charges, each with its energy, its cost and its cost per kWh, from the EV Session Cost sensor.
 
 ### Settings (sub-view, administrators only)
+
+![Settings view with the switches and numbers for tonight's charge, charge planning, hot water and the system, and the recent changes.](images/dashboard-settings.png)
 
 Each group ends with **What these do**, which folds away a line on each setting.
 

@@ -344,6 +344,13 @@ class TestSeriesColours:
         assert colours[(IDS["house_cost_today"], "House")] == "#29b6f6"
         assert colours[(IDS["battery_soc"], "Battery")] == "#4db6ac"
 
+    def test_the_week_of_energy_takes_its_devices_colour(self):
+        """Hot water is orange and the EV teal, as in the cost split, not the solar amber."""
+        rows = _series_rows(dashboard_dict(series_colours=True))
+        colours = {(row["entity"], row["name"]): row.get("color") for row in rows}
+        assert colours[(IDS["immersion_today"], "Heated")] == "#ff7043"
+        assert colours[(IDS["zappi_today"], "Charged")] == "#4db6ac"
+
     def test_only_the_colour_differs_between_the_releases(self):
         plain = yaml.safe_dump(dashboard_dict())
         coloured = dashboard_dict(series_colours=True)
