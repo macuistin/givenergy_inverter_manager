@@ -97,9 +97,10 @@ from .battery import (
     BatteryStats,
     NightEstimateInputs,
     calculate_cycle_increment,
-    estimate_will_survive_night,
     hours_until_solar,
+    night_estimate,
     paused_night,
+    survival_reason,
 )
 from .battery_pause import PauseWindow
 from .charge_hold import HeldCharge, HoldReading
@@ -1379,20 +1380,17 @@ def _calculate_night_survival(
 ) -> None:
     """Calculate night survival metrics.
 
-    will_survive_night and survival_reason come from the calculated estimate. The published
-    estimated_soc_at_sunrise follows it at the battery's own pace, so a step in the window
-    or the load estimate does not jump the sensor.
+    will_survive_night and any shortfall come from the calculated estimate, so a real shortfall
+    shows at once. The published estimated_soc_at_sunrise follows it at the battery's own
+    pace, so a step in the window or the load estimate does not jump the sensor.
+    survival_reason quotes the published figure, so the words agree with the sensor.
     """
     raw = cycle.raw
     min_soc = _configured_min_soc(cycle.cfg)
     data.battery_min_soc = min_soc
     paused = paused_night(raw.battery_pause, cycle.now.hour, cycle.night_solar_w)
     data.battery_pause = paused.window if paused else None
-    (
-        data.will_survive_night,
-        calculated_soc,
-        data.survival_reason,
-    ) = estimate_will_survive_night(
+    estimate = night_estimate(
         NightEstimateInputs(
             current_soc=raw.battery_soc,
             battery_capacity_kwh=raw.battery_capacity_kwh,
@@ -1402,15 +1400,17 @@ def _calculate_night_survival(
             paused=paused,
         )
     )
+    data.will_survive_night = estimate.will_survive
     data.estimated_soc_at_sunrise = published_sunrise_soc(
         held,
         SunriseReading(
-            calculated_soc,
+            estimate.soc,
             cycle.now,
             max_battery_swing_pct_per_hour(raw.inverter_max_w, raw.battery_capacity_kwh),
         ),
     )
     held.soc, held.at = data.estimated_soc_at_sunrise, cycle.now
+    data.survival_reason = survival_reason(estimate, data.estimated_soc_at_sunrise)
     _project_sunrise_with_charge(data, cycle, avg_daily_kwh, held.charged())
 
 

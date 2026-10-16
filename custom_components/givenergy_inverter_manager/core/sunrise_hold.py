@@ -11,8 +11,10 @@ estimate resets at midnight, so it is held the same way.
 
 The battery cannot move faster than the inverter can charge or discharge it, so neither can an
 honest estimate of its charge. The published value follows the calculated one at no more than
-that rate, and a step becomes a ramp of about half an hour. The Night Survival Status and
-Confidence sensors still read the calculated figure, so a real shortfall is reported at once.
+that rate, and a step becomes a ramp of about half an hour. The Night Survival Status and the
+Critical level of the Confidence sensor still read the calculated figure, so a real shortfall
+is reported at once. The words that quote a figure (the reason, the summary and the
+explanation) quote the published one, so they agree with this sensor.
 """
 
 from __future__ import annotations

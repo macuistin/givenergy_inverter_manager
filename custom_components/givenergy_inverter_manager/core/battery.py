@@ -18,6 +18,8 @@ Provides:
     tomorrow morning, given current SoC, capacity, minimum SoC floor,
     average hourly consumption, and hours until sunrise. While the battery is paused
     (core/battery_pause.py) the grid serves the house, so those hours add no consumption.
+    night_estimate() works out the figures and survival_reason() puts them in words, so the
+    engine can quote the published figure after it is paced.
 
   survival_attributes()
     Says in words why night survival is Safe, Warning or Critical, with the
@@ -179,14 +181,22 @@ class NightEstimateInputs:
     paused: PausedNight | None = None
 
 
-def estimate_will_survive_night(inputs: NightEstimateInputs) -> tuple[bool, float, str]:
-    """
-    Estimate whether the battery will last until solar starts tomorrow.
+@dataclass(frozen=True)
+class NightEstimate:
+    """The calculated night survival estimate, before any words are put to it.
 
-    The hours the battery is paused add no consumption, and the reason says so.
-
-    Returns (will_survive, estimated_soc_at_sunrise, reason)
+    soc is the SoC left at sunrise, never below the minimum. shortfall_kwh is how far the
+    battery falls short of the night, 0 when it lasts. pause is the pause in the night window.
     """
+
+    will_survive: bool
+    soc: float
+    shortfall_kwh: float
+    pause: PauseWindow | None = None
+
+
+def night_estimate(inputs: NightEstimateInputs) -> NightEstimate:
+    """Work out whether the battery lasts until solar starts. Paused hours add no load."""
     min_soc = inputs.min_soc
     capacity_kwh = inputs.battery_capacity_kwh
     usable_kwh = capacity_kwh * ((inputs.current_soc - min_soc) / 100)
@@ -195,14 +205,43 @@ def estimate_will_survive_night(inputs: NightEstimateInputs) -> tuple[bool, floa
     expected_consumption = served_hours * inputs.average_hourly_consumption_kwh
     remaining_kwh = usable_kwh - expected_consumption
     remaining_soc = (remaining_kwh / capacity_kwh * 100) + min_soc
-
     window = inputs.paused.window if inputs.paused else None
     if remaining_kwh >= 0:
-        reason = f"Battery should last until solar. Estimated SoC at sunrise: {remaining_soc:.0f}%"
-        return True, max(min_soc, remaining_soc), with_note(reason, window)
-    shortfall = f"{abs(remaining_kwh):.1f}kWh"
-    reason = f"Battery may run low. Estimated shortfall: {shortfall} before solar starts."
-    return False, min_soc, with_note(reason, window)
+        return NightEstimate(True, max(min_soc, remaining_soc), 0.0, window)
+    return NightEstimate(False, min_soc, abs(remaining_kwh), window)
+
+
+def survival_reason(estimate: NightEstimate, published_soc: float) -> str:
+    """The reason for the estimate, quoting the SoC at sunrise as the sensor publishes it.
+
+    The published figure follows the calculated one at the battery's pace
+    (core/sunrise_hold.py), so the words quote it and agree with the sensor. A shortfall is
+    the calculated one, so it shows at once.
+    """
+    if estimate.will_survive:
+        reason = (
+            "Battery should last until solar. "
+            f"Estimated SoC at sunrise: {round(published_soc)}%"
+        )
+    else:
+        reason = (
+            "Battery may run low. "
+            f"Estimated shortfall: {estimate.shortfall_kwh:.1f}kWh before solar starts."
+        )
+    return with_note(reason, estimate.pause)
+
+
+def estimate_will_survive_night(inputs: NightEstimateInputs) -> tuple[bool, float, str]:
+    """
+    Estimate whether the battery will last until solar starts tomorrow.
+
+    The hours the battery is paused add no consumption, and the reason says so. The reason
+    quotes the calculated figure. The engine quotes the published one instead (survival_reason).
+
+    Returns (will_survive, estimated_soc_at_sunrise, reason)
+    """
+    estimate = night_estimate(inputs)
+    return estimate.will_survive, estimate.soc, survival_reason(estimate, estimate.soc)
 
 
 @dataclass(frozen=True)
