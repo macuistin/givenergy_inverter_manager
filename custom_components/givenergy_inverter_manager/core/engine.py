@@ -95,11 +95,14 @@ from .alt_heat_schedule import (
 from .alt_heat_start import WaterReading
 from .battery import (
     BatteryStats,
+    NightClock,
     NightEstimateInputs,
     calculate_cycle_increment,
-    estimate_will_survive_night,
     hours_until_solar,
+    minute_of_day,
+    night_estimate,
     paused_night,
+    survival_reason,
 )
 from .battery_pause import PauseWindow
 from .charge_hold import HeldCharge, HoldReading
@@ -137,6 +140,7 @@ from .rules import (
 from .seasons import NORTHERN_SEASONS, SeasonRules
 from .setup_progress import SetupItem
 from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
+from .solar_shape import solar_end_minute, valid_shape
 from .stored_energy import stored_energy_change
 from .sunrise_charge import (
     LOAD_NOTE_FLAT,
@@ -887,6 +891,9 @@ class _Cycle:
     # Solar power as the night window sees it: the raw reading once the solar day has settled as
     # started, zero otherwise (core/solar_day.py).
     night_solar_w: float
+    # The minute of the day solar is expected to stop today, which starts the night window in
+    # daylight (battery.night_window).
+    solar_end_minute: float
 
 
 def _apply_history(
@@ -1227,6 +1234,7 @@ def _charge_inputs(cycle: _Cycle, avg_daily_kwh: float) -> ChargeInputs:
         load_profile=cycle.forecast.load_profile,
         solar_power_w=cycle.night_solar_w,
         seasons=cycle.forecast.seasons or NORTHERN_SEASONS,
+        solar_end_minute=cycle.solar_end_minute,
         battery_pause=raw.battery_pause,
     )
 
@@ -1385,38 +1393,38 @@ def _calculate_night_survival(
 ) -> None:
     """Calculate night survival metrics.
 
-    will_survive_night and survival_reason come from the calculated estimate. The published
-    estimated_soc_at_sunrise follows it at the battery's own pace, so a step in the window
-    or the load estimate does not jump the sensor.
+    will_survive_night and any shortfall come from the calculated estimate, so a real shortfall
+    shows at once. The published estimated_soc_at_sunrise follows it at the battery's own
+    pace, so a step in the window or the load estimate does not jump the sensor.
+    survival_reason quotes the published figure, so the words agree with the sensor.
     """
     raw = cycle.raw
     min_soc = _configured_min_soc(cycle.cfg)
     data.battery_min_soc = min_soc
-    paused = paused_night(raw.battery_pause, cycle.now.hour, cycle.night_solar_w)
+    clock = NightClock(minute_of_day(cycle.now), cycle.night_solar_w, cycle.solar_end_minute)
+    paused = paused_night(raw.battery_pause, clock)
     data.battery_pause = paused.window if paused else None
-    (
-        data.will_survive_night,
-        calculated_soc,
-        data.survival_reason,
-    ) = estimate_will_survive_night(
+    estimate = night_estimate(
         NightEstimateInputs(
             current_soc=raw.battery_soc,
             battery_capacity_kwh=raw.battery_capacity_kwh,
             min_soc=float(min_soc),
-            hours_until_solar=hours_until_solar(cycle.now.hour, cycle.night_solar_w),
+            hours_until_solar=hours_until_solar(clock),
             average_hourly_consumption_kwh=avg_daily_kwh / 24,
             paused=paused,
         )
     )
+    data.will_survive_night = estimate.will_survive
     data.estimated_soc_at_sunrise = published_sunrise_soc(
         held,
         SunriseReading(
-            calculated_soc,
+            estimate.soc,
             cycle.now,
             max_battery_swing_pct_per_hour(raw.inverter_max_w, raw.battery_capacity_kwh),
         ),
     )
     held.soc, held.at = data.estimated_soc_at_sunrise, cycle.now
+    data.survival_reason = survival_reason(estimate, data.estimated_soc_at_sunrise)
     _project_sunrise_with_charge(data, cycle, avg_daily_kwh, held.charged())
 
 
@@ -1683,7 +1691,18 @@ def _start_cycle(
         inputs.overrides,
         forecast,
         settled_solar_w(held_solar, SolarReading(inputs.raw.solar_power_w, now)),
+        _solar_end_minute(inputs.raw, forecast),
     )
+
+
+def _solar_end_minute(raw: RawSensorValues, forecast: ForecastContext) -> int:
+    """When solar is expected to stop today, from the forecast's shape.
+
+    Today's shape is the one remembered before midnight. Without it tomorrow's shape stands in,
+    as it ends within minutes of today's. Without either, the default curve's end is used.
+    """
+    today = valid_shape(forecast.today_raw_forecast_shape)
+    return solar_end_minute(today or raw.forecast_shape_tomorrow)
 
 
 def _set_decisions(

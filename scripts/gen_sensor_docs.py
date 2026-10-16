@@ -499,9 +499,10 @@ DESCRIPTIONS: dict[str, str] = {
         "the minimum SoC when the battery would run flat, so in the evening it can read the "
         "minimum although a charge is planned. This is the figure the Battery Overnight "
         "Outlook and Confidence sensors judge. It spreads the daily average load evenly over "
-        "the hours, the flat load. While solar is generating it covers tonight's "
-        "8 hour pre-solar window from the current SoC. See Estimated SoC at Sunrise With the "
-        "Planned Charge for the same night with the charge in it."
+        "the hours, the flat load. While solar is generating it covers the night from the time "
+        "solar is expected to stop (from the forecast's shape, or 20:00) from the current SoC. "
+        "See Estimated SoC at Sunrise With the Planned Charge for the same night with the "
+        "charge in it."
     ),
     "estimated_soc_at_sunrise_with_charge": (
         "Projected SoC at the next 08:00 with tonight's planned charge in it: the battery runs "

@@ -46,6 +46,38 @@ def valid_shape(shape: object) -> tuple[float, ...] | None:
     return tuple(w / total for w in weights)
 
 
+def _bell_curve_shape() -> tuple[float, ...]:
+    """The 48 weights the plan assumes with no forecast shape.
+
+    A bell curve centred at 13:00 with σ=3.5 hours, active only between 06:30 and 19:30.
+    """
+    raw = [
+        math.exp(-0.5 * ((slot / 2.0 - 13.0) / 3.5) ** 2)
+        if 6.5 <= slot / 2.0 <= 19.5
+        else 0.0
+        for slot in range(SLOTS)
+    ]
+    total = sum(raw)
+    return tuple(w / total for w in raw) if total > 0 else (1 / SLOTS,) * SLOTS
+
+
+# Built once, reused every cycle.
+DEFAULT_SOLAR_SHAPE: tuple[float, ...] = _bell_curve_shape()
+
+
+def solar_end_minute(shape: object) -> int:
+    """The minute of the day solar is expected to stop: the end of the last half hour with any.
+
+    Read from the shape when it is usable, else from DEFAULT_SOLAR_SHAPE, which ends at 20:00.
+    """
+    weights = valid_shape(shape) or DEFAULT_SOLAR_SHAPE
+    last = max(slot for slot, weight in enumerate(weights) if weight > 0)
+    return (last + 1) * SLOT_MINUTES
+
+
+DEFAULT_SOLAR_END_MINUTE = solar_end_minute(None)
+
+
 def solar_shape_from_periods(
     periods: object, tz: tzinfo, field: str = "pv_estimate"
 ) -> tuple[float, ...] | None:

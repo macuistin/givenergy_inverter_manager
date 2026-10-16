@@ -18,6 +18,8 @@ Provides:
     tomorrow morning, given current SoC, capacity, minimum SoC floor,
     average hourly consumption, and hours until sunrise. While the battery is paused
     (core/battery_pause.py) the grid serves the house, so those hours add no consumption.
+    night_estimate() works out the figures and survival_reason() puts them in words, so the
+    engine can quote the published figure after it is paced.
 
   survival_attributes()
     Says in words why night survival is Safe, Warning or Critical, with the
@@ -32,7 +34,7 @@ persisted across HA restarts.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 # GivEnergy battery typical rated cycles
@@ -125,29 +127,58 @@ def calculate_cycle_increment(soc_delta: float) -> float:
     return max(0.0, -soc_delta) / 100.0
 
 
-def night_window(hour: int, solar_power_w: float) -> tuple[int, float]:
+_MINUTES_PER_DAY = 24 * 60
+_SUNRISE_MINUTE = SOLAR_SUNRISE_HOUR * 60
+
+
+@dataclass(frozen=True)
+class NightClock:
+    """What the night window is read from.
+
+    minute is the minute of the day now, with its fraction. solar_power_w is the settled solar
+    power (core/solar_day.py). solar_end_minute is the minute of the day solar is expected to
+    stop today (solar_shape.solar_end_minute).
+    """
+
+    minute: float
+    solar_power_w: float
+    solar_end_minute: float
+
+
+def minute_of_day(now: datetime) -> float:
+    """The minute of the day on the clock, with seconds as its fraction."""
+    return now.hour * 60 + now.minute + now.second / 60
+
+
+def night_window(clock: NightClock) -> tuple[float, float]:
     """The window the battery must cover before solar starts: (start minute of the day, hours).
 
     Night survival and the overnight charge skip use this one window, so they cannot disagree
     about how long "the night" is. Solar counts as generating from SOLAR_NOISE_FLOOR_W up, the
-    same floor the energy accumulator uses.
+    same floor the energy accumulator uses. Hours are counted to the minute, so the window
+    shrinks smoothly and does not step at each hour.
 
-      Before sunrise          — from this hour to SOLAR_SUNRISE_HOUR.
-      After sunrise, solar on — tonight's pre-solar window, 00:00 to SOLAR_SUNRISE_HOUR,
-                                the same window the charge plan models. Today's remaining
-                                daylight is not a night hour.
-      After sunrise, solar off — from this hour to tomorrow's sunrise.
+      Before sunrise          — from now to SOLAR_SUNRISE_HOUR.
+      After sunrise, solar on — from the time solar is expected to stop today, or now once that
+                                has passed, to tomorrow's sunrise. Today's remaining daylight
+                                is not a night hour, but the evening is.
+      After sunrise, solar off — from now to tomorrow's sunrise.
+
+    The evening counts in daylight, so a battery pause that starts late in the evening cannot
+    hide the load before it. When solar stops at the time expected or later, the start is already
+    now, so the window does not step at dusk.
     """
-    if hour < SOLAR_SUNRISE_HOUR:
-        return hour * 60, float(max(1, SOLAR_SUNRISE_HOUR - hour))
-    if solar_power_w >= SOLAR_NOISE_FLOOR_W:
-        return 0, float(SOLAR_SUNRISE_HOUR)
-    return hour * 60, float((24 - hour) + SOLAR_SUNRISE_HOUR)
+    if clock.minute < _SUNRISE_MINUTE:
+        return clock.minute, (_SUNRISE_MINUTE - clock.minute) / 60
+    start = clock.minute
+    if clock.solar_power_w >= SOLAR_NOISE_FLOOR_W:
+        start = max(start, clock.solar_end_minute)
+    return start, (_MINUTES_PER_DAY - start + _SUNRISE_MINUTE) / 60
 
 
-def hours_until_solar(hour: int, solar_power_w: float) -> float:
+def hours_until_solar(clock: NightClock) -> float:
     """Hours of load the battery must cover before tomorrow's solar starts (see night_window)."""
-    return night_window(hour, solar_power_w)[1]
+    return night_window(clock)[1]
 
 
 @dataclass(frozen=True)
@@ -158,11 +189,11 @@ class PausedNight:
     hours: float
 
 
-def paused_night(pause: PauseWindow | None, hour: int, solar_power_w: float) -> PausedNight | None:
+def paused_night(pause: PauseWindow | None, clock: NightClock) -> PausedNight | None:
     """The pause as it falls in the night window, None when there is none or it misses the night."""
     if pause is None:
         return None
-    start_minute, hours = night_window(hour, solar_power_w)
+    start_minute, hours = night_window(clock)
     covered = pause.paused_hours(start_minute, hours)
     return PausedNight(pause, covered) if covered > 0 else None
 
@@ -179,14 +210,22 @@ class NightEstimateInputs:
     paused: PausedNight | None = None
 
 
-def estimate_will_survive_night(inputs: NightEstimateInputs) -> tuple[bool, float, str]:
-    """
-    Estimate whether the battery will last until solar starts tomorrow.
+@dataclass(frozen=True)
+class NightEstimate:
+    """The calculated night survival estimate, before any words are put to it.
 
-    The hours the battery is paused add no consumption, and the reason says so.
-
-    Returns (will_survive, estimated_soc_at_sunrise, reason)
+    soc is the SoC left at sunrise, never below the minimum. shortfall_kwh is how far the
+    battery falls short of the night, 0 when it lasts. pause is the pause in the night window.
     """
+
+    will_survive: bool
+    soc: float
+    shortfall_kwh: float
+    pause: PauseWindow | None = None
+
+
+def night_estimate(inputs: NightEstimateInputs) -> NightEstimate:
+    """Work out whether the battery lasts until solar starts. Paused hours add no load."""
     min_soc = inputs.min_soc
     capacity_kwh = inputs.battery_capacity_kwh
     usable_kwh = capacity_kwh * ((inputs.current_soc - min_soc) / 100)
@@ -195,14 +234,43 @@ def estimate_will_survive_night(inputs: NightEstimateInputs) -> tuple[bool, floa
     expected_consumption = served_hours * inputs.average_hourly_consumption_kwh
     remaining_kwh = usable_kwh - expected_consumption
     remaining_soc = (remaining_kwh / capacity_kwh * 100) + min_soc
-
     window = inputs.paused.window if inputs.paused else None
     if remaining_kwh >= 0:
-        reason = f"Battery should last until solar. Estimated SoC at sunrise: {remaining_soc:.0f}%"
-        return True, max(min_soc, remaining_soc), with_note(reason, window)
-    shortfall = f"{abs(remaining_kwh):.1f}kWh"
-    reason = f"Battery may run low. Estimated shortfall: {shortfall} before solar starts."
-    return False, min_soc, with_note(reason, window)
+        return NightEstimate(True, max(min_soc, remaining_soc), 0.0, window)
+    return NightEstimate(False, min_soc, abs(remaining_kwh), window)
+
+
+def survival_reason(estimate: NightEstimate, published_soc: float) -> str:
+    """The reason for the estimate, quoting the SoC at sunrise as the sensor publishes it.
+
+    The published figure follows the calculated one at the battery's pace
+    (core/sunrise_hold.py), so the words quote it and agree with the sensor. A shortfall is
+    the calculated one, so it shows at once.
+    """
+    if estimate.will_survive:
+        reason = (
+            "Battery should last until solar. "
+            f"Estimated SoC at sunrise: {round(published_soc)}%"
+        )
+    else:
+        reason = (
+            "Battery may run low. "
+            f"Estimated shortfall: {estimate.shortfall_kwh:.1f}kWh before solar starts."
+        )
+    return with_note(reason, estimate.pause)
+
+
+def estimate_will_survive_night(inputs: NightEstimateInputs) -> tuple[bool, float, str]:
+    """
+    Estimate whether the battery will last until solar starts tomorrow.
+
+    The hours the battery is paused add no consumption, and the reason says so. The reason
+    quotes the calculated figure. The engine quotes the published one instead (survival_reason).
+
+    Returns (will_survive, estimated_soc_at_sunrise, reason)
+    """
+    estimate = night_estimate(inputs)
+    return estimate.will_survive, estimate.soc, survival_reason(estimate, estimate.soc)
 
 
 @dataclass(frozen=True)
