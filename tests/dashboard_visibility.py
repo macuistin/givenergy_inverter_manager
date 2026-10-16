@@ -59,11 +59,24 @@ def condition_holds(condition: dict[str, Any], states: dict[str, str], user: str
         return any(condition_holds(c, states, user) for c in condition["conditions"])
     if kind == "and":
         return all(condition_holds(c, states, user) for c in condition["conditions"])
-    assert kind == "state", f"the test double does not know the {kind} condition"
     state = states.get(condition["entity"], UNAVAILABLE)
+    if kind == "numeric_state":
+        return _numeric_holds(condition, state)
+    assert kind == "state", f"the test double does not know the {kind} condition"
     if "state" in condition:
         return state in _as_list(condition["state"])
     return state not in _as_list(condition["state_not"])
+
+
+def _numeric_holds(condition: dict[str, Any], state: str) -> bool:
+    """The frontend's numeric_state: false for a state that is not a number."""
+    try:
+        value = float(state)
+    except ValueError:
+        return False
+    if "above" in condition and not value > float(condition["above"]):
+        return False
+    return not ("below" in condition and not value < float(condition["below"]))
 
 
 def _as_list(value: Any) -> list:
@@ -72,6 +85,15 @@ def _as_list(value: Any) -> list:
 
 def _shown(node: dict[str, Any], states: dict[str, str]) -> bool:
     return all(condition_holds(c, states) for c in node.get("visibility", []))
+
+
+def _prune_badges(badges: list[dict], states: dict[str, str]) -> list[dict]:
+    """The badges of a heading that show, as the frontend draws them."""
+    kept = []
+    for badge in badges:
+        if _shown(badge, states):
+            kept.append({k: v for k, v in badge.items() if k != "visibility"})
+    return kept
 
 
 def _prune_cards(cards: list[dict], states: dict[str, str]) -> list[dict]:
@@ -83,6 +105,8 @@ def _prune_cards(cards: list[dict], states: dict[str, str]) -> list[dict]:
         card.pop("visibility", None)
         if "cards" in card:
             card["cards"] = _prune_cards(card["cards"], states)
+        if "badges" in card:
+            card["badges"] = _prune_badges(card["badges"], states)
         kept.append(card)
     return kept
 
@@ -91,8 +115,9 @@ def _prune_section(section: dict, states: dict[str, str]) -> dict | None:
     if not _shown(section, states):
         return None
     cards = _prune_cards(section["cards"], states)
-    # A heading with nothing under it is the "no lone heading" rule the generator keeps.
-    if not [c for c in cards if c.get("type") != "heading"]:
+    # A heading with nothing under it is the "no lone heading" rule the generator keeps. A
+    # heading that shows chips is not alone.
+    if not [c for c in cards if c.get("type") != "heading" or c.get("badges")]:
         return None
     return {k: v for k, v in section.items() if k != "visibility"} | {"cards": cards}
 

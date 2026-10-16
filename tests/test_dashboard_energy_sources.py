@@ -1,7 +1,7 @@
 """
-The Energy today tiles and the "Where today's energy came from" card of the dashboard.
+The "Where today's energy came from" template, and where the dashboard states self-sufficiency.
 
-The card is a markdown template, so these tests render it with Jinja and the template
+The template is a markdown template, so these tests render it with Jinja and the template
 functions Home Assistant provides (tests/test_dashboard.py holds the stand-ins). The figures
 are a real day: 12.1 kWh imported, 7.5 of it into the battery, 11.3 kWh used by the house,
 1.8 kWh discharged from the battery.
@@ -31,8 +31,6 @@ CARD = IDS["self_sufficiency"]
 HOUSE = IDS["house_kwh_today"]
 IMPORTED = IDS["import_today"]
 DISCHARGE = IDS["battery_discharge_kwh_today"]
-
-HEADING = "Where today's energy came from"
 
 # The attributes the self-sufficiency sensor carries when it knows where the grid energy went.
 SPLIT_ATTRS = {
@@ -172,84 +170,40 @@ def _generated(**registry) -> dict:
     return dashboard_dict(FULL_CONFIG, FakeRegistry(enable_all=True, **registry))
 
 
-class TestTodaySoFarTiles:
-    def _tiles(self, config: dict) -> dict[str, dict]:
-        section = _section(_view(config, "power-flow"), "Today so far")
-        return {c["name"]: c for c in section["cards"] if c["type"] == "tile"}
+class TestTodaySoFarChips:
+    def _chips(self, config: dict) -> list[str]:
+        view = _view(config, "power-flow")
+        (heading,) = [c for c in view_cards(view) if c.get("heading") == "Today so far"]
+        return [badge["entity"] for badge in heading["badges"]]
 
-    def test_self_sufficiency_joins_the_four_totals(self):
-        tiles = self._tiles(_generated())
-        totals = [n for n in tiles if n in {"Solar", "Home used", "Imported", "Exported", "Self-sufficient"}]
-        assert totals == ["Solar", "Home used", "Imported", "Exported", "Self-sufficient"]
-        assert tiles["Self-sufficient"]["entity"] == IDS["self_sufficiency"]
+    def test_self_sufficiency_joins_the_solar_and_the_cost(self):
+        assert self._chips(_generated()) == [
+            IDS["solar_today"],
+            IDS["import_cost_today"],
+            IDS["self_sufficiency"],
+        ]
 
-    def test_a_tile_is_left_out_when_its_sensor_is_missing(self):
-        tiles = self._tiles(_generated(absent={"self_sufficiency"}))
-        assert "Self-sufficient" not in tiles
-        assert "Home used" in tiles
-
-
-class TestTheSourcesGroup:
-    def _group(self, config: dict) -> dict | None:
-        return _section(_view(config, "today"), HEADING)
-
-    def test_it_sits_under_energy_on_the_today_tab(self):
-        headings = [s["cards"][0].get("heading") for s in _view(_generated(), "today")["sections"]]
-        assert headings[:3] == ["Today hour by hour", "Energy", HEADING]
-
-    def test_it_reads_the_self_sufficiency_house_and_import_sensors(self):
-        group = self._group(_generated())
-        card = next(c for c in group["cards"] if c["type"] == "markdown")
-        assert card["grid_options"] == {"columns": "full"}
-        for entity in (CARD, HOUSE, IMPORTED):
-            assert f"'{entity}'" in card["content"]
-
-    def test_it_names_the_battery_sensor_when_that_sensor_is_enabled(self):
-        group = self._group(_generated())
-        assert f"'{DISCHARGE}'" in group["cards"][1]["content"]
-
-    def test_it_names_the_battery_sensor_on_a_fresh_install(self):
-        config = dashboard_dict(FULL_CONFIG, FakeRegistry())
-        group = self._group(config)
-        assert group is not None
-        assert f"'{DISCHARGE}'" in group["cards"][1]["content"]
-
-    def test_it_leaves_the_battery_out_when_the_user_has_disabled_that_sensor(self):
-        registry = FakeRegistry(enable_all=True)
-        registry.async_get(DISCHARGE).disabled_by = "user"
-        group = self._group(dashboard_dict(FULL_CONFIG, registry))
-        assert group is not None
-        assert "set battery_entity = ''" in group["cards"][1]["content"]
-
-    @pytest.mark.parametrize("missing", ["self_sufficiency", "house_kwh_today", "import_today"])
-    def test_it_is_left_out_with_no_heading_when_a_sensor_it_reads_is_missing(self, missing):
-        config = _generated(absent={missing})
-        assert self._group(config) is None
-        assert HEADING not in yaml.safe_dump(config)
-
-    def test_it_is_valid_in_the_markdown_card_of_the_frontend(self):
-        group = self._group(_generated())
-        for card in group["cards"]:
-            if card["type"] == "markdown":
-                assert _render(card["content"], lambda entity: "1.0")
+    def test_a_chip_is_left_out_when_its_sensor_is_missing(self):
+        chips = self._chips(_generated(absent={"self_sufficiency"}))
+        assert IDS["self_sufficiency"] not in chips
+        assert IDS["solar_today"] in chips
 
 
 class TestSelfSufficiencyIsShownOnce:
-    """Self-sufficiency is stated, with its meaning, by the sources card of the Today tab.
+    """Self-sufficiency is stated in the sentence that opens the Today view.
 
-    The Power Flow tab keeps a tile for a glance. The Today tab does not repeat it as a bar
-    unless the sources card is missing, so the figure is never lost.
+    Home energy keeps a chip for a glance. The Today view does not repeat it as a bar or a tile.
     """
 
     def _bars(self, config: dict) -> list[str]:
-        section = _section(_view(config, "today"), "Solar")
-        return [c["name"] for c in section["cards"] if c["type"] == "tile"]
+        cards = view_cards(_view(config, "today"))
+        return [c["name"] for c in cards if c["type"] == "tile"]
 
     def _says_it_in_words(self, config: dict) -> bool:
-        group = _section(_view(config, "today"), HEADING)
-        return bool(group) and any(CARD in c.get("content", "") for c in group["cards"])
+        section = _section(_view(config, "today"), "Today")
+        return bool(section) and any(CARD in c.get("content", "") for c in section["cards"])
 
-    def test_the_today_bars_leave_it_out_while_the_card_states_it(self):
+    def test_the_today_bars_leave_it_out_while_the_sentence_states_it(self):
         config = _generated()
         assert self._says_it_in_words(config)
         assert self._bars(config) == ["Home use from solar", "Solar kept at home"]
@@ -258,16 +212,13 @@ class TestSelfSufficiencyIsShownOnce:
         cards = view_cards(_view(_generated(), "today"))
         assert [c for c in cards if c["type"] == "tile" and c["entity"] == CARD] == []
 
-    def test_the_power_flow_tile_stays(self):
-        tiles = TestTodaySoFarTiles()._tiles(_generated())
-        assert tiles["Self-sufficient"]["entity"] == CARD
+    def test_the_home_energy_chip_stays(self):
+        assert CARD in TestTodaySoFarChips()._chips(_generated())
 
-    @pytest.mark.parametrize("missing", ["house_kwh_today", "import_today"])
-    def test_the_bar_returns_when_the_card_cannot_be_built(self, missing):
-        """Losing the card must not lose the figure."""
-        config = _generated(absent={missing})
-        assert not self._says_it_in_words(config)
-        assert self._bars(config) == ["Self-sufficiency", "Home use from solar", "Solar kept at home"]
+    @pytest.mark.parametrize("missing", ["import_today", "import_cost_today", "export_today"])
+    def test_the_sentence_keeps_it_when_another_total_is_missing(self, missing):
+        """Losing another figure must not lose this one."""
+        assert self._says_it_in_words(_generated(absent={missing}))
 
     def test_the_figure_is_gone_from_the_today_tab_when_its_sensor_is_missing(self):
         config = _generated(absent={"self_sufficiency"})

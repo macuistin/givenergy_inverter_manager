@@ -1,9 +1,9 @@
 """
-The scheduled rate changes on the Tariff view.
+The scheduled rate changes in the Tariff section of the Bill & tariff view.
 
-The view lists the dated changes that have not started, with the date the tariff was last
-reviewed, under the tariff in use. The list is read from the options when the file is generated,
-as the tariff table is, and it is left out when no change is scheduled.
+Without the Tariff in use sensor the section lists the dated changes that have not started, with
+the date the tariff was last reviewed, under the rates in use. The list is read from the options
+when the dashboard is built, as the rates are, and it is left out when no change is scheduled.
 """
 
 from __future__ import annotations
@@ -64,8 +64,8 @@ def _config(*changes: dict, reviewed: date | None = None, **extra) -> dict:
 
 
 def _tariff_section(view: dict) -> dict:
-    """The section of the Tariff view that holds the tariff in use."""
-    return next(s for s in view["sections"] if s["cards"][0].get("heading") == "Tariff in use")
+    """The section of the Bill & tariff view that holds the tariff in use."""
+    return next(s for s in view["sections"] if s["cards"][0].get("heading") == "Tariff")
 
 
 def _without_the_report(config: dict) -> FakeRegistry:
@@ -76,7 +76,7 @@ def _without_the_report(config: dict) -> FakeRegistry:
 
 def _tariff(config: dict) -> list[dict]:
     dashboard = dashboard_dict(config, _without_the_report(config))
-    view = next(v for v in dashboard["views"] if v["path"] == "tariff")
+    view = next(v for v in dashboard["views"] if v["path"] == "bill")
     return view_cards({"sections": [_tariff_section(view)]})
 
 
@@ -150,11 +150,12 @@ def test_the_tariff_in_use_is_untouched_by_a_change_ahead():
 def test_the_changes_sit_under_the_tariff_in_use_in_the_same_section():
     config = _config(_change(_AHEAD))
     dashboard = dashboard_dict(config, _without_the_report(config))
-    view = next(v for v in dashboard["views"] if v["path"] == "tariff")
+    view = next(v for v in dashboard["views"] if v["path"] == "bill")
     section = _tariff_section(view)
     kinds = [(c["type"], c.get("heading")) for c in section["cards"]]
     assert kinds == [
-        ("heading", "Tariff in use"),
+        ("heading", "Tariff"),
+        ("history-graph", None),
         ("markdown", None),
         ("heading", HEADING),
         ("markdown", None),
@@ -185,7 +186,7 @@ def test_only_the_changes_ahead_are_listed():
 
 def test_no_lone_heading_is_left_when_there_are_no_changes():
     headings = [c["heading"] for c in _tariff(_config()) if c["type"] == "heading"]
-    assert headings == ["Tariff in use"]
+    assert headings == ["Tariff"]
 
 
 def test_a_malformed_stored_change_is_skipped():
@@ -208,7 +209,7 @@ def _tariff_view_seen(ev: bool, switch: bool, sensor: bool) -> dict:
     config[CONF_TARIFF_CHANGES] = [_change(_AHEAD)]
     generated = dashboard_dict(config, _without_the_report(config), ev_brand=brand)
     shown = seen(generated, states_with(devices_of(config, brand)))
-    view = next(v for v in shown["views"] if v["path"] == "tariff")
+    view = next(v for v in shown["views"] if v["path"] == "bill")
     return {"sections": [_tariff_section(view)]}
 
 
@@ -217,7 +218,8 @@ def test_the_tariff_section_is_the_same_for_every_combination_of_devices(combina
     """The tariff has no device, so the table shows whatever devices the install has."""
     view = _tariff_view_seen(*combination)
     assert [c.get("heading") for c in view_cards(view)] == [
-        "Tariff in use",
+        "Tariff",
+        None,
         None,
         HEADING,
         None,

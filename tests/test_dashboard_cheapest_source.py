@@ -38,10 +38,12 @@ def test_other_states_are_shown_as_they_are_whatever_the_label(state, shown):
     assert _text(state, alt_label="Gas") == f"**Cheapest source** {shown}"
 
 
-def test_the_section_holds_the_card_not_a_tile_of_the_raw_state():
+def test_the_hot_water_view_holds_no_tile_of_the_raw_state():
+    """The state is a word for automations, so the view prints the suggestion instead."""
+    from tests.dashboard_support import view_cards
     from tests.dashboard_visibility import seen_for
-    from tests.test_dashboard_devices import _oil_section_cards
 
-    cards = _oil_section_cards(seen_for(switch=True, sensor=True, oil=True))
-    assert not [c for c in cards if c["type"] == "tile" and "cheapest" in c.get("entity", "")]
-    assert [c for c in cards if "Cheapest source" in c.get("content", "")]
+    shown = seen_for(switch=True, sensor=True, oil=True)
+    cards = view_cards(next(v for v in shown["views"] if v["path"] == "immersion"))
+    assert not [c for c in cards if c["type"] == "tile" and c.get("entity") == OIL_SENTINEL]
+    assert [c for c in cards if f"state_attr('{OIL_SENTINEL}', 'suggestion')" in c.get("content", "")]
