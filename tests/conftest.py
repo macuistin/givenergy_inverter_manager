@@ -384,6 +384,7 @@ def _run(
         override_skip_charge=kwargs.get("override_skip_charge", False),
         today_raw_forecast_kwh=kwargs.get("today_raw_forecast_kwh"),
         today_raw_forecast_p10_kwh=kwargs.get("today_raw_forecast_p10_kwh"),
+        today_raw_forecast_shape=kwargs.get("today_raw_forecast_shape"),
         held_charge=kwargs.get("held_charge"),
         held_sunrise=kwargs.get("held_sunrise"),
         held_solar=kwargs.get("held_solar"),

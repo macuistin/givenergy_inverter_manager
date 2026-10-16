@@ -19,8 +19,8 @@ from custom_components.givenergy_inverter_manager.const import DOMAIN, SOLAR_NOI
 from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.sensor_values import night_survival_confidence
 
-# 08:00 local on an October morning (UTC+1 until the clocks change). The battery lasts the 8-hour
-# pre-solar window but not the 24 hours to tomorrow's sunrise.
+# 08:00 local on an October morning (UTC+1 until the clocks change). The battery lasts the night
+# from 20:00, when solar is expected to stop, but not the 24 hours to tomorrow's sunrise.
 OCTOBER_DAWN = replace(
     CHEAP_NIGHT,
     name="october_dawn",
