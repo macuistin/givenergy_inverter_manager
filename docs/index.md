@@ -26,6 +26,14 @@ This documentation matches version 0.19.7.
 | [Long-term statistics](long-term-statistics.md) | Why daily sensors use state class `total` and reset at midnight |
 | [Automation examples](automations.md) | Ready-to-use automations |
 
+## Guides
+
+Built from off-the-shelf hardware, useful whether or not you run this integration.
+
+| Page | Contents |
+|---|---|
+| [Building an immersion controller from a smart switch and two temperature sensors](hardware-guides.md) | A Wi-Fi switch rated for the load, plus a two-probe temperature sensor at the top and bottom of the cylinder |
+
 ## Operate
 
 | Page | Contents |
