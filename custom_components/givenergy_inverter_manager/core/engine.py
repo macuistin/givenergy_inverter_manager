@@ -129,6 +129,7 @@ from .rules import (
     WaterState,
     available_surplus_w,
     calculate_overnight_charge_target,
+    charge_cost,
     decide_ev_charger_action,
     should_divert_to_immersion,
     usable_slot_loads_kwh,
@@ -1301,6 +1302,13 @@ def _with_charge_overrides(
     return decision
 
 
+def _written_decision(decision: ChargeDecision, cycle: _Cycle, max_target: int) -> ChargeDecision:
+    """The decision with the overrides and the cap applied, priced at the target it now has."""
+    written = _with_charge_overrides(decision, cycle.overrides, max_target)
+    cost = charge_cost(written, cycle.tariff.get_cheapest_rate().rate)
+    return replace(written, cost_to_charge=cost)
+
+
 def _charge_running(data: CoordinatorData, raw: RawSensorValues) -> bool:
     """True while the battery is taking power from the grid inside the cheap rate run."""
     return (
@@ -1320,17 +1328,15 @@ def _set_overnight_charge(
     window planned from it. The sensors read published_charge_decision, built from the held
     calculation so it only moves once the fresh target is a clear step away and the held one
     has stood for a while, and published_charge_window, held the same way. Overrides and the
-    cap apply to both decisions.
+    cap apply to both decisions, and each is priced at the target it ends with.
     """
     fresh = _overnight_charge_decision(cycle, avg_daily_kwh)
     max_target = int(cycle.cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
     reading = HoldReading(cycle.now, _charge_running(data, cycle.raw), max_target)
     held.settle(fresh, reading)
-    data.charge_decision = _with_charge_overrides(fresh, cycle.overrides, max_target)
+    data.charge_decision = _written_decision(fresh, cycle, max_target)
     data.solar_shape_used = SHAPE_REASON in fresh.reason
-    data.published_charge_decision = _with_charge_overrides(
-        held.decision, cycle.overrides, max_target
-    )
+    data.published_charge_decision = _written_decision(held.decision, cycle, max_target)
     data.charge_window = _plan_charge_window(data, cycle)
     held.settle_window(data.charge_window, reading)
     data.published_charge_window = held.window

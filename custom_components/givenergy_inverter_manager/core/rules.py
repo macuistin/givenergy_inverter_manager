@@ -427,9 +427,28 @@ class _ChargePlan:
     cost_to_charge: float
 
 
+def _kwh_to_charge(battery_capacity_kwh: float, current_soc: float, target_soc: int) -> float:
+    """The energy from the SoC now up to the target, nothing when the target is not above it."""
+    return max(0.0, battery_capacity_kwh * (target_soc - current_soc) / 100)
+
+
 def _cost_to_charge(inputs: ChargeInputs, target_soc: int) -> float:
-    kwh_to_charge = max(0.0, inputs.battery_capacity_kwh * (target_soc - inputs.current_soc) / 100)
+    kwh_to_charge = _kwh_to_charge(inputs.battery_capacity_kwh, inputs.current_soc, target_soc)
     return kwh_to_charge * inputs.cheapest_rate
+
+
+def charge_cost(decision: ChargeDecision, cheapest_rate: float) -> float:
+    """What the decision's charge costs at the cheapest rate, zero on a skipped night.
+
+    Priced the same way as the plan, so a decision whose target an override or the cap
+    changed costs what will be written.
+    """
+    if decision.skip_charge:
+        return 0.0
+    kwh_to_charge = _kwh_to_charge(
+        decision.battery_capacity, decision.current_soc, decision.target_soc
+    )
+    return kwh_to_charge * cheapest_rate
 
 
 def _build_decision(inputs: ChargeInputs, plan: _ChargePlan) -> ChargeDecision:

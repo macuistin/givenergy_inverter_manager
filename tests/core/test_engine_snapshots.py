@@ -143,6 +143,13 @@ without a day-after forecast sensor. Only charge_decision and published_charge_d
 a case made before 08:00 that read the tomorrow sensor as the day after: its target went from 87
 to 100. The behaviour is pinned in tests/core/test_forecast_day.py and
 tests/core/test_midnight_charge_replay.py.
+
+56 of the 255 cases were regenerated when the charge cost started following the target that is
+written. Only cost_to_charge on charge_decision and on published_charge_decision moved, the same
+value on both. 19 cases have a target capped at the configured maximum and now cost the capped
+target, 16 have a manual fixed target and now cost that target (9 up, 7 down), and 21 have a manual
+skip and now cost nothing. The cost still counts only the energy above the SoC. The new behaviour
+is pinned in tests/core/test_charge_cost_follows_target.py.
 """
 
 from __future__ import annotations
