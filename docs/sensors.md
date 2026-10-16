@@ -287,8 +287,8 @@ The state is a one-line summary. The `html` attribute holds a styled report for 
 | Today's energy summary | `today_summary` | - | - | none | no | no | Solar, import cost, immersion savings and self-sufficiency for today. |
 | Tonight's charge plan | `charge_plan` | - | - | none | no | yes | Tonight's target, the percentage to add and the cost, or Skip charge. |
 | Tariff in use | `tariff_in_use` | - | - | none | no | yes | The rates in force today in one line. The html attribute holds the tables. |
-| Bill audit | `bill_audit` | - | - | none | no | yes | The bill period day by day, as a bill. The `html` attribute holds the tables and the bill beside the same bill with no solar or battery. |
-| Previous bill audit | `previous_bill_audit` | - | - | none | no | yes | The same for the bill period that ended last, from its archive. |
+| Bill audit | `bill_audit` | - | - | none | no | yes | The bill period day by day, as a bill. The `html` attribute holds the tables and the bill beside the same bill with no solar or battery. `bill_table` and `days_table` hold the bill and the days as markdown tables. |
+| Previous bill audit | `previous_bill_audit` | - | - | none | no | yes | The same for the bill period that ended last, from its archive. `summary_table` is its bill as a markdown table and `period` its dates. |
 | This week's energy summary | `week_summary` | - | - | none | no | no | Solar, import cost and self-sufficiency for this week. |
 
 ## Dry run and diagnostics

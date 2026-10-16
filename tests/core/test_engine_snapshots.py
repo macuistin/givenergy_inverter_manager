@@ -51,6 +51,11 @@ gained the per-period kWh: 114 of today's house use, 31 of today's import, with 
 year in proportion. No other leaf moved. The kWh are pinned in tests/core/test_period_kwh.py and
 the audit in tests/core/test_bill_audit.py.
 
+The bill audit's markdown tables added four leaves: bill_audit_bill_table, bill_audit_days_table,
+previous_bill_audit_summary_table and previous_bill_audit_period. Only the fresh snapshot gained
+them (all empty), and none of the 255 cases moved, because the coordinator fills them and the
+engine never does. The tables are pinned in tests/core/test_bill_audit_tables.py.
+
 The cheap_run_remaining_minutes leaf was added for the Cheap from tile: 49 of the 255 cases gained
 it, and the fresh snapshot gained it as None. Nothing else moved.
 

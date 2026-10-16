@@ -296,6 +296,11 @@ class CoordinatorData:
     bill_audit_html: str = ""
     previous_bill_audit_state: str = ""
     previous_bill_audit_html: str = ""
+    # The same audits as markdown tables, for the markdown card. See core/bill_audit.py.
+    bill_audit_bill_table: str = ""
+    bill_audit_days_table: str = ""
+    previous_bill_audit_summary_table: str = ""
+    previous_bill_audit_period: str = ""
     is_clipping: bool = False
     charge_decision: ChargeDecision | None = None
     charge_window: ChargeWindow | None = None

@@ -34,6 +34,10 @@ SELF_SUFFICIENCY = {
 UNRECORDED: dict[str, set[str]] = {
     "html": set(),  # report sensors, through html_fn
     "full_text": set(),  # any sentence sensor whose state was cut
+    "bill_table": {"bill_audit"},
+    "days_table": {"bill_audit"},
+    "summary_table": {"previous_bill_audit"},
+    "period": {"previous_bill_audit"},
     "recent_writes": {"register_write_count"},
     "battery_soc": {"night_survival_confidence"},
     "estimated_soc_at_sunrise": {"night_survival_confidence"},

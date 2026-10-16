@@ -441,9 +441,13 @@ DESCRIPTIONS: dict[str, str] = {
     "cost_without_solar_this_month": _WITHOUT_SOLAR,
     "bill_audit": (
         "The bill period day by day, as a bill. The `html` attribute holds the tables and the "
-        "bill beside the same bill with no solar or battery."
+        "bill beside the same bill with no solar or battery. `bill_table` and `days_table` hold "
+        "the bill and the days as markdown tables."
     ),
-    "previous_bill_audit": "The same for the bill period that ended last, from its archive.",
+    "previous_bill_audit": (
+        "The same for the bill period that ended last, from its archive. `summary_table` is "
+        "its bill as a markdown table and `period` its dates."
+    ),
     "days_remaining_in_period": "Days left in the bill period after today.",
     "days_in_period": "Day of the bill period, 1 on the bill start day.",
     "battery_cycles": (
