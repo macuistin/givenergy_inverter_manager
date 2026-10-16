@@ -24,13 +24,16 @@ from ...const import (
     CONF_SOLAR_POWER,
     GIVTCP_FROZEN_AFTER_S,
 )
+from ...core.battery_pause import PauseWindow
 from ...core.feed_freshness import frozen_age_s, newest_report
 from ...core.inverter_values import FeedState, FeedStatus, InverterValues, RateDefaults
 from ...logging import get_logger
+from .battery_pause import pause_window, pauses_discharge
 from .constants import GIVTCP_SHIPPED_RATES
 from .discovery import (
     GIVTCP_PREFIX,
     GIVTCP_RATE_SUFFIXES,
+    battery_pause_entities,
     device_prefix,
     temperature_entity_ids_for,
 )
@@ -63,6 +66,7 @@ class GivTCPReader:
     def __init__(self, get_state: GetState) -> None:
         self._get_state = get_state
         self.battery_cycle_entities: list[str] = []
+        self._unreadable_pause_modes: set[str] = set()
 
     # ── Typed state reads ─────────────────────────────────────────────────────
 
@@ -139,6 +143,7 @@ class GivTCPReader:
             battery_lifetime_cycles=self._battery_lifetime_cycles(),
             battery_charge_rate_w=self._charge_rate_w(cfg),
             data_age_s=self._data_age_s(cfg),
+            battery_pause=self._battery_pause(cfg),
             unavailable_inputs=tuple(unavailable),
             **self._daily_counters(cfg),
         )
@@ -214,6 +219,41 @@ class GivTCPReader:
         if not prefix:
             return None
         return self._optional_float(f"sensor.{prefix}_data_age")
+
+    # ── The battery pause ─────────────────────────────────────────────────────
+
+    def _text(self, *entity_ids: str) -> str | None:
+        """The first of these entities with a usable state, as text. None when none has."""
+        for entity_id in entity_ids:
+            state = self._state(entity_id)
+            if state is not None and str(state.state) not in _UNREADABLE:
+                return str(state.state)
+        return None
+
+    def _battery_pause(self, cfg: Mapping[str, Any]) -> PauseWindow | None:
+        """The window in which GivTCP stops the battery discharging, None when there is none.
+
+        The entities are found from the device prefix on every read, so a pause set up after
+        this integration was added is picked up on the next cycle. A device without them, or with
+        them unavailable, has no pause. Reads only.
+        """
+        prefix = device_prefix(cfg)
+        if not prefix:
+            return None
+        entities = battery_pause_entities(prefix)
+        mode = self._text(entities.mode)
+        if mode is not None and pauses_discharge(mode) is None:
+            self._note_unreadable_pause_mode(mode)
+        return pause_window(mode, self._text(*entities.start), self._text(*entities.end))
+
+    def _note_unreadable_pause_mode(self, mode: str) -> None:
+        """Say once per option that the pause mode is not one this reader knows."""
+        if mode not in self._unreadable_pause_modes:
+            self._unreadable_pause_modes.add(mode)
+            _LOG.warning(
+                "GivTCP battery pause mode %r is not one this reader knows, so no pause is used",
+                mode,
+            )
 
     # ── Rates GivTCP holds ────────────────────────────────────────────────────
 
