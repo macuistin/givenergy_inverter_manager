@@ -95,11 +95,14 @@ from .alt_heat_schedule import (
 from .alt_heat_start import WaterReading
 from .battery import (
     BatteryStats,
+    NightClock,
     NightEstimateInputs,
     calculate_cycle_increment,
-    estimate_will_survive_night,
     hours_until_solar,
+    minute_of_day,
+    night_estimate,
     paused_night,
+    survival_reason,
 )
 from .battery_pause import PauseWindow
 from .charge_hold import HeldCharge, HoldReading
@@ -111,9 +114,11 @@ from .charge_window import (
 )
 from .controller_conflict import ConflictStatus
 from .counter_guard import screen
+from .ev_session import EVSessionLog, EVSessionStep, track_session
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
 from .planned_heating import PlanQuery, describe_planned_heating
+from .repair_summary import RepairIssue
 from .rules import (
     SHAPE_REASON,
     ChargeDecision,
@@ -129,13 +134,16 @@ from .rules import (
     WaterState,
     available_surplus_w,
     calculate_overnight_charge_target,
+    charge_cost,
     decide_ev_charger_action,
+    planned_day,
     should_divert_to_immersion,
     usable_slot_loads_kwh,
 )
 from .seasons import NORTHERN_SEASONS, SeasonRules
 from .setup_progress import SetupItem
 from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
+from .solar_shape import solar_end_minute, valid_shape
 from .stored_energy import stored_energy_change
 from .sunrise_charge import (
     LOAD_NOTE_FLAT,
@@ -166,6 +174,7 @@ from .tariff import (
     tariff_in_force,
 )
 from .timeutil import elapsed_seconds, local_time_on
+from .tomorrow_outlook import OutlookInputs, TomorrowOutlook, project_outlook
 
 _LOG = get_logger(__name__)
 
@@ -296,6 +305,11 @@ class CoordinatorData:
     bill_audit_html: str = ""
     previous_bill_audit_state: str = ""
     previous_bill_audit_html: str = ""
+    # The same audits as markdown tables, for the markdown card. See core/bill_audit.py.
+    bill_audit_bill_table: str = ""
+    bill_audit_days_table: str = ""
+    previous_bill_audit_summary_table: str = ""
+    previous_bill_audit_period: str = ""
     is_clipping: bool = False
     charge_decision: ChargeDecision | None = None
     charge_window: ChargeWindow | None = None
@@ -379,6 +393,10 @@ class CoordinatorData:
     immersion_configured: bool = True
     ev_charging_source: str = "Not charging"
     ev_solar_surplus_available: bool = False
+    # The running EV session and the last finished ones. None without a charger or a stored log.
+    ev_sessions: EVSessionLog | None = None
+    # This integration's open repair issues. The coordinator sets them, from the issue registry.
+    active_repairs: tuple[RepairIssue, ...] = ()
     dry_run: bool = False
     # True while the test instance marker file exists. Set by the coordinator, which owns the file.
     test_instance: bool = False
@@ -410,6 +428,9 @@ class CoordinatorData:
     charge_target_conflict: ConflictStatus = field(default_factory=ConflictStatus)
     carbon_intensity_gco2: float | None = None
     carbon_intensity_status: str = "Unknown"
+    # What the solar day the charge plan is for should cost, from the plan's own simulation.
+    # None before the first decision, without a battery capacity or without any forecast.
+    tomorrow_outlook: TomorrowOutlook | None = None
 
 
 @dataclass(frozen=True)
@@ -796,6 +817,39 @@ def _process_ev_charger(
 
 
 @dataclass(frozen=True)
+class _EVTotals:
+    """Today's EV energy and EV cost at one moment of the cycle."""
+
+    energy_kwh: float
+    cost: float
+
+    @classmethod
+    def of(cls, today: EnergyAccumulator) -> _EVTotals:
+        return cls(today.zappi_kwh, today.zappi_cost)
+
+    def step_since(
+        self, before: _EVTotals, charger_state: EVChargerState, now: datetime
+    ) -> EVSessionStep:
+        """The EV energy and cost today's totals counted since *before*, as a session step."""
+        return EVSessionStep(
+            now=now,
+            charger_state=charger_state,
+            energy_kwh=self.energy_kwh - before.energy_kwh,
+            cost=self.cost - before.cost,
+        )
+
+
+def _track_ev_session(
+    data: CoordinatorData, log: EVSessionLog | None, step: EVSessionStep
+) -> None:
+    """Add the cycle to the EV session log, when the coordinator passed one."""
+    if log is None:
+        return
+    track_session(log, step)
+    data.ev_sessions = log
+
+
+@dataclass(frozen=True)
 class Accumulators:
     """The running energy accumulators, plus when today's was last reset.
 
@@ -811,6 +865,7 @@ class Accumulators:
     last_reset_time: str = ""
     counters: CounterMemory = field(default_factory=CounterMemory)
     heat_log: ImmersionHeatLog | None = None
+    ev_sessions: EVSessionLog | None = None
 
     def rolling(self) -> tuple[EnergyAccumulator, ...]:
         """The accumulators that integrate live power, today's first. Yesterday is a record."""
@@ -886,6 +941,9 @@ class _Cycle:
     # Solar power as the night window sees it: the raw reading once the solar day has settled as
     # started, zero otherwise (core/solar_day.py).
     night_solar_w: float
+    # The minute of the day solar is expected to stop today, which starts the night window in
+    # daylight (battery.night_window).
+    solar_end_minute: float
 
 
 def _apply_history(
@@ -1226,8 +1284,19 @@ def _charge_inputs(cycle: _Cycle, avg_daily_kwh: float) -> ChargeInputs:
         load_profile=cycle.forecast.load_profile,
         solar_power_w=cycle.night_solar_w,
         seasons=cycle.forecast.seasons or NORTHERN_SEASONS,
+        solar_end_minute=cycle.solar_end_minute,
         battery_pause=raw.battery_pause,
     )
+
+
+def _plans_for_today(now: datetime) -> bool:
+    """True until sunrise, while the solar day the charge plan serves is today."""
+    return now.hour < SOLAR_SUNRISE_HOUR
+
+
+def _plan_day(now: datetime) -> date:
+    """The date of the solar day the charge plan serves: today until sunrise, else tomorrow."""
+    return now.date() if _plans_for_today(now) else now.date() + timedelta(days=1)
 
 
 def _solar_forecast(cycle: _Cycle) -> SolarForecast:
@@ -1240,7 +1309,7 @@ def _solar_forecast(cycle: _Cycle) -> SolarForecast:
     and the target does not step at midnight.
     """
     raw, forecast = cycle.raw, cycle.forecast
-    if cycle.now.hour < SOLAR_SUNRISE_HOUR:
+    if _plans_for_today(cycle.now):
         forecast_kwh = forecast.today_raw_forecast_kwh
         forecast_kwh_p10 = forecast.today_raw_forecast_p10_kwh
         forecast_kwh_d2 = (
@@ -1273,6 +1342,26 @@ def _overnight_charge_decision(cycle: _Cycle, avg_daily_kwh: float) -> ChargeDec
     )
 
 
+def _set_tomorrow_outlook(data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float) -> None:
+    """Price the plan's day from the level the published plan leaves, at that day's tariff."""
+    decision = data.published_charge_decision
+    if decision is None:
+        return
+    day = planned_day(_charge_inputs(cycle, avg_daily_kwh), _solar_forecast(cycle), cycle.now)
+    if day is None:
+        return
+    on = _plan_day(cycle.now)
+    data.tomorrow_outlook = project_outlook(
+        OutlookInputs(
+            day=day,
+            decision=decision,
+            tariff=build_tariff(tariff_in_force(cycle.cfg, on)),
+            on=on,
+            floor_pct=float(_configured_min_soc(cycle.cfg)),
+        )
+    )
+
+
 def _with_charge_overrides(
     decision: ChargeDecision,
     overrides: ManualOverrides,
@@ -1301,6 +1390,13 @@ def _with_charge_overrides(
     return decision
 
 
+def _written_decision(decision: ChargeDecision, cycle: _Cycle, max_target: int) -> ChargeDecision:
+    """The decision with the overrides and the cap applied, priced at the target it now has."""
+    written = _with_charge_overrides(decision, cycle.overrides, max_target)
+    cost = charge_cost(written, cycle.tariff.get_cheapest_rate().rate)
+    return replace(written, cost_to_charge=cost)
+
+
 def _charge_running(data: CoordinatorData, raw: RawSensorValues) -> bool:
     """True while the battery is taking power from the grid inside the cheap rate run."""
     return (
@@ -1320,17 +1416,15 @@ def _set_overnight_charge(
     window planned from it. The sensors read published_charge_decision, built from the held
     calculation so it only moves once the fresh target is a clear step away and the held one
     has stood for a while, and published_charge_window, held the same way. Overrides and the
-    cap apply to both decisions.
+    cap apply to both decisions, and each is priced at the target it ends with.
     """
     fresh = _overnight_charge_decision(cycle, avg_daily_kwh)
     max_target = int(cycle.cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
     reading = HoldReading(cycle.now, _charge_running(data, cycle.raw), max_target)
     held.settle(fresh, reading)
-    data.charge_decision = _with_charge_overrides(fresh, cycle.overrides, max_target)
+    data.charge_decision = _written_decision(fresh, cycle, max_target)
     data.solar_shape_used = SHAPE_REASON in fresh.reason
-    data.published_charge_decision = _with_charge_overrides(
-        held.decision, cycle.overrides, max_target
-    )
+    data.published_charge_decision = _written_decision(held.decision, cycle, max_target)
     data.charge_window = _plan_charge_window(data, cycle)
     held.settle_window(data.charge_window, reading)
     data.published_charge_window = held.window
@@ -1379,38 +1473,38 @@ def _calculate_night_survival(
 ) -> None:
     """Calculate night survival metrics.
 
-    will_survive_night and survival_reason come from the calculated estimate. The published
-    estimated_soc_at_sunrise follows it at the battery's own pace, so a step in the window
-    or the load estimate does not jump the sensor.
+    will_survive_night and any shortfall come from the calculated estimate, so a real shortfall
+    shows at once. The published estimated_soc_at_sunrise follows it at the battery's own
+    pace, so a step in the window or the load estimate does not jump the sensor.
+    survival_reason quotes the published figure, so the words agree with the sensor.
     """
     raw = cycle.raw
     min_soc = _configured_min_soc(cycle.cfg)
     data.battery_min_soc = min_soc
-    paused = paused_night(raw.battery_pause, cycle.now.hour, cycle.night_solar_w)
+    clock = NightClock(minute_of_day(cycle.now), cycle.night_solar_w, cycle.solar_end_minute)
+    paused = paused_night(raw.battery_pause, clock)
     data.battery_pause = paused.window if paused else None
-    (
-        data.will_survive_night,
-        calculated_soc,
-        data.survival_reason,
-    ) = estimate_will_survive_night(
+    estimate = night_estimate(
         NightEstimateInputs(
             current_soc=raw.battery_soc,
             battery_capacity_kwh=raw.battery_capacity_kwh,
             min_soc=float(min_soc),
-            hours_until_solar=hours_until_solar(cycle.now.hour, cycle.night_solar_w),
+            hours_until_solar=hours_until_solar(clock),
             average_hourly_consumption_kwh=avg_daily_kwh / 24,
             paused=paused,
         )
     )
+    data.will_survive_night = estimate.will_survive
     data.estimated_soc_at_sunrise = published_sunrise_soc(
         held,
         SunriseReading(
-            calculated_soc,
+            estimate.soc,
             cycle.now,
             max_battery_swing_pct_per_hour(raw.inverter_max_w, raw.battery_capacity_kwh),
         ),
     )
     held.soc, held.at = data.estimated_soc_at_sunrise, cycle.now
+    data.survival_reason = survival_reason(estimate, data.estimated_soc_at_sunrise)
     _project_sunrise_with_charge(data, cycle, avg_daily_kwh, held.charged())
 
 
@@ -1677,14 +1771,26 @@ def _start_cycle(
         inputs.overrides,
         forecast,
         settled_solar_w(held_solar, SolarReading(inputs.raw.solar_power_w, now)),
+        _solar_end_minute(inputs.raw, forecast),
     )
+
+
+def _solar_end_minute(raw: RawSensorValues, forecast: ForecastContext) -> int:
+    """When solar is expected to stop today, from the forecast's shape.
+
+    Today's shape is the one remembered before midnight. Without it tomorrow's shape stands in,
+    as it ends within minutes of today's. Without either, the default curve's end is used.
+    """
+    today = valid_shape(forecast.today_raw_forecast_shape)
+    return solar_end_minute(today or raw.forecast_shape_tomorrow)
 
 
 def _set_decisions(
     data: CoordinatorData, cycle: _Cycle, avg_daily_kwh: float, held: HeldCharge
 ) -> None:
-    """The charge target and the immersion divert, both of which honour manual overrides."""
+    """The charge target, its day's outlook and the immersion divert, which honour overrides."""
     _set_overnight_charge(data, cycle, avg_daily_kwh, held)
+    _set_tomorrow_outlook(data, cycle, avg_daily_kwh)
     _set_immersion_decision(data, cycle)
     _set_water_heating_advice(data, cycle)
     _set_inverter_temperature(data, cycle.raw.inverter_temp)
@@ -1720,6 +1826,7 @@ def build_coordinator_data(
     cycle = _start_cycle(inputs, forecast, now, previous.held_solar)
     _set_tariff_fields(data, cycle)
     _set_battery_stats(data, cycle, previous)
+    ev_before = _EVTotals.of(accumulators.today)
     _accumulate_energy_today(data, cycle, accumulators, previous.last_update_time)
     avg_daily_kwh = estimate_avg_daily_kwh(_baseline_house_kwh(data.today), now)
 
@@ -1732,4 +1839,7 @@ def build_coordinator_data(
 
     if inputs.ev_charger is None:
         return data, None
-    return data, _process_ev_charger(data, inputs.ev_charger, inputs.raw)
+    ev_target_mode = _process_ev_charger(data, inputs.ev_charger, inputs.raw)
+    step = _EVTotals.of(accumulators.today).step_since(ev_before, inputs.ev_charger.state, now)
+    _track_ev_session(data, accumulators.ev_sessions, step)
+    return data, ev_target_mode

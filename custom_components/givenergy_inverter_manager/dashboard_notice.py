@@ -1,9 +1,11 @@
 """
 dashboard_notice.py - tells the user once how to add the dashboard.
 
-The dashboard is a Lovelace strategy that builds itself. Home Assistant gives an integration
-no supported way to add a dashboard for the user, so the integration asks the user to add it
-from Community dashboards, and says how in a persistent notification.
+Home Assistant gives an integration no supported way to add a dashboard for the user, so a
+persistent notification says how. It leads with the stored dashboard: the user creates a blank
+dashboard and runs update_dashboard with its URL path, and a repair keeps it current. The
+strategy under Community dashboards is the alternative, because on some devices it shows
+"Timeout waiting for strategy element".
 
 It does that once for each config entry. The answer is saved as the dashboard_url_path option:
 
@@ -36,11 +38,17 @@ DOCS_URL = "https://github.com/macuistin/givenergy_inverter_manager/blob/main/do
 NOTIFICATION_MESSAGE = (
     "GivEnergy Inverter Manager builds its dashboard for you. Home Assistant needs you to add "
     "it once:\n\n"
-    "1. Go to **Settings → Dashboards → Add dashboard**.\n"
-    "2. Under **Community dashboards**, pick **GivEnergy**.\n"
-    "3. Add it.\n\n"
-    "It builds itself from your entities each time it opens, so it follows a new tariff or a "
-    "new device. If GivEnergy is not listed, reload the browser tab and try again.\n\n"
+    "1. Go to **Settings → Dashboards → Add dashboard → New dashboard from scratch**, give it a "
+    "name and create it.\n"
+    "2. Open it and note its address, such as `/dashboard-energy`.\n"
+    "3. Go to **Developer Tools → Actions**, choose **GivEnergy Inverter Manager: Update "
+    "dashboard**, enter the address without the slash as the URL path, and perform the "
+    "action.\n\n"
+    "The integration writes its dashboard there. When an upgrade or a device you add changes "
+    "the layout, a repair offers to update it with one click.\n\n"
+    "Or pick **GivEnergy** under **Community dashboards** when you add a dashboard. That one "
+    "builds itself each time it opens, but on some devices it shows \"Timeout waiting for "
+    "strategy element\".\n\n"
     f"[More about the dashboard]({DOCS_URL})"
 )
 # The URL path Home Assistant gives the default dashboard.

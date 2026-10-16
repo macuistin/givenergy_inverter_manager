@@ -51,6 +51,11 @@ gained the per-period kWh: 114 of today's house use, 31 of today's import, with 
 year in proportion. No other leaf moved. The kWh are pinned in tests/core/test_period_kwh.py and
 the audit in tests/core/test_bill_audit.py.
 
+The bill audit's markdown tables added four leaves: bill_audit_bill_table, bill_audit_days_table,
+previous_bill_audit_summary_table and previous_bill_audit_period. Only the fresh snapshot gained
+them (all empty), and none of the 255 cases moved, because the coordinator fills them and the
+engine never does. The tables are pinned in tests/core/test_bill_audit_tables.py.
+
 The cheap_run_remaining_minutes leaf was added for the Cheap from tile: 49 of the 255 cases gained
 it, and the fresh snapshot gained it as None. Nothing else moved.
 
@@ -143,6 +148,39 @@ without a day-after forecast sensor. Only charge_decision and published_charge_d
 a case made before 08:00 that read the tomorrow sensor as the day after: its target went from 87
 to 100. The behaviour is pinned in tests/core/test_forecast_day.py and
 tests/core/test_midnight_charge_replay.py.
+
+218 of the 255 cases were regenerated when the night window started at the time solar is expected
+to stop in daylight (20:00 with no forecast shape, where it was 00:00) and counted partial hours.
+171 cases have solar on after 08:00 and 92 were made part way through an hour (45 both). The
+leaves that moved are survival_reason (211), estimated_soc_at_sunrise (171), sunrise_with_charge
+(53, its soc on a night with no charge, which equals the figure without one), will_survive_night
+(3) and charge_decision with published_charge_decision (1). Two of the three verdicts are 14:00
+cases with solar on that now count the evening and run short. The third, made at 14:45 with no
+solar, now counts 17.25 hours where it counted 18 and lasts, so its plan now skips, as the skip
+check reads the same window. The new behaviour is pinned in
+tests/core/test_night_window_from_sunset.py.
+
+55 of the 255 cases were regenerated when the charge cost started following the target that is
+written. Only cost_to_charge on charge_decision and on published_charge_decision moved, the same
+value on both. 18 cases have a target capped at the configured maximum and now cost the capped
+target, 16 have a manual fixed target and now cost that target (9 up, 7 down), and 21 have a manual
+skip and now cost nothing. The cost still counts only the energy above the SoC. The 14:45 case
+that the night window change turned into a skip already cost nothing. The new behaviour is
+pinned in tests/core/test_charge_cost_follows_target.py.
+
+The tomorrow_outlook leaf was added for the Tomorrow Outlook sensor. The fresh snapshot gained it
+as None and 84 of the 255 cases gained it. The other 171 pass no forecast and no seasonal
+fractions, so they have no outlook. Nothing else moved, also with the plan's day now built by
+_day_to_simulate. The behaviour is pinned in tests/core/test_tomorrow_outlook.py.
+
+The ev_sessions leaf was added for the EV Session Cost sensor. The fresh snapshot gained it as
+None. No case moved, because none passes an EV session log. The behaviour is pinned in
+tests/core/test_ev_session.py and tests/core/test_ev_session_engine.py.
+
+The active_repairs leaf was added for the Active Repairs sensor. The fresh snapshot gained it as an
+empty list. No case moved, because the coordinator sets it from the issue registry after the engine
+has built the snapshot. The summary is pinned in tests/core/test_repair_summary.py and the registry
+side in tests/ha_e2e/test_active_repairs_e2e.py.
 """
 
 from __future__ import annotations

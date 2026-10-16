@@ -42,6 +42,10 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:receipt-text-outline",
         value_fn=lambda data: data.bill_audit_state,
         html_fn=lambda data: data.bill_audit_html,
+        attrs_fn=lambda data: {
+            "bill_table": data.bill_audit_bill_table,
+            "days_table": data.bill_audit_days_table,
+        },
     ),
     GivEnergyManagerSensorDescription(
         key="previous_bill_audit",
@@ -49,6 +53,10 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         icon="mdi:receipt-text-clock-outline",
         value_fn=lambda data: data.previous_bill_audit_state,
         html_fn=lambda data: data.previous_bill_audit_html,
+        attrs_fn=lambda data: {
+            "summary_table": data.previous_bill_audit_summary_table,
+            "period": data.previous_bill_audit_period,
+        },
     ),
     GivEnergyManagerSensorDescription(
         key="week_summary",

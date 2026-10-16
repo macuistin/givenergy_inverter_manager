@@ -43,6 +43,16 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         state_class=None,
         value_fn=values.overnight_charge_cost,
     ),
+    GivEnergyManagerSensorDescription(
+        key="tomorrow_outlook",
+        translation_key="tomorrow_outlook",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=None,
+        attrs_fn=values.tomorrow_outlook_attributes,
+        value_fn=values.tomorrow_outlook_cost,
+    ),
     # --- Immersion divert ---
     GivEnergyManagerSensorDescription(
         key="immersion_divert_reason",

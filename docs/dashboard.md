@@ -1,14 +1,44 @@
 # Dashboard
 
-The integration builds a Lovelace dashboard for you, filled in with your real entity IDs. It is a Home Assistant **dashboard strategy**, so it builds itself each time you open it, from your entity registry, your options and your Lovelace resources. Nothing is written to a file, and there is no step to repeat when something changes.
+The integration builds a Lovelace dashboard for you, filled in with your real entity IDs. There are two ways to get it:
+
+- **A stored dashboard** (recommended). You make a blank dashboard and the `update_dashboard` action writes the generated layout into it. It is a plain dashboard, so it loads on any device. When the layout changes, a repair offers to update it with one click.
+- **The strategy dashboard.** You pick **GivEnergy** under **Community dashboards** and it builds itself each time it opens. On some devices it shows "Timeout waiting for strategy element" instead. See [The strategy dashboard](#the-strategy-dashboard).
+
+The integration never creates a dashboard, and it writes one only when you run the action or press **Submit** in the repair.
 
 ## Add the dashboard
+
+1. Go to **Settings → Dashboards → Add dashboard → New dashboard from scratch**. Give it a name and an icon, and create it.
+2. Open it and look at its address, such as `/dashboard-energy`. The part after the slash is its URL path.
+3. Go to **Developer Tools → Actions** and choose **GivEnergy Inverter Manager: Update dashboard** (`givenergy_inverter_manager.update_dashboard`). Enter the URL path, such as `dashboard-energy`, and press **Perform action**.
+4. Open the dashboard. It holds the generated layout.
+
+When the integration is first set up, a notification says the same. Only an administrator can run the action, and the dashboard it writes has the Settings view. The view, and the Settings button on the Now tab, are shown only to administrators. See [Actions](actions.md#update_dashboard).
+
+The action writes into a storage dashboard: one made in **Settings → Dashboards**. It refuses a YAML dashboard, a URL path with no dashboard, and Home Assistant's recovery mode. The default **Overview** dashboard is a storage dashboard too, so you can write into it, but it then loses the cards it had.
+
+### Keep it up to date
+
+The integration remembers the dashboard it wrote. When that dashboard no longer matches the layout it would build now, the repair **The GivEnergy dashboard is out of date** appears in **Settings → System → Repairs**. That happens after an upgrade changes the layout, after you add or remove a device, enable a sensor or install a HACS card, after an administrator is added, and after anyone edits the dashboard.
+
+Open the repair and press **Submit** to write the current layout. To keep the dashboard as it is, ignore the repair. The integration looks again a minute after its entities change, after you save its options, and once an hour.
+
+If you delete the dashboard, or it is no longer a storage dashboard, the integration forgets it and the repair goes. Run the action again with another URL path to start again.
+
+### Your own edits and the backup
+
+The action and the repair replace the whole dashboard, your own edits included. Before each write, the dashboard's configuration is saved to `givenergy_dashboard_backup.yaml` in the configuration folder, replacing the previous backup. To get your edits back, open the dashboard's raw configuration editor and paste from the file. To keep your own layout for good, use a different dashboard and leave this one to the integration.
+
+## The strategy dashboard
+
+The strategy dashboard builds itself each time you open it, from your entity registry, your options and your Lovelace resources. Nothing is written to a file, and there is no step to repeat when something changes. It needs a small script to load in the browser first, and on some devices that script is not ready in the 5 seconds Home Assistant waits for it. The dashboard then shows "Timeout waiting for strategy element". If that happens to you, use [the stored dashboard](#add-the-dashboard) instead.
 
 1. Go to **Settings → Dashboards → Add dashboard**.
 2. Under **Community dashboards**, pick **GivEnergy**.
 3. Keep the suggested title and icon, or change them, and add the dashboard.
 
-When the integration is first set up, a notification says the same. The integration cannot create the dashboard for you, because Home Assistant gives an integration no supported way to do it. Adding it takes one pick, and the dashboard is yours: rename it, hide it or delete it as you like. The integration never adds it again.
+Adding it takes one pick, and the dashboard is yours: rename it, hide it or delete it as you like. The integration never adds it again.
 
 If **GivEnergy** is not listed, reload the browser tab so the frontend loads the integration's strategy file, then try again. If it is still missing, add a new dashboard from scratch, open it, then the three-dot menu, **Edit dashboard**, then the three-dot menu again and **Raw configuration editor**. Use this as the whole configuration:
 
@@ -21,17 +51,18 @@ How it works: the integration serves a small JavaScript file at `/givenergy_inve
 
 - The strategy needs a loaded config entry. Without one the dashboard shows a short message that the integration is not loaded.
 - Reload the browser tab after you first set up or upgrade the integration, so the frontend loads the file.
+- A strategy dashboard is never kept up to date by the repair. It needs no update, because it builds itself.
 
 ## A fallback that needs no script
 
-The dashboard needs its script to load in the browser. If a device keeps showing "Timeout waiting for strategy element", use a copy that does not need the script:
+The `update_dashboard` action above is the quickest way to a dashboard that needs no script. To make the same copy by hand instead:
 
 1. Open **Developer Tools → Actions**, choose `givenergy_inverter_manager.get_dashboard_yaml` and press **Perform action**.
 2. Copy the `yaml` value from the response.
 3. Go to **Settings → Dashboards → Add dashboard → New dashboard from scratch**, give it a name and open it.
 4. Choose the pencil, then the three dots, then **Raw configuration editor**. Replace what is there with the YAML and save.
 
-This copy is a plain dashboard, so it works on any device that can open a dashboard. The Tariff view follows your tariff, because it reads the **Tariff in use** sensor. The rest does not follow a new device, so run the action again and paste again after you add or remove one. The copy has a Settings view, because an administrator ran the action. The view, and the Settings button on the Now tab, are already shown only to administrators, so leave both in place. If you delete the view, delete the button too, or it points nowhere. See [Actions](actions.md#get_dashboard_yaml).
+This copy is a plain dashboard, so it works on any device that can open a dashboard. The Tariff view follows your tariff, because it reads the **Tariff in use** sensor. The rest does not follow a new device, so run the action again and paste again after you add or remove one. The integration does not know about a pasted copy, so no repair says when it is out of date. The copy has a Settings view, because an administrator ran the action. The view, and the Settings button on the Now tab, are already shown only to administrators, so leave both in place. If you delete the view, delete the button too, or it points nowhere. See [Actions](actions.md#get_dashboard_yaml).
 
 ### Keep it in a file instead
 
@@ -53,7 +84,7 @@ Pasting by hand each time is slow. To have the dashboard follow a file, set it u
 2. Run `givenergy_inverter_manager.get_dashboard_yaml` with **Write file** on. It writes `givenergy_dashboard.yaml` to the configuration folder and replaces the file each time.
 3. Open **GivEnergy** in the sidebar. After a tariff or device change, run the action again and reload the page. There is nothing to paste.
 
-A YAML dashboard cannot be edited in the dashboard editor. Change the file, or run the action again. If `givenergy_dashboard.yaml` does not exist yet, the dashboard shows an error until step 2 has run.
+A YAML dashboard cannot be edited in the dashboard editor. Change the file, or run the action again. If `givenergy_dashboard.yaml` does not exist yet, the dashboard shows an error until step 2 has run. `update_dashboard` does not write into a YAML dashboard.
 
 ## Moving from the generated file
 
@@ -67,7 +98,7 @@ A dashboard from the file keeps showing what it showed, but it no longer follows
 
 ## What changes on its own
 
-The dashboard is built when the page opens. A reload of the page is enough after you:
+The strategy dashboard is built when the page opens. A reload of the page is enough after you do one of the things below. A stored dashboard raises the out-of-date repair instead, and follows once you press **Submit** (see [Keep it up to date](#keep-it-up-to-date)). Its Tariff view follows a tariff change at once.
 
 - change the tariff, or schedule a rate change
 - enable or rename a sensor

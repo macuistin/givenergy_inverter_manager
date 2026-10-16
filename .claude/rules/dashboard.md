@@ -3,17 +3,23 @@ description: "The generated dashboard: registry ids, device visibility, HACS car
 paths:
   - "custom_components/givenergy_inverter_manager/dashboard/**"
   - "custom_components/givenergy_inverter_manager/strategy.py"
+  - "custom_components/givenergy_inverter_manager/stored_dashboard_repair.py"
+  - "custom_components/givenergy_inverter_manager/core/stored_dashboard.py"
   - "tests/test_dashboard*.py"
   - "tests/dashboard_*.py"
 ---
 
 # Dashboard
 
-- The dashboard is a strategy (`strategy.py`, `frontend/givenergy-manager-strategy.js`). The
-  websocket command builds it with the `dashboard/` package each time the dashboard opens, and
-  nothing is written to a file. The integration does not create the dashboard (no route open to
-  an integration does it cleanly, see `docs/design/spikes/SP1.md`). A notification at first
-  setup tells the user to add it from Community dashboards.
+- The primary route is a stored dashboard. The user makes a blank storage dashboard and runs
+  `update_dashboard`, which writes the admin build of the `dashboard/` package into it with
+  `LovelaceStorage.async_save`, backs up the old config and remembers the URL path
+  (`stored_dashboard_url_path`). The repair `dashboard_out_of_date` (`stored_dashboard_repair.py`,
+  decision in `core/stored_dashboard.py`) offers the same write when they differ. Nothing is
+  written without the action or the fix. The integration never creates a dashboard (see
+  `docs/design/spikes/SP1.md`). The strategy (`strategy.py`,
+  `frontend/givenergy-manager-strategy.js`) is the secondary route: it builds the same dashboard
+  each time it opens and can time out on some devices. A notification at first setup says both.
 - The server decides who sees Settings: `ws_dashboard` reads `connection.user.is_admin` and the
   message carries no other field. The Settings view still carries a `visible` list of the
   administrators, so a copy made with Take control hides it from other users.

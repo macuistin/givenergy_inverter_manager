@@ -188,6 +188,10 @@ class FakeCoordinator(GivEnergyCoordinator):
             def immersion_heat_log(self):
                 return self.state.immersion_heat_log
 
+            @property
+            def ev_sessions(self):
+                return self.state.ev_sessions
+
             immersion_heating_rates: list = []  # noqa: RUF012
 
             def record_immersion_rate(self, rate):

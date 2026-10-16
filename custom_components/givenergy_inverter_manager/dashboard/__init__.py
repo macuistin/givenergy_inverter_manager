@@ -1,8 +1,9 @@
 """
 dashboard - builds the Lovelace dashboard for GivEnergy Inverter Manager.
 
-The dashboard is built as a plain dict each time a strategy dashboard opens (strategy.py).
-Nothing is written to a file.
+The dashboard is built as a plain dict each time a strategy dashboard opens (strategy.py), and
+when the update_dashboard action or the out-of-date repair writes it into a storage dashboard
+the user picked (services.py). Nothing is written without that action or the repair's fix.
 
 The generated dashboard has three tabs, all of the "sections" view type, at most three
 columns wide. Each section starts with a heading card and holds native cards:
