@@ -4,6 +4,13 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+**Added**
+- A new action, `update_dashboard`, writes the GivEnergy dashboard into a dashboard you made with **Settings → Dashboards → Add dashboard → New dashboard from scratch**. Give it the dashboard's URL path, such as `dashboard-energy`. The result is a plain dashboard, so it loads on devices where the strategy dashboard shows "Timeout waiting for strategy element". It replaces the dashboard's whole configuration, your own edits included, and saves the old configuration first to `givenergy_dashboard_backup.yaml` in the configuration folder. Only an administrator can run it. It refuses a YAML dashboard and a URL path with no dashboard. See [Add the dashboard](docs/dashboard.md#add-the-dashboard).
+- A repair, **The GivEnergy dashboard is out of date**. Once `update_dashboard` has written a dashboard, the integration compares it with the layout it would build now: when Home Assistant starts, a minute after the integration's entities change, after its options are saved, and once an hour. When they differ, after an upgrade, a device change or an edit to the dashboard, the repair appears. Select **Submit** to write the current layout, with the same backup as the action. Nothing is written until you do. A dashboard you delete is forgotten and the repair goes. See [The stored dashboard is out of date](docs/troubleshooting.md#the-stored-dashboard-is-out-of-date).
+
+**Changed**
+- The notification shown at first setup now leads with the stored dashboard: make a blank dashboard, then run `update_dashboard` with its URL path. Picking **GivEnergy** under **Community dashboards** is still there as the alternative.
+
 **Fixes**
 - Tonight's charge target no longer drops at midnight when no **Day after tomorrow forecast sensor** is set. Between midnight and 08:00 the plan read the tomorrow sensor as the day after and, when that forecast was above the battery's capacity, took points off the target (for 25.1 kWh on a 19 kWh battery, 16 points). The evening plan had no such figure, so the target fell at 00:00 with nothing changed in the weather, and the first number in the reason (the simulation's own) was not the one written. Now a day-after figure is used after midnight only when a day-after sensor is set, the same as in the evening, so the target holds across midnight. If you set the sensor, the reduction applies before and after midnight alike. The re-plan check also stops counting that reading as a moved forecast. See [Overnight charge target](docs/concepts.md#overnight-charge-target).
 

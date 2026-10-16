@@ -30,8 +30,8 @@ inside it.
 | `sensor.py`, `sensor_descriptions/` | One entity class and the description table, split by theme |
 | `optional_devices.py`, `core/devices.py`, `discovery/` | The EV charger (`discovery/ev_charger.py`: Zappi, GivEnergy charger and others), immersion switch and immersion sensor may be absent or added later. `discovery/forecast.py` finds the forecast |
 | `controls.py` | The eight tuning controls: three switches and five numbers, each owning one option key |
-| `dashboard/`, `strategy.py` | The Lovelace dashboard strategy and the builder it calls |
-| `repairs.py`, `repair_flows.py`, `services.py` | Repair issues and their fix flows, service actions |
+| `dashboard/`, `strategy.py` | The dashboard builder, and the Lovelace strategy that serves it |
+| `repairs.py`, `repair_flows.py`, `services.py` | Repair issues and their fix flows, service actions. `stored_dashboard_repair.py` checks the dashboard `update_dashboard` keeps current |
 
 ## Architecture rules
 
@@ -104,7 +104,7 @@ Read the file that matches the code you are changing.
 | `.claude/rules/core-purity.md` | `core/` limits, golden files, how and when to change them |
 | `.claude/rules/tests.md` | Test layout, what each suite proves, rules for new and changed tests |
 | `.claude/rules/safety.md` | Dry run, no forced export, optional devices |
-| `.claude/rules/dashboard.md` | The dashboard strategy, who sees Settings, HACS cards and the golden file |
+| `.claude/rules/dashboard.md` | The stored dashboard and the strategy, who sees Settings, HACS cards and the golden file |
 | `.claude/rules/python-style.md` | Clean Code limits that ruff enforces |
 | `.claude/rules/docs-and-style.md` | UK English, docs, commits, PRs, changelog, version bump |
 
