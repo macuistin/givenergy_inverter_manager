@@ -45,14 +45,13 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
 - Planning and writes stop while the feed is not live. That is a frozen feed (nothing reported for
   ten minutes, repair `givtcp_feed_frozen`), a paused GivTCP, or old data per GivTCP's `Data_Age`
   (repair `givtcp_not_answering`, feed state `stale`), judged by `feed_status` in
-  `inverter/givtcp/reader.py`. A new write path checks the same flags and tests that nothing is sent.
+  `inverter/givtcp/reader.py`. A new write path checks them and tests that nothing is sent.
 
 ## What the integration never does
 
-- No forced export or discharge to the grid, so no export schedule or rate is written. The
-  `pre_boost_export_*` sensors were retired for this reason. Holding the battery back for the
-  house (a pause or reserve, S22 and N21) is allowed once designed, with a verified write that
-  never runs in dry run or on a frozen feed and is undone afterwards.
+- No forced export to the grid: no export schedule or rate is written. Holding the battery back
+  for the house (a pause or reserve, S22 and N21) is allowed once designed, as a verified write
+  that never runs in dry run or on a frozen feed and is undone afterwards.
 - It never stops or pauses an EV charger on a guess about whose car it is or why it is plugged in.
   For a Zappi with a charge mode entity it selects Eco+ and never Stopped or Fast. For a GivEnergy
   charger it selects Solar and never Grid or Hybrid, never writes Charge Control or Plug and Go.
