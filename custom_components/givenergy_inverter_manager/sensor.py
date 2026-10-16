@@ -58,6 +58,11 @@ _UNRECORDED_ATTRIBUTES = frozenset(
     {
         "html",
         ATTR_FULL_TEXT,
+        # The bill audits as markdown tables, rebuilt every cycle like their html.
+        "bill_table",
+        "days_table",
+        "summary_table",
+        "period",
         # Charge register writes and outside changes, newest first.
         "recent_writes",
         # Night survival: the live numbers behind the level.

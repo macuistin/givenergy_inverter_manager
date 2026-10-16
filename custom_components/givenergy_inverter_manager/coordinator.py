@@ -111,7 +111,15 @@ from .const import (
 from .core.alt_heat_cost import heat_cost_per_kwh
 from .core.alt_heat_label import clean_label
 from .core.battery import BatteryStats, battery_cost_prompt_due
-from .core.bill_audit import RunningPeriod, current_period_audit, previous_period_audit
+from .core.bill_audit import (
+    RunningPeriod,
+    bill_table,
+    build_bill_audit,
+    days_table,
+    previous_period_audit,
+    previous_period_summary,
+    running_period,
+)
 from .core.bill_days import tariff_snapshot
 from .core.charge_hold import HeldCharge
 from .core.charge_pause import charge_is_blocked
@@ -1827,7 +1835,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         tariff = build_tariff(tariff_in_force(cfg, now.date()))
         symbol = CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), DEFAULT_CURRENCY_SYMBOL)
         days_in = tariff.days_in_current_bill_period(now)
-        data.bill_audit_state, data.bill_audit_html = current_period_audit(
+        period = running_period(
             RunningPeriod(
                 state.bill_days,
                 state.month,
@@ -1839,9 +1847,16 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 days_in + tariff.days_remaining_in_bill_period(now),
             )
         )
+        data.bill_audit_state, data.bill_audit_html = build_bill_audit(period)
+        data.bill_audit_bill_table = bill_table(period)
+        data.bill_audit_days_table = days_table(period)
         last = state.monthly_snapshots[-1] if state.monthly_snapshots else None
+        fallback = tariff_snapshot(cfg)
         data.previous_bill_audit_state, data.previous_bill_audit_html = previous_period_audit(
-            last, tariff_snapshot(cfg), symbol
+            last, fallback, symbol
+        )
+        data.previous_bill_audit_summary_table, data.previous_bill_audit_period = (
+            previous_period_summary(last, fallback, symbol)
         )
 
     def _attach_stored_totals(self, data: CoordinatorData) -> None:

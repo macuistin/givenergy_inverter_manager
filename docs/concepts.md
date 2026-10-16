@@ -436,6 +436,14 @@ The **Bill audit** sensor lays the running bill period out like a supplier bill.
 
 The total is the Bill sensors' total, because both come from the same period accumulator and the same bill sums. A day that was not recorded, such as one before this was added, shows as one "Earlier, not itemised" row that makes the rows add up to the period.
 
+Home Assistant's markdown card drops the styles the `html` attribute uses, so the same figures are also published as markdown tables, which the card draws as plain tables:
+
+- `bill_table` on **Bill audit**: the bill line by line, in three columns: **You paid**, **Would have paid** (the same use with no solar or battery) and **Saved**. The export credit has no **Would have paid** figure, because with no solar there is nothing to export. The total is in bold.
+- `days_table` on **Bill audit**: one row a day, newest first, with today marked "(today)". The columns are the kWh imported, **You paid** (the import cost less the export credit), **Would have paid** (the day's use priced from the grid) and **Saved**. Days before daily records began are one row, "Before daily records". Before any day is recorded it is one sentence instead of a table.
+- `summary_table` on **Previous bill audit**: what you paid, what you would have paid and the saving for the last bill period. `period` holds its dates as text, such as `16 Sep to 15 Oct`. With no archived period the table is one sentence and `period` is empty.
+
+Money has two decimal places and the currency symbol from the options. A negative amount, such as a credit, starts with a non-breaking hyphen, so a narrow card never wraps the sign away from the number. To show a table, put `{{ state_attr('sensor.givenergy_inverter_manager_bill_audit', 'bill_table') }}` in a markdown card.
+
 **Without solar or battery** is the house's whole use, priced as it was used. It is not a guess. Every cycle the integration prices the house load at the rate in force at that moment, with the supplier discount and VAT, the way it prices what you import. The sensors **Cost Without Solar or Battery** (today, this week, this month) show that energy cost. **Bill Without Solar or Battery** adds the standing charge, PSO levy and VAT, takes off no export credit, and sits beside **Accrued Bill**.
 
 **How days are stored.** At midnight the day that ended is added to a list for the bill period. When the period ends, the list goes into that period's saved snapshot and the next period starts empty. The first day of a period also stores the tariff in force, and a later day stores it only when it changed, so a tariff that changes mid-bill is recorded on the day it changed and an old period keeps the rates it was billed at. The **Previous bill audit** sensor shows the last archived period. The integration keeps 12 periods.
