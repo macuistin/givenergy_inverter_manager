@@ -4,7 +4,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## v0.19.9
 
-The dashboard can be written into a dashboard you made and kept up to date with one click. New sensors estimate tomorrow's cost, price each EV charge and count this integration's repairs. The overnight figures now count the evening, the charge cost follows the target that is written, and tonight's charge target holds across midnight.
+The dashboard has a new layout: one page that shows what is happening now, with the detail on its own pages. It can be written into a dashboard you made and kept up to date with one click. After upgrading, press **Submit** on the out-of-date repair to get the new layout. New sensors estimate tomorrow's cost, price each EV charge and count this integration's repairs. The overnight figures now count the evening, the charge cost follows the target that is written, and tonight's charge target holds across midnight.
 
 **Added**
 - A new action, `update_dashboard`, writes the GivEnergy dashboard into a dashboard you made with **Settings → Dashboards → Add dashboard → New dashboard from scratch**. Give it the dashboard's URL path, such as `dashboard-energy`. The result is a plain dashboard, so it loads on devices where the strategy dashboard shows "Timeout waiting for strategy element". It replaces the dashboard's whole configuration, your own edits included, and saves the old configuration first to `givenergy_dashboard_backup.yaml` in the configuration folder. Only an administrator can run it. It refuses a YAML dashboard and a URL path with no dashboard. See [Add the dashboard](docs/dashboard.md#add-the-dashboard).
