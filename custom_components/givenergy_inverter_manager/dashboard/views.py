@@ -13,18 +13,27 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 
 from ..const import (
     ATTR_FULL_TEXT,
     CONF_FORECAST_ENTITY,
     CONF_INVERTER_TEMP_ENTITY,
+    IMMERSION_SWITCH_COOLDOWN_MINUTES,
 )
 from ..core.devices import Device
+from ..core.tariff import (
+    build_tariff,
+    last_tariff_review,
+    scheduled_tariff_changes,
+    tariff_in_force,
+)
 from ..inverter.givtcp.discovery import device_prefix, temperature_entity_ids_for
 from .cards import (
     BATTERY,
@@ -66,6 +75,7 @@ from .cards import (
     shortcut_card,
     stacked_daily_graph,
     stacked_hourly_graph,
+    state_markdown,
     state_ref,
     stepper_row,
     styled,
@@ -99,6 +109,8 @@ from .templates import (
     saved_template,
     setup_checklist_template,
     survival_template,
+    tariff_changes_table,
+    tariff_table,
     today_story_template,
     tomorrow_story_template,
     tonight_headline_template,
@@ -157,11 +169,16 @@ _PLANNING_HELP = (
     ("Forecast caution", "0 plans on the typical forecast, 1 on the low one."),
     ("Re-plan overnight", "work the target out again in the cheap window, three times at most."),
 )
-_WATER_HELP = (
-    ("Heat now", "heat to the target now. Turning it off holds the heater off for 10 minutes."),
-    ("Restart drop", "how far the water falls below the target before it heats again."),
-    ("Min battery, Min spare solar", "spare solar goes to the water only above both."),
+_HEAT_NOW_HELP = (
+    "Heat now",
+    "heat to the target now. Turning it off holds the heater off for "
+    f"{IMMERSION_SWITCH_COOLDOWN_MINUTES} minutes.",
 )
+_RESTART_DROP_HELP = (
+    "Restart drop",
+    "how far the water falls below the target before it heats again.",
+)
+_DIVERT_HELP = ("Min battery, Min spare solar", "spare solar goes to the water only above both.")
 _SYSTEM_HELP = (
     ("Dry run", "plan as normal but send nothing to the inverter, the immersion or the car."),
     ("Verbose logging", "write the integration's decisions to the Home Assistant log."),
@@ -520,13 +537,18 @@ class Builder:
             ]
         )
 
+    def _heating(self) -> list[dict]:
+        """A condition that holds while the heater draws power. Empty without its sensor."""
+        heater = self.immersion("immersion_power")
+        return [{"condition": "numeric_state", "entity": heater, "above": 0}] if heater else []
+
     def _devices_badges(self) -> list[dict]:
         """The water temperature, the heater while it heats, and the EV charger, as chips.
 
         Each chip opens its device's view and shows only while its device is there.
         """
         heater = self.immersion("immersion_power")
-        heating = [{"condition": "numeric_state", "entity": heater, "above": 0}] if heater else []
+        heating = self._heating()
         water = entity_badge(
             self.water_sensor("immersion_water_temperature"),
             "mdi:water-boiler",
@@ -552,32 +574,33 @@ class Builder:
 
     def _right_now(self) -> dict | None:
         """Right now, the day so far, and the hot water and the EV charger, in one column."""
-        today = {
-            **subheading_card("Today so far", "mdi:calendar-today"),
-            "badges": self._today_badges(),
-        }
+        today = subheading_card("Today so far", "mdi:calendar-today")
+        if badges := self._today_badges():
+            today["badges"] = badges
         if nav := self.go(SUB_TODAY):
             today["tap_action"] = nav
+        # The heading shows while one of its chips does, so a heater that is off with no
+        # sensor or charger beside it leaves no heading on its own.
+        shown = [
+            *self.devices.visible_with(Device.EV_CHARGER),
+            *self.devices.visible_with(Device.IMMERSION_SENSOR),
+            *self._heating(),
+        ]
         devices = with_visibility(
             {
                 **subheading_card("Hot water and EV", "mdi:power-plug"),
                 "badges": self._devices_badges(),
             },
-            self.devices.visible_with_any(
-                Device.EV_CHARGER, Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR
-            ),
+            [{"condition": "or", "conditions": shown}],
         )
+        now = heading_card(
+            "Right now", "mdi:clock-outline", nav=self.go(SUB_PLAN), badges=self._now_badges()
+        )
+        # The heading's chips are worth showing without the sentence under it.
+        first = heading_block(now, [self._now_story()]) or ([now] if "badges" in now else [])
         return grid_section(
-            heading_block(
-                heading_card(
-                    "Right now",
-                    "mdi:clock-outline",
-                    nav=self.go(SUB_PLAN),
-                    badges=self._now_badges(),
-                ),
-                [self._now_story()],
-            ),
-            [today, devices if devices.get("badges") else None],
+            first,
+            present([today if "badges" in today else None, devices if devices["badges"] else None]),
         )
 
     def _more(self) -> dict | None:
@@ -607,18 +630,22 @@ class Builder:
         )
 
     def _repairs_section(self) -> dict | None:
-        """This integration's open repairs, shown only while there is one.
+        """This integration's open repairs, shown only while there is one, to administrators.
 
         Home Assistant's own repairs card lists every repair in Home Assistant and has no
-        filter, so this reads the integration's own count and list.
+        filter, so this reads the integration's own count and list. Only an administrator can
+        act on a repair, so no one else sees it.
         """
         repairs = self.entity("active_repairs")
-        if not repairs:
+        if not repairs or not self.admin_ids:
             return None
         return group(
             heading_card("Needs your attention", "mdi:alert-circle-outline"),
             [self.attribute_card(repairs, "summary")],
-            visibility=[{"condition": "numeric_state", "entity": repairs, "above": 0}],
+            visibility=[
+                {"condition": "numeric_state", "entity": repairs, "above": 0},
+                admin_condition(self.admin_ids),
+            ],
             **WHOLE_WIDTH,
         )
 
@@ -1088,10 +1115,29 @@ class Builder:
         strip = history_graph([entity_row(period, "Rate")], 24, 1) if period else None
         if strip:
             strip["grid_options"] = {"columns": FULL}
-        return group(
-            heading_card("Tariff", "mdi:clock-outline"),
-            [strip, self.table(self.attribute_card(self.entity("tariff_in_use"), "html"))],
+        if report := self.entity("tariff_in_use"):
+            # The report sensor builds the tables from the options each cycle, so a stored
+            # copy of the dashboard follows a tariff change without a rebuild.
+            return group(
+                heading_card("Tariff", "mdi:clock-outline"),
+                [strip, self.table(self.attribute_card(report, "html"))],
+            )
+        today = dt_util.now().date()
+        rates = tariff_table(build_tariff(tariff_in_force(self.cfg, today)), self.cfg)
+        return grid_section(
+            heading_block(
+                heading_card("Tariff", "mdi:clock-outline"),
+                [strip, self.table(markdown_card(rates))],
+            ),
+            self._scheduled_changes(today),
         )
+
+    def _scheduled_changes(self, today: date) -> list:
+        """The rate changes that have not started, under the rates. Empty when none."""
+        changes = scheduled_tariff_changes(self.cfg, today)
+        text = tariff_changes_table(changes, self.cfg, last_tariff_review(self.cfg))
+        heading = subheading_card("Scheduled rate changes", "mdi:calendar-clock")
+        return heading_block(heading, [self.table(markdown_card(text)) if text else None])
 
     def _bill_tables(self) -> list:
         """The bill line by line, each day, and the last bill, each a small table of its own."""
@@ -1145,16 +1191,32 @@ class Builder:
         )
         return self._immersion_chart(entities)
 
+    def _water_story(self, shown: frozenset[Device]) -> dict:
+        """The water in a sentence. The target, the heater and why only with the thermostat.
+
+        A sensor with no switch has no heater and no target, so its sentence gives the
+        temperature alone.
+        """
+        both = Device.IMMERSION_THERMOSTAT in shown
+        story = WaterNow(
+            self.water_sensor("immersion_water_temperature"),
+            self.thermostat("immersion_target_temp") if both else None,
+            self.immersion("immersion_power") if both else None,
+            self.entity("immersion_divert_reason") if both else None,
+        )
+        return markdown_card(water_story_template(story))
+
     def _water_now(self) -> dict | None:
         """The water in a sentence, the heater's day in figures, and the temperature chart."""
-        water = self.water_sensor("immersion_water_temperature")
-        story = water_story_template(
-            WaterNow(
-                water,
-                self.thermostat("immersion_target_temp"),
-                self.immersion("immersion_power"),
-                self.entity("immersion_divert_reason"),
-            )
+        stories = self.devices.variants((Device.IMMERSION_THERMOSTAT,), self._water_story)
+        # Without a sensor there is no sentence on the water, so why the heater is on or off
+        # stands alone.
+        reason = with_visibility(
+            state_markdown(self.entity("immersion_divert_reason"), ATTR_FULL_TEXT),
+            [
+                *self.devices.visible_with(Device.IMMERSION_SWITCH),
+                *self.devices.visible_without(Device.IMMERSION_SENSOR),
+            ],
         )
         figures = glance_card(
             [
@@ -1168,7 +1230,8 @@ class Builder:
         return group(
             heading_card("Hot water", "mdi:water-boiler"),
             [
-                self.devices.show_with(markdown_card(story), Device.IMMERSION_SENSOR),
+                *[self.devices.show_with(card, Device.IMMERSION_SENSOR) for card in stories],
+                reason,
                 self.devices.show_with(figures, Device.IMMERSION_SWITCH),
                 *[self.devices.show_with(card, Device.IMMERSION_SENSOR) for card in charts],
             ],
@@ -1180,8 +1243,14 @@ class Builder:
         """The planned heating for the next ready time, the cheapest source, and the settings."""
         water = self.water_sensor("immersion_water_temperature")
         source = self.alt_heat_advice("water_heating_cheapest_source")
-        plan = self.devices.show_with(
-            markdown_card(plan_text_template(water)), Device.IMMERSION_THERMOSTAT
+        schedule = self.devices.visible_while_on(self.thermostat("immersion_schedule"))
+        # The sensor holds the planned heating only while scheduled heating is on.
+        plan = with_visibility(
+            markdown_card(plan_text_template(water)),
+            [
+                *self.devices.visible_with(Device.IMMERSION_THERMOSTAT, Device.IMMERSION_SENSOR),
+                *schedule,
+            ],
         )
         cheapest = (
             self.devices.show_with(
@@ -1195,20 +1264,37 @@ class Builder:
             if source
             else None
         )
-        settings = glance_card(
-            [
-                entity_row(self.immersion("auto_immersion"), "Spare solar"),
-                entity_row(self.thermostat("immersion_schedule"), "Scheduled"),
-                entity_row(self.thermostat("immersion_target_temp"), "Heat to"),
-                entity_row(self.thermostat("immersion_min_temp"), "Never below"),
-            ]
-        )
+        settings = self.devices.variants((Device.IMMERSION_THERMOSTAT,), self._water_settings)
+        switch = Device.IMMERSION_SWITCH
         # Settings is for administrators only, so this heading opens nothing.
         in_force = subheading_card("Settings in force", "mdi:tune")
+        # The heading shows while a card under it does, so it is never left on its own.
+        heading = with_visibility(
+            heading_card("Plan", "mdi:clock-check-outline"),
+            [
+                {
+                    "condition": "or",
+                    "conditions": [*schedule, *self.devices.visible_with(Device.ALTERNATIVE_HEAT)],
+                }
+            ],
+        )
         return grid_section(
-            heading_block(heading_card("Plan", "mdi:clock-check-outline"), [plan, cheapest]),
-            heading_block(in_force, [self.devices.show_with(settings, Device.IMMERSION_SWITCH)]),
+            heading_block(heading, [plan, cheapest]),
+            heading_block(in_force, [self.devices.show_with(card, switch) for card in settings]),
             **self._when(Device.IMMERSION_SWITCH),
+        )
+
+    def _water_settings(self, shown: frozenset[Device]) -> dict | None:
+        """The heater's settings in force. Scheduled heating and the temperatures need the
+        thermostat (the switch and the sensor together)."""
+        both = Device.IMMERSION_THERMOSTAT in shown
+        return glance_card(
+            [
+                entity_row(self.immersion("auto_immersion"), "Spare solar"),
+                entity_row(self.thermostat("immersion_schedule"), "Scheduled") if both else None,
+                entity_row(self.thermostat("immersion_target_temp"), "Heat to") if both else None,
+                entity_row(self.thermostat("immersion_min_temp"), "Never below") if both else None,
+            ]
         )
 
     def _week_pair(self, energy: str | None, cost: str | None, energy_name: str) -> dict | None:
@@ -1403,10 +1489,16 @@ class Builder:
                 stepper_row(
                     self.immersion("surplus_divert_min_power_w"), "Min spare solar", IMMERSION
                 ),
-                _help(_WATER_HELP),
+                *self.devices.variants((thermostat,), self._water_help),
             ],
             **self._when(Device.IMMERSION_SWITCH),
         )
+
+    @staticmethod
+    def _water_help(shown: frozenset[Device]) -> dict:
+        """What the heater's settings do. The restart drop only with the thermostat."""
+        restart = (_RESTART_DROP_HELP,) if Device.IMMERSION_THERMOSTAT in shown else ()
+        return _help((_HEAT_NOW_HELP, *restart, _DIVERT_HELP))
 
     def _system_controls(self) -> dict | None:
         return group(
