@@ -12,6 +12,8 @@ above it. This module projects the same night with the planned charge in it:
   3. The battery runs down on the house load from the end of the window to sunrise.
 
 The window itself adds no house load: the grid serves the house while the battery charges.
+The same holds while the battery is paused (core/battery_pause.py): without_paused_load leaves
+the paused minutes out of the load, so the battery holds its charge through them.
 
 The plan sizes the window for the SoC it is written at, so the window published in the evening
 is shorter than the one written at 02:00, when the battery has run down. A window that is not
@@ -33,6 +35,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, time
 
 from ..const import SOLAR_SUNRISE_HOUR
+from .battery_pause import PauseWindow, with_note
 from .charge_window import ChargeWindow
 
 _MINUTES_PER_DAY = 24 * 60
@@ -74,6 +77,21 @@ def slot_load(slots_kwh: list[float]) -> LoadModel:
             total += slots_kwh[int(position // _SLOT_MINUTES) % 48] * span / _SLOT_MINUTES
             position, left = (position + span) % _MINUTES_PER_DAY, left - span
         return total
+
+    return used
+
+
+def without_paused_load(load: LoadModel, pause: PauseWindow | None) -> LoadModel:
+    """The load model with the paused minutes left out, because the grid serves the house then.
+
+    Without a pause it is the same model.
+    """
+    if pause is None:
+        return load
+
+    def used(from_minute: float, minutes: float) -> float:
+        spans = pause.unpaused_spans(from_minute, minutes)
+        return sum(load(start, length) for start, length in spans)
 
     return used
 
@@ -249,3 +267,19 @@ def with_load_note(projection: SunriseWithCharge, note: str) -> SunriseWithCharg
     if projection.charge_window is None:
         return projection
     return replace(projection, basis=f"{projection.basis}. {note}")
+
+
+def with_pause_note(projection: SunriseWithCharge, pause: PauseWindow | None) -> SunriseWithCharge:
+    """The projection with its basis saying the battery is paused, once. Without a pause as is."""
+    if pause is None:
+        return projection
+    return replace(projection, basis=with_note(projection.basis, pause))
+
+
+def pause_before_sunrise(pause: PauseWindow | None, now: datetime) -> PauseWindow | None:
+    """The pause when any of it falls between now and the next sunrise, else None."""
+    if pause is None:
+        return None
+    now_minute = _minute_of_day(now)
+    to_sunrise = (SOLAR_SUNRISE_HOUR * 60 - now_minute) % _MINUTES_PER_DAY or _MINUTES_PER_DAY
+    return pause if pause.paused_minutes(now_minute, to_sunrise) > 0 else None

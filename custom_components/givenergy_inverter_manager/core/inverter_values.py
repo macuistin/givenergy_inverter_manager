@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from datetime import datetime, time
 from enum import StrEnum
 
+from .battery_pause import PauseWindow
+
 
 @dataclass(frozen=True)
 class InverterIdentity:
@@ -49,6 +51,9 @@ class InverterValues:
     ac_charge_energy_today_kwh: float | None = None  # the part of today's import that charged
     battery_charge_rate_w: float | None = None  # None unless above zero
     data_age_s: float | None = None  # None where the inverter integration does not say
+    # The window in which the inverter does not let the battery discharge. None when there is no
+    # such pause: none is set, it is off or only stops charging, or it cannot be read.
+    battery_pause: PauseWindow | None = None
     unavailable_inputs: tuple[str, ...] = ()  # the required inputs that could not be read
 
 
