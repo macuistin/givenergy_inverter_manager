@@ -1,7 +1,7 @@
 """Whether the solar day has started is settled over a few minutes, not read from one sample.
 
-The night window flips between 8 and 24 hours when the solar reading crosses the noise floor.
-At dawn and dusk the reading wanders across it every few cycles, which flipped the Battery
+The night window flips between about 12 and 24 hours when the solar reading crosses the noise
+floor. At dawn and dusk the reading wanders across it every few cycles, which flipped the Battery
 Night Survival Status between "Estimated shortfall" and "should last". These tests replay that
 through the engine with the held state carried over, as the coordinator does.
 """
@@ -14,12 +14,13 @@ from custom_components.givenergy_inverter_manager.const import (
     SOLAR_DAY_DEBOUNCE_MINUTES,
     SOLAR_NOISE_FLOOR_W,
 )
-from custom_components.givenergy_inverter_manager.core.battery import hours_until_solar
+from custom_components.givenergy_inverter_manager.core.battery import NightClock, hours_until_solar
 from custom_components.givenergy_inverter_manager.core.solar_day import (
     HeldSolarDay,
     SolarReading,
     settled_solar_w,
 )
+from custom_components.givenergy_inverter_manager.core.solar_shape import DEFAULT_SOLAR_END_MINUTE
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.sensor_values import night_survival_confidence
@@ -161,11 +162,11 @@ FLICKER = [(BELOW_W if i % 2 == 0 else ABOVE_W, 87.0) for i in range(20)]
 
 
 class TestSolarFlickeringAtDawn:
-    """08:00 to 08:10, 9 W then 12 W, with a house that lasts 8 hours but not 24."""
+    """08:00 to 08:10, 9 W then 12 W, with a house that lasts 12 hours but not 24."""
 
-    def test_premise_the_raw_window_flips_between_8_and_24_hours(self):
-        assert hours_until_solar(8, BELOW_W) == 24.0
-        assert hours_until_solar(8, ABOVE_W) == 8.0
+    def test_premise_the_raw_window_flips_between_12_and_24_hours(self):
+        assert hours_until_solar(NightClock(8 * 60, BELOW_W, DEFAULT_SOLAR_END_MINUTE)) == 24.0
+        assert hours_until_solar(NightClock(8 * 60, ABOVE_W, DEFAULT_SOLAR_END_MINUTE)) == 12.0
 
     def test_premise_without_memory_the_status_flips_with_each_reading(self):
         cycles = _replay(DAWN, FLICKER, memory=False)
@@ -235,7 +236,8 @@ class TestARealShortfallShowsAtOnce:
         assert survives == [True] * 6 + [False] * 6
 
     def test_in_the_afternoon_with_solar_up_a_fall_shows_on_that_cycle(self):
-        soc = [60.0] * 6 + [5.0] * 6
+        # The evening counts from 20:00 in daylight, so the battery needs more than 60% to last.
+        soc = [90.0] * 6 + [5.0] * 6
         cycles = _replay(datetime(2026, 10, 8, 14, 0), [(1500.0, s) for s in soc])
         assert [d.will_survive_night for d in cycles] == [True] * 6 + [False] * 6
 
