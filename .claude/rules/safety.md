@@ -49,11 +49,10 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
 
 ## What the integration never does
 
-- No forced export or discharge to the grid. It writes no export or discharge schedule or rate.
-  The `pre_boost_export_*` sensors were retired for this reason. Do not propose features that
-  rely on exporting from the battery.
-- Holding the battery back for the house (a pause or reserve, S22 and N21) is allowed once
-  designed. Such a write is verified, never runs in dry run or on a frozen feed, and is undone.
+- No forced export or discharge to the grid, so no export schedule or rate is written. The
+  `pre_boost_export_*` sensors were retired for this reason. Holding the battery back for the
+  house (a pause or reserve, S22 and N21) is allowed once designed, with a verified write that
+  never runs in dry run or on a frozen feed and is undone afterwards.
 - It never stops or pauses an EV charger on a guess about whose car it is or why it is plugged in.
   For a Zappi with a charge mode entity it selects Eco+ and never Stopped or Fast. For a GivEnergy
   charger it selects Solar and never Grid or Hybrid, never writes Charge Control or Plug and Go.
