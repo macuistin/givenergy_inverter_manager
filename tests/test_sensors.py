@@ -1073,3 +1073,40 @@ class TestEvSessionCostSensor:
         assert attrs["ended"] is None
         assert attrs["session_energy_kwh"] == pytest.approx(2.0)
         assert len(attrs["recent_sessions"]) == 1
+
+
+class TestActiveRepairsSensor:
+    """Active Repairs: a diagnostic count with no unit, device class or state class."""
+
+    def test_metadata(self):
+        description = _BY_KEY["active_repairs"]
+        assert description.device_class is None
+        assert description.native_unit_of_measurement is None
+        assert description.state_class is None
+        assert description.requires is None
+        assert description.entity_category is not None
+
+    def test_the_count_and_attributes_follow_the_open_issues(self):
+        from custom_components.givenergy_inverter_manager.core.repair_summary import RepairIssue
+
+        description = _BY_KEY["active_repairs"]
+        data = CoordinatorData()
+        assert description.value_fn(data) == 0
+        assert description.attrs_fn(data) == {"issues": [], "summary": ""}
+
+        data.active_repairs = (
+            RepairIssue("tariff_review_due", "Tariff rates have not been reviewed", "warning", True),
+        )
+        assert description.value_fn(data) == 1
+        attrs = description.attrs_fn(data)
+        assert attrs["issues"] == [
+            {
+                "issue_id": "tariff_review_due",
+                "title": "Tariff rates have not been reviewed",
+                "severity": "warning",
+                "fixable": True,
+            }
+        ]
+        assert attrs["summary"] == (
+            "- **Tariff rates have not been reviewed**\n[Open Repairs](/config/repairs)"
+        )

@@ -24,6 +24,7 @@ from .core.alt_heat_schedule import AltHeatSchedule
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.ev_session import EVSession, EVSessionLog, recent_table
+from .core.repair_summary import repairs_summary
 from .core.setup_progress import setup_state
 from .core.tariff import EnergyAccumulator
 from .core.write_log import newest_first
@@ -621,4 +622,12 @@ def ev_session_attributes(data: CoordinatorData) -> dict[str, Any]:
         "ended": _iso_or_none(session.end if session is not None else None),
         "recent_sessions": [_session_row(s) for s in log.recent],
         "recent_table": recent_table(log.recent, data.currency_symbol),
+    }
+
+
+def active_repairs_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """Each open repair of this integration, and the markdown summary the dashboard shows."""
+    return {
+        "issues": [issue.as_attribute() for issue in data.active_repairs],
+        "summary": repairs_summary(data.active_repairs),
     }

@@ -54,6 +54,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .accumulation import AccumulationStore
+from .active_repairs import async_active_repairs, async_listen_repairs
 from .const import (
     CHARGE_WRITE_RETRY_OFFSETS_MIN,
     CONF_ALT_HEAT_COST,
@@ -305,6 +306,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._init_writer()
         self._register_time_listeners()
         self.entry.async_on_unload(self._clear_feed_frozen_issue)
+        self.entry.async_on_unload(async_listen_repairs(hass, self._on_repairs_changed))
 
     async def async_detect_test_instance(self) -> None:
         """Look for the test instance marker file once, in the executor, and remember the answer.
@@ -1550,6 +1552,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._check_charge_pause(data, raw)
         self._apply_decisions(data, ev_target_mode, now)
         self._attach_setup_progress(data, raw, cfg)
+        data.active_repairs = await async_active_repairs(self.hass)
         return data
 
     def _begin_cycle(self) -> None:
@@ -1915,6 +1918,18 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._ev_base_rate.raised:
             async_delete_ev_base_rate_issue(self.hass)
         self._ev_base_rate = WatchState()
+
+    @callback
+    def _on_repairs_changed(self, _event: Event) -> None:
+        """An issue of this integration was raised, changed or deleted: refresh the count."""
+        self._create_task(self._async_refresh_repairs())
+
+    async def _async_refresh_repairs(self) -> None:
+        """Re-read the open repairs onto the current snapshot and tell the entities."""
+        if self.data is None:
+            return
+        self.data.active_repairs = await async_active_repairs(self.hass)
+        self.async_update_listeners()
 
     def _attach_setup_progress(
         self, data: CoordinatorData, raw: RawSensorValues, cfg: dict

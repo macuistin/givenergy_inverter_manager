@@ -74,6 +74,7 @@
       "dry_run_active": {"default": "mdi:test-tube"},
       "setup_progress": {"default": "mdi:clipboard-check-outline"},
       "charge_target_conflict": {"default": "mdi:swap-horizontal-bold"},
+      "active_repairs": {"default": "mdi:alert-circle-outline"},
       "dry_run_last_skipped": {"default": "mdi:skip-next-circle-outline"},
       "import_kwh_cheap_today": {"default": "mdi:transmission-tower-import"},
       "import_kwh_peak_today": {"default": "mdi:transmission-tower-import"},

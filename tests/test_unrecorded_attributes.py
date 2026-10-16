@@ -83,6 +83,7 @@ RECORDED = {
     "target_entity",
     "stored_energy_value",
     "items",  # the setup checklist: it changes when a setup step is done, and rarely otherwise
+    "issues",  # Active Repairs: changes only when a repair is raised, cleared or ignored
     "started",  # EV session cost: changes once a session
     "ended",
 }

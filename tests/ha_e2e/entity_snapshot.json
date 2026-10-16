@@ -50,6 +50,11 @@
   "name": "Accrued Bill This Period"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_active_repairs",
+  "key": "active_repairs",
+  "name": "Active Repairs"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_average_import_rate_this_month",
   "key": "avg_import_rate_this_month",
   "name": "Average Import Rate This Month"

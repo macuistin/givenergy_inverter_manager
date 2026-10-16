@@ -147,6 +147,11 @@ tests/core/test_midnight_charge_replay.py.
 The ev_sessions leaf was added for the EV Session Cost sensor. The fresh snapshot gained it as
 None. No case moved, because none passes an EV session log. The behaviour is pinned in
 tests/core/test_ev_session.py and tests/core/test_ev_session_engine.py.
+
+The active_repairs leaf was added for the Active Repairs sensor. The fresh snapshot gained it as an
+empty list. No case moved, because the coordinator sets it from the issue registry after the engine
+has built the snapshot. The summary is pinned in tests/core/test_repair_summary.py and the registry
+side in tests/ha_e2e/test_active_repairs_e2e.py.
 """
 
 from __future__ import annotations

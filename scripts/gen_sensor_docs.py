@@ -275,6 +275,7 @@ KEY_GROUPS: dict[str, str] = {
             "dry_run_active",
             "dry_run_last_skipped",
             "charge_target_conflict",
+            "active_repairs",
             "setup_progress",
             "integration_version",
         ),
@@ -616,6 +617,12 @@ DESCRIPTIONS: dict[str, str] = {
         "`test_instance` attribute is also true."
     ),
     "dry_run_last_skipped": "The last action dry run mode held back.",
+    "active_repairs": (
+        "How many of this integration's repairs are open and not ignored, the ones under "
+        "**Settings → System → Repairs**. Attributes: `issues` (each one's `issue_id`, `title`, "
+        "`severity` and `fixable`) and `summary` (one bold line per repair and a link to the "
+        "Repairs page, for a dashboard markdown card, empty while there are none)."
+    ),
     "charge_target_conflict": (
         "none, or suspected when something other than this integration seems to be setting the "
         "charge target: at least 2 changes to it in the last 3 days that this integration did "

@@ -851,6 +851,9 @@
           "suspected": "Suspected"
         }
       },
+      "active_repairs": {
+        "name": "Active Repairs"
+      },
       "dry_run_last_skipped": {
         "name": "Last Skipped Action (Dry Run)"
       },

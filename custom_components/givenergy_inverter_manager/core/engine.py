@@ -115,6 +115,7 @@ from .ev_session import EVSessionLog, EVSessionStep, track_session
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
 from .planned_heating import PlanQuery, describe_planned_heating
+from .repair_summary import RepairIssue
 from .rules import (
     SHAPE_REASON,
     ChargeDecision,
@@ -382,6 +383,8 @@ class CoordinatorData:
     ev_solar_surplus_available: bool = False
     # The running EV session and the last finished ones. None without a charger or a stored log.
     ev_sessions: EVSessionLog | None = None
+    # This integration's open repair issues. The coordinator sets them, from the issue registry.
+    active_repairs: tuple[RepairIssue, ...] = ()
     dry_run: bool = False
     # True while the test instance marker file exists. Set by the coordinator, which owns the file.
     test_instance: bool = False
