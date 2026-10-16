@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- The night estimates now take GivTCP's battery pause into account. If GivTCP pauses battery discharge for a window (a pause mode of `PauseDischarge` or `PauseBoth`), the grid serves the house in that window and the battery holds its charge. Before, **Estimated SoC at Sunrise** and the overnight status ran the battery down on the house load all night, so with a pause from 23:00 to 08:00 and the battery at 60% in the evening they could read near the minimum while the battery held about 60% until morning, and the charge plan asked for a full charge on that wrong basis. Now the figures leave the paused hours out, and the text says once that the battery is paused, for example `The battery is paused from 23:00 to 08:00.` The charge plan asks for less charge on such a night and can skip one the battery lasts only because of the pause. The pause is read from GivTCP's **Battery pause mode**, **start time slot** and **end time slot**. It is only read, never changed. An install with no pause, a pause that is off or only stops charging, or entities that are missing or unavailable sees no change. See [Battery pause](docs/concepts.md#battery-pause).
+
 ## v0.19.7
 
 **Fixes**

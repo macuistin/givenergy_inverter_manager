@@ -173,6 +173,31 @@ The calculated figure steps when the day's energy total resets at midnight, when
 
 It reads the next 08:00 on the clock, so it stays steady through the day and does not step at midnight. A window that is running starts from the current SoC. A battery already at the target when the window opens adds nothing. With no charge rate known, the battery is assumed to reach the target. On a skipped night, with no timed charge window, or once the window is over, it equals the figure without a charge. The two figures use different loads on purpose. The figure without a charge, which night survival judges, spreads the daily average evenly over the hours. The figure with the charge uses the learned per-slot load profile that the charge plan simulation uses, scaled to the same daily average, so a quiet night reads as quiet. Until there is a usable profile (a new install, or too little history) it falls back to the flat average. The `basis` attribute ends with the load it used. Its attributes show what it is made of: `soc_at_charge_start`, `charge_added_pct`, `charge_window` and `basis`. It does not feed Battery Overnight Outlook or the level of Battery Overnight Confidence, and no decision reads it. The words of Battery Overnight Confidence (`summary` and `explanation`) quote it while a planned charge counts.
 
+### Battery pause
+
+GivTCP can pause the battery for a time of day window. On an install that does, the battery serves nothing in the window: the house runs from the grid and the battery holds its charge. Charging can still happen. Before this was read, the night estimates ran the battery down on the house load for the whole night. With a pause from 23:00 to 08:00 and the battery at 60% in the evening, the sunrise figure could read near the minimum while the battery really held about 60% until morning, and the charge plan asked for a full charge on that wrong basis.
+
+The integration reads three GivTCP entities on every cycle: `battery_pause_mode`, `battery_pause_start_time_slot` and `battery_pause_end_time_slot`. They are never part of the setup, so a pause that is set later, changed or removed is followed on the next cycle with no reload.
+
+| Mode | Treated as |
+| --- | --- |
+| `PauseDischarge` | A pause. The battery does not discharge in the window |
+| `PauseBoth` | A pause for discharge. The charge it also stops is not modelled, see below |
+| `PauseCharge` | No pause. The battery still serves the house, so the estimates are unchanged |
+| `Disabled` | No pause |
+
+Any other text, a start or end that is not a time, a start equal to the end, and entities that are missing or unavailable all give no pause, and the install reads as it did before. A window may wrap midnight. The time can be read from the drop-down or from the time picker, whichever GivTCP publishes.
+
+While a pause covers part of a span, that part adds no load to the battery:
+
+- **Battery Overnight Outlook, its confidence and Estimated SoC at Sunrise Without a Charge** count only the hours outside the pause. The window is the same one as above, so only the part of the pause inside that window counts.
+- **Estimated SoC at Sunrise With the Planned Charge** leaves the paused minutes out of the load before the charge window and after it. A pause that falls inside the charge window changes nothing, because the window adds no house load.
+- **Tonight's charge plan** simulates the next day in 48 half-hour slots. A slot that is paused does not run the battery down when solar falls short of the house load. Solar above the load still charges the battery, paused or not. A slot that is only partly paused is paused for that share. The plan therefore asks for less charge on a paused night, and it can skip a night that the battery lasts only because of the pause.
+
+The words say so once, where the figures are quoted. The sentence `The battery is paused from 23:00 to 08:00.` is in **Battery Overnight Outlook**, the explanation of **Battery Overnight Confidence**, the `basis` of **Estimated SoC at Sunrise With the Planned Charge** and **Overnight Charge Reason**, and the summary of Battery Overnight Confidence ends with `battery paused 23:00 to 08:00`. They say it only when the pause falls in the night being judged. A pause that falls wholly in the day, or no pause, leaves the text as it was.
+
+The integration only reads the pause. It never writes it, with or without dry run. Two things are not modelled. A temporary pause started from GivTCP's temporary pause controls is not read. And a `PauseBoth` window that covers part of the charge window also stops the charge in that part, so the charge the plan expects there may not arrive. If you want the battery to serve the house at night, change the mode in GivTCP.
+
 ### Immersion divert
 
 The rule runs in this order. The first match wins.

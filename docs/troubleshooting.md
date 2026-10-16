@@ -337,6 +337,15 @@ There are two sunrise figures, and they answer different questions.
 
 If both read the same, no charge counts: tonight is skipped, no timed charge window is set, or the window is over. A with-charge figure well below the target means the window is too short to reach it at the charge rate, or the load estimate is high. The no-charge figure always spreads the daily average evenly, so it is pessimistic for a quiet night. The with-charge figure uses the learned per-slot load profile once there is one, and its `basis` attribute says which load it used. Check **Overnight Charge Window** and **Overnight Charge Reason**. See [Battery overnight](concepts.md#battery-overnight).
 
+## The sunrise figure is higher than I expect after a battery pause
+
+If GivTCP pauses the battery for a window (a pause mode of `PauseDischarge` or `PauseBoth`), the battery serves no load in that window and holds its charge. The night estimates leave that load out, so the SoC at sunrise reads higher than the battery would reach without the pause, and the text says `The battery is paused from 23:00 to 08:00.`
+
+- Check the mode and the start and end times in GivTCP's `battery_pause_mode`, `battery_pause_start_time_slot` and `battery_pause_end_time_slot` entities. A mode of `PauseCharge` or `Disabled` is not a discharge pause, and the estimates ignore it.
+- A pause that was set when the inverter was installed and never changed keeps the battery idle at night, and the grid serves the house. The integration does not change it. To let the battery serve the house at night, set the mode in GivTCP to `Disabled`.
+- If the text does not mention a pause you expect, the entities may be missing or unavailable, or GivTCP may use a mode name this integration does not know. In that case the log has one warning that names the mode.
+- A temporary pause started from GivTCP's temporary pause controls is not read.
+
 ## The immersion does not turn on
 
 Read **Immersion Divert Reason**. It gives the exact block.
