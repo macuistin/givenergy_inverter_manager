@@ -409,7 +409,7 @@ Every cycle the grid import is priced at the current rate, after supplier discou
 
 ### Bill audit and the cost without solar or battery
 
-The **Bill audit** sensor lays the running bill period out like a supplier bill. Its `html` attribute holds two tables, shown by the Plan & bill tab:
+The **Bill audit** sensor lays the running bill period out like a supplier bill. Its `html` attribute holds two tables. The Bill & tariff view of the dashboard shows the same figures as smaller tables from the `bill_table` and `days_table` attributes:
 
 - **The days.** One row for each finished day, and one for today so far. Each row lists the kWh imported in each rate period, what that cost at the billed rates, the kWh exported and the credit, the kWh the house used, and the **Without** cost, which is what that use would have cost from the grid.
 - **The bill.** Energy at the rates, supplier discount, standing charge, PSO levy, VAT, export credit and the total, in three columns: as billed, with no solar or battery, and the saving.
