@@ -44,8 +44,8 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
   through the same checked writer. Its notes use the reason `replan`.
 - Planning and writes stop while the feed is not live. That is a frozen feed (nothing reported for
   ten minutes, repair `givtcp_feed_frozen`), a paused GivTCP, or old data per GivTCP's `Data_Age`
-  (repair `givtcp_not_answering`, feed state `stale`). The adapter judges it in
-  `inverter/givtcp/reader.py` (`feed_status`). A new write path checks the same flags and has a test that nothing is sent.
+  (repair `givtcp_not_answering`, feed state `stale`), judged by `feed_status` in
+  `inverter/givtcp/reader.py`. A new write path checks the same flags and tests that nothing is sent.
 
 ## What the integration never does
 
