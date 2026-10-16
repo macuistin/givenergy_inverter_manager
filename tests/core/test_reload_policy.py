@@ -100,6 +100,9 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     # The URL path of the dashboard setup found. It is written once, before the update listener
     # exists, and no cycle reads it.
     "dashboard_url_path": ("givenergy", "lovelace", LIVE),
+    # The storage dashboard update_dashboard keeps current. The action writes it and the
+    # out-of-date repair check reads it, so saving it must not reload the integration.
+    "stored_dashboard_url_path": ("energy-home", "energy-new", LIVE),
     # Alternative heating. The coordinator reads the label, the unit, the cost and the cost
     # sensor every cycle, so a new value is live while the advice device stays as it is. The
     # device appears and goes with the setting, the cost and the cost sensor: tests below.

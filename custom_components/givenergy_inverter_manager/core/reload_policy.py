@@ -41,7 +41,9 @@ unless noted):
                          (the logger's config accessor), charge_replan (read each cycle by
                          the re-plan check), surplus_divert_soc_pct,
                          surplus_divert_min_power_w, tariff_reviewed_on (read by the repair
-                         check), dashboard_url_path (written once at setup, read by no cycle).
+                         check), dashboard_url_path (written once at setup, read by no cycle),
+                         stored_dashboard_url_path (written by update_dashboard, read by the
+                         out-of-date repair check, which runs on its own timers).
 
 Kept as RELOAD although re-read each cycle, because something else uses them once:
   forecast_entity        also seeds the forecast accuracy history, at setup.
@@ -110,6 +112,7 @@ from ..const import (
     CONF_SKIP_CHARGE_SOC_THRESHOLD,
     CONF_SOLAR_POWER,
     CONF_STANDING_CHARGE,
+    CONF_STORED_DASHBOARD_URL_PATH,
     CONF_SURPLUS_DIVERT_MIN_W,
     CONF_SURPLUS_DIVERT_SOC,
     CONF_TARGET_SOC_ENTITY,
@@ -195,6 +198,8 @@ LIVE_KEYS: frozenset[str] = frozenset(
         CONF_TARIFF_REVIEWED_ON,
         # Written once by setup, before the update listener exists. Nothing reads it each cycle.
         CONF_DASHBOARD_URL_PATH,
+        # Written by update_dashboard and read by the dashboard repair check. No cycle reads it.
+        CONF_STORED_DASHBOARD_URL_PATH,
         # Tariff
         CONF_STANDING_CHARGE,
         CONF_PSO_LEVY,

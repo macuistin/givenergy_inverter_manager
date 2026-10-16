@@ -253,6 +253,13 @@ sys.modules["homeassistant.helpers.event"].async_track_point_in_time = lambda *a
 sys.modules["homeassistant.helpers.event"].async_track_state_change_event = (
     lambda *a, **kw: lambda: None
 )
+sys.modules["homeassistant.helpers.event"].async_track_time_interval = lambda *a, **kw: lambda: None
+
+# homeassistant.helpers.debounce and .start (used by the stored dashboard repair's timers)
+for _name in ("homeassistant.helpers.debounce", "homeassistant.helpers.start"):
+    sys.modules.setdefault(_name, types.ModuleType(_name))
+sys.modules["homeassistant.helpers.debounce"].Debouncer = MagicMock
+sys.modules["homeassistant.helpers.start"].async_at_started = lambda *a, **kw: lambda: None
 
 
 # homeassistant.core needs ServiceCall for services.py

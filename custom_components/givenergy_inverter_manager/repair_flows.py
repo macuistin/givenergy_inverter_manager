@@ -5,6 +5,7 @@ repair_flows.py: the fix flows of the fixable repair issues.
   battery_cost_not_set      -> SetBatteryCostFlow
   tariff_review_due         -> ConfirmTariffReviewedFlow
   system_looks_different    -> AcceptSystemChangeFlow
+  dashboard_out_of_date     -> UpdateStoredDashboardFlow
 
 Imported lazily by repairs.async_create_fix_flow, because it needs the
 `repairs` integration, which the unit test stub of Home Assistant lacks.
@@ -17,6 +18,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.components.repairs import ConfirmRepairFlow, RepairsFlow
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.util import dt as dt_util
 
 from .config_helpers import effective_config
@@ -28,6 +30,7 @@ from .const import (
     DOMAIN,
 )
 from .repairs import ClearOutcome
+from .services import async_update_stored_dashboard, loaded_entries
 from .wizard.selectors import battery_cost_selector
 
 
@@ -84,6 +87,22 @@ class AcceptSystemChangeFlow(ConfirmRepairFlow):
             return self.async_abort(reason="not_loaded")
         for entry in loaded:
             entry.runtime_data.accept_system_as_it_is()
+        return self.async_create_entry(data={})
+
+
+class UpdateStoredDashboardFlow(ConfirmRepairFlow):
+    """Ask once, then write the generated dashboard as the update_dashboard action does."""
+
+    async def async_step_confirm(self, user_input: dict[str, str] | None = None) -> Any:
+        """Show what will be replaced, and replace it once confirmed."""
+        if user_input is None:
+            return await super().async_step_confirm()
+        if not loaded_entries(self.hass):
+            return self.async_abort(reason="not_loaded")
+        try:
+            await async_update_stored_dashboard(self.hass, None)
+        except ServiceValidationError as err:
+            return self.async_abort(reason=err.translation_key or "not_loaded")
         return self.async_create_entry(data={})
 
 

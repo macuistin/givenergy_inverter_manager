@@ -152,3 +152,11 @@ get_dashboard_yaml:
       default: false
       selector:
         boolean:
+
+update_dashboard:
+  fields:
+    url_path:
+      required: false
+      example: dashboard-energy
+      selector:
+        text:

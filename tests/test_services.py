@@ -24,6 +24,7 @@ ALL_SERVICES = {
     "year_on_year_summary",
     "export_energy_data",
     "get_dashboard_yaml",
+    "update_dashboard",
 }
 RESPONSE_SERVICES = {
     "get_roi_summary",
@@ -31,6 +32,7 @@ RESPONSE_SERVICES = {
     "year_on_year_summary",
     "export_energy_data",
     "get_dashboard_yaml",
+    "update_dashboard",
 }
 
 
