@@ -2,7 +2,9 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.19.9
+
+Tonight's charge target now holds across midnight when no day-after forecast sensor is set.
 
 **Fixes**
 - Tonight's charge target no longer drops at midnight when no **Day after tomorrow forecast sensor** is set. Between midnight and 08:00 the plan read the tomorrow sensor as the day after and, when that forecast was above the battery's capacity, took points off the target (for 25.1 kWh on a 19 kWh battery, 16 points). The evening plan had no such figure, so the target fell at 00:00 with nothing changed in the weather, and the first number in the reason (the simulation's own) was not the one written. Now a day-after figure is used after midnight only when a day-after sensor is set, the same as in the evening, so the target holds across midnight. If you set the sensor, the reduction applies before and after midnight alike. The re-plan check also stops counting that reading as a moved forecast. See [Overnight charge target](docs/concepts.md#overnight-charge-target).
