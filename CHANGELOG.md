@@ -2,7 +2,9 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.19.8
+
+The night estimates and the charge plan now take GivTCP's battery pause into account, and a pause that blocks tonight's charge raises a repair.
 
 **Added**
 - A repair, **The battery pause stops tonight's charge**. If GivTCP's pause mode is `PauseCharge` or `PauseBoth` and its window covers part of tonight's planned charge window, the inverter does not charge in that part. The window and target are written and read back as set, so the write looks fine and the battery does not fill. The repair names the pause and the charge window. It appears once the overlap has held for a few cycles, only while a charge is planned, never in dry run, and it clears by itself. The pause is never changed. See [The battery pause stops the charge](docs/troubleshooting.md#the-battery-pause-stops-the-charge).
