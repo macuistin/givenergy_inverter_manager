@@ -25,11 +25,15 @@ class HostFacts:
     admin_ids are the IDs of the administrators. They fill the Settings view's `visible`
     list, so a copy of the dashboard made by Take control still hides Settings from anyone
     else. They are only read when is_admin is true.
+    series_colours is whether chart series may carry a colour, from the running release.
     """
 
     resources: list[str] | None = None
     admin_ids: tuple[str, ...] = ()
     is_admin: bool = False
+    # Whether the frontend draws a chart series in the colour the dashboard gives it, which
+    # Home Assistant does from 2026.6. On an older release the colour is left out.
+    series_colours: bool = False
 
 
 class Registry:

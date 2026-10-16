@@ -54,13 +54,13 @@ class TestTheChecklistSection:
     def test_it_sits_between_the_banner_and_the_flow(self):
         headings = [s["cards"][0].get("heading") for s in _power_flow(dashboard_dict())["sections"]]
         assert headings == [
-            "Now",
             BANNER,
             "Something else is setting your charge target",
             CHECKLIST,
+            "Needs your attention",
             "Live power flow",
-            "Today so far",
-            "Devices",
+            "Right now",
+            "More",
         ]
 
     def test_it_holds_a_heading_and_one_markdown_card(self):
@@ -105,7 +105,7 @@ class TestTheChecklistSection:
         dashboard = generated_for(ev=True, switch=True, sensor=True)
         states = states_with(Device) | {PROGRESS: "incomplete", IDS["dry_run_active"]: "True"}
         headings = [s["cards"][0].get("heading") for s in _power_flow(seen(dashboard, states))["sections"]]
-        assert headings[:3] == ["Now", BANNER, CHECKLIST]
+        assert headings[:3] == [BANNER, CHECKLIST, "Live power flow"]
 
 
 class TestTheChecklistText:

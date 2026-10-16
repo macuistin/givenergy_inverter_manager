@@ -14,6 +14,9 @@ from .hacs import async_lovelace_resource_urls
 from .registry import HostFacts, async_admin_user_ids
 from .views import TAB_VIEWS, Builder
 
+# The first release whose history and statistics graphs draw a series in its own colour.
+_SERIES_COLOURS_FROM = (2026, 6)
+
 
 def build_dashboard(
     hass: HomeAssistant,
@@ -38,7 +41,16 @@ async def async_host_facts(hass: HomeAssistant, *, is_admin: bool) -> HostFacts:
     strategy dashboard is reloaded.
     """
     admin_ids = await async_admin_user_ids(hass) if is_admin else ()
-    return HostFacts(await async_lovelace_resource_urls(hass), admin_ids, is_admin)
+    resources = await async_lovelace_resource_urls(hass)
+    return HostFacts(resources, admin_ids, is_admin, series_colours=_draws_series_colours())
+
+
+def _draws_series_colours() -> bool:
+    """True on a Home Assistant release whose charts take a colour for each series (2026.6)."""
+    from homeassistant import const  # noqa: PLC0415
+
+    version = (getattr(const, "MAJOR_VERSION", 0), getattr(const, "MINOR_VERSION", 0))
+    return version >= _SERIES_COLOURS_FROM
 
 
 def _generate(

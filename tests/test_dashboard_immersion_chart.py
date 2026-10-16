@@ -1,9 +1,10 @@
 """
 The immersion chart for every combination of the switch and the temperature sensor.
 
-The chart is a built-in history graph, so it needs no custom card. It draws the heater's power
-as a line beside the temperatures, and a tile above it says whether the heater is on. A switch
-with no sensor gets a small chart of the heater alone and its own tile.
+The chart is a built-in history graph, so it needs no custom card. It draws the water
+temperature, and with the switch as well the target, the minimum and the heater's power as a
+line. A row of figures above it gives the heater's power now. A switch with no sensor has no
+chart: its figures and its last week tell its story.
 """
 
 from __future__ import annotations
@@ -43,11 +44,12 @@ def _plotted(config: dict) -> list[str]:
     return [row["entity"] for chart in _charts(config) for row in chart["entities"]]
 
 
-def _heater_tiles(config: dict) -> list[dict]:
+def _heater_figures(config: dict) -> list[dict]:
+    """The rows of figures that give the heater's power now."""
     return [
         c
         for c in view_cards(_immersion(config))
-        if c["type"] == "tile" and c["entity"] == IDS["immersion_power"]
+        if c["type"] == "glance" and IDS["immersion_power"] in [r["entity"] for r in c["entities"]]
     ]
 
 
@@ -57,13 +59,13 @@ class TestEveryCombination:
         ev, switch, sensor = combination
         return seen_for(ev=ev, switch=switch, sensor=sensor)
 
-    def test_there_is_one_chart_when_there_is_a_sensor_or_a_switch(self, combination):
-        _, switch, sensor = combination
-        assert len(_charts(self._seen(combination))) == (1 if switch or sensor else 0)
+    def test_there_is_one_chart_when_there_is_a_sensor(self, combination):
+        _, _, sensor = combination
+        assert len(_charts(self._seen(combination))) == (1 if sensor else 0)
 
-    def test_the_heater_is_a_row_only_with_the_switch(self, combination):
-        _, switch, _ = combination
-        assert (IDS["immersion_power"] in _plotted(self._seen(combination))) == switch
+    def test_the_heater_is_a_row_only_with_the_switch_and_the_sensor(self, combination):
+        _, switch, sensor = combination
+        assert (IDS["immersion_power"] in _plotted(self._seen(combination))) == (switch and sensor)
 
     def test_the_temperature_is_a_row_only_with_the_sensor(self, combination):
         _, _, sensor = combination
@@ -76,21 +78,20 @@ class TestEveryCombination:
             assert (IDS[key] in plotted) == (switch and sensor), key
 
     def test_there_is_no_separate_heater_power_chart_or_heading(self, combination):
+        """The statistics graphs are the week of heating and its cost, with the switch."""
+        _, switch, _ = combination
         config = self._seen(combination)
         assert "Heater power" not in _headings(config)
-        assert not [c for c in view_cards(_immersion(config)) if c["type"] == "statistics-graph"]
+        weekly = [c for c in view_cards(_immersion(config)) if c["type"] == "statistics-graph"]
+        assert [c["title"] for c in weekly] == (["Heated", "Cost"] if switch else [])
 
-    def test_the_switch_alone_gets_a_small_heater_chart_with_its_own_heading(self, combination):
+    def test_the_hot_water_heading_comes_with_the_sensor_or_the_switch(self, combination):
         _, switch, sensor = combination
-        assert ("Heater on or off" in _headings(self._seen(combination))) == (switch and not sensor)
+        assert ("Hot water" in _headings(self._seen(combination))) == (switch or sensor)
 
-    def test_the_water_heading_comes_with_the_sensor(self, combination):
-        _, _, sensor = combination
-        assert ("Water temperature" in _headings(self._seen(combination))) == sensor
-
-    def test_a_heater_tile_is_shown_exactly_with_the_switch(self, combination):
+    def test_the_heater_figures_are_shown_exactly_with_the_switch(self, combination):
         _, switch, _ = combination
-        assert len(_heater_tiles(self._seen(combination))) == (1 if switch else 0)
+        assert len(_heater_figures(self._seen(combination))) == (1 if switch else 0)
 
 
 class TestTheTemperatureChartWithTheHeater:
@@ -121,33 +122,31 @@ class TestTheTemperatureChartWithoutTheHeater:
         assert IDS["immersion_power"] not in str(chart)
 
 
-class TestTheHeaterChartWithoutASensor:
-    def test_it_holds_the_heater_row_only(self):
-        (chart,) = _charts(seen_for(switch=True))
-        assert [(r["name"], r["entity"]) for r in chart["entities"]] == [
-            ("Heater power", IDS["immersion_power"])
-        ]
-
-
-class TestTheHeaterTile:
-    def test_it_sits_in_the_water_section_with_both_devices(self):
+class TestTheHeaterFigures:
+    def test_they_follow_the_water_sentence_with_both_devices(self):
         config = seen_for(switch=True, sensor=True)
         cards = view_cards(_immersion(config))
-        heading = next(i for i, c in enumerate(cards) if c.get("heading") == "Water temperature")
-        tile = _heater_tiles(config)[0]
-        assert cards.index(tile) == heading + 1
+        heading = next(i for i, c in enumerate(cards) if c.get("heading") == "Hot water")
+        story = cards[heading + 1]
+        assert story["type"] == "markdown"
+        assert IDS["immersion_water_temperature"] in story["content"]
+        assert cards.index(_heater_figures(config)[0]) == heading + 2
 
-    def test_it_sits_in_the_heater_section_with_the_switch_alone(self):
+    def test_they_follow_why_the_heater_is_on_or_off_with_the_switch_alone(self):
         config = seen_for(switch=True)
         cards = view_cards(_immersion(config))
-        heading = next(i for i, c in enumerate(cards) if c.get("heading") == "Heater on or off")
-        assert cards.index(_heater_tiles(config)[0]) == heading + 1
+        heading = next(i for i, c in enumerate(cards) if c.get("heading") == "Hot water")
+        reason = IDS["immersion_divert_reason"]
+        assert cards[heading + 1]["content"] == (
+            f"{{{{ state_attr('{reason}', 'full_text') or states('{reason}') }}}}"
+        )
+        assert cards.index(_heater_figures(config)[0]) == heading + 2
 
-    def test_it_shows_the_heater_power_and_has_no_controls(self):
-        (tile,) = _heater_tiles(seen_for(switch=True))
-        assert tile["name"] == "Heater power"
-        assert tile["entity"] == IDS["immersion_power"]
-        assert "features" not in tile
+    def test_they_show_the_heater_power_and_have_no_controls(self):
+        (figures,) = _heater_figures(seen_for(switch=True))
+        heater = next(r for r in figures["entities"] if r["entity"] == IDS["immersion_power"])
+        assert heater["name"] == "Heater"
+        assert "features" not in figures
 
 
 @pytest.mark.parametrize("resources", [None, []], ids=["unknown", "none"])
@@ -176,7 +175,8 @@ def test_with_apexcharts_card_one_chart_shades_the_heater_behind_the_water_tempe
     }
 
 
-def test_with_apexcharts_card_a_switch_alone_gets_a_heater_band_chart():
+def test_with_apexcharts_card_a_switch_alone_gets_no_chart():
+    """With no sensor there is no temperature to draw the heater against."""
     shown = seen_for(resources=[_APEX_URL], switch=True, sensor=False)
     cards = [c for c in view_cards(_immersion(shown)) if c["type"] == "custom:apexcharts-card"]
-    assert [s["name"] for card in cards for s in card["series"]] == ["Heater on"]
+    assert cards == []

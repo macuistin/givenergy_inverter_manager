@@ -23,7 +23,6 @@ from custom_components.givenergy_inverter_manager.core.battery import (
     OUTLOOK_WARNING,
 )
 from tests.dashboard_support import (
-    ADMIN_ID,
     ENTRY_ID,
     FULL_CONFIG,
     MINIMAL_CONFIG,
@@ -67,27 +66,45 @@ class TestBuildDashboardYaml:
         parsed = yaml.safe_load(result)
         assert "views" in parsed
 
-    def test_has_three_tabs_and_four_sub_views(self):
+    def test_has_one_tab_and_seven_sub_views(self):
         result = _build()
         parsed = yaml.safe_load(result)
         tabs = [v for v in parsed["views"] if not v.get("subview")]
         subs = [v for v in parsed["views"] if v.get("subview")]
-        assert len(tabs) == 3
-        assert len(subs) == 4
+        assert len(tabs) == 1
+        assert len(subs) == 7
 
     def test_view_titles(self):
         result = _build()
         parsed = yaml.safe_load(result)
         titles = [v["title"] for v in parsed["views"] if not v.get("subview")]
-        assert titles == ["Now", "Today", "Plan & bill"]
+        assert titles == ["Home energy"]
+        sub_titles = [v["title"] for v in parsed["views"] if v.get("subview")]
+        assert sub_titles == [
+            "Today",
+            "Tonight",
+            "Tomorrow",
+            "Bill & tariff",
+            "Hot water",
+            "EV charger",
+            "Settings",
+        ]
 
     def test_view_paths(self):
         result = _build()
         parsed = yaml.safe_load(result)
         paths = [v["path"] for v in parsed["views"] if not v.get("subview")]
-        assert paths == ["power-flow", "today", "plan"]
+        assert paths == ["power-flow"]
         sub_paths = [v["path"] for v in parsed["views"] if v.get("subview")]
-        assert sub_paths == ["immersion", "ev-charger", "tariff", "settings"]
+        assert sub_paths == [
+            "today",
+            "plan",
+            "tomorrow",
+            "bill",
+            "immersion",
+            "ev-charger",
+            "settings",
+        ]
 
     def test_sensor_references_present(self):
         """Key entities must appear in the output."""
@@ -212,18 +229,26 @@ class TestPowerFlowTabChanges:
             "Clipping must be secondary_info_entity on solar — not a separate large card."
         )
 
-    def test_power_flow_sections_are_now_flow_totals_and_devices(self):
+    def test_home_energy_sections_are_banners_flow_right_now_and_more(self):
         parsed = yaml.safe_load(_build())
         pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
         assert [s["cards"][0]["heading"] for s in pf_view["sections"]] == [
-            "Now",
             "Dry run is on",
             "Something else is setting your charge target",
             "Finish setting up",
+            "Needs your attention",
             "Live power flow",
-            "Today so far",
-            "Devices",
+            "Right now",
+            "More",
         ]
+
+    def test_home_energy_has_no_repairs_banner_without_the_repairs_sensor(self):
+        registry = FakeRegistry(enable_all=True, absent={"active_repairs"})
+        parsed = yaml.safe_load(_build(registry=registry))
+        pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
+        headings = [s["cards"][0]["heading"] for s in pf_view["sections"]]
+        assert "Needs your attention" not in headings
+        assert headings[3] == "Live power flow"
 
     def test_live_cost_rate_shown_as_grid_secondary_info(self):
         """Live €/hr cost rate is secondary_info on the grid entity."""
@@ -238,18 +263,24 @@ class TestPowerFlowTabChanges:
         )
 
     def test_clipping_entity_card_removed(self):
-        assert "icon: mdi:alert-circle-outline" not in _build(), (
-            "Old standalone clipping entity card must be removed."
-        )
+        """Clipping is the solar node's secondary info, never a card of its own."""
+        clipping = eid("is_clipping")
+        for resources in (None, ["/hacsfiles/power-flow-card-plus/power-flow-card-plus.js"]):
+            cards = all_cards(yaml.safe_load(_build(resources=resources))["views"])
+            naming = [c for c in cards if clipping in yaml.dump(c)]
+            assert all(c["type"] == "custom:power-flow-card-plus" for c in naming), naming
+            for card in naming:
+                solar = card["entities"]["solar"]
+                assert solar["secondary_info_entity"] == clipping
+                assert clipping not in yaml.dump({k: v for k, v in card["entities"].items() if k != "solar"})
 
     def test_immersion_section_absent_without_temperature_sensor(self):
-        """A switch but no temperature sensor gives the rows and a heater chart, no water chart."""
+        """A switch but no temperature sensor gives the heater's figures and week, no chart."""
         from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_SWITCH
 
         text = shown_text({CONF_IMMERSION_SWITCH: "switch.immersion_heater"}, ev_brand=None)
         immersion = _cards(text, "immersion")
-        charts = [c for c in immersion if c["type"] == "history-graph"]
-        assert [r["name"] for c in charts for r in c["entities"]] == ["Heater power"]
+        assert not [c for c in immersion if c["type"] == "history-graph"]
         assert eid("immersion_water_temperature") not in text
         assert eid("immersion_today") in text
 
@@ -299,14 +330,6 @@ class TestDashboardImprovements:
         result = _build()
         assert "Tonights" not in result
         assert "Tonight's" in result
-
-    def test_battery_power_in_battery_view(self):
-        """battery_power must appear in the Battery view, not just the Power Flow view."""
-        result = _build()
-        parsed = yaml.safe_load(result)
-        battery_view = next(v for v in parsed["views"] if v.get("path") == "plan")
-        battery_yaml = yaml.dump(battery_view)
-        assert "battery_power" in battery_yaml
 
 
 class TestIncomeBar:
@@ -374,30 +397,36 @@ class TestSolarForecastCards:
             assert eid(key) in result
 
     @staticmethod
-    def _tiles(text: str, path: str, heading: str) -> dict[str, str]:
-        """{tile name: entity} of the section of the view at path that starts with heading."""
-        view = next(v for v in yaml.safe_load(text)["views"] if v["path"] == path)
-        section = next(s for s in view["sections"] if s["cards"][0].get("heading") == heading)
-        return {c["name"]: c["entity"] for c in section["cards"][1:] if c["type"] == "tile"}
+    def _figures(text: str, path: str, heading: str) -> dict[str, str]:
+        """{figure name: entity} of the glance cards under this heading of the view at path."""
+        cards = _cards(text, path)
+        start = next(i for i, c in enumerate(cards) if c.get("heading") == heading)
+        under = []
+        for card in cards[start + 1 :]:
+            if card["type"] == "heading":
+                break
+            under.append(card)
+        return {r["name"]: r["entity"] for c in under if c["type"] == "glance" for r in c["entities"]}
 
-    def test_today_so_far_shows_the_provider_forecast_and_the_share_generated(self):
-        tiles = self._tiles(_build(), "power-flow", "Today so far")
-        assert tiles["Solar forecast"] == eid("solar_forecast_raw_today")
-        assert tiles["Of forecast"] == eid("solar_actual_vs_forecast_pct")
-        assert list(tiles)[:3] == ["Solar", "Solar forecast", "Of forecast"]
-
-    def test_today_so_far_has_no_forecast_tiles_without_a_forecast_sensor(self):
+    def test_today_has_no_forecast_figures_without_a_forecast_sensor(self):
         without_forecast = {k: v for k, v in FULL_CONFIG.items() if k != CONF_FORECAST_ENTITY}
         for config in (MINIMAL_CONFIG, without_forecast):
-            tiles = self._tiles(_build(config=config), "power-flow", "Today so far")
-            assert list(tiles)[:4] == ["Solar", "Home used", "Imported", "Exported"]
-            assert "Solar forecast" not in tiles and "Of forecast" not in tiles
+            text = _build(config=config)
+            assert "Forecast" not in _titles(text)
+            for key in ("solar_forecast_raw_today", "solar_actual_vs_forecast_pct"):
+                assert eid(key) not in yaml.dump(_cards(text, "today")), key
+            # Tomorrow keeps only what the day should cost, which needs no forecast sensor.
+            tomorrow = [c.get("heading") for c in _cards(text, "tomorrow") if c["type"] == "heading"]
+            assert tomorrow == ["What it should cost"]
+            registry = FakeRegistry(enable_all=True, absent={"tomorrow_outlook"})
+            views = yaml.safe_load(_build(config=config, registry=registry))["views"]
+            assert "tomorrow" not in [v["path"] for v in views]
 
-    def test_the_today_tab_tells_the_provider_forecast_from_the_plan_forecast(self):
-        tiles = self._tiles(_build(), "today", "Against the forecast")
-        assert tiles["Solar forecast"] == eid("solar_forecast_raw_today")
-        assert tiles["Of forecast"] == eid("solar_actual_vs_forecast_pct")
-        assert tiles["Plan forecast"] == eid("solar_forecast_kwh_today")
+    def test_the_today_view_tells_the_provider_forecast_from_the_plan_forecast(self):
+        figures = self._figures(_build(), "today", "Forecast")
+        assert figures["Forecast"] == eid("solar_forecast_raw_today")
+        assert figures["Reached"] == eid("solar_actual_vs_forecast_pct")
+        assert figures["Planned on"] == eid("solar_forecast_kwh_today")
 
     def test_solar_graphs_on_the_today_tab_use_statistics(self):
         """The hour by hour chart stacks solar with the battery and the grid, and the last
@@ -420,16 +449,13 @@ class TestSolarForecastCards:
 class TestSoCHistoryChart:
     """Battery SoC 24h history graph is present on the Battery tab."""
 
-    def test_soc_and_power_draw_their_last_day_on_the_plan_tab(self):
-        """The tiles draw the last 24 hours, so no separate history graph repeats the charge."""
-        battery = _section_cards(_build(), "plan", "Battery")
-        trends = {
-            c["entity"]
-            for c in battery
-            if c.get("features") == [{"type": "trend-graph", "hours_to_show": 24}]
-        }
-        assert trends == {eid("battery_soc"), eid("battery_power")}
-        assert not [c for c in _cards(_build(), "plan") if c["type"] == "history-graph"]
+    def test_the_charge_draws_its_last_day_and_a_half_on_the_tonight_view(self):
+        """One line of the charge, so the night before and today read on one chart."""
+        battery = _section_cards(_build(), "plan", "Battery, last day and a half")
+        (graph,) = [c for c in _cards(_build(), "plan") if c["type"] == "history-graph"]
+        assert graph in battery
+        assert [r["entity"] for r in graph["entities"]] == [eid("battery_soc")]
+        assert graph["hours_to_show"] == 36
 
     def test_soc_and_power_are_not_drawn_on_one_axis(self):
         """A graph that mixes % and W squashes one of them flat."""
@@ -505,11 +531,10 @@ class TestEntityAvailability:
 
     def test_dashboard_is_never_empty(self):
         parsed = yaml.safe_load(_build(config=MINIMAL_CONFIG, registry=FakeRegistry()))
-        assert [v["path"] for v in parsed["views"] if not v.get("subview")] == [
-            "power-flow",
-            "today",
-            "plan",
-        ]
+        assert [v["path"] for v in parsed["views"] if not v.get("subview")] == ["power-flow"]
+        assert {v["path"] for v in parsed["views"]} >= {"power-flow", "today", "plan", "bill"}
+        for view in parsed["views"]:
+            assert view["sections"], view["path"]
 
 
 class TestFeatureGating:
@@ -548,13 +573,13 @@ class TestFeatureGating:
 
     def test_minimal_config_has_no_forecast_card(self):
         text = self._minimal(ev_brand=None)
-        assert "Against the forecast" not in _titles(text)
+        assert not {"Forecast", "Tomorrow"} & set(_titles(text))
         assert eid("solar_forecast_kwh_today") not in text
 
     def test_full_config_has_every_feature(self):
         text = _build(config=FULL_CONFIG, registry=FakeRegistry(enable_all=True))
         titles = _titles(text)
-        for title in ("EV charger", "Hot water", "Against the forecast"):
+        for title in ("EV charger", "Hot water", "Forecast", "Tomorrow"):
             assert title in titles
         for key in ("ev_power", "immersion_power", "inverter_temperature", "zappi_today"):
             assert eid(key) in text
@@ -589,9 +614,11 @@ class TestFeatureGating:
         )
 
         text = shown_text({CONF_IMMERSION_TEMP_SENSOR: "sensor.t"}, ev_brand=None)
-        assert "Water temperature" in _titles(text)
+        assert "Hot water" in _titles(text)
         assert eid("immersion_water_temperature") in text
         assert eid("immersion_power") not in text
+        assert eid("immersion_target_temp") not in text
+        assert eid("immersion_divert_reason") not in text
 
 
 def _cards(text: str, path: str) -> list[dict]:
@@ -607,100 +634,58 @@ def _section_cards(text: str, path: str, heading: str) -> list[dict]:
     return view_cards({"sections": [section]})
 
 
-class TestNowSection:
-    """The first section of the first view holds the numbers worth a glance."""
+class TestRightNowSection:
+    """Home energy's Right now: the figures worth a glance as chips, and the story sentence."""
 
-    def _now(self, text: str) -> dict:
-        """The Now section, with the repairs card left out: it lists Home Assistant's repairs."""
-        parsed = yaml.safe_load(text)
-        view = next(v for v in parsed["views"] if v["path"] == "power-flow")
-        section = view["sections"][0]
-        return {**section, "cards": [c for c in section["cards"] if c["type"] != "repairs"]}
+    @staticmethod
+    def _section(text: str) -> dict:
+        view = next(v for v in yaml.safe_load(text)["views"] if v["path"] == "power-flow")
+        return next(s for s in view["sections"] if s["cards"][0]["heading"] == "Right now")
 
-    def test_now_is_the_first_section_of_the_first_view(self):
+    def _chips(self, text: str) -> list[dict]:
+        return self._section(text)["cards"][0]["badges"]
+
+    def test_home_energy_is_the_first_view_and_the_power_flow_its_first_lasting_section(self):
+        """The banners above it show only while they apply."""
         first = yaml.safe_load(_build())["views"][0]
         assert first["path"] == "power-flow"
-        assert first["sections"][0]["cards"][0]["heading"] == "Now"
+        lasting = [s for s in first["sections"] if "visibility" not in s]
+        assert lasting[0]["cards"][0]["heading"] == "Live power flow"
+        assert lasting[1]["cards"][0]["heading"] == "Right now"
 
-    def test_now_has_the_five_core_entities_battery_first(self):
-        tiles = self._now(_build())["cards"][1:]
-        assert [c["entity"] for c in tiles] == [
+    def test_the_chips_are_the_battery_the_rate_and_the_cheap_rate_battery_first(self):
+        chips = self._chips(_build())
+        assert [c["entity"] for c in chips] == [
             eid("battery_soc"),
             eid("current_rate"),
-            eid("import_cost_today"),
-            eid("night_survival_confidence"),
             eid("next_cheap_rate_start"),
         ]
-        assert [c["name"] for c in tiles] == [
-            "Battery",
-            "Rate per kWh",
-            "Cost today",
-            "Battery overnight",
-            "Cheap from",
-        ]
+        assert {c["type"] for c in chips} == {"entity"}
+        assert all(c["show_state"] and c["show_icon"] for c in chips)
 
-    def test_cheap_from_shows_the_countdown_summary_in_one_tile(self):
-        """One tile reads like "23:00 (in 8 h 56 min)", so there is no tile of its own for the wait."""
-        cards = self._now(_build())["cards"][1:]
-        tile = next(c for c in cards if c["name"] == "Cheap from")
-        assert tile["entity"] == eid("next_cheap_rate_start")
-        assert tile["state_content"] == ["summary"]
-        assert tile["grid_options"]["columns"] == "full"
-        assert "Cheap in" not in [c["name"] for c in cards]
-        assert eid("hours_to_cheap_rate") not in [c["entity"] for c in cards]
+    def test_cheap_from_shows_the_countdown_summary_in_one_chip(self):
+        """One chip reads like "23:00 (in 8 h 56 min)", so there is no chip of its own for the wait."""
+        chips = self._chips(_build())
+        chip = next(c for c in chips if c["entity"] == eid("next_cheap_rate_start"))
+        assert chip["state_content"] == ["summary"]
+        home = yaml.dump(next(v for v in yaml.safe_load(_build())["views"] if v["path"] == "power-flow"))
+        assert eid("hours_to_cheap_rate") not in home
 
-    def test_now_uses_only_tiles(self):
-        assert {c["type"] for c in self._now(_build())["cards"][1:]} == {"tile"}
+    def test_right_now_holds_only_headings_and_the_story(self):
+        """The figures are chips in the headings, so the section holds no tiles."""
+        assert {c["type"] for c in self._section(_build())["cards"]} == {"heading", "markdown"}
 
-    def test_battery_tile_draws_its_last_day_and_is_the_biggest(self):
-        battery = self._now(_build())["cards"][1]
-        assert battery["features"] == [{"type": "trend-graph", "hours_to_show": 24}]
-        assert battery["grid_options"]["rows"] > 1
+    def test_right_now_opens_tonight_where_the_overnight_outlook_is_explained(self):
+        """The story gives the outlook in a few words, so a tap leads to the sentence behind it."""
+        heading = self._section(_build())["cards"][0]
+        assert heading["tap_action"] == {"action": "navigate", "navigation_path": "plan"}
 
-    def test_the_repairs_card_comes_last_for_administrators_only(self):
-        """It hides itself while there are no repairs, and only an administrator can act on one."""
-        view = next(v for v in yaml.safe_load(_build())["views"] if v["path"] == "power-flow")
-        repairs = view["sections"][0]["cards"][-1]
-        assert repairs["type"] == "repairs"
-        assert repairs["hide_empty"] is True
-        assert repairs["visibility"] == [{"condition": "user", "users": [ADMIN_ID]}]
-        other = yaml.safe_load(_build(is_admin=False))["views"][0]["sections"][0]["cards"]
-        assert "repairs" not in {c["type"] for c in other}
-
-    def test_the_battery_overnight_tile_reads_the_summary_that_says_what_the_charge_adds(self):
-        """The tile shows the summary attribute, so its text is what the sensor builds tonight.
-
-        A battery that would run flat without a charge still reads May run low, and the tile
-        says in words that tonight's planned charge takes it to about two thirds.
-        """
-        from custom_components.givenergy_inverter_manager import sensor_values
-        from tests.core.test_sunrise_charge_engine import EVENING, _data
-
-        tile = self._now(_build())["cards"][4]
-        assert tile["entity"] == eid("night_survival_confidence")
-        assert tile["state_content"] == ["summary"]
-        assert tile["grid_options"]["columns"] == "full"
-
-        shown = sensor_values.night_survival_attributes(_data(EVENING, 66.0))["summary"]
-        assert shown == (
-            "May run low without a charge · tonight's charge covers it, about 67% at sunrise"
-        )
-        skipped = _data(EVENING, 66.0, override_skip_charge=True, override_charge_target=None)
-        assert sensor_values.night_survival_attributes(skipped)["summary"] == "May run low"
-
-    def test_battery_overnight_opens_the_explanation(self):
-        """The tile gives a short phrase, so a tap leads to the sentence behind it."""
-        tile = self._now(_build())["cards"][4]
-        assert tile["name"] == "Battery overnight"
-        assert tile["tap_action"] == {"action": "navigate", "navigation_path": "plan"}
-
-    def test_now_drops_sensors_that_are_disabled_by_default(self):
+    def test_right_now_drops_sensors_that_are_disabled_by_default(self):
         """Battery overnight confidence is off on a fresh install."""
         text = _build(registry=FakeRegistry())
-        assert [c["entity"] for c in self._now(text)["cards"][1:]] == [
+        assert [c["entity"] for c in self._chips(text)] == [
             eid("battery_soc"),
             eid("current_rate"),
-            eid("import_cost_today"),
             eid("next_cheap_rate_start"),
         ]
         assert eid("night_survival_confidence") not in text
@@ -716,8 +701,8 @@ class TestLongTextStates:
         "ev_protection_reason",
     )
 
-    def _battery(self):
-        return _section_cards(_build(), "plan", "Battery overnight")
+    def _tonight(self):
+        return _section_cards(_build(), "plan", "Tonight")
 
     def test_sentence_entities_are_never_tiles(self):
         tiles = {c["entity"] for c in all_cards(yaml.safe_load(_build())["views"]) if "entity" in c}
@@ -729,13 +714,18 @@ class TestLongTextStates:
             c["content"] for c in all_cards(yaml.safe_load(_build())["views"]) if "content" in c
         )
         for key in self._SENTENCES:
-            assert self._full_text(key) in markdown, key
+            assert self._full_text_expression(key) in markdown, key
 
     @staticmethod
-    def _full_text(key: str) -> str:
-        """The template that prints the full text kept in the attribute, else the state."""
+    def _full_text_expression(key: str) -> str:
+        """The expression that reads the full text kept in the attribute, else the state."""
         entity = eid(key)
-        return f"{{{{ state_attr('{entity}', 'full_text') or states('{entity}') }}}}"
+        return f"state_attr('{entity}', 'full_text') or states('{entity}')"
+
+    @classmethod
+    def _full_text(cls, key: str) -> str:
+        """The template that prints the full text kept in the attribute, else the state."""
+        return f"{{{{ {cls._full_text_expression(key)} }}}}"
 
     def test_a_sentence_card_prints_the_full_text_attribute_over_the_cut_state(self):
         entity = eid("overnight_charge_reason")
@@ -751,13 +741,18 @@ class TestLongTextStates:
 
         assert _render(card, lambda e: "The state.", {}) == "The state."
 
-    def test_battery_detail_leads_with_night_survival_then_the_charge_reason(self):
-        markdown = [c for c in self._battery() if c["type"] == "markdown"]
-        assert len(markdown) == 2
-        assert self._battery()[0]["heading"] == "Battery overnight"
-        assert self._battery()[1] == markdown[0]
-        assert self._full_text("overnight_charge_reason") == markdown[1]["content"]
-        night = markdown[0]["content"]
+    def test_tonight_leads_with_the_charge_then_night_survival_then_folds_the_reason(self):
+        tonight = self._tonight()
+        markdown = [c for c in tonight if c["type"] == "markdown"]
+        assert len(markdown) == 3
+        assert tonight[0]["heading"] == "Tonight"
+        assert tonight[1:3] == markdown[:2]
+        assert eid("overnight_charge_target") in markdown[0]["content"]
+        assert markdown[2]["content"] == (
+            "<details><summary>Why this plan</summary>\n\n"
+            f"{self._full_text('overnight_charge_reason')}\n\n</details>"
+        )
+        night = markdown[1]["content"]
         for key in (
             "night_survival_confidence",
             "estimated_soc_at_sunrise",
@@ -775,13 +770,13 @@ class TestLongTextStates:
             if card["type"] == "markdown":
                 assert _render(card["content"], lambda entity: "x", checklist)
 
-    def test_the_plan_tab_leads_with_tonights_charge_then_the_battery(self):
-        """The overnight detail sits on the same tab, so no heading opens another view."""
+    def test_the_tonight_view_leads_with_tonights_charge_then_the_battery(self):
+        """The overnight detail sits on the same view, so no heading opens another view."""
         headings = [c for c in _cards(_build(), "plan") if c["type"] == "heading"]
-        assert [h["heading"] for h in headings][:3] == [
-            "Tonight's charge",
-            "Battery overnight",
-            "Why this target",
+        assert [h["heading"] for h in headings] == [
+            "Tonight",
+            "Battery, last day and a half",
+            "Battery health",
         ]
         assert not [h for h in headings if "tap_action" in h]
 
@@ -827,8 +822,11 @@ class TestNightSurvivalCard:
     _STATUS = eid("night_survival_reason")
 
     def _card(self, **kw) -> str:
-        cards = _section_cards(_build(**kw), "plan", "Battery overnight")
-        return next(c for c in cards if c["type"] == "markdown")["content"]
+        """The night survival card of Tonight: the one that reads the status sentence."""
+        cards = _section_cards(_build(**kw), "plan", "Tonight")
+        markdown = [c["content"] for c in cards if c["type"] == "markdown"]
+        (card,) = [content for content in markdown if self._STATUS in content]
+        return card
 
     def _text(
         self,
@@ -914,17 +912,14 @@ class TestNightSurvivalCard:
         text = _render(self._card(), lambda e: states.get(e, "unknown")).strip()
         assert text.startswith("**Safe**")
 
-    def test_every_battery_overnight_tile_opens_the_explanation(self):
-        tiles = [
-            c
-            for c in all_cards(yaml.safe_load(_build())["views"])
-            if c["type"] == "tile" and c["entity"] == self._CONF
-        ]
-        assert tiles
+    def test_every_home_energy_card_with_the_outlook_sits_under_a_heading_that_explains_it(self):
+        """Home energy gives the outlook in a few words, and its heading opens Tonight."""
+        view = next(v for v in yaml.safe_load(_build())["views"] if v["path"] == "power-flow")
+        sections = [s for s in view["sections"] if self._CONF in yaml.dump(s)]
+        assert sections
         go = {"action": "navigate", "navigation_path": "plan"}
-        for tile in tiles:
-            assert tile["tap_action"] == go
-            assert tile["icon_tap_action"] == go
+        for section in sections:
+            assert section["cards"][0]["tap_action"] == go
 
 
 class TestStatisticsGraphs:
@@ -944,11 +939,10 @@ class TestStatisticsGraphs:
             plotted = {r["entity"] for r in card["entities"]}
             assert plotted.isdisjoint(resets), plotted
 
-    def test_the_today_tab_uses_statistics_graphs(self):
+    def test_the_today_view_uses_statistics_graphs(self):
         graphs = [c for c in _cards(shown_text(), "today") if c["type"] == "statistics-graph"]
         assert [(g["period"], g["chart_type"]) for g in graphs] == [
             ("hour", "bar-stack"),
-            ("day", "bar"),
             ("day", "bar"),
         ]
         for g in graphs:
@@ -968,7 +962,7 @@ class TestBillView:
     def test_bill_view_has_the_month_figures(self):
         """Days elapsed and the cheap share are left out: the days left and the average rate
         say the same, and both sensors are disabled by default."""
-        text = yaml.dump(_cards(_build(), "plan"))
+        text = yaml.dump(_cards(_build(), "bill"))
         for key in (
             "import_cost_this_month",
             "export_earnings_this_month",
@@ -980,16 +974,12 @@ class TestBillView:
             assert eid(key) in text, key
 
     def test_bill_sections_use_only_built_in_cards(self):
-        types = {
-            c["type"]
-            for heading in ("Bill", "Cost per day, last 31 days")
-            for c in _section_cards(_build(), "plan", heading)
-        }
-        assert types == {"heading", "tile", "statistics-graph"}
+        types = {c["type"] for c in _section_cards(_build(), "bill", "This bill period")}
+        assert types == {"heading", "markdown", "glance", "statistics-graph"}
 
     def test_disabled_by_default_figures_are_left_out(self):
         text = _build(registry=FakeRegistry())
-        bill = yaml.dump(_cards(text, "plan"))
+        bill = yaml.dump(_cards(text, "bill"))
         for key in (
             "days_in_period",
             "avg_import_rate_this_month",
@@ -1007,8 +997,14 @@ class TestBillView:
         registry = FakeRegistry(
             enable_all=True, devices=devices_of(shown, "myenergi"), absent={"tariff_in_use"}
         )
-        cards = _section_cards(_build(config=config, registry=registry), "tariff", "Tariff in use")
+        cards = _section_cards(_build(config=config, registry=registry), "bill", "Tariff")
         return next(c for c in cards if c["type"] == "markdown")["content"]
+
+    def test_the_tariff_reads_the_report_sensor_while_it_is_there(self):
+        """The sensor builds its tables each cycle, so a stored copy follows a tariff change."""
+        cards = _section_cards(_build(), "bill", "Tariff")
+        markdown = [c["content"] for c in cards if c["type"] == "markdown"]
+        assert markdown == [f"{{{{ state_attr('{eid('tariff_in_use')}', 'html') }}}}"]
 
     def test_tariff_table_lists_base_rate_and_periods(self):
         table = self._tariff_markdown()
@@ -1124,7 +1120,7 @@ class TestMissingHacsCards:
         assert "custom:apexcharts-card" not in text
         cards = _cards(text, "immersion")
         charts = [c["type"] for c in cards if c["type"].endswith("graph")]
-        assert charts == ["history-graph"]
+        assert charts == ["history-graph", "statistics-graph", "statistics-graph"]
         graph = next(c for c in cards if c["type"] == "history-graph")
         rows = [r["entity"] for r in graph["entities"]]
         assert rows[0] == eid("immersion_water_temperature")
@@ -1186,7 +1182,7 @@ class TestReadingLovelaceResources:
 
 
 class TestSubViews:
-    """Detail sits lower on its tab. The devices, the tariff table and Settings have a sub-view."""
+    """Home energy is the one tab. Every detail is one tap away, on a sub-view."""
 
     def _views(self, **kw):
         return yaml.safe_load(_build(**kw))["views"]
@@ -1226,46 +1222,32 @@ class TestSubViews:
             parent = next(v for v in views if v["path"] == sub["back_path"])
             assert f"navigation_path: {sub['path']}" in yaml.dump(parent), sub["path"]
 
-    def test_tabs_hold_their_detail_without_running_on(self):
+    def test_views_hold_their_detail_without_running_on(self):
         """Counted on what is shown, with every optional device present.
 
-        The detail that had a sub-view of its own sits lower on its tab, so a tab holds more
-        sections than before, and still no more than ten.
+        Home energy holds the story and the way to the detail, and each sub-view a few
+        sections, so no view runs on.
         """
         for view in seen_for(ev=True, switch=True, sensor=True)["views"]:
-            if not view.get("subview"):
-                assert len(view["sections"]) <= 10, view["path"]
-                assert len(view_cards(view)) <= 60, view["path"]
+            assert len(view["sections"]) <= 10, view["path"]
+            assert len(view_cards(view)) <= 60, view["path"]
 
     def test_energy_today_totals_are_not_repeated_in_full(self):
-        views = {v["path"]: v for v in self._views()}
+        """Home energy gives three chips for the day, and Today the figures behind them."""
+        cards = all_cards(self._views())
+        (today_so_far,) = [c for c in cards if c.get("heading") == "Today so far"]
+        chips = [c["entity"] for c in today_so_far["badges"]]
+        assert chips == [eid("solar_today"), eid("import_cost_today"), eid("self_sufficiency")]
+        in_numbers = _cards(_build(), "today")
+        start = next(i for i, c in enumerate(in_numbers) if c.get("heading") == "In numbers")
+        figures = in_numbers[start + 1]
+        assert figures["type"] == "glance"
+        assert [r["name"] for r in figures["entities"]] == ["Solar", "Used", "Imported", "Exported"]
+        assert {r["entity"] for r in figures["entities"]} & set(chips) == {eid("solar_today")}
 
-        def tiles_after(path: str, heading: str) -> list[str]:
-            for section in views[path]["sections"]:
-                if section["cards"][0].get("heading") == heading:
-                    return [c["name"] for c in section["cards"][1:] if c["type"] == "tile"]
-            raise AssertionError(heading)
-
-        assert tiles_after("power-flow", "Today so far")[:7] == [
-            "Solar",
-            "Solar forecast",
-            "Of forecast",
-            "Home used",
-            "Imported",
-            "Exported",
-            "Self-sufficient",
-        ]
-        assert tiles_after("today", "Energy") == [
-            "Solar",
-            "Home used",
-            "Imported",
-            "Exported",
-            "EV",
-            "Immersion",
-        ]
-
-    def test_battery_soc_tiles_draw_their_last_day_and_never_a_bar_or_gauge(self):
-        """A bar of the charge repeats the number beside it, so the tiles draw a line instead."""
+    def test_the_battery_charge_is_a_bar_now_and_a_line_over_time_and_never_a_gauge(self):
+        """Tonight sets the charge now beside the charge at sunrise, as two bars, and draws
+        its last day and a half as a line."""
         cards = all_cards(self._views())
         assert not [c for c in cards if c["type"] == "gauge"]
         battery = [
@@ -1273,7 +1255,13 @@ class TestSubViews:
             for c in cards
             if c["type"] == "tile" and c["entity"] == eid("battery_soc")
         ]
-        assert battery == [[{"type": "trend-graph", "hours_to_show": 24}]] * 2
+        assert battery == [[{"type": "bar-gauge", "min": 0, "max": 100}]]
+        lines = [
+            c
+            for c in cards
+            if c["type"] == "history-graph" and eid("battery_soc") in yaml.dump(c["entities"])
+        ]
+        assert len(lines) == 1
 
     def test_the_heater_is_a_row_of_the_temperature_chart(self):
         """The built-in history graph steps between values, so it draws no false ramps."""
@@ -1319,9 +1307,11 @@ class TestSectionsLayout:
                 assert len(section["cards"]) > 1, (view["path"], first["heading"])
 
     def test_no_heading_is_left_alone_at_the_end_of_a_section(self):
+        """A heading may end a section only when it shows chips of its own."""
         for view in self._views():
             for section in view["sections"]:
-                assert section["cards"][-1]["type"] != "heading", view["path"]
+                last = section["cards"][-1]
+                assert last["type"] != "heading" or last.get("badges"), view["path"]
 
     def test_no_nested_grids_or_stacks(self):
         for card in all_cards(self._views()):
@@ -1329,8 +1319,18 @@ class TestSectionsLayout:
             assert "cards" not in card, card
 
     def test_no_card_title_repeats_a_heading(self):
-        for card in all_cards(self._views()):
-            assert "title" not in card, card
+        """Only the charts that share a row carry a small title, and it names its own chart."""
+        titled = 0
+        for view in self._views():
+            headings = {c["heading"] for c in view_cards(view) if c["type"] == "heading"}
+            for card in view_cards(view):
+                if "title" not in card:
+                    continue
+                titled += 1
+                assert card["type"] == "statistics-graph", card
+                assert card["grid_options"]["columns"] == 12, card
+                assert card["title"] not in headings, card
+        assert titled == 4
 
     def test_each_view_has_unique_headings(self):
         for view in self._views():
@@ -1360,6 +1360,8 @@ class TestSectionsLayout:
         assert {"amber", "green", "blue"} <= colours
 
     def test_graphs_and_charts_take_the_full_width(self):
+        """The week pairs sit side by side in a two column section, half of it each. The rate
+        strip is one row of colour, so it takes no fixed height."""
         graphs = [
             c
             for c in all_cards(self._views())
@@ -1367,9 +1369,15 @@ class TestSectionsLayout:
             or c["type"].startswith("custom:power-flow")
         ]
         assert graphs
+        strip = [{"entity": eid("current_rate_period"), "name": "Rate"}]
         for card in graphs:
+            if "title" in card:
+                assert card["grid_options"] == {"columns": 12, "rows": 3}, card
+                continue
             assert card["grid_options"]["columns"] == "full", card["type"]
-            if card["type"].endswith("-graph"):
+            if card.get("entities") == strip:
+                assert card["grid_options"] == {"columns": "full"}
+            elif card["type"].endswith("-graph"):
                 assert card["grid_options"]["rows"] >= 3, card["type"]
 
     def test_markdown_cards_take_the_full_width(self):
@@ -1378,6 +1386,7 @@ class TestSectionsLayout:
                 assert card["grid_options"]["columns"] == "full"
 
     def test_settings_use_tile_features(self):
+        """A number has − and + beside its name. A switch turns on or off when tapped."""
         tiles = [c for c in _cards(_build(), "settings") if c["type"] == "tile"]
         by_domain = {}
         for tile in tiles:
@@ -1385,8 +1394,11 @@ class TestSectionsLayout:
         assert by_domain["number"] and by_domain["switch"]
         for tile in by_domain["number"]:
             assert tile["features"] == [{"type": "numeric-input", "style": "buttons"}]
+            assert tile["features_position"] == "inline"
+        toggle = {"action": "toggle"}
         for tile in by_domain["switch"]:
-            assert tile["features"] == [{"type": "toggle"}]
+            assert "features" not in tile, tile["name"]
+            assert tile["tap_action"] == tile["icon_tap_action"] == toggle
         assert {t["entity"] for t in by_domain["number"]} == {
             eid("charge_target_override"),
             eid("immersion_target_temp"),
@@ -1419,10 +1431,13 @@ class TestSectionsLayout:
             "tile",
             "markdown",
             "entities",
+            "glance",
+            "distribution",
+            "shortcut",
+            "weather-forecast",
             "history-graph",
             "statistics-graph",
             "logbook",
-            "repairs",
         }
         assert len(parsed["views"]) == len(built["views"])
 
@@ -1431,7 +1446,8 @@ class TestSectionsLayout:
             _build(config=MINIMAL_CONFIG, registry=FakeRegistry(), ev_brand=None)
         )["views"]
         tabs = [v for v in views if not v.get("subview")]
-        assert [v["path"] for v in tabs] == ["power-flow", "today", "plan"]
+        assert [v["path"] for v in tabs] == ["power-flow"]
+        assert {v["path"] for v in views} >= {"today", "plan", "bill"}
         for view in views:
             for section in view["sections"]:
                 assert section["cards"][0]["type"] == "heading"
@@ -1449,12 +1465,16 @@ class TestResponsiveLayout:
             assert view["max_columns"] == 3, view["path"]
             assert view["dense_section_placement"] is True, view["path"]
 
-    def test_the_power_flow_is_two_columns_wide_and_follows_now(self):
+    def test_the_power_flow_is_two_columns_wide_and_right_now_follows_it(self):
+        """On a laptop Right now sits beside the power flow and the buttons run under it."""
         now = next(v for v in self._views() if v["path"] == "power-flow")
         spans = {s["cards"][0]["heading"]: s.get("column_span", 1) for s in now["sections"]}
         assert spans["Live power flow"] == 2
-        assert spans["Now"] == 1
-        assert now["sections"][0]["cards"][0]["heading"] == "Now"
+        assert spans["Right now"] == 1
+        assert spans["More"] == 2
+        headings = [s["cards"][0]["heading"] for s in now["sections"]]
+        flow = headings.index("Live power flow")
+        assert headings[flow : flow + 3] == ["Live power flow", "Right now", "More"]
 
     def test_banners_and_view_wide_charts_span_every_column(self):
         wide = {
@@ -1467,39 +1487,48 @@ class TestResponsiveLayout:
             ("power-flow", "Dry run is on"),
             ("power-flow", "Something else is setting your charge target"),
             ("power-flow", "Finish setting up"),
-            ("today", "Today hour by hour"),
-            ("plan", "Cost per day, last 31 days"),
-            ("plan", "Bill audit"),
+            ("power-flow", "Needs your attention"),
         }
 
-    def test_settings_is_three_sections_of_one_column_so_a_laptop_fills_every_column(self):
+    def test_settings_is_five_sections_of_one_column_so_a_laptop_fills_every_column(self):
         settings = next(v for v in self._views() if v["path"] == "settings")
         assert [s["cards"][0]["heading"] for s in settings["sections"]] == [
-            "Dry run",
+            "Tonight's charge",
+            "Charge planning",
             "Hot water",
-            "Fine-tuning",
+            "System",
+            "Recent changes",
         ]
         assert not [s for s in settings["sections"] if "column_span" in s]
-        first = [
-            c.get("heading") for c in settings["sections"][0]["cards"] if c["type"] == "heading"
-        ]
-        assert first == ["Dry run", "Tonight's charge", "Recent changes"]
+        for section in settings["sections"]:
+            headings = [c for c in section["cards"] if c["type"] == "heading"]
+            assert len(headings) == 1, headings
 
-    def test_the_fine_tuning_numbers_take_the_section_width_and_the_switches_half(self):
+    def test_the_numbers_take_the_section_width_and_the_switches_half(self):
         settings = next(v for v in self._views() if v["path"] == "settings")
-        tuning = next(s for s in settings["sections"] if s["cards"][0]["heading"] == "Fine-tuning")
         columns = {
-            c["name"]: c["grid_options"]["columns"] for c in tuning["cards"] if c["type"] == "tile"
+            c["name"]: c["grid_options"]["columns"]
+            for c in view_cards(settings)
+            if c["type"] == "tile"
         }
         assert columns == {
+            "Fixed target": 6,
+            "Skip tonight": 6,
+            "Charge to": "full",
             "Cheap rate floor": "full",
             "Skip charge above": "full",
             "Forecast caution": "full",
-            "Min battery": 6,
-            "Min surplus": 6,
+            "Re-plan overnight": "full",
+            "Use spare solar": 6,
+            "Heat now": 6,
+            "Scheduled heat": 6,
+            "Heat to": "full",
+            "Never below": "full",
             "Restart drop": "full",
-            "Re-plan charge": "full",
-            "Verbose logging": "full",
+            "Min battery": "full",
+            "Min spare solar": "full",
+            "Dry run": 6,
+            "Verbose logging": 6,
         }
 
     def test_every_toggle_tile_says_it_takes_the_full_width(self):
@@ -1512,22 +1541,16 @@ class TestResponsiveLayout:
         assert toggles
         assert {c["grid_options"]["columns"] for c in toggles} == {"full"}
 
-    def test_the_first_section_spans_two_rows_so_fine_tuning_sits_under_hot_water(self):
-        settings = next(v for v in self._views() if v["path"] == "settings")
-        spans = {s["cards"][0]["heading"]: s.get("row_span", 1) for s in settings["sections"]}
-        assert spans == {"Dry run": 2, "Hot water": 1, "Fine-tuning": 1}
-
     def test_no_stepper_is_left_alone_at_half_width(self):
-        """Charge to and Restart drop would each sit beside an empty half, so they are full."""
+        """Every number takes the section width, with − and + beside its name."""
         settings = next(v for v in self._views() if v["path"] == "settings")
         widths = {
             c["name"]: c["grid_options"]["columns"]
             for c in view_cards(settings)
             if c["type"] == "tile" and c.get("features", [{}])[0].get("type") == "numeric-input"
         }
-        assert widths["Charge to"] == widths["Restart drop"] == "full"
-        assert widths["Heat to"] == widths["Never below"] == 6
-        assert widths["Min battery"] == widths["Min surplus"] == 6
+        assert len(widths) == 9
+        assert set(widths.values()) == {"full"}
 
 
 class TestRecentChanges:
@@ -1536,12 +1559,11 @@ class TestRecentChanges:
     def _logbooks(self, **kw) -> list[dict]:
         return [c for c in _cards(_build(**kw), "settings") if c["type"] == "logbook"]
 
-    def test_it_sits_under_tonights_charge_in_the_same_section(self):
+    def test_it_is_the_last_section_of_settings(self):
         settings = next(v for v in yaml.safe_load(_build())["views"] if v["path"] == "settings")
-        section = next(s for s in settings["sections"] if s["cards"][0]["heading"] == "Dry run")
-        kinds = [(c["type"], c.get("heading")) for c in section["cards"]]
-        assert ("heading", "Recent changes") in kinds
-        assert kinds[-1][0] == "logbook"
+        section = settings["sections"][-1]
+        assert section["cards"][0]["heading"] == "Recent changes"
+        assert {c["type"] for c in section["cards"][1:]} == {"logbook"}
 
     def test_it_covers_a_day_of_the_settings_on_the_view(self):
         full = self._logbooks()[-1]

@@ -81,26 +81,15 @@ class TestTheLabel:
 
 
 class TestTheSection:
-    def _markdown(self, **kwargs) -> list[dict]:
-        cards = _oil_section_cards(seen_for(switch=True, oil=True, **kwargs))
-        return [
-            c
-            for c in cards
-            if c["type"] == "markdown" and "Cheapest source" not in c["content"]
-        ]
-
-    def test_the_line_follows_the_live_suggestion(self):
-        live, schedule = self._markdown()
-        assert f"state_attr('{OIL_SENTINEL}', 'suggestion')" in live["content"]
-        assert f"state_attr('{OIL_SENTINEL}', 'alt_schedule_suggestion')" in schedule["content"]
+    def test_the_line_follows_the_live_suggestion_in_grey(self):
+        (card,) = _oil_section_cards(seen_for(switch=True, oil=True))
+        live = f"<font color='#9e9e9e'>{{{{ state_attr('{OIL_SENTINEL}', 'suggestion') or '' }}}}</font>"
+        assert card["content"].startswith(f"{live}\n\n")
+        assert card["content"].index("'alt_schedule_suggestion'") > len(live)
 
     @pytest.mark.parametrize("switch", [False, True], ids=["no-switch", "switch"])
     @pytest.mark.parametrize("oil", [False, True], ids=["no-oil", "oil"])
     def test_the_line_shows_only_with_an_oil_price_and_the_switch(self, oil, switch):
         cards = _oil_section_cards(seen_for(switch=switch, oil=oil))
-        lines = [
-            c
-            for c in cards
-            if c["type"] == "markdown" and "Cheapest source" not in c["content"]
-        ]
-        assert len(lines) == (2 if oil and switch else 0)
+        lines = [c for c in cards if "'alt_schedule_suggestion'" in c["content"]]
+        assert len(lines) == (1 if oil and switch else 0)

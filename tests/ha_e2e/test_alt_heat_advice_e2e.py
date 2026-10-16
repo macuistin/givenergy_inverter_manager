@@ -223,22 +223,27 @@ class TestDashboardTile:
     def config_entry(self):
         return _entry(full_config_data())
 
-    async def shown_headings(self, hass, stored: dict) -> list[str]:
+    async def shown_suggestions(self, hass, stored: dict) -> list[str]:
+        """The cards shown now that print the cheapest source sensor's suggestion."""
         states = {state.entity_id: state.state for state in hass.states.async_all()}
         cards = all_cards(seen(stored, states)["views"])
-        return [c["heading"] for c in cards if c["type"] == "heading"]
+        return [
+            c["content"]
+            for c in cards
+            if c["type"] == "markdown" and "water_heating_cheapest_source', 'suggestion'" in c["content"]
+        ]
 
-    async def test_a_stored_file_shows_the_tile_once_alternative_heating_is_set(
+    async def test_a_stored_file_shows_the_suggestion_once_alternative_heating_is_set(
         self, hass_in_scenario, config_entry
     ):
         hass = hass_in_scenario
         await set_up(hass, config_entry)
         stored = await async_dashboard_for_websocket(hass, is_admin=True)
-        assert "Cheapest way to heat the water" not in await self.shown_headings(hass, stored)
+        assert await self.shown_suggestions(hass, stored) == []
 
         await save_alt_options(hass, config_entry, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL})
         await refresh(hass, config_entry)
-        assert "Cheapest way to heat the water" in await self.shown_headings(hass, stored)
+        assert len(await self.shown_suggestions(hass, stored)) == 1
 
         await save_alt_options(hass, config_entry, {})
-        assert "Cheapest way to heat the water" not in await self.shown_headings(hass, stored)
+        assert await self.shown_suggestions(hass, stored) == []

@@ -1,5 +1,5 @@
 """
-hacs.py - the one optional custom card from HACS, and the fallback used when it is not installed.
+hacs.py - the optional HACS cards and card-mod, and the fallbacks used when they are not installed.
 """
 
 from __future__ import annotations
@@ -30,6 +30,8 @@ class HacsCard:
 
 POWER_FLOW_CARD = HacsCard("power-flow-card-plus", "https://github.com/flixlix/power-flow-card-plus")
 APEX_CARD = HacsCard("apexcharts-card", "https://github.com/RomRider/apexcharts-card")
+# Not a card: it styles cards. The tables are styled with it when it is installed.
+CARD_MOD = HacsCard("card-mod", "https://github.com/thomasloven/lovelace-card-mod")
 
 
 class HacsCards:

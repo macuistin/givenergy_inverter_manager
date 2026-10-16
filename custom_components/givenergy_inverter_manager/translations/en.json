@@ -1373,7 +1373,7 @@
     },
     "get_dashboard_yaml": {
       "name": "Get dashboard YAML",
-      "description": "Returns the GivEnergy dashboard as YAML text, the same dashboard the strategy builds. Use it as a fallback when the GivEnergy dashboard shows \"Timeout waiting for strategy element\". Copy the `yaml` value into a new dashboard's raw configuration editor, or turn on Write file and point a YAML dashboard at `givenergy_dashboard.yaml` in the configuration folder. Run it again after you add or remove a device, because a copy does not update itself. The Tariff view follows your tariff. The Settings view is included only when an administrator runs the action.",
+      "description": "Returns the GivEnergy dashboard as YAML text, the same dashboard the strategy builds. Use it as a fallback when the GivEnergy dashboard shows \"Timeout waiting for strategy element\". Copy the `yaml` value into a new dashboard's raw configuration editor, or turn on Write file and point a YAML dashboard at `givenergy_dashboard.yaml` in the configuration folder. Run it again after you add or remove a device, because a copy does not update itself. The tariff and bill tables follow your tariff and your bill. The Settings view is included only when an administrator runs the action.",
       "fields": {
         "write_file": {
           "name": "Write file",
