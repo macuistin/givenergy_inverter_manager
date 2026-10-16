@@ -44,17 +44,22 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
   through the same checked writer. Its notes use the reason `replan`.
 - Planning and writes stop while the feed is not live. That is a frozen feed (nothing reported for
   ten minutes, repair `givtcp_feed_frozen`), a paused GivTCP, or old data per GivTCP's `Data_Age`
-  (repair `givtcp_not_answering`, feed state `stale`). The adapter judges it in
-  `inverter/givtcp/reader.py` (`feed_status`). A new write path checks the same flags and has a test that nothing is sent.
+  (repair `givtcp_not_answering`, feed state `stale`), judged by `feed_status` in
+  `inverter/givtcp/reader.py`. A new write path checks them and tests that nothing is sent.
 
 ## What the integration never does
 
-- No forced export or discharge. It writes no export or discharge schedule, rate or reserve to the
-  inverter. The `pre_boost_export_*` sensors were retired for this reason. Do not propose features
-  that rely on exporting from the battery.
-- It never stops or pauses an EV charger. For a Zappi with a charge mode entity it selects Eco+ and
-  never Stopped or Fast. For a GivEnergy charger it selects Solar and never Grid or Hybrid, never
-  writes Charge Control or Plug and Go. `pick_surplus_mode` skips any option with a forbidden word.
+- No forced export to the grid: no export schedule or rate is written. Holding the battery back
+  for the house (a pause or reserve, S22 and N21) is allowed once designed, as a verified write
+  that never runs in dry run or on a frozen feed and is undone afterwards.
+- It never stops or pauses an EV charger on a guess about whose car it is or why it is plugged in.
+  For a Zappi with a charge mode entity it selects Eco+ and never Stopped or Fast. For a GivEnergy
+  charger it selects Solar and never Grid or Hybrid, never writes Charge Control or Plug and Go.
+  `pick_surplus_mode` skips any option with a forbidden word. No feature infers intent from load,
+  presence or whose car it looks like.
+- One exception: stopping charging outside a window taken from the published tariff, the same for
+  any car (the EV window item in `ROADMAP.md`). That is a timing rule, not a judgement about a car.
+  It must be opt-in and follow the tariff's own windows, not a time typed in separately.
 - The write audit (`write_audit.py`) only records. It never reverts a change and never raises a repair.
   The Charge Target Conflict sensor and its banner read the log (`core/controller_conflict.py`) and
   nothing else. A second controller shows there, never as a repair. A system that changed kind

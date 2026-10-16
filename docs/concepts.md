@@ -173,6 +173,71 @@ The calculated figure steps when the day's energy total resets at midnight, when
 
 It reads the next 08:00 on the clock, so it stays steady through the day and does not step at midnight. A window that is running starts from the current SoC. A battery already at the target when the window opens adds nothing. With no charge rate known, the battery is assumed to reach the target. On a skipped night, with no timed charge window, or once the window is over, it equals the figure without a charge. The two figures use different loads on purpose. The figure without a charge, which night survival judges, spreads the daily average evenly over the hours. The figure with the charge uses the learned per-slot load profile that the charge plan simulation uses, scaled to the same daily average, so a quiet night reads as quiet. Until there is a usable profile (a new install, or too little history) it falls back to the flat average. The `basis` attribute ends with the load it used. Its attributes show what it is made of: `soc_at_charge_start`, `charge_added_pct`, `charge_window` and `basis`. It does not feed Battery Overnight Outlook or the level of Battery Overnight Confidence, and no decision reads it. The words of Battery Overnight Confidence (`summary` and `explanation`) quote it while a planned charge counts.
 
+### Why the battery never sells stored charge back to the grid
+
+The integration does not discharge the battery to the grid, and does not advise it either (see the
+non-goals in `ROADMAP.md`). Write risk is one reason. The other is that the arithmetic rarely pays,
+even for the most tempting case: a battery well above its minimum late in the evening, after the
+day's load is mostly done.
+
+**An example with round numbers.** A 20 kWh battery is at 60% at 23:00. You ask whether to export
+half of it, 10 kWh, before the cheap window opens. The tariff has a night rate of 0.18, a boost
+rate of 0.10 for two hours, and an export rate of 0.20. The charge rate is 3 kW.
+
+1. **What it earns.** Discharging stored energy to export it loses about 6% in the battery and
+   inverter, so 10 kWh earns about 10 x 0.94 x 0.20 = 1.88. Solar exported directly does not pay
+   this loss.
+2. **What it costs to refill.** The battery must return to 60% to be where it would have been.
+   A 2 hour boost window at 3 kW adds about 6 kWh. Refilling that much costs 6 x 0.10 = 0.60. The
+   other 4 kWh is refilled at the night rate, 4 x 0.18 = 0.72.
+3. **The result.** The gain is 1.88 less 1.32, about 0.56, before battery wear. A few cents per
+   kWh cycled takes most of that away. When the night rate is close to the export rate, the part
+   refilled at the night rate earns nothing.
+
+**Why it often does not pay even when the sums look close.** The example assumes the exported
+energy would otherwise have been wasted. It usually is not:
+
+- **If the next day is dull**, the energy exported tonight is energy the battery does not have
+  tomorrow. It is replaced from the grid at the day rate, the dearest rate in the tariff.
+- **If the next day is sunny**, the solar that refills the battery would have been exported at the
+  same rate anyway. Exporting the stored energy earlier adds no sale. It moves one.
+- **Until the cheap window opens**, the stored energy also covers house load that would otherwise
+  be imported at the night rate. Exporting it moves that load onto the grid first.
+
+Each of the three uses (this evening's load, tomorrow's load before solar, tomorrow's exportable
+surplus) is worth as much as selling the energy tonight, or more. The one clear exception is solar
+that would otherwise be clipped: the battery is full and the inverter is still generating. That is
+a charge target and headroom question, not a reason to discharge the battery to the grid.
+
+**The general form.** Before any battery-to-grid export, three things must hold at once. Export now
+must beat the cost of refilling at the night rate, including round-trip loss and wear. The energy
+must be otherwise wasted, not merely idle. And tomorrow's replacement for it must not come from
+the day rate. A fixed export rate rarely clears that bar by more than a few cents a night, so
+forced export stays a won't-have.
+
+**Further reading.** The pattern (self-consumption usually beats export, arbitrage needs a real
+spread) is described outside this project too:
+
+- Palmetto, [Backup vs. Arbitrage Battery](https://palmetto.com/home-electrification/backup-vs-arbitrage-battery):
+  on NEM 3.0, "individuals save more money storing and consuming solar power than exporting it
+  to the grid for credits, except in a few rare cases."
+- Kora, [Are Home Batteries Worth It in 2026?](https://korapower.com/blogs/education/are-home-batteries-worth-it-2026):
+  "the math only works if the spread is real... if you are on a flat rate, it has almost none."
+- Elovane, [TOU Arbitrage: When Battery Storage Actually Makes Financial Sense](https://smarttechinvest.com/elovane/blog/solar-battery-tou-arbitrage):
+  the payback swings from "deeply negative to solidly positive" on the price spread alone, with
+  worked examples at $0.10/kWh and $0.33/kWh spreads.
+- Avepower, [Energy Arbitrage: How Battery Storage Saves Money](https://avebattery.com/blog/energy-arbitrage/):
+  "for many residential systems, the primary benefit is not selling electricity back to the grid.
+  It is reducing expensive grid imports during peak hours," and exporting stored energy depends on
+  local tariff and export-credit rules.
+- SurgePV, [Solar Battery Grid Arbitrage Strategy 2026](https://www.surgepv.com/blog/solar-battery-grid-arbitrage):
+  describes where battery-to-grid export does pay, a variable export price that falls below the
+  overnight import rate at some times and rises above it at others. A flat export rate does not
+  have that.
+- MGEVs forum, [Is it still worth exporting your home battery?](https://www.mgevs.com/threads/is-it-still-worth-exporting-your-home-battery.25439/):
+  an argument for the opposite case, with a measured round-trip efficiency of about 85%, on a
+  variable-export UK tariff.
+
 ### Battery pause
 
 GivTCP can pause the battery for a time of day window. On an install that does, the battery serves nothing in the window: the house runs from the grid and the battery holds its charge. Charging can still happen. Before this was read, the night estimates ran the battery down on the house load for the whole night. With a pause from 23:00 to 08:00 and the battery at 60% in the evening, the sunrise figure could read near the minimum while the battery really held about 60% until morning, and the charge plan asked for a full charge on that wrong basis.
