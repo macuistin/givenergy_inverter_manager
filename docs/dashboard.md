@@ -115,7 +115,7 @@ The dashboard only contains figures and cards that will show a value.
 - The EV chip, the EV figures and the EV charger sub-view need an EV charger the integration has discovered. They are hidden until it has, and shown when it does. See [Devices you add or remove later](#devices-you-add-or-remove-later).
 - The heater figures, the heater chip, the Plan section and the divert reason need an immersion switch. The water temperature chip, sentence and chart need an immersion temperature sensor. Scheduled heating, Heat to, Never below and Restart drop need both, because they act on nothing without a sensor to read.
 - The inverter temperature figures need an inverter temperature entity: the one stored at setup, or GivTCP's `sensor.givtcp_<serial>_invertor_temperature` when it exists.
-- The forecast figures and the Tomorrow sub-view need a forecast entity in the options.
+- The forecast figures, and the sentence and figures at the top of the Tomorrow sub-view, need a forecast entity in the options.
 
 ## Devices you add or remove later
 
@@ -240,10 +240,8 @@ On a skipped night the target is labelled **Hold at**: the seasonal minimum plus
 
 ### Tomorrow (sub-view)
 
-Needs a forecast sensor.
-
-- **Tomorrow**: tomorrow's solar in a sentence, the low estimate when the forecast has one, and the battery at sunrise. Then Solar and At sunrise as figures. With apexcharts-card installed and a forecast that publishes a half-hourly forecast (Solcast's `detailedForecast` attribute), **Solar through the day** draws it as a curve.
-- **What it should cost**: a table from the Tomorrow Outlook sensor: From the grid, Charge tonight and To the grid, each with its energy and cost, and the total for the day. Under it, the weather forecast.
+- **Tomorrow** (needs a forecast sensor): tomorrow's solar in a sentence, the low estimate when the forecast has one, and the battery at sunrise. Then Solar and At sunrise as figures. With apexcharts-card installed and a forecast that publishes a half-hourly forecast (Solcast's `detailedForecast` attribute), **Solar through the day** draws it as a curve.
+- **What it should cost**: a table from the Tomorrow Outlook sensor: From the grid, Charge tonight and To the grid, each with its energy and cost, and the total for the day. Without a forecast sensor the outlook uses a seasonal estimate of the solar, and its `basis` attribute says so. Under it, the weather forecast.
 
 ### Bill & tariff (sub-view)
 
