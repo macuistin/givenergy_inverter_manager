@@ -437,6 +437,7 @@ def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
             data.battery_soc,
             data.survival_reason,
             _planned_charge_soc(data),
+            data.battery_pause,
         )
     )
 

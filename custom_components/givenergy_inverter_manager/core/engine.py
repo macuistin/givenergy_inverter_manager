@@ -98,7 +98,9 @@ from .battery import (
     calculate_cycle_increment,
     estimate_will_survive_night,
     hours_until_solar,
+    paused_night,
 )
+from .battery_pause import PauseWindow
 from .charge_hold import HeldCharge, HoldReading
 from .charge_window import (
     ChargeNeed,
@@ -141,9 +143,12 @@ from .sunrise_charge import (
     PlannedCharge,
     SunriseWithCharge,
     flat_load,
+    pause_before_sunrise,
     project_sunrise_with_charge,
     slot_load,
     with_load_note,
+    with_pause_note,
+    without_paused_load,
 )
 from .sunrise_hold import (
     HeldSunrise,
@@ -239,6 +244,11 @@ class RawSensorValues:
     battery_lifetime_cycles: float | None = None
     # The inverter's battery charge rate setting in W, None when the entity is not readable
     battery_charge_rate_w: float | None = None
+    # The window in which the inverter does not let the battery discharge, None when it has none.
+    # The grid serves the house then, so the night estimates leave that load out.
+    battery_pause: PauseWindow | None = None
+    # The window in which the inverter does not let the battery charge, None when there is none.
+    charge_pause: PauseWindow | None = None
 
     def __post_init__(self) -> None:
         if self.smoothed_solar_power_w < 0.0:
@@ -353,6 +363,8 @@ class CoordinatorData:
     # The same night with tonight's planned charge in it. None before the first cycle.
     sunrise_with_charge: SunriseWithCharge | None = None
     survival_reason: str = ""
+    # The battery pause that falls in the night the survival estimate covers, None when none does.
+    battery_pause: PauseWindow | None = None
     ev_charger_brand: str = ""
     ev_charger_name: str = ""
     ev_charger_state: EVChargerState = EVChargerState.UNKNOWN
@@ -1213,6 +1225,7 @@ def _charge_inputs(cycle: _Cycle, avg_daily_kwh: float) -> ChargeInputs:
         load_profile=cycle.forecast.load_profile,
         solar_power_w=cycle.night_solar_w,
         seasons=cycle.forecast.seasons or NORTHERN_SEASONS,
+        battery_pause=raw.battery_pause,
     )
 
 
@@ -1368,6 +1381,8 @@ def _calculate_night_survival(
     raw = cycle.raw
     min_soc = _configured_min_soc(cycle.cfg)
     data.battery_min_soc = min_soc
+    paused = paused_night(raw.battery_pause, cycle.now.hour, cycle.night_solar_w)
+    data.battery_pause = paused.window if paused else None
     (
         data.will_survive_night,
         calculated_soc,
@@ -1379,6 +1394,7 @@ def _calculate_night_survival(
             min_soc=float(min_soc),
             hours_until_solar=hours_until_solar(cycle.now.hour, cycle.night_solar_w),
             average_hourly_consumption_kwh=avg_daily_kwh / 24,
+            paused=paused,
         )
     )
     data.estimated_soc_at_sunrise = published_sunrise_soc(
@@ -1431,10 +1447,12 @@ def _project_sunrise_with_charge(
     )
     slots = usable_slot_loads_kwh(avg_daily_kwh, cycle.forecast.load_profile)
     load = flat_load(avg_daily_kwh / 24) if slots is None else slot_load(slots)
+    load = without_paused_load(load, raw.battery_pause)
     projection = with_load_note(
         project_sunrise_with_charge(battery, cycle.now, _planned_charge(data, cycle), load),
         LOAD_NOTE_FLAT if slots is None else LOAD_NOTE_PER_SLOT,
     )
+    projection = with_pause_note(projection, pause_before_sunrise(raw.battery_pause, cycle.now))
     paced = published_sunrise_soc(
         held,
         SunriseReading(

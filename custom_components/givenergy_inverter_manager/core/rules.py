@@ -50,7 +50,13 @@ from ..const import (
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
 from ..discovery.ev_charger import SURPLUS_MODE_DEFAULTS, EVCharger
-from .battery import NightEstimateInputs, estimate_will_survive_night, hours_until_solar
+from .battery import (
+    NightEstimateInputs,
+    estimate_will_survive_night,
+    hours_until_solar,
+    paused_night,
+)
+from .battery_pause import PauseWindow, with_note
 from .immersion_ready import ReadyPlan
 from .seasons import NORTHERN_SEASONS, SeasonRules
 from .solar_shape import valid_shape
@@ -277,14 +283,28 @@ class _SimulatedDay:
     battery_capacity_kwh: float
     slot_loads_kwh: list[float]
     solar_weights: tuple[float, ...] = _SOLAR_SLOT_WEIGHTS
+    pause: PauseWindow | None = None
+
+
+def _slot_net_pct(day: _SimulatedDay, slot: int, weight: float, slot_load_kwh: float) -> float:
+    """The battery's change over one slot, in points of its capacity.
+
+    A shortfall of solar is met from the battery, except in the paused share of the slot,
+    where the grid meets it. A surplus charges the battery whether it is paused or not.
+    """
+    net_kwh = day.forecast_kwh * weight - slot_load_kwh
+    if net_kwh < 0 and day.pause is not None:
+        net_kwh *= 1 - day.pause.paused_fraction(slot)
+    return net_kwh / day.battery_capacity_kwh * 100
 
 
 def _simulate_min_soc(start_soc_pct: float, day: _SimulatedDay) -> float:
     """Simulate one day starting from start_soc_pct. Return the minimum SoC reached."""
     soc_pct = start_soc_pct
     min_reached = start_soc_pct
-    for weight, slot_load_kwh in zip(day.solar_weights, day.slot_loads_kwh, strict=True):
-        net_pct = (day.forecast_kwh * weight - slot_load_kwh) / day.battery_capacity_kwh * 100
+    slots = enumerate(zip(day.solar_weights, day.slot_loads_kwh, strict=True))
+    for slot, (weight, slot_load_kwh) in slots:
+        net_pct = _slot_net_pct(day, slot, weight, slot_load_kwh)
         soc_pct = max(0.0, min(100.0, soc_pct + net_pct))
         min_reached = min(min_reached, soc_pct)
     return min_reached
@@ -350,6 +370,9 @@ class ChargeInputs:
     load_profile: list[float] | None = None
     solar_power_w: float = 0.0
     seasons: SeasonRules = NORTHERN_SEASONS
+    # The window in which the battery does not discharge, None when there is none. The grid
+    # serves the house then, so the load of those slots does not run the battery down.
+    battery_pause: PauseWindow | None = None
 
 
 @dataclass(frozen=True)
@@ -389,6 +412,8 @@ class _Tonight:
 class _SkipCheck:
     skips: bool
     blocked_note: str = ""
+    # The battery pause that falls in the night the check judged, None when none does.
+    pause: PauseWindow | None = None
 
 
 @dataclass(frozen=True)
@@ -532,6 +557,7 @@ def _try_skip(tonight: _Tonight, dt: datetime) -> _SkipCheck:
     if not _is_skip_candidate(tonight):
         return _SkipCheck(skips=False)
     inputs = tonight.inputs
+    paused = paused_night(inputs.battery_pause, dt.hour, inputs.solar_power_w)
     survives, _, survival_note = estimate_will_survive_night(
         NightEstimateInputs(
             current_soc=inputs.current_soc,
@@ -539,21 +565,24 @@ def _try_skip(tonight: _Tonight, dt: datetime) -> _SkipCheck:
             min_soc=float(inputs.min_soc),
             hours_until_solar=hours_until_solar(dt.hour, inputs.solar_power_w),
             average_hourly_consumption_kwh=inputs.average_daily_consumption_kwh / 24,
+            paused=paused,
         )
     )
+    pause = paused.window if paused else None
     if survives:
-        return _SkipCheck(skips=True)
-    return _SkipCheck(skips=False, blocked_note=f" Not skipping: {survival_note}")
+        return _SkipCheck(skips=True, pause=pause)
+    return _SkipCheck(skips=False, blocked_note=f" Not skipping: {survival_note}", pause=pause)
 
 
-def _skip_plan(tonight: _Tonight) -> _ChargePlan:
+def _skip_plan(tonight: _Tonight, pause: PauseWindow | None = None) -> _ChargePlan:
     return _ChargePlan(
         target_soc=tonight.min_soc + CHARGE_STRONG_BUFFER,
         skip_charge=True,
-        reason=(
+        reason=with_note(
             f"Battery at {tonight.inputs.current_soc:.0f}%, good solar forecast "
             f"({tonight.forecast_kwh:.1f}kWh from {tonight.forecast_source}). "
-            "Skipping overnight charge."
+            "Skipping overnight charge.",
+            pause,
         ),
         forecast_kwh=tonight.forecast_kwh,
         cost_to_charge=0.0,
@@ -585,6 +614,7 @@ def _simulated_plan(tonight: _Tonight, skip_blocked_note: str) -> _ChargePlan:
         inputs.battery_capacity_kwh,
         _slot_loads_kwh(inputs.average_daily_consumption_kwh, inputs.load_profile),
         tonight.solar_shape or _SOLAR_SLOT_WEIGHTS,
+        inputs.battery_pause,
     )
     target_soc = _find_minimum_charge_target(day, tonight.min_soc)
     reason = (
@@ -595,6 +625,7 @@ def _simulated_plan(tonight: _Tonight, skip_blocked_note: str) -> _ChargePlan:
         reason += " Per-slot load profile used."
     if tonight.solar_shape is not None:
         reason += f" {SHAPE_REASON}"
+    reason = with_note(reason, inputs.battery_pause)
 
     reduction = _overmorrow_reduction(tonight)
     if reduction > 0:
@@ -665,7 +696,7 @@ def calculate_overnight_charge_target(
     )
     skip = _try_skip(tonight, dt)
     if skip.skips:
-        return _build_decision(inputs, _skip_plan(tonight))
+        return _build_decision(inputs, _skip_plan(tonight, skip.pause))
     return _build_decision(inputs, _simulated_plan(tonight, skip.blocked_note))
 
 

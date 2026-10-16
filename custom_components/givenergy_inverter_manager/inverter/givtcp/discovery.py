@@ -327,6 +327,37 @@ GIVTCP_RATE_SUFFIXES: dict[str, str] = {
     "export": "_export_rate",
 }
 
+# GivTCP's battery pause: a mode select, and a start and an end time. GivTCP 3.6 publishes a time
+# as a drop-down (select), a time picker (time) or both, by one of its settings, so the select is
+# looked for first and the time entity next.
+BATTERY_PAUSE_MODE_SUFFIX = "_battery_pause_mode"
+BATTERY_PAUSE_START_SUFFIX = "_battery_pause_start_time_slot"
+BATTERY_PAUSE_END_SUFFIX = "_battery_pause_end_time_slot"
+PAUSE_TIME_DOMAINS = ("select", "time")
+
+
+@dataclass(frozen=True)
+class BatteryPauseEntities:
+    """The entity ids GivTCP publishes the battery pause under, for one device prefix."""
+
+    mode: str
+    start: tuple[str, ...]  # best first
+    end: tuple[str, ...]
+
+
+def battery_pause_entities(prefix: str) -> BatteryPauseEntities:
+    """The mode entity and the start and end entities of the pause, for a device prefix.
+
+    The device may not publish them, and may start to later, so they are never stored in the
+    config. The reader looks for them on every read.
+    """
+    return BatteryPauseEntities(
+        mode=f"select.{prefix}{BATTERY_PAUSE_MODE_SUFFIX}",
+        start=tuple(f"{d}.{prefix}{BATTERY_PAUSE_START_SUFFIX}" for d in PAUSE_TIME_DOMAINS),
+        end=tuple(f"{d}.{prefix}{BATTERY_PAUSE_END_SUFFIX}" for d in PAUSE_TIME_DOMAINS),
+    )
+
+
 # GivTCP names the temperature sensor "invertor". The other spelling is tried second, in case
 # a GivTCP release or a renamed entity uses it.
 INVERTER_TEMPERATURE_SPELLINGS = ("invertor", "inverter")
