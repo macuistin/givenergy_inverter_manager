@@ -42,6 +42,8 @@ NOT_RECORDED = {
         "from_solar_and_battery_kwh",
     },
     "register_write_count": {"recent_writes"},
+    "bill_audit": {"html", "bill_table", "days_table"},
+    "previous_bill_audit": {"html", "summary_table", "period"},
 }
 # What explains the state and is recorded.
 RECORDED = {

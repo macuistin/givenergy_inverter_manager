@@ -51,6 +51,11 @@ gained the per-period kWh: 114 of today's house use, 31 of today's import, with 
 year in proportion. No other leaf moved. The kWh are pinned in tests/core/test_period_kwh.py and
 the audit in tests/core/test_bill_audit.py.
 
+The bill audit's markdown tables added four leaves: bill_audit_bill_table, bill_audit_days_table,
+previous_bill_audit_summary_table and previous_bill_audit_period. Only the fresh snapshot gained
+them (all empty), and none of the 255 cases moved, because the coordinator fills them and the
+engine never does. The tables are pinned in tests/core/test_bill_audit_tables.py.
+
 The cheap_run_remaining_minutes leaf was added for the Cheap from tile: 49 of the 255 cases gained
 it, and the fresh snapshot gained it as None. Nothing else moved.
 
@@ -152,6 +157,11 @@ The active_repairs leaf was added for the Active Repairs sensor. The fresh snaps
 empty list. No case moved, because the coordinator sets it from the issue registry after the engine
 has built the snapshot. The summary is pinned in tests/core/test_repair_summary.py and the registry
 side in tests/ha_e2e/test_active_repairs_e2e.py.
+
+The tomorrow_outlook leaf was added for the Tomorrow Outlook sensor. The fresh snapshot gained it
+as None and 84 of the 255 cases gained it. The other 171 pass no forecast and no seasonal
+fractions, so they have no outlook. Nothing else moved, also with the plan's day now built by
+_day_to_simulate. The behaviour is pinned in tests/core/test_tomorrow_outlook.py.
 """
 
 from __future__ import annotations

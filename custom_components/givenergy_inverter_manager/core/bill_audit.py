@@ -11,6 +11,9 @@ TariffConfig.calculate_bill, so the audit total is the Bill sensors' total. A da
 recorded, for example before this was added, shows as one "not itemised" row that makes the
 rows add up to the totals.
 
+The same figures are also written as markdown pipe tables (bill_table, days_table and
+summary_table), because Home Assistant's markdown card strips the inline styles the HTML uses.
+
 Pure Python, no Home Assistant imports.
 """
 
@@ -29,6 +32,12 @@ from .text_state import fit_state
 
 _EPSILON_COST = 0.005
 _EPSILON_KWH = 0.05
+# A non-breaking hyphen, so a narrow table never wraps between the sign and the amount.
+_MD_MINUS = "\u2011"
+_EXPORT_CREDIT = "Export credit"
+_TOTAL = "Total"
+_WOULD_HAVE_PAID_NOTE = "*Would have paid* is the same use with no solar or battery."
+_YOU_PAID_NOTE = "You paid is the import cost less the export credit."
 
 
 @dataclass(frozen=True)
@@ -139,9 +148,13 @@ def figures(tariff: TariffConfig, totals: Totals, days: int, period_days: int) -
     return Figures(actual, without)
 
 
-def _money(symbol: str, value: float) -> str:
-    sign = "-" if value < -_EPSILON_COST else ""
+def _money(symbol: str, value: float, minus: str = "-") -> str:
+    sign = minus if value < -_EPSILON_COST else ""
     return f"{sign}{symbol}{abs(value):.2f}"
+
+
+def _md_money(symbol: str, value: float) -> str:
+    return _money(symbol, value, _MD_MINUS)
 
 
 def _imported(row: Mapping[str, Any]) -> str:
@@ -161,12 +174,19 @@ def _imported(row: Mapping[str, Any]) -> str:
     return "<br>".join(lines)
 
 
-def _label(row: Mapping[str, Any], *, live: bool) -> str:
+def _day_month(day: date) -> str:
+    return f"{day.day} {day:%b}"
+
+
+def _day_name(row: Mapping[str, Any]) -> str:
     try:
-        day = date.fromisoformat(str(row["date"]))
-        text = f"{day.day} {day:%b}"
+        return _day_month(date.fromisoformat(str(row["date"])))
     except (KeyError, ValueError):
-        text = "-"
+        return "-"
+
+
+def _label(row: Mapping[str, Any], *, live: bool) -> str:
+    text = _day_name(row)
     return f"{text} (so far)" if live else text
 
 
@@ -215,33 +235,41 @@ def _note(text: str) -> str:
     return f'<div style="{_S["detail"]}">{text}</div>'
 
 
-def _bill_rows(period: AuditPeriod, fig: Figures) -> list[list[str]]:
-    s = period.symbol
+def _bill_lines(fig: Figures) -> list[tuple[str, float, float]]:
+    """Each line of the bill: its name, as billed, and with no solar or battery."""
     a, w = fig.actual, fig.without
-    lines = [
+    return [
         ("Energy at the rates", a.energy, w.energy),
         ("Supplier discount", -a.supplier_saving, -w.supplier_saving),
         ("Standing charge", a.standing_charge, w.standing_charge),
         ("PSO levy", a.pso_levy, w.pso_levy),
         ("VAT", a.vat, w.vat),
-        ("Export credit", -a.export_credit, -w.export_credit),
-        ("Total", a.total, w.total),
+        (_EXPORT_CREDIT, -a.export_credit, -w.export_credit),
+        (_TOTAL, a.total, w.total),
     ]
+
+
+def _bill_rows(period: AuditPeriod, fig: Figures) -> list[list[str]]:
+    s = period.symbol
     return [
         [name, _money(s, billed), _money(s, none), _money(s, none - billed)]
-        for name, billed, none in lines
+        for name, billed, none in _bill_lines(fig)
     ]
+
+
+def _not_itemised(period: AuditPeriod) -> Totals:
+    """What the period holds beyond its recorded days and the live day."""
+    live = [] if period.live is None else [period.live]
+    return period.totals.minus(Totals.of_rows([*period.rows, *live]))
 
 
 def build_bill_audit(period: AuditPeriod) -> tuple[str, str]:
     """The sensor state and the HTML for one bill period."""
     s = period.symbol
     rows = [_day_cells(row, s, _label(row, live=False)) for row in period.rows]
-    seen = Totals.of_rows(period.rows)
     if period.live is not None:
         rows.append(_day_cells(period.live, s, _label(period.live, live=True)))
-        seen = Totals.of_rows([*period.rows, period.live])
-    rest = period.totals.minus(seen)
+    rest = _not_itemised(period)
     if not rest.is_empty:
         rows.insert(0, _remainder_cells(rest, s))
     fig = figures(period.tariff, period.totals, period.days, period.period_days)
@@ -277,6 +305,91 @@ def build_bill_audit(period: AuditPeriod) -> tuple[str, str]:
     return state, "".join(parts)
 
 
+def _md_row(cells: Sequence[str]) -> str:
+    return "|" + "|".join(f" {cell} " if cell else " " for cell in cells) + "|"
+
+
+def _md_table(header: Sequence[str], align: str, lines: Sequence[str], note: str) -> str:
+    return "\n".join([_md_row(header), align, *lines, "", note])
+
+
+def _md_bill_line(symbol: str, line: tuple[str, float, float]) -> str:
+    name, paid, without = line
+    cells = [
+        name,
+        _md_money(symbol, paid),
+        "" if name == _EXPORT_CREDIT else _md_money(symbol, without),
+        _md_money(symbol, without - paid),
+    ]
+    if name == _TOTAL:
+        cells = [f"**{cell}**" for cell in cells]
+    return _md_row(cells)
+
+
+def bill_table(period: AuditPeriod) -> str:
+    """The bill line by line as a markdown table: paid, with no solar or battery, and saved."""
+    fig = figures(period.tariff, period.totals, period.days, period.period_days)
+    return _md_table(
+        ["", "You paid", "Would have paid", "Saved"],
+        "|:--|--:|--:|--:|",
+        [_md_bill_line(period.symbol, line) for line in _bill_lines(fig)],
+        _WOULD_HAVE_PAID_NOTE,
+    )
+
+
+def _row_totals(row: Mapping[str, Any]) -> Totals:
+    return Totals.of_rows([row])
+
+
+def _md_day_line(name: str, day: Totals, symbol: str) -> str:
+    paid = day.import_cost - day.export_credit
+    return _md_row(
+        [
+            name,
+            f"{day.import_kwh:.1f} kWh",
+            _md_money(symbol, paid),
+            _md_money(symbol, day.load_cost),
+            _md_money(symbol, day.load_cost - paid),
+        ]
+    )
+
+
+def days_table(period: AuditPeriod) -> str:
+    """The period day by day as a markdown table, newest first, or a sentence with no days."""
+    s = period.symbol
+    lines = []
+    if period.live is not None:
+        lines.append(_md_day_line(f"{_day_name(period.live)} (today)", _row_totals(period.live), s))
+    lines += [_md_day_line(_day_name(row), _row_totals(row), s) for row in reversed(period.rows)]
+    rest = _not_itemised(period)
+    if not rest.is_empty:
+        lines.append(_md_day_line("Before daily records", rest, s))
+    if not lines:
+        return "No days recorded yet."
+    return _md_table(
+        ["Day", "Imported", "You paid", "Would have paid", "Saved"],
+        "|:--|--:|--:|--:|--:|",
+        lines,
+        _YOU_PAID_NOTE,
+    )
+
+
+def summary_table(period: AuditPeriod) -> str:
+    """The period's bill in three lines as a markdown table: paid, without, and saved."""
+    fig = figures(period.tariff, period.totals, period.days, period.period_days)
+    s = period.symbol
+    return _md_table(
+        ["", ""],
+        "|:--|--:|",
+        [
+            _md_row(["You paid", _md_money(s, fig.actual.total)]),
+            _md_row(["Would have paid", _md_money(s, fig.without.total)]),
+            _md_row(["**Saved**", f"**{_md_money(s, fig.saved)}**"]),
+        ],
+        _WOULD_HAVE_PAID_NOTE,
+    )
+
+
 def live_row(acc: EnergyAccumulator, day: date) -> dict[str, Any]:
     """Today so far, in the shape of a stored row."""
     return day_row(acc, day)
@@ -296,9 +409,9 @@ class RunningPeriod:
     period_days: int
 
 
-def current_period_audit(running: RunningPeriod) -> tuple[str, str]:
-    """The audit of the bill period that is running."""
-    period = AuditPeriod(
+def running_period(running: RunningPeriod) -> AuditPeriod:
+    """The bill period that is running, with today as its live day."""
+    return AuditPeriod(
         "This bill period",
         rows=running.days,
         totals=Totals.of_accumulator(running.month),
@@ -309,30 +422,35 @@ def current_period_audit(running: RunningPeriod) -> tuple[str, str]:
         live=live_row(running.today, running.today_date),
         changes=tariff_changes(running.days),
     )
-    return build_bill_audit(period)
 
 
-def previous_period_audit(
+def current_period_audit(running: RunningPeriod) -> tuple[str, str]:
+    """The audit of the bill period that is running."""
+    return build_bill_audit(running_period(running))
+
+
+def _period_dates(snapshot: Mapping[str, Any]) -> tuple[date, date] | None:
+    """The first and last day of an archived period, or None when the snapshot lacks them."""
+    try:
+        return (
+            date.fromisoformat(str(snapshot["period_start"])[:10]),
+            date.fromisoformat(str(snapshot["period_end"])),
+        )
+    except (KeyError, ValueError):
+        return None
+
+
+def archived_period(
     snapshot: Mapping[str, Any] | None, fallback: dict[str, Any], symbol: str
-) -> tuple[str, str]:
-    """The audit of the bill period that ended last, from its archived snapshot.
-
-    A snapshot from before the days were kept has no days and no dates, and is reported as such.
-    """
-    unavailable = "Not recorded"
-    note = _note("The bill before this one was archived before days were kept, so it has no audit.")
+) -> AuditPeriod | None:
+    """The bill period that ended last, or None when it was archived before days were kept."""
     if not snapshot or "days" not in snapshot:
-        return unavailable, f'<div style="{_S["section"]}">Previous bill period</div>{note}'
+        return None
     days = [row for row in snapshot["days"] if isinstance(row, dict)]
     stored = tariff_in_effect(days) or fallback
-    try:
-        length = (
-            date.fromisoformat(str(snapshot["period_end"]))
-            - date.fromisoformat(str(snapshot["period_start"])[:10])
-        ).days + 1
-    except (KeyError, ValueError):
-        length = len(days)
-    period = AuditPeriod(
+    dates = _period_dates(snapshot)
+    length = len(days) if dates is None else (dates[1] - dates[0]).days + 1
+    return AuditPeriod(
         "Previous bill period",
         rows=days,
         totals=Totals.of_snapshot(snapshot),
@@ -342,4 +460,31 @@ def previous_period_audit(
         period_days=max(length, 1),
         changes=tariff_changes(days),
     )
+
+
+def previous_period_summary(
+    snapshot: Mapping[str, Any] | None, fallback: dict[str, Any], symbol: str
+) -> tuple[str, str]:
+    """The markdown summary of the bill period that ended last, and its dates as text."""
+    period = archived_period(snapshot, fallback, symbol)
+    if period is None or snapshot is None:
+        return "No audit of the last bill period was recorded.", ""
+    dates = _period_dates(snapshot)
+    text = "" if dates is None else f"{_day_month(dates[0])} to {_day_month(dates[1])}"
+    return summary_table(period), text
+
+
+def previous_period_audit(
+    snapshot: Mapping[str, Any] | None, fallback: dict[str, Any], symbol: str
+) -> tuple[str, str]:
+    """The audit of the bill period that ended last, from its archived snapshot.
+
+    A snapshot from before the days were kept has no days and no dates, and is reported as such.
+    """
+    period = archived_period(snapshot, fallback, symbol)
+    if period is None:
+        note = _note(
+            "The bill before this one was archived before days were kept, so it has no audit."
+        )
+        return "Not recorded", f'<div style="{_S["section"]}">Previous bill period</div>{note}'
     return build_bill_audit(period)

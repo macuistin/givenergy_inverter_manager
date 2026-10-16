@@ -787,6 +787,9 @@
       "overnight_charge_cost": {
         "name": "Estimated Overnight Charge Cost"
       },
+      "tomorrow_outlook": {
+        "name": "Tomorrow Outlook"
+      },
       "immersion_divert_reason": {
         "name": "Immersion Divert Reason"
       },

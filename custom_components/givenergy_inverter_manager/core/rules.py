@@ -286,15 +286,20 @@ class _SimulatedDay:
     pause: PauseWindow | None = None
 
 
-def _slot_net_pct(day: _SimulatedDay, slot: int, weight: float, slot_load_kwh: float) -> float:
-    """The battery's change over one slot, in points of its capacity.
+def _battery_net_kwh(day: _SimulatedDay, slot: int, net_kwh: float) -> float:
+    """The part of a slot's solar surplus or shortfall that reaches the battery.
 
     A shortfall of solar is met from the battery, except in the paused share of the slot,
     where the grid meets it. A surplus charges the battery whether it is paused or not.
     """
-    net_kwh = day.forecast_kwh * weight - slot_load_kwh
     if net_kwh < 0 and day.pause is not None:
-        net_kwh *= 1 - day.pause.paused_fraction(slot)
+        return net_kwh * (1 - day.pause.paused_fraction(slot))
+    return net_kwh
+
+
+def _slot_net_pct(day: _SimulatedDay, slot: int, weight: float, slot_load_kwh: float) -> float:
+    """The battery's change over one slot, in points of its capacity."""
+    net_kwh = _battery_net_kwh(day, slot, day.forecast_kwh * weight - slot_load_kwh)
     return net_kwh / day.battery_capacity_kwh * 100
 
 
@@ -308,6 +313,57 @@ def _simulate_min_soc(start_soc_pct: float, day: _SimulatedDay) -> float:
         soc_pct = max(0.0, min(100.0, soc_pct + net_pct))
         min_reached = min(min_reached, soc_pct)
     return min_reached
+
+
+@dataclass(frozen=True)
+class _SlotStep:
+    """The battery level after one slot, and what the grid gave or took in it."""
+
+    soc_pct: float
+    import_kwh: float
+    export_kwh: float
+
+
+def _step_slot(day: _SimulatedDay, slot: int, soc_pct: float, floor_pct: float) -> _SlotStep:
+    """One slot of the simulated day, with the battery held between floor_pct and full.
+
+    The paused share of a shortfall and any shortfall below the floor come from the grid.
+    Solar the full battery cannot take goes to the grid. A battery that starts below the
+    floor does not discharge further.
+    """
+    net_kwh = day.forecast_kwh * day.solar_weights[slot] - day.slot_loads_kwh[slot]
+    battery_kwh = _battery_net_kwh(day, slot, net_kwh)
+    to_kwh = day.battery_capacity_kwh / 100
+    wanted_pct = soc_pct + battery_kwh / day.battery_capacity_kwh * 100
+    lowest_pct = min(soc_pct, floor_pct)
+    return _SlotStep(
+        soc_pct=max(lowest_pct, min(100.0, wanted_pct)),
+        import_kwh=battery_kwh - net_kwh + max(0.0, lowest_pct - wanted_pct) * to_kwh,
+        export_kwh=max(0.0, wanted_pct - 100.0) * to_kwh,
+    )
+
+
+@dataclass(frozen=True)
+class DayFlows:
+    """The simulated day slot by slot: grid import and export per slot, and the battery."""
+
+    import_kwh: tuple[float, ...]
+    export_kwh: tuple[float, ...]
+    end_soc_pct: float
+    min_soc_pct: float
+
+
+def _simulate_flows(day: _SimulatedDay, start_soc_pct: float, floor_pct: float) -> DayFlows:
+    soc_pct = lowest_pct = start_soc_pct
+    imports: list[float] = []
+    exports: list[float] = []
+    for slot in range(len(day.solar_weights)):
+        step = _step_slot(day, slot, soc_pct, floor_pct)
+        soc_pct = step.soc_pct
+        lowest_pct = min(lowest_pct, soc_pct)
+        imports.append(step.import_kwh)
+        exports.append(step.export_kwh)
+    return DayFlows(tuple(imports), tuple(exports), soc_pct, lowest_pct)
 
 
 def _find_minimum_charge_target(day: _SimulatedDay, min_soc: int) -> int:
@@ -602,6 +658,19 @@ def _overmorrow_reduction(tonight: _Tonight) -> int:
     return max(0, int((d2_fill_pct - 100) / 2))
 
 
+def _day_to_simulate(
+    inputs: ChargeInputs, forecast_kwh: float, solar_shape: tuple[float, ...] | None
+) -> _SimulatedDay:
+    """The day the plan simulates: the forecast spread by its shape, and the per-slot load."""
+    return _SimulatedDay(
+        forecast_kwh,
+        inputs.battery_capacity_kwh,
+        _slot_loads_kwh(inputs.average_daily_consumption_kwh, inputs.load_profile),
+        solar_shape or _SOLAR_SLOT_WEIGHTS,
+        inputs.battery_pause,
+    )
+
+
 def _simulated_plan(tonight: _Tonight, skip_blocked_note: str) -> _ChargePlan:
     """Forward SoC simulation (PALM algorithm).
 
@@ -609,13 +678,7 @@ def _simulated_plan(tonight: _Tonight, skip_blocked_note: str) -> _ChargePlan:
     throughout the simulated day (48 half-hour slots, bell-curve solar profile).
     """
     inputs = tonight.inputs
-    day = _SimulatedDay(
-        tonight.forecast_kwh,
-        inputs.battery_capacity_kwh,
-        _slot_loads_kwh(inputs.average_daily_consumption_kwh, inputs.load_profile),
-        tonight.solar_shape or _SOLAR_SLOT_WEIGHTS,
-        inputs.battery_pause,
-    )
+    day = _day_to_simulate(inputs, tonight.forecast_kwh, tonight.solar_shape)
     target_soc = _find_minimum_charge_target(day, tonight.min_soc)
     reason = (
         f"Forward simulation: {tonight.forecast_kwh:.1f}kWh forecast "
@@ -698,6 +761,46 @@ def calculate_overnight_charge_target(
     if skip.skips:
         return _build_decision(inputs, _skip_plan(tonight, skip.pause))
     return _build_decision(inputs, _simulated_plan(tonight, skip.blocked_note))
+
+
+@dataclass(frozen=True)
+class PlannedDay:
+    """The solar day the charge plan simulates, built the way the plan builds it.
+
+    seasonal_estimate is True when no forecast sensor gave a figure and the plan used the
+    estimate from latitude. per_slot_load is True when the load follows the learned profile.
+    """
+
+    model: _SimulatedDay
+    seasonal_estimate: bool
+    per_slot_load: bool
+
+    @property
+    def forecast_kwh(self) -> float:
+        return self.model.forecast_kwh
+
+    def flows(self, start_soc_pct: float, floor_pct: float) -> DayFlows:
+        """Grid import and export slot by slot from start_soc_pct, never below floor_pct."""
+        return _simulate_flows(self.model, start_soc_pct, floor_pct)
+
+
+def planned_day(inputs: ChargeInputs, forecast: SolarForecast, dt: datetime) -> PlannedDay | None:
+    """The day calculate_overnight_charge_target simulates, with the same forecast and load.
+
+    The forecast is resolved as the plan resolves it, with the accuracy correction and the
+    cautious blend, also in a winter month whose plan does not read it. None without a battery
+    capacity, or with no forecast and no seasonal fractions to estimate one from.
+    """
+    if inputs.battery_capacity_kwh <= 0:
+        return None
+    if forecast.forecast_kwh is None and not forecast.solar_fractions:
+        return None
+    resolved = _resolve_forecast(inputs, forecast, dt.month)
+    return PlannedDay(
+        model=_day_to_simulate(inputs, resolved.kwh, usable_solar_shape(forecast)),
+        seasonal_estimate=forecast.forecast_kwh is None,
+        per_slot_load=_profile_usable(inputs.load_profile),
+    )
 
 
 # ── Immersion divert decision ─────────────────────────────────────────────────

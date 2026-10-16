@@ -58,6 +58,11 @@ _UNRECORDED_ATTRIBUTES = frozenset(
     {
         "html",
         ATTR_FULL_TEXT,
+        # The bill audits as markdown tables, rebuilt every cycle like their html.
+        "bill_table",
+        "days_table",
+        "summary_table",
+        "period",
         # Charge register writes and outside changes, newest first.
         "recent_writes",
         # EV session cost: the running session's energy and the finished sessions with their table.
@@ -95,6 +100,18 @@ _UNRECORDED_ATTRIBUTES = frozenset(
         "alt_schedule_saving",
         "alt_schedule_days",
         "alt_schedule_suggestion",
+        # Tomorrow Outlook: the projected lines, which move with the load estimate, and the table.
+        "import_kwh",
+        "export_kwh",
+        "import_cost",
+        "export_credit",
+        "charge_kwh",
+        "charge_cost",
+        "net_cost",
+        "end_soc_pct",
+        "min_soc_pct",
+        "forecast_kwh",
+        "table",
     }
 )
 
