@@ -57,6 +57,7 @@ class TestTheChecklistSection:
             BANNER,
             "Something else is setting your charge target",
             CHECKLIST,
+            "Needs your attention",
             "Live power flow",
             "Right now",
             "More",

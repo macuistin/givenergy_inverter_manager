@@ -151,6 +151,15 @@ class TestAdminsAbsent:
         assert _settings_buttons(dashboard) == []
         assert "'navigation_path': 'settings'" not in str(dashboard)
 
+    def test_the_repairs_banner_is_only_in_an_administrators_dashboard(self):
+        def headings(dashboard: dict) -> list[str]:
+            view = _view(dashboard, "power-flow")
+            return [s["cards"][0].get("heading") for s in view["sections"]]
+
+        assert "Needs your attention" in headings(dashboard_dict())
+        assert "Needs your attention" not in headings(dashboard_dict(admin_ids=()))
+        assert "Needs your attention" not in headings(dashboard_dict(is_admin=False))
+
     def test_the_administrator_ids_are_not_written_for_a_viewer_who_is_not_one(self):
         assert ADMIN_ID not in str(dashboard_dict(admin_ids=(ADMIN_ID,), is_admin=False))
 
@@ -167,11 +176,14 @@ class TestAdminsAbsent:
 
 
 def _without_settings_button(view: dict) -> dict:
-    """A copy of the view without the Settings button and the Settings shortcut.
+    """A copy of the view without the Settings button, the Settings shortcut and the repairs.
 
-    Only an admin dashboard has them: only an administrator can open Settings.
+    Only an admin dashboard has them: only an administrator can open Settings or act on a repair.
     """
     stripped = copy.deepcopy(view)
+    stripped["sections"] = [
+        s for s in stripped["sections"] if s["cards"][0].get("heading") != "Needs your attention"
+    ]
     for section in stripped["sections"]:
         section["cards"] = [
             c

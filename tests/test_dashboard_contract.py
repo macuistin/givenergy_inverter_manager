@@ -15,17 +15,13 @@ from tests.dashboard_support import (
     fake_states_hass,
 )
 
-# The sensors the dashboard reads that another change adds. Until then the generator finds
-# nothing and leaves their cards out.
-_COMING = {"active_repairs", "tomorrow_outlook", "ev_session_cost"}
-
 
 def test_every_unique_id_suffix_the_generator_asks_for_exists():
     """A misspelt suffix finds nothing, and the tile it feeds silently disappears."""
     registry = RecordingRegistry(enable_all=True)
     dashboard_text(FULL_CONFIG, registry, states=("sensor.wallbox_charging_power",))
     unknown = registry.requested - set(default_entity_ids())
-    assert unknown == _COMING
+    assert unknown == set()
     assert len(registry.requested) > 60
 
 
@@ -49,7 +45,16 @@ class TestBuildOrder:
         builder.build_subviews()
         assert builder.go("settings") is None
         assert builder.go("plan") is not None
+
+    def test_tomorrow_needs_a_forecast_or_the_outlook_sensor(self):
+        """Without either it would be empty, so nothing links to it."""
+        registry = RecordingRegistry(absent={"tomorrow_outlook"})
+        builder = Builder(fake_states_hass(), fake_entry({}), HostFacts(), registry)
+        builder.build_subviews()
         assert builder.go("tomorrow") is None
+        builder = Builder(fake_states_hass(), fake_entry({}), HostFacts(), RecordingRegistry())
+        builder.build_subviews()
+        assert builder.go("tomorrow") is not None
 
     def test_a_device_sub_view_is_linked_before_the_device_exists(self):
         """Its cards wait for the device, so a stored dashboard can open it when it arrives."""

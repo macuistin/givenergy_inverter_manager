@@ -132,13 +132,8 @@ class FakeRegistry:
         enabled: set[str] = frozenset(),
         absent: set[str] = frozenset(),
         devices: frozenset[Device] = ALL_DEVICES,
-        extra: dict[str, str] | None = None,
     ) -> None:
-        """A registry holding what Home Assistant creates: only the entities of these devices.
-
-        extra adds entities this build has no description for, as {unique id suffix: entity
-        id}, for a sensor the dashboard reads that another change adds.
-        """
+        """A registry holding what Home Assistant creates: only the entities of these devices."""
         absent = set(absent) | keys_without_devices(devices)
         disabled = set() if enable_all else disabled_by_default() - set(enabled)
         names = {s["key"]: s["name"] for s in _sensors()} | {
@@ -146,7 +141,7 @@ class FakeRegistry:
         }
         self._by_uid: dict[tuple[str, str], str] = {}
         self._entries: dict[str, SimpleNamespace] = {}
-        for key, entity_id in (default_entity_ids() | (extra or {})).items():
+        for key, entity_id in default_entity_ids().items():
             if key in absent:
                 continue
             domain = entity_id.split(".", 1)[0]

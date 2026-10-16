@@ -48,11 +48,9 @@ CARD_MOD = ["/hacsfiles/lovelace-card-mod/card-mod.js"]
 APEX = ["/hacsfiles/apexcharts-card/apexcharts-card.js"]
 COMBINATIONS = list(itertools.product([False, True], repeat=3))
 
-# The sensors another change adds, under the ids Home Assistant will give them.
-REPAIRS = "sensor.givenergy_inverter_manager_active_repairs"
-OUTLOOK = "sensor.givenergy_inverter_manager_tomorrow_outlook"
-SESSION_COST = "sensor.givenergy_inverter_manager_ev_session_cost"
-COMING = {"active_repairs": REPAIRS, "tomorrow_outlook": OUTLOOK, "ev_session_cost": SESSION_COST}
+REPAIRS = IDS["active_repairs"]
+OUTLOOK = IDS["tomorrow_outlook"]
+SESSION_COST = IDS["ev_session_cost"]
 
 
 def _label(combination: tuple[bool, bool, bool]) -> str:
@@ -81,9 +79,9 @@ def _section(dashboard: dict, path: str, heading: str) -> dict | None:
     return None
 
 
-def _with_coming(**kw) -> FakeRegistry:
-    """A registry that also holds the sensors another change adds."""
-    return FakeRegistry(enable_all=True, extra=COMING, **kw)
+def _without(*keys: str) -> FakeRegistry:
+    """A registry with every sensor enabled except these, which are not registered."""
+    return FakeRegistry(enable_all=True, absent=set(keys))
 
 
 def _every_node(node):
@@ -390,9 +388,17 @@ class TestTomorrowsCurve:
         headings = [c.get("heading") for c in view_cards(_view(dashboard, "tomorrow"))]
         assert "Solar through the day" not in headings
 
-    def test_there_is_no_tomorrow_view_without_a_forecast(self):
+    def test_without_a_forecast_tomorrow_keeps_only_what_the_day_should_cost(self):
         config = {k: v for k, v in FULL_CONFIG.items() if k != CONF_FORECAST_ENTITY}
-        assert "tomorrow" not in _paths(dashboard_dict(config, resources=APEX))
+        dashboard = dashboard_dict(config, resources=APEX, states=(FORECAST,), attributes=_HALF_HOURLY)
+        assert _tomorrow_curves(dashboard) == []
+        cards = view_cards(_view(dashboard, "tomorrow"))
+        assert [c["heading"] for c in cards if c["type"] == "heading"] == ["What it should cost"]
+
+    def test_there_is_no_tomorrow_view_without_a_forecast_or_the_outlook(self):
+        config = {k: v for k, v in FULL_CONFIG.items() if k != CONF_FORECAST_ENTITY}
+        registry = FakeRegistry(enable_all=True, absent={"tomorrow_outlook"})
+        assert "tomorrow" not in _paths(dashboard_dict(config, registry, resources=APEX))
 
 
 def _weather_cards(dashboard: dict) -> list[dict]:
@@ -435,13 +441,13 @@ class TestTheWeather:
 
 
 class TestTheRepairsBanner:
-    def test_it_is_left_out_until_the_sensor_exists(self):
-        dashboard = dashboard_dict()
+    def test_it_is_left_out_without_the_sensor(self):
+        dashboard = dashboard_dict(registry=_without("active_repairs"))
         assert _section(dashboard, "power-flow", "Needs your attention") is None
         assert REPAIRS not in yaml.safe_dump(dashboard)
 
     def test_it_shows_the_repairs_to_administrators_while_there_is_one(self):
-        dashboard = dashboard_dict(registry=_with_coming())
+        dashboard = dashboard_dict(registry=FakeRegistry(enable_all=True))
         section = _section(dashboard, "power-flow", "Needs your attention")
         assert section["column_span"] == 3
         assert section["visibility"] == [
@@ -453,27 +459,29 @@ class TestTheRepairsBanner:
         ]
 
     def test_it_sits_after_the_other_banners_and_before_the_power_flow(self):
-        dashboard = dashboard_dict(registry=_with_coming())
+        dashboard = dashboard_dict(registry=FakeRegistry(enable_all=True))
         headings = [s["cards"][0]["heading"] for s in _view(dashboard, "power-flow")["sections"]]
         assert headings[2:5] == ["Finish setting up", "Needs your attention", "Live power flow"]
 
     @pytest.mark.parametrize(("count", "shown"), [("0", False), ("2", True), ("unknown", False)])
     def test_it_hides_while_there_is_no_repair(self, count, shown):
-        dashboard = dashboard_dict(registry=_with_coming())
+        dashboard = dashboard_dict(registry=FakeRegistry(enable_all=True))
         states = states_with(frozenset(Device), {REPAIRS: count})
         assert (_section(seen(dashboard, states), "power-flow", "Needs your attention") is not None) == shown
 
     def test_it_is_left_out_for_a_viewer_who_is_not_an_administrator(self):
-        dashboard = dashboard_dict(registry=_with_coming(), is_admin=False)
+        dashboard = dashboard_dict(registry=FakeRegistry(enable_all=True), is_admin=False)
         assert _section(dashboard, "power-flow", "Needs your attention") is None
 
 
 class TestTheTomorrowOutlook:
-    def test_it_is_left_out_until_the_sensor_exists(self):
-        assert _section(dashboard_dict(), "tomorrow", "What it should cost") is None
+    def test_it_is_left_out_without_the_sensor(self):
+        dashboard = dashboard_dict(registry=_without("tomorrow_outlook"))
+        assert _section(dashboard, "tomorrow", "What it should cost") is None
+        assert OUTLOOK not in yaml.safe_dump(dashboard)
 
     def test_it_prints_the_outlook_table_with_a_total(self):
-        dashboard = dashboard_dict(registry=_with_coming(), resources=CARD_MOD)
+        dashboard = dashboard_dict(registry=FakeRegistry(enable_all=True), resources=CARD_MOD)
         section = _section(dashboard, "tomorrow", "What it should cost")
         (table,) = [c for c in section["cards"] if c["type"] == "markdown"]
         assert table["content"] == f"{{{{ state_attr('{OUTLOOK}', 'table') }}}}"
@@ -484,11 +492,13 @@ class TestTheRecentCharges:
     def _recent(self, dashboard: dict) -> dict | None:
         return _section(dashboard, "ev-charger", "Recent charges")
 
-    def test_they_are_left_out_until_the_sensor_exists(self):
-        assert self._recent(dashboard_dict()) is None
+    def test_they_are_left_out_without_the_sensor(self):
+        dashboard = dashboard_dict(registry=_without("ev_session_cost"))
+        assert self._recent(dashboard) is None
+        assert SESSION_COST not in yaml.safe_dump(dashboard)
 
     def test_they_print_the_session_table_while_a_charger_is_there(self):
-        section = self._recent(dashboard_dict(registry=_with_coming()))
+        section = self._recent(dashboard_dict(registry=FakeRegistry(enable_all=True)))
         assert section["visibility"] == [
             {"condition": "state", "entity": IDS["ev_charger_state"], "state_not": "unavailable"}
         ]
@@ -497,7 +507,7 @@ class TestTheRecentCharges:
         )
 
     def test_the_charge_cost_joins_the_figures_with_the_sensor(self):
-        section = _section(dashboard_dict(registry=_with_coming()), "ev-charger", "EV charger")
+        section = _section(dashboard_dict(registry=FakeRegistry(enable_all=True)), "ev-charger", "EV charger")
         (figures,) = [c for c in section["cards"] if c["type"] == "glance"]
         assert [r["name"] for r in figures["entities"]] == [
             "This charge",
@@ -508,10 +518,19 @@ class TestTheRecentCharges:
         assert figures["entities"][1]["entity"] == SESSION_COST
 
     def test_they_wait_for_a_charger_without_one(self):
+        """The file names the id the sensor will get, so the table arrives with the charger."""
         config, _ = install(ev=False)
-        registry = FakeRegistry(enable_all=True, extra=COMING, devices=devices_of(config, None))
+        registry = FakeRegistry(enable_all=True, devices=devices_of(config, None))
         dashboard = dashboard_dict(config, registry, ev_brand=None)
-        assert self._recent(dashboard) is None
+        assert SESSION_COST not in {e.entity_id for e in registry._entries.values()}
+        section = self._recent(dashboard)
+        assert section["visibility"] == [
+            {"condition": "state", "entity": IDS["ev_charger_state"], "state_not": "unavailable"}
+        ]
+        assert SESSION_COST in section["cards"][1]["content"]
+        assert self._recent(seen(dashboard, states_with(devices_of(config, None)))) is None
+        arrived = seen(dashboard, states_with(devices_of(config, "myenergi")))
+        assert self._recent(arrived) is not None
 
 
 # ── The shortcuts ────────────────────────────────────────────────────────────
@@ -540,7 +559,8 @@ class TestTheShortcuts:
 
     def test_a_sub_view_that_is_left_out_has_no_shortcut(self):
         config = {k: v for k, v in MINIMAL_CONFIG.items() if k != CONF_FORECAST_ENTITY}
-        dashboard = dashboard_dict(config, FakeRegistry(), is_admin=False, ev_brand=None)
+        registry = FakeRegistry(absent={"tomorrow_outlook"})
+        dashboard = dashboard_dict(config, registry, is_admin=False, ev_brand=None)
         labels = set(_shortcuts(dashboard))
         assert not {"Tomorrow", "Settings"} & labels
         targets = {c["tap_action"]["navigation_path"] for c in _shortcuts(dashboard).values()}
@@ -566,7 +586,7 @@ def test_every_visibility_condition_works_on_the_home_assistant_floor(combinatio
     """The wider set of condition types needs a later release than the floor."""
     ev, switch, sensor = combination
     config, brand = install(ev=ev, switch=switch, sensor=sensor)
-    registry = FakeRegistry(enable_all=True, extra=COMING, devices=devices_of(config, brand))
+    registry = FakeRegistry(enable_all=True, devices=devices_of(config, brand))
     dashboard = dashboard_dict(config, registry, ev_brand=brand, resources=resources)
     kinds = {
         node["condition"]
@@ -603,13 +623,13 @@ def test_no_heading_is_shown_with_nothing_under_it(combination, schedule):
     [
         FakeRegistry(),
         FakeRegistry(enable_all=True),
-        FakeRegistry(enable_all=True, extra=COMING),
+        FakeRegistry(enable_all=True, absent={"active_repairs", "tomorrow_outlook", "ev_session_cost"}),
         FakeRegistry(
             enable_all=True,
             absent={"solar_today", "import_cost_today", "self_sufficiency", "house_load"},
         ),
     ],
-    ids=["fresh", "all-enabled", "with-coming-sensors", "few-sensors"],
+    ids=["fresh", "all-enabled", "without-pr-481-sensors", "few-sensors"],
 )
 def test_every_section_holds_only_cards(registry):
     """A section that held None would break the frontend's grid."""

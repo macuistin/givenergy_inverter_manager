@@ -129,9 +129,18 @@ def test_the_ev_view_shows_what_the_charger_used_and_cost_today():
     (figures,) = [c for c in _ev_sections(seen_for(ev=True))["EV charger"] if c["type"] == "glance"]
     assert [(r["name"], r["entity"]) for r in figures["entities"]] == [
         ("This charge", IDS["ev_session_energy"]),
+        ("Its cost", IDS["ev_session_cost"]),
         ("Today", IDS["zappi_today"]),
         ("Cost today", IDS["zappi_cost_today"]),
     ]
+
+
+def test_the_ev_figures_leave_the_charge_cost_out_without_its_sensor():
+    registry = FakeRegistry(enable_all=True, absent={"ev_session_cost"})
+    config, brand = install(ev=True)
+    shown = seen(dashboard_dict(config, registry, ev_brand=brand), states_with(devices_of(config, brand)))
+    (figures,) = [c for c in _ev_sections(shown)["EV charger"] if c["type"] == "glance"]
+    assert [r["name"] for r in figures["entities"]] == ["This charge", "Today", "Cost today"]
 
 
 def test_the_ev_view_plots_the_charge_power_for_24_hours():
@@ -167,6 +176,7 @@ def test_the_ev_view_is_empty_unless_a_charger_is_there(combination):
         assert list(_ev_sections(seen_for(ev=ev, switch=switch, sensor=sensor))) == [
             "EV charger",
             "Last 7 days",
+            "Recent charges",
         ]
 
 
@@ -175,7 +185,7 @@ def test_a_file_made_before_the_charger_arrived_shows_the_new_sections_when_it_d
     stored = dashboard_dict(config, ev_brand=None)
     assert _view(seen(stored, states_with(devices_of(config, None))), "ev-charger")["sections"] == []
     arrived = seen(stored, states_with(devices_of(config, "myenergi")))
-    assert list(_ev_sections(arrived)) == ["EV charger", "Last 7 days"]
+    assert list(_ev_sections(arrived)) == ["EV charger", "Last 7 days", "Recent charges"]
 
 
 # ── Battery detail ───────────────────────────────────────────────────────────

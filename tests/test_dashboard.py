@@ -236,10 +236,19 @@ class TestPowerFlowTabChanges:
             "Dry run is on",
             "Something else is setting your charge target",
             "Finish setting up",
+            "Needs your attention",
             "Live power flow",
             "Right now",
             "More",
         ]
+
+    def test_home_energy_has_no_repairs_banner_without_the_repairs_sensor(self):
+        registry = FakeRegistry(enable_all=True, absent={"active_repairs"})
+        parsed = yaml.safe_load(_build(registry=registry))
+        pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
+        headings = [s["cards"][0]["heading"] for s in pf_view["sections"]]
+        assert "Needs your attention" not in headings
+        assert headings[3] == "Live power flow"
 
     def test_live_cost_rate_shown_as_grid_secondary_info(self):
         """Live €/hr cost rate is secondary_info on the grid entity."""
@@ -254,9 +263,16 @@ class TestPowerFlowTabChanges:
         )
 
     def test_clipping_entity_card_removed(self):
-        assert "icon: mdi:alert-circle-outline" not in _build(), (
-            "Old standalone clipping entity card must be removed."
-        )
+        """Clipping is the solar node's secondary info, never a card of its own."""
+        clipping = eid("is_clipping")
+        for resources in (None, ["/hacsfiles/power-flow-card-plus/power-flow-card-plus.js"]):
+            cards = all_cards(yaml.safe_load(_build(resources=resources))["views"])
+            naming = [c for c in cards if clipping in yaml.dump(c)]
+            assert all(c["type"] == "custom:power-flow-card-plus" for c in naming), naming
+            for card in naming:
+                solar = card["entities"]["solar"]
+                assert solar["secondary_info_entity"] == clipping
+                assert clipping not in yaml.dump({k: v for k, v in card["entities"].items() if k != "solar"})
 
     def test_immersion_section_absent_without_temperature_sensor(self):
         """A switch but no temperature sensor gives the heater's figures and week, no chart."""
@@ -399,7 +415,12 @@ class TestSolarForecastCards:
             assert "Forecast" not in _titles(text)
             for key in ("solar_forecast_raw_today", "solar_actual_vs_forecast_pct"):
                 assert eid(key) not in yaml.dump(_cards(text, "today")), key
-            assert "tomorrow" not in [v["path"] for v in yaml.safe_load(text)["views"]]
+            # Tomorrow keeps only what the day should cost, which needs no forecast sensor.
+            tomorrow = [c.get("heading") for c in _cards(text, "tomorrow") if c["type"] == "heading"]
+            assert tomorrow == ["What it should cost"]
+            registry = FakeRegistry(enable_all=True, absent={"tomorrow_outlook"})
+            views = yaml.safe_load(_build(config=config, registry=registry))["views"]
+            assert "tomorrow" not in [v["path"] for v in views]
 
     def test_the_today_view_tells_the_provider_forecast_from_the_plan_forecast(self):
         figures = self._figures(_build(), "today", "Forecast")
@@ -1466,6 +1487,7 @@ class TestResponsiveLayout:
             ("power-flow", "Dry run is on"),
             ("power-flow", "Something else is setting your charge target"),
             ("power-flow", "Finish setting up"),
+            ("power-flow", "Needs your attention"),
         }
 
     def test_settings_is_five_sections_of_one_column_so_a_laptop_fills_every_column(self):
