@@ -2,7 +2,9 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.19.10
+
+The Each day chart on the Bill & tariff page now compares like with like. After upgrading, press **Submit** on the out-of-date repair to update a stored dashboard.
 
 **Fixes**
 - On the Bill & tariff page, the **Each day: what you paid and would have paid** chart now sets each day's import cost beside what the same use would have cost from the grid that day. It compared the day with the whole bill without solar, which adds the standing charge and levy and resets each bill period, so a day could look dearer with solar than without.
