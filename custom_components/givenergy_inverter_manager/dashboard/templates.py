@@ -14,7 +14,6 @@ from ..const import (
     CURRENCIES,
     DEFAULT_ALT_HEAT_LABEL,
     DEFAULT_CURRENCY,
-    IMMERSION_SWITCH_COOLDOWN_MINUTES,
 )
 from ..core.tariff import TariffChange, TariffConfig, build_tariff
 from .cards import state_ref
@@ -92,63 +91,6 @@ def setup_checklist_template(progress: str) -> str:
     )
 
 
-def ready_by_template(sensor: str) -> str:
-    """The card for the next hot water ready time, read from the water temperature sensor.
-
-    The sensor holds ready_by, expected_ready and heating_rate_c_per_h only while ready times
-    are set and scheduled heating is on. A Lovelace condition cannot test for an attribute, so
-    the card itself says when there is no ready time.
-    """
-    return (
-        f"{{% set sensor = '{sensor}' %}}"
-        "{% set ready = state_attr(sensor, 'ready_by') %}"
-        "{% set expected = state_attr(sensor, 'expected_ready') %}"
-        "{% set rate = state_attr(sensor, 'heating_rate_c_per_h') %}"
-        "{% if ready -%}\n"
-        "**Next ready time {{ ready }}**\n\n"
-        "{% if expected is true %}The water is expected to be at the target by then."
-        "{% elif expected is false %}The water is not expected to reach the target by then."
-        "{% else %}Whether the water will be ready in time is not known yet.{% endif %}"
-        "{% if is_number(rate) %} Heating at about {{ rate | float(0) | round(1) }} °C an hour."
-        "{% endif %}\n"
-        "{%- else -%}\n"
-        "No hot water ready time is set. Add one under Hot water ready by in the immersion options."
-        "\n{%- endif %}"
-    )
-
-
-def planned_heating_template(sensor: str) -> str:
-    """The planned heating sentence, read from the water temperature sensor.
-
-    The sensor holds planned_heating only while scheduled heating is on and the water
-    temperature is read. A Lovelace condition cannot test for an attribute, so the card says
-    what it is waiting for.
-    """
-    return (
-        f"{{% set text = state_attr('{sensor}', 'planned_heating') %}}"
-        "{% if text -%}\n"
-        "{{ text }}\n"
-        "{%- else -%}\n"
-        "The planned heating shows once the water temperature is read.\n"
-        "{%- endif %}"
-    )
-
-
-def cheapest_source_template(source: str) -> str:
-    """The cheapest way to heat the water, with the name the user gave the alternative.
-
-    The sensor's state is `electricity`, `solar` or `alternative`, which never changes with the
-    label so automations keep working. The card swaps `alternative` for the sensor's alt_label
-    attribute, so it reads Oil, Gas or whatever was entered, and a new label shows at once.
-    """
-    return (
-        f"{{% set state = states('{source}') %}}"
-        f"{{% set label = state_attr('{source}', 'alt_label') or '{DEFAULT_ALT_HEAT_LABEL}' %}}"
-        "**Cheapest source**\n\n"
-        "{% if state == 'alternative' %}{{ label }}{% else %}{{ state | capitalize }}{% endif %}"
-    )
-
-
 def alt_heat_schedule_template(source: str) -> str:
     """The suggested alternative heating schedule line, read from the cheapest source sensor.
 
@@ -174,21 +116,6 @@ def alt_heat_schedule_template(source: str) -> str:
         f"{ALT_HEAT_SCHEDULE_MIN_DAYS} days.\n"
         "{%- endif %}"
     )
-
-
-# What two immersion settings do, in words. Their names say little on their own.
-MANAGED_HELP = (
-    "**Heat now**: turn it on to force a heating run until the water reaches the target. "
-    f"Turn it off to hold the heater off for {IMMERSION_SWITCH_COOLDOWN_MINUTES} minutes."
-)
-PLAN_FORECAST_CAPTION = (
-    "**Plan forecast** is the forecast the charge plan uses: blended toward the low estimate "
-    "and corrected by past accuracy."
-)
-RESTART_GAP_HELP = (
-    "**Restart drop**: how far the water must fall below the target before a new heating run "
-    "starts."
-)
 
 
 def currency_symbol(cfg: dict) -> str:
@@ -262,103 +189,6 @@ def tariff_changes_table(
 
 
 # ── Where today's energy came from ───────────────────────────────────────────
-
-
-@dataclass(frozen=True)
-class EnergySources:
-    """The entities the "where today's energy came from" card reads.
-
-    The self-sufficiency sensor carries the breakdown as attributes. A card that finds one
-    missing falls back to the house and import totals, so it still reads on a build that
-    does not set them. battery_discharge is None while the user has disabled that sensor, and
-    the card then shows solar and battery as one figure.
-    """
-
-    self_sufficiency: str
-    house: str
-    imported: str
-    battery_discharge: str | None = None
-
-
-# The house line: solar and battery are split when the battery's discharge is known.
-_HOUSE_LINE = (
-    "House used **{{ house | round(1) }} kWh**: "
-    "{% if battery_known %}solar {{ (stored - battery) | round(1) }} "
-    "+ battery {{ battery | round(1) }}"
-    "{% else %}solar and battery {{ stored | round(1) }}{% endif %} "
-    "+ grid {{ from_grid | round(1) }}."
-)
-# The grid line: split into house and battery when the AC charge counter was read.
-_GRID_LINE = (
-    "{% if state_attr(card, 'basis') == 'ac_charge_counter' %}"
-    "Grid import **{{ imported | round(1) }} kWh**: {{ from_grid | round(1) }} for the house "
-    "+ {{ to_battery | round(1) }} into the battery."
-    "{% else %}Grid import **{{ imported | round(1) }} kWh**. How much of it went into the "
-    "battery is not known, so it all counts as used by the house.{% endif %}"
-)
-_MEANING = (
-    "**Self-sufficiency{% if is_number(states(card)) %} {{ states(card) | float(0) | round(0) "
-    "| int }}%{% endif %}** is the share of what the house used that did not come from the grid."
-)
-
-def _statements(*lines: str) -> str:
-    """Template statements, one to a line, that leave no blank lines in the card."""
-    return "".join(f"{{%- {line} -%}}\n" for line in lines)
-
-
-# Each value is the attribute when it holds a number, else the total the card falls back to.
-_SETUP = _statements(
-    "set house = state_attr(card, 'house_load_kwh')",
-    "set house = house if is_number(house) else states(house_entity)",
-    "set imported = states(import_entity)",
-    "set to_battery = state_attr(card, 'grid_to_battery_kwh')",
-    "set to_battery = to_battery | float(0) if is_number(to_battery) else 0",
-    "set from_grid = state_attr(card, 'from_grid_kwh')",
-    "set from_grid = from_grid if is_number(from_grid) else imported",
-)
-_FIGURES = _statements(
-    "if is_number(house) and is_number(imported)",
-    "set house = house | float(0)",
-    "set imported = imported | float(0)",
-    "set from_grid = [from_grid | float(0), house] | min",
-    "set stored = [house - from_grid, 0] | max",
-    "set battery_known = battery_entity and is_number(states(battery_entity))",
-    "set battery = [[states(battery_entity) | float(0), stored] | min, 0] | max",
-)
-_BODY = (
-    f"{_SETUP}{_FIGURES}{_HOUSE_LINE}\n\n{_GRID_LINE}\n\n{_MEANING}"
-    "{%- else -%}\nWaiting for today's energy totals.\n{%- endif %}"
-)
-
-
-def energy_sources_template(sources: EnergySources) -> str:
-    """The card that says where today's energy came from, in kWh and plain words.
-
-    House used is solar plus battery plus grid, and grid import is grid for the house plus
-    grid into the battery. Energy the battery gave back counts as the battery's, whether solar
-    or the grid filled it. The EV and immersion are part of the house use, so a separate card
-    lists them (see energy_devices_template).
-    """
-    names = {
-        "card": sources.self_sufficiency,
-        "house_entity": sources.house,
-        "import_entity": sources.imported,
-        "battery_entity": sources.battery_discharge or "",
-    }
-    header = _statements(*(f"set {name} = '{value}'" for name, value in names.items()))
-    return header + _BODY
-
-
-def energy_devices_template(ev: str | None, immersion: str | None) -> str | None:
-    """A line on how much of the house use went to the EV and the immersion. None with neither."""
-    parts = [
-        f"the {name} took {{{{ states('{entity}') | float(0) | round(1) }}}} kWh"
-        for name, entity in (("EV", ev), ("immersion", immersion))
-        if entity
-    ]
-    if not parts:
-        return None
-    return "Of the house use, " + " and ".join(parts) + "."
 
 
 # ── Story sentences ──────────────────────────────────────────────────────────
@@ -509,9 +339,7 @@ def water_story_template(water: WaterNow) -> str:
     """
     text = f"{{% set t = states('{water.water}') | float(0) %}}**Water at {{{{ t | round(1) }}}} °C"
     if water.target:
-        text += (
-            f"{{% if t >= states('{water.target}') | float(0) %}}, at its target{{% endif %}}"
-        )
+        text += f"{{% if t >= states('{water.target}') | float(0) %}}, at its target{{% endif %}}"
     text += ".**"
     if water.heater:
         text += (

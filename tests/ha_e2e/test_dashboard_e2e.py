@@ -406,38 +406,6 @@ async def test_the_sentences_wait_quietly_while_the_sensors_are_unavailable(hass
     )
 
 
-async def test_the_sources_template_splits_solar_and_battery_with_the_discharge_sensor(
-    hass, loaded_entry
-):
-    from custom_components.givenergy_inverter_manager.dashboard.templates import (
-        EnergySources,
-        energy_sources_template,
-    )
-
-    ids = default_entity_ids()
-    hass.states.async_set(ids["self_sufficiency"], "59.3", _SPLIT_ATTRIBUTES)
-    hass.states.async_set(ids["house_kwh_today"], "11.3")
-    hass.states.async_set(ids["import_today"], "12.1")
-    hass.states.async_set(ids["battery_discharge_kwh_today"], "1.8")
-    sources = EnergySources(
-        ids["self_sufficiency"],
-        ids["house_kwh_today"],
-        ids["import_today"],
-        ids["battery_discharge_kwh_today"],
-    )
-    rendered = _render(hass, energy_sources_template(sources))
-    assert rendered.startswith("House used **11.3 kWh**: solar 4.9 + battery 1.8 + grid 4.6.")
-
-
-_SPLIT_ATTRIBUTES = {
-    "house_load_kwh": 11.3,
-    "from_grid_kwh": 4.6,
-    "grid_to_battery_kwh": 7.5,
-    "from_solar_and_battery_kwh": 6.7,
-    "basis": "ac_charge_counter",
-}
-
-
 async def test_scheduled_rate_changes_in_the_options_show_on_the_tariff_view(hass, loaded_entry):
     """The Tariff view reads the report sensor, which lists a dated change from the real options."""
     report = default_entity_ids()["tariff_in_use"]

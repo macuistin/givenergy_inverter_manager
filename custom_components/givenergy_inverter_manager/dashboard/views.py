@@ -147,8 +147,6 @@ CHARGE_TO_NAME = "Charge to"
 AUTO_DIVERT_NAME = "Use spare solar"
 MANAGED_NAME = "Heat now"
 SCHEDULE_NAME = "Scheduled heat"
-# What the night survival sensors are called to a person: does the battery last the night.
-OVERNIGHT_NAME = "Battery overnight"
 # The immersion temperature settings: unique ID suffix and the name shown.
 _THERMOSTAT_SETTINGS = (
     ("immersion_target_temp", "Heat to"),

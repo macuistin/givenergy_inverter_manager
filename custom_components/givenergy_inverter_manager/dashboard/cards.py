@@ -28,8 +28,6 @@ BAR = {"type": "bar-gauge", "min": 0, "max": 100}
 # A setting is set with − and + buttons. A slider across the whole tile is hard to set to an
 # exact value such as 45 °C or 25%.
 STEPPER = {"type": "numeric-input", "style": "buttons"}
-TOGGLE = {"type": "toggle"}
-TREND = {"type": "trend-graph", "hours_to_show": 24}
 
 FULL = "full"
 MAX_COLUMNS = 3
@@ -131,14 +129,6 @@ def tile_card(  # noqa: PLR0913
     return card
 
 
-def toggle_tile(entity: str | None, name: str, color: str) -> dict | None:
-    """A tile with an on/off switch beside the name, the full width of its section.
-
-    Home Assistant gives a tile with an inline feature at least 12 columns, so it says so.
-    """
-    return tile_card(entity, name, columns=FULL, color=color, features=[TOGGLE], inline=True)
-
-
 def readonly_tile(entity: str | None, name: str, color: str) -> dict[str, Any] | None:
     """A tile that shows a switch or number and does nothing when tapped.
 
@@ -146,11 +136,6 @@ def readonly_tile(entity: str | None, name: str, color: str) -> dict[str, Any] |
     value can be read but not changed from the tile.
     """
     return tile_card(entity, name, color=color, nav={"action": "none"})
-
-
-def stepper_tile(entity: str | None, name: str, color: str, columns: int | str = 6) -> dict | None:
-    """A tile with − and + buttons under the name, two to a row unless given the full width."""
-    return tile_card(entity, name, columns=columns, color=color, features=[STEPPER])
 
 
 def heading_card(
@@ -213,13 +198,6 @@ def state_ref(entity: str, full_text_attribute: str | None = None) -> str:
 def state_markdown(entity: str | None, full_text_attribute: str | None = None) -> dict | None:
     """A markdown card that prints an entity's state, for sensors whose state is a sentence."""
     return markdown_card(state_ref(entity, full_text_attribute)) if entity else None
-
-
-def attribute_markdown(entity: str | None, attribute: str) -> dict | None:
-    """A markdown card that prints one attribute of an entity, for a sentence kept there."""
-    if not entity:
-        return None
-    return markdown_card(f"{{{{ state_attr('{entity}', '{attribute}') }}}}")
 
 
 def view_config(title: str, icon: str, path: str, sections: list, **extra) -> dict:
