@@ -16,7 +16,8 @@ Provides:
   estimate_will_survive_night()
     Predicts whether the battery will last until solar generation starts
     tomorrow morning, given current SoC, capacity, minimum SoC floor,
-    average hourly consumption, and hours until sunrise.
+    average hourly consumption, and hours until sunrise. While the battery is paused
+    (core/battery_pause.py) the grid serves the house, so those hours add no consumption.
 
   survival_attributes()
     Says in words why night survival is Safe, Warning or Critical, with the
@@ -42,6 +43,7 @@ from ..const import (
     SOLAR_SUNRISE_HOUR,
 )
 from ..const import BATTERY_RATED_CYCLES as TYPICAL_RATED_CYCLES
+from .battery_pause import PauseWindow, with_note
 
 
 @dataclass
@@ -123,25 +125,46 @@ def calculate_cycle_increment(soc_delta: float) -> float:
     return max(0.0, -soc_delta) / 100.0
 
 
-def hours_until_solar(hour: int, solar_power_w: float) -> float:
-    """
-    Hours of load the battery must cover before tomorrow's solar starts.
+def night_window(hour: int, solar_power_w: float) -> tuple[int, float]:
+    """The window the battery must cover before solar starts: (start minute of the day, hours).
 
-    Night survival and the overnight charge skip use this one window, so they
-    cannot disagree about how long "the night" is. Solar counts as generating
-    from SOLAR_NOISE_FLOOR_W up, the same floor the energy accumulator uses.
+    Night survival and the overnight charge skip use this one window, so they cannot disagree
+    about how long "the night" is. Solar counts as generating from SOLAR_NOISE_FLOOR_W up, the
+    same floor the energy accumulator uses.
 
-      Before sunrise          — the hours left until SOLAR_SUNRISE_HOUR.
-      After sunrise, solar on — tonight's pre-solar window, SOLAR_SUNRISE_HOUR hours,
-                                the same 00:00 to sunrise window the charge plan models.
-                                Today's remaining daylight is not a night hour.
-      After sunrise, solar off — from now to tomorrow's sunrise.
+      Before sunrise          — from this hour to SOLAR_SUNRISE_HOUR.
+      After sunrise, solar on — tonight's pre-solar window, 00:00 to SOLAR_SUNRISE_HOUR,
+                                the same window the charge plan models. Today's remaining
+                                daylight is not a night hour.
+      After sunrise, solar off — from this hour to tomorrow's sunrise.
     """
     if hour < SOLAR_SUNRISE_HOUR:
-        return float(max(1, SOLAR_SUNRISE_HOUR - hour))
+        return hour * 60, float(max(1, SOLAR_SUNRISE_HOUR - hour))
     if solar_power_w >= SOLAR_NOISE_FLOOR_W:
-        return float(SOLAR_SUNRISE_HOUR)
-    return float((24 - hour) + SOLAR_SUNRISE_HOUR)
+        return 0, float(SOLAR_SUNRISE_HOUR)
+    return hour * 60, float((24 - hour) + SOLAR_SUNRISE_HOUR)
+
+
+def hours_until_solar(hour: int, solar_power_w: float) -> float:
+    """Hours of load the battery must cover before tomorrow's solar starts (see night_window)."""
+    return night_window(hour, solar_power_w)[1]
+
+
+@dataclass(frozen=True)
+class PausedNight:
+    """A pause window and how many hours of the night window it covers."""
+
+    window: PauseWindow
+    hours: float
+
+
+def paused_night(pause: PauseWindow | None, hour: int, solar_power_w: float) -> PausedNight | None:
+    """The pause as it falls in the night window, None when there is none or it misses the night."""
+    if pause is None:
+        return None
+    start_minute, hours = night_window(hour, solar_power_w)
+    covered = pause.paused_hours(start_minute, hours)
+    return PausedNight(pause, covered) if covered > 0 else None
 
 
 @dataclass(frozen=True)
@@ -153,33 +176,33 @@ class NightEstimateInputs:
     min_soc: float
     hours_until_solar: float
     average_hourly_consumption_kwh: float
+    paused: PausedNight | None = None
 
 
 def estimate_will_survive_night(inputs: NightEstimateInputs) -> tuple[bool, float, str]:
     """
     Estimate whether the battery will last until solar starts tomorrow.
 
+    The hours the battery is paused add no consumption, and the reason says so.
+
     Returns (will_survive, estimated_soc_at_sunrise, reason)
     """
     min_soc = inputs.min_soc
     capacity_kwh = inputs.battery_capacity_kwh
     usable_kwh = capacity_kwh * ((inputs.current_soc - min_soc) / 100)
-    expected_consumption = inputs.hours_until_solar * inputs.average_hourly_consumption_kwh
+    paused_hours = inputs.paused.hours if inputs.paused else 0.0
+    served_hours = max(0.0, inputs.hours_until_solar - paused_hours)
+    expected_consumption = served_hours * inputs.average_hourly_consumption_kwh
     remaining_kwh = usable_kwh - expected_consumption
     remaining_soc = (remaining_kwh / capacity_kwh * 100) + min_soc
 
+    window = inputs.paused.window if inputs.paused else None
     if remaining_kwh >= 0:
-        return (
-            True,
-            max(min_soc, remaining_soc),
-            f"Battery should last until solar. Estimated SoC at sunrise: {remaining_soc:.0f}%"
-        )
-    shortfall_kwh = abs(remaining_kwh)
-    return (
-        False,
-        min_soc,
-        f"Battery may run low. Estimated shortfall: {shortfall_kwh:.1f}kWh before solar starts."
-    )
+        reason = f"Battery should last until solar. Estimated SoC at sunrise: {remaining_soc:.0f}%"
+        return True, max(min_soc, remaining_soc), with_note(reason, window)
+    shortfall = f"{abs(remaining_kwh):.1f}kWh"
+    reason = f"Battery may run low. Estimated shortfall: {shortfall} before solar starts."
+    return False, min_soc, with_note(reason, window)
 
 
 @dataclass(frozen=True)
@@ -188,7 +211,8 @@ class SurvivalReport:
 
     estimated_soc is the figure without a charge, which the verdict is made on.
     soc_with_charge is the figure with tonight's planned charge, set only while a planned
-    charge counts. It changes the words, never the verdict.
+    charge counts. It changes the words, never the verdict. pause is the battery pause that
+    falls in the night, set only while one does. It is named in the words once.
     """
 
     will_survive: bool
@@ -197,6 +221,7 @@ class SurvivalReport:
     current_soc: float
     reason: str
     soc_with_charge: float | None = None
+    pause: PauseWindow | None = None
 
 
 # What each level means for tonight, as a person would say it.
@@ -234,8 +259,18 @@ def _summary(report: SurvivalReport, outlook: str) -> str:
     """The outlook and the expected charge at sunrise. A battery that runs out has no figure.
 
     When a planned charge counts, both figures are given, and a Warning or May run low says
-    whether the charge covers it.
+    whether the charge covers it. A pause that falls in the night is named after them.
     """
+    return _with_pause_tag(_summary_figures(report, outlook), report)
+
+
+def _with_pause_tag(summary: str, report: SurvivalReport) -> str:
+    if report.pause is None:
+        return summary
+    return f"{summary} · battery paused {report.pause.text}"
+
+
+def _summary_figures(report: SurvivalReport, outlook: str) -> str:
     with_charge = _charge_figure(report)
     if with_charge is not None:
         return _summary_with_charge(report, outlook, with_charge)
@@ -270,6 +305,11 @@ def _near_minimum(report: SurvivalReport) -> str:
 
 
 def _survival_explanation(report: SurvivalReport) -> str:
+    """The explanation, with the pause sentence in it once while a pause falls in the night."""
+    return with_note(_explanation_text(report), report.pause)
+
+
+def _explanation_text(report: SurvivalReport) -> str:
     outlook = _outlook(report)
     with_charge = _charge_figure(report)
     if with_charge is not None:

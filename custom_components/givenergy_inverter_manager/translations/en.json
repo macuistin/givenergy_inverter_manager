@@ -1239,6 +1239,10 @@
     "givtcp_resets_entity_ids": {
       "title": "This GivTCP release resets entity ids",
       "description": "GivTCP reports version {version}. GivTCP 3.6 and 3.6.1 delete and recreate an entity when its discovery settings change, so Home Assistant gives it the default entity id again and it loses its name and area. {fixed_in} fixed this, and releases before 3.6 do not do it.\n\nThe integration finds an entity again under its new id by itself, so it keeps working, but your own dashboards and automations that use a renamed entity can break.\n\nTo fix: update the GivTCP add-on to {fixed_in} or later, then restart it. This repair clears by itself once GivTCP reports a newer version. The integration has not changed anything."
+    },
+    "charge_blocked_by_pause": {
+      "title": "The battery pause stops tonight's charge",
+      "description": "GivTCP's battery pause stops the battery charging from {pause}, and tonight's charge window ({window}) falls inside it. The integration writes the window and the target, and the inverter reports them as set, but it does not charge while the pause is on, so the battery will not reach the target.\n\nTo fix: in GivTCP, set the **Battery pause mode** to `Disabled` or `PauseDischarge`, or move the pause so it does not cover the charge window. The integration never changes the pause. This repair clears by itself when the pause no longer covers the window."
     }
   },
   "exceptions": {

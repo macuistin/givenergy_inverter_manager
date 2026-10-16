@@ -132,6 +132,11 @@ The oil_schedule leaf was renamed alt_heat_schedule when the oil surface became 
 Only the fresh snapshot's key moved. No case moved, because none passes a record of the immersion's
 grid heating. The behaviour is pinned in tests/core/test_alt_heat_schedule.py and
 tests/core/test_alt_heat_schedule_engine.py.
+
+The battery_pause leaf was added for the battery pause that falls in the night. The fresh snapshot
+gained it as None. No case moved, because none passes a pause. The behaviour is pinned in
+tests/core/test_battery_pause.py, tests/core/test_night_survival_pause.py,
+tests/core/test_sunrise_charge_pause.py and tests/core/test_charge_pause.py.
 """
 
 from __future__ import annotations
