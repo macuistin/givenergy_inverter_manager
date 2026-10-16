@@ -8,7 +8,8 @@ from datetime import datetime
 
 import pytest
 
-from tests.conftest import _raw, _run
+from custom_components.givenergy_inverter_manager.const import CONF_FORECAST_ENTITY_D2
+from tests.conftest import _nightboost_cfg, _raw, _run
 
 BEFORE_MIDNIGHT = datetime(2026, 10, 5, 21, 0)
 AFTER_MIDNIGHT = datetime(2026, 10, 6, 1, 59)
@@ -18,12 +19,16 @@ WRONG_DAY_KWH = 34.8
 TODAY_KWH = 7.1
 
 
-def _decision(now, *, tomorrow, remembered=None, p10=None, remembered_p10=None, d2=None):
+def _decision(
+    now, *, tomorrow, remembered=None, p10=None, remembered_p10=None, d2=None, d2_sensor=False
+):
     raw = _raw(battery_soc=40.0, battery_capacity_kwh=19.0, forecast_kwh_tomorrow=tomorrow)
     raw.forecast_kwh_p10 = p10
     raw.forecast_kwh_d2 = d2
+    cfg = {**_nightboost_cfg(), CONF_FORECAST_ENTITY_D2: "sensor.day_after"} if d2_sensor else None
     data, _ = _run(
         raw=raw,
+        cfg=cfg,
         now=now,
         today_raw_forecast_kwh=remembered,
         today_raw_forecast_p10_kwh=remembered_p10,
@@ -70,10 +75,16 @@ class TestForecastDayP10:
 
 class TestOvermorrowAfterMidnight:
     def test_the_tomorrow_sensor_becomes_the_day_after_the_one_charged_for(self):
-        without = _decision(AFTER_MIDNIGHT, tomorrow=None, remembered=5.0)
-        strong_next_day = _decision(AFTER_MIDNIGHT, tomorrow=25.0, remembered=5.0)
+        without = _decision(AFTER_MIDNIGHT, tomorrow=None, remembered=5.0, d2_sensor=True)
+        strong_next_day = _decision(AFTER_MIDNIGHT, tomorrow=25.0, remembered=5.0, d2_sensor=True)
         assert strong_next_day.target_soc < without.target_soc
         assert "Overmorrow" in strong_next_day.reason
+
+    def test_it_does_not_without_a_day_after_sensor(self):
+        without = _decision(AFTER_MIDNIGHT, tomorrow=None, remembered=5.0)
+        strong_next_day = _decision(AFTER_MIDNIGHT, tomorrow=25.0, remembered=5.0)
+        assert strong_next_day.target_soc == without.target_soc
+        assert "Overmorrow" not in strong_next_day.reason
 
 
 class TestProviderForecastForToday:

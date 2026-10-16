@@ -46,6 +46,7 @@ from ..const import (
     CONF_CURRENCY,
     CONF_DRY_RUN,
     CONF_FORECAST_CONSERVATISM,
+    CONF_FORECAST_ENTITY_D2,
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_SKIP_CHARGE_SOC_THRESHOLD,
     CONF_SURPLUS_DIVERT_MIN_W,
@@ -1234,13 +1235,17 @@ def _solar_forecast(cycle: _Cycle) -> SolarForecast:
 
     Until sunrise that day is today and the sensors, which moved on at midnight, now report
     tomorrow. Today's forecast is the one remembered before midnight, and tomorrow's reading
-    becomes the day after the one being charged for.
+    becomes the day after the one being charged for, but only when a day-after sensor is set.
+    Without one the evening plan has no day-after figure, so the small hours have none either
+    and the target does not step at midnight.
     """
     raw, forecast = cycle.raw, cycle.forecast
     if cycle.now.hour < SOLAR_SUNRISE_HOUR:
         forecast_kwh = forecast.today_raw_forecast_kwh
         forecast_kwh_p10 = forecast.today_raw_forecast_p10_kwh
-        forecast_kwh_d2 = raw.forecast_kwh_tomorrow
+        forecast_kwh_d2 = (
+            raw.forecast_kwh_tomorrow if cycle.cfg.get(CONF_FORECAST_ENTITY_D2) else None
+        )
         solar_shape = forecast.today_raw_forecast_shape
     else:
         forecast_kwh = raw.forecast_kwh_tomorrow
