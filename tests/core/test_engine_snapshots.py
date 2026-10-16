@@ -137,6 +137,12 @@ The battery_pause leaf was added for the battery pause that falls in the night. 
 gained it as None. No case moved, because none passes a pause. The behaviour is pinned in
 tests/core/test_battery_pause.py, tests/core/test_night_survival_pause.py,
 tests/core/test_sunrise_charge_pause.py and tests/core/test_charge_pause.py.
+
+1 of the 255 cases was regenerated when the overmorrow reduction stopped applying before sunrise
+without a day-after forecast sensor. Only charge_decision and published_charge_decision moved, in
+a case made before 08:00 that read the tomorrow sensor as the day after: its target went from 87
+to 100. The behaviour is pinned in tests/core/test_forecast_day.py and
+tests/core/test_midnight_charge_replay.py.
 """
 
 from __future__ import annotations

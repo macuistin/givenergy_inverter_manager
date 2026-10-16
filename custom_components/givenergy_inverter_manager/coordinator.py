@@ -921,11 +921,14 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """The figures a charge write rests on, for a later check to compare with.
 
         The plan reads the day-after forecast from the tomorrow sensor until sunrise and from
-        the day-after sensor from then on (see core/engine.py, _solar_forecast).
+        the day-after sensor from then on, and has none without a day-after sensor (see
+        core/engine.py, _solar_forecast).
         """
         cfg = self._effective_cfg()
         before_sunrise = self._now().hour < SOLAR_SUNRISE_HOUR
-        entity = cfg.get(CONF_FORECAST_ENTITY if before_sunrise else CONF_FORECAST_ENTITY_D2)
+        entity = cfg.get(CONF_FORECAST_ENTITY_D2)
+        if before_sunrise and entity:
+            entity = cfg.get(CONF_FORECAST_ENTITY)
         return PlanBasis(
             decision.forecast_kwh,
             decision.car_plugged_in,

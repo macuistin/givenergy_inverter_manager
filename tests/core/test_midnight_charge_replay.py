@@ -2,23 +2,18 @@
 
 The recorded night showed a recommended target of 75 beside a reason that said "Target 91%", and a
 fall from 100 to 75 at 00:00:24 with the forecast barely moving. These tests feed the engine
-the same kind of cycles, 30 seconds apart across midnight with the hold state carried over, and
-read the fresh decision (what is written to the inverter) and the published one (what the sensors
-show).
+30 second cycles across midnight with the hold state carried over, and read the fresh decision
+(what is written to the inverter) and the published one (what the sensors show).
 
-They pin what the engine does today, so that the cause is on record before it is changed. They do
-not say the behaviour is right. Whoever fixes the issue changes the tests that name the behaviour
-they change.
+The cause: from 00:00 to sunrise the plan charges for the solar day that is now today, and it read
+the "tomorrow" sensor as the day after. That started the overmorrow reduction at midnight with no
+day-after sensor set, though the evening plan, which has no day-after figure, applied none. The
+plan now reads a day-after figure after midnight only when a day-after sensor is set. With one, the
+evening and the small hours both read it, so the target does not step at midnight either.
 
-What the replay shows:
-
-- No day-after forecast is configured, so before midnight the plan has no overmorrow step.
-- After 00:00 and before sunrise the engine charges for the solar day that is now today, and it
-  hands the "tomorrow" forecast to the plan as the day after. The overmorrow reduction then applies,
-  though nothing about the weather changed. The target falls by the reduction at the midnight
-  rollover, and a step of 15 points or more is published at once.
-- The reason starts with the simulation's own target ("Target 91%."). The reduction and the floors
-  come after it, so the first number in the reason is not the one that is written.
+The reason still leads with the simulation's own target ("Target 91%."). A reduction, the EV buffer
+and the floors come after it, so with a day-after sensor the first number in the reason is not the
+one written.
 
 Not covered: the plan text that flipped between 100 and 93 earlier in the evening. It does not
 reproduce without that evening's load history.
@@ -33,7 +28,7 @@ import pytest
 from custom_components.givenergy_inverter_manager.const import (
     CHARGE_MIN_TARGET_HEADROOM_PCT,
     CHARGE_SHOULDER_MIN_SOC,
-    CHARGE_TARGET_HOLD_LARGE_STEP_PCT,
+    CONF_FORECAST_ENTITY_D2,
 )
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
@@ -41,6 +36,8 @@ from tests.conftest import _nightboost_cfg, _raw, _run
 
 CYCLE = timedelta(seconds=30)
 MIDNIGHT = datetime(2026, 10, 16, 0, 0)
+BEFORE_MIDNIGHT = datetime(2026, 10, 15, 23, 59, 30)
+AFTER_MIDNIGHT = datetime(2026, 10, 16, 0, 0, 30)
 CAPACITY_KWH = 19.0
 SOC_PCT = 62.0
 FORECAST_FOR_THE_16TH_KWH = 23.8
@@ -72,11 +69,17 @@ def _replay(
     start: datetime,
     end: datetime,
     *,
+    day_after_sensor: bool = False,
     forecast_17th_kwh: float = FORECAST_FOR_THE_17TH_KWH,
     average_daily_load_kwh: float = AVERAGE_DAILY_LOAD_KWH,
 ) -> list[Step]:
+    """Cycles from start to end. The 17th's forecast is what the day-after sensor holds all night
+    and what the tomorrow sensor holds from midnight.
+    """
     held = HeldCharge()
     cfg = {**_nightboost_cfg(), "overnight_charge_target_pct": 100}
+    if day_after_sensor:
+        cfg[CONF_FORECAST_ENTITY_D2] = "sensor.forecast_day_after"
     steps = []
     now = start
     while now <= end:
@@ -90,6 +93,7 @@ def _replay(
                 forecast_17th_kwh if after_midnight else FORECAST_FOR_THE_16TH_KWH
             ),
         )
+        raw.forecast_kwh_d2 = forecast_17th_kwh if day_after_sensor and not after_midnight else None
         acc = EnergyAccumulator()
         acc.house_kwh = average_daily_load_kwh * minute_of_day / 1440
         data, _ = _run(
@@ -108,80 +112,86 @@ def _replay(
     return steps
 
 
-@pytest.fixture(scope="module")
-def night() -> list[Step]:
-    return _replay(datetime(2026, 10, 15, 23, 55), datetime(2026, 10, 16, 2, 0))
-
-
 def _at(steps: list[Step], when: datetime) -> Step:
     return next(step for step in steps if step.now == when)
 
 
-class TestTheNightReplay:
-    def test_no_day_after_forecast_is_configured_so_the_evening_has_no_overmorrow_step(self, night):
-        evening = [step for step in night if step.now < MIDNIGHT]
-        assert all("Overmorrow" not in step.reason for step in evening)
+@pytest.fixture(scope="module")
+def night_without_a_day_after_sensor() -> list[Step]:
+    return _replay(datetime(2026, 10, 15, 23, 55), datetime(2026, 10, 16, 2, 0))
 
-    def test_the_written_target_falls_at_the_midnight_rollover(self, night):
-        before = _at(night, datetime(2026, 10, 15, 23, 59, 30))
-        after = _at(night, datetime(2026, 10, 16, 0, 0, 0))
-        assert before.written - after.written >= 14
 
-    def test_the_fall_is_the_overmorrow_reduction_not_a_change_in_the_simulation(self, night):
-        before = _at(night, datetime(2026, 10, 15, 23, 59, 30))
-        after = _at(night, datetime(2026, 10, 16, 0, 0, 0))
-        assert abs(after.simulation_target - before.simulation_target) <= 1
-        assert after.written == after.simulation_target - OVERMORROW_REDUCTION_PCT
-        assert f"Overmorrow {FORECAST_FOR_THE_17TH_KWH:.1f}kWh" in after.reason
-        assert f"reduced target by {OVERMORROW_REDUCTION_PCT}%" in after.reason
+@pytest.fixture(scope="module")
+def night_with_a_day_after_sensor() -> list[Step]:
+    return _replay(
+        datetime(2026, 10, 15, 23, 55), datetime(2026, 10, 16, 2, 0), day_after_sensor=True
+    )
 
-    def test_the_reason_leads_with_a_target_that_is_not_the_written_one(self, night):
-        after = _at(night, datetime(2026, 10, 16, 0, 0, 30))
-        assert after.reason.startswith("Forward simulation:")
-        assert after.simulation_target > after.written + OVERMORROW_REDUCTION_PCT - 2
 
-    def test_the_fall_is_published_at_once_because_it_is_a_large_step(self, night):
-        before = _at(night, datetime(2026, 10, 15, 23, 59, 30))
-        after = _at(night, datetime(2026, 10, 16, 0, 0, 30))
-        assert before.published - after.written >= CHARGE_TARGET_HOLD_LARGE_STEP_PCT - 1
+class TestWithoutADayAfterSensor:
+    def test_no_step_takes_points_off_the_target_all_night(self, night_without_a_day_after_sensor):
+        assert all("Overmorrow" not in step.reason for step in night_without_a_day_after_sensor)
+
+    def test_the_target_does_not_step_at_midnight(self, night_without_a_day_after_sensor):
+        before = _at(night_without_a_day_after_sensor, BEFORE_MIDNIGHT)
+        after = _at(night_without_a_day_after_sensor, AFTER_MIDNIGHT)
+        assert abs(before.written - after.written) <= 2
+
+    def test_the_target_written_is_the_one_the_reason_leads_with(
+        self, night_without_a_day_after_sensor
+    ):
+        after = _at(night_without_a_day_after_sensor, AFTER_MIDNIGHT)
+        assert after.written == after.simulation_target
+
+    def test_the_sensors_show_the_written_decision(self, night_without_a_day_after_sensor):
+        after = _at(night_without_a_day_after_sensor, AFTER_MIDNIGHT)
         assert after.published == after.written
-
-    def test_the_night_stays_reduced_until_sunrise(self, night):
-        small_hours = [step for step in night if step.now >= MIDNIGHT]
-        assert all("Overmorrow" in step.reason for step in small_hours)
-
-    def test_the_reason_the_sensors_show_follows_the_written_decision(self, night):
-        after = _at(night, datetime(2026, 10, 16, 0, 0, 30))
         assert after.published_reason == after.reason
 
+    def test_a_tomorrow_forecast_above_the_battery_changes_nothing_either(self):
+        steps = _replay(BEFORE_MIDNIGHT, AFTER_MIDNIGHT, forecast_17th_kwh=60.0)
+        assert "Overmorrow" not in steps[-1].reason
+        assert abs(steps[0].written - steps[-1].written) <= 2
 
-class TestWhatTheFallDependsOn:
-    def test_an_unchanged_forecast_still_falls_at_midnight(self):
-        steps = _replay(
-            datetime(2026, 10, 15, 23, 59, 30),
-            datetime(2026, 10, 16, 0, 0, 30),
-            forecast_17th_kwh=FORECAST_FOR_THE_16TH_KWH,
-        )
-        before, after = steps[0], steps[-1]
-        assert before.written - after.written >= 10
-        assert "Overmorrow" in after.reason
 
-    def test_a_forecast_the_battery_can_absorb_has_no_fall(self):
+class TestWithADayAfterSensor:
+    def test_the_evening_and_the_small_hours_apply_the_same_reduction(
+        self, night_with_a_day_after_sensor
+    ):
+        before = _at(night_with_a_day_after_sensor, BEFORE_MIDNIGHT)
+        after = _at(night_with_a_day_after_sensor, AFTER_MIDNIGHT)
+        assert f"reduced target by {OVERMORROW_REDUCTION_PCT}%" in before.reason
+        assert f"reduced target by {OVERMORROW_REDUCTION_PCT}%" in after.reason
+
+    def test_the_target_does_not_step_at_midnight(self, night_with_a_day_after_sensor):
+        before = _at(night_with_a_day_after_sensor, BEFORE_MIDNIGHT)
+        after = _at(night_with_a_day_after_sensor, AFTER_MIDNIGHT)
+        assert abs(before.written - after.written) <= 2
+
+    def test_the_reason_leads_with_a_target_that_is_not_the_written_one(
+        self, night_with_a_day_after_sensor
+    ):
+        after = _at(night_with_a_day_after_sensor, AFTER_MIDNIGHT)
+        assert after.reason.startswith("Forward simulation:")
+        assert after.simulation_target > after.written
+
+    def test_a_forecast_the_battery_can_absorb_has_no_reduction(self):
         steps = _replay(
-            datetime(2026, 10, 15, 23, 59, 30),
-            datetime(2026, 10, 16, 0, 0, 30),
+            BEFORE_MIDNIGHT,
+            AFTER_MIDNIGHT,
+            day_after_sensor=True,
             forecast_17th_kwh=CAPACITY_KWH - 1,
         )
-        assert "Overmorrow" not in steps[-1].reason
-        assert steps[0].written - steps[-1].written <= 2
+        assert all("Overmorrow" not in step.reason for step in steps)
 
     @pytest.mark.parametrize("load_kwh", [9.0, 11.0, 13.0, 15.0, 17.0])
     def test_the_written_target_is_the_simulation_less_the_reduction_never_under_the_floor(
         self, load_kwh
     ):
         after = _replay(
-            datetime(2026, 10, 16, 0, 0, 24),
-            datetime(2026, 10, 16, 0, 0, 24),
+            AFTER_MIDNIGHT,
+            AFTER_MIDNIGHT,
+            day_after_sensor=True,
             average_daily_load_kwh=load_kwh,
         )[0]
         assert after.written == max(after.simulation_target - OVERMORROW_REDUCTION_PCT, FLOOR_PCT)
