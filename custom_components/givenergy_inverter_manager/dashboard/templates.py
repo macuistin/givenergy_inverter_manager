@@ -359,3 +359,223 @@ def energy_devices_template(ev: str | None, immersion: str | None) -> str | None
     if not parts:
         return None
     return "Of the house use, " + " and ".join(parts) + "."
+
+
+# ── Story sentences ──────────────────────────────────────────────────────────
+# Each page opens with a sentence that says what is happening, so the figures below it only
+# have to back it up. They read sensors at view time, so a stored copy stays current.
+
+# Below this many watts a flow counts as nothing, so a few watts of standby do not read as a
+# source.
+_FLOW_W = 50
+
+
+@dataclass(frozen=True)
+class PowerNow:
+    """The live power sensors the Right now sentence reads."""
+
+    solar: str
+    house: str
+    battery: str
+    grid: str
+
+
+def now_story_template(power: PowerNow, target: str | None, outlook: str | None) -> str:
+    """What the house runs on now and what tonight holds, in two short sentences.
+
+    Battery power is positive while charging and grid power positive while importing, the
+    integration's own convention.
+    """
+    text = (
+        f"{{% set solar = states('{power.solar}') | float(0) %}}"
+        f"{{% set house = states('{power.house}') | float(0) %}}"
+        f"{{% set batt = states('{power.battery}') | float(0) %}}"
+        f"{{% set grid = states('{power.grid}') | float(0) %}}"
+        "{% set src = [] %}"
+        f"{{% if solar > {_FLOW_W} %}}{{% set src = src + ['solar'] %}}{{% endif %}}"
+        f"{{% if batt < -{_FLOW_W} %}}{{% set src = src + ['the battery'] %}}{{% endif %}}"
+        f"{{% if grid > {_FLOW_W} %}}{{% set src = src + ['the grid'] %}}{{% endif %}}"
+        "**{% if src %}Running on {{ src | join(' and ') }}{% else %}Nothing running{% endif %}.** "
+        "House {{ (house / 1000) | round(1) }} kW"
+        f"{{% if batt > {_FLOW_W} %}}, battery charging "
+        "{{ (batt / 1000) | round(1) }} kW{% endif %}"
+        f"{{% if grid < -{_FLOW_W} %}}, exporting "
+        "{{ (-grid / 1000) | round(1) }} kW{% endif %}."
+    )
+    if target:
+        text += (
+            f" {{% set plan = state_attr('{target}', 'plan') %}}Tonight: "
+            "{{ 'no charge needed' if plan == 'skip' else "
+            f"'charging to ' ~ states('{target}') ~ '%' }}}}"
+        )
+        if outlook:
+            text += (
+                f", {{{{ (state_attr('{outlook}', 'outlook') or states('{outlook}')) | lower }}}}"
+            )
+        text += "."
+    return text
+
+
+@dataclass(frozen=True)
+class DayTotals:
+    """The sensors the Today sentence reads. A missing one leaves its clause out."""
+
+    solar: str
+    forecast: str | None
+    house: str | None
+    self_sufficiency: str | None
+    import_cost: str | None
+    export_earnings: str | None
+
+
+def today_story_template(day: DayTotals, symbol: str) -> str:
+    """The day so far in one sentence: what solar made, what the house used, what it cost."""
+    text = (
+        f"{{% set solar = states('{day.solar}') | float(0) %}}"
+        "**Solar made {{ solar | round(1) }} kWh**"
+    )
+    if day.forecast:
+        text += (
+            f"{{% set fc = states('{day.forecast}') | float(0) %}}"
+            "{% if fc > 0 %}, {{ (solar / fc * 100) | round(0) | int }}% of the forecast{% endif %}"
+        )
+    text += "."
+    if day.house:
+        text += f" The house used {{{{ states('{day.house}') | float(0) | round(1) }}}} kWh"
+        if day.self_sufficiency:
+            text += (
+                f", {{{{ states('{day.self_sufficiency}') | float(0) | round(0) | int }}}}% "
+                "of it without the grid"
+            )
+        text += "."
+    if day.import_cost:
+        cost = f"states('{day.import_cost}') | float(0)"
+        text += f" You paid {symbol}{{{{ '%.2f' | format({cost}) }}}}"
+        if day.export_earnings:
+            text += (
+                f" and earned {symbol}"
+                f"{{{{ '%.2f' | format(states('{day.export_earnings}') | float(0)) }}}} for exports"
+            )
+        text += "."
+    return text
+
+
+def tonight_headline_template(target: str, plan: str | None) -> str:
+    """Whether tonight charges, in a heading, with the plan's own line under it in grey."""
+    text = (
+        f"{{% set plan = state_attr('{target}', 'plan') %}}"
+        "### {{ 'No charge needed tonight' if plan == 'skip' else "
+        f"'Charging to ' ~ states('{target}') ~ '% tonight' }}}}"
+    )
+    if plan:
+        text += f"\n<font color='#9e9e9e'>{{{{ states('{plan}') }}}}</font>"
+    return text
+
+
+def tomorrow_story_template(forecast: str, target: str | None, sunrise: str | None) -> str:
+    """Tomorrow's solar, the low estimate when the forecast has one, and the battery at dawn."""
+    text = (
+        f"{{% set kwh = states('{forecast}') | float(0) %}}"
+        f"{{% set low = state_attr('{forecast}', 'estimate10') %}}"
+        "**About {{ kwh | round(0) | int }} kWh of solar expected**"
+        "{% if is_number(low) %}, at least {{ low | float(0) | round(0) | int }} kWh on a dull day"
+        "{% endif %}."
+    )
+    if target and sunrise:
+        text += (
+            f" {{% set plan = state_attr('{target}', 'plan') %}}"
+            "{{ 'No charge is planned tonight' if plan == 'skip' else "
+            f"'Tonight charges to ' ~ states('{target}') ~ '%' }}}}, so the battery should start "
+            f"the day at about {{{{ states('{sunrise}') | float(0) | round(0) | int }}}}%."
+        )
+    return text
+
+
+@dataclass(frozen=True)
+class WaterNow:
+    """The sensors the Hot water sentence reads."""
+
+    water: str
+    target: str | None
+    heater: str | None
+    reason: str | None
+
+
+def water_story_template(water: WaterNow) -> str:
+    """The water temperature, whether the heater is on and why, without repeating the figure.
+
+    The divert reason starts "Water already at" when the water is at its target, which the
+    first sentence already says, so it is left out then.
+    """
+    text = f"{{% set t = states('{water.water}') | float(0) %}}**Water at {{{{ t | round(1) }}}} °C"
+    if water.target:
+        text += (
+            f"{{% if t >= states('{water.target}') | float(0) %}}, at its target{{% endif %}}"
+        )
+    text += ".**"
+    if water.heater:
+        text += (
+            f" {{% if states('{water.heater}') | float(0) > 0 %}}Heating now."
+            "{% else %}Heater off.{% endif %}"
+        )
+    if water.reason:
+        text += (
+            f" {{% set r = state_attr('{water.reason}', 'full_text')"
+            f" or states('{water.reason}') %}}"
+            "{% if 'already at' not in r %}{{ r }}{% endif %}"
+        )
+    return text
+
+
+@dataclass(frozen=True)
+class ChargerNow:
+    """The sensors the EV charger sentence reads."""
+
+    power: str | None
+    state: str | None
+    source: str | None
+    surplus: str | None
+    protection: str | None
+
+
+def ev_story_template(ev: ChargerNow) -> str:
+    """Whether the car is charging, from what, and the battery protection's reason in grey."""
+    power = f"states('{ev.power}') | float(0)" if ev.power else "0"
+    state = f"{{{{ states('{ev.state}') | lower }}}}" if ev.state else "idle"
+    source = f" from {{{{ states('{ev.source}') | lower }}}}" if ev.source else ""
+    text = (
+        f"{{% set p = {power} %}}"
+        f"{{% if p > {_FLOW_W} %}}**Charging at {{{{ (p / 1000) | round(1) }}}} kW**{source}."
+        f"{{% else %}}**Not charging.** The charger is {state}.{{% endif %}}"
+    )
+    if ev.surplus:
+        text += f" Spare solar: {{{{ states('{ev.surplus}') | lower }}}}."
+    if ev.protection:
+        text += (
+            "\n\n<font color='#9e9e9e'>"
+            f"{{{{ state_attr('{ev.protection}', 'full_text') or states('{ev.protection}') }}}}"
+            "</font>"
+        )
+    return text
+
+
+def saved_template(paid: str, without: str, symbol: str) -> str:
+    """What solar and the battery have taken off this bill so far, as a heading and a line."""
+    return (
+        f"{{% set paid = states('{paid}') | float(0) %}}"
+        f"{{% set wout = states('{without}') | float(0) %}}"
+        f"### Saved {symbol}{{{{ '%.2f' | format(wout - paid) }}}} so far\n"
+        f"Solar and the battery have taken {symbol}{{{{ '%.2f' | format(wout - paid) }}}} off this "
+        f"bill. Without them it would be {symbol}{{{{ '%.2f' | format(wout) }}}}."
+    )
+
+
+def plan_text_template(water: str) -> str:
+    """The planned heating for the next ready time, with the cheapest source line under it.
+
+    The planned heating sentence already names the ready time, so it is the whole first line.
+    """
+    return (
+        f"{{% set p = state_attr('{water}', 'planned_heating') %}}"
+        "{{ p or 'The planned heating shows once the water temperature is read.' }}"
+    )

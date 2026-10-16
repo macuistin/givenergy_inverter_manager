@@ -170,3 +170,39 @@ def flow_fallback(flow: dict) -> dict | None:
         *(entity_row(i["entity"], i["name"], icon=i["icon"]) for i in flow.get("individual", [])),
     ]
     return entity_list_card(rows, {"type": "entities"})
+
+
+# Solcast publishes tomorrow's forecast as one entry per half hour, with a typical and a low
+# (10th percentile) estimate in kW. apexcharts-card draws them from the attribute itself.
+_FORECAST_POINTS = (
+    "return (entity.attributes.detailedForecast || []).map("
+    "p => [new Date(p.period_start).getTime(), p.{key}]);"
+)
+
+
+def apex_solar_forecast_chart(forecast: str) -> dict:
+    """Tomorrow's solar through the day: the typical forecast as an area, a dull day as a line."""
+
+    def series(name: str, key: str, color: str, kind: str) -> dict:
+        return {
+            "entity": forecast,
+            "name": name,
+            "type": kind,
+            "color": color,
+            "stroke_width": 2,
+            "curve": "smooth",
+            "show": {"legend_value": False},
+            "data_generator": _FORECAST_POINTS.format(key=key),
+        }
+
+    typical = {**series("Forecast", "pv_estimate", "#ff9800", "area"), "opacity": 0.35}
+    return {
+        "type": "custom:apexcharts-card",
+        "graph_span": "24h",
+        "span": {"start": "day", "offset": "+1d"},
+        "header": {"show": False},
+        "apex_config": {"chart": {"height": 220}, "legend": {"show": True}},
+        "yaxis": [{"min": 0, "decimals": 1, "apex_config": {"title": {"text": "kW"}}}],
+        "series": [typical, series("Dull day", "pv_estimate10", "#ffcc80", "line")],
+        "grid_options": {"columns": "full"},
+    }
