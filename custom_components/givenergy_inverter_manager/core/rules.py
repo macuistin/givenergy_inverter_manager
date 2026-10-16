@@ -51,15 +51,17 @@ from ..const import (
 )
 from ..discovery.ev_charger import SURPLUS_MODE_DEFAULTS, EVCharger
 from .battery import (
+    NightClock,
     NightEstimateInputs,
     estimate_will_survive_night,
     hours_until_solar,
+    minute_of_day,
     paused_night,
 )
 from .battery_pause import PauseWindow, with_note
 from .immersion_ready import ReadyPlan
 from .seasons import NORTHERN_SEASONS, SeasonRules
-from .solar_shape import valid_shape
+from .solar_shape import DEFAULT_SOLAR_END_MINUTE, DEFAULT_SOLAR_SHAPE, valid_shape
 
 # ── Seasonal solar fractions ──────────────────────────────────────────────────
 
@@ -101,24 +103,8 @@ def monthly_solar_fractions(latitude_deg: float) -> dict[int, float]:
 
 # ── Overnight charge decision ─────────────────────────────────────────────────
 
-def _make_solar_slot_weights() -> tuple[float, ...]:
-    """Build normalized 48-slot (30-min) solar generation weights.
-
-    Bell curve centred at 13:00 with σ=3.5 hours, active only between 06:30–19:30.
-    Called once at module import; the result is stored in _SOLAR_SLOT_WEIGHTS.
-    """
-    raw = [
-        math.exp(-0.5 * ((slot / 2.0 - 13.0) / 3.5) ** 2)
-        if 6.5 <= slot / 2.0 <= 19.5
-        else 0.0
-        for slot in range(48)
-    ]
-    total = sum(raw)
-    return tuple(w / total for w in raw) if total > 0 else (1 / 48,) * 48
-
-
-# Normalized per-slot solar weights — built once, reused every cycle.
-_SOLAR_SLOT_WEIGHTS: tuple[float, ...] = _make_solar_slot_weights()
+# Normalized per-slot solar weights, the bell curve the plan assumes with no forecast shape.
+_SOLAR_SLOT_WEIGHTS: tuple[float, ...] = DEFAULT_SOLAR_SHAPE
 
 # The clause the reason carries when the plan used the forecast's own shape.
 SHAPE_REASON = "Solar follows your forecast's shape."
@@ -370,6 +356,9 @@ class ChargeInputs:
     load_profile: list[float] | None = None
     solar_power_w: float = 0.0
     seasons: SeasonRules = NORTHERN_SEASONS
+    # The minute of the day solar is expected to stop today, which starts the night window in
+    # daylight (battery.night_window).
+    solar_end_minute: float = DEFAULT_SOLAR_END_MINUTE
     # The window in which the battery does not discharge, None when there is none. The grid
     # serves the house then, so the load of those slots does not run the battery down.
     battery_pause: PauseWindow | None = None
@@ -557,13 +546,14 @@ def _try_skip(tonight: _Tonight, dt: datetime) -> _SkipCheck:
     if not _is_skip_candidate(tonight):
         return _SkipCheck(skips=False)
     inputs = tonight.inputs
-    paused = paused_night(inputs.battery_pause, dt.hour, inputs.solar_power_w)
+    clock = NightClock(minute_of_day(dt), inputs.solar_power_w, inputs.solar_end_minute)
+    paused = paused_night(inputs.battery_pause, clock)
     survives, _, survival_note = estimate_will_survive_night(
         NightEstimateInputs(
             current_soc=inputs.current_soc,
             battery_capacity_kwh=inputs.battery_capacity_kwh,
             min_soc=float(inputs.min_soc),
-            hours_until_solar=hours_until_solar(dt.hour, inputs.solar_power_w),
+            hours_until_solar=hours_until_solar(clock),
             average_hourly_consumption_kwh=inputs.average_daily_consumption_kwh / 24,
             paused=paused,
         )
@@ -677,7 +667,8 @@ def calculate_overnight_charge_target(
     Skipping also needs the battery to last until solar starts. That check uses the
     same window, inputs and minimum SoC as the night survival sensor (hours_until_solar
     and estimate_will_survive_night), so the plan never skips a charge the survival
-    sensor calls Critical. inputs.solar_power_w tells it whether the sun is still up.
+    sensor calls Critical. inputs.solar_power_w tells it whether the sun is still up, and
+    inputs.solar_end_minute when it is expected to set, which starts the window in daylight.
     """
     if inputs.battery_capacity_kwh <= 0:
         return _build_decision(inputs, _no_capacity_plan(inputs))

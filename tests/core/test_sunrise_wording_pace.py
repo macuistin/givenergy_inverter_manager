@@ -7,6 +7,9 @@ the calculated figure equals the SoC. When solar stops counting at dusk the wind
 08:00 and the calculated figure fell 15 to 20 points in one cycle, while the sensor ramped down
 over half an hour. The explanation then disagreed with the sensor and with its own summary.
 
+The daytime window now starts when solar is expected to stop (20:00 with no forecast shape), so
+the figure still steps at dusk when solar stops earlier, as it does at 18:00 here.
+
 The verdict and a shortfall stay on the calculated figure, so a real shortfall shows at once.
 """
 
@@ -116,7 +119,8 @@ class TestTheWordsQuoteThePublishedFigure:
 
 
 class TestAShortfallShowsAtOnce:
-    EVENING = Evening(30.0, 30.0, 5000.0)
+    # Lasts the evening from 20:00, when solar is expected to stop, but not from 18:00.
+    EVENING = Evening(40.0, 30.0, 5000.0)
 
     def _first_dusk_cycle(self):
         first_night = DUSK + timedelta(minutes=SOLAR_DAY_DEBOUNCE_MINUTES)
