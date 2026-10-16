@@ -79,3 +79,18 @@ def test_the_audit_sensors_are_filled_each_cycle():
     assert data.bill_audit_state.startswith("Bill €")
     assert "This bill period" in data.bill_audit_html
     assert data.previous_bill_audit_state == "Not recorded"
+
+
+def test_the_markdown_tables_are_filled_each_cycle():
+    coord = _coord()
+    data = CoordinatorData()
+    now = datetime(2026, 10, 20, 12, 0)
+
+    coord._attach_bill_audit(data, coord._effective_cfg(), now)
+
+    assert data.bill_audit_bill_table.startswith("| | You paid | Would have paid | Saved |")
+    assert "| 20 Oct (today) | 4.0 kWh |" in data.bill_audit_days_table
+    assert data.previous_bill_audit_summary_table == (
+        "No audit of the last bill period was recorded."
+    )
+    assert data.previous_bill_audit_period == ""

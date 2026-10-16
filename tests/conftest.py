@@ -16,7 +16,7 @@ import sys
 import types
 from dataclasses import dataclass
 from typing import Generic, TypeVar
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 # ---------------------------------------------------------------------------
 # Build homeassistant stub modules
@@ -261,6 +261,17 @@ for _name in ("homeassistant.helpers.debounce", "homeassistant.helpers.start"):
 sys.modules["homeassistant.helpers.debounce"].Debouncer = MagicMock
 sys.modules["homeassistant.helpers.start"].async_at_started = lambda *a, **kw: lambda: None
 
+# homeassistant.helpers.translation and the issue registry reads (used by active_repairs.py)
+sys.modules.setdefault(
+    "homeassistant.helpers.translation", types.ModuleType("homeassistant.helpers.translation")
+)
+sys.modules["homeassistant.helpers.translation"].async_get_translations = AsyncMock(
+    return_value={}
+)
+_issue_reg.EVENT_REPAIRS_ISSUE_REGISTRY_UPDATED = "repairs_issue_registry_updated"
+_issue_reg.async_get = MagicMock()
+sys.modules["homeassistant.core"].CALLBACK_TYPE = object
+
 
 # homeassistant.core needs ServiceCall for services.py
 _core = sys.modules["homeassistant.core"]
@@ -373,6 +384,7 @@ def _run(
         override_skip_charge=kwargs.get("override_skip_charge", False),
         today_raw_forecast_kwh=kwargs.get("today_raw_forecast_kwh"),
         today_raw_forecast_p10_kwh=kwargs.get("today_raw_forecast_p10_kwh"),
+        today_raw_forecast_shape=kwargs.get("today_raw_forecast_shape"),
         held_charge=kwargs.get("held_charge"),
         held_sunrise=kwargs.get("held_sunrise"),
         held_solar=kwargs.get("held_solar"),

@@ -31,7 +31,7 @@ inside it.
 | `optional_devices.py`, `core/devices.py`, `discovery/` | The EV charger (`discovery/ev_charger.py`: Zappi, GivEnergy charger and others), immersion switch and immersion sensor may be absent or added later. `discovery/forecast.py` finds the forecast |
 | `controls.py` | The eight tuning controls: three switches and five numbers, each owning one option key |
 | `dashboard/`, `strategy.py` | The dashboard builder, and the Lovelace strategy that serves it |
-| `repairs.py`, `repair_flows.py`, `services.py` | Repair issues and their fix flows, service actions. `stored_dashboard_repair.py` checks the dashboard `update_dashboard` keeps current |
+| `repairs.py`, `repair_flows.py`, `services.py` | Repair issues and their fix flows, service actions. `stored_dashboard_repair.py` checks the dashboard `update_dashboard` keeps current. `active_repairs.py` reads the open ones for the Active Repairs sensor |
 
 ## Architecture rules
 

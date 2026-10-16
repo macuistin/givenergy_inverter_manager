@@ -7,9 +7,14 @@ import pytest
 
 from custom_components.givenergy_inverter_manager.accumulation import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.const import SOLAR_NOISE_FLOOR_W
-from custom_components.givenergy_inverter_manager.core.battery import hours_until_solar
+from custom_components.givenergy_inverter_manager.core.battery import NightClock, hours_until_solar
+from custom_components.givenergy_inverter_manager.core.solar_shape import DEFAULT_SOLAR_END_MINUTE
 from tests.conftest import _nightboost_cfg, _raw, _run
 from tests.core.flat_rules import calculate_overnight_charge_target
+
+
+def _clock(hour: int, solar_w: float) -> NightClock:
+    return NightClock(hour * 60, solar_w, DEFAULT_SOLAR_END_MINUTE)
 
 
 class TestHoursUntilSolar:
@@ -19,17 +24,17 @@ class TestHoursUntilSolar:
             (2, False, 6.0),  # live night: hours left to 08:00
             (7, False, 1.0),
             (7, True, 1.0),  # early solar noise does not change a live night
-            (11, True, 8.0),  # midday: tonight's pre-solar window, not 21 h
+            (11, True, 12.0),  # midday: from when solar stops (20:00 by default), not 21 h
             (11, False, 21.0),  # no generation after sunrise: from now to sunrise
             (20, False, 12.0),
         ],
     )
     def test_window(self, hour, solar, expected):
-        assert hours_until_solar(hour, SOLAR_NOISE_FLOOR_W if solar else 0.0) == expected
+        assert hours_until_solar(_clock(hour, SOLAR_NOISE_FLOOR_W if solar else 0.0)) == expected
 
     def test_solar_counts_as_generating_from_the_noise_floor_up(self):
-        assert hours_until_solar(11, SOLAR_NOISE_FLOOR_W - 0.1) == 21.0
-        assert hours_until_solar(11, SOLAR_NOISE_FLOOR_W) == 8.0
+        assert hours_until_solar(_clock(11, SOLAR_NOISE_FLOOR_W - 0.1)) == 21.0
+        assert hours_until_solar(_clock(11, SOLAR_NOISE_FLOOR_W)) == 12.0
 
 
 def _plan_and_survival(*, now, soc, capacity, avg_daily, forecast, solar_w):

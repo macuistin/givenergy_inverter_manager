@@ -787,6 +787,9 @@
       "overnight_charge_cost": {
         "name": "Estimated Overnight Charge Cost"
       },
+      "tomorrow_outlook": {
+        "name": "Tomorrow Outlook"
+      },
       "immersion_divert_reason": {
         "name": "Immersion Divert Reason"
       },
@@ -820,6 +823,9 @@
       "ev_session_energy": {
         "name": "EV Session Energy"
       },
+      "ev_session_cost": {
+        "name": "EV Session Cost"
+      },
       "ev_km_charged_today": {
         "name": "EV km Charged Today"
       },
@@ -847,6 +853,9 @@
           "none": "None",
           "suspected": "Suspected"
         }
+      },
+      "active_repairs": {
+        "name": "Active Repairs"
       },
       "dry_run_last_skipped": {
         "name": "Last Skipped Action (Dry Run)"

@@ -9,6 +9,7 @@ table and references these functions by name.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from .const import (
@@ -22,8 +23,11 @@ from .core.alt_heat_advice import WaterHeatingAdvice
 from .core.alt_heat_schedule import AltHeatSchedule
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
+from .core.ev_session import EVSession, EVSessionLog, recent_table
+from .core.repair_summary import repairs_summary
 from .core.setup_progress import setup_state
 from .core.tariff import EnergyAccumulator
+from .core.tomorrow_outlook import outlook_table
 from .core.write_log import newest_first
 
 GRID_IMPORTING = "Importing"
@@ -379,6 +383,33 @@ def overnight_charge_cost(data: CoordinatorData) -> float | None:
     return None
 
 
+def tomorrow_outlook_cost(data: CoordinatorData) -> float | None:
+    """The projected net cost of the solar day the plan is for, None without a projection."""
+    return data.tomorrow_outlook.net_cost if data.tomorrow_outlook else None
+
+
+def tomorrow_outlook_attributes(data: CoordinatorData) -> dict[str, Any] | None:
+    """The lines behind the projected cost, and the dashboard's table of them."""
+    outlook = data.tomorrow_outlook
+    if outlook is None:
+        return None
+    return {
+        "day": outlook.on.isoformat(),
+        "import_kwh": round(outlook.import_kwh, 2),
+        "export_kwh": round(outlook.export_kwh, 2),
+        "import_cost": outlook.import_cost,
+        "export_credit": outlook.export_credit,
+        "charge_kwh": round(outlook.charge_kwh, 2),
+        "charge_cost": outlook.charge_cost,
+        "net_cost": outlook.net_cost,
+        "end_soc_pct": round(outlook.end_soc_pct, 1),
+        "min_soc_pct": round(outlook.min_soc_pct, 1),
+        "forecast_kwh": round(outlook.forecast_kwh, 2),
+        "basis": outlook.basis,
+        "table": outlook_table(outlook, data.currency_symbol),
+    }
+
+
 def overnight_charge_window(data: CoordinatorData) -> str | None:
     """Return the charge window to write, for example "02:00 to 06:30", None before a decision."""
     return data.published_charge_window.text if data.published_charge_window else None
@@ -581,3 +612,50 @@ def solar_actual_vs_forecast_pct(data: CoordinatorData) -> float | None:
     if forecast is None:
         return None
     return _percentage(data.today.solar_kwh, forecast, 1)
+
+
+def _ev_session_log(data: CoordinatorData) -> EVSessionLog:
+    return data.ev_sessions if data.ev_sessions is not None else EVSessionLog()
+
+
+def ev_session_cost(data: CoordinatorData) -> float | None:
+    """The cost of the running EV session, else of the last one, None before the first."""
+    session = _ev_session_log(data).latest
+    return round(session.cost, 4) if session is not None else None
+
+
+def _iso_or_none(moment: datetime | None) -> str | None:
+    return moment.isoformat() if moment is not None else None
+
+
+def _session_row(session: EVSession) -> dict[str, Any]:
+    return {
+        "start": session.start.isoformat(),
+        "end": _iso_or_none(session.end),
+        "energy_kwh": round(session.energy_kwh, 3),
+        "cost": round(session.cost, 4),
+        "per_kwh": _round_or_none(session.per_kwh, 4),
+        # The integration does not split the car's energy by source, so no solar share is known.
+        "solar_kwh": None,
+    }
+
+
+def ev_session_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """The session the state shows, and the finished sessions newest first with their table."""
+    log = _ev_session_log(data)
+    session = log.latest
+    return {
+        "session_energy_kwh": round(session.energy_kwh, 3) if session is not None else None,
+        "started": _iso_or_none(session.start if session is not None else None),
+        "ended": _iso_or_none(session.end if session is not None else None),
+        "recent_sessions": [_session_row(s) for s in log.recent],
+        "recent_table": recent_table(log.recent, data.currency_symbol),
+    }
+
+
+def active_repairs_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """Each open repair of this integration, and the markdown summary the dashboard shows."""
+    return {
+        "issues": [issue.as_attribute() for issue in data.active_repairs],
+        "summary": repairs_summary(data.active_repairs),
+    }

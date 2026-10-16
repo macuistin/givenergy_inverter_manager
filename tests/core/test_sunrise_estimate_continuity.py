@@ -1,8 +1,8 @@
 """The estimated SoC at sunrise moves no faster than the battery can.
 
 The calculated estimate steps at midnight (the day's energy total resets), at 08:00 (the window
-flips from this morning to tonight) and at dusk (the window grows from the pre-solar hours to
-the whole evening). Each step moved the published sensor by 15 points or more in one cycle.
+flips from this morning to tonight) and at dusk when solar stops before the time expected (the
+window then starts now). Each step moved the published sensor by 15 points or more in one cycle.
 """
 
 from datetime import datetime, timedelta, timezone

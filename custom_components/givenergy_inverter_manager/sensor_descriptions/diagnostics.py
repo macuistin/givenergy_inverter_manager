@@ -81,6 +81,14 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=values.charge_target_conflict_state,
     ),
     GivEnergyManagerSensorDescription(
+        key="active_repairs",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="active_repairs",
+        state_class=None,
+        attrs_fn=values.active_repairs_attributes,
+        value_fn=lambda d: len(d.active_repairs),
+    ),
+    GivEnergyManagerSensorDescription(
         key="dry_run_last_skipped",
         entity_category=EntityCategory.DIAGNOSTIC,
         translation_key="dry_run_last_skipped",

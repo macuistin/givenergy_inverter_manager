@@ -54,6 +54,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .accumulation import AccumulationStore
+from .active_repairs import async_active_repairs, async_listen_repairs
 from .const import (
     CHARGE_WRITE_RETRY_OFFSETS_MIN,
     CONF_ALT_HEAT_COST,
@@ -111,7 +112,15 @@ from .const import (
 from .core.alt_heat_cost import heat_cost_per_kwh
 from .core.alt_heat_label import clean_label
 from .core.battery import BatteryStats, battery_cost_prompt_due
-from .core.bill_audit import RunningPeriod, current_period_audit, previous_period_audit
+from .core.bill_audit import (
+    RunningPeriod,
+    bill_table,
+    build_bill_audit,
+    days_table,
+    previous_period_audit,
+    previous_period_summary,
+    running_period,
+)
 from .core.bill_days import tariff_snapshot
 from .core.charge_hold import HeldCharge
 from .core.charge_pause import charge_is_blocked
@@ -136,6 +145,7 @@ from .core.engine import (
 )
 from .core.entity_refs import Registry, resolve
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
+from .core.ev_session import EVSession
 from .core.givtcp_version import FIXED_IN_VERSION, resets_entity_ids
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
@@ -304,6 +314,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._init_writer()
         self._register_time_listeners()
         self.entry.async_on_unload(self._clear_feed_frozen_issue)
+        self.entry.async_on_unload(async_listen_repairs(hass, self._on_repairs_changed))
 
     async def async_detect_test_instance(self) -> None:
         """Look for the test instance marker file once, in the executor, and remember the answer.
@@ -1484,6 +1495,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._require_inverter_publishing(cfg)
         now = self._now()
         raw = self._read_inputs(cfg, now)
+        ev_session_before = self._acc.ev_sessions.current
         data, ev_target_mode = build_coordinator_data(
             CycleInputs(
                 raw=raw,
@@ -1505,6 +1517,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 last_reset_time=self._last_reset_time,
                 counters=self._acc.counters,
                 heat_log=self._acc.immersion_heat_log,
+                ev_sessions=self._acc.ev_sessions,
             ),
             PreviousCycle(
                 battery_stats=self._battery_stats,
@@ -1528,6 +1541,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 today_raw_forecast_shape=self._acc.today_raw_forecast_shape,
             ),
         )
+        self._save_when_ev_session_changed(ev_session_before)
         self._attach_stored_totals(data)
         data.tariff_report_state = build_tariff_state(cfg, now.date())
         data.tariff_report_html = build_tariff_html(cfg, now.date())
@@ -1546,6 +1560,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._check_charge_pause(data, raw)
         self._apply_decisions(data, ev_target_mode, now)
         self._attach_setup_progress(data, raw, cfg)
+        data.active_repairs = await async_active_repairs(self.hass)
         return data
 
     def _begin_cycle(self) -> None:
@@ -1827,7 +1842,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         tariff = build_tariff(tariff_in_force(cfg, now.date()))
         symbol = CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), DEFAULT_CURRENCY_SYMBOL)
         days_in = tariff.days_in_current_bill_period(now)
-        data.bill_audit_state, data.bill_audit_html = current_period_audit(
+        period = running_period(
             RunningPeriod(
                 state.bill_days,
                 state.month,
@@ -1839,10 +1854,22 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 days_in + tariff.days_remaining_in_bill_period(now),
             )
         )
+        data.bill_audit_state, data.bill_audit_html = build_bill_audit(period)
+        data.bill_audit_bill_table = bill_table(period)
+        data.bill_audit_days_table = days_table(period)
         last = state.monthly_snapshots[-1] if state.monthly_snapshots else None
+        fallback = tariff_snapshot(cfg)
         data.previous_bill_audit_state, data.previous_bill_audit_html = previous_period_audit(
-            last, tariff_snapshot(cfg), symbol
+            last, fallback, symbol
         )
+        data.previous_bill_audit_summary_table, data.previous_bill_audit_period = (
+            previous_period_summary(last, fallback, symbol)
+        )
+
+    def _save_when_ev_session_changed(self, before: EVSession | None) -> None:
+        """Queue a save when a charging session started or ended, so a crash cannot lose it."""
+        if self._acc.ev_sessions.current is not before:
+            self._acc.schedule_save()
 
     def _attach_stored_totals(self, data: CoordinatorData) -> None:
         """Copy the period start times, write count and trailing totals onto the snapshot."""
@@ -1906,6 +1933,18 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._ev_base_rate.raised:
             async_delete_ev_base_rate_issue(self.hass)
         self._ev_base_rate = WatchState()
+
+    @callback
+    def _on_repairs_changed(self, _event: Event) -> None:
+        """An issue of this integration was raised, changed or deleted: refresh the count."""
+        self._create_task(self._async_refresh_repairs())
+
+    async def _async_refresh_repairs(self) -> None:
+        """Re-read the open repairs onto the current snapshot and tell the entities."""
+        if self.data is None:
+            return
+        self.data.active_repairs = await async_active_repairs(self.hass)
+        self.async_update_listeners()
 
     def _attach_setup_progress(
         self, data: CoordinatorData, raw: RawSensorValues, cfg: dict

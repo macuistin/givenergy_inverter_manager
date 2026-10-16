@@ -217,6 +217,7 @@ KEY_GROUPS: dict[str, str] = {
             "overnight_charge_reason",
             "overnight_charge_window",
             "overnight_charge_cost",
+            "tomorrow_outlook",
             "estimated_soc_at_sunrise",
             "estimated_soc_at_sunrise_with_charge",
             "night_survival_reason",
@@ -238,6 +239,7 @@ KEY_GROUPS: dict[str, str] = {
             "ev_charger_state",
             "ev_power",
             "ev_session_energy",
+            "ev_session_cost",
             "ev_km_charged_today",
             "ev_cost_per_km_today",
             "ev_draining_battery",
@@ -274,6 +276,7 @@ KEY_GROUPS: dict[str, str] = {
             "dry_run_active",
             "dry_run_last_skipped",
             "charge_target_conflict",
+            "active_repairs",
             "setup_progress",
             "integration_version",
         ),
@@ -441,9 +444,13 @@ DESCRIPTIONS: dict[str, str] = {
     "cost_without_solar_this_month": _WITHOUT_SOLAR,
     "bill_audit": (
         "The bill period day by day, as a bill. The `html` attribute holds the tables and the "
-        "bill beside the same bill with no solar or battery."
+        "bill beside the same bill with no solar or battery. `bill_table` and `days_table` hold "
+        "the bill and the days as markdown tables."
     ),
-    "previous_bill_audit": "The same for the bill period that ended last, from its archive.",
+    "previous_bill_audit": (
+        "The same for the bill period that ended last, from its archive. `summary_table` is "
+        "its bill as a markdown table and `period` its dates."
+    ),
     "days_remaining_in_period": "Days left in the bill period after today.",
     "days_in_period": "Day of the bill period, 1 on the bill start day.",
     "battery_cycles": (
@@ -489,16 +496,32 @@ DESCRIPTIONS: dict[str, str] = {
         "more at once. Attributes: `window_start`, `window_end`, `window_extended`, "
         "`expected_kwh` and `expected_finish`."
     ),
-    "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",
+    "overnight_charge_cost": (
+        "kWh from the SoC up to the target that is written, after the cap or a manual "
+        "override, times the cheapest rate, before discount and VAT. Zero on a skipped night."
+    ),
+    "tomorrow_outlook": (
+        "What the solar day the charge plan is for should cost: grid import plus tonight's "
+        "charge, less the export credit. The day is tomorrow until midnight and today from "
+        "midnight to 08:00. It runs the plan's own half-hour simulation from the level tonight's "
+        "charge leaves, never below the minimum SoC, and prices each half hour's import at the "
+        "rate in force then, with a dated tariff change on that day. The charge is the "
+        "Estimated Overnight Charge Cost figure. An estimate, not a bill. Unknown without a "
+        "battery capacity. Attributes: `day`, `import_kwh`, `import_cost`, `export_kwh`, "
+        "`export_credit`, `charge_kwh`, `charge_cost`, `net_cost`, `end_soc_pct`, "
+        "`min_soc_pct`, `forecast_kwh`, `basis` (the forecast and load used, in words) and "
+        "`table` (the figures as a markdown table)."
+    ),
     "estimated_soc_at_sunrise": (
         "Projected SoC when solar starts, taken as 08:00, if no charge happens: the battery "
         "from now to sunrise on the house load, ignoring tonight's planned charge. It holds at "
         "the minimum SoC when the battery would run flat, so in the evening it can read the "
         "minimum although a charge is planned. This is the figure the Battery Overnight "
         "Outlook and Confidence sensors judge. It spreads the daily average load evenly over "
-        "the hours, the flat load. While solar is generating it covers tonight's "
-        "8 hour pre-solar window from the current SoC. See Estimated SoC at Sunrise With the "
-        "Planned Charge for the same night with the charge in it."
+        "the hours, the flat load. While solar is generating it covers the night from the time "
+        "solar is expected to stop (from the forecast's shape, or 20:00) from the current SoC. "
+        "See Estimated SoC at Sunrise With the Planned Charge for the same night with the "
+        "charge in it."
     ),
     "estimated_soc_at_sunrise_with_charge": (
         "Projected SoC at the next 08:00 with tonight's planned charge in it: the battery runs "
@@ -570,6 +593,14 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "ev_power": "EV charger power.",
     "ev_session_energy": "Energy of the current session, as reported by the charger.",
+    "ev_session_cost": (
+        "Cost of the current charging session, or of the last one while the car is unplugged. "
+        "A session runs from plug-in to unplug and keeps counting across midnight. Each step is "
+        "priced as EV Charging Cost Today prices it, so solar that reached the car costs nothing. "
+        "Attributes: `session_energy_kwh`, `started`, `ended` (empty while charging), "
+        "`recent_sessions` (the last 10 finished sessions, newest first) and `recent_table` "
+        "(the same as a markdown table)."
+    ),
     "ev_km_charged_today": "EV energy today divided by car efficiency. Empty with no EV energy.",
     "ev_cost_per_km_today": "EV cost today divided by km charged.",
     "ev_draining_battery": (
@@ -607,6 +638,12 @@ DESCRIPTIONS: dict[str, str] = {
         "`test_instance` attribute is also true."
     ),
     "dry_run_last_skipped": "The last action dry run mode held back.",
+    "active_repairs": (
+        "How many of this integration's repairs are open and not ignored, the ones under "
+        "**Settings → System → Repairs**. Attributes: `issues` (each one's `issue_id`, `title`, "
+        "`severity` and `fixable`) and `summary` (one bold line per repair and a link to the "
+        "Repairs page, for a dashboard markdown card, empty while there are none)."
+    ),
     "charge_target_conflict": (
         "none, or suspected when something other than this integration seems to be setting the "
         "charge target: at least 2 changes to it in the last 3 days that this integration did "

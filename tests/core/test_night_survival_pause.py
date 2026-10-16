@@ -16,6 +16,7 @@ from custom_components.givenergy_inverter_manager.const import (
     STATE_MAX_LENGTH,
 )
 from custom_components.givenergy_inverter_manager.core.battery import (
+    NightClock,
     NightEstimateInputs,
     PausedNight,
     SurvivalReport,
@@ -26,6 +27,7 @@ from custom_components.givenergy_inverter_manager.core.battery import (
     survival_attributes,
 )
 from custom_components.givenergy_inverter_manager.core.battery_pause import PauseWindow
+from custom_components.givenergy_inverter_manager.core.solar_shape import DEFAULT_SOLAR_END_MINUTE
 from custom_components.givenergy_inverter_manager.core.text_state import fit_state
 
 NIGHT = PauseWindow(time(23, 0), time(8, 0))
@@ -35,14 +37,19 @@ HOURLY_KWH = 0.5
 SOLAR_ON = SOLAR_NOISE_FLOOR_W
 
 
+def _clock(hour: int, solar_w: float = 0.0) -> NightClock:
+    """On the hour, with solar expected to stop at the default curve's end, 20:00."""
+    return NightClock(hour * 60, solar_w, DEFAULT_SOLAR_END_MINUTE)
+
+
 def _inputs(hour: int, soc: float, pause: PauseWindow | None, solar_w: float = 0.0):
     return NightEstimateInputs(
         current_soc=soc,
         battery_capacity_kwh=CAPACITY_KWH,
         min_soc=MIN_SOC,
-        hours_until_solar=hours_until_solar(hour, solar_w),
+        hours_until_solar=hours_until_solar(_clock(hour, solar_w)),
         average_hourly_consumption_kwh=HOURLY_KWH,
-        paused=paused_night(pause, hour, solar_w),
+        paused=paused_night(pause, _clock(hour, solar_w)),
     )
 
 
@@ -57,14 +64,14 @@ class TestTheNightWindow:
             (2, 0.0, (120, 6.0)),  # live night: from now to 08:00
             (20, 0.0, (1200, 12.0)),  # evening: from now to tomorrow's sunrise
             (11, 0.0, (660, 21.0)),  # daytime with no solar
-            (11, SOLAR_ON, (0, 8.0)),  # solar on: tonight's 00:00 to 08:00
+            (11, SOLAR_ON, (1200, 12.0)),  # solar on: from when it stops, 20:00, to 08:00
         ],
     )
     def test_where_it_starts_and_how_long_it_is(self, hour, solar_w, expected):
-        assert night_window(hour, solar_w) == expected
+        assert night_window(_clock(hour, solar_w)) == expected
 
     def test_hours_until_solar_is_its_length(self):
-        assert hours_until_solar(20, 0.0) == 12.0
+        assert hours_until_solar(_clock(20)) == 12.0
 
 
 class TestWhichPausedHoursCount:
@@ -75,19 +82,19 @@ class TestWhichPausedHoursCount:
             (23, 0.0, 9.0),
             (2, 0.0, 6.0),  # 02:00 to 08:00 is all paused
             (7, 0.0, 1.0),
-            (11, SOLAR_ON, 8.0),  # 00:00 to 08:00 is all paused
+            (11, SOLAR_ON, 9.0),  # 20:00 to 08:00 holds 23:00 to 08:00
         ],
     )
     def test_the_paused_hours_of_the_window(self, hour, solar_w, expected_hours):
-        assert paused_night(NIGHT, hour, solar_w) == PausedNight(NIGHT, expected_hours)
+        assert paused_night(NIGHT, _clock(hour, solar_w)) == PausedNight(NIGHT, expected_hours)
 
     def test_no_pause_has_no_paused_night(self):
-        assert paused_night(None, 20, 0.0) is None
+        assert paused_night(None, _clock(20)) is None
 
     def test_a_pause_that_misses_the_night_is_not_part_of_it(self):
         daytime = PauseWindow(time(12, 0), time(14, 0))
 
-        assert paused_night(daytime, 20, 0.0) is None
+        assert paused_night(daytime, _clock(20)) is None
 
 
 class TestTheEstimate:
