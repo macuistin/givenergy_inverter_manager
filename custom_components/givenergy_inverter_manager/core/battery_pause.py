@@ -97,6 +97,14 @@ class PauseWindow:
             spans.append((cursor, span_end - cursor))
         return spans
 
+    def overlaps(self, start: time, end: time) -> bool:
+        """True when any of the window from start to end (wrapping midnight) is in the pause.
+
+        A start equal to the end is a whole day, as the inverter's other windows read it.
+        """
+        minutes = (_minute_of_day(end) - _minute_of_day(start)) % MINUTES_PER_DAY
+        return self.paused_minutes(_minute_of_day(start), minutes or MINUTES_PER_DAY) > 0
+
     def paused_fraction(self, slot: int) -> float:
         """The share of one half hour slot that is paused, 0.0 to 1.0. Slot 0 starts at 00:00."""
         return self.paused_minutes(slot * SLOT_MINUTES, SLOT_MINUTES) / SLOT_MINUTES

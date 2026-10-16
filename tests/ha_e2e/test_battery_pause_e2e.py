@@ -14,11 +14,13 @@ import pytest
 from conftest import PREFIX, Scenario
 from homeassistant.config_entries import RELOAD_AFTER_UPDATE_DELAY
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
-from custom_components.givenergy_inverter_manager.const import DOMAIN
+from custom_components.givenergy_inverter_manager.const import CONF_DRY_RUN, DOMAIN
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
+from custom_components.givenergy_inverter_manager.repairs import ISSUE_CHARGE_BLOCKED_BY_PAUSE
 
 MODE = f"select.{PREFIX}_battery_pause_mode"
 START = f"select.{PREFIX}_battery_pause_start_time_slot"
@@ -208,3 +210,96 @@ async def test_the_overnight_text_names_the_pause_once(hass, loaded_entry):
     assert attributes["explanation"].endswith(NOTE)
     assert attributes["explanation"].count("paused") == 1
     assert len(hass.states.get(entity_id).state) <= 255
+
+
+# ── A pause that stops charging covers the planned charge ───────────────────
+
+
+def _issue(hass):
+    return ir.async_get(hass).async_get_issue(DOMAIN, ISSUE_CHARGE_BLOCKED_BY_PAUSE)
+
+
+async def _refresh_times(hass, entry, times: int = 3) -> None:
+    for _ in range(times):
+        await _refresh(hass, entry)
+
+
+@pytest.mark.parametrize("mode", ["PauseCharge", "PauseBoth"])
+async def test_a_pause_over_the_charge_window_raises_one_repair_after_three_cycles(
+    hass, loaded_entry, mode
+):
+    _publish_the_pause(hass, mode)
+
+    await _refresh_times(hass, loaded_entry, 2)
+    assert _issue(hass) is None
+
+    await _refresh(hass, loaded_entry)
+    issue = _issue(hass)
+    assert issue is not None
+    assert issue.is_fixable is False
+    assert issue.translation_placeholders["pause"] == "23:00 to 08:00"
+    assert issue.translation_placeholders["window"] == (
+        loaded_entry.runtime_data.data.charge_window.text
+    )
+
+
+async def test_the_repair_clears_when_the_pause_no_longer_stops_charging(hass, loaded_entry):
+    _publish_the_pause(hass, "PauseBoth")
+    await _refresh_times(hass, loaded_entry)
+    assert _issue(hass) is not None
+
+    _publish_the_pause(hass, "PauseDischarge")
+    await _refresh(hass, loaded_entry)
+
+    assert _issue(hass) is None
+
+
+async def test_the_repair_clears_when_the_pause_is_removed(hass, loaded_entry):
+    _publish_the_pause(hass, "PauseCharge")
+    await _refresh_times(hass, loaded_entry)
+
+    _remove_the_pause(hass)
+    await _refresh(hass, loaded_entry)
+
+    assert _issue(hass) is None
+
+
+async def test_a_discharge_pause_raises_no_repair(hass, loaded_entry):
+    _publish_the_pause(hass, "PauseDischarge")
+
+    await _refresh_times(hass, loaded_entry, 5)
+
+    assert _issue(hass) is None
+
+
+async def test_a_daytime_charge_pause_raises_no_repair(hass, loaded_entry):
+    _publish_the_pause(hass, "PauseCharge")
+    for entity_id, value in ((START, "09:00:00"), (END, "11:00:00")):
+        hass.states.async_set(entity_id, value)
+
+    await _refresh_times(hass, loaded_entry, 5)
+
+    assert _issue(hass) is None
+
+
+async def test_a_skipped_night_raises_no_repair(hass, loaded_entry):
+    _publish_the_pause(hass, "PauseBoth")
+    loaded_entry.runtime_data.override_skip_charge = True
+
+    await _refresh_times(hass, loaded_entry, 5)
+
+    assert _issue(hass) is None
+
+
+async def test_dry_run_raises_no_repair_and_clears_one(hass, loaded_entry):
+    _publish_the_pause(hass, "PauseBoth")
+    await _refresh_times(hass, loaded_entry)
+    assert _issue(hass) is not None
+
+    hass.config_entries.async_update_entry(
+        loaded_entry, options={**loaded_entry.options, CONF_DRY_RUN: True}
+    )
+    await hass.async_block_till_done()
+    await _refresh_times(hass, loaded_entry, 5)
+
+    assert _issue(hass) is None

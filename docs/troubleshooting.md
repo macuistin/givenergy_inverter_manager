@@ -346,6 +346,14 @@ If GivTCP pauses the battery for a window (a pause mode of `PauseDischarge` or `
 - If the text does not mention a pause you expect, the entities may be missing or unavailable, or GivTCP may use a mode name this integration does not know. In that case the log has one warning that names the mode.
 - A temporary pause started from GivTCP's temporary pause controls is not read.
 
+## The battery pause stops the charge
+
+If GivTCP's pause mode is `PauseCharge` or `PauseBoth` and its window covers part of tonight's charge window, the inverter does not charge in that part. The integration still writes the window and the target, and GivTCP reports them as set, so the write looks fine and the battery does not fill. The repair **The battery pause stops tonight's charge** says so, with the pause and the charge window. It appears after the overlap has held for a few cycles, only while a charge is planned (not on a skipped night), and never in dry run. It clears by itself when the overlap ends.
+
+- In GivTCP, set the pause mode to `Disabled` or `PauseDischarge`, or move the pause so that it does not cover the charge window. `PauseDischarge` keeps the battery from serving the house in its window and still lets it charge.
+- The integration never changes the pause.
+- Check your charge window on **Tonight's Charge Plan**. The window can be longer than the cheapest rate period when the plan needs more hours.
+
 ## The immersion does not turn on
 
 Read **Immersion Divert Reason**. It gives the exact block.

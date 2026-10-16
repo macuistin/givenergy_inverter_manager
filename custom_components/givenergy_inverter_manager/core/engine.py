@@ -247,6 +247,8 @@ class RawSensorValues:
     # The window in which the inverter does not let the battery discharge, None when it has none.
     # The grid serves the house then, so the night estimates leave that load out.
     battery_pause: PauseWindow | None = None
+    # The window in which the inverter does not let the battery charge, None when there is none.
+    charge_pause: PauseWindow | None = None
 
     def __post_init__(self) -> None:
         if self.smoothed_solar_power_w < 0.0:

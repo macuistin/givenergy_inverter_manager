@@ -182,8 +182,8 @@ The integration reads three GivTCP entities on every cycle: `battery_pause_mode`
 | Mode | Treated as |
 | --- | --- |
 | `PauseDischarge` | A pause. The battery does not discharge in the window |
-| `PauseBoth` | A pause for discharge. The charge it also stops is not modelled, see below |
-| `PauseCharge` | No pause. The battery still serves the house, so the estimates are unchanged |
+| `PauseBoth` | A pause for discharge. It also stops charging, see below |
+| `PauseCharge` | No discharge pause. The battery still serves the house, so the estimates are unchanged. It stops charging, see below |
 | `Disabled` | No pause |
 
 Any other text, a start or end that is not a time, a start equal to the end, and entities that are missing or unavailable all give no pause, and the install reads as it did before. A window may wrap midnight. The time can be read from the drop-down or from the time picker, whichever GivTCP publishes.
@@ -196,7 +196,7 @@ While a pause covers part of a span, that part adds no load to the battery:
 
 The words say so once, where the figures are quoted. The sentence `The battery is paused from 23:00 to 08:00.` is in **Battery Overnight Outlook**, the explanation of **Battery Overnight Confidence**, the `basis` of **Estimated SoC at Sunrise With the Planned Charge** and **Overnight Charge Reason**, and the summary of Battery Overnight Confidence ends with `battery paused 23:00 to 08:00`. They say it only when the pause falls in the night being judged. A pause that falls wholly in the day, or no pause, leaves the text as it was.
 
-The integration only reads the pause. It never writes it, with or without dry run. Two things are not modelled. A temporary pause started from GivTCP's temporary pause controls is not read. And a `PauseBoth` window that covers part of the charge window also stops the charge in that part, so the charge the plan expects there may not arrive. If you want the battery to serve the house at night, change the mode in GivTCP.
+The integration only reads the pause. It never writes it, with or without dry run. A temporary pause started from GivTCP's temporary pause controls is not read. The estimates do not model a stopped charge. Instead, when the mode is `PauseCharge` or `PauseBoth` and its window covers part of tonight's planned charge window, the inverter will not charge there, and the repair **The battery pause stops tonight's charge** says so (see [The battery pause stops the charge](troubleshooting.md#the-battery-pause-stops-the-charge)). To let the battery serve the house at night or charge in the cheap window, change the mode in GivTCP.
 
 ### Immersion divert
 

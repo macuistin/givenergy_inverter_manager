@@ -54,6 +54,9 @@ class InverterValues:
     # The window in which the inverter does not let the battery discharge. None when there is no
     # such pause: none is set, it is off or only stops charging, or it cannot be read.
     battery_pause: PauseWindow | None = None
+    # The window in which the inverter does not let the battery charge, None when there is none.
+    # A charge planned inside it does not happen, and the manager only reports that.
+    charge_pause: PauseWindow | None = None
     unavailable_inputs: tuple[str, ...] = ()  # the required inputs that could not be read
 
 

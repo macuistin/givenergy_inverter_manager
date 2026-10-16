@@ -28,7 +28,7 @@ from ...core.battery_pause import PauseWindow
 from ...core.feed_freshness import frozen_age_s, newest_report
 from ...core.inverter_values import FeedState, FeedStatus, InverterValues, RateDefaults
 from ...logging import get_logger
-from .battery_pause import pause_window, pauses_discharge
+from .battery_pause import charge_pause_window, pause_window, pauses_discharge
 from .constants import GIVTCP_SHIPPED_RATES
 from .discovery import (
     GIVTCP_PREFIX,
@@ -143,7 +143,7 @@ class GivTCPReader:
             battery_lifetime_cycles=self._battery_lifetime_cycles(),
             battery_charge_rate_w=self._charge_rate_w(cfg),
             data_age_s=self._data_age_s(cfg),
-            battery_pause=self._battery_pause(cfg),
+            **self._battery_pauses(cfg),
             unavailable_inputs=tuple(unavailable),
             **self._daily_counters(cfg),
         )
@@ -230,21 +230,26 @@ class GivTCPReader:
                 return str(state.state)
         return None
 
-    def _battery_pause(self, cfg: Mapping[str, Any]) -> PauseWindow | None:
-        """The window in which GivTCP stops the battery discharging, None when there is none.
+    def _battery_pauses(self, cfg: Mapping[str, Any]) -> dict[str, PauseWindow | None]:
+        """The windows in which GivTCP stops the battery discharging and charging.
 
         The entities are found from the device prefix on every read, so a pause set up after
         this integration was added is picked up on the next cycle. A device without them, or with
         them unavailable, has no pause. Reads only.
         """
+        none: dict[str, PauseWindow | None] = {"battery_pause": None, "charge_pause": None}
         prefix = device_prefix(cfg)
         if not prefix:
-            return None
+            return none
         entities = battery_pause_entities(prefix)
         mode = self._text(entities.mode)
         if mode is not None and pauses_discharge(mode) is None:
             self._note_unreadable_pause_mode(mode)
-        return pause_window(mode, self._text(*entities.start), self._text(*entities.end))
+        start, end = self._text(*entities.start), self._text(*entities.end)
+        return {
+            "battery_pause": pause_window(mode, start, end),
+            "charge_pause": charge_pause_window(mode, start, end),
+        }
 
     def _note_unreadable_pause_mode(self, mode: str) -> None:
         """Say once per option that the pause mode is not one this reader knows."""

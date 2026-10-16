@@ -21,8 +21,10 @@ from custom_components.givenergy_inverter_manager.const import (
 from custom_components.givenergy_inverter_manager.core.battery_pause import PauseWindow
 from custom_components.givenergy_inverter_manager.core.system_types import select_controller
 from custom_components.givenergy_inverter_manager.inverter.givtcp.battery_pause import (
+    charge_pause_window,
     parse_clock,
     pause_window,
+    pauses_charge,
     pauses_discharge,
 )
 from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
@@ -62,6 +64,43 @@ class TestTheModeOptions:
     )
     def test_whether_an_option_stops_discharge(self, option, pauses_discharge_expected):
         assert pauses_discharge(option) is pauses_discharge_expected
+
+
+class TestWhichOptionsStopCharging:
+    @pytest.mark.parametrize(
+        ("option", "expected"),
+        [
+            ("Disabled", False),
+            ("PauseCharge", True),
+            ("PauseDischarge", False),
+            ("PauseBoth", True),
+            ("pause_charge", True),
+            ("Pause Both", True),
+            ("Eco", None),
+            ("", None),
+            (None, None),
+        ],
+    )
+    def test_whether_an_option_stops_charging(self, option, expected):
+        assert pauses_charge(option) is expected
+
+    @pytest.mark.parametrize(
+        ("mode", "discharge", "charge"),
+        [
+            ("Disabled", None, None),
+            ("PauseCharge", None, NIGHT),
+            ("PauseDischarge", NIGHT, None),
+            ("PauseBoth", NIGHT, NIGHT),
+            ("Eco", None, None),
+        ],
+    )
+    def test_each_mode_gives_the_windows_it_pauses(self, mode, discharge, charge):
+        assert pause_window(mode, "23:00:00", "08:00:00") == discharge
+        assert charge_pause_window(mode, "23:00:00", "08:00:00") == charge
+
+    def test_a_charge_window_needs_two_times(self):
+        assert charge_pause_window("PauseCharge", None, "08:00:00") is None
+        assert charge_pause_window("PauseBoth", "23:00:00", "23:00:00") is None
 
 
 class TestTheTimes:
@@ -186,11 +225,34 @@ class TestASystemWithAPause:
 
         assert _read(states, cfg) is None
 
-    def test_a_pause_that_only_stops_charging_gives_none(self, name):
+    def test_a_pause_that_only_stops_charging_is_no_discharge_pause(self, name):
         states, cfg, prefix = _device(name)
         _set(states, battery_pause_entities(prefix).mode, "PauseCharge")
 
-        assert _read(states, cfg) is None
+        values = GivTCPReader(states.get).read(cfg)
+
+        assert values.battery_pause is None
+        assert values.charge_pause == NIGHT
+
+    def test_a_pause_that_stops_both_gives_both_windows(self, name):
+        states, cfg, prefix = _device(name)
+        _set(states, battery_pause_entities(prefix).mode, "PauseBoth")
+
+        values = GivTCPReader(states.get).read(cfg)
+
+        assert values.battery_pause == NIGHT
+        assert values.charge_pause == NIGHT
+
+    def test_a_discharge_pause_is_no_charge_pause(self, name):
+        states, cfg, _ = _device(name)
+
+        assert GivTCPReader(states.get).read(cfg).charge_pause is None
+
+    def test_a_pause_that_is_off_has_no_charge_pause_either(self, name):
+        states, cfg, prefix = _device(name)
+        _set(states, battery_pause_entities(prefix).mode, "Disabled")
+
+        assert GivTCPReader(states.get).read(cfg).charge_pause is None
 
     def test_unavailable_entities_give_none(self, name):
         states, cfg, prefix = _device(name)
@@ -213,6 +275,7 @@ def test_a_system_with_no_readable_pause_has_none(name):
     states, cfg, _ = _device(name)
 
     assert _read(states, cfg) is None
+    assert GivTCPReader(states.get).read(cfg).charge_pause is None
 
 
 def test_the_real_hybrid_publishes_the_three_entities_as_the_reader_expects():

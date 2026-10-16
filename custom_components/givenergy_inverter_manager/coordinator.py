@@ -114,6 +114,8 @@ from .core.battery import BatteryStats, battery_cost_prompt_due
 from .core.bill_audit import RunningPeriod, current_period_audit, previous_period_audit
 from .core.bill_days import tariff_snapshot
 from .core.charge_hold import HeldCharge
+from .core.charge_pause import charge_is_blocked
+from .core.charge_pause import next_step as next_charge_pause_step
 from .core.charge_retry import (
     Attempt,
     WriteWindow,
@@ -186,6 +188,7 @@ from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
     ClearOutcome,
     async_create_battery_cost_issue,
+    async_create_charge_blocked_by_pause_issue,
     async_create_ev_base_rate_issue,
     async_create_feed_frozen_issue,
     async_create_givtcp_missing_issue,
@@ -197,6 +200,7 @@ from .repairs import (
     async_create_system_different_issue,
     async_create_tariff_review_issue,
     async_delete_battery_cost_issue,
+    async_delete_charge_blocked_by_pause_issue,
     async_delete_ev_base_rate_issue,
     async_delete_feed_frozen_issue,
     async_delete_givtcp_missing_issue,
@@ -325,6 +329,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._renamed_logged: set[str] = set()
         self._version_seen: str | None = None
         self._rtc_off_cycles = 0
+        self._charge_pause_cycles = 0
 
     def _init_cycle_state(self) -> None:
         """State threaded across update cycles."""
@@ -1535,6 +1540,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._watch_ev_base_rate(data, raw, now)
         self._maybe_replan(data, now)
         self._maybe_repair_window(now)
+        self._check_charge_pause(data, raw)
         self._apply_decisions(data, ev_target_mode, now)
         self._attach_setup_progress(data, raw, cfg)
         return data
@@ -1583,6 +1589,28 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             async_create_real_time_control_issue(self.hass)
         elif step.clear_issue:
             async_delete_real_time_control_issue(self.hass)
+
+    def _check_charge_pause(self, data: CoordinatorData, raw: RawSensorValues) -> None:
+        """Raise one repair while a charge-stopping pause covers tonight's planned charge.
+
+        The inverter does not charge in the pause, so a window inside it never fills the battery.
+        Only reports: the pause is never written. Dry run plans no charge write, so it raises
+        nothing there and clears what an earlier cycle raised.
+        """
+        decision = data.charge_decision
+        blocked = not self.is_dry_run and charge_is_blocked(
+            raw.charge_pause,
+            data.charge_window,
+            skipped=decision is None or decision.skip_charge,
+        )
+        step = next_charge_pause_step(blocked=blocked, blocked_cycles=self._charge_pause_cycles)
+        self._charge_pause_cycles = step.blocked_cycles
+        if step.raise_issue and raw.charge_pause is not None and data.charge_window is not None:
+            async_create_charge_blocked_by_pause_issue(
+                self.hass, raw.charge_pause.text, data.charge_window.text
+            )
+        elif step.clear_issue:
+            async_delete_charge_blocked_by_pause_issue(self.hass)
 
     def _check_system(self) -> None:
         """Look at the system again at start-up, every ten cycles and when GivTCP's version moves.
