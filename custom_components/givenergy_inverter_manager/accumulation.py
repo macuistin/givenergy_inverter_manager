@@ -27,6 +27,7 @@ from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.alt_heat_schedule import ImmersionHeatLog
 from .core.bill_days import day_row, tariff_in_effect, with_day
 from .core.entity_refs import clean_remembered
+from .core.ev_session import EVSessionLog
 from .core.immersion_rate import keep_run
 from .core.rules import (
     ForecastAccuracy,
@@ -56,6 +57,8 @@ _ACCUMULATOR_KEYS = ("today", "week", "month", "year", "yesterday")
 # The record of the immersion's grid heating is read with .get and stored only once it holds a
 # day, so it needs no storage version and an install without alternative heating never stores it.
 _HEAT_LOG_KEY = "immersion_heat_history"
+# The EV charging sessions follow the same rule: read with .get, stored once there is a session.
+_EV_SESSIONS_KEY = "ev_sessions"
 _FORECAST_HISTORY_DAYS = 7
 _FORECAST_RATIO_HISTORY_DAYS = 14
 _SLOT_HISTORY_DAYS = 28
@@ -308,6 +311,10 @@ class AccumulationState:
     # The immersion's grid heating by local hour for the last 14 complete days and today, with
     # what it cost. Filled only while alternative heating has a cost. See core/alt_heat_schedule.py.
     immersion_heat_log: ImmersionHeatLog = field(default_factory=ImmersionHeatLog)
+
+    # The running EV charging session and the last finished ones, newest first. See
+    # core/ev_session.py.
+    ev_sessions: EVSessionLog = field(default_factory=EVSessionLog)
 
     # Rolling 12-month export snapshots — one entry per completed billing month,
     # oldest first, capped at 12. Populated at each monthly reset before clearing.
@@ -757,6 +764,10 @@ class AccumulationStore:
     def immersion_heat_log(self) -> ImmersionHeatLog:
         return self.state.immersion_heat_log
 
+    @property
+    def ev_sessions(self) -> EVSessionLog:
+        return self.state.ev_sessions
+
     def record_immersion_rate(self, rate_c_per_h: float) -> None:
         """Keep the heating rate of a finished immersion run and queue a save."""
         self.state.immersion_heating_rates = keep_run(
@@ -825,6 +836,8 @@ def _serialize(state: AccumulationState) -> dict:
     payload = _serialize_state(state)
     if state.immersion_heat_log.days:
         payload[_HEAT_LOG_KEY] = state.immersion_heat_log.to_storage()
+    if not state.ev_sessions.is_empty:
+        payload[_EV_SESSIONS_KEY] = state.ev_sessions.to_storage()
     return payload
 
 
@@ -929,6 +942,10 @@ def _restore_heat_log(state: AccumulationState, data: dict) -> None:
     state.immersion_heat_log = ImmersionHeatLog.from_storage(data.get(_HEAT_LOG_KEY))
 
 
+def _restore_ev_sessions(state: AccumulationState, data: dict) -> None:
+    state.ev_sessions = EVSessionLog.from_storage(data.get(_EV_SESSIONS_KEY))
+
+
 def _restore_period_history(state: AccumulationState, data: dict) -> None:
     state.week_start_iso = data.get("week_start_iso", "")
     state.month_start_iso = data.get("month_start_iso", "")
@@ -953,6 +970,7 @@ def _deserialize(data: dict) -> AccumulationState:
     _restore_slot_load(state, data)
     _restore_immersion_rates(state, data)
     _restore_heat_log(state, data)
+    _restore_ev_sessions(state, data)
     _restore_period_history(state, data)
     return state
 

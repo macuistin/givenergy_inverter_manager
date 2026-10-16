@@ -37,18 +37,38 @@ def _tiles_of(entity: str) -> list[tuple[str, dict]]:
     ]
 
 
-class TestRatesSayPerKwh:
-    @pytest.mark.parametrize("key", _RATE_KEYS)
-    def test_every_tile_of_a_rate_names_the_kwh(self, key):
-        tiles = _tiles_of(_IDS[key])
-        assert tiles, key
-        assert all("kWh" in card["name"] for _, card in tiles), tiles
+def _figures_of(entity: str) -> list[tuple[str, dict]]:
+    """Every named place the entity is shown: its tiles and its rows of a row of figures."""
+    rows = [
+        (view["path"], row)
+        for view in _views()
+        for card in view_cards(view)
+        if card.get("type") == "glance"
+        for row in card["entities"]
+        if row["entity"] == entity
+    ]
+    return _tiles_of(entity) + rows
 
-    def test_the_current_rate_is_labelled_on_power_flow_and_today(self):
-        assert {path for path, _ in _tiles_of(_IDS["current_rate"])} == {"power-flow", "today"}
+
+class TestRatesSayPerKwh:
+    def test_every_figure_of_the_average_rate_names_the_kwh(self):
+        figures = _figures_of(_IDS["avg_import_rate_this_month"])
+        assert figures
+        assert all("kWh" in card["name"] for _, card in figures), figures
+
+    def test_the_current_rate_is_a_chip_on_home_energy_only(self):
+        """The chip shows the rate with its currency beside the battery and the cheap rate."""
+        assert _figures_of(_IDS["current_rate"]) == []
+        chips = [
+            (view["path"], badge.get("entity"))
+            for view in _views()
+            for card in view_cards(view)
+            for badge in card.get("badges", [])
+        ]
+        assert [path for path, entity in chips if entity == _IDS["current_rate"]] == ["power-flow"]
 
     def test_the_average_rate_is_labelled_on_bill(self):
-        assert {path for path, _ in _tiles_of(_IDS["avg_import_rate_this_month"])} == {"plan"}
+        assert {path for path, _ in _figures_of(_IDS["avg_import_rate_this_month"])} == {"bill"}
 
     def test_the_tariff_table_gives_every_rate_per_kwh(self):
         """The table the view builds itself, which it does when the Tariff in use sensor is off."""
@@ -56,8 +76,8 @@ class TestRatesSayPerKwh:
             enable_all=True, devices=devices_of(FULL_CONFIG, "myenergi"), absent={"tariff_in_use"}
         )
         views = yaml.safe_load(dashboard_text(FULL_CONFIG, registry))["views"]
-        view = next(v for v in views if v["path"] == "tariff")
-        tariff = next(s for s in view["sections"] if s["cards"][0]["heading"] == "Tariff in use")
+        view = next(v for v in views if v["path"] == "bill")
+        tariff = next(s for s in view["sections"] if s["cards"][0]["heading"] == "Tariff")
         table = next(c["content"] for c in tariff["cards"] if c["type"] == "markdown")
         header = table.splitlines()[0]
         assert "Rate per kWh" in header
@@ -70,7 +90,7 @@ class TestRatesSayPerKwh:
                 assert len(card["name"]) <= 15, card["name"]
 
 
-# ── Battery view ─────────────────────────────────────────────────────────────
+# ── Tonight view ─────────────────────────────────────────────────────────────
 
 def _battery_section(heading: str, *, registry=None) -> list[dict]:
     parsed = yaml.safe_load(dashboard_text(registry=registry))
@@ -88,20 +108,24 @@ def _battery_seen(heading: str, switch_state: str) -> list[dict]:
     return section["cards"][1:]
 
 
-class TestTonightsChargePlan:
-    def test_the_plan_sentence_is_the_first_element(self):
-        first = _battery_section("Tonight's charge")[0]
-        assert first["type"] == "markdown"
-        assert first["content"] == f"{{{{ states('{_IDS['charge_plan']}') }}}}"
+def _figure_names(cards: list[dict]) -> list[str]:
+    return [r["name"] for c in cards if c["type"] == "glance" for r in c["entities"]]
 
-    def test_the_other_tiles_stay_after_it(self):
-        names = [c["name"] for c in _battery_section("Tonight's charge")[1:]]
-        assert names == [
-            "Target",
-            "Hold at",
-            "Est. cost",
-            "Sunrise (no charge)",
-            "Sunrise (with charge)",
+
+class TestTonightsChargePlan:
+    def test_the_headline_is_the_first_element_with_the_plan_sentence_under_it(self):
+        first = _battery_section("Tonight")[0]
+        assert first["type"] == "markdown"
+        target, plan = _IDS["overnight_charge_target"], _IDS["charge_plan"]
+        assert first["content"].startswith(f"{{% set plan = state_attr('{target}', 'plan') %}}### ")
+        assert first["content"].endswith(f"\n<font color='#9e9e9e'>{{{{ states('{plan}') }}}}</font>")
+
+    def test_the_other_figures_stay_after_it(self):
+        cards = _battery_section("Tonight")[1:]
+        assert _figure_names(cards) == ["Charge cost", "Sunrise if no charge"]
+        assert [c["name"] for c in cards if c["type"] == "tile"] == [
+            "Battery now",
+            "At sunrise",
             "Fixed target",
             "Charge to",
             "Skip tonight",
@@ -109,104 +133,85 @@ class TestTonightsChargePlan:
             "Rate floor",
         ]
 
-    def test_the_target_reads_as_held_on_a_skipped_night_and_as_a_goal_otherwise(self):
-        tiles = {c["name"]: c for c in _battery_section("Tonight's charge")[1:3]}
+    @pytest.mark.parametrize(
+        ("plan", "shown"),
+        [("skip", "### No charge needed tonight"), ("charge", "### Charging to 80% tonight")],
+    )
+    def test_the_headline_says_no_charge_on_a_skipped_night_and_the_target_otherwise(
+        self, plan, shown
+    ):
+        from tests.test_dashboard import _render
 
-        assert tiles["Target"]["visibility"] == [
-            {
-                "condition": "state",
-                "entity": _IDS["overnight_charge_target"],
-                "attribute": "plan",
-                "state_not": "skip",
-            }
-        ]
-        assert tiles["Hold at"]["visibility"] == [
-            {
-                "condition": "state",
-                "entity": _IDS["overnight_charge_target"],
-                "attribute": "plan",
-                "state": "skip",
-            }
-        ]
-        assert tiles["Target"]["entity"] == tiles["Hold at"]["entity"]
+        first = _battery_section("Tonight")[0]
+        target = _IDS["overnight_charge_target"]
+        text = _render(first["content"], lambda e: "80", {(target, "plan"): plan})
+        assert text.splitlines()[0] == shown
 
     def test_the_section_works_while_the_plan_sensor_is_off(self):
-        cards = _battery_section(
-            "Tonight's charge", registry=FakeRegistry(absent={"charge_plan"})
-        )
-        assert {c["type"] for c in cards} == {"tile"}
-        assert cards[0]["name"] == "Target"
+        cards = _battery_section("Tonight", registry=FakeRegistry(absent={"charge_plan"}))
+        assert cards[0]["type"] == "markdown"
+        assert "<font" not in cards[0]["content"]
+        assert _IDS["charge_plan"] not in str(cards)
 
 
 class TestTheTwoSunriseFigures:
     """The estimate at sunrise is shown without and with tonight's planned charge, by name."""
 
-    _NO_CHARGE = "Sunrise (no charge)"
-    _WITH_CHARGE = "Sunrise (with charge)"
+    _NO_CHARGE = "Sunrise if no charge"
+    _WITH_CHARGE = "At sunrise"
 
-    @staticmethod
-    def _tiles(path: str, *, registry=None) -> dict[str, dict]:
-        config = yaml.safe_load(dashboard_text(registry=registry))
-        view = next(v for v in config["views"] if v["path"] == path)
-        return {c["name"]: c for c in view_cards(view) if c.get("type") == "tile"}
+    @classmethod
+    def _figures(cls, *, registry=None) -> dict[str, dict]:
+        cards = _battery_section("Tonight", registry=registry)
+        rows = {r["name"]: r for c in cards if c["type"] == "glance" for r in c["entities"]}
+        return rows | {c["name"]: c for c in cards if c["type"] == "tile"}
 
-    def test_each_figure_has_a_tile_that_says_which_it_is(self):
-        tiles = self._tiles("plan")
-        assert tiles[self._NO_CHARGE]["entity"] == _IDS["estimated_soc_at_sunrise"]
-        assert tiles[self._WITH_CHARGE]["entity"] == _IDS["estimated_soc_at_sunrise_with_charge"]
+    def test_each_figure_has_a_name_that_says_which_it_is(self):
+        figures = self._figures()
+        assert figures[self._NO_CHARGE]["entity"] == _IDS["estimated_soc_at_sunrise"]
+        assert figures[self._WITH_CHARGE]["entity"] == _IDS["estimated_soc_at_sunrise_with_charge"]
 
-    def test_the_names_are_full_width_and_fit_the_tile(self):
+    def test_the_with_charge_bar_is_full_width_beside_the_battery_now(self):
+        tile = self._figures()[self._WITH_CHARGE]
+        assert tile["grid_options"]["columns"] == "full"
+        assert tile["features"] == [{"type": "bar-gauge", "min": 0, "max": 100}]
         for name in (self._NO_CHARGE, self._WITH_CHARGE):
-            tile = self._tiles("plan")[name]
-            assert tile["grid_options"]["columns"] == "full"
             assert len(name) <= 22
 
-    def test_the_old_at_sunrise_tile_is_gone(self):
-        names = set(self._tiles("plan"))
-        assert "At sunrise" not in names
+    def test_the_figures_sit_together_in_tonight(self):
+        cards = _battery_section("Tonight")
+        kinds = [(c["type"], c.get("name")) for c in cards]
+        glance = next(i for i, c in enumerate(cards) if c["type"] == "glance")
+        assert kinds[glance + 1 : glance + 3] == [("tile", "Battery now"), ("tile", self._WITH_CHARGE)]
 
-    def test_the_two_tiles_sit_together_in_the_charge_plan(self):
-        names = [c["name"] for c in _battery_section("Tonight's charge") if "name" in c]
-        assert names[3:5] == [self._NO_CHARGE, self._WITH_CHARGE]
-
-    def test_the_plan_tab_shows_them_once_in_tonights_charge_plan(self):
-        """The overnight section beside it explains the outlook and does not repeat them."""
+    def test_the_tonight_view_shows_them_once(self):
         config = yaml.safe_load(dashboard_text())
         view = next(v for v in config["views"] if v["path"] == "plan")
-        names = [c.get("name") for c in view_cards(view)]
+        names = [c.get("name") for c in view_cards(view)] + _figure_names(view_cards(view))
         assert names.count(self._NO_CHARGE) == names.count(self._WITH_CHARGE) == 1
-        overnight = next(
-            s for s in view["sections"] if s["cards"][0].get("heading") == "Battery overnight"
-        )
-        assert [c["type"] for c in overnight["cards"]][:2] == ["heading", "markdown"]
-        assert self._NO_CHARGE not in [c.get("name") for c in overnight["cards"]]
 
-    def test_a_tile_is_left_out_while_its_sensor_is_not_there(self):
+    def test_a_figure_is_left_out_while_its_sensor_is_not_there(self):
         absent = FakeRegistry(absent={"estimated_soc_at_sunrise_with_charge"})
-        tiles = self._tiles("plan", registry=absent)
-        assert self._WITH_CHARGE not in tiles
-        assert self._NO_CHARGE in tiles
+        figures = self._figures(registry=absent)
+        assert self._WITH_CHARGE not in figures
+        assert self._NO_CHARGE in figures
 
 
 class TestChargeSettingsInForce:
     def _names(self, switch_state: str) -> list[str]:
-        return [c.get("name") for c in _battery_seen("Tonight's charge", switch_state)]
+        return [c.get("name") for c in _battery_seen("Tonight", switch_state)]
 
     def test_the_override_value_shows_only_while_the_override_is_on(self):
         assert "Charge to" in self._names("on")
         assert "Charge to" not in self._names("off")
 
     def test_the_fixed_target_shows_only_while_it_is_on(self):
-        """Tonight's charge lists only what changes it tonight, so an unused switch is hidden."""
+        """Tonight lists only what changes it tonight, so an unused switch is hidden."""
         assert "Fixed target" in self._names("on")
         assert "Fixed target" not in self._names("off")
 
     def test_the_value_is_hidden_by_a_condition_on_the_switch_state(self):
-        card = next(
-            c
-            for c in _battery_section("Tonight's charge")
-            if c.get("name") == "Charge to"
-        )
+        card = next(c for c in _battery_section("Tonight") if c.get("name") == "Charge to")
         assert card["visibility"] == [
             {
                 "condition": "state",
@@ -216,9 +221,7 @@ class TestChargeSettingsInForce:
         ]
 
     def test_dry_run_reads_on_or_off_from_the_summary_attribute(self):
-        card = next(
-            c for c in _battery_section("Tonight's charge") if c.get("name") == "Dry run"
-        )
+        card = next(c for c in _battery_section("Tonight") if c.get("name") == "Dry run")
         assert card["entity"] == _IDS["dry_run_active"]
         assert card["state_content"] == ["summary"]
 
@@ -235,36 +238,7 @@ class TestChargeSettingsInForce:
 class TestBatteryOvernight:
     """The night survival sensors are read as: does the battery last the night."""
 
-    def _tile(self) -> dict:
-        (found,) = [
-            c for _, c in _tiles_of(_IDS["night_survival_confidence"]) if c["name"]
-        ][:1]
-        return found
-
-    def test_the_tile_is_named_for_the_battery_lasting_overnight(self):
-        assert self._tile()["name"] == "Battery overnight"
-
-    def test_the_tile_reads_the_summary_phrase_and_the_charge_at_sunrise(self):
-        tile = self._tile()
-        assert tile["state_content"] == ["summary"]
-        assert tile["grid_options"]["columns"] == "full"
-
-    def test_the_tile_opens_the_plan_tab(self):
-        assert self._tile()["tap_action"]["navigation_path"] == "plan"
-
-    def test_the_battery_tile_stays_beside_the_rate_and_cost_tiles(self):
-        now = next(v for v in _views() if v["path"] == "power-flow")["sections"][0]["cards"]
-        by_name = {c["name"]: c for c in now if c["type"] == "tile"}
-        assert by_name["Battery"]["grid_options"]["rows"] == 2
-        assert by_name["Rate per kWh"]["grid_options"]["columns"] == 6
-        assert by_name["Cost today"]["grid_options"]["columns"] == 6
-
     def test_no_word_on_the_dashboard_says_survival(self):
         text = re.sub(r"(sensor|switch|number)\.[a-z0-9_]+", "", dashboard_text())
         header_free = text[text.index("views:") :]
         assert "survival" not in header_free.lower()
-
-    def test_the_plan_tab_has_a_battery_overnight_heading(self):
-        plan = next(v for v in _views() if v["path"] == "plan")
-        headings = [c["heading"] for c in view_cards(plan) if c["type"] == "heading"]
-        assert "Battery overnight" in headings

@@ -126,8 +126,9 @@ async def test_features_from_the_config_entry_show_up(hass, loaded_entry):
     """The full config has immersion, inverter temperature and a forecast, but no EV charger."""
     text = await _generate(hass)
     names = _names(text, hass)
-    assert "Water temperature" in names
-    assert "Against the forecast" in names
+    assert "Hot water" in names
+    assert "Forecast" in names
+    assert "Tomorrow" in names
     assert "EV charger" not in names
     assert "inverter_temperature" in text
 
@@ -157,8 +158,8 @@ async def test_the_heater_is_a_row_of_the_water_temperature_chart(hass, loaded_e
     assert "Heater on or off" not in headings
 
 
-async def test_today_so_far_tiles_point_at_the_registered_forecast_sensors(hass, loaded_entry):
-    """The forecast tiles sit in Today so far and name the IDs Home Assistant assigned."""
+async def test_the_forecast_figures_point_at_the_registered_forecast_sensors(hass, loaded_entry):
+    """The forecast figures sit under Forecast on Today and name the IDs Home Assistant assigned."""
     text = await _generate(hass)
     registry = er.async_get(hass)
     forecast = registry.async_get_entity_id(
@@ -167,13 +168,12 @@ async def test_today_so_far_tiles_point_at_the_registered_forecast_sensors(hass,
     tracking = registry.async_get_entity_id(
         "sensor", DOMAIN, f"{loaded_entry.entry_id}_solar_actual_vs_forecast_pct"
     )
-    view = next(v for v in yaml.safe_load(text)["views"] if v["path"] == "power-flow")
-    section = next(
-        s for s in view["sections"] if s["cards"][0].get("heading") == "Today so far"
-    )
-    tiles = {c["name"]: c["entity"] for c in section["cards"] if c["type"] == "tile"}
-    assert tiles["Solar forecast"] == forecast
-    assert tiles["Of forecast"] == tracking
+    view = next(v for v in yaml.safe_load(text)["views"] if v["path"] == "today")
+    cards = view_cards(view)
+    start = next(i for i, c in enumerate(cards) if c.get("heading") == "Forecast")
+    figures = {r["name"]: r["entity"] for r in cards[start + 1]["entities"]}
+    assert figures["Forecast"] == forecast
+    assert figures["Reached"] == tracking
 
 
 async def test_a_charger_found_after_the_file_was_written_shows_up_with_no_regeneration(
@@ -302,9 +302,15 @@ async def test_settings_are_visible_to_the_real_administrators_only(hass, loaded
         b
         for card in all_cards(views)
         for b in card.get("badges", [])
-        if b["tap_action"]["navigation_path"] == "settings"
+        if b.get("tap_action", {}).get("navigation_path") == "settings"
     ]
     assert button["visibility"] == [{"condition": "user", "users": [admin.id]}]
+    [shortcut] = [
+        c
+        for c in all_cards(views)
+        if c["type"] == "shortcut" and c["tap_action"]["navigation_path"] == "settings"
+    ]
+    assert shortcut["visibility"] == [{"condition": "user", "users": [admin.id]}]
 
 
 async def test_without_an_administrator_there_is_no_settings_view(hass, loaded_entry):
@@ -323,24 +329,7 @@ async def test_a_viewer_who_is_not_an_administrator_gets_no_settings_view(hass, 
     assert admin.id not in text
 
 
-# ── the "where today's energy came from" card, rendered by Home Assistant ────
-
-
-def _sources_card(text: str) -> str:
-    """The markdown of the sources card on the Today tab, as the file holds it."""
-    today = next(v for v in yaml.safe_load(text)["views"] if v["path"] == "today")
-    cards = [
-        c for c in view_cards(today) if c["type"] == "markdown" and "house_entity" in c["content"]
-    ]
-    assert len(cards) == 1
-    return cards[0]["content"]
-
-
-def _set_the_live_day(hass, ids: dict[str, str], attributes: dict) -> None:
-    hass.states.async_set(ids["self_sufficiency"], "59.3", attributes)
-    hass.states.async_set(ids["house_kwh_today"], "11.3")
-    hass.states.async_set(ids["import_today"], "12.1")
-    hass.states.async_set(ids["battery_discharge_kwh_today"], "1.8")
+# ── the story sentences, rendered by Home Assistant ──────────────────────────
 
 
 def _render(hass, content: str) -> str:
@@ -349,78 +338,72 @@ def _render(hass, content: str) -> str:
     return Template(content, hass).async_render(parse_result=False).strip()
 
 
-_SPLIT_ATTRIBUTES = {
-    "house_load_kwh": 11.3,
-    "from_grid_kwh": 4.6,
-    "grid_to_battery_kwh": 7.5,
-    "from_solar_and_battery_kwh": 6.7,
-    "basis": "ac_charge_counter",
-}
+def _story(text: str, path: str, entity: str) -> str:
+    """The markdown card of the view at path that reads this entity, as the file holds it."""
+    view = next(v for v in yaml.safe_load(text)["views"] if v["path"] == path)
+    (card,) = [
+        c for c in view_cards(view) if c["type"] == "markdown" and f"'{entity}'" in c["content"]
+    ]
+    return card["content"]
 
 
-async def test_the_sources_card_is_in_the_file_and_reads_in_plain_words(hass, loaded_entry):
-    """A fresh install has the battery discharge sensor enabled, so solar and battery are split."""
+async def test_every_markdown_card_renders_in_home_assistant(hass, loaded_entry_with_charger):
+    """Home Assistant's own template engine accepts every card the file holds."""
     text = await _generate(hass)
-    _set_the_live_day(hass, default_entity_ids(), _SPLIT_ATTRIBUTES)
-
-    assert _render(hass, _sources_card(text)) == (
-        "House used **11.3 kWh**: solar 4.9 + battery 1.8 + grid 4.6.\n\n"
-        "Grid import **12.1 kWh**: 4.6 for the house + 7.5 into the battery.\n\n"
-        "**Self-sufficiency 59%** is the share of what the house used that did not come from "
-        "the grid."
-    )
+    cards = [c for c in all_cards(yaml.safe_load(text)["views"]) if c["type"] == "markdown"]
+    assert cards
+    for card in cards:
+        _render(hass, card["content"])
 
 
-async def test_the_sources_card_shows_one_figure_when_the_user_disabled_the_discharge_sensor(
-    hass, loaded_entry
-):
-    registry = er.async_get(hass)
-    entity_id = registry.async_get_entity_id(
-        "sensor", DOMAIN, f"{loaded_entry.entry_id}_battery_discharge_kwh_today"
-    )
-    registry.async_update_entity(entity_id, disabled_by=er.RegistryEntryDisabler.USER)
-    text = await _generate(hass)
-    _set_the_live_day(hass, default_entity_ids(), _SPLIT_ATTRIBUTES)
-
-    assert _render(hass, _sources_card(text)).startswith(
-        "House used **11.3 kWh**: solar and battery 6.7 + grid 4.6."
-    )
-
-
-async def test_the_sources_card_splits_solar_and_battery_with_the_discharge_sensor(
-    hass, loaded_entry
-):
-    from custom_components.givenergy_inverter_manager.dashboard.templates import (
-        EnergySources,
-        energy_sources_template,
-    )
-
-    ids = default_entity_ids()
-    _set_the_live_day(hass, ids, _SPLIT_ATTRIBUTES)
-    sources = EnergySources(
-        ids["self_sufficiency"],
-        ids["house_kwh_today"],
-        ids["import_today"],
-        ids["battery_discharge_kwh_today"],
-    )
-    rendered = _render(hass, energy_sources_template(sources))
-    assert rendered.startswith("House used **11.3 kWh**: solar 4.9 + battery 1.8 + grid 4.6.")
-
-
-async def test_the_sources_card_falls_back_to_the_totals_without_the_attributes(hass, loaded_entry):
-    text = await _generate(hass)
-    _set_the_live_day(hass, default_entity_ids(), {})
-    rendered = _render(hass, _sources_card(text))
-    assert rendered.startswith("House used **11.3 kWh**: solar 0.0 + battery 0.0 + grid 11.3.")
-    assert "is not known" in rendered
-
-
-async def test_the_sources_card_waits_while_the_totals_are_unavailable(hass, loaded_entry):
+async def test_the_today_sentence_reads_the_day_in_plain_words(hass, loaded_entry):
     text = await _generate(hass)
     ids = default_entity_ids()
-    hass.states.async_set(ids["house_kwh_today"], "unavailable")
-    hass.states.async_set(ids["self_sufficiency"], "unavailable", {})
-    assert _render(hass, _sources_card(text)) == "Waiting for today's energy totals."
+    for key, value in (
+        ("solar_today", "12.34"),
+        ("solar_forecast_raw_today", "16"),
+        ("house_kwh_today", "9.06"),
+        ("self_sufficiency", "71.6"),
+        ("import_cost_today", "1.2"),
+        ("export_earnings_today", "0.456"),
+    ):
+        hass.states.async_set(ids[key], value)
+
+    assert _render(hass, _story(text, "today", ids["house_kwh_today"])) == (
+        "**Solar made 12.3 kWh**, 77% of the forecast. The house used 9.1 kWh, 72% of it "
+        "without the grid. You paid €1.20 and earned €0.46 for exports."
+    )
+
+
+async def test_the_right_now_sentence_names_what_the_house_runs_on(hass, loaded_entry):
+    text = await _generate(hass)
+    ids = default_entity_ids()
+    for key, value in (
+        ("solar_power", "2400"),
+        ("house_load", "1300"),
+        ("battery_power", "-600"),
+        ("grid_power", "-500"),
+    ):
+        hass.states.async_set(ids[key], value)
+
+    rendered = _render(hass, _story(text, "power-flow", ids["house_load"]))
+    assert rendered.startswith(
+        "**Running on solar and the battery.** House 1.3 kW, exporting 0.5 kW. Tonight: "
+    )
+
+
+async def test_the_sentences_wait_quietly_while_the_sensors_are_unavailable(hass, loaded_entry):
+    text = await _generate(hass)
+    ids = default_entity_ids()
+    for key in ("solar_power", "house_load", "battery_power", "grid_power", "solar_today"):
+        hass.states.async_set(ids[key], "unavailable")
+
+    assert _render(hass, _story(text, "power-flow", ids["house_load"])).startswith(
+        "**Nothing running.** House 0.0 kW."
+    )
+    assert _render(hass, _story(text, "today", ids["house_kwh_today"])).startswith(
+        "**Solar made 0.0 kWh**"
+    )
 
 
 async def test_scheduled_rate_changes_in_the_options_show_on_the_tariff_view(hass, loaded_entry):

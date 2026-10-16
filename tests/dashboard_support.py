@@ -170,12 +170,26 @@ def fake_entry(config: dict | None = None, ev_brand: str | None = None):
     return entry
 
 
-def fake_states_hass(states: tuple[str, ...] = (), entries: list | None = None):
-    """A hass double whose state machine knows the given entity ids."""
+def fake_states_hass(
+    states: tuple[str, ...] = (),
+    entries: list | None = None,
+    attributes: dict[str, dict] | None = None,
+):
+    """A hass double whose state machine knows the given entity ids.
+
+    attributes gives some of them attributes, as {entity id: attributes}. The others have none.
+    """
+    attributes = attributes or {}
+
+    def state(entity_id: str) -> SimpleNamespace:
+        return SimpleNamespace(entity_id=entity_id, attributes=attributes.get(entity_id, {}))
+
     hass = MagicMock()
     hass.config_entries.async_entries.return_value = entries or []
-    hass.states.get = lambda entity_id: MagicMock() if entity_id in states else None
-    hass.states.async_all.return_value = []
+    hass.states.get = lambda entity_id: state(entity_id) if entity_id in states else None
+    hass.states.async_all = lambda domain: [
+        state(entity_id) for entity_id in states if entity_id.startswith(f"{domain}.")
+    ]
     return hass
 
 
@@ -252,6 +266,8 @@ def dashboard_text(
     is_admin: bool = True,
     ev_brand: str | None = "myenergi",
     states: tuple[str, ...] = (),
+    attributes: dict[str, dict] | None = None,
+    series_colours: bool = False,
 ) -> str:
     """The generated dashboard as YAML text, which is easy to search and to pin with a hash.
 
@@ -266,6 +282,8 @@ def dashboard_text(
         is_admin=is_admin,
         ev_brand=ev_brand,
         states=states,
+        attributes=attributes,
+        series_colours=series_colours,
     )
     return dashboard_yaml(dashboard)
 
@@ -291,12 +309,18 @@ def dashboard_dict(
     is_admin: bool = True,
     ev_brand: str | None = "myenergi",
     states: tuple[str, ...] = (),
+    attributes: dict[str, dict] | None = None,
+    series_colours: bool = False,
 ) -> dict:
-    """The generated dashboard as a dict, before it is serialised."""
+    """The generated dashboard as a dict, before it is serialised.
+
+    states are the other entity ids Home Assistant holds, and attributes the attributes of some
+    of them. series_colours says the release draws a chart series in its own colour.
+    """
     from custom_components.givenergy_inverter_manager.dashboard import HostFacts, build_dashboard
 
     config = FULL_CONFIG if config is None else config
     entry = fake_entry(config, ev_brand)
     registry = registry or FakeRegistry(enable_all=True, devices=devices_of(config, ev_brand))
-    facts = HostFacts(resources, admin_ids, is_admin)
-    return build_dashboard(fake_states_hass(states), entry, facts, registry)
+    facts = HostFacts(resources, admin_ids, is_admin, series_colours)
+    return build_dashboard(fake_states_hass(states, attributes=attributes), entry, facts, registry)

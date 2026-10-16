@@ -1,17 +1,19 @@
 """
 services.py — service actions for GivEnergy Inverter Manager.
 
-Registers the appliance, tariff, ROI, year-on-year, export and dashboard YAML actions. The
-dashboard itself is the strategy in strategy.py, built each time the dashboard opens. The
-dashboard YAML action returns the same dashboard as text, for a fallback that needs no
-strategy script: paste it into a dashboard's raw configuration editor.
+Registers the appliance, tariff, ROI, year-on-year, export and the two dashboard actions. The
+dashboard YAML action returns the generated dashboard as text, to paste into a dashboard's raw
+configuration editor. The update dashboard action writes it into a storage dashboard the user
+picked, and remembers that dashboard so the out-of-date repair (stored_dashboard_repair.py) can
+offer the same update later. Nothing is written to a dashboard without one of those two clicks.
 """
 
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
+from typing import Any
 
 import yaml
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
@@ -19,23 +21,37 @@ from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
 
 from .const import (
+    CONF_STORED_DASHBOARD_URL_PATH,
     DOMAIN,
     SERVICE_COMPARE_TARIFF,
     SERVICE_EXPORT_ENERGY_DATA,
     SERVICE_GET_DASHBOARD_YAML,
     SERVICE_GET_ROI_SUMMARY,
     SERVICE_SUGGEST_APPLIANCE,
+    SERVICE_UPDATE_DASHBOARD,
     SERVICE_YEAR_ON_YEAR,
 )
+from .controls import async_set_option
 from .core.rules import ApplianceRequest, RateContext, SiteReadings, suggest_appliance_run
+from .core.stored_dashboard import (
+    DashboardFacts,
+    DashboardRefused,
+    as_stored,
+    choose_url_path,
+    ensure_writable,
+)
 from .core.tariff import BillBreakdown, TariffConfig, build_tariff
 from .dashboard import async_host_facts, build_dashboard
 from .logging import get_logger
+from .repairs import async_delete_dashboard_out_of_date_issue
 
 _LOG = get_logger(__name__)
 
 _EXPORT_FILENAME = "givenergy_energy_export.csv"
 DASHBOARD_FILENAME = "givenergy_dashboard.yaml"
+DASHBOARD_BACKUP_FILENAME = "givenergy_dashboard_backup.yaml"
+# Lovelace's default dashboard. Newer releases list it under this URL path, older ones under None.
+_DEFAULT_DASHBOARD = "lovelace"
 
 
 def loaded_entries(hass: HomeAssistant) -> list[ConfigEntry]:
@@ -568,6 +584,135 @@ def _make_dashboard_yaml_handler(hass: HomeAssistant):
     return handle
 
 
+# ── update_dashboard ─────────────────────────────────────────────────────────
+
+
+def _lovelace_dashboards(hass: HomeAssistant) -> Mapping[str | None, Any]:
+    """The dashboards Lovelace holds, by URL path. Empty while Lovelace is not loaded."""
+    from homeassistant.components.lovelace.const import LOVELACE_DATA  # noqa: PLC0415
+
+    data = hass.data.get(LOVELACE_DATA)
+    return {} if data is None else data.dashboards
+
+
+def lovelace_is_loaded(hass: HomeAssistant) -> bool:
+    """True once Lovelace has read its dashboards, so a missing one is really missing."""
+    from homeassistant.components.lovelace.const import LOVELACE_DATA  # noqa: PLC0415
+
+    return hass.data.get(LOVELACE_DATA) is not None
+
+
+def _find_dashboard(hass: HomeAssistant, url_path: str) -> Any | None:
+    """The Lovelace dashboard at *url_path*, looked up the way the frontend does."""
+    dashboards = _lovelace_dashboards(hass)
+    if url_path == _DEFAULT_DASHBOARD:
+        return dashboards.get(_DEFAULT_DASHBOARD) or dashboards.get(None)
+    return dashboards.get(url_path)
+
+
+async def _saved_config(dashboard: Any) -> dict | None:
+    """The dashboard's saved configuration, or None while it has none."""
+    from homeassistant.components.lovelace.const import ConfigNotFound  # noqa: PLC0415
+
+    try:
+        return await dashboard.async_load(False)
+    except ConfigNotFound:
+        return None
+
+
+async def async_dashboard_facts(hass: HomeAssistant, url_path: str) -> DashboardFacts:
+    """Whether a dashboard exists at *url_path*, its mode and, in storage mode, its config."""
+    from homeassistant.components.lovelace.const import MODE_STORAGE  # noqa: PLC0415
+
+    dashboard = _find_dashboard(hass, url_path)
+    if dashboard is None:
+        return DashboardFacts(exists=False)
+    if dashboard.mode != MODE_STORAGE:
+        return DashboardFacts(exists=True)
+    return DashboardFacts(exists=True, storage_mode=True, config=await _saved_config(dashboard))
+
+
+async def async_admin_dashboard(hass: HomeAssistant, entry: ConfigEntry) -> dict:
+    """The dashboard get_dashboard_yaml returns to an administrator, as storage would hold it."""
+    facts = await async_host_facts(hass, is_admin=True)
+    return as_stored(build_dashboard(hass, entry, facts))
+
+
+def stored_dashboard_url_path(entry: ConfigEntry) -> str:
+    """The URL path of the dashboard kept current, or an empty string when there is none."""
+    return entry.options.get(CONF_STORED_DASHBOARD_URL_PATH) or ""
+
+
+def _refused(err: DashboardRefused) -> ServiceValidationError:
+    return ServiceValidationError(
+        translation_domain=DOMAIN,
+        translation_key=err.refusal.value,
+        translation_placeholders={"url_path": err.url_path},
+    )
+
+
+async def _writable_target(hass: HomeAssistant, entry: ConfigEntry, url_path: str | None):
+    """The URL path to write and what it holds now, or a translated refusal."""
+    try:
+        target = choose_url_path(url_path, stored_dashboard_url_path(entry))
+        facts = await async_dashboard_facts(hass, target)
+        ensure_writable(target, facts, recovery_mode=hass.config.recovery_mode)
+    except DashboardRefused as err:
+        raise _refused(err) from err
+    return target, facts
+
+
+async def _back_up(hass: HomeAssistant, config: Mapping | None) -> str | None:
+    """Write the config being replaced to the backup file and return its path."""
+    if config is None:
+        return None
+    text = yaml.safe_dump(as_stored(config), sort_keys=False, allow_unicode=True)
+    return await _write_config_file(hass, DASHBOARD_BACKUP_FILENAME, text)
+
+
+def _remember(hass: HomeAssistant, entry: ConfigEntry, url_path: str) -> None:
+    if stored_dashboard_url_path(entry) != url_path:
+        async_set_option(hass, entry, CONF_STORED_DASHBOARD_URL_PATH, url_path)
+
+
+def forget_stored_dashboard(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Stop keeping a dashboard current."""
+    async_set_option(hass, entry, CONF_STORED_DASHBOARD_URL_PATH, "")
+
+
+async def async_update_stored_dashboard(hass: HomeAssistant, url_path: str | None) -> dict:
+    """Write the generated dashboard into a storage dashboard, and keep that one current.
+
+    The dashboard is the one *url_path* names, else the one written last time. Its current
+    config is first saved to the backup file. The action and the repair's fix both come here.
+    """
+    entry = primary_entry(hass)
+    target, facts = await _writable_target(hass, entry, url_path)
+    config = await async_admin_dashboard(hass, entry)
+    backup = await _back_up(hass, facts.config)
+    await _find_dashboard(hass, target).async_save(config)
+    _remember(hass, entry, target)
+    async_delete_dashboard_out_of_date_issue(hass)
+    _LOG.info("Wrote the GivEnergy dashboard to /%s", target)
+    return {"url_path": target, "views": len(config["views"]), "backup_file": backup}
+
+
+def _make_update_dashboard_handler(hass: HomeAssistant):
+    """Return the update_dashboard service handler bound to *hass*."""
+
+    async def handle(call: ServiceCall) -> dict:
+        """Write the generated dashboard into the storage dashboard the call names."""
+        require_loaded_entries(hass)
+        if not await _caller_is_admin(hass, call):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="dashboard_update_needs_admin",
+            )
+        return await async_update_stored_dashboard(hass, call.data.get("url_path"))
+
+    return handle
+
+
 # ── registration ─────────────────────────────────────────────────────────────
 
 
@@ -587,6 +732,9 @@ _SERVICES = (
     _ServiceSpec(SERVICE_YEAR_ON_YEAR, _make_year_on_year_handler, SupportsResponse.OPTIONAL),
     _ServiceSpec(SERVICE_EXPORT_ENERGY_DATA, _make_export_handler, SupportsResponse.OPTIONAL),
     _ServiceSpec(SERVICE_GET_DASHBOARD_YAML, _make_dashboard_yaml_handler, SupportsResponse.ONLY),
+    _ServiceSpec(
+        SERVICE_UPDATE_DASHBOARD, _make_update_dashboard_handler, SupportsResponse.OPTIONAL
+    ),
 )
 
 

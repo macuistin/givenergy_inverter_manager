@@ -35,3 +35,15 @@ async def test_the_html_attribute_is_not_recorded(hass, loaded_entry):
     from custom_components.givenergy_inverter_manager.sensor import _UNRECORDED_ATTRIBUTES
 
     assert "html" in _UNRECORDED_ATTRIBUTES
+
+
+async def test_the_audit_sensors_publish_markdown_tables(hass, loaded_entry):
+    current = hass.states.get(IDS["bill_audit"]).attributes
+    previous = hass.states.get(IDS["previous_bill_audit"]).attributes
+
+    assert current["bill_table"].startswith("| | You paid | Would have paid | Saved |")
+    assert "| **Total** |" in current["bill_table"]
+    assert current["days_table"].startswith("| Day | Imported | You paid |")
+    assert "(today)" in current["days_table"]
+    assert previous["summary_table"] == "No audit of the last bill period was recorded."
+    assert previous["period"] == ""

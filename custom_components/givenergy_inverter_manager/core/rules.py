@@ -51,15 +51,17 @@ from ..const import (
 )
 from ..discovery.ev_charger import SURPLUS_MODE_DEFAULTS, EVCharger
 from .battery import (
+    NightClock,
     NightEstimateInputs,
     estimate_will_survive_night,
     hours_until_solar,
+    minute_of_day,
     paused_night,
 )
 from .battery_pause import PauseWindow, with_note
 from .immersion_ready import ReadyPlan
 from .seasons import NORTHERN_SEASONS, SeasonRules
-from .solar_shape import valid_shape
+from .solar_shape import DEFAULT_SOLAR_END_MINUTE, DEFAULT_SOLAR_SHAPE, valid_shape
 
 # ── Seasonal solar fractions ──────────────────────────────────────────────────
 
@@ -101,24 +103,8 @@ def monthly_solar_fractions(latitude_deg: float) -> dict[int, float]:
 
 # ── Overnight charge decision ─────────────────────────────────────────────────
 
-def _make_solar_slot_weights() -> tuple[float, ...]:
-    """Build normalized 48-slot (30-min) solar generation weights.
-
-    Bell curve centred at 13:00 with σ=3.5 hours, active only between 06:30–19:30.
-    Called once at module import; the result is stored in _SOLAR_SLOT_WEIGHTS.
-    """
-    raw = [
-        math.exp(-0.5 * ((slot / 2.0 - 13.0) / 3.5) ** 2)
-        if 6.5 <= slot / 2.0 <= 19.5
-        else 0.0
-        for slot in range(48)
-    ]
-    total = sum(raw)
-    return tuple(w / total for w in raw) if total > 0 else (1 / 48,) * 48
-
-
-# Normalized per-slot solar weights — built once, reused every cycle.
-_SOLAR_SLOT_WEIGHTS: tuple[float, ...] = _make_solar_slot_weights()
+# Normalized per-slot solar weights, the bell curve the plan assumes with no forecast shape.
+_SOLAR_SLOT_WEIGHTS: tuple[float, ...] = DEFAULT_SOLAR_SHAPE
 
 # The clause the reason carries when the plan used the forecast's own shape.
 SHAPE_REASON = "Solar follows your forecast's shape."
@@ -286,15 +272,20 @@ class _SimulatedDay:
     pause: PauseWindow | None = None
 
 
-def _slot_net_pct(day: _SimulatedDay, slot: int, weight: float, slot_load_kwh: float) -> float:
-    """The battery's change over one slot, in points of its capacity.
+def _battery_net_kwh(day: _SimulatedDay, slot: int, net_kwh: float) -> float:
+    """The part of a slot's solar surplus or shortfall that reaches the battery.
 
     A shortfall of solar is met from the battery, except in the paused share of the slot,
     where the grid meets it. A surplus charges the battery whether it is paused or not.
     """
-    net_kwh = day.forecast_kwh * weight - slot_load_kwh
     if net_kwh < 0 and day.pause is not None:
-        net_kwh *= 1 - day.pause.paused_fraction(slot)
+        return net_kwh * (1 - day.pause.paused_fraction(slot))
+    return net_kwh
+
+
+def _slot_net_pct(day: _SimulatedDay, slot: int, weight: float, slot_load_kwh: float) -> float:
+    """The battery's change over one slot, in points of its capacity."""
+    net_kwh = _battery_net_kwh(day, slot, day.forecast_kwh * weight - slot_load_kwh)
     return net_kwh / day.battery_capacity_kwh * 100
 
 
@@ -308,6 +299,57 @@ def _simulate_min_soc(start_soc_pct: float, day: _SimulatedDay) -> float:
         soc_pct = max(0.0, min(100.0, soc_pct + net_pct))
         min_reached = min(min_reached, soc_pct)
     return min_reached
+
+
+@dataclass(frozen=True)
+class _SlotStep:
+    """The battery level after one slot, and what the grid gave or took in it."""
+
+    soc_pct: float
+    import_kwh: float
+    export_kwh: float
+
+
+def _step_slot(day: _SimulatedDay, slot: int, soc_pct: float, floor_pct: float) -> _SlotStep:
+    """One slot of the simulated day, with the battery held between floor_pct and full.
+
+    The paused share of a shortfall and any shortfall below the floor come from the grid.
+    Solar the full battery cannot take goes to the grid. A battery that starts below the
+    floor does not discharge further.
+    """
+    net_kwh = day.forecast_kwh * day.solar_weights[slot] - day.slot_loads_kwh[slot]
+    battery_kwh = _battery_net_kwh(day, slot, net_kwh)
+    to_kwh = day.battery_capacity_kwh / 100
+    wanted_pct = soc_pct + battery_kwh / day.battery_capacity_kwh * 100
+    lowest_pct = min(soc_pct, floor_pct)
+    return _SlotStep(
+        soc_pct=max(lowest_pct, min(100.0, wanted_pct)),
+        import_kwh=battery_kwh - net_kwh + max(0.0, lowest_pct - wanted_pct) * to_kwh,
+        export_kwh=max(0.0, wanted_pct - 100.0) * to_kwh,
+    )
+
+
+@dataclass(frozen=True)
+class DayFlows:
+    """The simulated day slot by slot: grid import and export per slot, and the battery."""
+
+    import_kwh: tuple[float, ...]
+    export_kwh: tuple[float, ...]
+    end_soc_pct: float
+    min_soc_pct: float
+
+
+def _simulate_flows(day: _SimulatedDay, start_soc_pct: float, floor_pct: float) -> DayFlows:
+    soc_pct = lowest_pct = start_soc_pct
+    imports: list[float] = []
+    exports: list[float] = []
+    for slot in range(len(day.solar_weights)):
+        step = _step_slot(day, slot, soc_pct, floor_pct)
+        soc_pct = step.soc_pct
+        lowest_pct = min(lowest_pct, soc_pct)
+        imports.append(step.import_kwh)
+        exports.append(step.export_kwh)
+    return DayFlows(tuple(imports), tuple(exports), soc_pct, lowest_pct)
 
 
 def _find_minimum_charge_target(day: _SimulatedDay, min_soc: int) -> int:
@@ -370,6 +412,9 @@ class ChargeInputs:
     load_profile: list[float] | None = None
     solar_power_w: float = 0.0
     seasons: SeasonRules = NORTHERN_SEASONS
+    # The minute of the day solar is expected to stop today, which starts the night window in
+    # daylight (battery.night_window).
+    solar_end_minute: float = DEFAULT_SOLAR_END_MINUTE
     # The window in which the battery does not discharge, None when there is none. The grid
     # serves the house then, so the load of those slots does not run the battery down.
     battery_pause: PauseWindow | None = None
@@ -427,9 +472,28 @@ class _ChargePlan:
     cost_to_charge: float
 
 
+def _kwh_to_charge(battery_capacity_kwh: float, current_soc: float, target_soc: int) -> float:
+    """The energy from the SoC now up to the target, nothing when the target is not above it."""
+    return max(0.0, battery_capacity_kwh * (target_soc - current_soc) / 100)
+
+
 def _cost_to_charge(inputs: ChargeInputs, target_soc: int) -> float:
-    kwh_to_charge = max(0.0, inputs.battery_capacity_kwh * (target_soc - inputs.current_soc) / 100)
+    kwh_to_charge = _kwh_to_charge(inputs.battery_capacity_kwh, inputs.current_soc, target_soc)
     return kwh_to_charge * inputs.cheapest_rate
+
+
+def charge_cost(decision: ChargeDecision, cheapest_rate: float) -> float:
+    """What the decision's charge costs at the cheapest rate, zero on a skipped night.
+
+    Priced the same way as the plan, so a decision whose target an override or the cap
+    changed costs what will be written.
+    """
+    if decision.skip_charge:
+        return 0.0
+    kwh_to_charge = _kwh_to_charge(
+        decision.battery_capacity, decision.current_soc, decision.target_soc
+    )
+    return kwh_to_charge * cheapest_rate
 
 
 def _build_decision(inputs: ChargeInputs, plan: _ChargePlan) -> ChargeDecision:
@@ -557,13 +621,14 @@ def _try_skip(tonight: _Tonight, dt: datetime) -> _SkipCheck:
     if not _is_skip_candidate(tonight):
         return _SkipCheck(skips=False)
     inputs = tonight.inputs
-    paused = paused_night(inputs.battery_pause, dt.hour, inputs.solar_power_w)
+    clock = NightClock(minute_of_day(dt), inputs.solar_power_w, inputs.solar_end_minute)
+    paused = paused_night(inputs.battery_pause, clock)
     survives, _, survival_note = estimate_will_survive_night(
         NightEstimateInputs(
             current_soc=inputs.current_soc,
             battery_capacity_kwh=inputs.battery_capacity_kwh,
             min_soc=float(inputs.min_soc),
-            hours_until_solar=hours_until_solar(dt.hour, inputs.solar_power_w),
+            hours_until_solar=hours_until_solar(clock),
             average_hourly_consumption_kwh=inputs.average_daily_consumption_kwh / 24,
             paused=paused,
         )
@@ -602,6 +667,19 @@ def _overmorrow_reduction(tonight: _Tonight) -> int:
     return max(0, int((d2_fill_pct - 100) / 2))
 
 
+def _day_to_simulate(
+    inputs: ChargeInputs, forecast_kwh: float, solar_shape: tuple[float, ...] | None
+) -> _SimulatedDay:
+    """The day the plan simulates: the forecast spread by its shape, and the per-slot load."""
+    return _SimulatedDay(
+        forecast_kwh,
+        inputs.battery_capacity_kwh,
+        _slot_loads_kwh(inputs.average_daily_consumption_kwh, inputs.load_profile),
+        solar_shape or _SOLAR_SLOT_WEIGHTS,
+        inputs.battery_pause,
+    )
+
+
 def _simulated_plan(tonight: _Tonight, skip_blocked_note: str) -> _ChargePlan:
     """Forward SoC simulation (PALM algorithm).
 
@@ -609,13 +687,7 @@ def _simulated_plan(tonight: _Tonight, skip_blocked_note: str) -> _ChargePlan:
     throughout the simulated day (48 half-hour slots, bell-curve solar profile).
     """
     inputs = tonight.inputs
-    day = _SimulatedDay(
-        tonight.forecast_kwh,
-        inputs.battery_capacity_kwh,
-        _slot_loads_kwh(inputs.average_daily_consumption_kwh, inputs.load_profile),
-        tonight.solar_shape or _SOLAR_SLOT_WEIGHTS,
-        inputs.battery_pause,
-    )
+    day = _day_to_simulate(inputs, tonight.forecast_kwh, tonight.solar_shape)
     target_soc = _find_minimum_charge_target(day, tonight.min_soc)
     reason = (
         f"Forward simulation: {tonight.forecast_kwh:.1f}kWh forecast "
@@ -677,7 +749,8 @@ def calculate_overnight_charge_target(
     Skipping also needs the battery to last until solar starts. That check uses the
     same window, inputs and minimum SoC as the night survival sensor (hours_until_solar
     and estimate_will_survive_night), so the plan never skips a charge the survival
-    sensor calls Critical. inputs.solar_power_w tells it whether the sun is still up.
+    sensor calls Critical. inputs.solar_power_w tells it whether the sun is still up, and
+    inputs.solar_end_minute when it is expected to set, which starts the window in daylight.
     """
     if inputs.battery_capacity_kwh <= 0:
         return _build_decision(inputs, _no_capacity_plan(inputs))
@@ -698,6 +771,46 @@ def calculate_overnight_charge_target(
     if skip.skips:
         return _build_decision(inputs, _skip_plan(tonight, skip.pause))
     return _build_decision(inputs, _simulated_plan(tonight, skip.blocked_note))
+
+
+@dataclass(frozen=True)
+class PlannedDay:
+    """The solar day the charge plan simulates, built the way the plan builds it.
+
+    seasonal_estimate is True when no forecast sensor gave a figure and the plan used the
+    estimate from latitude. per_slot_load is True when the load follows the learned profile.
+    """
+
+    model: _SimulatedDay
+    seasonal_estimate: bool
+    per_slot_load: bool
+
+    @property
+    def forecast_kwh(self) -> float:
+        return self.model.forecast_kwh
+
+    def flows(self, start_soc_pct: float, floor_pct: float) -> DayFlows:
+        """Grid import and export slot by slot from start_soc_pct, never below floor_pct."""
+        return _simulate_flows(self.model, start_soc_pct, floor_pct)
+
+
+def planned_day(inputs: ChargeInputs, forecast: SolarForecast, dt: datetime) -> PlannedDay | None:
+    """The day calculate_overnight_charge_target simulates, with the same forecast and load.
+
+    The forecast is resolved as the plan resolves it, with the accuracy correction and the
+    cautious blend, also in a winter month whose plan does not read it. None without a battery
+    capacity, or with no forecast and no seasonal fractions to estimate one from.
+    """
+    if inputs.battery_capacity_kwh <= 0:
+        return None
+    if forecast.forecast_kwh is None and not forecast.solar_fractions:
+        return None
+    resolved = _resolve_forecast(inputs, forecast, dt.month)
+    return PlannedDay(
+        model=_day_to_simulate(inputs, resolved.kwh, usable_solar_shape(forecast)),
+        seasonal_estimate=forecast.forecast_kwh is None,
+        per_slot_load=_profile_usable(inputs.load_profile),
+    )
 
 
 # ── Immersion divert decision ─────────────────────────────────────────────────

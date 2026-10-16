@@ -1,5 +1,5 @@
 """
-The clarity fixes of the Settings, EV charger, Cost breakdown and Battery detail views.
+The clarity fixes of the Settings, EV charger, cost and Tonight views.
 
 Each view was reviewed against a live install. These tests pin what was fixed: names that
 match the tiles they sit beside, a heading that says what a chart plots, a sentence among
@@ -52,27 +52,42 @@ def _tile_names(cards: list[dict]) -> list[str]:
 
 # ── Cost breakdown ───────────────────────────────────────────────────────────
 
+_COST_HEADING = "Cost per day by use, last 31 days"
+
+
+def _under(config: dict, path: str, heading: str) -> list[dict]:
+    """The cards under this heading of the view at path, up to the next heading."""
+    cards = view_cards(_view(config, path))
+    start = next(i for i, c in enumerate(cards) if c.get("heading") == heading)
+    under = []
+    for card in cards[start + 1 :]:
+        if card["type"] == "heading":
+            break
+        under.append(card)
+    return under
+
 
 def _cost_chart(config: dict) -> dict:
-    (chart,) = _sections(config, "today")["Cost per day, last 14 days"]
+    (chart,) = _under(config, "bill", _COST_HEADING)
     return chart
 
 
 def _cost_names(config: dict) -> list[str]:
-    """The tile names in the Cost section."""
-    return _tile_names(_sections(config, "today")["Cost"])
+    """The names in the split of what today cost."""
+    (split,) = _under(config, "today", "What it cost")
+    return [row["name"] for row in split["entities"]]
 
 
 def test_the_cost_chart_heading_says_what_it_plots_and_for_how_long():
-    assert "Cost per day, last 14 days" in _sections(dashboard_dict(), "today")
-    assert _cost_chart(seen_for(ev=True, switch=True, sensor=True))["days_to_show"] == 14
+    assert _COST_HEADING in [c.get("heading") for c in view_cards(_view(dashboard_dict(), "bill"))]
+    assert _cost_chart(seen_for(ev=True, switch=True, sensor=True))["days_to_show"] == 31
 
 
-def test_the_cost_chart_names_its_series_as_the_cost_section_does():
+def test_the_cost_chart_names_its_series_as_the_cost_split_does():
     config = seen_for(ev=True, switch=True, sensor=True)
     series = [row["name"] for row in _cost_chart(config)["entities"]]
-    assert series == ["Rest of house", "EV charging", "Immersion", "Export earnings"]
-    assert set(series) <= set(_cost_names(config))
+    assert series == ["House", "EV", "Hot water"]
+    assert series == _cost_names(config)
 
 
 def test_the_cost_chart_does_not_draw_the_total_beside_its_parts():
@@ -81,8 +96,10 @@ def test_the_cost_chart_does_not_draw_the_total_beside_its_parts():
     plotted = {row["entity"] for row in _cost_chart(config)["entities"]}
     assert IDS["import_cost_today"] not in plotted
     assert {IDS["house_cost_today"], IDS["zappi_cost_today"], IDS["immersion_cost_today"]} <= plotted
-    tiles = [c["entity"] for c in _sections(config, "today")["Cost"] if c["type"] == "tile"]
-    assert IDS["import_cost_today"] in tiles
+    (today_so_far,) = [
+        c for c in view_cards(_view(config, "power-flow")) if c.get("heading") == "Today so far"
+    ]
+    assert IDS["import_cost_today"] in [badge["entity"] for badge in today_so_far["badges"]]
 
 
 @pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
@@ -90,9 +107,9 @@ def test_the_cost_chart_plots_only_the_devices_there(combination):
     ev, switch, sensor = combination
     shown = seen_for(ev=ev, switch=switch, sensor=sensor)
     names = [row["name"] for row in _cost_chart(shown)["entities"]]
-    assert ("EV charging" in names) == ev
-    assert ("Immersion" in names) == switch
-    assert {"Rest of house", "Export earnings"} <= set(names)
+    assert ("EV" in names) == ev
+    assert ("Hot water" in names) == switch
+    assert "House" in names
     assert "Grid import" not in names
 
 
@@ -103,17 +120,31 @@ def _ev_sections(config: dict) -> dict[str, list[dict]]:
     return _sections(config, "ev-charger")
 
 
+def _ev_power_chart(config: dict) -> dict:
+    (chart,) = _under(config, "ev-charger", "Charge power, last 24 hours")
+    return chart
+
+
 def test_the_ev_view_shows_what_the_charger_used_and_cost_today():
-    today = _ev_sections(seen_for(ev=True))["Today"]
-    assert [(c["name"], c["entity"]) for c in today] == [
-        ("Energy", IDS["zappi_today"]),
-        ("Cost", IDS["zappi_cost_today"]),
+    (figures,) = [c for c in _ev_sections(seen_for(ev=True))["EV charger"] if c["type"] == "glance"]
+    assert [(r["name"], r["entity"]) for r in figures["entities"]] == [
+        ("This charge", IDS["ev_session_energy"]),
+        ("Its cost", IDS["ev_session_cost"]),
+        ("Today", IDS["zappi_today"]),
+        ("Cost today", IDS["zappi_cost_today"]),
     ]
 
 
+def test_the_ev_figures_leave_the_charge_cost_out_without_its_sensor():
+    registry = FakeRegistry(enable_all=True, absent={"ev_session_cost"})
+    config, brand = install(ev=True)
+    shown = seen(dashboard_dict(config, registry, ev_brand=brand), states_with(devices_of(config, brand)))
+    (figures,) = [c for c in _ev_sections(shown)["EV charger"] if c["type"] == "glance"]
+    assert [r["name"] for r in figures["entities"]] == ["This charge", "Today", "Cost today"]
+
+
 def test_the_ev_view_plots_the_charge_power_for_24_hours():
-    cards = _ev_sections(seen_for(ev=True))["Charge power, last 24 hours"]
-    (chart,) = cards
+    chart = _ev_power_chart(seen_for(ev=True))
     assert chart["type"] == "history-graph"
     assert chart["hours_to_show"] == 24
     assert chart["entities"] == [{"entity": IDS["ev_power"], "name": "Charge power"}]
@@ -124,7 +155,7 @@ def test_the_ev_charge_power_is_the_external_chargers_when_there_is_one():
     config, brand = install(ev=True)
     generated = dashboard_dict(config, ev_brand=brand, states=("sensor.wallbox_charging_power",))
     shown = seen(generated, states_with(devices_of(config, brand)))
-    (chart,) = _ev_sections(shown)["Charge power, last 24 hours"]
+    chart = _ev_power_chart(shown)
     assert chart["entities"][0]["entity"] == "sensor.wallbox_charging_power"
 
 
@@ -132,8 +163,8 @@ def test_the_ev_view_plots_a_sensor_that_does_not_reset_in_a_history_graph():
     """Power does not fall to zero at midnight, so a history graph has no sawtooth to draw."""
     from tests.dashboard_support import midnight_reset_ids
 
-    cards = _ev_sections(seen_for(ev=True))["Charge power, last 24 hours"]
-    assert {row["entity"] for row in cards[0]["entities"]}.isdisjoint(midnight_reset_ids())
+    chart = _ev_power_chart(seen_for(ev=True))
+    assert {row["entity"] for row in chart["entities"]}.isdisjoint(midnight_reset_ids())
 
 
 @pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
@@ -143,10 +174,9 @@ def test_the_ev_view_is_empty_unless_a_charger_is_there(combination):
     assert bool(view["sections"]) == ev
     if ev:
         assert list(_ev_sections(seen_for(ev=ev, switch=switch, sensor=sensor))) == [
-            "Charging now",
-            "Why",
-            "Today",
-            "Charge power, last 24 hours",
+            "EV charger",
+            "Last 7 days",
+            "Recent charges",
         ]
 
 
@@ -155,48 +185,51 @@ def test_a_file_made_before_the_charger_arrived_shows_the_new_sections_when_it_d
     stored = dashboard_dict(config, ev_brand=None)
     assert _view(seen(stored, states_with(devices_of(config, None))), "ev-charger")["sections"] == []
     arrived = seen(stored, states_with(devices_of(config, "myenergi")))
-    assert "Today" in _ev_sections(arrived)
+    assert list(_ev_sections(arrived)) == ["EV charger", "Last 7 days", "Recent charges"]
 
 
 # ── Battery detail ───────────────────────────────────────────────────────────
 
 
+def _figure_names(cards: list[dict]) -> list[str]:
+    return [r["name"] for c in cards if c["type"] == "glance" for r in c["entities"]]
+
+
 def test_health_holds_the_battery_and_the_inverter():
     sections = _sections(dashboard_dict(), "plan")
-    assert _tile_names(sections["Health"]) == [
-        "Total cycles",
-        "Life remaining",
+    assert _figure_names(sections["Battery health"]) == [
+        "Cycles",
+        "Life left",
         "Since full",
-        "Inverter temp",
-        "Inverter status",
+        "Inverter",
+        "Status",
     ]
 
 
-def test_the_inverter_tiles_are_left_out_without_an_inverter_temperature_entity():
+def test_the_inverter_figures_are_left_out_without_an_inverter_temperature_entity():
     config = {k: v for k, v in FULL_CONFIG.items() if k != CONF_INVERTER_TEMP_ENTITY}
     sections = _sections(dashboard_dict(config, FakeRegistry(enable_all=True)), "plan")
-    assert _tile_names(sections["Health"]) == ["Total cycles", "Life remaining", "Since full"]
+    assert _figure_names(sections["Battery health"]) == ["Cycles", "Life left", "Since full"]
 
 
 @pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
-def test_the_plan_tab_does_not_depend_on_the_devices(combination):
+def test_the_tonight_view_does_not_depend_on_the_devices(combination):
     ev, switch, sensor = combination
     shown = _view(seen_for(ev=ev, switch=switch, sensor=sensor), "plan")
     assert [s["cards"][0]["heading"] for s in shown["sections"]] == [
-        "Tonight's charge",
-        "Battery overnight",
-        "Battery",
-        "Bill",
-        "Cost per day, last 31 days",
-        "Bill audit",
-        "Health",
+        "Tonight",
+        "Battery, last day and a half",
+        "Battery health",
     ]
 
 
 def test_the_overnight_card_does_not_repeat_its_heading():
-    cards = _sections(dashboard_dict(), "plan")["Battery overnight"]
-    first = next(c for c in cards if c["type"] == "markdown")
-    assert "**Battery overnight" not in first["content"]
+    cards = _sections(dashboard_dict(), "plan")["Tonight"]
+    night = next(
+        c for c in cards if c["type"] == "markdown" and IDS["night_survival_reason"] in c["content"]
+    )
+    assert "**Tonight" not in night["content"]
+    assert "**Battery overnight" not in night["content"]
 
 
 # ── Settings ─────────────────────────────────────────────────────────────────
@@ -204,13 +237,6 @@ def test_the_overnight_card_does_not_repeat_its_heading():
 
 def _immersion_settings(config: dict) -> list[dict]:
     return _sections(config, "settings")["Hot water"]
-
-
-def test_the_divert_reason_leads_the_hot_water_section():
-    """What the heater is doing now comes first, so the controls below read against it."""
-    cards = _immersion_settings(dashboard_dict())
-    assert cards[0]["type"] == "markdown"
-    assert IDS["immersion_divert_reason"] in cards[0]["content"]
 
 
 def test_no_reason_card_is_left_without_its_sensor():
@@ -227,19 +253,13 @@ def test_hot_water_shows_only_with_the_switch(combination):
     sections = _sections(shown, "settings")
     assert ("Hot water" in sections) == switch
     if switch:
-        assert IDS["immersion_divert_reason"] in sections["Hot water"][0]["content"]
+        first = sections["Hot water"][0]
+        assert (first["type"], first["entity"]) == ("tile", IDS["auto_immersion"])
 
 
-# ── Managed and Restart gap, in words ────────────────────────────────────────
+# ── What each setting does, folded under its group ───────────────────────────
 
-MANAGED = (
-    "**Heat now**: turn it on to force a heating run until the water reaches the target. "
-    "Turn it off to hold the heater off for 10 minutes."
-)
-RESTART_GAP = (
-    "**Restart drop**: how far the water must fall below the target before a new heating run "
-    "starts."
-)
+_FOLDED = "<details><summary>What these do</summary>"
 
 
 def _markdown(cards: list[dict]) -> list[str]:
@@ -247,120 +267,77 @@ def _markdown(cards: list[dict]) -> list[str]:
 
 
 @pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
-def test_the_immersion_settings_in_force_explain_the_settings_the_install_has(combination):
-    ev, switch, sensor = combination
-    shown = seen_for(ev=ev, switch=switch, sensor=sensor)
-    cards = _sections(shown, "immersion").get("Settings in force", [])
-    text = _markdown(cards)
-    assert (MANAGED in text) == switch
-    assert (RESTART_GAP in text) == (switch and sensor)
-
-
-@pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
 def test_the_settings_view_explains_the_settings_the_install_has(combination):
-    """Hot water explains Heat now. Fine-tuning explains each of its numbers in one card."""
+    """Each group explains its own settings, and the heater's only for the devices present."""
     ev, switch, sensor = combination
     shown = seen_for(ev=ev, switch=switch, sensor=sensor)
     sections = _sections(shown, "settings")
-    assert (MANAGED in _markdown(sections.get("Hot water", []))) == switch
-    (note,) = _markdown(sections["Fine-tuning"])
-    assert note.startswith("- **Cheap rate floor**")
-    assert ("**Min battery**" in note) == switch
-    assert ("**Restart drop**" in note) == (switch and sensor)
+    (planning,) = _markdown(sections["Charge planning"])
+    assert planning.startswith(f"{_FOLDED}\n\n- **Cheap rate floor**")
+    water = _markdown(sections.get("Hot water", []))
+    assert len(water) == (1 if switch else 0)
+    text = " ".join(water)
+    assert ("**Heat now**" in text) == switch
+    assert ("**Min battery, Min spare solar**" in text) == switch
+    assert ("**Restart drop**" in text) == (switch and sensor)
 
 
-def test_the_fine_tuning_note_follows_its_controls():
-    cards = _sections(seen_for(switch=True, sensor=True), "settings")["Fine-tuning"]
+def test_each_settings_group_ends_with_its_folded_help():
+    sections = _sections(seen_for(switch=True, sensor=True), "settings")
+    for heading in ("Tonight's charge", "Charge planning", "Hot water", "System"):
+        cards = sections[heading]
+        kinds = [c["type"] for c in cards]
+        assert kinds[-1] == "markdown", heading
+        assert "markdown" not in kinds[:-1], heading
+        assert cards[-1]["content"].startswith(_FOLDED), heading
+        assert cards[-1]["content"].endswith("</details>"), heading
+    names = [c["name"] for c in sections["Charge planning"] if c["type"] == "tile"]
+    assert names == ["Cheap rate floor", "Skip charge above", "Forecast caution", "Re-plan overnight"]
+
+
+def test_the_help_comes_after_the_tiles_of_the_hot_water_settings():
+    cards = _sections(seen_for(switch=True, sensor=True), "settings")["Hot water"]
     kinds = [c["type"] for c in cards]
-    assert kinds[-1] == "markdown"
-    assert "markdown" not in kinds[:-1]
-    names = [c["name"] for c in cards if c["type"] == "tile"]
-    assert names == [
-        "Cheap rate floor",
-        "Skip charge above",
-        "Forecast caution",
-        "Min battery",
-        "Min surplus",
-        "Restart drop",
-        "Re-plan charge",
-        "Verbose logging",
-    ]
+    assert kinds == ["tile"] * 8 + ["markdown"]
 
 
-def test_the_help_comes_after_the_tiles_of_the_immersion_view():
-    cards = _sections(seen_for(switch=True, sensor=True), "immersion")["Settings in force"]
-    kinds = [c["type"] for c in cards]
-    assert kinds == ["tile"] * 6 + ["markdown"] * 2
-
-
-def test_the_managed_help_states_the_cooldown_the_actuator_uses():
+def test_the_heat_now_help_states_the_cooldown_the_actuator_uses():
     from custom_components.givenergy_inverter_manager.const import (
         IMMERSION_SWITCH_COOLDOWN_MINUTES,
     )
 
-    assert f"{IMMERSION_SWITCH_COOLDOWN_MINUTES} minutes" in MANAGED
+    (help_text,) = _markdown(_sections(seen_for(switch=True), "settings")["Hot water"])
+    assert f"holds the heater off for {IMMERSION_SWITCH_COOLDOWN_MINUTES} minutes" in help_text
 
 
 # ── names that mean something alone ──────────────────────────────────────────
 
 
-@pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
-def test_the_cost_view_says_whose_saving_the_solar_tile_is(combination):
-    ev, switch, sensor = combination
-    cards = _sections(seen_for(ev=ev, switch=switch, sensor=sensor), "today")["Cost"]
-    tiles = {c["name"]: c for c in cards if c["type"] == "tile"}
-    assert ("Immersion solar saving" in tiles) == switch
-    assert "Saved by solar" not in tiles
-    if switch:
-        tile = tiles["Immersion solar saving"]
-        assert tile["entity"] == IDS["immersion_savings_today"]
-        assert tile["grid_options"]["columns"] == "full"
+def test_the_hot_water_view_keeps_its_short_name_under_the_hot_water_heading():
+    cards = _sections(seen_for(switch=True), "immersion")["Hot water"]
+    figures = {r["name"]: r["entity"] for c in cards if c["type"] == "glance" for r in c["entities"]}
+    assert figures["Solar saved"] == IDS["immersion_savings_today"]
 
 
-def test_the_immersion_view_keeps_its_short_name_under_the_immersion_heading():
-    cards = _sections(seen_for(switch=True), "immersion")["Today"]
-    assert "Saved by solar" in [c["name"] for c in cards if c["type"] == "tile"]
+def _forecast_figures(config: dict) -> dict[str, str]:
+    cards = _under(config, "today", "Forecast")
+    return {r["name"]: r["entity"] for c in cards if c["type"] == "glance" for r in c["entities"]}
 
 
-def test_the_solar_view_says_what_the_yesterday_figure_is():
-    cards = _sections(dashboard_dict(), "today")["Against the forecast"]
-    tiles = {c["name"]: c for c in cards if c["type"] == "tile"}
-    assert "Yesterday" not in tiles
-    tile = tiles["Yesterday's accuracy"]
-    assert tile["entity"] == IDS["yesterday_forecast_accuracy_pct"]
-    assert tile["grid_options"]["columns"] == "full"
-
-
-def _caption(config: dict) -> list[dict]:
-    cards = _sections(config, "today").get("Against the forecast", [])
-    return [c for c in cards if c["type"] == "markdown"]
-
-
-def test_the_solar_view_explains_plan_forecast_under_the_tiles():
-    cards = _sections(dashboard_dict(), "today")["Against the forecast"]
-    assert cards[-1]["type"] == "markdown"
-    assert cards[-1]["content"] == (
-        "**Plan forecast** is the forecast the charge plan uses: blended toward the low "
-        "estimate and corrected by past accuracy."
-    )
-    assert cards[-1]["grid_options"]["columns"] == "full"
-
-
-def test_the_plan_forecast_caption_needs_a_forecast_sensor():
+def test_the_forecast_figures_need_a_forecast_sensor():
     config = {k: v for k, v in FULL_CONFIG.items() if k != CONF_FORECAST_ENTITY}
-    assert _caption(dashboard_dict(config)) == []
+    headings = [c.get("heading") for c in view_cards(_view(dashboard_dict(config), "today"))]
+    assert "Forecast" not in headings
 
 
-def test_the_plan_forecast_caption_goes_with_its_tile():
+def test_the_planned_on_figure_goes_with_its_sensor():
     registry = FakeRegistry(enable_all=True, absent={"solar_forecast_kwh_today"})
-    config = dashboard_dict(registry=registry)
-    assert _caption(config) == []
-    names = [c.get("name") for c in _sections(config, "today")["Against the forecast"]]
-    assert "Plan forecast" not in names
+    assert "Planned on" not in _forecast_figures(dashboard_dict(registry=registry))
+    assert _forecast_figures(dashboard_dict())["Planned on"] == IDS["solar_forecast_kwh_today"]
 
 
 def test_every_full_width_name_fits_the_tile():
-    for name in ("Immersion solar saving", "Yesterday's accuracy"):
+    for name in ("Home use from solar", "Solar kept at home"):
         assert len(name) <= 22
 
 

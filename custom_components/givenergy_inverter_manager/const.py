@@ -15,7 +15,7 @@ GivTCP entity naming convention (all prefixed with serial number):
 """
 
 DOMAIN = "givenergy_inverter_manager"
-INTEGRATION_VERSION = "0.19.8"  # keep in sync with manifest.json
+INTEGRATION_VERSION = "0.19.9"  # keep in sync with manifest.json
 NAME = "GivEnergy Inverter Manager"
 DEVICE_MANUFACTURER = "macuistin"  # shown on the device page; GivEnergy does not make this
 
@@ -26,6 +26,7 @@ SERVICE_YEAR_ON_YEAR = "year_on_year_summary"
 SERVICE_EXPORT_ENERGY_DATA = "export_energy_data"
 SERVICE_GET_ROI_SUMMARY = "get_roi_summary"
 SERVICE_GET_DASHBOARD_YAML = "get_dashboard_yaml"
+SERVICE_UPDATE_DASHBOARD = "update_dashboard"
 
 # ── GivTCP inverter entities ────────────────────────────────────────────────
 CONF_INVERTER_SERIAL = "inverter_serial"  # persisted serial — used as unique_id
@@ -71,6 +72,11 @@ CONF_TARIFF_REVIEWED_ON = "tariff_reviewed_on"
 # means setup told the user how to add one and has not seen it yet. Absent means setup has not
 # looked, which is how it knows to look once.
 CONF_DASHBOARD_URL_PATH = "dashboard_url_path"
+# URL path of the storage dashboard the update_dashboard action last wrote. The out-of-date
+# repair compares that dashboard with the generated one. Empty or absent means none is kept
+# current. It is a key of its own because CONF_DASHBOARD_URL_PATH names a strategy dashboard,
+# whose stored config is a pointer that must never be replaced.
+CONF_STORED_DASHBOARD_URL_PATH = "stored_dashboard_url_path"
 # Days without a tariff review before the repair appears. Suppliers change prices about once a
 # year, and no existing constant measures time since a user action.
 TARIFF_REVIEW_STALE_DAYS = 365
@@ -438,6 +444,8 @@ COUNTER_RISE_FLOOR_KWH = 0.5
 COUNTER_UNIT_CHANGE_RATIO = 500
 COUNTER_UNIT_CHANGE_MIN_KWH = 1.0  # below this the old value is too small to compare against
 REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept in the write log
+EV_RECENT_SESSIONS_MAX = 10  # finished EV charging sessions kept for the recent charges table
+REPAIRS_PATH = "/config/repairs"  # Home Assistant's Repairs page, linked from Active Repairs
 # How long a running element stays on while a required sensor is unavailable.
 # Same value as the write interval, but a separate setting.
 SENSOR_OUTAGE_HOLD_LIMIT_S = 300

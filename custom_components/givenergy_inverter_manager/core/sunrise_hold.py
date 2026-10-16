@@ -3,16 +3,19 @@ sunrise_hold.py — Keep the published estimate of the SoC at sunrise continuous
 
 The estimate is the current SoC less the load until solar starts. The load and the window
 both change in steps a battery cannot follow: the day's energy total resets at midnight, the
-window flips from this morning to tonight at sunrise and from tonight's pre-solar hours to the
-whole evening when solar fades. Each step moved the sensor by 15 points or more in one cycle.
+window flips from this morning to tonight at sunrise, and it grows when solar stops before the
+time expected (battery.night_window). Each step moved the sensor by 15 points or more in one
+cycle.
 
 The figure with the planned charge steps for the same reasons, and by as much when the load
 estimate resets at midnight, so it is held the same way.
 
 The battery cannot move faster than the inverter can charge or discharge it, so neither can an
 honest estimate of its charge. The published value follows the calculated one at no more than
-that rate, and a step becomes a ramp of about half an hour. The Night Survival Status and
-Confidence sensors still read the calculated figure, so a real shortfall is reported at once.
+that rate, and a step becomes a ramp of about half an hour. The Night Survival Status and the
+Critical level of the Confidence sensor still read the calculated figure, so a real shortfall
+is reported at once. The words that quote a figure (the reason, the summary and the
+explanation) quote the published one, so they agree with this sensor.
 """
 
 from __future__ import annotations

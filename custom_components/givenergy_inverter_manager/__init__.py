@@ -36,6 +36,7 @@ from .dashboard_notice import async_announce_dashboard, async_dismiss_announceme
 from .logging import get_logger, log_startup
 from .optional_devices import remove_orphaned_entities
 from .services import async_register_services, async_unregister_services, loaded_entries
+from .stored_dashboard_repair import async_watch_stored_dashboard
 from .strategy import async_register_strategy
 
 _LOG = get_logger(__name__)
@@ -199,6 +200,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(_make_update_listener(entry)))
+    # After the platforms, so the first look compares a dashboard built from every entity.
+    async_watch_stored_dashboard(hass, entry)
 
     # async_setup runs once per start; this restores services removed by the last unload.
     await async_register_services(hass)

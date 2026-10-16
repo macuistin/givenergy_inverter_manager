@@ -1,9 +1,9 @@
 # Actions
 
-The integration registers six actions under `givenergy_inverter_manager`. Run them from **Developer Tools → Actions**, or from scripts and automations.
+The integration registers seven actions under `givenergy_inverter_manager`. Run them from **Developer Tools → Actions**, or from scripts and automations.
 
-- All six use the first loaded entry, and `compare_tariff` also lists every loaded entry. They stay registered while at least one entry is loaded. With no loaded entry, each one fails with the error "not configured".
-- Five of them return data. Read it with `response_variable`. `get_dashboard_yaml` returns only data.
+- All seven use the first loaded entry, and `compare_tariff` also lists every loaded entry. They stay registered while at least one entry is loaded. With no loaded entry, each one fails with the error "not configured".
+- Six of them return data. Read it with `response_variable`. `get_dashboard_yaml` returns only data.
 - The examples use `action:`. Home Assistant releases before 2024.8 call it `service:`.
 - The `get_dashboard_yaml` action of versions before 0.18 wrote a file. The action of 0.19.5 and later returns the dashboard as text, and writes a file only when you ask. See [Dashboard](dashboard.md#a-fallback-that-needs-no-script).
 
@@ -15,6 +15,7 @@ The integration registers six actions under `givenergy_inverter_manager`. Run th
 | [`year_on_year_summary`](#year_on_year_summary) | none | month against last year |
 | [`export_energy_data`](#export_energy_data) | none | file path and rows written |
 | [`get_dashboard_yaml`](#get_dashboard_yaml) | optional `write_file` | the dashboard as YAML text |
+| [`update_dashboard`](#update_dashboard) | optional `url_path` | the dashboard written and the backup file |
 
 ## suggest_appliance_run
 
@@ -152,3 +153,22 @@ response_variable: dashboard
 ```
 
 The response holds `yaml` (the dashboard as text), `views` (how many views it has) and, with `write_file`, `file` (the path written). The Settings view is in it only when a Home Assistant administrator runs the action. A call with no user, such as an automation, gets the dashboard without Settings.
+
+## update_dashboard
+
+Writes the generated dashboard into a storage dashboard you made, and remembers that dashboard so a repair can offer the same update when it is out of date. See [Add the dashboard](dashboard.md#add-the-dashboard).
+
+```yaml
+action: givenergy_inverter_manager.update_dashboard
+data:
+  url_path: dashboard-energy
+response_variable: written
+```
+
+- `url_path` is the part of the dashboard's address after the first slash. Leave it out to write the dashboard written last time.
+- The dashboard is the one `get_dashboard_yaml` returns to an administrator, with the Settings view.
+- It replaces the dashboard's whole configuration, your own edits included. The configuration it replaces is saved first to `givenergy_dashboard_backup.yaml` in the configuration folder, replacing the previous backup. A new dashboard with nothing saved yet has nothing to back up.
+- Only a Home Assistant administrator can run it. A call with no user, such as an automation, is refused.
+- It is refused, and nothing is written, when no URL path is given and none is remembered, when there is no dashboard at the URL path, when the dashboard is a YAML dashboard, and in recovery mode.
+
+The response holds `url_path` (the dashboard written), `views` (how many views it has) and `backup_file` (the path of the backup, or `null` when there was nothing to back up).

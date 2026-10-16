@@ -88,6 +88,15 @@ Issues raised:
     fixable: the cause is between GivTCP and the inverter. The cycle fails like a frozen feed.
     The issue clears as soon as GivTCP reads the inverter again. The decision lives in
     inverter/givtcp/reader.py.
+
+  dashboard_out_of_date
+    The storage dashboard that update_dashboard last wrote no longer matches the dashboard the
+    integration would generate now, after an upgrade, a device change or an edit to that
+    dashboard. Fixable: the fix writes the generated dashboard through the same code path as
+    the action, after saving the old config to givenergy_dashboard_backup.yaml. It is never
+    raised while no dashboard is remembered, and it clears when the dashboard matches or is
+    gone. The decision lives in core/stored_dashboard.py and the wiring in
+    stored_dashboard_repair.py.
 """
 
 from __future__ import annotations
@@ -123,6 +132,7 @@ ISSUE_SYSTEM_LOOKS_DIFFERENT = "system_looks_different"
 ISSUE_GIVTCP_RESETS_IDS = "givtcp_resets_entity_ids"
 ISSUE_REAL_TIME_CONTROL_OFF = "givtcp_real_time_control_off"
 ISSUE_CHARGE_BLOCKED_BY_PAUSE = "charge_blocked_by_pause"
+ISSUE_DASHBOARD_OUT_OF_DATE = "dashboard_out_of_date"
 
 TROUBLESHOOTING_URL = (
     "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs/troubleshooting.md"
@@ -143,6 +153,7 @@ LEARN_MORE_URLS: dict[str, str] = {
     ISSUE_GIVTCP_RESETS_IDS: f"{TROUBLESHOOTING_URL}#upgrading-givtcp",
     ISSUE_REAL_TIME_CONTROL_OFF: f"{TROUBLESHOOTING_URL}#real-time-control-is-off",
     ISSUE_CHARGE_BLOCKED_BY_PAUSE: f"{TROUBLESHOOTING_URL}#the-battery-pause-stops-the-charge",
+    ISSUE_DASHBOARD_OUT_OF_DATE: f"{TROUBLESHOOTING_URL}#the-stored-dashboard-is-out-of-date",
 }
 
 # Matches the selector max in config_flow.py. Values above this are legacy
@@ -415,6 +426,28 @@ def async_delete_charge_blocked_by_pause_issue(hass: HomeAssistant) -> None:
     async_delete_issue(hass, DOMAIN, ISSUE_CHARGE_BLOCKED_BY_PAUSE)
 
 
+def async_create_dashboard_out_of_date_issue(
+    hass: HomeAssistant, url_path: str, backup_file: str
+) -> None:
+    """Surface a fixable repair while the kept dashboard differs from the generated one."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_DASHBOARD_OUT_OF_DATE,
+        is_fixable=True,
+        is_persistent=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_DASHBOARD_OUT_OF_DATE],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_DASHBOARD_OUT_OF_DATE,
+        translation_placeholders={"url_path": url_path, "backup_file": backup_file},
+    )
+
+
+def async_delete_dashboard_out_of_date_issue(hass: HomeAssistant) -> None:
+    """Clear the repair once the dashboard matches, is gone, or none is kept current."""
+    async_delete_issue(hass, DOMAIN, ISSUE_DASHBOARD_OUT_OF_DATE)
+
+
 async def async_create_fix_flow(
     hass: HomeAssistant, issue_id: str, data: dict[str, str | int | float | None] | None
 ) -> RepairsFlow:
@@ -425,6 +458,7 @@ async def async_create_fix_flow(
         ClearOtherChargeSlotsFlow,
         ConfirmTariffReviewedFlow,
         SetBatteryCostFlow,
+        UpdateStoredDashboardFlow,
     )
 
     if issue_id == ISSUE_BATTERY_COST_NOT_SET:
@@ -433,4 +467,6 @@ async def async_create_fix_flow(
         return ConfirmTariffReviewedFlow()
     if issue_id == ISSUE_SYSTEM_LOOKS_DIFFERENT:
         return AcceptSystemChangeFlow()
+    if issue_id == ISSUE_DASHBOARD_OUT_OF_DATE:
+        return UpdateStoredDashboardFlow()
     return ClearOtherChargeSlotsFlow()

@@ -56,10 +56,24 @@ def _tile_entities(view: dict) -> set[str]:
     return {c["entity"] for c in view_cards(view) if c["type"] == "tile"}
 
 
-def _devices_section_tiles(config: dict) -> list[str]:
+def _device_chips(config: dict) -> list[str]:
+    """The entities of the chips under Hot water and EV on Home energy, as a person sees them."""
     cards = view_cards(_view(config, "power-flow"))
-    names = [c["name"] for c in cards if c["type"] == "tile" and c["name"] in ("Immersion", "EV charger")]
-    return names
+    headings = [c for c in cards if c.get("heading") == "Hot water and EV"]
+    return [badge["entity"] for c in headings for badge in c.get("badges", [])]
+
+
+def _glance_entities(view: dict) -> set[str]:
+    return {r["entity"] for c in view_cards(view) if c["type"] == "glance" for r in c["entities"]}
+
+
+def _plan_cards(view: dict) -> list[dict]:
+    """The planned heating cards of the Hot water view."""
+    return [
+        c
+        for c in view_cards(view)
+        if c["type"] == "markdown" and "'planned_heating'" in c["content"]
+    ]
 
 
 # ── what each combination shows ──────────────────────────────────────────────
@@ -71,16 +85,26 @@ class TestEveryCombination:
         ev, switch, sensor = combination
         return seen_for(ev=ev, switch=switch, sensor=sensor)
 
-    def test_the_devices_tiles_are_the_devices_present(self, combination):
+    def test_the_device_chips_are_the_devices_present(self, combination):
+        """The heater's chip shows only while it heats, so it is hidden here."""
         ev, switch, sensor = combination
-        shown = _devices_section_tiles(self._seen(combination))
-        assert shown.count("Immersion") == (1 if switch or sensor else 0)
-        assert shown.count("EV charger") == (1 if ev else 0)
+        assert _device_chips(self._seen(combination)) == [
+            *([IDS["immersion_water_temperature"]] if sensor else []),
+            *([IDS["ev_charger_state"]] if ev else []),
+        ]
 
-    def test_the_devices_heading_shows_only_with_a_device(self, combination):
+    def test_the_heater_chip_shows_while_it_heats_with_the_switch(self, combination):
+        ev, switch, sensor = combination
+        config, brand = install(ev=ev, switch=switch, sensor=sensor)
+        devices = installed_devices(config, ev_charger_found=brand is not None)
+        states = states_with(devices, {IDS["immersion_power"]: "3000"} if switch else None)
+        chips = _device_chips(seen(generated_for(ev=ev, switch=switch, sensor=sensor), states))
+        assert (IDS["immersion_power"] in chips) == switch
+
+    def test_the_devices_heading_shows_only_with_a_chip(self, combination):
         ev, switch, sensor = combination
         power_flow = _view(self._seen(combination), "power-flow")
-        assert ("Devices" in _titles(power_flow)) == (ev or switch or sensor)
+        assert ("Hot water and EV" in _titles(power_flow)) == (ev or sensor)
 
     def test_the_nav_tiles_open_a_view_that_has_something_to_show(self, combination):
         config = self._seen(combination)
@@ -96,14 +120,27 @@ class TestEveryCombination:
 
     def test_the_water_temperature_chart_needs_the_sensor(self, combination):
         _, _, sensor = combination
-        titles = _titles(_view(self._seen(combination), "immersion"))
-        assert ("Water temperature" in titles) == sensor
+        charts = [
+            c
+            for c in view_cards(_view(self._seen(combination), "immersion"))
+            if c["type"] == "history-graph"
+        ]
+        plotted = [r["entity"] for c in charts for r in c["entities"]]
+        assert (IDS["immersion_water_temperature"] in plotted) == sensor
+        assert len(charts) == (1 if sensor else 0)
 
     def test_the_heater_cards_need_the_switch(self, combination):
         _, switch, _ = combination
-        titles = _titles(_view(self._seen(combination), "immersion"))
-        for heading in ("Why", "Today", "Settings in force"):
+        view = _view(self._seen(combination), "immersion")
+        titles = _titles(view)
+        for heading in ("Settings in force", "Last 7 days"):
             assert (heading in titles) == switch, heading
+        figures = [
+            [r["name"] for r in c["entities"]]
+            for c in view_cards(view)
+            if c["type"] == "glance" and IDS["immersion_today"] in yaml.safe_dump(c)
+        ]
+        assert figures == ([["Heater", "Heated", "Cost", "Solar saved"]] if switch else [])
         assert "Heater power" not in titles
 
     def test_the_why_text_is_not_shown_without_a_switch(self, combination):
@@ -120,25 +157,21 @@ class TestEveryCombination:
         for key in ("immersion_power", "immersion_today"):
             assert (IDS[key] in plotted) == switch, key
 
-    def test_the_temperature_tiles_do_something_only_with_both_devices(self, combination):
-        """Scheduled heating, target, minimum and restart gap need a switch and a sensor."""
+    def test_the_temperature_settings_show_only_with_both_devices(self, combination):
+        """Scheduled heating, the target and the minimum need a switch and a sensor."""
         _, switch, sensor = combination
         config = self._seen(combination)
-        entities = _tile_entities(_view(config, "immersion"))
-        for key in (
-            "immersion_schedule",
-            "immersion_target_temp",
-            "immersion_min_temp",
-            "immersion_hysteresis",
-        ):
+        entities = _glance_entities(_view(config, "immersion"))
+        for key in ("immersion_schedule", "immersion_target_temp", "immersion_min_temp"):
             assert (IDS[key] in entities) == (switch and sensor), key
 
-    def test_ready_by_shows_only_with_both_devices_and_scheduled_heating_on(self, combination):
+    def test_the_plan_shows_only_with_both_devices_and_scheduled_heating_on(self, combination):
         _, switch, sensor = combination
-        titles = _titles(_view(self._seen(combination), "immersion"))
-        assert ("Ready by" in titles) == (switch and sensor)
+        view = _view(self._seen(combination), "immersion")
+        assert len(_plan_cards(view)) == (1 if switch and sensor else 0)
+        assert ("Plan" in _titles(view)) == (switch and sensor)
 
-    def test_ready_by_is_hidden_while_scheduled_heating_is_off(self, combination):
+    def test_the_plan_is_hidden_while_scheduled_heating_is_off(self, combination):
         ev, switch, sensor = combination
         config, brand = install(ev=ev, switch=switch, sensor=sensor)
         states = states_with(
@@ -146,14 +179,15 @@ class TestEveryCombination:
             {IDS["immersion_schedule"]: "off"},
         )
         shown = seen(generated_for(ev=ev, switch=switch, sensor=sensor), states)
-        assert "Ready by" not in _titles(_view(shown, "immersion"))
+        assert _plan_cards(_view(shown, "immersion")) == []
+        assert "Plan" not in _titles(_view(shown, "immersion"))
 
-    def test_ready_by_reads_the_water_sensor_and_names_no_entity_that_is_missing(self, combination):
+    def test_the_plan_reads_the_water_sensor_and_names_no_entity_that_is_missing(self, combination):
         _, switch, sensor = combination
-        cards = view_cards(_view(self._seen(combination), "immersion"))
-        text = " ".join(c["content"] for c in cards if c["type"] == "markdown")
-        assert ("state_attr(sensor, 'ready_by')" in text) == (switch and sensor)
-        assert (IDS["immersion_water_temperature"] in text) == (switch and sensor)
+        cards = _plan_cards(_view(self._seen(combination), "immersion"))
+        text = " ".join(c["content"] for c in cards)
+        both = switch and sensor
+        assert (f"state_attr('{IDS['immersion_water_temperature']}', 'planned_heating')" in text) == both
 
     def test_the_settings_view_holds_the_controls_that_exist(self, combination):
         ev, switch, sensor = combination
@@ -163,44 +197,19 @@ class TestEveryCombination:
         assert (IDS["immersion_target_temp"] in entities) == (switch and sensor)
         assert (IDS["immersion_schedule"] in entities) == (switch and sensor)
 
-    def test_the_today_tab_lists_the_ev_and_immersion_energy_for_the_devices_present(self, combination):
-        ev, switch, _ = combination
-        names = [
-            c["name"]
-            for c in view_cards(_view(self._seen(combination), "today"))
-            if c["type"] == "tile"
-        ]
-        assert ("EV" in names) == ev
-        assert ("Immersion" in names) == switch
+    def test_the_sources_bar_is_shown_whatever_the_devices(self, combination):
+        today = _view(self._seen(combination), "today")
+        assert "Where it came from" in _titles(today)
 
-    def test_the_sources_card_names_the_ev_and_immersion_energy_for_the_devices_present(
-        self, combination
-    ):
+    def test_the_cost_split_lists_the_ev_and_immersion_costs_for_the_devices_present(self, combination):
         ev, switch, _ = combination
         cards = view_cards(_view(self._seen(combination), "today"))
-        lines = [c["content"] for c in cards if c["type"] == "markdown" and "Of the house use" in c["content"]]
-        assert len(lines) == (1 if ev or switch else 0)
-        text = " ".join(lines)
-        assert ("the EV took" in text) == ev
-        assert ("the immersion took" in text) == switch
-        assert (IDS["zappi_today"] in text) == ev
-        assert (IDS["immersion_today"] in text) == switch
-
-    def test_the_sources_card_is_shown_whatever_the_devices(self, combination):
-        today = _view(self._seen(combination), "today")
-        assert "Where today's energy came from" in _titles(today)
-
-    def test_the_cost_section_lists_the_ev_and_immersion_costs_for_the_devices_present(self, combination):
-        ev, switch, _ = combination
-        cost = next(
-            s for s in _view(self._seen(combination), "today")["sections"]
-            if s["cards"][0].get("heading") == "Cost"
-        )
-        names = [c["name"] for c in cost["cards"] if c["type"] == "tile"]
-        assert "Rest of house" in names
-        assert ("EV charging" in names) == ev
-        assert ("Immersion" in names) == switch
-        assert ("Immersion solar saving" in names) == switch
+        splits = [
+            c for c in cards if c["type"] == "distribution" and IDS["house_cost_today"] in str(c)
+        ]
+        assert len(splits) == 1
+        names = [r["name"] for r in splits[0]["entities"]]
+        assert names == ["House", *(["EV"] if ev else []), *(["Hot water"] if switch else [])]
 
     def test_exactly_one_power_flow_card_is_shown_and_it_draws_the_devices_present(self, combination):
         ev, switch, _ = combination
@@ -219,7 +228,7 @@ class TestEveryCombination:
         ev, switch, _ = combination
         graphs = [
             c
-            for c in view_cards(_view(self._seen(combination), "today"))
+            for c in view_cards(_view(self._seen(combination), "bill"))
             if c["type"] == "statistics-graph" and IDS["house_cost_today"] in str(c["entities"])
         ]
         assert len(graphs) == 1
@@ -285,43 +294,47 @@ def _states_with_schedule(combination, schedule: str) -> dict[str, str]:
 def test_a_file_follows_any_change_of_devices_whatever_scheduled_heating_does(
     first, then, schedule
 ):
-    """The Ready by section follows the switch of the new device set, in the old file."""
+    """The planned heating follows the switch of the new device set, in the old file."""
     stored = generated_for(ev=first[0], switch=first[1], sensor=first[2])
     regenerated = generated_for(ev=then[0], switch=then[1], sensor=then[2])
     states = _states_with_schedule(then, schedule)
     assert seen(stored, states) == seen(regenerated, states)
-    ready = "Ready by" in _titles(_view(seen(stored, states), "immersion"))
+    ready = bool(_plan_cards(_view(seen(stored, states), "immersion")))
     assert ready == (then[1] and then[2] and schedule == "on")
+
+
+def _figure_names(view: dict) -> list[str]:
+    return [r["name"] for c in view_cards(view) if c["type"] == "glance" for r in c["entities"]]
 
 
 def test_a_cylinder_sensor_added_later_shows_its_chart_in_the_old_file():
     stored = generated_for(switch=True)
     before = seen(stored, _states((False, True, False)))
     after = seen(stored, _states((False, True, True)))
-    assert "Water temperature" not in _titles(_view(before, "immersion"))
-    assert "Water temperature" in _titles(_view(after, "immersion"))
-    assert "Heat to" not in [c["name"] for c in view_cards(_view(before, "immersion")) if c["type"] == "tile"]
-    assert "Heat to" in [c["name"] for c in view_cards(_view(after, "immersion")) if c["type"] == "tile"]
-    scheduled = [c["name"] for c in view_cards(_view(before, "immersion")) if c["type"] == "tile"]
-    assert "Scheduled heat" not in scheduled
-    scheduled = [c["name"] for c in view_cards(_view(after, "immersion")) if c["type"] == "tile"]
-    assert "Scheduled heat" in scheduled
+    water = IDS["immersion_water_temperature"]
+    charts = [c for c in view_cards(_view(before, "immersion")) if c["type"] == "history-graph"]
+    assert charts == []
+    charts = [c for c in view_cards(_view(after, "immersion")) if c["type"] == "history-graph"]
+    assert [r["entity"] for r in charts[0]["entities"]][0] == water
+    assert "Heat to" not in _figure_names(_view(before, "immersion"))
+    assert "Heat to" in _figure_names(_view(after, "immersion"))
+    assert "Scheduled" not in _figure_names(_view(before, "immersion"))
+    assert "Scheduled" in _figure_names(_view(after, "immersion"))
 
 
 # ── the oil advice tile ──────────────────────────────────────────────────────
 
 OIL_SENTINEL = IDS["water_heating_cheapest_source"]
-OIL_HEADING = "Cheapest way to heat the water"
 
 
 def _oil_section_cards(config: dict) -> list[dict]:
-    """The cards under the oil advice heading of the Immersion view, as a person would see them."""
+    """The cards of the Hot water view that read the oil advice, as a person would see them."""
     immersion = _view(config, "immersion")
-    for section in immersion["sections"]:
-        headings = [c.get("heading") for c in section["cards"] if c["type"] == "heading"]
-        if OIL_HEADING in headings:
-            return section["cards"]
-    return []
+    return [
+        c
+        for c in view_cards(immersion)
+        if c["type"] == "markdown" and OIL_SENTINEL in c["content"]
+    ]
 
 
 @pytest.mark.parametrize("sensor", [False, True], ids=["no-sensor", "sensor"])
@@ -333,14 +346,10 @@ def test_the_oil_advice_shows_only_with_an_oil_price_and_the_switch(oil, switch,
     assert bool(_oil_section_cards(shown)) == (oil and switch)
 
 
-def test_the_oil_advice_tile_and_sentence_read_the_oil_sensor():
-    cards = _oil_section_cards(seen_for(switch=True, oil=True))
-    source = next(c for c in cards if "Cheapest source" in c.get("content", ""))
-    assert f"states('{OIL_SENTINEL}')" in source["content"]
-    markdown = next(
-        c for c in cards if c["type"] == "markdown" and "'suggestion'" in c["content"]
-    )
-    assert f"state_attr('{OIL_SENTINEL}', 'suggestion')" in markdown["content"]
+def test_the_oil_advice_reads_the_suggestion_and_the_schedule_of_the_oil_sensor():
+    (card,) = _oil_section_cards(seen_for(switch=True, oil=True))
+    assert f"state_attr('{OIL_SENTINEL}', 'suggestion')" in card["content"]
+    assert f"state_attr('{OIL_SENTINEL}', 'alt_schedule_suggestion')" in card["content"]
 
 
 def test_the_oil_advice_waits_for_its_sensor_in_a_file_made_without_one():
@@ -377,16 +386,19 @@ DEVICE_ENTITY_IDS = {
 
 
 def _cards_with_their_conditions(nodes, inherited=()):
-    """Every card of a section list, paired with the visibility conditions above it."""
+    """Every card of a section list, and every chip of a heading, paired with the visibility
+    conditions above it."""
     for node in nodes:
         here = [*inherited, *node.get("visibility", [])]
         yield node, here
         yield from _cards_with_their_conditions(node.get("cards", []), here)
+        yield from _cards_with_their_conditions(node.get("badges", []), here)
 
 
 def _device_entities_named_by(card: dict) -> set[str]:
-    """The entity IDs of ours that need a device, in the card apart from its own conditions."""
-    text = yaml.safe_dump({k: v for k, v in card.items() if k != "visibility"})
+    """The entity IDs of ours that need a device, in the card apart from its own conditions
+    and its chips, which are checked on their own."""
+    text = yaml.safe_dump({k: v for k, v in card.items() if k not in ("visibility", "badges")})
     return {entity_id for entity_id in DEVICE_ENTITY_IDS if entity_id in text}
 
 
@@ -487,47 +499,49 @@ def test_a_device_view_exists_with_no_device_so_a_later_device_has_somewhere_to_
     assert all_cards(config["views"])
 
 
-# ── the oil start in the Ready by section ────────────────────────────────────
-
-READY_HEADING = "Ready by"
+# ── the planned heating and the oil advice in the Plan section ───────────────
 
 
-def _ready_by_cards(config: dict) -> list[dict]:
+def _plan_section_cards(config: dict) -> list[dict]:
+    """The markdown cards of the Plan section of the Hot water view."""
     for section in _view(config, "immersion")["sections"]:
         headings = [c.get("heading") for c in section["cards"] if c["type"] == "heading"]
-        if READY_HEADING in headings:
+        if "Plan" in headings:
             return [c for c in section["cards"] if c["type"] == "markdown"]
     return []
 
 
-def _oil_cards_in_ready_by(config: dict) -> list[dict]:
-    return [c for c in _ready_by_cards(config) if OIL_SENTINEL in c["content"]]
+def _oil_cards_in_plan(config: dict) -> list[dict]:
+    return [c for c in _plan_section_cards(config) if OIL_SENTINEL in c["content"]]
 
 
 @pytest.mark.parametrize("sensor", [False, True], ids=["no-sensor", "sensor"])
 @pytest.mark.parametrize("switch", [False, True], ids=["no-switch", "switch"])
 @pytest.mark.parametrize("oil", [False, True], ids=["no-oil", "oil"])
-def test_ready_by_shows_the_oil_suggestion_only_with_an_oil_price_the_switch_and_the_sensor(
+def test_the_plan_shows_the_oil_suggestion_only_with_an_oil_price_and_the_switch(
     oil, switch, sensor
 ):
     shown = seen_for(switch=switch, sensor=sensor, oil=oil)
-    assert bool(_oil_cards_in_ready_by(shown)) == (oil and switch and sensor)
+    assert bool(_oil_cards_in_plan(shown)) == (oil and switch)
 
 
-def test_the_oil_suggestion_in_ready_by_prints_the_sensors_suggestion():
-    card = _oil_cards_in_ready_by(seen_for(switch=True, sensor=True, oil=True))[0]
-    assert f"state_attr('{OIL_SENTINEL}', 'suggestion')" in card["content"]
+def test_the_planned_heating_card_prints_the_water_sensors_plan():
+    cards = _plan_cards(_view(seen_for(switch=True, sensor=True), "immersion"))
+    water = IDS["immersion_water_temperature"]
+    assert [c["content"] for c in cards] == [
+        f"{{% set p = state_attr('{water}', 'planned_heating') %}}"
+        "{{ p or 'The planned heating shows once the water temperature is read.' }}"
+    ]
 
 
-def test_ready_by_keeps_its_own_cards_without_an_oil_price():
-    cards = _ready_by_cards(seen_for(switch=True, sensor=True))
-    assert len(cards) == 2
-    assert "state_attr(sensor, 'ready_by')" in cards[0]["content"]
-    assert "'planned_heating'" in cards[1]["content"]
+def test_the_plan_keeps_only_the_planned_heating_without_an_oil_price():
+    cards = _plan_section_cards(seen_for(switch=True, sensor=True))
+    assert len(cards) == 1
+    assert "'planned_heating'" in cards[0]["content"]
 
 
 def _suggestion_homes(config: dict) -> list[str]:
-    """The headings of the sections of the Immersion view that print the oil suggestion."""
+    """The headings of the sections of the Hot water view that print the oil suggestion."""
     homes = []
     for section in _view(config, "immersion")["sections"]:
         printed = [
@@ -535,8 +549,7 @@ def _suggestion_homes(config: dict) -> list[str]:
             for c in section["cards"]
             if c["type"] == "markdown" and f"state_attr('{OIL_SENTINEL}', 'suggestion')" in c["content"]
         ]
-        if printed:
-            homes.append(next(c["heading"] for c in section["cards"] if c["type"] == "heading"))
+        homes += [next(c["heading"] for c in section["cards"] if c["type"] == "heading")] * len(printed)
     return homes
 
 
@@ -555,37 +568,23 @@ ALL_OIL_DEVICES = {
 }
 
 
-@pytest.mark.parametrize(
-    ("schedule", "home"), [("on", READY_HEADING), ("off", OIL_HEADING)], ids=["scheduled", "not-scheduled"]
-)
-def test_the_oil_suggestion_shows_once_in_the_section_that_fits_scheduled_heating(schedule, home):
+@pytest.mark.parametrize("schedule", ["on", "off"])
+def test_the_oil_suggestion_shows_once_under_plan_whatever_scheduled_heating_does(schedule):
     stored = generated_for(switch=True, sensor=True, oil=True)
-    assert _suggestion_homes(seen(stored, _oil_states(ALL_OIL_DEVICES, schedule))) == [home]
+    assert _suggestion_homes(seen(stored, _oil_states(ALL_OIL_DEVICES, schedule))) == ["Plan"]
 
 
-def test_the_oil_suggestion_stays_in_the_cheapest_section_while_scheduled_heating_cannot_exist():
-    """With no temperature sensor there is no schedule switch and no Ready by section."""
+def test_the_oil_suggestion_shows_under_plan_while_scheduled_heating_cannot_exist():
+    """With no temperature sensor there is no schedule switch and no planned heating."""
     stored = generated_for(switch=True, oil=True)
     devices = {Device.IMMERSION_SWITCH, Device.ALTERNATIVE_HEAT}
-    assert _suggestion_homes(seen(stored, states_with(devices))) == [OIL_HEADING]
-
-
-def test_the_cheapest_suggestion_waits_on_the_schedule_switch_in_the_file():
-    config = generated_for(switch=True, sensor=True, oil=True)
-    card = next(
-        c
-        for c in _oil_section_cards(config)
-        if c["type"] == "markdown" and "'suggestion'" in c["content"]
-    )
-    assert card["visibility"] == [
-        {"condition": "state", "entity": IDS["immersion_schedule"], "state_not": "on"}
-    ]
+    assert _suggestion_homes(seen(stored, states_with(devices))) == ["Plan"]
 
 
 def test_the_oil_suggestion_arrives_in_a_file_made_before_the_price_was_set():
     stored = generated_for(switch=True, sensor=True)
     before = states_with({Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR, Device.IMMERSION_THERMOSTAT})
-    assert _oil_cards_in_ready_by(seen(stored, before)) == []
+    assert _oil_cards_in_plan(seen(stored, before)) == []
     after = states_with(
         {
             Device.IMMERSION_SWITCH,
@@ -594,10 +593,10 @@ def test_the_oil_suggestion_arrives_in_a_file_made_before_the_price_was_set():
             Device.ALTERNATIVE_HEAT,
         }
     )
-    assert _oil_cards_in_ready_by(seen(stored, after)) != []
+    assert _oil_cards_in_plan(seen(stored, after)) != []
 
 
-def test_the_oil_suggestion_leaves_ready_by_when_the_price_is_cleared():
+def test_the_oil_suggestion_leaves_the_plan_when_the_price_is_cleared():
     stored = generated_for(switch=True, sensor=True, oil=True)
     devices = {Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR, Device.IMMERSION_THERMOSTAT}
-    assert _oil_cards_in_ready_by(seen(stored, states_with(devices))) == []
+    assert _oil_cards_in_plan(seen(stored, states_with(devices))) == []

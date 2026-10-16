@@ -55,6 +55,7 @@ def build_coordinator_data(
     forecast_correction: float | None = None,
     today_raw_forecast_kwh: float | None = None,
     today_raw_forecast_p10_kwh: float | None = None,
+    today_raw_forecast_shape: tuple[float, ...] | None = None,
     held_charge: HeldCharge | None = None,
     held_sunrise: HeldSunrise | None = None,
     held_solar: HeldSolarDay | None = None,
@@ -98,6 +99,7 @@ def build_coordinator_data(
             forecast_correction=forecast_correction,
             today_raw_forecast_kwh=today_raw_forecast_kwh,
             today_raw_forecast_p10_kwh=today_raw_forecast_p10_kwh,
+            today_raw_forecast_shape=today_raw_forecast_shape,
         ),
     )
 

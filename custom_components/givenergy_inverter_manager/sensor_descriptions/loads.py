@@ -39,6 +39,18 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         available_fn=lambda d: d.ev_available,
     ),
     GivEnergyManagerSensorDescription(
+        key="ev_session_cost",
+        requires=Device.EV_CHARGER,
+        translation_key="ev_session_cost",
+        native_unit_of_measurement=CURRENCY_UNIT,
+        suggested_display_precision=MONEY_PRECISION,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=None,
+        value_fn=values.ev_session_cost,
+        attrs_fn=values.ev_session_attributes,
+        available_fn=lambda d: d.ev_available,
+    ),
+    GivEnergyManagerSensorDescription(
         key="ev_km_charged_today",
         requires=Device.EV_CHARGER,
         translation_key="ev_km_charged_today",

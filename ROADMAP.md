@@ -147,7 +147,7 @@ Wrong numbers, wrong charge decisions or data loss. Do these first.
 | Decision | Why |
 |---|---|
 | Companion HACS repositories (Power Flow Card, Energy History Card, Charge Plan Timeline Card, HTML Report Templates) | Wait until sensor naming is stable at v1.0 |
-| An integration-owned dashboard that rewrites the user's Lovelace | It relies on internal Home Assistant APIs and overwrites user edits |
+| The integration creating a dashboard, or writing one without a click | Creating a dashboard needs internal Home Assistant APIs and an identity the integration does not hold (`docs/design/spikes/SP1.md`). The integration writes only into a storage dashboard the user made and named, and only when the user runs `update_dashboard` or selects **Submit** in the out-of-date repair. It never writes on a timer, at setup or after an upgrade |
 | A sidebar panel, a rebuild of power-flow-card-plus or apexcharts, a webpack or TypeScript pipeline | Too much to maintain for the gain |
 | Linear programming or genetic optimisers and machine learning forecasters (EMHASS, EOS) | Too heavy for this integration. evcc's own optimiser is described in its documentation as informational only and does not yet control the home battery ([evcc optimiser](https://docs.evcc.io/en/features/optimizer.md)). EMHASS needs a solver and a trained model to maintain ([documentation](https://emhass.readthedocs.io/)). |
 | Copying code, comments, names or structure from other projects | We build our own. Studying how they work and writing our own specification, then building from it, is allowed. The specification contains no code |

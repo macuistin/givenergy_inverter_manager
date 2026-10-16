@@ -153,17 +153,19 @@ A check writes only when the new target is at least 5 points from the last writt
 
 The overnight outlook asks whether the battery lasts until solar starts. It uses the current SoC, the usable capacity above the minimum SoC, the average daily load (see above, so without the EV charger and the immersion heater) spread evenly over 24 hours, and a window of hours:
 
-- Before 08:00, the hours left until 08:00.
-- After 08:00 while solar is generating, tonight's pre-solar window of 8 hours from the current SoC.
+- Before 08:00, the time left until 08:00.
+- After 08:00 while solar is generating, from the time solar is expected to stop today until 08:00 tomorrow, from the current SoC. Once that time has passed and solar is still generating, from now.
 - After 08:00 with no solar, from now until 08:00 tomorrow.
 
-Solar counts as generating once the reading has stayed at or above 10 W (the noise floor) for 5 minutes, and stops counting once it has stayed below 10 W for 5 minutes. A reading that crosses back restarts the count. At dawn and dusk the reading wanders across 10 W every few cycles. Without this, the window flipped between 8 hours and the whole evening with each crossing, and the status flipped between "Estimated shortfall" and "should last". The charge plan reads the same settled state. Only the solar state waits. The SoC, the load and the shortfall are read fresh every cycle, so a real shortfall shows at once. After a restart or a gap of an hour the first reading is taken as it is.
+The window is counted to the minute, so the figure does not step as each hour starts. The time solar is expected to stop is the end of the last half hour with any solar in the shape of today's forecast (the half-hourly figures Solcast's sensors carry, see step 5 of [Overnight charge target](#overnight-charge-target)), or of tomorrow's when today's was not seen. Without a forecast shape it is 20:00, the end of the last half hour of the bell curve the charge plan uses. In daylight the window counts the evening, so a battery pause that starts late in the evening does not hide the load before it. For example, with a pause from 23:00 to 08:00 and solar expected to stop at 18:00, the midday figure counts 18:00 to 23:00. When solar stops at the time expected or later, the window already starts now, so the figure moves on smoothly at dusk. Solar that stops earlier than expected still makes the window longer at that point, by the time between the two.
+
+Solar counts as generating once the reading has stayed at or above 10 W (the noise floor) for 5 minutes, and stops counting once it has stayed below 10 W for 5 minutes. A reading that crosses back restarts the count. At dawn and dusk the reading wanders across 10 W every few cycles. Without this, the window flipped between the night from the expected end of solar and the whole day with each crossing, and the status flipped between "Estimated shortfall" and "should last". The charge plan reads the same settled state. Only the solar state waits. The SoC, the load and the shortfall are read fresh every cycle, so a real shortfall shows at once. After a restart or a gap of an hour the first reading is taken as it is.
 
 The charge plan skips a night only when this check passes, and it uses the same window and load. **Estimated SoC at Sunrise Without a Charge** is the SoC left at the end of the window, never below the minimum SoC. **Battery Overnight Outlook** and **Battery Overnight Confidence** read the same calculation. The confidence is Safe, Warning or Critical. The dashboard says it in words: Lasts the night, Only just lasts the night and May run low.
 
 The estimate is a pessimistic one by design, in two ways. It spreads the day's average load evenly over the window, so a night that is quieter than the day reads worse than it will be: an evening that uses 0.5 kWh an hour is judged at the daily average, often twice that. And it counts only the charge the battery holds now. A cheap-rate charge planned for later tonight is not added, so a shortfall in the evening is a shortfall without that charge. A **Battery may run low** status in the evening, with a charge planned for the cheap period, does not mean the battery will run out. While a planned charge counts, the words say so: the summary reads, for example, `Lasts the night · 36% at sunrise without a charge, about 89% with tonight's charge`, and a Warning or May run low says whether tonight's charge covers it (`May run low without a charge · tonight's charge covers it, about 67% at sunrise`). The level itself is still judged without the charge. A charge counts when a timed window adds charge before 08:00. On a skipped night, with no timed window, or once the window is over, the words give the one figure. Check **Tonight's Charge Plan** next to it. The minimum SoC reading is the floor of the estimate, not a measurement.
 
-The calculated figure steps when the day's energy total resets at midnight, when the window flips at 08:00 and when solar fades in the evening. The published **Estimated SoC at Sunrise Without a Charge** follows the calculated figure at no more than the pace the inverter can charge or discharge the battery (inverter maximum output over battery capacity, for example 5 kW over 19 kWh is about 26 points an hour). A step becomes a ramp of about half an hour. The status and confidence sensors use the calculated figure, so a real shortfall shows at once. After a restart or a gap of an hour the held value is dropped and the sensor starts from the calculated figure.
+The calculated figure steps when the day's energy total resets at midnight, when the window flips at 08:00 and when solar stops earlier than expected in the evening. The published **Estimated SoC at Sunrise Without a Charge** follows the calculated figure at no more than the pace the inverter can charge or discharge the battery (inverter maximum output over battery capacity, for example 5 kW over 19 kWh is about 26 points an hour). A step becomes a ramp of about half an hour. The status and the Critical level of the confidence sensor use the calculated figure, so a real shortfall shows at once. The words that quote a figure (**Battery Overnight Outlook**, and the `summary` and `explanation` of **Battery Overnight Confidence**) quote the published one, so they always agree with the sensor. After a restart or a gap of an hour the held value is dropped and the sensor starts from the calculated figure.
 
 **Two sunrise figures.** The figure above leaves tonight's planned charge out on purpose, because it answers "will the battery last without a charge". In the evening that makes it sit on the minimum SoC for hours, even with a charge planned and the battery on course to finish the night well above the minimum. **Estimated SoC at Sunrise With the Planned Charge** projects the same night with the charge in it:
 
@@ -262,6 +264,26 @@ While a pause covers part of a span, that part adds no load to the battery:
 The words say so once, where the figures are quoted. The sentence `The battery is paused from 23:00 to 08:00.` is in **Battery Overnight Outlook**, the explanation of **Battery Overnight Confidence**, the `basis` of **Estimated SoC at Sunrise With the Planned Charge** and **Overnight Charge Reason**, and the summary of Battery Overnight Confidence ends with `battery paused 23:00 to 08:00`. They say it only when the pause falls in the night being judged. A pause that falls wholly in the day, or no pause, leaves the text as it was.
 
 The integration only reads the pause. It never writes it, with or without dry run. A temporary pause started from GivTCP's temporary pause controls is not read. The estimates do not model a stopped charge. Instead, when the mode is `PauseCharge` or `PauseBoth` and its window covers part of tonight's planned charge window, the inverter will not charge there, and the repair **The battery pause stops tonight's charge** says so (see [The battery pause stops the charge](troubleshooting.md#the-battery-pause-stops-the-charge)). To let the battery serve the house at night or charge in the cheap window, change the mode in GivTCP.
+
+### Tomorrow's outlook
+
+The **Tomorrow Outlook** sensor estimates what the solar day the charge plan is for should cost. That is the same day the plan uses: tomorrow until midnight, and today from midnight to 08:00.
+
+It runs the plan's own simulation of that day in 48 half-hour slots, with the same forecast (after the accuracy correction and the P10 blend), solar shape, load and battery pause. The battery starts at the level tonight's charge leaves: the target, or the level now on a skipped night or when the battery is already above the target. In each slot:
+
+- When solar and the battery cannot cover the load, the grid covers the rest. The battery stops at the minimum SoC, and in a paused slot the grid covers the whole shortfall.
+- When the battery is full, the solar it cannot take goes to the grid.
+
+Each slot's import is priced at the rate in force at the start of that half hour, after discount and VAT, with the tariff in force on that day, so a dated tariff change counts. Export earns the export rate. Tonight's charge is the **Estimated Overnight Charge Cost** figure.
+
+The state is the import cost plus the charge cost, less the export credit. The attributes hold each line in kWh and money, the battery level at the end of the day and the lowest it reaches, the forecast used, a `basis` sentence that names the forecast source and the load, and a `table` for the dashboard. For example, 2.0 kWh from the grid for €0.60 and 10.0 kWh to the grid for €2.00, with no charge, is a day that earns €1.40. The state is then -1.40 and the table shows `‑€1.40`.
+
+It is an estimate from the plan's model, not a bill:
+
+- The battery starts the day at tonight's level, takes or gives any power the slot needs, and a charge pause is not modelled.
+- The load is the plan's average daily load, without the EV charger and the immersion heater, so solar they would take counts as export. Early in the day the average is a rough guess.
+- The standing charge and the levy are left out, and the charge cost is before discount and VAT, as on its own sensor.
+- Without a forecast sensor it uses the seasonal estimate, and `basis` says so. Without a battery capacity the state is unknown.
 
 ### Immersion divert
 
@@ -409,12 +431,20 @@ Every cycle the grid import is priced at the current rate, after supplier discou
 
 ### Bill audit and the cost without solar or battery
 
-The **Bill audit** sensor lays the running bill period out like a supplier bill. Its `html` attribute holds two tables, shown by the Plan & bill tab:
+The **Bill audit** sensor lays the running bill period out like a supplier bill. Its `html` attribute holds two tables. The Bill & tariff view of the dashboard shows the same figures as smaller tables from the `bill_table` and `days_table` attributes:
 
 - **The days.** One row for each finished day, and one for today so far. Each row lists the kWh imported in each rate period, what that cost at the billed rates, the kWh exported and the credit, the kWh the house used, and the **Without** cost, which is what that use would have cost from the grid.
 - **The bill.** Energy at the rates, supplier discount, standing charge, PSO levy, VAT, export credit and the total, in three columns: as billed, with no solar or battery, and the saving.
 
 The total is the Bill sensors' total, because both come from the same period accumulator and the same bill sums. A day that was not recorded, such as one before this was added, shows as one "Earlier, not itemised" row that makes the rows add up to the period.
+
+Home Assistant's markdown card drops the styles the `html` attribute uses, so the same figures are also published as markdown tables, which the card draws as plain tables:
+
+- `bill_table` on **Bill audit**: the bill line by line, in three columns: **You paid**, **Would have paid** (the same use with no solar or battery) and **Saved**. The export credit has no **Would have paid** figure, because with no solar there is nothing to export. The total is in bold.
+- `days_table` on **Bill audit**: one row a day, newest first, with today marked "(today)". The columns are the kWh imported, **You paid** (the import cost less the export credit), **Would have paid** (the day's use priced from the grid) and **Saved**. Days before daily records began are one row, "Before daily records". Before any day is recorded it is one sentence instead of a table.
+- `summary_table` on **Previous bill audit**: what you paid, what you would have paid and the saving for the last bill period. `period` holds its dates as text, such as `16 Sep to 15 Oct`. With no archived period the table is one sentence and `period` is empty.
+
+Money has two decimal places and the currency symbol from the options. A negative amount, such as a credit, starts with a non-breaking hyphen, so a narrow card never wraps the sign away from the number. To show a table, put `{{ state_attr('sensor.givenergy_inverter_manager_bill_audit', 'bill_table') }}` in a markdown card.
 
 **Without solar or battery** is the house's whole use, priced as it was used. It is not a guess. Every cycle the integration prices the house load at the rate in force at that moment, with the supplier discount and VAT, the way it prices what you import. The sensors **Cost Without Solar or Battery** (today, this week, this month) show that energy cost. **Bill Without Solar or Battery** adds the standing charge, PSO levy and VAT, takes off no export credit, and sits beside **Accrued Bill**.
 
