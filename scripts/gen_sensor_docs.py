@@ -489,7 +489,10 @@ DESCRIPTIONS: dict[str, str] = {
         "more at once. Attributes: `window_start`, `window_end`, `window_extended`, "
         "`expected_kwh` and `expected_finish`."
     ),
-    "overnight_charge_cost": "kWh to charge times the cheapest rate, before discount and VAT.",
+    "overnight_charge_cost": (
+        "kWh from the SoC up to the target that is written, after the cap or a manual "
+        "override, times the cheapest rate, before discount and VAT. Zero on a skipped night."
+    ),
     "estimated_soc_at_sunrise": (
         "Projected SoC when solar starts, taken as 08:00, if no charge happens: the battery "
         "from now to sunrise on the house load, ignoring tonight's planned charge. It holds at "
