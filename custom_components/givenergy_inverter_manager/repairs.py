@@ -65,6 +65,14 @@ Issues raised:
     never changes. Not fixable: the setting is in GivTCP. An upgrade of GivTCP can reset it. The
     decision lives in core/real_time_control.py. It clears when the switch reads on.
 
+  charge_blocked_by_pause
+    GivTCP's battery pause mode is PauseCharge or PauseBoth and its window covers part of
+    tonight's planned charge window, with the charge not skipped. The charge is written and read
+    back as set, but the inverter does not charge in the pause, so the battery does not reach the
+    target. Not fixable: the integration never changes the pause. It is raised once the overlap
+    has held for a few cycles, never in dry run, and it clears when the overlap ends. The
+    decision lives in core/charge_pause.py.
+
   givtcp_feed_frozen
     GivTCP's entities still hold their last values but none has been reported for ten
     minutes, as when the GivTCP add-on crashes and MQTT keeps the retained values. The
@@ -114,6 +122,7 @@ ISSUE_GIVTCP_NOT_ANSWERING = "givtcp_not_answering"
 ISSUE_SYSTEM_LOOKS_DIFFERENT = "system_looks_different"
 ISSUE_GIVTCP_RESETS_IDS = "givtcp_resets_entity_ids"
 ISSUE_REAL_TIME_CONTROL_OFF = "givtcp_real_time_control_off"
+ISSUE_CHARGE_BLOCKED_BY_PAUSE = "charge_blocked_by_pause"
 
 TROUBLESHOOTING_URL = (
     "https://github.com/macuistin/givenergy_inverter_manager/blob/main/docs/troubleshooting.md"
@@ -133,6 +142,7 @@ LEARN_MORE_URLS: dict[str, str] = {
     ISSUE_SYSTEM_LOOKS_DIFFERENT: f"{TROUBLESHOOTING_URL}#the-system-looks-different",
     ISSUE_GIVTCP_RESETS_IDS: f"{TROUBLESHOOTING_URL}#upgrading-givtcp",
     ISSUE_REAL_TIME_CONTROL_OFF: f"{TROUBLESHOOTING_URL}#real-time-control-is-off",
+    ISSUE_CHARGE_BLOCKED_BY_PAUSE: f"{TROUBLESHOOTING_URL}#the-battery-pause-stops-the-charge",
 }
 
 # Matches the selector max in config_flow.py. Values above this are legacy
@@ -382,6 +392,27 @@ def async_create_real_time_control_issue(hass: HomeAssistant) -> None:
 def async_delete_real_time_control_issue(hass: HomeAssistant) -> None:
     """Clear the repair once Real Time Control is on."""
     async_delete_issue(hass, DOMAIN, ISSUE_REAL_TIME_CONTROL_OFF)
+
+
+def async_create_charge_blocked_by_pause_issue(
+    hass: HomeAssistant, pause: str, charge_window: str
+) -> None:
+    """Surface a repair issue while a charge-stopping pause covers the planned charge window."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_CHARGE_BLOCKED_BY_PAUSE,
+        is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_CHARGE_BLOCKED_BY_PAUSE],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_CHARGE_BLOCKED_BY_PAUSE,
+        translation_placeholders={"pause": pause, "window": charge_window},
+    )
+
+
+def async_delete_charge_blocked_by_pause_issue(hass: HomeAssistant) -> None:
+    """Clear the repair once the pause no longer covers the planned charge."""
+    async_delete_issue(hass, DOMAIN, ISSUE_CHARGE_BLOCKED_BY_PAUSE)
 
 
 async def async_create_fix_flow(
