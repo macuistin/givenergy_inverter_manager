@@ -1,12 +1,13 @@
 """
 views.py - the views of the dashboard, and the Builder that fills them.
 
-The dashboard tells a story. Home energy, the one page with a tab, says what is happening now and
-what needs attention: the live power flow, a sentence on what the house runs on and what tonight
-holds, the day so far, the hot water and the EV charger, and a banner only while something needs
-the user. Every detail is one tap away on a sub-view: Today, Tonight, Tomorrow, Bill & tariff,
-Hot water, EV charger and Settings. Each sub-view opens with a sentence, then one picture that
-tells its story, then a few figures in a row, then the detail.
+The dashboard tells a story. Home energy says what is happening now and what needs attention: the
+live power flow under a heading that carries the day's figures, a sentence on what the house runs
+on and what tonight holds, one button each for the hot water and the EV charger with their
+figures, and a banner only while something needs the user. Today, Tonight, Tomorrow and Bill &
+tariff are tabs with an icon each. Hot water, EV charger and Settings are one tap away on
+sub-views. Each view opens with a sentence, then one picture that tells its story, then a few
+figures in a row, then the detail.
 """
 
 from __future__ import annotations
@@ -72,7 +73,6 @@ from .cards import (
     navigate_action,
     present,
     readonly_tile,
-    shortcut_card,
     stacked_daily_graph,
     stacked_hourly_graph,
     state_markdown,
@@ -118,18 +118,18 @@ from .templates import (
 )
 
 # ── View paths ───────────────────────────────────────────────────────────────
-# Home energy is the one view with a tab, so Home Assistant shows no tab bar. Every other view is
-# a sub-view whose back arrow returns to it. Home energy keeps the path it had as Power Flow, and
-# the sub-views keep theirs, so a saved link still opens the same page.
+# Home energy and the four days and bills views are tabs, shown as icons in the bar. The devices
+# and Settings are sub-views whose back arrow returns to Home energy. Every view keeps the path it
+# had, so a saved link still opens the same page.
 TAB_NOW = "power-flow"
-SUB_TODAY = "today"
-SUB_PLAN = "plan"
-SUB_TOMORROW = "tomorrow"
-SUB_BILL = "bill"
+TAB_TODAY = "today"
+TAB_PLAN = "plan"
+TAB_TOMORROW = "tomorrow"
+TAB_BILL = "bill"
 SUB_IMMERSION = "immersion"
 SUB_EV = "ev-charger"
 SUB_SETTINGS = "settings"
-TABS = frozenset({TAB_NOW})
+TABS = frozenset({TAB_NOW, TAB_TODAY, TAB_PLAN, TAB_TOMORROW, TAB_BILL})
 
 # How far back the charts reach, and how tall they are in grid rows. A bill period is a
 # calendar month, so 31 days always holds the one in progress.
@@ -482,7 +482,10 @@ class Builder:
         return {**card, "grid_options": {"columns": FULL}} if card else None
 
     def _flow(self) -> dict | None:
-        """The power flow, two columns wide, with the Settings button in its heading.
+        """The power flow, two columns wide, under a heading that carries the day's figures.
+
+        The heading opens Today, and holds the Settings button. A sentence on what the house
+        runs on and what tonight holds sits between the heading and the flow.
 
         One card for each combination of the car charger and immersion being there. The card
         cannot hide one device, so a stored dashboard shows the card built for the devices
@@ -491,21 +494,14 @@ class Builder:
         devices = (Device.EV_CHARGER, Device.IMMERSION_SWITCH)
         cards = self.devices.variants(devices, self._flow_card)
         heading = heading_card(
-            "Live power flow", "mdi:transmission-tower", badges=self._settings_badges()
+            "Live power flow",
+            "mdi:transmission-tower",
+            nav=self.go(TAB_TODAY),
+            badges=[*self._today_badges(), *(self._settings_badges() or [])],
         )
-        return group(heading, cards, **WIDE)
+        return group(heading, [self._now_story(), *cards], **WIDE)
 
     # -- Home energy: right now --
-
-    def _now_badges(self) -> list[dict]:
-        """The battery, the price now and when the cheap rate starts, as chips."""
-        return present(
-            [
-                entity_badge(self.entity("battery_soc"), "mdi:battery-high", color=BATTERY),
-                entity_badge(self.entity("current_rate"), "mdi:currency-eur", color="purple"),
-                entity_badge(self.entity("next_cheap_rate_start"), "mdi:clock-outline"),
-            ]
-        )
 
     def _now_story(self) -> dict | None:
         """What the house runs on now and what tonight holds. None without the power sensors."""
@@ -531,96 +527,64 @@ class Builder:
             ]
         )
 
-    def _heating(self) -> list[dict]:
-        """A condition that holds while the heater draws power. Empty without its sensor."""
-        heater = self.immersion("immersion_power")
-        return [{"condition": "numeric_state", "entity": heater, "above": 0}] if heater else []
-
-    def _devices_badges(self) -> list[dict]:
-        """The water temperature, the heater while it heats, and the EV charger, as chips.
-
-        Each chip opens its device's view and shows only while its device is there.
-        """
-        heater = self.immersion("immersion_power")
-        heating = self._heating()
-        water = entity_badge(
-            self.water_sensor("immersion_water_temperature"),
-            "mdi:water-boiler",
-            color="orange",
-            nav=self.go(SUB_IMMERSION),
-            visibility=self.devices.visible_with(Device.IMMERSION_SENSOR),
-        )
-        on = entity_badge(
-            heater,
-            "mdi:fire",
-            color="red",
-            nav=self.go(SUB_IMMERSION),
-            visibility=[*self.devices.visible_with(Device.IMMERSION_SWITCH), *heating],
-        )
-        car = entity_badge(
-            self.ev("ev_charger_state"),
-            "mdi:ev-station",
-            color="teal",
-            nav=self.go(SUB_EV),
-            visibility=self.devices.visible_with(Device.EV_CHARGER),
-        )
-        return present([water, on, car])
-
-    def _right_now(self) -> dict | None:
-        """Right now, the day so far, and the hot water and the EV charger, in one column."""
-        today = subheading_card("Today so far", "mdi:calendar-today")
-        if badges := self._today_badges():
-            today["badges"] = badges
-        if nav := self.go(SUB_TODAY):
-            today["tap_action"] = nav
-        # The heading shows while one of its chips does, so a heater that is off with no
-        # sensor or charger beside it leaves no heading on its own.
-        shown = [
-            *self.devices.visible_with(Device.EV_CHARGER),
-            *self.devices.visible_with(Device.IMMERSION_SENSOR),
-            *self._heating(),
-        ]
-        devices = with_visibility(
-            {
-                **subheading_card("Hot water and EV", "mdi:power-plug"),
-                "badges": self._devices_badges(),
-            },
-            [{"condition": "or", "conditions": shown}],
-        )
-        now = heading_card(
-            "Right now", "mdi:clock-outline", nav=self.go(SUB_PLAN), badges=self._now_badges()
-        )
-        # The heading's chips are worth showing without the sentence under it.
-        first = heading_block(now, [self._now_story()]) or ([now] if "badges" in now else [])
-        return grid_section(
-            first,
-            present([today if "badges" in today else None, devices if devices["badges"] else None]),
-        )
-
-    def _more(self) -> dict | None:
-        """A button for each sub-view, two columns wide. Settings only for administrators."""
-        devices = self.devices
-        settings = shortcut_card("Settings", "mdi:tune", self.go(SUB_SETTINGS))
-        if settings:
-            settings["visibility"] = [admin_condition(self.admin_ids)]
-        return group(
-            heading_card("More", "mdi:dots-grid"),
+    def _water_button_card(self, shown: frozenset[Device]) -> dict | None:
+        """The hot water figures for the devices of *shown*, each opening the Hot water view."""
+        sensor = Device.IMMERSION_SENSOR in shown
+        heater = Device.IMMERSION_SWITCH in shown
+        return glance_card(
             [
-                shortcut_card("Today", "mdi:calendar-today", self.go(SUB_TODAY)),
-                shortcut_card("Tonight", "mdi:battery-clock", self.go(SUB_PLAN)),
-                shortcut_card("Tomorrow", "mdi:weather-sunset-up", self.go(SUB_TOMORROW)),
-                shortcut_card("Bill & tariff", "mdi:receipt-text", self.go(SUB_BILL)),
-                with_visibility(
-                    shortcut_card("Hot water", "mdi:water-boiler", self.go(SUB_IMMERSION)),
-                    devices.visible_with_any(Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR),
+                self.nav_row(
+                    self.water_sensor("immersion_water_temperature") if sensor else None,
+                    "Water",
+                    SUB_IMMERSION,
                 ),
-                devices.show_with(
-                    shortcut_card("EV charger", "mdi:ev-station", self.go(SUB_EV)),
-                    Device.EV_CHARGER,
+                self.nav_row(
+                    self.immersion("immersion_power") if heater else None, "Heater", SUB_IMMERSION
                 ),
-                settings,
-            ],
-            **WIDE,
+                self.nav_row(
+                    self.immersion("immersion_today") if heater else None, "Heated", SUB_IMMERSION
+                ),
+                self.nav_row(
+                    self.immersion("immersion_cost_today") if heater else None,
+                    "Cost",
+                    SUB_IMMERSION,
+                ),
+            ]
+        )
+
+    def _charger_button_card(self) -> dict | None:
+        """The EV charger figures, each opening the EV charger view."""
+        return glance_card(
+            [
+                self.nav_row(self.ev("ev_charger_state"), "State", SUB_EV),
+                self.nav_row(self.ev("ev_session_energy"), "This charge", SUB_EV),
+                self.nav_row(self.ev("zappi_today"), "Today", SUB_EV),
+                self.nav_row(self.ev("zappi_cost_today"), "Cost", SUB_EV),
+            ]
+        )
+
+    def _device_buttons(self) -> dict | None:
+        """A button for the hot water and one for the EV charger, each with its figures.
+
+        The heading opens the device's view, and so does each figure. A device that is not
+        there leaves nothing: its heading and its figures carry a visibility condition, so
+        one that arrives later shows with no regeneration.
+        """
+        devices = self.devices
+        water_cards = devices.variants(
+            (Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR), self._water_button_card
+        )
+        water = with_visibility(
+            heading_card("Hot water", "mdi:water-boiler", nav=self.go(SUB_IMMERSION)),
+            devices.visible_with_any(Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR),
+        )
+        ev = with_visibility(
+            heading_card("EV charger", "mdi:ev-station", nav=self.go(SUB_EV)),
+            devices.visible_with(Device.EV_CHARGER),
+        )
+        return grid_section(
+            heading_block(water, water_cards),
+            heading_block(ev, [devices.show_with(self._charger_button_card(), Device.EV_CHARGER)]),
         )
 
     def _repairs_section(self) -> dict | None:
@@ -704,10 +668,10 @@ class Builder:
         )
 
     def now_sections(self) -> list:
-        """The banners while they apply, the power flow, right now, and the way to the rest.
+        """The banners while they apply, the power flow, and the device buttons.
 
-        On a laptop right now sits beside the power flow and the buttons run under it. On a
-        phone every section is one column and they stack in this order.
+        On a laptop the buttons sit beside the power flow. On a phone every section is one
+        column and they stack in this order.
         """
         return present(
             [
@@ -716,8 +680,7 @@ class Builder:
                 self._setup_checklist(),
                 self._repairs_section(),
                 self._flow(),
-                self._right_now(),
-                self._more(),
+                self._device_buttons(),
             ]
         )
 
@@ -1553,12 +1516,14 @@ class ViewSpec:
         return view_config(self.title, self.icon, self.path, self.sections(builder), **extra)
 
 
-TAB_VIEWS = (ViewSpec("Home energy", "mdi:home-lightning-bolt", TAB_NOW, Builder.now_sections),)
+TAB_VIEWS = (
+    ViewSpec("Home energy", "mdi:home-lightning-bolt", TAB_NOW, Builder.now_sections),
+    ViewSpec("Today", "mdi:calendar-today", TAB_TODAY, Builder.today_sections),
+    ViewSpec("Tonight", "mdi:battery-clock", TAB_PLAN, Builder.plan_sections),
+    ViewSpec("Tomorrow", "mdi:weather-sunset-up", TAB_TOMORROW, Builder.tomorrow_sections),
+    ViewSpec("Bill & tariff", "mdi:receipt-text", TAB_BILL, Builder.bill_sections),
+)
 SUBVIEWS = (
-    ViewSpec("Today", "mdi:calendar-today", SUB_TODAY, Builder.today_sections, TAB_NOW),
-    ViewSpec("Tonight", "mdi:battery-clock", SUB_PLAN, Builder.plan_sections, TAB_NOW),
-    ViewSpec("Tomorrow", "mdi:weather-sunset-up", SUB_TOMORROW, Builder.tomorrow_sections, TAB_NOW),
-    ViewSpec("Bill & tariff", "mdi:receipt-text", SUB_BILL, Builder.bill_sections, TAB_NOW),
     ViewSpec("Hot water", "mdi:water-boiler", SUB_IMMERSION, Builder.immersion_sections, TAB_NOW),
     ViewSpec("EV charger", "mdi:ev-station", SUB_EV, Builder.ev_sections, TAB_NOW),
     ViewSpec(
