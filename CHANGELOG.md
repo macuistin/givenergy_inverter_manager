@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- On the Bill & tariff page, the **Each day: what you paid and would have paid** chart now sets each day's import cost beside what the same use would have cost from the grid that day. It compared the day with the whole bill without solar, which adds the standing charge and levy and resets each bill period, so a day could look dearer with solar than without.
+
 ## v0.19.9
 
 The dashboard has a new layout: one page that shows what is happening now, with the detail on its own pages. It can be written into a dashboard you made and kept up to date with one click. After upgrading, press **Submit** on the out-of-date repair to get the new layout. New sensors estimate tomorrow's cost, price each EV charge and count this integration's repairs. The overnight figures now count the evening, the charge cost follows the target that is written, and tonight's charge target holds across midnight.
