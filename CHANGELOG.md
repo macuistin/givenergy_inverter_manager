@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Changed**
+- A new integration icon: a battery inside a day and night dial, amber for the solar day and blue for the overnight charge. It replaces the house picture, which was hard to make out at the small size Home Assistant shows. There is now a sharper copy for high-resolution screens.
+
 ## v0.19.10
 
 Home energy is rebuilt around the power flow, with Today, Tonight, Tomorrow and Bill & tariff as tabs, the overnight charge target no longer jumps about in the small hours, and the dashboard strategy no longer times out after a restart. The Each day chart on Bill & tariff now compares like with like. After upgrading, press **Submit** on the out-of-date repair to update a stored dashboard.
