@@ -10,7 +10,9 @@ CHARGE_TARGET_HOLD_LARGE_STEP_PCT at once.
 
 A change between charging and skipping is measured by the charge it adds or removes: skipping
 and charging a few points are the same night. A skip is never published while a charge is
-running, because the charge itself lifts the SoC over the skip threshold.
+running, because the charge itself lifts the SoC over the skip threshold. A held charge whose
+target the battery has already reached is replaced at once by a fresh skip. It adds nothing, so
+showing it would say a charge is coming that is not.
 
 The published charge window end holds the same way, in minutes: a step of
 CHARGE_WINDOW_HOLD_STEP_MINUTES once the held end has stood for the same time, and a step of
@@ -109,6 +111,13 @@ def _skip_during_charge(held: ChargeDecision, fresh: ChargeDecision, reading: Ho
     return reading.charge_running and fresh.skip_charge and not held.skip_charge
 
 
+def _charge_already_met(held: ChargeDecision, fresh: ChargeDecision, reading: HoldReading) -> bool:
+    """A fresh skip against a held charge whose target the battery is already at or above."""
+    if not fresh.skip_charge or held.skip_charge:
+        return False
+    return _shown_target(held, reading) <= round(fresh.current_soc)
+
+
 def next_held_recommendation(
     held: HeldCharge, fresh: ChargeDecision, reading: HoldReading
 ) -> ChargeDecision:
@@ -117,6 +126,8 @@ def next_held_recommendation(
         return fresh
     if _skip_during_charge(held.decision, fresh, reading):
         return held.decision
+    if _charge_already_met(held.decision, fresh, reading):
+        return fresh
     step_pct = _plan_change_pct(held.decision, fresh, reading)
     if step_pct >= CHARGE_TARGET_HOLD_LARGE_STEP_PCT:
         return fresh

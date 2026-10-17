@@ -154,6 +154,73 @@ class TestAChangeOfKindThatChargesLittle:
         assert next_held_recommendation(_held(held), fresh, AFTER_DWELL) is held
 
 
+class TestTheNextDayThroughTheEngine:
+    """The charge published at night is not still on show once the battery is above it."""
+
+    @staticmethod
+    def _cycle(held: HeldCharge, now: datetime, soc: float, forecast_kwh: float):
+        acc = EnergyAccumulator()
+        acc.house_kwh = 10.0
+        raw = _raw(
+            battery_soc=soc,
+            battery_capacity_kwh=19.0,
+            solar_power_w=0.0 if now.hour >= 20 else 2000.0,
+            forecast_kwh_tomorrow=forecast_kwh,
+        )
+        cfg = {**_nightboost_cfg(), "overnight_charge_target_pct": 100}
+        data, _ = _run(
+            raw=raw, cfg=cfg, now=now, acc=acc, today_raw_forecast_kwh=forecast_kwh, held_charge=held
+        )
+        return data
+
+    def test_the_target_sensor_follows_the_plan_to_a_skip_by_day(self):
+        held = HeldCharge()
+        night = self._cycle(held, datetime(2026, 10, 16, 22, 0), 40.0, 10.0)
+        assert night.published_charge_decision.skip_charge is False
+        assert night.published_charge_decision.target_soc < 92
+
+        day = self._cycle(held, datetime(2026, 10, 17, 16, 0), 92.0, 30.0)
+        assert day.charge_decision.skip_charge is True
+        assert day.published_charge_decision.skip_charge is True
+        assert day.published_charge_decision.reason == day.charge_decision.reason
+
+
+class TestAChargeTheBatteryHasAlreadyMet:
+    """By day the battery is above last night's target, so the held charge adds nothing."""
+
+    def test_a_skip_replaces_a_held_charge_the_battery_is_already_above(self):
+        held = _decision(75, soc=60.0)
+        fresh = _decision(75, skip=True, soc=92.0)
+        assert next_held_recommendation(_held(held), fresh, JUST_AFTER) is fresh
+
+    def test_a_skip_replaces_a_held_charge_the_battery_has_just_reached(self):
+        held = _decision(75, soc=60.0)
+        fresh = _decision(75, skip=True, soc=75.0)
+        assert next_held_recommendation(_held(held), fresh, JUST_AFTER) is fresh
+
+    def test_a_held_charge_the_battery_is_still_below_is_kept_under_a_step(self):
+        held = _decision(90, soc=60.0)
+        fresh = _decision(90, skip=True, soc=88.0)
+        assert next_held_recommendation(_held(held), fresh, AFTER_DWELL) is held
+
+    def test_the_charge_itself_does_not_publish_the_skip(self):
+        running = HoldReading(JUST_AFTER.now, charge_running=True)
+        held = _decision(75, soc=60.0)
+        fresh = _decision(75, skip=True, soc=80.0)
+        assert next_held_recommendation(_held(held), fresh, running) is held
+
+    def test_the_cap_is_what_the_battery_is_compared_with(self):
+        capped = HoldReading(JUST_AFTER.now, max_target_pct=70)
+        held = _decision(95, soc=60.0)
+        fresh = _decision(95, skip=True, soc=72.0)
+        assert next_held_recommendation(_held(held), fresh, capped) is fresh
+
+    def test_a_held_skip_is_not_replaced_by_a_charge_that_adds_nothing(self):
+        held = _decision(80, skip=True, soc=95.0)
+        fresh = _decision(60, soc=95.0)
+        assert next_held_recommendation(_held(held), fresh, AFTER_DWELL) is held
+
+
 class TestTargetsAboveTheCap:
     CAPPED = HoldReading(AFTER_DWELL.now, max_target_pct=90)
 
