@@ -16,11 +16,19 @@ else in the integration needs the strategy.
 Home Assistant gives the browser one chance, 5 seconds, to find the strategy's element, and does
 not try again. The script copes on its side: it asks again while the command is not ready yet,
 and rebuilds the dashboard if it finds the timeout message on the page when it loads.
+
+A page can also come without the script, and nothing in the page can mend that. Home Assistant
+serves its page as soon as the web server is up, while integrations are still setting up, and a
+page served before this one registered its script has no import for it. On https the browser's
+service worker answers a load with the page it kept from the last one and fetches a new copy
+for the next one, so a copy fetched in that window is served to the next load too. Either way
+the dashboard times out until a second reload. The script is therefore also kept as a Lovelace
+resource, which the page reads over the websocket on every load, whatever page it was served.
+It has the same address as the page import, so the browser loads it once.
 """
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 
 from homeassistant.core import HomeAssistant
@@ -38,8 +46,9 @@ STRATEGY_TYPE = "custom:givenergy-manager"
 STRATEGY_URL_PATH = f"/{DOMAIN}/givenergy-manager-strategy.js"
 STRATEGY_FILE = Path(__file__).parent / "frontend" / "givenergy-manager-strategy.js"
 _REGISTERED_KEY = f"{DOMAIN}_strategy_registered"
-_BOOT_KEY = f"{DOMAIN}_strategy_boot"
 _EXTRA_MODULE_URL_KEY = "frontend_extra_module_url"
+_LOVELACE_KEY = "lovelace"
+RESOURCE_TYPE = "module"
 
 
 async def async_dashboard_for_websocket(hass: HomeAssistant, *, is_admin: bool) -> dict | None:
@@ -65,6 +74,7 @@ async def async_register_strategy(hass: HomeAssistant) -> None:
     hass.data[_REGISTERED_KEY] = True
     _register_websocket_command(hass)
     await _serve_strategy_file(hass)
+    await async_sync_resource(hass)
 
 
 def _register_websocket_command(hass: HomeAssistant) -> None:
@@ -88,15 +98,75 @@ def _register_websocket_command(hass: HomeAssistant) -> None:
 
 
 def strategy_module_url(hass: HomeAssistant) -> str:
-    """The address the page imports the script from, which is new for each Home Assistant start.
+    """The address the page imports the script from, and the Lovelace resource names.
 
-    The version tells releases apart. The start time tells starts apart, so a wrong response a
-    browser kept from one start's first seconds is never asked for again after the next start.
+    The version tells releases apart, so a page never keeps the script of an older release. The
+    server answers `no-cache`, so a copy kept under one address is checked on each load.
     """
-    if _BOOT_KEY not in hass.data:
-        hass.data[_BOOT_KEY] = str(int(time.time()))
-    boot = hass.data[_BOOT_KEY]
-    return f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}&boot={boot}"
+    return f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}"
+
+
+def _lovelace_resources(hass: HomeAssistant):
+    """The Lovelace resource collection when it holds stored resources, else None.
+
+    In YAML mode the user owns the resource list, so nothing is written to it.
+    """
+    data = hass.data.get(_LOVELACE_KEY)
+    resources = (
+        data.get("resources") if isinstance(data, dict) else getattr(data, "resources", None)
+    )
+    needed = ("async_get_info", "async_items", "async_create_item", "async_delete_item")
+    if resources is None or not all(callable(getattr(resources, name, None)) for name in needed):
+        return None
+    return resources
+
+
+def _own_resources(resources) -> list[dict]:
+    """The resources that point at this integration's script, whatever their version."""
+    return [
+        item
+        for item in resources.async_items() or []
+        if str(item.get("url", "")).split("?", 1)[0] == STRATEGY_URL_PATH
+    ]
+
+
+async def async_sync_resource(hass: HomeAssistant) -> None:
+    """Keep one Lovelace resource for the script, at this release's address.
+
+    A resource left by an older release is replaced, so the list never holds two. Where the
+    resource list cannot be written, the page import alone loads the script.
+    """
+    resources = _lovelace_resources(hass)
+    if resources is None:
+        _LOG.debug("No stored Lovelace resources, so the strategy script is not added to them")
+        return
+    url = strategy_module_url(hass)
+    try:
+        await resources.async_get_info()
+        found = _own_resources(resources)
+        keep = next(
+            (i for i in found if i.get("url") == url and i.get("type") == RESOURCE_TYPE), None
+        )
+        for item in found:
+            if item is not keep:
+                await resources.async_delete_item(item["id"])
+        if keep is None:
+            await resources.async_create_item({"res_type": RESOURCE_TYPE, "url": url})
+    except Exception as err:  # noqa: BLE001
+        _LOG.warning("Could not keep the strategy script in the Lovelace resources: %s", err)
+
+
+async def async_remove_resource(hass: HomeAssistant) -> None:
+    """Take the script out of the Lovelace resources, when the last config entry is removed."""
+    resources = _lovelace_resources(hass)
+    if resources is None:
+        return
+    try:
+        await resources.async_get_info()
+        for item in _own_resources(resources):
+            await resources.async_delete_item(item["id"])
+    except Exception as err:  # noqa: BLE001
+        _LOG.warning("Could not remove the dashboard strategy script from the resources: %s", err)
 
 
 def _strategy_file_view():

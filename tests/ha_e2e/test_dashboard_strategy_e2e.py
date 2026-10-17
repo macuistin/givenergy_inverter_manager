@@ -139,7 +139,7 @@ async def test_the_browser_checks_its_copy_of_the_strategy_file_before_using_it(
     assert unchanged.status == 304
 
 
-async def test_the_module_address_is_new_for_each_start_and_fixed_within_one(
+async def test_the_module_address_carries_the_version_and_is_the_same_at_every_start(
     hass, hass_in_scenario, service_calls, config_entry
 ):
     hass.data[DATA_EXTRA_MODULE_URL] = UrlManager(lambda action, url: None, [])
@@ -149,9 +149,85 @@ async def test_the_module_address_is_new_for_each_start_and_fixed_within_one(
     await hass.async_block_till_done()
 
     url = strategy_module_url(hass)
-    assert url == strategy_module_url(hass)
-    assert url.startswith(f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}&boot=")
+    assert url == f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}"
     assert hass.data[DATA_EXTRA_MODULE_URL].urls == {url}
+
+
+class _StoredResources:
+    """The stored resource collection Lovelace puts in hass.data, as far as the strategy uses it."""
+
+    def __init__(self, items=None):
+        self.items = list(items or [])
+
+    async def async_get_info(self):
+        return {"resources": len(self.items)}
+
+    def async_items(self):
+        return self.items
+
+    async def async_create_item(self, data):
+        item = {"id": f"id{len(self.items) + 1}", "type": data["res_type"], "url": data["url"]}
+        self.items.append(item)
+        return item
+
+    async def async_delete_item(self, item_id):
+        self.items = [i for i in self.items if i["id"] != item_id]
+
+
+def _with_lovelace_resources(hass, resources):
+    from types import SimpleNamespace
+
+    hass.data["lovelace"] = SimpleNamespace(resources=resources)
+
+
+async def test_the_script_is_a_lovelace_resource_for_pages_served_before_setup(
+    hass, hass_in_scenario, service_calls, config_entry
+):
+    """The page reads the resource list over the websocket, so a page served without the
+    script in it still loads it."""
+    resources = _StoredResources()
+    _with_lovelace_resources(hass, resources)
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert resources.items == [
+        {"id": "id1", "type": "module", "url": f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}"}
+    ]
+
+    assert await hass.config_entries.async_reload(config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert len(resources.items) == 1
+
+
+async def test_a_resource_of_an_older_release_is_replaced_at_setup(
+    hass, hass_in_scenario, service_calls, config_entry
+):
+    resources = _StoredResources(
+        [{"id": "old", "type": "module", "url": f"{STRATEGY_URL_PATH}?v=0.1.0&boot=1"}]
+    )
+    _with_lovelace_resources(hass, resources)
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert [i["url"] for i in resources.items] == [f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}"]
+
+
+async def test_removing_the_last_entry_takes_the_resource_out(
+    hass, hass_in_scenario, service_calls, config_entry
+):
+    resources = _StoredResources()
+    _with_lovelace_resources(hass, resources)
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert len(resources.items) == 1
+
+    assert await hass.config_entries.async_remove(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert resources.items == []
 
 
 async def test_setup_without_a_frontend_still_serves_the_file(

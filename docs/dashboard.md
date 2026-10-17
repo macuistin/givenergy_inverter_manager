@@ -32,7 +32,7 @@ The action and the repair replace the whole dashboard, your own edits included. 
 
 ## The strategy dashboard
 
-The strategy dashboard builds itself each time you open it, from your entity registry, your options and your Lovelace resources. Nothing is written to a file, and there is no step to repeat when something changes. It needs a small script to load in the browser first, and on some devices that script is not ready in the 5 seconds Home Assistant waits for it. The dashboard then shows "Timeout waiting for strategy element". If that happens to you, use [the stored dashboard](#add-the-dashboard) instead.
+The strategy dashboard builds itself each time you open it, from your entity registry, your options and your Lovelace resources. Nothing is written to a file, and there is no step to repeat when something changes. It needs a small script to load in the browser first, and Home Assistant waits 5 seconds for it. The script is part of the page Home Assistant serves, and it is also kept in the Lovelace resources (**Settings → Dashboards → Resources**, as `/givenergy_inverter_manager/givenergy-manager-strategy.js`), because a page served while Home Assistant is still starting, or kept by the browser from an earlier load, can come without it. The integration adds that resource when it starts and removes it when you remove the integration. If you keep your resources in YAML it adds nothing, and the page alone has to carry the script. When the dashboard still shows "Timeout waiting for strategy element", use [the stored dashboard](#add-the-dashboard) instead.
 
 1. Go to **Settings → Dashboards → Add dashboard**.
 2. Under **Community dashboards**, pick **GivEnergy**.

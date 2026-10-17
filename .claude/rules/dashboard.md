@@ -19,7 +19,8 @@ paths:
   written without the action or the fix. The integration never creates a dashboard (see
   `docs/design/spikes/SP1.md`). The strategy (`strategy.py`,
   `frontend/givenergy-manager-strategy.js`) is the secondary route: it builds the same dashboard
-  each time it opens and can time out on some devices. A notification at first setup says both.
+  each time it opens. Its script is in the page and in a stored Lovelace resource, because a page
+  served early or kept by the service worker has no import for it. A notification at first setup says both.
 - The server decides who sees Settings: `ws_dashboard` reads `connection.user.is_admin` and the
   message carries no other field. The Settings view still carries a `visible` list of the
   administrators, so a copy made with Take control hides it from other users.
