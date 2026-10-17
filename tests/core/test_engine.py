@@ -22,6 +22,7 @@ from custom_components.givenergy_inverter_manager.core.battery import BatterySta
 from custom_components.givenergy_inverter_manager.core.engine import (
     CoordinatorData,
     DailyEstimateLimits,
+    _yesterday_house_kwh,
     build_tariff,
     estimate_avg_daily_kwh,
 )
@@ -280,6 +281,56 @@ class TestEstimateAvgDailyKwh:
             now=datetime(2024, 6, 15, 15, 0),  # 900 min = 62.5% of day
         )
         assert result == pytest.approx(10.0 * 1440 / 900, rel=0.01)
+
+
+class TestEstimateAvgDailyKwhPrior:
+    """The small hours start from yesterday's load and hand over to today's data by 06:00."""
+
+    YESTERDAY_KWH = 22.0
+
+    def _estimate(self, house_kwh, hour, minute=0, prior=YESTERDAY_KWH):
+        return estimate_avg_daily_kwh(house_kwh, datetime(2026, 10, 17, hour, minute), prior)
+
+    def test_the_first_minutes_after_midnight_use_the_prior_not_the_fallback(self):
+        assert self._estimate(0.0, 0, 10) == pytest.approx(self.YESTERDAY_KWH)
+
+    def test_without_a_prior_the_first_minutes_use_the_fallback(self):
+        result = estimate_avg_daily_kwh(0.0, datetime(2026, 10, 17, 0, 10))
+        assert result == pytest.approx(15.0)
+
+    def test_the_total_is_continuous_across_midnight(self):
+        before = estimate_avg_daily_kwh(22.0, datetime(2026, 10, 16, 23, 59), None)
+        after = self._estimate(0.0, 0, 0)
+        assert abs(after - before) < 0.1
+
+    def test_a_tick_of_the_house_counter_moves_the_small_hours_estimate_by_under_half_a_kwh(self):
+        before = self._estimate(0.3, 0, 31)
+        after = self._estimate(0.4, 0, 31)
+        assert 0 < after - before < 0.5
+
+    def test_the_weight_on_today_grows_with_the_hour(self):
+        # 3 kWh by 03:00 extrapolates to 24 kWh. Half the way to 06:00, half of it counts.
+        assert self._estimate(3.0, 3) == pytest.approx(0.5 * 24.0 + 0.5 * self.YESTERDAY_KWH)
+
+    def test_from_the_settled_hour_it_is_the_extrapolation_alone(self):
+        assert self._estimate(6.0, 6) == pytest.approx(6.0 * 4)
+        assert self._estimate(10.0, 15) == pytest.approx(10.0 * 1440 / 900)
+
+    def test_never_below_absolute_min_with_a_tiny_prior(self):
+        assert self._estimate(0.0, 1, prior=1.0) >= 5.0
+
+
+class TestYesterdayHouseKwh:
+    def test_is_none_without_yesterday(self):
+        assert _yesterday_house_kwh(None) is None
+
+    def test_is_none_when_nothing_was_recorded(self):
+        assert _yesterday_house_kwh(EnergyAccumulator()) is None
+
+    def test_leaves_out_the_car_and_the_heater_like_today_does(self):
+        acc = EnergyAccumulator()
+        acc.house_kwh, acc.zappi_kwh, acc.immersion_kwh = 30.0, 6.0, 2.0
+        assert _yesterday_house_kwh(acc) == pytest.approx(22.0)
 
 
 # ── update_battery_stats ──────────────────────────────────────────────────────

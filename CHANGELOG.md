@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- Tonight's charge target no longer jumps about in the small hours. The plan scales the house energy so far today up to a full day. At midnight that fell back to a fixed 15 kWh, and from 00:30 a few tenths of a kWh were scaled up by a factor of about 48, so each 0.1 kWh step of the house counter moved the day's total by about 5 kWh and the target by up to 28 points. On the night of 16 to 17 October the recommended target went between 100 and 75 seven times in 71 minutes with the forecast steady, and the written target depends on which side of a jump the write lands. Now the estimate starts from yesterday's load, taken the same way (without the car and the immersion), and hands over to today's data by 06:00, so a counter step moves it by under half a kWh and the day's total has no gap at midnight. With no yesterday on record, such as the first night, the start is 15 kWh as before. Estimated SoC at Sunrise, Battery Overnight Outlook and Tomorrow Outlook read the same figure, so they are steadier in those hours too. See [Overnight charge target](docs/concepts.md#overnight-charge-target).
+
 ## v0.19.9
 
 The dashboard has a new layout: one page that shows what is happening now, with the detail on its own pages. It can be written into a dashboard you made and kept up to date with one click. After upgrading, press **Submit** on the out-of-date repair to get the new layout. New sensors estimate tomorrow's cost, price each EV charge and count this integration's repairs. The overnight figures now count the evening, the charge cost follows the target that is written, and tonight's charge target holds across midnight.

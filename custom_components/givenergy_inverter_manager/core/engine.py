@@ -670,6 +670,10 @@ class DailyEstimateLimits:
     fallback_kwh: float = 15.0
     min_minutes: int = 30
     absolute_min: float = 5.0
+    # By this time of day the extrapolation counts in full. Before it, the estimate is weighted
+    # towards the prior (yesterday's load), so a house counter that moves in 0.1 kWh steps
+    # cannot swing the day's total by several kWh in the small hours.
+    settled_minutes: int = 360
 
 
 _DEFAULT_ESTIMATE_LIMITS = DailyEstimateLimits()
@@ -678,6 +682,7 @@ _DEFAULT_ESTIMATE_LIMITS = DailyEstimateLimits()
 def estimate_avg_daily_kwh(
     house_kwh_today: float,
     now: datetime,
+    prior_kwh: float | None = None,
     limits: DailyEstimateLimits = _DEFAULT_ESTIMATE_LIMITS,
 ) -> float:
     """
@@ -686,14 +691,18 @@ def estimate_avg_daily_kwh(
     Uses elapsed time since midnight rather than elapsed time since HA restart,
     so the estimate is stable even if HA restarts mid-day.
 
-    Returns limits.fallback_kwh if fewer than limits.min_minutes have elapsed (too
-    early to extrapolate reliably). Always returns at least limits.absolute_min kWh.
+    The prior is yesterday's load when it is known, else limits.fallback_kwh. It is the whole
+    estimate for the first limits.min_minutes after midnight, and its weight falls to nothing by
+    limits.settled_minutes, where the extrapolation of today's data takes over. That keeps the
+    total continuous across midnight. Always returns at least limits.absolute_min kWh.
     """
+    prior = limits.fallback_kwh if prior_kwh is None else prior_kwh
     minutes_since_midnight = now.hour * 60 + now.minute
     if minutes_since_midnight < limits.min_minutes:
-        return max(limits.absolute_min, limits.fallback_kwh)
-    estimated = house_kwh_today * (1440 / minutes_since_midnight)
-    return max(limits.absolute_min, estimated)
+        return max(limits.absolute_min, prior)
+    extrapolated = house_kwh_today * (1440 / minutes_since_midnight)
+    weight = min(1.0, minutes_since_midnight / limits.settled_minutes)
+    return max(limits.absolute_min, weight * extrapolated + (1 - weight) * prior)
 
 
 def _baseline_house_kwh(today: EnergyAccumulator) -> float:
@@ -705,6 +714,14 @@ def _baseline_house_kwh(today: EnergyAccumulator) -> float:
     separate, flexible loads and the per-slot baseline profile already leaves them out.
     """
     return max(0.0, today.house_kwh - today.zappi_kwh - today.immersion_kwh)
+
+
+def _yesterday_house_kwh(yesterday: EnergyAccumulator | None) -> float | None:
+    """Yesterday's house energy on the same basis as today's, None when there is none to use."""
+    if yesterday is None:
+        return None
+    kwh = _baseline_house_kwh(yesterday)
+    return kwh if kwh > 0 else None
 
 
 @dataclass(frozen=True)
@@ -1828,7 +1845,9 @@ def build_coordinator_data(
     _set_battery_stats(data, cycle, previous)
     ev_before = _EVTotals.of(accumulators.today)
     _accumulate_energy_today(data, cycle, accumulators, previous.last_update_time)
-    avg_daily_kwh = estimate_avg_daily_kwh(_baseline_house_kwh(data.today), now)
+    avg_daily_kwh = estimate_avg_daily_kwh(
+        _baseline_house_kwh(data.today), now, _yesterday_house_kwh(accumulators.yesterday)
+    )
 
     _set_decisions(data, cycle, avg_daily_kwh, previous.held_charge)
     _set_alt_heat_schedule(data, cycle, accumulators.heat_log)

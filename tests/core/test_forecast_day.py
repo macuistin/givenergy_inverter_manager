@@ -9,6 +9,7 @@ from datetime import datetime
 import pytest
 
 from custom_components.givenergy_inverter_manager.const import CONF_FORECAST_ENTITY_D2
+from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from tests.conftest import _nightboost_cfg, _raw, _run
 
 BEFORE_MIDNIGHT = datetime(2026, 10, 5, 21, 0)
@@ -22,6 +23,9 @@ TODAY_KWH = 7.1
 def _decision(
     now, *, tomorrow, remembered=None, p10=None, remembered_p10=None, d2=None, d2_sensor=False
 ):
+    # A light house, 5 kWh a day, so the target is low enough for the forecast to show in it.
+    yesterday = EnergyAccumulator()
+    yesterday.house_kwh = 5.0
     raw = _raw(battery_soc=40.0, battery_capacity_kwh=19.0, forecast_kwh_tomorrow=tomorrow)
     raw.forecast_kwh_p10 = p10
     raw.forecast_kwh_d2 = d2
@@ -32,6 +36,7 @@ def _decision(
         now=now,
         today_raw_forecast_kwh=remembered,
         today_raw_forecast_p10_kwh=remembered_p10,
+        acc_yesterday=yesterday,
     )
     return data.charge_decision
 

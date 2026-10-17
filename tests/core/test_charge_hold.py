@@ -28,7 +28,11 @@ from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccum
 from tests.conftest import _nightboost_cfg, _raw, _run
 
 STEP = CHARGE_TARGET_HOLD_STEP_PCT
-SMALL_HOURS = datetime(2024, 6, 15, 1, 30)
+# Six hours in, the day's load is the extrapolation alone. Earlier it leans on yesterday's. The
+# series are readings taken at 01:30. They are scaled by 4 (6:00 against 1:30) so they extrapolate
+# to the same daily load.
+SMALL_HOURS = datetime(2024, 6, 15, 6, 0)
+LOAD_SCALE = 4
 
 
 def _decision(
@@ -334,7 +338,7 @@ def _run_series(held: HeldCharge, house_kwh_series: list[float], **overrides):
     cycles = []
     for house_kwh in house_kwh_series:
         acc = EnergyAccumulator()
-        acc.house_kwh = house_kwh
+        acc.house_kwh = house_kwh * LOAD_SCALE
         raw = _raw(battery_soc=40.0, battery_capacity_kwh=19.0, forecast_kwh_tomorrow=5.0)
         data, _ = _run(
             raw=raw,
@@ -405,7 +409,7 @@ class TestEngineHold:
         held = HeldCharge()
         cfg = {**_nightboost_cfg(), "overnight_charge_target_pct": 80}
         acc = EnergyAccumulator()
-        acc.house_kwh = 1.45
+        acc.house_kwh = 1.45 * LOAD_SCALE
         raw = _raw(battery_soc=40.0, battery_capacity_kwh=19.0, forecast_kwh_tomorrow=5.0)
         data, _ = _run(
             raw=raw, cfg=cfg, now=SMALL_HOURS, acc=acc, today_raw_forecast_kwh=8.0, held_charge=held
