@@ -2,8 +2,8 @@
 Only administrators see the Settings view and the button that opens it.
 
 Home Assistant has no admin flag for a dashboard. The generator is given the administrators'
-user IDs and writes them into the view's `visible` list and the user condition of the button
-and of the Settings shortcut.
+user IDs and writes them into the view's `visible` list and the user condition of the Settings
+button in the Energy heading.
 These tests pin that, and that the rest of the dashboard only shows state.
 """
 
@@ -61,13 +61,16 @@ def _settings_buttons(dashboard: dict) -> list[dict]:
     return [b for b in _button_badges(dashboard) if b["tap_action"]["navigation_path"] == "settings"]
 
 
-def _settings_shortcuts(dashboard: dict) -> list[dict]:
-    return [
-        card
-        for view in dashboard["views"]
-        for card in view_cards(view)
-        if card["type"] == "shortcut" and card["tap_action"]["navigation_path"] == "settings"
-    ]
+def _settings_openers(dashboard: dict) -> list[dict]:
+    """Every card, chip and button that opens Settings, whatever its type."""
+    openers = []
+    for view in dashboard["views"]:
+        for card in view_cards(view):
+            for node in (card, *card.get("badges", [])):
+                actions = (node.get("tap_action"), node.get("icon_tap_action"))
+                if any((a or {}).get("navigation_path") == "settings" for a in actions):
+                    openers.append(node)
+    return openers
 
 
 class TestAdminsPresent:
@@ -78,27 +81,34 @@ class TestAdminsPresent:
         assert settings["back_path"] == "power-flow"
         assert settings["visible"] == [{"user": ADMIN_ID}, {"user": OTHER_ADMIN_ID}]
 
-    def test_the_button_is_in_the_power_flow_heading_and_is_for_the_administrators(self):
+    def test_the_button_is_in_the_energy_heading_and_is_for_the_administrators(self):
         dashboard = dashboard_dict(admin_ids=(ADMIN_ID, OTHER_ADMIN_ID))
         [button] = _settings_buttons(dashboard)
         assert button == {
             "type": "button",
-            "icon": "mdi:tune",
             "text": "Settings",
             "tap_action": {"action": "navigate", "navigation_path": "settings"},
             "visibility": [{"condition": "user", "users": [ADMIN_ID, OTHER_ADMIN_ID]}],
         }
         (flow,) = [
-            c for c in view_cards(_view(dashboard, "power-flow")) if c.get("heading") == "Live power flow"
+            c for c in view_cards(_view(dashboard, "power-flow")) if c.get("heading") == "Energy"
         ]
-        assert button in flow["badges"]
+        assert "icon" not in flow
+        assert flow["badges"][0] == button
 
-    def test_the_settings_shortcut_under_more_is_for_the_administrators(self):
+    def test_the_button_is_the_only_way_to_open_settings(self):
+        """The More shortcuts are gone, so nothing else on the dashboard leads there."""
         dashboard = dashboard_dict(admin_ids=(ADMIN_ID, OTHER_ADMIN_ID))
-        [shortcut] = _settings_shortcuts(dashboard)
-        assert shortcut["visibility"] == [
-            {"condition": "user", "users": [ADMIN_ID, OTHER_ADMIN_ID]}
+        assert _settings_openers(dashboard) == _settings_buttons(dashboard)
+        assert len(_settings_openers(dashboard)) == 1
+
+    def test_the_button_is_first_so_the_chips_beside_it_are_not_cut_off_on_a_phone(self):
+        (flow,) = [
+            c
+            for c in view_cards(_view(dashboard_dict(), "power-flow"))
+            if c.get("heading") == "Energy"
         ]
+        assert [b["type"] for b in flow["badges"]] == ["button", "entity", "entity", "entity"]
 
     def test_settings_holds_every_switch_and_slider(self):
         ids = default_entity_ids()
@@ -134,27 +144,30 @@ class TestAdminsPresent:
 
     def test_the_settings_view_is_not_a_tab(self):
         tabs = [v["path"] for v in dashboard_dict()["views"] if not v.get("subview")]
-        assert tabs == ["power-flow"]
+        assert tabs == ["power-flow", "today", "plan", "tomorrow", "bill"]
+        assert "settings" not in tabs
 
 
 class TestAdminsAbsent:
     def test_without_an_administrator_id_the_view_and_the_button_are_left_out(self):
         dashboard = dashboard_dict(admin_ids=())
         assert _view(dashboard, "settings") is None
-        assert _settings_buttons(dashboard) == []
-        assert _settings_shortcuts(dashboard) == []
+        assert _settings_openers(dashboard) == []
         assert "'navigation_path': 'settings'" not in str(dashboard)
 
     def test_a_viewer_who_is_not_an_administrator_gets_neither_the_view_nor_the_button(self):
         dashboard = dashboard_dict(admin_ids=(ADMIN_ID,), is_admin=False)
         assert _view(dashboard, "settings") is None
-        assert _settings_buttons(dashboard) == []
+        assert _settings_openers(dashboard) == []
         assert "'navigation_path': 'settings'" not in str(dashboard)
 
     def test_the_repairs_banner_is_only_in_an_administrators_dashboard(self):
         def headings(dashboard: dict) -> list[str]:
             view = _view(dashboard, "power-flow")
-            return [s["cards"][0].get("heading") for s in view["sections"]]
+            return [
+                next(c["heading"] for c in s["cards"] if c["type"] == "heading")
+                for s in view["sections"]
+            ]
 
         assert "Needs your attention" in headings(dashboard_dict())
         assert "Needs your attention" not in headings(dashboard_dict(admin_ids=()))
@@ -176,7 +189,7 @@ class TestAdminsAbsent:
 
 
 def _without_settings_button(view: dict) -> dict:
-    """A copy of the view without the Settings button, the Settings shortcut and the repairs.
+    """A copy of the view without the Settings button and the repairs.
 
     Only an admin dashboard has them: only an administrator can open Settings or act on a repair.
     """
@@ -184,15 +197,15 @@ def _without_settings_button(view: dict) -> dict:
     stripped["sections"] = [
         s for s in stripped["sections"] if s["cards"][0].get("heading") != "Needs your attention"
     ]
-    for section in stripped["sections"]:
-        section["cards"] = [
-            c
-            for c in section["cards"]
-            if c.get("tap_action") != {"action": "navigate", "navigation_path": "settings"}
-        ]
     for card in (c for section in stripped["sections"] for c in section["cards"]):
         if "badges" in card:
-            del card["badges"]
+            card["badges"] = [
+                b
+                for b in card["badges"]
+                if b.get("tap_action", {}).get("navigation_path") != "settings"
+            ]
+            if not card["badges"]:
+                del card["badges"]
     return stripped
 
 
@@ -210,17 +223,28 @@ class TestOnlyStateIsShownToEveryone:
         hidden = [v["path"] for v in dashboard["views"] if not _shown_to_everyone(v)]
         assert hidden in ([], ["settings"])
 
-    def test_no_card_but_the_button_and_the_shortcut_opens_settings(self):
-        """Both carry the administrators' user condition."""
+    def test_no_card_but_the_button_opens_settings(self):
+        """The button carries the administrators' user condition."""
         dashboard = dashboard_dict()
         for view in _everyones_views(dashboard):
             for card in view_cards(view):
-                if card in _settings_shortcuts(dashboard):
-                    continue
                 for action in (card.get("tap_action"), card.get("icon_tap_action")):
                     assert (action or {}).get("navigation_path") != "settings"
-        for opener in [*_settings_buttons(dashboard), *_settings_shortcuts(dashboard)]:
+        for opener in _settings_openers(dashboard):
+            assert opener["type"] == "button"
             assert opener["visibility"] == [{"condition": "user", "users": [ADMIN_ID]}]
+
+    def test_the_heater_tile_of_home_energy_is_not_editable(self):
+        """It shows the switch that heats the water, in each box built for a combination of the
+        devices. A tap opens the Hot water view and its icon does nothing, so a viewer cannot
+        turn the heater on or off from Home energy."""
+        tiles = [
+            c
+            for c in view_cards(_view(dashboard_dict(), "power-flow"))
+            if c["type"] == "tile" and c["entity"].startswith("switch.")
+        ]
+        assert {t["name"] for t in tiles} == {"Heater"}
+        assert not [t for t in tiles if _editable(t)]
 
 
 def _editable(card: dict) -> bool:
@@ -231,10 +255,13 @@ def _editable(card: dict) -> bool:
         return True
     if card["entity"].split(".")[0] not in CONTROL_DOMAINS:
         return False
-    return not (
-        card.get("tap_action") == {"action": "none"}
-        and card.get("icon_tap_action") == {"action": "none"}
-    )
+    return not (_changes_nothing(card.get("tap_action")) and _changes_nothing(card.get("icon_tap_action")))
+
+
+def _changes_nothing(action: dict | None) -> bool:
+    """An action that does nothing or only opens a view. A missing action is the tile's
+    default, which opens the entity's dialog and its switch."""
+    return (action or {}).get("action") in {"none", "navigate"}
 
 
 class TestStateStaysOnTheMainDashboard:

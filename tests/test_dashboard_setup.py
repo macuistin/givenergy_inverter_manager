@@ -1,4 +1,4 @@
-"""The setup checklist and the dry run banner on the Power Flow tab.
+"""The setup checklist and the dry run banner on the Home energy tab.
 
 The checklist is a markdown card drawn from the `items` attribute of the Setup Progress sensor.
 It shows while the sensor says incomplete and has no dismiss button. The dry run banner shows the
@@ -23,6 +23,14 @@ BANNER = "Dry run is on"
 
 def _power_flow(dashboard: dict) -> dict:
     return next(v for v in dashboard["views"] if v["path"] == "power-flow")
+
+
+def _headings(dashboard: dict) -> list[str]:
+    """The first heading of each section of Home energy. Its Tonight section opens with a line."""
+    return [
+        next(c["heading"] for c in s["cards"] if c["type"] == "heading")
+        for s in _power_flow(dashboard)["sections"]
+    ]
 
 
 def _section(dashboard: dict, heading: str) -> dict | None:
@@ -52,15 +60,14 @@ def _items(*rows) -> dict:
 
 class TestTheChecklistSection:
     def test_it_sits_between_the_banner_and_the_flow(self):
-        headings = [s["cards"][0].get("heading") for s in _power_flow(dashboard_dict())["sections"]]
-        assert headings == [
+        assert _headings(dashboard_dict()) == [
             BANNER,
             "Something else is setting your charge target",
             CHECKLIST,
             "Needs your attention",
-            "Live power flow",
-            "Right now",
-            "More",
+            "Energy",
+            "Where it came from",
+            "Hot water",
         ]
 
     def test_it_holds_a_heading_and_one_markdown_card(self):
@@ -98,14 +105,12 @@ class TestTheChecklistSection:
     def test_the_frontend_hides_it_when_the_required_items_are_done(self, progress, shown):
         dashboard = generated_for(ev=True, switch=True, sensor=True)
         states = states_with(Device) | {PROGRESS: progress}
-        headings = [s["cards"][0].get("heading") for s in _power_flow(seen(dashboard, states))["sections"]]
-        assert (CHECKLIST in headings) is shown
+        assert (CHECKLIST in _headings(seen(dashboard, states))) is shown
 
     def test_the_banner_and_the_checklist_show_together_on_a_new_install(self):
         dashboard = generated_for(ev=True, switch=True, sensor=True)
         states = states_with(Device) | {PROGRESS: "incomplete", IDS["dry_run_active"]: "True"}
-        headings = [s["cards"][0].get("heading") for s in _power_flow(seen(dashboard, states))["sections"]]
-        assert headings[:3] == [BANNER, CHECKLIST, "Live power flow"]
+        assert _headings(seen(dashboard, states))[:3] == [BANNER, CHECKLIST, "Energy"]
 
 
 class TestTheChecklistText:

@@ -1,32 +1,42 @@
 """
-The story layout: Home energy's chips and sentence, and what each sub-view adds.
+The story layout: Home energy's heading, Tonight line and sources, and what each view adds.
 
-Home energy is the one tab. It tells what the house runs on in a sentence, gives the figures
-worth a glance as chips, and opens every sub-view from a row of shortcuts. The sentences are
-markdown templates, so these tests render them with Jinja and the template functions Home
-Assistant provides (tests/test_dashboard.py holds the stand-ins).
+Home energy is the first of five tabs. Its Energy heading carries the Settings button and the
+day's chips over the power flow. Under it, one line says whether tonight charges and one bar says
+where the day's energy came from. The hot water and the EV charger each have a box of tiles. The
+sentences are markdown templates, so these tests render them with Jinja and the template
+functions Home Assistant provides (tests/test_dashboard.py holds the stand-ins).
 """
 
 from __future__ import annotations
 
 import itertools
+from datetime import time
 
 import pytest
 import yaml
 
 from custom_components.givenergy_inverter_manager.const import CONF_FORECAST_ENTITY
+from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
+from custom_components.givenergy_inverter_manager.core.charge_window import ChargeWindow
 from custom_components.givenergy_inverter_manager.core.devices import Device
+from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+from custom_components.givenergy_inverter_manager.core.reporting import (
+    PLAN_CHARGE_WORDS,
+    PLAN_SKIP_WORDS,
+    build_charge_plan_state,
+)
+from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
 from custom_components.givenergy_inverter_manager.dashboard.cards import TABLE_CSS, TOTAL_CSS
 from custom_components.givenergy_inverter_manager.dashboard.templates import (
     ChargerNow,
     DayTotals,
-    PowerNow,
     WaterNow,
     ev_story_template,
-    now_story_template,
     saved_template,
     today_story_template,
     tomorrow_story_template,
+    tonight_line_template,
     water_story_template,
 )
 from tests.dashboard_support import (
@@ -39,7 +49,7 @@ from tests.dashboard_support import (
     devices_of,
     view_cards,
 )
-from tests.dashboard_visibility import generated_for, install, seen, seen_for, states_with
+from tests.dashboard_visibility import generated_for, install, seen, states_with
 from tests.test_dashboard import _render
 
 IDS = default_entity_ids()
@@ -73,8 +83,9 @@ def _heading(dashboard: dict, text: str) -> dict:
 
 
 def _section(dashboard: dict, path: str, heading: str) -> dict | None:
+    """The section of the view at path that holds this heading, which may follow a line."""
     for section in _view(dashboard, path)["sections"]:
-        if section["cards"][0].get("heading") == heading:
+        if heading in [c.get("heading") for c in section["cards"]]:
             return section
     return None
 
@@ -94,118 +105,189 @@ def _every_node(node):
             yield from _every_node(item)
 
 
-# ── Home energy's chips ──────────────────────────────────────────────────────
+# ── Home energy's heading ────────────────────────────────────────────────────
 
 
-class TestTheChips:
-    def test_today_so_far_gives_solar_the_cost_and_self_sufficiency_and_opens_today(self):
-        heading = _heading(dashboard_dict(), "Today so far")
-        assert heading["heading_style"] == "subtitle"
-        assert [b["entity"] for b in heading["badges"]] == [
+class TestTheEnergyHeading:
+    def test_it_has_no_icon_and_a_short_title_so_it_fits_one_line_on_a_phone(self):
+        heading = _heading(dashboard_dict(), "Energy")
+        assert heading["heading_style"] == "title"
+        assert "icon" not in heading
+        assert "tap_action" not in heading
+
+    def test_the_settings_button_comes_first_then_solar_the_cost_and_self_sufficiency(self):
+        """The button leads so the chips after it are the ones a narrow screen cuts."""
+        badges = _heading(dashboard_dict(), "Energy")["badges"]
+        button, *chips = badges
+        assert button["type"] == "button"
+        assert button["text"] == "Settings"
+        assert "icon" not in button
+        assert button["tap_action"] == {"action": "navigate", "navigation_path": "settings"}
+        assert [b["entity"] for b in chips] == [
             IDS["solar_today"],
             IDS["import_cost_today"],
             IDS["self_sufficiency"],
         ]
-        assert heading["tap_action"] == {"action": "navigate", "navigation_path": "today"}
+        assert {b["type"] for b in chips} == {"entity"}
+        assert all(b["show_state"] and b["show_icon"] for b in chips)
 
-    def test_today_so_far_is_left_out_with_no_chip_to_show(self):
-        """A heading with nothing under it and no chips would stand alone."""
+    @pytest.mark.parametrize("kw", [{"is_admin": False}, {"admin_ids": ()}], ids=["viewer", "none"])
+    def test_without_an_administrator_to_show_it_to_there_is_no_button(self, kw):
+        badges = _heading(dashboard_dict(**kw), "Energy")["badges"]
+        assert [b["entity"] for b in badges] == [
+            IDS["solar_today"],
+            IDS["import_cost_today"],
+            IDS["self_sufficiency"],
+        ]
+
+    def test_the_chips_are_left_out_with_their_sensors_and_the_button_stays(self):
         registry = FakeRegistry(
             enable_all=True, absent={"solar_today", "import_cost_today", "self_sufficiency"}
         )
-        section = _section(dashboard_dict(registry=registry), "power-flow", "Right now")
-        assert None not in section["cards"]
-        assert "Today so far" not in [c.get("heading") for c in section["cards"]]
+        dashboard = dashboard_dict(registry=registry)
+        assert [b["type"] for b in _heading(dashboard, "Energy")["badges"]] == ["button"]
+        assert None not in _section(dashboard, "power-flow", "Energy")["cards"]
 
-    def test_each_device_chip_opens_its_device_view(self):
-        heading = _heading(dashboard_dict(), "Hot water and EV")
-        opens = {b["entity"]: b["tap_action"]["navigation_path"] for b in heading["badges"]}
-        assert opens == {
-            IDS["immersion_water_temperature"]: "immersion",
-            IDS["immersion_power"]: "immersion",
-            IDS["ev_charger_state"]: "ev-charger",
-        }
-
-    def test_each_device_chip_carries_its_own_device_condition(self):
-        badges = {b["entity"]: b for b in _heading(dashboard_dict(), "Hot water and EV")["badges"]}
-        unavailable = {"state_not": "unavailable"}
-        assert badges[IDS["immersion_water_temperature"]]["visibility"] == [
-            {"condition": "state", "entity": IDS["immersion_water_temperature"], **unavailable}
-        ]
-        assert badges[IDS["ev_charger_state"]]["visibility"] == [
-            {"condition": "state", "entity": IDS["ev_charger_state"], **unavailable}
-        ]
-        assert badges[IDS["immersion_power"]]["visibility"] == [
-            {"condition": "state", "entity": IDS["immersion_managed"], **unavailable},
-            {"condition": "numeric_state", "entity": IDS["immersion_power"], "above": 0},
-        ]
-
-    @pytest.mark.parametrize("later", COMBINATIONS, ids=_label)
-    def test_a_file_made_with_no_device_shows_the_chips_of_a_device_added_later(self, later):
-        ev, switch, sensor = later
-        config, brand = install(ev=ev, switch=switch, sensor=sensor)
-        heating = {IDS["immersion_power"]: "3000"} if switch else None
-        states = states_with(devices_of(config, brand), heating)
-        stored = seen(generated_for(), states)
-        regenerated = seen(generated_for(ev=ev, switch=switch, sensor=sensor), states)
-        assert _view(stored, "power-flow") == _view(regenerated, "power-flow")
-
-
-# ── The story sentences ──────────────────────────────────────────────────────
-
-_POWER = PowerNow("sensor.solar", "sensor.house", "sensor.battery", "sensor.grid")
-
-
-def _now(values: dict[str, str], attrs: dict | None = None, *, target=None, outlook=None) -> str:
-    template = now_story_template(_POWER, target, outlook)
-    return _render(template, lambda e: values.get(e, "unknown"), attrs or {})
-
-
-class TestTheRightNowSentence:
-    def test_it_names_what_the_house_runs_on(self):
-        values = {"sensor.solar": "2400", "sensor.house": "1300", "sensor.battery": "-600"}
-        text = _now(values | {"sensor.grid": "300"})
-        assert text == "**Running on solar and the battery and the grid.** House 1.3 kW."
-
-    def test_it_says_the_battery_charges_and_what_is_exported(self):
-        values = {"sensor.solar": "4000", "sensor.house": "800", "sensor.battery": "1500"}
-        text = _now(values | {"sensor.grid": "-1700"})
-        assert text == (
-            "**Running on solar.** House 0.8 kW, battery charging 1.5 kW, exporting 1.7 kW."
+    def test_the_heading_is_just_a_title_when_there_is_nothing_to_put_in_it(self):
+        registry = FakeRegistry(
+            enable_all=True, absent={"solar_today", "import_cost_today", "self_sufficiency"}
         )
+        dashboard = dashboard_dict(registry=registry, admin_ids=())
+        assert "badges" not in _heading(dashboard, "Energy")
 
-    def test_a_few_watts_of_standby_are_not_a_source(self):
-        values = {"sensor.solar": "20", "sensor.house": "40", "sensor.battery": "-30"}
-        assert _now(values | {"sensor.grid": "40"}).startswith("**Nothing running.**")
+    def test_the_power_flow_cards_follow_the_heading_in_its_section(self):
+        section = _section(dashboard_dict(), "power-flow", "Energy")
+        assert section["column_span"] == 2
+        assert section["cards"][0]["heading"] == "Energy"
+        assert {c["type"] for c in section["cards"][1:]} == {"custom:power-flow-card-plus"}
 
-    def test_it_reads_the_integrations_power_sensors_on_home_energy(self):
-        cards = view_cards(_view(dashboard_dict(), "power-flow"))
-        (story,) = [c for c in cards if c["type"] == "markdown" and IDS["house_load"] in c["content"]]
-        for key in ("solar_power", "house_load", "battery_power", "grid_power"):
-            assert f"states('{IDS[key]}')" in story["content"], key
-        assert f"state_attr('{IDS['overnight_charge_target']}', 'plan')" in story["content"]
-        assert f"state_attr('{IDS['night_survival_confidence']}', 'outlook')" in story["content"]
 
-    @pytest.mark.parametrize(
-        ("plan", "tonight"), [("skip", "no charge needed"), ("charge", "charging to 80%")]
+# ── Home energy's Tonight line ───────────────────────────────────────────────
+
+_PLAN = "sensor.plan"
+
+
+def _plan_data(*, skip: bool, window: ChargeWindow | None = None) -> CoordinatorData:
+    """The data the Tonight's Charge Plan sensor reads, for a skipped or a charging night."""
+    data = CoordinatorData()
+    data.currency_symbol = "€"
+    data.battery_stats = BatteryStats()
+    data.published_charge_window = window
+    data.charge_decision = ChargeDecision(
+        target_soc=80,
+        skip_charge=skip,
+        reason="Reason",
+        forecast_kwh=12.0,
+        current_soc=40.0,
+        battery_capacity=10.0,
+        car_plugged_in=False,
+        cost_to_charge=1.5,
     )
-    def test_it_says_what_tonight_holds_and_the_outlook(self, plan, tonight):
-        values = {"sensor.solar": "0", "sensor.house": "500", "sensor.battery": "-500"}
-        attrs = {("sensor.target", "plan"): plan, ("sensor.outlook", "outlook"): "Lasts the night"}
-        values |= {"sensor.grid": "0", "sensor.target": "80"}
-        text = _now(values, attrs, target="sensor.target", outlook="sensor.outlook")
-        assert text.endswith(f"Tonight: {tonight}, lasts the night.")
+    return data
 
-    def test_without_the_power_sensors_there_is_no_sentence_and_the_chips_stay(self):
-        registry = FakeRegistry(enable_all=True, absent={"house_load"})
-        section = _section(dashboard_dict(registry=registry), "power-flow", "Right now")
-        assert not [c for c in section["cards"] if c["type"] == "markdown"]
-        assert [b["entity"] for b in section["cards"][0]["badges"]] == [
-            IDS["battery_soc"],
-            IDS["current_rate"],
-            IDS["next_cheap_rate_start"],
+
+def _tonight(plan_state: str) -> str:
+    """The Tonight line, rendered for what the plan sensor says."""
+    template = tonight_line_template(_PLAN)
+    return _render(template, lambda e: {_PLAN: plan_state}.get(e, "unknown")).strip()
+
+
+class TestTheTonightLine:
+    def test_a_skipped_charge_says_it_will_not_charge(self):
+        state = build_charge_plan_state(_plan_data(skip=True))
+        assert state.startswith(PLAN_SKIP_WORDS)
+        text = _tonight(state)
+        assert "**Tonight:** won't charge" in text
+        assert "mdi:battery-check" in text
+        assert "will charge" not in text
+
+    def test_a_charge_says_the_percentage_it_charges_to(self):
+        state = build_charge_plan_state(_plan_data(skip=False))
+        assert state.startswith(PLAN_CHARGE_WORDS)
+        text = _tonight(state)
+        assert text.endswith("**Tonight:** will charge to 80%")
+        assert "mdi:battery-charging-high" in text
+        assert "won't" not in text
+
+    def test_a_charge_with_a_window_still_reads_the_percentage_not_the_time(self):
+        window = ChargeWindow(
+            time(2, 0), time(4, 0), extended=False, expected_kwh=None, finish_time=None
+        )
+        state = build_charge_plan_state(_plan_data(skip=False, window=window))
+        assert "02:00 to 04:00" in state
+        assert _tonight(state).endswith("will charge to 80%")
+
+    def test_a_plan_the_engine_has_not_made_yet_says_so(self):
+        data = _plan_data(skip=False)
+        data.charge_decision = None
+        state = build_charge_plan_state(data)
+        assert _tonight(state).endswith("**Tonight:** no plan yet")
+        assert "mdi:battery-clock" in _tonight(state)
+
+    @pytest.mark.parametrize("state", ["unknown", "unavailable", ""])
+    def test_an_unknown_state_says_no_plan_yet(self, state):
+        assert _tonight(state).endswith("**Tonight:** no plan yet")
+
+    def test_it_reads_the_charge_plan_sensor_on_home_energy(self):
+        section = _section(dashboard_dict(), "power-flow", "Where it came from")
+        line = section["cards"][0]
+        assert line["type"] == "markdown"
+        assert line["content"] == tonight_line_template(IDS["charge_plan"])
+        assert f"states('{IDS['charge_plan']}')" in line["content"]
+        assert line["grid_options"] == {"columns": "full"}
+
+    def test_it_reads_the_plan_the_inverter_is_written_from_not_the_held_target(self):
+        """The charge target sensor can still show last night's charge while tonight is skipped."""
+        content = tonight_line_template(IDS["charge_plan"])
+        assert IDS["overnight_charge_target"] not in content
+        assert "state_attr" not in content
+
+    def test_without_the_plan_sensor_the_line_is_left_out_and_the_bar_stays(self):
+        dashboard = dashboard_dict(registry=_without("charge_plan"))
+        section = _section(dashboard, "power-flow", "Where it came from")
+        assert [c["type"] for c in section["cards"]] == ["heading", "distribution"]
+        assert IDS["charge_plan"] not in yaml.safe_dump(_view(dashboard, "power-flow"))
+
+
+# ── Home energy's Where it came from bar ─────────────────────────────────────
+
+
+class TestTheSourcesBar:
+    @staticmethod
+    def _bar(dashboard: dict, path: str) -> dict:
+        (bar,) = [
+            c
+            for c in view_cards(_view(dashboard, path))
+            if c["type"] == "distribution" and IDS["solar_today"] in str(c["entities"])
         ]
-        assert None not in section["cards"]
+        return bar
+
+    def test_it_splits_the_day_into_solar_battery_and_grid(self):
+        bar = self._bar(dashboard_dict(), "power-flow")
+        assert [(r["name"], r["entity"]) for r in bar["entities"]] == [
+            ("Solar", IDS["solar_today"]),
+            ("Battery", IDS["battery_discharge_kwh_today"]),
+            ("Grid", IDS["import_today"]),
+        ]
+        assert bar["grid_options"] == {"columns": "full"}
+
+    @pytest.mark.parametrize("series_colours", [False, True], ids=["plain", "coloured"])
+    def test_it_is_the_same_bar_as_the_today_view_shows(self, series_colours):
+        dashboard = dashboard_dict(series_colours=series_colours)
+        assert self._bar(dashboard, "power-flow") == self._bar(dashboard, "today")
+
+    def test_it_sits_under_its_own_heading(self):
+        section = _section(dashboard_dict(), "power-flow", "Where it came from")
+        assert section["column_span"] == 2
+        assert [c["type"] for c in section["cards"]] == ["markdown", "heading", "distribution"]
+
+    def test_it_is_left_out_with_its_heading_when_no_source_is_there(self):
+        registry = _without("solar_today", "battery_discharge_kwh_today", "import_today")
+        dashboard = dashboard_dict(registry=registry)
+        assert "Where it came from" not in [
+            c.get("heading") for c in view_cards(_view(dashboard, "power-flow"))
+        ]
+        assert not [c for c in view_cards(_view(dashboard, "power-flow")) if c["type"] == "distribution"]
 
 
 class TestTheOtherSentences:
@@ -467,8 +549,11 @@ class TestTheRepairsBanner:
 
     def test_it_sits_after_the_other_banners_and_before_the_power_flow(self):
         dashboard = dashboard_dict(registry=FakeRegistry(enable_all=True))
-        headings = [s["cards"][0]["heading"] for s in _view(dashboard, "power-flow")["sections"]]
-        assert headings[2:5] == ["Finish setting up", "Needs your attention", "Live power flow"]
+        headings = [
+            next(c["heading"] for c in s["cards"] if c["type"] == "heading")
+            for s in _view(dashboard, "power-flow")["sections"]
+        ]
+        assert headings[2:5] == ["Finish setting up", "Needs your attention", "Energy"]
 
     @pytest.mark.parametrize(("count", "shown"), [("0", False), ("2", True), ("unknown", False)])
     def test_it_hides_while_there_is_no_repair(self, count, shown):
@@ -540,45 +625,45 @@ class TestTheRecentCharges:
         assert self._recent(arrived) is not None
 
 
-# ── The shortcuts ────────────────────────────────────────────────────────────
+# ── The tabs and the way to the sub-views ────────────────────────────────────
 
 
-def _shortcuts(dashboard: dict) -> dict[str, dict]:
-    more = _section(dashboard, "power-flow", "More")
-    return {c["label"]: c for c in more["cards"] if c["type"] == "shortcut"}
+def _links(dashboard: dict) -> dict[str, set[str]]:
+    """{view path: the views its cards and chips open}."""
+    out: dict[str, set[str]] = {}
+    for view in dashboard["views"]:
+        targets = set()
+        for node in _every_node(view):
+            for key in ("tap_action", "icon_tap_action"):
+                action = node.get(key)
+                if isinstance(action, dict) and action.get("action") == "navigate":
+                    targets.add(action["navigation_path"])
+        out[view["path"]] = targets
+    return out
 
 
-class TestTheShortcuts:
-    def test_there_is_one_for_each_sub_view_and_each_opens_it(self):
+class TestTheTabsAndTheWayToTheSubViews:
+    def test_the_four_day_and_bill_views_are_tabs_and_nothing_links_to_them(self):
+        """They sit in the tab bar, so no shortcut leads to them."""
         dashboard = dashboard_dict()
-        shortcuts = _shortcuts(dashboard)
-        opens = {label: c["tap_action"]["navigation_path"] for label, c in shortcuts.items()}
-        assert opens == {
-            "Today": "today",
-            "Tonight": "plan",
-            "Tomorrow": "tomorrow",
-            "Bill & tariff": "bill",
-            "Hot water": "immersion",
-            "EV charger": "ev-charger",
-            "Settings": "settings",
-        }
-        assert set(opens.values()) == _paths(dashboard) - {"power-flow"}
+        tabs = {"today", "plan", "tomorrow", "bill"}
+        assert tabs <= _paths(dashboard)
+        assert not tabs & set().union(*_links(dashboard).values())
 
-    def test_a_sub_view_that_is_left_out_has_no_shortcut(self):
+    def test_home_energy_opens_the_devices_and_settings_and_a_sub_view_opens_no_other(self):
+        links = _links(dashboard_dict())
+        assert links["power-flow"] == {"immersion", "ev-charger", "settings"}
+        for path in ("immersion", "ev-charger", "settings"):
+            assert links[path] == set(), path
+
+    def test_a_sub_view_that_is_left_out_is_not_linked(self):
         config = {k: v for k, v in MINIMAL_CONFIG.items() if k != CONF_FORECAST_ENTITY}
         registry = FakeRegistry(absent={"tomorrow_outlook"})
         dashboard = dashboard_dict(config, registry, is_admin=False, ev_brand=None)
-        labels = set(_shortcuts(dashboard))
-        assert not {"Tomorrow", "Settings"} & labels
-        targets = {c["tap_action"]["navigation_path"] for c in _shortcuts(dashboard).values()}
+        assert "settings" not in _paths(dashboard)
+        targets = set().union(*_links(dashboard).values())
         assert targets <= _paths(dashboard)
-
-    @pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)
-    def test_the_device_shortcuts_show_only_with_their_device(self, combination):
-        ev, switch, sensor = combination
-        labels = set(_shortcuts(seen_for(ev=ev, switch=switch, sensor=sensor)))
-        assert ("Hot water" in labels) == (switch or sensor)
-        assert ("EV charger" in labels) == ev
+        assert "settings" not in targets
 
 
 # ── The rules every generated dashboard keeps ────────────────────────────────

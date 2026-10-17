@@ -189,8 +189,22 @@ def _path() -> list[tuple[float, bool]]:
     return rows
 
 
-def _series(*, carry_state: bool, load_profile=None) -> list[tuple[datetime, float, float]]:
-    """(time, figure without a charge, figure with it) every 5 minutes from 19:00 to 08:00."""
+def _yesterday(kwh: float | None) -> EnergyAccumulator | None:
+    if kwh is None:
+        return None
+    acc = EnergyAccumulator()
+    acc.house_kwh = kwh
+    return acc
+
+
+def _series(
+    *, carry_state: bool, load_profile=None, yesterday_kwh: float | None = None
+) -> list[tuple[datetime, float, float]]:
+    """(time, figure without a charge, figure with it) every 5 minutes from 19:00 to 08:00.
+
+    yesterday_kwh is the house energy of the day before. Without it, as on a first night, the
+    small hours start from the fixed fallback.
+    """
     held_charge, held_sunrise, held_solar = HeldCharge(), HeldSunrise(), HeldSolarDay()
     path = _path()
     rows = []
@@ -203,6 +217,7 @@ def _series(*, carry_state: bool, load_profile=None) -> list[tuple[datetime, flo
             base_w=HEAVY_W,
             charging=charging,
             load_profile=load_profile,
+            acc_yesterday=_yesterday(yesterday_kwh),
             held_charge=held_charge,
             held_sunrise=held_sunrise if carry_state else HeldSunrise(),
             held_solar=held_solar,
@@ -220,7 +235,7 @@ SUNRISE = datetime(2026, 6, 16, 8, 0)
 
 @pytest.fixture(scope="module")
 def paced():
-    return _series(carry_state=True)
+    return _series(carry_state=True, yesterday_kwh=HEAVY_W * 24 / 1000)
 
 
 @pytest.fixture(scope="module")

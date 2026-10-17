@@ -708,7 +708,13 @@ def _simulated_plan(tonight: _Tonight, skip_blocked_note: str) -> _ChargePlan:
         target_soc = min(100, target_soc + CHARGE_EV_SOC_BONUS)
         reason += " Car plugged in — added buffer."
 
-    target_soc = min(max(target_soc, tonight.min_soc + CHARGE_MIN_TARGET_HEADROOM_PCT), 100)
+    floor = tonight.min_soc + CHARGE_MIN_TARGET_HEADROOM_PCT
+    if floor > target_soc and floor >= CHARGE_SUMMER_MIN_TARGET_SOC:
+        reason += (
+            f" Raised to {min(floor, 100)}%, the minimum SoC plus "
+            f"{CHARGE_MIN_TARGET_HEADROOM_PCT} points of headroom."
+        )
+    target_soc = min(max(target_soc, floor), 100)
     if target_soc < CHARGE_SUMMER_MIN_TARGET_SOC:
         target_soc = CHARGE_SUMMER_MIN_TARGET_SOC
         reason += f" Raised to the {CHARGE_SUMMER_MIN_TARGET_SOC}% floor."

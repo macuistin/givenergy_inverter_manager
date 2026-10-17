@@ -80,10 +80,20 @@ def admin_condition(admin_ids: tuple[str, ...]) -> dict[str, Any]:
 
 
 def button_badge(
-    icon: str, text: str, nav: dict[str, Any], visibility: list[dict[str, Any]] | None = None
+    icon: str | None,
+    text: str | None,
+    nav: dict[str, Any],
+    visibility: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """A small button in a heading. With visibility, only the users it names see it."""
-    badge: dict[str, Any] = {"type": "button", "icon": icon, "text": text, "tap_action": nav}
+    """A small button in a heading, with an icon, text or both.
+
+    With visibility, only the users it names see it.
+    """
+    badge: dict[str, Any] = {"type": "button", "tap_action": nav}
+    if icon:
+        badge["icon"] = icon
+    if text:
+        badge["text"] = text
     if visibility:
         badge["visibility"] = visibility
     return badge
@@ -127,6 +137,48 @@ def tile_card(  # noqa: PLR0913
         grid["rows"] = rows
     card["grid_options"] = grid
     return card
+
+
+# A tile's line of the last 24 hours, drawn under its value.
+TREND_DAY = {"type": "trend-graph", "hours_to_show": 24}
+
+
+def figure_tile(  # noqa: PLR0913
+    entity: str | None,
+    name: str,
+    icon: str,
+    color: str,
+    nav: dict | None = None,
+    features: list | None = None,
+) -> dict | None:
+    """A coloured tile that shows one figure and opens a view when tapped.
+
+    Its icon never toggles the entity, so a switch can be shown without being switched by a
+    stray tap. None when the entity is missing.
+    """
+    if not entity:
+        return None
+    card: dict = {"type": "tile", "entity": entity, "name": name, "icon": icon, "color": color}
+    if features:
+        card["features"] = features
+    if nav:
+        card["tap_action"] = nav
+        card["icon_tap_action"] = {"action": "none"}
+    return card
+
+
+def tile_grid(tiles: list, columns: int = 2) -> dict | None:
+    """The tiles in a grid card that keeps them *columns* to a row on every screen width."""
+    tiles = present(tiles)
+    if not tiles:
+        return None
+    return {
+        "type": "grid",
+        "columns": columns,
+        "square": False,
+        "cards": tiles,
+        "grid_options": {"columns": FULL},
+    }
 
 
 def readonly_tile(entity: str | None, name: str, color: str) -> dict[str, Any] | None:
@@ -358,21 +410,6 @@ def distribution_card(rows: list) -> dict | None:
     """One bar split into the share of each row, with its value under it. None without rows."""
     card = entity_list_card(rows, {"type": "distribution"})
     return {**card, "grid_options": {"columns": FULL}} if card else None
-
-
-def shortcut_card(label: str, icon: str, nav: dict | None, **extra) -> dict | None:
-    """A button that opens another view. None when the view it opens is left out."""
-    if nav is None:
-        return None
-    card: dict[str, Any] = {
-        "type": "shortcut",
-        "label": label,
-        "icon": icon,
-        "tap_action": nav,
-        "grid_options": {"columns": 4},
-    }
-    card.update(extra)
-    return card
 
 
 def switch_tile(entity: str | None, name: str, color: str) -> dict | None:

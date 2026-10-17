@@ -28,19 +28,14 @@ async def test_websocket_command_returns_the_dashboard(hass, loaded_entry, hass_
     assert response["success"] is True
     assert response["result"] == await async_dashboard_for_websocket(hass, is_admin=True)
     views = response["result"]["views"]
-    assert [v["path"] for v in views if not v.get("subview")] == ["power-flow"]
+    tabs = [v["path"] for v in views if not v.get("subview")]
+    assert tabs[:3] == ["power-flow", "today", "plan"]
+    assert tabs[-1] == "bill"
+    assert set(tabs) <= {"power-flow", "today", "plan", "tomorrow", "bill"}
     assert {v["type"] for v in views} == {"sections"}
     sub_views = {v["path"] for v in views if v.get("subview")}
-    assert sub_views <= {
-        "today",
-        "plan",
-        "tomorrow",
-        "bill",
-        "immersion",
-        "ev-charger",
-        "settings",
-    }
-    assert {"today", "plan", "bill", "settings"} <= sub_views
+    assert sub_views <= {"immersion", "ev-charger", "settings"}
+    assert "settings" in sub_views
 
 
 async def test_websocket_command_reports_when_the_entry_is_not_loaded(
