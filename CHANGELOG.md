@@ -2,10 +2,15 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.19.11
+
+The dashboard strategy loads again, and the integration has a new icon. 0.19.10 made the strategy time out on every fresh page, because its script ran before Home Assistant had set up the registry it looks the dashboard up in.
 
 **Changed**
 - A new integration icon: a battery inside a day and night dial, amber for the solar day and blue for the overnight charge. It replaces the house picture, which was hard to make out at the small size Home Assistant shows. There is now a sharper copy for high-resolution screens.
+
+**Fixes**
+- The dashboard strategy no longer times out with `Timeout waiting for strategy element` because its script ran too early. Home Assistant swaps its custom element registry for an empty one while it starts, and an element defined before the swap is never seen, so the dashboard waited its 5 seconds and failed however fast the server was. The script is small and often runs first, and 0.19.10 made it run sooner by letting the browser keep it, so the dashboard failed on every load of a fresh page. The script now defines its elements again in the current registry until they are there, for 30 seconds after it loads. The cause and the fix were checked in a real Home Assistant frontend: the elements were defined at 19 ms and again at 121 ms, and the dashboard loaded.
 
 ## v0.19.10
 
