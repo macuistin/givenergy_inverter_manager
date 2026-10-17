@@ -4,7 +4,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## v0.19.11
 
-The dashboard strategy loads again. 0.19.10 made it time out on every fresh page, because its script ran before Home Assistant had set up the registry it looks the dashboard up in.
+The dashboard strategy loads again, and the integration has a new icon. 0.19.10 made the strategy time out on every fresh page, because its script ran before Home Assistant had set up the registry it looks the dashboard up in.
 
 **Changed**
 - A new integration icon: a battery inside a day and night dial, amber for the solar day and blue for the overnight charge. It replaces the house picture, which was hard to make out at the small size Home Assistant shows. There is now a sharper copy for high-resolution screens.
