@@ -374,6 +374,7 @@ def _run(
         cfg=cfg,
         acc=acc,
         acc_month=kwargs.get("acc_month"),
+        acc_yesterday=kwargs.get("acc_yesterday"),
         battery_stats=battery_stats,
         last_soc=last_soc,
         last_update_time=last_update_time,
