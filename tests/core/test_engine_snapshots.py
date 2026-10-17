@@ -190,6 +190,11 @@ cases), sunrise_with_charge (17), estimated_soc_at_sunrise (12), charge_decision
 published_charge_decision (10, the same value on a first cycle), tomorrow_outlook (6) and
 will_survive_night (1). The behaviour is pinned in tests/core/test_engine.py and
 tests/core/test_small_hours_target_replay.py.
+
+3 of the 255 cases were regenerated when the charge reason started saying that the target was
+raised to the minimum SoC plus 5 points. Only the reason text of charge_decision and
+published_charge_decision moved, in cases 225, 243 and 253. Their targets did not move. The
+behaviour is pinned in tests/core/test_charge_headroom_reason.py.
 """
 
 from __future__ import annotations

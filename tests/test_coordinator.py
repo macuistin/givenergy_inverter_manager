@@ -2079,6 +2079,30 @@ class TestCheapRateFloor:
             f"Should mention the cheaper window, got: {result!r}"
         )
 
+    def test_says_the_cheapest_rate_has_passed_once_it_is_over(self):
+        """Nightboost ended at 04:00 and Night runs to 08:00. Nothing is left to wait for."""
+        import asyncio
+
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = _raw(battery_soc=75.0)
+        result = asyncio.run(
+            coord._maybe_apply_cheap_rate_floor(self._now_at(5, 0), raw, _nightboost_cfg())
+        )
+        assert "has passed" in result, f"Expected the rate to be over at 05:00, got: {result!r}"
+        assert "waiting" not in result.lower()
+
+    def test_still_says_waiting_after_midnight_before_the_cheapest_rate(self):
+        """At 01:00 Night is running and Nightboost starts at 02:00."""
+        import asyncio
+
+        coord = FakeCoordinator(cfg=_cfg())
+        raw = _raw(battery_soc=75.0)
+        result = asyncio.run(
+            coord._maybe_apply_cheap_rate_floor(self._now_at(1, 0), raw, _nightboost_cfg())
+        )
+        assert "waiting for cheapest rate" in result
+        assert "has passed" not in result
+
     def test_emergency_top_up_during_night_if_critically_low(self):
         """Battery near min SoC (10%) during Night — top up, can't wait."""
         import asyncio
