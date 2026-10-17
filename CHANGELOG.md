@@ -6,6 +6,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 **Fixes**
 - Tonight's charge target no longer jumps about in the small hours. The plan scales the house energy so far today up to a full day. At midnight that fell back to a fixed 15 kWh, and from 00:30 a few tenths of a kWh were scaled up by a factor of about 48, so each 0.1 kWh step of the house counter moved the day's total by about 5 kWh and the target by up to 28 points. On the night of 16 to 17 October the recommended target went between 100 and 75 seven times in 71 minutes with the forecast steady, and the written target depends on which side of a jump the write lands. Now the estimate starts from yesterday's load, taken the same way (without the car and the immersion), and hands over to today's data by 06:00, so a counter step moves it by under half a kWh and the day's total has no gap at midnight. With no yesterday on record, such as the first night, the start is 15 kWh as before. Estimated SoC at Sunrise, Battery Overnight Outlook and Tomorrow Outlook read the same figure, so they are steadier in those hours too. See [Overnight charge target](docs/concepts.md#overnight-charge-target).
+- On the Bill & tariff page, the **Each day: what you paid and would have paid** chart now sets each day's import cost beside what the same use would have cost from the grid that day. It compared the day with the whole bill without solar, which adds the standing charge and levy and resets each bill period, so a day could look dearer with solar than without.
 
 ## v0.19.9
 
