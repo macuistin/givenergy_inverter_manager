@@ -80,10 +80,18 @@ def admin_condition(admin_ids: tuple[str, ...]) -> dict[str, Any]:
 
 
 def button_badge(
-    icon: str, text: str, nav: dict[str, Any], visibility: list[dict[str, Any]] | None = None
+    icon: str,
+    text: str | None,
+    nav: dict[str, Any],
+    visibility: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """A small button in a heading. With visibility, only the users it names see it."""
-    badge: dict[str, Any] = {"type": "button", "icon": icon, "text": text, "tap_action": nav}
+    """A small button in a heading, an icon alone when it has no text.
+
+    With visibility, only the users it names see it.
+    """
+    badge: dict[str, Any] = {"type": "button", "icon": icon, "tap_action": nav}
+    if text:
+        badge["text"] = text
     if visibility:
         badge["visibility"] = visibility
     return badge

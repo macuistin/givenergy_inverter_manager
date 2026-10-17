@@ -378,12 +378,12 @@ class Builder:
         return [{"user": admin_id} for admin_id in self.admin_ids]
 
     def _settings_badges(self) -> list[dict[str, Any]] | None:
-        """The Settings button of the power flow heading, or None when no one may open it."""
+        """The Settings icon of the power flow heading, or None when no one may open it."""
         nav = self.go(SUB_SETTINGS)
         if not nav:
             return None
         visibility = [admin_condition(self.admin_ids)]
-        return [button_badge("mdi:tune", "Settings", nav, visibility)]
+        return [button_badge("mdi:tune", None, nav, visibility)]
 
     # -- Home energy: the power flow --
 
@@ -484,8 +484,8 @@ class Builder:
     def _flow(self) -> dict | None:
         """The power flow, two columns wide, under a heading that carries the day's figures.
 
-        The heading opens Today, and holds the Settings button. A sentence on what the house
-        runs on and what tonight holds sits between the heading and the flow.
+        The heading holds the Settings icon and the day's solar, import cost and self-sufficiency.
+        A sentence on what the house runs on and what tonight holds sits between it and the flow.
 
         One card for each combination of the car charger and immersion being there. The card
         cannot hide one device, so a stored dashboard shows the card built for the devices
@@ -494,10 +494,9 @@ class Builder:
         devices = (Device.EV_CHARGER, Device.IMMERSION_SWITCH)
         cards = self.devices.variants(devices, self._flow_card)
         heading = heading_card(
-            "Live power flow",
+            "Power flow",
             "mdi:transmission-tower",
-            nav=self.go(TAB_TODAY),
-            badges=[*self._today_badges(), *(self._settings_badges() or [])],
+            badges=[*(self._settings_badges() or []), *self._today_badges()],
         )
         return group(heading, [self._now_story(), *cards], **WIDE)
 
@@ -527,40 +526,43 @@ class Builder:
             ]
         )
 
+    @staticmethod
+    def _two_up(card: dict | None) -> dict | None:
+        """The figures two to a row, so a long value such as "disconnected" is not cut short."""
+        if card is None:
+            return None
+        return {**card, "columns": min(card["columns"], 2)}
+
     def _water_button_card(self, shown: frozenset[Device]) -> dict | None:
         """The hot water figures for the devices of *shown*, each opening the Hot water view."""
         sensor = Device.IMMERSION_SENSOR in shown
         heater = Device.IMMERSION_SWITCH in shown
-        return glance_card(
-            [
-                self.nav_row(
-                    self.water_sensor("immersion_water_temperature") if sensor else None,
-                    "Water",
-                    SUB_IMMERSION,
-                ),
-                self.nav_row(
-                    self.immersion("immersion_power") if heater else None, "Heater", SUB_IMMERSION
-                ),
-                self.nav_row(
-                    self.immersion("immersion_today") if heater else None, "Heated", SUB_IMMERSION
-                ),
-                self.nav_row(
-                    self.immersion("immersion_cost_today") if heater else None,
-                    "Cost",
-                    SUB_IMMERSION,
-                ),
-            ]
+        temperature = self.water_sensor("immersion_water_temperature") if sensor else None
+        power = self.immersion("immersion_power") if heater else None
+        today = self.immersion("immersion_today") if heater else None
+        cost = self.immersion("immersion_cost_today") if heater else None
+        return self._two_up(
+            glance_card(
+                [
+                    self.nav_row(temperature, "Water", SUB_IMMERSION),
+                    self.nav_row(power, "Heater", SUB_IMMERSION),
+                    self.nav_row(today, "Heated", SUB_IMMERSION),
+                    self.nav_row(cost, "Cost", SUB_IMMERSION),
+                ]
+            )
         )
 
     def _charger_button_card(self) -> dict | None:
         """The EV charger figures, each opening the EV charger view."""
-        return glance_card(
-            [
-                self.nav_row(self.ev("ev_charger_state"), "State", SUB_EV),
-                self.nav_row(self.ev("ev_session_energy"), "This charge", SUB_EV),
-                self.nav_row(self.ev("zappi_today"), "Today", SUB_EV),
-                self.nav_row(self.ev("zappi_cost_today"), "Cost", SUB_EV),
-            ]
+        return self._two_up(
+            glance_card(
+                [
+                    self.nav_row(self.ev("ev_charger_state"), "State", SUB_EV),
+                    self.nav_row(self.ev("ev_session_energy"), "This charge", SUB_EV),
+                    self.nav_row(self.ev("zappi_today"), "Today", SUB_EV),
+                    self.nav_row(self.ev("zappi_cost_today"), "Cost", SUB_EV),
+                ]
+            )
         )
 
     def _device_buttons(self) -> dict | None:
