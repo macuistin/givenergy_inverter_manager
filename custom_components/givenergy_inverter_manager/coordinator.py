@@ -235,6 +235,7 @@ SILENT_WARN_CYCLES = 3
 # The system is looked at again every tenth cycle, and at once when GivTCP's version changes.
 SYSTEM_CHECK_EVERY_CYCLES = 10
 
+_MINUTES_PER_DAY = 24 * 60
 _REDISCOVER_EVERY_N_CYCLES = 10  # 10 × 30s ≈ 5 minutes
 
 
@@ -256,12 +257,24 @@ def _non_negative_float(value: object) -> float | None:
     return number if number >= 0 else None
 
 
-def _waiting_for_cheapest_text(soc: float, period, cheapest) -> str:
-    return (
-        f"Battery at {soc:.0f}% during {period.name} — "
-        f"waiting for cheapest rate ({cheapest.name} "
-        f"{cheapest.start.strftime('%H:%M')}–{cheapest.end.strftime('%H:%M')})"
-    )
+def _minutes_into_day(moment) -> int:
+    return moment.hour * 60 + moment.minute
+
+
+def _cheapest_is_ahead(now: datetime, period, cheapest) -> bool:
+    """True while the cheapest period starts later than now within the current period."""
+    start = _minutes_into_day(period.start)
+    cheapest_in = (_minutes_into_day(cheapest.start) - start) % _MINUTES_PER_DAY
+    now_in = (_minutes_into_day(now) - start) % _MINUTES_PER_DAY
+    return cheapest_in > now_in
+
+
+def _cheapest_rate_text(now: datetime, soc: float, period, cheapest) -> str:
+    """Where the battery waits for the cheapest rate, or that it has already gone by."""
+    window = f"{cheapest.name} {cheapest.start.strftime('%H:%M')}–{cheapest.end.strftime('%H:%M')}"
+    if _cheapest_is_ahead(now, period, cheapest):
+        return f"Battery at {soc:.0f}% during {period.name} — waiting for cheapest rate ({window})"
+    return f"Battery at {soc:.0f}% during {period.name} — the cheapest rate ({window}) has passed"
 
 
 # The coordinator attribute that caches each immersion temperature option.
@@ -1393,7 +1406,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             # emergencies (near minimum SoC).
             effective_floor = int(cfg.get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC)) + 5
             if raw.battery_soc >= effective_floor:
-                return _FloorCheck(_waiting_for_cheapest_text(raw.battery_soc, period, cheapest))
+                return _FloorCheck(_cheapest_rate_text(now, raw.battery_soc, period, cheapest))
         if raw.battery_soc >= effective_floor:
             return _FloorCheck("")
         return self._floor_top_up_check(raw.battery_soc, period, effective_floor)

@@ -1,12 +1,13 @@
 """
 views.py - the views of the dashboard, and the Builder that fills them.
 
-The dashboard tells a story. Home energy, the one page with a tab, says what is happening now and
-what needs attention: the live power flow, a sentence on what the house runs on and what tonight
-holds, the day so far, the hot water and the EV charger, and a banner only while something needs
-the user. Every detail is one tap away on a sub-view: Today, Tonight, Tomorrow, Bill & tariff,
-Hot water, EV charger and Settings. Each sub-view opens with a sentence, then one picture that
-tells its story, then a few figures in a row, then the detail.
+The dashboard tells a story. Home energy says what is happening now and what needs attention: the
+live power flow under a heading that carries the day's figures, a sentence on what the house runs
+on and what tonight holds, one button each for the hot water and the EV charger with their
+figures, and a banner only while something needs the user. Today, Tonight, Tomorrow and Bill &
+tariff are tabs with an icon each. Hot water, EV charger and Settings are one tap away on
+sub-views. Each view opens with a sentence, then one picture that tells its story, then a few
+figures in a row, then the detail.
 """
 
 from __future__ import annotations
@@ -51,6 +52,7 @@ from .cards import (
     SOLAR_HEX,
     TABLE_CSS,
     TOTAL_CSS,
+    TREND_DAY,
     WATER_HEX,
     WHOLE_WIDTH,
     WIDE,
@@ -61,6 +63,7 @@ from .cards import (
     distribution_card,
     entity_badge,
     entity_row,
+    figure_tile,
     glance_card,
     grid_section,
     group,
@@ -72,7 +75,6 @@ from .cards import (
     navigate_action,
     present,
     readonly_tile,
-    shortcut_card,
     stacked_daily_graph,
     stacked_hourly_graph,
     state_markdown,
@@ -82,6 +84,7 @@ from .cards import (
     subheading_card,
     switch_tile,
     tile_card,
+    tile_grid,
     view_config,
     weather_card,
 )
@@ -99,12 +102,10 @@ from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
     ChargerNow,
     DayTotals,
-    PowerNow,
     WaterNow,
     alt_heat_schedule_template,
     currency_symbol,
     ev_story_template,
-    now_story_template,
     plan_text_template,
     saved_template,
     setup_checklist_template,
@@ -114,22 +115,23 @@ from .templates import (
     today_story_template,
     tomorrow_story_template,
     tonight_headline_template,
+    tonight_line_template,
     water_story_template,
 )
 
 # ── View paths ───────────────────────────────────────────────────────────────
-# Home energy is the one view with a tab, so Home Assistant shows no tab bar. Every other view is
-# a sub-view whose back arrow returns to it. Home energy keeps the path it had as Power Flow, and
-# the sub-views keep theirs, so a saved link still opens the same page.
+# Home energy and the four days and bills views are tabs, shown as icons in the bar. The devices
+# and Settings are sub-views whose back arrow returns to Home energy. Every view keeps the path it
+# had, so a saved link still opens the same page.
 TAB_NOW = "power-flow"
-SUB_TODAY = "today"
-SUB_PLAN = "plan"
-SUB_TOMORROW = "tomorrow"
-SUB_BILL = "bill"
+TAB_TODAY = "today"
+TAB_PLAN = "plan"
+TAB_TOMORROW = "tomorrow"
+TAB_BILL = "bill"
 SUB_IMMERSION = "immersion"
 SUB_EV = "ev-charger"
 SUB_SETTINGS = "settings"
-TABS = frozenset({TAB_NOW})
+TABS = frozenset({TAB_NOW, TAB_TODAY, TAB_PLAN, TAB_TOMORROW, TAB_BILL})
 
 # How far back the charts reach, and how tall they are in grid rows. A bill period is a
 # calendar month, so 31 days always holds the one in progress.
@@ -327,11 +329,6 @@ class Builder:
             return entity_row(entity, name, color=colour)
         return entity_row(entity, name)
 
-    def nav_row(self, entity: str | None, name: str, path: str) -> dict | None:
-        """A figure in a row of figures that opens a view when tapped."""
-        nav = self.go(path)
-        return entity_row(entity, name, tap_action=nav) if nav else entity_row(entity, name)
-
     def table(self, card: dict | None, *, total: bool = False) -> dict | None:
         """A markdown card holding a table, styled by card-mod when it is installed."""
         if card is None or not self.cards.installed(CARD_MOD):
@@ -367,7 +364,8 @@ class Builder:
     def go(self, path: str) -> dict | None:
         """A tap action to the view at path, or None when that sub-view is empty.
 
-        The tabs always exist. A sub-view is left out when it would be empty.
+        A tab is always linked, though a tab with nothing to show is left out of the dashboard.
+        A sub-view is left out when it would be empty.
         """
         if path in TABS or self.has_subview(path):
             return navigate_action(path)
@@ -383,7 +381,7 @@ class Builder:
         if not nav:
             return None
         visibility = [admin_condition(self.admin_ids)]
-        return [button_badge("mdi:tune", "Settings", nav, visibility)]
+        return [button_badge(None, "Settings", nav, visibility)]
 
     # -- Home energy: the power flow --
 
@@ -482,7 +480,10 @@ class Builder:
         return {**card, "grid_options": {"columns": FULL}} if card else None
 
     def _flow(self) -> dict | None:
-        """The power flow, two columns wide, with the Settings button in its heading.
+        """The power flow, two columns wide, under a heading that carries the day's figures.
+
+        The heading holds the Settings button and the day's solar, import cost and
+        self-sufficiency. It has no icon and a short title, so all of it fits on a phone.
 
         One card for each combination of the car charger and immersion being there. The card
         cannot hide one device, so a stored dashboard shows the card built for the devices
@@ -491,34 +492,12 @@ class Builder:
         devices = (Device.EV_CHARGER, Device.IMMERSION_SWITCH)
         cards = self.devices.variants(devices, self._flow_card)
         heading = heading_card(
-            "Live power flow", "mdi:transmission-tower", badges=self._settings_badges()
+            "Energy",
+            badges=[*(self._settings_badges() or []), *self._today_badges()],
         )
         return group(heading, cards, **WIDE)
 
-    # -- Home energy: right now --
-
-    def _now_badges(self) -> list[dict]:
-        """The battery, the price now and when the cheap rate starts, as chips."""
-        return present(
-            [
-                entity_badge(self.entity("battery_soc"), "mdi:battery-high", color=BATTERY),
-                entity_badge(self.entity("current_rate"), "mdi:currency-eur", color="purple"),
-                entity_badge(self.entity("next_cheap_rate_start"), "mdi:clock-outline"),
-            ]
-        )
-
-    def _now_story(self) -> dict | None:
-        """What the house runs on now and what tonight holds. None without the power sensors."""
-        power = [self.entity(key) for key in ("solar_power", "house_load", "battery_power")]
-        grid = self.entity("grid_power")
-        if not all(power) or not grid:
-            return None
-        story = now_story_template(
-            PowerNow(*power, grid),
-            self.entity("overnight_charge_target"),
-            self.entity("night_survival_confidence"),
-        )
-        return markdown_card(story)
+    # -- Home energy: tonight, and where the day's energy came from --
 
     def _today_badges(self) -> list[dict]:
         return present(
@@ -531,96 +510,110 @@ class Builder:
             ]
         )
 
-    def _heating(self) -> list[dict]:
-        """A condition that holds while the heater draws power. Empty without its sensor."""
-        heater = self.immersion("immersion_power")
-        return [{"condition": "numeric_state", "entity": heater, "above": 0}] if heater else []
+    def _tonight_line(self) -> dict | None:
+        """Whether the battery charges tonight, in one line with an icon. None without the plan."""
+        plan = self.entity("charge_plan")
+        return markdown_card(tonight_line_template(plan)) if plan else None
 
-    def _devices_badges(self) -> list[dict]:
-        """The water temperature, the heater while it heats, and the EV charger, as chips.
-
-        Each chip opens its device's view and shows only while its device is there.
-        """
-        heater = self.immersion("immersion_power")
-        heating = self._heating()
-        water = entity_badge(
-            self.water_sensor("immersion_water_temperature"),
-            "mdi:water-boiler",
-            color="orange",
-            nav=self.go(SUB_IMMERSION),
-            visibility=self.devices.visible_with(Device.IMMERSION_SENSOR),
-        )
-        on = entity_badge(
-            heater,
-            "mdi:fire",
-            color="red",
-            nav=self.go(SUB_IMMERSION),
-            visibility=[*self.devices.visible_with(Device.IMMERSION_SWITCH), *heating],
-        )
-        car = entity_badge(
-            self.ev("ev_charger_state"),
-            "mdi:ev-station",
-            color="teal",
-            nav=self.go(SUB_EV),
-            visibility=self.devices.visible_with(Device.EV_CHARGER),
-        )
-        return present([water, on, car])
-
-    def _right_now(self) -> dict | None:
-        """Right now, the day so far, and the hot water and the EV charger, in one column."""
-        today = subheading_card("Today so far", "mdi:calendar-today")
-        if badges := self._today_badges():
-            today["badges"] = badges
-        if nav := self.go(SUB_TODAY):
-            today["tap_action"] = nav
-        # The heading shows while one of its chips does, so a heater that is off with no
-        # sensor or charger beside it leaves no heading on its own.
-        shown = [
-            *self.devices.visible_with(Device.EV_CHARGER),
-            *self.devices.visible_with(Device.IMMERSION_SENSOR),
-            *self._heating(),
-        ]
-        devices = with_visibility(
-            {
-                **subheading_card("Hot water and EV", "mdi:power-plug"),
-                "badges": self._devices_badges(),
-            },
-            [{"condition": "or", "conditions": shown}],
-        )
-        now = heading_card(
-            "Right now", "mdi:clock-outline", nav=self.go(SUB_PLAN), badges=self._now_badges()
-        )
-        # The heading's chips are worth showing without the sentence under it.
-        first = heading_block(now, [self._now_story()]) or ([now] if "badges" in now else [])
-        return grid_section(
-            first,
-            present([today if "badges" in today else None, devices if devices["badges"] else None]),
-        )
-
-    def _more(self) -> dict | None:
-        """A button for each sub-view, two columns wide. Settings only for administrators."""
-        devices = self.devices
-        settings = shortcut_card("Settings", "mdi:tune", self.go(SUB_SETTINGS))
-        if settings:
-            settings["visibility"] = [admin_condition(self.admin_ids)]
-        return group(
-            heading_card("More", "mdi:dots-grid"),
+    def _sources_bar(self) -> dict | None:
+        """The day's energy split by where it came from: the sun, the battery or the grid."""
+        return distribution_card(
             [
-                shortcut_card("Today", "mdi:calendar-today", self.go(SUB_TODAY)),
-                shortcut_card("Tonight", "mdi:battery-clock", self.go(SUB_PLAN)),
-                shortcut_card("Tomorrow", "mdi:weather-sunset-up", self.go(SUB_TOMORROW)),
-                shortcut_card("Bill & tariff", "mdi:receipt-text", self.go(SUB_BILL)),
-                with_visibility(
-                    shortcut_card("Hot water", "mdi:water-boiler", self.go(SUB_IMMERSION)),
-                    devices.visible_with_any(Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR),
+                self.row(self.entity("solar_today"), "Solar", SOLAR_HEX),
+                self.row(self.entity("battery_discharge_kwh_today"), "Battery", BATTERY_HEX),
+                self.row(self.entity("import_today"), "Grid", GRID_HEX),
+            ]
+        )
+
+    def _tonight_and_sources(self) -> dict | None:
+        """Under the power flow: whether tonight charges, then where the day's energy came from."""
+        line = self._tonight_line()
+        sources = heading_block(
+            heading_card("Where it came from", "mdi:home-lightning-bolt-outline"),
+            [self._sources_bar()],
+        )
+        return grid_section([line] if line else [], sources, **WIDE)
+
+    # -- Home energy: the devices --
+
+    def _water_tiles(self, shown: frozenset[Device]) -> dict | None:
+        """The hot water figures for the devices of *shown*, each opening the Hot water view.
+
+        The heater is shown as on or off, read from the managed switch, which is on while the
+        integration has the heater on. Its entity ID is known before the switch exists, so the
+        tile appears when a switch is added later with no new dashboard.
+        """
+        sensor = Device.IMMERSION_SENSOR in shown
+        heater = Device.IMMERSION_SWITCH in shown
+        nav = self.go(SUB_IMMERSION)
+        return tile_grid(
+            [
+                figure_tile(
+                    self.water_sensor("immersion_water_temperature") if sensor else None,
+                    "Water",
+                    "mdi:thermometer-water",
+                    "deep-orange",
+                    nav,
+                    [TREND_DAY],
                 ),
-                devices.show_with(
-                    shortcut_card("EV charger", "mdi:ev-station", self.go(SUB_EV)),
-                    Device.EV_CHARGER,
+                figure_tile(
+                    self.immersion("immersion_managed") if heater else None,
+                    "Heater",
+                    "mdi:fire",
+                    "red",
+                    nav,
                 ),
-                settings,
-            ],
-            **WIDE,
+                figure_tile(
+                    self.immersion("immersion_today") if heater else None,
+                    "Heated today",
+                    "mdi:water-boiler",
+                    "orange",
+                    nav,
+                ),
+                figure_tile(
+                    self.immersion("immersion_cost_today") if heater else None,
+                    "Cost today",
+                    "mdi:cash",
+                    "purple",
+                    nav,
+                ),
+            ]
+        )
+
+    def _charger_tiles(self) -> dict | None:
+        """The EV charger figures, each opening the EV charger view."""
+        nav = self.go(SUB_EV)
+        return tile_grid(
+            [
+                figure_tile(self.ev("ev_charger_state"), "State", "mdi:ev-station", "teal", nav),
+                figure_tile(self.ev_power(), "Power", "mdi:flash", "green", nav, [TREND_DAY]),
+                figure_tile(self.ev("zappi_today"), "Today", "mdi:car-electric", "blue", nav),
+                figure_tile(self.ev("zappi_cost_today"), "Cost today", "mdi:cash", "purple", nav),
+            ]
+        )
+
+    def _device_buttons(self) -> dict | None:
+        """A box for the hot water and one for the EV charger, each with its figures.
+
+        The heading opens the device's view, and so does each tile. A device that is not there
+        leaves nothing: its heading and its tiles carry a visibility condition, so one that
+        arrives later shows with no regeneration.
+        """
+        devices = self.devices
+        water_cards = devices.variants(
+            (Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR), self._water_tiles
+        )
+        water = with_visibility(
+            heading_card("Hot water", "mdi:water-boiler", nav=self.go(SUB_IMMERSION)),
+            devices.visible_with_any(Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR),
+        )
+        ev = with_visibility(
+            heading_card("EV charger", "mdi:ev-station", nav=self.go(SUB_EV)),
+            devices.visible_with(Device.EV_CHARGER),
+        )
+        return grid_section(
+            heading_block(water, water_cards),
+            heading_block(ev, [devices.show_with(self._charger_tiles(), Device.EV_CHARGER)]),
         )
 
     def _repairs_section(self) -> dict | None:
@@ -704,10 +697,10 @@ class Builder:
         )
 
     def now_sections(self) -> list:
-        """The banners while they apply, the power flow, right now, and the way to the rest.
+        """The banners while they apply, the power flow, tonight, and the device boxes.
 
-        On a laptop right now sits beside the power flow and the buttons run under it. On a
-        phone every section is one column and they stack in this order.
+        On a laptop the device boxes sit beside the power flow. On a phone every section is one
+        column and they stack in this order.
         """
         return present(
             [
@@ -716,8 +709,8 @@ class Builder:
                 self._setup_checklist(),
                 self._repairs_section(),
                 self._flow(),
-                self._right_now(),
-                self._more(),
+                self._tonight_and_sources(),
+                self._device_buttons(),
             ]
         )
 
@@ -785,13 +778,7 @@ class Builder:
 
     def _today_split(self) -> dict | None:
         """Where the energy came from and what it cost, as split bars, then the day in figures."""
-        sources = distribution_card(
-            [
-                self.row(self.entity("solar_today"), "Solar", SOLAR_HEX),
-                self.row(self.entity("battery_discharge_kwh_today"), "Battery", BATTERY_HEX),
-                self.row(self.entity("import_today"), "Grid", GRID_HEX),
-            ]
-        )
+        sources = self._sources_bar()
         costs = self.devices.variants(
             (Device.EV_CHARGER, Device.IMMERSION_SWITCH), self._cost_split
         )
@@ -1040,7 +1027,7 @@ class Builder:
         return day_bars(
             [
                 self.row(self.entity("import_cost_today"), "You paid", COST_HEX),
-                self.row(self.entity("bill_without_solar"), "Would have paid", SOLAR_HEX),
+                self.row(self.entity("cost_without_solar_today"), "Would have paid", SOLAR_HEX),
             ],
             14,
             4,
@@ -1553,12 +1540,14 @@ class ViewSpec:
         return view_config(self.title, self.icon, self.path, self.sections(builder), **extra)
 
 
-TAB_VIEWS = (ViewSpec("Home energy", "mdi:home-lightning-bolt", TAB_NOW, Builder.now_sections),)
+TAB_VIEWS = (
+    ViewSpec("Home energy", "mdi:home-lightning-bolt", TAB_NOW, Builder.now_sections),
+    ViewSpec("Today", "mdi:calendar-today", TAB_TODAY, Builder.today_sections),
+    ViewSpec("Tonight", "mdi:battery-clock", TAB_PLAN, Builder.plan_sections),
+    ViewSpec("Tomorrow", "mdi:weather-sunset-up", TAB_TOMORROW, Builder.tomorrow_sections),
+    ViewSpec("Bill & tariff", "mdi:receipt-text", TAB_BILL, Builder.bill_sections),
+)
 SUBVIEWS = (
-    ViewSpec("Today", "mdi:calendar-today", SUB_TODAY, Builder.today_sections, TAB_NOW),
-    ViewSpec("Tonight", "mdi:battery-clock", SUB_PLAN, Builder.plan_sections, TAB_NOW),
-    ViewSpec("Tomorrow", "mdi:weather-sunset-up", SUB_TOMORROW, Builder.tomorrow_sections, TAB_NOW),
-    ViewSpec("Bill & tariff", "mdi:receipt-text", SUB_BILL, Builder.bill_sections, TAB_NOW),
     ViewSpec("Hot water", "mdi:water-boiler", SUB_IMMERSION, Builder.immersion_sections, TAB_NOW),
     ViewSpec("EV charger", "mdi:ev-station", SUB_EV, Builder.ev_sections, TAB_NOW),
     ViewSpec(

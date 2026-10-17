@@ -37,7 +37,7 @@ from .logging import get_logger, log_startup
 from .optional_devices import remove_orphaned_entities
 from .services import async_register_services, async_unregister_services, loaded_entries
 from .stored_dashboard_repair import async_watch_stored_dashboard
-from .strategy import async_register_strategy
+from .strategy import async_register_strategy, async_remove_resource
 
 _LOG = get_logger(__name__)
 
@@ -230,9 +230,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) -
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Take down the notice that explains how to add the dashboard, when the last entry goes."""
+    """Take down the notice and the script resource of the dashboard, when the last entry goes."""
     if not [e for e in hass.config_entries.async_entries(DOMAIN) if e.entry_id != entry.entry_id]:
         async_dismiss_announcement(hass)
+        await async_remove_resource(hass)
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:

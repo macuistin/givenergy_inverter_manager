@@ -320,21 +320,181 @@ class TestRegisterOnce:
 
 
 class TestModuleUrl:
-    def test_the_address_carries_the_version_and_the_start(self, monkeypatch):
+    def test_the_address_carries_the_version_and_nothing_else(self):
         strategy = _strategy()
-        monkeypatch.setattr(strategy.time, "time", lambda: 1_700_000_000.9)
-        hass = SimpleNamespace(data={})
 
-        url = strategy.strategy_module_url(hass)
+        url = strategy.strategy_module_url(SimpleNamespace(data={}))
 
-        assert url == f"{strategy.STRATEGY_URL_PATH}?v={strategy.INTEGRATION_VERSION}&boot=1700000000"
+        assert url == f"{strategy.STRATEGY_URL_PATH}?v={strategy.INTEGRATION_VERSION}"
 
-    def test_the_address_is_fixed_within_a_start_and_new_for_the_next(self, monkeypatch):
+    def test_the_address_is_the_same_at_every_start(self):
         strategy = _strategy()
-        clock = iter([1_700_000_000, 1_700_000_500])
-        monkeypatch.setattr(strategy.time, "time", lambda: next(clock))
-        first_start = SimpleNamespace(data={})
-        second_start = SimpleNamespace(data={})
 
-        assert strategy.strategy_module_url(first_start) == strategy.strategy_module_url(first_start)
-        assert strategy.strategy_module_url(second_start) != strategy.strategy_module_url(first_start)
+        first = strategy.strategy_module_url(SimpleNamespace(data={}))
+        second = strategy.strategy_module_url(SimpleNamespace(data={}))
+
+        assert first == second
+
+
+class _Resources:
+    """A stored Lovelace resource collection, as far as the integration uses it."""
+
+    def __init__(self, items=None):
+        self.items = list(items or [])
+        self.created = []
+        self.deleted = []
+        self.info_calls = 0
+
+    async def async_get_info(self):
+        self.info_calls += 1
+        return {"resources": len(self.items)}
+
+    def async_items(self):
+        return self.items
+
+    async def async_create_item(self, data):
+        item = {"id": f"id{len(self.items) + 1}", "type": data["res_type"], "url": data["url"]}
+        self.items.append(item)
+        self.created.append(data)
+        return item
+
+    async def async_delete_item(self, item_id):
+        self.items = [i for i in self.items if i["id"] != item_id]
+        self.deleted.append(item_id)
+
+
+def _lovelace(resources):
+    return SimpleNamespace(data={"lovelace": SimpleNamespace(resources=resources)})
+
+
+def _item(item_id, url, kind="module"):
+    return {"id": item_id, "type": kind, "url": url}
+
+
+class TestTheResource:
+    """The script is a Lovelace resource too, so a page served before setup still loads it."""
+
+    def _url(self, strategy):
+        return strategy.strategy_module_url(SimpleNamespace(data={}))
+
+    def test_it_is_created_as_a_module_at_this_releases_address(self):
+        strategy = _strategy()
+        resources = _Resources()
+
+        asyncio.run(strategy.async_sync_resource(_lovelace(resources)))
+
+        assert resources.created == [{"res_type": "module", "url": self._url(strategy)}]
+
+    def test_a_second_run_adds_nothing(self):
+        strategy = _strategy()
+        resources = _Resources()
+        hass = _lovelace(resources)
+
+        asyncio.run(strategy.async_sync_resource(hass))
+        asyncio.run(strategy.async_sync_resource(hass))
+
+        assert len(resources.created) == 1
+        assert resources.deleted == []
+
+    def test_a_resource_of_an_older_release_is_replaced_not_added_to(self):
+        strategy = _strategy()
+        old = _item("old", f"{strategy.STRATEGY_URL_PATH}?v=0.1.0&boot=1")
+        resources = _Resources([old])
+
+        asyncio.run(strategy.async_sync_resource(_lovelace(resources)))
+
+        assert resources.deleted == ["old"]
+        assert [i["url"] for i in resources.items] == [self._url(strategy)]
+
+    def test_duplicates_are_cleared_and_one_stays(self):
+        strategy = _strategy()
+        url = self._url(strategy)
+        resources = _Resources([_item("a", url), _item("b", url)])
+
+        asyncio.run(strategy.async_sync_resource(_lovelace(resources)))
+
+        assert resources.deleted == ["b"]
+        assert resources.created == []
+
+    def test_a_resource_of_the_right_address_but_the_wrong_type_is_replaced(self):
+        strategy = _strategy()
+        resources = _Resources([_item("a", self._url(strategy), kind="js")])
+
+        asyncio.run(strategy.async_sync_resource(_lovelace(resources)))
+
+        assert resources.deleted == ["a"]
+        assert [i["type"] for i in resources.items] == ["module"]
+
+    def test_other_resources_are_left_alone(self):
+        strategy = _strategy()
+        hacs = _item("hacs", "/hacsfiles/apexcharts-card/apexcharts-card.js?hacstag=1")
+        near = _item("near", "/givenergy_inverter_manager/other.js")
+        resources = _Resources([hacs, near])
+
+        asyncio.run(strategy.async_sync_resource(_lovelace(resources)))
+
+        assert resources.deleted == []
+        assert {hacs["id"], near["id"]} <= {i["id"] for i in resources.items}
+
+    def test_the_collection_is_loaded_before_it_is_read(self):
+        strategy = _strategy()
+        resources = _Resources()
+
+        asyncio.run(strategy.async_sync_resource(_lovelace(resources)))
+
+        assert resources.info_calls == 1
+
+    def test_nothing_is_written_to_yaml_resources(self):
+        strategy = _strategy()
+        yaml_resources = SimpleNamespace(
+            data=[], async_get_info=lambda: None, async_items=lambda: []
+        )
+
+        asyncio.run(strategy.async_sync_resource(_lovelace(yaml_resources)))
+
+        assert yaml_resources.data == []
+
+    def test_it_does_nothing_when_lovelace_is_not_set_up(self):
+        strategy = _strategy()
+
+        asyncio.run(strategy.async_sync_resource(SimpleNamespace(data={})))
+
+    def test_a_failure_is_logged_and_never_raised(self, caplog):
+        strategy = _strategy()
+        resources = _Resources()
+
+        async def boom(_data):
+            raise RuntimeError("storage is read only")
+
+        resources.async_create_item = boom
+
+        asyncio.run(strategy.async_sync_resource(_lovelace(resources)))
+
+        assert "storage is read only" in caplog.text
+
+    def test_removing_takes_every_copy_out_and_nothing_else(self):
+        strategy = _strategy()
+        hacs = _item("hacs", "/hacsfiles/card-mod/card-mod.js")
+        resources = _Resources(
+            [_item("a", self._url(strategy)), hacs, _item("b", f"{strategy.STRATEGY_URL_PATH}?v=1")]
+        )
+
+        asyncio.run(strategy.async_remove_resource(_lovelace(resources)))
+
+        assert resources.items == [hacs]
+
+    def test_registering_the_strategy_syncs_the_resource_once(self, monkeypatch):
+        strategy = _strategy()
+        resources = _Resources()
+        hass = _lovelace(resources)
+        monkeypatch.setattr(strategy, "_register_websocket_command", lambda hass: None)
+
+        async def serve(hass):
+            return None
+
+        monkeypatch.setattr(strategy, "_serve_strategy_file", serve)
+
+        asyncio.run(strategy.async_register_strategy(hass))
+        asyncio.run(strategy.async_register_strategy(hass))
+
+        assert len(resources.created) == 1

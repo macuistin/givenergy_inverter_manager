@@ -32,7 +32,7 @@ The action and the repair replace the whole dashboard, your own edits included. 
 
 ## The strategy dashboard
 
-The strategy dashboard builds itself each time you open it, from your entity registry, your options and your Lovelace resources. Nothing is written to a file, and there is no step to repeat when something changes. It needs a small script to load in the browser first, and on some devices that script is not ready in the 5 seconds Home Assistant waits for it. The dashboard then shows "Timeout waiting for strategy element". If that happens to you, use [the stored dashboard](#add-the-dashboard) instead.
+The strategy dashboard builds itself each time you open it, from your entity registry, your options and your Lovelace resources. Nothing is written to a file, and there is no step to repeat when something changes. It needs a small script to load in the browser first, and Home Assistant waits 5 seconds for it. The script is part of the page Home Assistant serves, and it is also kept in the Lovelace resources (**Settings → Dashboards → Resources**, as `/givenergy_inverter_manager/givenergy-manager-strategy.js`), because a page served while Home Assistant is still starting, or kept by the browser from an earlier load, can come without it. The integration adds that resource when it starts and removes it when you remove the integration. If you keep your resources in YAML it adds nothing, and the page alone has to carry the script. When the dashboard still shows "Timeout waiting for strategy element", use [the stored dashboard](#add-the-dashboard) instead.
 
 1. Go to **Settings → Dashboards → Add dashboard**.
 2. Under **Community dashboards**, pick **GivEnergy**.
@@ -112,8 +112,8 @@ The dashboard only contains figures and cards that will show a value.
 
 - A figure, chip or tile is left out when its entity is disabled or not registered. Many sensors are disabled by default. Enable them in **Settings → Devices & services → Entities**, then reload the page.
 - A section with nothing left is left out too, so there is never a heading on its own.
-- The EV chip, the EV figures and the EV charger sub-view need an EV charger the integration has discovered. They are hidden until it has, and shown when it does. See [Devices you add or remove later](#devices-you-add-or-remove-later).
-- The heater figures, the heater chip, the Plan section and the divert reason need an immersion switch. The water temperature chip, sentence and chart need an immersion temperature sensor. Scheduled heating, Heat to, Never below and Restart drop need both, because they act on nothing without a sensor to read.
+- The EV charger box on Home energy, the EV figures and the EV charger sub-view need an EV charger the integration has discovered. They are hidden until it has, and shown when it does. See [Devices you add or remove later](#devices-you-add-or-remove-later).
+- The heater figures, the Heater tile, the Plan section and the divert reason need an immersion switch. The Water tile, sentence and chart need an immersion temperature sensor. Scheduled heating, Heat to, Never below and Restart drop need both, because they act on nothing without a sensor to read.
 - The inverter temperature figures need an inverter temperature entity: the one stored at setup, or GivTCP's `sensor.givtcp_<serial>_invertor_temperature` when it exists.
 - The forecast figures, and the sentence and figures at the top of the Tomorrow sub-view, need a forecast entity in the options.
 
@@ -124,15 +124,15 @@ The EV charger, the immersion switch, the immersion temperature sensor and alter
 - **A card for a device is hidden until the device exists.** Each card, tile, chart and section that needs a device carries a Lovelace visibility condition on one entity of that device. The condition hides the card while the entity is missing or unavailable. It shows the card as soon as the entity exists, and hides it again when the entity goes.
 - **The cards wait for the device.** Without a device, they point at the entity IDs Home Assistant will give the device's entities, which follow from the entity names. When the device arrives, the cards show. This also keeps a copy of the dashboard working, if you [keep your own copy](#keep-your-own-copy).
 - **The power flow card and the cost charts are built once for each combination of devices** and the condition shows the one that matches, as a card cannot hide a single row.
-- **The Hot water and EV charger sub-views are always there.** Nothing opens them while their chips and buttons are hidden.
+- **The Hot water and EV charger sub-views are always there.** Nothing opens them while their boxes on Home energy are hidden.
 
 What each device brings:
 
 | Device | How the integration knows | Shown when it is there |
 |---|---|---|
-| EV charger | Discovery finds a supported charger. This runs again every five minutes until one is found | Car charger on the flow card, the EV chip, the EV charger button and sub-view, the EV share of the cost charts |
+| EV charger | Discovery finds a supported charger. This runs again every five minutes until one is found | Car charger on the flow card, the EV charger box and sub-view, the EV share of the cost charts |
 | Immersion switch | The switch is set under Configure, Immersion heater (or at setup) | Heater power, energy, cost and savings, the heater chart, the divert reason, the Use spare solar and Heat now settings, the immersion node on the flow card |
-| Immersion temperature sensor | The sensor is set under Configure, Immersion heater (or at setup) | The water temperature chip, the Hot water sentence and the water temperature chart |
+| Immersion temperature sensor | The sensor is set under Configure, Immersion heater (or at setup) | The Water tile, the Hot water sentence and the water temperature chart |
 | Switch and sensor together | Both are set | The planned heating (while scheduled heating is on), Scheduled, Heat to and Never below in Settings in force, the Scheduled heat, Heat to, Never below and Restart drop controls, and the target and minimum lines on the chart |
 | Alternative water heating with the switch | Alternative water heating is on under Configure with a cost or a cost sensor set, and an immersion switch is set | The cheapest way to heat the water now and the schedule line, in the Plan section of the Hot water view |
 
@@ -174,12 +174,12 @@ The values in the screenshots are from a working install and will differ on your
 
 Every view is a Home Assistant **sections** view of at most three columns. The number of columns follows the screen: one on a phone, two on a tablet, three on a laptop or wider. A section that is two columns wide narrows to one on a phone, so everything stacks in one column there. The sections are placed densely, so a section that fits a gap left by a wider one moves up into it.
 
-The dashboard has one tab, **Home energy**, and a sub-view for each subject: Today, Tonight, Tomorrow, Bill & tariff, Hot water, EV charger and Settings. Home energy tells you what is happening now. Detail is one tap away, and the back arrow at the top of a sub-view returns to Home energy. The links use relative paths, so they work at any dashboard URL. Home energy keeps the path `power-flow` it has always had, so a saved link still opens it.
+The dashboard has five tabs, each shown as an icon in the tab bar: **Home energy**, **Today**, **Tonight**, **Tomorrow** and **Bill & tariff**. Hot water, EV charger and Settings are sub-views, opened from Home energy, and the back arrow at the top of one returns to Home energy. Home energy tells you what is happening now, and each tab goes into one subject. The links use relative paths, so they work at any dashboard URL. Home energy keeps the path `power-flow` it has always had, so a saved link still opens it.
 
 Each page follows the same pattern, so a page reads the same way whatever it covers:
 
-- A sentence first. It says in words what the figures mean, such as what the house runs on now or whether tonight charges.
-- Small figures as chips in a heading, or as a row of figures under a sentence. Large tiles are kept for the controls in Settings.
+- A sentence first. It says in words what the figures mean, such as how the day went or whether tonight charges.
+- Small figures as chips in a heading, or as a row of figures under a sentence. Coloured tiles, with a gauge or a line of the last 24 hours, are used for the devices on Home energy, and for the controls in Settings.
 - One chart per question, with each series in its own colour: amber for solar, teal for the battery, purple for the grid and cost, blue for the house and orange for the hot water.
 - Background detail, such as why a plan was chosen or what a setting does, folded away under a line you tap to open.
 
@@ -191,7 +191,7 @@ A rate sensor reports a bare currency amount, so its unit stays the currency and
 
 ### Settings and administrators
 
-Everything that changes a setting is in the **Settings** sub-view. A **Settings** button in the Live power flow heading opens it, and so does the Settings button under More. Both are for Home Assistant administrators only. Everyone else sees neither, and the rest of the dashboard only shows state.
+Everything that changes a setting is in the **Settings** sub-view. A **Settings** button in the Energy heading opens it. It is for Home Assistant administrators only. Everyone else does not see it, and the rest of the dashboard only shows state.
 
 Home Assistant has no admin option for a dashboard. A view takes a list of users in `visible`, and a card or heading button takes a user condition. The integration uses both, and the server's own check on top.
 
@@ -204,7 +204,7 @@ This hides the controls. It is not security. Home Assistant has no permissions f
 
 ### Home energy
 
-![Home energy on a laptop: the live power flow, Right now with its chips and sentence, Today so far, Hot water and EV, and the More buttons.](images/dashboard-home-energy.png)
+![Home energy on a laptop: the power flow with the day's figures and the Settings button above it, whether tonight charges, where the day's energy came from, and the Hot water and EV charger boxes.](images/dashboard-home-energy.png)
 
 ![Home energy on a phone, with the sections stacked in one column.](images/dashboard-home-energy-mobile.png)
 
@@ -213,17 +213,18 @@ This hides the controls. It is not security. Home Assistant has no permissions f
   - **Something else is setting your charge target**: while Charge Target Conflict reads `suspected`.
   - **Finish setting up**: while Setup Progress reads incomplete.
   - **Needs your attention**: this integration's open repairs, from the Active Repairs sensor, for administrators only. Home Assistant's own Repairs card lists every repair in Home Assistant and has no filter, so the page does not use it.
-- **Live power flow**: a power-flow-card-plus card with solar, battery, grid, home and, when they exist, the EV charger and the immersion. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. Battery Power is positive while charging and the card expects the opposite, so the node sets `invert_state: true`. The grid node shows the Live Grid Cost Rate, what the current grid flow costs each hour, negative while you earn from export. It is two columns wide.
-- **Right now**: chips for the battery, the price now and when the cheap rate starts, then a sentence on what the house runs on now and what tonight holds. Tap the heading to open Tonight.
-  - **Today so far**: chips for solar generated, the import cost and self-sufficiency. Tap the heading to open Today.
-  - **Hot water and EV**: a chip for the water temperature, one for the heater while it heats, and one for the EV charger's state. Each chip opens its sub-view, and each shows only while its device exists. The heading shows while one of its chips does.
-- **More**: a button for each sub-view. Hot water and EV charger show only while their device exists, and Settings only for administrators.
+- **Energy**: the heading of the power flow. It holds the **Settings** button, for administrators, then chips for solar generated today, the import cost and self-sufficiency. It has a short title and no icon so all of it fits on a phone.
+- **Power flow**: a power-flow-card-plus card with solar, battery, grid, home and, when they exist, the EV charger and the immersion. The battery node reads Battery Power for the flow and Battery State of Charge for the percentage. Battery Power is positive while charging and the card expects the opposite, so the node sets `invert_state: true`. The grid node shows the Live Grid Cost Rate, what the current grid flow costs each hour, negative while you earn from export. It is two columns wide.
+- **Tonight**: one line with an icon, **Tonight: won't charge** or **Tonight: will charge to 75%**. It reads the Tonight's Charge Plan sensor, which follows the plan the inverter is written from. The Recommended Overnight Charge Target sensor is held for a while and can still show last night's charge by day. Tap the Tonight tab for the plan.
+- **Where it came from**: the split bar of today's energy from solar, the battery and the grid, the same bar as on the Today tab.
+- **Hot water**: four coloured tiles that open the Hot water sub-view. **Water** is the temperature with a line of the last 24 hours. **Heater** is On or Off, read from the Immersion Heater (Managed) switch, which is on while the integration has the heater on, since the heater draws full power or none. Its icon turns red while it is on. In dry run it shows what the integration would do. Tapping the icon never switches it. **Heated today** and **Cost today** are the day so far. The Water tile needs the temperature sensor and the others need the switch, and the box shows only while either exists.
+- **EV charger**: four coloured tiles that open the EV charger sub-view: **State**, **Power** with a line of the last 24 hours, **Today** and **Cost today**. It shows only while the charger exists.
 
-On a laptop Right now sits beside the power flow and More runs under it. On a phone they stack in the order above.
+On a laptop the Hot water and EV charger boxes sit beside the power flow, and Tonight and Where it came from run under it. On a phone every section stacks in that order.
 
 For the EV load, the dashboard uses the first of these entities that exists, else the integration's own EV Charging Power: `sensor.myenergi_zappi_power_ct_internal_load`, `..._2`, `sensor.myenergi_zappi2_power_ct_internal_load`, `sensor.wallbox_charging_power`, `sensor.ohme_current_power`.
 
-### Today (sub-view)
+### Today (tab)
 
 ![Today view with a sentence on the day so far, a stacked chart of the last 24 hours, split bars of where the energy came from and what it cost, the day in figures, the solar of the last 7 days and the forecast.](images/dashboard-today.png)
 
@@ -233,7 +234,7 @@ For the EV load, the dashboard uses the first of these entities that exists, els
 
 Planned on is blended toward the pessimistic estimate and scaled by the accuracy correction, so it can differ from the provider's figure. Judge the day against Forecast. Forecast and Reached read empty on a new install until the first midnight, because the provider forecast is remembered then.
 
-### Tonight (sub-view)
+### Tonight (tab)
 
 ![Tonight view with whether tonight charges, the overnight outlook, the charge cost and the battery at sunrise, the battery over the last day and a half, the weather and the battery's health.](images/dashboard-tonight.png)
 
@@ -244,14 +245,14 @@ Planned on is blended toward the pessimistic estimate and scaled by the accuracy
 
 On a skipped night the target is labelled **Hold at**: the seasonal minimum plus a 10-point buffer, written as the charge target so the inverter does not import to keep the battery higher. It is not a charge goal. The cards print a sensor's `full_text` attribute when it has one, because the state of a long reason is cut to 255 characters.
 
-### Tomorrow (sub-view)
+### Tomorrow (tab)
 
 - **Tomorrow** (needs a forecast sensor): tomorrow's solar in a sentence, the low estimate when the forecast has one, and the battery at sunrise. Then Solar and At sunrise as figures. With apexcharts-card installed and a forecast that publishes a half-hourly forecast (Solcast's `detailedForecast` attribute), **Solar through the day** draws it as a curve.
 - **What it should cost**: a table from the Tomorrow Outlook sensor: From the grid, Charge tonight and To the grid, each with its energy and cost, and the total for the day. Without a forecast sensor the outlook uses a seasonal estimate of the solar, and its `basis` attribute says so. Under it, the weather forecast.
 
-### Bill & tariff (sub-view)
+### Bill & tariff (tab)
 
-- **This bill period**: what solar and the battery have saved on this bill so far, as a heading and a line. Then So far (Accrued Bill This Period), Heading for (Projected Bill This Period) and Days left, and Import cost, Export credit and Avg per kWh. Then **Each day: what you paid and would have paid**: a bar graph of each of the last 14 days, beside the Bill Without Solar figure. Then **Cost per day by use, last 31 days**: the import cost of each day as stacked bars of the house, the EV and the hot water (the last two only while that device exists). The graph reaches back 31 days because a bill period is a calendar month at most.
+- **This bill period**: what solar and the battery have saved on this bill so far, as a heading and a line. Then So far (Accrued Bill This Period), Heading for (Projected Bill This Period) and Days left, and Import cost, Export credit and Avg per kWh. Then **Each day: what you paid and would have paid**: a bar graph of the last 14 days, each day's Import Cost beside Cost Without Solar or Battery, what the same use would have cost from the grid. Both are the energy alone, so the standing charge and levy are left out of both. Then **Cost per day by use, last 31 days**: the import cost of each day as stacked bars of the house, the EV and the hot water (the last two only while that device exists). The graph reaches back 31 days because a bill period is a calendar month at most.
 - **Tariff**: a strip of which rate applied over the last day, then a table of the base rate and each timed rate period with its window, the rate, and the rate billed per kWh after the supplier discount and VAT. It also lists the export rate, standing charge, PSO levy and bill start day. The table is the Tariff In Use sensor's report, which follows a tariff change with no rebuild. Without that sensor the table is built from your options when the dashboard is built, with **Scheduled rate changes** under it: each dated change that has not started, and the date the tariff was last reviewed.
 - **This bill, line by line**: the bill laid out like a supplier bill, each line with what you paid, what you would have paid with no solar and no battery, and what that saved.
 - **Each day**: each day of the period, newest first, with what was imported, You paid, Would have paid and Saved.

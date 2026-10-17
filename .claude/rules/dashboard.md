@@ -19,7 +19,8 @@ paths:
   written without the action or the fix. The integration never creates a dashboard (see
   `docs/design/spikes/SP1.md`). The strategy (`strategy.py`,
   `frontend/givenergy-manager-strategy.js`) is the secondary route: it builds the same dashboard
-  each time it opens and can time out on some devices. A notification at first setup says both.
+  each time it opens. Its script is in the page and in a stored Lovelace resource, because a page
+  served early or kept by the service worker has no import for it. A notification at first setup says both.
 - The server decides who sees Settings: `ws_dashboard` reads `connection.user.is_admin` and the
   message carries no other field. The Settings view still carries a `visible` list of the
   administrators, so a copy made with Take control hides it from other users.
@@ -41,12 +42,14 @@ paths:
   the state of charge sensor, which would feed a percentage to the card as watts.
 - Sensors that reset at midnight are plotted with `statistics-graph`, not `history-graph`, which
   draws a sawtooth.
-- One tab, Home energy (path `power-flow`), tells the story of now: banners, the power flow,
-  Right now (chips and a sentence) and More (a shortcut card per sub-view). Detail lives on
-  sub-views with `back_path` `power-flow`: Today, Tonight (`plan`), Tomorrow, Bill & tariff,
-  Hot water, EV charger and Settings. A sub-view never links to another sub-view.
+- Five tabs, each an icon: Home energy (path `power-flow`), Today, Tonight (`plan`), Tomorrow and
+  Bill & tariff. Home energy tells the story of now: banners, the Energy heading (Settings button
+  and the day's chips), the power flow, one Tonight line, Where it came from, and a Hot water and
+  an EV charger box of coloured tiles. Detail lives on the tabs, and on sub-views with `back_path`
+  `power-flow`: Hot water, EV charger and Settings. A sub-view never links to another sub-view.
 - Each section leads with a sentence (a markdown template in `templates.py`), then small figures
-  as heading chips or a glance row. Tiles are for controls in Settings. Every view has
+  as heading chips or a glance row. Tiles are for controls in Settings and, coloured with a gauge
+  or a 24 hour line (`figure_tile`, `tile_grid`), for the devices on Home energy. Every view has
   `max_columns: 3` and `dense_section_placement`. `WIDE` is two columns, `WHOLE_WIDTH` a banner.
 - A chart series carries a colour (`SOLAR_HEX` and the rest in `cards.py`) only when
   `HostFacts.series_colours` is true, from Home Assistant 2026.6 (`render.py`).

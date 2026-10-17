@@ -94,7 +94,7 @@ def golden() -> dict:
 def test_dashboard_is_unchanged(scenario, golden):
     assert _digest(render_scenario(scenario)) == golden[scenario], (
         f"The dashboard for {scenario} changed. If that is deliberate, regenerate with "
-        "UPDATE_DASHBOARD_MATRIX=1 and review docs/dashboard-example.yaml."
+        "UPDATE_DASHBOARD_MATRIX=1 and review the diff view by view."
     )
 
 

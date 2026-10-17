@@ -15,6 +15,7 @@ from ..const import (
     DEFAULT_ALT_HEAT_LABEL,
     DEFAULT_CURRENCY,
 )
+from ..core.reporting import PLAN_CHARGE_WORDS, PLAN_SKIP_WORDS
 from ..core.tariff import TariffChange, TariffConfig, build_tariff
 from .cards import state_ref
 
@@ -200,50 +201,24 @@ def tariff_changes_table(
 _FLOW_W = 50
 
 
-@dataclass(frozen=True)
-class PowerNow:
-    """The live power sensors the Right now sentence reads."""
+def tonight_line_template(plan: str) -> str:
+    """One line on tonight: whether the battery charges, with an icon to scan by.
 
-    solar: str
-    house: str
-    battery: str
-    grid: str
-
-
-def now_story_template(power: PowerNow, target: str | None, outlook: str | None) -> str:
-    """What the house runs on now and what tonight holds, in two short sentences.
-
-    Battery power is positive while charging and grid power positive while importing, the
-    integration's own convention.
+    Reads the words the Tonight's Charge Plan sensor starts with, which come from the plan the
+    inverter is written from, not from the held recommendation. That one can still show
+    last night's charge while the plan has already skipped it.
     """
-    text = (
-        f"{{% set solar = states('{power.solar}') | float(0) %}}"
-        f"{{% set house = states('{power.house}') | float(0) %}}"
-        f"{{% set batt = states('{power.battery}') | float(0) %}}"
-        f"{{% set grid = states('{power.grid}') | float(0) %}}"
-        "{% set src = [] %}"
-        f"{{% if solar > {_FLOW_W} %}}{{% set src = src + ['solar'] %}}{{% endif %}}"
-        f"{{% if batt < -{_FLOW_W} %}}{{% set src = src + ['the battery'] %}}{{% endif %}}"
-        f"{{% if grid > {_FLOW_W} %}}{{% set src = src + ['the grid'] %}}{{% endif %}}"
-        "**{% if src %}Running on {{ src | join(' and ') }}{% else %}Nothing running{% endif %}.** "
-        "House {{ (house / 1000) | round(1) }} kW"
-        f"{{% if batt > {_FLOW_W} %}}, battery charging "
-        "{{ (batt / 1000) | round(1) }} kW{% endif %}"
-        f"{{% if grid < -{_FLOW_W} %}}, exporting "
-        "{{ (-grid / 1000) | round(1) }} kW{% endif %}."
+    skip = "{% set plan = states('" + plan + "') %}"
+    return (
+        skip
+        + f"{{% if plan.startswith('{PLAN_SKIP_WORDS}') %}}"
+        + '<ha-icon icon="mdi:battery-check"></ha-icon> **Tonight:** won\'t charge'
+        + f"{{% elif plan.startswith('{PLAN_CHARGE_WORDS}') %}}"
+        + '<ha-icon icon="mdi:battery-charging-high"></ha-icon> **Tonight:** will charge to '
+        + "{{ plan.split(' ')[1] }}"
+        + '{% else %}<ha-icon icon="mdi:battery-clock"></ha-icon> '
+        + "**Tonight:** no plan yet{% endif %}"
     )
-    if target:
-        text += (
-            f" {{% set plan = state_attr('{target}', 'plan') %}}Tonight: "
-            "{{ 'no charge needed' if plan == 'skip' else "
-            f"'charging to ' ~ states('{target}') ~ '%' }}}}"
-        )
-        if outlook:
-            text += (
-                f", {{{{ (state_attr('{outlook}', 'outlook') or states('{outlook}')) | lower }}}}"
-            )
-        text += "."
-    return text
 
 
 @dataclass(frozen=True)

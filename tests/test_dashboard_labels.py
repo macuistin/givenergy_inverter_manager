@@ -56,16 +56,17 @@ class TestRatesSayPerKwh:
         assert figures
         assert all("kWh" in card["name"] for _, card in figures), figures
 
-    def test_the_current_rate_is_a_chip_on_home_energy_only(self):
-        """The chip shows the rate with its currency beside the battery and the cheap rate."""
+    def test_the_current_rate_is_no_longer_a_chip_or_a_figure_on_any_view(self):
+        """Home energy's chips are the day's solar, cost and self-sufficiency. The current rate
+        left with the battery and cheap rate chips, so no unlabelled rate is left to name."""
         assert _figures_of(_IDS["current_rate"]) == []
         chips = [
-            (view["path"], badge.get("entity"))
+            badge.get("entity")
             for view in _views()
             for card in view_cards(view)
             for badge in card.get("badges", [])
         ]
-        assert [path for path, entity in chips if entity == _IDS["current_rate"]] == ["power-flow"]
+        assert _IDS["current_rate"] not in chips
 
     def test_the_average_rate_is_labelled_on_bill(self):
         assert {path for path, _ in _figures_of(_IDS["avg_import_rate_this_month"])} == {"bill"}

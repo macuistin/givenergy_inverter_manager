@@ -32,11 +32,12 @@ def _generated(**registry) -> dict:
     return dashboard_dict(FULL_CONFIG, FakeRegistry(enable_all=True, **registry))
 
 
-class TestTodaySoFarChips:
+class TestEnergyHeadingChips:
     def _chips(self, config: dict) -> list[str]:
+        """The entities of the day's chips. The Settings button beside them has no entity."""
         view = _view(config, "power-flow")
-        (heading,) = [c for c in view_cards(view) if c.get("heading") == "Today so far"]
-        return [badge["entity"] for badge in heading["badges"]]
+        (heading,) = [c for c in view_cards(view) if c.get("heading") == "Energy"]
+        return [badge["entity"] for badge in heading["badges"] if badge["type"] == "entity"]
 
     def test_self_sufficiency_joins_the_solar_and_the_cost(self):
         assert self._chips(_generated()) == [
@@ -54,7 +55,8 @@ class TestTodaySoFarChips:
 class TestSelfSufficiencyIsShownOnce:
     """Self-sufficiency is stated in the sentence that opens the Today view.
 
-    Home energy keeps a chip for a glance. The Today view does not repeat it as a bar or a tile.
+    Home energy keeps a chip in its Energy heading for a glance. The Today view does not repeat
+    it as a bar or a tile.
     """
 
     def _bars(self, config: dict) -> list[str]:
@@ -75,7 +77,7 @@ class TestSelfSufficiencyIsShownOnce:
         assert [c for c in cards if c["type"] == "tile" and c["entity"] == CARD] == []
 
     def test_the_home_energy_chip_stays(self):
-        assert CARD in TestTodaySoFarChips()._chips(_generated())
+        assert CARD in TestEnergyHeadingChips()._chips(_generated())
 
     @pytest.mark.parametrize("missing", ["import_today", "import_cost_today", "export_today"])
     def test_the_sentence_keeps_it_when_another_total_is_missing(self, missing):

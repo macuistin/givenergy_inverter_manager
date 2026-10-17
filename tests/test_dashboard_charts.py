@@ -86,9 +86,18 @@ def test_the_bill_view_plots_the_cost_of_each_day_beside_the_cost_without_solar(
     assert chart["days_to_show"] == 14
     assert chart["entities"] == [
         {"entity": IDS["import_cost_today"], "name": "You paid"},
-        {"entity": IDS["bill_without_solar"], "name": "Would have paid"},
+        {"entity": IDS["cost_without_solar_today"], "name": "Would have paid"},
     ]
     assert chart["hide_legend"] is False
+
+
+def test_the_paid_chart_compares_two_energy_costs_of_the_same_day():
+    """The bill without solar adds the standing charge and levy and resets each bill period.
+
+    Beside the import cost of a day it made a day with solar look dearer than without.
+    """
+    (chart,) = _paid_chart(dashboard_dict())
+    assert IDS["bill_without_solar"] not in _plotted(chart)
 
 
 def test_the_bill_charts_say_what_they_plot_and_how_far_back():
@@ -123,13 +132,15 @@ def test_the_bill_charts_need_no_custom_card(resources):
 
 
 def test_a_cost_sensor_that_is_missing_leaves_its_series_out():
-    registry = FakeRegistry(enable_all=True, absent={"bill_without_solar"})
+    registry = FakeRegistry(enable_all=True, absent={"cost_without_solar_today"})
     (chart,) = _paid_chart(dashboard_dict(registry=registry))
     assert _plotted(chart) == [IDS["import_cost_today"]]
 
 
 def test_with_no_cost_sensor_there_is_no_chart_and_no_lone_heading():
-    registry = FakeRegistry(enable_all=True, absent={"import_cost_today", "bill_without_solar"})
+    registry = FakeRegistry(
+        enable_all=True, absent={"import_cost_today", "cost_without_solar_today"}
+    )
     bill = dashboard_dict(registry=registry)
     assert _paid_chart(bill) == []
     assert _PAID_HEADING not in _headings(bill, "bill")
