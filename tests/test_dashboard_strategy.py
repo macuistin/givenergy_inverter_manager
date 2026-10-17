@@ -42,9 +42,10 @@ class TestStrategyFile:
     def test_file_exists_and_is_small(self):
         # 40 lines until the strategy registered itself in window.customStrategies, gave
         # create suggestions and a clearer error view, then the recovery from Home Assistant's
-        # 5-second timeout, the wait for the command after a restart and a record of when the
-        # script ran. There is still no build step.
-        assert len(self._source().splitlines()) <= 140
+        # 5-second timeout, the wait for the command after a restart, a record of when the
+        # script ran and the watch that defines the elements again in Home Assistant's new
+        # registry. There is still no build step.
+        assert len(self._source().splitlines()) <= 160
 
     def test_no_dependencies_or_build_chain(self):
         source = self._source()
@@ -75,6 +76,14 @@ const afterFirstLoad = window.customStrategies.map((e) => e.type);
 eval(source);
 const afterSecondLoad = window.customStrategies.map((e) => e.type);
 const Strategy = defined["ll-strategy-givenergy-manager"];
+// Home Assistant's own script replaces window.customElements with a registry that starts empty.
+const replacementDefined = {};
+const replacement = {
+  get: (n) => replacementDefined[n],
+  define: (n, c) => { if (replacementDefined[n]) throw new Error("already defined"); replacementDefined[n] = c; },
+};
+const definedBeforeTheReplacement = Object.keys(defined);
+globalThis.customElements = replacement;
 const calls = [];
 const good = { callWS: async (msg) => { calls.push(msg); return { views: [{ title: "x", cards: [] }] }; } };
 const failing = (err) => ({ callWS: async () => { throw err; } });
@@ -115,8 +124,15 @@ const failing = (err) => ({ callWS: async () => { throw err; } });
     hugePage: recover(element(Array.from({ length: 20000 }, () => text("nothing here")))),
     rebuildCalls: rebuilt.length,
   };
+  await new Promise((resolve) => setTimeout(resolve, 450));
+  const registry = {
+    definedBeforeTheReplacement,
+    definedAfterTheReplacement: Object.keys(replacementDefined),
+    sameClassWorks: typeof replacementDefined["ll-strategy-dashboard-givenergy-manager"].generate,
+    trace: window.givenergyManagerStrategy,
+  };
   console.log(JSON.stringify({
-    recovery, retries,
+    registry, recovery, retries,
     names: Object.keys(defined), calls, ok, failedType: failed.views[0].cards[0].type,
     failedText: failed.views[0].cards[0].content,
     unloadedText: unloaded.views[0].cards[0].content,
@@ -149,6 +165,29 @@ def test_node_is_there_to_run_the_strategy_in_ci():
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
 class TestStrategyRunsUnderNode:
+
+    def test_it_defines_its_elements_again_in_the_registry_that_replaces_the_first(self, result):
+        """Home Assistant swaps window.customElements for an empty registry, and a definition
+        made before the swap is in the old one, which nothing asks. That timed the dashboard out
+        with "Timeout waiting for strategy element", whatever else was true."""
+        registry = result["registry"]
+        assert set(registry["definedBeforeTheReplacement"]) == {
+            "ll-strategy-dashboard-givenergy-manager",
+            "ll-strategy-givenergy-manager",
+        }
+        assert set(registry["definedAfterTheReplacement"]) == set(
+            registry["definedBeforeTheReplacement"]
+        )
+        assert registry["sameClassWorks"] == "function"
+
+    def test_the_trace_shows_that_it_had_to_define_them_again(self, result):
+        trace = result["registry"]["trace"]
+        assert set(trace["defined"]) == {
+            "ll-strategy-dashboard-givenergy-manager",
+            "ll-strategy-givenergy-manager",
+        }
+        assert len(trace["definedAtMs"]) == len(trace["defined"])
+        assert trace["errors"] == []
 
     def test_registers_both_element_names(self, result):
         assert set(result["names"]) == {

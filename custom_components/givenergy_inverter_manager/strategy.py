@@ -17,6 +17,13 @@ Home Assistant gives the browser one chance, 5 seconds, to find the strategy's e
 not try again. The script copes on its side: it asks again while the command is not ready yet,
 and rebuilds the dashboard if it finds the timeout message on the page when it loads.
 
+The script's element can also be lost in the browser. Home Assistant's own script replaces
+window.customElements with a registry that starts empty, and only that registry is asked for
+the strategy element. The script is small and often runs first, so an element defined before
+the swap is in the old registry and the dashboard times out whatever the server does. A script
+the browser has already kept runs sooner still. The script therefore defines its elements in
+whichever registry is current, again and again for 30 seconds.
+
 A page can also come without the script, and nothing in the page can mend that. Home Assistant
 serves its page as soon as the web server is up, while integrations are still setting up, and a
 page served before this one registered its script has no import for it. On https the browser's

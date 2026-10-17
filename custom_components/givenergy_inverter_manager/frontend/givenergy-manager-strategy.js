@@ -11,10 +11,13 @@ const DOCS = "https://github.com/macuistin/givenergy_inverter_manager/blob/main/
 
 // Filled in as the script runs. On a page that shows the timeout, type
 // `window.givenergyManagerStrategy` in the console: no value means this script never ran, and a
-// value says when it ran (ms since the page started) and which names it defined.
+// value says when it ran (ms since the page started), which names it defined and when. A name
+// listed twice was defined again after Home Assistant replaced its registry.
+const nowMs = () => (typeof performance !== "undefined" ? Math.round(performance.now()) : null);
 const trace = (window.givenergyManagerStrategy = {
-  ranAtMs: typeof performance !== "undefined" ? Math.round(performance.now()) : null,
+  ranAtMs: nowMs(),
   defined: [],
+  definedAtMs: [],
   errors: [],
 });
 
@@ -88,18 +91,36 @@ class GivEnergyManagerStrategy extends HTMLElement {
   }
 }
 
-// The name Home Assistant 2026.5+ looks for comes first, and each define stands alone, so one
-// failure cannot stop the other and is written to the console.
-for (const name of ["ll-strategy-dashboard-givenergy-manager", "ll-strategy-givenergy-manager"]) {
-  try {
-    if (!customElements.get(name)) {
+// Home Assistant swaps window.customElements for a registry that starts empty, and only that one
+// is asked for the strategy element. This script often runs first, so a name defined before the
+// swap is in the old registry and the dashboard times out. Each name is therefore defined in the
+// current registry now and again every 100 ms for 30 s, and a name that registry has is left
+// alone. The name Home Assistant 2026.5+ looks for comes first. Each define stands alone.
+const ELEMENT_NAMES = ["ll-strategy-dashboard-givenergy-manager", "ll-strategy-givenergy-manager"];
+
+function defineMissingElements() {
+  for (const name of ELEMENT_NAMES) {
+    try {
+      if (customElements.get(name)) continue;
       customElements.define(name, class extends GivEnergyManagerStrategy {});
+      trace.defined.push(name);
+      trace.definedAtMs.push(nowMs());
+    } catch (err) {
+      trace.errors.push(String(err));
+      console.error(`GivEnergy Inverter Manager: could not define ${name}`, err);
     }
-    trace.defined.push(name);
-  } catch (err) {
-    trace.errors.push(String(err));
-    console.error(`GivEnergy Inverter Manager: could not define ${name}`, err);
   }
+}
+
+defineMissingElements();
+if (typeof setInterval === "function") {
+  const watchUntil = Date.now() + 30000;
+  const watch = setInterval(() => {
+    defineMissingElements();
+    if (Date.now() >= watchUntil) clearInterval(watch);
+  }, 100);
+  // Node, which runs the tests, would otherwise wait for the watch to end.
+  if (watch && typeof watch.unref === "function") watch.unref();
 }
 
 // The entry that lists this strategy under Community dashboards. A second load adds nothing.
