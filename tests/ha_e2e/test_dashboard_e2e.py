@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import copy
 import re
+from dataclasses import replace
 from datetime import timedelta
 
 import yaml
@@ -16,6 +18,11 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
+from custom_components.givenergy_inverter_manager.core.reporting import (
+    PLAN_CHARGE_WORDS,
+    PLAN_SKIP_WORDS,
+    build_charge_plan_state,
+)
 from custom_components.givenergy_inverter_manager.dashboard.devices import (
     expected_entity_id,
 )
@@ -305,12 +312,15 @@ async def test_settings_are_visible_to_the_real_administrators_only(hass, loaded
         if b.get("tap_action", {}).get("navigation_path") == "settings"
     ]
     assert button["visibility"] == [{"condition": "user", "users": [admin.id]}]
-    [shortcut] = [
+    [energy] = [c for c in all_cards(views) if c.get("heading") == "Energy"]
+    assert energy["badges"][0] == button
+    openers = [
         c
         for c in all_cards(views)
-        if c["type"] == "shortcut" and c["tap_action"]["navigation_path"] == "settings"
+        if c.get("tap_action", {}).get("navigation_path") == "settings"
+        or c.get("icon_tap_action", {}).get("navigation_path") == "settings"
     ]
-    assert shortcut["visibility"] == [{"condition": "user", "users": [admin.id]}]
+    assert openers == []
 
 
 async def test_without_an_administrator_there_is_no_settings_view(hass, loaded_entry):
@@ -375,32 +385,51 @@ async def test_the_today_sentence_reads_the_day_in_plain_words(hass, loaded_entr
     )
 
 
-async def test_the_right_now_sentence_names_what_the_house_runs_on(hass, loaded_entry):
-    text = await _generate(hass)
-    ids = default_entity_ids()
-    for key, value in (
-        ("solar_power", "2400"),
-        ("house_load", "1300"),
-        ("battery_power", "-600"),
-        ("grid_power", "-500"),
-    ):
-        hass.states.async_set(ids[key], value)
+def _tonight_line(text: str) -> str:
+    """The Tonight line of Home energy. The dry run banner also reads the plan sensor."""
+    view = next(v for v in yaml.safe_load(text)["views"] if v["path"] == "power-flow")
+    (card,) = [
+        c for c in view_cards(view) if c["type"] == "markdown" and "**Tonight:**" in c["content"]
+    ]
+    return card["content"]
 
-    rendered = _render(hass, _story(text, "power-flow", ids["house_load"]))
-    assert rendered.startswith(
-        "**Running on solar and the battery.** House 1.3 kW, exporting 0.5 kW. Tonight: "
-    )
+
+def _plan_state(loaded_entry, *, skip: bool) -> str:
+    """What Tonight's Charge Plan reads for a skipped or a charging night of this install."""
+    data = copy.copy(loaded_entry.runtime_data.data)
+    data.charge_decision = replace(data.charge_decision, skip_charge=skip)
+    return build_charge_plan_state(data)
+
+
+async def test_the_tonight_line_says_whether_tonight_charges(hass, loaded_entry):
+    text = await _generate(hass)
+    plan = default_entity_ids()["charge_plan"]
+    line = _tonight_line(text)
+    target = loaded_entry.runtime_data.data.charge_decision.target_soc
+
+    hass.states.async_set(plan, _plan_state(loaded_entry, skip=True))
+    assert _render(hass, line).endswith("**Tonight:** won't charge")
+    hass.states.async_set(plan, _plan_state(loaded_entry, skip=False))
+    assert _render(hass, line).endswith(f"**Tonight:** will charge to {target}%")
+
+
+async def test_the_tonight_line_reads_the_state_the_sensor_really_has(hass, loaded_entry):
+    text = await _generate(hass)
+    plan = default_entity_ids()["charge_plan"]
+    state = hass.states.get(plan).state
+    assert state.startswith((PLAN_SKIP_WORDS, PLAN_CHARGE_WORDS))
+    rendered = _render(hass, _tonight_line(text))
+    assert ("won't charge" in rendered) == state.startswith(PLAN_SKIP_WORDS)
+    assert ("will charge to" in rendered) == state.startswith(PLAN_CHARGE_WORDS)
 
 
 async def test_the_sentences_wait_quietly_while_the_sensors_are_unavailable(hass, loaded_entry):
     text = await _generate(hass)
     ids = default_entity_ids()
-    for key in ("solar_power", "house_load", "battery_power", "grid_power", "solar_today"):
+    for key in ("charge_plan", "solar_today"):
         hass.states.async_set(ids[key], "unavailable")
 
-    assert _render(hass, _story(text, "power-flow", ids["house_load"])).startswith(
-        "**Nothing running.** House 0.0 kW."
-    )
+    assert _render(hass, _tonight_line(text)).endswith("**Tonight:** no plan yet")
     assert _render(hass, _story(text, "today", ids["house_kwh_today"])).startswith(
         "**Solar made 0.0 kWh**"
     )

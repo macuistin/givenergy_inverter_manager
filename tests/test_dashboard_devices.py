@@ -14,6 +14,7 @@ import itertools
 import pytest
 import yaml
 
+from custom_components.givenergy_inverter_manager.const import CONF_IMMERSION_SWITCH
 from custom_components.givenergy_inverter_manager.core.devices import Device, installed_devices
 from custom_components.givenergy_inverter_manager.dashboard.devices import (
     SENTINELS,
@@ -21,7 +22,9 @@ from custom_components.givenergy_inverter_manager.dashboard.devices import (
 )
 from tests.dashboard_support import (
     all_cards,
+    dashboard_dict,
     default_entity_ids,
+    devices_of,
     keys_needing_devices,
     view_cards,
 )
@@ -35,6 +38,7 @@ from tests.dashboard_visibility import (
 )
 
 IDS = default_entity_ids()
+HEATER = IDS["immersion_managed"]
 COMBINATIONS = list(itertools.product([False, True], repeat=3))
 
 
@@ -56,11 +60,59 @@ def _tile_entities(view: dict) -> set[str]:
     return {c["entity"] for c in view_cards(view) if c["type"] == "tile"}
 
 
-def _device_chips(config: dict) -> list[str]:
-    """The entities of the chips under Hot water and EV on Home energy, as a person sees them."""
+_BOXES = ("Hot water", "EV charger")
+
+
+def _box_headings(config: dict) -> dict[str, dict]:
+    """The Hot water and EV charger headings of Home energy, as a person sees them."""
     cards = view_cards(_view(config, "power-flow"))
-    headings = [c for c in cards if c.get("heading") == "Hot water and EV"]
-    return [badge["entity"] for c in headings for badge in c.get("badges", [])]
+    return {c["heading"]: c for c in cards if c["type"] == "heading" and c["heading"] in _BOXES}
+
+
+def _box_tiles(config: dict) -> dict[str, list[dict]]:
+    """The tiles under each device heading of Home energy, as a person sees them."""
+    boxes: dict[str, list[dict]] = {}
+    box = None
+    for card in view_cards(_view(config, "power-flow")):
+        if card["type"] == "heading" and card["heading"] in _BOXES:
+            box = boxes.setdefault(card["heading"], [])
+        elif card["type"] == "tile" and box is not None:
+            box.append(card)
+    return boxes
+
+
+def _box_figures(config: dict) -> dict[str, list[tuple[str, str]]]:
+    """{device heading: [(tile name, entity)]} of Home energy's device boxes."""
+    return {
+        heading: [(t["name"], t["entity"]) for t in tiles]
+        for heading, tiles in _box_tiles(config).items()
+    }
+
+
+def _expected_boxes(ev: bool, switch: bool, sensor: bool) -> dict[str, list[tuple[str, str]]]:
+    """What Home energy's device boxes hold for an install with these devices."""
+    water = [("Water", IDS["immersion_water_temperature"])] if sensor else []
+    heater = (
+        [
+            ("Heater", HEATER),
+            ("Heated today", IDS["immersion_today"]),
+            ("Cost today", IDS["immersion_cost_today"]),
+        ]
+        if switch
+        else []
+    )
+    car = [
+        ("State", IDS["ev_charger_state"]),
+        ("Power", IDS["ev_power"]),
+        ("Today", IDS["zappi_today"]),
+        ("Cost today", IDS["zappi_cost_today"]),
+    ]
+    boxes = {}
+    if water or heater:
+        boxes["Hot water"] = water + heater
+    if ev:
+        boxes["EV charger"] = car
+    return boxes
 
 
 def _glance_entities(view: dict) -> set[str]:
@@ -85,33 +137,59 @@ class TestEveryCombination:
         ev, switch, sensor = combination
         return seen_for(ev=ev, switch=switch, sensor=sensor)
 
-    def test_the_device_chips_are_the_devices_present(self, combination):
-        """The heater's chip shows only while it heats, so it is hidden here."""
-        ev, switch, sensor = combination
-        assert _device_chips(self._seen(combination)) == [
-            *([IDS["immersion_water_temperature"]] if sensor else []),
-            *([IDS["ev_charger_state"]] if ev else []),
-        ]
+    def test_the_boxes_hold_the_tiles_of_the_devices_present(self, combination):
+        """The cylinder gives the water, the switch gives the heater and what it did today."""
+        assert _box_figures(self._seen(combination)) == _expected_boxes(*combination)
 
-    def test_the_heater_chip_shows_while_it_heats_with_the_switch(self, combination):
+    def test_the_heater_tile_shows_with_the_switch_whether_or_not_it_heats(self, combination):
         ev, switch, sensor = combination
         config, brand = install(ev=ev, switch=switch, sensor=sensor)
         devices = installed_devices(config, ev_charger_found=brand is not None)
-        states = states_with(devices, {IDS["immersion_power"]: "3000"} if switch else None)
-        chips = _device_chips(seen(generated_for(ev=ev, switch=switch, sensor=sensor), states))
-        assert (IDS["immersion_power"] in chips) == switch
+        for power in ("0", "3000"):
+            states = states_with(devices, {IDS["immersion_power"]: power} if switch else None)
+            shown = seen(generated_for(ev=ev, switch=switch, sensor=sensor), states)
+            boxes = _box_figures(shown)
+            assert (("Heater", HEATER) in boxes.get("Hot water", [])) == switch
 
-    def test_the_devices_heading_shows_only_with_a_chip(self, combination):
+    def test_a_device_heading_shows_only_with_its_device(self, combination):
         ev, switch, sensor = combination
-        power_flow = _view(self._seen(combination), "power-flow")
-        assert ("Hot water and EV" in _titles(power_flow)) == (ev or sensor)
+        headings = _box_headings(self._seen(combination))
+        assert ("Hot water" in headings) == (switch or sensor)
+        assert ("EV charger" in headings) == ev
+
+    def test_each_heading_and_each_tile_opens_its_device_view(self, combination):
+        config = self._seen(combination)
+        opens = {"Hot water": "immersion", "EV charger": "ev-charger"}
+        for heading, card in _box_headings(config).items():
+            assert card["tap_action"] == {"action": "navigate", "navigation_path": opens[heading]}
+        for heading, tiles in _box_tiles(config).items():
+            for tile in tiles:
+                assert tile["tap_action"]["navigation_path"] == opens[heading], tile["name"]
+
+    def test_no_tile_of_a_box_changes_anything_when_its_icon_is_tapped(self, combination):
+        """The heater tile shows a switch, so its icon would toggle it by default."""
+        tiles = [t for box in _box_tiles(self._seen(combination)).values() for t in box]
+        for tile in tiles:
+            assert tile["icon_tap_action"] == {"action": "none"}, tile["name"]
+            assert tile["tap_action"]["action"] == "navigate", tile["name"]
+
+    def test_the_water_and_the_power_draw_their_last_day_and_the_others_draw_nothing(self, combination):
+        tiles = [t for box in _box_tiles(self._seen(combination)).values() for t in box]
+        trend = [{"type": "trend-graph", "hours_to_show": 24}]
+        for tile in tiles:
+            expected = trend if tile["name"] in ("Water", "Power") else None
+            assert tile.get("features") == expected, tile["name"]
 
     def test_the_nav_tiles_open_a_view_that_has_something_to_show(self, combination):
         config = self._seen(combination)
-        for tile in (c for c in view_cards(_view(config, "power-flow")) if c["type"] == "tile"):
-            target = tile.get("tap_action", {}).get("navigation_path")
-            if target in ("immersion", "ev-charger"):
-                assert _view(config, target)["sections"], (target, _label(combination))
+        targets = {
+            card["tap_action"]["navigation_path"]
+            for card in view_cards(_view(config, "power-flow"))
+            if card["type"] in ("tile", "heading") and "tap_action" in card
+        }
+        assert targets <= {"immersion", "ev-charger", "settings"}
+        for target in targets:
+            assert _view(config, target)["sections"], (target, _label(combination))
 
     def test_the_ev_view_shows_with_a_charger_and_is_empty_without_one(self, combination):
         ev, _, _ = combination
@@ -242,6 +320,68 @@ class TestEveryCombination:
         nothing = seen_for()
         for path in ("plan",):
             assert _view(config, path) == _view(nothing, path), path
+
+
+def test_with_no_device_home_energy_has_no_device_section_heading_or_tile():
+    config = seen_for()
+    home = _view(config, "power-flow")
+    assert _box_headings(config) == {}
+    assert _box_tiles(config) == {}
+    assert "Hot water" not in [c.get("heading") for c in view_cards(home)]
+    assert [c for c in view_cards(home) if c["type"] == "tile"] == []
+    assert [s["cards"][0].get("heading", "line") for s in home["sections"]][-2:] == [
+        "Energy",
+        "line",
+    ]
+
+
+def test_the_hot_water_heading_shows_while_the_switch_or_the_sensor_exists():
+    generated = generated_for(ev=True, switch=True, sensor=True)
+    (heading,) = [
+        c for c in view_cards(_view(generated, "power-flow")) if c.get("heading") == "Hot water"
+    ]
+    assert heading["visibility"] == [
+        {
+            "condition": "or",
+            "conditions": [
+                {
+                    "condition": "state",
+                    "entity": IDS["immersion_managed"],
+                    "state_not": "unavailable",
+                },
+                {
+                    "condition": "state",
+                    "entity": IDS["immersion_water_temperature"],
+                    "state_not": "unavailable",
+                },
+            ],
+        }
+    ]
+
+
+def test_the_heater_tile_reads_the_managed_switch_not_the_configured_one():
+    """The managed switch has an id the integration gives it, so the tile can wait for it in a
+    file made before the heater was set up. The configured switch is another integration's."""
+    switch = "switch.my_boiler"
+    config = {**install(switch=True)[0], CONF_IMMERSION_SWITCH: switch}
+    shown = seen(dashboard_dict(config, ev_brand=None), states_with(devices_of(config, None)))
+    heater = [t for t in _box_tiles(shown)["Hot water"] if t["name"] == "Heater"]
+    assert [t["entity"] for t in heater] == [IDS["immersion_managed"]]
+    assert switch not in yaml.safe_dump(_view(shown, "power-flow"))
+
+
+def test_a_cylinder_sensor_and_a_charger_added_later_show_their_boxes_in_the_old_file():
+    stored = generated_for(switch=True)
+    after = seen(stored, _states((True, True, True)))
+    assert _box_figures(after) == _expected_boxes(True, True, True)
+
+
+def test_a_switch_added_later_shows_its_heater_tile_in_the_old_file():
+    """The tile names the managed switch, whose id is known before the heater is set up, so the
+    old file shows it with the others."""
+    stored = generated_for()
+    after = seen(stored, _states((False, True, False)))
+    assert _box_figures(after) == _expected_boxes(False, True, False)
 
 
 # ── the stored file waits for a device and shows it when it comes ────────────

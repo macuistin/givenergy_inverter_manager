@@ -260,6 +260,11 @@ def build_charge_plan_html(data: "CoordinatorData") -> str:
     return _table(_plan_rows(cd, data.currency_symbol, window.text if window else None))
 
 
+# The words the plan state starts with. The dashboard reads them to say whether tonight charges.
+PLAN_SKIP_WORDS = "Skip charge"
+PLAN_CHARGE_WORDS = "Target"
+
+
 def build_charge_plan_state(data: "CoordinatorData") -> str:
     """Short sensor state string (at most 255 chars)."""
     cd = data.charge_decision
@@ -267,11 +272,12 @@ def build_charge_plan_state(data: "CoordinatorData") -> str:
     if cd is None:
         return "No charge decision yet"
     if cd.skip_charge:
-        return f"Skip charge · Plan forecast {cd.forecast_kwh:.1f} kWh · SoC {cd.current_soc:.0f}%"
+        forecast = f"Plan forecast {cd.forecast_kwh:.1f} kWh"
+        return f"{PLAN_SKIP_WORDS} · {forecast} · SoC {cd.current_soc:.0f}%"
     window = data.published_charge_window
     when = f"{window.text} · " if window is not None else ""
     return fit_state(
-        f"Target {cd.target_soc}% · "
+        f"{PLAN_CHARGE_WORDS} {cd.target_soc}% · "
         f"{when}"
         f"Add {max(0, cd.target_soc - cd.current_soc):.0f}% · "
         f"Cost {sym}{cd.cost_to_charge:.2f}"

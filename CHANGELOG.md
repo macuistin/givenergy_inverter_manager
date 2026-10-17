@@ -4,8 +4,14 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+**Changed**
+- Home energy is shorter and easier to scan, and Today, Tonight, Tomorrow and Bill & tariff are now tabs, each shown as an icon at the top of the dashboard. The heading above the power flow is now **Energy**. It holds a labelled **Settings** button, for administrators, and chips for today's solar, import cost and self-sufficiency. The Right now sentence, the Today so far and Hot water and EV chips and the More buttons are gone, because the power flow and the tabs already show them. Under the power flow, one line says **Tonight: won't charge** or **Tonight: will charge to 75%**, read from the live charge plan. **Where it came from**, the split of today's energy between solar, the battery and the grid, is now on Home energy as well as on the Today tab. Hot water and EV charger each have a box of coloured tiles that opens their page. Hot water shows the water temperature with a line of the last 24 hours, the heater as On or Off, the energy it used today and what that cost. The EV charger shows its state, its power with a line of the last 24 hours, today's energy and today's cost. Each box shows only while its device exists. See [Home energy](docs/dashboard.md#home-energy).
+
 **Fixes**
 - On the Bill & tariff page, the **Each day: what you paid and would have paid** chart now sets each day's import cost beside what the same use would have cost from the grid that day. It compared the day with the whole bill without solar, which adds the standing charge and levy and resets each bill period, so a day could look dearer with solar than without.
+
+**Upgrading**
+- A stored dashboard keeps its old layout until you press **Submit** on the **The GivEnergy dashboard is out of date** repair. A dashboard that uses the strategy gets the new layout when you reload the page.
 
 ## v0.19.9
 

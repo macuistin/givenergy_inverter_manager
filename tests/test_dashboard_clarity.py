@@ -96,10 +96,8 @@ def test_the_cost_chart_does_not_draw_the_total_beside_its_parts():
     plotted = {row["entity"] for row in _cost_chart(config)["entities"]}
     assert IDS["import_cost_today"] not in plotted
     assert {IDS["house_cost_today"], IDS["zappi_cost_today"], IDS["immersion_cost_today"]} <= plotted
-    (today_so_far,) = [
-        c for c in view_cards(_view(config, "power-flow")) if c.get("heading") == "Today so far"
-    ]
-    assert IDS["import_cost_today"] in [badge["entity"] for badge in today_so_far["badges"]]
+    (energy,) = [c for c in view_cards(_view(config, "power-flow")) if c.get("heading") == "Energy"]
+    assert IDS["import_cost_today"] in [badge.get("entity") for badge in energy["badges"]]
 
 
 @pytest.mark.parametrize("combination", COMBINATIONS, ids=_label)

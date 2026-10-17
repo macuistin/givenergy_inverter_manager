@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from custom_components.givenergy_inverter_manager.dashboard import build_dashboard
 from custom_components.givenergy_inverter_manager.dashboard.registry import HostFacts
 from custom_components.givenergy_inverter_manager.dashboard.views import Builder
 from tests.dashboard_support import (
@@ -25,15 +26,20 @@ def test_every_unique_id_suffix_the_generator_asks_for_exists():
     assert len(registry.requested) > 60
 
 
+def _paths(registry) -> list[str]:
+    """The view paths of the dashboard built for a bare install with this registry."""
+    entry = fake_entry({})
+    dashboard = build_dashboard(fake_states_hass(entries=[entry]), entry, HostFacts(), registry)
+    return [view["path"] for view in dashboard["views"]]
+
+
 class TestBuildOrder:
     def _builder(self):
         return Builder(fake_states_hass(), fake_entry(FULL_CONFIG), HostFacts(), RecordingRegistry())
 
-    def test_tabs_can_be_linked_before_the_sub_views_are_built(self):
-        assert self._builder().go("power-flow") == {
-            "action": "navigate",
-            "navigation_path": "power-flow",
-        }
+    @pytest.mark.parametrize("tab", ["power-flow", "today", "plan", "tomorrow", "bill"])
+    def test_tabs_can_be_linked_before_the_sub_views_are_built(self, tab):
+        assert self._builder().go(tab) == {"action": "navigate", "navigation_path": tab}
 
     def test_a_sub_view_link_needs_the_sub_views_to_be_built_first(self):
         with pytest.raises(RuntimeError, match="sub-views"):
@@ -47,14 +53,10 @@ class TestBuildOrder:
         assert builder.go("plan") is not None
 
     def test_tomorrow_needs_a_forecast_or_the_outlook_sensor(self):
-        """Without either it would be empty, so nothing links to it."""
+        """Without either it would be empty, so the dashboard has no Tomorrow tab."""
         registry = RecordingRegistry(absent={"tomorrow_outlook"})
-        builder = Builder(fake_states_hass(), fake_entry({}), HostFacts(), registry)
-        builder.build_subviews()
-        assert builder.go("tomorrow") is None
-        builder = Builder(fake_states_hass(), fake_entry({}), HostFacts(), RecordingRegistry())
-        builder.build_subviews()
-        assert builder.go("tomorrow") is not None
+        assert "tomorrow" not in _paths(registry)
+        assert "tomorrow" in _paths(RecordingRegistry())
 
     def test_a_device_sub_view_is_linked_before_the_device_exists(self):
         """Its cards wait for the device, so a stored dashboard can open it when it arrives."""
