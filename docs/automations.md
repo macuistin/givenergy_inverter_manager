@@ -249,6 +249,12 @@ trigger:
       - sensor.givenergy_inverter_manager_water_heating_ready_by_trigger
       - sensor.givenergy_inverter_manager_water_heating_low_water_trigger
     to: start_now
+    # A restart takes the sensors from unavailable to start_now, which is not a new alert.
+    not_from:
+      - unavailable
+      - unknown
+    # The water can hover at the margin, so wait a minute before alerting.
+    for: "00:01:00"
 action:
   - service: notify.mobile_app_your_phone
     data:
