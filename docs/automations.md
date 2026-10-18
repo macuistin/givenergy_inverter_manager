@@ -237,6 +237,31 @@ mode: single
 
 ---
 
+## Alert when the alternative heating is worth starting
+
+The **Water Heating Alternative Trigger** sensor only says when to act. This sends the alert. It fires when the ready-by start has come (`start_now`) or when the water has cooled to the lower boundary and the alternative is cheaper (`keep_warm`). Start the alternative yourself: the integration never switches it. See [Concepts](concepts.md#alternative-water-heating-advice).
+
+```yaml
+alias: Alternative heating worth starting
+trigger:
+  - platform: state
+    entity_id: sensor.givenergy_inverter_manager_water_heating_alternative_trigger
+    to:
+      - start_now
+      - keep_warm
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: >
+        {{ state_attr('sensor.givenergy_inverter_manager_water_heating_alternative_trigger', 'alt_label') }}
+        water heating
+      message: >
+        {{ state_attr('sensor.givenergy_inverter_manager_water_heating_alternative_trigger', 'suggestion') }}
+mode: single
+```
+
+---
+
 ## Daily derating summary
 
 Sends the minutes spent at 65 °C or more, at sunset. Enable the Inverter Derating Today sensor first. It is disabled by default.

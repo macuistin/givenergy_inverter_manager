@@ -84,12 +84,18 @@ class TestWhatNeedsWhat:
         }
 
     def test_the_advice_needs_alternative_heating_with_a_cost_and_the_switch(self):
-        assert _needing(OIL) == {"water_heating_cheapest_source"}
+        assert _needing(OIL) == {"water_heating_cheapest_source", "water_heating_trigger"}
 
     def test_the_cheapest_source_is_unavailable_until_there_is_advice(self):
         description = next(
             d for d in SENSOR_DESCRIPTIONS if d.key == "water_heating_cheapest_source"
         )
+        assert description.available_fn(SimpleNamespace(water_heating_advice=None)) is False
+        assert description.available_fn(SimpleNamespace(water_heating_advice=object())) is True
+
+    def test_the_trigger_is_unavailable_until_there_is_advice(self):
+        description = next(d for d in SENSOR_DESCRIPTIONS if d.key == "water_heating_trigger")
+
         assert description.available_fn(SimpleNamespace(water_heating_advice=None)) is False
         assert description.available_fn(SimpleNamespace(water_heating_advice=object())) is True
 

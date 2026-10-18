@@ -27,6 +27,7 @@ from tests.dashboard_support import all_cards
 from tests.dashboard_visibility import seen
 
 KEY = "water_heating_cheapest_source"
+TRIGGER_KEY = "water_heating_trigger"
 PRICE_SENSOR = "sensor.heat_cost"
 CHEAP_OIL = 0.05  # per litre: oil is far cheaper than any grid rate
 DEAR_OIL = 4.5  # per litre: oil is dearer than any grid rate
@@ -59,8 +60,8 @@ async def save_alt_options(hass, entry, section: dict) -> None:
     assert entry.state is ConfigEntryState.LOADED
 
 
-def sensor_id(hass, entry) -> str | None:
-    return er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{KEY}")
+def sensor_id(hass, entry, key: str = KEY) -> str | None:
+    return er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{key}")
 
 
 async def refresh(hass, entry) -> None:
@@ -247,3 +248,64 @@ class TestDashboardTile:
 
         await save_alt_options(hass, config_entry, {})
         assert await self.shown_suggestions(hass, stored) == []
+
+
+class TestTheTrigger:
+    """The trigger sensor sits beside the advice and follows the same cost."""
+
+    @pytest.fixture
+    def config_entry(self):
+        return _entry(full_config_data())
+
+    async def test_it_is_not_created_without_alternative_heating(
+        self, hass_in_scenario, config_entry
+    ):
+        await set_up(hass_in_scenario, config_entry)
+
+        assert sensor_id(hass_in_scenario, config_entry, TRIGGER_KEY) is None
+
+    async def test_cooling_water_with_a_cheaper_alternative_is_keep_warm(
+        self, hass_in_scenario, config_entry
+    ):
+        hass = hass_in_scenario
+        await set_up(hass, config_entry)
+        await save_alt_options(
+            hass, config_entry, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL}
+        )
+        await refresh(hass, config_entry)
+
+        state = hass.states.get(sensor_id(hass, config_entry, TRIGGER_KEY))
+
+        # This install has water at 48.2, under the lower boundary, with oil far cheaper.
+        assert state.state == "keep_warm"
+        assert state.attributes["run_minutes"] % 5 == 0
+        assert state.attributes["saving_per_kwh"] > 0
+        assert "start_by" not in state.attributes
+        assert state.attributes["alt_label"] == "Oil"
+
+    async def test_a_dearer_alternative_is_idle(self, hass_in_scenario, config_entry):
+        hass = hass_in_scenario
+        await set_up(hass, config_entry)
+        await save_alt_options(
+            hass, config_entry, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: DEAR_OIL}
+        )
+        await refresh(hass, config_entry)
+
+        state = hass.states.get(sensor_id(hass, config_entry, TRIGGER_KEY))
+
+        assert state.state == "idle"
+        assert "run_minutes" not in state.attributes
+
+    async def test_clearing_the_cost_removes_the_trigger_with_the_advice(
+        self, hass_in_scenario, config_entry
+    ):
+        hass = hass_in_scenario
+        await set_up(hass, config_entry)
+        await save_alt_options(
+            hass, config_entry, {CONF_ALT_HEAT_ENABLED: True, CONF_ALT_HEAT_COST: CHEAP_OIL}
+        )
+        assert sensor_id(hass, config_entry, TRIGGER_KEY) is not None
+
+        await save_alt_options(hass, config_entry, {})
+
+        assert sensor_id(hass, config_entry, TRIGGER_KEY) is None

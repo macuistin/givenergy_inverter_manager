@@ -409,6 +409,14 @@ All four are absent until the record holds 7 days. The hours are read at hour re
 
 **Which attributes are recorded.** The costs, the hours, the start and keep-warm attributes and the four schedule attributes change often or hold lists, so Home Assistant keeps them live but does not write them to the history database. The `suggestion` and `alt_label` are recorded.
 
+**A trigger for an alert.** The **Water Heating Alternative Trigger** sensor turns the advice into one state an automation can trigger on. It sends no alert and never switches anything. What happens on a change of state is your automation, such as a phone notification. See [Automations](automations.md#alert-when-the-alternative-heating-is-worth-starting).
+
+- `start_now`: the ready-by start has come. The alternative has to start now to finish before the immersion would start, or the immersion does the heating at the rate in force. It needs a ready time, the immersion schedule and a water temperature, and it holds until the water is at the target.
+- `keep_warm`: the water has cooled to the lower boundary, where the immersion is about to top it up, and the alternative is cheaper than the grid. A short run lifts it instead. The boundary is the lower of the minimum temperature plus the restart gap, and the target less the restart gap, so raising the minimum temperature makes it fire sooner. It does not apply while solar surplus is heating the water.
+- `idle`: neither. A due `start_now` wins over `keep_warm`.
+
+The attributes `run_minutes`, `start_by` (`start_now` only) and `saving_per_kwh` say what the run would be. `suggestion` and `alt_label` repeat the advice sentence and your name for the alternative.
+
 **An oil price from 0.17 or earlier.** Version 0.18 replaces the two oil price options with this setting. On the first start after the upgrade an install that had an oil price or an oil price sensor gets Alternative water heating switched on, the label Oil, the unit litre and the same price or sensor, and the old options are removed. The advice reads as it did, and nothing needs doing. The attributes that began `oil_` begin `alt_` now, `best_hours_for_oil` is `best_hours_for_alt`, and the state `oil` is `alternative`: update any automation or card that reads them.
 
 ### EV charger

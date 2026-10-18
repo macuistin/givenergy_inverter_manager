@@ -855,6 +855,11 @@
   "name": "Tonight's charge plan"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_water_heating_alternative_trigger",
+  "key": "water_heating_trigger",
+  "name": "Water Heating Alternative Trigger"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_water_heating_cheapest_source",
   "key": "water_heating_cheapest_source",
   "name": "Water Heating Cheapest Source"

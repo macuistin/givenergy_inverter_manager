@@ -250,6 +250,26 @@ def water_heating_source(data: CoordinatorData) -> str | None:
     return None if advice is None else advice.source
 
 
+def water_heating_trigger_state(data: CoordinatorData) -> str:
+    """idle, keep_warm or start_now: when the alternative heating is worth starting."""
+    return data.water_heating_trigger.state
+
+
+def water_heating_trigger_attributes(data: CoordinatorData) -> dict[str, Any]:
+    """What a run would be, and the advice behind it. A run's figures are absent while idle."""
+    trigger, advice = data.water_heating_trigger, data.water_heating_advice
+    attributes: dict[str, Any] = {}
+    if advice is not None:
+        attributes = {"suggestion": advice.suggestion, "alt_label": advice.label}
+    if trigger.run_minutes is not None:
+        attributes["run_minutes"] = trigger.run_minutes
+    if trigger.start_by is not None:
+        attributes["start_by"] = f"{trigger.start_by:%H:%M}"
+    if trigger.saving_per_kwh is not None:
+        attributes["saving_per_kwh"] = round(trigger.saving_per_kwh, 4)
+    return attributes
+
+
 def _alt_start_attributes(advice: WaterHeatingAdvice) -> dict[str, Any]:
     """The start for the next ready time. Absent unless the alternative should be started."""
     start = advice.alt_start

@@ -168,3 +168,33 @@ class TestKeepWarm:
         cool = cycle(12, alt_heat_cost_per_kwh=oil, immersion_temp=49.0, **defaults)
         assert warm.water_heating_advice.keep_warm is None
         assert cool.water_heating_advice.keep_warm is not None
+
+
+class TestTheTrigger:
+    """The trigger state comes from the same cycle as the advice."""
+
+    COOLING = {
+        "immersion_temp": 49.5,
+        "immersion_heating_rate_c_per_h": 10.0,
+        "immersion_min_temp": 45.0,
+    }
+
+    def test_it_starts_idle_and_stays_idle_with_no_oil_price(self):
+        assert cycle(12, **self.COOLING).water_heating_trigger.state == "idle"
+
+    def test_cooling_water_with_cheaper_oil_is_keep_warm_with_its_run(self):
+        trigger = cycle(12, alt_heat_cost_per_kwh=0.16, **self.COOLING).water_heating_trigger
+
+        assert trigger.state == "keep_warm"
+        assert trigger.run_minutes == 40
+        assert trigger.start_by is None
+
+    def test_warm_water_is_idle(self):
+        warm = {**self.COOLING, "immersion_temp": 54.0}
+
+        assert cycle(12, alt_heat_cost_per_kwh=0.16, **warm).water_heating_trigger.state == "idle"
+
+    def test_in_the_cheap_slot_it_is_idle(self):
+        trigger = cycle(1, alt_heat_cost_per_kwh=0.16, **self.COOLING).water_heating_trigger
+
+        assert trigger.state == "idle"

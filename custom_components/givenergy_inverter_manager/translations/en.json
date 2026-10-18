@@ -799,6 +799,14 @@
       "water_heating_cheapest_source": {
         "name": "Water Heating Cheapest Source"
       },
+      "water_heating_trigger": {
+        "name": "Water Heating Alternative Trigger",
+        "state": {
+          "idle": "Idle",
+          "keep_warm": "Keep warm",
+          "start_now": "Start now"
+        }
+      },
       "estimated_soc_at_sunrise": {
         "name": "Estimated SoC at Sunrise Without a Charge"
       },

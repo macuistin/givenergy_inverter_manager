@@ -93,6 +93,7 @@ from .alt_heat_schedule import (
     suggest_alt_heat_schedule,
 )
 from .alt_heat_start import WaterReading
+from .alt_heat_trigger import AltHeatTrigger, alt_heat_trigger
 from .battery import (
     BatteryStats,
     NightClock,
@@ -329,6 +330,8 @@ class CoordinatorData:
     immersion_planned_heating: str | None = None
     # The alternative heating against electricity for the water. None while it has no cost.
     water_heating_advice: WaterHeatingAdvice | None = None
+    # The moment the alternative heating is worth starting, for an automation to trigger on.
+    water_heating_trigger: AltHeatTrigger = field(default_factory=AltHeatTrigger)
     # The windows the immersion's grid heating suggests for the alternative. None while it has no
     # cost or the record holds fewer than ALT_HEAT_SCHEDULE_MIN_DAYS days. A separate line from
     # the advice.
@@ -1243,6 +1246,9 @@ def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
             water=_water_reading(cycle.raw),
             scheduled_heating=cycle.raw.immersion_schedule_enabled,
         )
+    )
+    data.water_heating_trigger = alt_heat_trigger(
+        data.water_heating_advice, _water_reading(cycle.raw), cycle.now
     )
 
 

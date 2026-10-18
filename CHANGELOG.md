@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Added**
+- A trigger for the alternative water heating. The new **Water Heating Alternative Trigger** sensor is `idle`, `keep_warm` or `start_now`, so an automation can alert you when the alternative is worth starting. `start_now` means the ready-by start has come, and the alternative has to start now or the immersion does the heating at the rate in force. `keep_warm` means the water has cooled to the lower boundary, where the immersion is about to top it up, while the alternative is cheaper than the grid. It sends no alert and never switches the alternative or the immersion. The attributes `run_minutes`, `start_by` and `saving_per_kwh` say what a run would be. The sensor exists only while Alternative water heating is on with a cost and the immersion switch is set. There is an example automation in [Automations](docs/automations.md#alert-when-the-alternative-heating-is-worth-starting).
+
 ## v0.19.11
 
 The dashboard strategy loads again, and the integration has a new icon. 0.19.10 made the strategy time out on every fresh page, because its script ran before Home Assistant had set up the registry it looks the dashboard up in.

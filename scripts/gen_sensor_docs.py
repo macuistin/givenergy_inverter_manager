@@ -231,6 +231,7 @@ KEY_GROUPS: dict[str, str] = {
             "immersion_divert_reason",
             "immersion_water_temperature",
             "water_heating_cheapest_source",
+            "water_heating_trigger",
         ),
         "Immersion",
     ),
@@ -557,6 +558,16 @@ DESCRIPTIONS: dict[str, str] = {
         "Heating on, the `planned_heating` attribute says in a sentence what the immersion "
         "plans for the next ready time and the cheapest window. With ready times set it also "
         "has `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source`."
+    ),
+    "water_heating_trigger": (
+        "A trigger for the alternative heating: `idle`, `keep_warm` or `start_now`. `start_now` "
+        "is the ready-by start whose time has come, so the alternative should start now or the "
+        "immersion does the heating at a dearer rate. `keep_warm` is water at the lower boundary, "
+        "where the immersion is about to top it up, while the alternative is cheaper than the "
+        "grid. Raise the minimum temperature to have it fire sooner. It sends no alert and "
+        "never switches anything: build the alert on a change of state, as in "
+        "[Automations](automations.md). Attributes: `suggestion`, `alt_label`, `run_minutes`, "
+        "`start_by` and `saving_per_kwh`, the last three only while it is not idle."
     ),
     "water_heating_cheapest_source": (
         "The cheapest way to heat the water now: `electricity`, `solar` or `alternative`. "
