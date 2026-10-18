@@ -93,6 +93,9 @@ class StartQuery:
     water: WaterReading
     alt_cost_per_kwh: float
     solar_cost: float | None = None
+    # When set, the water needs heating as soon as it is this many degrees below the target,
+    # instead of at the restart threshold. The ready-by trigger sets it.
+    lift_below_target_c: float | None = None
 
 
 @dataclass(frozen=True)
@@ -114,6 +117,15 @@ class AltHeatStart:
     late: bool
 
 
+def _start_needed(query: StartQuery) -> bool:
+    """Whether the water needs a run for a ready time, by the restart threshold or the margin."""
+    water = query.water
+    if query.lift_below_target_c is None:
+        return water.needs_heating
+    long_enough = water.hours_to_target * _MINUTES_PER_HOUR >= _RUN_ROUND_MINUTES
+    return water.temp <= water.target - query.lift_below_target_c and long_enough
+
+
 def _whole_minutes(hours: float) -> int:
     return math.ceil(hours * _MINUTES_PER_HOUR - _ROUNDING_SLACK)
 
@@ -124,7 +136,7 @@ def _to_the_minute(moment: datetime) -> datetime:
 
 def suggest_alt_heat_start(query: StartQuery, ready_at: datetime) -> AltHeatStart | None:
     """The run for this ready time, None when the water needs no heating (see needs_heating)."""
-    if not query.water.needs_heating:
+    if not _start_needed(query):
         return None
     needed = query.water.hours_to_target
     placed = place_hours(query.tariff, query.now, ready_at, needed)
@@ -159,3 +171,22 @@ def keep_warm_minutes(water: WaterReading, grid_cost_now: float, alt_cost: float
     if needed <= 0:
         return None
     return round_up_run_minutes(needed)
+
+
+def low_water_minutes(
+    water: WaterReading, grid_cost_now: float, alt_cost: float, margin_c: float
+) -> int | None:
+    """Minutes of the alternative to lift water that is near the lower boundary, else None.
+
+    Like keep_warm_minutes, but it applies from margin_c degrees above the boundary, so the run
+    can start before the immersion would restart. None when the water is further above the
+    boundary than that, or when the alternative is not cheaper than the grid now. The caller
+    leaves solar surplus out.
+    """
+    if water.temp > water.keep_warm_below + margin_c or alt_cost >= grid_cost_now:
+        return None
+    needed = water.hours_to_target
+    if needed <= 0:
+        return None
+    return round_up_run_minutes(needed)
+

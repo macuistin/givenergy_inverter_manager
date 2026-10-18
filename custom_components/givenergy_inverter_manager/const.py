@@ -197,6 +197,10 @@ OIL_BOILER_EFFICIENCY_PCT = 85  # %
 # The commonly quoted energy content of kerosene heating oil.
 OIL_KWH_PER_LITRE = 10.35  # kWh per litre of fuel
 ALT_HEAT_ADVICE_HORIZON_HOURS = 24  # how far ahead the cheapest hours are looked for
+# The two trigger sensors fire this far before the immersion would act: the ready-by trigger when
+# the water is this far below its target, the low water trigger when it is this far above the
+# lower boundary (the point where the immersion would top it up).
+ALT_HEAT_TRIGGER_MARGIN_C = 1.0
 # A suggested alternative heating schedule (core/alt_heat_schedule.py) is learned from a rolling
 # record of the immersion's grid heating. Fixed assumptions, not options.
 # Complete days kept, plus the day in progress. Two weeks hold every weekday twice, so a weekly

@@ -93,7 +93,7 @@ from .alt_heat_schedule import (
     suggest_alt_heat_schedule,
 )
 from .alt_heat_start import WaterReading
-from .alt_heat_trigger import AltHeatTrigger, alt_heat_trigger
+from .alt_heat_trigger import AltHeatTrigger, low_water_trigger, ready_by_trigger
 from .battery import (
     BatteryStats,
     NightClock,
@@ -330,8 +330,9 @@ class CoordinatorData:
     immersion_planned_heating: str | None = None
     # The alternative heating against electricity for the water. None while it has no cost.
     water_heating_advice: WaterHeatingAdvice | None = None
-    # The moment the alternative heating is worth starting, for an automation to trigger on.
-    water_heating_trigger: AltHeatTrigger = field(default_factory=AltHeatTrigger)
+    # The two moments the alternative heating is worth starting, for an automation to trigger on.
+    water_heating_ready_trigger: AltHeatTrigger = field(default_factory=AltHeatTrigger)
+    water_heating_low_trigger: AltHeatTrigger = field(default_factory=AltHeatTrigger)
     # The windows the immersion's grid heating suggests for the alternative. None while it has no
     # cost or the record holds fewer than ALT_HEAT_SCHEDULE_MIN_DAYS days. A separate line from
     # the advice.
@@ -1234,22 +1235,20 @@ def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
     cost = cycle.raw.alt_heat_cost_per_kwh
     if cost is None:
         return
-    data.water_heating_advice = advise_water_heating(
-        AdviceInputs(
-            tariff=cycle.tariff,
-            now=cycle.now,
-            alt_cost_per_kwh=cost,
-            label=cycle.raw.alt_heat_label,
-            ready_times=cycle.raw.immersion_ready_times,
-            solar_surplus=_solar_surplus_to_divert(data, cycle),
-            currency_symbol=data.currency_symbol,
-            water=_water_reading(cycle.raw),
-            scheduled_heating=cycle.raw.immersion_schedule_enabled,
-        )
+    inputs = AdviceInputs(
+        tariff=cycle.tariff,
+        now=cycle.now,
+        alt_cost_per_kwh=cost,
+        label=cycle.raw.alt_heat_label,
+        ready_times=cycle.raw.immersion_ready_times,
+        solar_surplus=_solar_surplus_to_divert(data, cycle),
+        currency_symbol=data.currency_symbol,
+        water=_water_reading(cycle.raw),
+        scheduled_heating=cycle.raw.immersion_schedule_enabled,
     )
-    data.water_heating_trigger = alt_heat_trigger(
-        data.water_heating_advice, _water_reading(cycle.raw), cycle.now
-    )
+    data.water_heating_advice = advise_water_heating(inputs)
+    data.water_heating_ready_trigger = ready_by_trigger(inputs)
+    data.water_heating_low_trigger = low_water_trigger(data.water_heating_advice, inputs)
 
 
 def _set_alt_heat_schedule(

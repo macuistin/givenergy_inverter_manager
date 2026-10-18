@@ -170,8 +170,8 @@ class TestKeepWarm:
         assert cool.water_heating_advice.keep_warm is not None
 
 
-class TestTheTrigger:
-    """The trigger state comes from the same cycle as the advice."""
+class TestTheTriggers:
+    """Both triggers come from the same cycle as the advice."""
 
     COOLING = {
         "immersion_temp": 49.5,
@@ -179,22 +179,43 @@ class TestTheTrigger:
         "immersion_min_temp": 45.0,
     }
 
-    def test_it_starts_idle_and_stays_idle_with_no_oil_price(self):
-        assert cycle(12, **self.COOLING).water_heating_trigger.state == "idle"
+    def test_they_start_idle_and_stay_idle_with_no_oil_price(self):
+        data = cycle(12, **self.COOLING)
 
-    def test_cooling_water_with_cheaper_oil_is_keep_warm_with_its_run(self):
-        trigger = cycle(12, alt_heat_cost_per_kwh=0.16, **self.COOLING).water_heating_trigger
+        assert data.water_heating_ready_trigger.state == "idle"
+        assert data.water_heating_low_trigger.state == "idle"
 
-        assert trigger.state == "keep_warm"
-        assert trigger.run_minutes == 40
-        assert trigger.start_by is None
+    def test_cooling_water_with_cheaper_oil_fires_the_low_water_trigger_with_its_run(self):
+        data = cycle(12, alt_heat_cost_per_kwh=0.16, **self.COOLING)
 
-    def test_warm_water_is_idle(self):
+        assert data.water_heating_low_trigger.state == "start_now"
+        assert data.water_heating_low_trigger.run_minutes == 40
+        assert data.water_heating_ready_trigger.state == "idle"
+
+    def test_water_a_degree_above_the_boundary_still_fires_it(self):
+        near = {**self.COOLING, "immersion_temp": 51.0}
+
+        assert (
+            cycle(12, alt_heat_cost_per_kwh=0.16, **near).water_heating_low_trigger.state
+            == "start_now"
+        )
+
+    def test_warm_water_leaves_it_idle(self):
         warm = {**self.COOLING, "immersion_temp": 54.0}
 
-        assert cycle(12, alt_heat_cost_per_kwh=0.16, **warm).water_heating_trigger.state == "idle"
+        data = cycle(12, alt_heat_cost_per_kwh=0.16, **warm)
+
+        assert data.water_heating_low_trigger.state == "idle"
 
     def test_in_the_cheap_slot_it_is_idle(self):
-        trigger = cycle(1, alt_heat_cost_per_kwh=0.16, **self.COOLING).water_heating_trigger
+        data = cycle(1, alt_heat_cost_per_kwh=0.16, **self.COOLING)
 
-        assert trigger.state == "idle"
+        assert data.water_heating_low_trigger.state == "idle"
+
+    def test_the_ready_by_trigger_fires_at_the_start_for_the_ready_time(self):
+        before = cycle(15, 31, alt_heat_cost_per_kwh=0.20, **READY_AT_19)
+        due = cycle(15, 32, alt_heat_cost_per_kwh=0.20, **READY_AT_19)
+
+        assert before.water_heating_ready_trigger.state == "idle"
+        assert due.water_heating_ready_trigger.state == "start_now"
+        assert due.water_heating_ready_trigger.run_minutes == 104

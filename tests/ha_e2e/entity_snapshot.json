@@ -855,11 +855,6 @@
   "name": "Tonight's charge plan"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_water_heating_alternative_trigger",
-  "key": "water_heating_trigger",
-  "name": "Water Heating Alternative Trigger"
- },
- {
   "entity_id": "sensor.givenergy_inverter_manager_water_heating_cheapest_source",
   "key": "water_heating_cheapest_source",
   "name": "Water Heating Cheapest Source"
@@ -903,5 +898,15 @@
   "entity_id": "switch.givenergy_inverter_manager_verbose_logging",
   "key": "verbose_logging",
   "name": "Verbose logging"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_water_heating_low_water_trigger",
+  "key": "water_heating_low_water_trigger",
+  "name": "Water Heating Low Water Trigger"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_water_heating_ready_by_trigger",
+  "key": "water_heating_ready_by_trigger",
+  "name": "Water Heating Ready-by Trigger"
  }
 ]

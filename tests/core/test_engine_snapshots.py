@@ -196,10 +196,10 @@ raised to the minimum SoC plus 5 points. Only the reason text of charge_decision
 published_charge_decision moved, in cases 225, 243 and 253. Their targets did not move. The
 behaviour is pinned in tests/core/test_charge_headroom_reason.py.
 
-The water_heating_trigger leaf was added with the Water Heating Alternative Trigger sensor. Only the
-fresh snapshot gained it (state idle), and none of the 255 cases moved, because no engine case
-sets an alternative heating cost. The states are pinned in tests/core/test_alt_heat_trigger.py and
-tests/core/test_alt_heat_advice_engine.py.
+The water_heating_ready_trigger and water_heating_low_trigger leaves were added with the two water
+heating trigger sensors. Only the fresh snapshot gained them (state idle), and none of the 255 cases
+moved, because no engine case sets an alternative heating cost. The states are pinned in
+tests/core/test_alt_heat_trigger.py and tests/core/test_alt_heat_advice_engine.py.
 """
 
 from __future__ import annotations

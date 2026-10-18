@@ -1,7 +1,8 @@
-"""The trigger state for the alternative heating: idle, keep_warm or start_now.
+"""The two triggers for the alternative heating: the ready-by start and the low water run.
 
 The tariff is 0.30 by day and 0.15 from 23:00 to 08:00, with no discount and no VAT. The water is
-lifted at 10 degrees an hour toward 55, and the restart gap is 5 degrees.
+lifted at 10 degrees an hour toward 55, the minimum is 45 and the restart gap is 5 degrees, so the
+immersion restarts at 50 and the lower boundary is 50.
 """
 
 from __future__ import annotations
@@ -18,11 +19,11 @@ from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
 from custom_components.givenergy_inverter_manager.core.alt_heat_start import WaterReading
 from custom_components.givenergy_inverter_manager.core.alt_heat_trigger import (
     STATE_IDLE,
-    STATE_KEEP_WARM,
     STATE_START_NOW,
     STATES,
     AltHeatTrigger,
-    alt_heat_trigger,
+    low_water_trigger,
+    ready_by_trigger,
 )
 from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
 
@@ -44,100 +45,150 @@ def at(hour: int, minute: int = 0) -> datetime:
     return datetime(2026, 12, 15, hour, minute, tzinfo=DUBLIN)
 
 
-def water(temp: float) -> WaterReading:
-    return WaterReading(temp, TARGET, RATE, MINIMUM, GAP)
-
-
-def trigger(
-    now: datetime, temp: float, *, alt: float = 0.20, ready: tuple = READY, solar: bool = False
-) -> AltHeatTrigger:
-    reading = water(temp)
-    advice = advise_water_heating(
-        AdviceInputs(
-            tariff=TARIFF,
-            now=now,
-            alt_cost_per_kwh=alt,
-            ready_times=ready,
-            solar_surplus=solar,
-            water=reading,
-            scheduled_heating=bool(ready),
-        )
+def inputs(
+    now: datetime,
+    temp: float,
+    *,
+    alt: float = 0.20,
+    ready: tuple = READY,
+    solar: bool = False,
+    minimum: float = MINIMUM,
+) -> AdviceInputs:
+    return AdviceInputs(
+        tariff=TARIFF,
+        now=now,
+        alt_cost_per_kwh=alt,
+        ready_times=ready,
+        solar_surplus=solar,
+        water=WaterReading(temp, TARGET, RATE, minimum, GAP),
+        scheduled_heating=bool(ready),
     )
-    return alt_heat_trigger(advice, reading, now)
 
 
-class TestStartNow:
-    def test_it_is_start_now_from_the_start_time_and_not_before(self):
-        # Oil has to start at 15:32 to finish before the immersion would start at 17:16. Water
-        # this cold is already past the lower boundary, so before then the state is keep_warm.
-        assert trigger(at(15, 0), 40.0).state == STATE_KEEP_WARM
-        assert trigger(at(15, 31), 40.0).state == STATE_KEEP_WARM
+def ready_by(now: datetime, temp: float, **kw) -> AltHeatTrigger:
+    return ready_by_trigger(inputs(now, temp, **kw))
 
-        due = trigger(at(15, 32), 40.0)
+
+def low_water(now: datetime, temp: float, **kw) -> AltHeatTrigger:
+    given = inputs(now, temp, **kw)
+    return low_water_trigger(advise_water_heating(given), given)
+
+
+class TestTheReadyByTrigger:
+    def test_it_fires_at_the_start_time_and_not_before(self):
+        # Oil has to start at 15:32 to finish before the immersion would start at 17:16.
+        assert ready_by(at(15, 0), 40.0).state == STATE_IDLE
+        assert ready_by(at(15, 31), 40.0).state == STATE_IDLE
+
+        due = ready_by(at(15, 32), 40.0)
 
         assert due.state == STATE_START_NOW
         assert due.start_by == at(15, 32)
+        assert due.ready_at == at(19, 0)
         assert due.run_minutes == 104
         assert due.saving_per_kwh == pytest.approx(0.10)
 
-    def test_a_start_that_is_already_late_is_start_now_at_once(self):
-        late = trigger(at(17, 30), 40.0)
+    @pytest.mark.parametrize(
+        ("temp", "run", "start"),
+        [(30.0, 173, at(13, 14)), (40.0, 104, at(15, 32)), (48.0, 49, at(17, 22))],
+    )
+    def test_the_colder_the_water_the_longer_the_run_and_the_earlier_the_start(
+        self, temp, run, start
+    ):
+        due = ready_by(start, temp)
 
-        assert late.state == STATE_START_NOW
-        assert late.start_by == at(17, 30)
+        assert (due.state, due.run_minutes, due.start_by) == (STATE_START_NOW, run, start)
+        assert ready_by(at(12, 0), temp).state == STATE_IDLE
 
-    def test_it_stays_start_now_while_the_water_needs_heating(self):
-        assert trigger(at(16, 30), 40.0).state == STATE_START_NOW
+    def test_water_one_degree_below_the_target_gets_a_start_not_idle(self):
+        # Above the immersion's restart threshold of 50, so the plan alone would do nothing. A
+        # one degree lift is a 7 minute run, so the start is late and close to the ready time.
+        assert ready_by(at(18, 45), 54.0).state == STATE_IDLE
 
-    def test_it_returns_to_idle_once_the_water_is_at_the_target(self):
-        assert trigger(at(16, 30), 55.0).state == STATE_IDLE
+        result = ready_by(at(18, 46), 54.0)
+
+        assert result.state == STATE_START_NOW
+        assert result.run_minutes == 7
+
+    def test_water_less_than_a_degree_below_the_target_is_idle(self):
+        assert ready_by(at(18, 50), 54.5).state == STATE_IDLE
+
+    def test_water_at_the_target_is_idle(self):
+        assert ready_by(at(16, 30), 55.0).state == STATE_IDLE
+
+    def test_a_start_that_is_late_fires_at_once(self):
+        assert ready_by(at(17, 30), 40.0).state == STATE_START_NOW
 
     def test_it_is_idle_when_electricity_is_cheaper_than_the_alternative(self):
-        assert trigger(at(15, 40), 40.0, alt=0.35).state == STATE_IDLE
+        assert ready_by(at(15, 40), 40.0, alt=0.35).state == STATE_IDLE
+
+    def test_it_is_idle_without_a_ready_time(self):
+        assert ready_by(at(15, 40), 40.0, ready=()).state == STATE_IDLE
+
+    def test_it_is_idle_without_the_immersion_schedule_to_fall_back_on(self):
+        given = AdviceInputs(
+            tariff=TARIFF,
+            now=at(15, 40),
+            alt_cost_per_kwh=0.20,
+            ready_times=READY,
+            water=WaterReading(40.0, TARGET, RATE, MINIMUM, GAP),
+            scheduled_heating=False,
+        )
+
+        assert ready_by_trigger(given).state == STATE_IDLE
+
+    def test_it_is_idle_without_a_water_reading(self):
+        given = AdviceInputs(
+            tariff=TARIFF, now=at(15, 40), alt_cost_per_kwh=0.20, ready_times=READY
+        )
+
+        assert ready_by_trigger(given).state == STATE_IDLE
 
 
-class TestKeepWarm:
-    def test_water_at_the_lower_boundary_with_a_cheaper_alternative_is_keep_warm(self):
-        result = trigger(at(13, 0), 50.0, ready=())
+class TestTheLowWaterTrigger:
+    def test_water_at_the_lower_boundary_with_a_cheaper_alternative_fires(self):
+        result = low_water(at(13, 0), 50.0, ready=())
 
-        assert result.state == STATE_KEEP_WARM
+        assert result.state == STATE_START_NOW
         assert result.run_minutes is not None and result.run_minutes % 5 == 0
         assert result.saving_per_kwh == pytest.approx(0.10)
         assert result.start_by is None
 
-    def test_water_above_the_boundary_is_idle(self):
-        assert trigger(at(13, 0), 52.0, ready=()).state == STATE_IDLE
+    def test_one_degree_above_the_boundary_it_still_fires(self):
+        assert low_water(at(13, 0), 51.0, ready=()).state == STATE_START_NOW
+
+    def test_more_than_a_degree_above_the_boundary_it_is_idle(self):
+        assert low_water(at(13, 0), 51.5, ready=()).state == STATE_IDLE
+
+    def test_it_fires_whatever_a_ready_time_says(self):
+        assert low_water(at(13, 0), 50.0).state == STATE_START_NOW
 
     def test_it_is_idle_when_the_alternative_is_not_cheaper_than_the_grid(self):
-        assert trigger(at(13, 0), 50.0, alt=0.35, ready=()).state == STATE_IDLE
+        assert low_water(at(13, 0), 50.0, alt=0.35, ready=()).state == STATE_IDLE
 
     def test_solar_surplus_heating_the_water_needs_no_other_heat(self):
-        assert trigger(at(13, 0), 50.0, ready=(), solar=True).state == STATE_IDLE
+        assert low_water(at(13, 0), 50.0, ready=(), solar=True).state == STATE_IDLE
 
-    def test_a_higher_minimum_triggers_sooner(self):
-        reading = WaterReading(TARGET - 6.0, TARGET, RATE, 52.0, GAP)
-        advice = advise_water_heating(
-            AdviceInputs(tariff=TARIFF, now=at(13, 0), alt_cost_per_kwh=0.20, water=reading)
+    def test_a_higher_minimum_makes_it_fire_sooner(self):
+        # Minimum 52 and a gap of 5 put the boundary at the lower of 57 and 50, so use a gap
+        # that makes the minimum the lower one instead.
+        given = AdviceInputs(
+            tariff=TARIFF,
+            now=at(13, 0),
+            alt_cost_per_kwh=0.20,
+            water=WaterReading(TARGET - 3.0, TARGET, RATE, 50.0, 1.0),
         )
 
-        assert alt_heat_trigger(advice, reading, at(13, 0)).state == STATE_KEEP_WARM
+        # Boundary min(50 + 1, 55 - 1) = 51, and 52 is one degree above it.
+        assert low_water_trigger(advise_water_heating(given), given).state == STATE_START_NOW
+
+    def test_no_advice_or_no_water_reading_is_idle(self):
+        given = inputs(at(13, 0), 50.0, ready=())
+
+        assert low_water_trigger(None, given) == AltHeatTrigger()
+        no_water = AdviceInputs(tariff=TARIFF, now=at(13, 0), alt_cost_per_kwh=0.20)
+        assert low_water_trigger(advise_water_heating(no_water), no_water) == AltHeatTrigger()
 
 
-class TestPriorityAndNoAdvice:
-    def test_a_due_ready_by_start_wins_over_keep_warm(self):
-        both = trigger(at(17, 30), 45.0)
-
-        assert both.state == STATE_START_NOW
-
-    def test_no_advice_is_idle(self):
-        assert alt_heat_trigger(None, None, at(12, 0)) == AltHeatTrigger()
-
-    def test_no_water_reading_cannot_trigger_a_keep_warm_run(self):
-        advice = advise_water_heating(
-            AdviceInputs(tariff=TARIFF, now=at(13, 0), alt_cost_per_kwh=0.20, water=water(50.0))
-        )
-
-        assert alt_heat_trigger(advice, None, at(13, 0)).state == STATE_IDLE
-
-    def test_the_states_are_the_three_the_sensor_offers(self):
-        assert STATES == (STATE_IDLE, STATE_KEEP_WARM, STATE_START_NOW)
+def test_the_states_are_the_two_the_sensors_offer():
+    assert STATES == (STATE_IDLE, STATE_START_NOW)

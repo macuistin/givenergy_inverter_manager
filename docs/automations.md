@@ -239,24 +239,23 @@ mode: single
 
 ## Alert when the alternative heating is worth starting
 
-The **Water Heating Alternative Trigger** sensor only says when to act. This sends the alert. It fires when the ready-by start has come (`start_now`) or when the water has cooled to the lower boundary and the alternative is cheaper (`keep_warm`). Start the alternative yourself: the integration never switches it. See [Concepts](concepts.md#alternative-water-heating-advice).
+The **Water Heating Ready-by Trigger** and **Water Heating Low Water Trigger** sensors only say when to act. This sends the alert. The ready-by trigger fires when the alternative has to start for the next ready time. The low water trigger fires when the water is near the lower boundary and the alternative is cheaper, so the immersion does not have to top it up. Start the alternative yourself: the integration never switches it. See [Concepts](concepts.md#alternative-water-heating-advice).
 
 ```yaml
 alias: Alternative heating worth starting
 trigger:
   - platform: state
-    entity_id: sensor.givenergy_inverter_manager_water_heating_alternative_trigger
-    to:
-      - start_now
-      - keep_warm
+    entity_id:
+      - sensor.givenergy_inverter_manager_water_heating_ready_by_trigger
+      - sensor.givenergy_inverter_manager_water_heating_low_water_trigger
+    to: start_now
 action:
   - service: notify.mobile_app_your_phone
     data:
-      title: >
-        {{ state_attr('sensor.givenergy_inverter_manager_water_heating_alternative_trigger', 'alt_label') }}
-        water heating
+      title: Start the alternative heating
       message: >
-        {{ state_attr('sensor.givenergy_inverter_manager_water_heating_alternative_trigger', 'suggestion') }}
+        {{ trigger.to_state.name }}: run it for about
+        {{ trigger.to_state.attributes.run_minutes }} minutes.
 mode: single
 ```
 

@@ -799,11 +799,17 @@
       "water_heating_cheapest_source": {
         "name": "Water Heating Cheapest Source"
       },
-      "water_heating_trigger": {
-        "name": "Water Heating Alternative Trigger",
+      "water_heating_ready_by_trigger": {
+        "name": "Water Heating Ready-by Trigger",
         "state": {
           "idle": "Idle",
-          "keep_warm": "Keep warm",
+          "start_now": "Start now"
+        }
+      },
+      "water_heating_low_water_trigger": {
+        "name": "Water Heating Low Water Trigger",
+        "state": {
+          "idle": "Idle",
           "start_now": "Start now"
         }
       },
