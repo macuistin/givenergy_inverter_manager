@@ -228,9 +228,12 @@ Do not use Solcast's **Use Forecast Field** select to reach the P10. It changes 
 | Immersion switch | `immersion_switch_entity` | from setup, else none | a `switch` entity |
 | Hot water temperature sensor | `immersion_temp_sensor_entity` | from setup, else none | a `sensor` entity |
 | Immersion element power | `immersion_wattage_w` | from setup, else 3000 | 500 to 6000 W |
+| Longest immersion run | `immersion_max_run_minutes` | 60 | 0 to 240 minutes in steps of 5. 0 turns the limit off |
 | Hot water ready-by times | `immersion_ready_times` | none | times as `HH:MM`, for example `07:00` and `19:00` |
 
 Both devices are optional and can be added, changed or cleared at any time, without a restart. Changing either one reloads the integration. The Immersion Heater (Managed) switch is created while an immersion switch is set and removed when it is cleared. The Hot water view and the hot water chips of the dashboard follow the same two fields. A heater with no temperature sensor is switched on and off by solar surplus alone, and the target and minimum temperatures have no effect without a sensor. The page lists switches with "immersion" in their name as a hint and shows what the chosen sensors read now.
+
+**Longest immersion run** is the longest the immersion runs for in one scheduled run, in minutes. It defaults to 60 and 0 turns it off. It limits the cheapest window and the ready-by heating and not solar surplus. A run stops after this long even when the water has not reached its target, and the ready-by plan is sized to it, so it starts that long before the ready time. A smaller number shortens the run without setting a timer on the immersion switch itself. See [Concepts](concepts.md#scheduled-immersion-heating).
 
 **Hot water ready-by times** list the times the water has to be at its target temperature. They take effect only while **Immersion Scheduled Heating** is on and a water temperature sensor is set. With no temperature sensor the ready times are ignored, because the integration cannot tell when the target is reached, and the page warns about it. An entry that is not `HH:MM` is refused, and the times are saved in order. The planning is described in [Concepts](concepts.md#scheduled-immersion-heating), which also covers moving from the heater's own timers and from home automations: switch the other timers off, turn **Immersion Scheduled Heating** on and enter the times here. Leave the field empty for the cheapest window alone.
 

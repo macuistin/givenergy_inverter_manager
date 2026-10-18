@@ -76,6 +76,7 @@ from .const import (
     CONF_FORECAST_ENTITY_D2,
     CONF_FORECAST_ENTITY_P10,
     CONF_IMMERSION_HYSTERESIS,
+    CONF_IMMERSION_MAX_RUN_MINUTES,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_READY_TIMES,
     CONF_IMMERSION_SWITCH,
@@ -97,6 +98,7 @@ from .const import (
     DEFAULT_CURRENCY_SYMBOL,
     DEFAULT_DRY_RUN,
     DEFAULT_IMMERSION_HYSTERESIS,
+    DEFAULT_IMMERSION_MAX_RUN_MINUTES,
     DEFAULT_IMMERSION_MIN_TEMP,
     DEFAULT_IMMERSION_TARGET_TEMP,
     DEFAULT_IMMERSION_WATTAGE,
@@ -165,6 +167,7 @@ from .core.replan import (
 )
 from .core.reporting import build_tariff_html, build_tariff_state
 from .core.rules import monthly_solar_fractions
+from .core.scheduled_run import HeldScheduledRun
 from .core.seasons import season_rules
 from .core.setup_progress import SetupFacts, setup_items
 from .core.solar_day import HeldSolarDay
@@ -364,7 +367,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._battery_stats = BatteryStats()
         self._held_charge = HeldCharge()
         self._held_sunrise = HeldSunrise()
-        self._held_solar, self._held_triggers = HeldSolarDay(), HeldTriggers()
+        self._held_solar, self._held_triggers, self._held_scheduled_run = (
+            HeldSolarDay(),
+            HeldTriggers(),
+            HeldScheduledRun(),
+        )
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
@@ -1204,6 +1211,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw.immersion_target_temp = self.immersion_target_temp
         raw.immersion_min_temp = self.immersion_min_temp
         raw.immersion_hysteresis_c = self.immersion_hysteresis_c
+        raw.immersion_max_run_minutes = int(
+            cfg.get(CONF_IMMERSION_MAX_RUN_MINUTES, DEFAULT_IMMERSION_MAX_RUN_MINUTES)
+        )
         raw.immersion_schedule_enabled = self.immersion_schedule_enabled
         raw.immersion_window_heating_before = bool(
             self.data is not None and self.data.immersion_window_heating
@@ -1541,6 +1551,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 held_sunrise=self._held_sunrise,
                 held_solar=self._held_solar,
                 held_triggers=self._held_triggers,
+                held_scheduled_run=self._held_scheduled_run,
             ),
             ForecastContext(
                 solar_fractions=self._solar_fractions,

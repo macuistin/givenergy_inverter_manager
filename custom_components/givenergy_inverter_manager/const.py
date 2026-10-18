@@ -151,12 +151,15 @@ DEFAULT_CURRENCY_SYMBOL = CURRENCIES[DEFAULT_CURRENCY]
 DEFAULT_INVERTER_MAX_OUTPUT = 5.0  # kW — GivEnergy GIV-HY-5.0
 DEFAULT_BATTERY_CAPACITY = 10.0  # kWh — conservative fallback if not configured
 DEFAULT_IMMERSION_WATTAGE = 3000  # W
+# The longest a scheduled immersion run lasts (core/scheduled_run.py). 0 turns the limit off.
+DEFAULT_IMMERSION_MAX_RUN_MINUTES = 60  # minutes
 DEFAULT_IMMERSION_TARGET_TEMP = 55  # °C — turn off when water reaches this
 DEFAULT_IMMERSION_MIN_TEMP = 50  # °C — force on below this (legionella protection)
 DEFAULT_IMMERSION_HYSTERESIS = 5  # °C — only restart after cooling this far below target
 # Ready-by planning (core/immersion_rate.py): the saved ready times, and the heating rate in
 # degrees per hour that the integration learns from its own runs.
 CONF_IMMERSION_READY_TIMES = "immersion_ready_times"
+CONF_IMMERSION_MAX_RUN_MINUTES = "immersion_max_run_minutes"
 # Rate assumed before a run has been measured: a large cylinder, which heats slowly, so the
 # first plans start early rather than late.
 IMMERSION_ASSUMED_TANK_LITRES = 300

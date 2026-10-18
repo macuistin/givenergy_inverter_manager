@@ -319,9 +319,11 @@ The scheduled rules sit after the temperature rules and before the surplus rules
 
 If the heater cuts itself off in the window with the water still below the target, for example a 60 minute auto-off on the device, the integration waits out the 10 minute switch hold and turns it on again. The run carries on to the target even when the water is inside the restart gap by then.
 
+**Longest run.** Grid heating is paid for by the minute, so a scheduled run is limited, 60 minutes by default (**Longest immersion run** in the hot water options, 0 for no limit). It applies to the cheapest window and to ready-by heating, and not to solar surplus, which is free. The heater has been on for that long in total when the limit is reached. Then the scheduled rules stop wanting it and it goes off, with the reason `Scheduled heating stopped: the run reached its longest time`, even if the water has not reached its target. It does not start again for the same window or ready time. It is free to start again when the window closes, the ready time has passed or the water is warm enough. Surplus solar can still keep the heater on. The minutes counted are held in memory, so a restart of Home Assistant starts the count again.
+
 **Hot water ready by.** List the times of day the water has to be at its target in the immersion options, for example 07:00 and 19:00. For the next ready time the integration works out how long the heater has to run, then places those hours in the cheapest bands left before it:
 
-1. The hours needed are the degrees short of the target divided by the heating rate, plus 15%.
+1. The hours needed are the degrees short of the target divided by the heating rate, plus 15%, and never more than the longest run. The closer the water is to the target, the shorter the run. When the longest run is shorter than the hours needed, the heater starts that long before the ready time, and the water is not expected to be ready in full.
 2. The time until the ready time is cut at every rate change. The hours go into the cheapest bands first, and a partly used band is entered late. Where two bands cost the same, the later one fills first, which keeps the day free for solar surplus.
 3. The heater is wanted when the current band is used up. If the hours cannot fit, it runs now and **Immersion Divert Reason** says `too late to be ready in full`.
 

@@ -138,9 +138,11 @@ from .rules import (
     charge_cost,
     decide_ev_charger_action,
     planned_day,
+    scheduled_heating_wanted,
     should_divert_to_immersion,
     usable_slot_loads_kwh,
 )
+from .scheduled_run import HeldScheduledRun, RunStep, advance
 from .seasons import NORTHERN_SEASONS, SeasonRules
 from .setup_progress import SetupItem
 from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
@@ -211,6 +213,9 @@ class RawSensorValues:
     immersion_target_temp: float = 55.0
     immersion_min_temp: float = 50.0
     immersion_hysteresis_c: float = 5.0
+    # The longest a scheduled run lasts, in minutes. 0 is no limit. The coordinator sets it from
+    # the configuration, whose default is 60.
+    immersion_max_run_minutes: int = 0
     # The user's opt-in to heating in the cheapest rate window, set by the coordinator.
     immersion_schedule_enabled: bool = False
     # True when the previous cycle was heating in the cheapest window. The coordinator sets it.
@@ -936,6 +941,7 @@ class PreviousCycle:
     held_sunrise: HeldSunrise = field(default_factory=HeldSunrise)
     held_solar: HeldSolarDay = field(default_factory=HeldSolarDay)
     held_triggers: HeldTriggers = field(default_factory=HeldTriggers)
+    held_scheduled_run: HeldScheduledRun = field(default_factory=HeldScheduledRun)
 
 
 @dataclass(frozen=True)
@@ -1170,8 +1176,14 @@ def _ready_plan(cycle: _Cycle) -> ReadyPlan:
             target=raw.immersion_target_temp,
             rate_c_per_h=raw.immersion_heating_rate_c_per_h,
             heater_on=raw.immersion_on,
+            max_run_hours=_max_run_hours(raw),
         )
     )
+
+
+def _max_run_hours(raw: RawSensorValues) -> float | None:
+    """The longest scheduled run in hours, None when there is no limit."""
+    return raw.immersion_max_run_minutes / 60 if raw.immersion_max_run_minutes > 0 else None
 
 
 def _immersion_inputs(data: CoordinatorData, cycle: _Cycle) -> ImmersionInputs:
@@ -1196,7 +1208,14 @@ def _set_planned_heating(data: CoordinatorData, cycle: _Cycle) -> None:
     water = _water_reading(raw)
     if not raw.immersion_schedule_enabled or water is None:
         return
-    query = PlanQuery(cycle.tariff, cycle.now, raw.immersion_ready_times, water, raw.immersion_on)
+    query = PlanQuery(
+        cycle.tariff,
+        cycle.now,
+        raw.immersion_ready_times,
+        water,
+        raw.immersion_on,
+        _max_run_hours(raw),
+    )
     data.immersion_planned_heating = describe_planned_heating(query)
 
 
@@ -1276,7 +1295,21 @@ def _set_alt_heat_schedule(
     )
 
 
-def _set_immersion_decision(data: CoordinatorData, cycle: _Cycle) -> None:
+def _stop_a_long_run(
+    inputs: ImmersionInputs, cycle: _Cycle, held: HeldScheduledRun
+) -> ImmersionInputs:
+    """The inputs with the run limit applied: count this cycle and mark a run that reached it."""
+    raw = cycle.raw
+    step = RunStep(
+        cycle.now, scheduled_heating_wanted(inputs), raw.immersion_on, raw.immersion_max_run_minutes
+    )
+    advance(held, step)
+    return replace(inputs, run=replace(inputs.run, scheduled_capped=held.capped))
+
+
+def _set_immersion_decision(
+    data: CoordinatorData, cycle: _Cycle, held: HeldScheduledRun
+) -> None:
     """Set immersion divert decision."""
     data.battery_cycle_cost_per_kwh = _battery_cycle_cost(cycle.cfg, cycle.raw.battery_capacity_kwh)
     _set_planned_heating(data, cycle)
@@ -1284,7 +1317,7 @@ def _set_immersion_decision(data: CoordinatorData, cycle: _Cycle) -> None:
         data.should_divert_immersion = cycle.overrides.immersion
         data.divert_reason = "Manual override"
         return
-    inputs = _immersion_inputs(data, cycle)
+    inputs = _stop_a_long_run(_immersion_inputs(data, cycle), cycle, held)
     data.should_divert_immersion, data.divert_reason = should_divert_to_immersion(inputs)
     data.immersion_window_heating = (
         data.should_divert_immersion and inputs.window.open_label is not None
@@ -1819,7 +1852,6 @@ def _set_decisions(
     """The charge target, its day's outlook and the immersion divert, which honour overrides."""
     _set_overnight_charge(data, cycle, avg_daily_kwh, held)
     _set_tomorrow_outlook(data, cycle, avg_daily_kwh)
-    _set_immersion_decision(data, cycle)
     _set_inverter_temperature(data, cycle.raw.inverter_temp)
 
 
@@ -1860,6 +1892,7 @@ def build_coordinator_data(
     )
 
     _set_decisions(data, cycle, avg_daily_kwh, previous.held_charge)
+    _set_immersion_decision(data, cycle, previous.held_scheduled_run)
     _set_water_heating_advice(data, cycle, previous.held_triggers)
     _set_alt_heat_schedule(data, cycle, accumulators.heat_log)
     _set_money_fields(data, cycle, accumulators)

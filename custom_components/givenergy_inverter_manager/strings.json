@@ -182,12 +182,14 @@
           "immersion_switch_entity": "Immersion switch",
           "immersion_temp_sensor_entity": "Hot water temperature sensor (optional)",
           "immersion_wattage_w": "Immersion element power (W)",
+          "immersion_max_run_minutes": "Longest immersion run (minutes)",
           "immersion_ready_times": "Hot water ready-by times"
         },
         "data_description": {
           "immersion_switch_entity": "The switch that turns your immersion heater on and off. Leave it empty if you have none. Changing it reloads the integration.",
           "immersion_temp_sensor_entity": "A sensor reading the temperature of the hot water cylinder. Ready-by times and the temperature controls need it. Changing it reloads the integration.",
           "immersion_wattage_w": "The power of the heating element in watts. It is on the element or in the heater's manual.",
+          "immersion_max_run_minutes": "The longest a scheduled run of the immersion lasts, in minutes. A run stops after this long even if the water has not reached its target, and the plan is sized to it. 0 turns the limit off. Solar surplus heating is not limited.",
           "immersion_ready_times": "Times of day the water has to be hot, as HH:MM, for example 07:00. Up to four a day. They share the one target temperature."
         },
         "sections": {
@@ -488,12 +490,14 @@
           "immersion_switch_entity": "Immersion switch",
           "immersion_temp_sensor_entity": "Hot water temperature sensor (optional)",
           "immersion_wattage_w": "Immersion element power (W)",
+          "immersion_max_run_minutes": "Longest immersion run (minutes)",
           "immersion_ready_times": "Hot water ready-by times"
         },
         "data_description": {
           "immersion_switch_entity": "The switch that turns your immersion heater on and off. Leave it empty if you have none. Changing it reloads the integration.",
           "immersion_temp_sensor_entity": "A sensor reading the temperature of the hot water cylinder. Ready-by times and the temperature controls need it. Changing it reloads the integration.",
           "immersion_wattage_w": "The power of the heating element in watts. It is on the element or in the heater's manual.",
+          "immersion_max_run_minutes": "The longest a scheduled run of the immersion lasts, in minutes. A run stops after this long even if the water has not reached its target, and the plan is sized to it. 0 turns the limit off. Solar surplus heating is not limited.",
           "immersion_ready_times": "Times of day the water has to be hot, as HH:MM, for example 07:00. Up to four a day. They share the one target temperature."
         },
         "sections": {

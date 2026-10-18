@@ -19,7 +19,7 @@ from __future__ import annotations
 import math
 import statistics
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from typing import Any
 
@@ -900,6 +900,9 @@ class ImmersionRun:
     currently_on: bool = False
     unavailable_for_s: float = 0.0
     switch_configured: bool = True
+    # True once a scheduled run has lasted its longest time (core/scheduled_run.py). The
+    # scheduled decisions then step aside, so only solar surplus can keep the heater on.
+    scheduled_capped: bool = False
 
 
 @dataclass(frozen=True)
@@ -1007,6 +1010,8 @@ def _cheap_window_decision(inputs: ImmersionInputs) -> Verdict | None:
     window, water = inputs.window, inputs.water
     if not window.enabled or window.open_label is None or water.temp is None:
         return None
+    if inputs.run.scheduled_capped:
+        return None
     carrying_on = inputs.run.currently_on or window.heating_before
     starts_below = water.target_temp if carrying_on else water.target_temp - water.hysteresis_c
     if water.temp >= starts_below:
@@ -1021,6 +1026,8 @@ def _ready_decision(inputs: ImmersionInputs) -> Verdict | None:
     """Heat now to have the water at its target by the next ready time, or None to defer."""
     plan, water = inputs.ready, inputs.water
     if not plan.heat_now or plan.ready_time is None or water.temp is None:
+        return None
+    if inputs.run.scheduled_capped:
         return None
     late = "" if plan.expected_ready else ", too late to be ready in full"
     return True, (
@@ -1113,6 +1120,19 @@ def _surplus_decision(inputs: ImmersionInputs, readings: _Readings) -> Verdict:
     )
 
 
+def scheduled_heating_wanted(inputs: ImmersionInputs) -> bool:
+    """Whether scheduled heating wants the heater, leaving out a limit that has been reached."""
+    open_run = replace(inputs, run=replace(inputs.run, scheduled_capped=False))
+    return _cheap_window_decision(open_run) is not None or _ready_decision(open_run) is not None
+
+
+def _capped_reason(inputs: ImmersionInputs, verdict: Verdict) -> Verdict:
+    """The reason for an off verdict that is only because a scheduled run reached its limit."""
+    if inputs.run.scheduled_capped and not verdict[0] and scheduled_heating_wanted(inputs):
+        return False, "Scheduled heating stopped: the run reached its longest time"
+    return verdict
+
+
 def should_divert_to_immersion(inputs: ImmersionInputs) -> Verdict:
     """
     Decide whether to turn on the immersion heater.
@@ -1127,6 +1147,8 @@ def should_divert_to_immersion(inputs: ImmersionInputs) -> Verdict:
          target whatever the solar surplus and battery level (see _cheap_window_decision)
       2b. When the ready-by plan wants the heater now, heat to the target (see
          core/immersion_ready.py), also whatever the surplus
+      2c. A scheduled run that has lasted its longest time stops 2a and 2b from wanting the
+         heater (see core/scheduled_run.py). Solar surplus can still keep it on.
       3. If a required input is missing (None solar, house load or battery power,
          or water.temp_unavailable): never start on missing data. If already on,
          hold on while run.unavailable_for_s is below SENSOR_OUTAGE_HOLD_LIMIT_S, then
@@ -1157,8 +1179,8 @@ def should_divert_to_immersion(inputs: ImmersionInputs) -> Verdict:
     readings = _required_readings(inputs.power)
     missing = _missing_inputs(inputs)
     if missing or readings is None:
-        return _missing_input_decision(missing, inputs.run)
-    return _surplus_decision(inputs, readings)
+        return _capped_reason(inputs, _missing_input_decision(missing, inputs.run))
+    return _capped_reason(inputs, _surplus_decision(inputs, readings))
 
 
 # ── Appliance timing suggestion ───────────────────────────────────────────────

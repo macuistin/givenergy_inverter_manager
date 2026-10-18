@@ -42,6 +42,7 @@ from ..const import (
     CONF_FORECAST_ENTITY_P10,
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
+    CONF_IMMERSION_MAX_RUN_MINUTES,
     CONF_IMMERSION_READY_TIMES,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
@@ -333,6 +334,8 @@ def clean_hot_water(values: Mapping[str, Any]) -> dict[str, Any]:
     }
     if CONF_IMMERSION_WATTAGE in values:
         cleaned[CONF_IMMERSION_WATTAGE] = float(values[CONF_IMMERSION_WATTAGE])
+    if CONF_IMMERSION_MAX_RUN_MINUTES in values:
+        cleaned[CONF_IMMERSION_MAX_RUN_MINUTES] = int(values[CONF_IMMERSION_MAX_RUN_MINUTES])
     cleaned.update(_clean_alt_heat(values))
     return cleaned
 
