@@ -37,3 +37,29 @@ def test_each_description_reads_its_own_function_and_is_keyed_for_translation():
     boundary = _data(cheapest=False, run_minutes=45.0)
     assert by_key["cheapest_rate_active"].value_fn(boundary) is False
     assert by_key["cheap_rate_active"].value_fn(boundary) is True
+
+
+class TestThroughTheEngine:
+    """The default tariff has Night 23:00 to 08:00 and a cheaper Nightboost 02:00 to 04:00."""
+
+    @staticmethod
+    def _at(hour: int, minute: int = 0) -> tuple[bool, bool]:
+        from datetime import datetime
+
+        from tests.conftest import _nightboost_cfg, _raw, _run
+
+        data, _ = _run(raw=_raw(), cfg=_nightboost_cfg(), now=datetime(2031, 12, 15, hour, minute))
+        return values.cheapest_rate_active(data), values.cheap_rate_active(data)
+
+    def test_in_the_nightboost_both_are_on(self):
+        assert self._at(3) == (True, True)
+
+    def test_in_the_night_band_after_it_only_the_cheap_one_is_on(self):
+        assert self._at(5) == (False, True)
+
+    def test_at_the_day_rate_both_are_off(self):
+        assert self._at(12) == (False, False)
+
+    def test_the_cheap_one_stays_on_across_the_whole_run_of_cheap_hours(self):
+        assert [self._at(h)[1] for h in (23, 1, 2, 4, 7)] == [True] * 5
+        assert self._at(8)[1] is False
