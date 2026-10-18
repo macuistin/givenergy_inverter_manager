@@ -103,6 +103,7 @@ from .templates import (
     ChargerNow,
     DayTotals,
     WaterNow,
+    alt_heat_banner_template,
     alt_heat_schedule_template,
     currency_symbol,
     ev_story_template,
@@ -241,6 +242,13 @@ def _half_hour_forecast(hass: HomeAssistant, entity: str | None) -> str | None:
     state = hass.states.get(entity)
     attributes = getattr(state, "attributes", None)
     return entity if isinstance(attributes, dict) and "detailedForecast" in attributes else None
+
+
+# (sensor key suffix, tile name, icon) of the two alternative heating triggers.
+_ALT_HEAT_TRIGGER_TILES = (
+    ("ready_by_trigger", "Ready-by start", "mdi:water-boiler-alert"),
+    ("low_water_trigger", "Low water", "mdi:water-thermometer-outline"),
+)
 
 
 @dataclass(frozen=True)
@@ -680,6 +688,32 @@ class Builder:
             **WHOLE_WIDTH,
         )
 
+    def _alt_heat_section(self) -> dict | None:
+        """A banner, shown while either alternative heating trigger says start_now.
+
+        Both triggers are ordinary state conditions joined by an or, so it works on the Home
+        Assistant floor. The device condition keeps it hidden while the advice is not set up.
+        """
+        ready_by = self.alt_heat_advice("water_heating_ready_by_trigger")
+        low_water = self.alt_heat_advice("water_heating_low_water_trigger")
+        if not ready_by or not low_water:
+            return None
+        return group(
+            heading_card("Start the alternative heating", "mdi:water-boiler-alert"),
+            [markdown_card(alt_heat_banner_template(ready_by, low_water))],
+            visibility=[
+                *self.devices.visible_with(Device.ALTERNATIVE_HEAT),
+                {
+                    "condition": "or",
+                    "conditions": [
+                        {"condition": "state", "entity": entity, "state": "start_now"}
+                        for entity in (ready_by, low_water)
+                    ],
+                },
+            ],
+            **WHOLE_WIDTH,
+        )
+
     def _setup_checklist(self) -> dict | None:
         """What is left to set up, shown while Setup Progress says incomplete.
 
@@ -708,6 +742,7 @@ class Builder:
                 self._charge_conflict_section(),
                 self._setup_checklist(),
                 self._repairs_section(),
+                self._alt_heat_section(),
                 self._flow(),
                 self._tonight_and_sources(),
                 self._device_buttons(),
@@ -1245,6 +1280,7 @@ class Builder:
             if source
             else None
         )
+        triggers = self.devices.show_with(self._trigger_tiles(), Device.ALTERNATIVE_HEAT)
         settings = self.devices.variants((Device.IMMERSION_THERMOSTAT,), self._water_settings)
         switch = Device.IMMERSION_SWITCH
         # Settings is for administrators only, so this heading opens nothing.
@@ -1260,9 +1296,18 @@ class Builder:
             ],
         )
         return grid_section(
-            heading_block(heading, [plan, cheapest]),
+            heading_block(heading, [plan, cheapest, triggers]),
             heading_block(in_force, [self.devices.show_with(card, switch) for card in settings]),
             **self._when(Device.IMMERSION_SWITCH),
+        )
+
+    def _trigger_tiles(self) -> dict | None:
+        """The two alternative heating triggers, each a tile that shows idle or start_now."""
+        return tile_grid(
+            [
+                figure_tile(self.alt_heat_advice(f"water_heating_{key}"), name, icon, "orange")
+                for key, name, icon in _ALT_HEAT_TRIGGER_TILES
+            ]
         )
 
     def _water_settings(self, shown: frozenset[Device]) -> dict | None:

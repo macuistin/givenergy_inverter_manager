@@ -245,6 +245,7 @@ class TestPowerFlowTabChanges:
             "Something else is setting your charge target",
             "Finish setting up",
             "Needs your attention",
+            "Start the alternative heating",
             "Energy",
             "Where it came from",
             "Hot water",
@@ -256,7 +257,7 @@ class TestPowerFlowTabChanges:
         pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
         headings = [_heading_of(s) for s in pf_view["sections"]]
         assert "Needs your attention" not in headings
-        assert headings[3] == "Energy"
+        assert headings[4] == "Energy"
 
     def test_live_cost_rate_shown_as_grid_secondary_info(self):
         """Live €/hr cost rate is secondary_info on the grid entity."""
@@ -809,6 +810,8 @@ def _render(content: str, states, attrs=None) -> str:
         .render(
             states=states,
             state_attr=lambda entity, name: attrs.get((entity, name)),
+            # True, so the banner's start_now branches render and are checked for syntax.
+            is_state=lambda entity, state: True,
             has_value=lambda entity: states(entity) not in ("unknown", "unavailable", ""),
             is_number=_is_number,
         )
@@ -1338,13 +1341,13 @@ class TestSectionsLayout:
                 last = section["cards"][-1]
                 assert last["type"] != "heading" or last.get("badges"), view["path"]
 
-    def test_no_stacks_and_the_only_nested_grids_hold_the_device_tiles_of_home_energy(self):
+    def test_no_stacks_and_the_only_nested_grids_hold_device_tiles_on_home_energy_and_hot_water(self):
         for view in self._views():
             for card in view_cards(view):
                 assert card["type"] not in {"vertical-stack", "horizontal-stack"}, card
                 if "cards" not in card:
                     continue
-                assert view["path"] == "power-flow", card
+                assert view["path"] in {"power-flow", "immersion"}, card
                 assert card["type"] == "grid", card
                 assert card["columns"] == 2, card
                 assert {c["type"] for c in card["cards"]} == {"tile"}, card
@@ -1526,6 +1529,7 @@ class TestResponsiveLayout:
             ("power-flow", "Something else is setting your charge target"),
             ("power-flow", "Finish setting up"),
             ("power-flow", "Needs your attention"),
+            ("power-flow", "Start the alternative heating"),
         }
 
     def test_settings_is_five_sections_of_one_column_so_a_laptop_fills_every_column(self):

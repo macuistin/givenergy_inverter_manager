@@ -553,7 +553,12 @@ class TestTheRepairsBanner:
             next(c["heading"] for c in s["cards"] if c["type"] == "heading")
             for s in _view(dashboard, "power-flow")["sections"]
         ]
-        assert headings[2:5] == ["Finish setting up", "Needs your attention", "Energy"]
+        assert headings[2:6] == [
+            "Finish setting up",
+            "Needs your attention",
+            "Start the alternative heating",
+            "Energy",
+        ]
 
     @pytest.mark.parametrize(("count", "shown"), [("0", False), ("2", True), ("unknown", False)])
     def test_it_hides_while_there_is_no_repair(self, count, shown):

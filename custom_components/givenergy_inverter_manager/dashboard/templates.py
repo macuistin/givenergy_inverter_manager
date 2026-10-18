@@ -119,6 +119,40 @@ def alt_heat_schedule_template(source: str) -> str:
     )
 
 
+def alt_heat_banner_template(ready_by: str, low_water: str) -> str:
+    """The banner text: one line for each trigger that says start_now.
+
+    Both lines sit in the same card, so the banner reads right when either or both triggers
+    are on. The label comes from the sensor's alt_label attribute and is lower case inside a
+    sentence unless it is all capitals, as in alt_heat_schedule_template.
+    """
+
+    def line(entity: str, reason: str) -> str:
+        return (
+            f"{{% if is_state('{entity}', 'start_now') %}}"
+            f"{{% set label = state_attr('{entity}', 'alt_label') or '{DEFAULT_ALT_HEAT_LABEL}' %}}"
+            "{% set word = label if label == label | upper else label | lower %}"
+            f"{reason}"
+            "{% set run = state_attr('" + entity + "', 'run_minutes') %}"
+            "{% if run %} A run takes about {{ run }} minutes.{% endif %}\n\n"
+            "{% endif %}"
+        )
+
+    return (
+        line(
+            ready_by,
+            "Start the {{ word }} now to have the water ready on time"
+            "{% set by = state_attr('" + ready_by + "', 'ready_time') %}"
+            "{% if by %} for {{ by }}{% endif %}.",
+        )
+        + line(
+            low_water,
+            "The water is close to its lower limit. Start the {{ word }} now so the immersion "
+            "does not have to.",
+        )
+    )
+
+
 def currency_symbol(cfg: dict) -> str:
     """The symbol of the configured currency, such as € or £."""
     return CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), "€")

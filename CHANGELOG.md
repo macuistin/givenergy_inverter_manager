@@ -6,6 +6,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 **Added**
 - Two triggers for the alternative water heating, so an automation can alert you when it is worth starting. **Water Heating Ready-by Trigger** is `start_now` when the alternative has to start for the next ready time or the immersion does the heating at the rate in force. The water counts as needing heat as soon as it is 1 °C below the target, and the colder it is, the earlier the start. **Water Heating Low Water Trigger** is `start_now` while the water is within 1 °C above the lower boundary and the alternative is cheaper than the grid, so the immersion does not have to restart. Each is `idle` or `start_now`. Neither sends an alert or switches the alternative or the immersion. The attributes `run_minutes`, `saving_per_kwh` and, for the ready-by trigger, `start_by` and `ready_time` say what a run would be. The sensor exists only while Alternative water heating is on with a cost and the immersion switch is set. There is an example automation in [Automations](docs/automations.md#alert-when-the-alternative-heating-is-worth-starting).
+- The dashboard shows the two alternative heating triggers. Home energy gets a **Start the alternative heating** banner below the repairs banner, shown only while either trigger reads `start_now`. The Plan section of the Hot water view gets **Ready-by start** and **Low water** tiles. Both need Alternative water heating. A stored dashboard shows them after you press **Submit** on the out-of-date repair.
 
 ## v0.19.11
 

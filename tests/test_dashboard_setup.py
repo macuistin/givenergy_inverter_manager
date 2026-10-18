@@ -65,6 +65,7 @@ class TestTheChecklistSection:
             "Something else is setting your charge target",
             CHECKLIST,
             "Needs your attention",
+            "Start the alternative heating",
             "Energy",
             "Where it came from",
             "Hot water",
