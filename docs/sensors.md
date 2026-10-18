@@ -99,7 +99,7 @@ Money sensors use the currency symbol you chose in the tariff. A cost, earning, 
 | Immersion Cost Today | `immersion_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the immersion, after the supplier discount and VAT. Created only with an immersion switch. |
 | Import cost at cheap rate | `import_cost_cheap_today` | currency | - | total | day | yes | Import cost while a timed rate period was active. |
 | Import cost at base rate | `import_cost_peak_today` | currency | - | total | day | yes | Import cost while no timed rate period was active, so at the base rate. With no timed rate period set, all import cost. |
-| Immersion solar savings | `immersion_savings_today` | currency | - | total | day | yes | Diverted solar kWh times (current rate minus export rate). Created only with an immersion switch. |
+| Immersion solar savings | `immersion_savings_today` | currency | - | total | day | yes | Diverted solar kWh times (current rate minus export rate). It counts solar only, not what the heater draws from the grid. See Immersion Cost Today for that. Created only with an immersion switch. |
 
 ## Efficiency today
 
@@ -222,7 +222,7 @@ Yesterday's totals, copied from today's accumulator at midnight. They have no st
 | Import cost yesterday | `import_cost_yesterday` | currency | - | none | no | yes | - |
 | Import at cheap rate yesterday | `import_kwh_cheap_yesterday` | kWh | energy | none | no | yes | - |
 | Import at base rate yesterday | `import_kwh_peak_yesterday` | kWh | energy | none | no | yes | - |
-| Immersion savings yesterday | `immersion_savings_yesterday` | currency | - | none | no | yes | Created only with an immersion switch. |
+| Immersion solar savings yesterday | `immersion_savings_yesterday` | currency | - | none | no | yes | Created only with an immersion switch. |
 | Self-sufficiency yesterday | `self_sufficiency_yesterday` | % | - | measurement | no | yes | - |
 | Solar share yesterday | `solar_share_yesterday` | % | - | measurement | no | yes | - |
 
@@ -240,7 +240,7 @@ Resets at midnight on Monday. Reports `last_reset` as the start of the week.
 | Export earnings this week | `export_earnings_this_week` | currency | - | total | week | yes | - |
 | Import at cheap rate this week | `import_kwh_cheap_this_week` | kWh | energy | total | week | yes | - |
 | Import at base rate this week | `import_kwh_peak_this_week` | kWh | energy | total | week | yes | - |
-| Immersion savings this week | `immersion_savings_this_week` | currency | - | total | week | yes | Created only with an immersion switch. |
+| Immersion solar savings this week | `immersion_savings_this_week` | currency | - | total | week | yes | Created only with an immersion switch. |
 | Self-sufficiency this week | `self_sufficiency_this_week` | % | - | measurement | no | yes | - |
 | Solar share this week | `solar_share_this_week` | % | - | measurement | no | yes | - |
 | Cheap rate import fraction this week | `cheap_import_fraction_this_week` | % | - | measurement | no | no | - |
@@ -259,7 +259,7 @@ Resets at midnight on the bill start day chosen at setup. Reports `last_reset` a
 | Export earnings this month | `export_earnings_this_month` | currency | - | total | month | yes | - |
 | Import at cheap rate this month | `import_kwh_cheap_this_month` | kWh | energy | total | month | yes | - |
 | Import at base rate this month | `import_kwh_peak_this_month` | kWh | energy | total | month | yes | - |
-| Immersion savings this month | `immersion_savings_this_month` | currency | - | total | month | yes | Created only with an immersion switch. |
+| Immersion solar savings this month | `immersion_savings_this_month` | currency | - | total | month | yes | Created only with an immersion switch. |
 | Self-sufficiency this month | `self_sufficiency_this_month` | % | - | measurement | no | yes | - |
 | Solar share this month | `solar_share_this_month` | % | - | measurement | no | yes | - |
 | Cheap rate import fraction this month | `cheap_import_fraction_this_month` | % | - | measurement | no | no | - |
@@ -306,7 +306,7 @@ The state is a one-line summary. The `html` attribute holds a styled report for 
 
 ## Renamed sensors
 
-The base rate sensors were renamed because they measure the base rate, the rate that applies while no timed rate period is active. They are not a peak band, and no peak band is configured. The two overnight sensors were renamed because night survival read like an alarm: they tell whether the battery lasts the night. The sunrise estimate was renamed because it leaves tonight's planned charge out, and a second sensor now gives the figure with the charge. In every group the key and the unique ID did not change, so history, statistics and automations carry on. An install made before a rename keeps its old entity IDs, which still contain `peak`, `night_survival` or the plain `estimated_soc_at_sunrise`. A new install builds entity IDs from the new names.
+The base rate sensors were renamed because they measure the base rate, the rate that applies while no timed rate period is active. They are not a peak band, and no peak band is configured. The two overnight sensors were renamed because night survival read like an alarm: they tell whether the battery lasts the night. The sunrise estimate was renamed because it leaves tonight's planned charge out, and a second sensor now gives the figure with the charge. The immersion savings sensors were renamed because they count diverted solar energy only, not what the heater draws from the grid, which the Immersion Cost sensors show. In every group the key and the unique ID did not change, so history, statistics and automations carry on. An install made before a rename keeps its old entity IDs, which still contain `peak`, `night_survival`, `immersion_savings` or the plain `estimated_soc_at_sunrise`. A new install builds entity IDs from the new names.
 
 | Key | Previous name | Name now |
 |---|---|---|
@@ -319,6 +319,9 @@ The base rate sensors were renamed because they measure the base rate, the rate 
 | `night_survival_reason` | Battery Night Survival Status | Battery Overnight Outlook |
 | `night_survival_confidence` | Night Survival Confidence | Battery Overnight Confidence |
 | `estimated_soc_at_sunrise` | Estimated SoC at Sunrise | Estimated SoC at Sunrise Without a Charge |
+| `immersion_savings_yesterday` | Immersion savings yesterday | Immersion solar savings yesterday |
+| `immersion_savings_this_week` | Immersion savings this week | Immersion solar savings this week |
+| `immersion_savings_this_month` | Immersion savings this month | Immersion solar savings this month |
 
 ## Removed sensors
 

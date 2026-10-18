@@ -480,19 +480,19 @@
   "name": "Immersion Heater Today"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_savings_this_month",
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_savings_this_month",
   "key": "immersion_savings_this_month",
-  "name": "Immersion savings this month"
+  "name": "Immersion solar savings this month"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_savings_this_week",
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_savings_this_week",
   "key": "immersion_savings_this_week",
-  "name": "Immersion savings this week"
+  "name": "Immersion solar savings this week"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_savings_yesterday",
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_savings_yesterday",
   "key": "immersion_savings_yesterday",
-  "name": "Immersion savings yesterday"
+  "name": "Immersion solar savings yesterday"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_diverted",

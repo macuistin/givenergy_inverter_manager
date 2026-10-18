@@ -4,6 +4,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+**Changed**
+- The immersion savings sensors for yesterday, this week and this month are now called **Immersion solar savings yesterday**, **Immersion solar savings this week** and **Immersion solar savings this month**, like the one for today. They count the solar energy sent to the heater, priced at the import rate less the export rate, and nothing the heater draws from the grid, so a small figure did not mean a small bill. **Immersion Cost Today** shows what the heater costs. The sensors keep their keys, so history, statistics and automations carry on. An existing install keeps its entity IDs, and a new install builds them from the new names. See [Renamed sensors](docs/sensors.md#renamed-sensors).
+
 **Fixes**
 - The **Estimated Overnight Charge Cost** is now right when the charge window is longer than the cheapest rate period. It priced every kWh at the cheapest rate, so a charge that ran on into the next period, such as a Night rate after a cheaper Nightboost, looked cheaper than it was. The energy after the cheapest period is now priced at the rate in force then. A charge that fits the cheapest period costs the same as before, and so does one where the charge rate is not known.
 
