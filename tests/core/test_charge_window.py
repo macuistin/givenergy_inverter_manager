@@ -16,6 +16,7 @@ from custom_components.givenergy_inverter_manager.core.charge_window import (
     cheap_run_minutes,
     cheap_run_remaining_minutes,
     plan_charge_window,
+    window_charge_cost,
 )
 from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
 
@@ -281,3 +282,32 @@ class TestCheapRunRemaining:
         """The clocks go forward at 01:00 on 28 March 2027, so the night has one hour fewer."""
         now = _at(23, 30, day=27, month=3, year=2027)
         assert cheap_run_remaining_minutes(_night_and_boost(), now) == 7 * 60 + 30
+
+
+class TestWhatTheWindowCosts:
+    """The charge is paid at the rate in force while it runs, not at the cheapest rate throughout."""
+
+    def _cost(self, need: ChargeNeed, tariff=None) -> float | None:
+        tariff = tariff or _night_and_boost()
+        return window_charge_cost(tariff, plan_charge_window(tariff, need), need)
+
+    def test_a_charge_inside_the_cheapest_period_costs_the_cheapest_rate(self):
+        need = _need(soc=60, target=80)
+        assert self._cost(need) == pytest.approx(need.deficit_kwh * 0.0965)
+
+    def test_a_charge_that_runs_past_the_cheapest_period_pays_the_next_rate_for_the_rest(self):
+        # 19 kWh x 70% = 13.3 kWh at 3.6 kW takes 3 h 42 min. The first 2 h are Nightboost.
+        need = _need(soc=20, target=90)
+        at_cheapest = 2 * 3.6 * 0.0965
+        after = (need.deficit_kwh - 2 * 3.6) * 0.1644
+        assert self._cost(need) == pytest.approx(at_cheapest + after)
+
+    def test_it_costs_more_than_pricing_everything_at_the_cheapest_rate(self):
+        need = _need(soc=20, target=90)
+        assert self._cost(need) > need.deficit_kwh * 0.0965
+
+    def test_an_unknown_charge_rate_has_no_split_to_price(self):
+        assert self._cost(_need(soc=20, target=90, power_w=None)) is None
+
+    def test_nothing_to_charge_costs_nothing(self):
+        assert self._cost(_need(soc=80, target=80)) == 0.0

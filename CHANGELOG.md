@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- The **Estimated Overnight Charge Cost** is now right when the charge window is longer than the cheapest rate period. It priced every kWh at the cheapest rate, so a charge that ran on into the next period, such as a Night rate after a cheaper Nightboost, looked cheaper than it was. The energy after the cheapest period is now priced at the rate in force then. A charge that fits the cheapest period costs the same as before, and so does one where the charge rate is not known.
+
 ## v0.19.11
 
 The dashboard strategy loads again, and the integration has a new icon. 0.19.10 made the strategy time out on every fresh page, because its script ran before Home Assistant had set up the registry it looks the dashboard up in.

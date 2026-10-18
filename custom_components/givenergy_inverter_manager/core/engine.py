@@ -111,6 +111,7 @@ from .charge_window import (
     ChargeWindow,
     cheap_run_remaining_minutes,
     plan_charge_window,
+    window_charge_cost,
 )
 from .controller_conflict import ConflictStatus
 from .counter_guard import screen
@@ -1445,6 +1446,21 @@ def _set_overnight_charge(
     data.charge_window = _plan_charge_window(data, cycle)
     held.settle_window(data.charge_window, reading)
     data.published_charge_window = held.window
+    data.charge_decision = _priced_for_window(data.charge_decision, data.charge_window, cycle)
+    data.published_charge_decision = _priced_for_window(
+        data.published_charge_decision, data.published_charge_window, cycle
+    )
+
+
+def _charge_need(decision: ChargeDecision, cycle: _Cycle) -> ChargeNeed:
+    # A skipped night charges nothing, so the window stays the cheapest period.
+    target = decision.current_soc if decision.skip_charge else decision.target_soc
+    return ChargeNeed(
+        soc=decision.current_soc,
+        target_soc=target,
+        capacity_kwh=decision.battery_capacity,
+        charge_power_w=cycle.raw.battery_charge_rate_w,
+    )
 
 
 def _plan_charge_window(data: CoordinatorData, cycle: _Cycle) -> ChargeWindow | None:
@@ -1452,15 +1468,22 @@ def _plan_charge_window(data: CoordinatorData, cycle: _Cycle) -> ChargeWindow | 
     decision = data.charge_decision
     if decision is None or not cycle.tariff.rate_periods:
         return None
-    # A skipped night charges nothing, so the window stays the cheapest period.
-    target = decision.current_soc if decision.skip_charge else decision.target_soc
-    need = ChargeNeed(
-        soc=decision.current_soc,
-        target_soc=target,
-        capacity_kwh=decision.battery_capacity,
-        charge_power_w=cycle.raw.battery_charge_rate_w,
-    )
-    return plan_charge_window(cycle.tariff, need)
+    return plan_charge_window(cycle.tariff, _charge_need(decision, cycle))
+
+
+def _priced_for_window(
+    decision: ChargeDecision | None, window: ChargeWindow | None, cycle: _Cycle
+) -> ChargeDecision | None:
+    """The decision priced at the rate in force while an extended window runs.
+
+    The cheapest rate prices a charge that fits the cheapest period. A longer window pays the
+    next periods' rate for the rest, so its cost is higher. A window that is not extended, or
+    an unknown charge rate, keeps the cost the decision has.
+    """
+    if decision is None or decision.skip_charge or window is None or not window.extended:
+        return decision
+    cost = window_charge_cost(cycle.tariff, window, _charge_need(decision, cycle))
+    return decision if cost is None else replace(decision, cost_to_charge=cost)
 
 
 def _calculate_ev_km(data: CoordinatorData, acc: EnergyAccumulator, cfg: dict[str, Any]) -> None:
