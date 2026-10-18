@@ -399,9 +399,11 @@ class TestReadyTimes:
         freezer.move_to("2026-12-15 18:38:00+00:00")
         await cycle(hass, loaded_entry)
         await cycle(hass, loaded_entry)
-        learned = loaded_entry.runtime_data._acc.immersion_heating_rates
-        assert len(learned) == 1
-        assert learned[0] == pytest.approx(9.0, rel=0.35)
+        days = loaded_entry.runtime_data._acc.immersion_rate_days
+        assert len(days) == 1
+        assert days[0]["date"] == "2026-12-15"
+        assert days[0]["runs"] == 1
+        assert days[0]["total"] / days[0]["runs"] == pytest.approx(9.0, rel=0.35)
 
 
 def _config_without_immersion() -> dict:

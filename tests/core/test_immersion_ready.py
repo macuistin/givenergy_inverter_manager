@@ -203,7 +203,7 @@ class TestLearningFromRuns:
         assert self._run(RunTracker(), 60, 40.0, 9.0) == pytest.approx(9.0, rel=0.02)
 
     def test_a_short_run_is_not_a_sample(self):
-        assert self._run(RunTracker(), IMMERSION_RATE_RUN_MIN_MINUTES - 10, 40.0, 9.0) is None
+        assert self._run(RunTracker(), IMMERSION_RATE_RUN_MIN_MINUTES - 5, 40.0, 9.0) is None
 
     def test_a_run_that_hardly_warmed_the_water_is_not_a_sample(self):
         assert self._run(RunTracker(), 30, 54.0, 1.0) is None

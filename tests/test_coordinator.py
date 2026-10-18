@@ -49,7 +49,10 @@ from custom_components.givenergy_inverter_manager.core.charge_retry import Attem
 from custom_components.givenergy_inverter_manager.core.charge_window import ChargeWindow
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.ev_base_rate import WatchState
-from custom_components.givenergy_inverter_manager.core.immersion_rate import RunTracker
+from custom_components.givenergy_inverter_manager.core.immersion_rate import (
+    RunTracker,
+    keep_day_rate,
+)
 from custom_components.givenergy_inverter_manager.core.scheduled_run import HeldScheduledRun
 from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
@@ -197,9 +200,10 @@ class FakeCoordinator(GivEnergyCoordinator):
                 return self.state.ev_sessions
 
             immersion_heating_rates: list = []  # noqa: RUF012
+            immersion_rate_days: list = []  # noqa: RUF012
 
-            def record_immersion_rate(self, rate):
-                self.immersion_heating_rates.append(rate)
+            def record_immersion_rate(self, rate, day):
+                self.immersion_rate_days = keep_day_rate(self.immersion_rate_days, day, rate)
 
             @property
             def today_forecast_kwh(self):

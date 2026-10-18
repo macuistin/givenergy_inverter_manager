@@ -1220,7 +1220,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         )
         raw.immersion_ready_times = parse_ready_times(cfg.get(CONF_IMMERSION_READY_TIMES))
         raw.immersion_heating_rate_c_per_h, raw.immersion_rate_source = resolve_rate(
-            self._acc.immersion_heating_rates, raw.immersion_wattage_w
+            self._acc.immersion_heating_rates,
+            raw.immersion_wattage_w,
+            self._acc.immersion_rate_days,
         )
         temp_eid = cfg.get(CONF_IMMERSION_TEMP_SENSOR)
         if temp_eid:
@@ -1844,7 +1846,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         rate = self._rate_tracker.observe(now, temp_while_on)
         if rate is not None:
             _LOG.info("Immersion run warmed the water at %.1f°C an hour", rate)
-            self._acc.record_immersion_rate(rate)
+            self._acc.record_immersion_rate(rate, now.date())
 
     def _refresh_ev_charger(self, raw: RawSensorValues) -> None:
         """Update the charger state now that battery_power_w is known."""

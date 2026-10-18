@@ -163,11 +163,17 @@ CONF_IMMERSION_MAX_RUN_MINUTES = "immersion_max_run_minutes"
 # Rate assumed before a run has been measured: a large cylinder, which heats slowly, so the
 # first plans start early rather than late.
 IMMERSION_ASSUMED_TANK_LITRES = 300
-# A run counts as a sample only when it was long and warmed the water enough to measure.
-IMMERSION_RATE_RUN_MIN_MINUTES = 20
-IMMERSION_RATE_RUN_MIN_RISE_C = 2.0
-# The rate used is the median of the last few runs, so one run during a shower does not skew it.
+# A run counts as a sample only when it was long and warmed the water enough to measure. Runs of
+# a top-up size count, because the days they fall on are averaged.
+IMMERSION_RATE_RUN_MIN_MINUTES = 10
+IMMERSION_RATE_RUN_MIN_RISE_C = 1.0
+# Installs from before the daily rates have the median of their last few runs until the first
+# dated run is recorded.
 IMMERSION_RATE_RUNS_KEPT = 5
+# The rate used is the average of the daily rates of the last 7 days. A day's rate is the average
+# of its runs. With one day of data that day is used as it is, so the rate follows the heater
+# as it ages or the cylinder changes, and one odd day cannot dominate.
+IMMERSION_RATE_DAYS_KEPT = 7
 IMMERSION_SWITCH_COOLDOWN_MINUTES = 10  # min between auto on/off writes to the real switch
 # ── Alternative water heating advice (core/alt_heat_advice.py) ────────────────────
 # Some homes also heat the same cylinder another way: an oil or gas boiler, a heat pump or solid
