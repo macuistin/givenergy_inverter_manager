@@ -4,6 +4,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+**Added**
+- Two binary sensors for automations that follow the tariff. **Cheapest Rate Active** is on while the cheapest timed rate period is in force, and **Cheap Rate Active** is on while any period cheaper than the base rate is in force. They give an on or off state, where the Is On Cheapest Rate sensor gives Yes or No text. Both are off on a tariff with no timed rate period. See [Entities](docs/entities.md#binary-sensors).
+
 **Changed**
 - The immersion savings sensors for yesterday, this week and this month are now called **Immersion solar savings yesterday**, **Immersion solar savings this week** and **Immersion solar savings this month**, like the one for today. They count the solar energy sent to the heater, priced at the import rate less the export rate, and nothing the heater draws from the grid, so a small figure did not mean a small bill. **Immersion Cost Today** shows what the heater costs. The sensors keep their keys, so history, statistics and automations carry on. An existing install keeps its entity IDs, and a new install builds them from the new names. See [Renamed sensors](docs/sensors.md#renamed-sensors).
 

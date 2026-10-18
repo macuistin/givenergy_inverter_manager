@@ -659,3 +659,13 @@ def active_repairs_attributes(data: CoordinatorData) -> dict[str, Any]:
         "issues": [issue.as_attribute() for issue in data.active_repairs],
         "summary": repairs_summary(data.active_repairs),
     }
+
+
+def cheapest_rate_active(data: CoordinatorData) -> bool:
+    """True while the cheapest timed rate period is in force."""
+    return data.is_on_cheapest_rate
+
+
+def cheap_rate_active(data: CoordinatorData) -> bool:
+    """True while any period cheaper than the base rate is in force."""
+    return data.cheap_run_remaining_minutes is not None

@@ -1,5 +1,15 @@
 [
  {
+  "entity_id": "binary_sensor.givenergy_inverter_manager_cheap_rate_active",
+  "key": "cheap_rate_active",
+  "name": "Cheap Rate Active"
+ },
+ {
+  "entity_id": "binary_sensor.givenergy_inverter_manager_cheapest_rate_active",
+  "key": "cheapest_rate_active",
+  "name": "Cheapest Rate Active"
+ },
+ {
   "entity_id": "number.givenergy_inverter_manager_cheap_rate_floor_soc",
   "key": "cheap_rate_floor_soc",
   "name": "Cheap rate floor SoC"
@@ -103,6 +113,11 @@
   "entity_id": "sensor.givenergy_inverter_manager_battery_life_consumed_today",
   "key": "battery_life_consumed_today",
   "name": "Battery Life Consumed Today"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_overnight_confidence",
+  "key": "night_survival_confidence",
+  "name": "Battery Overnight Confidence"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_battery_overnight_outlook",
@@ -480,6 +495,16 @@
   "name": "Immersion Heater Today"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_diverted",
+  "key": "immersion_solar_kwh_today",
+  "name": "Immersion solar diverted"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_savings",
+  "key": "immersion_savings_today",
+  "name": "Immersion solar savings"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_savings_this_month",
   "key": "immersion_savings_this_month",
   "name": "Immersion solar savings this month"
@@ -493,16 +518,6 @@
   "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_savings_yesterday",
   "key": "immersion_savings_yesterday",
   "name": "Immersion solar savings yesterday"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_diverted",
-  "key": "immersion_solar_kwh_today",
-  "name": "Immersion solar diverted"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_savings",
-  "key": "immersion_savings_today",
-  "name": "Immersion solar savings"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_immersion_water_temperature",
@@ -658,11 +673,6 @@
   "entity_id": "sensor.givenergy_inverter_manager_next_cheap_rate_start",
   "key": "next_cheap_rate_start",
   "name": "Next Cheap Rate Start"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_battery_overnight_confidence",
-  "key": "night_survival_confidence",
-  "name": "Battery Overnight Confidence"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_on_base_daytime_rate",
