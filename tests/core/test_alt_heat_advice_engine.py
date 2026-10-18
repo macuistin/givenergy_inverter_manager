@@ -11,6 +11,7 @@ from custom_components.givenergy_inverter_manager.core.alt_heat_advice import (
     SOURCE_ELECTRICITY,
     SOURCE_SOLAR,
 )
+from custom_components.givenergy_inverter_manager.core.alt_heat_trigger import HeldTriggers
 from tests.conftest import _raw, _run
 
 CFG = {
@@ -101,9 +102,9 @@ def cycle(hour: int, minute: int = 0, **raw):
 class TestTheOilStart:
     def test_cold_water_and_cheaper_oil_get_a_start_for_the_next_ready_time(self):
         advice = cycle(15, alt_heat_cost_per_kwh=0.20, **READY_AT_19).water_heating_advice
-        assert advice.alt_start.start_by == datetime(2026, 12, 15, 15, 32)
+        assert advice.alt_start.start_by == datetime(2026, 12, 15, 17, 16)
         assert advice.suggestion.startswith(
-            "For the 19:00 ready time: turn the oil water heating on at 15:32 (about 104 minutes)."
+            "For the 19:00 ready time: turn the oil water heating on at 17:16 (about 104 minutes)."
         )
 
     def test_the_immersion_decision_is_the_same_with_and_without_an_oil_price(self):
@@ -213,9 +214,48 @@ class TestTheTriggers:
         assert data.water_heating_low_trigger.state == "idle"
 
     def test_the_ready_by_trigger_fires_at_the_start_for_the_ready_time(self):
-        before = cycle(15, 31, alt_heat_cost_per_kwh=0.20, **READY_AT_19)
-        due = cycle(15, 32, alt_heat_cost_per_kwh=0.20, **READY_AT_19)
+        before = cycle(17, 15, alt_heat_cost_per_kwh=0.20, **READY_AT_19)
+        due = cycle(17, 16, alt_heat_cost_per_kwh=0.20, **READY_AT_19)
 
         assert before.water_heating_ready_trigger.state == "idle"
         assert due.water_heating_ready_trigger.state == "start_now"
         assert due.water_heating_ready_trigger.run_minutes == 104
+
+
+class TestTheTriggersHoldBetweenCycles:
+    """The engine carries what each trigger said, so a trigger that fired holds until warm."""
+
+    COOLING = {
+        "immersion_temp": 51.0,
+        "immersion_heating_rate_c_per_h": 10.0,
+        "immersion_min_temp": 45.0,
+    }
+
+    def _cycle(self, held: HeldTriggers, temp: float):
+        raw = {"solar_power_w": 0.0, "house_load_w": 400.0, "battery_soc": 20.0}
+        raw.update({**self.COOLING, "immersion_temp": temp, "alt_heat_cost_per_kwh": 0.16})
+        data = _run(
+            raw=_raw(**raw), cfg=CFG, now=datetime(2026, 12, 15, 12), held_triggers=held
+        )[0]
+        return data.water_heating_low_trigger.state
+
+    def test_a_low_water_trigger_that_fired_holds_as_the_water_warms_until_the_target(self):
+        held = HeldTriggers()
+        assert [self._cycle(held, t) for t in (51.0, 51.4, 52.5, 54.0, 55.0)] == [
+            "start_now",
+            "start_now",
+            "start_now",
+            "start_now",
+            "idle",
+        ]
+
+    def test_without_the_carried_state_the_same_readings_flip(self):
+        states = [self._cycle(HeldTriggers(), t) for t in (51.0, 51.4)]
+        assert states == ["start_now", "idle"]
+
+    def test_the_held_state_is_cleared_when_the_oil_price_goes(self):
+        held = HeldTriggers()
+        self._cycle(held, 51.0)
+        assert held.low_water.state == "start_now"
+        _run(raw=_raw(immersion_temp=51.0), cfg=CFG, now=datetime(2026, 12, 15, 12), held_triggers=held)
+        assert held.low_water.state == "idle"

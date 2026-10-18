@@ -562,9 +562,10 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "water_heating_ready_by_trigger": (
         "A trigger for the start for a ready time: `idle` or `start_now`. It becomes `start_now` "
-        "when the alternative has to start to lift the water to the target before the immersion "
-        "would have to. The water counts as needing heat as soon as it is 1 °C below the target, "
-        "and the colder it is, the longer the run and the earlier the start. It needs a ready "
+        "at the start for the ready time, the ready time less the run the water needs to reach "
+        "the target. The water counts as needing heat as soon as it is 1 °C below the target, "
+        "and the colder it is, the longer the run and the earlier the start. Once fired it "
+        "holds until the water is at the target or the ready time has passed. It needs a ready "
         "time and the immersion schedule. It sends no alert and never switches anything: build "
         "the alert on a change of state, as in [Automations](automations.md). Attributes: "
         "`alt_label`, and while it is not idle `run_minutes`, `start_by`, `ready_time` and "
@@ -576,9 +577,10 @@ DESCRIPTIONS: dict[str, str] = {
         "the alternative is cheaper than the grid, so a run can lift the water before the "
         "immersion tops it up. The boundary is the lower of the minimum temperature plus the "
         "restart gap, and the target less the restart gap, so raising the minimum temperature "
-        "makes it fire sooner. It stays idle while solar surplus is heating the water. It sends "
-        "no alert and never switches anything. Attributes: `alt_label`, and while it is not idle "
-        "`run_minutes` and `saving_per_kwh`."
+        "makes it fire sooner. It stays idle while solar surplus is heating the water. Once fired "
+        "it holds until the water is at the target, and ends at once if the alternative stops "
+        "being cheaper. It sends no alert and never switches anything. Attributes: `alt_label`, "
+        "and while it is not idle `run_minutes` and `saving_per_kwh`."
     ),
     "water_heating_cheapest_source": (
         "The cheapest way to heat the water now: `electricity`, `solar` or `alternative`. "

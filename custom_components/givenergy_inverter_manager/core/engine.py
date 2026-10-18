@@ -93,7 +93,7 @@ from .alt_heat_schedule import (
     suggest_alt_heat_schedule,
 )
 from .alt_heat_start import WaterReading
-from .alt_heat_trigger import AltHeatTrigger, low_water_trigger, ready_by_trigger
+from .alt_heat_trigger import AltHeatTrigger, HeldTriggers, low_water_trigger, ready_by_trigger
 from .battery import (
     BatteryStats,
     NightClock,
@@ -926,7 +926,7 @@ class ForecastContext:
 class PreviousCycle:
     """State carried over from the previous update.
 
-    battery_stats, held_charge, held_sunrise and held_solar are mutated.
+    battery_stats, held_charge, held_sunrise, held_solar and held_triggers are mutated.
     """
 
     battery_stats: BatteryStats
@@ -935,6 +935,7 @@ class PreviousCycle:
     held_charge: HeldCharge = field(default_factory=HeldCharge)
     held_sunrise: HeldSunrise = field(default_factory=HeldSunrise)
     held_solar: HeldSolarDay = field(default_factory=HeldSolarDay)
+    held_triggers: HeldTriggers = field(default_factory=HeldTriggers)
 
 
 @dataclass(frozen=True)
@@ -1230,10 +1231,13 @@ def _water_reading(raw: RawSensorValues) -> WaterReading | None:
     )
 
 
-def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
+def _set_water_heating_advice(
+    data: CoordinatorData, cycle: _Cycle, held: HeldTriggers
+) -> None:
     """The alternative against electricity for the water. Nothing is worked out without a cost."""
     cost = cycle.raw.alt_heat_cost_per_kwh
     if cost is None:
+        held.ready_by = held.low_water = AltHeatTrigger()
         return
     inputs = AdviceInputs(
         tariff=cycle.tariff,
@@ -1247,8 +1251,10 @@ def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
         scheduled_heating=cycle.raw.immersion_schedule_enabled,
     )
     data.water_heating_advice = advise_water_heating(inputs)
-    data.water_heating_ready_trigger = ready_by_trigger(inputs)
-    data.water_heating_low_trigger = low_water_trigger(data.water_heating_advice, inputs)
+    held.ready_by = data.water_heating_ready_trigger = ready_by_trigger(inputs, held.ready_by)
+    held.low_water = data.water_heating_low_trigger = low_water_trigger(
+        data.water_heating_advice, inputs, held.low_water
+    )
 
 
 def _set_alt_heat_schedule(
@@ -1814,7 +1820,6 @@ def _set_decisions(
     _set_overnight_charge(data, cycle, avg_daily_kwh, held)
     _set_tomorrow_outlook(data, cycle, avg_daily_kwh)
     _set_immersion_decision(data, cycle)
-    _set_water_heating_advice(data, cycle)
     _set_inverter_temperature(data, cycle.raw.inverter_temp)
 
 
@@ -1855,6 +1860,7 @@ def build_coordinator_data(
     )
 
     _set_decisions(data, cycle, avg_daily_kwh, previous.held_charge)
+    _set_water_heating_advice(data, cycle, previous.held_triggers)
     _set_alt_heat_schedule(data, cycle, accumulators.heat_log)
     _set_money_fields(data, cycle, accumulators)
     _calculate_ev_km(data, accumulators.today, inputs.cfg)

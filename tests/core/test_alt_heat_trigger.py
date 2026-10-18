@@ -65,32 +65,36 @@ def inputs(
     )
 
 
-def ready_by(now: datetime, temp: float, **kw) -> AltHeatTrigger:
-    return ready_by_trigger(inputs(now, temp, **kw))
+def ready_by(
+    now: datetime, temp: float, previous: AltHeatTrigger | None = None, **kw
+) -> AltHeatTrigger:
+    return ready_by_trigger(inputs(now, temp, **kw), previous)
 
 
-def low_water(now: datetime, temp: float, **kw) -> AltHeatTrigger:
+def low_water(
+    now: datetime, temp: float, previous: AltHeatTrigger | None = None, **kw
+) -> AltHeatTrigger:
     given = inputs(now, temp, **kw)
-    return low_water_trigger(advise_water_heating(given), given)
+    return low_water_trigger(advise_water_heating(given), given, previous)
 
 
 class TestTheReadyByTrigger:
     def test_it_fires_at_the_start_time_and_not_before(self):
-        # Oil has to start at 15:32 to finish before the immersion would start at 17:16.
+        # A 104 minute run to be ready at 19:00 has to start at 17:16, just in time.
         assert ready_by(at(15, 0), 40.0).state == STATE_IDLE
-        assert ready_by(at(15, 31), 40.0).state == STATE_IDLE
+        assert ready_by(at(17, 15), 40.0).state == STATE_IDLE
 
-        due = ready_by(at(15, 32), 40.0)
+        due = ready_by(at(17, 16), 40.0)
 
         assert due.state == STATE_START_NOW
-        assert due.start_by == at(15, 32)
+        assert due.start_by == at(17, 16)
         assert due.ready_at == at(19, 0)
         assert due.run_minutes == 104
         assert due.saving_per_kwh == pytest.approx(0.10)
 
     @pytest.mark.parametrize(
         ("temp", "run", "start"),
-        [(30.0, 173, at(13, 14)), (40.0, 104, at(15, 32)), (48.0, 49, at(17, 22))],
+        [(30.0, 173, at(16, 7)), (40.0, 104, at(17, 16)), (48.0, 49, at(18, 11))],
     )
     def test_the_colder_the_water_the_longer_the_run_and_the_earlier_the_start(
         self, temp, run, start
@@ -102,10 +106,10 @@ class TestTheReadyByTrigger:
 
     def test_water_one_degree_below_the_target_gets_a_start_not_idle(self):
         # Above the immersion's restart threshold of 50, so the plan alone would do nothing. A
-        # one degree lift is a 7 minute run, so the start is late and close to the ready time.
-        assert ready_by(at(18, 45), 54.0).state == STATE_IDLE
+        # one degree lift is a 7 minute run, so the start is close to the ready time.
+        assert ready_by(at(18, 52), 54.0).state == STATE_IDLE
 
-        result = ready_by(at(18, 46), 54.0)
+        result = ready_by(at(18, 53), 54.0)
 
         assert result.state == STATE_START_NOW
         assert result.run_minutes == 7
@@ -188,6 +192,69 @@ class TestTheLowWaterTrigger:
         assert low_water_trigger(None, given) == AltHeatTrigger()
         no_water = AdviceInputs(tariff=TARIFF, now=at(13, 0), alt_cost_per_kwh=0.20)
         assert low_water_trigger(advise_water_heating(no_water), no_water) == AltHeatTrigger()
+
+
+class TestTheReadyByHold:
+    """Once fired, the trigger holds until the water is at the target, so a reading that
+    hovers at the margin does not flip the state."""
+
+    FIRED = AltHeatTrigger(STATE_START_NOW, 7, at(18, 53), at(19, 0), 0.10)
+
+    def test_water_that_warms_past_the_margin_keeps_the_trigger_on(self):
+        # 54.5 is less than a degree below the target, which alone is idle.
+        assert ready_by(at(18, 55), 54.5).state == STATE_IDLE
+        assert ready_by(at(18, 55), 54.5, self.FIRED).state == STATE_START_NOW
+
+    def test_a_reading_that_hovers_at_the_margin_does_not_flip_it(self):
+        state = None
+        seen = []
+        for temp in (54.0, 54.2, 53.9, 54.3, 54.0):
+            state = ready_by(at(18, 55), temp, state)
+            seen.append(state.state)
+        assert seen == [STATE_START_NOW] * 5
+
+    def test_it_holds_after_the_run_shrinks_and_the_start_moves_later(self):
+        # At 48 degrees the run is 49 minutes and the start 18:11. At 52 the run is shorter and
+        # the start later, which has not come, but the trigger fired and holds.
+        fired = ready_by(at(18, 11), 48.0)
+        assert fired.state == STATE_START_NOW
+        assert ready_by(at(18, 20), 52.0).state == STATE_IDLE
+        assert ready_by(at(18, 20), 52.0, fired).state == STATE_START_NOW
+
+    def test_it_ends_when_the_water_reaches_the_target(self):
+        assert ready_by(at(18, 58), 55.0, self.FIRED).state == STATE_IDLE
+
+    def test_it_ends_when_the_alternative_stops_being_cheaper(self):
+        assert ready_by(at(18, 55), 54.5, self.FIRED, alt=0.35).state == STATE_IDLE
+
+    def test_it_does_not_carry_over_to_the_next_ready_time(self):
+        # After 19:00 the next ready time is tomorrow's, so last night's hold does not apply.
+        assert ready_by(at(19, 5), 54.5, self.FIRED).state == STATE_IDLE
+
+
+class TestTheLowWaterHold:
+    FIRED = AltHeatTrigger(STATE_START_NOW, 30, None, None, 0.10)
+
+    def test_water_that_warms_past_the_margin_keeps_the_trigger_on(self):
+        assert low_water(at(13, 0), 51.5, ready=()).state == STATE_IDLE
+        assert low_water(at(13, 0), 51.5, self.FIRED, ready=()).state == STATE_START_NOW
+
+    def test_a_reading_that_hovers_at_the_margin_does_not_flip_it(self):
+        state = None
+        seen = []
+        for temp in (51.0, 51.2, 50.9, 51.3, 51.0):
+            state = low_water(at(13, 0), temp, state, ready=())
+            seen.append(state.state)
+        assert seen == [STATE_START_NOW] * 5
+
+    def test_it_ends_when_the_water_reaches_the_target(self):
+        assert low_water(at(13, 0), 55.0, self.FIRED, ready=()).state == STATE_IDLE
+
+    def test_it_ends_when_the_alternative_stops_being_cheaper(self):
+        assert low_water(at(13, 0), 52.0, self.FIRED, alt=0.35, ready=()).state == STATE_IDLE
+
+    def test_it_ends_when_solar_surplus_is_heating_the_water(self):
+        assert low_water(at(13, 0), 52.0, self.FIRED, solar=True, ready=()).state == STATE_IDLE
 
 
 def test_the_states_are_the_two_the_sensors_offer():

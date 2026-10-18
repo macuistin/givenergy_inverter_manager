@@ -42,6 +42,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_TARGET_SOC_ENTITY,
 )
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
+from custom_components.givenergy_inverter_manager.core.alt_heat_trigger import HeldTriggers
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.charge_retry import Attempt
@@ -149,6 +150,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._held_charge = HeldCharge()
         self._held_sunrise = HeldSunrise()
         self._held_solar = HeldSolarDay()
+        self._held_triggers = HeldTriggers()
         self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""
         self._unsub_charge_target = None

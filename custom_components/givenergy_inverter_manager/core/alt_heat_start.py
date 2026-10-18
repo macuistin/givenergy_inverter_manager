@@ -4,14 +4,13 @@ alt_heat_start.py: when to start the alternative heating so it does the work, no
 Two pieces of advice, both from the water temperature, the immersion's own heating rate and the
 margin the ready-by plan uses:
 
-  * A start time for a ready time. The immersion plan (immersion_ready.py) is the backstop: it
-    places its grid hours as late as possible, so it starts when the water would otherwise miss
-    the ready time. This module finds that start, and puts the alternative's run before it. If
-    the alternative has run, the water is at the target when the immersion would have started and
-    the immersion does nothing. If it was not switched on, the immersion still gets the water
-    ready. The alternative is only suggested when a kWh of heat from it costs less than the
-    immersion plan pays per kWh (the hours-weighted grid rate of the bands it uses, or the export
-    rate when solar surplus is cheaper still).
+  * A start time for a ready time. The start is just in time: the ready time less the run the
+    water needs to reach the target, so the water is ready when it is wanted and the colder it is
+    the earlier the run starts. The immersion plan (immersion_ready.py) is the backstop. It
+    places its grid hours as late as possible, so if the alternative was not switched on, the
+    immersion still gets the water ready. The alternative is only suggested when a kWh of heat
+    from it costs less than the immersion plan pays per kWh (the hours-weighted grid rate of the
+    bands it uses, or the export rate when solar surplus is cheaper still).
   * A keep-warm run. When the water has cooled to the lower of the minimum temperature plus the
     restart gap and the target less the restart gap, and the alternative is cheaper than the grid
     now, a short run lifts it to the target, so the water does not fall to where the immersion
@@ -96,6 +95,9 @@ class StartQuery:
     # When set, the water needs heating as soon as it is this many degrees below the target,
     # instead of at the restart threshold. The ready-by trigger sets it.
     lift_below_target_c: float | None = None
+    # True while a trigger that has fired is held: any water below the target still needs the
+    # run, however near, so the cost check carries on until the water is warm.
+    holding: bool = False
 
 
 @dataclass(frozen=True)
@@ -120,6 +122,8 @@ class AltHeatStart:
 def _start_needed(query: StartQuery) -> bool:
     """Whether the water needs a run for a ready time, by the restart threshold or the margin."""
     water = query.water
+    if query.holding:
+        return water.temp < water.target and water.hours_to_target > 0
     if query.lift_below_target_c is None:
         return water.needs_heating
     long_enough = water.hours_to_target * _MINUTES_PER_HOUR >= _RUN_ROUND_MINUTES
@@ -147,7 +151,7 @@ def suggest_alt_heat_start(query: StartQuery, ready_at: datetime) -> AltHeatStar
     run_minutes = _whole_minutes(needed)
     if saving <= 0:
         return AltHeatStart(ready_at, electric, by_solar, saving, run_minutes, None, False)
-    latest = shift_real(placed.starts_at, -timedelta(minutes=run_minutes))
+    latest = shift_real(ready_at, -timedelta(minutes=run_minutes))
     late = elapsed_seconds(query.now, latest) < 0
     start = _to_the_minute(query.now if late else latest)
     return AltHeatStart(ready_at, electric, by_solar, saving, run_minutes, start, late)

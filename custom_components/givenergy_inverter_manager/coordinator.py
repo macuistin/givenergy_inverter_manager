@@ -111,6 +111,7 @@ from .const import (
 )
 from .core.alt_heat_cost import heat_cost_per_kwh
 from .core.alt_heat_label import clean_label
+from .core.alt_heat_trigger import HeldTriggers
 from .core.battery import BatteryStats, battery_cost_prompt_due
 from .core.bill_audit import (
     RunningPeriod,
@@ -363,7 +364,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._battery_stats = BatteryStats()
         self._held_charge = HeldCharge()
         self._held_sunrise = HeldSunrise()
-        self._held_solar = HeldSolarDay()
+        self._held_solar, self._held_triggers = HeldSolarDay(), HeldTriggers()
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
         self._update_cycle: int = 0
@@ -1539,6 +1540,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 held_charge=self._held_charge,
                 held_sunrise=self._held_sunrise,
                 held_solar=self._held_solar,
+                held_triggers=self._held_triggers,
             ),
             ForecastContext(
                 solar_fractions=self._solar_fractions,
