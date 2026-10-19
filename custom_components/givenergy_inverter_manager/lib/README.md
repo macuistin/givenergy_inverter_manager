@@ -24,3 +24,4 @@ inside that folder until it is published somewhere installable.
 | --- | --- | --- |
 | `timeutil` | Elapsed-time maths that stays correct across a clock change | none |
 | `ev` | Multi-brand EV charger model, discovery, sessions and the base-rate alert | `timeutil` |
+| `tariff` | Tariff model, energy and cost accumulation, bill maths, stored-energy value | `timeutil` |
