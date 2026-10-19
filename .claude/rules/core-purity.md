@@ -13,7 +13,7 @@ paths:
 - `core/` holds decisions, tariff and accumulation maths, and the text of reports. It imports the
   standard library and the package's `const`, `discovery` and `logging` modules. It never imports
   `homeassistant`, and it never imports `inverter/` at run time. A type-only import under
-  `TYPE_CHECKING` is allowed, and `core/inverter_values.py` holds the values a backend exchanges.
+  `TYPE_CHECKING` is allowed, and `lib/givtcp/values.py` holds the values a backend exchanges.
   `test_core_package_does_not_import_home_assistant` and
   `test_core_package_does_not_import_the_inverter_package_at_run_time` in `tests/test_metadata.py`
   fail the build if it does.

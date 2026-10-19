@@ -335,7 +335,7 @@ def test_core_package_does_not_import_the_inverter_package_at_run_time():
 
 # The lib/ packages each package may import besides itself. A new package is added here in the
 # PR that creates it, so its dependencies are reviewed.
-ALLOWED = {"timeutil": set(), "ev": {"timeutil"}, "tariff": {"timeutil"}, "heating": {"timeutil", "tariff"}, "guards": {"timeutil", "tariff"}}
+ALLOWED = {"timeutil": set(), "ev": {"timeutil"}, "tariff": {"timeutil"}, "heating": {"timeutil", "tariff"}, "guards": {"timeutil", "tariff"}, "givtcp": set()}
 
 
 def _lib_import_offenders(root):

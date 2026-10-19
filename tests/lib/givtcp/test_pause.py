@@ -10,7 +10,7 @@ from datetime import time
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.battery_pause import (
+from custom_components.givenergy_inverter_manager.lib.givtcp.pause import (
     SLOTS_PER_DAY,
     PauseWindow,
     with_note,

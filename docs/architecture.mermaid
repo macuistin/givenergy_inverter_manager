@@ -26,7 +26,7 @@ graph TD
         REP["core/reporting.py\nHTML report builders"]
         TIME["core/timeutil.py\nelapsed_seconds()\nreal_time_after()"]
         DISC_EV["discovery/ev_charger.py\nEVCharger · EVChargerBrand\ndiscover_ev_chargers()\nupdate_charger_state()"]
-        INV["inverter/backend.py\nInverterBackend interface\ncore/inverter_values.py\nInverterValues · ChargePlan · FeedStatus"]
+        INV["inverter/backend.py\nInverterBackend interface\nlib/givtcp/values.py\nInverterValues · ChargePlan · FeedStatus"]
         DISC_GTC["inverter/givtcp/discovery.py\nGivTCPInverter\ndiscover_givtcp_inverters()\nget_suggested_entities()"]
         CONST["const.py\nConfig keys · Defaults\nAlgorithm parameters (CHARGE_*, SOLAR_*, BATTERY_*)\nCurrencies · Thresholds"]
         OPT["core/optimizer.py\n(backward-compat shim\n→ re-exports from rules.py)"]

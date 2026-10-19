@@ -8,7 +8,8 @@ from datetime import time
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.inverter_values import (
+from custom_components.givenergy_inverter_manager.inverter.backend import InverterBackend
+from custom_components.givenergy_inverter_manager.lib.givtcp.values import (
     ChargePlan,
     FeedState,
     FeedStatus,
@@ -17,7 +18,6 @@ from custom_components.givenergy_inverter_manager.core.inverter_values import (
     RateDefaults,
     WriteResult,
 )
-from custom_components.givenergy_inverter_manager.inverter.backend import InverterBackend
 from tests.fakes.fake_inverter import FakeInverter, FakeSlot
 
 _PLAN = ChargePlan(target_soc=80, window_start=time(0, 30), window_end=time(4, 30),

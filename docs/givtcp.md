@@ -24,7 +24,7 @@ GivTCP lets the user change the entity prefix for each inverter (`HADEVICEPREFIX
 
 1. **Find the devices.** A device is a prefix that has a `sensor.<prefix>_invertor_serial_number`. A device with no serial sensor, as a Gateway or an EMS may be, is also found when it publishes `_givtcp_version` and a state of charge, a Gateway value or an EMS value.
 2. **Give each device its entities.** An entity belongs to the longest prefix that matches, so a battery module or a meter (which carry their own serial) does not count as part of the inverter.
-3. **Classify the kind.** First by entities only one kind has, then by the text in `sensor.<prefix>_invertor_type` (`core/system_types.py`). Each kind comes with the evidence used and a confidence.
+3. **Classify the kind.** First by entities only one kind has, then by the text in `sensor.<prefix>_invertor_type` (`lib/givtcp/system.py`). Each kind comes with the evidence used and a confidence.
 4. **Choose which device to manage** (`select_controller`). One device is managed. A Gateway over two or more All-In-Ones is managed instead of the units. A Gateway with one All-In-One gives way to the All-In-One. Two or more other inverters are never added together: the user is asked. Units behind a Gateway are read only.
 5. **Count the battery modules.** A battery module is a `_battery_serial_number` sensor that reads a real serial. A slot that answers with zeros is not a module.
 6. **Find the device prefix later.** The prefix is read back from the entities the wiring already names (`device_prefix`). It is trusted when it carries the inverter's serial or two wired entities agree on it. Otherwise it is `givtcp_` and the serial.
@@ -149,7 +149,7 @@ Changes that would help us, none sent:
 | Topic | Code |
 | --- | --- |
 | Finding the inverter, its prefix and its entities | `inverter/givtcp/discovery.py`, `core/entity_refs.py` |
-| Classifying the system and choosing the controller | `core/system_types.py`, `core/system_text.py` |
+| Classifying the system and choosing the controller | `lib/givtcp/system.py`, `core/system_text.py` |
 | Reading | `inverter/givtcp/reader.py` |
 | Writing, the order and the read-back | `inverter/givtcp/writer.py`, `inverter/givtcp/sequence.py`, `inverter/givtcp/adapter.py` |
 | Version and Real Time Control repairs | `core/givtcp_version.py`, `core/real_time_control.py`, `repairs.py` |

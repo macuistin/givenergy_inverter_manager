@@ -27,3 +27,4 @@ inside that folder until it is published somewhere installable.
 | `tariff` | Tariff model, energy and cost accumulation, bill maths, stored-energy value | `timeutil` |
 | `heating` | Hot-water heating planner: ready-by plans, the cheapest window, the learned heating rate | `timeutil`, `tariff` |
 | `guards` | Screening of inverter energy counters, and the frozen-feed check | `timeutil`, `tariff` |
+| `givtcp` | GivTCP value types, system model and discharge pause window | none |
