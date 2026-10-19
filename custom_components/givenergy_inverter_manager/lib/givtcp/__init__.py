@@ -1,5 +1,6 @@
 """GivTCP: value types, the system model, discovery, reads, verified writes and write order."""
 
+from ._entity import EntityState, GetState
 from .adapter import (
     GivTCPBackend,
     GivTCPPorts,
@@ -144,7 +145,6 @@ from .writer import (
     CallService,
     ConfirmationListener,
     CountListener,
-    GetState,
     GivTCPWriter,
     SwitchState,
     VerifiedWrite,
@@ -198,6 +198,7 @@ __all__ = [
     "GIVTCP_SHIPPED_RATES",
     "GIVTCP_WRITE_LIFETIME_WARN",
     "GIVTCP_WRITE_RETRY_SLEEP_S",
+    "EntityState",
     "GetState",
     "GivTCPBackend",
     "GivTCPInverter",

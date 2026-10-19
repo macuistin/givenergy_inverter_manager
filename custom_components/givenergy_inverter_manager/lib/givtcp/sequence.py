@@ -16,6 +16,7 @@ from collections.abc import Mapping
 from datetime import time
 from typing import Any
 
+from ._entity import GetState
 from .defaults import GIVTCP_MAX_CHARGE_TARGET_PCT, GIVTCP_MIN_CHARGE_TARGET_PCT
 from .discovery import UNUSED_SLOT_TIME, ActiveChargeSlot
 from .keys import (
@@ -177,7 +178,7 @@ async def apply_charge_window(
 
 
 async def apply_floor_target(
-    writer: GivTCPWriter, cfg: Mapping[str, Any], soc: int, get_state
+    writer: GivTCPWriter, cfg: Mapping[str, Any], soc: int, get_state: GetState
 ) -> WriteResult:
     """Write SoC target and enable charge target switch for cheap rate floor top-up.
 

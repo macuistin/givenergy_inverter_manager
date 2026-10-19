@@ -14,6 +14,7 @@ from datetime import datetime, time
 from typing import Any
 
 from . import controls, schedules, sequence
+from ._entity import GetState
 from .controls import BatteryPause
 from .discovery import (
     GIVTCP_PREFIX,
@@ -41,7 +42,7 @@ from .values import (
     RateDefaults,
     WriteResult,
 )
-from .writer import CallService, CountListener, GetState, GivTCPWriter, WriteObserver
+from .writer import CallService, CountListener, GivTCPWriter, WriteObserver
 
 
 @dataclass(frozen=True)

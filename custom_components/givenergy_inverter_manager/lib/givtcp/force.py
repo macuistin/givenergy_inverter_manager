@@ -23,9 +23,10 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Any
 
-from .controls import _attribute_limit, _options, _squash, _usable, control_entity
+from ._entity import GetState, attribute_limit, listed_options, squash, usable
+from .controls import control_entity
 from .status import WriteStatus
-from .writer import GetState, GivTCPWriter
+from .writer import GivTCPWriter
 
 _DURATION = re.compile(r"^\s*(?P<amount>\d+(?:\.\d+)?)\s*(?P<unit>[a-z]*)")
 _CANCEL = frozenset({"cancel", "stop", "normal", "off", "none", "disabled"})
@@ -64,7 +65,7 @@ class GivTCPForce:
     def read_remaining(self, cfg: Mapping[str, Any], force: Force) -> str | None:
         """The select's current option, None when it is not published or unusable."""
         select, _ = self._entities(cfg, force)
-        return _usable(self._get_state(select)) if select else None
+        return usable(self._get_state(select)) if select else None
 
     async def start(self, cfg: Mapping[str, Any], force: Force, minutes: int) -> WriteStatus:
         """Force for at most *minutes*. False when no entity can hold a request that short.
@@ -88,16 +89,16 @@ class GivTCPForce:
         state = self._get_state(number)
         if state is None:
             return False
-        limit = _attribute_limit(state, "max")
+        limit = attribute_limit(state, "max")
         return limit is None or minutes <= limit
 
     async def cancel(self, cfg: Mapping[str, Any], force: Force) -> WriteStatus:
         """End a running force. GivTCP restores the schedule it saved when it started."""
         select, number = self._entities(cfg, force)
         state = self._get_state(select) if select else None
-        options = _options(state)
+        options = listed_options(state)
         if select and options:
-            option = next((o for o in options if _squash(o) in _CANCEL), None)
+            option = next((o for o in options if squash(o) in _CANCEL), None)
             if option is not None:
                 return await self._writer.set_select(select, option, f"cancel {force.value}")
         if number and self._get_state(number) is not None:
@@ -106,5 +107,5 @@ class GivTCPForce:
 
     def _presets(self, select: str | None) -> list[tuple[int, str]]:
         """The (minutes, option) pairs the select offers, leaving out 'Normal' and the like."""
-        options = _options(self._get_state(select)) if select else None
+        options = listed_options(self._get_state(select)) if select else None
         return [(m, o) for o in options or [] if (m := option_minutes(o)) is not None and m > 0]

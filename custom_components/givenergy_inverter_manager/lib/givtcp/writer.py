@@ -39,6 +39,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Protocol
 
+from ._entity import EntityState, GetState
 from .defaults import (
     GIVTCP_MAX_WRITE_RETRIES,
     GIVTCP_MIN_WRITE_INTERVAL_S,
@@ -53,7 +54,6 @@ from .values import WriteRecord
 
 _LOG = logging.getLogger(__name__)
 
-GetState = Callable[[str], Any]
 CallService = Callable[[str, str, dict[str, Any]], Awaitable[None]]
 CountListener = Callable[[int], None]
 
@@ -132,7 +132,7 @@ class VerifiedWrite:
     shown: object
     name: str
     step: int
-    matches: Callable[[Any], bool]
+    matches: Callable[[EntityState | None], bool]
     fail_if_missing: bool = False
 
     @property
@@ -144,7 +144,7 @@ class VerifiedWrite:
         return (self.entity_id, self.value)
 
 
-def state_as_int(state: Any) -> int | None:
+def state_as_int(state: EntityState | None) -> int | None:
     """Return a state object's value as an int, or None if absent or not numeric."""
     try:
         return int(float(state.state)) if state else None
@@ -152,7 +152,7 @@ def state_as_int(state: Any) -> int | None:
         return None
 
 
-def _shown_state(state: Any) -> object:
+def _shown_state(state: EntityState | None) -> object:
     """The state to print in a log line, 'unknown' for a missing entity."""
     return state.state if state else "unknown"
 
@@ -160,7 +160,7 @@ def _shown_state(state: Any) -> object:
 def _switch_write(entity_id: str, wanted: SwitchState, name: str, step: int) -> VerifiedWrite:
     wants_on = wanted is SwitchState.ON
 
-    def is_wanted(state: Any) -> bool:
+    def is_wanted(state: EntityState | None) -> bool:
         # A missing or unavailable switch reads as off.
         return (state is not None and state.state == "on") == wants_on
 

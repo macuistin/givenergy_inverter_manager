@@ -12,10 +12,11 @@ from the inverter serial in the config.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Any
+from typing import Any, TypedDict
 
+from ._entity import EntityState, GetState
 from .defaults import GIVTCP_FROZEN_AFTER_S, GIVTCP_SHIPPED_RATES
 from .discovery import (
     GIVTCP_PREFIX,
@@ -39,7 +40,21 @@ from .values import FeedState, FeedStatus, InverterValues, RateDefaults
 
 _LOG = logging.getLogger(__name__)
 
-GetState = Callable[[str], Any]
+
+class _DailyCounters(TypedDict, total=False):
+    solar_energy_today_kwh: float | None
+    import_energy_today_kwh: float | None
+    export_energy_today_kwh: float | None
+    charge_energy_today_kwh: float | None
+    discharge_energy_today_kwh: float | None
+    load_energy_today_kwh: float | None
+    ac_charge_energy_today_kwh: float | None
+
+
+class _Pauses(TypedDict):
+    battery_pause: PauseWindow | None
+    charge_pause: PauseWindow | None
+
 
 # The entities read every cycle that GivTCP keeps publishing. The feed is frozen only when none
 # of them has reported lately, so one that GivTCP publishes less often cannot trip it alone.
@@ -54,7 +69,7 @@ _UNREADABLE = ("unavailable", "unknown", "")
 PAUSED_STATUS = "paused"
 
 
-def _is_stale(state) -> bool:
+def _is_stale(state: EntityState | None) -> bool:
     """True when an entity is missing or reports unavailable or unknown."""
     return state is None or state.state in ("unavailable", "unknown")
 
@@ -69,25 +84,8 @@ class GivTCPReader:
 
     # ── Typed state reads ─────────────────────────────────────────────────────
 
-    def _state(self, entity_id: str | None):
+    def _state(self, entity_id: str | None) -> EntityState | None:
         return self._get_state(entity_id) if entity_id else None
-
-    def _float(self, entity_id: str | None, default: float = 0.0) -> float:
-        """Read a numeric entity state safely, returning default if unavailable."""
-        if not entity_id:
-            return default
-        state = self._get_state(entity_id)
-        if state is None:
-            _LOG.debug("Entity %s not found in HA state machine", entity_id)
-            return default
-        if state.state in _UNREADABLE:
-            _LOG.debug("Entity %s is %s", entity_id, state.state or "empty")
-            return default
-        try:
-            return float(state.state)
-        except (ValueError, TypeError):
-            _LOG.warning("Entity %s has non-numeric state %r", entity_id, state.state)
-            return default
 
     def _optional_float(self, entity_id: str | None) -> float | None:
         """Read a float state, returning None if entity missing, unavailable, or unknown."""
@@ -130,7 +128,8 @@ class GivTCPReader:
         )
         # GivTCP v3 uses positive=export, negative=import.
         # Negate to match internal convention (positive=import, negative=export).
-        grid_power = -self._float(cfg.get(KEY_GRID_POWER))
+        # Subtracting from 0.0 keeps a reading of 0 from becoming -0.0.
+        grid_power = 0.0 - self._tracked(cfg.get(KEY_GRID_POWER), "grid_power", unavailable)
         house_load = self._tracked(cfg.get(KEY_HOUSE_LOAD), "house_load", unavailable)
         return InverterValues(
             solar_power_w=solar,
@@ -167,7 +166,7 @@ class GivTCPReader:
         readable = [v for v in values if v is not None and v > 0]
         return max(readable) if readable else None
 
-    def _daily_counters(self, cfg: Mapping[str, Any]) -> dict[str, float | None]:
+    def _daily_counters(self, cfg: Mapping[str, Any]) -> _DailyCounters:
         """GivTCP daily energy counters, present on GivTCP v2.1+ and v3.
 
         Entity IDs are derived from the inverter serial stored in config. A missing or
@@ -175,7 +174,7 @@ class GivTCPReader:
         """
         prefix = device_prefix(cfg)
         if not prefix:
-            return {}
+            return _DailyCounters()
         pfx = f"sensor.{prefix}"
         return {
             "solar_energy_today_kwh": self._optional_float(f"{pfx}_pv_energy_today_kwh"),
@@ -229,14 +228,14 @@ class GivTCPReader:
                 return str(state.state)
         return None
 
-    def _battery_pauses(self, cfg: Mapping[str, Any]) -> dict[str, PauseWindow | None]:
+    def _battery_pauses(self, cfg: Mapping[str, Any]) -> _Pauses:
         """The windows in which GivTCP stops the battery discharging and charging.
 
         The entities are found from the device prefix on every read, so a pause set up after
         this integration was added is picked up on the next cycle. A device without them, or with
         them unavailable, has no pause. Reads only.
         """
-        none: dict[str, PauseWindow | None] = {"battery_pause": None, "charge_pause": None}
+        none = _Pauses(battery_pause=None, charge_pause=None)
         prefix = device_prefix(cfg)
         if not prefix:
             return none
@@ -245,10 +244,10 @@ class GivTCPReader:
         if mode is not None and pauses_discharge(mode) is None:
             self._note_unreadable_pause_mode(mode)
         start, end = self._text(*entities.start), self._text(*entities.end)
-        return {
-            "battery_pause": pause_window(mode, start, end),
-            "charge_pause": charge_pause_window(mode, start, end),
-        }
+        return _Pauses(
+            battery_pause=pause_window(mode, start, end),
+            charge_pause=charge_pause_window(mode, start, end),
+        )
 
     def _note_unreadable_pause_mode(self, mode: str) -> None:
         """Say once per option that the pause mode is not one this reader knows."""
@@ -307,7 +306,9 @@ class GivTCPReader:
             missing = solar is None and battery is None
             return FeedStatus(FeedState.MISSING if missing else FeedState.SILENT)
         states = (self._state(cfg.get(key)) for key in _FEED_KEYS)
-        newest = newest_report(state.last_reported for state in states if state is not None)
+        newest = newest_report(
+            getattr(state, "last_reported", None) for state in states if state is not None
+        )
         if frozen_age_s(newest, now) is not None:
             return FeedStatus(FeedState.FROZEN, newest)
         if self._is_paused(cfg):

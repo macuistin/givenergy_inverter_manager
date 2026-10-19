@@ -20,11 +20,12 @@ from datetime import time
 from enum import StrEnum
 from typing import Any
 
-from .controls import ClockWriter, _read_int, control_entity
+from ._entity import GetState, clamp_to_entity, read_int
+from .controls import ClockWriter, control_entity
 from .defaults import GIVTCP_MAX_CHARGE_TARGET_PCT, GIVTCP_MIN_CHARGE_TARGET_PCT
 from .discovery import MAX_CHARGE_SLOTS, UNUSED_SLOT_TIME, clock_time, device_prefix
 from .status import WriteStatus
-from .writer import GetState, GivTCPWriter, SwitchState
+from .writer import GivTCPWriter, SwitchState
 
 ENABLE_DISCHARGE_SCHEDULE_SUFFIX = "_enable_discharge_schedule"
 ENABLE_CHARGE_SCHEDULE_SUFFIX = "_enable_charge_schedule"
@@ -42,7 +43,7 @@ class SlotKind(StrEnum):
 Window = tuple[time, time]  # start, end
 
 
-def _slot_ok(slot: int, highest: int) -> WriteStatus:
+def _slot_ok(slot: int, highest: int) -> bool:
     return 1 <= slot <= highest
 
 
@@ -84,7 +85,7 @@ class GivTCPSchedules:
     def read_discharge_target(self, cfg: Mapping[str, Any], slot: int = 1) -> int | None:
         """The discharge target in per cent for a slot, None when not published."""
         entity = control_entity(cfg, "number", f"_discharge_target_soc_{slot}")
-        return _read_int(self._get_state, entity) if _slot_ok(slot, MAX_DISCHARGE_SLOTS) else None
+        return read_int(self._get_state, entity) if _slot_ok(slot, MAX_DISCHARGE_SLOTS) else None
 
     def discharge_schedule_enabled(self, cfg: Mapping[str, Any]) -> bool | None:
         """Whether the discharge schedule is on. None when GivTCP does not publish the switch."""
@@ -92,7 +93,7 @@ class GivTCPSchedules:
         state = self._get_state(entity) if entity else None
         if state is None or str(state.state) not in ("on", "off"):
             return None
-        return state.state == "on"
+        return str(state.state) == "on"
 
     # ── Writes ────────────────────────────────────────────────────────────────
 
@@ -133,11 +134,12 @@ class GivTCPSchedules:
         entity = control_entity(cfg, "number", f"_discharge_target_soc_{slot}")
         if not entity or not _slot_ok(slot, MAX_DISCHARGE_SLOTS):
             return WriteStatus.REFUSED
-        state = self._get_state(entity)
-        attributes = getattr(state, "attributes", None) or {}
-        low = max(GIVTCP_MIN_CHARGE_TARGET_PCT, float(attributes.get("min") or 0))
-        high = min(GIVTCP_MAX_CHARGE_TARGET_PCT, float(attributes.get("max") or 100))
-        value = round(min(max(percent, low), high))
+        value = clamp_to_entity(
+            percent,
+            self._get_state(entity),
+            GIVTCP_MIN_CHARGE_TARGET_PCT,
+            GIVTCP_MAX_CHARGE_TARGET_PCT,
+        )
         return await self._writer.set_number(entity, value, f"discharge target {slot}")
 
     async def set_discharge_schedule(self, cfg: Mapping[str, Any], *, enabled: bool) -> WriteStatus:

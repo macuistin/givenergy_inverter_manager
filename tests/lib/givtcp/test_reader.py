@@ -69,7 +69,27 @@ class TestSigns:
         assert str(values.battery_power_w) == "0.0"
 
 
+    def test_an_idle_grid_reads_positive_zero(self):
+        values = _reader(_states(grid_power="0")).read(CFG)
+
+        assert str(values.grid_power_w) == "0.0"
+
+
 class TestUnavailableInputs:
+    def test_a_vanished_grid_entity_is_named(self):
+        states = _states()
+        del states[CFG[CONF_GRID_POWER]]
+
+        values = _reader(states).read(CFG)
+
+        assert values.unavailable_inputs == ("grid_power",)
+        assert values.grid_power_w == 0.0
+
+    def test_an_unavailable_grid_entity_is_named(self):
+        values = _reader(_states(grid_power="unavailable")).read(CFG)
+
+        assert values.unavailable_inputs == ("grid_power",)
+
     def test_a_missing_required_input_is_named_and_reads_zero(self):
         states = _states()
         del states[CFG[CONF_HOUSE_LOAD]]
@@ -89,6 +109,20 @@ class TestUnavailableInputs:
         states = _states(**{f"number.givtcp_{SERIAL}_battery_charge_rate": "0"})
 
         assert _reader(states).read(CFG).battery_charge_rate_w is None
+
+
+class TestStatesWithoutAReportTime:
+    """A host that keeps states in a dict has no last_reported, and the client still works."""
+
+    def test_the_feed_reads_as_publishing_when_there_is_no_report_time(self):
+        states = {
+            key: SimpleNamespace(state=value.state, attributes={})
+            for key, value in _states().items()
+        }
+
+        status = _reader(states).feed_status(CFG, NOW)
+
+        assert status.state is FeedState.PUBLISHING
 
 
 class TestDataAge:

@@ -42,8 +42,11 @@ values = backend.read(cfg)                       # InverterValues, in our sign c
 await backend.apply_battery_pause(cfg, BatteryPause.DISCHARGE, time(23, 30), time(5, 30))
 ```
 
-- `get_state(entity_id)` returns an object with a `.state` string and, for a select or number, an
-  `.attributes` mapping with `options` or `min` and `max`. It returns None for a missing entity.
+- `get_state(entity_id)` returns an `EntityState` (`_entity.py`): an object with a `.state`
+  string and an `.attributes` mapping, which carries `options` for a select and `min` and `max`
+  for a number. It returns None for a missing entity. Only `GivTCPReader.feed_status` also reads
+  `.last_reported`. A state without it has no report time, so a frozen feed cannot be seen, and
+  every other call works. A dict of `SimpleNamespace(state=..., attributes=...)` is enough.
 - `call_service(domain, service, data)` makes the Home Assistant service call. Raise
   `ServiceCallError` when it fails. Any other exception is logged with its traceback and treated
   as a failed write.
@@ -79,7 +82,9 @@ Beyond the writer, the client follows these rules in every write:
   matched without case, spaces, underscores or hyphens, so `PauseDischarge`, `Pause Discharge`
   and `Not Paused` all work. An option the entity does not offer is refused, not sent.
 - **Limits come from the entity.** Reserve, rates and targets are kept inside the entity's
-  published `min` and `max`. The reserve and targets never go below 4%.
+  published `min` and `max` by one helper, `clamp_to_entity`. A limit that is not a number is
+  ignored, and a `max` of 0 is a limit. The reserve and targets never go below 4%. A rate with no
+  `max` is not capped.
 - **Order matters.** A charge write enables the target last. A pause writes its window before its
   mode. A discharge plan writes its target and window before it switches the schedule on, and
   stops at the first failed write, so a half-set schedule is never switched on.

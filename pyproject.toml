@@ -64,15 +64,7 @@ ignore_missing_imports = true
 
 # HA-dependent modules cannot be strictly checked without the full HA package
 # and its type stubs. Pure logic in core/ is strictly typed.
-# Strict typing is enforced on lib/ and packages/ (CI runs the command in CLAUDE.md). lib/givtcp
-# still has errors that the GivTCP client work fixes. Remove this override when it does.
-[[tool.mypy.overrides]]
-module = [
-    "custom_components.givenergy_inverter_manager.lib.givtcp.*",
-    "givenergy_inverter_manager.lib.givtcp.*",
-]
-ignore_errors = true
-
+# Strict typing is enforced on lib/ and packages/ (CI runs the command in CLAUDE.md).
 [[tool.mypy.overrides]]
 module = [
     "custom_components.givenergy_inverter_manager.coordinator",

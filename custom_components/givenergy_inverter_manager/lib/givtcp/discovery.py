@@ -138,7 +138,7 @@ def _usable(state: Any) -> str | None:
     return None if text.lower() in ("unavailable", "unknown", "") else text
 
 
-def _candidate_prefixes(all_states: dict) -> list[str]:
+def _candidate_prefixes(all_states: dict[str, Any]) -> list[str]:
     """Device prefixes that look like an inverter-like device, longest first.
 
     A device is named by what it publishes, never by a fixed prefix: GivTCP lets the user change
@@ -167,7 +167,7 @@ def _tail(prefix: str) -> str:
     return prefix.rsplit("_", 1)[-1].upper()
 
 
-def _suffixes_of(prefix: str, others: list[str], all_states: dict) -> dict[str, str]:
+def _suffixes_of(prefix: str, others: list[str], all_states: dict[str, Any]) -> dict[str, str]:
     """{suffix: entity_id} for the entities that belong to *prefix* and to no longer prefix."""
     longer = [other for other in others if other != prefix and other.startswith(prefix + "_")]
     owned: dict[str, str] = {}
@@ -181,7 +181,7 @@ def _suffixes_of(prefix: str, others: list[str], all_states: dict) -> dict[str, 
     return owned
 
 
-def _count_battery_modules(all_states: dict) -> int:
+def _count_battery_modules(all_states: dict[str, Any]) -> int:
     """Battery modules that report a real serial. A module that answers with zeros is a ghost."""
     count = 0
     for entity_id, state in all_states.items():
@@ -192,7 +192,7 @@ def _count_battery_modules(all_states: dict) -> int:
     return count
 
 
-def _read_int(all_states: dict, entity_id: str) -> int | None:
+def _read_int(all_states: dict[str, Any], entity_id: str) -> int | None:
     text = _usable(all_states.get(entity_id))
     try:
         return int(float(text)) if text is not None else None
@@ -200,7 +200,7 @@ def _read_int(all_states: dict, entity_id: str) -> int | None:
         return None
 
 
-def discover_givtcp_inverters(all_states: dict) -> list[GivTCPInverter]:
+def discover_givtcp_inverters(all_states: dict[str, Any]) -> list[GivTCPInverter]:
     """
     Scan HA entity states for GivTCP inverter-like devices: hybrids, AC-coupled inverters,
     All-In-Ones, three-phase inverters, Gateways and EMS plants.
@@ -218,7 +218,7 @@ def discover_givtcp_inverters(all_states: dict) -> list[GivTCPInverter]:
     return inverters
 
 
-def _build_inverter(prefix: str, prefixes: list[str], all_states: dict) -> GivTCPInverter:
+def _build_inverter(prefix: str, prefixes: list[str], all_states: dict[str, Any]) -> GivTCPInverter:
     owned = _suffixes_of(prefix, prefixes, all_states)
     serial_state = all_states.get(f"sensor.{prefix}{SERIAL_SENSOR_SUFFIX}")
     # A device with no serial sensor (a Gateway or an EMS may have none) is named by its prefix.
@@ -298,7 +298,7 @@ def _prefix_from(cfg: Any, key: str, suffixes: tuple[str, ...]) -> str:
     return ""
 
 
-def discover_battery_cycle_entities(all_states: dict) -> list[str]:
+def discover_battery_cycle_entities(all_states: dict[str, Any]) -> list[str]:
     """
     Find the BMS lifetime cycle counters GivTCP publishes for each battery pack.
 
