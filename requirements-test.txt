@@ -14,4 +14,4 @@ pytest-asyncio>=1.4.0,<2
 pytest-cov>=7.1.0,<8
 homeassistant>=2026.5.0
 bandit>=1.9.4,<2
-ruff>=0.16.10,<0.17
+ruff>=0.17.1,<0.18
