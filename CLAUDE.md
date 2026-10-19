@@ -22,10 +22,11 @@ inside it.
 | --- | --- |
 | `core/` | Pure Python decisions, tariff, accumulation maths and report text. No `homeassistant` imports |
 | `const.py`, `conf.py`, `defaults.py`, `tuning.py` | `conf.py` holds the `CONF_` option keys, `defaults.py` the `DEFAULT_` values and `tuning.py` the numeric thresholds. None of the three imports anything. `const.py` re-exports all of them, so import from `const` |
-| `lib/` | Packages written to be lifted out into their own repositories, one folder each. They import only the standard library and the `lib/` packages their `ALLOWED` row names. `lib/README.md` has the rules. `timeutil`, `ev` (EV charger model, discovery, sessions, base-rate alert) `tariff` (tariff model, cost accumulation, bill maths) and `heating` (hot-water ready-by planner) and `guards` (counter screening, frozen-feed check) and `givtcp` (value types, system model, pause window) are in so far. `core/tariff.py` keeps the code that reads option keys |
+| `lib/` | Packages written to be lifted out into their own repositories, one folder each. They import only the standard library and the `lib/` packages their `ALLOWED` row names. `lib/README.md` has the rules. `timeutil`, `ev` (EV charger model, discovery, sessions, base-rate alert) `tariff` (tariff model, cost accumulation, bill maths) and `heating` (hot-water ready-by planner) and `guards` (counter screening) and `givtcp` (the GivTCP adapter, value types and system model) are in so far. `core/tariff.py` keeps the code that reads option keys |
 | `coordinator.py` | Home Assistant bridge: asks the inverter backend for readings, calls `core/`, decides what to write and sends it through the backend, runs timers |
 | `inverter/` | `backend.py` is the `InverterBackend` interface. It has no Home Assistant import |
-| `inverter/givtcp/` | The GivTCP adapter: discovery, the verified writer and the write constants. The code that knows GivTCP entity names and write order |
+| `lib/givtcp/` | The GivTCP adapter: discovery, reads, the verified writer, write order and constants. The code that knows GivTCP entity names and write order. It reads its settings from a mapping with the keys in `lib/givtcp/keys.py` and reports a failed call as `ServiceCallError` |
+| `inverter/givtcp/` | `adapter.py` builds the backend and turns a `HomeAssistantError` into `ServiceCallError`. The other files re-export `lib/givtcp` |
 | `lib/givtcp/values.py` | The frozen values the coordinator and a backend exchange (`InverterValues`, `ChargePlan`, `RateDefaults`, `WriteResult`, `FeedStatus`). `core/inverter_values.py` re-exports it |
 | `lib/givtcp/system.py`, `core/system_text.py`, `core/entity_refs.py` | System kind and which inverter to manage (`core/system_types.py` re-exports it), the setup text about it, and finding a wired entity again after its id changes. Devices are told apart by entity suffix, never by serial prefix alone |
 | `config_flow.py`, `wizard/`, `core/wizard_*.py` | Setup wizard, options wizard and reconfigure (the inverter connection). `config_flow.py` only registers them. `config_helpers.py` merges entry data and options |
@@ -42,7 +43,7 @@ inside it.
 - `lib/` imports nothing from `const.py`, `logging.py`, `core/`, `discovery/`, `inverter/` or
   `homeassistant`, not even under `TYPE_CHECKING`. Runtime packages live inside the integration folder
   because HACS ships only that folder. `tests/test_metadata.py` enforces both.
-- Only `inverter/givtcp/` calls GivTCP services and knows its entity names and write order. The
+- Only `lib/givtcp/` calls GivTCP services and knows its entity names and write order. The
   coordinator reads and writes through the `InverterBackend` interface. Known leaks, which a new
   change does not add to: `_check_system` in `coordinator.py` reads GivTCP's version sensor and
   calls `discover_givtcp_inverters`, and the wizard, `repairs.py`, `write_audit.py`,
@@ -79,7 +80,7 @@ directory. Test counts drift, so measure before quoting one.
 
 GivTCP publishes grid and battery power with the opposite sign to the one used inside this
 integration. The GivTCP adapter negates both on read (`GivTCPReader.read` in
-`inverter/givtcp/reader.py`). `_collect_raw` in `coordinator.py` only merges the result.
+`lib/givtcp/reader.py`). `_collect_raw` in `coordinator.py` only merges the result.
 
 | Quantity | GivTCP entity | Inside the integration |
 | --- | --- | --- |

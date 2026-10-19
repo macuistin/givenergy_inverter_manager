@@ -143,7 +143,7 @@ THROUGHPUT_BUDGET_HIGH_PCT = 80.0  # at or above this, status is "High"
 
 # ── Register write log ────────────────────────────────────────────────────────
 # The write safety limits (retries, cooldown, lifetime warning) live in
-# inverter/givtcp/constants.py with the GivTCP adapter.
+# lib/givtcp/defaults.py with the GivTCP adapter.
 # Something other than this integration is suspected of setting the charge target when the write
 # log holds at least this many outside changes with no Home Assistant user inside the window.
 # A missed nightly charge write is tried again this many minutes after the trigger, and not at all

@@ -1,5 +1,5 @@
 """
-Unit tests for inverter/givtcp/discovery.py.
+Unit tests for lib/givtcp/discovery.py.
 
 All tests are HA-free: the discovery functions accept a plain dict of
 {entity_id: state_object} rather than hass.states.
@@ -34,14 +34,14 @@ def _serial_entity(prefix: str, serial: str = "ABC123") -> dict:
 
 class TestDiscoverGivTCPInverters:
     def test_empty_states_returns_no_inverters(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_givtcp_inverters,
         )
 
         assert discover_givtcp_inverters({}) == []
 
     def test_discovers_inverter_from_serial_sensor(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_givtcp_inverters,
         )
 
@@ -51,7 +51,7 @@ class TestDiscoverGivTCPInverters:
         assert inverters[0].serial == "ABC123"
 
     def test_uses_prefix_as_serial_when_state_unavailable(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_givtcp_inverters,
         )
 
@@ -61,7 +61,7 @@ class TestDiscoverGivTCPInverters:
         assert inverters[0].serial == "givtcp_XYZ"
 
     def test_discovers_battery_soc_v3(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_givtcp_inverters,
         )
 
@@ -71,7 +71,7 @@ class TestDiscoverGivTCPInverters:
         assert inverters[0].entities.get("battery_soc") == "sensor.givtcp_SN1_soc"
 
     def test_falls_back_to_v2_battery_soc(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_givtcp_inverters,
         )
 
@@ -81,7 +81,7 @@ class TestDiscoverGivTCPInverters:
         assert inverters[0].entities.get("battery_soc") == "sensor.givtcp_SN2_battery_soc"
 
     def test_finds_the_inverter_temperature_under_givtcps_spelling(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_givtcp_inverters,
         )
 
@@ -93,7 +93,7 @@ class TestDiscoverGivTCPInverters:
         )
 
     def test_reads_battery_capacity_from_sensor_state(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_givtcp_inverters,
         )
 
@@ -103,7 +103,7 @@ class TestDiscoverGivTCPInverters:
         assert inverters[0].battery_capacity_kwh == 9.5
 
     def test_ignores_unavailable_battery_capacity(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_givtcp_inverters,
         )
 
@@ -113,7 +113,7 @@ class TestDiscoverGivTCPInverters:
         assert inverters[0].battery_capacity_kwh is None
 
     def test_multiple_inverters_sorted_by_serial(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_givtcp_inverters,
         )
 
@@ -125,7 +125,7 @@ class TestDiscoverGivTCPInverters:
         assert [inv.serial for inv in inverters] == ["AAA", "ZZZ"]
 
     def test_missing_entity_recorded(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_givtcp_inverters,
         )
 
@@ -139,7 +139,7 @@ class TestDiscoverGivTCPInverters:
 
 class TestGivTCPInverterProperties:
     def _full_inverter(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             GivTCPInverter,
         )
 
@@ -163,7 +163,7 @@ class TestGivTCPInverterProperties:
         assert inv.is_fully_configured is True
 
     def test_is_fully_configured_false_when_missing_sensor(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             GivTCPInverter,
         )
 
@@ -176,7 +176,7 @@ class TestGivTCPInverterProperties:
         assert inv.has_charge_scheduling is True
 
     def test_has_charge_scheduling_false_when_missing_entity(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             GivTCPInverter,
         )
 
@@ -190,7 +190,7 @@ class TestGivTCPInverterProperties:
 
 class TestGetSuggestedEntities:
     def test_returns_entities_dict(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             GivTCPInverter,
             get_suggested_entities,
         )
@@ -201,7 +201,7 @@ class TestGetSuggestedEntities:
         assert result == {"solar_power": "sensor.givtcp_SN_pv_power"}
 
     def test_returns_copy_not_reference(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             GivTCPInverter,
             get_suggested_entities,
         )
@@ -218,7 +218,7 @@ class TestGetSuggestedEntities:
 
 class TestDiscoverBatteryCycleEntities:
     def test_finds_the_bms_counter_by_naming(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_battery_cycle_entities,
         )
 
@@ -228,7 +228,7 @@ class TestDiscoverBatteryCycleEntities:
         ]
 
     def test_finds_one_entity_per_pack_sorted(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_battery_cycle_entities,
         )
 
@@ -242,7 +242,7 @@ class TestDiscoverBatteryCycleEntities:
         ]
 
     def test_ignores_other_integrations_and_domains(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_battery_cycle_entities,
         )
 
@@ -254,7 +254,7 @@ class TestDiscoverBatteryCycleEntities:
         assert discover_battery_cycle_entities(states) == []
 
     def test_empty_when_nothing_matches(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_battery_cycle_entities,
         )
 

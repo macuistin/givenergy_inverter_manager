@@ -61,7 +61,7 @@ def test_created_issues_carry_learn_more_url():
 
 
 def test_other_charge_slots_issue_is_fixable_and_names_the_slots():
-    from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+    from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
         ActiveChargeSlot,
     )
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from custom_components.givenergy_inverter_manager.core.inverter_values import ChargePlan
-from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import GivTCPWriter
+from custom_components.givenergy_inverter_manager.lib.givtcp.writer import GivTCPWriter
 from tests.backend_contract import END, START
 from tests.inverter.test_backend_contract import GivTCPHarness
 

@@ -17,7 +17,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_TARGET_SOC_ENTITY,
 )
 from custom_components.givenergy_inverter_manager.inverter.givtcp import GivTCPPorts, make_backend
-from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import GivTCPWriter
+from custom_components.givenergy_inverter_manager.lib.givtcp.writer import GivTCPWriter
 from tests.backend_contract import BackendContract
 from tools.mock_givtcp import MockGivTCP, Readings
 

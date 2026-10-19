@@ -20,7 +20,7 @@ It is checked against the GivTCP 3.6.4 source and its own test results (October 
 
 ## Finding the inverter and its entities
 
-GivTCP lets the user change the entity prefix for each inverter (`HADEVICEPREFIX`), and a user can run several inverters. So the integration never assumes `givtcp_`. It finds a device by what it publishes (`inverter/givtcp/discovery.py`).
+GivTCP lets the user change the entity prefix for each inverter (`HADEVICEPREFIX`), and a user can run several inverters. So the integration never assumes `givtcp_`. It finds a device by what it publishes (`lib/givtcp/discovery.py`).
 
 1. **Find the devices.** A device is a prefix that has a `sensor.<prefix>_invertor_serial_number`. A device with no serial sensor, as a Gateway or an EMS may be, is also found when it publishes `_givtcp_version` and a state of charge, a Gateway value or an EMS value.
 2. **Give each device its entities.** An entity belongs to the longest prefix that matches, so a battery module or a meter (which carry their own serial) does not count as part of the inverter.
@@ -85,7 +85,7 @@ A GivEnergy EV charger is published as a separate device (GivEVC), with `chargin
 
 ## Reading
 
-- One read per cycle, in the integration's own sign convention (`inverter/givtcp/reader.py`). GivTCP's grid power and battery power both have the opposite sign to Home Assistant's and to ours, so the reader negates them. Without that, every export is counted as import.
+- One read per cycle, in the integration's own sign convention (`lib/givtcp/reader.py`). GivTCP's grid power and battery power both have the opposite sign to Home Assistant's and to ours, so the reader negates them. Without that, every export is counted as import.
 - **Battery power's sign was only confirmed on one hybrid.** Another model could be the opposite.
 - The daily counters are the source for today's figures. The integration's own accumulation is the fallback.
 - A Gateway that shows the battery charging while it discharges has its sign inverted. Its All-In-One powers follow the single-phase convention.
@@ -100,7 +100,7 @@ A GivEnergy EV charger is published as a separate device (GivEVC), with `chargin
 
 ## Writing
 
-The inverter has about a million lifetime register writes, so every write goes through one path (`inverter/givtcp/writer.py`):
+The inverter has about a million lifetime register writes, so every write goes through one path (`lib/givtcp/writer.py`):
 
 1. Read the entity first and skip the write when it is already at the value.
 2. Skip a value written in the last five minutes.
@@ -109,7 +109,7 @@ The inverter has about a million lifetime register writes, so every write goes t
 
 All writes are serialised, so two callers never interleave. A write the integration did not make is told apart from its own by a write log, which feeds **Charge Target Conflict**. In dry run, nothing is sent and the decision is logged as `Would set ...`.
 
-**The order of a charge write matters** (`inverter/givtcp/sequence.py`). It is the sequence Predbat and givenergy-local both identify as necessary:
+**The order of a charge write matters** (`lib/givtcp/sequence.py`). It is the sequence Predbat and givenergy-local both identify as necessary:
 
 1. Enable the charge schedule.
 2. Set the window start.
@@ -131,7 +131,7 @@ A parallel All-In-One behind a Gateway is a child inverter that may accept a wri
 
 - The fixtures are in `tests/fixtures/givtcp_systems/`: one from a real install, eight from GivTCP's own test results (`from_harness.py`, which says how to rebuild them from a GivTCP checkout), and the rest built from GivTCP's datapoint reference (`build.py`). Each file says which it is.
 - `tools/mock_givtcp.py` is the fake GivTCP the write tests use. See [the design note](design/mock_givtcp.md).
-- When GivTCP releases, run the harness fixtures through discovery and compare. A kind that stops being classified, or a role that loses its entity, shows in `tests/inverter/givtcp/test_system_fixtures.py`.
+- When GivTCP releases, run the harness fixtures through discovery and compare. A kind that stops being classified, or a role that loses its entity, shows in `tests/lib/givtcp/test_system_fixtures.py`.
 
 ## GivTCP's own tests, and what would help upstream
 
@@ -148,9 +148,9 @@ Changes that would help us, none sent:
 
 | Topic | Code |
 | --- | --- |
-| Finding the inverter, its prefix and its entities | `inverter/givtcp/discovery.py`, `core/entity_refs.py` |
+| Finding the inverter, its prefix and its entities | `lib/givtcp/discovery.py`, `core/entity_refs.py` |
 | Classifying the system and choosing the controller | `lib/givtcp/system.py`, `core/system_text.py` |
-| Reading | `inverter/givtcp/reader.py` |
-| Writing, the order and the read-back | `inverter/givtcp/writer.py`, `inverter/givtcp/sequence.py`, `inverter/givtcp/adapter.py` |
+| Reading | `lib/givtcp/reader.py` |
+| Writing, the order and the read-back | `lib/givtcp/writer.py`, `lib/givtcp/sequence.py`, `lib/givtcp/adapter.py` |
 | Version and Real Time Control repairs | `core/givtcp_version.py`, `core/real_time_control.py`, `repairs.py` |
 | Test fixtures | `tests/fixtures/givtcp_systems/` |

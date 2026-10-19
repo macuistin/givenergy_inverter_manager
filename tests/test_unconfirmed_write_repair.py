@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import custom_components.givenergy_inverter_manager.unconfirmed_write_repair as module
-from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import (
+from custom_components.givenergy_inverter_manager.lib.givtcp.writer import (
     SwitchState,
     VerifiedWrite,
     _number_write,

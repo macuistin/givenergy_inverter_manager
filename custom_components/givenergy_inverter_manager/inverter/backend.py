@@ -19,7 +19,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, time
 from typing import Any, Protocol, runtime_checkable
 
-from ..core.inverter_values import (
+from ..lib.givtcp.values import (
     ChargePlan,
     FeedStatus,
     InverterIdentity,

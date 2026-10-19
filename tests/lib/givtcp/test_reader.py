@@ -17,7 +17,7 @@ from custom_components.givenergy_inverter_manager.const import (
     GIVTCP_FROZEN_AFTER_S,
 )
 from custom_components.givenergy_inverter_manager.core.inverter_values import FeedState
-from custom_components.givenergy_inverter_manager.inverter.givtcp.reader import GivTCPReader
+from custom_components.givenergy_inverter_manager.lib.givtcp.reader import GivTCPReader
 
 NOW = datetime(2031, 3, 4, 12, 0, tzinfo=timezone.utc)
 SERIAL = "ab1234c567"

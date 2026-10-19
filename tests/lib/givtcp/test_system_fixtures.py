@@ -16,7 +16,7 @@ from custom_components.givenergy_inverter_manager.core.system_types import (
     SystemKind,
     select_controller,
 )
-from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
     ENTITY_DOMAINS,
     ENTITY_SUFFIXES,
     discover_givtcp_inverters,
@@ -195,14 +195,14 @@ class TestTheDevicePrefix:
         return with_serial(wiring_from(inverter), inverter.serial)
 
     def test_the_default_prefix_is_found_from_the_wiring(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             device_prefix,
         )
 
         assert device_prefix(self._cfg("hybrid_gen3_two_batteries_3_6_3")) == "givtcp_ab1234g567"
 
     def test_a_custom_prefix_is_found_from_the_wiring(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             device_prefix,
         )
 
@@ -214,7 +214,7 @@ class TestTheDevicePrefix:
             CONF_INVERTER_SERIAL,
             CONF_SOLAR_POWER,
         )
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             device_prefix,
         )
 
@@ -226,7 +226,7 @@ class TestTheDevicePrefix:
         assert device_prefix(cfg) == "givtcp_AB1234G567"
 
     def test_no_serial_and_no_wiring_gives_no_prefix(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             device_prefix,
         )
 

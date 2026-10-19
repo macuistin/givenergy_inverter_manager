@@ -11,7 +11,7 @@ from dataclasses import FrozenInstanceError, dataclass
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
     ActiveChargeSlot,
     describe_charge_slots,
     find_other_active_charge_slots,

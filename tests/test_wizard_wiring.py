@@ -14,7 +14,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_INVERTER_SERIAL,
     CONF_SOLAR_POWER,
 )
-from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import GivTCPInverter
+from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import GivTCPInverter
 from custom_components.givenergy_inverter_manager.wizard.detect import best_inverter, detect
 from custom_components.givenergy_inverter_manager.wizard.wiring import (
     MANUAL_SERIAL,

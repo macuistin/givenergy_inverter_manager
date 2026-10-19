@@ -34,7 +34,7 @@ paths:
 - `tests/fixtures/givtcp_systems/` holds the entity states of whole GivTCP systems (hybrid, AC
   coupled, All-In-One, three-phase, Gateway, EMS, a charger on its own and more). Only
   `hybrid_gen3_two_batteries_3_6_3.json` is from real hardware. `build.py` writes the others from
-  it and GivTCP's datapoint list, and `tests/inverter/givtcp/test_system_fixtures.py` fails when a
+  it and GivTCP's datapoint list, and `tests/lib/givtcp/test_system_fixtures.py` fails when a
   file differs from what `build.py` makes. Change `build.py`, then run
   `python tests/fixtures/givtcp_systems/build.py`. Do not edit a fixture by hand. Test system
   detection against these files, not a hand-built dict.

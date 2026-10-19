@@ -121,3 +121,12 @@ class FeedStatus:
     @property
     def is_publishing(self) -> bool:
         return self.state is FeedState.PUBLISHING
+
+
+@dataclass(frozen=True)
+class WriteRecord:
+    """One write the manager sent: which entity, what value, and why."""
+
+    entity_id: str
+    value: str
+    reason: str

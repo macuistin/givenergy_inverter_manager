@@ -1,14 +1,11 @@
-"""The old module paths re-export lib/guards."""
-
-import pytest
+"""The old module path re-exports lib/guards."""
 
 from custom_components.givenergy_inverter_manager import lib
-from custom_components.givenergy_inverter_manager.core import counter_guard, feed_freshness
+from custom_components.givenergy_inverter_manager.core import counter_guard
 
 
-@pytest.mark.parametrize("module", [counter_guard, feed_freshness], ids=lambda m: m.__name__)
-def test_every_public_name_is_the_lib_object(module):
-    owner = lib.guards.counter if module is counter_guard else lib.guards.freshness
-
-    assert module.__all__
-    assert all(getattr(module, n) is getattr(owner, n) for n in module.__all__)
+def test_every_public_name_is_the_lib_object():
+    assert counter_guard.__all__
+    assert all(
+        getattr(counter_guard, n) is getattr(lib.guards.counter, n) for n in counter_guard.__all__
+    )

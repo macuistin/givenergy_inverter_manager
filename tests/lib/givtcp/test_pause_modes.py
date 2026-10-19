@@ -20,18 +20,18 @@ from custom_components.givenergy_inverter_manager.const import (
 )
 from custom_components.givenergy_inverter_manager.core.battery_pause import PauseWindow
 from custom_components.givenergy_inverter_manager.core.system_types import select_controller
-from custom_components.givenergy_inverter_manager.inverter.givtcp.battery_pause import (
+from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
+    battery_pause_entities,
+    discover_givtcp_inverters,
+)
+from custom_components.givenergy_inverter_manager.lib.givtcp.pause_modes import (
     charge_pause_window,
     parse_clock,
     pause_window,
     pauses_charge,
     pauses_discharge,
 )
-from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
-    battery_pause_entities,
-    discover_givtcp_inverters,
-)
-from custom_components.givenergy_inverter_manager.inverter.givtcp.reader import GivTCPReader
+from custom_components.givenergy_inverter_manager.lib.givtcp.reader import GivTCPReader
 from tests.fixtures import givtcp_systems as fixtures
 
 NIGHT = PauseWindow(time(23, 0), time(8, 0))

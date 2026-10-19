@@ -60,7 +60,7 @@ from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccum
 from custom_components.givenergy_inverter_manager.core.window_guard import GuardState
 from custom_components.givenergy_inverter_manager.immersion_actuator import ImmersionActuator
 from custom_components.givenergy_inverter_manager.inverter.givtcp import GivTCPPorts, make_backend
-from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import (
+from custom_components.givenergy_inverter_manager.lib.givtcp.writer import (
     GivTCPWriter,
     SwitchState,
 )
@@ -1434,7 +1434,7 @@ class TestApplyEvAction:
 
     @pytest.mark.asyncio
     async def test_write_allowed_again_after_cooldown(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
             GIVTCP_MIN_WRITE_INTERVAL_S,
         )
 
@@ -1607,7 +1607,7 @@ class TestGivtcpWriteHelpers:
 
     @pytest.mark.asyncio
     async def test_set_switch_writes_after_cooldown(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
             GIVTCP_MIN_WRITE_INTERVAL_S,
         )
 
@@ -2928,7 +2928,7 @@ class TestInverterTemperature:
         assert data.inverter_temperature is None
 
     def test_the_candidate_entity_ids_try_givtcp_s_spelling_first(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             inverter_temperature_entity_ids,
         )
 
@@ -3150,7 +3150,7 @@ class TestCheapRateFloorWriteSafety:
 
         coord, cfg = self._coord(target_now="20")
         with patch(
-            "custom_components.givenergy_inverter_manager.inverter.givtcp.writer.asyncio.sleep",
+            "custom_components.givenergy_inverter_manager.lib.givtcp.writer.asyncio.sleep",
             new=AsyncMock(),
         ):
             await coord._backend.apply_floor_target(cfg, 40)
@@ -3169,7 +3169,7 @@ class TestCheapRateFloorWriteSafety:
         coord, cfg = self._coord(target_now="40")
         coord.set_state("switch.enable_target", "on")
         with patch(
-            "custom_components.givenergy_inverter_manager.inverter.givtcp.writer.asyncio.sleep",
+            "custom_components.givenergy_inverter_manager.lib.givtcp.writer.asyncio.sleep",
             new=AsyncMock(),
         ):
             await coord._backend.apply_floor_target(cfg, 40)
@@ -3182,7 +3182,7 @@ class TestCheapRateFloorWriteSafety:
 
         coord, cfg = self._coord(target_now="20")
         with patch(
-            "custom_components.givenergy_inverter_manager.inverter.givtcp.writer.asyncio.sleep",
+            "custom_components.givenergy_inverter_manager.lib.givtcp.writer.asyncio.sleep",
             new=AsyncMock(),
         ):
             await coord._backend.apply_floor_target(cfg, 40)
@@ -3197,7 +3197,7 @@ class TestCheapRateFloorWriteSafety:
 
         coord, cfg = self._coord(target_now="20")
         with patch(
-            "custom_components.givenergy_inverter_manager.inverter.givtcp.writer.asyncio.sleep",
+            "custom_components.givenergy_inverter_manager.lib.givtcp.writer.asyncio.sleep",
             new=AsyncMock(),
         ):
             await coord._backend.apply_floor_target(cfg, 40)
@@ -3231,7 +3231,7 @@ class TestCheapRateFloorNeverLowersTarget:
         from unittest.mock import AsyncMock, patch
 
         with patch(
-            "custom_components.givenergy_inverter_manager.inverter.givtcp.writer.asyncio.sleep",
+            "custom_components.givenergy_inverter_manager.lib.givtcp.writer.asyncio.sleep",
             new=AsyncMock(),
         ):
             return await coord._maybe_apply_cheap_rate_floor(self._now(), _raw(battery_soc=soc), cfg)
@@ -3270,7 +3270,7 @@ class TestCheapRateFloorNeverLowersTarget:
 
     @pytest.mark.asyncio
     async def test_floor_never_writes_above_the_cap(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
             GIVTCP_MAX_CHARGE_TARGET_PCT,
         )
 
@@ -3410,7 +3410,7 @@ class TestInputOutageTracking:
 
     @pytest.mark.asyncio
     async def test_running_immersion_turns_off_after_hold_limit(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
             GIVTCP_MIN_WRITE_INTERVAL_S,
         )
 
@@ -3914,7 +3914,7 @@ class TestRegisterWriteCountPersistence:
 
     @pytest.mark.asyncio
     async def test_lifetime_warning_fires_when_the_restored_count_reaches_the_limit(self, caplog):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
             GIVTCP_WRITE_LIFETIME_WARN,
         )
 

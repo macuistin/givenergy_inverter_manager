@@ -118,12 +118,14 @@ from .lib.ev.defaults import (
     EV_CHARGER_MIN_POWER_W,
     EV_RECENT_SESSIONS_MAX,
 )
+from .lib.givtcp.defaults import (
+    GIVTCP_FROZEN_AFTER_S,
+)
 from .lib.guards.defaults import (
     COUNTER_RISE_FLOOR_KWH,
     COUNTER_RISE_MARGIN,
     COUNTER_UNIT_CHANGE_MIN_KWH,
     COUNTER_UNIT_CHANGE_RATIO,
-    GIVTCP_FROZEN_AFTER_S,
 )
 from .lib.heating.defaults import (
     CHARGE_WINDOW_MARGIN,

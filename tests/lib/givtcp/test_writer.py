@@ -14,12 +14,12 @@ import time
 import pytest
 
 from custom_components.givenergy_inverter_manager.core.write_log import WriteRecord
-from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
     GIVTCP_MAX_WRITE_RETRIES,
     GIVTCP_MIN_WRITE_INTERVAL_S,
     GIVTCP_WRITE_LIFETIME_WARN,
 )
-from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import (
+from custom_components.givenergy_inverter_manager.lib.givtcp.writer import (
     GivTCPWriter,
     SwitchState,
     VerifiedWrite,

@@ -4,7 +4,7 @@ The integration reads GivTCP entities from the Home Assistant state machine and 
 with ``number.set_value``, ``switch.turn_on``, ``switch.turn_off`` and ``select.select_option``.
 This module stands in for everything on the other side of those calls:
 
-* it publishes the entity states GivTCP publishes (names as ``inverter/givtcp/discovery.py``
+* it publishes the entity states GivTCP publishes (names as ``lib/givtcp/discovery.py``
   expects);
 * it registers the four write services and **records every call, in order**, instead of
   sending it anywhere;

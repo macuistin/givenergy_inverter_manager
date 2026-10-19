@@ -26,7 +26,7 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
   `dry_run` agrees. Never read `CONF_DRY_RUN` straight from the entry in new code.
 - Only the adapter writes to the inverter. The coordinator decides what to write, checks dry run,
   and calls the backend (`apply_charge_plan`, `apply_floor_target`, `clear_charge_slot`). The
-  adapter's writes go through `inverter/givtcp/writer.py`, which reads before writing, applies a
+  adapter's writes go through `lib/givtcp/writer.py`, which reads before writing, applies a
   cooldown (`GIVTCP_MIN_WRITE_INTERVAL_S`) and reads back. Do not call a GivTCP service from
   anywhere else.
 - A write that the inverter does not take (every read-back shows the old value) raises the repair
@@ -45,7 +45,7 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
 - Planning and writes stop while the feed is not live. That is a frozen feed (nothing reported for
   ten minutes, repair `givtcp_feed_frozen`), a paused GivTCP, or old data per GivTCP's `Data_Age`
   (repair `givtcp_not_answering`, feed state `stale`), judged by `feed_status` in
-  `inverter/givtcp/reader.py`. A new write path checks them and tests that nothing is sent.
+  `lib/givtcp/reader.py`. A new write path checks them and tests that nothing is sent.
 
 ## What the integration never does
 

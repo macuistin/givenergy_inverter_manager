@@ -25,7 +25,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import CONF_DRY_RUN, DOMAIN
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
-from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
     discover_givtcp_inverters,
 )
 from tools.mock_givtcp import UNUSED_SLOT, MockGivTCP, Readings

@@ -26,5 +26,5 @@ inside that folder until it is published somewhere installable.
 | `ev` | Multi-brand EV charger model, discovery, sessions and the base-rate alert | `timeutil` |
 | `tariff` | Tariff model, energy and cost accumulation, bill maths, stored-energy value | `timeutil` |
 | `heating` | Hot-water heating planner: ready-by plans, the cheapest window, the learned heating rate | `timeutil`, `tariff` |
-| `guards` | Screening of inverter energy counters, and the frozen-feed check | `timeutil`, `tariff` |
-| `givtcp` | GivTCP value types, system model and discharge pause window | none |
+| `guards` | Screening of inverter energy counters | `timeutil`, `tariff` |
+| `givtcp` | GivTCP client: discovery, reads, verified writes and write order, plus its value types and system model | `timeutil` |
