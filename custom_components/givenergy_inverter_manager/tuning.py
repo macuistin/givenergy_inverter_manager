@@ -15,22 +15,6 @@ TARIFF_REVIEW_STALE_DAYS = 365
 CARBON_LOW_THRESHOLD = 200   # g CO2/kWh
 CARBON_HIGH_THRESHOLD = 400  # g CO2/kWh
 
-# ── Defaults ──────────────────────────────────────────────────────────────────
-# Rate assumed before a run has been measured: a large cylinder, which heats slowly, so the
-# first plans start early rather than late.
-IMMERSION_ASSUMED_TANK_LITRES = 300
-# A run counts as a sample only when it was long and warmed the water enough to measure. Runs of
-# a top-up size count, because the days they fall on are averaged.
-IMMERSION_RATE_RUN_MIN_MINUTES = 10
-IMMERSION_RATE_RUN_MIN_RISE_C = 1.0
-# Installs from before the daily rates have the median of their last few runs until the first
-# dated run is recorded.
-IMMERSION_RATE_RUNS_KEPT = 5
-# The rate used is the average of the daily rates of the last 7 days. A day's rate is the average
-# of its runs. With one day of data that day is used as it is, so the rate follows the heater
-# as it ages or the cylinder changes, and one odd day cannot dominate.
-IMMERSION_RATE_DAYS_KEPT = 7
-IMMERSION_SWITCH_COOLDOWN_MINUTES = 10  # min between auto on/off writes to the real switch
 
 # ── Alternative water heating advice (core/alt_heat_advice.py) ────────────────
 ALT_HEAT_LABEL_MAX_LENGTH = 20
@@ -129,9 +113,6 @@ CHARGE_FORECAST_CORRECTION_MIN = 0.4  # lowest factor applied to the P50 forecas
 CHARGE_FORECAST_CORRECTION_MAX = 1.2  # highest factor applied to the P50 forecast
 CHARGE_FORECAST_CORRECTION_MIN_DAYS = 5  # usable days needed before the factor is applied
 CHARGE_FORECAST_CORRECTION_MIN_KWH = 0.5  # days with forecast or actual below this are ignored
-# Charge window sizing (core/charge_window.py). The charge time the plan needs is stretched by
-# this fraction, because the battery slows near full and the real rate sits below the setting.
-CHARGE_WINDOW_MARGIN = 0.15
 CHARGE_WINDOW_ROUND_MINUTES = 5  # the window end is rounded up to a multiple of this
 # The published window end holds like the target does: it moves once the planned end is
 # CHARGE_WINDOW_HOLD_STEP_MINUTES away and the held end has stood for the target's hold time
@@ -191,9 +172,6 @@ COUNTER_RISE_FLOOR_KWH = 0.5
 COUNTER_UNIT_CHANGE_RATIO = 500
 COUNTER_UNIT_CHANGE_MIN_KWH = 1.0  # below this the old value is too small to compare against
 REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept in the write log
-# How long a running element stays on while a required sensor is unavailable.
-# Same value as the write interval, but a separate setting.
-SENSOR_OUTAGE_HOLD_LIMIT_S = 300
 # How long every GivTCP power and SoC entity may go without a report before the feed counts as
 # frozen. GivTCP publishes about every 20 to 30 seconds and a cycle is 30 seconds, so ten minutes
 # is twenty missed publishes: an add-on restart passes, an overnight crash trips. The

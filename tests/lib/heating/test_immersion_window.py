@@ -7,9 +7,6 @@ from datetime import datetime
 import pytest
 
 from custom_components.givenergy_inverter_manager.const import SENSOR_OUTAGE_HOLD_LIMIT_S
-from custom_components.givenergy_inverter_manager.core.immersion_window import (
-    open_cheapest_window,
-)
 from custom_components.givenergy_inverter_manager.core.rules import (
     CheapWindow,
     ImmersionInputs,
@@ -19,6 +16,9 @@ from custom_components.givenergy_inverter_manager.core.rules import (
     should_divert_to_immersion,
 )
 from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
+from custom_components.givenergy_inverter_manager.lib.heating.window import (
+    open_cheapest_window,
+)
 
 BASE_RATE = 0.3334
 LABEL = "Nightboost 02:00 to 04:00"

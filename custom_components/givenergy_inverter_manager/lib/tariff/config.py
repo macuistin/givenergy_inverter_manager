@@ -189,3 +189,8 @@ class TariffConfig:
     def days_remaining_in_bill_period(self, dt: datetime) -> int:
         """Return the days left in the billing period after dt's day."""
         return self.days_in_bill_period(dt) - self.days_in_current_bill_period(dt)
+
+
+def cheapest_period(tariff: TariffConfig) -> RatePeriod:
+    """The timed rate period with the lowest rate."""
+    return min(tariff.rate_periods, key=lambda p: p.rate)

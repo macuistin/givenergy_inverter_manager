@@ -21,7 +21,7 @@ from custom_components.givenergy_inverter_manager.const import (
     IMMERSION_RATE_RUN_MIN_MINUTES,
     IMMERSION_RATE_RUN_MIN_RISE_C,
 )
-from custom_components.givenergy_inverter_manager.core.immersion_rate import (
+from custom_components.givenergy_inverter_manager.lib.heating.rate import (
     SOURCE_ASSUMED,
     SOURCE_LEARNED,
     RunTracker,

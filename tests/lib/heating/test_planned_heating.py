@@ -13,19 +13,19 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.alt_heat_start import WaterReading
-from custom_components.givenergy_inverter_manager.core.immersion_ready import (
-    ReadyInputs,
-    plan_ready,
-)
-from custom_components.givenergy_inverter_manager.core.immersion_window import (
-    next_window_opening,
-)
-from custom_components.givenergy_inverter_manager.core.planned_heating import (
+from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
+from custom_components.givenergy_inverter_manager.lib.heating import WaterReading
+from custom_components.givenergy_inverter_manager.lib.heating.planned import (
     PlanQuery,
     describe_planned_heating,
 )
-from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
+from custom_components.givenergy_inverter_manager.lib.heating.ready import (
+    ReadyInputs,
+    plan_ready,
+)
+from custom_components.givenergy_inverter_manager.lib.heating.window import (
+    next_window_opening,
+)
 
 DUBLIN = ZoneInfo("Europe/Dublin")
 NO_TAX = {"vat_rate": 0, "discount_rate": 0}

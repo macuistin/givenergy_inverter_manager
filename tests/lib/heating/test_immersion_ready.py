@@ -12,7 +12,8 @@ from custom_components.givenergy_inverter_manager.const import (
     IMMERSION_RATE_RUN_MIN_MINUTES,
     IMMERSION_RATE_RUNS_KEPT,
 )
-from custom_components.givenergy_inverter_manager.core.immersion_rate import (
+from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
+from custom_components.givenergy_inverter_manager.lib.heating.rate import (
     SOURCE_ASSUMED,
     SOURCE_LEARNED,
     RunTracker,
@@ -20,7 +21,7 @@ from custom_components.givenergy_inverter_manager.core.immersion_rate import (
     keep_run,
     resolve_rate,
 )
-from custom_components.givenergy_inverter_manager.core.immersion_ready import (
+from custom_components.givenergy_inverter_manager.lib.heating.ready import (
     ReadyInputs,
     hours_to_heat,
     next_ready_at,
@@ -28,7 +29,6 @@ from custom_components.givenergy_inverter_manager.core.immersion_ready import (
     place_hours,
     plan_ready,
 )
-from custom_components.givenergy_inverter_manager.core.tariff import build_tariff
 
 DUBLIN = ZoneInfo("Europe/Dublin")
 TARGET = 55.0
