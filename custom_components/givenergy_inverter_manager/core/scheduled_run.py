@@ -25,6 +25,10 @@ from datetime import datetime
 
 from .timeutil import elapsed_seconds
 
+# The state of the run limit warning: off without a limit or with the warning turned off, idle
+# while no run has reached the limit, reached once one has.
+STATES = ("off", "idle", "reached")
+
 _SECONDS_PER_MINUTE = 60.0
 # Cycles are 30 seconds apart. A longer gap means Home Assistant was not running, and heating it
 # did not see is not counted.
@@ -70,3 +74,10 @@ def _counted_minutes(held: HeldScheduledRun, step: RunStep) -> float:
         return 0.0
     gap = elapsed_seconds(held.last_at, step.now)
     return gap / _SECONDS_PER_MINUTE if 0 < gap <= _LARGEST_GAP_S else 0.0
+
+
+def warning_state(held: HeldScheduledRun, max_minutes: int, *, enabled: bool) -> str:
+    """The state of the run limit warning for this cycle."""
+    if max_minutes <= 0 or not enabled:
+        return "off"
+    return "reached" if held.capped else "idle"

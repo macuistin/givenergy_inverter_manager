@@ -32,12 +32,14 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_MAX_RUN_MINUTES,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_READY_TIMES,
+    CONF_IMMERSION_RUN_LIMIT_WARNING,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
     DOMAIN,
 )
 
 WATER_SENSOR = "sensor.givenergy_inverter_manager_immersion_water_temperature"
+RUN_LIMIT_SENSOR = "sensor.givenergy_inverter_manager_immersion_run_limit"
 COLD = 46.0  # below the restart threshold of 50, above the minimum of 45
 TARGET_REACHED = 55.5
 
@@ -524,6 +526,29 @@ class TestTheLongestRun:
         assert result["type"] is FlowResultType.CREATE_ENTRY
         assert loaded_entry.options[CONF_IMMERSION_MAX_RUN_MINUTES] == 45
         assert loaded_entry.runtime_data is runtime
+
+    async def test_the_run_limit_sensor_is_idle_until_a_run_is_stopped(
+        self, hass, loaded_entry, freezer
+    ):
+        await opt_in(hass, loaded_entry)
+        at(freezer, "12:00:00")
+        await cycle(hass, loaded_entry)
+        assert hass.states.get(RUN_LIMIT_SENSOR).state == "idle"
+
+    async def test_turning_the_warning_off_does_not_reload_and_the_sensor_reads_off(
+        self, hass, loaded_entry, freezer
+    ):
+        runtime = loaded_entry.runtime_data
+        result = await options_wizard(
+            hass, loaded_entry, {"hot_water": {CONF_IMMERSION_RUN_LIMIT_WARNING: False}}
+        )
+        await hass.async_block_till_done()
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert loaded_entry.options[CONF_IMMERSION_RUN_LIMIT_WARNING] is False
+        assert loaded_entry.runtime_data is runtime
+        at(freezer, "12:00:00")
+        await cycle(hass, loaded_entry)
+        assert hass.states.get(RUN_LIMIT_SENSOR).state == "off"
 
 
 class TestReadyTimesInTheOptions:

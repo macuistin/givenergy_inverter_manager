@@ -160,6 +160,9 @@ DEFAULT_IMMERSION_HYSTERESIS = 5  # °C — only restart after cooling this far 
 # degrees per hour that the integration learns from its own runs.
 CONF_IMMERSION_READY_TIMES = "immersion_ready_times"
 CONF_IMMERSION_MAX_RUN_MINUTES = "immersion_max_run_minutes"
+# Whether the dashboard warns when the longest run stops a scheduled run (core/scheduled_run.py).
+CONF_IMMERSION_RUN_LIMIT_WARNING = "immersion_run_limit_warning"
+DEFAULT_IMMERSION_RUN_LIMIT_WARNING = True
 # Rate assumed before a run has been measured: a large cylinder, which heats slowly, so the
 # first plans start early rather than late.
 IMMERSION_ASSUMED_TANK_LITRES = 300

@@ -105,6 +105,11 @@
   "name": "Battery Life Consumed Today"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_battery_overnight_confidence",
+  "key": "night_survival_confidence",
+  "name": "Battery Overnight Confidence"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_battery_overnight_outlook",
   "key": "night_survival_reason",
   "name": "Battery Overnight Outlook"
@@ -480,6 +485,11 @@
   "name": "Immersion Heater Today"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_immersion_run_limit",
+  "key": "immersion_run_limit",
+  "name": "Immersion Run Limit"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_immersion_savings_this_month",
   "key": "immersion_savings_this_month",
   "name": "Immersion savings this month"
@@ -658,11 +668,6 @@
   "entity_id": "sensor.givenergy_inverter_manager_next_cheap_rate_start",
   "key": "next_cheap_rate_start",
   "name": "Next Cheap Rate Start"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_battery_overnight_confidence",
-  "key": "night_survival_confidence",
-  "name": "Battery Overnight Confidence"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_on_base_daytime_rate",
@@ -860,6 +865,16 @@
   "name": "Water Heating Cheapest Source"
  },
  {
+  "entity_id": "sensor.givenergy_inverter_manager_water_heating_low_water_trigger",
+  "key": "water_heating_low_water_trigger",
+  "name": "Water Heating Low Water Trigger"
+ },
+ {
+  "entity_id": "sensor.givenergy_inverter_manager_water_heating_ready_by_trigger",
+  "key": "water_heating_ready_by_trigger",
+  "name": "Water Heating Ready-by Trigger"
+ },
+ {
   "entity_id": "switch.givenergy_inverter_manager_auto_immersion_divert",
   "key": "auto_immersion",
   "name": "Auto Immersion Divert"
@@ -898,15 +913,5 @@
   "entity_id": "switch.givenergy_inverter_manager_verbose_logging",
   "key": "verbose_logging",
   "name": "Verbose logging"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_water_heating_low_water_trigger",
-  "key": "water_heating_low_water_trigger",
-  "name": "Water Heating Low Water Trigger"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_water_heating_ready_by_trigger",
-  "key": "water_heating_ready_by_trigger",
-  "name": "Water Heating Ready-by Trigger"
  }
 ]

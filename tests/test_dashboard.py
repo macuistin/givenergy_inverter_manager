@@ -22,7 +22,10 @@ from custom_components.givenergy_inverter_manager.core.battery import (
     OUTLOOK_SAFE,
     OUTLOOK_WARNING,
 )
-from custom_components.givenergy_inverter_manager.dashboard.templates import tonight_line_template
+from custom_components.givenergy_inverter_manager.dashboard.templates import (
+    RUN_LIMIT_BANNER_TEXT,
+    tonight_line_template,
+)
 from custom_components.givenergy_inverter_manager.dashboard.views import TABS
 from tests.dashboard_support import (
     ENTRY_ID,
@@ -246,6 +249,7 @@ class TestPowerFlowTabChanges:
             "Finish setting up",
             "Needs your attention",
             "Start the alternative heating",
+            "The immersion stopped at its longest run",
             "Energy",
             "Where it came from",
             "Hot water",
@@ -257,7 +261,7 @@ class TestPowerFlowTabChanges:
         pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
         headings = [_heading_of(s) for s in pf_view["sections"]]
         assert "Needs your attention" not in headings
-        assert headings[4] == "Energy"
+        assert headings[5] == "Energy"
 
     def test_live_cost_rate_shown_as_grid_secondary_info(self):
         """Live €/hr cost rate is secondary_info on the grid entity."""
@@ -351,6 +355,7 @@ class TestIncomeBar:
             or "charge target" in c["content"].lower()
             or "state_attr('" in c["content"]
             or c["content"] == tonight_line_template(eid("charge_plan"))
+            or c["content"] == RUN_LIMIT_BANNER_TEXT
             for c in markdown
         ), "Income bar is on the grid node: only the banners, the checklist and Tonight are markdown"
 
@@ -1530,6 +1535,7 @@ class TestResponsiveLayout:
             ("power-flow", "Finish setting up"),
             ("power-flow", "Needs your attention"),
             ("power-flow", "Start the alternative heating"),
+            ("power-flow", "The immersion stopped at its longest run"),
         }
 
     def test_settings_is_five_sections_of_one_column_so_a_laptop_fills_every_column(self):

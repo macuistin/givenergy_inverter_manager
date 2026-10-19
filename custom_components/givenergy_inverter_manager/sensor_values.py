@@ -251,6 +251,11 @@ def water_heating_source(data: CoordinatorData) -> str | None:
     return None if advice is None else advice.source
 
 
+def immersion_run_limit_state(data: CoordinatorData) -> str:
+    """off, idle or reached: a scheduled run was stopped by the longest immersion run."""
+    return data.immersion_run_limit
+
+
 def ready_by_trigger_state(data: CoordinatorData) -> str:
     """idle or start_now: the start for the next ready time has come."""
     return data.water_heating_ready_trigger.state

@@ -229,6 +229,7 @@ Do not use Solcast's **Use Forecast Field** select to reach the P10. It changes 
 | Hot water temperature sensor | `immersion_temp_sensor_entity` | from setup, else none | a `sensor` entity |
 | Immersion element power | `immersion_wattage_w` | from setup, else 3000 | 500 to 6000 W |
 | Longest immersion run | `immersion_max_run_minutes` | 60 | 0 to 240 minutes in steps of 5. 0 turns the limit off |
+| Warn when the longest run is reached | `immersion_run_limit_warning` | on | on or off. Shows a banner on Home energy while a run was stopped by the longest run |
 | Hot water ready-by times | `immersion_ready_times` | none | times as `HH:MM`, for example `07:00` and `19:00` |
 
 Both devices are optional and can be added, changed or cleared at any time, without a restart. Changing either one reloads the integration. The Immersion Heater (Managed) switch is created while an immersion switch is set and removed when it is cleared. The Hot water view and the hot water chips of the dashboard follow the same two fields. A heater with no temperature sensor is switched on and off by solar surplus alone, and the target and minimum temperatures have no effect without a sensor. The page lists switches with "immersion" in their name as a hint and shows what the chosen sensors read now.

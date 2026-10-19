@@ -79,6 +79,7 @@ from .const import (
     CONF_IMMERSION_MAX_RUN_MINUTES,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_READY_TIMES,
+    CONF_IMMERSION_RUN_LIMIT_WARNING,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TARGET_TEMP,
     CONF_IMMERSION_TEMP_SENSOR,
@@ -100,6 +101,7 @@ from .const import (
     DEFAULT_IMMERSION_HYSTERESIS,
     DEFAULT_IMMERSION_MAX_RUN_MINUTES,
     DEFAULT_IMMERSION_MIN_TEMP,
+    DEFAULT_IMMERSION_RUN_LIMIT_WARNING,
     DEFAULT_IMMERSION_TARGET_TEMP,
     DEFAULT_IMMERSION_WATTAGE,
     DEFAULT_INVERTER_MAX_OUTPUT,
@@ -1213,6 +1215,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         raw.immersion_hysteresis_c = self.immersion_hysteresis_c
         raw.immersion_max_run_minutes = int(
             cfg.get(CONF_IMMERSION_MAX_RUN_MINUTES, DEFAULT_IMMERSION_MAX_RUN_MINUTES)
+        )
+        raw.immersion_run_limit_warning = bool(
+            cfg.get(CONF_IMMERSION_RUN_LIMIT_WARNING, DEFAULT_IMMERSION_RUN_LIMIT_WARNING)
         )
         raw.immersion_schedule_enabled = self.immersion_schedule_enabled
         raw.immersion_window_heating_before = bool(

@@ -151,6 +151,7 @@
       "immersion_power": {"default": "mdi:water-boiler"},
       "immersion_water_temperature": {"default": "mdi:thermometer-water"},
       "water_heating_cheapest_source": {"default": "mdi:fire-circle"},
+      "immersion_run_limit": {"default": "mdi:timer-alert-outline"},
       "water_heating_ready_by_trigger": {"default": "mdi:water-boiler-alert"},
       "water_heating_low_water_trigger": {"default": "mdi:water-thermometer-outline"},
       "cheap_rate_floor_status": {"default": "mdi:floor-plan"},

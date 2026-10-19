@@ -84,6 +84,7 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     # Hot water and EV.
     "immersion_wattage_w": (3000, 2000, LIVE),
     "immersion_max_run_minutes": (60, 45, LIVE),
+    "immersion_run_limit_warning": (True, False, LIVE),
     "immersion_ready_times": (["07:00"], ["07:00", "18:00"], LIVE),
     "immersion_target_temp_c": (55, 60, LIVE),
     "immersion_min_temp_c": (50, 45, LIVE),

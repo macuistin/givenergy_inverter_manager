@@ -19,6 +19,7 @@ IDS = default_entity_ids()
 PROGRESS = IDS["setup_progress"]
 CHECKLIST = "Finish setting up"
 BANNER = "Dry run is on"
+RUN_LIMIT = "The immersion stopped at its longest run"
 
 
 def _power_flow(dashboard: dict) -> dict:
@@ -66,6 +67,7 @@ class TestTheChecklistSection:
             CHECKLIST,
             "Needs your attention",
             "Start the alternative heating",
+            RUN_LIMIT,
             "Energy",
             "Where it came from",
             "Hot water",
