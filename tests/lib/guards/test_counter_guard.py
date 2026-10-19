@@ -9,7 +9,17 @@ import pytest
 
 from custom_components.givenergy_inverter_manager.core import engine
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
-from custom_components.givenergy_inverter_manager.core.counter_guard import (
+from custom_components.givenergy_inverter_manager.core.engine import (
+    Accumulators,
+    CycleInputs,
+    ForecastContext,
+    PreviousCycle,
+)
+from custom_components.givenergy_inverter_manager.core.tariff import (
+    CounterMemory,
+    EnergyAccumulator,
+)
+from custom_components.givenergy_inverter_manager.lib.guards.counter import (
     FIRST,
     JUMP,
     NEGATIVE,
@@ -21,16 +31,6 @@ from custom_components.givenergy_inverter_manager.core.counter_guard import (
     judge,
     largest_day_kwh,
     screen,
-)
-from custom_components.givenergy_inverter_manager.core.engine import (
-    Accumulators,
-    CycleInputs,
-    ForecastContext,
-    PreviousCycle,
-)
-from custom_components.givenergy_inverter_manager.core.tariff import (
-    CounterMemory,
-    EnergyAccumulator,
 )
 from tests.conftest import _nightboost_cfg, _raw
 

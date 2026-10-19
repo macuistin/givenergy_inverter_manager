@@ -328,7 +328,9 @@ if not _PLUGIN_MISSING:
         publishing again, which is the one thing the check calls a frozen feed. A test of the
         check itself (test_frozen_feed_e2e.py) overrides this fixture with a no-op.
         """
-        from custom_components.givenergy_inverter_manager.core import feed_freshness
+        from custom_components.givenergy_inverter_manager.lib.guards import (
+            freshness as feed_freshness,
+        )
 
         monkeypatch.setitem(feed_freshness.frozen_age_s.__globals__, "GIVTCP_FROZEN_AFTER_S", 1e12)
 

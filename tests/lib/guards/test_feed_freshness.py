@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from custom_components.givenergy_inverter_manager.const import GIVTCP_FROZEN_AFTER_S
-from custom_components.givenergy_inverter_manager.core.feed_freshness import (
+from custom_components.givenergy_inverter_manager.lib.guards.freshness import (
     frozen_age_s,
     newest_report,
 )
