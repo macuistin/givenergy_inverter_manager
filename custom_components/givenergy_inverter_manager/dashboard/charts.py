@@ -206,3 +206,68 @@ def apex_solar_forecast_chart(forecast: str) -> dict:
         "series": [typical, series("Dull day", "pv_estimate10", "#ffcc80", "line")],
         "grid_options": {"columns": "full"},
     }
+
+
+@dataclass(frozen=True)
+class TodayChartEntities:
+    """What the Today chart draws: today's half-hourly forecast, the live solar power, the hours.
+
+    *hours* is the first and last hour on the clock to show, the producing hours with a buffer.
+    """
+
+    forecast: str
+    solar_power: str
+    hours: tuple[int, int]
+
+
+def _forecast_line(entity: TodayChartEntities, name: str, key: str, **style) -> dict:
+    return {
+        "entity": entity.forecast,
+        "name": name,
+        "type": "line",
+        "curve": "smooth",
+        "show": {"legend_value": False},
+        "data_generator": _FORECAST_POINTS.format(key=key),
+        **style,
+    }
+
+
+def apex_solar_today_chart(ent: TodayChartEntities) -> dict:
+    """Today's solar as predicted and as produced, over the producing hours.
+
+    The forecast is a dashed line with the low and high estimates either side. The solar power
+    sensor is drawn as an area, in kW, averaged over each half hour like the forecast.
+    """
+    first, last = ent.hours
+    produced = {
+        "entity": ent.solar_power,
+        "name": "Produced",
+        "type": "area",
+        "color": "#ff9800",
+        "opacity": 0.45,
+        "stroke_width": 2,
+        "curve": "smooth",
+        "extend_to": "now",
+        "transform": "return x / 1000;",
+        "group_by": {"func": "avg", "duration": "30min"},
+        "show": {"legend_value": False},
+    }
+    span = {"start": "day", **({"offset": f"+{first}h"} if first else {})}
+    return {
+        "type": APEX_CARD.card_type,
+        "graph_span": f"{last - first}h",
+        "span": span,
+        "header": {"show": False},
+        "now": {"show": True, "label": "Now"},
+        "apex_config": {"chart": {"height": 240}, "legend": {"show": True}},
+        "yaxis": [{"min": 0, "decimals": 1, "apex_config": {"title": {"text": "kW"}}}],
+        "series": [
+            _forecast_line(ent, "High", "pv_estimate90", color="#90caf9", stroke_width=1),
+            _forecast_line(
+                ent, "Predicted", "pv_estimate", color="#42a5f5", stroke_width=2, stroke_dash=4
+            ),
+            _forecast_line(ent, "Low", "pv_estimate10", color="#90caf9", stroke_width=1),
+            produced,
+        ],
+        "grid_options": {"columns": FULL},
+    }

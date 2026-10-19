@@ -8,6 +8,7 @@ from custom_components.givenergy_inverter_manager.discovery import (
     ForecastSensors,
     discover_forecast_sensors,
     discover_immersion_switch_candidates,
+    todays_forecast_sensor,
 )
 
 SOLCAST_TOMORROW = "sensor.solcast_pv_forecast_forecast_tomorrow"
@@ -79,3 +80,16 @@ def test_immersion_candidates_are_limited_to_five_and_sorted():
 
 def test_no_candidates_when_no_switch_looks_like_an_immersion():
     assert discover_immersion_switch_candidates(_states("switch.lamp")) == ()
+
+
+def test_the_today_sensor_of_solcast_is_found_from_the_tomorrow_one():
+    assert todays_forecast_sensor(SOLCAST_TOMORROW) == "sensor.solcast_pv_forecast_forecast_today"
+
+
+def test_a_renamed_pair_keeps_its_prefix():
+    assert todays_forecast_sensor("sensor.roof_tomorrow") == "sensor.roof_today"
+
+
+def test_a_sensor_that_is_not_for_tomorrow_has_no_today_sensor():
+    assert todays_forecast_sensor(SOLCAST_DAY_3) is None
+    assert todays_forecast_sensor(None) is None

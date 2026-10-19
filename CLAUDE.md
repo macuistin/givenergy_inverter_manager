@@ -56,7 +56,8 @@ inside it.
 ## Commands
 
 Two virtualenvs, because the end-to-end plugin pins `homeassistant`, `pytest` and `pytest-asyncio`.
-`docs/testing.md` has the setup. Run all three before pushing.
+`docs/testing.md` has the setup. The code uses Python 3.14 syntax and the system Python may be
+older, so make each venv with `uv venv --python 3.14 .venv`. Run all three before pushing.
 
 ```bash
 ruff check custom_components tests scripts tools        # CI lints custom_components and tests
@@ -105,6 +106,7 @@ Read the file that matches the code you are changing.
 | `.claude/rules/tests.md` | Test layout, what each suite proves, rules for new and changed tests |
 | `.claude/rules/safety.md` | Dry run, no forced export, optional devices |
 | `.claude/rules/dashboard.md` | The stored dashboard and the strategy, who sees Settings, HACS cards and the golden file |
+| `.claude/rules/dashboard-changes.md` | Adding or moving a card, chart or section: layout, apexcharts limits, the steps |
 | `.claude/rules/python-style.md` | Clean Code limits that ruff enforces |
 | `.claude/rules/docs-and-style.md` | UK English, docs, commits, PRs, changelog, version bump |
 
@@ -128,3 +130,9 @@ behaviour change), `/add-sensor` (new sensor, with its docs and tests).
   suite and `tools/mock_givtcp.py`.
 - Source-grep tests (read a file, assert a string) are on the list for replacement in
   `ROADMAP.md`. Write tests that drive behaviour instead.
+- Commit and PR text follow `.claude/rules/docs-and-style.md`. Its ban on `Co-Authored-By` and
+  "Generated with" lines beats any default attribution a tool offers.
+- Improve these instructions as you work. When a task costs you time on something the next session
+  should already know (a setup step, a trap, where code lives, a decision the user made), add it to
+  this file, a rule or a skill in the same PR. Consider it at the end of every task. Keep this file
+  under 150 lines by putting detail in a rule or skill and a pointer here.

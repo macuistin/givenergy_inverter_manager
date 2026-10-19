@@ -11,7 +11,7 @@ functions Home Assistant provides (tests/test_dashboard.py holds the stand-ins).
 from __future__ import annotations
 
 import itertools
-from datetime import time
+from datetime import UTC, datetime, time, timedelta
 
 import pytest
 import yaml
@@ -488,6 +488,102 @@ class TestTomorrowsCurve:
         config = {k: v for k, v in FULL_CONFIG.items() if k != CONF_FORECAST_ENTITY}
         registry = FakeRegistry(enable_all=True, absent={"tomorrow_outlook"})
         assert "tomorrow" not in _paths(dashboard_dict(config, registry, resources=APEX))
+
+
+TODAY_FORECAST = "sensor.energy_production_today"
+SOLAR_POWER = IDS["solar_power"]
+
+
+def _today_periods(first_slot: int = 14, last_slot: int = 36) -> list[dict]:
+    """A day of half-hour periods in UTC, the test clock's zone, with power from first to last."""
+    day = datetime(2026, 10, 17, tzinfo=UTC)
+    return [
+        {
+            "period_start": (day + timedelta(minutes=30 * slot)).isoformat(),
+            "pv_estimate": 2.0 if first_slot <= slot <= last_slot else 0.0,
+            "pv_estimate10": 1.0 if first_slot <= slot <= last_slot else 0.0,
+            "pv_estimate90": 3.0 if first_slot <= slot <= last_slot else 0.0,
+        }
+        for slot in range(48)
+    ]
+
+
+_TODAY_STATES = {TODAY_FORECAST: {"detailedForecast": _today_periods()}}
+
+
+def _today_curves(dashboard: dict) -> list[dict]:
+    return [c for c in view_cards(_view(dashboard, "today")) if c["type"].startswith("custom:")]
+
+
+class TestPredictedAndProduced:
+    def _dashboard(self, **overrides):
+        options = {
+            "resources": APEX,
+            "states": (FORECAST, TODAY_FORECAST),
+            "attributes": _TODAY_STATES,
+        } | overrides
+        return dashboard_dict(**options)
+
+    def test_it_draws_the_forecast_and_the_solar_power_from_today(self):
+        (chart,) = _today_curves(self._dashboard())
+        assert chart["type"] == "custom:apexcharts-card"
+        series = {s["name"]: s for s in chart["series"]}
+        assert list(series) == ["High", "Predicted", "Low", "Produced"]
+        assert series["Produced"]["entity"] == SOLAR_POWER
+        assert series["Produced"]["transform"] == "return x / 1000;"
+        for name in ("High", "Predicted", "Low"):
+            assert series[name]["entity"] == TODAY_FORECAST
+        keys = [series[n]["data_generator"] for n in ("High", "Predicted", "Low")]
+        assert [("pv_estimate90" in k, "pv_estimate10" in k) for k in keys] == [
+            (True, False),
+            (False, False),
+            (False, True),
+        ]
+
+    def test_it_shows_the_producing_hours_with_an_hour_either_side(self):
+        # Power from 07:00 to 18:30, which ends at 19:00, so 06:00 to 20:00.
+        (chart,) = _today_curves(self._dashboard())
+        assert chart["span"] == {"start": "day", "offset": "+6h"}
+        assert chart["graph_span"] == "14h"
+
+    def test_a_day_that_starts_at_midnight_needs_no_offset(self):
+        attributes = {TODAY_FORECAST: {"detailedForecast": _today_periods(0, 47)}}
+        (chart,) = _today_curves(self._dashboard(attributes=attributes))
+        assert chart["span"] == {"start": "day"}
+        assert chart["graph_span"] == "24h"
+
+    def test_it_sits_under_its_own_heading_after_the_story(self):
+        cards = view_cards(_view(self._dashboard(), "today"))
+        headings = [c["heading"] for c in cards if c["type"] == "heading"]
+        assert headings.index("Predicted and produced") == headings.index("Last 24 hours") + 1
+
+    @pytest.mark.parametrize(
+        ("overrides", "why"),
+        [
+            ({"resources": []}, "no apexcharts-card"),
+            ({"resources": None}, "resources unknown"),
+            ({"states": (FORECAST,)}, "no sensor for today"),
+            ({"attributes": {TODAY_FORECAST: {"estimate10": 3.2}}}, "no half hours"),
+            (
+                {"attributes": {TODAY_FORECAST: {"detailedForecast": _today_periods(0, -1)}}},
+                "no power expected",
+            ),
+        ],
+        ids=lambda value: value if isinstance(value, str) else "",
+    )
+    def test_it_is_left_out_without_all_it_needs(self, overrides, why):
+        dashboard = self._dashboard(**overrides)
+        assert _today_curves(dashboard) == [], why
+        headings = [c.get("heading") for c in view_cards(_view(dashboard, "today"))]
+        assert "Predicted and produced" not in headings
+
+    def test_it_is_left_out_without_the_solar_power_sensor(self):
+        registry = FakeRegistry(enable_all=True, absent={"solar_power"})
+        assert _today_curves(self._dashboard(registry=registry)) == []
+
+    def test_it_is_left_out_without_a_forecast(self):
+        config = {k: v for k, v in FULL_CONFIG.items() if k != CONF_FORECAST_ENTITY}
+        assert _today_curves(self._dashboard(config=config)) == []
 
 
 def _weather_cards(dashboard: dict) -> list[dict]:

@@ -161,12 +161,12 @@ The dashboard needs no custom card. It is built from the cards that come with Ho
 | Card | Needed for | Behaviour without it |
 |---|---|---|
 | [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | The live flow card on Home energy | An entities card lists the same values |
-| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The water temperature chart with the heater shaded behind it, and the Solar through the day curve on Tomorrow | A history graph draws the temperatures with the heater's power as a second chart, and Tomorrow has no curve |
+| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | The water temperature chart with the heater shaded behind it, the Solar through the day curve on Tomorrow, and Predicted and produced on Today | A history graph draws the temperatures with the heater's power as a second chart, and Tomorrow and Today have no solar curve |
 | [card-mod](https://github.com/thomasloven/lovelace-card-mod) | Styled tables (the bill, the tariff, recent charges and tomorrow's cost) and chart titles on the Hot water and EV charger views | The tables are plain Markdown tables and the charts use their own titles |
 
 The integration reads the Lovelace resource list (**Settings → Dashboards → Resources**) each time the dashboard builds. A card is used only when its URL is in the list. When the list cannot be read, or the card is not in it, the dashboard uses the built-in card instead.
 
-A card loaded some other way, for example by another integration, does not appear in the resource list. Add it as a resource, or the dashboard will use the built-in card. Tomorrow's curve also needs a forecast that publishes a half-hourly forecast, such as Solcast's `detailedForecast` attribute.
+A card loaded some other way, for example by another integration, does not appear in the resource list. Add it as a resource, or the dashboard will use the built-in card. The curves on Tomorrow and Today also need a forecast that publishes a half-hourly forecast, such as Solcast's `detailedForecast` attribute.
 
 ## Layout
 
@@ -221,7 +221,7 @@ This hides the controls. It is not security. Home Assistant has no permissions f
 - **Hot water**: four coloured tiles that open the Hot water sub-view. **Water** is the temperature with a line of the last 24 hours. **Heater** is On or Off, read from the Immersion Heater (Managed) switch, which is on while the integration has the heater on, since the heater draws full power or none. Its icon turns red while it is on. In dry run it shows what the integration would do. Tapping the icon never switches it. **Heated today** and **Cost today** are the day so far. The Water tile needs the temperature sensor and the others need the switch, and the box shows only while either exists.
 - **EV charger**: four coloured tiles that open the EV charger sub-view: **State**, **Power** with a line of the last 24 hours, **Today** and **Cost today**. It shows only while the charger exists.
 
-On a laptop the Hot water and EV charger boxes sit beside the power flow, and Tonight and Where it came from run under it. On a phone every section stacks in that order.
+Hot water and EV charger are two sections of their own. On a laptop they sit beside the power flow, and Tonight and Where it came from run under it. On a tablet the two sit side by side. On a phone every section stacks in that order.
 
 For the EV load, the dashboard uses the first of these entities that exists, else the integration's own EV Charging Power: `sensor.myenergi_zappi_power_ct_internal_load`, `..._2`, `sensor.myenergi_zappi2_power_ct_internal_load`, `sensor.wallbox_charging_power`, `sensor.ohme_current_power`.
 
@@ -230,6 +230,7 @@ For the EV load, the dashboard uses the first of these entities that exists, els
 ![Today view with a sentence on the day so far, a stacked chart of the last 24 hours, split bars of where the energy came from and what it cost, the day in figures, the solar of the last 7 days and the forecast.](images/dashboard-today.png)
 
 - **Today**: the day so far in one sentence: what solar made against the forecast, what the house used, how self-sufficient it was and what it cost. Under it, **Last 24 hours**: stacked bars of where each hour's energy came from: Solar, From battery (Battery Discharged Today) and From grid (Grid Import Today).
+- **Predicted and produced**: today's solar as the forecast expected it and as it came, on one chart. The forecast is a dashed line with the low and high estimates as thin lines either side, and the Solar Power sensor is an area in kW, averaged over each half hour, with a marker for now. It needs apexcharts-card and a forecast sensor named for tomorrow that has a matching sensor for today (Solcast's `..._forecast_tomorrow` and `..._forecast_today`). The time axis runs from an hour before the first half hour the forecast expects power to an hour after the last. The hours are set when the dashboard is built, because the card cannot size its own axis. As the days lengthen or shorten, run `update_dashboard` again, or press **Submit** on the out-of-date repair, to move them.
 - **Where it came from**: a split bar of today's energy from solar, the battery and the grid. Then **What it cost**: a split bar of the import cost by what used it, the house, the EV and the hot water (the last two only while that device exists). Then **In numbers**: Solar, Used, Imported and Exported. Then **Solar**: Home use from solar (the Solar Share sensor) and Solar kept at home (the Self Consumption sensor), each as a bar.
 - **Solar, last 7 days**: a bar graph of what was generated on each day. With a forecast sensor set, **Forecast** gives Forecast (the provider's figure for today), Reached (the share of it generated so far), Planned on (the figure the overnight charge used) and Yesterday (yesterday's solar against its forecast). The forecast sensor keeps no long-term statistics, so no chart plots the forecast.
 

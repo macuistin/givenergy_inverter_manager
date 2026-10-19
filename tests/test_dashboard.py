@@ -240,7 +240,7 @@ class TestPowerFlowTabChanges:
             "Clipping must be secondary_info_entity on solar — not a separate large card."
         )
 
-    def test_home_energy_sections_are_banners_flow_tonight_and_the_device_boxes(self):
+    def test_home_energy_sections_are_banners_flow_tonight_and_a_section_for_each_device(self):
         parsed = yaml.safe_load(_build())
         pf_view = next(v for v in parsed["views"] if v["path"] == "power-flow")
         assert [_heading_of(s) for s in pf_view["sections"]] == [
@@ -253,6 +253,7 @@ class TestPowerFlowTabChanges:
             "Energy",
             "Where it came from",
             "Hot water",
+            "EV charger",
         ]
 
     def test_home_energy_has_no_repairs_banner_without_the_repairs_sensor(self):
@@ -671,13 +672,26 @@ class TestHomeEnergyOrder:
         first = yaml.safe_load(_build())["views"][0]
         assert first["path"] == "power-flow"
         lasting = [s for s in first["sections"] if "visibility" not in s]
-        assert [_heading_of(s) for s in lasting] == ["Energy", "Where it came from", "Hot water"]
+        assert [_heading_of(s) for s in lasting] == [
+            "Energy",
+            "Where it came from",
+            "Hot water",
+            "EV charger",
+        ]
 
     def test_the_flow_and_the_tonight_line_are_two_columns_wide_and_the_devices_one(self):
         spans = {_heading_of(s): s.get("column_span", 1) for s in self._view()["sections"]}
         assert spans["Energy"] == 2
         assert spans["Where it came from"] == 2
         assert spans["Hot water"] == 1
+        assert spans["EV charger"] == 1
+
+    def test_hot_water_and_the_ev_charger_are_sections_of_their_own(self):
+        """Two one-column sections sit side by side on a tablet and stack on a phone."""
+        sections = {_heading_of(s): s for s in self._view()["sections"]}
+        for title in ("Hot water", "EV charger"):
+            headings = [c["heading"] for c in sections[title]["cards"] if c["type"] == "heading"]
+            assert headings == [title]
 
     def test_the_tonight_line_opens_the_section_under_the_flow(self):
         section = next(s for s in self._view()["sections"] if _heading_of(s) == "Where it came from")
