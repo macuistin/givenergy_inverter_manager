@@ -1152,6 +1152,14 @@
         "name": "Grid Carbon Intensity Status"
       }
     },
+    "binary_sensor": {
+      "cheapest_rate_active": {
+        "name": "Cheapest Rate Active"
+      },
+      "cheap_rate_active": {
+        "name": "Cheap Rate Active"
+      }
+    },
     "switch": {
       "dry_run": {
         "name": "Dry run"

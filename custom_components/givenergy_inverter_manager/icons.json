@@ -168,6 +168,10 @@
       "integration_version": {"default": "mdi:information-outline"},
       "days_in_period": {"default": "mdi:calendar-start"}
     },
+    "binary_sensor": {
+      "cheapest_rate_active": {"default": "mdi:cash-check"},
+      "cheap_rate_active": {"default": "mdi:cash-clock"}
+    },
     "switch": {
       "dry_run": {"default": "mdi:test-tube"},
       "verbose_logging": {"default": "mdi:text-box-search-outline"},
