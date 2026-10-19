@@ -4,7 +4,7 @@ A fake GivTCP, and recorded GivTCP systems, for testing Home Assistant code that
 writes a GivEnergy inverter through GivTCP.
 
 > **Never point the mock at a real Home Assistant instance.** `MockGivTCP.install()` replaces the
-> `number.set_value`, `switch.turn_on`, `switch.turn_off` and `select.select_option` services of
+> `number.set_value`, `time.set_value`, `switch.turn_on`, `switch.turn_off` and `select.select_option` services of
 > the instance it is installed on. Use it in tests only.
 
 It has no runtime dependencies. `homeassistant` is imported for type checking only, so the
@@ -23,9 +23,17 @@ assert mock.sequence() == [("number.set_value", "number.givtcp_ab1234g567_target
 ```
 
 It publishes the entity states GivTCP publishes, in GivTCP's own sign convention. It registers the
-four write services and records each call in order. By default it moves the written entity to the
+five write services and records each call in order. By default it moves the written entity to the
 new value, so a read-back sees what a real device would show. `docs/design/mock_givtcp.md` in the
 integration repository has the full design.
+
+`mock.add_client_controls()` also publishes what a full GivTCP client writes: the battery pause
+(as selects, or as `time` entities), the battery mode, the reserve, the charge and discharge
+rates, the inverter clock, charge slots 2 to 10, the discharge schedule with its ten slots and
+targets, and the timed force charge and force export. Selects list their options and numbers
+their limits, and a write outside them is rejected as Home Assistant rejects it, so a client that
+sends one fails the test. A write keeps the entity's options and limits. The force options and
+the mode names are the shapes other projects describe, not GivTCP's documented ones.
 
 `python -m givtcp_mock [serial]` prints the entity map and the write services as JSON.
 

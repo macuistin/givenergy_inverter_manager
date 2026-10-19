@@ -54,10 +54,19 @@ UNUSED_SLOT = "00:00:00"
 # (service domain, service) pairs the integration writes through.
 WRITE_SERVICES = (
     ("number", "set_value"),
+    ("time", "set_value"),
     ("switch", "turn_on"),
     ("switch", "turn_off"),
     ("select", "select_option"),
 )
+
+# The pause mode options, the battery modes and the force presets the mock offers. GivTCP does
+# not document the force options, so these are the shapes other projects describe.
+PAUSE_OPTIONS = ["Disabled", "PauseCharge", "PauseDischarge", "PauseBoth"]
+BATTERY_MODES = ["Eco", "Timed Demand", "Timed Export"]
+FORCE_OPTIONS = ["Normal", "15 minutes", "30 minutes", "1 hour", "2 hours", "3 hours"]
+SLOT_STEP_MINUTES = 15
+SLOTS = 10
 
 # GivTCP daily energy counters and the value each starts at (kWh).
 DAILY_COUNTERS = {
@@ -117,6 +126,7 @@ class MockGivTCP:
     follow: bool = True
     writes: list[Write] = field(default_factory=list)
     other_calls: list[Write] = field(default_factory=list)
+    clock_text: str = "2031-03-04 12:00:00"
     _failing: dict[str, Exception] = field(default_factory=dict)
     _owned: set[str] = field(default_factory=set)
 
@@ -193,6 +203,56 @@ class MockGivTCP:
         states(e["enable_charge_schedule"], "off")
         states(e["charge_start_time"], UNUSED_SLOT)
         states(e["charge_end_time"], UNUSED_SLOT)
+
+    def add_client_controls(self, *, pause_as_time_entities: bool = False) -> None:
+        """Publish the settings beside the charge write, all at their idle values.
+
+        The battery pause, the battery mode, the reserve, the charge and discharge rates, the
+        inverter clock, charge slots 2 to 10, the discharge schedule with its ten slots and
+        targets, and the timed force charge and force export. Every control is owned, so a write
+        to it is recorded and followed. Selects list their options and numbers their limits, and
+        a write outside them is rejected as Home Assistant would reject it.
+
+        ``pause_as_time_entities`` publishes the pause window as `time` entities instead of
+        selects, which GivTCP 3.6 can do by a setting.
+        """
+        states = self.hass.states.async_set
+        times = {"options": _clock_options()}
+        e = self.entity
+        states(e("select", "battery_pause_mode"), "Disabled", {"options": PAUSE_OPTIONS})
+        for end in ("start", "end"):
+            if pause_as_time_entities:
+                states(e("time", f"battery_pause_{end}_time_slot"), UNUSED_SLOT)
+            else:
+                states(e("select", f"battery_pause_{end}_time_slot"), UNUSED_SLOT, times)
+        states(e("select", "mode"), "Eco", {"options": BATTERY_MODES})
+        states(e("number", "battery_power_reserve"), 4, {"min": 4, "max": 100, "step": 1})
+        states(e("number", "battery_charge_rate"), 2600, {"min": 0, "max": 2600, "step": 1})
+        states(e("number", "battery_discharge_rate"), 2600, {"min": 0, "max": 2600, "step": 1})
+        states(e("sensor", "invertor_time"), self.clock_text)
+        for slot in range(2, SLOTS + 1):
+            for edge in ("start", "end"):
+                states(e("select", f"charge_{edge}_time_slot_{slot}"), UNUSED_SLOT, times)
+        states(e("switch", "enable_discharge_schedule"), "off")
+        for slot in range(1, SLOTS + 1):
+            for edge in ("start", "end"):
+                states(e("select", f"discharge_{edge}_time_slot_{slot}"), UNUSED_SLOT, times)
+            states(
+                e("number", f"discharge_target_soc_{slot}"), 4, {"min": 4, "max": 100, "step": 1}
+            )
+        for force in ("force_charge", "force_export"):
+            states(e("select", force), "Normal", {"options": FORCE_OPTIONS})
+            states(e("number", f"{force}_num"), 0, {"min": 0, "max": 240, "step": 1})
+        self._owned.update(
+            eid
+            for eid in (s.entity_id for s in self.hass.states.async_all())
+            if eid.startswith(tuple(f"{d}.{self.prefix}_" for d in ("select", "number", "switch", "time")))
+        )
+
+    def set_clock(self, text: str) -> None:
+        """Set the inverter clock the mock publishes, as GivTCP shows it."""
+        self.clock_text = text
+        self.hass.states.async_set(self.entity("sensor", "invertor_time"), text)
 
     def add_immersion(
         self,
@@ -282,7 +342,9 @@ class MockGivTCP:
 
     def _record(self, domain: str, service: str, entity_id: str, data: Any) -> None:
         value: str | float | None = None
-        if service == "set_value":
+        if domain == "time":
+            value = data["time"]
+        elif service == "set_value":
             value = data["value"]
         elif service == "select_option":
             value = data["option"]
@@ -292,9 +354,26 @@ class MockGivTCP:
             return
         if entity_id in self._failing:
             raise self._failing[entity_id]
+        self._validate(domain, entity_id, value)
         self.writes.append(write)
         if self.follow:
-            self.hass.states.async_set(entity_id, _state_after(service, value))
+            # A real entity keeps its options and limits when its value changes.
+            state = self.hass.states.get(entity_id)
+            attributes = dict(state.attributes) if state is not None else None
+            self.hass.states.async_set(entity_id, _state_after(service, value), attributes)
+
+    def _validate(self, domain: str, entity_id: str, value: Any) -> None:
+        """Reject what Home Assistant rejects: an option the select lacks, a number out of range."""
+        state = self.hass.states.get(entity_id)
+        attributes = state.attributes if state is not None else {}
+        if domain == "select" and "options" in attributes and value not in attributes["options"]:
+            msg = f"{value!r} is not an option of {entity_id}"
+            raise _service_error(msg)
+        if domain == "number":
+            low, high = attributes.get("min"), attributes.get("max")
+            if (low is not None and value < low) or (high is not None and value > high):
+                msg = f"{value} is outside {low} to {high} for {entity_id}"
+                raise _service_error(msg)
 
     # ── What the tests read ──────────────────────────────────────────────────
 
@@ -308,6 +387,20 @@ class MockGivTCP:
     def clear(self) -> None:
         self.writes.clear()
         self.other_calls.clear()
+
+
+def _service_error(message: str) -> Exception:
+    from homeassistant.exceptions import ServiceValidationError  # noqa: PLC0415
+
+    return ServiceValidationError(message)
+
+
+def _clock_options() -> list[str]:
+    """Every quarter hour of the day, as HH:MM:SS, which is what the slot selects list."""
+    return [
+        f"{minute // 60:02d}:{minute % 60:02d}:00"
+        for minute in range(0, 24 * 60, SLOT_STEP_MINUTES)
+    ]
 
 
 def _state_after(service: str, value: Any) -> str:

@@ -11,8 +11,9 @@ It lives in `packages/givtcp_mock/`, a package of its own with no runtime depend
 ## What it does
 
 - Publishes the entity states GivTCP publishes, with the names `lib/givtcp/discovery.py` expects: `sensor.givtcp_<serial>_pv_power`, `_soc`, `_battery_power`, `_grid_power`, `_load_power`, `_invertor_temperature`, `_invertor_serial_number`, `_battery_capacity_kwh`, the seven daily energy counters, and the controls `number.givtcp_<serial>_target_soc`, `switch.givtcp_<serial>_enable_charge_target`, `switch.givtcp_<serial>_enable_charge_schedule`, `select.givtcp_<serial>_charge_start_time_slot_1` and `_charge_end_time_slot_1`. Readings use GivTCP's own sign convention (grid positive when exporting, battery positive when discharging).
-- Registers `number.set_value`, `switch.turn_on`, `switch.turn_off` and `select.select_option` and **records every call in order** as a `Write(domain, service, entity_id, value)`.
+- Registers `number.set_value`, `time.set_value`, `switch.turn_on`, `switch.turn_off` and `select.select_option` and **records every call in order** as a `Write(domain, service, entity_id, value)`.
 - Moves the written entity to the new value, as a real device would, so the writer's read-back sees what GivTCP would show. `follow = False` leaves the state alone and `fail_on(entity_id)` makes writes raise.
+- `add_client_controls()` publishes the settings a full GivTCP client writes (pause, mode, reserve, rates, clock, charge slots 2 to 10, the discharge schedule and force), with options and limits. A write outside them is rejected as Home Assistant would, and a write keeps the entity's options and limits.
 - Adds a stub immersion switch with a water temperature sensor (`add_immersion`) and a stub Zappi with a charge mode select (`add_zappi`).
 - `python -m givtcp_mock [serial]` prints the entity map and the write services as JSON. It needs no Home Assistant.
 

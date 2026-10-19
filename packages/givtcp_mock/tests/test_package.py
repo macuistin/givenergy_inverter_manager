@@ -44,3 +44,7 @@ def test_command_line_prints_json() -> None:
         text=True,
     ).stdout
     assert json.loads(out)["serial"] == "zz9999z999"
+
+
+def test_describe_lists_the_time_write_service() -> None:
+    assert "time.set_value" in givtcp_mock.describe()["write_services"]

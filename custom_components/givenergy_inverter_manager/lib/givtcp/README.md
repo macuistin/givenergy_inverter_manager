@@ -108,14 +108,15 @@ frozen-feed check are also the host's job: a host checks them before it calls a 
 | Area | Checked against |
 | --- | --- |
 | Discovery, reads, the charge write and the read-back | Unit tests, the end-to-end suite over `givtcp_mock`, GivTCP's own captured results, and a single-phase hybrid install |
-| Pause, mode, reserve, rates, clock | Unit tests over plain states only |
-| Discharge schedule, charge slots 2 and up, force | Unit tests over plain states only |
+| Pause, mode, reserve, rates, clock | Unit tests over plain states, and the end-to-end suite over `givtcp_mock`, which rejects an option or a value the entity does not allow |
+| Discharge schedule, charge slots 2 and up, force | The same two |
 
 The entity names for the second and third rows come from other projects' public configuration
 and documentation (Predbat, a force-charge script package), not from GivTCP's source. The clock
 formats and the force option names are guesses that the code does not rely on: it reads the
-options an entity lists. None of it has run against a real inverter. `packages/givtcp_mock/`
-does not publish these entities yet.
+options an entity lists. None of it has run against a real inverter, and the mock publishes
+the shapes those projects describe, so passing it shows the client is consistent with them, not
+with GivTCP.
 
 ## Public names
 
