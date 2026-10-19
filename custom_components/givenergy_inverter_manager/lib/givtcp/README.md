@@ -50,21 +50,28 @@ await backend.apply_battery_pause(cfg, BatteryPause.DISCHARGE, time(23, 30), tim
 - `cfg` is a mapping with the inverter's serial and, for the charge write, the entity ids it is
   wired to, under the names in `keys.py`. The controls find their own entities from the device
   prefix, so they need only the serial in the lower case GivTCP uses in entity ids (or a wired entity that carries the prefix).
-- Every `apply_*` and `start_*` call returns True when the value is on the inverter or was sent,
-  and False when it was refused or a write failed.
+- Every `apply_*`, `start_*` and `cancel_*` call returns a `WriteStatus` (`status.py`):
+  `ALREADY_SET`, `WRITTEN`, `UNCONFIRMED`, `COOLDOWN`, `REFUSED` or `FAILED`. It is truthy unless
+  the write was refused or failed. Check `status.confirmed` to know the inverter holds the value,
+  and `status.sent` to know a service call went out.
 
 ## How a write is made
 
 Every write goes through `GivTCPWriter`, because a GivEnergy inverter has about a million
 lifetime register writes:
 
-1. Read the entity first and skip the write when it is already at the value.
-2. Skip the same value written in the last five minutes.
-3. Call the service, read the state back, and try again up to three times, two seconds apart.
-4. Count each accepted call and warn at 500,000.
+1. Read the entity first. Refuse the write when it is missing or unavailable, and skip it when it
+   already holds the value.
+2. Skip the value last sent to that entity if that was less than five minutes ago. A different
+   value is never held back by an older one, so on, off, on sends all three.
+3. Call the service once, then read the state back after 2, 4 and 8 seconds. Send again only
+   when none of those reads showed the value, and at most twice in all.
+4. Count each accepted call and warn at 500,000. `GivTCPWriter.seed_count` restores a count the
+   host kept, and `GivTCPWriter.tuning` (`WriteTuning`) sets the sends, reads and delay.
 
-A read-back that never matches still returns True (GivTCP can be slow to publish), but is
-reported to a confirmation listener, so a host can raise a repair. Writes are serialised.
+A read-back that never matches returns `UNCONFIRMED` (GivTCP can be slow to publish). The
+cooldown is released so the next call can try again, and a confirmation listener hears about it,
+so a host can raise a repair. Writes are serialised.
 
 Beyond the writer, the client follows these rules in every write:
 

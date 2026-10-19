@@ -151,7 +151,7 @@ class BackendContract:
         assert result.ok
         assert harness.target() == 80
         assert harness.window() == (START_TEXT, END_TEXT)
-        assert harness.enable_target() is True
+        assert harness.enable_target()
 
     async def test_a_plan_for_one_hundred_percent_turns_the_enable_switch_off(self, harness):
         harness.set_target(50)
@@ -162,7 +162,7 @@ class BackendContract:
 
         assert result.ok
         assert harness.target() == 100
-        assert harness.enable_target() is False
+        assert not (harness.enable_target())
 
     async def test_a_target_that_could_not_be_written_is_reported_and_not_enabled(self, harness):
         harness.set_target(50)
@@ -175,7 +175,7 @@ class BackendContract:
         assert not result.ok
         assert "charge target" in result.failed_steps
         assert harness.target() == 50
-        assert harness.enable_target() is False
+        assert not (harness.enable_target())
 
     # ── the cheap-rate floor ──────────────────────────────────────────────────
 
@@ -186,7 +186,7 @@ class BackendContract:
 
         assert result.ok
         assert harness.target() == 40
-        assert harness.enable_target() is True
+        assert harness.enable_target()
 
     async def test_the_floor_keeps_a_higher_target(self, harness):
         harness.set_target(70)
@@ -203,7 +203,7 @@ class BackendContract:
         result = await harness.backend.apply_floor_target(harness.cfg, 40)
 
         assert not result.ok
-        assert harness.enable_target() is False
+        assert not (harness.enable_target())
 
     # ── the window alone ──────────────────────────────────────────────────────
 
@@ -211,7 +211,7 @@ class BackendContract:
         harness.set_target(50)
         before = harness.enable_target()
 
-        assert await harness.backend.apply_charge_window(harness.cfg, START, END) is True
+        assert await harness.backend.apply_charge_window(harness.cfg, START, END)
 
         assert harness.window() == (START_TEXT, END_TEXT)
         assert harness.backend.read_charge_window(harness.cfg) == ("00:30", "04:30")
@@ -230,7 +230,7 @@ class BackendContract:
         assert slot.number == 2
         assert slot.label
 
-        assert await harness.backend.clear_charge_slot(slot) is True
+        assert await harness.backend.clear_charge_slot(slot)
         assert list(harness.backend.other_active_charge_slots(harness.cfg)) == []
         assert harness.other_slot(2) == (UNUSED, UNUSED)
 

@@ -55,7 +55,7 @@ async def test_a_home_assistant_error_is_a_failed_write_that_is_logged_as_a_warn
     with caplog.at_level(logging.DEBUG):
         taken = await backend.writer.set_number(ENTITY, 80, "charge target")
 
-    assert taken is False
+    assert not (taken)
     failures = [r for r in caplog.records if "failed: write rejected" in r.getMessage()]
     assert [r.levelno for r in failures] == [logging.WARNING]
     assert not any(r.exc_info for r in caplog.records)
@@ -69,7 +69,7 @@ async def test_the_library_backend_alone_does_not_know_that_error(caplog):
     with caplog.at_level(logging.DEBUG):
         taken = await backend.writer.set_number(ENTITY, 80, "charge target")
 
-    assert taken is False
+    assert not (taken)
     assert any(r.exc_info for r in caplog.records)  # logged as unexpected, not as a refused call
 
 

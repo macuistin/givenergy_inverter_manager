@@ -23,6 +23,7 @@ from typing import Any
 from .controls import ClockWriter, _read_int, control_entity
 from .defaults import GIVTCP_MAX_CHARGE_TARGET_PCT, GIVTCP_MIN_CHARGE_TARGET_PCT
 from .discovery import MAX_CHARGE_SLOTS, UNUSED_SLOT_TIME, clock_time, device_prefix
+from .status import WriteStatus
 from .writer import GetState, GivTCPWriter, SwitchState
 
 ENABLE_DISCHARGE_SCHEDULE_SUFFIX = "_enable_discharge_schedule"
@@ -41,7 +42,7 @@ class SlotKind(StrEnum):
 Window = tuple[time, time]  # start, end
 
 
-def _slot_ok(slot: int, highest: int) -> bool:
+def _slot_ok(slot: int, highest: int) -> WriteStatus:
     return 1 <= slot <= highest
 
 
@@ -97,13 +98,13 @@ class GivTCPSchedules:
 
     async def apply_slot(
         self, cfg: Mapping[str, Any], kind: SlotKind, slot: int, window: Window
-    ) -> bool:
+    ) -> WriteStatus:
         """Write one slot's start, then its end, and nothing else. False when not taken."""
         prefix = device_prefix(cfg)
         highest = MAX_DISCHARGE_SLOTS if kind is SlotKind.DISCHARGE else MAX_CHARGE_SLOTS
         start, end = window
         if not prefix or not _slot_ok(slot, highest) or start == end:
-            return False
+            return WriteStatus.REFUSED
         starts, ends = slot_entities(prefix, kind, slot)
         name = f"{kind.value} slot {slot}"
         clock = ClockWriter(self._writer, self._get_state)
@@ -111,12 +112,12 @@ class GivTCPSchedules:
             ends, end, f"{name} end"
         )
 
-    async def clear_slot(self, cfg: Mapping[str, Any], kind: SlotKind, slot: int) -> bool:
+    async def clear_slot(self, cfg: Mapping[str, Any], kind: SlotKind, slot: int) -> WriteStatus:
         """Set a slot back to unused (00:00:00 to 00:00:00)."""
         prefix = device_prefix(cfg)
         highest = MAX_DISCHARGE_SLOTS if kind is SlotKind.DISCHARGE else MAX_CHARGE_SLOTS
         if not prefix or not _slot_ok(slot, highest):
-            return False
+            return WriteStatus.REFUSED
         starts, ends = slot_entities(prefix, kind, slot)
         name = f"clear {kind.value} slot {slot}"
         clock = ClockWriter(self._writer, self._get_state)
@@ -127,11 +128,11 @@ class GivTCPSchedules:
 
     async def apply_discharge_target(
         self, cfg: Mapping[str, Any], percent: int, slot: int = 1
-    ) -> bool:
+    ) -> WriteStatus:
         """Set a discharge slot's target, kept inside what the entity publishes."""
         entity = control_entity(cfg, "number", f"_discharge_target_soc_{slot}")
         if not entity or not _slot_ok(slot, MAX_DISCHARGE_SLOTS):
-            return False
+            return WriteStatus.REFUSED
         state = self._get_state(entity)
         attributes = getattr(state, "attributes", None) or {}
         low = max(GIVTCP_MIN_CHARGE_TARGET_PCT, float(attributes.get("min") or 0))
@@ -139,7 +140,7 @@ class GivTCPSchedules:
         value = round(min(max(percent, low), high))
         return await self._writer.set_number(entity, value, f"discharge target {slot}")
 
-    async def set_discharge_schedule(self, cfg: Mapping[str, Any], *, enabled: bool) -> bool:
+    async def set_discharge_schedule(self, cfg: Mapping[str, Any], *, enabled: bool) -> WriteStatus:
         """Switch the discharge schedule on or off."""
         entity = control_entity(cfg, "switch", ENABLE_DISCHARGE_SCHEDULE_SUFFIX)
         wanted = SwitchState.ON if enabled else SwitchState.OFF
@@ -147,7 +148,7 @@ class GivTCPSchedules:
 
     async def apply_discharge_plan(
         self, cfg: Mapping[str, Any], window: Window, target_percent: int, slot: int = 1
-    ) -> bool:
+    ) -> WriteStatus:
         """Set a discharge slot and switch the schedule on, last.
 
         Order: target, window start, window end, then the schedule. Stops at the first write
@@ -159,8 +160,11 @@ class GivTCPSchedules:
             and await self.set_discharge_schedule(cfg, enabled=True)
         )
 
-    async def stop_discharge(self, cfg: Mapping[str, Any]) -> bool:
-        """Switch the discharge schedule off. The slots keep their times."""
+    async def stop_discharge(self, cfg: Mapping[str, Any]) -> WriteStatus:
+        """Switch the discharge schedule off. The slots keep their times.
+
+        REFUSED when the switch cannot be read, because an unreadable switch might be on.
+        """
         return await self.set_discharge_schedule(cfg, enabled=False)
 
 

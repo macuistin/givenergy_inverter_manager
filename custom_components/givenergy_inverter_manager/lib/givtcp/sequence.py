@@ -17,7 +17,7 @@ from datetime import time
 from typing import Any
 
 from .defaults import GIVTCP_MAX_CHARGE_TARGET_PCT, GIVTCP_MIN_CHARGE_TARGET_PCT
-from .discovery import UNUSED_SLOT_TIME
+from .discovery import UNUSED_SLOT_TIME, ActiveChargeSlot
 from .keys import (
     KEY_CHARGE_END_TIME_ENTITY,
     KEY_CHARGE_START_TIME_ENTITY,
@@ -25,10 +25,12 @@ from .keys import (
     KEY_ENABLE_CHARGE_TARGET,
     KEY_TARGET_SOC_ENTITY,
 )
+from .status import WriteStatus
 from .values import ChargePlan, WriteResult
 from .writer import (
     GivTCPWriter,
     SwitchState,
+    VerifiedWrite,
     _number_write,
     _select_write,
     _switch_write,
@@ -57,6 +59,46 @@ def _clamp_and_report(target_soc: int) -> int:
     return clamped
 
 
+_PlanWrite = tuple[str, VerifiedWrite | None]
+
+
+def _plan_writes(cfg: Mapping[str, Any], plan: ChargePlan, target_soc: int) -> list[_PlanWrite]:
+    """The five writes of a charge plan, in order. None where the entity is not configured."""
+    schedule = cfg.get(KEY_ENABLE_CHARGE_SCHEDULE)
+    start = cfg.get(KEY_CHARGE_START_TIME_ENTITY)
+    end = cfg.get(KEY_CHARGE_END_TIME_ENTITY)
+    target = cfg.get(KEY_TARGET_SOC_ENTITY)
+    enable_target = cfg.get(KEY_ENABLE_CHARGE_TARGET)
+    wanted = SwitchState.ON if plan.enable_charge_target else SwitchState.OFF
+    return [
+        (
+            "enable charge schedule",
+            schedule and _switch_write(schedule, SwitchState.ON, "enable charge schedule", 1),
+        ),
+        (
+            "charge window start",
+            start
+            and _select_write(
+                start, plan.window_start.strftime("%H:%M:%S"), "charge window start", 2
+            ),
+        ),
+        (
+            "charge window end",
+            end
+            and _select_write(end, plan.window_end.strftime("%H:%M:%S"), "charge window end", 3),
+        ),
+        ("charge target", target and _number_write(target, target_soc, "charge target", 4)),
+        (
+            "enable charge target",
+            enable_target and _switch_write(enable_target, wanted, "enable charge target", 5),
+        ),
+    ]
+
+
+async def _write_step(writer: GivTCPWriter, write: VerifiedWrite | None) -> WriteStatus:
+    return WriteStatus.REFUSED if not write else await writer.write_verified(write)
+
+
 async def apply_charge_plan(
     writer: GivTCPWriter, cfg: Mapping[str, Any], plan: ChargePlan
 ) -> WriteResult:
@@ -75,63 +117,23 @@ async def apply_charge_plan(
     because the inverter would then limit charging to a stale target.
     """
     target_soc = _clamp_and_report(plan.target_soc)
+    writes = _plan_writes(cfg, plan, target_soc)
     failed: list[str] = []
-
-    def step(name: str, ok: bool) -> bool:  # noqa: FBT001
-        if not ok:
+    for index, (name, write) in enumerate(writes):
+        if index == 4 and plan.enable_charge_target and "charge target" in failed:
+            _LOG.warning(
+                "Charge target %d%% could not be written — not enabling the charge target",
+                target_soc,
+            )
+            return WriteResult(tuple(failed))
+        if not await _write_step(writer, write):
             failed.append(name)
-        return ok
-
-    step(
-        "enable charge schedule",
-        await writer.set_switch(
-            cfg.get(KEY_ENABLE_CHARGE_SCHEDULE),
-            SwitchState.ON,
-            "enable charge schedule",
-            step=1,
-        ),
-    )
-    start_str = plan.window_start.strftime("%H:%M:%S")
-    end_str = plan.window_end.strftime("%H:%M:%S")
-    step(
-        "charge window start",
-        await writer.set_select(
-            cfg.get(KEY_CHARGE_START_TIME_ENTITY), start_str, "charge window start", step=2
-        ),
-    )
-    step(
-        "charge window end",
-        await writer.set_select(
-            cfg.get(KEY_CHARGE_END_TIME_ENTITY), end_str, "charge window end", step=3
-        ),
-    )
-    target_written = step(
-        "charge target",
-        await writer.set_number(
-            cfg.get(KEY_TARGET_SOC_ENTITY), target_soc, "charge target", step=4
-        ),
-    )
-    if plan.enable_charge_target and not target_written:
-        _LOG.warning(
-            "Charge target %d%% could not be written — not enabling the charge target",
-            target_soc,
-        )
-        return WriteResult(tuple(failed))
-    step(
-        "enable charge target",
-        await writer.set_switch(
-            cfg.get(KEY_ENABLE_CHARGE_TARGET),
-            SwitchState.ON if plan.enable_charge_target else SwitchState.OFF,
-            "enable charge target",
-            step=5,
-        ),
-    )
-    failed += _not_confirmed(writer, cfg, plan, set(failed))
+    failed += _not_confirmed(writer, writes, set(failed))
     _LOG.info(
         "Charge target write-back complete: %d%% window %s–%s enable_target=%s%s",
         target_soc,
-        start_str,
-        end_str,
+        plan.window_start.strftime("%H:%M:%S"),
+        plan.window_end.strftime("%H:%M:%S"),
         plan.enable_charge_target,
         f", not confirmed: {', '.join(failed)}" if failed else "",
     )
@@ -139,65 +141,17 @@ async def apply_charge_plan(
 
 
 def _not_confirmed(
-    writer: GivTCPWriter,
-    cfg: Mapping[str, Any],
-    plan: ChargePlan,
-    already_failed: set[str],
+    writer: GivTCPWriter, writes: list[_PlanWrite], already_failed: set[str]
 ) -> list[str]:
     """The settings that were sent but do not hold their value after the read-backs.
 
-    The writer counts a sent write as success even when every read-back showed the old value,
-    because GivTCP can be slow to publish. The plan is not in force until each setting holds, so
-    the caller needs to know, and to be able to send the same values again. The cooldown that
-    stops the same value being sent twice within five minutes is released for each one.
+    The plan is not in force until each setting holds, so the caller needs to know, and to be
+    able to send the same values again. The writer releases the cooldown of a write it could
+    not confirm. A setting that confirmed late shows as held here and is not reported.
     """
-    wanted = (
-        (
-            "enable charge schedule",
-            _switch_write(
-                cfg.get(KEY_ENABLE_CHARGE_SCHEDULE), SwitchState.ON, "enable charge schedule", 1
-            ),
-        ),
-        (
-            "charge window start",
-            _select_write(
-                cfg.get(KEY_CHARGE_START_TIME_ENTITY),
-                plan.window_start.strftime("%H:%M:%S"),
-                "charge window start",
-                2,
-            ),
-        ),
-        (
-            "charge window end",
-            _select_write(
-                cfg.get(KEY_CHARGE_END_TIME_ENTITY),
-                plan.window_end.strftime("%H:%M:%S"),
-                "charge window end",
-                3,
-            ),
-        ),
-        (
-            "charge target",
-            _number_write(
-                cfg.get(KEY_TARGET_SOC_ENTITY),
-                clamp_charge_target(plan.target_soc),
-                "charge target",
-                4,
-            ),
-        ),
-        (
-            "enable charge target",
-            _switch_write(
-                cfg.get(KEY_ENABLE_CHARGE_TARGET),
-                SwitchState.ON if plan.enable_charge_target else SwitchState.OFF,
-                "enable charge target",
-                5,
-            ),
-        ),
-    )
     missed = []
-    for name, write in wanted:
-        if name in already_failed or not write.payload["entity_id"]:
+    for name, write in writes:
+        if name in already_failed or not write:
             continue
         if writer.is_unconfirmed(write):
             writer.release_cooldown(write)
@@ -207,7 +161,7 @@ def _not_confirmed(
 
 async def apply_charge_window(
     writer: GivTCPWriter, cfg: Mapping[str, Any], start: time, end: time
-) -> bool:
+) -> WriteStatus:
     """Set slot 1 start, then end, and leave the target and the switches as they are."""
     return await writer.set_select(
         cfg.get(KEY_CHARGE_START_TIME_ENTITY),
@@ -246,7 +200,7 @@ async def apply_floor_target(
     return WriteResult()
 
 
-async def clear_charge_slot(writer: GivTCPWriter, slot) -> bool:
+async def clear_charge_slot(writer: GivTCPWriter, slot: ActiveChargeSlot) -> WriteStatus:
     """Write 00:00:00 to the slot's start, then its end. Stops at the first failed write."""
     name = f"clear other slot {slot.number}"
     return await writer.set_select(

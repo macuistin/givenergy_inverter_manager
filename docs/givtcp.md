@@ -102,9 +102,9 @@ A GivEnergy EV charger is published as a separate device (GivEVC), with `chargin
 
 The inverter has about a million lifetime register writes, so every write goes through one path (`lib/givtcp/writer.py`):
 
-1. Read the entity first and skip the write when it is already at the value.
-2. Skip a value written in the last five minutes.
-3. Call the Home Assistant service, read the state back, and try again up to three times, two seconds apart.
+1. Read the entity first. Do not write when it is missing or unavailable, and skip the write when it already holds the value.
+2. Skip the value last sent to that entity if that was less than five minutes ago. A different value is never held back by an older one.
+3. Call the Home Assistant service once, then read the state back after 2, 4 and 8 seconds. Send again only if none of those reads showed the value, and at most twice in all.
 4. Count each accepted call. The integration logs a warning at 500,000.
 
 All writes are serialised, so two callers never interleave. A write the integration did not make is told apart from its own by a write log, which feeds **Charge Target Conflict**. In dry run, nothing is sent and the decision is logged as `Would set ...`.

@@ -24,6 +24,7 @@ from typing import Any
 
 from .defaults import GIVTCP_MAX_CHARGE_TARGET_PCT, GIVTCP_MIN_CHARGE_TARGET_PCT
 from .discovery import battery_pause_entities, clock_time, device_prefix
+from .status import WriteStatus
 from .writer import GetState, GivTCPWriter
 
 MODE_SUFFIX = "_mode"
@@ -164,41 +165,43 @@ class GivTCPControls:
         self._writer = writer
         self._get_state = get_state
 
-    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: str) -> bool:
+    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: str) -> WriteStatus:
         """Select a battery mode such as Eco. False when the entity does not offer it.
 
         Timed Export is a mode like any other here. Whether to export is the host's decision.
         """
         entity = control_entity(cfg, "select", MODE_SUFFIX)
         if not entity:
-            return False
+            return WriteStatus.REFUSED
         option = pick_option(self._get_state(entity), mode)
-        return option is not None and await self._writer.set_select(entity, option, "battery mode")
+        if option is None:
+            return WriteStatus.REFUSED
+        return await self._writer.set_select(entity, option, "battery mode")
 
-    async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> bool:
+    async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> WriteStatus:
         """Set the battery power reserve, kept inside the limits the entity publishes."""
         entity = control_entity(cfg, "number", RESERVE_SUFFIX)
         if not entity:
-            return False
+            return WriteStatus.REFUSED
         state = self._get_state(entity)
         low = max(GIVTCP_MIN_CHARGE_TARGET_PCT, _attribute_limit(state, "min") or 0)
         high = min(GIVTCP_MAX_CHARGE_TARGET_PCT, _attribute_limit(state, "max") or 100)
         value = round(min(max(percent, low), high))
         return await self._writer.set_number(entity, value, "battery reserve")
 
-    async def apply_charge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool:
+    async def apply_charge_rate(self, cfg: Mapping[str, Any], watts: int) -> WriteStatus:
         """Set the battery charge rate in watts, kept inside the limits the entity publishes."""
         entity = control_entity(cfg, "number", CHARGE_RATE_SUFFIX)
         return await self._apply_rate(entity, watts, "charge rate")
 
-    async def apply_discharge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool:
+    async def apply_discharge_rate(self, cfg: Mapping[str, Any], watts: int) -> WriteStatus:
         """Set the battery discharge rate in watts, kept inside the limits the entity publishes."""
         entity = control_entity(cfg, "number", DISCHARGE_RATE_SUFFIX)
         return await self._apply_rate(entity, watts, "discharge rate")
 
-    async def _apply_rate(self, entity: str | None, watts: int, name: str) -> bool:
+    async def _apply_rate(self, entity: str | None, watts: int, name: str) -> WriteStatus:
         if not entity:
-            return False
+            return WriteStatus.REFUSED
         state = self._get_state(entity)
         low = max(0, _attribute_limit(state, "min") or 0)
         high = _attribute_limit(state, "max")
@@ -211,7 +214,7 @@ class GivTCPControls:
         pause: BatteryPause,
         start: time | None = None,
         end: time | None = None,
-    ) -> bool:
+    ) -> WriteStatus:
         """Pause the battery for a window, or end the pause with BatteryPause.OFF.
 
         The window is written before the mode, so a pause never starts on an old window. Ending
@@ -220,21 +223,21 @@ class GivTCPControls:
         """
         prefix = device_prefix(cfg)
         if not prefix:
-            return False
+            return WriteStatus.REFUSED
         entities = battery_pause_entities(prefix)
         mode_state = self._get_state(entities.mode)
         option = pick_option(mode_state, pause.value, _PAUSE_ALIASES[pause])
         if mode_state is None or option is None:
-            return False
+            return WriteStatus.REFUSED
         if pause is not BatteryPause.OFF:
             if start is None or end is None or start == end:
-                return False
+                return WriteStatus.REFUSED
             clock = ClockWriter(self._writer, self._get_state)
-            if not (
-                await clock.write(entities.start, start, "pause start")
-                and await clock.write(entities.end, end, "pause end")
-            ):
-                return False
+            written = await clock.write(entities.start, start, "pause start")
+            if written:
+                written = await clock.write(entities.end, end, "pause end")
+            if not written:
+                return written
         return await self._writer.set_select(entities.mode, option, "battery pause")
 
 
@@ -245,7 +248,7 @@ class ClockWriter:
         self._writer = writer
         self._get_state = get_state
 
-    async def write(self, candidates: tuple[str, ...], value: time, name: str) -> bool:
+    async def write(self, candidates: tuple[str, ...], value: time, name: str) -> WriteStatus:
         """Write *value* to the first of *candidates* that exists.
 
         A `time` entity is set with the time service. A select is given the option that reads
@@ -253,7 +256,7 @@ class ClockWriter:
         """
         entity = next((e for e in candidates if self._get_state(e) is not None), None)
         if entity is None:
-            return False
+            return WriteStatus.REFUSED
         text = value.strftime("%H:%M:%S")
         if entity.startswith("time."):
             return await self._writer.set_time(entity, text, name)
@@ -261,7 +264,9 @@ class ClockWriter:
         if options is None:
             return await self._writer.set_select(entity, text, name)
         option = next((o for o in options if clock_time(_Text(o)) == text[:5]), None)
-        return option is not None and await self._writer.set_select(entity, option, name)
+        if option is None:
+            return WriteStatus.REFUSED
+        return await self._writer.set_select(entity, option, name)
 
 
 class _Text:

@@ -97,14 +97,14 @@ async def test_pausing_discharge_writes_the_window_before_the_mode():
         CFG, BatteryPause.DISCHARGE, time(23, 30), time(5, 30)
     )
 
-    assert taken is True
+    assert taken
     assert bus.written == [(START, "23:30:00"), (END, "05:30:00"), (MODE, "PauseDischarge")]
 
 
 async def test_ending_a_pause_writes_the_mode_only():
     bus = _pause_bus(**{MODE: _state("PauseDischarge", options=PAUSE_OPTIONS)})
 
-    assert await _backend(bus).apply_battery_pause(CFG, BatteryPause.OFF) is True
+    assert await _backend(bus).apply_battery_pause(CFG, BatteryPause.OFF)
 
     assert bus.written == [(MODE, "Disabled")]
 
@@ -113,7 +113,7 @@ async def test_an_install_that_spells_the_options_with_spaces_is_sent_its_own_sp
     options = ["Not Paused", "Pause Charge", "Pause Discharge", "Pause Both"]
     bus = _pause_bus(**{MODE: _state("Pause Discharge", options=options)})
 
-    assert await _backend(bus).apply_battery_pause(CFG, BatteryPause.OFF) is True
+    assert await _backend(bus).apply_battery_pause(CFG, BatteryPause.OFF)
 
     assert bus.written == [(MODE, "Not Paused")]
 
@@ -125,7 +125,7 @@ async def test_a_pause_option_the_entity_does_not_offer_is_refused_and_nothing_i
         CFG, BatteryPause.DISCHARGE, time(23, 30), time(5, 30)
     )
 
-    assert taken is False
+    assert not (taken)
     assert bus.calls == []
 
 
@@ -135,14 +135,14 @@ async def test_a_pause_without_a_usable_window_is_refused_and_nothing_is_sent(st
 
     taken = await _backend(bus).apply_battery_pause(CFG, BatteryPause.BOTH, start, end)
 
-    assert taken is False
+    assert not (taken)
     assert bus.calls == []
 
 
 async def test_a_pause_on_a_device_that_publishes_no_pause_entities_is_refused():
     bus = _Bus({})
 
-    assert await _backend(bus).apply_battery_pause(CFG, BatteryPause.OFF) is False
+    assert not (await _backend(bus).apply_battery_pause(CFG, BatteryPause.OFF))
     assert bus.calls == []
 
 
@@ -157,7 +157,7 @@ async def test_a_time_picker_is_written_with_the_time_service():
         CFG, BatteryPause.CHARGE, time(1, 0), time(2, 0)
     )
 
-    assert taken is True
+    assert taken
     assert [(c[0], c[1]) for c in bus.calls[:2]] == [("time", "set_value")] * 2
     assert bus.calls[0][2] == {"entity_id": start, "time": "01:00:00"}
 
@@ -169,7 +169,7 @@ async def test_a_window_the_drop_down_cannot_hold_is_refused():
         CFG, BatteryPause.DISCHARGE, time(0, 10), time(0, 30)
     )
 
-    assert taken is False
+    assert not (taken)
     assert bus.calls == []
 
 
@@ -197,7 +197,7 @@ async def test_a_pause_that_does_not_take_is_still_reported_as_sent_like_other_w
         CFG, BatteryPause.DISCHARGE, time(23, 30), time(5, 30)
     )
 
-    assert taken is True
+    assert taken
     assert bus.states[MODE].state == "Disabled"
 
 
@@ -209,21 +209,21 @@ async def test_the_battery_mode_is_read_and_written():
     backend = _backend(bus)
 
     assert backend.read_battery_mode(CFG) == "Eco"
-    assert await backend.apply_battery_mode(CFG, "timed demand") is True
+    assert await backend.apply_battery_mode(CFG, "timed demand")
     assert bus.written == [(BATTERY_MODE, "Timed Demand")]
 
 
 async def test_an_export_mode_is_written_like_any_other_because_the_client_has_no_policy():
     bus = _pause_bus()
 
-    assert await _backend(bus).apply_battery_mode(CFG, "timed export") is True
+    assert await _backend(bus).apply_battery_mode(CFG, "timed export")
     assert bus.written == [(BATTERY_MODE, "Timed Export")]
 
 
 async def test_an_unknown_mode_is_refused():
     bus = _pause_bus()
 
-    assert await _backend(bus).apply_battery_mode(CFG, "Turbo") is False
+    assert not (await _backend(bus).apply_battery_mode(CFG, "Turbo"))
     assert bus.calls == []
 
 

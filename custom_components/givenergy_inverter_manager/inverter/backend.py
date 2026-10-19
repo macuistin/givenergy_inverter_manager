@@ -19,6 +19,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, time
 from typing import Any, Protocol, runtime_checkable
 
+from ..lib.givtcp.status import WriteStatus
 from ..lib.givtcp.values import (
     ChargePlan,
     FeedStatus,
@@ -80,16 +81,18 @@ class InverterBackend(Protocol):
         """
         ...
 
-    async def apply_charge_window(self, cfg: Mapping[str, Any], start: time, end: time) -> bool:
-        """Set the window start and end and nothing else. False when a write was not taken."""
+    async def apply_charge_window(
+        self, cfg: Mapping[str, Any], start: time, end: time
+    ) -> WriteStatus:
+        """Set the window start and end and nothing else. Falsy when refused or failed."""
         ...
 
     def other_active_charge_slots(self, cfg: Mapping[str, Any]) -> Sequence[ChargeSlot]:
         """Charge windows set by something else. Reads only."""
         ...
 
-    async def clear_charge_slot(self, slot: ChargeSlot) -> bool:
-        """Set one slot back to unused. False when a write was not taken."""
+    async def clear_charge_slot(self, slot: ChargeSlot) -> WriteStatus:
+        """Set one slot back to unused. The status is falsy when a write was refused or failed."""
         ...
 
     def read_rate_defaults(self, cfg: Mapping[str, Any]) -> RateDefaults | None:
@@ -149,17 +152,17 @@ class InverterControls(Protocol):
         """Seconds the inverter's clock is ahead of now, None when it cannot be read."""
         ...
 
-    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: str) -> bool: ...
+    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: str) -> WriteStatus: ...
 
-    async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> bool: ...
+    async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> WriteStatus: ...
 
-    async def apply_charge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool: ...
+    async def apply_charge_rate(self, cfg: Mapping[str, Any], watts: int) -> WriteStatus: ...
 
-    async def apply_discharge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool: ...
+    async def apply_discharge_rate(self, cfg: Mapping[str, Any], watts: int) -> WriteStatus: ...
 
     async def apply_battery_pause(
         self, cfg: Mapping[str, Any], pause: Any, start: time | None = None, end: time | None = None
-    ) -> bool:
+    ) -> WriteStatus:
         """Pause charging or discharging for a window, or end the pause. False when not taken."""
         ...
 
@@ -184,21 +187,23 @@ class InverterExport(Protocol):
 
     async def apply_slot(
         self, cfg: Mapping[str, Any], kind: Any, slot: int, window: Any
-    ) -> bool: ...
+    ) -> WriteStatus: ...
 
-    async def clear_slot(self, cfg: Mapping[str, Any], kind: Any, slot: int) -> bool: ...
+    async def clear_slot(self, cfg: Mapping[str, Any], kind: Any, slot: int) -> WriteStatus: ...
 
     async def apply_discharge_plan(
         self, cfg: Mapping[str, Any], window: Any, target_percent: int, slot: int = 1
-    ) -> bool:
+    ) -> WriteStatus:
         """Target, window, then the schedule switch last. Stops at the first failure."""
         ...
 
-    async def stop_discharge(self, cfg: Mapping[str, Any]) -> bool: ...
+    async def stop_discharge(self, cfg: Mapping[str, Any]) -> WriteStatus: ...
 
-    async def start_force(self, cfg: Mapping[str, Any], force: Any, minutes: int) -> bool: ...
+    async def start_force(
+        self, cfg: Mapping[str, Any], force: Any, minutes: int
+    ) -> WriteStatus: ...
 
-    async def cancel_force(self, cfg: Mapping[str, Any], force: Any) -> bool: ...
+    async def cancel_force(self, cfg: Mapping[str, Any], force: Any) -> WriteStatus: ...
 
 
 def describe_charge_slots(slots: Sequence[ChargeSlot]) -> str:

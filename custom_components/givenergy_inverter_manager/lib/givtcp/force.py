@@ -24,6 +24,7 @@ from enum import StrEnum
 from typing import Any
 
 from .controls import _attribute_limit, _options, _squash, _usable, control_entity
+from .status import WriteStatus
 from .writer import GetState, GivTCPWriter
 
 _DURATION = re.compile(r"^\s*(?P<amount>\d+(?:\.\d+)?)\s*(?P<unit>[a-z]*)")
@@ -65,14 +66,14 @@ class GivTCPForce:
         select, _ = self._entities(cfg, force)
         return _usable(self._get_state(select)) if select else None
 
-    async def start(self, cfg: Mapping[str, Any], force: Force, minutes: int) -> bool:
+    async def start(self, cfg: Mapping[str, Any], force: Force, minutes: int) -> WriteStatus:
         """Force for at most *minutes*. False when no entity can hold a request that short.
 
         A request longer than every preset goes to the minutes entity when it can hold it.
         Otherwise the longest preset that fits is used, so a force is never longer than asked.
         """
         if minutes <= 0:
-            return False
+            return WriteStatus.REFUSED
         select, number = self._entities(cfg, force)
         presets = self._presets(select)
         longest = max((m for m, _ in presets), default=0)
@@ -81,7 +82,7 @@ class GivTCPForce:
         fits = [(m, o) for m, o in presets if m <= minutes]
         if fits and select:
             return await self._writer.set_select(select, max(fits)[1], force.value)
-        return False
+        return WriteStatus.REFUSED
 
     def _number_holds(self, number: str, minutes: int) -> bool:
         state = self._get_state(number)
@@ -90,7 +91,7 @@ class GivTCPForce:
         limit = _attribute_limit(state, "max")
         return limit is None or minutes <= limit
 
-    async def cancel(self, cfg: Mapping[str, Any], force: Force) -> bool:
+    async def cancel(self, cfg: Mapping[str, Any], force: Force) -> WriteStatus:
         """End a running force. GivTCP restores the schedule it saved when it started."""
         select, number = self._entities(cfg, force)
         state = self._get_state(select) if select else None
@@ -101,7 +102,7 @@ class GivTCPForce:
                 return await self._writer.set_select(select, option, f"cancel {force.value}")
         if number and self._get_state(number) is not None:
             return await self._writer.set_number(number, 0, f"cancel {force.value}")
-        return False
+        return WriteStatus.REFUSED
 
     def _presets(self, select: str | None) -> list[tuple[int, str]]:
         """The (minutes, option) pairs the select offers, leaving out 'Normal' and the like."""

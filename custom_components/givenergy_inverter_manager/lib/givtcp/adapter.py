@@ -32,6 +32,7 @@ from .keys import (
 )
 from .reader import GivTCPReader
 from .schedules import SlotKind, Window
+from .status import WriteStatus
 from .values import (
     ChargePlan,
     FeedStatus,
@@ -103,7 +104,9 @@ class GivTCPBackend:
         start, end = (clock_time(self._get_state(e)) for e in (start_entity, end_entity))
         return (start, end) if start is not None and end is not None else None
 
-    async def apply_charge_window(self, cfg: Mapping[str, Any], start: time, end: time) -> bool:
+    async def apply_charge_window(
+        self, cfg: Mapping[str, Any], start: time, end: time
+    ) -> WriteStatus:
         return await sequence.apply_charge_window(self.writer, cfg, start, end)
 
     def other_active_charge_slots(self, cfg: Mapping[str, Any]) -> Sequence[ActiveChargeSlot]:
@@ -113,7 +116,7 @@ class GivTCPBackend:
             return []
         return find_other_active_charge_slots(start_entity, end_entity, self._get_state)
 
-    async def clear_charge_slot(self, slot: ActiveChargeSlot) -> bool:
+    async def clear_charge_slot(self, slot: ActiveChargeSlot) -> WriteStatus:
         return await sequence.clear_charge_slot(self.writer, slot)
 
     # ── Settings beside the charge write ──────────────────────────────────────
@@ -133,16 +136,16 @@ class GivTCPBackend:
     def clock_skew_s(self, cfg: Mapping[str, Any], now: datetime) -> float | None:
         return controls.clock_skew_s(self._get_state, cfg, now)
 
-    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: str) -> bool:
+    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: str) -> WriteStatus:
         return await self._controls.apply_battery_mode(cfg, mode)
 
-    async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> bool:
+    async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> WriteStatus:
         return await self._controls.apply_reserve(cfg, percent)
 
-    async def apply_charge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool:
+    async def apply_charge_rate(self, cfg: Mapping[str, Any], watts: int) -> WriteStatus:
         return await self._controls.apply_charge_rate(cfg, watts)
 
-    async def apply_discharge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool:
+    async def apply_discharge_rate(self, cfg: Mapping[str, Any], watts: int) -> WriteStatus:
         return await self._controls.apply_discharge_rate(cfg, watts)
 
     async def apply_battery_pause(
@@ -151,7 +154,7 @@ class GivTCPBackend:
         pause: BatteryPause,
         start: time | None = None,
         end: time | None = None,
-    ) -> bool:
+    ) -> WriteStatus:
         return await self._controls.apply_battery_pause(cfg, pause, start, end)
 
     # ── Discharge (export), extra charge slots and timed force ────────────────
@@ -169,24 +172,24 @@ class GivTCPBackend:
 
     async def apply_slot(
         self, cfg: Mapping[str, Any], kind: SlotKind, slot: int, window: Window
-    ) -> bool:
+    ) -> WriteStatus:
         return await self._schedules.apply_slot(cfg, kind, slot, window)
 
-    async def clear_slot(self, cfg: Mapping[str, Any], kind: SlotKind, slot: int) -> bool:
+    async def clear_slot(self, cfg: Mapping[str, Any], kind: SlotKind, slot: int) -> WriteStatus:
         return await self._schedules.clear_slot(cfg, kind, slot)
 
     async def apply_discharge_plan(
         self, cfg: Mapping[str, Any], window: Window, target_percent: int, slot: int = 1
-    ) -> bool:
+    ) -> WriteStatus:
         return await self._schedules.apply_discharge_plan(cfg, window, target_percent, slot)
 
-    async def stop_discharge(self, cfg: Mapping[str, Any]) -> bool:
+    async def stop_discharge(self, cfg: Mapping[str, Any]) -> WriteStatus:
         return await self._schedules.stop_discharge(cfg)
 
-    async def start_force(self, cfg: Mapping[str, Any], force: Force, minutes: int) -> bool:
+    async def start_force(self, cfg: Mapping[str, Any], force: Force, minutes: int) -> WriteStatus:
         return await self._force.start(cfg, force, minutes)
 
-    async def cancel_force(self, cfg: Mapping[str, Any], force: Force) -> bool:
+    async def cancel_force(self, cfg: Mapping[str, Any], force: Force) -> WriteStatus:
         return await self._force.cancel(cfg, force)
 
     def read_rate_defaults(self, cfg: Mapping[str, Any]) -> RateDefaults | None:
