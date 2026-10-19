@@ -174,8 +174,8 @@ async def test_setup_asks_for_the_catch_up_and_it_writes_the_target_once_inside_
     decision = coordinator.data.charge_decision
     assert mock.sequence() == [
         ("switch.turn_on", ENABLE_SCHEDULE, None),
+        ("select.select_option", WINDOW_END, "04:00:00"),  # the window moves later: end first
         ("select.select_option", WINDOW_START, "02:00:00"),
-        ("select.select_option", WINDOW_END, "04:00:00"),
         ("number.set_value", TARGET, decision.target_soc),
         ("switch.turn_on", ENABLE_TARGET, None),
     ]
@@ -204,8 +204,9 @@ async def test_charge_target_write_sequence_is_the_five_steps_in_order(
 
     assert mock.sequence() == [
         ("switch.turn_on", ENABLE_SCHEDULE, None),  # 1 enable the charge schedule
-        ("select.select_option", WINDOW_START, "02:00:00"),  # 2 window start (Nightboost)
+        # The window moves later than the one the mock starts with, so its end goes first.
         ("select.select_option", WINDOW_END, "04:00:00"),  # 3 window end
+        ("select.select_option", WINDOW_START, "02:00:00"),  # 2 window start (Nightboost)
         ("number.set_value", TARGET, decision.target_soc),  # 4 the target
         ("switch.turn_on", ENABLE_TARGET, None),  # 5 enable it (target below 100)
     ]
@@ -244,7 +245,7 @@ async def test_a_rejected_target_write_stops_before_the_target_is_enabled(
     coordinator._write_charge_target_to_inverter(coordinator._now())
     await hass.async_block_till_done()
 
-    assert [w.entity_id for w in mock.writes] == [ENABLE_SCHEDULE, WINDOW_START, WINDOW_END]
+    assert [w.entity_id for w in mock.writes] == [ENABLE_SCHEDULE, WINDOW_END, WINDOW_START]
     assert hass.states.get(ENABLE_TARGET).state == "off"
 
 
