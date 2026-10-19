@@ -56,7 +56,7 @@ paths:
 - Control time. Pass `now`, or freeze the clock in end-to-end tests (`MIDDAY` and `CHEAP_NIGHT` in
   `tests/ha_e2e/conftest.py`). Do not depend on the date the test runs.
 - A new sensor, platform, option or form field needs the matching tests. See `/add-sensor`.
-- A new option, constant or entity needs a justification in the PR. Search `const.py` first.
+- A new option, constant or entity needs a justification in the PR. Search `const.py`, `conf.py`, `defaults.py` and `tuning.py` first.
 - Tests with `xfail`, `skip` or a long `sleep` need a one-line reason beside them.
 
 ## Before pushing

@@ -21,6 +21,7 @@ inside it.
 | Path | Role |
 | --- | --- |
 | `core/` | Pure Python decisions, tariff, accumulation maths and report text. No `homeassistant` imports |
+| `const.py`, `conf.py`, `defaults.py`, `tuning.py` | `conf.py` holds the `CONF_` option keys, `defaults.py` the `DEFAULT_` values and `tuning.py` the numeric thresholds. None of the three imports anything. `const.py` re-exports all of them, so import from `const` |
 | `lib/` | Packages written to be lifted out into their own repositories, one folder each. They import only the standard library and the `lib/` packages their `ALLOWED` row names. `lib/README.md` has the rules |
 | `coordinator.py` | Home Assistant bridge: asks the inverter backend for readings, calls `core/`, decides what to write and sends it through the backend, runs timers |
 | `inverter/` | `backend.py` is the `InverterBackend` interface. It has no Home Assistant import |
@@ -127,7 +128,8 @@ behaviour change), `/add-sensor` (new sensor, with its docs and tests).
 
 ## Working agreements
 
-- Never add a config option, constant or entity without searching `const.py` for one to reuse.
+- Never add a config option, constant or entity without searching `const.py`, `conf.py`,
+  `defaults.py` and `tuning.py` for one to reuse.
   Say so in the PR when you add one.
 - Say plainly which checks you ran. If you could not run the end-to-end suite, say that.
 - Tests never talk to a real inverter or a live Home Assistant. Use the stubs, the end-to-end
