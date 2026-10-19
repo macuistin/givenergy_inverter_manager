@@ -501,7 +501,9 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "overnight_charge_cost": (
         "kWh from the SoC up to the target that is written, after the cap or a manual "
-        "override, times the cheapest rate, before discount and VAT. Zero on a skipped night."
+        "override, times the cheapest rate, before discount and VAT. When the charge window "
+        "is longer than the cheapest period, the energy after it is priced at the rate in "
+        "force then. Zero on a skipped night."
     ),
     "tomorrow_outlook": (
         "What the solar day the charge plan is for should cost: grid import plus tonight's "
