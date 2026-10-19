@@ -18,17 +18,6 @@ from custom_components.givenergy_inverter_manager.lib.ev import (
     update_charger_state,
 )
 
-
-@pytest.fixture(autouse=True)
-def _reset_missing_power_warnings():
-    """The missing power warning is logged once per charger, so isolate each test."""
-    from custom_components.givenergy_inverter_manager.lib.ev import discover as ev_charger
-
-    ev_charger._WARNED_MISSING_POWER.clear()
-    yield
-    ev_charger._WARNED_MISSING_POWER.clear()
-
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
@@ -484,7 +473,7 @@ class TestEVPowerEntityWarning:
             logging.WARNING,
             logger="custom_components.givenergy_inverter_manager.discovery.ev_charger",
         ):
-            _discover_zappi(self._zappi_states_without_power())
+            _discover_zappi(self._zappi_states_without_power(), set())
         assert any("power entity not found" in r.message for r in caplog.records), (
             "Must warn when Zappi is discovered but power entity is absent — "
             "without this EV kWh silently reads 0 with no diagnostic."
@@ -496,7 +485,7 @@ class TestEVPowerEntityWarning:
             _discover_zappi,
         )
 
-        chargers = _discover_zappi(self._zappi_states_without_power())
+        chargers = _discover_zappi(self._zappi_states_without_power(), None)
         assert len(chargers) == 1, "Charger must be returned even without power entity"
         assert chargers[0].power_entity is None
 
@@ -519,7 +508,32 @@ class TestEVPowerEntityWarning:
             logging.WARNING,
             logger="custom_components.givenergy_inverter_manager.discovery.ev_charger",
         ):
-            _discover_zappi(states)
+            _discover_zappi(states, set())
+        assert not any("power entity" in r.message for r in caplog.records)
+
+    def test_separate_memories_do_not_share_the_warning(self, caplog):
+        """Two config entries each report a missing power entity; neither hides the other."""
+        import logging
+
+        from custom_components.givenergy_inverter_manager.lib.ev.discover import (
+            discover_ev_chargers,
+        )
+
+        states = self._zappi_states_without_power()
+        with caplog.at_level(logging.WARNING):
+            discover_ev_chargers(states, set())
+            discover_ev_chargers(states, set())
+        assert sum("power entity not found" in r.message for r in caplog.records) == 2
+
+    def test_no_memory_means_no_warning(self, caplog):
+        import logging
+
+        from custom_components.givenergy_inverter_manager.lib.ev.discover import (
+            discover_ev_chargers,
+        )
+
+        with caplog.at_level(logging.WARNING):
+            discover_ev_chargers(self._zappi_states_without_power())
         assert not any("power entity" in r.message for r in caplog.records)
 
 
@@ -637,9 +651,10 @@ class TestZappiWithoutSerialInEntityIds:
         import logging
 
         ids = {k: v for k, v in self.REAL_IDS.items() if "internal_load_ct1" not in k}
+        warned: set[str] = set()
         with caplog.at_level(logging.WARNING):
             for _ in range(5):
-                discover_ev_chargers(_states(ids))
+                discover_ev_chargers(_states(ids), warned)
         warnings = [r for r in caplog.records if "power entity not found" in r.message]
         assert len(warnings) == 1
 
@@ -647,10 +662,11 @@ class TestZappiWithoutSerialInEntityIds:
         import logging
 
         ids = {k: v for k, v in self.REAL_IDS.items() if "internal_load_ct1" not in k}
+        warned: set[str] = set()
         with caplog.at_level(logging.WARNING):
-            discover_ev_chargers(_states(ids))
-            discover_ev_chargers(_states(self.REAL_IDS))
-            discover_ev_chargers(_states(ids))
+            discover_ev_chargers(_states(ids), warned)
+            discover_ev_chargers(_states(self.REAL_IDS), warned)
+            discover_ev_chargers(_states(ids), warned)
         warnings = [r for r in caplog.records if "power entity not found" in r.message]
         assert len(warnings) == 2
 

@@ -1,5 +1,5 @@
 """
-ev_base_rate.py: when a car charging from the grid at the base rate is worth an alert.
+base_rate.py: when a car charging from the grid at the base rate is worth an alert.
 
 The base rate is the tariff's catch-all rate, in force when no timed band is active. When
 the tariff has a cheaper band, a session that draws from the grid at the base rate costs
@@ -20,18 +20,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from enum import StrEnum
 
+from ..guards.alert import AlertAction
 from ..timeutil import elapsed_seconds
 from .defaults import EV_BASE_RATE_ALERT_DELAY_S, EV_CHARGER_MIN_POWER_W
-
-
-class AlertAction(StrEnum):
-    """What the caller does with the alert this cycle."""
-
-    NONE = "none"
-    RAISE = "raise"
-    CLEAR = "clear"
 
 
 @dataclass(frozen=True)

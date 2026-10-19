@@ -73,7 +73,7 @@ To run the floor locally, install that file into a Python 3.14.2 or newer virtua
 
 | Job | What it runs |
 |---|---|
-| `lint` | `ruff check` and `bandit` |
+| `lint` | `ruff check`, `mypy` on `lib/` and `packages/givtcp_mock`, and `bandit` |
 | `Tests (Home Assistant 2026.5.0)` and `Tests (Home Assistant latest)` | The stubbed suite, with the real `homeassistant` package at the minimum in `hacs.json` and at the newest release |
 | `Tests (Home Assistant beta, not blocking)` | The stubbed suite against the newest pre-release. Until a beta is out it resolves to the latest release |
 | `Home Assistant end-to-end (2026.5.0)` and `Home Assistant end-to-end (latest)` | The real Home Assistant suite at the minimum and at the release pinned in `requirements-test-e2e.txt` |

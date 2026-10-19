@@ -1,5 +1,5 @@
 """
-immersion_window.py: the cheapest rate window the immersion heats in.
+window.py: the cheapest rate window the immersion heats in.
 
 The window is the cheapest timed rate period, the one the battery charge also starts in. It
 counts only when its rate is below the base rate, so a tariff whose only timed period is

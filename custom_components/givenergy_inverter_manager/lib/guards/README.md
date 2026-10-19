@@ -1,11 +1,14 @@
 # lib/guards
 
-Guards for inverter data. The counter guard tells energy from a daily counter that jumped (a rise
+Guards for inverter data. The write confirmation keeps the list of inverter settings that did not take the value written
+and says when to raise or clear the repair. The counter guard tells energy from a daily counter that jumped (a rise
 the system could not have delivered, a change of units) and keeps the memory of what each counter
 last read. It needs no Home Assistant objects. The frozen-feed check lives in `lib/givtcp`.
 
 ## Public names
 
+- `alert`: `AlertAction`
+- `write_confirmation`: `unconfirmed_step`, `confirmed_step`, `describe_unconfirmed`, `ConfirmationStep`, `Unconfirmed`, `UnconfirmedWrite`
 - `counter`: `screen`, `judge`, `Verdict`, `allowed_rise_kwh`, `largest_day_kwh`
 - `defaults`: `COUNTER_RISE_MARGIN`, `COUNTER_RISE_FLOOR_KWH`, `COUNTER_UNIT_CHANGE_RATIO`,
   `COUNTER_UNIT_CHANGE_MIN_KWH`

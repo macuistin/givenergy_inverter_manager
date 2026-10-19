@@ -1,12 +1,12 @@
 """
-system_types.py: what kind of GivEnergy system GivTCP is showing, which inverter to manage, and
+system.py: what kind of GivEnergy system GivTCP is showing, which inverter to manage, and
 whether the system has changed since it was last looked at.
 
 GivTCP publishes one device for each inverter-like unit: a hybrid, an AC-coupled inverter, an
 All-In-One, a three-phase inverter, a Gateway, an EMS. This module works on plain facts about each
 device (its entity name suffixes, its `Invertor_Type` text, its GivTCP version) and never on a
 serial prefix alone, because prefixes are only a hint. The facts come from
-inverter/givtcp/discovery.py.
+discovery.py.
 
 Three jobs:
 

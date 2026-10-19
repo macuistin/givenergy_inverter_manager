@@ -9,8 +9,9 @@ inside that folder until it is published somewhere installable.
 
 - It imports only the standard library, itself and the `lib/` packages named for it in the
   `ALLOWED` table in `tests/test_metadata.py`.
-- It never imports `const`, `logging`, `core/`, `discovery/`, `inverter/` or `homeassistant`, not
-  even under `TYPE_CHECKING`.
+- It never imports the integration's `const` or `logging` modules, `core/`, `discovery/`,
+  `inverter/` or `homeassistant`, not even under `TYPE_CHECKING`. The standard library `logging`
+  is fine.
 - Tuning constants it needs live in its own `defaults.py`. `const.py` re-imports them, so the
   dependency points from the integration into `lib/`.
 - Its `__init__.py` re-exports the public names and does no work at import time.
@@ -23,8 +24,8 @@ inside that folder until it is published somewhere installable.
 | Package | Purpose | Allowed `lib/` dependencies |
 | --- | --- | --- |
 | `timeutil` | Elapsed-time maths that stays correct across a clock change | none |
-| `ev` | Multi-brand EV charger model, discovery, sessions and the base-rate alert | `timeutil` |
+| `ev` | Multi-brand EV charger model, discovery, sessions and the base-rate alert | `timeutil`, `guards` |
 | `tariff` | Tariff model, energy and cost accumulation, bill maths, stored-energy value | `timeutil` |
 | `heating` | Hot-water heating planner: ready-by plans, the cheapest window, the learned heating rate | `timeutil`, `tariff` |
-| `guards` | Screening of inverter energy counters | `timeutil`, `tariff` |
+| `guards` | Screening of inverter energy counters, and the list of settings the inverter did not take | `timeutil`, `tariff` |
 | `givtcp` | GivTCP client: discovery, reads, verified writes and write order, plus its value types and system model | `timeutil` |

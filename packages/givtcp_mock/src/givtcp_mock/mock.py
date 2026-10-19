@@ -161,6 +161,12 @@ class MockGivTCP:
 
     # ── States ───────────────────────────────────────────────────────────────
 
+    def _set_state(
+        self, entity_id: str, value: object, attributes: dict[str, Any] | None = None
+    ) -> None:
+        """Home Assistant stores every state as text, so numbers are converted here once."""
+        self.hass.states.async_set(entity_id, str(value), attributes)
+
     def publish(self, readings: Readings | None = None, **overrides: Any) -> None:
         """Publish the inverter's read-only states and its controls at their idle values.
 
@@ -172,7 +178,7 @@ class MockGivTCP:
         reset_controls = overrides.pop("reset_controls", True)
         r = readings or Readings(**overrides)
         e = self.entities
-        states = self.hass.states.async_set
+        states = self._set_state
         power = {"unit_of_measurement": "W", "device_class": "power"}
         states(e["solar_power"], r.solar_w, power)
         states(
@@ -197,7 +203,7 @@ class MockGivTCP:
 
     def reset_controls(self, target_soc: int = 50) -> None:
         e = self.entities
-        states = self.hass.states.async_set
+        states = self._set_state
         states(e["target_soc"], target_soc, {"min": 4, "max": 100, "step": 1})
         states(e["enable_charge_target"], "off")
         states(e["enable_charge_schedule"], "off")
@@ -216,7 +222,7 @@ class MockGivTCP:
         ``pause_as_time_entities`` publishes the pause window as `time` entities instead of
         selects, which GivTCP 3.6 can do by a setting.
         """
-        states = self.hass.states.async_set
+        states = self._set_state
         times = {"options": _clock_options()}
         e = self.entity
         states(e("select", "battery_pause_mode"), "Disabled", {"options": PAUSE_OPTIONS})
@@ -268,7 +274,7 @@ class MockGivTCP:
         self._owned.add(switch)
 
     def set_water_temperature(self, celsius: float, sensor: str = DEFAULT_IMMERSION_TEMP) -> None:
-        self.hass.states.async_set(
+        self._set_state(
             sensor, celsius, {"unit_of_measurement": "°C", "device_class": "temperature"}
         )
 
@@ -277,7 +283,7 @@ class MockGivTCP:
     ) -> str:
         """The entities the myenergi integration creates. Returns the charge mode select."""
         p = ZAPPI_PREFIX
-        states = self.hass.states.async_set
+        states = self._set_state
         states(f"sensor.{p}_plug_status", ZAPPI_PLUGGED_IN if plugged_in else ZAPPI_UNPLUGGED)
         states(f"sensor.{p}_status", "Boosting" if power_w else "Paused")
         states(f"sensor.{p}_internal_load_ct1", power_w)
@@ -298,7 +304,7 @@ class MockGivTCP:
         `other_calls`, which the charger tests assert stays empty.
         """
         p = EVC_PREFIX
-        states = self.hass.states.async_set
+        states = self._set_state
         connection = "Connected" if plugged_in else "Not Connected"
         state = "Charging" if charging else ("Connected" if plugged_in else "Idle")
         states(f"sensor.{p}_serial_number", "EV1234A567")

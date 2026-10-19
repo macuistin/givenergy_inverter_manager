@@ -1,5 +1,5 @@
 """
-ev_session.py: the energy and cost of one EV charging session, and the last few finished ones.
+session.py: the energy and cost of one EV charging session, and the last few finished ones.
 
 A session starts on the first cycle the charger reads plugged in and ends on the first cycle it
 reads unplugged. That is the span the charger's own session energy counts: a Zappi's charge
@@ -22,6 +22,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from .defaults import EV_RECENT_SESSIONS_MAX
 from .model import EVChargerState
@@ -47,7 +48,7 @@ class EVSession:
         """Cost per kWh, None before the session has delivered any energy."""
         return self.cost / self.energy_kwh if self.energy_kwh > 0 else None
 
-    def to_storage(self) -> dict:
+    def to_storage(self) -> dict[str, Any]:
         return {
             "start": self.start.isoformat(),
             "end": self.end.isoformat() if self.end is not None else None,
@@ -76,7 +77,7 @@ class EVSessionLog:
             return self.current
         return self.recent[0] if self.recent else None
 
-    def to_storage(self) -> dict:
+    def to_storage(self) -> dict[str, Any]:
         return {
             "current": self.current.to_storage() if self.current is not None else None,
             "recent": [session.to_storage() for session in self.recent],

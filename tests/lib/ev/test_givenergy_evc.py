@@ -28,15 +28,6 @@ from custom_components.givenergy_inverter_manager.lib.ev import (
 PREFIX = "givtcp_evc_ev1234a567"
 
 
-@pytest.fixture(autouse=True)
-def _reset_missing_power_warnings():
-    from custom_components.givenergy_inverter_manager.lib.ev import discover as ev_charger
-
-    ev_charger._WARNED_MISSING_POWER.clear()
-    yield
-    ev_charger._WARNED_MISSING_POWER.clear()
-
-
 def _charger_only() -> dict:
     return fixtures.states("givenergy_charger_only")
 

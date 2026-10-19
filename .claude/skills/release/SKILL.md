@@ -29,7 +29,7 @@ and the six version strings. Commit title: `chore(release): bump version to X.Y.
    Both fail if one of the six places disagrees.
 6. The pre-release tag patterns in `.github/workflows/prerelease.yml` name one release line, and
    `tests/test_metadata.py` pins them. After a release, move both to the next line.
-7. Run `ruff check custom_components tests scripts tools`, the unit suite and the end-to-end suite.
+7. Run `ruff check custom_components tests scripts packages`, the unit suite and the end-to-end suite.
 8. Commit, then open the PR with `.github/PULL_REQUEST_TEMPLATE.md`. The PR body says what the
    release contains, taken from the changelog.
 9. After the PR merges, the maintainer creates the GitHub release, tagged `vX.Y.Z` on the merge

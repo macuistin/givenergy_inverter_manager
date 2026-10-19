@@ -64,23 +64,27 @@ discharge and users must act on it themselves.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from .model import EVCharger, EVChargerBrand
 
 _LOG = logging.getLogger(__name__)
 
-_WARNED_MISSING_POWER: set[str] = set()
+def _warn_if_power_missing(ch: EVCharger, warned: set[str] | None) -> None:
+    """Log once per charger when its power entity was not found.
 
-
-def _warn_if_power_missing(ch: EVCharger) -> None:
-    """Log once per charger when its power entity was not found."""
+    *warned* is the caller's memory of what it has already logged. Without it nothing is logged,
+    so a one-off scan (setup, the optional-device check) stays quiet.
+    """
+    if warned is None:
+        return
     key = ch.status_entity or ch.display_name
     if ch.power_entity is not None:
-        _WARNED_MISSING_POWER.discard(key)
+        warned.discard(key)
         return
-    if key in _WARNED_MISSING_POWER:
+    if key in warned:
         return
-    _WARNED_MISSING_POWER.add(key)
+    warned.add(key)
     _LOG.warning(
         "%s discovered but power entity not found "
         "— EV kWh will not be tracked until the entity appears.",
@@ -88,7 +92,7 @@ def _warn_if_power_missing(ch: EVCharger) -> None:
     )
 
 
-def _discover_zappi(all_states: dict) -> list[EVCharger]:
+def _discover_zappi(all_states: dict[str, Any], warned: set[str] | None) -> list[EVCharger]:
     """Discover myenergi Zappi chargers from HA entity states.
 
     The myenergi integration names entities `sensor.myenergi_zappi_<serial>_plug_status`
@@ -127,12 +131,12 @@ def _discover_zappi(all_states: dict) -> list[EVCharger]:
             prefix.replace("sensor.", "select.", 1) + "charge_mode",
         )
         _maybe(ch, "activity_entity", all_states, f"{prefix.rstrip('_')}_status".replace("__", "_"))
-        _warn_if_power_missing(ch)
+        _warn_if_power_missing(ch, warned)
         chargers.append(ch)
     return chargers
 
 
-def _discover_wallbox(all_states: dict) -> list[EVCharger]:
+def _discover_wallbox(all_states: dict[str, Any], warned: set[str] | None) -> list[EVCharger]:
     """Discover Wallbox chargers from HA entity states."""
     chargers = []
     for eid in list(all_states):
@@ -148,12 +152,12 @@ def _discover_wallbox(all_states: dict) -> list[EVCharger]:
         )
         _maybe(ch, "power_entity", all_states, f"sensor.wallbox_{serial}_charging_power")
         _maybe(ch, "session_energy_entity", all_states, f"sensor.wallbox_{serial}_added_energy")
-        _warn_if_power_missing(ch)
+        _warn_if_power_missing(ch, warned)
         chargers.append(ch)
     return chargers
 
 
-def _discover_ocpp(all_states: dict) -> list[EVCharger]:
+def _discover_ocpp(all_states: dict[str, Any], warned: set[str] | None) -> list[EVCharger]:
     """Discover OCPP chargers from HA entity states."""
     chargers = []
     for eid in list(all_states):
@@ -168,12 +172,12 @@ def _discover_ocpp(all_states: dict) -> list[EVCharger]:
             status_entity=eid,
         )
         _maybe(ch, "power_entity", all_states, f"sensor.ocpp_{serial}_current_power_import")
-        _warn_if_power_missing(ch)
+        _warn_if_power_missing(ch, warned)
         chargers.append(ch)
     return chargers
 
 
-def _discover_ohme(all_states: dict) -> list[EVCharger]:
+def _discover_ohme(all_states: dict[str, Any], warned: set[str] | None) -> list[EVCharger]:
     """Discover Ohme chargers from HA entity states."""
     chargers = []
     for eid in list(all_states):
@@ -190,12 +194,12 @@ def _discover_ohme(all_states: dict) -> list[EVCharger]:
             status_entity=eid,
         )
         _maybe(ch, "power_entity", all_states, f"sensor.ohme_{serial}_power")
-        _warn_if_power_missing(ch)
+        _warn_if_power_missing(ch, warned)
         chargers.append(ch)
     return chargers
 
 
-def _discover_easee(all_states: dict) -> list[EVCharger]:
+def _discover_easee(all_states: dict[str, Any], warned: set[str] | None) -> list[EVCharger]:
     """Discover Easee chargers from HA entity states."""
     chargers = []
     for eid in list(all_states):
@@ -210,12 +214,12 @@ def _discover_easee(all_states: dict) -> list[EVCharger]:
             status_entity=eid,
         )
         _maybe(ch, "power_entity", all_states, f"sensor.easee_{serial}_power")
-        _warn_if_power_missing(ch)
+        _warn_if_power_missing(ch, warned)
         chargers.append(ch)
     return chargers
 
 
-def _discover_givenergy_evc(all_states: dict) -> list[EVCharger]:
+def _discover_givenergy_evc(all_states: dict[str, Any], warned: set[str] | None) -> list[EVCharger]:
     """Discover GivEnergy chargers published by GivTCP, by what the device publishes.
 
     GivTCP names the device GivEVC and lets the user change the prefix, so the prefix is taken
@@ -245,18 +249,23 @@ def _discover_givenergy_evc(all_states: dict) -> list[EVCharger]:
         _maybe(ch, "power_entity", all_states, f"sensor.{prefix}_active_power")
         _maybe(ch, "session_energy_entity", all_states, f"sensor.{prefix}_charge_session_energy")
         _maybe(ch, "charge_mode_entity", all_states, f"select.{prefix}_charging_mode")
-        _warn_if_power_missing(ch)
+        _warn_if_power_missing(ch, warned)
         chargers.append(ch)
     return chargers
 
 
-def discover_ev_chargers(all_states: dict) -> list[EVCharger]:
+def discover_ev_chargers(
+    all_states: dict[str, Any], warned: set[str] | None = None
+) -> list[EVCharger]:
     """
     Scan HA entity states for known EV charger integrations.
 
     Accepts a dict of {entity_id: state_object} rather than the HA hass object
     so the function is HA-free and testable without a running HA instance.
     The coordinator builds this dict via its _get_all_states() proxy method.
+
+    *warned* holds the chargers already reported as having no power entity. The caller keeps it
+    between scans, so the warning is logged once per charger. Without it nothing is logged.
 
     Returns a list of discovered chargers sorted by brand then serial.
     """
@@ -269,12 +278,12 @@ def discover_ev_chargers(all_states: dict) -> list[EVCharger]:
         _discover_easee,
         _discover_givenergy_evc,
     ):
-        chargers.extend(fn(all_states))
+        chargers.extend(fn(all_states, warned))
     chargers.sort(key=lambda c: (c.brand.value, c.serial))
     return chargers
 
 
-def _maybe(ch: EVCharger, attr: str, all_states: dict, eid: str) -> None:
+def _maybe(ch: EVCharger, attr: str, all_states: dict[str, Any], eid: str) -> None:
     """Set charger attribute only if the entity actually exists in HA."""
     if eid in all_states:
         setattr(ch, attr, eid)

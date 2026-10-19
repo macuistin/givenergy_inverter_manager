@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 from .model import ACTIVE_STATES, EVCharger, EVChargerState
 
 
@@ -14,7 +17,7 @@ def _options_of(state: object) -> tuple[str, ...] | None:
 
 
 def update_charger_state(  # noqa: C901
-    get_state,
+    get_state: Callable[[str], Any],
     charger: EVCharger,
     battery_power_w: float,
 ) -> EVCharger:
@@ -63,7 +66,7 @@ def update_charger_state(  # noqa: C901
             charger.state = activity_state
 
     raw_mode = _read_state(charger.charge_mode_entity)
-    if raw_mode is not None:
+    if raw_mode is not None and charger.charge_mode_entity is not None:
         charger.charge_mode = raw_mode
         charger.charge_mode_options = _options_of(get_state(charger.charge_mode_entity))
 

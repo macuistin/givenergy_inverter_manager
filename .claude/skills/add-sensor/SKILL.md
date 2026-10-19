@@ -38,7 +38,7 @@ All integration paths are under `custom_components/givenergy_inverter_manager/`.
 6. Add tests in `tests/test_sensors.py` for device class, unit, state class and `value_fn`. The
    `battery_power` tests are the pattern. For an optional device, add the absent and added-later
    cases (`tests/ha_e2e/test_optional_device_entities_e2e.py`).
-7. Run `ruff check custom_components tests scripts tools`, the unit suite and the end-to-end suite.
+7. Run `ruff check custom_components tests scripts packages`, the unit suite and the end-to-end suite.
    `tests/test_sensor_integrity.py`, `tests/test_docs_sensor_table.py` and `tests/test_translations.py`
    catch most mistakes in steps 2 to 4.
 8. Add a bullet under `## Unreleased` in `CHANGELOG.md`, in plain words.

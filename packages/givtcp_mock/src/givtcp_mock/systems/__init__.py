@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 HERE = Path(__file__).parent
 
@@ -13,11 +14,12 @@ def names() -> list[str]:
     return sorted(p.stem for p in HERE.glob("*.json"))
 
 
-def raw(name: str) -> dict:
-    return json.loads((HERE / f"{name}.json").read_text())
+def raw(name: str) -> dict[str, Any]:
+    data: dict[str, Any] = json.loads((HERE / f"{name}.json").read_text())
+    return data
 
 
-def states(name: str) -> dict:
+def states(name: str) -> dict[str, Any]:
     """The fixture as {entity_id: object with .state}, the shape the discovery code takes."""
     return {
         entity_id: SimpleNamespace(state=value["state"], attributes=value.get("attributes", {}))

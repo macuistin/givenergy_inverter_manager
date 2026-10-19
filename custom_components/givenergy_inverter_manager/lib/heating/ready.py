@@ -1,5 +1,5 @@
 """
-immersion_ready.py: plan the heating that has the water at its target by a ready time.
+ready.py: plan the heating that has the water at its target by a ready time.
 
 The user lists the times the hot water has to be at the target temperature, for example a
 morning and an evening shower. For the next ready time this module works out how long the
