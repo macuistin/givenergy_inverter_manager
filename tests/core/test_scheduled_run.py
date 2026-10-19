@@ -8,6 +8,7 @@ from custom_components.givenergy_inverter_manager.core.scheduled_run import (
     HeldScheduledRun,
     RunStep,
     advance,
+    warning_state,
 )
 
 START = datetime(2031, 1, 15, 23, 0)
@@ -78,3 +79,25 @@ class TestWhenItClears:
         later = _run(held, minutes=10, start=START + timedelta(hours=3))
         assert later.minutes == 10.0
         assert not later.capped
+
+
+class TestTheWarningState:
+    def test_it_is_idle_until_the_limit_is_reached(self):
+        held = _run(HeldScheduledRun(), minutes=20)
+        assert warning_state(held, 60, enabled=True) == "idle"
+
+    def test_it_says_reached_once_the_run_was_capped(self):
+        held = _run(HeldScheduledRun(), minutes=60)
+        assert warning_state(held, 60, enabled=True) == "reached"
+
+    def test_it_is_off_when_the_warning_is_turned_off(self):
+        held = _run(HeldScheduledRun(), minutes=60)
+        assert warning_state(held, 60, enabled=False) == "off"
+
+    def test_it_is_off_without_a_limit(self):
+        assert warning_state(HeldScheduledRun(), 0, enabled=True) == "off"
+
+    def test_it_goes_back_to_idle_when_the_run_ends(self):
+        held = _run(HeldScheduledRun(), minutes=60)
+        advance(held, RunStep(START + timedelta(hours=2), False, False, 60))
+        assert warning_state(held, 60, enabled=True) == "idle"

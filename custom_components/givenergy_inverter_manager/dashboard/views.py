@@ -100,6 +100,7 @@ from .devices import Devices, with_visibility
 from .hacs import APEX_CARD, CARD_MOD, POWER_FLOW_CARD, HacsCards
 from .registry import HostFacts, Registry, entry_config, external_ev_power
 from .templates import (
+    RUN_LIMIT_BANNER_TEXT,
     ChargerNow,
     DayTotals,
     WaterNow,
@@ -714,6 +715,25 @@ class Builder:
             **WHOLE_WIDTH,
         )
 
+    def _run_limit_section(self) -> dict | None:
+        """A banner, shown while Immersion Run Limit says reached.
+
+        The sensor reports off when the longest run is 0 or the warning is turned off, so the
+        setting needs no dashboard rebuild. The state condition works on the Home Assistant floor.
+        """
+        limit = self.immersion("immersion_run_limit")
+        if not limit:
+            return None
+        return group(
+            heading_card("The immersion stopped at its longest run", "mdi:timer-alert-outline"),
+            [markdown_card(RUN_LIMIT_BANNER_TEXT)],
+            visibility=[
+                *self.devices.visible_with(Device.IMMERSION_SWITCH),
+                {"condition": "state", "entity": limit, "state": "reached"},
+            ],
+            **WHOLE_WIDTH,
+        )
+
     def _setup_checklist(self) -> dict | None:
         """What is left to set up, shown while Setup Progress says incomplete.
 
@@ -743,6 +763,7 @@ class Builder:
                 self._setup_checklist(),
                 self._repairs_section(),
                 self._alt_heat_section(),
+                self._run_limit_section(),
                 self._flow(),
                 self._tonight_and_sources(),
                 self._device_buttons(),

@@ -66,6 +66,7 @@ class TestWhatNeedsWhat:
             "immersion_savings_this_week",
             "immersion_savings_this_month",
             "immersion_solar_kwh_today",
+            "immersion_run_limit",
             "auto_immersion",
             "immersion_managed",
             "surplus_divert_soc_pct",

@@ -231,6 +231,7 @@ KEY_GROUPS: dict[str, str] = {
             "immersion_divert_reason",
             "immersion_water_temperature",
             "water_heating_cheapest_source",
+            "immersion_run_limit",
             "water_heating_ready_by_trigger",
             "water_heating_low_water_trigger",
         ),
@@ -559,6 +560,13 @@ DESCRIPTIONS: dict[str, str] = {
         "Heating on, the `planned_heating` attribute says in a sentence what the immersion "
         "plans for the next ready time and the cheapest window. With ready times set it also "
         "has `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source`."
+    ),
+    "immersion_run_limit": (
+        "Whether a scheduled run of the immersion was stopped by the longest immersion run: "
+        "`off`, `idle` or `reached`. `reached` lasts until scheduled heating stops wanting the "
+        "heater, which is when the window closes, the ready time passes or the water is warm "
+        "enough. It is `off` when the longest run is 0 or the warning is turned off in the hot "
+        "water settings. The Home energy dashboard shows a banner while it is `reached`."
     ),
     "water_heating_ready_by_trigger": (
         "A trigger for the start for a ready time: `idle` or `start_now`. It becomes `start_now` "

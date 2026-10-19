@@ -31,6 +31,7 @@ unless noted):
   forecast               forecast_entity_p10, forecast_entity_d2, carbon_intensity_entity,
                          forecast_conservatism. forecast_provider is stored and never read.
   hot water              immersion_wattage_w, immersion_max_run_minutes,
+                         immersion_run_limit_warning,
                          immersion_ready_times, alt_heat_label,
                          alt_heat_cost_unit. The label, unit and cost reach the advice through
                          _read_alt_heat_cost and _collect_raw every cycle, so a change shows
@@ -101,6 +102,7 @@ from ..const import (
     CONF_IMMERSION_MAX_RUN_MINUTES,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_READY_TIMES,
+    CONF_IMMERSION_RUN_LIMIT_WARNING,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TARGET_TEMP,
     CONF_IMMERSION_TEMP_SENSOR,
@@ -226,6 +228,7 @@ LIVE_KEYS: frozenset[str] = frozenset(
         # Hot water and EV
         CONF_IMMERSION_WATTAGE,
         CONF_IMMERSION_MAX_RUN_MINUTES,
+        CONF_IMMERSION_RUN_LIMIT_WARNING,
         CONF_IMMERSION_READY_TIMES,
         CONF_ALT_HEAT_LABEL,
         CONF_ALT_HEAT_COST_UNIT,

@@ -553,10 +553,11 @@ class TestTheRepairsBanner:
             next(c["heading"] for c in s["cards"] if c["type"] == "heading")
             for s in _view(dashboard, "power-flow")["sections"]
         ]
-        assert headings[2:6] == [
+        assert headings[2:7] == [
             "Finish setting up",
             "Needs your attention",
             "Start the alternative heating",
+            "The immersion stopped at its longest run",
             "Energy",
         ]
 

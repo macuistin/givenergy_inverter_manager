@@ -56,7 +56,7 @@ paths:
   `HostFacts.series_colours` is true, from Home Assistant 2026.6 (`render.py`).
 - Numbers are set with the `STEPPER` feature (− and + buttons), never a slider.
 - The banners (dry run, charge target conflict, setup, this integration's repairs, the
-  alternative heating start) open Home energy in that order, each a section with a condition on
+  alternative heating start, the longest immersion run reached) open Home energy in that order, each a section with a condition on
   its sensor. At the 2026.5 floor use only `state`, `numeric_state`, `user` and `or` conditions.
 - `tests/golden_dashboard_matrix.json` pins the output for a grid of installs and for an
   administrator and another user. Regenerate it with `/regenerate-goldens` after a deliberate

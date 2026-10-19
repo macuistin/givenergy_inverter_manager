@@ -200,6 +200,10 @@ The water_heating_ready_trigger and water_heating_low_trigger leaves were added 
 heating trigger sensors. Only the fresh snapshot gained them (state idle), and none of the 255 cases
 moved, because no engine case sets an alternative heating cost. The states are pinned in
 tests/core/test_alt_heat_trigger.py and tests/core/test_alt_heat_advice_engine.py.
+
+The fresh CoordinatorData gained the leaf immersion_run_limit (off) with the longest run
+warning. None of the 255 cases moved, because the flat engine sets no longest run, which is off.
+The sensor states are pinned in test_immersion_max_run_engine.py.
 """
 
 from __future__ import annotations

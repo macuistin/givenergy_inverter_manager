@@ -142,7 +142,7 @@ from .rules import (
     should_divert_to_immersion,
     usable_slot_loads_kwh,
 )
-from .scheduled_run import HeldScheduledRun, RunStep, advance
+from .scheduled_run import HeldScheduledRun, RunStep, advance, warning_state
 from .seasons import NORTHERN_SEASONS, SeasonRules
 from .setup_progress import SetupItem
 from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
@@ -216,6 +216,8 @@ class RawSensorValues:
     # The longest a scheduled run lasts, in minutes. 0 is no limit. The coordinator sets it from
     # the configuration, whose default is 60.
     immersion_max_run_minutes: int = 0
+    # Whether to report a run that reached the limit, set by the coordinator from the configuration.
+    immersion_run_limit_warning: bool = True
     # The user's opt-in to heating in the cheapest rate window, set by the coordinator.
     immersion_schedule_enabled: bool = False
     # True when the previous cycle was heating in the cheapest window. The coordinator sets it.
@@ -333,6 +335,8 @@ class CoordinatorData:
     immersion_expected_ready: bool | None = None
     # What scheduled heating plans, in a sentence. None without scheduled heating or a reading.
     immersion_planned_heating: str | None = None
+    # off, idle or reached: whether a scheduled run has been stopped by the longest run.
+    immersion_run_limit: str = "off"
     # The alternative heating against electricity for the water. None while it has no cost.
     water_heating_advice: WaterHeatingAdvice | None = None
     # The two moments the alternative heating is worth starting, for an automation to trigger on.
@@ -1319,6 +1323,9 @@ def _set_immersion_decision(
         return
     inputs = _stop_a_long_run(_immersion_inputs(data, cycle), cycle, held)
     data.should_divert_immersion, data.divert_reason = should_divert_to_immersion(inputs)
+    data.immersion_run_limit = warning_state(
+        held, cycle.raw.immersion_max_run_minutes, enabled=cycle.raw.immersion_run_limit_warning
+    )
     data.immersion_window_heating = (
         data.should_divert_immersion and inputs.window.open_label is not None
     )

@@ -937,6 +937,13 @@
     "default": 60.0
    },
    {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "required": false,
+    "optional": true,
+    "default": true
+   },
+   {
     "selector": {
      "text": {
       "multiple": true,
@@ -1100,6 +1107,16 @@
     "required": false,
     "optional": true,
     "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "description": {
+     "suggested_value": true
+    },
+    "required": false,
+    "optional": true,
+    "default": true
    },
    {
     "selector": {
@@ -2083,6 +2100,13 @@
     "default": 60.0
    },
    {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "required": false,
+    "optional": true,
+    "default": true
+   },
+   {
     "selector": {
      "text": {
       "multiple": true,
@@ -2246,6 +2270,16 @@
     "required": false,
     "optional": true,
     "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "description": {
+     "suggested_value": true
+    },
+    "required": false,
+    "optional": true,
+    "default": true
    },
    {
     "selector": {
@@ -3237,6 +3271,13 @@
     "default": 60.0
    },
    {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "required": false,
+    "optional": true,
+    "default": true
+   },
+   {
     "selector": {
      "text": {
       "multiple": true,
@@ -3400,6 +3441,16 @@
     "required": false,
     "optional": true,
     "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "description": {
+     "suggested_value": true
+    },
+    "required": false,
+    "optional": true,
+    "default": true
    },
    {
     "selector": {
@@ -4725,6 +4776,13 @@
     "default": 60.0
    },
    {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "required": false,
+    "optional": true,
+    "default": true
+   },
+   {
     "selector": {
      "text": {
       "multiple": true,
@@ -5648,6 +5706,13 @@
     "default": 60.0
    },
    {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "required": false,
+    "optional": true,
+    "default": true
+   },
+   {
     "selector": {
      "text": {
       "multiple": true,
@@ -6566,6 +6631,13 @@
     "required": false,
     "optional": true,
     "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "required": false,
+    "optional": true,
+    "default": true
    },
    {
     "selector": {

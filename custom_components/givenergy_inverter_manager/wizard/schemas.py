@@ -45,6 +45,7 @@ from ..const import (
     CONF_FORECAST_ENTITY_P10,
     CONF_IMMERSION_MAX_RUN_MINUTES,
     CONF_IMMERSION_READY_TIMES,
+    CONF_IMMERSION_RUN_LIMIT_WARNING,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
@@ -60,6 +61,7 @@ from ..const import (
     DEFAULT_BILL_START_DAY,
     DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM,
     DEFAULT_IMMERSION_MAX_RUN_MINUTES,
+    DEFAULT_IMMERSION_RUN_LIMIT_WARNING,
     DEFAULT_IMMERSION_WATTAGE,
 )
 from ..core.seasons import season_defaults
@@ -361,6 +363,14 @@ def hot_water_schema(ctx: PageContext) -> vol.Schema:
             vol.Optional(CONF_IMMERSION_MAX_RUN_MINUTES, default=float(max_run)): number_selector(
                 CONF_IMMERSION_MAX_RUN_MINUTES
             ),
+            vol.Optional(
+                CONF_IMMERSION_RUN_LIMIT_WARNING,
+                default=bool(
+                    ctx.current.get(
+                        CONF_IMMERSION_RUN_LIMIT_WARNING, DEFAULT_IMMERSION_RUN_LIMIT_WARNING
+                    )
+                ),
+            ): bool,
             optional_key(ctx, CONF_IMMERSION_READY_TIMES): selector.TextSelector(
                 selector.TextSelectorConfig(multiple=True)
             ),

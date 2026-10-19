@@ -35,6 +35,7 @@ The rule is one home per setting. A setting is a wizard field (set once, changes
 | Immersion switch (`immersion_switch_entity`) | Hot water | Keep | Candidates with "immersion" in their name are listed, and none is chosen for the user. A wrong guess switches a real heater |
 | Hot water temperature sensor (`immersion_temp_sensor_entity`) | Hot water | Keep | No reliable name to detect |
 | Immersion element power (`immersion_wattage_w`) | Hot water | Keep | The default is 3000 W. See the follow-ups |
+| Warn when the longest run is reached (`immersion_run_limit_warning`) | Hot water | Keep | A preference: some users want the banner, others find it noise. It cannot be detected |
 | Longest immersion run (`immersion_max_run_minutes`) | Hot water | Keep | Set once. It defaults to 60 minutes and 0 turns it off. It depends on the cylinder and on what the user pays to heat it, so it cannot be detected or fixed |
 | Ready-by times (`immersion_ready_times`) | Hot water | Keep | Up to four a day. Four time entities cannot be empty, so each would need an enable switch. A field, or a schedule helper, fits better |
 | Alternative heating on or off (`alt_heat_enabled`) | Hot water | Keep | Gates the whole feature |

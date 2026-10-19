@@ -121,3 +121,30 @@ class TestWhenTheLimitClears:
         heater.until(8, 1)
         assert not heater.held.capped
         assert heater.held.minutes == 0.0
+
+
+class TestTheWarningSensorState:
+    def test_it_is_idle_while_the_run_is_inside_the_limit(self):
+        heater = Heater(limit=60)
+        data = heater.until(23, 30)
+        assert data.immersion_run_limit == "idle"
+
+    def test_it_says_reached_after_the_stop_and_stays_reached_for_the_window(self):
+        heater = Heater(limit=60)
+        assert heater.until(0, 30).immersion_run_limit == "reached"
+        assert heater.until(7, 59).immersion_run_limit == "reached"
+
+    def test_it_clears_when_the_window_closes(self):
+        heater = Heater(limit=60)
+        heater.until(0, 30)
+        assert heater.until(8, 1).immersion_run_limit == "idle"
+
+    def test_the_stop_still_happens_with_the_warning_turned_off(self):
+        heater = Heater(limit=60, immersion_run_limit_warning=False)
+        data = heater.until(0, 30)
+        assert data.immersion_run_limit == "off"
+        assert heater.on is False
+
+    def test_it_is_off_without_a_limit(self):
+        heater = Heater(limit=0)
+        assert heater.until(2, 0).immersion_run_limit == "off"

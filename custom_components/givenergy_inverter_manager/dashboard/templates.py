@@ -119,6 +119,14 @@ def alt_heat_schedule_template(source: str) -> str:
     )
 
 
+RUN_LIMIT_BANNER_TEXT = (
+    "A scheduled run of the immersion was stopped because it reached the longest run, so the "
+    "water may not have reached its target. Raise Longest immersion run in the hot water "
+    "settings, or set it to 0 for no limit. This clears when the run's window closes or the "
+    "water is warm enough."
+)
+
+
 def alt_heat_banner_template(ready_by: str, low_water: str) -> str:
     """The banner text: one line for each trigger that says start_now.
 
