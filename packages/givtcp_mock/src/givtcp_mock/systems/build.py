@@ -16,6 +16,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
+from typing import Any
 
 HERE = Path(__file__).parent
 REAL = "hybrid_gen3_two_batteries_3_6_3"
@@ -27,24 +28,25 @@ SYNTHETIC_SOURCE = (
 )
 
 
-def load_real() -> dict:
-    return json.loads((HERE / f"{REAL}.json").read_text())
+def load_real() -> dict[str, Any]:
+    real: dict[str, Any] = json.loads((HERE / f"{REAL}.json").read_text())
+    return real
 
 
-def _rename(states: dict, old: str, new: str) -> dict:
+def _rename(states: dict[str, Any], old: str, new: str) -> dict[str, Any]:
     return {k.replace(f".{old}_", f".{new}_"): v for k, v in states.items()}
 
 
-def _device(states: dict, prefix: str) -> dict:
+def _device(states: dict[str, Any], prefix: str) -> dict[str, Any]:
     """The entities of the inverter device only, with the battery and meter devices left out."""
     return {k: v for k, v in states.items() if k.partition(".")[2].startswith(f"{BASE}_")}
 
 
-def _set(states: dict, prefix: str, suffix: str, state: str, domain: str = "sensor") -> None:
+def _set(states: dict[str, Any], prefix: str, suffix: str, state: str, domain: str = "sensor") -> None:
     states[f"{domain}.{prefix}_{suffix}"] = {"state": state}
 
 
-def _drop(states: dict, prefix: str, *suffixes: str) -> None:
+def _drop(states: dict[str, Any], prefix: str, *suffixes: str) -> None:
     for suffix in suffixes:
         for domain in ("sensor", "number", "switch", "select", "time", "button"):
             states.pop(f"{domain}.{prefix}_{suffix}", None)
@@ -54,7 +56,7 @@ def _strings(prefix: str) -> list[str]:
     return [f"pv_{kind}_string_{n}" for kind in ("power", "voltage", "current") for n in (1, 2)]
 
 
-def _fixture(name: str, description: str, states: dict, **expected) -> dict:
+def _fixture(name: str, description: str, states: dict[str, Any], **expected: Any) -> dict[str, Any]:
     return {
         "description": description,
         "provenance": "synthetic",
@@ -66,8 +68,8 @@ def _fixture(name: str, description: str, states: dict, **expected) -> dict:
 
 
 def _extra_device(
-    real: dict, prefix: str, serial: str, invertor_type: str, version: str = "3.6.3"
-) -> dict:
+    real: dict[str, Any], prefix: str, serial: str, invertor_type: str, version: str = "3.6.3"
+) -> dict[str, Any]:
     """A second inverter-like device, copied from the real one under another prefix."""
     device = _rename(_device(real["states"], BASE), BASE, prefix)
     device = copy.deepcopy(device)
@@ -77,11 +79,11 @@ def _extra_device(
     return device
 
 
-def _base(real: dict) -> dict:
+def _base(real: dict[str, Any]) -> dict[str, Any]:
     return copy.deepcopy(real["states"])
 
 
-def _charger(prefix: str, serial: str, connection: str, state: str, mode: str) -> dict:
+def _charger(prefix: str, serial: str, connection: str, state: str, mode: str) -> dict[str, Any]:
     """The entities GivTCP publishes for a GivEnergy charger (GivEVC)."""
     out = {
         f"sensor.{prefix}_serial_number": {"state": serial},
@@ -108,9 +110,9 @@ def _charger(prefix: str, serial: str, connection: str, state: str, mode: str) -
     return out
 
 
-def build() -> dict[str, dict]:  # noqa: PLR0915
+def build() -> dict[str, dict[str, Any]]:  # noqa: PLR0915
     real = load_real()
-    out: dict[str, dict] = {}
+    out: dict[str, dict[str, Any]] = {}
 
     # SYS-14: the prefix is a setting per inverter in GivTCP.
     states = _rename(_base(real), BASE, "house_ab1234g567")

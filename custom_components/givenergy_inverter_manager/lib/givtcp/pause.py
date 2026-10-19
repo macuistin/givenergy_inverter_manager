@@ -1,5 +1,5 @@
 """
-battery_pause.py: a window in which the battery serves no load.
+pause.py: a window in which the battery serves no load.
 
 The inverter can pause battery discharge for a time of day window. While it is paused the grid
 serves the house and the battery holds its charge. Charging can still happen. Every estimate

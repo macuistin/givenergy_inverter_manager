@@ -1,5 +1,5 @@
 """
-battery_pause.py: read GivTCP's battery pause into a PauseWindow.
+pause_modes.py: read GivTCP's battery pause into a PauseWindow.
 
 GivTCP can pause the battery for a time of day window. It publishes three entities per inverter:
 a mode select and a start and an end time. The mode has four options, taken from GivTCP's own

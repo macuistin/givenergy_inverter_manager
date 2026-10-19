@@ -146,14 +146,15 @@ def screen(memory: CounterMemory, raw: RawT, now: datetime) -> RawT:
     it reads now, so the next reading continues from there. *raw* itself is not changed.
     """
     memory.ac_charge_rise_kwh = 0.0
-    untrusted = {}
+    untrusted: dict[str, None] = {}
     for name, attribute in _COUNTER_FIELDS.items():
         current = getattr(raw, attribute)
         if current is None:
             continue
         if not _trust(memory, _Reading(name, float(current), now, raw.inverter_max_w)):
             untrusted[attribute] = None
-    return replace(raw, **untrusted) if untrusted else raw
+    # Readings is a Protocol, so mypy cannot see that every implementation is a dataclass.
+    return replace(raw, **untrusted) if untrusted else raw  # type: ignore[type-var]
 
 
 def _trust(memory: CounterMemory, reading: _Reading) -> bool:

@@ -1,5 +1,5 @@
 """
-immersion_rate.py: how fast the heater warms the water, learned from its own runs.
+rate.py: how fast the heater warms the water, learned from its own runs.
 
 The ready-by planner needs degrees per hour. Nothing is configured for it, so the integration
 measures it. A run is a stretch of cycles with the heater on and the temperature readable. When
@@ -15,6 +15,7 @@ from __future__ import annotations
 import statistics
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Any
 
 from ..timeutil import elapsed_seconds
 from .defaults import (
@@ -42,7 +43,7 @@ def assumed_rate_c_per_h(power_w: float) -> float:
 
 
 def resolve_rate(
-    learned: list[float], power_w: float, days: list[dict] | None = None
+    learned: list[float], power_w: float, days: list[dict[str, Any]] | None = None
 ) -> tuple[float, str]:
     """The rate to plan with and where it came from.
 
@@ -58,12 +59,14 @@ def resolve_rate(
     return assumed_rate_c_per_h(power_w), SOURCE_ASSUMED
 
 
-def day_rates(days: list[dict]) -> list[float]:
+def day_rates(days: list[dict[str, Any]]) -> list[float]:
     """The rate of each stored day: the average of that day's runs, in degrees per hour."""
     return [d["total"] / d["runs"] for d in days if d.get("runs") and d.get("total", 0) > 0]
 
 
-def keep_day_rate(days: list[dict], day: date, rate_c_per_h: float) -> list[dict]:
+def keep_day_rate(
+    days: list[dict[str, Any]], day: date, rate_c_per_h: float
+) -> list[dict[str, Any]]:
     """The days with one more run on *day*, the oldest dropped past IMMERSION_RATE_DAYS_KEPT.
 
     Each day holds the sum of its runs' rates and how many runs there were, so a day's rate is
@@ -113,6 +116,8 @@ class RunTracker:
         return None
 
     def _gap_too_long(self, now: datetime) -> bool:
+        if self.last_at is None:
+            return False
         return elapsed_seconds(self.last_at, now) > SENSOR_OUTAGE_HOLD_LIMIT_S
 
     def _start(self, now: datetime, temp: float) -> None:

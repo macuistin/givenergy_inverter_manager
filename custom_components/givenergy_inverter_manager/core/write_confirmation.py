@@ -1,6 +1,6 @@
-"""Re-export of lib/ev so existing imports keep working. Import from lib/ in new code."""
+"""Re-export of lib/guards so existing imports keep working. Import from lib/ in new code."""
 
-from ..lib.ev.write_confirmation import (
+from ..lib.guards.write_confirmation import (
     ConfirmationStep,
     Unconfirmed,
     UnconfirmedWrite,

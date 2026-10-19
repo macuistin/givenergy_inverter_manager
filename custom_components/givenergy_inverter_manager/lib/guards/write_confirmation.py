@@ -20,7 +20,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from .base_rate import AlertAction
+from .alert import AlertAction
 
 
 @dataclass(frozen=True)

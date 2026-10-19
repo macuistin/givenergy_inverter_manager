@@ -1,5 +1,5 @@
 """
-inverter_values.py: what the coordinator and the inverter backend hand to each other.
+values.py: what the coordinator and the inverter backend hand to each other.
 
 Pure frozen values with no Home Assistant import. A backend reads an inverter into
 InverterValues, takes a ChargePlan to write, and reports a FeedStatus and a WriteResult. The

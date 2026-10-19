@@ -1,5 +1,5 @@
 """
-inverter/givtcp/writer.py: verified, serialised writes to GivTCP entities.
+writer.py: verified, serialised writes to GivTCP entities.
 
 GivEnergy inverters have about 1M lifetime register writes, so every write goes
 through one path that:

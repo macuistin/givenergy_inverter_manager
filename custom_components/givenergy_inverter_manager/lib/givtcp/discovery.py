@@ -1,5 +1,5 @@
 """
-inverter/givtcp/discovery.py: GivTCP inverter auto-discovery for GivEnergy Inverter Manager.
+discovery.py: GivTCP inverter auto-discovery for GivEnergy Inverter Manager.
 
 Supports both GivTCP v2 (battery_soc suffix) and v3 (soc suffix).
 Also auto-reads battery capacity from the inverter's capacity sensor.

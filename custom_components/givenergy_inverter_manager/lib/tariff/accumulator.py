@@ -11,7 +11,7 @@ class CounterMemory:
     """The last reading of each inverter daily counter, and which ones to stop trusting.
 
     A daily counter drops to zero at midnight. The memory outlives the midnight reset so a
-    stale reading just after it is not added a second time. core/counter_guard.py judges each
+    stale reading just after it is not added a second time. lib/guards/counter.py judges each
     reading against this memory.
 
     Only the AC charge baseline is saved. The other readings, their times and the list of

@@ -22,13 +22,14 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 HERE = Path(__file__).parent
 GIVTCP_VERSION = "3.6.4"
 PREFIX = "givtcp"
 
 # GivTCP harness model -> (what the model is called here, what the system should be read as)
-MODELS: dict[str, tuple[str, dict]] = {
+MODELS: dict[str, tuple[str, dict[str, Any]]] = {
     "hybrid_gen1": ("Hybrid Gen 1", {"kind": "hybrid"}),
     "hybrid_gen2": ("Hybrid Gen 2", {"kind": "hybrid"}),
     "hybrid_hv_gen3": ("Hybrid HV Gen 3", {"kind": "hybrid"}),
@@ -65,15 +66,15 @@ def entity_of(topic: str) -> str:
     return f"{parts[1]}.{PREFIX}_{parts[3]}".lower()
 
 
-def build_one(model: str, golden: dict) -> dict:
+def build_one(model: str, golden: dict[str, Any]) -> dict[str, Any]:
     label, expected = MODELS[model]
     read = golden["read"]
     states = {entity_of(t): {"state": "unknown"} for t in read["discovery topics"]}
     output = read["cycle 1 output"]
     serial = _find(output, "Invertor_Serial_Number")
     kind = _find(output, "Invertor_Type")
-    prefix = f"{PREFIX}_{serial.lower()}" if serial else None
-    if prefix and kind:
+    if serial and kind:
+        prefix = f"{PREFIX}_{serial.lower()}"
         states[f"sensor.{prefix}_invertor_type"] = {"state": kind}
         states[f"sensor.{prefix}_invertor_serial_number"] = {"state": serial}
         states[f"sensor.{prefix}_givtcp_version"] = {"state": GIVTCP_VERSION}
@@ -95,7 +96,7 @@ def build_one(model: str, golden: dict) -> dict:
     }
 
 
-def build(golden_dir: Path) -> dict[str, dict]:
+def build(golden_dir: Path) -> dict[str, dict[str, Any]]:
     return {
         f"harness_{model}": build_one(model, json.loads((golden_dir / f"{model}.json").read_text()))
         for model in MODELS

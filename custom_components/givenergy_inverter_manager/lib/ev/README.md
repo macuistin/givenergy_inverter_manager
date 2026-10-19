@@ -10,13 +10,12 @@ rate is worth an alert. It needs no Home Assistant objects.
 - `discover`: `discover_ev_chargers` (Zappi, Wallbox, OCPP, Ohme, Easee, GivEnergy charger)
 - `state`: `update_charger_state`
 - `session`: `EVSession`, `EVSessionLog`, `EVSessionStep`, `track_session`, `recent_table`
-- `base_rate`: `AlertAction`, `BaseRateReading`, `WatchState`, `watch_step`
-- `write_confirmation`: `unconfirmed_step`, `confirmed_step`, `describe_unconfirmed`
+- `base_rate`: `AlertAction` (defined in `lib/guards`), `BaseRateReading`, `WatchState`, `watch_step`
 - `defaults`: `EV_CHARGER_MIN_POWER_W`, `EV_BASE_RATE_ALERT_DELAY_S`, `EV_RECENT_SESSIONS_MAX`
 
 ## Allowed dependencies
 
-The standard library and `lib/timeutil`.
+The standard library, `lib/timeutil` and `lib/guards` (for `AlertAction`).
 
 ## Not here
 

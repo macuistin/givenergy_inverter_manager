@@ -30,6 +30,8 @@ jobs:
         run: pip install -r requirements-test.txt
       - name: Lint
         run: ruff check custom_components tests scripts packages
+      - name: Type check
+        run: mypy --follow-imports=silent custom_components/givenergy_inverter_manager/lib packages/givtcp_mock/src
       - name: Security scan
         run: bandit -r custom_components/givenergy_inverter_manager/ -c .bandit.yaml
 

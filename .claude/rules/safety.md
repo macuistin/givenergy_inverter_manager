@@ -31,7 +31,7 @@ EV charger. A mistake costs money or leaves a battery at the wrong target.
   anywhere else.
 - A write that the inverter does not take (every read-back shows the old value) raises the repair
   `write_not_confirmed`. It is never raised in dry run. The decision lives in
-  `lib/ev/write_confirmation.py`.
+  `lib/guards/write_confirmation.py`.
 - The nightly charge write is retried at +2, +5, +10 and +20 minutes after the trigger when it
   fails, and not when less than 15 minutes of the window would remain (`core/charge_retry.py`).
   A write has failed when the feed is not live or a sent setting does not hold its value. Each
