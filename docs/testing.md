@@ -10,10 +10,12 @@ There are two test suites. They need different virtualenvs because one stubs Hom
 ## Stubbed suite
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements-test.txt
+uv venv --python 3.14 .venv
+uv pip install --python .venv/bin/python -r requirements-test.txt
 .venv/bin/python -m pytest tests -q
 ```
+
+Home Assistant 2026.5 and newer need Python 3.14.2 or newer, and so does the code (it uses `except A, B:`). `python3 -m venv` on an older system Python fails at install or at collection, so use `uv` to fetch 3.14. The unit suite takes about three minutes.
 
 `tests/conftest.py` replaces `homeassistant` in `sys.modules` before collection. The tests run from any directory. Source paths come from `ROOT` and `PKG` in `tests/helpers.py`, never from the working directory. `pyproject.toml` adds `--ignore=tests/ha_e2e` so this suite never imports the real Home Assistant tests.
 
@@ -26,8 +28,8 @@ python3 -m venv .venv
 Use a separate virtualenv. The plugin pins `homeassistant`, `pytest` and `pytest-asyncio`, and Home Assistant 2026.3 and later need Python 3.14.2 or newer.
 
 ```bash
-python3 -m venv .venv-e2e
-.venv-e2e/bin/pip install -r requirements-test-e2e.txt
+uv venv --python 3.14 .venv-e2e
+uv pip install --python .venv-e2e/bin/python -r requirements-test-e2e.txt
 .venv-e2e/bin/python -m pytest tests/ha_e2e -q
 ```
 

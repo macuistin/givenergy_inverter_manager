@@ -24,9 +24,9 @@ with the code that caused it, never alone.
 | `docs/sensors.md` | `python scripts/gen_sensor_docs.py` |
 | `tests/ha_e2e/golden/config_flow_forms.json` | Delete the file, run `python -m pytest tests/ha_e2e/test_config_flow_forms_golden_e2e.py -q` in the end-to-end venv. The test writes the file and fails. Run it again to pass |
 
-After a dashboard change, dump the dashboards of every scenario before and after, and list which
-sections moved. Regenerate the matrix, then run it a second time without the variable to confirm
-it passes.
+After a dashboard change, list which sections moved with a test that names them. The matrix holds
+one hash per scenario, so the file diff shows nothing readable. Regenerate it, then run it a second
+time without the variable to confirm it passes.
 
 ## Files with no switch
 
