@@ -5,10 +5,10 @@ The water heating advice (alt_heat_advice.py) says what to do. Each trigger here
 to act into a state an automation can trigger on. They are separate, because they answer
 different questions:
 
-  * The ready-by trigger announces the start for a ready time. The start is just in time: the
-    ready time less the run the water needs to reach the target. The water counts as needing heat
-    as soon as it is ALT_HEAT_TRIGGER_MARGIN_C below the target, and the start comes earlier the
-    further the water is from it, because the run is longer.
+  * The ready-by trigger announces the start for a ready time. The alternative has to start now
+    to lift the water to the target before the immersion would have to. The water counts as
+    needing heat as soon as it is ALT_HEAT_TRIGGER_MARGIN_C below the target, and the start comes
+    earlier the further the water is from it, because the run is longer.
   * The low water trigger keeps the immersion from restarting. It fires from
     ALT_HEAT_TRIGGER_MARGIN_C above the lower boundary, the point where the immersion would top
     the water up, while the alternative is the cheaper heat.
@@ -74,9 +74,9 @@ def ready_by_trigger(
     """start_now once the start for the next ready time is due, else idle.
 
     It needs a water reading, a ready time and the immersion's scheduled heating, which is the
-    backstop if the alternative is not started. The start is the ready time less the run the
-    water needs, so the water is at the target when it is wanted. Once start_now, it holds for
-    the same ready time until the water reaches the target.
+    backstop if the alternative is not started. The start is the latest the alternative can begin
+    and still finish before the immersion would have to. Once start_now, it holds for the same
+    ready time until the water reaches the target.
     """
     ready = next_ready_at(inputs.now, inputs.ready_times)
     if inputs.water is None or not inputs.scheduled_heating or ready is None:

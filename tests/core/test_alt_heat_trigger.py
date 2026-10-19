@@ -80,21 +80,21 @@ def low_water(
 
 class TestTheReadyByTrigger:
     def test_it_fires_at_the_start_time_and_not_before(self):
-        # A 104 minute run to be ready at 19:00 has to start at 17:16, just in time.
+        # Oil has to start at 15:32 to finish before the immersion would start at 17:16.
         assert ready_by(at(15, 0), 40.0).state == STATE_IDLE
-        assert ready_by(at(17, 15), 40.0).state == STATE_IDLE
+        assert ready_by(at(15, 31), 40.0).state == STATE_IDLE
 
-        due = ready_by(at(17, 16), 40.0)
+        due = ready_by(at(15, 32), 40.0)
 
         assert due.state == STATE_START_NOW
-        assert due.start_by == at(17, 16)
+        assert due.start_by == at(15, 32)
         assert due.ready_at == at(19, 0)
         assert due.run_minutes == 104
         assert due.saving_per_kwh == pytest.approx(0.10)
 
     @pytest.mark.parametrize(
         ("temp", "run", "start"),
-        [(30.0, 173, at(16, 7)), (40.0, 104, at(17, 16)), (48.0, 49, at(18, 11))],
+        [(30.0, 173, at(13, 14)), (40.0, 104, at(15, 32)), (48.0, 49, at(17, 22))],
     )
     def test_the_colder_the_water_the_longer_the_run_and_the_earlier_the_start(
         self, temp, run, start
@@ -106,10 +106,10 @@ class TestTheReadyByTrigger:
 
     def test_water_one_degree_below_the_target_gets_a_start_not_idle(self):
         # Above the immersion's restart threshold of 50, so the plan alone would do nothing. A
-        # one degree lift is a 7 minute run, so the start is close to the ready time.
-        assert ready_by(at(18, 52), 54.0).state == STATE_IDLE
+        # one degree lift is a 7 minute run, so the start is late and close to the ready time.
+        assert ready_by(at(18, 45), 54.0).state == STATE_IDLE
 
-        result = ready_by(at(18, 53), 54.0)
+        result = ready_by(at(18, 46), 54.0)
 
         assert result.state == STATE_START_NOW
         assert result.run_minutes == 7
@@ -198,7 +198,7 @@ class TestTheReadyByHold:
     """Once fired, the trigger holds until the water is at the target, so a reading that
     hovers at the margin does not flip the state."""
 
-    FIRED = AltHeatTrigger(STATE_START_NOW, 7, at(18, 53), at(19, 0), 0.10)
+    FIRED = AltHeatTrigger(STATE_START_NOW, 7, at(18, 46), at(19, 0), 0.10)
 
     def test_water_that_warms_past_the_margin_keeps_the_trigger_on(self):
         # 54.5 is less than a degree below the target, which alone is idle.
@@ -214,12 +214,12 @@ class TestTheReadyByHold:
         assert seen == [STATE_START_NOW] * 5
 
     def test_it_holds_after_the_run_shrinks_and_the_start_moves_later(self):
-        # At 48 degrees the run is 49 minutes and the start 18:11. At 52 the run is shorter and
+        # At 48 degrees the run is 49 minutes and the start 17:22. At 52 the run is shorter and
         # the start later, which has not come, but the trigger fired and holds.
-        fired = ready_by(at(18, 11), 48.0)
+        fired = ready_by(at(17, 22), 48.0)
         assert fired.state == STATE_START_NOW
-        assert ready_by(at(18, 20), 52.0).state == STATE_IDLE
-        assert ready_by(at(18, 20), 52.0, fired).state == STATE_START_NOW
+        assert ready_by(at(18, 0), 52.0).state == STATE_IDLE
+        assert ready_by(at(18, 0), 52.0, fired).state == STATE_START_NOW
 
     def test_it_ends_when_the_water_reaches_the_target(self):
         assert ready_by(at(18, 58), 55.0, self.FIRED).state == STATE_IDLE

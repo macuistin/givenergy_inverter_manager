@@ -594,10 +594,8 @@ class TestOilStartForAReadyTime:
         await cycle(hass, loaded_entry)
         attributes = hass.states.get(self.OIL_SENSOR).attributes
         assert attributes["alt_for_ready_time"] == "19:00"
+        assert "16:00" < attributes["alt_start_by"] < "17:30"
         assert attributes["alt_run_minutes"] > 0
-        # Just in time: the run ends at the ready time, to the minute.
-        hours, minutes = map(int, attributes["alt_start_by"].split(":"))
-        assert hours * 60 + minutes + attributes["alt_run_minutes"] == 19 * 60
         assert attributes["suggestion"].startswith("For the 19:00 ready time: turn the oil water")
         assert real_switch.calls == []
 
