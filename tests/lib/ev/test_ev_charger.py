@@ -9,7 +9,7 @@ Home Assistant instance.
 import pytest
 
 from custom_components.givenergy_inverter_manager.core.rules import decide_ev_charger_action
-from custom_components.givenergy_inverter_manager.discovery import (
+from custom_components.givenergy_inverter_manager.lib.ev import (
     ZAPPI_ECO_PLUS_MODE,
     EVCharger,
     EVChargerBrand,
@@ -22,7 +22,7 @@ from custom_components.givenergy_inverter_manager.discovery import (
 @pytest.fixture(autouse=True)
 def _reset_missing_power_warnings():
     """The missing power warning is logged once per charger, so isolate each test."""
-    from custom_components.givenergy_inverter_manager.discovery import ev_charger
+    from custom_components.givenergy_inverter_manager.lib.ev import discover as ev_charger
 
     ev_charger._WARNED_MISSING_POWER.clear()
     yield
@@ -476,7 +476,7 @@ class TestEVPowerEntityWarning:
         """_discover_zappi must log a warning when the power entity is not in states."""
         import logging
 
-        from custom_components.givenergy_inverter_manager.discovery.ev_charger import (
+        from custom_components.givenergy_inverter_manager.lib.ev.discover import (
             _discover_zappi,
         )
 
@@ -492,7 +492,7 @@ class TestEVPowerEntityWarning:
 
     def test_charger_still_returned_when_power_entity_missing(self):
         """Charger must still be in the returned list despite missing power entity."""
-        from custom_components.givenergy_inverter_manager.discovery.ev_charger import (
+        from custom_components.givenergy_inverter_manager.lib.ev.discover import (
             _discover_zappi,
         )
 
@@ -505,7 +505,7 @@ class TestEVPowerEntityWarning:
         import logging
         from unittest.mock import MagicMock
 
-        from custom_components.givenergy_inverter_manager.discovery.ev_charger import (
+        from custom_components.givenergy_inverter_manager.lib.ev.discover import (
             _discover_zappi,
         )
 

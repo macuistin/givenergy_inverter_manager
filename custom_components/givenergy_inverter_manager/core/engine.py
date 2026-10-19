@@ -83,7 +83,7 @@ from ..const import (
     THROUGHPUT_BUDGET_STATUS_OK,
     THROUGHPUT_BUDGET_STATUS_OVER,
 )
-from ..discovery import EVCharger, EVChargerState
+from ..lib.ev import EVCharger, EVChargerState, EVSessionLog, EVSessionStep, track_session
 from ..logging import get_logger
 from .alt_heat_advice import AdviceInputs, WaterHeatingAdvice, advise_water_heating
 from .alt_heat_schedule import (
@@ -116,7 +116,6 @@ from .charge_window import (
 )
 from .controller_conflict import ConflictStatus
 from .counter_guard import screen
-from .ev_session import EVSessionLog, EVSessionStep, track_session
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
 from .planned_heating import PlanQuery, describe_planned_heating

@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from custom_components.givenergy_inverter_manager.core.rules import decide_ev_charger_action
-from custom_components.givenergy_inverter_manager.discovery.ev_charger import (
+from custom_components.givenergy_inverter_manager.lib.ev import (
     FORBIDDEN_MODE_WORDS,
     SURPLUS_MODE_DEFAULTS,
     EVCharger,
@@ -30,7 +30,7 @@ PREFIX = "givtcp_evc_ev1234a567"
 
 @pytest.fixture(autouse=True)
 def _reset_missing_power_warnings():
-    from custom_components.givenergy_inverter_manager.discovery import ev_charger
+    from custom_components.givenergy_inverter_manager.lib.ev import discover as ev_charger
 
     ev_charger._WARNED_MISSING_POWER.clear()
     yield

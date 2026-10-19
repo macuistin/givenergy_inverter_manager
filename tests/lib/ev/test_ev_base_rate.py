@@ -10,7 +10,7 @@ from custom_components.givenergy_inverter_manager.const import (
     EV_BASE_RATE_ALERT_DELAY_S,
     EV_CHARGER_MIN_POWER_W,
 )
-from custom_components.givenergy_inverter_manager.core.ev_base_rate import (
+from custom_components.givenergy_inverter_manager.lib.ev.base_rate import (
     AlertAction,
     BaseRateReading,
     WatchState,

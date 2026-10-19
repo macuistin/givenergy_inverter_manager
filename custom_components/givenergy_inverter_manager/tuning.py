@@ -159,17 +159,6 @@ BATTERY_EFFICIENCY_MIN_KWH = 2.0  # kWh in and out today before round-trip effic
 # ── Battery throughput budget ─────────────────────────────────────────────────
 THROUGHPUT_BUDGET_HIGH_PCT = 80.0  # at or above this, status is "High"
 
-# ── EV diversion parameters ───────────────────────────────────────────────────
-# Minimum power for an OCPP EV charger to start — 6A × 230V single-phase.
-# If the available surplus is below this, the charger will refuse to start.
-# This is also the surplus at which the EV Solar Surplus signal reads Available
-# and the Zappi is switched to Eco+.
-# Based on IEC 61851 minimum of 6A (1,380W at 230V). Single-phase assumption.
-EV_CHARGER_MIN_POWER_W = 1380
-# How long a car must draw from the grid in the base-rate band before the repair
-# "EV is charging at the base rate" is raised. Five minutes (ten cycles) skips a charger that
-# starts, pauses and restarts, and a short grid spike while solar diverts.
-EV_BASE_RATE_ALERT_DELAY_S = 300
 
 # ── Register write log ────────────────────────────────────────────────────────
 # The write safety limits (retries, cooldown, lifetime warning) live in
@@ -202,7 +191,6 @@ COUNTER_RISE_FLOOR_KWH = 0.5
 COUNTER_UNIT_CHANGE_RATIO = 500
 COUNTER_UNIT_CHANGE_MIN_KWH = 1.0  # below this the old value is too small to compare against
 REGISTER_WRITE_LOG_MAX_ENTRIES = 20   # recent writes and outside changes kept in the write log
-EV_RECENT_SESSIONS_MAX = 10  # finished EV charging sessions kept for the recent charges table
 # How long a running element stays on while a required sensor is unavailable.
 # Same value as the write interval, but a separate setting.
 SENSOR_OUTAGE_HOLD_LIMIT_S = 300

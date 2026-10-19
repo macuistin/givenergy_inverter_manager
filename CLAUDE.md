@@ -22,7 +22,7 @@ inside it.
 | --- | --- |
 | `core/` | Pure Python decisions, tariff, accumulation maths and report text. No `homeassistant` imports |
 | `const.py`, `conf.py`, `defaults.py`, `tuning.py` | `conf.py` holds the `CONF_` option keys, `defaults.py` the `DEFAULT_` values and `tuning.py` the numeric thresholds. None of the three imports anything. `const.py` re-exports all of them, so import from `const` |
-| `lib/` | Packages written to be lifted out into their own repositories, one folder each. They import only the standard library and the `lib/` packages their `ALLOWED` row names. `lib/README.md` has the rules |
+| `lib/` | Packages written to be lifted out into their own repositories, one folder each. They import only the standard library and the `lib/` packages their `ALLOWED` row names. `lib/README.md` has the rules. `lib/timeutil` and `lib/ev` (the EV charger model, discovery, sessions and base-rate alert) are in so far |
 | `coordinator.py` | Home Assistant bridge: asks the inverter backend for readings, calls `core/`, decides what to write and sends it through the backend, runs timers |
 | `inverter/` | `backend.py` is the `InverterBackend` interface. It has no Home Assistant import |
 | `inverter/givtcp/` | The GivTCP adapter: discovery, the verified writer and the write constants. The code that knows GivTCP entity names and write order |
@@ -30,7 +30,7 @@ inside it.
 | `core/system_types.py`, `core/system_text.py`, `core/entity_refs.py` | System kind and which inverter to manage, the setup text about it, and finding a wired entity again after its id changes. Devices are told apart by entity suffix, never by serial prefix alone |
 | `config_flow.py`, `wizard/`, `core/wizard_*.py` | Setup wizard, options wizard and reconfigure (the inverter connection). `config_flow.py` only registers them. `config_helpers.py` merges entry data and options |
 | `sensor.py`, `sensor_descriptions/` | One entity class and the description table, split by theme |
-| `optional_devices.py`, `core/devices.py`, `discovery/` | The EV charger (`discovery/ev_charger.py`: Zappi, GivEnergy charger and others), immersion switch and immersion sensor may be absent or added later. `discovery/forecast.py` finds the forecast |
+| `optional_devices.py`, `core/devices.py`, `discovery/` | The EV charger (`lib/ev/discover.py`: Zappi, GivEnergy charger and others), immersion switch and immersion sensor may be absent or added later. `discovery/forecast.py` finds the forecast |
 | `controls.py` | The eight tuning controls: three switches and five numbers, each owning one option key |
 | `dashboard/`, `strategy.py` | The dashboard builder, and the Lovelace strategy that serves it |
 | `repairs.py`, `repair_flows.py`, `services.py` | Repair issues and their fix flows, service actions. `stored_dashboard_repair.py` checks the dashboard `update_dashboard` keeps current. `active_repairs.py` reads the open ones for the Active Repairs sensor |

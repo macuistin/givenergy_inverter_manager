@@ -49,7 +49,7 @@ from ..const import (
     SURPLUS_DIVERT_MIN_POWER_W,
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
-from ..discovery.ev_charger import SURPLUS_MODE_DEFAULTS, EVCharger
+from ..lib.ev import SURPLUS_MODE_DEFAULTS, EVCharger
 from .battery import (
     NightClock,
     NightEstimateInputs,

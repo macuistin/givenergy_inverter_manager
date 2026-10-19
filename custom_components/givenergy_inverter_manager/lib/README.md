@@ -23,3 +23,4 @@ inside that folder until it is published somewhere installable.
 | Package | Purpose | Allowed `lib/` dependencies |
 | --- | --- | --- |
 | `timeutil` | Elapsed-time maths that stays correct across a clock change | none |
+| `ev` | Multi-brand EV charger model, discovery, sessions and the base-rate alert | `timeutil` |

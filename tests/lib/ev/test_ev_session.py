@@ -7,7 +7,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from custom_components.givenergy_inverter_manager.const import EV_RECENT_SESSIONS_MAX
-from custom_components.givenergy_inverter_manager.core.ev_session import (
+from custom_components.givenergy_inverter_manager.lib.ev import EVChargerState
+from custom_components.givenergy_inverter_manager.lib.ev.session import (
     NO_FINISHED_SESSIONS,
     EVSession,
     EVSessionLog,
@@ -15,7 +16,6 @@ from custom_components.givenergy_inverter_manager.core.ev_session import (
     recent_table,
     track_session,
 )
-from custom_components.givenergy_inverter_manager.discovery import EVChargerState
 
 PLUGGED = EVChargerState.CONNECTED
 CHARGING = EVChargerState.CHARGING

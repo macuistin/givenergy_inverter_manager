@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from custom_components.givenergy_inverter_manager.core.ev_base_rate import AlertAction
-from custom_components.givenergy_inverter_manager.core.write_confirmation import (
+from custom_components.givenergy_inverter_manager.lib.ev.base_rate import AlertAction
+from custom_components.givenergy_inverter_manager.lib.ev.write_confirmation import (
     Unconfirmed,
     UnconfirmedWrite,
     confirmed_step,
