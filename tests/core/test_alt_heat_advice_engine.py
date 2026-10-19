@@ -102,9 +102,9 @@ def cycle(hour: int, minute: int = 0, **raw):
 class TestTheOilStart:
     def test_cold_water_and_cheaper_oil_get_a_start_for_the_next_ready_time(self):
         advice = cycle(15, alt_heat_cost_per_kwh=0.20, **READY_AT_19).water_heating_advice
-        assert advice.alt_start.start_by == datetime(2026, 12, 15, 15, 32)
+        assert advice.alt_start.start_by == datetime(2026, 12, 15, 17, 16)
         assert advice.suggestion.startswith(
-            "For the 19:00 ready time: turn the oil water heating on at 15:32 (about 104 minutes)."
+            "For the 19:00 ready time: turn the oil water heating on at 17:16 (about 104 minutes)."
         )
 
     def test_the_immersion_decision_is_the_same_with_and_without_an_oil_price(self):
@@ -214,8 +214,8 @@ class TestTheTriggers:
         assert data.water_heating_low_trigger.state == "idle"
 
     def test_the_ready_by_trigger_fires_at_the_start_for_the_ready_time(self):
-        before = cycle(15, 31, alt_heat_cost_per_kwh=0.20, **READY_AT_19)
-        due = cycle(15, 32, alt_heat_cost_per_kwh=0.20, **READY_AT_19)
+        before = cycle(17, 15, alt_heat_cost_per_kwh=0.20, **READY_AT_19)
+        due = cycle(17, 16, alt_heat_cost_per_kwh=0.20, **READY_AT_19)
 
         assert before.water_heating_ready_trigger.state == "idle"
         assert due.water_heating_ready_trigger.state == "start_now"

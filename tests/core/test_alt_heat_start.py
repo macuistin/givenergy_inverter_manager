@@ -55,20 +55,23 @@ def suggest(now, ready, tariff=TIMED, oil=0.20, solar=None, reading=None):
 
 
 class TestTheOilStart:
-    def test_oil_cheaper_and_water_cold_starts_the_oil_early_enough(self):
-        """The immersion would start at 17:16:30 (103.5 minutes before 19:00). Oil takes 104."""
+    def test_oil_cheaper_and_water_cold_starts_the_oil_just_in_time(self):
+        """Water at 40 takes 104 minutes to reach 55, so oil for 19:00 starts at 17:16."""
         result = suggest(at(15), at(19))
         assert result.run_minutes == RUN_MINUTES == 104
-        assert result.start_by == at(15, 32)
+        assert result.start_by == at(17, 16)
         assert result.late is False
         assert result.saving_per_kwh == pytest.approx(0.10)
 
-    def test_the_oil_finishes_before_the_immersion_would_have_to_start(self):
+    def test_the_oil_is_done_by_the_ready_time(self):
         result = suggest(at(15), at(19))
-        ready = (at(19).timetz().replace(tzinfo=None),)
-        assert plan_ready(ReadyInputs(TIMED, at(17, 15), ready, 40.0, TARGET, RATE)).heat_now is False
-        assert plan_ready(ReadyInputs(TIMED, at(17, 17), ready, 40.0, TARGET, RATE)).heat_now is True
-        assert result.start_by + timedelta(minutes=result.run_minutes) <= at(17, 17)
+        assert result.start_by + timedelta(minutes=result.run_minutes) <= at(19)
+        assert result.start_by + timedelta(minutes=result.run_minutes + 1) > at(19)
+
+    def test_the_colder_the_water_the_earlier_the_start(self):
+        starts = [suggest(at(12), at(19), reading=water(temp=t)).start_by for t in (30.0, 40.0, 48.0)]
+        assert starts == sorted(starts)
+        assert len(set(starts)) == 3
 
     def test_the_immersion_plan_is_not_changed_by_the_suggestion(self):
         ready = (at(19).timetz().replace(tzinfo=None),)
@@ -82,16 +85,16 @@ class TestTheOilStart:
 
     def test_a_flat_tariff_suggests_a_start_too(self):
         result = suggest(at(15), at(19), FLAT)
-        assert result.start_by == at(15, 32)
+        assert result.start_by == at(17, 16)
         assert result.saving_per_kwh == pytest.approx(0.10)
 
     def test_a_ready_time_tomorrow_gives_a_start_tomorrow(self):
-        assert suggest(at(22), at(7, day=16), FLAT).start_by == at(3, 32, day=16)
+        assert suggest(at(22), at(7, day=16), FLAT).start_by == at(5, 16, day=16)
 
-    def test_too_late_to_finish_before_the_immersion_starts_means_start_now(self):
-        result = suggest(at(17), at(19))
+    def test_too_late_to_be_ready_by_the_ready_time_means_start_now(self):
+        result = suggest(at(17, 30), at(19))
         assert result.late is True
-        assert result.start_by == at(17)
+        assert result.start_by == at(17, 30)
 
     def test_the_start_never_goes_before_now(self):
         assert suggest(at(15, 40), at(19)).start_by >= at(15, 40)

@@ -5,6 +5,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 ## Unreleased
 
 **Fixes**
+- The alternative heating start is now worked out to have the water ready by the ready time. It used to come out hours early: for a 07:00 ready time and a 104 minute run, a start of 00:32, because it placed the run before the time the immersion would heat in the cheap hours. The start is now the ready time less the run, 05:16 in that example, and the colder the water, the longer the run and the earlier the start. The run is the degrees to lift divided by the heating rate, plus the margin. This changes the start time in the **Water Heating Cheapest Source** suggestion and its `alt_start_by` attribute, as well as in the new ready-by trigger.
 - The two alternative heating triggers no longer flip while the water hovers at the margin. Once a trigger has fired it holds until the water is at the target. The ready-by trigger also ends with its ready time, and both end at once if the alternative stops being cheaper.
 
 **Added**

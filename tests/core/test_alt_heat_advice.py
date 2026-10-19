@@ -289,13 +289,13 @@ class TestTheOilStartSentence:
     def test_cold_water_and_cheaper_oil_say_when_to_start(self):
         advice = advise(at(15), 0.20, water=water(), **READY)
         assert advice.suggestion == (
-            "For the 19:00 ready time: turn the oil water heating on at 15:32 (about 104 minutes). "
+            "For the 19:00 ready time: turn the oil water heating on at 17:16 (about 104 minutes). "
             "The immersion will only top up. Saves about €0.10 per kWh of heat."
         )
 
     def test_the_start_and_the_ready_time_are_in_the_data(self):
         start = advise(at(15), 0.20, water=water(), **READY).alt_start
-        assert (start.start_by, start.run_minutes, start.ready_at) == (at(15, 32), 104, at(19))
+        assert (start.start_by, start.run_minutes, start.ready_at) == (at(17, 16), 104, at(19))
 
     def test_the_source_and_the_other_figures_are_what_they_were(self):
         with_water = advise(at(15), 0.20, water=water(), **READY)
@@ -306,16 +306,16 @@ class TestTheOilStartSentence:
 
     def test_a_flat_tariff_suggests_a_start_too(self):
         advice = advise(at(15), 0.20, FLAT, water=water(), **READY)
-        assert "turn the oil water heating on at 15:32" in advice.suggestion
+        assert "turn the oil water heating on at 17:16" in advice.suggestion
 
     def test_a_start_the_next_day_says_so(self):
         advice = advise(at(22), 0.20, FLAT, water=water(), ready_times=(time(7),), scheduled_heating=True)
         assert advice.suggestion.startswith(
-            "For tomorrow's 07:00 ready time: turn the oil water heating on at 03:32 tomorrow "
+            "For tomorrow's 07:00 ready time: turn the oil water heating on at 05:16 tomorrow "
         )
 
     def test_too_late_for_the_oil_alone_says_now_and_that_the_immersion_will_share(self):
-        advice = advise(at(17), 0.20, water=water(), **READY)
+        advice = advise(at(17, 30), 0.20, water=water(), **READY)
         assert advice.suggestion == (
             "For the 19:00 ready time: turn the oil water heating on now (about 104 minutes). "
             "It is too late for the oil to finish before the immersion has to start, so the "
@@ -365,8 +365,8 @@ class TestNoStartForATrivialTopUp:
 
     def test_cold_water_still_gets_a_start(self):
         advice = advise(at(15), 0.20, water=water(temp=40.0, gap=4.0), **READY)
-        assert advice.alt_start.start_by == at(15, 32)
-        assert "turn the oil water heating on at 15:32" in advice.suggestion
+        assert advice.alt_start.start_by == at(17, 16)
+        assert "turn the oil water heating on at 17:16" in advice.suggestion
 
     def test_water_just_below_the_restart_threshold_gets_a_start(self):
         advice = advise(at(15), 0.20, water=water(temp=50.9, gap=4.0), **READY)
