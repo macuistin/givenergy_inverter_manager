@@ -1,6 +1,6 @@
 """A charge target worked out again inside the cheap window, against the mock GivTCP.
 
-`tools/mock_givtcp.py` records every command the device receives, so the assertions are on the
+`givtcp_mock` records every command the device receives, so the assertions are on the
 device side: which values were written, in which order, and that nothing outside the window was.
 The night is 02:15 inside the 02:00 to 04:00 window, with the first write already sent.
 """
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 from conftest import FORECAST, FORECAST_P10, SERIAL, Scenario
+from givtcp_mock import MockGivTCP
 from test_write_sequence_e2e import (
     ENABLE_TARGET,
     NIGHT,
@@ -21,7 +22,6 @@ from test_write_sequence_e2e import (
 )
 
 from custom_components.givenergy_inverter_manager import const
-from tools.mock_givtcp import MockGivTCP
 
 # A summer night, 02:15 local time inside the 02:00 to 04:00 window. Winter and shoulder
 # months have their own rules, so the forecast only moves the plan in the summer.

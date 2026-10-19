@@ -12,6 +12,7 @@ from datetime import time
 from types import SimpleNamespace
 
 import pytest
+from givtcp_mock import systems as fixtures
 
 from custom_components.givenergy_inverter_manager.const import (
     CONF_BATTERY_POWER,
@@ -32,7 +33,6 @@ from custom_components.givenergy_inverter_manager.lib.givtcp.pause_modes import 
     pauses_discharge,
 )
 from custom_components.givenergy_inverter_manager.lib.givtcp.reader import GivTCPReader
-from tests.fixtures import givtcp_systems as fixtures
 
 NIGHT = PauseWindow(time(23, 0), time(8, 0))
 

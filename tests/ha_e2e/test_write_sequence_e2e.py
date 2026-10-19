@@ -1,6 +1,6 @@
 """The exact write sequence the integration sends to GivTCP, the immersion switch and the Zappi.
 
-`tools/mock_givtcp.py` stands in for the devices. It publishes GivTCP's entities, records every
+`givtcp_mock` stands in for the devices. It publishes GivTCP's entities, records every
 command in order and moves the written entity to the new value, the way a real device would.
 Nothing here counts calls on a patched service: the assertions are on the device side.
 
@@ -20,6 +20,7 @@ from conftest import (
     SERIAL,
     full_config_data,
 )
+from givtcp_mock import UNUSED_SLOT, MockGivTCP, Readings
 from homeassistant.config_entries import ConfigEntryState
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -28,7 +29,6 @@ from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCo
 from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
     discover_givtcp_inverters,
 )
-from tools.mock_givtcp import UNUSED_SLOT, MockGivTCP, Readings
 
 # Taken at import, before the suite swaps the catch-up for a no-op.
 REAL_CATCH_UP = GivEnergyCoordinator.async_catch_up_charge_write

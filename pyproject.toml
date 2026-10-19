@@ -51,6 +51,8 @@ max-branches = 10
 # split without losing readability — the dict key IS the schema declaration
 "custom_components/*/config_flow.py" = ["E501"]
 "tests/*" = ["E501", "C901", "PLR0912", "PLR0913", "PLR0915", "FBT001", "FBT002"]
+# The mock and fixtures are test support and held to the same limits as tests.
+"packages/givtcp_mock/*" = ["E501", "C901", "PLR0912", "PLR0913", "PLR0915", "FBT001", "FBT002"]
 
 [tool.mypy]
 python_version = "3.14"

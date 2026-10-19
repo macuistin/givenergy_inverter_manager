@@ -7,4 +7,5 @@
 # The plugin release pins the matching homeassistant version
 # (0.13.371 -> homeassistant 2026.10.0). Bump both together. Dependabot proposes the bump.
 # The floor in hacs.json runs from tests/ha_e2e/requirements-floor.txt.
+-e ./packages/givtcp_mock
 pytest-homeassistant-custom-component==0.13.372

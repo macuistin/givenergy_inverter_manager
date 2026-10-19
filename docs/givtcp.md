@@ -66,7 +66,7 @@ GivTCP publishes far more than we read. Seen in its own results for real devices
 
 ## What each kind of system publishes
 
-The table is from GivTCP's own test results on a real, serial-redacted capture of each kind (`tests/fixtures/givtcp_systems/harness_*.json`, built by `from_harness.py`). It records what GivTCP creates on its first read. Battery modules and the units behind a Gateway appear after the second.
+The table is from GivTCP's own test results on a real, serial-redacted capture of each kind (`packages/givtcp_mock/src/givtcp_mock/systems/harness_*.json`, built by `from_harness.py`). It records what GivTCP creates on its first read. Battery modules and the units behind a Gateway appear after the second.
 
 | Kind | `Invertor_Type` as published | What differs |
 | --- | --- | --- |
@@ -129,8 +129,8 @@ A parallel All-In-One behind a Gateway is a child inverter that may accept a wri
 
 ## How to check a change
 
-- The fixtures are in `tests/fixtures/givtcp_systems/`: one from a real install, eight from GivTCP's own test results (`from_harness.py`, which says how to rebuild them from a GivTCP checkout), and the rest built from GivTCP's datapoint reference (`build.py`). Each file says which it is.
-- `tools/mock_givtcp.py` is the fake GivTCP the write tests use. See [the design note](design/mock_givtcp.md).
+- The fixtures are in `packages/givtcp_mock/src/givtcp_mock/systems/`: one from a real install, eight from GivTCP's own test results (`from_harness.py`, which says how to rebuild them from a GivTCP checkout), and the rest built from GivTCP's datapoint reference (`build.py`). Each file says which it is.
+- `givtcp_mock` is the fake GivTCP the write tests use. See [the design note](design/mock_givtcp.md).
 - When GivTCP releases, run the harness fixtures through discovery and compare. A kind that stops being classified, or a role that loses its entity, shows in `tests/lib/givtcp/test_system_fixtures.py`.
 
 ## GivTCP's own tests, and what would help upstream
@@ -153,4 +153,4 @@ Changes that would help us, none sent:
 | Reading | `lib/givtcp/reader.py` |
 | Writing, the order and the read-back | `lib/givtcp/writer.py`, `lib/givtcp/sequence.py`, `lib/givtcp/adapter.py` |
 | Version and Real Time Control repairs | `core/givtcp_version.py`, `core/real_time_control.py`, `repairs.py` |
-| Test fixtures | `tests/fixtures/givtcp_systems/` |
+| Test fixtures | `packages/givtcp_mock/src/givtcp_mock/systems/` |

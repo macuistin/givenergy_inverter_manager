@@ -13,7 +13,10 @@ There are two test suites. They need different virtualenvs because one stubs Hom
 uv venv --python 3.14 .venv
 uv pip install --python .venv/bin/python -r requirements-test.txt
 .venv/bin/python -m pytest tests -q
+.venv/bin/python -m pytest packages/givtcp_mock/tests -q
 ```
+
+The requirements files install `packages/givtcp_mock` (the fake GivTCP and the system fixtures) as an editable local package, so run `uv pip install` from the repository root.
 
 Home Assistant 2026.5 and newer need Python 3.14.2 or newer, and so does the code (it uses `except A, B:`). `python3 -m venv` on an older system Python fails at install or at collection, so use `uv` to fetch 3.14. The unit suite takes about three minutes.
 

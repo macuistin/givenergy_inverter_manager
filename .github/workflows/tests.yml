@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-test.txt
       - name: Lint
-        run: ruff check custom_components/givenergy_inverter_manager/ tests/
+        run: ruff check custom_components tests scripts packages
       - name: Security scan
         run: bandit -r custom_components/givenergy_inverter_manager/ -c .bandit.yaml
 
@@ -56,7 +56,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-test.txt ${{ matrix.pin }}
       - name: Run tests
-        run: python -m pytest tests/ -q
+        run: python -m pytest tests/ packages/givtcp_mock/tests -q
 
   # Early warning for the next Home Assistant release. A failure here does not fail the
   # workflow. Until a beta is out it resolves to the latest release.
@@ -113,6 +113,6 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-test-e2e.txt
       - name: Install dependencies
-        run: pip install --pre pytest-homeassistant-custom-component
+        run: pip install --pre pytest-homeassistant-custom-component -e ./packages/givtcp_mock
       - name: Run end-to-end tests
         run: python -m pytest tests/ha_e2e -q

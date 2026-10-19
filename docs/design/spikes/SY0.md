@@ -8,7 +8,7 @@ Which GivTCP system layouts can the integration be tested against, and which of 
 
 One fixture comes from real hardware. The rest are built from GivTCP's published datapoint reference and release notes, because the maintainer has one single-phase hybrid and no other GivEnergy system to read an entity list from.
 
-All fixtures are in `tests/fixtures/givtcp_systems/`. The real one is a JSON file taken from a running Home Assistant on GivTCP 3.6.3. The synthetic ones are made by `build.py` in the same folder from the real one, by adding the entity names the datapoint reference gives for a kind and removing the ones it says that kind lacks. A test compares the committed files with what the builder makes, so they cannot drift, and every file says in `provenance` whether it is `real` or `synthetic`.
+All fixtures are in `packages/givtcp_mock/src/givtcp_mock/systems/`. The real one is a JSON file taken from a running Home Assistant on GivTCP 3.6.3. The synthetic ones are made by `build.py` in the same folder from the real one, by adding the entity names the datapoint reference gives for a kind and removing the ones it says that kind lacks. A test compares the committed files with what the builder makes, so they cannot drift, and every file says in `provenance` whether it is `real` or `synthetic`.
 
 | Fixture | Provenance | What it proves |
 |---|---|---|

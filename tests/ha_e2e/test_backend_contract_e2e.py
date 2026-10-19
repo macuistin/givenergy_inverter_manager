@@ -1,4 +1,4 @@
-"""The backend contract against the GivTCP adapter over tools/mock_givtcp.py.
+"""The backend contract against the GivTCP adapter over givtcp_mock.
 
 A real Home Assistant holds the states, the mock device follows every write, and the adapter
 reads and writes through the real state machine and service registry.
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 from conftest import SERIAL, full_config_data
+from givtcp_mock import MockGivTCP, Readings
 from homeassistant.util import dt as dt_util
 
 from custom_components.givenergy_inverter_manager.const import (
@@ -19,7 +20,6 @@ from custom_components.givenergy_inverter_manager.const import (
 from custom_components.givenergy_inverter_manager.inverter.givtcp import GivTCPPorts, make_backend
 from custom_components.givenergy_inverter_manager.lib.givtcp.writer import GivTCPWriter
 from tests.backend_contract import BackendContract
-from tools.mock_givtcp import MockGivTCP, Readings
 
 
 @pytest.fixture(autouse=True)

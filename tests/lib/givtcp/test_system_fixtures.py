@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 
 import pytest
+from givtcp_mock import systems as fixtures
+from givtcp_mock.systems import build, from_harness
 
 from custom_components.givenergy_inverter_manager.core.system_types import (
     SystemKind,
@@ -21,8 +23,6 @@ from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
     ENTITY_SUFFIXES,
     discover_givtcp_inverters,
 )
-from tests.fixtures import givtcp_systems as fixtures
-from tests.fixtures.givtcp_systems import build, from_harness
 
 NAMES = fixtures.names()
 

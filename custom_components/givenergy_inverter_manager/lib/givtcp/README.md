@@ -43,6 +43,6 @@ The standard library and `lib/timeutil`.
 
 ## Not here
 
-`tools/mock_givtcp.py` and the system fixtures are test support and stay outside the integration.
+`packages/givtcp_mock/` (the fake GivTCP and the system fixtures) is test support and stay outside the integration.
 The `InverterBackend` interface stays in `inverter/backend.py`, because it describes what the
 coordinator needs, not what GivTCP offers.

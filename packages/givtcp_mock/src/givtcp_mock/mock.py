@@ -20,11 +20,11 @@ so publishing those entities straight into Home Assistant tests the same code wi
 install and no network. ``docs/design/mock_givtcp.md`` says how the same entities and command
 topics map onto a real broker for a disposable instance.
 
-Home Assistant is imported only under ``TYPE_CHECKING``, so ``python tools/mock_givtcp.py``
-prints the entity map without Home Assistant installed.
+Home Assistant is imported only under ``TYPE_CHECKING``, so ``python -m givtcp_mock`` prints the
+entity map without Home Assistant installed.
 
-Used from ``tests/ha_e2e/test_write_sequence_e2e.py``. Never point it at a real instance: it
-replaces the write services of the instance it is installed on.
+Never point it at a real instance: it replaces the write services of the instance it is
+installed on.
 """
 
 from __future__ import annotations
@@ -323,7 +323,7 @@ def _entity_ids(value: Any) -> list[str]:
 
 
 def describe(serial: str = DEFAULT_SERIAL) -> dict[str, Any]:
-    """The entity map without Home Assistant, for ``python tools/mock_givtcp.py``."""
+    """The entity map without Home Assistant, for ``python -m givtcp_mock``."""
     mock = MockGivTCP(None, serial=serial)  # type: ignore[arg-type]
     return {
         "serial": serial,
@@ -339,6 +339,8 @@ def describe(serial: str = DEFAULT_SERIAL) -> dict[str, Any]:
     }
 
 
-if __name__ == "__main__":
-    json.dump(describe(*(sys.argv[1:2])), sys.stdout, indent=2)
+def main(argv: list[str] | None = None) -> None:
+    """Print the entity map and write services as JSON. The optional argument is the serial."""
+    args = sys.argv[1:] if argv is None else argv
+    json.dump(describe(*args[:1]), sys.stdout, indent=2)
     sys.stdout.write("\n")

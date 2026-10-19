@@ -7,7 +7,7 @@ device. The contract calls the backend and asserts through the harness.
 
 Used by ``tests/inverter/test_backend_contract.py`` (the fake backend and the GivTCP adapter
 over a plain dict of states) and ``tests/ha_e2e/test_backend_contract_e2e.py`` (the GivTCP
-adapter over ``tools/mock_givtcp.py`` in a real Home Assistant). A second backend starts from
+adapter over ``givtcp_mock`` in a real Home Assistant). A second backend starts from
 a passing contract.
 
 Dry run is the coordinator's check, so a backend never sees a write that is held back. The

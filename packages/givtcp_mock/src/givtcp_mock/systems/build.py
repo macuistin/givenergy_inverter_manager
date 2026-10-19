@@ -1,6 +1,6 @@
 """Builds the synthetic GivTCP system fixtures from the one real one.
 
-Run `python tests/fixtures/givtcp_systems/build.py` to rewrite the JSON files. A test compares the
+Run `python -m givtcp_mock.systems.build` to rewrite the JSON files. A test compares the
 committed files with what this builds, so the two cannot drift apart.
 
 Only `hybrid_gen3_two_batteries_3_6_3.json` was taken from real hardware. Every other fixture is

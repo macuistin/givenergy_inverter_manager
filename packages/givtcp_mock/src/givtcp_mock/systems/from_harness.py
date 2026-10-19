@@ -8,7 +8,7 @@ kind of device, not a reading of its documentation.
 
 Run it against a GivTCP checkout:
 
-    python tests/fixtures/givtcp_systems/from_harness.py /path/to/giv_tcp/tests/golden
+    python -m givtcp_mock.systems.from_harness /path/to/giv_tcp/tests/golden
 
 What the files do not hold:
 

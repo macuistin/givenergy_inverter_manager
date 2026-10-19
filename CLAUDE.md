@@ -66,7 +66,7 @@ Two virtualenvs, because the end-to-end plugin pins `homeassistant`, `pytest` an
 older, so make each venv with `uv venv --python 3.14 .venv`. Run all three before pushing.
 
 ```bash
-ruff check custom_components tests scripts tools        # CI lints custom_components and tests
+ruff check custom_components tests scripts packages    # CI runs the same command
 python -m pytest tests -q                               # unit suite, skips tests/ha_e2e
 python -m pytest tests/ha_e2e -q                        # real Home Assistant, own venv
 python scripts/gen_sensor_docs.py                       # rewrite docs/sensors.md after a sensor change
@@ -89,7 +89,7 @@ integration. The GivTCP adapter negates both on read (`GivTCPReader.read` in
 | Solar power | always positive | unchanged |
 
 - Tests: `test_reads_grid_power_negative_when_exporting` and `test_reads_battery_power_discharging`
-  in `tests/test_coordinator.py`. `tools/mock_givtcp.py` publishes in GivTCP's own convention.
+  in `tests/test_coordinator.py`. `givtcp_mock` publishes in GivTCP's own convention.
 - The **Battery Power** entity of this integration is positive when charging. The power flow card
   node reads it with `invert_state: true` (`dashboard/views.py`). A card that reads GivTCP's raw
   entity needs the opposite handling.
@@ -120,8 +120,8 @@ Other inverter projects are studied by writing a specification, never by copying
 specifications are the issues under #366 in the repository.
 
 Outside the integration: `tests/` (unit suite, Home Assistant stubbed), `tests/ha_e2e/` (real
-Home Assistant), `tests/fixtures/givtcp_systems/` (one real and several built GivTCP systems),
-`tools/mock_givtcp.py` (fake GivTCP, see `docs/design/mock_givtcp.md`),
+Home Assistant), `packages/givtcp_mock/` (fake GivTCP and the GivTCP system fixtures, one real and
+several built, see `docs/design/mock_givtcp.md`),
 `scripts/gen_sensor_docs.py` and `docs/`.
 
 Skills: `/release` (version bump and changelog), `/regenerate-goldens` (after an intended
@@ -134,7 +134,7 @@ behaviour change), `/add-sensor` (new sensor, with its docs and tests).
   Say so in the PR when you add one.
 - Say plainly which checks you ran. If you could not run the end-to-end suite, say that.
 - Tests never talk to a real inverter or a live Home Assistant. Use the stubs, the end-to-end
-  suite and `tools/mock_givtcp.py`.
+  suite and `givtcp_mock`.
 - Source-grep tests (read a file, assert a string) are on the list for replacement in
   `ROADMAP.md`. Write tests that drive behaviour instead.
 - Commit and PR text follow `.claude/rules/docs-and-style.md`. Its ban on `Co-Authored-By` and

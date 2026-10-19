@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "givtcp_mock"
+version = "0.1.0"
+description = "A fake GivTCP and recorded GivTCP system fixtures for testing Home Assistant code"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"givtcp_mock.systems" = ["*.json"]

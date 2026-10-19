@@ -19,7 +19,7 @@ paths:
   `tests/ha_e2e/`. Put the test there when the claim is about Home Assistant.
 - `tests/test_config_flow_schemas.py` uses the real selector classes. Run it after any schema change.
 - Nothing talks to a real inverter. End-to-end tests capture writes with `async_mock_service` or use
-  `tools/mock_givtcp.py` (`tests/ha_e2e/test_write_sequence_e2e.py`).
+  `givtcp_mock` (`tests/ha_e2e/test_write_sequence_e2e.py`).
 
 ## Fakes and the backend contract
 
@@ -30,15 +30,15 @@ paths:
   slots and failed writes. Each backend subclasses `BackendContract` with a harness that knows
   its own inverter side. `tests/inverter/test_backend_contract.py` runs it on the fake and the
   GivTCP adapter, and `tests/ha_e2e/test_backend_contract_e2e.py` runs it on the adapter over
-  `tools/mock_givtcp.py`. A new backend starts from a passing contract.
-- `tests/fixtures/givtcp_systems/` holds the entity states of whole GivTCP systems (hybrid, AC
+  `givtcp_mock`. A new backend starts from a passing contract.
+- `packages/givtcp_mock/src/givtcp_mock/systems/` holds the entity states of whole GivTCP systems (hybrid, AC
   coupled, All-In-One, three-phase, Gateway, EMS, a charger on its own and more). Only
   `hybrid_gen3_two_batteries_3_6_3.json` is from real hardware. `build.py` writes the others from
   it and GivTCP's datapoint list, and `tests/lib/givtcp/test_system_fixtures.py` fails when a
   file differs from what `build.py` makes. Change `build.py`, then run
-  `python tests/fixtures/givtcp_systems/build.py`. Do not edit a fixture by hand. Test system
+  `python -m givtcp_mock.systems.build`. Do not edit a fixture by hand. Test system
   detection against these files, not a hand-built dict.
-- `tools/mock_givtcp.py` adds optional devices with `add_immersion`, `add_zappi` and `add_givevc`.
+- The mock (`givtcp_mock`) adds optional devices with `add_immersion`, `add_zappi` and `add_givevc`.
   It owns only the entities a write may reach, so a write to any other entity lands in
   `other_calls` and the charger tests assert that stays empty.
 
@@ -61,7 +61,7 @@ paths:
 
 ## Before pushing
 
-Run `ruff check custom_components tests scripts tools`, the unit suite and the end-to-end suite. CI
+Run `ruff check custom_components tests scripts packages`, the unit suite and the end-to-end suite. CI
 runs the unit and end-to-end suites on Python 3.14 against Home Assistant 2026.5.0 and the latest
 release. If you did not run the
 end-to-end suite, say so in the PR under "Testing".

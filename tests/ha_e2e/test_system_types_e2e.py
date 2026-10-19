@@ -1,7 +1,7 @@
 """The setup wizard, the repairs and the entity references, against the GivTCP system fixtures.
 
 Only the single-phase hybrid fixture comes from real hardware. The others are built from GivTCP's
-published datapoint reference (tests/fixtures/givtcp_systems/build.py), so what these tests prove
+published datapoint reference (givtcp_mock/systems/build.py), so what these tests prove
 for them is that the integration follows its own rules on that layout, not that GivTCP publishes
 exactly those names.
 """
@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 from conftest import MIDDAY, PREFIX, SERIAL
+from givtcp_mock import systems as fixtures
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from setup_support import finish, manager, run_pages, start, unload
@@ -21,7 +22,6 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_TARGET_SOC_ENTITY,
     DOMAIN,
 )
-from tests.fixtures import givtcp_systems as fixtures
 
 REAL_HYBRID = "hybrid_gen3_two_batteries_3_6_3"
 

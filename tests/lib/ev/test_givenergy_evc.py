@@ -1,7 +1,7 @@
 """The GivEnergy EV charger, as GivTCP publishes it: discovery, states, and the surplus mode.
 
 The entity names and the state strings are GivTCP's own (its datapoint reference and its EVC
-source), put into fixtures by tests/fixtures/givtcp_systems/build.py. No real GivEnergy charger
+source), put into fixtures by givtcp_mock/systems/build.py. No real GivEnergy charger
 has been read, so the entity ids and the prefix are a reading of the documentation.
 """
 
@@ -11,6 +11,7 @@ import itertools
 from types import SimpleNamespace
 
 import pytest
+from givtcp_mock import systems as fixtures
 
 from custom_components.givenergy_inverter_manager.core.rules import decide_ev_charger_action
 from custom_components.givenergy_inverter_manager.lib.ev import (
@@ -23,7 +24,6 @@ from custom_components.givenergy_inverter_manager.lib.ev import (
     pick_surplus_mode,
     update_charger_state,
 )
-from tests.fixtures import givtcp_systems as fixtures
 
 PREFIX = "givtcp_evc_ev1234a567"
 

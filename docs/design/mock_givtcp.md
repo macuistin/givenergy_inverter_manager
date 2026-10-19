@@ -1,6 +1,8 @@
 # Mock GivTCP
 
-`tools/mock_givtcp.py` is the device side of every write the integration makes. It exists so a test can assert the exact commands sent to the inverter, the immersion switch and the Zappi, with nothing real in reach (brief card FN3).
+`givtcp_mock` is the device side of every write the integration makes. It exists so a test can assert the exact commands sent to the inverter, the immersion switch and the Zappi, with nothing real in reach (brief card FN3).
+
+It lives in `packages/givtcp_mock/`, a package of its own with no runtime dependencies, so another GivTCP project can use it. The repository installs it for tests from `requirements-test.txt`, `requirements-test-e2e.txt` and `tests/ha_e2e/requirements-floor.txt` (`-e ./packages/givtcp_mock`). The system fixtures ship in the same package as data under `givtcp_mock.systems`, with `build.py` and `from_harness.py` beside them. Neither imports anything from the integration. Its own tests are in `packages/givtcp_mock/tests/`.
 
 ## Where it is used
 
@@ -12,7 +14,7 @@
 - Registers `number.set_value`, `switch.turn_on`, `switch.turn_off` and `select.select_option` and **records every call in order** as a `Write(domain, service, entity_id, value)`.
 - Moves the written entity to the new value, as a real device would, so the writer's read-back sees what GivTCP would show. `follow = False` leaves the state alone and `fail_on(entity_id)` makes writes raise.
 - Adds a stub immersion switch with a water temperature sensor (`add_immersion`) and a stub Zappi with a charge mode select (`add_zappi`).
-- `python tools/mock_givtcp.py [serial]` prints the entity map and the write services as JSON. It needs no Home Assistant.
+- `python -m givtcp_mock [serial]` prints the entity map and the write services as JSON. It needs no Home Assistant.
 
 ## Using it in a test
 
