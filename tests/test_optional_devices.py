@@ -66,6 +66,7 @@ class TestWhatNeedsWhat:
             "immersion_savings_this_week",
             "immersion_savings_this_month",
             "immersion_solar_kwh_today",
+            "immersion_run_limit",
             "auto_immersion",
             "immersion_managed",
             "surplus_divert_soc_pct",
@@ -84,12 +85,23 @@ class TestWhatNeedsWhat:
         }
 
     def test_the_advice_needs_alternative_heating_with_a_cost_and_the_switch(self):
-        assert _needing(OIL) == {"water_heating_cheapest_source"}
+        assert _needing(OIL) == {
+            "water_heating_cheapest_source",
+            "water_heating_ready_by_trigger",
+            "water_heating_low_water_trigger",
+        }
 
     def test_the_cheapest_source_is_unavailable_until_there_is_advice(self):
         description = next(
             d for d in SENSOR_DESCRIPTIONS if d.key == "water_heating_cheapest_source"
         )
+        assert description.available_fn(SimpleNamespace(water_heating_advice=None)) is False
+        assert description.available_fn(SimpleNamespace(water_heating_advice=object())) is True
+
+    @pytest.mark.parametrize("key", ["water_heating_ready_by_trigger", "water_heating_low_water_trigger"])
+    def test_a_trigger_is_unavailable_until_there_is_advice(self, key):
+        description = next(d for d in SENSOR_DESCRIPTIONS if d.key == key)
+
         assert description.available_fn(SimpleNamespace(water_heating_advice=None)) is False
         assert description.available_fn(SimpleNamespace(water_heating_advice=object())) is True
 

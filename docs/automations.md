@@ -237,6 +237,36 @@ mode: single
 
 ---
 
+## Alert when the alternative heating is worth starting
+
+The **Water Heating Ready-by Trigger** and **Water Heating Low Water Trigger** sensors only say when to act. This sends the alert. The ready-by trigger fires when the alternative has to start for the next ready time. The low water trigger fires when the water is near the lower boundary and the alternative is cheaper, so the immersion does not have to top it up. Start the alternative yourself: the integration never switches it. See [Concepts](concepts.md#alternative-water-heating-advice).
+
+```yaml
+alias: Alternative heating worth starting
+trigger:
+  - platform: state
+    entity_id:
+      - sensor.givenergy_inverter_manager_water_heating_ready_by_trigger
+      - sensor.givenergy_inverter_manager_water_heating_low_water_trigger
+    to: start_now
+    # A restart takes the sensors from unavailable to start_now, which is not a new alert.
+    not_from:
+      - unavailable
+      - unknown
+    # The water can hover at the margin, so wait a minute before alerting.
+    for: "00:01:00"
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: Start the alternative heating
+      message: >
+        {{ trigger.to_state.name }}: run it for about
+        {{ trigger.to_state.attributes.run_minutes }} minutes.
+mode: single
+```
+
+---
+
 ## Daily derating summary
 
 Sends the minutes spent at 65 °C or more, at sunset. Enable the Inverter Derating Today sensor first. It is disabled by default.

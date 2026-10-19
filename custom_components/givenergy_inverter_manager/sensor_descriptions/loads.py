@@ -6,7 +6,9 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import EntityCategory, UnitOfEnergy, UnitOfPower, UnitOfTemperature
 
 from .. import sensor_values as values
+from ..core.alt_heat_trigger import STATES as ALT_HEAT_TRIGGER_STATES
 from ..core.devices import Device
+from ..core.scheduled_run import STATES as RUN_LIMIT_STATES
 from .base import CURRENCY_UNIT, MONEY_PRECISION, GivEnergyManagerSensorDescription
 
 DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
@@ -129,5 +131,36 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         value_fn=values.water_heating_source,
         available_fn=lambda d: d.water_heating_advice is not None,
         attrs_fn=values.water_heating_attributes,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="immersion_run_limit",
+        requires=Device.IMMERSION_SWITCH,
+        translation_key="immersion_run_limit",
+        device_class=SensorDeviceClass.ENUM,
+        options=list(RUN_LIMIT_STATES),
+        icon="mdi:timer-alert-outline",
+        value_fn=values.immersion_run_limit_state,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="water_heating_ready_by_trigger",
+        requires=Device.ALTERNATIVE_HEAT,
+        translation_key="water_heating_ready_by_trigger",
+        device_class=SensorDeviceClass.ENUM,
+        options=list(ALT_HEAT_TRIGGER_STATES),
+        icon="mdi:water-boiler-alert",
+        value_fn=values.ready_by_trigger_state,
+        available_fn=lambda d: d.water_heating_advice is not None,
+        attrs_fn=values.ready_by_trigger_attributes,
+    ),
+    GivEnergyManagerSensorDescription(
+        key="water_heating_low_water_trigger",
+        requires=Device.ALTERNATIVE_HEAT,
+        translation_key="water_heating_low_water_trigger",
+        device_class=SensorDeviceClass.ENUM,
+        options=list(ALT_HEAT_TRIGGER_STATES),
+        icon="mdi:water-thermometer-outline",
+        value_fn=values.low_water_trigger_state,
+        available_fn=lambda d: d.water_heating_advice is not None,
+        attrs_fn=values.low_water_trigger_attributes,
     ),
 )

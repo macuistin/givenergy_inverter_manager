@@ -923,6 +923,28 @@
    },
    {
     "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 240.0,
+      "step": 5.0,
+      "unit_of_measurement": "min",
+      "mode": "box"
+     }
+    },
+    "name": "immersion_max_run_minutes",
+    "required": false,
+    "optional": true,
+    "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "required": false,
+    "optional": true,
+    "default": true
+   },
+   {
+    "selector": {
      "text": {
       "multiple": true,
       "multiline": false
@@ -1067,6 +1089,34 @@
     "required": false,
     "optional": true,
     "default": 3000.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 240.0,
+      "step": 5.0,
+      "unit_of_measurement": "min",
+      "mode": "box"
+     }
+    },
+    "name": "immersion_max_run_minutes",
+    "description": {
+     "suggested_value": 60.0
+    },
+    "required": false,
+    "optional": true,
+    "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "description": {
+     "suggested_value": true
+    },
+    "required": false,
+    "optional": true,
+    "default": true
    },
    {
     "selector": {
@@ -2036,6 +2086,28 @@
    },
    {
     "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 240.0,
+      "step": 5.0,
+      "unit_of_measurement": "min",
+      "mode": "box"
+     }
+    },
+    "name": "immersion_max_run_minutes",
+    "required": false,
+    "optional": true,
+    "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "required": false,
+    "optional": true,
+    "default": true
+   },
+   {
+    "selector": {
      "text": {
       "multiple": true,
       "multiline": false
@@ -2180,6 +2252,34 @@
     "required": false,
     "optional": true,
     "default": 3000.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 240.0,
+      "step": 5.0,
+      "unit_of_measurement": "min",
+      "mode": "box"
+     }
+    },
+    "name": "immersion_max_run_minutes",
+    "description": {
+     "suggested_value": 60.0
+    },
+    "required": false,
+    "optional": true,
+    "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "description": {
+     "suggested_value": true
+    },
+    "required": false,
+    "optional": true,
+    "default": true
    },
    {
     "selector": {
@@ -3157,6 +3257,28 @@
    },
    {
     "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 240.0,
+      "step": 5.0,
+      "unit_of_measurement": "min",
+      "mode": "box"
+     }
+    },
+    "name": "immersion_max_run_minutes",
+    "required": false,
+    "optional": true,
+    "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "required": false,
+    "optional": true,
+    "default": true
+   },
+   {
+    "selector": {
      "text": {
       "multiple": true,
       "multiline": false
@@ -3301,6 +3423,34 @@
     "required": false,
     "optional": true,
     "default": 3000.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 240.0,
+      "step": 5.0,
+      "unit_of_measurement": "min",
+      "mode": "box"
+     }
+    },
+    "name": "immersion_max_run_minutes",
+    "description": {
+     "suggested_value": 60.0
+    },
+    "required": false,
+    "optional": true,
+    "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "description": {
+     "suggested_value": true
+    },
+    "required": false,
+    "optional": true,
+    "default": true
    },
    {
     "selector": {
@@ -4612,6 +4762,28 @@
    },
    {
     "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 240.0,
+      "step": 5.0,
+      "unit_of_measurement": "min",
+      "mode": "box"
+     }
+    },
+    "name": "immersion_max_run_minutes",
+    "required": false,
+    "optional": true,
+    "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "required": false,
+    "optional": true,
+    "default": true
+   },
+   {
+    "selector": {
      "text": {
       "multiple": true,
       "multiline": false
@@ -5520,6 +5692,28 @@
    },
    {
     "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 240.0,
+      "step": 5.0,
+      "unit_of_measurement": "min",
+      "mode": "box"
+     }
+    },
+    "name": "immersion_max_run_minutes",
+    "required": false,
+    "optional": true,
+    "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "required": false,
+    "optional": true,
+    "default": true
+   },
+   {
+    "selector": {
      "text": {
       "multiple": true,
       "multiline": false
@@ -6422,6 +6616,28 @@
     "required": false,
     "optional": true,
     "default": 3000.0
+   },
+   {
+    "selector": {
+     "number": {
+      "min": 0.0,
+      "max": 240.0,
+      "step": 5.0,
+      "unit_of_measurement": "min",
+      "mode": "box"
+     }
+    },
+    "name": "immersion_max_run_minutes",
+    "required": false,
+    "optional": true,
+    "default": 60.0
+   },
+   {
+    "type": "boolean",
+    "name": "immersion_run_limit_warning",
+    "required": false,
+    "optional": true,
+    "default": true
    },
    {
     "selector": {

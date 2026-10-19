@@ -21,6 +21,7 @@ from .const import (
 )
 from .core.alt_heat_advice import WaterHeatingAdvice
 from .core.alt_heat_schedule import AltHeatSchedule
+from .core.alt_heat_trigger import AltHeatTrigger
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.ev_session import EVSession, EVSessionLog, recent_table
@@ -248,6 +249,47 @@ def water_heating_source(data: CoordinatorData) -> str | None:
     """Return the cheapest source to heat the water now, None without advice."""
     advice = data.water_heating_advice
     return None if advice is None else advice.source
+
+
+def immersion_run_limit_state(data: CoordinatorData) -> str:
+    """off, idle or reached: a scheduled run was stopped by the longest immersion run."""
+    return data.immersion_run_limit
+
+
+def ready_by_trigger_state(data: CoordinatorData) -> str:
+    """idle or start_now: the start for the next ready time has come."""
+    return data.water_heating_ready_trigger.state
+
+
+def low_water_trigger_state(data: CoordinatorData) -> str:
+    """idle or start_now: the water is near the lower boundary and the alternative is cheaper."""
+    return data.water_heating_low_trigger.state
+
+
+def _trigger_attributes(trigger: AltHeatTrigger, label: str | None) -> dict[str, Any]:
+    """What a run would be. The figures are absent while idle."""
+    attributes: dict[str, Any] = {} if label is None else {"alt_label": label}
+    if trigger.run_minutes is not None:
+        attributes["run_minutes"] = trigger.run_minutes
+    if trigger.start_by is not None:
+        attributes["start_by"] = f"{trigger.start_by:%H:%M}"
+    if trigger.ready_at is not None:
+        attributes["ready_time"] = f"{trigger.ready_at:%H:%M}"
+    if trigger.saving_per_kwh is not None:
+        attributes["saving_per_kwh"] = round(trigger.saving_per_kwh, 4)
+    return attributes
+
+
+def _advice_label(data: CoordinatorData) -> str | None:
+    return None if data.water_heating_advice is None else data.water_heating_advice.label
+
+
+def ready_by_trigger_attributes(data: CoordinatorData) -> dict[str, Any]:
+    return _trigger_attributes(data.water_heating_ready_trigger, _advice_label(data))
+
+
+def low_water_trigger_attributes(data: CoordinatorData) -> dict[str, Any]:
+    return _trigger_attributes(data.water_heating_low_trigger, _advice_label(data))
 
 
 def _alt_start_attributes(advice: WaterHeatingAdvice) -> dict[str, Any]:
@@ -659,3 +701,13 @@ def active_repairs_attributes(data: CoordinatorData) -> dict[str, Any]:
         "issues": [issue.as_attribute() for issue in data.active_repairs],
         "summary": repairs_summary(data.active_repairs),
     }
+
+
+def cheapest_rate_active(data: CoordinatorData) -> bool:
+    """True while the cheapest timed rate period is in force."""
+    return data.is_on_cheapest_rate
+
+
+def cheap_rate_active(data: CoordinatorData) -> bool:
+    """True while any period cheaper than the base rate is in force."""
+    return data.cheap_run_remaining_minutes is not None

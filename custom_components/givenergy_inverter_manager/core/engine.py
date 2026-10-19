@@ -93,6 +93,7 @@ from .alt_heat_schedule import (
     suggest_alt_heat_schedule,
 )
 from .alt_heat_start import WaterReading
+from .alt_heat_trigger import AltHeatTrigger, HeldTriggers, low_water_trigger, ready_by_trigger
 from .battery import (
     BatteryStats,
     NightClock,
@@ -111,6 +112,7 @@ from .charge_window import (
     ChargeWindow,
     cheap_run_remaining_minutes,
     plan_charge_window,
+    window_charge_cost,
 )
 from .controller_conflict import ConflictStatus
 from .counter_guard import screen
@@ -137,9 +139,11 @@ from .rules import (
     charge_cost,
     decide_ev_charger_action,
     planned_day,
+    scheduled_heating_wanted,
     should_divert_to_immersion,
     usable_slot_loads_kwh,
 )
+from .scheduled_run import HeldScheduledRun, RunStep, advance, warning_state
 from .seasons import NORTHERN_SEASONS, SeasonRules
 from .setup_progress import SetupItem
 from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
@@ -210,6 +214,11 @@ class RawSensorValues:
     immersion_target_temp: float = 55.0
     immersion_min_temp: float = 50.0
     immersion_hysteresis_c: float = 5.0
+    # The longest a scheduled run lasts, in minutes. 0 is no limit. The coordinator sets it from
+    # the configuration, whose default is 60.
+    immersion_max_run_minutes: int = 0
+    # Whether to report a run that reached the limit, set by the coordinator from the configuration.
+    immersion_run_limit_warning: bool = True
     # The user's opt-in to heating in the cheapest rate window, set by the coordinator.
     immersion_schedule_enabled: bool = False
     # True when the previous cycle was heating in the cheapest window. The coordinator sets it.
@@ -327,8 +336,13 @@ class CoordinatorData:
     immersion_expected_ready: bool | None = None
     # What scheduled heating plans, in a sentence. None without scheduled heating or a reading.
     immersion_planned_heating: str | None = None
+    # off, idle or reached: whether a scheduled run has been stopped by the longest run.
+    immersion_run_limit: str = "off"
     # The alternative heating against electricity for the water. None while it has no cost.
     water_heating_advice: WaterHeatingAdvice | None = None
+    # The two moments the alternative heating is worth starting, for an automation to trigger on.
+    water_heating_ready_trigger: AltHeatTrigger = field(default_factory=AltHeatTrigger)
+    water_heating_low_trigger: AltHeatTrigger = field(default_factory=AltHeatTrigger)
     # The windows the immersion's grid heating suggests for the alternative. None while it has no
     # cost or the record holds fewer than ALT_HEAT_SCHEDULE_MIN_DAYS days. A separate line from
     # the advice.
@@ -922,7 +936,7 @@ class ForecastContext:
 class PreviousCycle:
     """State carried over from the previous update.
 
-    battery_stats, held_charge, held_sunrise and held_solar are mutated.
+    battery_stats, held_charge, held_sunrise, held_solar and held_triggers are mutated.
     """
 
     battery_stats: BatteryStats
@@ -931,6 +945,8 @@ class PreviousCycle:
     held_charge: HeldCharge = field(default_factory=HeldCharge)
     held_sunrise: HeldSunrise = field(default_factory=HeldSunrise)
     held_solar: HeldSolarDay = field(default_factory=HeldSolarDay)
+    held_triggers: HeldTriggers = field(default_factory=HeldTriggers)
+    held_scheduled_run: HeldScheduledRun = field(default_factory=HeldScheduledRun)
 
 
 @dataclass(frozen=True)
@@ -1165,8 +1181,14 @@ def _ready_plan(cycle: _Cycle) -> ReadyPlan:
             target=raw.immersion_target_temp,
             rate_c_per_h=raw.immersion_heating_rate_c_per_h,
             heater_on=raw.immersion_on,
+            max_run_hours=_max_run_hours(raw),
         )
     )
+
+
+def _max_run_hours(raw: RawSensorValues) -> float | None:
+    """The longest scheduled run in hours, None when there is no limit."""
+    return raw.immersion_max_run_minutes / 60 if raw.immersion_max_run_minutes > 0 else None
 
 
 def _immersion_inputs(data: CoordinatorData, cycle: _Cycle) -> ImmersionInputs:
@@ -1191,7 +1213,14 @@ def _set_planned_heating(data: CoordinatorData, cycle: _Cycle) -> None:
     water = _water_reading(raw)
     if not raw.immersion_schedule_enabled or water is None:
         return
-    query = PlanQuery(cycle.tariff, cycle.now, raw.immersion_ready_times, water, raw.immersion_on)
+    query = PlanQuery(
+        cycle.tariff,
+        cycle.now,
+        raw.immersion_ready_times,
+        water,
+        raw.immersion_on,
+        _max_run_hours(raw),
+    )
     data.immersion_planned_heating = describe_planned_heating(query)
 
 
@@ -1226,23 +1255,29 @@ def _water_reading(raw: RawSensorValues) -> WaterReading | None:
     )
 
 
-def _set_water_heating_advice(data: CoordinatorData, cycle: _Cycle) -> None:
+def _set_water_heating_advice(
+    data: CoordinatorData, cycle: _Cycle, held: HeldTriggers
+) -> None:
     """The alternative against electricity for the water. Nothing is worked out without a cost."""
     cost = cycle.raw.alt_heat_cost_per_kwh
     if cost is None:
+        held.ready_by = held.low_water = AltHeatTrigger()
         return
-    data.water_heating_advice = advise_water_heating(
-        AdviceInputs(
-            tariff=cycle.tariff,
-            now=cycle.now,
-            alt_cost_per_kwh=cost,
-            label=cycle.raw.alt_heat_label,
-            ready_times=cycle.raw.immersion_ready_times,
-            solar_surplus=_solar_surplus_to_divert(data, cycle),
-            currency_symbol=data.currency_symbol,
-            water=_water_reading(cycle.raw),
-            scheduled_heating=cycle.raw.immersion_schedule_enabled,
-        )
+    inputs = AdviceInputs(
+        tariff=cycle.tariff,
+        now=cycle.now,
+        alt_cost_per_kwh=cost,
+        label=cycle.raw.alt_heat_label,
+        ready_times=cycle.raw.immersion_ready_times,
+        solar_surplus=_solar_surplus_to_divert(data, cycle),
+        currency_symbol=data.currency_symbol,
+        water=_water_reading(cycle.raw),
+        scheduled_heating=cycle.raw.immersion_schedule_enabled,
+    )
+    data.water_heating_advice = advise_water_heating(inputs)
+    held.ready_by = data.water_heating_ready_trigger = ready_by_trigger(inputs, held.ready_by)
+    held.low_water = data.water_heating_low_trigger = low_water_trigger(
+        data.water_heating_advice, inputs, held.low_water
     )
 
 
@@ -1265,7 +1300,21 @@ def _set_alt_heat_schedule(
     )
 
 
-def _set_immersion_decision(data: CoordinatorData, cycle: _Cycle) -> None:
+def _stop_a_long_run(
+    inputs: ImmersionInputs, cycle: _Cycle, held: HeldScheduledRun
+) -> ImmersionInputs:
+    """The inputs with the run limit applied: count this cycle and mark a run that reached it."""
+    raw = cycle.raw
+    step = RunStep(
+        cycle.now, scheduled_heating_wanted(inputs), raw.immersion_on, raw.immersion_max_run_minutes
+    )
+    advance(held, step)
+    return replace(inputs, run=replace(inputs.run, scheduled_capped=held.capped))
+
+
+def _set_immersion_decision(
+    data: CoordinatorData, cycle: _Cycle, held: HeldScheduledRun
+) -> None:
     """Set immersion divert decision."""
     data.battery_cycle_cost_per_kwh = _battery_cycle_cost(cycle.cfg, cycle.raw.battery_capacity_kwh)
     _set_planned_heating(data, cycle)
@@ -1273,8 +1322,11 @@ def _set_immersion_decision(data: CoordinatorData, cycle: _Cycle) -> None:
         data.should_divert_immersion = cycle.overrides.immersion
         data.divert_reason = "Manual override"
         return
-    inputs = _immersion_inputs(data, cycle)
+    inputs = _stop_a_long_run(_immersion_inputs(data, cycle), cycle, held)
     data.should_divert_immersion, data.divert_reason = should_divert_to_immersion(inputs)
+    data.immersion_run_limit = warning_state(
+        held, cycle.raw.immersion_max_run_minutes, enabled=cycle.raw.immersion_run_limit_warning
+    )
     data.immersion_window_heating = (
         data.should_divert_immersion and inputs.window.open_label is not None
     )
@@ -1445,6 +1497,21 @@ def _set_overnight_charge(
     data.charge_window = _plan_charge_window(data, cycle)
     held.settle_window(data.charge_window, reading)
     data.published_charge_window = held.window
+    data.charge_decision = _priced_for_window(data.charge_decision, data.charge_window, cycle)
+    data.published_charge_decision = _priced_for_window(
+        data.published_charge_decision, data.published_charge_window, cycle
+    )
+
+
+def _charge_need(decision: ChargeDecision, cycle: _Cycle) -> ChargeNeed:
+    # A skipped night charges nothing, so the window stays the cheapest period.
+    target = decision.current_soc if decision.skip_charge else decision.target_soc
+    return ChargeNeed(
+        soc=decision.current_soc,
+        target_soc=target,
+        capacity_kwh=decision.battery_capacity,
+        charge_power_w=cycle.raw.battery_charge_rate_w,
+    )
 
 
 def _plan_charge_window(data: CoordinatorData, cycle: _Cycle) -> ChargeWindow | None:
@@ -1452,15 +1519,22 @@ def _plan_charge_window(data: CoordinatorData, cycle: _Cycle) -> ChargeWindow | 
     decision = data.charge_decision
     if decision is None or not cycle.tariff.rate_periods:
         return None
-    # A skipped night charges nothing, so the window stays the cheapest period.
-    target = decision.current_soc if decision.skip_charge else decision.target_soc
-    need = ChargeNeed(
-        soc=decision.current_soc,
-        target_soc=target,
-        capacity_kwh=decision.battery_capacity,
-        charge_power_w=cycle.raw.battery_charge_rate_w,
-    )
-    return plan_charge_window(cycle.tariff, need)
+    return plan_charge_window(cycle.tariff, _charge_need(decision, cycle))
+
+
+def _priced_for_window(
+    decision: ChargeDecision | None, window: ChargeWindow | None, cycle: _Cycle
+) -> ChargeDecision | None:
+    """The decision priced at the rate in force while an extended window runs.
+
+    The cheapest rate prices a charge that fits the cheapest period. A longer window pays the
+    next periods' rate for the rest, so its cost is higher. A window that is not extended, or
+    an unknown charge rate, keeps the cost the decision has.
+    """
+    if decision is None or decision.skip_charge or window is None or not window.extended:
+        return decision
+    cost = window_charge_cost(cycle.tariff, window, _charge_need(decision, cycle))
+    return decision if cost is None else replace(decision, cost_to_charge=cost)
 
 
 def _calculate_ev_km(data: CoordinatorData, acc: EnergyAccumulator, cfg: dict[str, Any]) -> None:
@@ -1808,8 +1882,6 @@ def _set_decisions(
     """The charge target, its day's outlook and the immersion divert, which honour overrides."""
     _set_overnight_charge(data, cycle, avg_daily_kwh, held)
     _set_tomorrow_outlook(data, cycle, avg_daily_kwh)
-    _set_immersion_decision(data, cycle)
-    _set_water_heating_advice(data, cycle)
     _set_inverter_temperature(data, cycle.raw.inverter_temp)
 
 
@@ -1850,6 +1922,8 @@ def build_coordinator_data(
     )
 
     _set_decisions(data, cycle, avg_daily_kwh, previous.held_charge)
+    _set_immersion_decision(data, cycle, previous.held_scheduled_run)
+    _set_water_heating_advice(data, cycle, previous.held_triggers)
     _set_alt_heat_schedule(data, cycle, accumulators.heat_log)
     _set_money_fields(data, cycle, accumulators)
     _calculate_ev_km(data, accumulators.today, inputs.cfg)

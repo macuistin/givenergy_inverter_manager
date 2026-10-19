@@ -231,6 +231,9 @@ KEY_GROUPS: dict[str, str] = {
             "immersion_divert_reason",
             "immersion_water_temperature",
             "water_heating_cheapest_source",
+            "immersion_run_limit",
+            "water_heating_ready_by_trigger",
+            "water_heating_low_water_trigger",
         ),
         "Immersion",
     ),
@@ -395,7 +398,10 @@ DESCRIPTIONS: dict[str, str] = {
         "Import cost while no timed rate period was active, so at the base rate. "
         "With no timed rate period set, all import cost."
     ),
-    "immersion_savings_today": "Diverted solar kWh times (current rate minus export rate).",
+    "immersion_savings_today": (
+        "Diverted solar kWh times (current rate minus export rate). It counts solar only, not "
+        "what the heater draws from the grid. See Immersion Cost Today for that."
+    ),
     "saving_vs_grid_today": (
         "House load priced at the rate in force when it ran, minus net import cost "
         "(import cost minus export earnings), plus the value of the change in the energy the "
@@ -498,7 +504,9 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "overnight_charge_cost": (
         "kWh from the SoC up to the target that is written, after the cap or a manual "
-        "override, times the cheapest rate, before discount and VAT. Zero on a skipped night."
+        "override, times the cheapest rate, before discount and VAT. When the charge window "
+        "is longer than the cheapest period, the energy after it is priced at the rate in "
+        "force then. Zero on a skipped night."
     ),
     "tomorrow_outlook": (
         "What the solar day the charge plan is for should cost: grid import plus tonight's "
@@ -557,6 +565,35 @@ DESCRIPTIONS: dict[str, str] = {
         "Heating on, the `planned_heating` attribute says in a sentence what the immersion "
         "plans for the next ready time and the cheapest window. With ready times set it also "
         "has `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source`."
+    ),
+    "immersion_run_limit": (
+        "Whether a scheduled run of the immersion was stopped by the longest immersion run: "
+        "`off`, `idle` or `reached`. `reached` lasts until scheduled heating stops wanting the "
+        "heater, which is when the window closes, the ready time passes or the water is warm "
+        "enough. It is `off` when the longest run is 0 or the warning is turned off in the hot "
+        "water settings. The Home energy dashboard shows a banner while it is `reached`."
+    ),
+    "water_heating_ready_by_trigger": (
+        "A trigger for the start for a ready time: `idle` or `start_now`. It becomes `start_now` "
+        "at the start for the ready time, the ready time less the run the water needs to reach "
+        "the target. The water counts as needing heat as soon as it is 1 °C below the target, "
+        "and the colder it is, the longer the run and the earlier the start. Once fired it "
+        "holds until the water is at the target or the ready time has passed. It needs a ready "
+        "time and the immersion schedule. It sends no alert and never switches anything: build "
+        "the alert on a change of state, as in [Automations](automations.md). Attributes: "
+        "`alt_label`, and while it is not idle `run_minutes`, `start_by`, `ready_time` and "
+        "`saving_per_kwh`."
+    ),
+    "water_heating_low_water_trigger": (
+        "A trigger that keeps the immersion from restarting: `idle` or `start_now`. It becomes "
+        "`start_now` while the water is within 1 °C above the lower boundary (or below it) and "
+        "the alternative is cheaper than the grid, so a run can lift the water before the "
+        "immersion tops it up. The boundary is the lower of the minimum temperature plus the "
+        "restart gap, and the target less the restart gap, so raising the minimum temperature "
+        "makes it fire sooner. It stays idle while solar surplus is heating the water. Once fired "
+        "it holds until the water is at the target, and ends at once if the alternative stops "
+        "being cheaper. It sends no alert and never switches anything. Attributes: `alt_label`, "
+        "and while it is not idle `run_minutes` and `saving_per_kwh`."
     ),
     "water_heating_cheapest_source": (
         "The cheapest way to heat the water now: `electricity`, `solar` or `alternative`. "
@@ -696,6 +733,21 @@ RENAMED_SENSORS: tuple[tuple[str, str, str], ...] = (
         "Estimated SoC at Sunrise",
         "Estimated SoC at Sunrise Without a Charge",
     ),
+    (
+        "immersion_savings_yesterday",
+        "Immersion savings yesterday",
+        "Immersion solar savings yesterday",
+    ),
+    (
+        "immersion_savings_this_week",
+        "Immersion savings this week",
+        "Immersion solar savings this week",
+    ),
+    (
+        "immersion_savings_this_month",
+        "Immersion savings this month",
+        "Immersion solar savings this month",
+    ),
 )
 RENAMED_NOTE = (
     "The base rate sensors were renamed because they measure the base rate, the rate that "
@@ -703,10 +755,12 @@ RENAMED_NOTE = (
     "is configured. The two overnight sensors were renamed because night survival read like "
     "an alarm: they tell whether the battery lasts the night. The sunrise estimate was renamed "
     "because it leaves tonight's planned charge out, and a second sensor now gives the "
-    "figure with the charge. In every group the key and the unique ID did not change, so "
+    "figure with the charge. The immersion savings sensors were renamed because they count "
+    "diverted solar energy only, not what the heater draws from the grid, which the "
+    "Immersion Cost sensors show. In every group the key and the unique ID did not change, so "
     "history, statistics and automations carry on. An install made before a rename keeps its "
-    "old entity IDs, which still contain `peak`, `night_survival` or the plain "
-    "`estimated_soc_at_sunrise`. A new install builds entity IDs from the new names."
+    "old entity IDs, which still contain `peak`, `night_survival`, `immersion_savings` or the "
+    "plain `estimated_soc_at_sunrise`. A new install builds entity IDs from the new names."
 )
 RETIRED_NOTE = (
     "These sensors were removed. The integration never writes or advises forced battery "

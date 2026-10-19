@@ -203,7 +203,7 @@ class TestLearningFromRuns:
         assert self._run(RunTracker(), 60, 40.0, 9.0) == pytest.approx(9.0, rel=0.02)
 
     def test_a_short_run_is_not_a_sample(self):
-        assert self._run(RunTracker(), IMMERSION_RATE_RUN_MIN_MINUTES - 10, 40.0, 9.0) is None
+        assert self._run(RunTracker(), IMMERSION_RATE_RUN_MIN_MINUTES - 5, 40.0, 9.0) is None
 
     def test_a_run_that_hardly_warmed_the_water_is_not_a_sample(self):
         assert self._run(RunTracker(), 30, 54.0, 1.0) is None
@@ -256,3 +256,37 @@ class TestWherePlanPlacesItsHours:
         now, ready = datetime(2026, 10, 25, 0, 0, tzinfo=DUBLIN), datetime(2026, 10, 25, 4, 0, tzinfo=DUBLIN)
         start = place_hours(build_tariff({"base_rate": 0.30, "rate_periods": []}), now, ready, 1.0).starts_at
         assert start.astimezone(ZoneInfo("UTC")) == ready.astimezone(ZoneInfo("UTC")) - timedelta(hours=1)
+
+
+class TestTheLongestRun:
+    """The plan is sized to the longest run, and does not promise a ready time it cannot meet."""
+
+    def _plan(self, temp, max_run_hours):
+        return plan_ready(ReadyInputs(TARIFF, at(12), (EVENING,), temp, TARGET, RATE, False, max_run_hours))
+
+    def test_no_limit_leaves_the_plan_as_it_was(self):
+        assert self._plan(40.0, None) == plan(at(12), 40.0, EVENING)
+
+    def test_a_limit_above_the_hours_needed_changes_nothing(self):
+        assert self._plan(40.0, 3.0) == plan(at(12), 40.0, EVENING)
+
+    def test_a_limit_below_the_hours_needed_sizes_the_plan_to_the_limit(self):
+        # 15 degrees at 10 an hour with the margin is 1.725 hours.
+        result = self._plan(40.0, 1.0)
+        assert result.hours_needed == 1.0
+        assert plan(at(12), 40.0, EVENING).hours_needed == pytest.approx(1.725)
+
+    def test_the_water_is_not_expected_to_be_ready_when_the_limit_is_too_short(self):
+        assert self._plan(40.0, 1.0).expected_ready is False
+        assert self._plan(40.0, 3.0).expected_ready is True
+
+    def test_closer_to_the_target_the_run_is_shorter_whatever_the_limit(self):
+        near = self._plan(53.0, 1.0)
+        far = self._plan(45.0, 1.0)
+        assert near.hours_needed < far.hours_needed == 1.0
+
+    def test_the_heater_starts_a_limit_before_the_ready_time(self):
+        # Needing 1.725 hours but limited to 1, it is not wanted at 17:50 and wanted by 18:00.
+        early = plan_ready(ReadyInputs(TARIFF, at(17, 50), (EVENING,), 40.0, TARGET, RATE, False, 1.0))
+        due = plan_ready(ReadyInputs(TARIFF, at(18, 0), (EVENING,), 40.0, TARGET, RATE, False, 1.0))
+        assert (early.heat_now, due.heat_now) == (False, True)

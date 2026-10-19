@@ -29,14 +29,17 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_ALT_HEAT_COST,
     CONF_ALT_HEAT_ENABLED,
     CONF_DRY_RUN,
+    CONF_IMMERSION_MAX_RUN_MINUTES,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_READY_TIMES,
+    CONF_IMMERSION_RUN_LIMIT_WARNING,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
     DOMAIN,
 )
 
 WATER_SENSOR = "sensor.givenergy_inverter_manager_immersion_water_temperature"
+RUN_LIMIT_SENSOR = "sensor.givenergy_inverter_manager_immersion_run_limit"
 COLD = 46.0  # below the restart threshold of 50, above the minimum of 45
 TARGET_REACHED = 55.5
 
@@ -287,7 +290,8 @@ class TestNoTemperatureSensor:
 class TestReadyTimes:
     @pytest.fixture
     def config_entry(self):
-        return _entry(**{CONF_IMMERSION_READY_TIMES: ["07:00", "19:00"]})
+        # No longest run, so these tests pin the plan itself. TestTheLongestRun covers the limit.
+        return _entry(**{CONF_IMMERSION_READY_TIMES: ["07:00", "19:00"], CONF_IMMERSION_MAX_RUN_MINUTES: 0})
 
     async def test_a_cold_tank_at_17_00_is_topped_up_to_finish_by_19_00(
         self, hass, loaded_entry, real_switch, freezer
@@ -397,9 +401,11 @@ class TestReadyTimes:
         freezer.move_to("2026-12-15 18:38:00+00:00")
         await cycle(hass, loaded_entry)
         await cycle(hass, loaded_entry)
-        learned = loaded_entry.runtime_data._acc.immersion_heating_rates
-        assert len(learned) == 1
-        assert learned[0] == pytest.approx(9.0, rel=0.35)
+        days = loaded_entry.runtime_data._acc.immersion_rate_days
+        assert len(days) == 1
+        assert days[0]["date"] == "2026-12-15"
+        assert days[0]["runs"] == 1
+        assert days[0]["total"] / days[0]["runs"] == pytest.approx(9.0, rel=0.35)
 
 
 def _config_without_immersion() -> dict:
@@ -478,6 +484,71 @@ class TestDevicesAddedLater:
         await cycle(hass, loaded_entry)
         planned = hass.states.get(WATER_SENSOR).attributes["planned_heating"]
         assert planned.startswith("Heating planned for the 19:00 ready time")
+
+
+class TestTheLongestRun:
+    """The default longest run is 60 minutes. The plan is sized to it and does not start early."""
+
+    @pytest.fixture
+    def config_entry(self):
+        return _entry(**{CONF_IMMERSION_READY_TIMES: ["19:00"]})
+
+    async def test_a_cold_tank_starts_an_hour_before_the_ready_time_not_earlier(
+        self, hass, loaded_entry, real_switch, freezer
+    ):
+        await opt_in(hass, loaded_entry)
+        water(hass, 46.0)  # about 1.2 hours at the assumed rate, longer than the limit
+        freezer.move_to("2026-12-15 17:50:00+00:00")
+        await cycle(hass, loaded_entry)
+        assert real_switch.calls == []
+        freezer.move_to("2026-12-15 18:00:00+00:00")
+        await cycle(hass, loaded_entry)
+        assert real_switch.calls == ["turn_on"]
+
+    async def test_the_sensor_says_the_water_will_not_be_ready_when_the_limit_is_too_short(
+        self, hass, loaded_entry, real_switch, freezer
+    ):
+        await opt_in(hass, loaded_entry)
+        water(hass, 46.0)
+        freezer.move_to("2026-12-15 12:00:00+00:00")
+        await cycle(hass, loaded_entry)
+        state = hass.states.get("sensor.givenergy_inverter_manager_immersion_water_temperature")
+        assert state.attributes["expected_ready"] is False
+
+    async def test_saving_the_limit_in_the_options_keeps_it_and_does_not_reload(
+        self, hass, loaded_entry
+    ):
+        runtime = loaded_entry.runtime_data
+        result = await options_wizard(
+            hass, loaded_entry, {"hot_water": {CONF_IMMERSION_MAX_RUN_MINUTES: 45}}
+        )
+        await hass.async_block_till_done()
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert loaded_entry.options[CONF_IMMERSION_MAX_RUN_MINUTES] == 45
+        assert loaded_entry.runtime_data is runtime
+
+    async def test_the_run_limit_sensor_is_idle_until_a_run_is_stopped(
+        self, hass, loaded_entry, freezer
+    ):
+        await opt_in(hass, loaded_entry)
+        at(freezer, "12:00:00")
+        await cycle(hass, loaded_entry)
+        assert hass.states.get(RUN_LIMIT_SENSOR).state == "idle"
+
+    async def test_turning_the_warning_off_does_not_reload_and_the_sensor_reads_off(
+        self, hass, loaded_entry, freezer
+    ):
+        runtime = loaded_entry.runtime_data
+        result = await options_wizard(
+            hass, loaded_entry, {"hot_water": {CONF_IMMERSION_RUN_LIMIT_WARNING: False}}
+        )
+        await hass.async_block_till_done()
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert loaded_entry.options[CONF_IMMERSION_RUN_LIMIT_WARNING] is False
+        assert loaded_entry.runtime_data is runtime
+        at(freezer, "12:00:00")
+        await cycle(hass, loaded_entry)
+        assert hass.states.get(RUN_LIMIT_SENSOR).state == "off"
 
 
 class TestReadyTimesInTheOptions:
@@ -594,8 +665,10 @@ class TestOilStartForAReadyTime:
         await cycle(hass, loaded_entry)
         attributes = hass.states.get(self.OIL_SENSOR).attributes
         assert attributes["alt_for_ready_time"] == "19:00"
-        assert "16:00" < attributes["alt_start_by"] < "17:30"
         assert attributes["alt_run_minutes"] > 0
+        # Just in time: the run ends at the ready time, to the minute.
+        hours, minutes = map(int, attributes["alt_start_by"].split(":"))
+        assert hours * 60 + minutes + attributes["alt_run_minutes"] == 19 * 60
         assert attributes["suggestion"].startswith("For the 19:00 ready time: turn the oil water")
         assert real_switch.calls == []
 
