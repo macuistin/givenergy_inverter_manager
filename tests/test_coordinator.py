@@ -70,6 +70,7 @@ from custom_components.givenergy_inverter_manager.unconfirmed_write_repair impor
 )
 from custom_components.givenergy_inverter_manager.write_audit import WriteAudit
 from tests.conftest import _nightboost_cfg, _raw
+from tests.fakes.export_guard import ExportGuard
 from tests.helpers import PKG
 
 # ── Minimal HA state stub ─────────────────────────────────────────────────────
@@ -324,15 +325,17 @@ class FakeCoordinator(GivEnergyCoordinator):
         for value in self._effective_cfg().values():
             if isinstance(value, str) and value.split(".")[0] in ("switch", "select", "number"):
                 self._states.setdefault(value, FakeState("stale"))
-        self._backend = make_backend(
-            self._effective_cfg(),
-            GivTCPPorts(
-                get_state=lambda eid: self._get_state(eid),
-                call_service=lambda domain, service, data: self._call_service(
-                    domain, service, data
+        self._backend = ExportGuard(
+            make_backend(
+                self._effective_cfg(),
+                GivTCPPorts(
+                    get_state=lambda eid: self._get_state(eid),
+                    call_service=lambda domain, service, data: self._call_service(
+                        domain, service, data
+                    ),
+                    on_count_change=self._save_register_write_count,
                 ),
-                on_count_change=self._save_register_write_count,
-            ),
+            )
         )
         # The same wiring as GivEnergyCoordinator._init_writer, against the stubbed hass.
         self._write_repair = UnconfirmedWriteRepair(

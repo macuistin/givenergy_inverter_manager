@@ -20,24 +20,17 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from enum import StrEnum
 from typing import Any
 
 from ._entity import GetState, attribute_limit, listed_options, squash, usable
 from .controls import control_entity
+from .model import Force
 from .status import WriteStatus
 from .writer import GivTCPWriter
 
 _DURATION = re.compile(r"^\s*(?P<amount>\d+(?:\.\d+)?)\s*(?P<unit>[a-z]*)")
 _CANCEL = frozenset({"cancel", "stop", "normal", "off", "none", "disabled"})
 _HOUR_UNITS = ("h", "hr", "hrs", "hour", "hours")
-
-
-class Force(StrEnum):
-    """What to force. The value is the entity name stem."""
-
-    CHARGE = "force_charge"
-    EXPORT = "force_export"
 
 
 def option_minutes(option: str) -> int | None:

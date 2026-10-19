@@ -10,8 +10,8 @@ import custom_components.givenergy_inverter_manager.unconfirmed_write_repair as 
 from custom_components.givenergy_inverter_manager.lib.givtcp.writer import (
     SwitchState,
     VerifiedWrite,
-    _number_write,
-    _switch_write,
+    number_write,
+    switch_write,
 )
 from custom_components.givenergy_inverter_manager.repairs import (
     ISSUE_WRITE_NOT_CONFIRMED,
@@ -49,7 +49,7 @@ def home(monkeypatch) -> _Home:
 
 
 def _target(value: int = 75) -> VerifiedWrite:
-    return _number_write("number.target_soc", value, "charge target", step=4)
+    return number_write("number.target_soc", value, "charge target", step=4)
 
 
 def test_a_failed_write_raises_a_repair_naming_the_setting(home):
@@ -103,7 +103,7 @@ def test_a_setting_still_at_the_old_value_stays_on_the_repair(home):
 def test_an_unavailable_switch_is_not_read_as_the_value_wanted(home):
     # A switch wanted off reads off when unavailable, which is no proof that it took.
     repair = home.repair()
-    repair.not_confirmed(_switch_write("switch.enable_target", SwitchState.OFF, "enable", 5))
+    repair.not_confirmed(switch_write("switch.enable_target", SwitchState.OFF, "enable", 5))
     home.states["switch.enable_target"] = _State("unavailable")
     repair.recheck()
     home.deleted.assert_not_called()

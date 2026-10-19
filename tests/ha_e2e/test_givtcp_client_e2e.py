@@ -112,7 +112,7 @@ async def test_the_clock_skew_is_read_from_the_published_clock(hass):
 async def test_a_discharge_plan_ends_with_the_schedule_switch(hass):
     mock, backend = _client(hass)
 
-    assert await backend.apply_discharge_plan(CFG, (time(17, 0), time(19, 30)), 30)
+    assert await backend.schedules.apply_discharge_plan(CFG, (time(17, 0), time(19, 30)), 30)
 
     assert [w.entity_id.split(f"{mock.prefix}_")[1] for w in mock.writes] == [
         "discharge_target_soc_1",
@@ -120,29 +120,29 @@ async def test_a_discharge_plan_ends_with_the_schedule_switch(hass):
         "discharge_end_time_slot_1",
         "enable_discharge_schedule",
     ]
-    assert backend.discharge_schedule_enabled(CFG) is True
-    assert backend.read_slot(CFG, SlotKind.DISCHARGE) == ("17:00", "19:30")
-    assert backend.read_discharge_target(CFG) == 30
+    assert backend.schedules.discharge_schedule_enabled(CFG) is True
+    assert backend.schedules.read_slot(CFG, SlotKind.DISCHARGE) == ("17:00", "19:30")
+    assert backend.schedules.read_discharge_target(CFG) == 30
 
 
 async def test_a_rejected_window_write_leaves_the_schedule_off(hass):
     mock, backend = _client(hass)
     mock.fail_on(mock.entity("select", "discharge_end_time_slot_1"))
 
-    assert not await backend.apply_discharge_plan(CFG, (time(17, 0), time(19, 30)), 30)
+    assert not await backend.schedules.apply_discharge_plan(CFG, (time(17, 0), time(19, 30)), 30)
 
-    assert backend.discharge_schedule_enabled(CFG) is False
-    assert await backend.stop_discharge(CFG)
+    assert backend.schedules.discharge_schedule_enabled(CFG) is False
+    assert await backend.schedules.stop_discharge(CFG)
 
 
 async def test_charge_slot_five_can_be_set_and_cleared_and_slot_eleven_does_not_exist(hass):
     mock, backend = _client(hass)
 
-    assert await backend.apply_slot(CFG, SlotKind.CHARGE, 5, (time(12, 0), time(13, 15)))
-    assert backend.read_slot(CFG, SlotKind.CHARGE, 5) == ("12:00", "13:15")
-    assert await backend.clear_slot(CFG, SlotKind.CHARGE, 5)
-    assert backend.read_slot(CFG, SlotKind.CHARGE, 5) == ("00:00", "00:00")
-    assert not await backend.apply_slot(CFG, SlotKind.CHARGE, 11, (time(1), time(2)))
+    assert await backend.schedules.apply_slot(CFG, SlotKind.CHARGE, 5, (time(12, 0), time(13, 15)))
+    assert backend.schedules.read_slot(CFG, SlotKind.CHARGE, 5) == ("12:00", "13:15")
+    assert await backend.schedules.clear_slot(CFG, SlotKind.CHARGE, 5)
+    assert backend.schedules.read_slot(CFG, SlotKind.CHARGE, 5) == ("00:00", "00:00")
+    assert not await backend.schedules.apply_slot(CFG, SlotKind.CHARGE, 11, (time(1), time(2)))
 
 
 # ── Timed force ───────────────────────────────────────────────────────────────
@@ -151,16 +151,16 @@ async def test_charge_slot_five_can_be_set_and_cleared_and_slot_eleven_does_not_
 async def test_a_force_uses_a_preset_the_select_lists_and_cancels_with_normal(hass):
     mock, backend = _client(hass)
 
-    assert await backend.start_force(CFG, Force.EXPORT, 100)
+    assert await backend.force.start(CFG, Force.EXPORT, 100)
     assert _state(hass, mock, "select", "force_export") == "1 hour"
-    assert await backend.cancel_force(CFG, Force.EXPORT)
+    assert await backend.force.cancel(CFG, Force.EXPORT)
     assert _state(hass, mock, "select", "force_export") == "Normal"
 
 
 async def test_a_force_longer_than_every_preset_goes_to_the_minutes_entity(hass):
     mock, backend = _client(hass)
 
-    assert await backend.start_force(CFG, Force.CHARGE, 200)
+    assert await backend.force.start(CFG, Force.CHARGE, 200)
 
     assert _state(hass, mock, "number", "force_charge_num") == "200"
     assert _state(hass, mock, "select", "force_charge") == "Normal"

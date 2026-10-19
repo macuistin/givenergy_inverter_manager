@@ -53,6 +53,10 @@ await backend.apply_battery_pause(cfg, BatteryPause.DISCHARGE, time(23, 30), tim
 - `cfg` is a mapping with the inverter's serial and, for the charge write, the entity ids it is
   wired to, under the names in `keys.py`. The controls find their own entities from the device
   prefix, so they need only the serial in the lower case GivTCP uses in entity ids (or a wired entity that carries the prefix).
+- The charge write, the reads and the controls the integration uses are on the backend itself.
+  The rest of the client is on three attributes: `backend.controls`, `backend.schedules`
+  (discharge schedule and extra slots) and `backend.force`. The integration's interface,
+  `InverterBackend` with `InverterControls`, reaches none of the last two.
 - Every `apply_*`, `start_*` and `cancel_*` call returns a `WriteStatus` (`status.py`):
   `ALREADY_SET`, `WRITTEN`, `UNCONFIRMED`, `COOLDOWN`, `REFUSED` or `FAILED`. It is truthy unless
   the write was refused or failed. Check `status.confirmed` to know the inverter holds the value,
@@ -85,9 +89,21 @@ Beyond the writer, the client follows these rules in every write:
   published `min` and `max` by one helper, `clamp_to_entity`. A limit that is not a number is
   ignored, and a `max` of 0 is a limit. The reserve and targets never go below 4%. A rate with no
   `max` is not capped.
-- **Order matters.** A charge write enables the target last. A pause writes its window before its
-  mode. A discharge plan writes its target and window before it switches the schedule on, and
-  stops at the first failed write, so a half-set schedule is never switched on.
+- **Order matters.** A charge write turns the schedule on first, so the inverter is told to
+  charge before the window and target are settled, and turns the target switch on last, because
+  without it the inverter ignores the target. A discharge plan is the other way round: it
+  writes the target and window first and turns the schedule on last, so a half-set discharge
+  never runs, and it stops at the first failed write. A pause writes its window before its mode.
+- **A window never opens a gap.** A window is two writes, so the inverter briefly holds a mix of
+  old and new times. Moving a window later, the end is written first, and moving it earlier, the
+  start. The mix then holds the old window and the new one. A window that wraps midnight is
+  compared round the clock. If either end cannot be written (the select does not list the time,
+  or lists no options), nothing is sent. The one gap left is the short wait between the two
+  writes, which `windows.py` explains.
+- **A discharge plan does not change the battery mode.** GivTCP follows the discharge slots in
+  a timed mode, and which mode that is has not been checked against GivTCP. After a plan, the
+  host sets the mode itself with `backend.apply_battery_mode(BatteryMode.TIMED_EXPORT)`, and sets
+  it back afterwards. This integration's interface takes `SelfUseMode`, which has no export mode.
 - **Never longer than asked.** A force that no preset or minutes entity can hold at that length
   is refused.
 
@@ -111,9 +127,12 @@ window)`, `clear_slot`. Reads: `read_slot`, `read_discharge_target`,
 
 The client writes what it is asked to. Whether to export is the host's decision. This
 integration never exports, so its coordinator is typed against `InverterBackend` and
-`InverterControls` only, and `InverterExport` (the discharge schedule and force) is a separate
-interface in `inverter/backend.py` that nothing in the integration calls. Dry run and the
-frozen-feed check are also the host's job: a host checks them before it calls a write.
+`InverterControls` only. `InverterControls.apply_battery_mode` takes `SelfUseMode`, and the
+discharge schedule, the extra slots and the timed force are reached through
+`backend.schedules` and `backend.force`, which no interface in `inverter/backend.py` has. The
+rule is held at the integration's call sites: every coordinator test runs behind a wrapper
+(`tests/fakes/export_guard.py`) that fails when the backend's export surface is touched. Dry
+run and the frozen-feed check are the host's job: a host checks them before it calls a write.
 
 ## What has been checked
 
@@ -132,20 +151,20 @@ with GivTCP.
 
 ## Public names
 
-- `adapter`: `GivTCPBackend`, `GivTCPPorts`, `make_backend`, `read_rate_defaults`
-- `discovery`: `discover_givtcp_inverters`, `device_prefix`, `GivTCPInverter` and the helpers that
-  name the entities of one inverter
-- `reader`: `GivTCPReader`
-- `writer`: `GivTCPWriter`, `SwitchState`, `VerifiedWrite`
+`__init__.py` exports the names a host needs and nothing else: `make_backend`, `GivTCPBackend`,
+`GivTCPPorts`, `GivTCPReader`, `GivTCPWriter`, `WriteTuning`, `WriteStatus`, `GivTCPControls`,
+`GivTCPSchedules`, `GivTCPForce`, `BatteryMode`, `SelfUseMode`, `BatteryPause`, `SlotKind`,
+`Force`, `Window`, the value types, `EntityState`, `GetState`, `ServiceCallError` and
+discovery's `discover_givtcp_inverters`. Reach anything else through its module. Those modules
+are the guide to the rest and may change between releases:
+
+- `discovery`: `device_prefix` and the helpers that name the entities of one inverter
 - `sequence`: the order of a charge write
-- `controls`, `schedules`, `force`: see above
-- `values`: `InverterValues`, `ChargePlan`, `RateDefaults`, `WriteResult`, `FeedStatus`,
-  `WriteRecord`
-- `system`: `SystemKind`, `classify`, `select_controller`, `identity_of`, `what_changed`
+- `system`: `classify`, `select_controller`, `identity_of`, `what_changed`
 - `pause`, `pause_modes`: the battery pause window and GivTCP's pause mode text
 - `freshness`: `newest_report`, `frozen_age_s`
+- `windows`: which end of a window to write first
 - `defaults`: the write limits and `GIVTCP_FROZEN_AFTER_S`
-- `errors`: `ServiceCallError`
 - `keys`: the names of the settings the adapter reads
 
 ## Allowed dependencies

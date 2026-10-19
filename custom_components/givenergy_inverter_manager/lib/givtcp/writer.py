@@ -157,7 +157,7 @@ def _shown_state(state: EntityState | None) -> object:
     return state.state if state else "unknown"
 
 
-def _switch_write(entity_id: str, wanted: SwitchState, name: str, step: int) -> VerifiedWrite:
+def switch_write(entity_id: str, wanted: SwitchState, name: str, step: int) -> VerifiedWrite:
     wants_on = wanted is SwitchState.ON
 
     def is_wanted(state: EntityState | None) -> bool:
@@ -176,7 +176,7 @@ def _switch_write(entity_id: str, wanted: SwitchState, name: str, step: int) -> 
     )
 
 
-def _select_write(entity_id: str, option: str, name: str, step: int) -> VerifiedWrite:
+def select_write(entity_id: str, option: str, name: str, step: int) -> VerifiedWrite:
     return VerifiedWrite(
         domain="select",
         service="select_option",
@@ -190,7 +190,7 @@ def _select_write(entity_id: str, option: str, name: str, step: int) -> Verified
     )
 
 
-def _number_write(entity_id: str, number: int, name: str, step: int) -> VerifiedWrite:
+def number_write(entity_id: str, number: int, name: str, step: int) -> VerifiedWrite:
     return VerifiedWrite(
         domain="number",
         service="set_value",
@@ -203,7 +203,7 @@ def _number_write(entity_id: str, number: int, name: str, step: int) -> Verified
     )
 
 
-def _time_write(entity_id: str, wanted: str, name: str, step: int) -> VerifiedWrite:
+def time_write(entity_id: str, wanted: str, name: str, step: int) -> VerifiedWrite:
     """A write to a `time` entity. `wanted` is HH:MM:SS, compared as HH:MM."""
     return VerifiedWrite(
         domain="time",
@@ -253,13 +253,22 @@ class GivTCPWriter:
         self._confirmations: ConfirmationListener = _NoConfirmations()
         self._lock = asyncio.Lock()
         self.tuning = WriteTuning()
-        self.write_count: int = 0
+        self._write_count = 0
         self._count_warned = False
         self.last_write_time: dict[tuple[str, object], float] = {}
 
+    @property
+    def write_count(self) -> int:
+        """Register writes made so far, including any count the host seeded."""
+        return self._write_count
+
+    def state_of(self, entity_id: str) -> EntityState | None:
+        """The entity's state as the writer sees it, for a caller that orders its writes."""
+        return self._get_state(entity_id)
+
     def seed_count(self, count: int) -> None:
         """Start from a lifetime register count the host kept, so the warning still fires."""
-        self.write_count = count
+        self._write_count = count
         self._count_warned = count >= GIVTCP_WRITE_LIFETIME_WARN
 
     def listen_for_confirmations(self, listener: ConfirmationListener) -> None:
@@ -274,7 +283,7 @@ class GivTCPWriter:
         """Turn a GivTCP switch on or off. The status says whether it was."""
         if not entity_id:
             return WriteStatus.REFUSED
-        return await self.write_verified(_switch_write(entity_id, wanted, name, step))
+        return await self.write_verified(switch_write(entity_id, wanted, name, step))
 
     async def set_select(
         self, entity_id: str | None, option: str, name: str, step: int = 0
@@ -282,7 +291,7 @@ class GivTCPWriter:
         """Select an option on a GivTCP select. The status says whether it was."""
         if not entity_id:
             return WriteStatus.REFUSED
-        return await self.write_verified(_select_write(entity_id, option, name, step))
+        return await self.write_verified(select_write(entity_id, option, name, step))
 
     async def set_time(
         self, entity_id: str | None, value: str, name: str, step: int = 0
@@ -290,7 +299,7 @@ class GivTCPWriter:
         """Set a GivTCP time entity to HH:MM:SS. The status says whether it was."""
         if not entity_id:
             return WriteStatus.REFUSED
-        return await self.write_verified(_time_write(entity_id, value, name, step))
+        return await self.write_verified(time_write(entity_id, value, name, step))
 
     async def set_number(
         self, entity_id: str | None, number: int, name: str, step: int = 0
@@ -298,7 +307,7 @@ class GivTCPWriter:
         """Set a GivTCP number. The status says whether it was."""
         if not entity_id:
             return WriteStatus.REFUSED
-        return await self.write_verified(_number_write(entity_id, number, name, step))
+        return await self.write_verified(number_write(entity_id, number, name, step))
 
     # ── The one write path ────────────────────────────────────────────────────
 
@@ -451,13 +460,13 @@ class GivTCPWriter:
     # ── Lifetime register count ───────────────────────────────────────────────
 
     def _count_write(self, record: WriteRecord) -> None:
-        self.write_count += 1
-        self._on_count_change(self.write_count)
+        self._write_count += 1
+        self._on_count_change(self._write_count)
         self._observer.after_write(record)
-        if self.write_count >= GIVTCP_WRITE_LIFETIME_WARN and not self._count_warned:
+        if self._write_count >= GIVTCP_WRITE_LIFETIME_WARN and not self._count_warned:
             self._count_warned = True
             _LOG.warning(
                 "GivTCP register write count has reached %d, approximately 50%% of the "
                 "inverter's rated lifetime. Review automation frequency.",
-                self.write_count,
+                self._write_count,
             )

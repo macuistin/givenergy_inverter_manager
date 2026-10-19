@@ -17,13 +17,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import time
-from enum import StrEnum
 from typing import Any
 
 from ._entity import GetState, clamp_to_entity, read_int
 from .controls import ClockWriter, control_entity
 from .defaults import GIVTCP_MAX_CHARGE_TARGET_PCT, GIVTCP_MIN_CHARGE_TARGET_PCT
 from .discovery import MAX_CHARGE_SLOTS, UNUSED_SLOT_TIME, clock_time, device_prefix
+from .model import SlotKind, Window
 from .status import WriteStatus
 from .writer import GivTCPWriter, SwitchState
 
@@ -31,16 +31,6 @@ ENABLE_DISCHARGE_SCHEDULE_SUFFIX = "_enable_discharge_schedule"
 ENABLE_CHARGE_SCHEDULE_SUFFIX = "_enable_charge_schedule"
 MAX_DISCHARGE_SLOTS = 10
 _TIME_DOMAINS = ("select", "time")
-
-
-class SlotKind(StrEnum):
-    """Which list of slots. The value is the entity name stem."""
-
-    CHARGE = "charge"
-    DISCHARGE = "discharge"
-
-
-Window = tuple[time, time]  # start, end
 
 
 def _slot_ok(slot: int, highest: int) -> bool:
@@ -100,7 +90,7 @@ class GivTCPSchedules:
     async def apply_slot(
         self, cfg: Mapping[str, Any], kind: SlotKind, slot: int, window: Window
     ) -> WriteStatus:
-        """Write one slot's start, then its end, and nothing else. False when not taken."""
+        """Write one slot's start and end and nothing else, in the order windows.py gives."""
         prefix = device_prefix(cfg)
         highest = MAX_DISCHARGE_SLOTS if kind is SlotKind.DISCHARGE else MAX_CHARGE_SLOTS
         start, end = window
@@ -109,9 +99,7 @@ class GivTCPSchedules:
         starts, ends = slot_entities(prefix, kind, slot)
         name = f"{kind.value} slot {slot}"
         clock = ClockWriter(self._writer, self._get_state)
-        return await clock.write(starts, start, f"{name} start") and await clock.write(
-            ends, end, f"{name} end"
-        )
+        return await clock.write_window((starts, ends), (start, end), name)
 
     async def clear_slot(self, cfg: Mapping[str, Any], kind: SlotKind, slot: int) -> WriteStatus:
         """Set a slot back to unused (00:00:00 to 00:00:00)."""
@@ -123,9 +111,7 @@ class GivTCPSchedules:
         name = f"clear {kind.value} slot {slot}"
         clock = ClockWriter(self._writer, self._get_state)
         unused = time(0, 0)
-        return await clock.write(starts, unused, f"{name} start") and await clock.write(
-            ends, unused, f"{name} end"
-        )
+        return await clock.write_window((starts, ends), (unused, unused), name)
 
     async def apply_discharge_target(
         self, cfg: Mapping[str, Any], percent: int, slot: int = 1

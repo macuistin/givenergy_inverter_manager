@@ -13,9 +13,16 @@ from dataclasses import dataclass
 from datetime import datetime, time
 from typing import Any
 
-from . import controls, schedules, sequence
+from . import sequence
 from ._entity import GetState
-from .controls import BatteryPause
+from .controls import (
+    GivTCPControls,
+    clock_skew_s,
+    read_battery_mode,
+    read_charge_rate,
+    read_discharge_rate,
+    read_reserve,
+)
 from .discovery import (
     GIVTCP_PREFIX,
     ActiveChargeSlot,
@@ -24,15 +31,16 @@ from .discovery import (
     discover_battery_cycle_entities,
     find_other_active_charge_slots,
 )
-from .force import Force, GivTCPForce
+from .force import GivTCPForce
 from .keys import (
     KEY_CHARGE_END_TIME_ENTITY,
     KEY_CHARGE_START_TIME_ENTITY,
     KEY_INVERTER_SERIAL,
     KEY_TARGET_SOC_ENTITY,
 )
+from .model import BatteryMode, BatteryPause, SelfUseMode
 from .reader import GivTCPReader
-from .schedules import SlotKind, Window
+from .schedules import GivTCPSchedules
 from .status import WriteStatus
 from .values import (
     ChargePlan,
@@ -42,7 +50,13 @@ from .values import (
     RateDefaults,
     WriteResult,
 )
-from .writer import CallService, CountListener, GivTCPWriter, WriteObserver
+from .writer import (
+    CallService,
+    ConfirmationListener,
+    CountListener,
+    GivTCPWriter,
+    WriteObserver,
+)
 
 
 @dataclass(frozen=True)
@@ -75,9 +89,11 @@ class GivTCPBackend:
             ports.on_count_change,
             ports.observer,
         )
-        self._controls = controls.GivTCPControls(self.writer, get_state)
-        self._schedules = schedules.GivTCPSchedules(self.writer, get_state)
-        self._force = GivTCPForce(self.writer, get_state)
+        # The client's other writes. The coordinator is typed against InverterBackend and
+        # InverterControls, which reach none of schedules or force.
+        self.controls = GivTCPControls(self.writer, get_state)
+        self.schedules = GivTCPSchedules(self.writer, get_state)
+        self.force = GivTCPForce(self.writer, get_state)
         if ports.verbose:
             self.writer.verbose = ports.verbose
 
@@ -123,31 +139,33 @@ class GivTCPBackend:
     # ── Settings beside the charge write ──────────────────────────────────────
 
     def read_battery_mode(self, cfg: Mapping[str, Any]) -> str | None:
-        return controls.read_battery_mode(self._get_state, cfg)
+        return read_battery_mode(self._get_state, cfg)
 
     def read_reserve(self, cfg: Mapping[str, Any]) -> int | None:
-        return controls.read_reserve(self._get_state, cfg)
+        return read_reserve(self._get_state, cfg)
 
     def read_charge_rate(self, cfg: Mapping[str, Any]) -> int | None:
-        return controls.read_charge_rate(self._get_state, cfg)
+        return read_charge_rate(self._get_state, cfg)
 
     def read_discharge_rate(self, cfg: Mapping[str, Any]) -> int | None:
-        return controls.read_discharge_rate(self._get_state, cfg)
+        return read_discharge_rate(self._get_state, cfg)
 
     def clock_skew_s(self, cfg: Mapping[str, Any], now: datetime) -> float | None:
-        return controls.clock_skew_s(self._get_state, cfg, now)
+        return clock_skew_s(self._get_state, cfg, now)
 
-    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: str) -> WriteStatus:
-        return await self._controls.apply_battery_mode(cfg, mode)
+    async def apply_battery_mode(
+        self, cfg: Mapping[str, Any], mode: BatteryMode | SelfUseMode | str
+    ) -> WriteStatus:
+        return await self.controls.apply_battery_mode(cfg, mode)
 
     async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> WriteStatus:
-        return await self._controls.apply_reserve(cfg, percent)
+        return await self.controls.apply_reserve(cfg, percent)
 
     async def apply_charge_rate(self, cfg: Mapping[str, Any], watts: int) -> WriteStatus:
-        return await self._controls.apply_charge_rate(cfg, watts)
+        return await self.controls.apply_charge_rate(cfg, watts)
 
     async def apply_discharge_rate(self, cfg: Mapping[str, Any], watts: int) -> WriteStatus:
-        return await self._controls.apply_discharge_rate(cfg, watts)
+        return await self.controls.apply_discharge_rate(cfg, watts)
 
     async def apply_battery_pause(
         self,
@@ -156,42 +174,7 @@ class GivTCPBackend:
         start: time | None = None,
         end: time | None = None,
     ) -> WriteStatus:
-        return await self._controls.apply_battery_pause(cfg, pause, start, end)
-
-    # ── Discharge (export), extra charge slots and timed force ────────────────
-
-    def read_slot(
-        self, cfg: Mapping[str, Any], kind: SlotKind, slot: int = 1
-    ) -> tuple[str, str] | None:
-        return self._schedules.read_slot(cfg, kind, slot)
-
-    def read_discharge_target(self, cfg: Mapping[str, Any], slot: int = 1) -> int | None:
-        return self._schedules.read_discharge_target(cfg, slot)
-
-    def discharge_schedule_enabled(self, cfg: Mapping[str, Any]) -> bool | None:
-        return self._schedules.discharge_schedule_enabled(cfg)
-
-    async def apply_slot(
-        self, cfg: Mapping[str, Any], kind: SlotKind, slot: int, window: Window
-    ) -> WriteStatus:
-        return await self._schedules.apply_slot(cfg, kind, slot, window)
-
-    async def clear_slot(self, cfg: Mapping[str, Any], kind: SlotKind, slot: int) -> WriteStatus:
-        return await self._schedules.clear_slot(cfg, kind, slot)
-
-    async def apply_discharge_plan(
-        self, cfg: Mapping[str, Any], window: Window, target_percent: int, slot: int = 1
-    ) -> WriteStatus:
-        return await self._schedules.apply_discharge_plan(cfg, window, target_percent, slot)
-
-    async def stop_discharge(self, cfg: Mapping[str, Any]) -> WriteStatus:
-        return await self._schedules.stop_discharge(cfg)
-
-    async def start_force(self, cfg: Mapping[str, Any], force: Force, minutes: int) -> WriteStatus:
-        return await self._force.start(cfg, force, minutes)
-
-    async def cancel_force(self, cfg: Mapping[str, Any], force: Force) -> WriteStatus:
-        return await self._force.cancel(cfg, force)
+        return await self.controls.apply_battery_pause(cfg, pause, start, end)
 
     def read_rate_defaults(self, cfg: Mapping[str, Any]) -> RateDefaults | None:
         return self._reader.rate_defaults(cfg.get(KEY_INVERTER_SERIAL), device_prefix(cfg))
@@ -216,7 +199,7 @@ class GivTCPBackend:
     def rediscover(self, all_states: Mapping[str, Any]) -> None:
         self.battery_cycle_entities = discover_battery_cycle_entities(dict(all_states))
 
-    def listen_for_confirmations(self, listener: Any) -> None:
+    def listen_for_confirmations(self, listener: ConfirmationListener) -> None:
         self.writer.listen_for_confirmations(listener)
 
     def cooldown_active(self, entity_id: str, name: str, value: object) -> bool:
@@ -231,7 +214,7 @@ class GivTCPBackend:
 
     @write_count.setter
     def write_count(self, count: int) -> None:
-        self.writer.write_count = count
+        self.writer.seed_count(count)
 
 
 def read_rate_defaults(

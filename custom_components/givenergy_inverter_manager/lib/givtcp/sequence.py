@@ -18,7 +18,7 @@ from typing import Any
 
 from ._entity import GetState
 from .defaults import GIVTCP_MAX_CHARGE_TARGET_PCT, GIVTCP_MIN_CHARGE_TARGET_PCT
-from .discovery import UNUSED_SLOT_TIME, ActiveChargeSlot
+from .discovery import UNUSED_SLOT_TIME, ActiveChargeSlot, clock_time
 from .keys import (
     KEY_CHARGE_END_TIME_ENTITY,
     KEY_CHARGE_START_TIME_ENTITY,
@@ -28,14 +28,15 @@ from .keys import (
 )
 from .status import WriteStatus
 from .values import ChargePlan, WriteResult
+from .windows import end_first
 from .writer import (
     GivTCPWriter,
     SwitchState,
     VerifiedWrite,
-    _number_write,
-    _select_write,
-    _switch_write,
+    number_write,
+    select_write,
     state_as_int,
+    switch_write,
 )
 
 _LOG = logging.getLogger(__name__)
@@ -74,26 +75,34 @@ def _plan_writes(cfg: Mapping[str, Any], plan: ChargePlan, target_soc: int) -> l
     return [
         (
             "enable charge schedule",
-            schedule and _switch_write(schedule, SwitchState.ON, "enable charge schedule", 1),
+            schedule and switch_write(schedule, SwitchState.ON, "enable charge schedule", 1),
         ),
         (
             "charge window start",
             start
-            and _select_write(
+            and select_write(
                 start, plan.window_start.strftime("%H:%M:%S"), "charge window start", 2
             ),
         ),
         (
             "charge window end",
             end
-            and _select_write(end, plan.window_end.strftime("%H:%M:%S"), "charge window end", 3),
+            and select_write(end, plan.window_end.strftime("%H:%M:%S"), "charge window end", 3),
         ),
-        ("charge target", target and _number_write(target, target_soc, "charge target", 4)),
+        ("charge target", target and number_write(target, target_soc, "charge target", 4)),
         (
             "enable charge target",
-            enable_target and _switch_write(enable_target, wanted, "enable charge target", 5),
+            enable_target and switch_write(enable_target, wanted, "enable charge target", 5),
         ),
     ]
+
+
+def _moves_later(writer: GivTCPWriter, cfg: Mapping[str, Any], start: time) -> bool:
+    """True when the charge window's start is moving later, so its end goes first."""
+    entity = cfg.get(KEY_CHARGE_START_TIME_ENTITY)
+    if not entity:
+        return False
+    return end_first(clock_time(writer.state_of(entity)), start)
 
 
 async def _write_step(writer: GivTCPWriter, write: VerifiedWrite | None) -> WriteStatus:
@@ -119,6 +128,8 @@ async def apply_charge_plan(
     """
     target_soc = _clamp_and_report(plan.target_soc)
     writes = _plan_writes(cfg, plan, target_soc)
+    if _moves_later(writer, cfg, plan.window_start):
+        writes[1], writes[2] = writes[2], writes[1]  # end first, so no gap opens
     failed: list[str] = []
     for index, (name, write) in enumerate(writes):
         if index == 4 and plan.enable_charge_target and "charge target" in failed:
@@ -163,18 +174,22 @@ def _not_confirmed(
 async def apply_charge_window(
     writer: GivTCPWriter, cfg: Mapping[str, Any], start: time, end: time
 ) -> WriteStatus:
-    """Set slot 1 start, then end, and leave the target and the switches as they are."""
-    return await writer.set_select(
-        cfg.get(KEY_CHARGE_START_TIME_ENTITY),
-        start.strftime("%H:%M:%S"),
-        "charge window start",
-        step=2,
-    ) and await writer.set_select(
-        cfg.get(KEY_CHARGE_END_TIME_ENTITY),
-        end.strftime("%H:%M:%S"),
-        "charge window end",
-        step=3,
-    )
+    """Set slot 1 start and end and leave the target and the switches as they are.
+
+    The end goes first when the window moves later (see windows.py).
+    """
+    parts = [
+        (KEY_CHARGE_START_TIME_ENTITY, start, "charge window start", 2),
+        (KEY_CHARGE_END_TIME_ENTITY, end, "charge window end", 3),
+    ]
+    if _moves_later(writer, cfg, start):
+        parts.reverse()
+    status = WriteStatus.ALREADY_SET
+    for key, value, name, step in parts:
+        status = await writer.set_select(cfg.get(key), value.strftime("%H:%M:%S"), name, step)
+        if not status:
+            break
+    return status
 
 
 async def apply_floor_target(

@@ -266,12 +266,12 @@ class TestCounting:
         assert bus.counts == [1, 2]
 
     async def test_count_continues_from_a_restored_value(self, writer, bus):
-        writer.write_count = 1000
+        writer.seed_count(1000)
         await writer.set_number("number.n", 80, "n")
         assert bus.counts == [1001]
 
     async def test_lifetime_warning_fires_once_at_the_limit(self, writer, bus, caplog):
-        writer.write_count = GIVTCP_WRITE_LIFETIME_WARN - 1
+        writer.seed_count(GIVTCP_WRITE_LIFETIME_WARN - 1)
         with caplog.at_level(logging.WARNING):
             await writer.set_number("number.n", 80, "n")
             await writer.set_number("number.n", 60, "n")

@@ -8,17 +8,15 @@ cooldown, read back and counted. The host decides whether to write (dry run, a f
 The client has no policy about what to write. Whether to pause, export or change the reserve is
 the host's decision, and this integration's host never exports (schedules.py and force.py hold
 the export writes). One rule is kept here: a select is written with the option the entity
-itself lists. GivTCP releases and people's
-    scripts spell the pause options differently ("PauseDischarge", "Pause Discharge",
-    "Not Paused"), so a wanted option is matched without case, spaces, underscores or hyphens,
-    and a value the entity does not offer is refused instead of sent.
+itself lists. GivTCP releases and people's scripts spell the pause options differently
+("PauseDischarge", "Pause Discharge", "Not Paused"), so a wanted option is matched without case,
+spaces, underscores or hyphens, and a value the entity does not offer is refused instead of sent.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime, time
-from enum import StrEnum
 from typing import Any
 
 from ._entity import (
@@ -32,7 +30,9 @@ from ._entity import (
 )
 from .defaults import GIVTCP_MAX_CHARGE_TARGET_PCT, GIVTCP_MIN_CHARGE_TARGET_PCT
 from .discovery import battery_pause_entities, clock_time, device_prefix
+from .model import BatteryMode, BatteryPause, SelfUseMode, Window
 from .status import WriteStatus
+from .windows import end_first
 from .writer import GivTCPWriter
 
 MODE_SUFFIX = "_mode"
@@ -42,15 +42,6 @@ DISCHARGE_RATE_SUFFIX = "_battery_discharge_rate"
 CLOCK_SUFFIX = "_invertor_time"
 
 _CLOCK_FORMATS = ("%d/%m/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S")
-
-
-class BatteryPause(StrEnum):
-    """What the pause stops. The values are GivTCP's own option names."""
-
-    OFF = "Disabled"
-    CHARGE = "PauseCharge"
-    DISCHARGE = "PauseDischarge"
-    BOTH = "PauseBoth"
 
 
 # Other spellings seen for each option, compared after squash.
@@ -142,7 +133,9 @@ class GivTCPControls:
         self._writer = writer
         self._get_state = get_state
 
-    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: str) -> WriteStatus:
+    async def apply_battery_mode(
+        self, cfg: Mapping[str, Any], mode: BatteryMode | SelfUseMode | str
+    ) -> WriteStatus:
         """Select a battery mode such as Eco. False when the entity does not offer it.
 
         Timed Export is a mode like any other here. Whether to export is the host's decision.
@@ -150,7 +143,7 @@ class GivTCPControls:
         entity = control_entity(cfg, "select", MODE_SUFFIX)
         if not entity:
             return WriteStatus.REFUSED
-        option = pick_option(self._get_state(entity), mode)
+        option = pick_option(self._get_state(entity), str(mode))
         if option is None:
             return WriteStatus.REFUSED
         return await self._writer.set_select(entity, option, "battery mode")
@@ -207,9 +200,9 @@ class GivTCPControls:
             if start is None or end is None or start == end:
                 return WriteStatus.REFUSED
             clock = ClockWriter(self._writer, self._get_state)
-            written = await clock.write(entities.start, start, "pause start")
-            if written:
-                written = await clock.write(entities.end, end, "pause end")
+            written = await clock.write_window(
+                (entities.start, entities.end), (start, end), "pause"
+            )
             if not written:
                 return written
         return await self._writer.set_select(entities.mode, option, "battery pause")
@@ -222,25 +215,67 @@ class ClockWriter:
         self._writer = writer
         self._get_state = get_state
 
-    async def write(self, candidates: tuple[str, ...], value: time, name: str) -> WriteStatus:
-        """Write *value* to the first of *candidates* that exists.
+    def _target(self, candidates: tuple[str, ...], value: time) -> tuple[str, str] | None:
+        """The entity and the text to send for *value*, None when it cannot be written.
 
-        A `time` entity is set with the time service. A select is given the option that reads
-        as the same HH:MM, and a value the select cannot hold is refused.
+        A select is given the option that reads as the same HH:MM. A select that lists no
+        options is refused, because nothing says which times it can hold.
         """
         entity = next((e for e in candidates if self._get_state(e) is not None), None)
         if entity is None:
-            return WriteStatus.REFUSED
+            return None
         text = value.strftime("%H:%M:%S")
         if entity.startswith("time."):
-            return await self._writer.set_time(entity, text, name)
+            return entity, text
         offered = listed_options(self._get_state(entity))
-        if offered is None:
-            return await self._writer.set_select(entity, text, name)
-        option = next((o for o in offered if clock_time(_Text(o)) == text[:5]), None)
-        if option is None:
-            return WriteStatus.REFUSED
-        return await self._writer.set_select(entity, option, name)
+        option = next((o for o in offered or [] if clock_time(_Text(o)) == text[:5]), None)
+        return None if option is None else (entity, option)
+
+    async def _send(self, target: tuple[str, str], name: str) -> WriteStatus:
+        entity, text = target
+        if entity.startswith("time."):
+            return await self._writer.set_time(entity, text, name)
+        return await self._writer.set_select(entity, text, name)
+
+    async def write(self, candidates: tuple[str, ...], value: time, name: str) -> WriteStatus:
+        """Write *value* to the first of *candidates* that exists.
+
+        A `time` entity is set with the time service. A value the entity cannot hold is
+        refused.
+        """
+        target = self._target(candidates, value)
+        return WriteStatus.REFUSED if target is None else await self._send(target, name)
+
+    def current_start(self, candidates: tuple[str, ...]) -> str | None:
+        """The start of the window as the first of *candidates* that exists holds it, HH:MM."""
+        found = next((s for e in candidates if (s := self._get_state(e)) is not None), None)
+        return clock_time(found)
+
+    async def write_window(
+        self,
+        entities: tuple[tuple[str, ...], tuple[str, ...]],
+        window: Window,
+        name: str,
+    ) -> WriteStatus:
+        """Write a window's start and end, the end first when the window moves later.
+
+        See windows.py for why. Stops at the first write that is not taken.
+        """
+        starts, ends = entities
+        start, end = window
+        first = self._target(starts, start)
+        second = self._target(ends, end)
+        if first is None or second is None:
+            return WriteStatus.REFUSED  # nothing is sent unless both ends can be written
+        parts = [(first, f"{name} start"), (second, f"{name} end")]
+        if end_first(self.current_start(starts), start):
+            parts.reverse()
+        status = WriteStatus.ALREADY_SET
+        for target, label in parts:
+            status = await self._send(target, label)
+            if not status:
+                break
+        return status
 
 
 class _Text:

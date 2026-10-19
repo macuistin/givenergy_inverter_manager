@@ -159,7 +159,8 @@ async def test_a_time_picker_is_written_with_the_time_service():
 
     assert taken
     assert [(c[0], c[1]) for c in bus.calls[:2]] == [("time", "set_value")] * 2
-    assert bus.calls[0][2] == {"entity_id": start, "time": "01:00:00"}
+    assert {c[2]["entity_id"] for c in bus.calls[:2]} == {start, end}  # later, so end first
+    assert bus.calls[0][2] == {"entity_id": end, "time": "02:00:00"}
 
 
 async def test_a_window_the_drop_down_cannot_hold_is_refused():
@@ -328,7 +329,7 @@ def test_the_adapter_offers_every_control_the_interface_names():
     [("Not Paused", False, False), ("Pause Discharge", True, False), ("Pause Both", True, True)],
 )
 def test_the_spaced_pause_options_read_the_same_as_the_compact_ones(mode, discharge, charge):
-    from custom_components.givenergy_inverter_manager.lib.givtcp import (
+    from custom_components.givenergy_inverter_manager.lib.givtcp.pause_modes import (
         pauses_charge,
         pauses_discharge,
     )
