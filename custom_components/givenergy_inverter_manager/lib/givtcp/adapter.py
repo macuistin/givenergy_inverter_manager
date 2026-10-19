@@ -13,7 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime, time
 from typing import Any
 
-from . import sequence
+from . import controls, sequence
+from .controls import BatteryPause
 from .discovery import (
     GIVTCP_PREFIX,
     ActiveChargeSlot,
@@ -70,6 +71,7 @@ class GivTCPBackend:
             ports.on_count_change,
             ports.observer,
         )
+        self._controls = controls.GivTCPControls(self.writer, get_state)
         if ports.verbose:
             self.writer.verbose = ports.verbose
 
@@ -109,6 +111,44 @@ class GivTCPBackend:
 
     async def clear_charge_slot(self, slot: ActiveChargeSlot) -> bool:
         return await sequence.clear_charge_slot(self.writer, slot)
+
+    # ── Settings beside the charge write ──────────────────────────────────────
+
+    def read_battery_mode(self, cfg: Mapping[str, Any]) -> str | None:
+        return controls.read_battery_mode(self._get_state, cfg)
+
+    def read_reserve(self, cfg: Mapping[str, Any]) -> int | None:
+        return controls.read_reserve(self._get_state, cfg)
+
+    def read_charge_rate(self, cfg: Mapping[str, Any]) -> int | None:
+        return controls.read_charge_rate(self._get_state, cfg)
+
+    def read_discharge_rate(self, cfg: Mapping[str, Any]) -> int | None:
+        return controls.read_discharge_rate(self._get_state, cfg)
+
+    def clock_skew_s(self, cfg: Mapping[str, Any], now: datetime) -> float | None:
+        return controls.clock_skew_s(self._get_state, cfg, now)
+
+    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: str) -> bool:
+        return await self._controls.apply_battery_mode(cfg, mode)
+
+    async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> bool:
+        return await self._controls.apply_reserve(cfg, percent)
+
+    async def apply_charge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool:
+        return await self._controls.apply_charge_rate(cfg, watts)
+
+    async def apply_discharge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool:
+        return await self._controls.apply_discharge_rate(cfg, watts)
+
+    async def apply_battery_pause(
+        self,
+        cfg: Mapping[str, Any],
+        pause: BatteryPause,
+        start: time | None = None,
+        end: time | None = None,
+    ) -> bool:
+        return await self._controls.apply_battery_pause(cfg, pause, start, end)
 
     def read_rate_defaults(self, cfg: Mapping[str, Any]) -> RateDefaults | None:
         return self._reader.rate_defaults(cfg.get(KEY_INVERTER_SERIAL), device_prefix(cfg))

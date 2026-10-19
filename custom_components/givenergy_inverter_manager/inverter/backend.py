@@ -129,6 +129,41 @@ class InverterBackend(Protocol):
     def write_count(self, count: int) -> None: ...
 
 
+@runtime_checkable
+class InverterControls(Protocol):
+    """Settings beside the charge write, for a backend that offers them.
+
+    Separate from InverterBackend so a backend without them still satisfies that. Nothing here
+    exports. The coordinator checks dry run and the feed before it calls any write.
+    """
+
+    def read_battery_mode(self, cfg: Mapping[str, Any]) -> str | None: ...
+
+    def read_reserve(self, cfg: Mapping[str, Any]) -> int | None: ...
+
+    def read_charge_rate(self, cfg: Mapping[str, Any]) -> int | None: ...
+
+    def read_discharge_rate(self, cfg: Mapping[str, Any]) -> int | None: ...
+
+    def clock_skew_s(self, cfg: Mapping[str, Any], now: datetime) -> float | None:
+        """Seconds the inverter's clock is ahead of now, None when it cannot be read."""
+        ...
+
+    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: str) -> bool: ...
+
+    async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> bool: ...
+
+    async def apply_charge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool: ...
+
+    async def apply_discharge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool: ...
+
+    async def apply_battery_pause(
+        self, cfg: Mapping[str, Any], pause: Any, start: time | None = None, end: time | None = None
+    ) -> bool:
+        """Pause charging or discharging for a window, or end the pause. False when not taken."""
+        ...
+
+
 def describe_charge_slots(slots: Sequence[ChargeSlot]) -> str:
     """The slots as one readable line, for example 'Slot 2 (00:00 to 08:00)'."""
     return ", ".join(slot.label for slot in slots)

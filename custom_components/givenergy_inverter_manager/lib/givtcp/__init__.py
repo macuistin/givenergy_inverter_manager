@@ -6,6 +6,16 @@ from .adapter import (
     make_backend,
     read_rate_defaults,
 )
+from .controls import (
+    BatteryPause,
+    GivTCPControls,
+    clock_skew_s,
+    read_battery_mode,
+    read_charge_rate,
+    read_discharge_rate,
+    read_inverter_clock,
+    read_reserve,
+)
 from .defaults import (
     GIVTCP_FROZEN_AFTER_S,
     GIVTCP_MAX_CHARGE_TARGET_PCT,
@@ -141,6 +151,14 @@ from .writer import (
 )
 
 __all__ = [
+    "BatteryPause",
+    "GivTCPControls",
+    "clock_skew_s",
+    "read_battery_mode",
+    "read_charge_rate",
+    "read_discharge_rate",
+    "read_inverter_clock",
+    "read_reserve",
     "ACCEPTED",
     "ActiveChargeSlot",
     "BATTERY_CYCLES_SUFFIX",

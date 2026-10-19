@@ -1,0 +1,260 @@
+"""
+controls.py: the GivTCP settings that sit beside the charge write.
+
+The battery pause, the battery mode, the reserve, the charge and discharge rates and the
+inverter clock. Each write goes through the verified writer, so it is read first, held to the
+cooldown, read back and counted. The host decides whether to write (dry run, a frozen feed).
+
+Two rules are kept here, not left to the caller:
+
+  - Nothing here exports. A battery mode whose name says export is refused, and there is no
+    discharge window or discharge rate target.
+  - A select is written with the option the entity itself lists. GivTCP releases and people's
+    scripts spell the pause options differently ("PauseDischarge", "Pause Discharge",
+    "Not Paused"), so a wanted option is matched without case, spaces, underscores or hyphens,
+    and a value the entity does not offer is refused instead of sent.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Mapping
+from datetime import datetime, time
+from enum import StrEnum
+from typing import Any
+
+from .defaults import GIVTCP_MAX_CHARGE_TARGET_PCT, GIVTCP_MIN_CHARGE_TARGET_PCT
+from .discovery import battery_pause_entities, clock_time, device_prefix
+from .writer import GetState, GivTCPWriter
+
+MODE_SUFFIX = "_mode"
+RESERVE_SUFFIX = "_battery_power_reserve"
+CHARGE_RATE_SUFFIX = "_battery_charge_rate"
+DISCHARGE_RATE_SUFFIX = "_battery_discharge_rate"
+CLOCK_SUFFIX = "_invertor_time"
+
+_IGNORED = re.compile(r"[\s_\-]+")
+_CLOCK_FORMATS = ("%d/%m/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S")
+_UNAVAILABLE = frozenset({"unavailable", "unknown", "none", ""})
+
+
+class BatteryPause(StrEnum):
+    """What the pause stops. The values are GivTCP's own option names."""
+
+    OFF = "Disabled"
+    CHARGE = "PauseCharge"
+    DISCHARGE = "PauseDischarge"
+    BOTH = "PauseBoth"
+
+
+# Other spellings seen for each option, compared after _squash.
+_PAUSE_ALIASES: dict[BatteryPause, tuple[str, ...]] = {
+    BatteryPause.OFF: ("notpaused", "nopause", "off"),
+    BatteryPause.CHARGE: (),
+    BatteryPause.DISCHARGE: (),
+    BatteryPause.BOTH: (),
+}
+
+
+def _squash(text: str) -> str:
+    return _IGNORED.sub("", text).casefold()
+
+
+def _usable(state: Any) -> str | None:
+    text = None if state is None else str(state.state).strip()
+    return None if text is None or text.casefold() in _UNAVAILABLE else text
+
+
+def _options(state: Any) -> list[str] | None:
+    attributes = getattr(state, "attributes", None) or {}
+    options = attributes.get("options")
+    return [str(o) for o in options] if options else None
+
+
+def _attribute_limit(state: Any, name: str) -> float | None:
+    value = (getattr(state, "attributes", None) or {}).get(name)
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def pick_option(state: Any, wanted: str, aliases: tuple[str, ...] = ()) -> str | None:
+    """The option to send for *wanted*, or None when the entity does not offer it.
+
+    An entity that lists no options is sent *wanted* as it is.
+    """
+    options = _options(state)
+    if options is None:
+        return wanted
+    accepted = {_squash(wanted), *aliases}
+    return next((o for o in options if _squash(o) in accepted), None)
+
+
+def control_entity(cfg: Mapping[str, Any], domain: str, suffix: str) -> str | None:
+    """The entity id of a control for the configured device, None when the prefix is unknown."""
+    prefix = device_prefix(cfg)
+    return f"{domain}.{prefix}{suffix}" if prefix else None
+
+
+# ── Reads ─────────────────────────────────────────────────────────────────────
+
+
+def read_battery_mode(get_state: GetState, cfg: Mapping[str, Any]) -> str | None:
+    """The battery mode as GivTCP shows it, None when it is not published or unusable."""
+    entity = control_entity(cfg, "select", MODE_SUFFIX)
+    return _usable(get_state(entity)) if entity else None
+
+
+def read_reserve(get_state: GetState, cfg: Mapping[str, Any]) -> int | None:
+    """The battery power reserve in per cent, None when it is not published or unusable."""
+    return _read_int(get_state, control_entity(cfg, "number", RESERVE_SUFFIX))
+
+
+def read_charge_rate(get_state: GetState, cfg: Mapping[str, Any]) -> int | None:
+    return _read_int(get_state, control_entity(cfg, "number", CHARGE_RATE_SUFFIX))
+
+
+def read_discharge_rate(get_state: GetState, cfg: Mapping[str, Any]) -> int | None:
+    return _read_int(get_state, control_entity(cfg, "number", DISCHARGE_RATE_SUFFIX))
+
+
+def _read_int(get_state: GetState, entity: str | None) -> int | None:
+    text = _usable(get_state(entity)) if entity else None
+    try:
+        return int(float(text)) if text is not None else None
+    except ValueError:
+        return None
+
+
+def read_inverter_clock(get_state: GetState, cfg: Mapping[str, Any]) -> datetime | None:
+    """The inverter's own clock as a naive wall-clock time, None when it cannot be read."""
+    entity = control_entity(cfg, "sensor", CLOCK_SUFFIX)
+    text = _usable(get_state(entity)) if entity else None
+    if text is None:
+        return None
+    try:
+        return datetime.fromisoformat(text).replace(tzinfo=None)
+    except ValueError:
+        pass
+    for fmt in _CLOCK_FORMATS:
+        try:
+            return datetime.strptime(text, fmt)  # noqa: DTZ007
+        except ValueError:
+            continue
+    return None
+
+
+def clock_skew_s(get_state: GetState, cfg: Mapping[str, Any], now: datetime) -> float | None:
+    """Seconds the inverter's clock is ahead of *now* (negative when behind).
+
+    *now* is the host's local time. Only its wall-clock reading is used, because the inverter
+    clock has no zone. A drifted clock moves the charge window, so the host should warn on it.
+    """
+    clock = read_inverter_clock(get_state, cfg)
+    return None if clock is None else (clock - now.replace(tzinfo=None)).total_seconds()
+
+
+# ── Writes ────────────────────────────────────────────────────────────────────
+
+
+class GivTCPControls:
+    """The writes beside the charge write, over one verified writer."""
+
+    def __init__(self, writer: GivTCPWriter, get_state: GetState) -> None:
+        self._writer = writer
+        self._get_state = get_state
+
+    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: str) -> bool:
+        """Select a battery mode such as Eco. False when refused or not taken.
+
+        A mode whose name contains "export" is refused: the integration never exports.
+        """
+        entity = control_entity(cfg, "select", MODE_SUFFIX)
+        if not entity or "export" in mode.casefold():
+            return False
+        option = pick_option(self._get_state(entity), mode)
+        if option is None or "export" in option.casefold():
+            return False
+        return await self._writer.set_select(entity, option, "battery mode")
+
+    async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> bool:
+        """Set the battery power reserve, kept inside the limits the entity publishes."""
+        entity = control_entity(cfg, "number", RESERVE_SUFFIX)
+        if not entity:
+            return False
+        state = self._get_state(entity)
+        low = max(GIVTCP_MIN_CHARGE_TARGET_PCT, _attribute_limit(state, "min") or 0)
+        high = min(GIVTCP_MAX_CHARGE_TARGET_PCT, _attribute_limit(state, "max") or 100)
+        value = round(min(max(percent, low), high))
+        return await self._writer.set_number(entity, value, "battery reserve")
+
+    async def apply_charge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool:
+        """Set the battery charge rate in watts, kept inside the limits the entity publishes."""
+        entity = control_entity(cfg, "number", CHARGE_RATE_SUFFIX)
+        return await self._apply_rate(entity, watts, "charge rate")
+
+    async def apply_discharge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool:
+        """Set the battery discharge rate in watts. This limits the battery, it never exports."""
+        entity = control_entity(cfg, "number", DISCHARGE_RATE_SUFFIX)
+        return await self._apply_rate(entity, watts, "discharge rate")
+
+    async def _apply_rate(self, entity: str | None, watts: int, name: str) -> bool:
+        if not entity:
+            return False
+        state = self._get_state(entity)
+        low = max(0, _attribute_limit(state, "min") or 0)
+        high = _attribute_limit(state, "max")
+        value = max(watts, low) if high is None else min(max(watts, low), high)
+        return await self._writer.set_number(entity, round(value), name)
+
+    async def apply_battery_pause(
+        self,
+        cfg: Mapping[str, Any],
+        pause: BatteryPause,
+        start: time | None = None,
+        end: time | None = None,
+    ) -> bool:
+        """Pause the battery for a window, or end the pause with BatteryPause.OFF.
+
+        The window is written before the mode, so a pause never starts on an old window. Ending
+        a pause writes the mode only. False when an entity is missing, the mode is not offered,
+        the window is empty or a write was not taken. Stops at the first write that fails.
+        """
+        prefix = device_prefix(cfg)
+        if not prefix:
+            return False
+        entities = battery_pause_entities(prefix)
+        mode_state = self._get_state(entities.mode)
+        option = pick_option(mode_state, pause.value, _PAUSE_ALIASES[pause])
+        if mode_state is None or option is None:
+            return False
+        if pause is not BatteryPause.OFF:
+            if start is None or end is None or start == end:
+                return False
+            if not (
+                await self._write_pause_time(entities.start, start, "pause start")
+                and await self._write_pause_time(entities.end, end, "pause end")
+            ):
+                return False
+        return await self._writer.set_select(entities.mode, option, "battery pause")
+
+    async def _write_pause_time(self, candidates: tuple[str, ...], value: time, name: str) -> bool:
+        entity = next((e for e in candidates if self._get_state(e) is not None), None)
+        if entity is None:
+            return False
+        text = value.strftime("%H:%M:%S")
+        if entity.startswith("time."):
+            return await self._writer.set_time(entity, text, name)
+        options = _options(self._get_state(entity))
+        if options is None:
+            return await self._writer.set_select(entity, text, name)
+        option = next((o for o in options if clock_time(_Text(o)) == text[:5]), None)
+        return option is not None and await self._writer.set_select(entity, option, name)
+
+
+class _Text:
+    """A state-like wrapper so clock_time can read an option's text."""
+
+    def __init__(self, state: str) -> None:
+        self.state = state

@@ -119,7 +119,16 @@ All writes are serialised, so two callers never interleave. A write the integrat
 
 The cheap-rate floor only raises the target and keeps a higher one already on the inverter. Clearing another active slot writes `00:00:00` to its start and end.
 
-What we never write: Charge Control or Plug and Go on a GivEnergy charger, the charge or discharge rate, any export or discharge window, or a time entity.
+What we never write: Charge Control or Plug and Go on a GivEnergy charger, any export or discharge window, or a battery mode that exports.
+
+**Other settings the client can write.** `lib/givtcp/controls.py` can pause charging or discharging for a window, select a battery mode, set the reserve and set the charge and discharge rates. Nothing in the coordinator calls these yet, so a user sees no change. Each goes through the same verified writer, so it is read first, held to the cooldown and read back. Four rules hold in the client itself:
+
+- A pause writes its start and end before its mode, so it never starts on an old window. Ending a pause writes the mode only.
+- A select is written with the option the entity lists. GivTCP and other projects spell the pause options differently (`PauseDischarge`, `Pause Discharge`, `Not Paused`), so the wanted option is matched without case, spaces, underscores or hyphens. An option the entity does not offer is refused, not sent.
+- A mode whose name says export is refused. A discharge rate only limits the battery.
+- The reserve and the rates are kept inside the `min` and `max` the entity publishes. The reserve never goes below 4.
+
+The client also reads the inverter's clock (`invertor_time`) and reports how far it is from the host's (`clock_skew_s`). A drifted clock moves the charge window. Nothing warns on it yet.
 
 **Results.** GivTCP builds a result such as `Setting Charge Target 85 was a success` or `... failed: <reason>` for every write. Only a REST caller gets it. A write from Home Assistant, which goes over MQTT, gets nothing and the result is only in GivTCP's log. And an accepted write is not a write that took: with Real Time Control off, the inverter acknowledges a write and ignores it. So the integration reads each setting back, and raises **The inverter did not take a charge setting** when it still shows the old value.
 

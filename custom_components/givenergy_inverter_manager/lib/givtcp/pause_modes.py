@@ -34,6 +34,7 @@ from .pause import PauseWindow
 # Compared without case, spaces, underscores or hyphens.
 _PAUSES: dict[str, tuple[bool, bool]] = {
     "disabled": (False, False),
+    "notpaused": (False, False),
     "pausecharge": (False, True),
     "pausedischarge": (True, False),
     "pauseboth": (True, True),

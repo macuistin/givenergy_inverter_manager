@@ -40,6 +40,7 @@ from .defaults import (
     GIVTCP_WRITE_LIFETIME_WARN,
     GIVTCP_WRITE_RETRY_SLEEP_S,
 )
+from .discovery import clock_time
 from .errors import ServiceCallError
 from .outcome import OUTCOME_FORMAT, WriteOutcome
 from .values import WriteRecord
@@ -196,6 +197,21 @@ def _number_write(entity_id: str, number: int, name: str, step: int) -> Verified
     )
 
 
+def _time_write(entity_id: str, wanted: str, name: str, step: int) -> VerifiedWrite:
+    """A write to a `time` entity. `wanted` is HH:MM:SS, compared as HH:MM."""
+    return VerifiedWrite(
+        domain="time",
+        service="set_value",
+        payload={"entity_id": entity_id, "time": wanted},
+        value=wanted,
+        shown=wanted,
+        name=name,
+        step=step,
+        matches=lambda state: clock_time(state) == wanted[:5],
+        fail_if_missing=True,
+    )
+
+
 class GivTCPWriter:
     """Writes GivTCP entities with read-before-write, cooldown, retry and counting."""
 
@@ -237,6 +253,14 @@ class GivTCPWriter:
         if not entity_id:
             return False
         return await self.write_verified(_select_write(entity_id, option, name, step))
+
+    async def set_time(
+        self, entity_id: str | None, value: str, name: str, step: int = 0
+    ) -> bool:
+        """Set a GivTCP time entity to HH:MM:SS. False when it could not be written."""
+        if not entity_id:
+            return False
+        return await self.write_verified(_time_write(entity_id, value, name, step))
 
     async def set_number(
         self, entity_id: str | None, number: int, name: str, step: int = 0

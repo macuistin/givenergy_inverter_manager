@@ -17,6 +17,8 @@ Gateway or EMS system from the entity names GivTCP publishes, and picks which in
 - `writer`: `GivTCPWriter`. It reads before it writes, holds a cooldown on a repeated value, reads
   back, retries a mismatch and counts register writes.
 - `sequence`: the order of a charge write
+- `controls`: `GivTCPControls` writes the battery pause, battery mode, reserve and rates, and
+  `clock_skew_s` and the `read_*` helpers read them. It never writes an export mode.
 - `values`: `InverterValues`, `ChargePlan`, `RateDefaults`, `WriteResult`, `FeedStatus`, `WriteRecord`
 - `system`: `SystemKind`, `classify`, `select_controller`, `identity_of`, `what_changed`
 - `pause`, `pause_modes`: the battery pause window and GivTCP's pause mode text
