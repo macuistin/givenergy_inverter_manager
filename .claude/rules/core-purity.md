@@ -17,6 +17,9 @@ paths:
   `test_core_package_does_not_import_home_assistant` and
   `test_core_package_does_not_import_the_inverter_package_at_run_time` in `tests/test_metadata.py`
   fail the build if it does.
+- Code that could serve other projects moves to `lib/<name>/` in steps, and its old `core/` path
+  becomes a re-export. `core/timeutil.py` already is one. `lib/README.md` has the rules for a
+  package, and `tests/test_metadata.py` fails the build when one imports outside them.
 - Inputs are plain values and frozen dataclasses (`CycleInputs`, `RawSensorValues`, `TariffConfig`).
   Outputs are values or dataclasses (`CoordinatorData`, `ChargeDecision`). No `hass`, no files, no
   network.

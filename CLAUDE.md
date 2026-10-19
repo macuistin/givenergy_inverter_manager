@@ -21,6 +21,7 @@ inside it.
 | Path | Role |
 | --- | --- |
 | `core/` | Pure Python decisions, tariff, accumulation maths and report text. No `homeassistant` imports |
+| `lib/` | Packages written to be lifted out into their own repositories, one folder each. They import only the standard library and the `lib/` packages their `ALLOWED` row names. `lib/README.md` has the rules |
 | `coordinator.py` | Home Assistant bridge: asks the inverter backend for readings, calls `core/`, decides what to write and sends it through the backend, runs timers |
 | `inverter/` | `backend.py` is the `InverterBackend` interface. It has no Home Assistant import |
 | `inverter/givtcp/` | The GivTCP adapter: discovery, the verified writer and the write constants. The code that knows GivTCP entity names and write order |
@@ -37,6 +38,9 @@ inside it.
 
 - `core/` imports nothing from `homeassistant`, and nothing from `inverter/` at run time.
   `tests/test_metadata.py` enforces both.
+- `lib/` imports nothing from `const.py`, `logging.py`, `core/`, `discovery/`, `inverter/` or
+  `homeassistant`, not even under `TYPE_CHECKING`. Runtime packages live inside the integration folder
+  because HACS ships only that folder. `tests/test_metadata.py` enforces both.
 - Only `inverter/givtcp/` calls GivTCP services and knows its entity names and write order. The
   coordinator reads and writes through the `InverterBackend` interface. Known leaks, which a new
   change does not add to: `_check_system` in `coordinator.py` reads GivTCP's version sensor and

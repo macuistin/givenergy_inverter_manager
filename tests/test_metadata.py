@@ -6,6 +6,7 @@ import ast
 import fnmatch
 import json
 import re
+import sys
 import tomllib
 
 import pytest
@@ -330,6 +331,100 @@ def test_core_package_does_not_import_the_inverter_package_at_run_time():
                 offenders.append(f"{path.name}: {module}")
 
     assert offenders == []
+
+
+# The lib/ packages each package may import besides itself. A new package is added here in the
+# PR that creates it, so its dependencies are reviewed.
+ALLOWED = {"timeutil": set()}
+
+
+def _lib_import_offenders(root):
+    """Imports under root/lib that leave the standard library, the package and its allow-list."""
+    offenders = []
+    for path in sorted((root / "lib").rglob("*.py")):
+        parts = path.relative_to(root).with_suffix("").parts
+        package = list(parts[:-1])
+        own = parts[1] if len(parts) > 2 else None
+        allowed = {own} | ALLOWED.get(own, set()) if own else set()
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            for target in _import_targets(node, package):
+                if not _import_is_allowed(target, allowed):
+                    offenders.append(f"{'/'.join(parts)}: {'.'.join(target)}")
+    return offenders
+
+
+def _import_targets(node, package):
+    """Each import in node as a path from the integration root, or from the top for absolute."""
+    if isinstance(node, ast.Import):
+        return [("abs", *alias.name.split(".")) for alias in node.names]
+    if not isinstance(node, ast.ImportFrom):
+        return []
+    module = node.module.split(".") if node.module else []
+    if node.level == 0:
+        return [("abs", *module)]
+    base = package[: len(package) - (node.level - 1)] if node.level > 1 else package
+    if module:
+        return [(*base, *module)]
+    return [(*base, alias.name) for alias in node.names]
+
+
+def _import_is_allowed(target, allowed):
+    if target[0] == "abs":
+        return len(target) > 1 and target[1] in sys.stdlib_module_names
+    return len(target) > 1 and target[0] == "lib" and target[1] in allowed
+
+
+def test_lib_packages_import_only_the_standard_library_and_their_allow_list():
+    """Each lib/ package stays liftable into its own repository."""
+    assert _lib_import_offenders(PKG) == []
+
+
+def test_every_lib_package_has_an_allow_list_row_and_the_reverse():
+    on_disk = {p.name for p in (PKG / "lib").iterdir() if p.is_dir() and p.name != "__pycache__"}
+
+    assert on_disk == set(ALLOWED)
+
+
+def test_boundary_test_rejects_the_imports_a_lib_package_must_not_make(tmp_path):
+    package = tmp_path / "lib" / "demo"
+    package.mkdir(parents=True)
+    (tmp_path / "lib" / "other").mkdir()
+    (package / "bad.py").write_text(
+        "from __future__ import annotations\n"
+        "from datetime import datetime\n"
+        "from ..const import X\n"
+        "from ...core import tariff\n"
+        "from ..other import thing\n"
+        "import homeassistant.core\n"
+        "from typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n"
+        "    from ..logging import LOGGER\n"
+        "    from ...discovery import ev_charger\n"
+        "    from ...inverter import backend\n",
+        encoding="utf-8",
+    )
+
+    offenders = _lib_import_offenders(tmp_path)
+
+    assert [o.split(": ")[1] for o in offenders] == [
+        "lib.const",
+        "core",
+        "lib.other",
+        "abs.homeassistant.core",
+        "lib.logging",
+        "discovery",
+        "inverter",
+    ]
+
+
+def test_no_python_package_sits_outside_the_integration_where_hacs_would_not_ship_it():
+    stray = [
+        str(p.relative_to(ROOT))
+        for name in ("lib", "libs")
+        for p in sorted((ROOT / name).rglob("*.py"))
+    ]
+
+    assert stray == []
 
 
 def test_only_the_prerelease_workflow_can_write_and_only_at_job_level():
