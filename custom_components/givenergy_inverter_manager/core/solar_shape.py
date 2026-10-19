@@ -106,6 +106,25 @@ def solar_shape_from_periods(
     return None if shape is None else tuple(round(w, _ROUND_PLACES) for w in shape)
 
 
+def producing_hours(
+    periods: object, tz: tzinfo, fields: Sequence[str] = ("pv_estimate",)
+) -> tuple[int, int] | None:
+    """The first hour and the hour after the last that any of *fields* expects power in.
+
+    It reads the local clock, so (7, 17) means from 07:00 to 17:00. None when the periods are
+    not a usable day or none of them expects power.
+    """
+    starts: list[datetime] = []
+    for field in fields:
+        parsed = _parse(periods, tz, field)
+        if parsed is None:
+            return None
+        starts += [start for start, power in parsed if power > 0]
+    if not starts:
+        return None
+    return min(starts).hour, max(starts).hour + 1
+
+
 def _parse(periods: object, tz: tzinfo, field: str) -> list[tuple[datetime, float]] | None:
     if not isinstance(periods, Sequence) or isinstance(periods, (str, bytes)):
         return None

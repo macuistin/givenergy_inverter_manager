@@ -12,6 +12,7 @@ import pytest
 
 from custom_components.givenergy_inverter_manager.core.solar_shape import (
     SLOTS,
+    producing_hours,
     solar_shape_from_periods,
     valid_shape,
 )
@@ -160,3 +161,33 @@ class TestValidShape:
     )
     def test_anything_else_is_none(self, bad):
         assert valid_shape(bad) is None
+
+
+class TestProducingHours:
+    def _day(self, first_slot: int, last_slot: int, tz=DUBLIN):
+        powers = [1.0 if first_slot <= slot <= last_slot else 0.0 for slot in range(48)]
+        return periods("2026-10-17", powers, tz=tz)
+
+    def test_it_runs_from_the_first_hour_with_power_to_the_hour_after_the_last(self):
+        # 07:30 is the first half hour with power and 17:00 the last, which ends at 17:30.
+        assert producing_hours(self._day(15, 34), DUBLIN) == (7, 18)
+
+    def test_the_other_fields_widen_it(self):
+        day = self._day(16, 30)
+        for slot, period in enumerate(day):
+            period["pv_estimate90"] = 1.0 if 14 <= slot <= 36 else 0.0
+        assert producing_hours(day, DUBLIN, ("pv_estimate",)) == (8, 16)
+        assert producing_hours(day, DUBLIN, ("pv_estimate", "pv_estimate90")) == (7, 19)
+
+    def test_it_reads_the_local_clock(self):
+        utc = ZoneInfo("UTC")
+        shifted = periods("2026-06-17", [1.0 if 12 <= s <= 30 else 0.0 for s in range(48)], tz=utc)
+        assert producing_hours(shifted, DUBLIN) == (7, 17)
+
+    def test_a_day_with_no_power_has_no_hours(self):
+        assert producing_hours(periods("2026-10-17", [0.0] * 48), DUBLIN) is None
+
+    def test_something_that_is_not_a_forecast_has_no_hours(self):
+        assert producing_hours("not a list", DUBLIN) is None
+        assert producing_hours([{"period_start": 1}] * 48, DUBLIN) is None
+        assert producing_hours(self._day(15, 34), DUBLIN, ("missing",)) is None

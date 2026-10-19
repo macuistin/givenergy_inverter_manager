@@ -2,6 +2,17 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Added**
+- Today has a new chart, **Predicted and produced**: today's solar as the forecast expected it, with the low and high estimates either side, against what the Solar Power sensor made, with a marker for now. It shows only the producing hours with an hour either side, from just before sunrise to just after sunset. It needs apexcharts-card and a forecast sensor with a half-hourly forecast, such as Solcast. See [Today](docs/dashboard.md#today-tab).
+
+**Changed**
+- On Home energy, Hot water and EV charger are now separate sections, so a tablet shows them side by side. A phone still stacks them in one column.
+
+**Upgrading**
+- A stored dashboard keeps its old layout until you press **Submit** on the **The GivEnergy dashboard is out of date** repair. The hours of Predicted and produced are fixed when the dashboard is written, so run `update_dashboard` or press **Submit** again after the days have changed length by an hour or more.
+
 ## v0.19.11
 
 The dashboard strategy loads again, and the integration has a new icon. 0.19.10 made the strategy time out on every fresh page, because its script ran before Home Assistant had set up the registry it looks the dashboard up in.

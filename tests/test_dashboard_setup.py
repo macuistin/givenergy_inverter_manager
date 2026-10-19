@@ -68,6 +68,7 @@ class TestTheChecklistSection:
             "Energy",
             "Where it came from",
             "Hot water",
+            "EV charger",
         ]
 
     def test_it_holds_a_heading_and_one_markdown_card(self):

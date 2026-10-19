@@ -13,6 +13,7 @@ from .forecast import (
     ForecastSensors,
     discover_forecast_sensors,
     discover_immersion_switch_candidates,
+    todays_forecast_sensor,
 )
 
 __all__ = [
@@ -24,5 +25,6 @@ __all__ = [
     "discover_ev_chargers",
     "discover_forecast_sensors",
     "discover_immersion_switch_candidates",
+    "todays_forecast_sensor",
     "update_charger_state",
 ]

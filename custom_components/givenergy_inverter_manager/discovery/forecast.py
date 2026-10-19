@@ -53,6 +53,16 @@ def discover_forecast_sensors(all_states: Mapping[str, Any]) -> ForecastSensors 
     return None
 
 
+def todays_forecast_sensor(tomorrow: str | None) -> str | None:
+    """The sensor for today that goes with a tomorrow forecast sensor, by its id, or None.
+
+    Solcast's two sensors differ only in the last word, and a renamed pair keeps that.
+    """
+    if not tomorrow or not tomorrow.endswith("_tomorrow"):
+        return None
+    return tomorrow.removesuffix("_tomorrow") + "_today"
+
+
 def _friendly_name(state: Any) -> str:
     attributes = getattr(state, "attributes", None) or {}
     return str(attributes.get("friendly_name") or "")

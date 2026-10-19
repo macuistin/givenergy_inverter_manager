@@ -29,12 +29,14 @@ from ..const import (
     IMMERSION_SWITCH_COOLDOWN_MINUTES,
 )
 from ..core.devices import Device
+from ..core.solar_shape import producing_hours
 from ..core.tariff import (
     build_tariff,
     last_tariff_review,
     scheduled_tariff_changes,
     tariff_in_force,
 )
+from ..discovery.forecast import todays_forecast_sensor
 from ..inverter.givtcp.discovery import device_prefix, temperature_entity_ids_for
 from .cards import (
     BATTERY,
@@ -90,8 +92,10 @@ from .cards import (
 )
 from .charts import (
     ImmersionEntities,
+    TodayChartEntities,
     apex_immersion_chart,
     apex_solar_forecast_chart,
+    apex_solar_today_chart,
     builtin_immersion_chart,
     flow_card,
     flow_fallback,
@@ -243,6 +247,26 @@ def _half_hour_forecast(hass: HomeAssistant, entity: str | None) -> str | None:
     return entity if isinstance(attributes, dict) and "detailedForecast" in attributes else None
 
 
+# The chart on Today starts this many hours before the first producing hour and ends this many
+# after the last, so the curve does not touch the edges.
+_CHART_BUFFER_HOURS = 1
+_FORECAST_BOUNDS = ("pv_estimate", "pv_estimate10", "pv_estimate90")
+
+
+def _today_chart_hours(hass: HomeAssistant, entity: str | None) -> tuple[int, int] | None:
+    """The hours to draw on Today: those the forecast expects power in, with a buffer each side.
+
+    The card cannot size its own time axis, so the hours are read when the dashboard is built.
+    """
+    state = hass.states.get(entity) if entity else None
+    periods = getattr(state, "attributes", {}).get("detailedForecast")
+    hours = producing_hours(periods, dt_util.get_default_time_zone(), _FORECAST_BOUNDS)
+    if hours is None:
+        return None
+    first, last = hours
+    return max(0, first - _CHART_BUFFER_HOURS), min(24, last + _CHART_BUFFER_HOURS)
+
+
 @dataclass(frozen=True)
 class _CostEntities:
     """Today's cost sensors, and the parts of the import cost by what used it."""
@@ -280,6 +304,9 @@ class Builder:
         self.has_inverter_temp = _has_inverter_temp(hass, self.cfg)
         self.forecast = self.cfg.get(CONF_FORECAST_ENTITY) or None
         self.half_hour_forecast = _half_hour_forecast(hass, self.forecast)
+        today_forecast = _half_hour_forecast(hass, todays_forecast_sensor(self.forecast))
+        self.today_forecast = today_forecast
+        self.today_hours = _today_chart_hours(hass, today_forecast)
         self.weather = _weather_entity(hass)
         self._subview_paths: set[str] | None = None
 
@@ -592,8 +619,11 @@ class Builder:
             ]
         )
 
-    def _device_buttons(self) -> dict | None:
-        """A box for the hot water and one for the EV charger, each with its figures.
+    def _device_sections(self) -> list:
+        """A section for the hot water and one for the EV charger, each with its figures.
+
+        They are two sections so a wide screen puts them side by side. A phone has one column
+        and stacks them.
 
         The heading opens the device's view, and so does each tile. A device that is not there
         leaves nothing: its heading and its tiles carry a visibility condition, so one that
@@ -611,10 +641,12 @@ class Builder:
             heading_card("EV charger", "mdi:ev-station", nav=self.go(SUB_EV)),
             devices.visible_with(Device.EV_CHARGER),
         )
-        return grid_section(
-            heading_block(water, water_cards),
-            heading_block(ev, [devices.show_with(self._charger_tiles(), Device.EV_CHARGER)]),
-        )
+        return [
+            grid_section(heading_block(water, water_cards)),
+            grid_section(
+                heading_block(ev, [devices.show_with(self._charger_tiles(), Device.EV_CHARGER)])
+            ),
+        ]
 
     def _repairs_section(self) -> dict | None:
         """This integration's open repairs, shown only while there is one, to administrators.
@@ -699,8 +731,8 @@ class Builder:
     def now_sections(self) -> list:
         """The banners while they apply, the power flow, tonight, and the device boxes.
 
-        On a laptop the device boxes sit beside the power flow. On a phone every section is one
-        column and they stack in this order.
+        On a laptop the device boxes sit beside the power flow, and beside each other on a
+        tablet. On a phone every section is one column and they stack in this order.
         """
         return present(
             [
@@ -710,7 +742,7 @@ class Builder:
                 self._repairs_section(),
                 self._flow(),
                 self._tonight_and_sources(),
-                self._device_buttons(),
+                *self._device_sections(),
             ]
         )
 
@@ -763,6 +795,24 @@ class Builder:
                 subheading_card("Last 24 hours", "mdi:chart-bar-stacked"),
                 [self._last_day_by_hour()],
             ),
+            **WIDE,
+        )
+
+    def _predicted_and_produced(self) -> dict | None:
+        """Today's solar as the forecast expected it and as it came, over the producing hours."""
+        solar_power = self.entity("solar_power")
+        if not (
+            self.today_forecast
+            and self.today_hours
+            and solar_power
+            and self.cards.installed(APEX_CARD)
+        ):
+            return None
+        chart = apex_solar_today_chart(
+            TodayChartEntities(self.today_forecast, solar_power, self.today_hours)
+        )
+        return grid_section(
+            heading_block(subheading_card("Predicted and produced", "mdi:solar-power"), [chart]),
             **WIDE,
         )
 
@@ -824,8 +874,13 @@ class Builder:
         )
 
     def today_sections(self) -> list:
-        """Sub-view: the day in a sentence and by the hour, the split bars, the solar week."""
-        return [self._today_story_section(), self._today_split(), self._solar_week()]
+        """Sub-view: the day, predicted and produced, where it came from, the solar week."""
+        return [
+            self._today_story_section(),
+            self._predicted_and_produced(),
+            self._today_split(),
+            self._solar_week(),
+        ]
 
     # -- Tonight --
 
