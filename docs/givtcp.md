@@ -119,14 +119,15 @@ All writes are serialised, so two callers never interleave. A write the integrat
 
 The cheap-rate floor only raises the target and keeps a higher one already on the inverter. Clearing another active slot writes `00:00:00` to its start and end.
 
-What we never write: Charge Control or Plug and Go on a GivEnergy charger, any export or discharge window, or a battery mode that exports.
+What this integration never writes: Charge Control or Plug and Go on a GivEnergy charger, any export or discharge window, or a battery mode that exports. The client library can write them for another host, see below.
 
-**Other settings the client can write.** `lib/givtcp/controls.py` can pause charging or discharging for a window, select a battery mode, set the reserve and set the charge and discharge rates. Nothing in the coordinator calls these yet, so a user sees no change. Each goes through the same verified writer, so it is read first, held to the cooldown and read back. Four rules hold in the client itself:
+**Other settings the client can write.** `lib/givtcp/controls.py` can pause charging or discharging for a window, select a battery mode, set the reserve and set the charge and discharge rates. Nothing in the coordinator calls these yet, so a user sees no change. Each goes through the same verified writer, so it is read first, held to the cooldown and read back. The client has no policy about what to write. Four rules hold in it:
 
 - A pause writes its start and end before its mode, so it never starts on an old window. Ending a pause writes the mode only.
 - A select is written with the option the entity lists. GivTCP and other projects spell the pause options differently (`PauseDischarge`, `Pause Discharge`, `Not Paused`), so the wanted option is matched without case, spaces, underscores or hyphens. An option the entity does not offer is refused, not sent.
-- A mode whose name says export is refused. A discharge rate only limits the battery.
-- The reserve and the rates are kept inside the `min` and `max` the entity publishes. The reserve never goes below 4.
+- The reserve, the rates and the discharge target are kept inside the `min` and `max` the entity publishes. The reserve never goes below 4.
+
+`lib/givtcp/schedules.py` and `force.py` can also write the discharge (export) schedule, charge slots 2 to 10 and a timed force charge or export. A discharge plan writes its target and window first and switches the schedule on last, and stops at the first failed write. Nothing in the coordinator calls them, and `InverterExport` in `inverter/backend.py` is kept apart from the interfaces the coordinator uses. `lib/givtcp/README.md` documents the whole client.
 
 The client also reads the inverter's clock (`invertor_time`) and reports how far it is from the host's (`clock_skew_s`). A drifted clock moves the charge window. Nothing warns on it yet.
 

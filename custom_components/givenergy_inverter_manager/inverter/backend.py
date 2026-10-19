@@ -164,6 +164,43 @@ class InverterControls(Protocol):
         ...
 
 
+@runtime_checkable
+class InverterExport(Protocol):
+    """Discharge (export) schedules, charge slots from 2 up and timed force, for a backend that
+    offers them.
+
+    Nothing in this integration calls it: the coordinator is typed against InverterBackend and
+    InverterControls only, and the integration never exports (`.claude/rules/safety.md`). It is
+    here so another host of the same client can.
+    """
+
+    def read_slot(
+        self, cfg: Mapping[str, Any], kind: Any, slot: int = 1
+    ) -> tuple[str, str] | None: ...
+
+    def read_discharge_target(self, cfg: Mapping[str, Any], slot: int = 1) -> int | None: ...
+
+    def discharge_schedule_enabled(self, cfg: Mapping[str, Any]) -> bool | None: ...
+
+    async def apply_slot(
+        self, cfg: Mapping[str, Any], kind: Any, slot: int, window: Any
+    ) -> bool: ...
+
+    async def clear_slot(self, cfg: Mapping[str, Any], kind: Any, slot: int) -> bool: ...
+
+    async def apply_discharge_plan(
+        self, cfg: Mapping[str, Any], window: Any, target_percent: int, slot: int = 1
+    ) -> bool:
+        """Target, window, then the schedule switch last. Stops at the first failure."""
+        ...
+
+    async def stop_discharge(self, cfg: Mapping[str, Any]) -> bool: ...
+
+    async def start_force(self, cfg: Mapping[str, Any], force: Any, minutes: int) -> bool: ...
+
+    async def cancel_force(self, cfg: Mapping[str, Any], force: Any) -> bool: ...
+
+
 def describe_charge_slots(slots: Sequence[ChargeSlot]) -> str:
     """The slots as one readable line, for example 'Slot 2 (00:00 to 08:00)'."""
     return ", ".join(slot.label for slot in slots)

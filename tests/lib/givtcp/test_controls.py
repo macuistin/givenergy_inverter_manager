@@ -213,12 +213,11 @@ async def test_the_battery_mode_is_read_and_written():
     assert bus.written == [(BATTERY_MODE, "Timed Demand")]
 
 
-@pytest.mark.parametrize("mode", ["Timed Export", "timed_export", "Export"])
-async def test_a_mode_that_exports_is_refused_even_when_the_entity_offers_it(mode):
+async def test_an_export_mode_is_written_like_any_other_because_the_client_has_no_policy():
     bus = _pause_bus()
 
-    assert await _backend(bus).apply_battery_mode(CFG, mode) is False
-    assert bus.calls == []
+    assert await _backend(bus).apply_battery_mode(CFG, "timed export") is True
+    assert bus.written == [(BATTERY_MODE, "Timed Export")]
 
 
 async def test_an_unknown_mode_is_refused():

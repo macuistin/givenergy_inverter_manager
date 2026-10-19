@@ -5,11 +5,10 @@ The battery pause, the battery mode, the reserve, the charge and discharge rates
 inverter clock. Each write goes through the verified writer, so it is read first, held to the
 cooldown, read back and counted. The host decides whether to write (dry run, a frozen feed).
 
-Two rules are kept here, not left to the caller:
-
-  - Nothing here exports. A battery mode whose name says export is refused, and there is no
-    discharge window or discharge rate target.
-  - A select is written with the option the entity itself lists. GivTCP releases and people's
+The client has no policy about what to write. Whether to pause, export or change the reserve is
+the host's decision, and this integration's host never exports (schedules.py and force.py hold
+the export writes). One rule is kept here: a select is written with the option the entity
+itself lists. GivTCP releases and people's
     scripts spell the pause options differently ("PauseDischarge", "Pause Discharge",
     "Not Paused"), so a wanted option is matched without case, spaces, underscores or hyphens,
     and a value the entity does not offer is refused instead of sent.
@@ -166,17 +165,15 @@ class GivTCPControls:
         self._get_state = get_state
 
     async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: str) -> bool:
-        """Select a battery mode such as Eco. False when refused or not taken.
+        """Select a battery mode such as Eco. False when the entity does not offer it.
 
-        A mode whose name contains "export" is refused: the integration never exports.
+        Timed Export is a mode like any other here. Whether to export is the host's decision.
         """
         entity = control_entity(cfg, "select", MODE_SUFFIX)
-        if not entity or "export" in mode.casefold():
+        if not entity:
             return False
         option = pick_option(self._get_state(entity), mode)
-        if option is None or "export" in option.casefold():
-            return False
-        return await self._writer.set_select(entity, option, "battery mode")
+        return option is not None and await self._writer.set_select(entity, option, "battery mode")
 
     async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> bool:
         """Set the battery power reserve, kept inside the limits the entity publishes."""
@@ -195,7 +192,7 @@ class GivTCPControls:
         return await self._apply_rate(entity, watts, "charge rate")
 
     async def apply_discharge_rate(self, cfg: Mapping[str, Any], watts: int) -> bool:
-        """Set the battery discharge rate in watts. This limits the battery, it never exports."""
+        """Set the battery discharge rate in watts, kept inside the limits the entity publishes."""
         entity = control_entity(cfg, "number", DISCHARGE_RATE_SUFFIX)
         return await self._apply_rate(entity, watts, "discharge rate")
 
@@ -232,14 +229,28 @@ class GivTCPControls:
         if pause is not BatteryPause.OFF:
             if start is None or end is None or start == end:
                 return False
+            clock = ClockWriter(self._writer, self._get_state)
             if not (
-                await self._write_pause_time(entities.start, start, "pause start")
-                and await self._write_pause_time(entities.end, end, "pause end")
+                await clock.write(entities.start, start, "pause start")
+                and await clock.write(entities.end, end, "pause end")
             ):
                 return False
         return await self._writer.set_select(entities.mode, option, "battery pause")
 
-    async def _write_pause_time(self, candidates: tuple[str, ...], value: time, name: str) -> bool:
+
+class ClockWriter:
+    """Writes a time of day to a GivTCP select or time entity."""
+
+    def __init__(self, writer: GivTCPWriter, get_state: GetState) -> None:
+        self._writer = writer
+        self._get_state = get_state
+
+    async def write(self, candidates: tuple[str, ...], value: time, name: str) -> bool:
+        """Write *value* to the first of *candidates* that exists.
+
+        A `time` entity is set with the time service. A select is given the option that reads
+        as the same HH:MM, and a value the select cannot hold is refused.
+        """
         entity = next((e for e in candidates if self._get_state(e) is not None), None)
         if entity is None:
             return False

@@ -61,6 +61,7 @@ from .discovery import (
 from .errors import (
     ServiceCallError,
 )
+from .force import Force, GivTCPForce, option_minutes
 from .freshness import (
     frozen_age_s,
     newest_report,
@@ -103,6 +104,7 @@ from .reader import (
     PAUSED_STATUS,
     GivTCPReader,
 )
+from .schedules import MAX_DISCHARGE_SLOTS, GivTCPSchedules, SlotKind, Window, slot_entities
 from .sequence import (
     apply_charge_plan,
     apply_charge_window,
@@ -151,6 +153,14 @@ from .writer import (
 )
 
 __all__ = [
+    "Force",
+    "GivTCPForce",
+    "GivTCPSchedules",
+    "MAX_DISCHARGE_SLOTS",
+    "SlotKind",
+    "Window",
+    "option_minutes",
+    "slot_entities",
     "BatteryPause",
     "GivTCPControls",
     "clock_skew_s",

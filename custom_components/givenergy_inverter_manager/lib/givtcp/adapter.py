@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, time
 from typing import Any
 
-from . import controls, sequence
+from . import controls, schedules, sequence
 from .controls import BatteryPause
 from .discovery import (
     GIVTCP_PREFIX,
@@ -23,6 +23,7 @@ from .discovery import (
     discover_battery_cycle_entities,
     find_other_active_charge_slots,
 )
+from .force import Force, GivTCPForce
 from .keys import (
     KEY_CHARGE_END_TIME_ENTITY,
     KEY_CHARGE_START_TIME_ENTITY,
@@ -30,6 +31,7 @@ from .keys import (
     KEY_TARGET_SOC_ENTITY,
 )
 from .reader import GivTCPReader
+from .schedules import SlotKind, Window
 from .values import (
     ChargePlan,
     FeedStatus,
@@ -72,6 +74,8 @@ class GivTCPBackend:
             ports.observer,
         )
         self._controls = controls.GivTCPControls(self.writer, get_state)
+        self._schedules = schedules.GivTCPSchedules(self.writer, get_state)
+        self._force = GivTCPForce(self.writer, get_state)
         if ports.verbose:
             self.writer.verbose = ports.verbose
 
@@ -149,6 +153,41 @@ class GivTCPBackend:
         end: time | None = None,
     ) -> bool:
         return await self._controls.apply_battery_pause(cfg, pause, start, end)
+
+    # ── Discharge (export), extra charge slots and timed force ────────────────
+
+    def read_slot(
+        self, cfg: Mapping[str, Any], kind: SlotKind, slot: int = 1
+    ) -> tuple[str, str] | None:
+        return self._schedules.read_slot(cfg, kind, slot)
+
+    def read_discharge_target(self, cfg: Mapping[str, Any], slot: int = 1) -> int | None:
+        return self._schedules.read_discharge_target(cfg, slot)
+
+    def discharge_schedule_enabled(self, cfg: Mapping[str, Any]) -> bool | None:
+        return self._schedules.discharge_schedule_enabled(cfg)
+
+    async def apply_slot(
+        self, cfg: Mapping[str, Any], kind: SlotKind, slot: int, window: Window
+    ) -> bool:
+        return await self._schedules.apply_slot(cfg, kind, slot, window)
+
+    async def clear_slot(self, cfg: Mapping[str, Any], kind: SlotKind, slot: int) -> bool:
+        return await self._schedules.clear_slot(cfg, kind, slot)
+
+    async def apply_discharge_plan(
+        self, cfg: Mapping[str, Any], window: Window, target_percent: int, slot: int = 1
+    ) -> bool:
+        return await self._schedules.apply_discharge_plan(cfg, window, target_percent, slot)
+
+    async def stop_discharge(self, cfg: Mapping[str, Any]) -> bool:
+        return await self._schedules.stop_discharge(cfg)
+
+    async def start_force(self, cfg: Mapping[str, Any], force: Force, minutes: int) -> bool:
+        return await self._force.start(cfg, force, minutes)
+
+    async def cancel_force(self, cfg: Mapping[str, Any], force: Force) -> bool:
+        return await self._force.cancel(cfg, force)
 
     def read_rate_defaults(self, cfg: Mapping[str, Any]) -> RateDefaults | None:
         return self._reader.rate_defaults(cfg.get(KEY_INVERTER_SERIAL), device_prefix(cfg))
