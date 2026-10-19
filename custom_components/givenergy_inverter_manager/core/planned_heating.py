@@ -48,6 +48,7 @@ class PlanQuery:
     times: tuple[time, ...]
     water: WaterReading
     heater_on: bool = False
+    max_run_hours: float | None = None
 
 
 def _tomorrow(moment: datetime, now: datetime) -> str:
@@ -123,6 +124,7 @@ def _ready_inputs(query: PlanQuery) -> ReadyInputs:
         water.target,
         water.rate_c_per_h,
         query.heater_on,
+        query.max_run_hours,
     )
 
 

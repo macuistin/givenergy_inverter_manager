@@ -86,12 +86,12 @@ class TestEachSentence:
     def test_the_start_for_a_ready_time(self):
         text = advise("Gas", at(15), 0.20, water=water(), **READY).suggestion
         assert text == (
-            "For the 19:00 ready time: turn the gas water heating on at 15:32 (about 104 minutes). "
+            "For the 19:00 ready time: turn the gas water heating on at 17:16 (about 104 minutes). "
             "The immersion will only top up. Saves about €0.10 per kWh of heat."
         )
 
     def test_a_start_that_is_too_late(self):
-        text = advise("Heat pump", at(17), 0.20, water=water(), **READY).suggestion
+        text = advise("Heat pump", at(17, 30), 0.20, water=water(), **READY).suggestion
         assert text == (
             "For the 19:00 ready time: turn the heat pump water heating on now (about 104 "
             "minutes). It is too late for the heat pump to finish before the immersion has to "

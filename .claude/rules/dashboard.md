@@ -49,14 +49,15 @@ paths:
   `power-flow`: Hot water, EV charger and Settings. A sub-view never links to another sub-view.
 - Each section leads with a sentence (a markdown template in `templates.py`), then small figures
   as heading chips or a glance row. Tiles are for controls in Settings and, coloured with a gauge
-  or a 24 hour line (`figure_tile`, `tile_grid`), for the devices on Home energy. Every view has
-  `max_columns: 3` and `dense_section_placement`. `WIDE` is two columns, `WHOLE_WIDTH` a banner.
+  or a 24 hour line (`figure_tile`, `tile_grid`), for the devices on Home energy and the
+  alternative heating triggers on Hot water. Every view has `max_columns: 3` and
+  `dense_section_placement`. `WIDE` is two columns, `WHOLE_WIDTH` a banner.
 - A chart series carries a colour (`SOLAR_HEX` and the rest in `cards.py`) only when
   `HostFacts.series_colours` is true, from Home Assistant 2026.6 (`render.py`).
 - Numbers are set with the `STEPPER` feature (− and + buttons), never a slider.
-- The banners (dry run, charge target conflict, setup, this integration's repairs) open Home
-  energy in that order, each a section with a condition on its sensor. At the 2026.5 floor use
-  only `state`, `numeric_state`, `user` and `or` conditions.
+- The banners (dry run, charge target conflict, setup, this integration's repairs, the
+  alternative heating start, the longest immersion run reached) open Home energy in that order, each a section with a condition on
+  its sensor. At the 2026.5 floor use only `state`, `numeric_state`, `user` and `or` conditions.
 - `tests/golden_dashboard_matrix.json` pins the output for a grid of installs and for an
   administrator and another user. Regenerate it with `/regenerate-goldens` after a deliberate
   change, and compare the dashboards before and after, section by section.

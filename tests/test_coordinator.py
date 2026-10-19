@@ -42,13 +42,18 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_TARGET_SOC_ENTITY,
 )
 from custom_components.givenergy_inverter_manager.coordinator import GivEnergyCoordinator
+from custom_components.givenergy_inverter_manager.core.alt_heat_trigger import HeldTriggers
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
 from custom_components.givenergy_inverter_manager.core.charge_retry import Attempt
 from custom_components.givenergy_inverter_manager.core.charge_window import ChargeWindow
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
 from custom_components.givenergy_inverter_manager.core.ev_base_rate import WatchState
-from custom_components.givenergy_inverter_manager.core.immersion_rate import RunTracker
+from custom_components.givenergy_inverter_manager.core.immersion_rate import (
+    RunTracker,
+    keep_day_rate,
+)
+from custom_components.givenergy_inverter_manager.core.scheduled_run import HeldScheduledRun
 from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
@@ -149,6 +154,8 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._held_charge = HeldCharge()
         self._held_sunrise = HeldSunrise()
         self._held_solar = HeldSolarDay()
+        self._held_triggers = HeldTriggers()
+        self._held_scheduled_run = HeldScheduledRun()
         self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""
         self._unsub_charge_target = None
@@ -193,9 +200,10 @@ class FakeCoordinator(GivEnergyCoordinator):
                 return self.state.ev_sessions
 
             immersion_heating_rates: list = []  # noqa: RUF012
+            immersion_rate_days: list = []  # noqa: RUF012
 
-            def record_immersion_rate(self, rate):
-                self.immersion_heating_rates.append(rate)
+            def record_immersion_rate(self, rate, day):
+                self.immersion_rate_days = keep_day_rate(self.immersion_rate_days, day, rate)
 
             @property
             def today_forecast_kwh(self):

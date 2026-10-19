@@ -1,10 +1,19 @@
 # Entities
 
-Everything except sensors. For sensors, see [Sensors](sensors.md).
+Everything except sensors, plus the two binary sensors. For sensors, see [Sensors](sensors.md).
 
 The immersion switches and numbers exist only while the device they need is set. The Auto Immersion Divert and Immersion Heater (Managed) switches and the two Immersion divert numbers need an immersion switch. Immersion Scheduled Heating and the three immersion temperature numbers need an immersion switch and a temperature sensor. They are created when the options set the device, and removed when the options clear it. See [Sensors](sensors.md) for the sensors that follow the same rule.
 
 All entities belong to one device, **GivEnergy Inverter Manager** (manufacturer macuistin, model Inverter Manager). Home Assistant builds entity IDs from the device name and the entity name, for example `switch.givenergy_inverter_manager_force_skip_overnight_charge`. Check yours in **Settings → Entities**.
+
+## Binary sensors
+
+Two on/off sensors for automations that follow the tariff. Both are on by default, and both are off on a tariff with no timed rate period.
+
+| Entity | On while | Use it to |
+|---|---|---|
+| Cheapest Rate Active | the cheapest timed rate period is in force. It is the on/off form of the Is On Cheapest Rate sensor | Start something that should run at the lowest rate only |
+| Cheap Rate Active | any period cheaper than the base rate is in force, so the whole run of cheap hours counts, not only the cheapest part of it | Start something that is fine at any cheaper-than-base rate, such as a dishwasher |
 
 ## Switches
 

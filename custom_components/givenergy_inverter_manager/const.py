@@ -151,20 +151,32 @@ DEFAULT_CURRENCY_SYMBOL = CURRENCIES[DEFAULT_CURRENCY]
 DEFAULT_INVERTER_MAX_OUTPUT = 5.0  # kW — GivEnergy GIV-HY-5.0
 DEFAULT_BATTERY_CAPACITY = 10.0  # kWh — conservative fallback if not configured
 DEFAULT_IMMERSION_WATTAGE = 3000  # W
+# The longest a scheduled immersion run lasts (core/scheduled_run.py). 0 turns the limit off.
+DEFAULT_IMMERSION_MAX_RUN_MINUTES = 60  # minutes
 DEFAULT_IMMERSION_TARGET_TEMP = 55  # °C — turn off when water reaches this
 DEFAULT_IMMERSION_MIN_TEMP = 50  # °C — force on below this (legionella protection)
 DEFAULT_IMMERSION_HYSTERESIS = 5  # °C — only restart after cooling this far below target
 # Ready-by planning (core/immersion_rate.py): the saved ready times, and the heating rate in
 # degrees per hour that the integration learns from its own runs.
 CONF_IMMERSION_READY_TIMES = "immersion_ready_times"
+CONF_IMMERSION_MAX_RUN_MINUTES = "immersion_max_run_minutes"
+# Whether the dashboard warns when the longest run stops a scheduled run (core/scheduled_run.py).
+CONF_IMMERSION_RUN_LIMIT_WARNING = "immersion_run_limit_warning"
+DEFAULT_IMMERSION_RUN_LIMIT_WARNING = True
 # Rate assumed before a run has been measured: a large cylinder, which heats slowly, so the
 # first plans start early rather than late.
 IMMERSION_ASSUMED_TANK_LITRES = 300
-# A run counts as a sample only when it was long and warmed the water enough to measure.
-IMMERSION_RATE_RUN_MIN_MINUTES = 20
-IMMERSION_RATE_RUN_MIN_RISE_C = 2.0
-# The rate used is the median of the last few runs, so one run during a shower does not skew it.
+# A run counts as a sample only when it was long and warmed the water enough to measure. Runs of
+# a top-up size count, because the days they fall on are averaged.
+IMMERSION_RATE_RUN_MIN_MINUTES = 10
+IMMERSION_RATE_RUN_MIN_RISE_C = 1.0
+# Installs from before the daily rates have the median of their last few runs until the first
+# dated run is recorded.
 IMMERSION_RATE_RUNS_KEPT = 5
+# The rate used is the average of the daily rates of the last 7 days. A day's rate is the average
+# of its runs. With one day of data that day is used as it is, so the rate follows the heater
+# as it ages or the cylinder changes, and one odd day cannot dominate.
+IMMERSION_RATE_DAYS_KEPT = 7
 IMMERSION_SWITCH_COOLDOWN_MINUTES = 10  # min between auto on/off writes to the real switch
 # ── Alternative water heating advice (core/alt_heat_advice.py) ────────────────────
 # Some homes also heat the same cylinder another way: an oil or gas boiler, a heat pump or solid
@@ -197,6 +209,10 @@ OIL_BOILER_EFFICIENCY_PCT = 85  # %
 # The commonly quoted energy content of kerosene heating oil.
 OIL_KWH_PER_LITRE = 10.35  # kWh per litre of fuel
 ALT_HEAT_ADVICE_HORIZON_HOURS = 24  # how far ahead the cheapest hours are looked for
+# The two trigger sensors fire this far before the immersion would act: the ready-by trigger when
+# the water is this far below its target, the low water trigger when it is this far above the
+# lower boundary (the point where the immersion would top it up).
+ALT_HEAT_TRIGGER_MARGIN_C = 1.0
 # A suggested alternative heating schedule (core/alt_heat_schedule.py) is learned from a rolling
 # record of the immersion's grid heating. Fixed assumptions, not options.
 # Complete days kept, plus the day in progress. Two weeks hold every weekday twice, so a weekly

@@ -41,6 +41,7 @@ _HA_SUBMODULES = [
     "homeassistant.helpers.redact",
     "homeassistant.helpers.typing",
     "homeassistant.components.sensor",
+    "homeassistant.components.binary_sensor",
     "homeassistant.components.switch",
     "homeassistant.components.button",
     "homeassistant.components.number",
@@ -205,6 +206,22 @@ class _SensorEntityDescription:
 _sensor.SensorEntityDescription = _SensorEntityDescription
 _sensor.SensorDeviceClass = MagicMock()
 _sensor.SensorStateClass = MagicMock()
+
+# --- binary sensor ---
+_binary_sensor = sys.modules["homeassistant.components.binary_sensor"]
+_binary_sensor.BinarySensorEntity = object
+
+
+@dataclass(frozen=True, kw_only=True)
+class _BinarySensorEntityDescription:
+    key: str
+    entity_registry_enabled_default: bool = True
+    icon: str | None = None
+    name: object = None
+    translation_key: str | None = None
+
+
+_binary_sensor.BinarySensorEntityDescription = _BinarySensorEntityDescription
 
 # --- switch ---
 _switch = sys.modules["homeassistant.components.switch"]
@@ -389,6 +406,8 @@ def _run(
         held_charge=kwargs.get("held_charge"),
         held_sunrise=kwargs.get("held_sunrise"),
         held_solar=kwargs.get("held_solar"),
+        held_triggers=kwargs.get("held_triggers"),
+        held_scheduled_run=kwargs.get("held_scheduled_run"),
         heat_log=kwargs.get("heat_log"),
         load_profile=kwargs.get("load_profile"),
     )

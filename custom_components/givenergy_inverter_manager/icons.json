@@ -151,6 +151,9 @@
       "immersion_power": {"default": "mdi:water-boiler"},
       "immersion_water_temperature": {"default": "mdi:thermometer-water"},
       "water_heating_cheapest_source": {"default": "mdi:fire-circle"},
+      "immersion_run_limit": {"default": "mdi:timer-alert-outline"},
+      "water_heating_ready_by_trigger": {"default": "mdi:water-boiler-alert"},
+      "water_heating_low_water_trigger": {"default": "mdi:water-thermometer-outline"},
       "cheap_rate_floor_status": {"default": "mdi:floor-plan"},
       "inverter_temperature": {"default": "mdi:thermometer"},
       "inverter_temperature_status": {"default": "mdi:thermometer-alert"},
@@ -164,6 +167,10 @@
       "battery_power_direction": {"default": "mdi:battery-charging"},
       "integration_version": {"default": "mdi:information-outline"},
       "days_in_period": {"default": "mdi:calendar-start"}
+    },
+    "binary_sensor": {
+      "cheapest_rate_active": {"default": "mdi:cash-check"},
+      "cheap_rate_active": {"default": "mdi:cash-clock"}
     },
     "switch": {
       "dry_run": {"default": "mdi:test-tube"},

@@ -205,3 +205,35 @@ def plan_charge_window(tariff: TariffConfig, need: ChargeNeed) -> ChargeWindow:
         expected_kwh=_expected_kwh(need, minutes),
         finish_time=_finish_time(need, start, minutes),
     )
+
+
+# Any date does: a rate period is matched on the time of day alone.
+_RATE_DAY = datetime(2000, 1, 1)
+
+
+def _rate_at(tariff: TariffConfig, minute: int) -> float:
+    """The rate in force at this minute of the day, the cheapest of the periods active then."""
+    return tariff.get_current_rate(_RATE_DAY + timedelta(minutes=minute)).rate
+
+
+def window_charge_cost(
+    tariff: TariffConfig, window: ChargeWindow, need: ChargeNeed
+) -> float | None:
+    """What the charge costs when it is paid at the rate in force while it runs.
+
+    The battery charges at its own pace from the window start, so the cheapest hours come first
+    and an extended window pays the rate of the periods after them for what is left. Energy the
+    window cannot deliver is priced at the rate of its last minute. None when the charge rate is
+    unknown, which leaves no way to say how long the charge runs in each period.
+    """
+    if need.charge_power_kw <= 0:
+        return None
+    start = _minute_of_day(window.start)
+    last = max(_minutes_from(start, _minute_of_day(window.end)) - 1, 0)
+    per_minute = need.charge_power_kw / 60
+    left, cost = need.deficit_kwh, 0.0
+    for offset in range(last + 1):
+        taken = min(left, per_minute)
+        cost += taken * _rate_at(tariff, start + offset)
+        left -= taken
+    return cost + left * _rate_at(tariff, start + last)

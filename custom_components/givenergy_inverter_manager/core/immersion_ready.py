@@ -213,6 +213,9 @@ class ReadyInputs:
     target: float
     rate_c_per_h: float
     heater_on: bool = False
+    # The longest the heater runs for this plan, in hours, None for no limit. The plan is sized to
+    # it, and the water is not expected to be ready when it needs longer.
+    max_run_hours: float | None = None
 
 
 def plan_ready(inputs: ReadyInputs) -> ReadyPlan:
@@ -221,9 +224,11 @@ def plan_ready(inputs: ReadyInputs) -> ReadyPlan:
     ready = next_ready_at(now, inputs.times)
     if ready is None or temp is None:
         return ReadyPlan()
-    needed = hours_to_heat(temp, inputs.target, inputs.rate_c_per_h)
-    if needed <= 0:
+    full = hours_to_heat(temp, inputs.target, inputs.rate_c_per_h)
+    if full <= 0:
         return ReadyPlan(ready.timetz().replace(tzinfo=None), False, True, 0.0)
+    cap = inputs.max_run_hours
+    needed = full if cap is None else min(full, cap)
     placed = place_hours(inputs.tariff, now, ready, needed)
     first = placed.segments[0]
     left_in_first = elapsed_seconds(first.start, first.end)
@@ -231,4 +236,5 @@ def plan_ready(inputs: ReadyInputs) -> ReadyPlan:
     # A run in progress carries on when the plan would start within the switch cooldown. An
     # off now could not be undone in time, because the write cooldown holds the next on back.
     used_up = slack <= _USED_UP_SECONDS or (inputs.heater_on and slack <= _COOLDOWN_SECONDS)
-    return ReadyPlan(ready.timetz().replace(tzinfo=None), used_up, placed.fits, needed)
+    expected = placed.fits and needed >= full
+    return ReadyPlan(ready.timetz().replace(tzinfo=None), used_up, expected, needed)

@@ -14,10 +14,11 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 from ..const import (
     IMMERSION_ASSUMED_TANK_LITRES,
+    IMMERSION_RATE_DAYS_KEPT,
     IMMERSION_RATE_RUN_MIN_MINUTES,
     IMMERSION_RATE_RUN_MIN_RISE_C,
     IMMERSION_RATE_RUNS_KEPT,
@@ -40,11 +41,41 @@ def assumed_rate_c_per_h(power_w: float) -> float:
     return power_w / 1000 / (IMMERSION_ASSUMED_TANK_LITRES * _KWH_PER_LITRE_DEGREE)
 
 
-def resolve_rate(learned: list[float], power_w: float) -> tuple[float, str]:
-    """The rate to plan with and where it came from."""
+def resolve_rate(
+    learned: list[float], power_w: float, days: list[dict] | None = None
+) -> tuple[float, str]:
+    """The rate to plan with and where it came from.
+
+    The average of the daily rates when there are any. An install from before the daily rates
+    has the median of its last runs until the first dated run is recorded. Without either, the
+    rate is assumed from the element.
+    """
+    daily = day_rates(days or [])
+    if daily:
+        return statistics.fmean(daily), SOURCE_LEARNED
     if learned:
         return statistics.median(learned), SOURCE_LEARNED
     return assumed_rate_c_per_h(power_w), SOURCE_ASSUMED
+
+
+def day_rates(days: list[dict]) -> list[float]:
+    """The rate of each stored day: the average of that day's runs, in degrees per hour."""
+    return [d["total"] / d["runs"] for d in days if d.get("runs") and d.get("total", 0) > 0]
+
+
+def keep_day_rate(days: list[dict], day: date, rate_c_per_h: float) -> list[dict]:
+    """The days with one more run on *day*, the oldest dropped past IMMERSION_RATE_DAYS_KEPT.
+
+    Each day holds the sum of its runs' rates and how many runs there were, so a day's rate is
+    their average. Days are kept oldest first.
+    """
+    stamp = day.isoformat()
+    kept = [dict(d) for d in days if d.get("date") != stamp]
+    existing = next((d for d in days if d.get("date") == stamp), {"total": 0.0, "runs": 0})
+    kept.append(
+        {"date": stamp, "total": existing["total"] + rate_c_per_h, "runs": existing["runs"] + 1}
+    )
+    return sorted(kept, key=lambda d: d["date"])[-IMMERSION_RATE_DAYS_KEPT:]
 
 
 def keep_run(learned: list[float], rate: float) -> list[float]:

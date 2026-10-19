@@ -27,6 +27,7 @@ from ..const import (
     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_DISCOUNT_RATE,
     CONF_EXPORT_RATE,
+    CONF_IMMERSION_MAX_RUN_MINUTES,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
     CONF_OVERNIGHT_CHARGE_TARGET,
@@ -70,6 +71,8 @@ NUMBER_BOUNDS: dict[str, Bounds] = {
     CONF_BATTERY_CAPACITY: Bounds(1, 100, 0.1, "kWh", BOX),
     CONF_INVERTER_MAX_OUTPUT: Bounds(1, 20, 0.1, "kW", BOX),
     CONF_IMMERSION_WATTAGE: Bounds(500, 6000, 100, "W", BOX),
+    # 0 turns the limit off, so the box has to allow it.
+    CONF_IMMERSION_MAX_RUN_MINUTES: Bounds(0, 240, 5, "min", BOX),
     CONF_CAR_EFFICIENCY_KWH_PER_100KM: Bounds(5, 40, 0.1, "kWh/100km", BOX),
     # A box, not a slider: a slider cannot be left empty, and empty means no advice.
     CONF_ALT_HEAT_COST: Bounds(0.001, 5, 0.001, mode=BOX),

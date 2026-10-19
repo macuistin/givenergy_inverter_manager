@@ -28,7 +28,7 @@ from .core.alt_heat_schedule import ImmersionHeatLog
 from .core.bill_days import day_row, tariff_in_effect, with_day
 from .core.entity_refs import clean_remembered
 from .core.ev_session import EVSessionLog
-from .core.immersion_rate import keep_run
+from .core.immersion_rate import keep_day_rate
 from .core.rules import (
     ForecastAccuracy,
     build_load_profile,
@@ -307,6 +307,9 @@ class AccumulationState:
     # Heating rates (degrees per hour) of the last few immersion runs, oldest first. The
     # ready-by plan reads their median. See core/immersion_rate.py.
     immersion_heating_rates: list = field(default_factory=list)
+    # The same, kept by local day for the last 7 days, oldest first: {"date", "total", "runs"},
+    # the sum of the runs' rates and how many there were. The plan reads the average of the days.
+    immersion_rate_days: list = field(default_factory=list)
 
     # The immersion's grid heating by local hour for the last 14 complete days and today, with
     # what it cost. Filled only while alternative heating has a cost. See core/alt_heat_schedule.py.
@@ -761,6 +764,10 @@ class AccumulationStore:
         return self.state.immersion_heating_rates
 
     @property
+    def immersion_rate_days(self) -> list[dict]:
+        return self.state.immersion_rate_days
+
+    @property
     def immersion_heat_log(self) -> ImmersionHeatLog:
         return self.state.immersion_heat_log
 
@@ -768,10 +775,10 @@ class AccumulationStore:
     def ev_sessions(self) -> EVSessionLog:
         return self.state.ev_sessions
 
-    def record_immersion_rate(self, rate_c_per_h: float) -> None:
-        """Keep the heating rate of a finished immersion run and queue a save."""
-        self.state.immersion_heating_rates = keep_run(
-            self.state.immersion_heating_rates, rate_c_per_h
+    def record_immersion_rate(self, rate_c_per_h: float, day: date) -> None:
+        """Keep the heating rate of a finished immersion run under its day and queue a save."""
+        self.state.immersion_rate_days = keep_day_rate(
+            self.state.immersion_rate_days, day, rate_c_per_h
         )
         self.schedule_save()
 
@@ -878,6 +885,7 @@ def _serialize_state(state: AccumulationState) -> dict:
         "year_start_iso": state.year_start_iso,
         "last_reset_iso": state.last_reset_iso,
         "immersion_heating_rates": list(state.immersion_heating_rates),
+        "immersion_rate_days": [dict(day) for day in state.immersion_rate_days],
         "monthly_export_snapshots": list(state.monthly_export_snapshots),
         "monthly_snapshots": list(state.monthly_snapshots),
         "bill_days": [dict(row) for row in state.bill_days],
@@ -938,6 +946,15 @@ def _restore_immersion_rates(state: AccumulationState, data: dict) -> None:
     ]
 
 
+def _restore_immersion_rate_days(state: AccumulationState, data: dict) -> None:
+    days = data.get("immersion_rate_days")
+    state.immersion_rate_days = [
+        {"date": str(d["date"]), "total": float(d["total"]), "runs": int(d["runs"])}
+        for d in (days if isinstance(days, list) else [])
+        if isinstance(d, dict) and {"date", "total", "runs"} <= d.keys() and d["runs"] > 0
+    ]
+
+
 def _restore_heat_log(state: AccumulationState, data: dict) -> None:
     state.immersion_heat_log = ImmersionHeatLog.from_storage(data.get(_HEAT_LOG_KEY))
 
@@ -969,6 +986,7 @@ def _deserialize(data: dict) -> AccumulationState:
     _restore_battery_and_forecast(state, data)
     _restore_slot_load(state, data)
     _restore_immersion_rates(state, data)
+    _restore_immersion_rate_days(state, data)
     _restore_heat_log(state, data)
     _restore_ev_sessions(state, data)
     _restore_period_history(state, data)
