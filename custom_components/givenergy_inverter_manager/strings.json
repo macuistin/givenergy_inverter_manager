@@ -963,7 +963,7 @@
         "name": "Import at base rate yesterday"
       },
       "immersion_savings_yesterday": {
-        "name": "Immersion savings yesterday"
+        "name": "Immersion solar savings yesterday"
       },
       "self_sufficiency_yesterday": {
         "name": "Self-sufficiency yesterday"
@@ -993,7 +993,7 @@
         "name": "Import at base rate this week"
       },
       "immersion_savings_this_week": {
-        "name": "Immersion savings this week"
+        "name": "Immersion solar savings this week"
       },
       "self_sufficiency_this_week": {
         "name": "Self-sufficiency this week"
@@ -1056,7 +1056,7 @@
         "name": "Import at base rate this month"
       },
       "immersion_savings_this_month": {
-        "name": "Immersion savings this month"
+        "name": "Immersion solar savings this month"
       },
       "self_sufficiency_this_month": {
         "name": "Self-sufficiency this month"

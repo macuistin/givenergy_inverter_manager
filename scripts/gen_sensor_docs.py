@@ -398,7 +398,10 @@ DESCRIPTIONS: dict[str, str] = {
         "Import cost while no timed rate period was active, so at the base rate. "
         "With no timed rate period set, all import cost."
     ),
-    "immersion_savings_today": "Diverted solar kWh times (current rate minus export rate).",
+    "immersion_savings_today": (
+        "Diverted solar kWh times (current rate minus export rate). It counts solar only, not "
+        "what the heater draws from the grid. See Immersion Cost Today for that."
+    ),
     "saving_vs_grid_today": (
         "House load priced at the rate in force when it ran, minus net import cost "
         "(import cost minus export earnings), plus the value of the change in the energy the "
@@ -730,6 +733,21 @@ RENAMED_SENSORS: tuple[tuple[str, str, str], ...] = (
         "Estimated SoC at Sunrise",
         "Estimated SoC at Sunrise Without a Charge",
     ),
+    (
+        "immersion_savings_yesterday",
+        "Immersion savings yesterday",
+        "Immersion solar savings yesterday",
+    ),
+    (
+        "immersion_savings_this_week",
+        "Immersion savings this week",
+        "Immersion solar savings this week",
+    ),
+    (
+        "immersion_savings_this_month",
+        "Immersion savings this month",
+        "Immersion solar savings this month",
+    ),
 )
 RENAMED_NOTE = (
     "The base rate sensors were renamed because they measure the base rate, the rate that "
@@ -737,10 +755,12 @@ RENAMED_NOTE = (
     "is configured. The two overnight sensors were renamed because night survival read like "
     "an alarm: they tell whether the battery lasts the night. The sunrise estimate was renamed "
     "because it leaves tonight's planned charge out, and a second sensor now gives the "
-    "figure with the charge. In every group the key and the unique ID did not change, so "
+    "figure with the charge. The immersion savings sensors were renamed because they count "
+    "diverted solar energy only, not what the heater draws from the grid, which the "
+    "Immersion Cost sensors show. In every group the key and the unique ID did not change, so "
     "history, statistics and automations carry on. An install made before a rename keeps its "
-    "old entity IDs, which still contain `peak`, `night_survival` or the plain "
-    "`estimated_soc_at_sunrise`. A new install builds entity IDs from the new names."
+    "old entity IDs, which still contain `peak`, `night_survival`, `immersion_savings` or the "
+    "plain `estimated_soc_at_sunrise`. A new install builds entity IDs from the new names."
 )
 RETIRED_NOTE = (
     "These sensors were removed. The integration never writes or advises forced battery "
