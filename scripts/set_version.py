@@ -14,6 +14,10 @@ Usage:
     python scripts/set_version.py --check v0.18.0b1   # exit 1 unless all six equal the tag
     python scripts/set_version.py --check             # exit 1 unless the six agree
     python scripts/set_version.py --tag               # print the tag for the version in the files
+    python scripts/set_version.py --notes v0.18.0     # print that version's changelog section
+
+A final release needs a "## vX.Y.Z" section in CHANGELOG.md. A beta or release candidate
+without one uses the "## Unreleased" section.
 
 Exit codes: 0 done, 1 a place differs or is missing, 2 the argument is not a version.
 """
@@ -127,12 +131,29 @@ def mismatches(expected: str | None, root: Path = ROOT) -> list[str]:
     ]
 
 
+def release_notes(version: str, root: Path = ROOT) -> str | None:
+    """The CHANGELOG.md section to publish for a version, without its heading, or None.
+
+    A beta or release candidate with no section of its own gets the Unreleased one.
+    """
+    text = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    headings = [rf"v{re.escape(version)}"]
+    if re.search(r"(?:a|b|rc)[0-9]+$", version):
+        headings.append("Unreleased")
+    for heading in headings:
+        match = re.search(rf"(?ms)^## {heading}\n(.*?)(?=^## |\Z)", text)
+        if match and match.group(1).strip():
+            return match.group(1).strip()
+    return None
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("version", nargs="?", help="a version or a tag, for example v0.18.0b1")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--check", action="store_true", help="check instead of writing")
     mode.add_argument("--tag", action="store_true", help="print the tag of the files' version")
+    mode.add_argument("--notes", action="store_true", help="print the version's changelog section")
     return parser
 
 
@@ -156,6 +177,16 @@ def _print_tag(root: Path) -> int:
     return status
 
 
+def _notes(version: str | None, root: Path) -> int:
+    clean = normalise(version) if version else None
+    if clean is None:
+        raise VersionError("--notes needs a version or a tag.")
+    if (notes := release_notes(clean, root)) is None:
+        return _report([f"CHANGELOG.md: no section for v{clean}"])
+    print(notes)
+    return 0
+
+
 def _write(version: str, root: Path) -> int:
     clean = normalise(version)
     missing = write_version(clean, root)
@@ -173,6 +204,8 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
             return _print_tag(root)
         if args.check:
             return _check(args.version, root)
+        if args.notes:
+            return _notes(args.version, root)
         if args.version is None:
             parser.error("a version is required unless --check or --tag is given")
         return _write(args.version, root)
