@@ -448,11 +448,11 @@ def test_the_prerelease_workflow_publishes_beta_and_rc_tags_after_checking_the_v
 
     assert set(workflow[True]) == {"push"}
     tags = workflow[True]["push"]["tags"]
-    assert tags == ["v0.19.*b*", "v0.19.*rc*"]
-    # A beta or release candidate of any 0.19 patch release matches. A final tag does not.
-    for tag in ("v0.19.0b1", "v0.19.2b1", "v0.19.2rc1"):
+    assert tags == ["v0.20.*b*", "v0.20.*rc*"]
+    # A beta or release candidate of any 0.20 patch release matches. A final tag does not.
+    for tag in ("v0.20.0b1", "v0.20.2b1", "v0.20.2rc1"):
         assert any(fnmatch.fnmatchcase(tag, pattern) for pattern in tags), tag
-    for tag in ("v0.19.0", "v0.19.1", "v0.20.0b1"):
+    for tag in ("v0.20.0", "v0.20.1", "v0.19.13b1"):
         assert not any(fnmatch.fnmatchcase(tag, pattern) for pattern in tags), tag
     assert "branches" not in workflow[True]["push"]
     assert any(run.startswith('python scripts/set_version.py --check "${GITHUB_REF_NAME}"') for run in runs)
