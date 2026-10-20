@@ -1,5 +1,5 @@
 """
-planned_heating.py: what the scheduled immersion heating plans, in a sentence.
+planned.py: what the scheduled immersion heating plans, in a sentence.
 
 It reads the ready plan (ready.py) and the cheapest window (window.py) and
 changes neither. The sentence says one of these things:
