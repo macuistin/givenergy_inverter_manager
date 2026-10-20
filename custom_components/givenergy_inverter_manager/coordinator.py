@@ -184,7 +184,8 @@ from .core.tariff import (
 )
 from .core.timeutil import elapsed_seconds
 from .core.window_guard import GuardInputs, GuardState, decide_repair, parse_clock
-from .core.write_log import REPLAN_REASON, RETRY_REASON, WINDOW_REPAIR_REASON
+from .core.window_settle import SETTLE_MAX_TRIES, SettleInputs, needs_settling
+from .core.write_log import REPLAN_REASON, RETRY_REASON, SETTLE_REASON, WINDOW_REPAIR_REASON
 from .discovery import (
     EVCharger,
     discover_ev_chargers,
@@ -1009,6 +1010,65 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if result.write:
             self._replan(cfg, ReplanStep(night, result, self._plan_basis(decision), now))
 
+    def _maybe_settle_window(self, data: CoordinatorData, now: datetime) -> None:
+        """Write the plan's own window and target back after a long night's window has closed.
+
+        core/window_settle.py decides. Dry run records what would be written and sends nothing.
+        """
+        night, decision = self._night, data.charge_decision
+        cfg = self._effective_cfg()
+        tariff = build_tariff(cfg)
+        if night is None or decision is None or self._replan_pending or not tariff.rate_periods:
+            return
+        if self._givtcp_frozen or self._givtcp_not_answering:
+            return
+        min_soc = int(cfg.get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC))
+        planned = _cheapest_period(tariff)
+        planned_target = min_soc if decision.skip_charge else decision.target_soc
+        if not needs_settling(
+            SettleInputs(
+                now=now,
+                window=night.window,
+                written_period=night.period,
+                written_target=night.target,
+                planned_period=planned,
+                planned_target=planned_target,
+                override_active=self.override_charge_enabled or self.override_skip_charge,
+                tries=night.settle_tries,
+                last_try=night.settle_last_try,
+            )
+        ):
+            return
+        night.settle_tries += 1
+        night.settle_last_try = now
+        action = (
+            f"the {night.period.start:%H:%M} to {night.period.end:%H:%M} window and "
+            f"{night.target}% target to {planned.start:%H:%M} to {planned.end:%H:%M} "
+            f"and {planned_target}%"
+        )
+        if self.is_dry_run:
+            self._record_skipped(f"Would set back {action}")
+            _LOG.info("DRY RUN: would set back %s", action)
+            night.settle_tries = SETTLE_MAX_TRIES
+            return
+        _LOG.info("The charge window has closed, setting back %s", action)
+        self._audit.note(cfg.get(CONF_TARGET_SOC_ENTITY) or "", action, SETTLE_REASON)
+        self._replan_pending = True
+        self._create_task(self._async_settle_write(cfg, night, planned, planned_target))
+
+    async def _async_settle_write(self, cfg: dict, night, planned, target: int) -> None:
+        """Send the plan's window and target. One success ends the settling for the night."""
+        try:
+            taken = await self._async_apply_charge_target(cfg, target, planned)
+        finally:
+            self._replan_pending = False
+        if not taken:
+            _LOG.warning("The inverter did not take the charge window and target set back")
+            return
+        night.period, night.target = planned, target
+        night.settle_tries = SETTLE_MAX_TRIES
+        self._held_charge.release()
+
     def _maybe_repair_window(self, now: datetime) -> None:
         """Put slot 1 back inside the cheap hours when something else moved it past them.
 
@@ -1589,6 +1649,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._remember_cycle(raw, now)
         self._watch_ev_base_rate(data, raw, now)
         self._maybe_replan(data, now)
+        self._maybe_settle_window(data, now)
         self._maybe_repair_window(now)
         self._check_charge_pause(data, raw)
         self._apply_decisions(data, ev_target_mode, now)

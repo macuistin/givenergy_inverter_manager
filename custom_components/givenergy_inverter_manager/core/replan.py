@@ -81,6 +81,10 @@ class NightState:
     basis: PlanBasis
     replans: int = 0
     late_check_done: bool = False
+    # Tries at putting the plan's own window and target back after this window closed
+    # (core/window_settle.py).
+    settle_tries: int = 0
+    settle_last_try: datetime | None = None
 
     def wrote(self, target: int, basis: PlanBasis, *, replan: bool) -> None:
         """Note a write that took, so the next check compares against it."""
