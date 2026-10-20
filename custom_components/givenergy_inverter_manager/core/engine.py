@@ -118,6 +118,7 @@ from .controller_conflict import ConflictStatus
 from .counter_guard import screen
 from .ev_session import EVSessionLog, EVSessionStep, track_session
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
+from .immersion_solar import SolarOutlook
 from .immersion_window import open_cheapest_window
 from .planned_heating import PlanQuery, describe_planned_heating
 from .repair_summary import RepairIssue
@@ -1182,7 +1183,17 @@ def _ready_plan(cycle: _Cycle) -> ReadyPlan:
             rate_c_per_h=raw.immersion_heating_rate_c_per_h,
             heater_on=raw.immersion_on,
             max_run_hours=_max_run_hours(raw),
+            solar=_solar_outlook(cycle),
         )
+    )
+
+
+def _solar_outlook(cycle: _Cycle) -> SolarOutlook:
+    """Today's solar forecast for the ready-by plan, which waits for the sun when it is good."""
+    return SolarOutlook(
+        cycle.forecast.solar_forecast_kwh_today,
+        cycle.solar_end_minute,
+        cycle.raw.immersion_wattage_w,
     )
 
 
@@ -1220,6 +1231,7 @@ def _set_planned_heating(data: CoordinatorData, cycle: _Cycle) -> None:
         water,
         raw.immersion_on,
         _max_run_hours(raw),
+        _solar_outlook(cycle),
     )
     data.immersion_planned_heating = describe_planned_heating(query)
 

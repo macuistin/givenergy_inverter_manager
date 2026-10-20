@@ -370,6 +370,9 @@ CHARGE_WINDOW_HOLD_LARGE_STEP_MINUTES = 45
 
 # ── Solar / generation parameters ─────────────────────────────────────────────
 SOLAR_SUNRISE_HOUR = 8  # hour of day when solar generation typically starts
+# Ready-by heating waits for the sun when the solar still to come today covers the heater's energy
+# this many times over. House load and the battery take their share first (core/immersion_solar.py).
+IMMERSION_SOLAR_COVER_FACTOR = 3.0
 SOLAR_NOISE_FLOOR_W = 10.0  # W — sensor readings below this are treated as zero
 # The solar day starts once the reading has stayed at or above SOLAR_NOISE_FLOOR_W for this long,
 # and ends once it has stayed below it for as long. At dawn and dusk the reading wanders across the

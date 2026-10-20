@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 
 from ..const import CHARGE_WINDOW_MARGIN, IMMERSION_SWITCH_COOLDOWN_MINUTES
+from .immersion_solar import SOLAR_BAND, SolarOutlook, solar_window
 from .tariff import TariffConfig
 from .timeutil import elapsed_seconds, local_time_on, shift_real
 
@@ -116,12 +117,24 @@ def _boundaries(tariff: TariffConfig, now: datetime, end: datetime) -> list[date
     return sorted(set(points))
 
 
-def rate_segments(tariff: TariffConfig, now: datetime, end: datetime) -> list[RateSegment]:
-    """The time from now to *end*, cut at every tariff boundary, each piece with its rate."""
-    edges = [now, *_boundaries(tariff, now, end), end]
+def rate_segments(
+    tariff: TariffConfig,
+    now: datetime,
+    end: datetime,
+    solar: tuple[datetime, datetime] | None = None,
+) -> list[RateSegment]:
+    """The time from now to *end*, cut at every tariff boundary, each piece with its rate.
+
+    The solar window, when there is one, is cut out too and costs nothing.
+    """
+    cuts = [at for at in (solar or ()) if 0 < elapsed_seconds(now, at) < elapsed_seconds(now, end)]
+    edges = [now, *sorted({*_boundaries(tariff, now, end), *cuts}), end]
     segments = []
     for seg_start, seg_end in zip(edges, edges[1:], strict=False):
         middle = seg_start + (seg_end - seg_start) / 2
+        if solar is not None and solar[0] <= middle <= solar[1]:
+            segments.append(RateSegment(seg_start, seg_end, 0.0, SOLAR_BAND))
+            continue
         period = tariff.get_current_rate(middle)
         segments.append(RateSegment(seg_start, seg_end, period.rate, period.name))
     return segments
@@ -189,10 +202,14 @@ class Placement:
         return [self._start_in(index) for index in self.hours]
 
 
+def place_in(segments: list[RateSegment], needed: float) -> Placement:
+    """Place *needed* heater hours in the cheapest of the given segments."""
+    return Placement(segments, _fill_cheapest_first(segments, needed), needed)
+
+
 def place_hours(tariff: TariffConfig, now: datetime, ready: datetime, needed: float) -> Placement:
     """Place *needed* heater hours in the cheapest segments between now and the ready time."""
-    segments = rate_segments(tariff, now, ready)
-    return Placement(segments, _fill_cheapest_first(segments, needed), needed)
+    return place_in(rate_segments(tariff, now, ready), needed)
 
 
 def hours_to_heat(temp: float, target: float, rate_c_per_h: float) -> float:
@@ -216,6 +233,9 @@ class ReadyInputs:
     # The longest the heater runs for this plan, in hours, None for no limit. The plan is sized to
     # it, and the water is not expected to be ready when it needs longer.
     max_run_hours: float | None = None
+    # Today's solar forecast. When it covers the heating, the sun's hours cost nothing, so the
+    # plan waits for them (core/immersion_solar.py). None without a forecast.
+    solar: SolarOutlook | None = None
 
 
 def plan_ready(inputs: ReadyInputs) -> ReadyPlan:
@@ -229,7 +249,8 @@ def plan_ready(inputs: ReadyInputs) -> ReadyPlan:
         return ReadyPlan(ready.timetz().replace(tzinfo=None), False, True, 0.0)
     cap = inputs.max_run_hours
     needed = full if cap is None else min(full, cap)
-    placed = place_hours(inputs.tariff, now, ready, needed)
+    sun = solar_window(inputs.solar, now, ready, needed)
+    placed = place_in(rate_segments(inputs.tariff, now, ready, sun), needed)
     first = placed.segments[0]
     left_in_first = elapsed_seconds(first.start, first.end)
     slack = left_in_first - placed.hours.get(0, 0.0) * _SECONDS_PER_HOUR
