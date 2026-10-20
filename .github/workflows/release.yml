@@ -1,0 +1,101 @@
+name: Release
+
+# Publishes a GitHub release, which HACS offers as an update. Start it either way:
+# - Actions > Release > Run workflow, entering a version such as 0.20.0. A final version
+#   must be run from main. The run tags that commit as v0.20.0, then publishes the release.
+# - Push a version tag such as v0.20.0.
+# A version with a, b or rc in it (0.20.0b1) publishes a pre-release, which HACS offers under
+# "Show beta versions", and can be run from any branch. The notes are the version's section
+# of CHANGELOG.md, or the Unreleased section for a pre-release that has none. The job fails
+# unless the six places that state the version agree with it. If the release already exists
+# (made on the Releases page, say), its notes are replaced. Restrict tag creation to the
+# maintainer with a tag ruleset, because this runs for whoever can push a matching tag or run
+# the workflow.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, for example 0.20.0 or 0.20.0b1. It must match the six places set_version.py writes."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# A release is never cancelled part way, so a second release waits for the first.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Tag to release
+        id: tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            tag="v${VERSION#v}"
+            if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+((a|b|rc)[0-9]+)?$ ]]; then
+              echo "::error::${VERSION} is not a version. Use 0.20.0, 0.20.0b1 or 0.20.0rc1."
+              exit 1
+            fi
+            if [[ "${GITHUB_REF}" != "refs/heads/main" && ! "${tag}" =~ (a|b|rc)[0-9]+$ ]]; then
+              echo "::error::Run a final release from main, not ${GITHUB_REF_NAME}."
+              exit 1
+            fi
+            # Releasing a version that is already tagged checks and uses the tagged commit
+            if git rev-parse -q --verify "refs/tags/${tag}" > /dev/null; then
+              git checkout -q "${tag}"
+            fi
+          else
+            tag="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+      - name: Tag matches the version in the files
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: python scripts/set_version.py --check "${TAG}"
+      - name: Release notes from the changelog
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: python scripts/set_version.py --notes "${TAG}" > "${RUNNER_TEMP}/notes.md"
+      - name: Create the tag
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/${TAG}" > /dev/null; then
+            echo "${TAG} is already tagged."
+            exit 0
+          fi
+          # A tag pushed with the workflow's token doesn't start this workflow again
+          git tag "${TAG}"
+          git push origin "refs/tags/${TAG}"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if gh release view "${TAG}" > /dev/null 2>&1; then
+            gh release edit "${TAG}" --notes-file "${RUNNER_TEMP}/notes.md"
+            echo "A release for ${TAG} already existed; its notes are now the changelog section."
+            exit 0
+          fi
+          prerelease=""
+          if [[ "${TAG}" =~ (a|b|rc)[0-9]+$ ]]; then prerelease="--prerelease"; fi
+          gh release create "${TAG}" --verify-tag ${prerelease} \
+            --title "${TAG}" --notes-file "${RUNNER_TEMP}/notes.md"
