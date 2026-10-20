@@ -102,7 +102,7 @@ A GivEnergy EV charger is published as a separate device (GivEVC), with `chargin
 
 The inverter has about a million lifetime register writes, so every write goes through one path (`lib/givtcp/writer.py`):
 
-1. Read the entity first. Do not write when it is missing or unavailable, and skip the write when it already holds the value.
+1. Read the entity first. Do not write when it is missing, unavailable or unknown, and skip the write when it already holds the value.
 2. Skip the value last sent to that entity if that was less than five minutes ago. A different value is never held back by an older one.
 3. Call the Home Assistant service once, then read the state back after 2, 4 and 8 seconds. Send again only if none of those reads showed the value, and at most twice in all.
 4. Count each accepted call. The integration logs a warning at 500,000.
@@ -127,7 +127,7 @@ What this integration never writes: Charge Control or Plug and Go on a GivEnergy
 - A select is written with the option the entity lists. GivTCP and other projects spell the pause options differently (`PauseDischarge`, `Pause Discharge`, `Not Paused`), so the wanted option is matched without case, spaces, underscores or hyphens. An option the entity does not offer is refused, not sent.
 - The reserve, the rates and the discharge target are kept inside the `min` and `max` the entity publishes. The reserve never goes below 4.
 
-`lib/givtcp/schedules.py` and `force.py` can also write the discharge (export) schedule, charge slots 2 to 10 and a timed force charge or export. A discharge plan writes its target and window first and switches the schedule on last, and stops at the first failed write. Nothing in the coordinator calls them: they sit on `backend.schedules` and `backend.force`, which neither interface the coordinator uses has, and the coordinator tests fail if either is touched. A window of two times is written end first when it moves later and start first when it moves earlier, so the inverter never holds a gap. `lib/givtcp/README.md` documents the whole client.
+`lib/givtcp/schedules.py` and `force.py` can also write the discharge (export) schedule, charge slots 2 to 10 and a timed force charge or export. A discharge plan writes its target and window first and switches the schedule on last, and stops at the first failed write. Nothing in the coordinator calls them: they sit on `backend.schedules` and `backend.force`, which neither interface the coordinator uses has, and the coordinator tests fail if either is touched. A window of two times is written end first when it moves later and start first when it moves earlier, so the inverter never holds a gap. A discharge slot is written with its schedule switched off, and the schedule goes back on only once the slot reads back, because that mixed window can be wider than either the old or the new one. The schedule stays off if the slot is not confirmed, and a slot is not written at all when the schedule switch cannot be read. A value that is sent but never reads back is held for a minute before the same value is sent again, so a host that writes every cycle does not send every cycle. The battery mode select for this integration takes the modes that never export; the Timed Export mode is selected only through `backend.schedules.apply_battery_mode`. `lib/givtcp/README.md` documents the whole client.
 
 The client also reads the inverter's clock (`invertor_time`) and reports how far it is from the host's (`clock_skew_s`). A drifted clock moves the charge window. Nothing warns on it yet.
 

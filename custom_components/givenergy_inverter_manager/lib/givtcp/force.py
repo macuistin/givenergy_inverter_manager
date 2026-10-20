@@ -61,7 +61,7 @@ class GivTCPForce:
         return usable(self._get_state(select)) if select else None
 
     async def start(self, cfg: Mapping[str, Any], force: Force, minutes: int) -> WriteStatus:
-        """Force for at most *minutes*. False when no entity can hold a request that short.
+        """Force for at most *minutes*. REFUSED when no entity can hold a request that short.
 
         A request longer than every preset goes to the minutes entity when it can hold it.
         Otherwise the longest preset that fits is used, so a force is never longer than asked.

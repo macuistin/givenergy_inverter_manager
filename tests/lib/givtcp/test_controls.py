@@ -9,12 +9,15 @@ from types import SimpleNamespace
 import pytest
 
 from custom_components.givenergy_inverter_manager.lib.givtcp import (
+    BatteryMode,
     BatteryPause,
     GivTCPPorts,
+    SelfUseMode,
     controls,
     make_backend,
 )
 from custom_components.givenergy_inverter_manager.lib.givtcp.keys import KEY_INVERTER_SERIAL
+from custom_components.givenergy_inverter_manager.lib.givtcp.status import WriteStatus
 
 PREFIX = "givtcp_sa1"
 CFG = {KEY_INVERTER_SERIAL: "SA1", "target_soc_entity": f"number.{PREFIX}_target_soc"}
@@ -214,18 +217,29 @@ async def test_the_battery_mode_is_read_and_written():
     assert bus.written == [(BATTERY_MODE, "Timed Demand")]
 
 
-async def test_an_export_mode_is_written_like_any_other_because_the_client_has_no_policy():
+@pytest.mark.parametrize("mode", ["Timed Export", "timed_export", BatteryMode.TIMED_EXPORT, "Turbo"])
+async def test_the_controls_never_select_an_export_mode_however_it_is_spelt(mode):
     bus = _pause_bus()
 
-    assert await _backend(bus).apply_battery_mode(CFG, "timed export")
-    assert bus.written == [(BATTERY_MODE, "Timed Export")]
-
-
-async def test_an_unknown_mode_is_refused():
-    bus = _pause_bus()
-
-    assert not (await _backend(bus).apply_battery_mode(CFG, "Turbo"))
+    with pytest.raises(ValueError, match="never exports"):
+        await _backend(bus).apply_battery_mode(CFG, mode)
     assert bus.calls == []
+
+
+async def test_a_mode_the_entity_does_not_offer_is_refused():
+    bus = _pause_bus(**{BATTERY_MODE: _state("Eco", options=["Eco"])})
+
+    assert await _backend(bus).apply_battery_mode(CFG, SelfUseMode.TIMED_DEMAND) is (
+        WriteStatus.REFUSED
+    )
+    assert bus.calls == []
+
+
+async def test_the_schedules_select_the_export_mode_for_a_host_that_asks_for_it():
+    bus = _pause_bus()
+
+    assert await _backend(bus).schedules.apply_battery_mode(CFG, BatteryMode.TIMED_EXPORT)
+    assert bus.written == [(BATTERY_MODE, "Timed Export")]
 
 
 @pytest.mark.parametrize("value", ["unavailable", "unknown"])

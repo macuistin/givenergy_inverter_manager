@@ -126,6 +126,33 @@ def clock_skew_s(get_state: GetState, cfg: Mapping[str, Any], now: datetime) -> 
 # ── Writes ────────────────────────────────────────────────────────────────────
 
 
+def self_use_mode(mode: str) -> SelfUseMode:
+    """The SelfUseMode that *mode* spells, without regard to case, spaces or underscores.
+
+    Raises ValueError for any other text, "Timed Export" among it.
+    """
+    for known in SelfUseMode:
+        if squash(known.value) == squash(str(mode)):
+            return known
+    raise ValueError(f"{mode!r} is not a battery mode that never exports")
+
+
+async def write_battery_mode(
+    writer: GivTCPWriter,
+    get_state: GetState,
+    cfg: Mapping[str, Any],
+    mode: BatteryMode | SelfUseMode,
+) -> WriteStatus:
+    """Select *mode* with the option the entity lists. REFUSED when it is not offered."""
+    entity = control_entity(cfg, "select", MODE_SUFFIX)
+    if not entity:
+        return WriteStatus.REFUSED
+    option = pick_option(get_state(entity), mode.value)
+    if option is None:
+        return WriteStatus.REFUSED
+    return await writer.set_select(entity, option, "battery mode")
+
+
 class GivTCPControls:
     """The writes beside the charge write, over one verified writer."""
 
@@ -133,20 +160,16 @@ class GivTCPControls:
         self._writer = writer
         self._get_state = get_state
 
-    async def apply_battery_mode(
-        self, cfg: Mapping[str, Any], mode: BatteryMode | SelfUseMode | str
-    ) -> WriteStatus:
-        """Select a battery mode such as Eco. False when the entity does not offer it.
+    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: SelfUseMode) -> WriteStatus:
+        """Select a battery mode that never exports, such as Eco.
 
-        Timed Export is a mode like any other here. Whether to export is the host's decision.
+        *mode* is a SelfUseMode, or text that spells one (case, spaces and underscores do not
+        matter). Anything else, including "Timed Export", raises ValueError before a read or a
+        write, so an export mode cannot arrive through this method however the caller typed it.
+        `GivTCPSchedules.apply_battery_mode` takes a BatteryMode and is the only way to select
+        the exporting one. REFUSED when the entity does not offer the mode.
         """
-        entity = control_entity(cfg, "select", MODE_SUFFIX)
-        if not entity:
-            return WriteStatus.REFUSED
-        option = pick_option(self._get_state(entity), str(mode))
-        if option is None:
-            return WriteStatus.REFUSED
-        return await self._writer.set_select(entity, option, "battery mode")
+        return await write_battery_mode(self._writer, self._get_state, cfg, self_use_mode(mode))
 
     async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> WriteStatus:
         """Set the battery power reserve, kept inside the limits the entity publishes."""
@@ -185,8 +208,8 @@ class GivTCPControls:
         """Pause the battery for a window, or end the pause with BatteryPause.OFF.
 
         The window is written before the mode, so a pause never starts on an old window. Ending
-        a pause writes the mode only. False when an entity is missing, the mode is not offered,
-        the window is empty or a write was not taken. Stops at the first write that fails.
+        a pause writes the mode only. REFUSED when an entity is missing, the mode is not offered
+        or the window is empty. Stops at the first write that is not taken.
         """
         prefix = device_prefix(cfg)
         if not prefix:
@@ -259,7 +282,8 @@ class ClockWriter:
     ) -> WriteStatus:
         """Write a window's start and end, the end first when the window moves later.
 
-        See windows.py for why. Stops at the first write that is not taken.
+        See windows.py for why. Stops at a write that was refused or failed. The status is the first
+        one that is not known to hold, else WRITTEN if either end was sent, else ALREADY_SET.
         """
         starts, ends = entities
         start, end = window
@@ -270,12 +294,16 @@ class ClockWriter:
         parts = [(first, f"{name} start"), (second, f"{name} end")]
         if end_first(self.current_start(starts), start):
             parts.reverse()
-        status = WriteStatus.ALREADY_SET
+        statuses: list[WriteStatus] = []
         for target, label in parts:
             status = await self._send(target, label)
             if not status:
-                break
-        return status
+                return status
+            statuses.append(status)
+        unsure = next((s for s in statuses if not s.confirmed), None)
+        return unsure or (
+            WriteStatus.WRITTEN if WriteStatus.WRITTEN in statuses else WriteStatus.ALREADY_SET
+        )
 
 
 class _Text:

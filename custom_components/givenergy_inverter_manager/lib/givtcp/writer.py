@@ -39,10 +39,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Protocol
 
-from ._entity import EntityState, GetState
+from ._entity import EntityState, GetState, usable
 from .defaults import (
     GIVTCP_MAX_WRITE_RETRIES,
     GIVTCP_MIN_WRITE_INTERVAL_S,
+    GIVTCP_UNCONFIRMED_COOLDOWN_S,
     GIVTCP_WRITE_LIFETIME_WARN,
     GIVTCP_WRITE_RETRY_SLEEP_S,
 )
@@ -161,7 +162,7 @@ def switch_write(entity_id: str, wanted: SwitchState, name: str, step: int) -> V
     wants_on = wanted is SwitchState.ON
 
     def is_wanted(state: EntityState | None) -> bool:
-        # A missing or unavailable switch reads as off.
+        # write_verified has refused a switch that is missing, unavailable or unknown by now.
         return (state is not None and state.state == "on") == wants_on
 
     return VerifiedWrite(
@@ -314,17 +315,20 @@ class GivTCPWriter:
     async def write_verified(self, write: VerifiedWrite) -> WriteStatus:
         """Write once, serialised, and confirm by reading the state back.
 
-        REFUSED comes back without a call when the entity is missing or unavailable, and
+        REFUSED comes back without a call when the entity is missing, unavailable or unknown, and
         ALREADY_SET when it holds the value. COOLDOWN means the last value sent to the entity
         was this one, less than the cooldown ago. A send that no poll confirms is UNCONFIRMED:
-        it is logged, reported to the confirmation listener and its cooldown is released, so
-        the next call can try again.
+        it is logged, reported to the confirmation listener and held to a short cooldown, so
+        the next call can try again soon but a host that calls every cycle cannot send every cycle.
         """
         async with self._lock:
             current = self._get_state(write.entity_id)
-            if current is None or str(current.state) == "unavailable":
-                _LOG.warning("%s: %s is missing or unavailable, not writing", write.name,
-                             write.entity_id)
+            if usable(current) is None:
+                _LOG.warning(
+                    "%s: %s is missing, unavailable or unknown, not writing",
+                    write.name,
+                    write.entity_id,
+                )
                 return WriteStatus.REFUSED
             if write.matches(current):
                 _LOG.debug("%s: already %s, skipping write", write.name, write.shown)
@@ -353,7 +357,7 @@ class GivTCPWriter:
             write.shown,
             sends,
         )
-        self.release_cooldown(write)
+        self.shorten_cooldown(write)
         self._confirmations.not_confirmed(write)
         return WriteStatus.UNCONFIRMED
 
@@ -452,6 +456,15 @@ class GivTCPWriter:
     def is_unconfirmed(self, write: VerifiedWrite) -> bool:
         """True when the entity does not hold the value now, after the writer's own read-backs."""
         return not write.matches(self._get_state(write.entity_id))
+
+    def shorten_cooldown(self, write: VerifiedWrite) -> None:
+        """After a send that never read back, hold the value for a short cooldown, not the full one.
+
+        The value did not take, so waiting the full interval would be wrong. Sending it at once on
+        every call would spend two register writes each time against an entity that never changes.
+        """
+        held = max(GIVTCP_MIN_WRITE_INTERVAL_S - GIVTCP_UNCONFIRMED_COOLDOWN_S, 0)
+        self.last_write_time[write.cooldown_key] = time.monotonic() - held
 
     def release_cooldown(self, write: VerifiedWrite) -> None:
         """Let the same value be sent again at once, for a retry of a write that did not take."""

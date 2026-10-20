@@ -19,6 +19,9 @@ from custom_components.givenergy_inverter_manager.lib.givtcp import (
     SlotKind,
     make_backend,
 )
+from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
+    GIVTCP_UNCONFIRMED_COOLDOWN_S,
+)
 from custom_components.givenergy_inverter_manager.lib.givtcp.force import option_minutes
 from custom_components.givenergy_inverter_manager.lib.givtcp.keys import KEY_INVERTER_SERIAL
 from custom_components.givenergy_inverter_manager.lib.givtcp.status import WriteStatus
@@ -247,12 +250,15 @@ async def test_a_window_whose_start_does_not_move_only_writes_the_end():
     assert bus.written == [(C2_END, "03:00:00")]
 
 
-async def test_a_window_whose_current_start_is_unreadable_is_written_start_first():
+async def test_a_window_whose_current_start_is_unknown_sends_nothing():
     bus = _slot_bus("unknown", "02:00:00")
 
-    assert await _backend(bus).schedules.apply_slot(CFG, SlotKind.CHARGE, 2, (time(3, 0), time(4, 0)))
+    status = await _backend(bus).schedules.apply_slot(
+        CFG, SlotKind.CHARGE, 2, (time(3, 0), time(4, 0))
+    )
 
-    assert bus.written[0][0] == C2_START
+    assert status is WriteStatus.REFUSED
+    assert bus.calls == []
 
 
 async def test_a_window_with_one_end_the_select_cannot_hold_sends_nothing():
@@ -383,13 +389,120 @@ async def test_a_force_started_cancelled_and_started_again_is_sent_the_third_tim
     assert bus.states[FORCE_EXPORT].state == "30 minutes"
 
 
-async def test_a_write_that_never_reads_back_is_unconfirmed_and_can_be_tried_again():
+async def test_a_write_that_never_reads_back_is_unconfirmed_then_held_for_a_short_cooldown():
     bus = _bus()
     bus.refuse.add(SCHEDULE)
     schedules = _schedules(bus)
 
     first = await schedules.set_discharge_schedule(CFG, enabled=True)
     bus.refuse.clear()
-    second = await schedules.set_discharge_schedule(CFG, enabled=True)
+    held = await schedules.set_discharge_schedule(CFG, enabled=True)
+    for key in schedules._writer.last_write_time:
+        schedules._writer.last_write_time[key] -= GIVTCP_UNCONFIRMED_COOLDOWN_S
+    again = await schedules.set_discharge_schedule(CFG, enabled=True)
 
-    assert (first, second) == (WriteStatus.UNCONFIRMED, WriteStatus.WRITTEN)
+    assert (first, held, again) == (
+        WriteStatus.UNCONFIRMED,
+        WriteStatus.COOLDOWN,
+        WriteStatus.WRITTEN,
+    )
+
+
+async def test_an_unknown_discharge_switch_is_refused_not_read_as_off():
+    bus = _bus(**{SCHEDULE: _state("unknown")})
+
+    status = await _backend(bus).schedules.stop_discharge(CFG)
+
+    assert status is WriteStatus.REFUSED
+    assert not status.confirmed
+    assert bus.calls == []
+
+
+# ── A discharge slot on a schedule that is running ────────────────────────────
+
+
+def _live_slot_bus(switch: str) -> _Bus:
+    return _bus(
+        **{
+            SCHEDULE: _state(switch),
+            D_START: _state("17:00:00", options=TIMES),
+            D_END: _state("18:00:00", options=TIMES),
+        }
+    )
+
+
+async def test_a_discharge_slot_on_a_live_schedule_is_written_with_the_schedule_off():
+    bus = _live_slot_bus("on")
+
+    status = await _backend(bus).schedules.apply_slot(
+        CFG, SlotKind.DISCHARGE, 1, (time(18, 0), time(19, 0))
+    )
+
+    assert status is WriteStatus.WRITTEN
+    assert bus.written == [
+        (SCHEDULE, "off"),
+        (D_END, "19:00:00"),
+        (D_START, "18:00:00"),
+        (SCHEDULE, "on"),
+    ]
+
+
+async def test_a_discharge_slot_on_a_schedule_that_is_off_leaves_the_switch_alone():
+    bus = _live_slot_bus("off")
+
+    await _backend(bus).schedules.apply_slot(
+        CFG, SlotKind.DISCHARGE, 1, (time(18, 0), time(19, 0))
+    )
+
+    assert SCHEDULE not in [entity for entity, _ in bus.written]
+
+
+async def test_a_slot_that_already_holds_the_window_does_not_touch_the_schedule():
+    bus = _live_slot_bus("on")
+
+    status = await _backend(bus).schedules.apply_slot(
+        CFG, SlotKind.DISCHARGE, 1, (time(17, 0), time(18, 0))
+    )
+
+    assert status is WriteStatus.ALREADY_SET
+    assert bus.calls == []
+
+
+async def test_the_schedule_stays_off_when_the_slot_is_not_taken():
+    bus = _live_slot_bus("on")
+    bus.refuse.add(D_END)
+
+    status = await _backend(bus).schedules.apply_slot(
+        CFG, SlotKind.DISCHARGE, 1, (time(18, 0), time(19, 0))
+    )
+
+    assert status is WriteStatus.UNCONFIRMED
+    assert bus.states[SCHEDULE].state == "off"
+
+
+async def test_a_slot_is_refused_when_the_schedule_switch_cannot_be_read():
+    bus = _live_slot_bus("unknown")
+
+    status = await _backend(bus).schedules.apply_slot(
+        CFG, SlotKind.DISCHARGE, 1, (time(18, 0), time(19, 0))
+    )
+
+    assert status is WriteStatus.REFUSED
+    assert bus.calls == []
+
+
+async def test_clearing_a_discharge_slot_on_a_live_schedule_also_switches_it_off_and_on():
+    bus = _live_slot_bus("on")
+
+    assert await _backend(bus).schedules.clear_slot(CFG, SlotKind.DISCHARGE, 1)
+
+    assert bus.written[0] == (SCHEDULE, "off")
+    assert bus.written[-1] == (SCHEDULE, "on")
+
+
+async def test_a_charge_slot_is_written_without_touching_the_discharge_schedule():
+    bus = _bus(**{SCHEDULE: _state("on")})
+
+    await _backend(bus).schedules.apply_slot(CFG, SlotKind.CHARGE, 2, (time(1, 0), time(2, 0)))
+
+    assert SCHEDULE not in [entity for entity, _ in bus.written]

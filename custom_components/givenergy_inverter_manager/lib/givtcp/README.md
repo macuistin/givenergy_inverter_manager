@@ -67,7 +67,7 @@ await backend.apply_battery_pause(cfg, BatteryPause.DISCHARGE, time(23, 30), tim
 Every write goes through `GivTCPWriter`, because a GivEnergy inverter has about a million
 lifetime register writes:
 
-1. Read the entity first. Refuse the write when it is missing or unavailable, and skip it when it
+1. Read the entity first. Refuse the write when it is missing, unavailable or unknown, and skip it when it
    already holds the value.
 2. Skip the value last sent to that entity if that was less than five minutes ago. A different
    value is never held back by an older one, so on, off, on sends all three.
@@ -77,7 +77,7 @@ lifetime register writes:
    host kept, and `GivTCPWriter.tuning` (`WriteTuning`) sets the sends, reads and delay.
 
 A read-back that never matches returns `UNCONFIRMED` (GivTCP can be slow to publish). The
-cooldown is released so the next call can try again, and a confirmation listener hears about it,
+cooldown is cut to a minute (`GIVTCP_UNCONFIRMED_COOLDOWN_S`), so the next call can try again soon and a host that writes every cycle still sends only once a minute, and a confirmation listener hears about it,
 so a host can raise a repair. Writes are serialised.
 
 Beyond the writer, the client follows these rules in every write:
@@ -100,10 +100,17 @@ Beyond the writer, the client follows these rules in every write:
   compared round the clock. If either end cannot be written (the select does not list the time,
   or lists no options), nothing is sent. The one gap left is the short wait between the two
   writes, which `windows.py` explains.
+- **A live discharge schedule is switched off around a slot change.** The mixed window can be
+  wider than the old and the new one, and a discharge slot may be exporting. So `apply_slot` and
+  `clear_slot` on a discharge slot switch a schedule that is on off first and back on once the
+  slot reads back. If the slot is not confirmed the schedule stays off. If the switch cannot be
+  read (`unknown` or `unavailable`) nothing is written. A slot that already holds the window is
+  not touched. A device with no schedule switch is written as it is.
 - **A discharge plan does not change the battery mode.** GivTCP follows the discharge slots in
   a timed mode, and which mode that is has not been checked against GivTCP. After a plan, the
-  host sets the mode itself with `backend.apply_battery_mode(BatteryMode.TIMED_EXPORT)`, and sets
-  it back afterwards. This integration's interface takes `SelfUseMode`, which has no export mode.
+  host sets the mode itself with
+  `backend.schedules.apply_battery_mode(cfg, BatteryMode.TIMED_EXPORT)`, and sets it back
+  afterwards. This integration's interface takes `SelfUseMode`, which has no export mode.
 - **Never longer than asked.** A force that no preset or minutes entity can hold at that length
   is refused.
 
@@ -127,7 +134,8 @@ window)`, `clear_slot`. Reads: `read_slot`, `read_discharge_target`,
 
 The client writes what it is asked to. Whether to export is the host's decision. This
 integration never exports, so its coordinator is typed against `InverterBackend` and
-`InverterControls` only. `InverterControls.apply_battery_mode` takes `SelfUseMode`, and the
+`InverterControls` only. `InverterControls.apply_battery_mode` takes `SelfUseMode`, and text that does not spell one
+("Timed Export" among it) raises `ValueError` before anything is read or written. The
 discharge schedule, the extra slots and the timed force are reached through
 `backend.schedules` and `backend.force`, which no interface in `inverter/backend.py` has. The
 rule is held at the integration's call sites: every coordinator test runs behind a wrapper

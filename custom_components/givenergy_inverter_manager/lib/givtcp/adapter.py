@@ -38,7 +38,7 @@ from .keys import (
     KEY_INVERTER_SERIAL,
     KEY_TARGET_SOC_ENTITY,
 )
-from .model import BatteryMode, BatteryPause, SelfUseMode
+from .model import BatteryPause, SelfUseMode
 from .reader import GivTCPReader
 from .schedules import GivTCPSchedules
 from .status import WriteStatus
@@ -153,9 +153,7 @@ class GivTCPBackend:
     def clock_skew_s(self, cfg: Mapping[str, Any], now: datetime) -> float | None:
         return clock_skew_s(self._get_state, cfg, now)
 
-    async def apply_battery_mode(
-        self, cfg: Mapping[str, Any], mode: BatteryMode | SelfUseMode | str
-    ) -> WriteStatus:
+    async def apply_battery_mode(self, cfg: Mapping[str, Any], mode: SelfUseMode) -> WriteStatus:
         return await self.controls.apply_battery_mode(cfg, mode)
 
     async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> WriteStatus:

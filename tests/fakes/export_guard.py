@@ -26,7 +26,7 @@ def _public(cls: type) -> set[str]:
 # The client's own names, less the ones the integration's interfaces share with it.
 _FORBIDDEN = (
     _public(GivTCPSchedules) | _public(GivTCPForce) | {"schedules", "force", "controls"}
-)
+) - {"apply_battery_mode"}  # the mode method is shared, and checked by its argument below
 _SELF_USE = {mode.value for mode in SelfUseMode}
 
 

@@ -20,11 +20,11 @@ class WriteStatus(Enum):
     WRITTEN = "written"
     """Sent, and the read-back showed the value."""
     UNCONFIRMED = "unconfirmed"
-    """Sent, but every read-back showed something else. The cooldown is released for a retry."""
+    """Sent, but every read-back showed something else. A short cooldown holds the value."""
     COOLDOWN = "cooldown"
     """The same value was sent to this entity inside the cooldown, so nothing was sent."""
     REFUSED = "refused"
-    """Nothing was sent: the entity is missing or unavailable, or the request cannot be met."""
+    """Nothing was sent: the entity is missing, unavailable or unknown, or cannot take it."""
     FAILED = "failed"
     """The service call raised, or the entity vanished after it."""
 

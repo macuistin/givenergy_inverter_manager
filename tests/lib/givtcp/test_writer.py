@@ -17,6 +17,7 @@ from custom_components.givenergy_inverter_manager.core.write_log import WriteRec
 from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
     GIVTCP_MAX_WRITE_RETRIES,
     GIVTCP_MIN_WRITE_INTERVAL_S,
+    GIVTCP_UNCONFIRMED_COOLDOWN_S,
     GIVTCP_WRITE_LIFETIME_WARN,
 )
 from custom_components.givenergy_inverter_manager.lib.givtcp.status import WriteStatus
@@ -225,11 +226,26 @@ class TestCooldown:
             assert await writer.set_number("number.n", value, "n") is WriteStatus.WRITTEN
         assert [c[2]["value"] for c in bus.calls] == [80, 60, 80]
 
-    async def test_an_unconfirmed_write_can_be_retried_at_once(self, writer, bus):
+    async def test_an_unconfirmed_write_is_held_for_a_short_cooldown_not_the_full_one(
+        self, writer, bus
+    ):
         bus.settle_on = None
         assert await writer.set_number("number.n", 80, "n") is WriteStatus.UNCONFIRMED
         bus.settle_on = 1
+        sent = len(bus.calls)
+
+        assert await writer.set_number("number.n", 80, "n") is WriteStatus.COOLDOWN
+        assert len(bus.calls) == sent  # a host that calls every cycle sends nothing more
+
+        for key in writer.last_write_time:
+            writer.last_write_time[key] -= GIVTCP_UNCONFIRMED_COOLDOWN_S
         assert await writer.set_number("number.n", 80, "n") is WriteStatus.WRITTEN
+
+    async def test_an_unknown_entity_is_refused_like_an_unavailable_one(self, writer, bus):
+        bus.states["number.n"] = _State("unknown")
+
+        assert await writer.set_number("number.n", 80, "n") is WriteStatus.REFUSED
+        assert bus.calls == []
 
     async def test_different_value_inside_the_window_is_written(self, writer, bus):
         await writer.set_number("number.n", 80, "n")
