@@ -2,7 +2,7 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.20.0
 
 **Added**
 - A **Longest immersion run** setting in the hot water options, 60 minutes by default, 0 for no limit. A scheduled immersion run, in the cheapest window or for a ready-by time, stops once the heater has been on for that long, even if the water has not reached its target, and does not start again for the same window or ready time. The ready-by plan is sized to it, so a run that needs longer starts that long before the ready time, and the water is not expected to be ready in full. Solar surplus heating is not limited. The minute count is held in memory, so a restart of Home Assistant starts it again. See [Scheduled immersion heating](docs/concepts.md#scheduled-immersion-heating).
