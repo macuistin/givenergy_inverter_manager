@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import fnmatch
 import json
 import re
 import sys
@@ -141,9 +140,9 @@ def test_every_workflow_has_read_only_permissions_and_cancels_superseded_pr_runs
         workflow = yaml.safe_load(path.read_text())
 
         assert workflow["permissions"] == {"contents": "read"}, path.name
-        assert workflow["concurrency"]["cancel-in-progress"] == (
-            "${{ github.event_name == 'pull_request' }}"
-        ), path.name
+        # A release is never cancelled part way, so a second one waits for the first
+        expected = False if path.name == "release.yml" else "${{ github.event_name == 'pull_request' }}"
+        assert workflow["concurrency"]["cancel-in-progress"] == expected, path.name
 
 
 def test_python_jobs_cache_pip():
@@ -429,7 +428,7 @@ def test_no_python_package_sits_outside_the_integration_where_hacs_would_not_shi
     assert stray == []
 
 
-def test_only_the_prerelease_workflow_can_write_and_only_at_job_level():
+def test_only_the_release_workflow_can_write_and_only_at_job_level():
     for path in sorted(_WORKFLOWS.glob("*.yml")):
         workflow = yaml.safe_load(path.read_text())
         writers = [
@@ -438,29 +437,50 @@ def test_only_the_prerelease_workflow_can_write_and_only_at_job_level():
             if (job.get("permissions") or {}).get("contents") == "write"
         ]
 
-        assert writers == (["prerelease"] if path.name == "prerelease.yml" else []), path.name
+        assert writers == (["release"] if path.name == "release.yml" else []), path.name
 
 
-def test_the_prerelease_workflow_publishes_beta_and_rc_tags_after_checking_the_version():
-    workflow = _workflow("prerelease.yml")
-    job = workflow["jobs"]["prerelease"]
-    runs = [step.get("run", "") for step in job["steps"]]
+def _release_runs() -> list[str]:
+    return [step.get("run", "") for step in _workflow("release.yml")["jobs"]["release"]["steps"]]
 
-    assert set(workflow[True]) == {"push"}
-    tags = workflow[True]["push"]["tags"]
-    assert tags == ["v0.19.*b*", "v0.19.*rc*"]
-    # A beta or release candidate of any 0.19 patch release matches. A final tag does not.
-    for tag in ("v0.19.0b1", "v0.19.2b1", "v0.19.2rc1"):
-        assert any(fnmatch.fnmatchcase(tag, pattern) for pattern in tags), tag
-    for tag in ("v0.19.0", "v0.19.1", "v0.20.0b1"):
-        assert not any(fnmatch.fnmatchcase(tag, pattern) for pattern in tags), tag
-    assert "branches" not in workflow[True]["push"]
-    assert any(run.startswith('python scripts/set_version.py --check "${GITHUB_REF_NAME}"') for run in runs)
-    publish = next(run for run in runs if "gh release create" in run)
-    assert "--prerelease" in publish
-    assert "--verify-tag" in publish
-    check_index = next(i for i, run in enumerate(runs) if "set_version.py" in run)
-    assert check_index < runs.index(publish)
+
+def test_the_release_workflow_starts_from_a_version_tag_or_by_hand():
+    triggers = _workflow("release.yml")[True]
+
+    assert set(triggers) == {"push", "workflow_dispatch"}
+    # One pattern for every release line, so it never needs moving at a release
+    assert triggers["push"]["tags"] == ["v[0-9]+.[0-9]+.[0-9]+*"]
+    assert "branches" not in triggers["push"]
+    assert triggers["workflow_dispatch"]["inputs"]["version"]["required"] is True
+
+
+def test_the_release_workflow_checks_the_version_and_the_notes_before_it_tags_or_publishes():
+    runs = _release_runs()
+    workflow = (_WORKFLOWS / "release.yml").read_text()
+
+    check = next(i for i, run in enumerate(runs) if "set_version.py --check" in run)
+    notes = next(i for i, run in enumerate(runs) if "set_version.py --notes" in run)
+    tag = next(i for i, run in enumerate(runs) if "git push origin" in run)
+    publish = next(i for i, run in enumerate(runs) if "gh release create" in run)
+    assert check < notes < tag < publish
+    assert "--verify-tag" in runs[publish]
+    assert "--notes-file" in runs[publish]
+    # The typed version reaches the shell through env, never interpolated into a script
+    assert "VERSION: ${{ inputs.version }}" in workflow
+    assert workflow.count("${{ inputs.version }}") == 1
+
+
+def test_a_final_release_by_hand_must_run_from_main_and_a_pre_release_may_not():
+    run = next(run for run in _release_runs() if "workflow_dispatch" in run)
+
+    assert 'GITHUB_REF}" != "refs/heads/main" && ! "${tag}" =~ (a|b|rc)[0-9]+$' in run
+
+
+def test_every_pre_release_version_publishes_a_pre_release():
+    publish = next(run for run in _release_runs() if "gh release create" in run)
+
+    assert '=~ (a|b|rc)[0-9]+$ ]]; then prerelease="--prerelease"' in publish
+    assert "${prerelease}" in publish
 
 
 def test_workflow_actions_are_pinned_to_a_major_version_tag_like_the_others():
