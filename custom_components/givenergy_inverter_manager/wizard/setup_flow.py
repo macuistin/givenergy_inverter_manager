@@ -38,7 +38,7 @@ from ..const import (
 from ..core.system_text import describe
 from ..core.wizard_changes import setup_summary
 from ..core.wizard_model import SETUP_PAGES, Detected, Mode, PageContext, Validation
-from ..core.wizard_pages import WIRING_REQUIRED, missing_wiring
+from ..core.wizard_pages import WIRING_REQUIRED, missing_wiring, unavailable_wiring
 from ..core.wizard_tariff import (
     clean_bill,
     clean_tariff,
@@ -195,13 +195,10 @@ class SetupSteps(WizardPages):
         )
         return vol.Schema(fields)
 
-    def _show_system(self, user_input: dict[str, Any] | None = None) -> Any:
-        schema = self._system_schema()
-        if user_input is not None:
-            schema = self.add_suggested_values_to_schema(schema, user_input)  # type: ignore[attr-defined]
+    def _show_system(self) -> Any:
         return self.async_show_form(  # type: ignore[attr-defined]
             step_id="system",
-            data_schema=schema,
+            data_schema=self._system_schema(),
             last_step=False,
             description_placeholders={"found": self._found_text(), "progress": self._progress()},
         )
@@ -273,7 +270,9 @@ class SetupSteps(WizardPages):
         """The five inverter entities, picked by hand."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            errors = missing_wiring(user_input)
+            errors = missing_wiring(user_input) or unavailable_wiring(
+                user_input, states_by_id(self.hass)
+            )
             if not errors:
                 serial = self._partial.serial if self._partial else MANUAL_SERIAL
                 found = wiring_from(self._partial) if self._partial else {}

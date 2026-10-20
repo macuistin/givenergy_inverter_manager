@@ -7,20 +7,24 @@ rules:
   appropriate-polling: done    # 30s UPDATE_INTERVAL_SECONDS, fits the use case
   brands: done                 # icon.png and logo.png in brand/
   common-modules: done         # coordinator.py, const.py, rules.py
-  config-flow-test-coverage: todo  # the wizard rewrite has tests for every page and every combination of ticked pages in both suites, but coverage of the wizard package has not been measured
+  config-flow-test-coverage: done  # config_flow.py, config_helpers.py and every file in wizard/ are at 100% line coverage in the end-to-end suite (tests/ha_e2e, pytest --cov)
   config-flow: done            # setup wizard (your system with a checklist, tariff, tariff rates, forecast, hot water, confirm) with GivTCP, EV charger and forecast sensor discovery
   dependency-transparency: done  # requirements: [] — relies only on HA built-ins
   docs-actions: done           # docs/actions.md documents all six actions
+  docs-conditions:
+    status: exempt
+    comment: The integration provides no automation conditions, so there is nothing to document
   docs-high-level-description: done
   docs-installation-instructions: done
   docs-removal-instructions: done
+  docs-triggers:
+    status: exempt
+    comment: The integration provides no automation triggers, so there is nothing to document
   entity-event-setup: done     # time listeners registered in async_on_unload
   entity-unique-id: done       # all entities have unique_id via entry.entry_id + key
   has-entity-name: done        # _attr_has_entity_name = True on all entities
   runtime-data: done           # entry.runtime_data = coordinator
-  test-before-configure:
-    status: exempt
-    comment: No network connection to test — integration reads GivTCP HA entities, not a remote device
+  test-before-configure: done  # setup and reconfigure refuse an inverter entity that does not exist or reads unavailable (unavailable_wiring), before any entry is created
   test-before-setup: done      # async_config_entry_first_refresh raises ConfigEntryNotReady
   unique-config-entry: done    # async_set_unique_id(inverter.serial) in config flow
 

@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Changed**
+- The setup screen that asks you to pick the five inverter entities by hand now checks them. It refuses an entity that does not exist or reads unavailable and asks you to choose again. Before, it only checked that each field was filled in, and a wrong choice showed up later as an inverter that would not load. Reconfigure already did this.
+
 ## v0.20.0
 
 **Added**
