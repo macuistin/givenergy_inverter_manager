@@ -60,7 +60,8 @@ from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccum
 from custom_components.givenergy_inverter_manager.core.window_guard import GuardState
 from custom_components.givenergy_inverter_manager.immersion_actuator import ImmersionActuator
 from custom_components.givenergy_inverter_manager.inverter.givtcp import GivTCPPorts, make_backend
-from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import (
+from custom_components.givenergy_inverter_manager.lib.givtcp.status import WriteStatus
+from custom_components.givenergy_inverter_manager.lib.givtcp.writer import (
     GivTCPWriter,
     SwitchState,
 )
@@ -69,6 +70,7 @@ from custom_components.givenergy_inverter_manager.unconfirmed_write_repair impor
 )
 from custom_components.givenergy_inverter_manager.write_audit import WriteAudit
 from tests.conftest import _nightboost_cfg, _raw
+from tests.fakes.export_guard import ExportGuard
 from tests.helpers import PKG
 
 # ── Minimal HA state stub ─────────────────────────────────────────────────────
@@ -318,15 +320,22 @@ class FakeCoordinator(GivEnergyCoordinator):
         self.immersion = ImmersionActuator(self._immersion_ports())
         self._dry_run_last_skipped: str = ""
         self._smoothed_solar_w: float = 0.0
-        self._backend = make_backend(
-            self._effective_cfg(),
-            GivTCPPorts(
-                get_state=lambda eid: self._get_state(eid),
-                call_service=lambda domain, service, data: self._call_service(
-                    domain, service, data
+        # Inverter writes are refused for an entity that does not exist, so the controls the
+        # config names exist from the start. A test that needs one missing removes it.
+        for value in self._effective_cfg().values():
+            if isinstance(value, str) and value.split(".")[0] in ("switch", "select", "number"):
+                self._states.setdefault(value, FakeState("stale"))
+        self._backend = ExportGuard(
+            make_backend(
+                self._effective_cfg(),
+                GivTCPPorts(
+                    get_state=lambda eid: self._get_state(eid),
+                    call_service=lambda domain, service, data: self._call_service(
+                        domain, service, data
+                    ),
+                    on_count_change=self._save_register_write_count,
                 ),
-                on_count_change=self._save_register_write_count,
-            ),
+            )
         )
         # The same wiring as GivEnergyCoordinator._init_writer, against the stubbed hass.
         self._write_repair = UnconfirmedWriteRepair(
@@ -490,36 +499,36 @@ class TestCollectRaw:
         coord = FakeCoordinator(cfg=cfg)
         coord.set_state("switch.immersion", "on")
         raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.immersion_on is True
+        assert raw.immersion_on
 
     def test_reads_immersion_switch_off(self):
         cfg = _cfg(**{CONF_IMMERSION_SWITCH: "switch.immersion"})
         coord = FakeCoordinator(cfg=cfg)
         coord.set_state("switch.immersion", "off")
         raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.immersion_on is False
+        assert not (raw.immersion_on)
 
     def test_flags_an_immersion_switch_that_is_configured(self):
         coord = FakeCoordinator(cfg=_cfg(**{CONF_IMMERSION_SWITCH: "switch.immersion"}))
         raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.immersion_switch_configured is True
+        assert raw.immersion_switch_configured
 
     def test_flags_a_missing_immersion_switch(self):
         coord = FakeCoordinator(cfg=_cfg())
         raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.immersion_switch_configured is False
+        assert not (raw.immersion_switch_configured)
 
     def test_reads_the_immersion_switch_from_options_over_data(self):
         coord = FakeCoordinator(cfg=_cfg())
         coord.entry.options = {CONF_IMMERSION_SWITCH: "switch.immersion"}
         raw = coord._collect_raw(coord._effective_cfg())
-        assert raw.immersion_switch_configured is True
+        assert raw.immersion_switch_configured
 
     def test_flags_no_ev_charger_until_one_is_discovered(self):
         coord = FakeCoordinator(cfg=_cfg())
-        assert coord._collect_raw(coord._effective_cfg()).ev_charger_present is False
+        assert not (coord._collect_raw(coord._effective_cfg()).ev_charger_present)
         coord._ev_charger = TestApplyEvAction()._charger()
-        assert coord._collect_raw(coord._effective_cfg()).ev_charger_present is True
+        assert coord._collect_raw(coord._effective_cfg()).ev_charger_present
 
     def test_no_forecast_when_entity_not_configured(self):
         coord = FakeCoordinator(cfg=_cfg())
@@ -850,7 +859,7 @@ class TestUpdateCycle:
         coord.set_states(_default_states())
         coord.override_skip_charge = True
         data = await coord.run_cycle()
-        assert data.charge_decision.skip_charge is True
+        assert data.charge_decision.skip_charge
 
     @pytest.mark.asyncio
     async def test_override_charge_target_respected(self):
@@ -867,7 +876,7 @@ class TestChargeTargetOverrideState:
 
     def test_disabled_by_default_with_the_default_value(self):
         coord = FakeCoordinator(cfg=_cfg())
-        assert coord.override_charge_enabled is False
+        assert not (coord.override_charge_enabled)
         assert coord.override_charge_value == 80
         assert coord.override_charge_target is None
 
@@ -1238,6 +1247,7 @@ class TestWriteChargeTarget:
     async def test_enable_charge_target_off_at_100(self):
         """At 100% target, enable_charge_target must be OFF to avoid bounce bug."""
         coord = self._coord_with_decision(target_soc=100)
+        coord.set_state("switch.enable_charge_target", "on")
         coord._write_charge_target_to_inverter(datetime.now(timezone.utc))
         await coord.tasks_created[0]
         switch_off = coord.service_calls_for("switch", "turn_off")
@@ -1434,7 +1444,7 @@ class TestApplyEvAction:
 
     @pytest.mark.asyncio
     async def test_write_allowed_again_after_cooldown(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
             GIVTCP_MIN_WRITE_INTERVAL_S,
         )
 
@@ -1534,12 +1544,14 @@ class TestGivtcpWriteHelpers:
     @pytest.mark.asyncio
     async def test_set_switch_issues_turn_on(self):
         coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("switch.target", "off")
         await coord._backend.writer.set_switch("switch.target", SwitchState.ON, "test")
         assert ("switch", "turn_on", {"entity_id": "switch.target"}) in coord.service_calls
 
     @pytest.mark.asyncio
     async def test_set_switch_issues_turn_off(self):
         coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("switch.target", "on")
         await coord._backend.writer.set_switch("switch.target", SwitchState.OFF, "test")
         assert ("switch", "turn_off", {"entity_id": "switch.target"}) in coord.service_calls
 
@@ -1552,6 +1564,7 @@ class TestGivtcpWriteHelpers:
     @pytest.mark.asyncio
     async def test_set_select_issues_select_option(self):
         coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("select.target", "00:00:00")
         await coord._backend.writer.set_select("select.target", "02:00:00", "test")
         assert (
             "select",
@@ -1562,6 +1575,7 @@ class TestGivtcpWriteHelpers:
     @pytest.mark.asyncio
     async def test_set_number_issues_set_value(self):
         coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("number.target", "50")
         await coord._backend.writer.set_number("number.target", 80, "test")
         assert (
             "number",
@@ -1591,7 +1605,7 @@ class TestGivtcpWriteHelpers:
         coord._call_service = stubbed
         with caplog.at_level(logging.WARNING):
             await coord._backend.writer.set_number("number.target", 80, "target_soc")
-        assert any("wrote" in r.message and "read back" in r.message for r in caplog.records)
+        assert any("wrote" in r.message and "could not confirm" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_set_switch_skips_within_cooldown(self):
@@ -1607,12 +1621,13 @@ class TestGivtcpWriteHelpers:
 
     @pytest.mark.asyncio
     async def test_set_switch_writes_after_cooldown(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
             GIVTCP_MIN_WRITE_INTERVAL_S,
         )
 
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("switch.target", "off")
         coord._backend.writer.last_write_time[("switch.target", SwitchState.ON)] = (
             time.monotonic() - GIVTCP_MIN_WRITE_INTERVAL_S - 1
         )
@@ -1664,6 +1679,7 @@ class TestGivtcpWriteHelpers:
     async def test_first_write_sets_cooldown_timestamp(self):
         # Arrange
         coord = FakeCoordinator(cfg=_cfg())
+        coord.set_state("switch.target", "off")
         assert ("switch.target", SwitchState.ON) not in coord._backend.writer.last_write_time
 
         # Act
@@ -1710,7 +1726,7 @@ class TestGivtcpWriteRetryBehaviour:
     async def test_confirmed_first_time_makes_one_call(self, kind, caplog):
         coord, call = self._coord(kind, settle_on=1)
         with caplog.at_level(logging.WARNING):
-            assert await call(coord) is True
+            assert await call(coord)
         assert len(coord.service_calls) == 1
         assert coord._backend.write_count == 1
         assert caplog.records == []
@@ -1720,34 +1736,35 @@ class TestGivtcpWriteRetryBehaviour:
     async def test_mismatch_is_retried_until_confirmed(self, kind, caplog):
         coord, call = self._coord(kind, settle_on=2)
         with caplog.at_level(logging.WARNING):
-            assert await call(coord) is True
+            assert await call(coord)
         assert len(coord.service_calls) == 2
         assert coord._backend.write_count == 2
         messages = [r.getMessage() for r in caplog.records]
         assert len(messages) == 1
-        assert "attempt 1/3" in messages[0]
-        assert "retrying" in messages[0]
+        assert "not read back" in messages[0]
+        assert "sending again" in messages[0]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("kind", list(_RETRY_CASES))
-    async def test_never_confirmed_stops_after_three_attempts_but_reports_sent(self, kind, caplog):
+    async def test_never_confirmed_stops_after_two_sends_and_says_so(self, kind, caplog):
         coord, call = self._coord(kind, settle_on=None)
         with caplog.at_level(logging.WARNING):
-            assert await call(coord) is True
-        assert len(coord.service_calls) == 3
-        assert coord._backend.write_count == 3
+            assert await call(coord) is WriteStatus.UNCONFIRMED
+        assert len(coord.service_calls) == 2
+        assert coord._backend.write_count == 2
         messages = [r.getMessage() for r in caplog.records]
-        assert sum("retrying" in m for m in messages) == 2
-        assert messages[-1].endswith("could not confirm after 3 attempts")
+        assert sum("sending again" in m for m in messages) == 1
+        assert messages[-1].endswith("could not confirm it after 2 send(s)")
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("kind", list(_RETRY_CASES))
     async def test_second_call_inside_the_cooldown_is_skipped(self, kind):
-        coord, call = self._coord(kind, settle_on=None)
+        coord, call = self._coord(kind, settle_on=1)
+        start = _RETRY_CASES[kind][1]
         await call(coord)
-        calls_after_first = len(coord.service_calls)
-        await call(coord)
-        assert len(coord.service_calls) == calls_after_first
+        coord.set_state(f"{kind}.t", start)  # something else changed it back
+        assert await call(coord) is WriteStatus.COOLDOWN
+        assert len(coord.service_calls) == 1
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("kind", list(_RETRY_CASES))
@@ -1755,7 +1772,7 @@ class TestGivtcpWriteRetryBehaviour:
         call, _, written, _ = _RETRY_CASES[kind]
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_state(f"{kind}.t", written)
-        assert await call(coord) is True
+        assert await call(coord)
         assert coord.service_calls == []
         assert coord._backend.writer.last_write_time == {}
 
@@ -1770,7 +1787,7 @@ class TestGivtcpWriteRetryBehaviour:
 
         coord._call_service = call
         with caplog.at_level(logging.WARNING):
-            assert await coord._backend.writer.set_select("select.t", "Eco", "t") is False
+            assert not (await coord._backend.writer.set_select("select.t", "Eco", "t"))
         assert len(coord.service_calls) == 1
         assert any("vanished" in r.getMessage() for r in caplog.records)
 
@@ -1784,8 +1801,8 @@ class TestGivtcpWriteRetryBehaviour:
             coord._states.pop("number.t", None)
 
         coord._call_service = call
-        assert await coord._backend.writer.set_number("number.t", 80, "t") is True
-        assert len(coord.service_calls) == 3
+        assert await coord._backend.writer.set_number("number.t", 80, "t")
+        assert len(coord.service_calls) == 2
 
     @pytest.mark.asyncio
     async def test_switch_turned_off_that_vanishes_counts_as_off(self):
@@ -1797,14 +1814,15 @@ class TestGivtcpWriteRetryBehaviour:
             coord._states.pop("switch.t")
 
         coord._call_service = call
-        assert await coord._backend.writer.set_switch("switch.t", SwitchState.OFF, "t") is True
+        assert await coord._backend.writer.set_switch("switch.t", SwitchState.OFF, "t")
         assert len(coord.service_calls) == 1
 
     @pytest.mark.asyncio
-    async def test_unavailable_switch_counts_as_off_for_read_before_write(self):
+    async def test_unavailable_switch_is_refused_not_read_as_off(self):
         coord = FakeCoordinator(cfg=_cfg())
         coord.set_state("switch.t", "unavailable")
-        assert await coord._backend.writer.set_switch("switch.t", SwitchState.OFF, "t") is True
+        status = await coord._backend.writer.set_switch("switch.t", SwitchState.OFF, "t")
+        assert status is WriteStatus.REFUSED
         assert coord.service_calls == []
 
 
@@ -2207,7 +2225,7 @@ class TestCheapRateFloorOutcomes:
         assert coord.service_calls_for("number", "set_value") == [
             {"entity_id": "number.target_soc", "value": 40}
         ]
-        assert coord._floor_top_up_applied is True
+        assert coord._floor_top_up_applied
 
     @pytest.mark.asyncio
     async def test_dry_run_reports_without_writing(self):
@@ -2217,7 +2235,7 @@ class TestCheapRateFloorOutcomes:
         )
         assert result == f"DRY RUN: {self.TOPPING_UP}"
         assert coord.service_calls == []
-        assert coord._floor_top_up_applied is False
+        assert not (coord._floor_top_up_applied)
 
     @pytest.mark.asyncio
     async def test_failed_write_reports_the_error_and_leaves_the_flag_clear(self):
@@ -2227,7 +2245,7 @@ class TestCheapRateFloorOutcomes:
             self._at_0230(), _raw(battery_soc=20.0), cfg
         )
         assert result == f"Error writing floor — {self.TOPPING_UP}"
-        assert coord._floor_top_up_applied is False
+        assert not (coord._floor_top_up_applied)
 
     @pytest.mark.asyncio
     async def test_no_target_entity_reports_the_status_and_warns(self, caplog):
@@ -2588,7 +2606,7 @@ class TestLogWhenUnavailable:
         # Act
         await coord._async_update_data()
         # Assert
-        assert coord._givtcp_was_unavailable is False
+        assert not (coord._givtcp_was_unavailable)
 
     def test_quality_scale_log_when_unavailable_is_done(self):
         qs = (PKG / "quality_scale.yaml").read_text()
@@ -2762,7 +2780,7 @@ class TestImmersionRunToTarget:
         # Act
         await coord._async_update_data()
         # Assert — both flags cleared, override released to auto
-        assert coord.immersion.manual_run_to_target is False
+        assert not (coord.immersion.manual_run_to_target)
         assert coord.override_immersion is None
 
     @pytest.mark.asyncio
@@ -2779,8 +2797,8 @@ class TestImmersionRunToTarget:
         # Act
         await coord._async_update_data()
         # Assert — still active
-        assert coord.immersion.manual_run_to_target is True
-        assert coord.override_immersion is True
+        assert coord.immersion.manual_run_to_target
+        assert coord.override_immersion
 
     @pytest.mark.asyncio
     async def test_override_stays_when_no_temp_sensor(self):
@@ -2792,8 +2810,8 @@ class TestImmersionRunToTarget:
         # Act
         await coord._async_update_data()
         # Assert — can't auto-release without temp reading
-        assert coord.immersion.manual_run_to_target is True
-        assert coord.override_immersion is True
+        assert coord.immersion.manual_run_to_target
+        assert coord.override_immersion
 
     @pytest.mark.asyncio
     async def test_divert_reason_shows_run_to_target(self):
@@ -2928,7 +2946,7 @@ class TestInverterTemperature:
         assert data.inverter_temperature is None
 
     def test_the_candidate_entity_ids_try_givtcp_s_spelling_first(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.discovery import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             inverter_temperature_entity_ids,
         )
 
@@ -2988,7 +3006,7 @@ class TestMissedSolar:
         from custom_components.givenergy_inverter_manager.sensor import SENSOR_DESCRIPTIONS
 
         description = next(d for d in SENSOR_DESCRIPTIONS if d.key == "missed_solar_today")
-        assert description.entity_registry_enabled_default is False
+        assert not (description.entity_registry_enabled_default)
 
 
 class TestSolarNoiseFloor:
@@ -3150,7 +3168,7 @@ class TestCheapRateFloorWriteSafety:
 
         coord, cfg = self._coord(target_now="20")
         with patch(
-            "custom_components.givenergy_inverter_manager.inverter.givtcp.writer.asyncio.sleep",
+            "custom_components.givenergy_inverter_manager.lib.givtcp.writer.asyncio.sleep",
             new=AsyncMock(),
         ):
             await coord._backend.apply_floor_target(cfg, 40)
@@ -3169,7 +3187,7 @@ class TestCheapRateFloorWriteSafety:
         coord, cfg = self._coord(target_now="40")
         coord.set_state("switch.enable_target", "on")
         with patch(
-            "custom_components.givenergy_inverter_manager.inverter.givtcp.writer.asyncio.sleep",
+            "custom_components.givenergy_inverter_manager.lib.givtcp.writer.asyncio.sleep",
             new=AsyncMock(),
         ):
             await coord._backend.apply_floor_target(cfg, 40)
@@ -3182,7 +3200,7 @@ class TestCheapRateFloorWriteSafety:
 
         coord, cfg = self._coord(target_now="20")
         with patch(
-            "custom_components.givenergy_inverter_manager.inverter.givtcp.writer.asyncio.sleep",
+            "custom_components.givenergy_inverter_manager.lib.givtcp.writer.asyncio.sleep",
             new=AsyncMock(),
         ):
             await coord._backend.apply_floor_target(cfg, 40)
@@ -3197,7 +3215,7 @@ class TestCheapRateFloorWriteSafety:
 
         coord, cfg = self._coord(target_now="20")
         with patch(
-            "custom_components.givenergy_inverter_manager.inverter.givtcp.writer.asyncio.sleep",
+            "custom_components.givenergy_inverter_manager.lib.givtcp.writer.asyncio.sleep",
             new=AsyncMock(),
         ):
             await coord._backend.apply_floor_target(cfg, 40)
@@ -3231,7 +3249,7 @@ class TestCheapRateFloorNeverLowersTarget:
         from unittest.mock import AsyncMock, patch
 
         with patch(
-            "custom_components.givenergy_inverter_manager.inverter.givtcp.writer.asyncio.sleep",
+            "custom_components.givenergy_inverter_manager.lib.givtcp.writer.asyncio.sleep",
             new=AsyncMock(),
         ):
             return await coord._maybe_apply_cheap_rate_floor(self._now(), _raw(battery_soc=soc), cfg)
@@ -3257,10 +3275,10 @@ class TestCheapRateFloorNeverLowersTarget:
         assert self._target_writes(coord) == []
 
     @pytest.mark.asyncio
-    async def test_unreadable_target_falls_back_to_the_floor(self):
+    async def test_an_unavailable_target_is_not_written_to(self):
         coord, cfg = self._coord("unavailable")
         await self._run(coord, cfg)
-        assert self._target_writes(coord) == [40]
+        assert self._target_writes(coord) == []
 
     @pytest.mark.asyncio
     async def test_missing_target_state_falls_back_to_the_floor(self):
@@ -3270,7 +3288,7 @@ class TestCheapRateFloorNeverLowersTarget:
 
     @pytest.mark.asyncio
     async def test_floor_never_writes_above_the_cap(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
             GIVTCP_MAX_CHARGE_TARGET_PCT,
         )
 
@@ -3286,7 +3304,7 @@ class TestCheapRateFloorNeverLowersTarget:
         assert coord.service_calls_for("switch", "turn_on") == [
             {"entity_id": "switch.enable_charge_target"}
         ]
-        assert coord._floor_top_up_applied is True
+        assert coord._floor_top_up_applied
 
 
 class TestSensorDropouts:
@@ -3362,7 +3380,7 @@ class TestSensorDropouts:
                           "switch.immersion": "off"})
         coord._smoothed_solar_w = 5000.0
         data = await coord._async_update_data()
-        assert data.should_divert_immersion is False
+        assert not (data.should_divert_immersion)
         assert "sensor unavailable" in data.divert_reason.lower()
 
     @pytest.mark.asyncio
@@ -3373,7 +3391,7 @@ class TestSensorDropouts:
                           "switch.immersion": "on"})
         coord._smoothed_solar_w = 5000.0
         data = await coord._async_update_data()
-        assert data.should_divert_immersion is True
+        assert data.should_divert_immersion
 
 
 class TestInputOutageTracking:
@@ -3410,7 +3428,7 @@ class TestInputOutageTracking:
 
     @pytest.mark.asyncio
     async def test_running_immersion_turns_off_after_hold_limit(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
             GIVTCP_MIN_WRITE_INTERVAL_S,
         )
 
@@ -3424,7 +3442,7 @@ class TestInputOutageTracking:
             seconds=GIVTCP_MIN_WRITE_INTERVAL_S + 10
         )
         data = await coord._async_update_data()
-        assert data.should_divert_immersion is False
+        assert not (data.should_divert_immersion)
         assert "turning off" in data.divert_reason
 # ── Load profile and forecast correction wiring ───────────────────────────────
 
@@ -3503,13 +3521,13 @@ class TestLoadProfileAndForecastCorrectionWiring:
         coord.set_state("sensor.solar", "4900")
         await coord.run_cycle()
         assert coord._acc.state.pending_raw_forecast_kwh == pytest.approx(14.0)
-        assert coord._acc.state.today_clipping is True
+        assert coord._acc.state.today_clipping
 
     @pytest.mark.asyncio
     async def test_no_clipping_flag_below_threshold(self, fixed_clock):
         coord = _forecast_coord()
         await coord.run_cycle()
-        assert coord._acc.state.today_clipping is False
+        assert not (coord._acc.state.today_clipping)
 
     def test_midnight_reset_archives_the_completed_day(self):
         coord = FakeCoordinator(cfg=_cfg())
@@ -3692,38 +3710,38 @@ class TestWriteHelpersCatchServiceErrors:
     @pytest.mark.parametrize("exc", [None, RuntimeError("boom")])
     async def test_set_number_returns_false_instead_of_raising(self, exc):
         coord, _ = _write_coord({"number.target_soc"}, exc)
-        assert await coord._backend.writer.set_number("number.target_soc", 80, "target") is False
+        assert not (await coord._backend.writer.set_number("number.target_soc", 80, "target"))
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("exc", [None, RuntimeError("boom")])
     async def test_set_switch_returns_false_instead_of_raising(self, exc):
         coord, _ = _write_coord({"switch.enable_charge_target"}, exc)
-        assert await coord._backend.writer.set_switch("switch.enable_charge_target", SwitchState.ON, "x") is False
+        assert not (await coord._backend.writer.set_switch("switch.enable_charge_target", SwitchState.ON, "x"))
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("exc", [None, RuntimeError("boom")])
     async def test_set_select_returns_false_instead_of_raising(self, exc):
         coord, _ = _write_coord({"select.charge_start"}, exc)
-        assert await coord._backend.writer.set_select("select.charge_start", "23:00:00", "x") is False
+        assert not (await coord._backend.writer.set_select("select.charge_start", "23:00:00", "x"))
 
     @pytest.mark.asyncio
     async def test_successful_write_returns_true(self):
         coord, _ = _write_coord()
-        assert await coord._backend.writer.set_number("number.target_soc", 80, "target") is True
-        assert await coord._backend.writer.set_switch("switch.enable_charge_target", SwitchState.ON, "x") is True
-        assert await coord._backend.writer.set_select("select.charge_start", "23:00:00", "x") is True
+        assert await coord._backend.writer.set_number("number.target_soc", 80, "target")
+        assert await coord._backend.writer.set_switch("switch.enable_charge_target", SwitchState.ON, "x")
+        assert await coord._backend.writer.set_select("select.charge_start", "23:00:00", "x")
 
     @pytest.mark.asyncio
     async def test_already_at_value_returns_true_without_writing(self):
         coord, _ = _write_coord()
         coord.set_state("number.target_soc", "80")
-        assert await coord._backend.writer.set_number("number.target_soc", 80, "target") is True
+        assert await coord._backend.writer.set_number("number.target_soc", 80, "target")
         assert coord.service_calls == []
 
     @pytest.mark.asyncio
     async def test_missing_entity_returns_false(self):
         coord, _ = _write_coord()
-        assert await coord._backend.writer.set_number(None, 80, "target") is False
+        assert not (await coord._backend.writer.set_number(None, 80, "target"))
 
     @pytest.mark.asyncio
     async def test_failed_write_is_not_counted(self):
@@ -3758,9 +3776,9 @@ class TestWriteCooldownKeyedOnValue:
     @pytest.mark.asyncio
     async def test_identical_value_within_cooldown_is_not_rewritten(self):
         coord, _ = _write_coord()
-        self._stuck(coord)
         await coord._backend.writer.set_number("number.target_soc", 80, "target")
         calls_after_first = len(coord.service_calls)
+        coord.set_state("number.target_soc", "50")  # something else changed it
         await coord._backend.writer.set_number("number.target_soc", 80, "target")
         assert len(coord.service_calls) == calls_after_first
 
@@ -3881,7 +3899,7 @@ class TestChargeTargetClamp:
     async def test_floor_target_is_clamped(self):
         coord, cfg = _write_coord()
         coord.set_state("number.target_soc", "2")
-        assert (await coord._backend.apply_floor_target(cfg, 1)).ok is True
+        assert (await coord._backend.apply_floor_target(cfg, 1)).ok
         assert coord.service_calls_for("number", "set_value") == [
             {"entity_id": "number.target_soc", "value": 4}
         ]
@@ -3890,7 +3908,7 @@ class TestChargeTargetClamp:
     async def test_floor_does_not_enable_the_target_when_the_number_write_fails(self):
         coord, cfg = _write_coord({"number.target_soc"})
         coord.set_state("number.target_soc", "20")
-        assert (await coord._backend.apply_floor_target(cfg, 40)).ok is False
+        assert not ((await coord._backend.apply_floor_target(cfg, 40)).ok)
         assert coord.service_calls_for("switch", "turn_on") == []
 
 
@@ -3914,7 +3932,7 @@ class TestRegisterWriteCountPersistence:
 
     @pytest.mark.asyncio
     async def test_lifetime_warning_fires_when_the_restored_count_reaches_the_limit(self, caplog):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
             GIVTCP_WRITE_LIFETIME_WARN,
         )
 
@@ -4148,7 +4166,7 @@ class TestAcChargeCounter:
 
         assert data.today.self_sufficiency_pct == pytest.approx(59.3, abs=0.05)
         assert data.week.grid_to_battery_kwh == pytest.approx(7.5)
-        assert data.grid_to_battery_counter_available is True
+        assert data.grid_to_battery_counter_available
 
     @pytest.mark.asyncio
     async def test_a_cycle_without_the_counter_reads_zero_and_says_so(self):
@@ -4162,4 +4180,4 @@ class TestAcChargeCounter:
         data = await coord.run_cycle()
 
         assert data.today.self_sufficiency_pct == 0.0
-        assert data.grid_to_battery_counter_available is False
+        assert not (data.grid_to_battery_counter_available)

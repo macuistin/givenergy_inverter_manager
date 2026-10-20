@@ -78,7 +78,8 @@ from ..const import (
     DEFAULT_STANDING_CHARGE,
     DEFAULT_VAT_RATE,
 )
-from ..discovery import EVCharger, ForecastSensors
+from ..discovery import ForecastSensors
+from ..lib.ev import EVCharger
 from .inverter_values import RateDefaults
 
 if TYPE_CHECKING:

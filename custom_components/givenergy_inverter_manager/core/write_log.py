@@ -16,6 +16,22 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
+from ..lib.givtcp.values import WriteRecord
+
+__all__ = [
+    "EXTERNAL_REASON",
+    "NOTE_REASONS",
+    "REPLAN_REASON",
+    "RETRY_REASON",
+    "WINDOW_REPAIR_REASON",
+    "WriteLogEntry",
+    "WriteRecord",
+    "append_bounded",
+    "is_manager_write",
+    "is_retry_note",
+    "restore_entries",
+]
+
 EXTERNAL_REASON = "external"
 # Notes the manager writes about its own plan. They are not writes to the inverter.
 RETRY_REASON = "retry"
@@ -24,15 +40,6 @@ WINDOW_REPAIR_REASON = "window repair"
 SETTLE_REASON = "settle"
 NOTE_REASONS = frozenset({RETRY_REASON, REPLAN_REASON, WINDOW_REPAIR_REASON, SETTLE_REASON})
 _UNKNOWN_STATES = frozenset({"unavailable", "unknown", ""})
-
-
-@dataclass(frozen=True)
-class WriteRecord:
-    """One write the manager sent: which entity, what value, and why."""
-
-    entity_id: str
-    value: str
-    reason: str
 
 
 @dataclass(frozen=True)

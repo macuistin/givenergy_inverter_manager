@@ -358,6 +358,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._missing_refs: tuple[str, ...] = ()
         self._missing_ref_cycles = 0
         self._renamed_logged: set[str] = set()
+        # Chargers already logged as having no power entity, so a rescan does not repeat it.
+        self._ev_power_warned: set[str] = set()
         self._version_seen: str | None = None
         self._rtc_off_cycles = 0
         self._charge_pause_cycles = 0
@@ -1386,7 +1388,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         if self._update_cycle % _REDISCOVER_EVERY_N_CYCLES != 1:
             return
-        found = discover_ev_chargers(self._get_all_states())
+        found = discover_ev_chargers(self._get_all_states(), self._ev_power_warned)
         if charger is None:
             self._adopt_discovered_ev(found)
         else:

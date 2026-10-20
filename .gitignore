@@ -17,12 +17,13 @@ var/
 sdist/
 develop-eggs/
 .installed.cfg
-lib/
+/lib/
 lib64/
 wheels/
 
 # Virtual environments
 .venv/
+.venv-e2e/
 venv/
 env/
 ENV/

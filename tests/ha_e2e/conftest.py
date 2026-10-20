@@ -95,7 +95,7 @@ else:
 SERIAL = "ab1234g567"
 PREFIX = f"givtcp_{SERIAL}"
 
-# Entity IDs follow GivTCP's naming (see const.py and inverter/givtcp/discovery.py).
+# Entity IDs follow GivTCP's naming (see const.py and lib/givtcp/discovery.py).
 SOLAR = f"sensor.{PREFIX}_pv_power"
 SOC = f"sensor.{PREFIX}_soc"
 BATTERY_POWER = f"sensor.{PREFIX}_battery_power"
@@ -298,7 +298,7 @@ if not _PLUGIN_MISSING:
     def _no_write_retry_delay(monkeypatch):
         """Skip the real 2 s sleeps in the GivTCP write retry loops."""
         monkeypatch.setattr(
-            "custom_components.givenergy_inverter_manager.inverter.givtcp.writer.GIVTCP_WRITE_RETRY_SLEEP_S",
+            "custom_components.givenergy_inverter_manager.lib.givtcp.writer.GIVTCP_WRITE_RETRY_SLEEP_S",
             0,
         )
 
@@ -328,7 +328,9 @@ if not _PLUGIN_MISSING:
         publishing again, which is the one thing the check calls a frozen feed. A test of the
         check itself (test_frozen_feed_e2e.py) overrides this fixture with a no-op.
         """
-        from custom_components.givenergy_inverter_manager.core import feed_freshness
+        from custom_components.givenergy_inverter_manager.lib.givtcp import (
+            freshness as feed_freshness,
+        )
 
         monkeypatch.setitem(feed_freshness.frozen_age_s.__globals__, "GIVTCP_FROZEN_AFTER_S", 1e12)
 

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import ast
-import fnmatch
 import json
 import re
+import sys
 import tomllib
 
 import pytest
@@ -53,7 +53,9 @@ def test_test_requirements_have_upper_bounds():
         if line.strip() and not line.startswith("#")
     ]
     unbounded = [
-        line for line in lines if not line.startswith("homeassistant") and "<" not in line
+        line
+        for line in lines
+        if not line.startswith(("homeassistant", "-e ./packages/")) and "<" not in line
     ]
 
     assert unbounded == []
@@ -138,9 +140,9 @@ def test_every_workflow_has_read_only_permissions_and_cancels_superseded_pr_runs
         workflow = yaml.safe_load(path.read_text())
 
         assert workflow["permissions"] == {"contents": "read"}, path.name
-        assert workflow["concurrency"]["cancel-in-progress"] == (
-            "${{ github.event_name == 'pull_request' }}"
-        ), path.name
+        # A release is never cancelled part way, so a second one waits for the first
+        expected = False if path.name == "release.yml" else "${{ github.event_name == 'pull_request' }}"
+        assert workflow["concurrency"]["cancel-in-progress"] == expected, path.name
 
 
 def test_python_jobs_cache_pip():
@@ -332,7 +334,101 @@ def test_core_package_does_not_import_the_inverter_package_at_run_time():
     assert offenders == []
 
 
-def test_only_the_prerelease_workflow_can_write_and_only_at_job_level():
+# The lib/ packages each package may import besides itself. A new package is added here in the
+# PR that creates it, so its dependencies are reviewed.
+ALLOWED = {"timeutil": set(), "ev": {"timeutil", "guards"}, "tariff": {"timeutil"}, "heating": {"timeutil", "tariff"}, "guards": {"timeutil", "tariff"}, "givtcp": {"timeutil"}}
+
+
+def _lib_import_offenders(root):
+    """Imports under root/lib that leave the standard library, the package and its allow-list."""
+    offenders = []
+    for path in sorted((root / "lib").rglob("*.py")):
+        parts = path.relative_to(root).with_suffix("").parts
+        package = list(parts[:-1])
+        own = parts[1] if len(parts) > 2 else None
+        allowed = {own} | ALLOWED.get(own, set()) if own else set()
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            for target in _import_targets(node, package):
+                if not _import_is_allowed(target, allowed):
+                    offenders.append(f"{'/'.join(parts)}: {'.'.join(target)}")
+    return offenders
+
+
+def _import_targets(node, package):
+    """Each import in node as a path from the integration root, or from the top for absolute."""
+    if isinstance(node, ast.Import):
+        return [("abs", *alias.name.split(".")) for alias in node.names]
+    if not isinstance(node, ast.ImportFrom):
+        return []
+    module = node.module.split(".") if node.module else []
+    if node.level == 0:
+        return [("abs", *module)]
+    base = package[: len(package) - (node.level - 1)] if node.level > 1 else package
+    if module:
+        return [(*base, *module)]
+    return [(*base, alias.name) for alias in node.names]
+
+
+def _import_is_allowed(target, allowed):
+    if target[0] == "abs":
+        return len(target) > 1 and target[1] in sys.stdlib_module_names
+    return len(target) > 1 and target[0] == "lib" and target[1] in allowed
+
+
+def test_lib_packages_import_only_the_standard_library_and_their_allow_list():
+    """Each lib/ package stays liftable into its own repository."""
+    assert _lib_import_offenders(PKG) == []
+
+
+def test_every_lib_package_has_an_allow_list_row_and_the_reverse():
+    on_disk = {p.name for p in (PKG / "lib").iterdir() if p.is_dir() and p.name != "__pycache__"}
+
+    assert on_disk == set(ALLOWED)
+
+
+def test_boundary_test_rejects_the_imports_a_lib_package_must_not_make(tmp_path):
+    package = tmp_path / "lib" / "demo"
+    package.mkdir(parents=True)
+    (tmp_path / "lib" / "other").mkdir()
+    (package / "bad.py").write_text(
+        "from __future__ import annotations\n"
+        "from datetime import datetime\n"
+        "from ..const import X\n"
+        "from ...core import tariff\n"
+        "from ..other import thing\n"
+        "import homeassistant.core\n"
+        "from typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n"
+        "    from ..logging import LOGGER\n"
+        "    from ...discovery import ev_charger\n"
+        "    from ...inverter import backend\n",
+        encoding="utf-8",
+    )
+
+    offenders = _lib_import_offenders(tmp_path)
+
+    assert [o.split(": ")[1] for o in offenders] == [
+        "lib.const",
+        "core",
+        "lib.other",
+        "abs.homeassistant.core",
+        "lib.logging",
+        "discovery",
+        "inverter",
+    ]
+
+
+def test_no_python_package_sits_outside_the_integration_where_hacs_would_not_ship_it():
+    stray = [
+        str(p.relative_to(ROOT))
+        for name in ("lib", "libs")
+        for p in sorted((ROOT / name).rglob("*.py"))
+    ]
+
+    assert stray == []
+
+
+def test_only_the_release_workflow_can_write_and_only_at_job_level():
     for path in sorted(_WORKFLOWS.glob("*.yml")):
         workflow = yaml.safe_load(path.read_text())
         writers = [
@@ -341,29 +437,50 @@ def test_only_the_prerelease_workflow_can_write_and_only_at_job_level():
             if (job.get("permissions") or {}).get("contents") == "write"
         ]
 
-        assert writers == (["prerelease"] if path.name == "prerelease.yml" else []), path.name
+        assert writers == (["release"] if path.name == "release.yml" else []), path.name
 
 
-def test_the_prerelease_workflow_publishes_beta_and_rc_tags_after_checking_the_version():
-    workflow = _workflow("prerelease.yml")
-    job = workflow["jobs"]["prerelease"]
-    runs = [step.get("run", "") for step in job["steps"]]
+def _release_runs() -> list[str]:
+    return [step.get("run", "") for step in _workflow("release.yml")["jobs"]["release"]["steps"]]
 
-    assert set(workflow[True]) == {"push"}
-    tags = workflow[True]["push"]["tags"]
-    assert tags == ["v0.19.*b*", "v0.19.*rc*"]
-    # A beta or release candidate of any 0.19 patch release matches. A final tag does not.
-    for tag in ("v0.19.0b1", "v0.19.2b1", "v0.19.2rc1"):
-        assert any(fnmatch.fnmatchcase(tag, pattern) for pattern in tags), tag
-    for tag in ("v0.19.0", "v0.19.1", "v0.20.0b1"):
-        assert not any(fnmatch.fnmatchcase(tag, pattern) for pattern in tags), tag
-    assert "branches" not in workflow[True]["push"]
-    assert any(run.startswith('python scripts/set_version.py --check "${GITHUB_REF_NAME}"') for run in runs)
-    publish = next(run for run in runs if "gh release create" in run)
-    assert "--prerelease" in publish
-    assert "--verify-tag" in publish
-    check_index = next(i for i, run in enumerate(runs) if "set_version.py" in run)
-    assert check_index < runs.index(publish)
+
+def test_the_release_workflow_starts_from_a_version_tag_or_by_hand():
+    triggers = _workflow("release.yml")[True]
+
+    assert set(triggers) == {"push", "workflow_dispatch"}
+    # One pattern for every release line, so it never needs moving at a release
+    assert triggers["push"]["tags"] == ["v[0-9]+.[0-9]+.[0-9]+*"]
+    assert "branches" not in triggers["push"]
+    assert triggers["workflow_dispatch"]["inputs"]["version"]["required"] is True
+
+
+def test_the_release_workflow_checks_the_version_and_the_notes_before_it_tags_or_publishes():
+    runs = _release_runs()
+    workflow = (_WORKFLOWS / "release.yml").read_text()
+
+    check = next(i for i, run in enumerate(runs) if "set_version.py --check" in run)
+    notes = next(i for i, run in enumerate(runs) if "set_version.py --notes" in run)
+    tag = next(i for i, run in enumerate(runs) if "git push origin" in run)
+    publish = next(i for i, run in enumerate(runs) if "gh release create" in run)
+    assert check < notes < tag < publish
+    assert "--verify-tag" in runs[publish]
+    assert "--notes-file" in runs[publish]
+    # The typed version reaches the shell through env, never interpolated into a script
+    assert "VERSION: ${{ inputs.version }}" in workflow
+    assert workflow.count("${{ inputs.version }}") == 1
+
+
+def test_a_final_release_by_hand_must_run_from_main_and_a_pre_release_may_not():
+    run = next(run for run in _release_runs() if "workflow_dispatch" in run)
+
+    assert 'GITHUB_REF}" != "refs/heads/main" && ! "${tag}" =~ (a|b|rc)[0-9]+$' in run
+
+
+def test_every_pre_release_version_publishes_a_pre_release():
+    publish = next(run for run in _release_runs() if "gh release create" in run)
+
+    assert '=~ (a|b|rc)[0-9]+$ ]]; then prerelease="--prerelease"' in publish
+    assert "${prerelease}" in publish
 
 
 def test_workflow_actions_are_pinned_to_a_major_version_tag_like_the_others():

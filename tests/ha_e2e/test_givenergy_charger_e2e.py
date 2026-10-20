@@ -1,6 +1,6 @@
 """The GivEnergy EV charger through the mock GivTCP: found, set to Solar, never anything else.
 
-`tools/mock_givtcp.py` publishes the charger the way GivTCP's datapoint reference says (Charging
+`givtcp_mock` publishes the charger the way GivTCP's datapoint reference says (Charging
 State, Connection Status, Active Power, Charging Mode, Charge Control, Plug and Go) and records
 every command it receives. No real GivEnergy charger has been read: what these tests prove is that
 the integration follows its own rules against that layout.
@@ -10,14 +10,13 @@ from __future__ import annotations
 
 import pytest
 from conftest import MIDDAY
+from givtcp_mock import EVC_PREFIX
 from test_write_sequence_e2e import (
     SURPLUS,
     _set_up,
     cycle,
     mock,  # noqa: F401  (the shared mock fixture)
 )
-
-from tools.mock_givtcp import EVC_PREFIX
 
 MODE = f"select.{EVC_PREFIX}_charging_mode"
 CONTROL = f"select.{EVC_PREFIX}_charge_control"

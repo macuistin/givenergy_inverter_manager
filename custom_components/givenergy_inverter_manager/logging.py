@@ -63,6 +63,7 @@ from .const import (
     DEFAULT_RATE_PERIODS,
     DEFAULT_VERBOSE_LOGGING,
 )
+from .lib.givtcp.outcome import OUTCOME_FORMAT, WriteOutcome
 
 if TYPE_CHECKING:
     from .core.engine import CoordinatorData, RawSensorValues
@@ -398,28 +399,8 @@ def _dry_run_lines(data: CoordinatorData) -> list[str]:
     return [f"  DRY RUN       ACTIVE — last skipped: {data.dry_run_last_skipped!r}"]
 
 
-@dataclass(frozen=True)
-class WriteOutcome:
-    """One GivTCP write and what the entity read back afterwards."""
-
-    step: int
-    entity_id: str
-    wrote: object
-    read_back: object
-    accepted: bool
-
-
 def log_givtcp_write(log: GivLogger, outcome: WriteOutcome) -> None:
     """Log one step of the GivTCP charge write-back sequence."""
     if not log.is_verbose():
         return
-    mismatch = "✗ MISMATCH — wrote but read back different value"
-    status = "✓ accepted" if outcome.accepted else mismatch
-    log.verbose(
-        "  GIVTCP WRITE  step=%d  entity=%s  wrote=%r  read_back=%r  %s",
-        outcome.step,
-        outcome.entity_id,
-        outcome.wrote,
-        outcome.read_back,
-        status,
-    )
+    log.verbose(OUTCOME_FORMAT, *outcome.log_args())

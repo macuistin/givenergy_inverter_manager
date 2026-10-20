@@ -29,58 +29,13 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from .immersion_ready import hours_to_heat, place_hours
+from ..lib.heating import MINUTES_PER_HOUR, RUN_ROUND_MINUTES, WaterReading
+from ..lib.heating.ready import place_hours
 from .tariff import TariffConfig
 from .timeutil import elapsed_seconds, shift_real
 
-_MINUTES_PER_HOUR = 60.0
-_RUN_ROUND_MINUTES = 5
 # Takes a float rounding error off a whole number of minutes before it is rounded up.
 _ROUNDING_SLACK = 1e-6
-
-
-@dataclass(frozen=True)
-class WaterReading:
-    """The water and the heater the advice reads, in degrees and degrees an hour."""
-
-    temp: float
-    target: float
-    rate_c_per_h: float
-    min_temp: float
-    restart_gap_c: float
-
-    @property
-    def at_target(self) -> bool:
-        return self.temp >= self.target
-
-    @property
-    def hours_to_target(self) -> float:
-        """Heating hours to the target, with the plan's margin. Zero when there is no heating."""
-        return hours_to_heat(self.temp, self.target, self.rate_c_per_h)
-
-    @property
-    def restart_below(self) -> float:
-        """The temperature the immersion has to cool below before it starts a run of its own."""
-        return self.target - self.restart_gap_c
-
-    @property
-    def needs_heating(self) -> bool:
-        """Whether a ready time needs heat: below the restart threshold, run of 5 minutes or more.
-
-        Above the threshold, or for a run shorter than one rounding step, the water is as good
-        as ready and a start would only be noise.
-        """
-        long_enough = self.hours_to_target * _MINUTES_PER_HOUR >= _RUN_ROUND_MINUTES
-        return self.temp < self.restart_below and long_enough
-
-    @property
-    def keep_warm_below(self) -> float:
-        """The temperature at or below which a keep-warm run is worth suggesting.
-
-        The lower of the minimum plus the restart gap and the target less the restart gap, so
-        the default settings (minimum 50, gap 5, target 55) give 50, not the target.
-        """
-        return min(self.min_temp + self.restart_gap_c, self.target - self.restart_gap_c)
 
 
 @dataclass(frozen=True)
@@ -126,12 +81,12 @@ def _start_needed(query: StartQuery) -> bool:
         return water.temp < water.target and water.hours_to_target > 0
     if query.lift_below_target_c is None:
         return water.needs_heating
-    long_enough = water.hours_to_target * _MINUTES_PER_HOUR >= _RUN_ROUND_MINUTES
+    long_enough = water.hours_to_target * MINUTES_PER_HOUR >= RUN_ROUND_MINUTES
     return water.temp <= water.target - query.lift_below_target_c and long_enough
 
 
 def _whole_minutes(hours: float) -> int:
-    return math.ceil(hours * _MINUTES_PER_HOUR - _ROUNDING_SLACK)
+    return math.ceil(hours * MINUTES_PER_HOUR - _ROUNDING_SLACK)
 
 
 def _to_the_minute(moment: datetime) -> datetime:
@@ -159,8 +114,8 @@ def suggest_alt_heat_start(query: StartQuery, ready_at: datetime) -> AltHeatStar
 
 def round_up_run_minutes(hours: float) -> int:
     """A run of this many hours in minutes, rounded up to a multiple of five, five at least."""
-    steps = math.ceil(hours * _MINUTES_PER_HOUR / _RUN_ROUND_MINUTES - _ROUNDING_SLACK)
-    return max(steps, 1) * _RUN_ROUND_MINUTES
+    steps = math.ceil(hours * MINUTES_PER_HOUR / RUN_ROUND_MINUTES - _ROUNDING_SLACK)
+    return max(steps, 1) * RUN_ROUND_MINUTES
 
 
 def keep_warm_minutes(water: WaterReading, grid_cost_now: float, alt_cost: float) -> int | None:

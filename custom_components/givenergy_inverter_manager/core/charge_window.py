@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 
 from ..const import CHARGE_WINDOW_MARGIN, CHARGE_WINDOW_ROUND_MINUTES
-from .tariff import RatePeriod, TariffConfig
+from ..lib.tariff import RatePeriod, TariffConfig, cheapest_period
 from .timeutil import elapsed_seconds, local_time_on
 
 _MINUTES_PER_DAY = 24 * 60
@@ -88,11 +88,6 @@ def _reach_from(period: RatePeriod, minute: int) -> int:
     start = _minute_of_day(period.start)
     elapsed = _minutes_from(start, minute)
     return _span(period) - elapsed if elapsed < _span(period) else 0
-
-
-def cheapest_period(tariff: TariffConfig) -> RatePeriod:
-    """The timed rate period with the lowest rate."""
-    return min(tariff.rate_periods, key=lambda p: p.rate)
 
 
 def _cheaper_than_base(tariff: TariffConfig) -> list[RatePeriod]:

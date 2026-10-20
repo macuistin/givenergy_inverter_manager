@@ -20,11 +20,11 @@ It is checked against the GivTCP 3.6.4 source and its own test results (October 
 
 ## Finding the inverter and its entities
 
-GivTCP lets the user change the entity prefix for each inverter (`HADEVICEPREFIX`), and a user can run several inverters. So the integration never assumes `givtcp_`. It finds a device by what it publishes (`inverter/givtcp/discovery.py`).
+GivTCP lets the user change the entity prefix for each inverter (`HADEVICEPREFIX`), and a user can run several inverters. So the integration never assumes `givtcp_`. It finds a device by what it publishes (`lib/givtcp/discovery.py`).
 
 1. **Find the devices.** A device is a prefix that has a `sensor.<prefix>_invertor_serial_number`. A device with no serial sensor, as a Gateway or an EMS may be, is also found when it publishes `_givtcp_version` and a state of charge, a Gateway value or an EMS value.
 2. **Give each device its entities.** An entity belongs to the longest prefix that matches, so a battery module or a meter (which carry their own serial) does not count as part of the inverter.
-3. **Classify the kind.** First by entities only one kind has, then by the text in `sensor.<prefix>_invertor_type` (`core/system_types.py`). Each kind comes with the evidence used and a confidence.
+3. **Classify the kind.** First by entities only one kind has, then by the text in `sensor.<prefix>_invertor_type` (`lib/givtcp/system.py`). Each kind comes with the evidence used and a confidence.
 4. **Choose which device to manage** (`select_controller`). One device is managed. A Gateway over two or more All-In-Ones is managed instead of the units. A Gateway with one All-In-One gives way to the All-In-One. Two or more other inverters are never added together: the user is asked. Units behind a Gateway are read only.
 5. **Count the battery modules.** A battery module is a `_battery_serial_number` sensor that reads a real serial. A slot that answers with zeros is not a module.
 6. **Find the device prefix later.** The prefix is read back from the entities the wiring already names (`device_prefix`). It is trusted when it carries the inverter's serial or two wired entities agree on it. Otherwise it is `givtcp_` and the serial.
@@ -66,7 +66,7 @@ GivTCP publishes far more than we read. Seen in its own results for real devices
 
 ## What each kind of system publishes
 
-The table is from GivTCP's own test results on a real, serial-redacted capture of each kind (`tests/fixtures/givtcp_systems/harness_*.json`, built by `from_harness.py`). It records what GivTCP creates on its first read. Battery modules and the units behind a Gateway appear after the second.
+The table is from GivTCP's own test results on a real, serial-redacted capture of each kind (`packages/givtcp_mock/src/givtcp_mock/systems/harness_*.json`, built by `from_harness.py`). It records what GivTCP creates on its first read. Battery modules and the units behind a Gateway appear after the second.
 
 | Kind | `Invertor_Type` as published | What differs |
 | --- | --- | --- |
@@ -85,7 +85,7 @@ A GivEnergy EV charger is published as a separate device (GivEVC), with `chargin
 
 ## Reading
 
-- One read per cycle, in the integration's own sign convention (`inverter/givtcp/reader.py`). GivTCP's grid power and battery power both have the opposite sign to Home Assistant's and to ours, so the reader negates them. Without that, every export is counted as import.
+- One read per cycle, in the integration's own sign convention (`lib/givtcp/reader.py`). GivTCP's grid power and battery power both have the opposite sign to Home Assistant's and to ours, so the reader negates them. Without that, every export is counted as import.
 - **Battery power's sign was only confirmed on one hybrid.** Another model could be the opposite.
 - The daily counters are the source for today's figures. The integration's own accumulation is the fallback.
 - A Gateway that shows the battery charging while it discharges has its sign inverted. Its All-In-One powers follow the single-phase convention.
@@ -100,16 +100,16 @@ A GivEnergy EV charger is published as a separate device (GivEVC), with `chargin
 
 ## Writing
 
-The inverter has about a million lifetime register writes, so every write goes through one path (`inverter/givtcp/writer.py`):
+The inverter has about a million lifetime register writes, so every write goes through one path (`lib/givtcp/writer.py`):
 
-1. Read the entity first and skip the write when it is already at the value.
-2. Skip a value written in the last five minutes.
-3. Call the Home Assistant service, read the state back, and try again up to three times, two seconds apart.
+1. Read the entity first. Do not write when it is missing, unavailable or unknown, and skip the write when it already holds the value.
+2. Skip the value last sent to that entity if that was less than five minutes ago. A different value is never held back by an older one.
+3. Call the Home Assistant service once, then read the state back after 2, 4 and 8 seconds. Send again only if none of those reads showed the value, and at most twice in all.
 4. Count each accepted call. The integration logs a warning at 500,000.
 
 All writes are serialised, so two callers never interleave. A write the integration did not make is told apart from its own by a write log, which feeds **Charge Target Conflict**. In dry run, nothing is sent and the decision is logged as `Would set ...`.
 
-**The order of a charge write matters** (`inverter/givtcp/sequence.py`). It is the sequence Predbat and givenergy-local both identify as necessary:
+**The order of a charge write matters** (`lib/givtcp/sequence.py`). It is the sequence Predbat and givenergy-local both identify as necessary:
 
 1. Enable the charge schedule.
 2. Set the window start.
@@ -119,7 +119,17 @@ All writes are serialised, so two callers never interleave. A write the integrat
 
 The cheap-rate floor only raises the target and keeps a higher one already on the inverter. Clearing another active slot writes `00:00:00` to its start and end.
 
-What we never write: Charge Control or Plug and Go on a GivEnergy charger, the charge or discharge rate, any export or discharge window, or a time entity.
+What this integration never writes: Charge Control or Plug and Go on a GivEnergy charger, any export or discharge window, or a battery mode that exports. The client library can write them for another host, see below.
+
+**Other settings the client can write.** `lib/givtcp/controls.py` can pause charging or discharging for a window, select a battery mode, set the reserve and set the charge and discharge rates. Nothing in the coordinator calls these yet, so a user sees no change. Each goes through the same verified writer, so it is read first, held to the cooldown and read back. The client has no policy about what to write. Four rules hold in it:
+
+- A pause writes its start and end before its mode, so it never starts on an old window. Ending a pause writes the mode only.
+- A select is written with the option the entity lists. GivTCP and other projects spell the pause options differently (`PauseDischarge`, `Pause Discharge`, `Not Paused`), so the wanted option is matched without case, spaces, underscores or hyphens. An option the entity does not offer is refused, not sent.
+- The reserve, the rates and the discharge target are kept inside the `min` and `max` the entity publishes. The reserve never goes below 4.
+
+`lib/givtcp/schedules.py` and `force.py` can also write the discharge (export) schedule, charge slots 2 to 10 and a timed force charge or export. A discharge plan writes its target and window first and switches the schedule on last, and stops at the first failed write. Nothing in the coordinator calls them: they sit on `backend.schedules` and `backend.force`, which neither interface the coordinator uses has, and the coordinator tests fail if either is touched. A window of two times is written end first when it moves later and start first when it moves earlier, so the inverter never holds a gap. A discharge slot is written with its schedule switched off, and the schedule goes back on only once the slot reads back, because that mixed window can be wider than either the old or the new one. The schedule stays off if the slot is not confirmed, and a slot is not written at all when the schedule switch cannot be read. A value that is sent but never reads back is held for a minute before the same value is sent again, so a host that writes every cycle does not send every cycle. The battery mode select for this integration takes the modes that never export; the Timed Export mode is selected only through `backend.schedules.apply_battery_mode`. `lib/givtcp/README.md` documents the whole client.
+
+The client also reads the inverter's clock (`invertor_time`) and reports how far it is from the host's (`clock_skew_s`). A drifted clock moves the charge window. Nothing warns on it yet.
 
 **Results.** GivTCP builds a result such as `Setting Charge Target 85 was a success` or `... failed: <reason>` for every write. Only a REST caller gets it. A write from Home Assistant, which goes over MQTT, gets nothing and the result is only in GivTCP's log. And an accepted write is not a write that took: with Real Time Control off, the inverter acknowledges a write and ignores it. So the integration reads each setting back, and raises **The inverter did not take a charge setting** when it still shows the old value.
 
@@ -129,9 +139,9 @@ A parallel All-In-One behind a Gateway is a child inverter that may accept a wri
 
 ## How to check a change
 
-- The fixtures are in `tests/fixtures/givtcp_systems/`: one from a real install, eight from GivTCP's own test results (`from_harness.py`, which says how to rebuild them from a GivTCP checkout), and the rest built from GivTCP's datapoint reference (`build.py`). Each file says which it is.
-- `tools/mock_givtcp.py` is the fake GivTCP the write tests use. See [the design note](design/mock_givtcp.md).
-- When GivTCP releases, run the harness fixtures through discovery and compare. A kind that stops being classified, or a role that loses its entity, shows in `tests/inverter/givtcp/test_system_fixtures.py`.
+- The fixtures are in `packages/givtcp_mock/src/givtcp_mock/systems/`: one from a real install, eight from GivTCP's own test results (`from_harness.py`, which says how to rebuild them from a GivTCP checkout), and the rest built from GivTCP's datapoint reference (`build.py`). Each file says which it is.
+- `givtcp_mock` is the fake GivTCP the write tests use. See [the design note](design/mock_givtcp.md).
+- When GivTCP releases, run the harness fixtures through discovery and compare. A kind that stops being classified, or a role that loses its entity, shows in `tests/lib/givtcp/test_system_fixtures.py`.
 
 ## GivTCP's own tests, and what would help upstream
 
@@ -148,9 +158,9 @@ Changes that would help us, none sent:
 
 | Topic | Code |
 | --- | --- |
-| Finding the inverter, its prefix and its entities | `inverter/givtcp/discovery.py`, `core/entity_refs.py` |
-| Classifying the system and choosing the controller | `core/system_types.py`, `core/system_text.py` |
-| Reading | `inverter/givtcp/reader.py` |
-| Writing, the order and the read-back | `inverter/givtcp/writer.py`, `inverter/givtcp/sequence.py`, `inverter/givtcp/adapter.py` |
+| Finding the inverter, its prefix and its entities | `lib/givtcp/discovery.py`, `core/entity_refs.py` |
+| Classifying the system and choosing the controller | `lib/givtcp/system.py`, `core/system_text.py` |
+| Reading | `lib/givtcp/reader.py` |
+| Writing, the order and the read-back | `lib/givtcp/writer.py`, `lib/givtcp/sequence.py`, `lib/givtcp/adapter.py` |
 | Version and Real Time Control repairs | `core/givtcp_version.py`, `core/real_time_control.py`, `repairs.py` |
-| Test fixtures | `tests/fixtures/givtcp_systems/` |
+| Test fixtures | `packages/givtcp_mock/src/givtcp_mock/systems/` |

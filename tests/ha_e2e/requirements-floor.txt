@@ -4,4 +4,5 @@
 # never bumps it. Change it only when the floor in hacs.json changes.
 #
 # pins homeassistant==2026.5.0
+-e ./packages/givtcp_mock
 pytest-homeassistant-custom-component==0.13.329
