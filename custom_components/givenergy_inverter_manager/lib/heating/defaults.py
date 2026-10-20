@@ -25,3 +25,7 @@ IMMERSION_RATE_DAYS_KEPT = 7
 # How long a running element stays on while a required sensor is unavailable.
 # Same value as the write interval, but a separate setting.
 SENSOR_OUTAGE_HOLD_LIMIT_S = 300
+# Ready-by heating waits for the sun when the solar still to come today covers the heater's energy
+# this many times over (lib/heating/solar.py). House load and the battery take their share first.
+# The 3 is an estimate, not a measured figure: a guess at the share they use.
+IMMERSION_SOLAR_COVER_FACTOR = 3.0

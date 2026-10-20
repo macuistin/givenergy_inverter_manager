@@ -84,6 +84,7 @@ from ..const import (
     THROUGHPUT_BUDGET_STATUS_OVER,
 )
 from ..lib.ev import EVCharger, EVChargerState, EVSessionLog, EVSessionStep, track_session
+from ..lib.heating.solar import SolarOutlook
 from ..lib.tariff import stored_energy_change
 from ..logging import get_logger
 from .alt_heat_advice import AdviceInputs, WaterHeatingAdvice, advise_water_heating
@@ -1181,7 +1182,18 @@ def _ready_plan(cycle: _Cycle) -> ReadyPlan:
             rate_c_per_h=raw.immersion_heating_rate_c_per_h,
             heater_on=raw.immersion_on,
             max_run_hours=_max_run_hours(raw),
+            solar=_solar_outlook(cycle),
         )
+    )
+
+
+def _solar_outlook(cycle: _Cycle) -> SolarOutlook:
+    """Today's solar forecast for the ready-by plan, which waits for the sun when it is good."""
+    return SolarOutlook(
+        cycle.forecast.solar_forecast_kwh_today,
+        SOLAR_SUNRISE_HOUR,
+        cycle.solar_end_minute,
+        cycle.raw.immersion_wattage_w,
     )
 
 
@@ -1219,6 +1231,7 @@ def _set_planned_heating(data: CoordinatorData, cycle: _Cycle) -> None:
         water,
         raw.immersion_on,
         _max_run_hours(raw),
+        _solar_outlook(cycle),
     )
     data.immersion_planned_heating = describe_planned_heating(query)
 

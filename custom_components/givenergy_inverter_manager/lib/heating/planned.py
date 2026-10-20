@@ -28,9 +28,11 @@ from .ready import (
     HeatingSpan,
     ReadyInputs,
     next_ready_at,
-    place_hours,
+    place_in,
     plan_ready,
+    rate_segments,
 )
+from .solar import SOLAR_BAND, SolarOutlook, solar_window
 from .water import WaterReading
 from .window import WindowOpening, next_window_opening
 
@@ -49,6 +51,7 @@ class PlanQuery:
     water: WaterReading
     heater_on: bool = False
     max_run_hours: float | None = None
+    solar: SolarOutlook | None = None
 
 
 def _tomorrow(moment: datetime, now: datetime) -> str:
@@ -65,13 +68,17 @@ def _water_text(water: WaterReading) -> str:
     return f"water {water.temp:.1f}°C"
 
 
+def _band(span: HeatingSpan) -> str:
+    return "from expected solar" if span.name == SOLAR_BAND else f"at the {span.name} rate"
+
+
 def _span_between(span: HeatingSpan, now: datetime) -> str:
-    band = f"at the {span.name} rate"
+    band = _band(span)
     return f"{span.start:%H:%M} to {span.end:%H:%M}{_tomorrow(span.start, now)} {band}"
 
 
 def _span_until(span: HeatingSpan, now: datetime) -> str:
-    return f"until {span.end:%H:%M}{_tomorrow(span.end, now)} at the {span.name} rate"
+    return f"until {span.end:%H:%M}{_tomorrow(span.end, now)} {_band(span)}"
 
 
 def _spans_text(spans: list[HeatingSpan], now: datetime) -> str:
@@ -125,6 +132,7 @@ def _ready_inputs(query: PlanQuery) -> ReadyInputs:
         water.rate_c_per_h,
         query.heater_on,
         query.max_run_hours,
+        query.solar,
     )
 
 
@@ -132,7 +140,8 @@ def _heating_sentence(query: PlanQuery, ready_at: datetime) -> str:
     """The plan for a ready time the water will not reach on its own."""
     water, now = query.water, query.now
     plan = plan_ready(_ready_inputs(query))
-    placed = place_hours(query.tariff, now, ready_at, plan.hours_needed)
+    sun = solar_window(query.solar, now, ready_at, plan.hours_needed)
+    placed = place_in(rate_segments(query.tariff, now, ready_at, sun), plan.hours_needed)
     if not plan.heat_now:
         text = _spans_text(placed.spans, now)
         return f"Heating planned for {_ready_label(ready_at, now)}: {text}."
