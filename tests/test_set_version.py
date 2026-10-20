@@ -1,4 +1,4 @@
-"""scripts/set_version.py writes and checks the version in all six places."""
+"""scripts/set_version.py writes and checks the version in all six places, and reads the notes."""
 
 from __future__ import annotations
 
@@ -164,3 +164,53 @@ def test_tag_prints_the_tag_for_the_version_in_the_files(tree, capsys):
 
 def test_the_repository_matches_its_own_tag():
     assert set_version.main(["--check", f"v{_current()}"]) == 0
+
+
+@pytest.fixture
+def changelog(tree):
+    path = tree / "CHANGELOG.md"
+    path.write_text(
+        "# Changelog\n\n## Unreleased\n\n**Added**\n- Next.\n\n"
+        "## v0.18.0\n\nShipped.\n\n## v0.17.0\n\nOlder.\n",
+        encoding="utf-8",
+    )
+    return tree
+
+
+def test_notes_are_the_versions_changelog_section(changelog, capsys):
+    assert set_version.main(["--notes", "v0.18.0"], root=changelog) == 0
+
+    assert capsys.readouterr().out.strip() == "Shipped."
+
+
+def test_a_final_release_without_a_section_has_no_notes(changelog, capsys):
+    assert set_version.main(["--notes", "v0.19.0"], root=changelog) == 1
+
+    assert "no section for v0.19.0" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("version", ["v0.19.0b1", "v0.19.0rc1", "v0.19.0a1"])
+def test_a_pre_release_without_a_section_uses_the_unreleased_one(changelog, capsys, version):
+    assert set_version.main(["--notes", version], root=changelog) == 0
+
+    assert "- Next." in capsys.readouterr().out
+
+
+def test_a_pre_release_prefers_its_own_section(changelog, capsys):
+    path = changelog / "CHANGELOG.md"
+    path.write_text(path.read_text().replace("## v0.18.0\n", "## v0.18.0b1\n\nBeta.\n\n## v0.18.0\n"))
+
+    assert set_version.main(["--notes", "v0.18.0b1"], root=changelog) == 0
+
+    assert capsys.readouterr().out.strip() == "Beta."
+
+
+def test_an_empty_unreleased_section_is_not_notes(changelog):
+    path = changelog / "CHANGELOG.md"
+    path.write_text(path.read_text().replace("**Added**\n- Next.\n\n", ""))
+
+    assert set_version.main(["--notes", "v0.19.0b1"], root=changelog) == 1
+
+
+def test_notes_need_a_version(changelog):
+    assert set_version.main(["--notes"], root=changelog) == 2
