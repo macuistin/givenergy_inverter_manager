@@ -83,7 +83,8 @@ from ..const import (
     THROUGHPUT_BUDGET_STATUS_OK,
     THROUGHPUT_BUDGET_STATUS_OVER,
 )
-from ..discovery import EVCharger, EVChargerState
+from ..lib.ev import EVCharger, EVChargerState, EVSessionLog, EVSessionStep, track_session
+from ..lib.tariff import stored_energy_change
 from ..logging import get_logger
 from .alt_heat_advice import AdviceInputs, WaterHeatingAdvice, advise_water_heating
 from .alt_heat_schedule import (
@@ -116,7 +117,6 @@ from .charge_window import (
 )
 from .controller_conflict import ConflictStatus
 from .counter_guard import screen
-from .ev_session import EVSessionLog, EVSessionStep, track_session
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
 from .planned_heating import PlanQuery, describe_planned_heating
@@ -148,7 +148,6 @@ from .seasons import NORTHERN_SEASONS, SeasonRules
 from .setup_progress import SetupItem
 from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
 from .solar_shape import solar_end_minute, valid_shape
-from .stored_energy import stored_energy_change
 from .sunrise_charge import (
     LOAD_NOTE_FLAT,
     LOAD_NOTE_PER_SLOT,

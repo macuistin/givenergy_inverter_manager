@@ -9,9 +9,11 @@
 # this file does not install on Python 3.13.
 # The end-to-end suite pins exact versions in requirements-test-e2e.txt (the
 # latest release) and tests/ha_e2e/requirements-floor.txt (the floor).
+-e ./packages/givtcp_mock
 pytest>=9.1.1,<10
 pytest-asyncio>=1.4.0,<2
 pytest-cov>=7.1.0,<8
 homeassistant>=2026.5.0
 bandit>=1.9.4,<2
 ruff>=0.17.1,<0.18
+mypy>=1.13,<2

@@ -21,14 +21,17 @@ inside it.
 | Path | Role |
 | --- | --- |
 | `core/` | Pure Python decisions, tariff, accumulation maths and report text. No `homeassistant` imports |
+| `const.py`, `conf.py`, `defaults.py`, `tuning.py` | `conf.py` holds the `CONF_` option keys, `defaults.py` the `DEFAULT_` values and `tuning.py` the numeric thresholds. None of the three imports anything. `const.py` re-exports all of them, so import from `const` |
+| `lib/` | Packages written to be lifted out into their own repositories, one folder each. They import only the standard library and the `lib/` packages their `ALLOWED` row names. `lib/README.md` has the rules. `timeutil`, `ev` (EV charger model, discovery, sessions, base-rate alert) `tariff` (tariff model, cost accumulation, bill maths) and `heating` (hot-water ready-by planner) and `guards` (counter screening) and `givtcp` (the GivTCP adapter, value types and system model) are in so far. `core/tariff.py` keeps the code that reads option keys |
 | `coordinator.py` | Home Assistant bridge: asks the inverter backend for readings, calls `core/`, decides what to write and sends it through the backend, runs timers |
 | `inverter/` | `backend.py` is the `InverterBackend` interface. It has no Home Assistant import |
-| `inverter/givtcp/` | The GivTCP adapter: discovery, the verified writer and the write constants. The code that knows GivTCP entity names and write order |
-| `core/inverter_values.py` | The frozen values the coordinator and a backend exchange (`InverterValues`, `ChargePlan`, `RateDefaults`, `WriteResult`, `FeedStatus`) |
-| `core/system_types.py`, `core/system_text.py`, `core/entity_refs.py` | System kind and which inverter to manage, the setup text about it, and finding a wired entity again after its id changes. Devices are told apart by entity suffix, never by serial prefix alone |
+| `lib/givtcp/` | The GivTCP adapter: discovery, reads, the verified writer, write order and constants. The code that knows GivTCP entity names and write order. It reads its settings from a mapping with the keys in `lib/givtcp/keys.py` and reports a failed call as `ServiceCallError` |
+| `inverter/givtcp/` | `adapter.py` builds the backend and turns a `HomeAssistantError` into `ServiceCallError`. The other files re-export `lib/givtcp` |
+| `lib/givtcp/values.py` | The frozen values the coordinator and a backend exchange (`InverterValues`, `ChargePlan`, `RateDefaults`, `WriteResult`, `FeedStatus`). `core/inverter_values.py` re-exports it |
+| `lib/givtcp/system.py`, `core/system_text.py`, `core/entity_refs.py` | System kind and which inverter to manage (`core/system_types.py` re-exports it), the setup text about it, and finding a wired entity again after its id changes. Devices are told apart by entity suffix, never by serial prefix alone |
 | `config_flow.py`, `wizard/`, `core/wizard_*.py` | Setup wizard, options wizard and reconfigure (the inverter connection). `config_flow.py` only registers them. `config_helpers.py` merges entry data and options |
 | `sensor.py`, `sensor_descriptions/` | One entity class and the description table, split by theme |
-| `optional_devices.py`, `core/devices.py`, `discovery/` | The EV charger (`discovery/ev_charger.py`: Zappi, GivEnergy charger and others), immersion switch and immersion sensor may be absent or added later. `discovery/forecast.py` finds the forecast |
+| `optional_devices.py`, `core/devices.py`, `discovery/` | The EV charger (`lib/ev/discover.py`: Zappi, GivEnergy charger and others), immersion switch and immersion sensor may be absent or added later. `discovery/forecast.py` finds the forecast |
 | `controls.py` | The eight tuning controls: three switches and five numbers, each owning one option key |
 | `dashboard/`, `strategy.py` | The dashboard builder, and the Lovelace strategy that serves it |
 | `repairs.py`, `repair_flows.py`, `services.py` | Repair issues and their fix flows, service actions. `stored_dashboard_repair.py` checks the dashboard `update_dashboard` keeps current. `active_repairs.py` reads the open ones for the Active Repairs sensor |
@@ -37,7 +40,10 @@ inside it.
 
 - `core/` imports nothing from `homeassistant`, and nothing from `inverter/` at run time.
   `tests/test_metadata.py` enforces both.
-- Only `inverter/givtcp/` calls GivTCP services and knows its entity names and write order. The
+- `lib/` imports nothing from `const.py`, `logging.py`, `core/`, `discovery/`, `inverter/` or
+  `homeassistant`, not even under `TYPE_CHECKING`. Runtime packages live inside the integration folder
+  because HACS ships only that folder. `tests/test_metadata.py` enforces both.
+- Only `lib/givtcp/` calls GivTCP services and knows its entity names and write order. The
   coordinator reads and writes through the `InverterBackend` interface. Known leaks, which a new
   change does not add to: `_check_system` in `coordinator.py` reads GivTCP's version sensor and
   calls `discover_givtcp_inverters`, and the wizard, `repairs.py`, `write_audit.py`,
@@ -62,7 +68,8 @@ Two virtualenvs, because the end-to-end plugin pins `homeassistant`, `pytest` an
 older, so make each venv with `uv venv --python 3.14 .venv`. Run all three before pushing.
 
 ```bash
-ruff check custom_components tests scripts tools        # CI lints custom_components and tests
+ruff check custom_components tests scripts packages    # CI runs the same command
+mypy --follow-imports=silent custom_components/givenergy_inverter_manager/lib packages/givtcp_mock/src
 python -m pytest tests -q                               # unit suite, skips tests/ha_e2e
 python -m pytest tests/ha_e2e -q                        # real Home Assistant, own venv
 python scripts/gen_sensor_docs.py                       # rewrite docs/sensors.md after a sensor change
@@ -76,7 +83,7 @@ directory. Test counts drift, so measure before quoting one.
 
 GivTCP publishes grid and battery power with the opposite sign to the one used inside this
 integration. The GivTCP adapter negates both on read (`GivTCPReader.read` in
-`inverter/givtcp/reader.py`). `_collect_raw` in `coordinator.py` only merges the result.
+`lib/givtcp/reader.py`). `_collect_raw` in `coordinator.py` only merges the result.
 
 | Quantity | GivTCP entity | Inside the integration |
 | --- | --- | --- |
@@ -85,7 +92,7 @@ integration. The GivTCP adapter negates both on read (`GivTCPReader.read` in
 | Solar power | always positive | unchanged |
 
 - Tests: `test_reads_grid_power_negative_when_exporting` and `test_reads_battery_power_discharging`
-  in `tests/test_coordinator.py`. `tools/mock_givtcp.py` publishes in GivTCP's own convention.
+  in `tests/test_coordinator.py`. `givtcp_mock` publishes in GivTCP's own convention.
 - The **Battery Power** entity of this integration is positive when charging. The power flow card
   node reads it with `invert_state: true` (`dashboard/views.py`). A card that reads GivTCP's raw
   entity needs the opposite handling.
@@ -116,8 +123,8 @@ Other inverter projects are studied by writing a specification, never by copying
 specifications are the issues under #366 in the repository.
 
 Outside the integration: `tests/` (unit suite, Home Assistant stubbed), `tests/ha_e2e/` (real
-Home Assistant), `tests/fixtures/givtcp_systems/` (one real and several built GivTCP systems),
-`tools/mock_givtcp.py` (fake GivTCP, see `docs/design/mock_givtcp.md`),
+Home Assistant), `packages/givtcp_mock/` (fake GivTCP and the GivTCP system fixtures, one real and
+several built, see `docs/design/mock_givtcp.md`),
 `scripts/gen_sensor_docs.py` and `docs/`.
 
 Skills: `/release` (version bump and changelog), `/regenerate-goldens` (after an intended
@@ -125,11 +132,12 @@ behaviour change), `/add-sensor` (new sensor, with its docs and tests).
 
 ## Working agreements
 
-- Never add a config option, constant or entity without searching `const.py` for one to reuse.
+- Never add a config option, constant or entity without searching `const.py`, `conf.py`,
+  `defaults.py` and `tuning.py` for one to reuse.
   Say so in the PR when you add one.
 - Say plainly which checks you ran. If you could not run the end-to-end suite, say that.
 - Tests never talk to a real inverter or a live Home Assistant. Use the stubs, the end-to-end
-  suite and `tools/mock_givtcp.py`.
+  suite and `givtcp_mock`.
 - Source-grep tests (read a file, assert a string) are on the list for replacement in
   `ROADMAP.md`. Write tests that drive behaviour instead.
 - Commit and PR text follow `.claude/rules/docs-and-style.md`. Its ban on `Co-Authored-By` and

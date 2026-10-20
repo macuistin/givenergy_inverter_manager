@@ -13,7 +13,7 @@ Modules:
   ev_base_rate — When a car charging from the grid at the base rate is worth an alert
   reporting — HTML report generators for dashboard sensors
   optimizer — Backward-compat shim re-exporting from rules
-  timeutil  — Elapsed-time maths that stays correct across a clock change
+  timeutil  — Re-export of lib/timeutil, elapsed-time maths that stays correct across a clock change
 
 The HA integration layer (coordinator.py, sensor.py, etc.) imports from here.
 """

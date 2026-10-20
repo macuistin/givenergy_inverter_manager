@@ -1,0 +1,440 @@
+"""
+test_writer.py: GivTCPWriter driven directly through its three seams.
+
+A fake state dict and a recording service bus stand in for Home Assistant, so the
+tests need no coordinator.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+
+import pytest
+
+from custom_components.givenergy_inverter_manager.core.write_log import WriteRecord
+from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
+    GIVTCP_MAX_WRITE_RETRIES,
+    GIVTCP_MIN_WRITE_INTERVAL_S,
+    GIVTCP_UNCONFIRMED_COOLDOWN_S,
+    GIVTCP_WRITE_LIFETIME_WARN,
+)
+from custom_components.givenergy_inverter_manager.lib.givtcp.status import WriteStatus
+from custom_components.givenergy_inverter_manager.lib.givtcp.writer import (
+    GivTCPWriter,
+    SwitchState,
+    VerifiedWrite,
+)
+
+
+class _State:
+    def __init__(self, state: str) -> None:
+        self.state = state
+
+
+class _Bus:
+    """Recording service bus. By default a call sets the entity to the written value."""
+
+    def __init__(self) -> None:
+        self.states: dict[str, _State] = {}
+        self.calls: list[tuple[str, str, dict]] = []
+        self.counts: list[int] = []
+        self.settle_on: int | None = 1  # call number from which the state follows the write
+        self.error: Exception | None = None
+        self.missing: set[str] = set()
+
+    def get_state(self, entity_id: str):
+        if entity_id in self.missing:
+            return None
+        return self.states.get(entity_id) or _State("stale")
+
+    async def call_service(self, domain: str, service: str, data: dict) -> None:
+        self.calls.append((domain, service, data))
+        if self.error is not None:
+            raise self.error
+        if self.settle_on is not None and len(self.calls) >= self.settle_on:
+            self.states[data["entity_id"]] = _State(_written_state(service, data))
+
+
+def _written_state(service: str, data: dict) -> str:
+    if service == "turn_on":
+        return "on"
+    if service == "turn_off":
+        return "off"
+    return str(data.get("option", data.get("value")))
+
+
+@pytest.fixture(autouse=True)
+def _no_retry_sleep(monkeypatch):
+    monkeypatch.setitem(GivTCPWriter.write_verified.__globals__, "GIVTCP_WRITE_RETRY_SLEEP_S", 0)
+
+
+@pytest.fixture
+def bus() -> _Bus:
+    return _Bus()
+
+
+@pytest.fixture
+def writer(bus) -> GivTCPWriter:
+    return GivTCPWriter(bus.get_state, bus.call_service, bus.counts.append)
+
+
+class TestReadBeforeWrite:
+    async def test_switch_already_at_value_is_not_written(self, writer, bus):
+        bus.states["switch.s"] = _State("on")
+        assert await writer.set_switch("switch.s", SwitchState.ON, "s")
+        assert bus.calls == []
+
+    async def test_unavailable_switch_is_refused_not_read_as_off(self, writer, bus):
+        bus.states["switch.s"] = _State("unavailable")
+        status = await writer.set_switch("switch.s", SwitchState.OFF, "s")
+        assert status is WriteStatus.REFUSED
+        assert bus.calls == []
+
+    async def test_missing_entity_is_refused_without_a_call(self, writer, bus):
+        bus.missing.add("number.n")
+        assert await writer.set_number("number.n", 80, "n") is WriteStatus.REFUSED
+        assert bus.calls == []
+
+    async def test_number_compares_as_a_whole_number(self, writer, bus):
+        bus.states["number.n"] = _State("80.0")
+        assert await writer.set_number("number.n", 80, "n")
+        assert bus.calls == []
+
+    async def test_select_already_at_option_is_not_written(self, writer, bus):
+        bus.states["select.o"] = _State("23:00:00")
+        assert await writer.set_select("select.o", "23:00:00", "o")
+        assert bus.calls == []
+
+    @pytest.mark.parametrize("setter", ["set_switch", "set_select", "set_number"])
+    async def test_missing_entity_id_is_not_written(self, writer, bus, setter):
+        value = {"set_switch": SwitchState.ON, "set_select": "x", "set_number": 1}[setter]
+        assert not (await getattr(writer, setter)(None, value, "n"))
+        assert bus.calls == []
+
+
+class TestServiceCalls:
+    async def test_switch_on_and_off_use_turn_on_and_turn_off(self, writer, bus):
+        await writer.set_switch("switch.a", SwitchState.ON, "a")
+        await writer.set_switch("switch.b", SwitchState.OFF, "b")
+        bus.states["switch.b"] = _State("on")
+        await writer.set_switch("switch.b", SwitchState.OFF, "b")
+        assert bus.calls[0] == ("switch", "turn_on", {"entity_id": "switch.a"})
+        assert bus.calls[-1] == ("switch", "turn_off", {"entity_id": "switch.b"})
+
+    async def test_select_and_number_payloads(self, writer, bus):
+        await writer.set_select("select.o", "Eco", "o")
+        await writer.set_number("number.n", 80, "n")
+        assert bus.calls == [
+            ("select", "select_option", {"entity_id": "select.o", "option": "Eco"}),
+            ("number", "set_value", {"entity_id": "number.n", "value": 80}),
+        ]
+
+    async def test_custom_write_uses_the_supplied_matcher(self, writer, bus):
+        write = VerifiedWrite(
+            domain="climate",
+            service="set_temperature",
+            payload={"entity_id": "climate.c", "temperature": 21},
+            value=21,
+            shown=21,
+            name="c",
+            step=0,
+            matches=lambda state: state is not None and state.state == "21",
+        )
+        bus.states["climate.c"] = _State("18")
+        bus.settle_on = None
+        assert await writer.write_verified(write)
+        assert len(bus.calls) == GIVTCP_MAX_WRITE_RETRIES
+
+
+class TestRetry:
+    async def test_confirmed_first_time_makes_one_call(self, writer, bus, caplog):
+        with caplog.at_level(logging.WARNING):
+            assert await writer.set_number("number.n", 80, "n")
+        assert len(bus.calls) == 1
+        assert caplog.records == []
+
+    async def test_mismatch_is_retried_until_confirmed(self, writer, bus, caplog):
+        bus.settle_on = 2
+        with caplog.at_level(logging.WARNING):
+            assert await writer.set_number("number.n", 80, "n")
+        assert len(bus.calls) == 2
+        assert [r.getMessage() for r in caplog.records] == [
+            "n: sent 80 but it was not read back, sending again"
+        ]
+
+    async def test_never_confirmed_gives_up_but_reports_sent(self, writer, bus, caplog):
+        bus.settle_on = None
+        with caplog.at_level(logging.WARNING):
+            assert await writer.set_number("number.n", 80, "n")
+        assert len(bus.calls) == GIVTCP_MAX_WRITE_RETRIES
+        assert caplog.records[-1].getMessage() == "n: wrote 80 but could not confirm it after 2 send(s)"
+
+    async def test_select_that_vanishes_is_a_failure(self, writer, bus, caplog):
+        async def vanish(domain, service, data):
+            bus.calls.append((domain, service, data))
+            bus.missing.add(data["entity_id"])
+
+        writer = GivTCPWriter(bus.get_state, vanish, bus.counts.append)
+        bus.states["select.o"] = _State("old")
+        with caplog.at_level(logging.WARNING):
+            assert await writer.set_select("select.o", "new", "o") is WriteStatus.FAILED
+        assert len(bus.calls) == 1
+        assert "vanished" in caplog.records[-1].getMessage()
+
+    async def test_number_that_vanishes_is_retried(self, writer, bus):
+        async def vanish(domain, service, data):
+            bus.calls.append((domain, service, data))
+
+        writer = GivTCPWriter(bus.get_state, vanish, bus.counts.append)
+        assert await writer.set_number("number.n", 80, "n")
+        assert len(bus.calls) == GIVTCP_MAX_WRITE_RETRIES
+
+
+class TestFailure:
+    async def test_failed_call_returns_false_and_logs(self, writer, bus, caplog):
+        bus.error = RuntimeError("boom")
+        with caplog.at_level(logging.WARNING):
+            assert not (await writer.set_number("number.n", 80, "n"))
+        assert any("number.n" in r.getMessage() for r in caplog.records)
+
+    async def test_failed_call_is_not_counted(self, writer, bus):
+        bus.error = RuntimeError("boom")
+        await writer.set_number("number.n", 80, "n")
+        assert writer.write_count == 0
+        assert bus.counts == []
+
+    async def test_failed_call_releases_the_cooldown(self, writer, bus):
+        bus.error = RuntimeError("boom")
+        await writer.set_number("number.n", 80, "n")
+        assert ("number.n", 80) not in writer.last_write_time
+        bus.error = None
+        assert await writer.set_number("number.n", 80, "n")
+        assert len(bus.calls) == 2
+
+
+class TestCooldown:
+    async def test_same_value_inside_the_window_is_not_rewritten(self, writer, bus):
+        await writer.set_number("number.n", 80, "n")
+        bus.states["number.n"] = _State("60")  # something else changed it
+        assert await writer.set_number("number.n", 80, "n") is WriteStatus.COOLDOWN
+        assert len(bus.calls) == 1
+
+    async def test_a_then_b_then_a_writes_a_the_second_time(self, writer, bus):
+        for value in (80, 60, 80):
+            assert await writer.set_number("number.n", value, "n") is WriteStatus.WRITTEN
+        assert [c[2]["value"] for c in bus.calls] == [80, 60, 80]
+
+    async def test_an_unconfirmed_write_is_held_for_a_short_cooldown_not_the_full_one(
+        self, writer, bus
+    ):
+        bus.settle_on = None
+        assert await writer.set_number("number.n", 80, "n") is WriteStatus.UNCONFIRMED
+        bus.settle_on = 1
+        sent = len(bus.calls)
+
+        assert await writer.set_number("number.n", 80, "n") is WriteStatus.COOLDOWN
+        assert len(bus.calls) == sent  # a host that calls every cycle sends nothing more
+
+        for key in writer.last_write_time:
+            writer.last_write_time[key] -= GIVTCP_UNCONFIRMED_COOLDOWN_S
+        assert await writer.set_number("number.n", 80, "n") is WriteStatus.WRITTEN
+
+    async def test_an_unknown_entity_is_refused_like_an_unavailable_one(self, writer, bus):
+        bus.states["number.n"] = _State("unknown")
+
+        assert await writer.set_number("number.n", 80, "n") is WriteStatus.REFUSED
+        assert bus.calls == []
+
+    async def test_different_value_inside_the_window_is_written(self, writer, bus):
+        await writer.set_number("number.n", 80, "n")
+        await writer.set_number("number.n", 60, "n")
+        assert [c[2]["value"] for c in bus.calls] == [80, 60]
+
+    async def test_switch_cooldown_is_per_state(self, writer, bus):
+        await writer.set_switch("switch.s", SwitchState.ON, "s")
+        await writer.set_switch("switch.s", SwitchState.OFF, "s")
+        assert [c[1] for c in bus.calls] == ["turn_on", "turn_off"]
+
+    async def test_write_is_allowed_again_after_the_window(self, writer, bus):
+        await writer.set_number("number.n", 80, "n")
+        bus.states["number.n"] = _State("60")
+        writer.last_write_time[("number.n", 80)] = (
+            time.monotonic() - GIVTCP_MIN_WRITE_INTERVAL_S - 1
+        )
+        calls = len(bus.calls)
+        await writer.set_number("number.n", 80, "n")
+        assert len(bus.calls) > calls
+
+    def test_cooldown_api_for_callers_that_write_themselves(self, writer):
+        assert not (writer.cooldown_active("select.z", "z", "Eco+"))
+        writer.start_cooldown("select.z", "Eco+")
+        assert writer.cooldown_active("select.z", "z", "Eco+")
+        assert not (writer.cooldown_active("select.z", "z", "Fast"))
+
+
+class TestCounting:
+    async def test_each_accepted_call_is_counted_and_reported(self, writer, bus):
+        bus.settle_on = None
+        await writer.set_number("number.n", 80, "n")
+        assert writer.write_count == GIVTCP_MAX_WRITE_RETRIES
+        assert bus.counts == [1, 2]
+
+    async def test_count_continues_from_a_restored_value(self, writer, bus):
+        writer.seed_count(1000)
+        await writer.set_number("number.n", 80, "n")
+        assert bus.counts == [1001]
+
+    async def test_lifetime_warning_fires_once_at_the_limit(self, writer, bus, caplog):
+        writer.seed_count(GIVTCP_WRITE_LIFETIME_WARN - 1)
+        with caplog.at_level(logging.WARNING):
+            await writer.set_number("number.n", 80, "n")
+            await writer.set_number("number.n", 60, "n")
+        warnings = [r for r in caplog.records if "rated lifetime" in r.getMessage()]
+        assert len(warnings) == 1
+
+
+class _Observer:
+    """Records what the writer reports and where in the call it did so."""
+
+    def __init__(self, bus: _Bus) -> None:
+        self._bus = bus
+        self.events: list[tuple[str, WriteRecord, int]] = []
+
+    def before_write(self, record: WriteRecord) -> None:
+        self.events.append(("before", record, len(self._bus.calls)))
+
+    def after_write(self, record: WriteRecord) -> None:
+        self.events.append(("after", record, len(self._bus.calls)))
+
+    def write_failed(self, record: WriteRecord) -> None:
+        self.events.append(("failed", record, len(self._bus.calls)))
+
+
+class TestObserver:
+    @pytest.fixture
+    def observer(self, bus) -> _Observer:
+        return _Observer(bus)
+
+    @pytest.fixture
+    def observed(self, bus, observer) -> GivTCPWriter:
+        return GivTCPWriter(bus.get_state, bus.call_service, bus.counts.append, observer)
+
+    async def test_it_hears_about_the_call_before_and_after_it_is_sent(
+        self, observed, observer
+    ):
+        await observed.set_number("number.n", 62, "charge target")
+        record = WriteRecord("number.n", "62", "charge target")
+        assert observer.events == [("before", record, 0), ("after", record, 1)]
+
+    async def test_a_switch_is_reported_with_its_state_as_the_value(self, observed, observer):
+        await observed.set_switch("switch.s", SwitchState.ON, "enable charge target")
+        assert observer.events[-1][1] == WriteRecord("switch.s", "on", "enable charge target")
+
+    async def test_a_failed_call_is_reported_as_failed_not_written(self, observed, observer, bus):
+        bus.error = RuntimeError("rejected")
+        await observed.set_number("number.n", 62, "charge target")
+        assert [kind for kind, _, _ in observer.events] == ["before", "failed"]
+
+    async def test_a_write_skipped_because_the_entity_is_already_there_is_not_reported(
+        self, observed, observer, bus
+    ):
+        bus.states["number.n"] = _State("62")
+        await observed.set_number("number.n", 62, "charge target")
+        assert observer.events == []
+
+    async def test_a_writer_with_no_observer_still_writes(self, writer, bus):
+        assert await writer.set_number("number.n", 62, "charge target")
+
+
+class TestSerialisation:
+    async def test_two_writers_never_overlap(self, bus):
+        running = 0
+        peak = 0
+
+        async def slow_call(domain, service, data):
+            nonlocal running, peak
+            running += 1
+            peak = max(peak, running)
+            await asyncio.sleep(0.01)
+            bus.states[data["entity_id"]] = _State(str(data["value"]))
+            running -= 1
+
+        writer = GivTCPWriter(bus.get_state, slow_call, bus.counts.append)
+        results = await asyncio.gather(
+            writer.set_number("number.a", 1, "a"),
+            writer.set_number("number.b", 2, "b"),
+            writer.set_number("number.c", 3, "c"),
+        )
+        assert all(r is WriteStatus.WRITTEN for r in results)
+        assert peak == 1
+
+    async def test_second_caller_sees_the_first_callers_cooldown(self, writer, bus):
+        results = await asyncio.gather(
+            writer.set_number("number.n", 80, "n"),
+            writer.set_number("number.n", 80, "n"),
+        )
+        assert results == [WriteStatus.WRITTEN, WriteStatus.ALREADY_SET]
+        assert len(bus.calls) == 1
+
+
+class _Listener:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, str]] = []
+
+    def confirmed(self, write: VerifiedWrite) -> None:
+        self.events.append(("confirmed", write.entity_id))
+
+    def not_confirmed(self, write: VerifiedWrite) -> None:
+        self.events.append(("not_confirmed", write.entity_id))
+
+
+class TestConfirmationListener:
+    @pytest.fixture
+    def listener(self, writer) -> _Listener:
+        listener = _Listener()
+        writer.listen_for_confirmations(listener)
+        return listener
+
+    async def test_a_write_that_reads_back_is_confirmed(self, writer, listener):
+        await writer.set_number("number.n", 62, "charge target")
+        assert listener.events == [("confirmed", "number.n")]
+
+    async def test_a_write_that_reads_back_late_is_confirmed_by_the_retry(
+        self, writer, bus, listener
+    ):
+        bus.settle_on = 2
+        bus.states["number.n"] = _State("80")
+        await writer.set_number("number.n", 62, "charge target")
+        assert listener.events == [("confirmed", "number.n")]
+
+    async def test_an_entity_already_at_the_value_is_confirmed_without_a_call(
+        self, writer, bus, listener
+    ):
+        bus.states["number.n"] = _State("62")
+        await writer.set_number("number.n", 62, "charge target")
+        assert bus.calls == []
+        assert listener.events == [("confirmed", "number.n")]
+
+    async def test_every_attempt_reading_back_the_old_value_is_reported_once(
+        self, writer, bus, listener
+    ):
+        bus.settle_on = None
+        bus.states["number.n"] = _State("80")
+        assert await writer.set_number("number.n", 62, "charge target")
+        assert len(bus.calls) == GIVTCP_MAX_WRITE_RETRIES
+        assert listener.events == [("not_confirmed", "number.n")]
+
+    async def test_a_failed_call_is_not_a_missing_confirmation(self, writer, bus, listener):
+        bus.error = RuntimeError("rejected")
+        assert not (await writer.set_number("number.n", 62, "charge target"))
+        assert listener.events == []
+
+    async def test_a_write_skipped_by_the_cooldown_says_nothing(self, writer, bus, listener):
+        bus.states["number.n"] = _State("80")
+        await writer.set_number("number.n", 62, "charge target")
+        bus.states["number.n"] = _State("80")
+        listener.events.clear()
+        assert await writer.set_number("number.n", 62, "charge target") is WriteStatus.COOLDOWN
+        assert listener.events == []

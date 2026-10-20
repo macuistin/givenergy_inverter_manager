@@ -79,7 +79,7 @@ Issues raised:
     entities are not unavailable, so nothing else shows the fault. Not fixable: the cause
     is in GivTCP. The cycle fails like a silent feed, so no plan or write comes from old
     readings. The issue clears as soon as GivTCP reports again. The decision lives in
-    core/feed_freshness.py.
+    lib/givtcp/freshness.py.
 
   givtcp_not_answering
     GivTCP is running and reporting, but it is not getting data from the inverter: its status
@@ -87,7 +87,7 @@ Issues raised:
     minutes old (GivTCP 3.6 and later keep publishing the last good data in that case). Not
     fixable: the cause is between GivTCP and the inverter. The cycle fails like a frozen feed.
     The issue clears as soon as GivTCP reads the inverter again. The decision lives in
-    inverter/givtcp/reader.py.
+    lib/givtcp/reader.py.
 
   dashboard_out_of_date
     The storage dashboard that update_dashboard last wrote no longer matches the dashboard the

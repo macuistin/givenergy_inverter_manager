@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "givenergy_inverter_manager"
-version = "0.19.11"
+version = "0.20.0b1"
 requires-python = ">=3.14.2"
 
 [tool.pytest.ini_options]
@@ -51,6 +51,8 @@ max-branches = 10
 # split without losing readability — the dict key IS the schema declaration
 "custom_components/*/config_flow.py" = ["E501"]
 "tests/*" = ["E501", "C901", "PLR0912", "PLR0913", "PLR0915", "FBT001", "FBT002"]
+# The mock and fixtures are test support and held to the same limits as tests.
+"packages/givtcp_mock/*" = ["E501", "C901", "PLR0912", "PLR0913", "PLR0915", "FBT001", "FBT002"]
 
 [tool.mypy]
 python_version = "3.14"
@@ -62,6 +64,7 @@ ignore_missing_imports = true
 
 # HA-dependent modules cannot be strictly checked without the full HA package
 # and its type stubs. Pure logic in core/ is strictly typed.
+# Strict typing is enforced on lib/ and packages/ (CI runs the command in CLAUDE.md).
 [[tool.mypy.overrides]]
 module = [
     "custom_components.givenergy_inverter_manager.coordinator",

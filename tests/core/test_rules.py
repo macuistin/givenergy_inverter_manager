@@ -1235,7 +1235,7 @@ class TestImmersionSensorDropouts:
 
     @pytest.mark.parametrize("name", ["solar_power_w", "house_load_w", "battery_power_w"])
     def test_turns_off_once_outage_reaches_hold_limit(self, name):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
             GIVTCP_MIN_WRITE_INTERVAL_S,
         )
 
@@ -1253,7 +1253,7 @@ class TestImmersionSensorDropouts:
         assert SENSOR_OUTAGE_HOLD_LIMIT_S == 300
 
     def test_holds_on_just_under_hold_limit(self):
-        from custom_components.givenergy_inverter_manager.inverter.givtcp.constants import (
+        from custom_components.givenergy_inverter_manager.lib.givtcp.defaults import (
             GIVTCP_MIN_WRITE_INTERVAL_S,
         )
 

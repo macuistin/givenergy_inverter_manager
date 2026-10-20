@@ -27,7 +27,7 @@ and the six version strings. Commit title: `chore(release): bump version to X.Y.
    Then `grep -rn "<old version>" .` and confirm only history (changelog, design notes) is left.
 5. Run `python scripts/set_version.py --check vX.Y.Z` and `python -m pytest tests/test_metadata.py -q`.
    Both fail if one of the six places disagrees.
-6. Run `ruff check custom_components tests scripts tools`, the unit suite and the end-to-end suite.
+6. Run `ruff check custom_components tests scripts packages`, the unit suite and the end-to-end suite.
 7. Commit, then open the PR with `.github/PULL_REQUEST_TEMPLATE.md`. The PR body says what the
    release contains, taken from the changelog.
 8. After the PR merges, the maintainer runs Actions > Release > Run workflow on `main` with

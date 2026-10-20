@@ -26,7 +26,7 @@ from custom_components.givenergy_inverter_manager.core.inverter_values import (
     InverterValues,
 )
 from custom_components.givenergy_inverter_manager.inverter.givtcp import GivTCPPorts, make_backend
-from custom_components.givenergy_inverter_manager.inverter.givtcp.writer import GivTCPWriter
+from custom_components.givenergy_inverter_manager.lib.givtcp.writer import GivTCPWriter
 from tests.backend_contract import UNUSED, BackendContract
 from tests.fakes.fake_inverter import FakeInverter, FakeSlot
 

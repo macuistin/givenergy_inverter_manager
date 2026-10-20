@@ -19,7 +19,9 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, time
 from typing import Any, Protocol, runtime_checkable
 
-from ..core.inverter_values import (
+from ..lib.givtcp.model import BatteryPause, SelfUseMode
+from ..lib.givtcp.status import WriteStatus
+from ..lib.givtcp.values import (
     ChargePlan,
     FeedStatus,
     InverterIdentity,
@@ -80,16 +82,18 @@ class InverterBackend(Protocol):
         """
         ...
 
-    async def apply_charge_window(self, cfg: Mapping[str, Any], start: time, end: time) -> bool:
-        """Set the window start and end and nothing else. False when a write was not taken."""
+    async def apply_charge_window(
+        self, cfg: Mapping[str, Any], start: time, end: time
+    ) -> WriteStatus:
+        """Set the window start and end and nothing else. Falsy when refused or failed."""
         ...
 
     def other_active_charge_slots(self, cfg: Mapping[str, Any]) -> Sequence[ChargeSlot]:
         """Charge windows set by something else. Reads only."""
         ...
 
-    async def clear_charge_slot(self, slot: ChargeSlot) -> bool:
-        """Set one slot back to unused. False when a write was not taken."""
+    async def clear_charge_slot(self, slot: ChargeSlot) -> WriteStatus:
+        """Set one slot back to unused. The status is falsy when a write was refused or failed."""
         ...
 
     def read_rate_defaults(self, cfg: Mapping[str, Any]) -> RateDefaults | None:
@@ -127,6 +131,49 @@ class InverterBackend(Protocol):
 
     @write_count.setter
     def write_count(self, count: int) -> None: ...
+
+
+@runtime_checkable
+class InverterControls(Protocol):
+    """Settings beside the charge write, for a backend that offers them.
+
+    Separate from InverterBackend so a backend without them still satisfies that. Nothing here
+    exports: the battery mode takes SelfUseMode, which has no export mode, and the discharge
+    schedule, extra slots and timed force are not part of this interface at all. The coordinator
+    checks dry run and the feed before it calls any write.
+    """
+
+    def read_battery_mode(self, cfg: Mapping[str, Any]) -> str | None: ...
+
+    def read_reserve(self, cfg: Mapping[str, Any]) -> int | None: ...
+
+    def read_charge_rate(self, cfg: Mapping[str, Any]) -> int | None: ...
+
+    def read_discharge_rate(self, cfg: Mapping[str, Any]) -> int | None: ...
+
+    def clock_skew_s(self, cfg: Mapping[str, Any], now: datetime) -> float | None:
+        """Seconds the inverter's clock is ahead of now, None when it cannot be read."""
+        ...
+
+    async def apply_battery_mode(
+        self, cfg: Mapping[str, Any], mode: SelfUseMode
+    ) -> WriteStatus: ...
+
+    async def apply_reserve(self, cfg: Mapping[str, Any], percent: int) -> WriteStatus: ...
+
+    async def apply_charge_rate(self, cfg: Mapping[str, Any], watts: int) -> WriteStatus: ...
+
+    async def apply_discharge_rate(self, cfg: Mapping[str, Any], watts: int) -> WriteStatus: ...
+
+    async def apply_battery_pause(
+        self,
+        cfg: Mapping[str, Any],
+        pause: BatteryPause,
+        start: time | None = None,
+        end: time | None = None,
+    ) -> WriteStatus:
+        """Pause charging or discharging for a window, or end the pause. False when not taken."""
+        ...
 
 
 def describe_charge_slots(slots: Sequence[ChargeSlot]) -> str:
