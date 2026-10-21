@@ -53,34 +53,34 @@ class DeviceEntity:
 
 
 AUTO_IMMERSION = DeviceEntity(
-    "switch", "auto_immersion", Device.IMMERSION_SWITCH, "Auto Immersion Divert"
+    "switch", "auto_immersion", Device.IMMERSION_SWITCH, "Auto Divert"
 )
 IMMERSION_MANAGED = DeviceEntity(
-    "switch", "immersion_managed", Device.IMMERSION_SWITCH, "Immersion Heater (Managed)"
+    "switch", "immersion_managed", Device.IMMERSION_SWITCH, "Heater (Managed)"
 )
 IMMERSION_SCHEDULE = DeviceEntity(
     "switch",
     "immersion_schedule",
     Device.IMMERSION_THERMOSTAT,
-    "Immersion Scheduled Heating",
+    "Scheduled Heating",
 )
 IMMERSION_TARGET = DeviceEntity(
-    "number", "immersion_target_temp", Device.IMMERSION_THERMOSTAT, "Immersion Target Temperature"
+    "number", "immersion_target_temp", Device.IMMERSION_THERMOSTAT, "Target Temperature"
 )
 IMMERSION_MINIMUM = DeviceEntity(
-    "number", "immersion_min_temp", Device.IMMERSION_THERMOSTAT, "Immersion Minimum Temperature"
+    "number", "immersion_min_temp", Device.IMMERSION_THERMOSTAT, "Minimum Temperature"
 )
 IMMERSION_RESTART_GAP = DeviceEntity(
-    "number", "immersion_hysteresis", Device.IMMERSION_THERMOSTAT, "Immersion Restart Gap"
+    "number", "immersion_hysteresis", Device.IMMERSION_THERMOSTAT, "Restart Gap"
 )
 DIVERT_MIN_SOC = DeviceEntity(
-    "number", CONF_SURPLUS_DIVERT_SOC, Device.IMMERSION_SWITCH, "Immersion divert minimum SoC"
+    "number", CONF_SURPLUS_DIVERT_SOC, Device.IMMERSION_SWITCH, "Divert minimum SoC"
 )
 DIVERT_MIN_SURPLUS = DeviceEntity(
     "number",
     CONF_SURPLUS_DIVERT_MIN_W,
     Device.IMMERSION_SWITCH,
-    "Immersion divert minimum surplus",
+    "Divert minimum surplus",
 )
 DEVICE_ENTITIES: tuple[DeviceEntity, ...] = (
     AUTO_IMMERSION,

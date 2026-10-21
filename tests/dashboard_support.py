@@ -87,6 +87,12 @@ def _sensors() -> list[dict]:
     return module.load_sensors()
 
 
+def _device_needed(key: str) -> Device | None:
+    from custom_components.givenergy_inverter_manager.optional_devices import DEVICE_ENTITIES
+
+    return next((e.requires for e in DEVICE_ENTITIES if e.key == key), None)
+
+
 def default_entity_ids() -> dict[str, str]:
     """Return {unique id suffix: entity id} as Home Assistant would name them."""
     from custom_components.givenergy_inverter_manager.sensor_descriptions import (
@@ -101,7 +107,7 @@ def default_entity_ids() -> dict[str, str]:
         for s in _sensors()
     }
     for key, (domain, name) in _OTHER_ENTITIES.items():
-        ids[key] = f"{domain}.{_DEVICE_SLUG}_{_slug(name)}"
+        ids[key] = f"{domain}.{_DEVICE_SLUGS.get(_device_needed(key), _DEVICE_SLUG)}_{_slug(name)}"
     return ids
 
 

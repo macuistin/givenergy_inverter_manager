@@ -62,7 +62,7 @@ def _entity_names() -> dict[str, tuple[str, str, DeviceGroup]]:
         for d in SENSOR_DESCRIPTIONS
         if d.requires is not None
     }
-    names.update({e.key: (e.platform, e.name, DeviceGroup.MAIN) for e in DEVICE_ENTITIES})
+    names.update({e.key: (e.platform, e.name, group_of(e.requires)) for e in DEVICE_ENTITIES})
     return names
 
 

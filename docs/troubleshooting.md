@@ -361,7 +361,7 @@ Read **Immersion Divert Reason**. It gives the exact block.
 | Reason starts with | Fix |
 |---|---|
 | `No immersion switch configured` | No immersion switch entity is set, so there is nothing to turn on |
-| `Manual override` | **Auto Immersion Divert** is off. Turn it on |
+| `Manual override` | **Immersion Auto Divert** is off. Turn it on |
 | `Water already at` | The water is at the target. Wait for it to cool by the restart gap |
 | `Battery SoC ... below threshold` | The divert threshold (default 80%) is set at setup only |
 | `Not enough spare solar` | Spare solar is below the minimum (default 500 W). It says how far short: either the house is using more than the panels make, or some watts are spare but fewer than needed. Cloud, or a large house load. A heater that is already on stays on until the house uses more than the minimum beyond what the panels make |

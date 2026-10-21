@@ -178,7 +178,7 @@ class TestRemovingDevices:
         await save_options(hass, loaded_entry, immersion={})
 
         assert managed_switch_id(hass, loaded_entry) is None
-        assert hass.states.get("switch.givenergy_inverter_manager_immersion_heater_managed") is None
+        assert hass.states.get("switch.immersion_heater_managed") is None
         assert "immersion" not in await dashboard_paths(hass)
         assert not loaded_entry.runtime_data.immersion._ports.switch_entity()
 

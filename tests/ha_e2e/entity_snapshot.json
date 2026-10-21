@@ -20,31 +20,6 @@
   "name": "Forecast conservatism"
  },
  {
-  "entity_id": "number.givenergy_inverter_manager_immersion_divert_minimum_soc",
-  "key": "surplus_divert_soc_pct",
-  "name": "Immersion divert minimum SoC"
- },
- {
-  "entity_id": "number.givenergy_inverter_manager_immersion_divert_minimum_surplus",
-  "key": "surplus_divert_min_power_w",
-  "name": "Immersion divert minimum surplus"
- },
- {
-  "entity_id": "number.givenergy_inverter_manager_immersion_minimum_temperature",
-  "key": "immersion_min_temp",
-  "name": "Immersion Minimum Temperature"
- },
- {
-  "entity_id": "number.givenergy_inverter_manager_immersion_restart_gap",
-  "key": "immersion_hysteresis",
-  "name": "Immersion Restart Gap"
- },
- {
-  "entity_id": "number.givenergy_inverter_manager_immersion_target_temperature",
-  "key": "immersion_target_temp",
-  "name": "Immersion Target Temperature"
- },
- {
   "entity_id": "number.givenergy_inverter_manager_overnight_charge_target_override",
   "key": "charge_target_override",
   "name": "Overnight Charge Target Override"
@@ -53,6 +28,31 @@
   "entity_id": "number.givenergy_inverter_manager_skip_charge_soc_threshold",
   "key": "skip_charge_soc_threshold_pct",
   "name": "Skip-charge SoC threshold"
+ },
+ {
+  "entity_id": "number.immersion_divert_minimum_soc",
+  "key": "surplus_divert_soc_pct",
+  "name": "Divert minimum SoC"
+ },
+ {
+  "entity_id": "number.immersion_divert_minimum_surplus",
+  "key": "surplus_divert_min_power_w",
+  "name": "Divert minimum surplus"
+ },
+ {
+  "entity_id": "number.immersion_minimum_temperature",
+  "key": "immersion_min_temp",
+  "name": "Minimum Temperature"
+ },
+ {
+  "entity_id": "number.immersion_restart_gap",
+  "key": "immersion_hysteresis",
+  "name": "Restart Gap"
+ },
+ {
+  "entity_id": "number.immersion_target_temperature",
+  "key": "immersion_target_temp",
+  "name": "Target Temperature"
  },
  {
   "entity_id": "sensor.ev_charger_charging_cost_today",
@@ -885,11 +885,6 @@
   "name": "Water Temperature"
  },
  {
-  "entity_id": "switch.givenergy_inverter_manager_auto_immersion_divert",
-  "key": "auto_immersion",
-  "name": "Auto Immersion Divert"
- },
- {
   "entity_id": "switch.givenergy_inverter_manager_dry_run",
   "key": "dry_run",
   "name": "Dry run"
@@ -905,16 +900,6 @@
   "name": "Force Skip Overnight Charge"
  },
  {
-  "entity_id": "switch.givenergy_inverter_manager_immersion_heater_managed",
-  "key": "immersion_managed",
-  "name": "Immersion Heater (Managed)"
- },
- {
-  "entity_id": "switch.givenergy_inverter_manager_immersion_scheduled_heating",
-  "key": "immersion_schedule",
-  "name": "Immersion Scheduled Heating"
- },
- {
   "entity_id": "switch.givenergy_inverter_manager_re_plan_overnight_charge",
   "key": "charge_replan",
   "name": "Re-plan overnight charge"
@@ -923,5 +908,20 @@
   "entity_id": "switch.givenergy_inverter_manager_verbose_logging",
   "key": "verbose_logging",
   "name": "Verbose logging"
+ },
+ {
+  "entity_id": "switch.immersion_auto_divert",
+  "key": "auto_immersion",
+  "name": "Auto Divert"
+ },
+ {
+  "entity_id": "switch.immersion_heater_managed",
+  "key": "immersion_managed",
+  "name": "Heater (Managed)"
+ },
+ {
+  "entity_id": "switch.immersion_scheduled_heating",
+  "key": "immersion_schedule",
+  "name": "Scheduled Heating"
  }
 ]

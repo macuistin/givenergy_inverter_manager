@@ -13,7 +13,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import State
 from pytest_homeassistant_custom_component.common import mock_restore_cache
 
-SWITCH = "switch.givenergy_inverter_manager_auto_immersion_divert"
+SWITCH = "switch.immersion_auto_divert"
 
 
 @pytest.fixture

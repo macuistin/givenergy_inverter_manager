@@ -41,17 +41,35 @@ def _entities():
     ]
 
 
+_IMMERSION_ENTITIES = {
+    "GivEnergyAutoImmersionSwitch",
+    "GivEnergyImmersionControlSwitch",
+    "ImmersionTargetTempNumber",
+    "ImmersionMinTempNumber",
+    "ImmersionHysteresisNumber",
+}
+
+
 @pytest.mark.parametrize("entity", _entities(), ids=lambda e: type(e).__name__)
-def test_every_entity_uses_the_shared_base_and_device(entity):
+def test_every_entity_uses_the_shared_base_and_a_device(entity):
     assert isinstance(entity, GivEnergyEntity)
     assert entity._attr_has_entity_name is True
-    assert entity._attr_device_info == {
-        "identifiers": {(DOMAIN, ENTRY_ID)},
-        "name": NAME,
-        "manufacturer": DEVICE_MANUFACTURER,
-        "model": "Inverter Manager",
-        "sw_version": INTEGRATION_VERSION,
-    }
+    if type(entity).__name__ in _IMMERSION_ENTITIES:
+        assert entity._attr_device_info == {
+            "identifiers": {(DOMAIN, f"{ENTRY_ID}_immersion")},
+            "name": "Immersion",
+            "manufacturer": DEVICE_MANUFACTURER,
+            "model": "Immersion",
+            "via_device": (DOMAIN, ENTRY_ID),
+        }
+    else:
+        assert entity._attr_device_info == {
+            "identifiers": {(DOMAIN, ENTRY_ID)},
+            "name": NAME,
+            "manufacturer": DEVICE_MANUFACTURER,
+            "model": "Inverter Manager",
+            "sw_version": INTEGRATION_VERSION,
+        }
 
 
 def test_device_name_is_unchanged():

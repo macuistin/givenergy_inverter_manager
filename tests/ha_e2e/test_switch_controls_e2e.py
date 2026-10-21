@@ -14,8 +14,8 @@ from custom_components.givenergy_inverter_manager.const import (
 )
 
 SKIP = "switch.givenergy_inverter_manager_force_skip_overnight_charge"
-AUTO = "switch.givenergy_inverter_manager_auto_immersion_divert"
-MANAGED = "switch.givenergy_inverter_manager_immersion_heater_managed"
+AUTO = "switch.immersion_auto_divert"
+MANAGED = "switch.immersion_heater_managed"
 
 
 @pytest.fixture

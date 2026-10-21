@@ -44,7 +44,7 @@ from .const import (
 )
 from .controls import control_numbers
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
-from .core.devices import Device
+from .core.devices import Device, DeviceGroup
 from .entity import GivEnergyEntity
 from .logging import get_logger
 from .optional_devices import async_add_entities_per_device
@@ -136,7 +136,7 @@ class _ImmersionNumberBase(GivEnergyEntity, RestoreNumber, NumberEntity):
         default: float,
         config_key: str,
     ) -> None:
-        super().__init__(coordinator)
+        super().__init__(coordinator, DeviceGroup.IMMERSION)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{key}"
         self._attr_translation_key = key
         self._config_key = config_key

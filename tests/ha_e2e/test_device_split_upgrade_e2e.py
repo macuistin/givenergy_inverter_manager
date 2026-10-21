@@ -44,3 +44,42 @@ async def test_existing_entity_keeps_its_id_and_moves_to_the_immersion_device(
     assert immersion.via_device_id == main.id
     assert entry.device_id == immersion.id
     await hass.config_entries.async_unload(config_entry.entry_id)
+
+
+async def test_existing_switch_and_number_keep_their_ids_and_move_too(
+    hass_in_scenario, service_calls, config_entry
+):
+    hass = hass_in_scenario
+    config_entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    old = {
+        (
+            Platform.SWITCH,
+            "auto_immersion",
+        ): "switch.givenergy_inverter_manager_auto_immersion_divert",
+        (Platform.NUMBER, "surplus_divert_soc_pct"): (
+            "number.givenergy_inverter_manager_immersion_divert_minimum_soc"
+        ),
+    }
+    for (platform, key), entity_id in old.items():
+        registry.async_get_or_create(
+            platform,
+            DOMAIN,
+            f"{config_entry.entry_id}_{key}",
+            suggested_object_id=entity_id.split(".", 1)[1],
+            config_entry=config_entry,
+        )
+
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    immersion = next(
+        d
+        for d in dr.async_entries_for_config_entry(dr.async_get(hass), config_entry.entry_id)
+        if (DOMAIN, f"{config_entry.entry_id}_immersion") in d.identifiers
+    )
+    for entity_id in old.values():
+        entry = registry.async_get(entity_id)
+        assert entry is not None
+        assert entry.device_id == immersion.id
+    await hass.config_entries.async_unload(config_entry.entry_id)

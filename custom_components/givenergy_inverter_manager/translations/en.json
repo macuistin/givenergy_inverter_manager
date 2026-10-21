@@ -608,10 +608,10 @@
   "entity": {
     "number": {
       "surplus_divert_soc_pct": {
-        "name": "Immersion divert minimum SoC"
+        "name": "Divert minimum SoC"
       },
       "surplus_divert_min_power_w": {
-        "name": "Immersion divert minimum surplus"
+        "name": "Divert minimum surplus"
       },
       "cheap_rate_floor_soc": {
         "name": "Cheap rate floor SoC"
@@ -626,13 +626,13 @@
         "name": "Overnight Charge Target Override"
       },
       "immersion_target_temp": {
-        "name": "Immersion Target Temperature"
+        "name": "Target Temperature"
       },
       "immersion_min_temp": {
-        "name": "Immersion Minimum Temperature"
+        "name": "Minimum Temperature"
       },
       "immersion_hysteresis": {
-        "name": "Immersion Restart Gap"
+        "name": "Restart Gap"
       }
     },
     "sensor": {
@@ -1177,13 +1177,13 @@
         "name": "Enable Charge Target Override"
       },
       "auto_immersion": {
-        "name": "Auto Immersion Divert"
+        "name": "Auto Divert"
       },
       "immersion_managed": {
-        "name": "Immersion Heater (Managed)"
+        "name": "Heater (Managed)"
       },
       "immersion_schedule": {
-        "name": "Immersion Scheduled Heating"
+        "name": "Scheduled Heating"
       }
     }
   },
