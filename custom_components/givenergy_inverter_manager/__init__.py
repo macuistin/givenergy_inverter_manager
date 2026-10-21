@@ -34,6 +34,7 @@ from .core.default_enabled import keys_to_enable
 from .core.devices import alt_heat_warnings
 from .core.reload_policy import Effect, change_effect, changed_keys
 from .dashboard_notice import async_announce_dashboard, async_dismiss_announcement
+from .entity import async_register_main_device
 from .logging import get_logger, log_startup
 from .optional_devices import (
     async_inherit_main_area,
@@ -209,6 +210,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
     remove_orphaned_entities(hass, entry)
     remove_stale_devices(hass, entry)
     async_inherit_main_area(hass, entry)
+    async_register_main_device(hass, entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

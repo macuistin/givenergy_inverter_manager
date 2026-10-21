@@ -205,7 +205,9 @@ def async_inherit_main_area(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
             return
         registry = dr.async_get(hass)
         device = registry.async_get(event.data["device_id"])
-        if device is None or entry.entry_id not in device.config_entries:
+        if device is None or device.id not in {
+            d.id for d in dr.async_entries_for_config_entry(registry, entry.entry_id)
+        }:
             return
         if _group_of_device(entry, device) in (None, DeviceGroup.MAIN) or device.area_id:
             return

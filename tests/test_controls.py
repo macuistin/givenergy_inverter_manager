@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from types import MappingProxyType, SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -50,7 +51,10 @@ def _entry(data=None, options=None):
 
 def _coordinator(data=None, options=None, test_instance=False, dry_run=False):
     return SimpleNamespace(
-        entry=_entry(data, options), test_instance=test_instance, is_dry_run=dry_run
+        entry=_entry(data, options),
+        test_instance=test_instance,
+        is_dry_run=dry_run,
+        hass=MagicMock(),
     )
 
 
