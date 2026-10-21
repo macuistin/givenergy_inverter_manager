@@ -45,6 +45,7 @@ from .optional_devices import (
 from .services import async_register_services, async_unregister_services, loaded_entries
 from .stored_dashboard_repair import async_watch_stored_dashboard
 from .strategy import async_register_strategy, async_remove_resource
+from .wizard.wiring import limit_sources_for
 
 _LOG = get_logger(__name__)
 
@@ -110,6 +111,30 @@ def _convert_oil_price(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None
     data, options = converted
     hass.config_entries.async_update_entry(entry, data=data, options=options)
     _LOG.info("Converted the oil price settings to alternative heating with the label Oil")
+
+
+def _upgrade_saved_options(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Bring options saved by an older release up to date, before anything reads them."""
+    _convert_oil_price(hass, entry)
+    _adopt_limit_sensors(hass, entry)
+
+
+def _adopt_limit_sensors(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Pick GivTCP's capacity and output sensors for an entry saved before they were offered.
+
+    Only a key that was never saved is filled, so a sensor the user cleared or changed stays as
+    they left it. Like the oil price conversion, it runs before the update listener exists, so
+    the write does not reload the entry.
+    """
+    cfg = effective_config(entry)
+    found = limit_sources_for(
+        cfg, {state.entity_id: state for state in hass.states.async_all()}
+    )
+    new = {key: entity_id for key, entity_id in found.items() if key not in cfg}
+    if not new:
+        return
+    hass.config_entries.async_update_entry(entry, options={**entry.options, **new})
+    _LOG.info("Reading the battery capacity and inverter output from %s", sorted(new.values()))
 
 
 def _warn_about_alt_heat(entry: GivEnergyConfigEntry) -> None:
@@ -184,7 +209,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
     """Set up GivEnergy Inverter Manager from a config entry."""
     _LOG.debug("Setting up entry %s (%s)", entry.entry_id, entry.title)
 
-    _convert_oil_price(hass, entry)
+    _upgrade_saved_options(hass, entry)
     _warn_about_alt_heat(entry)
     await _announce_dashboard(hass, entry)
 

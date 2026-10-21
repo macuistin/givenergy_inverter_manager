@@ -42,7 +42,12 @@ def _parent_link(hass: HomeAssistant, entry_id: str) -> dict[str, object]:
     Newer releases take the id of the parent device. Older ones take its identifiers.
     """
     if "via_device_id" in getattr(DeviceInfo, "__annotations__", {}):
-        main = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry_id)})
+        registry = dr.async_get(hass)
+        identifier = (DOMAIN, entry_id)
+        if hasattr(registry, "async_get_device_by_identifier"):
+            main = registry.async_get_device_by_identifier(identifier, entry_id)
+        else:
+            main = registry.async_get_device(identifiers={identifier})
         return {"via_device_id": main.id} if main is not None else {}
     return {"via_device": (DOMAIN, entry_id)}
 

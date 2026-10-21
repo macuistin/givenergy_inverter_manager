@@ -133,6 +133,18 @@ class TestDiscoverGivTCPInverters:
             states["sensor.givtcp_SN5_invertor_max_inv_rate"] = _State(state=text)
             assert discover_givtcp_inverters(states)[0].inverter_max_output_kw is None
 
+    def test_limit_sensors_lists_only_those_that_read_a_number(self):
+        from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import limit_sensors
+
+        states = {
+            "sensor.givtcp_SN7_battery_capacity_kwh": _State(state="19.05"),
+            "sensor.givtcp_SN7_invertor_max_inv_rate": _State(state="unavailable"),
+        }
+        assert limit_sensors("givtcp_SN7", states) == {
+            "battery_capacity_kwh": "sensor.givtcp_SN7_battery_capacity_kwh"
+        }
+        assert limit_sensors("givtcp_other", states) == {}
+
     def test_multiple_inverters_sorted_by_serial(self):
         from custom_components.givenergy_inverter_manager.lib.givtcp.discovery import (
             discover_givtcp_inverters,

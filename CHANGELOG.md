@@ -16,7 +16,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 - The battery capacity and the maximum inverter output are now read from GivTCP's own sensors on every update, so setup no longer asks for the maximum output and a battery that grows is picked up. **Configure → Battery** has two new fields, **Battery capacity sensor** and **Inverter maximum output sensor**. Choose another sensor, or clear a field to use the typed value. The typed values stay as the fallback when a sensor is unavailable.
 
 **Upgrading**
-- An existing install keeps the capacity and output it has typed. They are used until you choose a sensor under **Configure → Battery**.
+- On the first start after the upgrade, an existing install picks GivTCP's battery capacity and maximum inverter output sensors, when they exist and read a number. The values you typed stay as the fallback. Change or clear the sensors under **Configure → Battery**. A sensor you have cleared is not picked again.
 - An existing install keeps every entity ID, unique ID, history and statistic. The sensors only change device, so a dashboard, automation or template that uses an entity ID carries on. A new install builds its IDs from the new device and entity names, such as `sensor.ev_charger_charging_power`, and [Automations](docs/automations.md) uses those. A device that appears later, such as an EV charger found after setup, takes the area of the main device. You can now delete the EV Charger or Immersion device from **Settings → Devices** once its hardware is no longer set, and the integration removes it itself on the next reload.
 
 ## v0.20.0

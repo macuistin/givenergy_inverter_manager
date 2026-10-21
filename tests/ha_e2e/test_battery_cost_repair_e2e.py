@@ -17,6 +17,7 @@ from custom_components.givenergy_inverter_manager import repairs
 from custom_components.givenergy_inverter_manager.const import (
     BATTERY_LIFE_ESTIMATE_MIN_DAYS,
     CONF_BASE_RATE,
+    CONF_BATTERY_CAPACITY_ENTITY,
     CONF_BATTERY_COST,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
@@ -132,9 +133,12 @@ async def test_the_fix_flow_asks_for_the_cost_and_saves_it_keeping_other_options
     await hass.async_block_till_done()
 
     assert done["type"] is FlowResultType.CREATE_ENTRY
-    # The first run also recorded the tariff review date, which this flow must keep.
+    # The first run also recorded the tariff review date and picked the capacity sensor,
+    # which this flow must keep.
     assert CONF_TARIFF_REVIEWED_ON in entry.options
-    assert {k: v for k, v in entry.options.items() if k != CONF_TARIFF_REVIEWED_ON} == {
+    assert CONF_BATTERY_CAPACITY_ENTITY in entry.options
+    own = {CONF_TARIFF_REVIEWED_ON, CONF_BATTERY_CAPACITY_ENTITY}
+    assert {k: v for k, v in entry.options.items() if k not in own} == {
         CONF_BASE_RATE: 0.41,
         CONF_RATE_PERIODS: saved_periods,
         CONF_BATTERY_COST: 6500.0,

@@ -141,7 +141,7 @@ Raising the count adds blank rows after the saved ones. Lowering it drops the la
 | Inverter maximum output sensor | `inverter_max_output_entity` | the GivTCP sensor, when setup found one | Any sensor in W or kW (no unit means W). Clear it to use the typed value |
 | Inverter maximum output | `inverter_max_output_kw` | from setup, else 5 | 1 to 20 kW. Used only when the sensor is empty or reads no number |
 
-The sensor is read on every update, so a battery that grows or an inverter limit that changes is picked up with no edit. A sensor that is unavailable falls back to the typed value for as long as it is unavailable. An install set up before these sensors were offered keeps its typed values until you choose a sensor here.
+The sensor is read on every update, so a battery that grows or an inverter limit that changes is picked up with no edit. A sensor that is unavailable falls back to the typed value for as long as it is unavailable. An install set up before these sensors were offered picks GivTCP's on the first start after the upgrade, when they read a number. A field you clear stays cleared.
 | Battery cost | `battery_cost_eur` | 0 | 0 to 20000 in steps of 100. 0 turns the wear check off |
 | Daily battery throughput budget | `battery_throughput_budget_kwh` | 0 | 0 to 50 in steps of 0.5. 0 turns the budget sensors off |
 

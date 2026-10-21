@@ -29,7 +29,7 @@ from ..const import (
     CONF_TARGET_SOC_ENTITY,
 )
 from ..core.wizard_pages import WIRING_REQUIRED
-from ..inverter.givtcp.discovery import GIVTCP_PREFIX, GivTCPInverter
+from ..inverter.givtcp.discovery import GIVTCP_PREFIX, GivTCPInverter, device_prefix, limit_sensors
 
 # discover_givtcp_inverters() entity keys to the config keys they are stored under.
 DISCOVERY_TO_CONF: dict[str, str] = {
@@ -82,6 +82,20 @@ def limit_sources_from(inverter: GivTCPInverter) -> dict[str, str]:
     if inverter.inverter_max_output_kw is not None:
         sources[CONF_INVERTER_MAX_OUTPUT_ENTITY] = inverter.entities["inverter_max_output"]
     return sources
+
+
+def limit_sources_for(cfg: Mapping[str, Any], states: Mapping[str, Any]) -> dict[str, str]:
+    """The limit sensors of an existing entry's inverter that read a number now.
+
+    The entry keeps the prefix GivTCP gave its entities, so it is read from the wiring.
+    """
+    prefix = device_prefix(cfg)
+    found = limit_sensors(prefix, dict(states)) if prefix else {}
+    conf = {
+        "battery_capacity_kwh": CONF_BATTERY_CAPACITY_ENTITY,
+        "inverter_max_output": CONF_INVERTER_MAX_OUTPUT_ENTITY,
+    }
+    return {conf[key]: entity_id for key, entity_id in found.items()}
 
 
 def serial_in_entity_id(entity_id: str) -> str | None:
