@@ -24,7 +24,8 @@ def combined_report(data_files: list[str], workdir: Path) -> dict:
     """The coverage JSON report of *data_files* combined."""
     target = workdir / ".coverage"
     subprocess.run(
-        [sys.executable, "-m", "coverage", "combine", "--keep", f"--data-file={target}", *data_files],
+        [sys.executable, "-m", "coverage", "combine", "--keep", f"--data-file={target}"]
+        + data_files,
         check=True,
     )
     out = workdir / "coverage.json"
