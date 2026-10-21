@@ -736,17 +736,17 @@ RENAMED_SENSORS: tuple[tuple[str, str, str], ...] = (
     (
         "immersion_savings_yesterday",
         "Immersion savings yesterday",
-        "Immersion solar savings yesterday",
+        "Solar savings yesterday",
     ),
     (
         "immersion_savings_this_week",
         "Immersion savings this week",
-        "Immersion solar savings this week",
+        "Solar savings this week",
     ),
     (
         "immersion_savings_this_month",
         "Immersion savings this month",
-        "Immersion solar savings this month",
+        "Solar savings this month",
     ),
 )
 RENAMED_NOTE = (
@@ -757,7 +757,8 @@ RENAMED_NOTE = (
     "because it leaves tonight's planned charge out, and a second sensor now gives the "
     "figure with the charge. The immersion savings sensors were renamed because they count "
     "diverted solar energy only, not what the heater draws from the grid, which the "
-    "Immersion Cost sensors show. In every group the key and the unique ID did not change, so "
+    "Immersion Cost sensors show. They sit on the Immersion device, so their full names still "
+    "start with Immersion. In every group the key and the unique ID did not change, so "
     "history, statistics and automations carry on. An install made before a rename keeps its "
     "old entity IDs, which still contain `peak`, `night_survival`, `immersion_savings` or the "
     "plain `estimated_soc_at_sunrise`. A new install builds entity IDs from the new names."

@@ -709,10 +709,10 @@
         "name": "Grid Export Today"
       },
       "zappi_today": {
-        "name": "EV Charging Today"
+        "name": "Charging Today"
       },
       "immersion_today": {
-        "name": "Immersion Heater Today"
+        "name": "Heater Today"
       },
       "import_cost_today": {
         "name": "Import Cost Today"
@@ -727,7 +727,7 @@
         "name": "Net Saving Today (inc. battery wear)"
       },
       "zappi_cost_today": {
-        "name": "EV Charging Cost Today"
+        "name": "Charging Cost Today"
       },
       "house_cost_today": {
         "name": "House Cost Today"
@@ -802,13 +802,13 @@
         "name": "Immersion Divert Reason"
       },
       "immersion_water_temperature": {
-        "name": "Immersion Water Temperature"
+        "name": "Water Temperature"
       },
       "water_heating_cheapest_source": {
         "name": "Water Heating Cheapest Source"
       },
       "immersion_run_limit": {
-        "name": "Immersion Run Limit",
+        "name": "Run Limit",
         "state": {
           "off": "Off",
           "idle": "Not reached",
@@ -845,31 +845,31 @@
         "name": "Inverter Clipping"
       },
       "ev_charger_state": {
-        "name": "EV Charger State"
+        "name": "State"
       },
       "ev_power": {
-        "name": "EV Charging Power"
+        "name": "Charging Power"
       },
       "ev_session_energy": {
-        "name": "EV Session Energy"
+        "name": "Session Energy"
       },
       "ev_session_cost": {
-        "name": "EV Session Cost"
+        "name": "Session Cost"
       },
       "ev_km_charged_today": {
-        "name": "EV km Charged Today"
+        "name": "km Charged Today"
       },
       "ev_cost_per_km_today": {
-        "name": "EV Cost per km Today"
+        "name": "Cost per km Today"
       },
       "ev_draining_battery": {
-        "name": "EV Draining Battery"
+        "name": "Draining Battery"
       },
       "ev_protection_reason": {
-        "name": "EV Mode Decision"
+        "name": "Mode Decision"
       },
       "immersion_cost_today": {
-        "name": "Immersion Cost Today"
+        "name": "Cost Today"
       },
       "dry_run_active": {
         "name": "Dry Run Mode Active"
@@ -915,10 +915,10 @@
         "name": "Average Import Rate This Month"
       },
       "immersion_savings_today": {
-        "name": "Immersion solar savings"
+        "name": "Solar savings"
       },
       "immersion_solar_kwh_today": {
-        "name": "Immersion solar diverted"
+        "name": "Solar diverted"
       },
       "battery_throughput_kwh_today": {
         "name": "Battery throughput"
@@ -963,7 +963,7 @@
         "name": "Import at base rate yesterday"
       },
       "immersion_savings_yesterday": {
-        "name": "Immersion solar savings yesterday"
+        "name": "Solar savings yesterday"
       },
       "self_sufficiency_yesterday": {
         "name": "Self-sufficiency yesterday"
@@ -993,7 +993,7 @@
         "name": "Import at base rate this week"
       },
       "immersion_savings_this_week": {
-        "name": "Immersion solar savings this week"
+        "name": "Solar savings this week"
       },
       "self_sufficiency_this_week": {
         "name": "Self-sufficiency this week"
@@ -1029,10 +1029,10 @@
         "name": "Export — trailing 12 months"
       },
       "ev_charging_source": {
-        "name": "EV Charging Source"
+        "name": "Charging Source"
       },
       "ev_solar_surplus_available": {
-        "name": "EV Solar Surplus"
+        "name": "Solar Surplus"
       },
       "solar_this_year": {
         "name": "Solar generated this year"
@@ -1056,7 +1056,7 @@
         "name": "Import at base rate this month"
       },
       "immersion_savings_this_month": {
-        "name": "Immersion solar savings this month"
+        "name": "Solar savings this month"
       },
       "self_sufficiency_this_month": {
         "name": "Self-sufficiency this month"
@@ -1131,7 +1131,7 @@
         "name": "Battery Power"
       },
       "immersion_power": {
-        "name": "Immersion Heater Power"
+        "name": "Heater Power"
       },
       "cheap_rate_floor_status": {
         "name": "Cheap Rate Floor"

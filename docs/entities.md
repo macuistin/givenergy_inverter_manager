@@ -4,7 +4,7 @@ Everything except sensors, plus the two binary sensors. For sensors, see [Sensor
 
 The immersion switches and numbers exist only while the device they need is set. The Auto Immersion Divert and Immersion Heater (Managed) switches and the two Immersion divert numbers need an immersion switch. Immersion Scheduled Heating and the three immersion temperature numbers need an immersion switch and a temperature sensor. They are created when the options set the device, and removed when the options clear it. See [Sensors](sensors.md) for the sensors that follow the same rule.
 
-All entities belong to one device, **GivEnergy Inverter Manager** (manufacturer macuistin, model Inverter Manager). Home Assistant builds entity IDs from the device name and the entity name, for example `switch.givenergy_inverter_manager_force_skip_overnight_charge`. Check yours in **Settings → Entities**.
+Entities belong to up to three devices. **GivEnergy Inverter Manager** (manufacturer macuistin, model Inverter Manager) holds the plan, tariff and cost entities. **EV Charger** holds the EV charger sensors and **Immersion** holds the immersion sensors. Both hang off the main device and exist only while the hardware they stand for is set. Home Assistant builds entity IDs from the device name and the entity name, for example `switch.givenergy_inverter_manager_force_skip_overnight_charge` or `sensor.ev_charger_charging_power`. An install that was set up before the split keeps the IDs it had. Check yours in **Settings → Entities**.
 
 ## Binary sensors
 

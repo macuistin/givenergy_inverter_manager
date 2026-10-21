@@ -211,21 +211,23 @@ async def test_every_entity_reports_this_project_as_the_manufacturer(hass, loade
     assert {device.manufacturer for device in devices} == {DEVICE_MANUFACTURER}
 
 
-async def test_all_entities_share_one_device_with_the_original_identifiers(hass, loaded_entry):
-    """The shared entity base must keep the device identifiers and name existing installs use."""
+async def test_the_main_device_keeps_its_original_identifiers(hass, loaded_entry):
+    """The main device keeps the identifiers and name existing installs use. The EV charger
+    and immersion devices hang off it and every entity sits on one of them."""
     from homeassistant.helpers import device_registry as dr
 
     registry = dr.async_get(hass)
     devices = dr.async_entries_for_config_entry(registry, loaded_entry.entry_id)
-    assert len(devices) == 1
-    device = devices[0]
-    assert device.identifiers == {(DOMAIN, loaded_entry.entry_id)}
-    assert device.name == "GivEnergy Inverter Manager"
-    assert device.model == "Inverter Manager"
+    main = next(d for d in devices if d.via_device_id is None)
+    assert main.identifiers == {(DOMAIN, loaded_entry.entry_id)}
+    assert main.name == "GivEnergy Inverter Manager"
+    assert main.model == "Inverter Manager"
+    assert {d.via_device_id for d in devices if d is not main} <= {main.id}
 
     entity_registry = er.async_get(hass)
     entities = er.async_entries_for_config_entry(entity_registry, loaded_entry.entry_id)
-    assert {e.device_id for e in entities} == {device.id}
+    assert {e.device_id for e in entities} <= {d.id for d in devices}
+    assert main.id in {e.device_id for e in entities}
 
 
 async def test_unload_waits_for_pending_background_tasks(hass, loaded_entry):

@@ -30,7 +30,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import ATTR_FULL_TEXT, DEFAULT_CURRENCY_SYMBOL
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
-from .core.devices import Device
+from .core.devices import Device, group_of
 from .core.text_state import fit_state
 from .entity import GivEnergyEntity
 from .optional_devices import async_add_entities_per_device
@@ -154,7 +154,7 @@ class GivEnergyManagerSensor(GivEnergyEntity, SensorEntity):
         coordinator: GivEnergyCoordinator,
         description: GivEnergyManagerSensorDescription,
     ) -> None:
-        super().__init__(coordinator)
+        super().__init__(coordinator, group_of(description.requires))
         self.entity_description = description
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{description.key}"
         self._reset_period = reset_period_of(description)

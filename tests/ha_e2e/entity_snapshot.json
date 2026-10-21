@@ -55,6 +55,66 @@
   "name": "Skip-charge SoC threshold"
  },
  {
+  "entity_id": "sensor.ev_charger_charging_cost_today",
+  "key": "zappi_cost_today",
+  "name": "Charging Cost Today"
+ },
+ {
+  "entity_id": "sensor.ev_charger_charging_power",
+  "key": "ev_power",
+  "name": "Charging Power"
+ },
+ {
+  "entity_id": "sensor.ev_charger_charging_source",
+  "key": "ev_charging_source",
+  "name": "Charging Source"
+ },
+ {
+  "entity_id": "sensor.ev_charger_charging_today",
+  "key": "zappi_today",
+  "name": "Charging Today"
+ },
+ {
+  "entity_id": "sensor.ev_charger_cost_per_km_today",
+  "key": "ev_cost_per_km_today",
+  "name": "Cost per km Today"
+ },
+ {
+  "entity_id": "sensor.ev_charger_draining_battery",
+  "key": "ev_draining_battery",
+  "name": "Draining Battery"
+ },
+ {
+  "entity_id": "sensor.ev_charger_km_charged_today",
+  "key": "ev_km_charged_today",
+  "name": "km Charged Today"
+ },
+ {
+  "entity_id": "sensor.ev_charger_mode_decision",
+  "key": "ev_protection_reason",
+  "name": "Mode Decision"
+ },
+ {
+  "entity_id": "sensor.ev_charger_session_cost",
+  "key": "ev_session_cost",
+  "name": "Session Cost"
+ },
+ {
+  "entity_id": "sensor.ev_charger_session_energy",
+  "key": "ev_session_energy",
+  "name": "Session Energy"
+ },
+ {
+  "entity_id": "sensor.ev_charger_solar_surplus",
+  "key": "ev_solar_surplus_available",
+  "name": "Solar Surplus"
+ },
+ {
+  "entity_id": "sensor.ev_charger_state",
+  "key": "ev_charger_state",
+  "name": "State"
+ },
+ {
   "entity_id": "sensor.givenergy_inverter_manager_accrued_bill_this_period",
   "key": "accrued_bill",
   "name": "Accrued Bill This Period"
@@ -280,66 +340,6 @@
   "name": "Estimated SoC at Sunrise Without a Charge"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_ev_charger_state",
-  "key": "ev_charger_state",
-  "name": "EV Charger State"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_ev_charging_cost_today",
-  "key": "zappi_cost_today",
-  "name": "EV Charging Cost Today"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_ev_charging_power",
-  "key": "ev_power",
-  "name": "EV Charging Power"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_ev_charging_source",
-  "key": "ev_charging_source",
-  "name": "EV Charging Source"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_ev_charging_today",
-  "key": "zappi_today",
-  "name": "EV Charging Today"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_ev_cost_per_km_today",
-  "key": "ev_cost_per_km_today",
-  "name": "EV Cost per km Today"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_ev_draining_battery",
-  "key": "ev_draining_battery",
-  "name": "EV Draining Battery"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_ev_km_charged_today",
-  "key": "ev_km_charged_today",
-  "name": "EV km Charged Today"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_ev_mode_decision",
-  "key": "ev_protection_reason",
-  "name": "EV Mode Decision"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_ev_session_cost",
-  "key": "ev_session_cost",
-  "name": "EV Session Cost"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_ev_session_energy",
-  "key": "ev_session_energy",
-  "name": "EV Session Energy"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_ev_solar_surplus",
-  "key": "ev_solar_surplus_available",
-  "name": "EV Solar Surplus"
- },
- {
   "entity_id": "sensor.givenergy_inverter_manager_export_earnings_this_month",
   "key": "export_earnings_this_month",
   "name": "Export earnings this month"
@@ -362,7 +362,7 @@
  {
   "entity_id": "sensor.givenergy_inverter_manager_export_earnings_trailing_12_months",
   "key": "export_earnings_trailing_12m",
-  "name": "Export Earnings \u2014 trailing 12 months"
+  "name": "Export Earnings — trailing 12 months"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_export_this_year",
@@ -372,7 +372,7 @@
  {
   "entity_id": "sensor.givenergy_inverter_manager_export_trailing_12_months",
   "key": "export_trailing_12m",
-  "name": "Export \u2014 trailing 12 months"
+  "name": "Export — trailing 12 months"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_forecast_accuracy_7_day_average",
@@ -475,59 +475,9 @@
   "name": "House Load Today"
  },
  {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_cost_today",
-  "key": "immersion_cost_today",
-  "name": "Immersion Cost Today"
- },
- {
   "entity_id": "sensor.givenergy_inverter_manager_immersion_divert_reason",
   "key": "immersion_divert_reason",
   "name": "Immersion Divert Reason"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_heater_power",
-  "key": "immersion_power",
-  "name": "Immersion Heater Power"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_heater_today",
-  "key": "immersion_today",
-  "name": "Immersion Heater Today"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_run_limit",
-  "key": "immersion_run_limit",
-  "name": "Immersion Run Limit"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_diverted",
-  "key": "immersion_solar_kwh_today",
-  "name": "Immersion solar diverted"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_savings",
-  "key": "immersion_savings_today",
-  "name": "Immersion solar savings"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_savings_this_month",
-  "key": "immersion_savings_this_month",
-  "name": "Immersion solar savings this month"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_savings_this_week",
-  "key": "immersion_savings_this_week",
-  "name": "Immersion solar savings this week"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_solar_savings_yesterday",
-  "key": "immersion_savings_yesterday",
-  "name": "Immersion solar savings yesterday"
- },
- {
-  "entity_id": "sensor.givenergy_inverter_manager_immersion_water_temperature",
-  "key": "immersion_water_temperature",
-  "name": "Immersion Water Temperature"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_import_at_base_rate",
@@ -597,7 +547,7 @@
  {
   "entity_id": "sensor.givenergy_inverter_manager_import_cost_trailing_12_months",
   "key": "import_cost_trailing_12m",
-  "name": "Import Cost \u2014 trailing 12 months"
+  "name": "Import Cost — trailing 12 months"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_import_cost_yesterday",
@@ -607,7 +557,7 @@
  {
   "entity_id": "sensor.givenergy_inverter_manager_import_trailing_12_months",
   "key": "import_trailing_12m",
-  "name": "Import \u2014 trailing 12 months"
+  "name": "Import — trailing 12 months"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_integration_version",
@@ -837,7 +787,7 @@
  {
   "entity_id": "sensor.givenergy_inverter_manager_solar_trailing_12_months",
   "key": "solar_trailing_12m",
-  "name": "Solar \u2014 trailing 12 months"
+  "name": "Solar — trailing 12 months"
  },
  {
   "entity_id": "sensor.givenergy_inverter_manager_solar_vs_provider_forecast",
@@ -883,6 +833,56 @@
   "entity_id": "sensor.givenergy_inverter_manager_water_heating_ready_by_trigger",
   "key": "water_heating_ready_by_trigger",
   "name": "Water Heating Ready-by Trigger"
+ },
+ {
+  "entity_id": "sensor.immersion_cost_today",
+  "key": "immersion_cost_today",
+  "name": "Cost Today"
+ },
+ {
+  "entity_id": "sensor.immersion_heater_power",
+  "key": "immersion_power",
+  "name": "Heater Power"
+ },
+ {
+  "entity_id": "sensor.immersion_heater_today",
+  "key": "immersion_today",
+  "name": "Heater Today"
+ },
+ {
+  "entity_id": "sensor.immersion_run_limit",
+  "key": "immersion_run_limit",
+  "name": "Run Limit"
+ },
+ {
+  "entity_id": "sensor.immersion_solar_diverted",
+  "key": "immersion_solar_kwh_today",
+  "name": "Solar diverted"
+ },
+ {
+  "entity_id": "sensor.immersion_solar_savings",
+  "key": "immersion_savings_today",
+  "name": "Solar savings"
+ },
+ {
+  "entity_id": "sensor.immersion_solar_savings_this_month",
+  "key": "immersion_savings_this_month",
+  "name": "Solar savings this month"
+ },
+ {
+  "entity_id": "sensor.immersion_solar_savings_this_week",
+  "key": "immersion_savings_this_week",
+  "name": "Solar savings this week"
+ },
+ {
+  "entity_id": "sensor.immersion_solar_savings_yesterday",
+  "key": "immersion_savings_yesterday",
+  "name": "Solar savings yesterday"
+ },
+ {
+  "entity_id": "sensor.immersion_water_temperature",
+  "key": "immersion_water_temperature",
+  "name": "Water Temperature"
  },
  {
   "entity_id": "switch.givenergy_inverter_manager_auto_immersion_divert",

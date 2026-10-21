@@ -6,6 +6,10 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 **Changed**
 - The setup screen that asks you to pick the five inverter entities by hand now checks them. It refuses an entity that does not exist or reads unavailable and asks you to choose again. Before, it only checked that each field was filled in, and a wrong choice showed up later as an inverter that would not load. Reconfigure already did this.
+- The EV charger and immersion sensors now sit on their own devices, **EV Charger** and **Immersion**, which hang off the main device. Their names lose the repeated prefix, so **EV Charging Power** is **Charging Power** on the EV Charger device and **Immersion Heater Power** is **Heater Power** on the Immersion device. The full name on a card or in a history graph reads the same as before.
+
+**Upgrading**
+- An existing install keeps every entity ID, unique ID, history and statistic. The sensors only change device, so a dashboard, automation or template that uses an entity ID carries on. A new install builds its IDs from the new device and entity names, such as `sensor.ev_charger_charging_power`, and [Automations](docs/automations.md) uses those. If you gave the main device an area, set the area on the new devices too. The EV charger and immersion switches and numbers move in a later release.
 
 ## v0.20.0
 

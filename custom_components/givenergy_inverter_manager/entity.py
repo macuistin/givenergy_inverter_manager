@@ -10,12 +10,11 @@ from __future__ import annotations
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DEVICE_MANUFACTURER, DOMAIN, INTEGRATION_VERSION, NAME
+from .const import DEVICE_MANUFACTURER, DOMAIN, INTEGRATION_VERSION
 from .coordinator import GivEnergyCoordinator
-from .core.devices import DeviceGroup
+from .core.devices import DeviceGroup, group_name
 
 _DEVICE_MODEL = "Inverter Manager"
-_GROUP_NAMES = {DeviceGroup.EV_CHARGER: "EV Charger", DeviceGroup.IMMERSION: "Immersion"}
 
 
 def device_info(coordinator: GivEnergyCoordinator, group: DeviceGroup) -> DeviceInfo:
@@ -24,16 +23,16 @@ def device_info(coordinator: GivEnergyCoordinator, group: DeviceGroup) -> Device
     if group is DeviceGroup.MAIN:
         return DeviceInfo(
             identifiers={(DOMAIN, entry_id)},
-            name=NAME,
+            name=group_name(group),
             manufacturer=DEVICE_MANUFACTURER,
             model=_DEVICE_MODEL,
             sw_version=INTEGRATION_VERSION,
         )
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry_id}_{group.value}")},
-        name=_GROUP_NAMES[group],
+        name=group_name(group),
         manufacturer=DEVICE_MANUFACTURER,
-        model=_GROUP_NAMES[group],
+        model=group_name(group),
         via_device=(DOMAIN, entry_id),
     )
 

@@ -62,7 +62,7 @@ def _state(hass, entry):
     entity_id = er.async_get(hass).async_get_entity_id(
         "sensor", DOMAIN, f"{entry.entry_id}_ev_session_cost"
     )
-    assert entity_id == "sensor.givenergy_inverter_manager_ev_session_cost"
+    assert entity_id == "sensor.ev_charger_session_cost"
     return hass.states.get(entity_id)
 
 

@@ -18,6 +18,7 @@ from ..const import (
     CONF_ALT_HEAT_ENABLED,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
+    NAME,
 )
 
 
@@ -48,6 +49,18 @@ _GROUPS = {
     Device.IMMERSION_SENSOR: DeviceGroup.IMMERSION,
     Device.IMMERSION_THERMOSTAT: DeviceGroup.IMMERSION,
 }
+
+
+_GROUP_NAMES = {
+    DeviceGroup.MAIN: NAME,
+    DeviceGroup.EV_CHARGER: "EV Charger",
+    DeviceGroup.IMMERSION: "Immersion",
+}
+
+
+def group_name(group: DeviceGroup) -> str:
+    """The name of the Home Assistant device for a group. Entity IDs start with its slug."""
+    return _GROUP_NAMES[group]
 
 
 def group_of(device: Device | None) -> DeviceGroup:
