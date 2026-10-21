@@ -346,7 +346,8 @@ DESCRIPTIONS: dict[str, str] = {
     "is_on_cheapest_rate": "yes when the current rate is the cheapest and a timed period exists.",
     "is_on_base_rate": "yes when no timed period is active.",
     "minutes_remaining_in_period": (
-        "Minutes until the active timed period ends. Empty on the base rate."
+        "Minutes until the current rate period ends. On the base rate, minutes until the next "
+        "timed period starts."
     ),
     "rate_savings_vs_daytime": "Base rate minus current rate, floored at 0.",
     "avg_import_rate_today": "Import cost divided by imported kWh. Empty when nothing imported.",
@@ -487,7 +488,8 @@ DESCRIPTIONS: dict[str, str] = {
     "overnight_charge_target": (
         "Tonight's target after overrides and the configured cap. Holds its value until the "
         "calculated target moves 5 points or more, and for an hour after it last changed. A move "
-        "of 15 points or more shows at once."
+        "of 15 points or more shows at once. On a skipped night it shows the minimum SoC that is "
+        "written to the inverter."
     ),
     "overnight_charge_reason": (
         "Why that target was chosen. Changes only when the target does, and never says skipping "

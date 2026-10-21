@@ -53,7 +53,7 @@ Read from the tariff you configured. See [Tariff](tariff.md).
 | Cheapest Rate Period Name | `cheapest_rate_period` | - | - | none | no | no | Name of the cheapest rate. |
 | On Cheapest Rate | `is_on_cheapest_rate` | - | - | none | no | no | yes when the current rate is the cheapest and a timed period exists. |
 | On Base (Daytime) Rate | `is_on_base_rate` | - | - | none | no | no | yes when no timed period is active. |
-| Minutes Remaining in Rate Period | `minutes_remaining_in_period` | min | - | measurement | no | no | Minutes until the active timed period ends. Empty on the base rate. |
+| Minutes Remaining in Rate Period | `minutes_remaining_in_period` | min | - | measurement | no | no | Minutes until the current rate period ends. On the base rate, minutes until the next timed period starts. |
 | Rate Saving vs Daytime | `rate_savings_vs_daytime` | currency | - | measurement | no | no | Base rate minus current rate, floored at 0. |
 | Average Import Rate Today | `avg_import_rate_today` | currency | - | measurement | no | no | Import cost divided by imported kWh. Empty when nothing imported. |
 | Average Import Rate This Week | `avg_import_rate_this_week` | currency | - | measurement | no | no | Import cost divided by imported kWh this week. |
@@ -151,7 +151,7 @@ Outputs of the overnight charge calculation.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Recommended Overnight Charge Target | `overnight_charge_target` | % | - | measurement | no | yes | Tonight's target after overrides and the configured cap. Holds its value until the calculated target moves 5 points or more, and for an hour after it last changed. A move of 15 points or more shows at once. |
+| Recommended Overnight Charge Target | `overnight_charge_target` | % | - | measurement | no | yes | Tonight's target after overrides and the configured cap. Holds its value until the calculated target moves 5 points or more, and for an hour after it last changed. A move of 15 points or more shows at once. On a skipped night it shows the minimum SoC that is written to the inverter. |
 | Overnight Charge Reason | `overnight_charge_reason` | - | - | none | no | yes | Why that target was chosen. Changes only when the target does, and never says skipping while a charge is running. Attributes report the forecast accuracy correction: `accuracy_status` (for example `Waiting for data: 3 of 5 days`), `accuracy_applied`, `accuracy_measured_factor`, `accuracy_applied_factor`, `accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`. Diagnostic category. |
 | Overnight Charge Window | `overnight_charge_window` | - | - | none | no | yes | The charge window written to slot 1, sized to the plan. The end holds until the plan moves it 15 minutes or more and the shown end has stood for an hour, or 45 minutes or more at once. Attributes: `window_start`, `window_end`, `window_extended`, `expected_kwh` and `expected_finish`. Diagnostic category. |
 | Estimated Overnight Charge Cost | `overnight_charge_cost` | currency | monetary | none | no | yes | kWh from the SoC up to the target that is written, after the cap or a manual override, times the cheapest rate, before discount and VAT. When the charge window is longer than the cheapest period, the energy after it is priced at the rate in force then. Zero on a skipped night. Diagnostic category. |

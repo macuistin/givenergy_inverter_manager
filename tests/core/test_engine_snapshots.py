@@ -204,6 +204,11 @@ tests/core/test_alt_heat_trigger.py and tests/core/test_alt_heat_advice_engine.p
 The fresh CoordinatorData gained the leaf immersion_run_limit (off) with the longest run
 warning. None of the 255 cases moved, because the flat engine sets no longest run, which is off.
 The sensor states are pinned in test_immersion_max_run_engine.py.
+
+168 of the 255 cases were regenerated when Minutes Remaining in Rate Period started counting to the
+next timed period on the base rate. Only minutes_remaining_in_period moved, from None to the minutes
+until the next period starts. The new behaviour is pinned in test_engine.py (TestPeriodTimeSensors)
+and test_dst_countdowns.py.
 """
 
 from __future__ import annotations

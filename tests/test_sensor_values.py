@@ -610,6 +610,12 @@ class TestPublishedChargeRecommendation:
         assert values.overnight_charge_target(data) == 87
         assert values.overnight_charge_reason(data) == "held"
 
+    def test_a_skipped_night_shows_the_minimum_soc_that_is_written(self):
+        skipped = self._decision(80, "skip")
+        skipped.skip_charge = True
+        data = make_data(published_charge_decision=skipped, battery_min_soc=20)
+        assert values.overnight_charge_target(data) == 20
+
     def test_cost_comes_from_the_published_decision(self):
         fresh, held = self._decision(90, "fresh"), self._decision(87, "held")
         fresh.cost_to_charge, held.cost_to_charge = 2.0, 1.0

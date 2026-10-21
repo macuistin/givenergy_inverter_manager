@@ -1830,10 +1830,15 @@ class TestPeriodTimeSensors:
         data, _ = _run(raw=raw, cfg=_nightboost_cfg(), now=now, last_update_time=last)
         return data
 
-    def test_minutes_remaining_none_during_daytime(self):
-        # 14:00 — base rate, no timed period
+    def test_minutes_remaining_counts_to_next_period_on_base_rate(self):
+        # 14:00 — base rate; the next timed period starts at 23:00 (9 hours)
         data = self._run_at_hour(14)
-        assert data.minutes_remaining_in_period is None
+        assert data.minutes_remaining_in_period == pytest.approx(540.0)
+
+    def test_minutes_remaining_known_just_after_night_ends(self):
+        # 08:00 — Night has just ended; the base rate runs until 23:00
+        data = self._run_at_hour(8, 0)
+        assert data.minutes_remaining_in_period == pytest.approx(900.0)
 
     def test_minutes_remaining_positive_during_night(self):
         # 01:00 — Night rate ends at 08:00 = 7 hours = 420 minutes remaining

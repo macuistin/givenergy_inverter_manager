@@ -10,9 +10,10 @@ CHARGE_TARGET_HOLD_LARGE_STEP_PCT at once.
 
 A change between charging and skipping is measured by the charge it adds or removes: skipping
 and charging a few points are the same night. A skip is never published while a charge is
-running, because the charge itself lifts the SoC over the skip threshold. A held charge whose
-target the battery has already reached is replaced at once by a fresh skip. It adds nothing, so
-showing it would say a charge is coming that is not.
+running, because the charge itself lifts the SoC over the skip threshold, and not after one has
+run, until the night's write releases the hold. A held charge whose target the battery had already
+reached before any charge ran is replaced at once by a fresh skip. It adds nothing, so showing it
+would say a charge is coming that is not.
 
 The published charge window end holds the same way, in minutes: a step of
 CHARGE_WINDOW_HOLD_STEP_MINUTES once the held end has stood for the same time, and a step of
@@ -61,13 +62,18 @@ class HeldCharge:
     published_at: datetime | None = None
     window: ChargeWindow | None = None
     window_published_at: datetime | None = None
+    # True once a charge has run under the held decision, so it is not replaced by a skip.
+    charged: bool = False
 
     def settle(self, fresh: ChargeDecision, reading: HoldReading) -> None:
         """Publish the fresh decision or keep the held one, and note when it changed."""
         published = next_held_recommendation(self, fresh, reading)
         if published is not self.decision:
             self.published_at = reading.now
+            self.charged = False
         self.decision = published
+        if reading.charge_running and not published.skip_charge:
+            self.charged = True
 
     def settle_window(self, fresh: ChargeWindow | None, reading: HoldReading) -> None:
         """Publish the planned window or keep the held one, and note when it changed."""
@@ -79,6 +85,7 @@ class HeldCharge:
     def release(self) -> None:
         """Drop what is held, so the next cycle publishes the fresh decision and window."""
         self.decision = self.published_at = self.window = self.window_published_at = None
+        self.charged = False
 
 
 def _has_stood_long_enough(published_at: datetime | None, reading: HoldReading) -> bool:
@@ -126,7 +133,7 @@ def next_held_recommendation(
         return fresh
     if _skip_during_charge(held.decision, fresh, reading):
         return held.decision
-    if _charge_already_met(held.decision, fresh, reading):
+    if not held.charged and _charge_already_met(held.decision, fresh, reading):
         return fresh
     step_pct = _plan_change_pct(held.decision, fresh, reading)
     if step_pct >= CHARGE_TARGET_HOLD_LARGE_STEP_PCT:

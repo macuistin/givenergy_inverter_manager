@@ -209,6 +209,14 @@ class TestTheTonightLine:
         assert "mdi:battery-charging-high" in text
         assert "won't" not in text
 
+    def test_a_target_the_battery_is_at_adds_nothing_and_says_so(self):
+        data = _plan_data(skip=False)
+        data.charge_decision.current_soc = data.charge_decision.target_soc
+        state = build_charge_plan_state(data)
+        assert state.startswith(PLAN_CHARGE_WORDS)
+        assert "No top-up needed" in state
+        assert "Add 0%" not in state
+
     def test_a_charge_with_a_window_still_reads_the_percentage_not_the_time(self):
         window = ChargeWindow(
             time(2, 0), time(4, 0), extended=False, expected_kwh=None, finish_time=None
