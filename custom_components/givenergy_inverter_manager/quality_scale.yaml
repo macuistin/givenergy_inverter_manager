@@ -43,7 +43,7 @@ rules:
   test-coverage: done          # every module is above 95% over both suites, checked in CI by scripts/check_coverage.py (the coverage job in tests.yml)
 
   # ── Gold ─────────────────────────────────────────────────────────────────────
-  devices: done                # device_info with identifiers on all entities
+  devices: done                # entity.device_info gives every entity a device with identifiers: the main device, EV Charger and Immersion (the last two via_device the first)
   diagnostics: done            # diagnostics.py provides Download Diagnostics; the inverter serial and entity IDs built from it are redacted
   discovery:
     status: exempt
