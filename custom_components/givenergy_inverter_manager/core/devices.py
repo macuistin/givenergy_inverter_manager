@@ -34,27 +34,6 @@ class Device(StrEnum):
     ALTERNATIVE_HEAT = "alternative_heat"
 
 
-class DeviceGroup(StrEnum):
-    """The Home Assistant device an entity is attached to."""
-
-    MAIN = "main"
-    EV_CHARGER = "ev_charger"
-    IMMERSION = "immersion"
-
-
-_GROUPS = {
-    Device.EV_CHARGER: DeviceGroup.EV_CHARGER,
-    Device.IMMERSION_SWITCH: DeviceGroup.IMMERSION,
-    Device.IMMERSION_SENSOR: DeviceGroup.IMMERSION,
-    Device.IMMERSION_THERMOSTAT: DeviceGroup.IMMERSION,
-}
-
-
-def group_of(device: Device | None) -> DeviceGroup:
-    """The device group for an entity that requires `device`. No requirement means MAIN."""
-    return _GROUPS.get(device, DeviceGroup.MAIN) if device else DeviceGroup.MAIN
-
-
 def alt_heat_configured(config: Mapping[str, Any]) -> bool:
     """True when alternative heating is on and has a cost or a cost sensor.
 

@@ -12,30 +12,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DEVICE_MANUFACTURER, DOMAIN, INTEGRATION_VERSION, NAME
 from .coordinator import GivEnergyCoordinator
-from .core.devices import DeviceGroup
 
 _DEVICE_MODEL = "Inverter Manager"
-_GROUP_NAMES = {DeviceGroup.EV_CHARGER: "EV Charger", DeviceGroup.IMMERSION: "Immersion"}
-
-
-def device_info(coordinator: GivEnergyCoordinator, group: DeviceGroup) -> DeviceInfo:
-    """The registry entry for a group. The EV charger and immersion hang off the main device."""
-    entry_id = coordinator.entry.entry_id
-    if group is DeviceGroup.MAIN:
-        return DeviceInfo(
-            identifiers={(DOMAIN, entry_id)},
-            name=NAME,
-            manufacturer=DEVICE_MANUFACTURER,
-            model=_DEVICE_MODEL,
-            sw_version=INTEGRATION_VERSION,
-        )
-    return DeviceInfo(
-        identifiers={(DOMAIN, f"{entry_id}_{group.value}")},
-        name=_GROUP_NAMES[group],
-        manufacturer=DEVICE_MANUFACTURER,
-        model=_GROUP_NAMES[group],
-        via_device=(DOMAIN, entry_id),
-    )
 
 
 class GivEnergyEntity(CoordinatorEntity[GivEnergyCoordinator]):
@@ -43,8 +21,12 @@ class GivEnergyEntity(CoordinatorEntity[GivEnergyCoordinator]):
 
     _attr_has_entity_name = True
 
-    def __init__(
-        self, coordinator: GivEnergyCoordinator, group: DeviceGroup = DeviceGroup.MAIN
-    ) -> None:
+    def __init__(self, coordinator: GivEnergyCoordinator) -> None:
         super().__init__(coordinator)
-        self._attr_device_info = device_info(coordinator, group)
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.entry.entry_id)},
+            name=NAME,
+            manufacturer=DEVICE_MANUFACTURER,
+            model=_DEVICE_MODEL,
+            sw_version=INTEGRATION_VERSION,
+        )
