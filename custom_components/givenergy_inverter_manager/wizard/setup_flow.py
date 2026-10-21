@@ -65,7 +65,7 @@ from .selectors import (
     entity_selector,
     number_selector,
 )
-from .wiring import MANUAL_SERIAL, wiring_from, with_serial
+from .wiring import MANUAL_SERIAL, limit_sources_from, wiring_from, with_serial
 
 CHOSEN_INVERTER = "discovered_inverter"
 
@@ -187,9 +187,10 @@ class SetupSteps(WizardPages):
             fields[vol.Required(CONF_BATTERY_CAPACITY, default=DEFAULT_BATTERY_CAPACITY)] = (
                 number_selector(CONF_BATTERY_CAPACITY)
             )
-        fields[vol.Optional(CONF_INVERTER_MAX_OUTPUT, default=DEFAULT_INVERTER_MAX_OUTPUT)] = (
-            number_selector(CONF_INVERTER_MAX_OUTPUT)
-        )
+        if best is None or best.inverter_max_output_kw is None:
+            fields[vol.Optional(CONF_INVERTER_MAX_OUTPUT, default=DEFAULT_INVERTER_MAX_OUTPUT)] = (
+                number_selector(CONF_INVERTER_MAX_OUTPUT)
+            )
         fields[vol.Required(PAGES_KEY, default=["tariff"])] = checklist_selector(
             self._offered_pages(), translation_key="setup_pages"
         )
@@ -214,14 +215,18 @@ class SetupSteps(WizardPages):
     def _store_system(self, user_input: dict[str, Any], chosen: Any) -> None:
         """Keep what the first screen gave: battery, inverter output, the home currency."""
         reported = chosen.battery_capacity_kwh if chosen else None
+        reported_output = chosen.inverter_max_output_kw if chosen else None
         capacity = user_input.get(CONF_BATTERY_CAPACITY, reported or DEFAULT_BATTERY_CAPACITY)
-        output = user_input.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT)
+        output = user_input.get(
+            CONF_INVERTER_MAX_OUTPUT, reported_output or DEFAULT_INVERTER_MAX_OUTPUT
+        )
         self._values.update(
             {
                 CONF_BATTERY_CAPACITY: float(capacity),
                 CONF_INVERTER_MAX_OUTPUT: float(output),
                 CONF_CURRENCY: currency_code(self.hass.config.currency),
                 CONF_RATE_PERIODS: [],
+                **(limit_sources_from(chosen) if chosen else {}),
             }
         )
         found = self._detected_now().forecast

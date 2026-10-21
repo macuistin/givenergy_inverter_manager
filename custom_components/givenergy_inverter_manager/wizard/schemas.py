@@ -28,6 +28,7 @@ from ..const import (
     CONF_BASE_RATE,
     CONF_BASE_RATE_NAME,
     CONF_BATTERY_CAPACITY,
+    CONF_BATTERY_CAPACITY_ENTITY,
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_THROUGHPUT_BUDGET,
@@ -50,6 +51,7 @@ from ..const import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
+    CONF_INVERTER_MAX_OUTPUT_ENTITY,
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_PSO_LEVY,
     CONF_RATE_PERIODS,
@@ -267,9 +269,11 @@ def battery_schema(ctx: PageContext) -> vol.Schema:
     currency = _currency(ctx)
     return vol.Schema(
         {
+            optional_key(ctx, CONF_BATTERY_CAPACITY_ENTITY): entity_selector(),
             vol.Optional(
                 CONF_BATTERY_CAPACITY, default=float(_value(ctx, CONF_BATTERY_CAPACITY))
             ): number_selector(CONF_BATTERY_CAPACITY),
+            optional_key(ctx, CONF_INVERTER_MAX_OUTPUT_ENTITY): entity_selector(),
             vol.Optional(
                 CONF_INVERTER_MAX_OUTPUT, default=float(_value(ctx, CONF_INVERTER_MAX_OUTPUT))
             ): number_selector(CONF_INVERTER_MAX_OUTPUT),
@@ -393,4 +397,3 @@ def ev_schema(ctx: PageContext) -> vol.Schema:
             ): number_selector(CONF_CAR_EFFICIENCY_KWH_PER_100KM)
         }
     )
-

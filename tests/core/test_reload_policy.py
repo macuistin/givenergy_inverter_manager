@@ -68,6 +68,8 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     "tariff_reviewed_on": ("2026-01-01", "2026-06-01", LIVE),
     # Battery and charging.
     "battery_capacity_kwh": (9.5, 10.0, LIVE),
+    "battery_capacity_entity": ("sensor.a", "sensor.b", LIVE),
+    "inverter_max_output_entity": ("sensor.a", "sensor.b", LIVE),
     "inverter_max_output_kw": (5.0, 3.6, LIVE),
     "battery_min_soc_pct": (10, 15, LIVE),
     "overnight_charge_target_pct": (80, 90, LIVE),

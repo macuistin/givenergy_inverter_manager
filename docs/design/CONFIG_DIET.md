@@ -19,8 +19,10 @@ The rule is one home per setting. A setting is a wizard field (set once, changes
 | Fixed levy (`pso_levy_per_month`) | Bill details | Keep | On the bill. The key name is kept, the screen says per billing period |
 | VAT (`vat_rate`) | Bill details | Keep | On the bill |
 | Supplier discount (`discount_rate`) | Bill details | Keep | On the bill |
-| Battery capacity (`battery_capacity_kwh`) | System, Battery | Detect | GivTCP reports it, so setup asks only when it did not. The field stays in Configure for a battery that grows |
-| Inverter maximum output (`inverter_max_output_kw`) | System, Battery | Keep | GivTCP does not report it. The default is 5 kW and the field is always visible |
+| Battery capacity sensor (`battery_capacity_entity`) | System, Battery | Detect | Setup picks the GivTCP capacity sensor when it reads a number. The coordinator reads it every cycle, so a battery that grows is picked up. The Battery page can point at another sensor or clear it |
+| Battery capacity (`battery_capacity_kwh`) | System, Battery | Detect | The typed value, used when no sensor is set or the sensor reads nothing. Setup asks only when GivTCP reports no capacity |
+| Inverter maximum output sensor (`inverter_max_output_entity`) | System, Battery | Detect | Setup picks GivTCP's maximum inverter rate sensor (watts) when it reads a number. A sensor in kW also works |
+| Inverter maximum output (`inverter_max_output_kw`) | System, Battery | Detect | The typed value, used when no sensor is set or the sensor reads nothing. Setup asks only when GivTCP reports no rate |
 | Battery minimum charge (`battery_min_soc_pct`) | Charge planning | Keep | A protection level set once. It has a repair when set too high |
 | Overnight charge cap (`overnight_charge_target_pct`) | Charge planning | Keep | A ceiling set once. The nightly target is calculated, and the manual override is its own entity |
 | Battery cost (`battery_cost_eur`) | Battery | Keep | Not available from any device. A repair asks for it |

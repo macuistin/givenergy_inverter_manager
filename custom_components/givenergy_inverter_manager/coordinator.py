@@ -63,6 +63,7 @@ from .const import (
     CONF_ALT_HEAT_ENABLED,
     CONF_ALT_HEAT_LABEL,
     CONF_BATTERY_CAPACITY,
+    CONF_BATTERY_CAPACITY_ENTITY,
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_CARBON_INTENSITY_ENTITY,
@@ -85,6 +86,7 @@ from .const import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
+    CONF_INVERTER_MAX_OUTPUT_ENTITY,
     CONF_INVERTER_SERIAL,
     CONF_TARGET_SOC_ENTITY,
     CONF_TARIFF_REVIEWED_ON,
@@ -155,6 +157,7 @@ from .core.givtcp_version import FIXED_IN_VERSION, resets_entity_ids
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
 from .core.inverter_values import ChargePlan, FeedState, InverterValues
+from .core.limits import capacity_kwh, inverter_output_kw
 from .core.real_time_control import next_step as next_real_time_control_step
 from .core.reload_policy import IMMERSION_TEMP_KEYS, TARIFF_TRIGGER_KEYS
 from .core.replan import (
@@ -1261,10 +1264,21 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._smoothed_solar_w = 0.5 * self._smoothed_solar_w + 0.5 * raw.solar_power_w
         raw.smoothed_solar_power_w = self._smoothed_solar_w
 
-    @staticmethod
-    def _read_system_limits(cfg: dict, raw: RawSensorValues) -> None:
-        raw.inverter_max_w = cfg.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT) * 1000
-        raw.battery_capacity_kwh = float(cfg.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY))
+    def _read_system_limits(self, cfg: dict, raw: RawSensorValues) -> None:
+        """Battery capacity and inverter output: the chosen sensor, else the typed value."""
+        typed_output = float(cfg.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT))
+        typed_capacity = float(cfg.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY))
+        output_state, output_unit = self._limit_reading(cfg.get(CONF_INVERTER_MAX_OUTPUT_ENTITY))
+        capacity_state, capacity_unit = self._limit_reading(cfg.get(CONF_BATTERY_CAPACITY_ENTITY))
+        raw.inverter_max_w = inverter_output_kw(output_state, output_unit, typed_output) * 1000
+        raw.battery_capacity_kwh = capacity_kwh(capacity_state, capacity_unit, typed_capacity)
+
+    def _limit_reading(self, entity_id: str | None) -> tuple[str | None, str | None]:
+        """The state text and unit of a limit sensor, (None, None) when there is none."""
+        state = self._get_optional_state(entity_id)
+        if state is None:
+            return None, None
+        return state.state, state.attributes.get("unit_of_measurement")
 
     def _read_immersion_inputs(
         self, cfg: dict, raw: RawSensorValues, unavailable: list[str]
@@ -1372,6 +1386,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._inputs_unavailable_since is None:
             self._inputs_unavailable_since = now
         raw.unavailable_for_s = max(0.0, elapsed_seconds(self._inputs_unavailable_since, now))
+
     def _maybe_rediscover_battery_cycles(self) -> None:
         """Look for battery cycle counters every 5 minutes so new packs are picked up."""
         if self._update_cycle % _REDISCOVER_EVERY_N_CYCLES == 1:

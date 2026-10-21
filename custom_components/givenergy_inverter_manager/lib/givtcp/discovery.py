@@ -51,6 +51,7 @@ ENTITY_SUFFIXES: dict[str, str] = {
     "charge_start_time": "_charge_start_time_slot_1",
     "charge_end_time": "_charge_end_time_slot_1",
     "battery_capacity_kwh": "_battery_capacity_kwh",
+    "inverter_max_output": "_invertor_max_inv_rate",  # watts
 }
 
 ENTITY_DOMAINS: dict[str, str] = {
@@ -65,6 +66,7 @@ ENTITY_DOMAINS: dict[str, str] = {
     "charge_start_time": "select",
     "charge_end_time": "select",
     "battery_capacity_kwh": "sensor",
+    "inverter_max_output": "sensor",
     "inverter_temp": "sensor",
 }
 
@@ -79,6 +81,7 @@ class GivTCPInverter:
     entities: dict[str, str] = field(default_factory=dict)
     missing_entities: list[str] = field(default_factory=list)
     battery_capacity_kwh: float | None = None  # read from sensor state at discovery time
+    inverter_max_output_kw: float | None = None  # the max inverter rate sensor, in kW
     kind: SystemKind = SystemKind.UNKNOWN
     invertor_type: str | None = None  # GivTCP's own word for the model, as published
     givtcp_version: str | None = None
@@ -247,7 +250,14 @@ def _build_inverter(prefix: str, prefixes: list[str], all_states: dict[str, Any]
     cap_state = all_states.get(inverter.entities.get("battery_capacity_kwh", ""))
     if cap_state is not None and (text := _usable(cap_state)) is not None:
         with contextlib.suppress(ValueError, TypeError):
-            inverter.battery_capacity_kwh = float(text)
+            capacity = float(text)
+            inverter.battery_capacity_kwh = capacity if capacity > 0 else None
+
+    rate_state = all_states.get(inverter.entities.get("inverter_max_output", ""))
+    if rate_state is not None and (text := _usable(rate_state)) is not None:
+        with contextlib.suppress(ValueError, TypeError):
+            watts = float(text)
+            inverter.inverter_max_output_kw = watts / 1000 if watts > 0 else None
 
     # ── What kind of device it is ────────────────────────────────────────────
     inverter.invertor_type = _usable(all_states.get(f"sensor.{prefix}{TYPE_SUFFIX}"))

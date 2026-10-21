@@ -97,9 +97,27 @@ class TestBattery:
             "inverter_max_output_kw": 3.6,
             "battery_cost_eur": 4500.0,
             "battery_throughput_budget_kwh": 0.0,
+            "battery_capacity_entity": "",
+            "inverter_max_output_entity": "",
         }
-        assert clean_battery({"battery_capacity_kwh": 12}) == {"battery_capacity_kwh": 12.0}
+        assert clean_battery({"battery_capacity_kwh": 12}) == {
+            "battery_capacity_kwh": 12.0,
+            "battery_capacity_entity": "",
+            "inverter_max_output_entity": "",
+        }
         assert clean_battery({}) == {}
+
+    def test_the_chosen_sensors_are_kept_and_a_cleared_one_is_stored_empty(self):
+        cleaned = clean_battery(
+            {
+                "battery_capacity_kwh": 10,
+                "inverter_max_output_kw": 5,
+                "battery_capacity_entity": "sensor.cap",
+            }
+        )
+
+        assert cleaned["battery_capacity_entity"] == "sensor.cap"
+        assert cleaned["inverter_max_output_entity"] == ""
 
     def test_the_battery_page_no_longer_stores_the_charge_planning_values(self):
         assert clean_battery({"battery_min_soc_pct": 12, "overnight_charge_target_pct": 90}) == {}

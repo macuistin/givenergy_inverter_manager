@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from ..const import (
+    CONF_BATTERY_CAPACITY_ENTITY,
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
     CONF_CHARGE_END_TIME_ENTITY,
@@ -21,6 +22,7 @@ from ..const import (
     CONF_ENABLE_CHARGE_TARGET,
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
+    CONF_INVERTER_MAX_OUTPUT_ENTITY,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
     CONF_SOLAR_POWER,
@@ -67,6 +69,19 @@ def wiring_from(inverter: GivTCPInverter) -> dict[str, str]:
         for found, conf in DISCOVERY_TO_CONF.items()
         if found in inverter.entities
     }
+
+
+def limit_sources_from(inverter: GivTCPInverter) -> dict[str, str]:
+    """The sensors capacity and output are read from, for each one that reads a usable number.
+
+    A sensor that is missing or reads nothing is left out, so the typed value stands for it.
+    """
+    sources: dict[str, str] = {}
+    if inverter.battery_capacity_kwh is not None:
+        sources[CONF_BATTERY_CAPACITY_ENTITY] = inverter.entities["battery_capacity_kwh"]
+    if inverter.inverter_max_output_kw is not None:
+        sources[CONF_INVERTER_MAX_OUTPUT_ENTITY] = inverter.entities["inverter_max_output"]
+    return sources
 
 
 def serial_in_entity_id(entity_id: str) -> str | None:

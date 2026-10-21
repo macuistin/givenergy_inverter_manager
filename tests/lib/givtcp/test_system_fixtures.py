@@ -69,6 +69,7 @@ MISSING_ROLES = {
     "harness_ems": [
         "solar_power", "house_load", "inverter_temp", "target_soc", "enable_charge_target",
         "enable_charge_schedule", "charge_start_time", "charge_end_time", "battery_capacity_kwh",
+        "inverter_max_output",
         "battery_soc",
     ],
 }

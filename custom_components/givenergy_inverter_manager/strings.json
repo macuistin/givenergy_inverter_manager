@@ -12,7 +12,7 @@
         },
         "data_description": {
           "battery_capacity_kwh": "Usable capacity of all battery modules in kWh. GivTCP did not report it.",
-          "inverter_max_output_kw": "Maximum AC output of the inverter in kW, for example 5 for a 5 kW inverter. GivTCP does not report it.",
+          "inverter_max_output_kw": "Maximum AC output of the inverter in kW, for example 5 for a 5 kW inverter. GivTCP did not report it.",
           "discovered_inverter": "Which GivTCP inverter to manage. All the others are ignored.",
           "pages": "The inverter is always set up. Tick what else to set up now. A tariff is needed for costs and the overnight plan. Anything you skip can be set up later from Configure."
         }
@@ -439,14 +439,18 @@
         "title": "Battery",
         "description": "{warnings}Battery and inverter limits. The charge target and the seasons are under Charge planning.",
         "data": {
-          "battery_capacity_kwh": "Battery capacity (kWh)",
-          "inverter_max_output_kw": "Inverter maximum output (kW)",
+          "battery_capacity_entity": "Battery capacity sensor",
+          "battery_capacity_kwh": "Battery capacity if no sensor (kWh)",
+          "inverter_max_output_entity": "Inverter maximum output sensor",
+          "inverter_max_output_kw": "Inverter maximum output if no sensor (kW)",
           "battery_cost_eur": "Battery cost",
           "battery_throughput_budget_kwh": "Daily throughput budget (kWh)"
         },
         "data_description": {
-          "battery_capacity_kwh": "Usable capacity of all battery modules in kWh.",
-          "inverter_max_output_kw": "Maximum AC output of the inverter in kW, for example 5 for a 5 kW inverter. GivTCP does not report it.",
+          "battery_capacity_entity": "A sensor that reports the battery capacity. Setup picks the GivTCP one. Clear it to use the typed value.",
+          "battery_capacity_kwh": "Usable capacity of all battery modules in kWh. Used only while the sensor reads nothing, or when no sensor is set.",
+          "inverter_max_output_entity": "A sensor that reports the inverter maximum output in W or kW. Setup picks the GivTCP one. Clear it to use the typed value.",
+          "inverter_max_output_kw": "Maximum AC output of the inverter in kW, for example 5 for a 5 kW inverter. Used only while the sensor reads nothing, or when no sensor is set.",
           "battery_cost_eur": "What the battery cost to install, in your currency. It is used to work out the wear cost of each kWh. Enter 0 to turn the check off.",
           "battery_throughput_budget_kwh": "An optional daily limit on energy charged plus discharged. Enter 0 for no limit."
         }

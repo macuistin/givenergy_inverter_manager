@@ -3133,6 +3133,41 @@ class TestHardwareSettingsInOptions:
         effective = coord._effective_cfg()
         assert effective.get(CONF_BATTERY_CAPACITY) == pytest.approx(19.2)
 
+    @pytest.mark.asyncio
+    async def test_the_chosen_sensors_set_capacity_and_output(self):
+        cfg = _cfg(
+            battery_capacity_kwh=10.0,
+            inverter_max_output_kw=5.0,
+            battery_capacity_entity="sensor.cap",
+            inverter_max_output_entity="sensor.rate",
+        )
+        coord = FakeCoordinator(cfg=cfg)
+        coord.set_states(_default_states())
+        coord.set_state("sensor.cap", "19.05", {"unit_of_measurement": "kWh"})
+        coord.set_state("sensor.rate", "3600")  # GivTCP publishes watts and no unit
+
+        data = await coord.run_cycle()
+
+        assert data.battery_capacity_kwh == pytest.approx(19.05)
+        assert data.inverter_max_w == pytest.approx(3600)
+
+    @pytest.mark.asyncio
+    async def test_a_sensor_that_reads_nothing_falls_back_to_the_typed_values(self):
+        cfg = _cfg(
+            battery_capacity_kwh=10.0,
+            inverter_max_output_kw=5.0,
+            battery_capacity_entity="sensor.cap",
+            inverter_max_output_entity="sensor.missing",
+        )
+        coord = FakeCoordinator(cfg=cfg)
+        coord.set_states(_default_states())
+        coord.set_state("sensor.cap", "unavailable")
+
+        data = await coord.run_cycle()
+
+        assert data.battery_capacity_kwh == pytest.approx(10.0)
+        assert data.inverter_max_w == pytest.approx(5000)
+
     def test_effective_cfg_merges_data_and_options(self):
         # Arrange
         from custom_components.givenergy_inverter_manager.const import CONF_BATTERY_CAPACITY

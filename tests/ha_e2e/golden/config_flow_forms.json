@@ -4372,6 +4372,20 @@
   "fields": [
    {
     "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "battery_capacity_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
      "number": {
       "min": 1.0,
       "max": 100.0,
@@ -4384,6 +4398,20 @@
     "required": false,
     "optional": true,
     "default": 9.5
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "inverter_max_output_entity",
+    "required": false,
+    "optional": true
    },
    {
     "selector": {
@@ -5308,6 +5336,20 @@
   "fields": [
    {
     "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "battery_capacity_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
      "number": {
       "min": 1.0,
       "max": 100.0,
@@ -5320,6 +5362,20 @@
     "required": false,
     "optional": true,
     "default": 9.5
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "inverter_max_output_entity",
+    "required": false,
+    "optional": true
    },
    {
     "selector": {
@@ -6232,6 +6288,20 @@
   "fields": [
    {
     "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "battery_capacity_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
      "number": {
       "min": 1.0,
       "max": 100.0,
@@ -6244,6 +6314,20 @@
     "required": false,
     "optional": true,
     "default": 13.5
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "inverter_max_output_entity",
+    "required": false,
+    "optional": true
    },
    {
     "selector": {

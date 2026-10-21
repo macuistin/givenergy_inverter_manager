@@ -24,6 +24,7 @@ The integration looks for a GivTCP inverter by its `sensor.givtcp_<id>_invertor_
 | Grid power | `sensor..._grid_power` | yes |
 | House load | `sensor..._load_power` | yes |
 | Battery capacity | `sensor..._battery_capacity_kwh` | no, supplies the capacity |
+| Inverter maximum output | `sensor..._invertor_max_inv_rate` (watts) | no, supplies the output limit |
 | Inverter temperature | `sensor..._invertor_temperature` | no |
 | Target SoC | `number..._target_soc` | no, needed to write charge targets |
 | Enable charge target | `switch..._enable_charge_target` | no, needed to write charge targets |
@@ -41,8 +42,8 @@ When the five required power sensors are found, the inverter is used with no pag
 | Field | Shown when | Default | Range |
 |---|---|---|---|
 | Inverter | more than one inverter is found | the best match | the inverters found |
-| Battery capacity (kWh) | GivTCP did not report it | 10 | 1 to 100 |
-| Inverter maximum output (kW) | always, GivTCP does not report it | 5.0 | 1 to 20 |
+| Battery capacity (kWh) | GivTCP's capacity sensor reads no number | 10 | 1 to 100 |
+| Inverter maximum output (kW) | GivTCP's maximum inverter rate sensor reads no number | 5.0 | 1 to 20 |
 | What would you like to set up now? | always | Electricity tariff ticked | Electricity tariff, Solar forecast (only when none was found), Hot water |
 
 Only the inverter is mandatory. Untick the tariff to set it later. The integration then uses a placeholder rate for costs and the overnight plan until you set the tariff under Configure, and the confirm screen says so.
@@ -135,8 +136,12 @@ Raising the count adds blank rows after the saved ones. Lowering it drops the la
 
 | Field | Key | Default | Range |
 |---|---|---|---|
-| Battery capacity | `battery_capacity_kwh` | from setup | 1 to 100 kWh |
-| Inverter maximum output | `inverter_max_output_kw` | from setup, else 5 | 1 to 20 kW |
+| Battery capacity sensor | `battery_capacity_entity` | the GivTCP sensor, when setup found one | Any sensor in kWh or Wh. Clear it to use the typed value |
+| Battery capacity | `battery_capacity_kwh` | from setup | 1 to 100 kWh. Used only when the sensor is empty or reads no number |
+| Inverter maximum output sensor | `inverter_max_output_entity` | the GivTCP sensor, when setup found one | Any sensor in W or kW (no unit means W). Clear it to use the typed value |
+| Inverter maximum output | `inverter_max_output_kw` | from setup, else 5 | 1 to 20 kW. Used only when the sensor is empty or reads no number |
+
+The sensor is read on every update, so a battery that grows or an inverter limit that changes is picked up with no edit. A sensor that is unavailable falls back to the typed value for as long as it is unavailable. An install set up before these sensors were offered keeps its typed values until you choose a sensor here.
 | Battery cost | `battery_cost_eur` | 0 | 0 to 20000 in steps of 100. 0 turns the wear check off |
 | Daily battery throughput budget | `battery_throughput_budget_kwh` | 0 | 0 to 50 in steps of 0.5. 0 turns the budget sensors off |
 
