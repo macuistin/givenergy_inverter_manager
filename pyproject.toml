@@ -19,12 +19,14 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["custom_components/givenergy_inverter_manager"]
-omit = ["tests/*", "*/__init__.py"]
+omit = ["tests/*"]
 
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
+    # The body of a Protocol method.
+    "^\\s*\\.\\.\\.$",
 ]
 
 [tool.ruff]

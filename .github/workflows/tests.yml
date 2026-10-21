@@ -58,7 +58,16 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-test.txt ${{ matrix.pin }}
       - name: Run tests
-        run: python -m pytest tests/ packages/givtcp_mock/tests -q
+        run: python -m pytest tests/ packages/givtcp_mock/tests -q --cov
+        env:
+          COVERAGE_FILE: coverage-unit
+      - name: Keep the coverage data
+        if: matrix.home-assistant == 'latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: coverage-unit
+          include-hidden-files: true
 
   # Early warning for the next Home Assistant release. A failure here does not fail the
   # workflow. Until a beta is out it resolves to the latest release.
@@ -101,7 +110,35 @@ jobs:
       - name: Install dependencies
         run: pip install -r ${{ matrix.requirements }}
       - name: Run end-to-end tests
-        run: python -m pytest tests/ha_e2e -q
+        run: python -m pytest tests/ha_e2e -q --cov
+        env:
+          COVERAGE_FILE: coverage-e2e
+      - name: Keep the coverage data
+        if: matrix.home-assistant == 'latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-e2e
+          path: coverage-e2e
+          include-hidden-files: true
+
+  # The quality scale rule test-coverage: every module above 95% over both suites.
+  coverage:
+    name: Coverage (every module above 95%)
+    runs-on: ubuntu-latest
+    needs: [tests-python, e2e]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+      - name: Install coverage
+        run: pip install coverage
+      - name: Check every module
+        run: python scripts/check_coverage.py coverage-unit coverage-e2e
 
   e2e-beta:
     name: Home Assistant end-to-end (beta, not blocking)

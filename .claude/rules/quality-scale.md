@@ -25,3 +25,7 @@ meets. Home Assistant does not grade custom integrations, so the file is the onl
 - `config_flow.py`, `config_helpers.py` and `wizard/` stay at 100% line coverage in
   `tests/ha_e2e/`. A new page or step gets an end-to-end test. Mark an abstract method
   `# pragma: no cover` and delete a branch no input can reach.
+- Silver: every module stays above 95% line coverage over both suites together, the rule's
+  "all integration modules". `scripts/check_coverage.py` checks it and the `coverage` job in
+  `tests.yml` runs it, so a new module or branch needs tests in the same change. Mark only a
+  Protocol body or an abstract method as excluded.
