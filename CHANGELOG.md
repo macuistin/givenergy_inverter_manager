@@ -9,7 +9,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 - The EV charger and immersion entities now sit on their own devices, **EV Charger** and **Immersion**, which hang off the main device. Their names lose the repeated prefix, so **EV Charging Power** is **Charging Power** on the EV Charger device and **Immersion Heater Power** is **Heater Power** on the Immersion device. The full name on a card or in a history graph reads the same as before, except that **Auto Immersion Divert** is now **Immersion Auto Divert**.
 
 **Upgrading**
-- An existing install keeps every entity ID, unique ID, history and statistic. The sensors only change device, so a dashboard, automation or template that uses an entity ID carries on. A new install builds its IDs from the new device and entity names, such as `sensor.ev_charger_charging_power`, and [Automations](docs/automations.md) uses those. If you gave the main device an area, set the area on the new devices too.
+- An existing install keeps every entity ID, unique ID, history and statistic. The sensors only change device, so a dashboard, automation or template that uses an entity ID carries on. A new install builds its IDs from the new device and entity names, such as `sensor.ev_charger_charging_power`, and [Automations](docs/automations.md) uses those. A device that appears later, such as an EV charger found after setup, takes the area of the main device. You can now delete the EV Charger or Immersion device from **Settings → Devices** once its hardware is no longer set, and the integration removes it itself on the next reload.
 
 ## v0.20.0
 

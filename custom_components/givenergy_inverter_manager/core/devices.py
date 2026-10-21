@@ -63,6 +63,22 @@ def group_name(group: DeviceGroup) -> str:
     return _GROUP_NAMES[group]
 
 
+_HARDWARE = {
+    DeviceGroup.EV_CHARGER: frozenset({Device.EV_CHARGER}),
+    DeviceGroup.IMMERSION: frozenset(
+        {Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR, Device.IMMERSION_THERMOSTAT}
+    ),
+}
+
+
+def group_present(group: DeviceGroup, present: frozenset[Device]) -> bool:
+    """True when the hardware behind a group's Home Assistant device is there.
+
+    The main device is always there.
+    """
+    return group is DeviceGroup.MAIN or bool(_HARDWARE[group] & present)
+
+
 def group_of(device: Device | None) -> DeviceGroup:
     """The device group for an entity that requires `device`. No requirement means MAIN."""
     return _GROUPS.get(device, DeviceGroup.MAIN) if device else DeviceGroup.MAIN

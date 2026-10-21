@@ -29,3 +29,9 @@ meets. Home Assistant does not grade custom integrations, so the file is the onl
   "all integration modules". `scripts/check_coverage.py` checks it and the `coverage` job in
   `tests.yml` runs it, so a new module or branch needs tests in the same change. Mark only a
   Protocol body or an abstract method as excluded.
+- Gold devices: the EV charger and Immersion are their own devices, `via_device` the main one
+  (`DeviceGroup` in `core/devices.py`, `device_info` in `entity.py`). A new entity takes its group
+  from `requires`. It never moves an existing entity ID or unique ID, so `tests/ha_e2e/
+  test_device_split_upgrade_e2e.py` seeds the old registry and checks the IDs survive. Names do
+  not repeat the device name. `remove_stale_devices` and `async_remove_config_entry_device` let
+  a device go once its hardware is gone, never the main device.

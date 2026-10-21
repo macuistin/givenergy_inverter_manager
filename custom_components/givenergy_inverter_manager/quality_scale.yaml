@@ -47,10 +47,10 @@ rules:
   diagnostics: done            # diagnostics.py provides Download Diagnostics; the inverter serial and entity IDs built from it are redacted
   discovery:
     status: exempt
-    comment: GivTCP inverter entities are discovered at setup time only (not runtime)
+    comment: Nothing announces itself on the network. The setup wizard finds the GivTCP inverter entities by scanning Home Assistant's own states, and the coordinator finds an EV charger the same way. Ends when GivTCP or the inverter offers zeroconf, DHCP or another discovery.
   discovery-update-info:
     status: exempt
-    comment: No network address to update; GivTCP entities are fixed at setup
+    comment: No network address is stored, because the integration reads GivTCP entities and not the inverter. Ends when a backend connects to a host or port.
   docs-data-update: done       # README and update-cycle.mermaid document the 30s cycle
   docs-examples: done          # docs/automations.md with 10 ready-to-use automation examples
   docs-known-limitations: done # REQUIREMENTS.md documents known limitations
@@ -58,9 +58,7 @@ rules:
   docs-supported-functions: done  # REQUIREMENTS.md sensor/switch/number table
   docs-troubleshooting: done   # docs/troubleshooting.md covers all common failure modes
   docs-use-cases: done         # README describes solar surplus diversion, charge optimisation
-  dynamic-devices:
-    status: exempt
-    comment: Devices are fixed at integration setup; no dynamic device addition
+  dynamic-devices: done        # the EV charger and Immersion devices appear when their hardware does (optional_devices.async_add_entities_per_device), and take the area of the main device (async_inherit_main_area); tests/ha_e2e/test_device_lifecycle_e2e.py
   entity-category: done        # EntityCategory.DIAGNOSTIC on operational sensors
   entity-device-class: done    # SensorDeviceClass used where appropriate
   entity-disabled-by-default: done  # yesterday/week/month/forecast/HTML report sensors disabled by default
@@ -69,9 +67,7 @@ rules:
   icon-translations: done      # icons.json covers every sensor, switch and number by translation_key
   reconfiguration-flow: done   # async_step_reconfigure remaps the inverter entities (discovery or by hand) with async_update_and_abort; the tariff is in the options wizard
   repair-issues: done          # every repair issue (givtcp_entities_missing, system_looks_different, givtcp_not_answering and the rest) has a learn_more_url and translations
-  stale-devices:
-    status: exempt
-    comment: Single logical device per config entry; no stale device scenario
+  stale-devices: done          # remove_stale_devices at setup and async_remove_config_entry_device for the user; tests/ha_e2e/test_device_lifecycle_e2e.py
 
   # ── Platinum ─────────────────────────────────────────────────────────────────
   async-dependency:
