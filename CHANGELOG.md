@@ -2,7 +2,9 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.21.0
+
+This release puts the EV charger and immersion on their own devices, keeps the overnight plan readable after the charge, and reads the battery capacity and maximum output from GivTCP. Entity IDs, history and settings carry over on upgrade.
 
 **Changed**
 - The setup screen that asks you to pick the five inverter entities by hand now checks them. It refuses an entity that does not exist or reads unavailable and asks you to choose again. Before, it only checked that each field was filled in, and a wrong choice showed up later as an inverter that would not load. Reconfigure already did this.
