@@ -30,6 +30,7 @@ from ...lib.givtcp.discovery import (
     find_other_active_charge_slots,
     get_suggested_entities,
     inverter_temperature_entity_ids,
+    limit_sensors,
     temperature_entity_ids_for,
 )
 
@@ -58,6 +59,7 @@ __all__ = [
     "clock_time",
     "describe_charge_slots",
     "device_prefix",
+    "limit_sensors",
     "discover_battery_cycle_entities",
     "discover_givtcp_inverters",
     "find_other_active_charge_slots",

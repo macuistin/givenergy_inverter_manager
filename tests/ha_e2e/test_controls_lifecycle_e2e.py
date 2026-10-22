@@ -126,8 +126,10 @@ class TestTheUpgradeKeepsEveryValue:
         assert upgraded.runtime_data.is_dry_run is True
 
     async def test_nothing_in_the_entry_moved(self, hass, upgraded):
-        # Setup records the tariff review date itself. No control key is added or changed.
-        saved = {k: v for k, v in upgraded.options.items() if k != "tariff_reviewed_on"}
+        # Setup records the tariff review date and picks the GivTCP capacity sensor itself.
+        # No control key is added or changed.
+        own = {"tariff_reviewed_on", "battery_capacity_entity"}
+        saved = {k: v for k, v in upgraded.options.items() if k not in own}
         assert saved == self.OLD_OPTIONS
         for key, value in self.OLD_DATA.items():
             assert upgraded.data[key] == value

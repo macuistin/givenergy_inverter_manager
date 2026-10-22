@@ -1563,12 +1563,29 @@ def _calculate_ev_km(data: CoordinatorData, acc: EnergyAccumulator, cfg: dict[st
 def _minutes_remaining_in_period(
     tariff: TariffConfig, current_period: RatePeriod, now: datetime
 ) -> float | None:
-    if current_period.name == tariff.base_rate_name or not tariff.rate_periods:
+    """Minutes until the current rate period ends.
+
+    On the base rate that is the minutes until the next timed period starts, so the sensor
+    keeps counting when a timed period ends. None for a tariff with no timed period.
+    """
+    if not tariff.rate_periods:
         return None
+    if current_period.name == tariff.base_rate_name:
+        return _minutes_until_next_start(tariff, now)
     end = local_time_on(now, current_period.end)
     if elapsed_seconds(now, end) <= 0:
         end = local_time_on(now + timedelta(days=1), current_period.end)
     return round(elapsed_seconds(now, end) / 60, 1)
+
+
+def _minutes_until_next_start(tariff: TariffConfig, now: datetime) -> float:
+    waits = []
+    for period in tariff.rate_periods:
+        start = local_time_on(now, period.start)
+        if elapsed_seconds(now, start) <= 0:
+            start = local_time_on(now + timedelta(days=1), period.start)
+        waits.append(elapsed_seconds(now, start))
+    return round(min(waits) / 60, 1)
 
 
 def _calculate_night_survival(

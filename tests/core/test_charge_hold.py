@@ -221,6 +221,37 @@ class TestAChargeTheBatteryHasAlreadyMet:
         assert next_held_recommendation(_held(held), fresh, AFTER_DWELL) is held
 
 
+class TestAChargeThatHasRun:
+    """After the cheap window the battery sits at the target, which is not a skip."""
+
+    RUNNING = HoldReading(AFTER_DWELL.now, charge_running=True)
+    AFTER = HoldReading(AFTER_DWELL.now + timedelta(minutes=30))
+
+    def _after_a_charge(self) -> HeldCharge:
+        held = HeldCharge()
+        held.settle(_decision(75, soc=60.0), self.RUNNING)
+        return held
+
+    def test_the_charge_stays_published_once_the_battery_reaches_the_target(self):
+        held = self._after_a_charge()
+        held.settle(_decision(75, skip=True, soc=75.0), self.AFTER)
+        assert held.decision is not None and not held.decision.skip_charge
+
+    def test_the_skip_is_published_once_the_night_write_releases_the_hold(self):
+        held = self._after_a_charge()
+        held.release()
+        fresh = _decision(75, skip=True, soc=75.0)
+        held.settle(fresh, self.AFTER)
+        assert held.decision is fresh
+
+    def test_a_charge_that_never_ran_is_still_replaced_by_a_skip(self):
+        held = HeldCharge()
+        held.settle(_decision(75, soc=60.0), JUST_AFTER)
+        fresh = _decision(75, skip=True, soc=80.0)
+        held.settle(fresh, self.AFTER)
+        assert held.decision is fresh
+
+
 class TestTargetsAboveTheCap:
     CAPPED = HoldReading(AFTER_DWELL.now, max_target_pct=90)
 

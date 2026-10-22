@@ -80,13 +80,13 @@ class WizardPages:
 
     # What the wizards fill in. Each flow supplies its own.
     def _ctx(self) -> PageContext:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def _total_steps(self) -> int:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     async def _after_page(self, step_id: str, flat: dict[str, Any]) -> Any:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def _is_last_form(self) -> bool:
         """True when this form is the last one. Only the options wizard can skip its confirm."""

@@ -134,6 +134,7 @@ _DYNAMIC_CHECK = textwrap.dedent(
     """
     import json, sys
     from types import SimpleNamespace
+    from unittest.mock import MagicMock
     from datetime import datetime, timedelta, timezone
     sys.path.insert(0, ".")
     from homeassistant.components.sensor.const import DEVICE_CLASS_STATE_CLASSES
@@ -188,7 +189,9 @@ _DYNAMIC_CHECK = textwrap.dedent(
         "month": datetime.fromisoformat(starts["month_start_time"]),
         "year": datetime.fromisoformat(starts["year_start_time"]),
     }
-    coordinator = SimpleNamespace(data=data, entry=SimpleNamespace(entry_id="entry"))
+    coordinator = SimpleNamespace(
+        data=data, entry=SimpleNamespace(entry_id="entry"), hass=MagicMock()
+    )
     for d in S.SENSOR_DESCRIPTIONS:
         period = S.reset_period_of(d)
         total = d.state_class == S.SensorStateClass.TOTAL

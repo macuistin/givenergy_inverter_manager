@@ -23,6 +23,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.typing import ConfigType
 
 from .config_helpers import effective_config
@@ -33,11 +34,18 @@ from .core.default_enabled import keys_to_enable
 from .core.devices import alt_heat_warnings
 from .core.reload_policy import Effect, change_effect, changed_keys
 from .dashboard_notice import async_announce_dashboard, async_dismiss_announcement
+from .entity import async_register_main_device
 from .logging import get_logger, log_startup
-from .optional_devices import remove_orphaned_entities
+from .optional_devices import (
+    async_inherit_main_area,
+    can_remove_device,
+    remove_orphaned_entities,
+    remove_stale_devices,
+)
 from .services import async_register_services, async_unregister_services, loaded_entries
 from .stored_dashboard_repair import async_watch_stored_dashboard
 from .strategy import async_register_strategy, async_remove_resource
+from .wizard.wiring import limit_sources_for
 
 _LOG = get_logger(__name__)
 
@@ -103,6 +111,30 @@ def _convert_oil_price(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None
     data, options = converted
     hass.config_entries.async_update_entry(entry, data=data, options=options)
     _LOG.info("Converted the oil price settings to alternative heating with the label Oil")
+
+
+def _upgrade_saved_options(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Bring options saved by an older release up to date, before anything reads them."""
+    _convert_oil_price(hass, entry)
+    _adopt_limit_sensors(hass, entry)
+
+
+def _adopt_limit_sensors(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Pick GivTCP's capacity and output sensors for an entry saved before they were offered.
+
+    Only a key that was never saved is filled, so a sensor the user cleared or changed stays as
+    they left it. Like the oil price conversion, it runs before the update listener exists, so
+    the write does not reload the entry.
+    """
+    cfg = effective_config(entry)
+    found = limit_sources_for(
+        cfg, {state.entity_id: state for state in hass.states.async_all()}
+    )
+    new = {key: entity_id for key, entity_id in found.items() if key not in cfg}
+    if not new:
+        return
+    hass.config_entries.async_update_entry(entry, options={**entry.options, **new})
+    _LOG.info("Reading the battery capacity and inverter output from %s", sorted(new.values()))
 
 
 def _warn_about_alt_heat(entry: GivEnergyConfigEntry) -> None:
@@ -177,7 +209,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
     """Set up GivEnergy Inverter Manager from a config entry."""
     _LOG.debug("Setting up entry %s (%s)", entry.entry_id, entry.title)
 
-    _convert_oil_price(hass, entry)
+    _upgrade_saved_options(hass, entry)
     _warn_about_alt_heat(entry)
     await _announce_dashboard(hass, entry)
 
@@ -201,6 +233,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
     _remove_retired_issues(hass)
     _enable_newly_default_sensors(hass, entry)
     remove_orphaned_entities(hass, entry)
+    remove_stale_devices(hass, entry)
+    async_inherit_main_area(hass, entry)
+    async_register_main_device(hass, entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -232,6 +267,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: GivEnergyConfigEntry) -
         if not [e for e in loaded_entries(hass) if e.entry_id != entry.entry_id]:
             async_unregister_services(hass)
     return bool(unload_ok)
+
+
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, entry: GivEnergyConfigEntry, device_entry: DeviceEntry
+) -> bool:
+    """Let the user delete the device of hardware that is gone, never one that is in use."""
+    return can_remove_device(entry, device_entry)
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:

@@ -276,12 +276,10 @@ def build_charge_plan_state(data: "CoordinatorData") -> str:
         return f"{PLAN_SKIP_WORDS} · {forecast} · SoC {cd.current_soc:.0f}%"
     window = data.published_charge_window
     when = f"{window.text} · " if window is not None else ""
-    return fit_state(
-        f"{PLAN_CHARGE_WORDS} {cd.target_soc}% · "
-        f"{when}"
-        f"Add {max(0, cd.target_soc - cd.current_soc):.0f}% · "
-        f"Cost {sym}{cd.cost_to_charge:.2f}"
-    ).state
+    added = max(0, round(cd.target_soc - cd.current_soc))
+    # A target the battery is already at adds nothing now, so the state says no top-up is needed.
+    adds = f"Add {added:.0f}% · Cost {sym}{cd.cost_to_charge:.2f}" if added else "No top-up needed"
+    return fit_state(f"{PLAN_CHARGE_WORDS} {cd.target_soc}% · {when}{adds}").state
 
 
 # ── Tariff in use ─────────────────────────────────────────────────────────────

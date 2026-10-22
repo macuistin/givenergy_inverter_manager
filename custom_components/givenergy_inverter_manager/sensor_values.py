@@ -380,10 +380,16 @@ def cheap_import_percentage(accumulator: EnergyAccumulator) -> float | None:
 
 
 def overnight_charge_target(data: CoordinatorData) -> int | None:
-    """Return the published recommended target, None before the first decision."""
-    if data.published_charge_decision:
-        return data.published_charge_decision.target_soc
-    return None
+    """Return the published recommended target, None before the first decision.
+
+    A skipped night shows the level the skip writes to the inverter, the minimum SoC.
+    """
+    decision = data.published_charge_decision
+    if decision is None:
+        return None
+    if decision.skip_charge:
+        return data.battery_min_soc
+    return decision.target_soc
 
 
 def overnight_charge_attributes(data: CoordinatorData) -> dict[str, Any] | None:

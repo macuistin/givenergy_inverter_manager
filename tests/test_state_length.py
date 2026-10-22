@@ -16,6 +16,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -67,7 +68,9 @@ _LOGGED_REASON = (
 
 
 def _sensor(description, data) -> GivEnergyManagerSensor:
-    coordinator = SimpleNamespace(data=data, entry=SimpleNamespace(entry_id="entry"))
+    coordinator = SimpleNamespace(
+        data=data, entry=SimpleNamespace(entry_id="entry"), hass=MagicMock()
+    )
     return GivEnergyManagerSensor(coordinator, description)
 
 

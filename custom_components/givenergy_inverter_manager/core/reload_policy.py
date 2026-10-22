@@ -23,7 +23,8 @@ unless noted):
                          bill_start_day: build_tariff(cfg) each cycle. The charge-target write
                          trigger is registered from the tariff at setup and at midnight, so a
                          live tariff change re-registers it (TARIFF_TRIGGER_KEYS).
-  battery and charging   battery_capacity_kwh, inverter_max_output_kw, battery_min_soc_pct,
+  battery and charging   battery_capacity_kwh, battery_capacity_entity,
+                         inverter_max_output_kw, inverter_max_output_entity, battery_min_soc_pct,
                          overnight_charge_target_pct, skip_charge_soc_threshold_pct,
                          cheap_rate_floor_soc, battery_cost_eur, battery_throughput_budget_kwh,
                          charge_winter_months, charge_shoulder_months and
@@ -69,6 +70,7 @@ from ..const import (
     CONF_BASE_RATE,
     CONF_BASE_RATE_NAME,
     CONF_BATTERY_CAPACITY,
+    CONF_BATTERY_CAPACITY_ENTITY,
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_POWER,
@@ -108,6 +110,7 @@ from ..const import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
+    CONF_INVERTER_MAX_OUTPUT_ENTITY,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
     CONF_OVERNIGHT_CHARGE_TARGET,
@@ -212,7 +215,9 @@ LIVE_KEYS: frozenset[str] = frozenset(
         CONF_BILL_START_DAY,
         # Battery and charging
         CONF_BATTERY_CAPACITY,
+        CONF_BATTERY_CAPACITY_ENTITY,
         CONF_INVERTER_MAX_OUTPUT,
+        CONF_INVERTER_MAX_OUTPUT_ENTITY,
         CONF_BATTERY_MIN_SOC,
         CONF_OVERNIGHT_CHARGE_TARGET,
         CONF_BATTERY_COST,

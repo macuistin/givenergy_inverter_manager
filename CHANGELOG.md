@@ -2,6 +2,23 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Changed**
+- The setup screen that asks you to pick the five inverter entities by hand now checks them. It refuses an entity that does not exist or reads unavailable and asks you to choose again. Before, it only checked that each field was filled in, and a wrong choice showed up later as an inverter that would not load. Reconfigure already did this.
+- The EV charger and immersion entities now sit on their own devices, **EV Charger** and **Immersion**, which hang off the main device. Their names lose the repeated prefix, so **EV Charging Power** is **Charging Power** on the EV Charger device and **Immersion Heater Power** is **Heater Power** on the Immersion device. The full name on a card or in a history graph reads the same as before, except that **Auto Immersion Divert** is now **Immersion Auto Divert**.
+
+- **Minutes Remaining in Rate Period** keeps counting on the base rate. It shows the minutes until the next timed period starts, where it used to read unknown from the moment a timed period ended.
+- The recommended overnight charge target shows the minimum SoC on a night the charge is skipped, which is the value written to the inverter. Its `plan` attribute still says `skip`.
+- The charge plan keeps showing the charge once it has run, instead of switching to "Skip charge" when the battery reaches the target. When the target is already met, for example in the morning plan for the coming night, the plan reads "No top-up needed" instead of "Add 0%".
+
+**Added**
+- The battery capacity and the maximum inverter output are now read from GivTCP's own sensors on every update, so setup no longer asks for the maximum output and a battery that grows is picked up. **Configure → Battery** has two new fields, **Battery capacity sensor** and **Inverter maximum output sensor**. Choose another sensor, or clear a field to use the typed value. The typed values stay as the fallback when a sensor is unavailable.
+
+**Upgrading**
+- On the first start after the upgrade, an existing install picks GivTCP's battery capacity and maximum inverter output sensors, when they exist and read a number. The values you typed stay as the fallback. Change or clear the sensors under **Configure → Battery**. A sensor you have cleared is not picked again.
+- An existing install keeps every entity ID, unique ID, history and statistic. The sensors only change device, so a dashboard, automation or template that uses an entity ID carries on. A new install builds its IDs from the new device and entity names, such as `sensor.ev_charger_charging_power`, and [Automations](docs/automations.md) uses those. A device that appears later, such as an EV charger found after setup, takes the area of the main device. You can now delete the EV Charger or Immersion device from **Settings → Devices** once its hardware is no longer set, and the integration removes it itself on the next reload.
+
 ## v0.20.0
 
 **Added**

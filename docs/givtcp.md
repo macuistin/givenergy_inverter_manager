@@ -44,7 +44,8 @@ Entity ids are `<domain>.<prefix>_<item>`, for example `sensor.givtcp_ab1234g567
 | Grid power | `grid_power` | sensor | **Positive for export**, negative for import. We negate it |
 | House load | `load_power` | sensor | The inverter-side load only. Loads wired to the consumer unit directly are not in it |
 | Inverter temperature | `invertor_temperature` | sensor | Spelled `inverter_temperature` on three-phase. We try both |
-| Battery capacity | `battery_capacity_kwh` | sensor | Read once at setup |
+| Battery capacity | `battery_capacity_kwh` | sensor | Chosen at setup and read every update |
+| Inverter maximum output | `invertor_max_inv_rate` | sensor | In watts. Chosen at setup and read every update |
 | Charge target | `target_soc` | number | 4 to 100 |
 | Enable charge target | `enable_charge_target` | switch | The inverter ignores the target while this is off |
 | Enable charge schedule | `enable_charge_schedule` | switch | |

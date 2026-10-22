@@ -276,13 +276,15 @@ async def test_the_battery_page_has_every_field_with_a_default(hass, loaded_entr
     result = await open_options(hass, loaded_entry, {"battery": {}})
 
     fields = {f["name"]: f for f in serialised(result)}
+    sensors = {"battery_capacity_entity", "inverter_max_output_entity"}
     assert set(fields) == {
         "battery_capacity_kwh",
         "inverter_max_output_kw",
         "battery_cost_eur",
         "battery_throughput_budget_kwh",
+        *sensors,
     }
-    assert all("default" in field for field in fields.values())
+    assert all("default" in field for name, field in fields.items() if name not in sensors)
     manager(hass).async_abort(result["flow_id"])
 
 

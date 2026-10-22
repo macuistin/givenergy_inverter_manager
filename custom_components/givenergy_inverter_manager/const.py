@@ -25,6 +25,7 @@ from .conf import (
     CONF_BASE_RATE,
     CONF_BASE_RATE_NAME,
     CONF_BATTERY_CAPACITY,
+    CONF_BATTERY_CAPACITY_ENTITY,
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_POWER,
@@ -64,6 +65,7 @@ from .conf import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
+    CONF_INVERTER_MAX_OUTPUT_ENTITY,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
     CONF_OVERNIGHT_CHARGE_TARGET,
@@ -210,7 +212,7 @@ from .tuning import (
 )
 
 DOMAIN = "givenergy_inverter_manager"
-INTEGRATION_VERSION = "0.20.0"  # keep in sync with manifest.json
+INTEGRATION_VERSION = "0.21.0b3"  # keep in sync with manifest.json
 NAME = "GivEnergy Inverter Manager"
 DEVICE_MANUFACTURER = "macuistin"  # shown on the device page; GivEnergy does not make this
 

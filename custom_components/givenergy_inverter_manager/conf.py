@@ -18,7 +18,10 @@ CONF_ENABLE_CHARGE_TARGET = "enable_charge_target_entity"  # switch.*_enable_cha
 CONF_ENABLE_CHARGE_SCHEDULE = "enable_charge_schedule_entity"  # switch.*_enable_charge_schedule
 CONF_CHARGE_START_TIME_ENTITY = "charge_start_time_entity"  # select.*_charge_start_time_slot_1
 CONF_CHARGE_END_TIME_ENTITY = "charge_end_time_entity"  # select.*_charge_end_time_slot_1
-CONF_BATTERY_CAPACITY = "battery_capacity_kwh"
+CONF_BATTERY_CAPACITY = "battery_capacity_kwh"  # typed value, for no sensor or a dead one
+# Sensors the battery capacity and inverter output are read from. Empty means the typed value.
+CONF_BATTERY_CAPACITY_ENTITY = "battery_capacity_entity"
+CONF_INVERTER_MAX_OUTPUT_ENTITY = "inverter_max_output_entity"
 
 # ── Tariff ────────────────────────────────────────────────────────────────────
 # Base rate — the default rate when no timed period is active (e.g. standard daytime)

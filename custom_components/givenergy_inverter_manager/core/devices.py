@@ -18,6 +18,7 @@ from ..const import (
     CONF_ALT_HEAT_ENABLED,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
+    NAME,
 )
 
 
@@ -32,6 +33,55 @@ class Device(StrEnum):
     # Alternative water heating switched on with a cost, and the immersion switch. The advice
     # compares the two.
     ALTERNATIVE_HEAT = "alternative_heat"
+
+
+class DeviceGroup(StrEnum):
+    """The Home Assistant device an entity is attached to."""
+
+    MAIN = "main"
+    EV_CHARGER = "ev_charger"
+    IMMERSION = "immersion"
+
+
+_GROUPS = {
+    Device.EV_CHARGER: DeviceGroup.EV_CHARGER,
+    Device.IMMERSION_SWITCH: DeviceGroup.IMMERSION,
+    Device.IMMERSION_SENSOR: DeviceGroup.IMMERSION,
+    Device.IMMERSION_THERMOSTAT: DeviceGroup.IMMERSION,
+}
+
+
+_GROUP_NAMES = {
+    DeviceGroup.MAIN: NAME,
+    DeviceGroup.EV_CHARGER: "EV Charger",
+    DeviceGroup.IMMERSION: "Immersion",
+}
+
+
+def group_name(group: DeviceGroup) -> str:
+    """The name of the Home Assistant device for a group. Entity IDs start with its slug."""
+    return _GROUP_NAMES[group]
+
+
+_HARDWARE = {
+    DeviceGroup.EV_CHARGER: frozenset({Device.EV_CHARGER}),
+    DeviceGroup.IMMERSION: frozenset(
+        {Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR, Device.IMMERSION_THERMOSTAT}
+    ),
+}
+
+
+def group_present(group: DeviceGroup, present: frozenset[Device]) -> bool:
+    """True when the hardware behind a group's Home Assistant device is there.
+
+    The main device is always there.
+    """
+    return group is DeviceGroup.MAIN or bool(_HARDWARE[group] & present)
+
+
+def group_of(device: Device | None) -> DeviceGroup:
+    """The device group for an entity that requires `device`. No requirement means MAIN."""
+    return _GROUPS.get(device, DeviceGroup.MAIN) if device else DeviceGroup.MAIN
 
 
 def alt_heat_configured(config: Mapping[str, Any]) -> bool:

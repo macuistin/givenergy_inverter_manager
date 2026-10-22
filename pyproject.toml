@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "givenergy_inverter_manager"
-version = "0.20.0"
+version = "0.21.0b3"
 requires-python = ">=3.14.2"
 
 [tool.pytest.ini_options]
@@ -19,12 +19,14 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["custom_components/givenergy_inverter_manager"]
-omit = ["tests/*", "*/__init__.py"]
+omit = ["tests/*"]
 
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
+    # The body of a Protocol method.
+    "^\\s*\\.\\.\\.$",
 ]
 
 [tool.ruff]

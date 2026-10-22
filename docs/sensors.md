@@ -26,7 +26,7 @@ Updated every 30 seconds. Power values are in watts. Grid Power is positive when
 | Solar Power | `solar_power` | W | power | measurement | no | yes | Current solar generation. |
 | Battery State of Charge | `battery_soc` | % | battery | measurement | no | yes | Battery state of charge. |
 | Battery Power | `battery_power` | W | power | measurement | no | yes | Positive while charging, negative while discharging. |
-| Immersion Heater Power | `immersion_power` | W | power | measurement | no | yes | Configured element wattage while the immersion switch is on, else 0. Created only with an immersion switch. |
+| Heater Power | `immersion_power` | W | power | measurement | no | yes | Configured element wattage while the immersion switch is on, else 0. Created only with an immersion switch. |
 | Grid Power | `grid_power` | W | power | measurement | no | yes | Positive while importing, negative while exporting. |
 | House Load | `house_load` | W | power | measurement | no | yes | House load as read from the GivTCP load sensor. |
 | Rest of House Load | `rest_of_house_load` | W | power | measurement | no | yes | House load minus EV charger power and immersion power, floored at 0. |
@@ -53,7 +53,7 @@ Read from the tariff you configured. See [Tariff](tariff.md).
 | Cheapest Rate Period Name | `cheapest_rate_period` | - | - | none | no | no | Name of the cheapest rate. |
 | On Cheapest Rate | `is_on_cheapest_rate` | - | - | none | no | no | yes when the current rate is the cheapest and a timed period exists. |
 | On Base (Daytime) Rate | `is_on_base_rate` | - | - | none | no | no | yes when no timed period is active. |
-| Minutes Remaining in Rate Period | `minutes_remaining_in_period` | min | - | measurement | no | no | Minutes until the active timed period ends. Empty on the base rate. |
+| Minutes Remaining in Rate Period | `minutes_remaining_in_period` | min | - | measurement | no | no | Minutes until the current rate period ends. On the base rate, minutes until the next timed period starts. |
 | Rate Saving vs Daytime | `rate_savings_vs_daytime` | currency | - | measurement | no | no | Base rate minus current rate, floored at 0. |
 | Average Import Rate Today | `avg_import_rate_today` | currency | - | measurement | no | no | Import cost divided by imported kWh. Empty when nothing imported. |
 | Average Import Rate This Week | `avg_import_rate_this_week` | currency | - | measurement | no | no | Import cost divided by imported kWh this week. |
@@ -69,13 +69,13 @@ Accumulated since local midnight. They report `last_reset` as the most recent mi
 | Grid Import Today | `import_today` | kWh | energy | total | day | yes | Grid import. Uses the GivTCP daily counter when present. |
 | Grid to Battery Today | `grid_to_battery_today` | kWh | energy | total | day | yes | Part of Grid Import Today that charged the battery. Uses GivTCP's AC charge counter. Unavailable when that counter is missing. |
 | Grid Export Today | `export_today` | kWh | energy | total | day | yes | Grid export. Uses the GivTCP daily counter when present. |
-| EV Charging Today | `zappi_today` | kWh | energy | total | day | yes | Energy delivered to the EV charger, from charger power. Created only with an EV charger. |
-| Immersion Heater Today | `immersion_today` | kWh | energy | total | day | yes | Immersion energy, from the configured wattage while the switch is on. Created only with an immersion switch. |
+| Charging Today | `zappi_today` | kWh | energy | total | day | yes | Energy delivered to the EV charger, from charger power. Created only with an EV charger. |
+| Heater Today | `immersion_today` | kWh | energy | total | day | yes | Immersion energy, from the configured wattage while the switch is on. Created only with an immersion switch. |
 | Self-consumed Solar Today | `self_consumed_kwh_today` | kWh | energy | total | day | no | Solar generated minus exported, floored at 0. |
 | Inverter Derating Today | `inverter_derating_today_minutes` | - | - | total | day | no | Minutes with the inverter at 65 °C or more. |
 | Import at cheap rate | `import_kwh_cheap_today` | kWh | energy | total | day | yes | Energy imported while a timed rate period was active. |
 | Import at base rate | `import_kwh_peak_today` | kWh | energy | total | day | yes | Energy imported while no timed rate period was active, so at the base rate. With no timed rate period set, all import. |
-| Immersion solar diverted | `immersion_solar_kwh_today` | kWh | energy | total | day | yes | Solar energy that went to the immersion. Created only with an immersion switch. |
+| Solar diverted | `immersion_solar_kwh_today` | kWh | energy | total | day | yes | Solar energy that went to the immersion. Created only with an immersion switch. |
 | Battery throughput | `battery_throughput_kwh_today` | kWh | energy | total | day | yes | Battery energy in plus out. |
 | Battery Charged Today | `battery_charge_kwh_today` | kWh | energy | total | day | no | Energy into the battery. Uses the GivTCP counter when present. |
 | Battery Discharged Today | `battery_discharge_kwh_today` | kWh | energy | total | day | yes | Energy out of the battery. Uses the GivTCP counter when present. |
@@ -92,14 +92,14 @@ Money sensors use the currency symbol you chose in the tariff. A cost, earning, 
 | Export Earnings Today | `export_earnings_today` | currency | monetary | total | day | yes | Exported kWh times the export rate. |
 | Saving vs Grid Today | `saving_vs_grid_today` | currency | monetary | total | day | yes | House load priced at the rate in force when it ran, minus net import cost (import cost minus export earnings), plus the value of the change in the energy the battery holds since midnight. The `stored_energy_value` and `stored_energy_change_kwh` attributes show that last part, so the figure can be checked by hand. See [Concepts](concepts.md#saving-and-the-energy-in-the-battery). |
 | Net Saving Today (inc. battery wear) | `net_saving_today` | currency | monetary | total | day | yes | Saving vs Grid minus battery wear. Wear is 0 unless battery cost is set. It carries the same `stored_energy_value` and `stored_energy_change_kwh` attributes. |
-| EV Charging Cost Today | `zappi_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the EV charger, after the supplier discount and VAT. Standing charge and levy are not included, so it is higher than the EV energy times the bare rate by the discount and VAT factor. Created only with an EV charger. |
+| Charging Cost Today | `zappi_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the EV charger, after the supplier discount and VAT. Standing charge and levy are not included, so it is higher than the EV energy times the bare rate by the discount and VAT factor. Created only with an EV charger. |
 | House Cost Today | `house_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the rest of the house, after the supplier discount and VAT. Includes grid energy stored in the battery. |
 | Net Financial Position Today | `net_position_today` | currency | monetary | total | day | no | Export earnings minus import cost. |
 | Cost Without Solar or Battery Today | `cost_without_solar_today` | currency | monetary | total | day | yes | What the house used would have cost from the grid at the rates in force when it was used, with the supplier discount and VAT, as Import Cost prices what was imported. |
-| Immersion Cost Today | `immersion_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the immersion, after the supplier discount and VAT. Created only with an immersion switch. |
+| Cost Today | `immersion_cost_today` | currency | monetary | total | day | yes | Import cost attributed to the immersion, after the supplier discount and VAT. Created only with an immersion switch. |
 | Import cost at cheap rate | `import_cost_cheap_today` | currency | - | total | day | yes | Import cost while a timed rate period was active. |
 | Import cost at base rate | `import_cost_peak_today` | currency | - | total | day | yes | Import cost while no timed rate period was active, so at the base rate. With no timed rate period set, all import cost. |
-| Immersion solar savings | `immersion_savings_today` | currency | - | total | day | yes | Diverted solar kWh times (current rate minus export rate). It counts solar only, not what the heater draws from the grid. See Immersion Cost Today for that. Created only with an immersion switch. |
+| Solar savings | `immersion_savings_today` | currency | - | total | day | yes | Diverted solar kWh times (current rate minus export rate). It counts solar only, not what the heater draws from the grid. See Immersion Cost Today for that. Created only with an immersion switch. |
 
 ## Efficiency today
 
@@ -151,7 +151,7 @@ Outputs of the overnight charge calculation.
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| Recommended Overnight Charge Target | `overnight_charge_target` | % | - | measurement | no | yes | Tonight's target after overrides and the configured cap. Holds its value until the calculated target moves 5 points or more, and for an hour after it last changed. A move of 15 points or more shows at once. |
+| Recommended Overnight Charge Target | `overnight_charge_target` | % | - | measurement | no | yes | Tonight's target after overrides and the configured cap. Holds its value until the calculated target moves 5 points or more, and for an hour after it last changed. A move of 15 points or more shows at once. On a skipped night it shows the minimum SoC that is written to the inverter. |
 | Overnight Charge Reason | `overnight_charge_reason` | - | - | none | no | yes | Why that target was chosen. Changes only when the target does, and never says skipping while a charge is running. Attributes report the forecast accuracy correction: `accuracy_status` (for example `Waiting for data: 3 of 5 days`), `accuracy_applied`, `accuracy_measured_factor`, `accuracy_applied_factor`, `accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`. Diagnostic category. |
 | Overnight Charge Window | `overnight_charge_window` | - | - | none | no | yes | The charge window written to slot 1, sized to the plan. The end holds until the plan moves it 15 minutes or more and the shown end has stood for an hour, or 45 minutes or more at once. Attributes: `window_start`, `window_end`, `window_extended`, `expected_kwh` and `expected_finish`. Diagnostic category. |
 | Estimated Overnight Charge Cost | `overnight_charge_cost` | currency | monetary | none | no | yes | kWh from the SoC up to the target that is written, after the cap or a manual override, times the cheapest rate, before discount and VAT. When the charge window is longer than the cheapest period, the energy after it is priced at the rate in force then. Zero on a skipped night. Diagnostic category. |
@@ -169,9 +169,9 @@ Output of the immersion divert rule, the water temperature and the alternative w
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
 | Immersion Divert Reason | `immersion_divert_reason` | - | - | none | no | yes | Why the immersion is on or off. Diagnostic category. |
-| Immersion Water Temperature | `immersion_water_temperature` | °C | temperature | measurement | no | yes | Reading of the immersion temperature sensor you set. Also lets a stored dashboard show the water temperature as soon as a sensor is set. With Immersion Scheduled Heating on, the `planned_heating` attribute says in a sentence what the immersion plans for the next ready time and the cheapest window. With ready times set it also has `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source`. Created only with an immersion temperature sensor. |
+| Water Temperature | `immersion_water_temperature` | °C | temperature | measurement | no | yes | Reading of the immersion temperature sensor you set. Also lets a stored dashboard show the water temperature as soon as a sensor is set. With Immersion Scheduled Heating on, the `planned_heating` attribute says in a sentence what the immersion plans for the next ready time and the cheapest window. With ready times set it also has `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source`. Created only with an immersion temperature sensor. |
 | Water Heating Cheapest Source | `water_heating_cheapest_source` | - | - | none | no | yes | The cheapest way to heat the water now: `electricity`, `solar` or `alternative`. Compares the cost of a kWh of heat from the grid (after discount and VAT), from solar surplus (the export rate) and from the alternative heating you set (oil, gas, a heat pump, in the unit you chose). Advice only: the integration does not control the other system. The `suggestion` attribute is a sentence saying what to do and until when, and calls the alternative by your name for it, held in `alt_label` (Oil by default). Other attributes: `alt_cost_per_kwh`, `electricity_cost_per_kwh`, `cheapest_electricity_cost_per_kwh` (to the next ready time or 24 hours), `alt_saving_per_kwh` (negative when the alternative is dearer), `best_hours_for_alt`, `horizon`, `horizon_ends` and `cheapest_source_in_horizon`. With a water temperature reading it also says whether the water needs heating. While scheduled heating is on and a ready time is set, and the alternative is cheaper than the grid the immersion plan would use, it adds `alt_start_by` (local time), `alt_run_minutes` and `alt_for_ready_time`: start it then and the immersion only tops up. Absent when no start is needed. `alt_keep_warm` is a sentence, present while the water is at or below the lower of the minimum temperature plus the restart gap and the target less the restart gap, solar surplus is not heating it and the alternative is cheaper than the grid now. The suggestion puts the start first, then the keep-warm run. After 7 days of the immersion's grid heating it also suggests a recurring schedule, apart from `suggestion`: `alt_schedule` (a list of `HH:MM to HH:MM` windows, empty when nothing is worth suggesting), `alt_schedule_saving` (saved over the record, in your currency), `alt_schedule_days` (complete days read, up to 14) and `alt_schedule_suggestion` (the sentence, only with a schedule). All four are absent before 7 days. Use them in your own automations: the integration does not switch the other system. The costs, hours, start, keep-warm and schedule attributes are not written to the history database. Unavailable while the cost cannot be read. Created only with alternative water heating on, a cost set and an immersion switch. |
-| Immersion Run Limit | `immersion_run_limit` | - | enum | none | no | yes | Whether a scheduled run of the immersion was stopped by the longest immersion run: `off`, `idle` or `reached`. `reached` lasts until scheduled heating stops wanting the heater, which is when the window closes, the ready time passes or the water is warm enough. It is `off` when the longest run is 0 or the warning is turned off in the hot water settings. The Home energy dashboard shows a banner while it is `reached`. Created only with an immersion switch. |
+| Run Limit | `immersion_run_limit` | - | enum | none | no | yes | Whether a scheduled run of the immersion was stopped by the longest immersion run: `off`, `idle` or `reached`. `reached` lasts until scheduled heating stops wanting the heater, which is when the window closes, the ready time passes or the water is warm enough. It is `off` when the longest run is 0 or the warning is turned off in the hot water settings. The Home energy dashboard shows a banner while it is `reached`. Created only with an immersion switch. |
 | Water Heating Ready-by Trigger | `water_heating_ready_by_trigger` | - | enum | none | no | yes | A trigger for the start for a ready time: `idle` or `start_now`. It becomes `start_now` at the start for the ready time, the ready time less the run the water needs to reach the target. The water counts as needing heat as soon as it is 1 °C below the target, and the colder it is, the longer the run and the earlier the start. Once fired it holds until the water is at the target or the ready time has passed. It needs a ready time and the immersion schedule. It sends no alert and never switches anything: build the alert on a change of state, as in [Automations](automations.md). Attributes: `alt_label`, and while it is not idle `run_minutes`, `start_by`, `ready_time` and `saving_per_kwh`. Created only with alternative water heating on, a cost set and an immersion switch. |
 | Water Heating Low Water Trigger | `water_heating_low_water_trigger` | - | enum | none | no | yes | A trigger that keeps the immersion from restarting: `idle` or `start_now`. It becomes `start_now` while the water is within 1 °C above the lower boundary (or below it) and the alternative is cheaper than the grid, so a run can lift the water before the immersion tops it up. The boundary is the lower of the minimum temperature plus the restart gap, and the target less the restart gap, so raising the minimum temperature makes it fire sooner. It stays idle while solar surplus is heating the water. Once fired it holds until the water is at the target, and ends at once if the alternative stops being cheaper. It sends no alert and never switches anything. Attributes: `alt_label`, and while it is not idle `run_minutes` and `saving_per_kwh`. Created only with alternative water heating on, a cost set and an immersion switch. |
 
@@ -181,16 +181,16 @@ These sensors exist only while a supported charger is discovered, and appear whe
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| EV Charger State | `ev_charger_state` | - | - | none | no | yes | disconnected, connected, charging, paused, boosting, completed or unknown. Charging and boosting need the charger to be drawing power. Created only with an EV charger. EV charger needed. |
-| EV Charging Power | `ev_power` | W | power | measurement | no | yes | EV charger power. Created only with an EV charger. EV charger needed. |
-| EV Session Energy | `ev_session_energy` | kWh | energy | total_increasing | no | yes | Energy of the current session, as reported by the charger. Created only with an EV charger. EV charger needed. |
-| EV Session Cost | `ev_session_cost` | currency | monetary | none | no | yes | Cost of the current charging session, or of the last one while the car is unplugged. A session runs from plug-in to unplug and keeps counting across midnight. Each step is priced as EV Charging Cost Today prices it, so solar that reached the car costs nothing. Attributes: `session_energy_kwh`, `started`, `ended` (empty while charging), `recent_sessions` (the last 10 finished sessions, newest first) and `recent_table` (the same as a markdown table). Created only with an EV charger. EV charger needed. |
-| EV km Charged Today | `ev_km_charged_today` | km | - | total | day | no | EV energy today divided by car efficiency. Empty with no EV energy. Created only with an EV charger. |
-| EV Cost per km Today | `ev_cost_per_km_today` | currency | - | measurement | no | no | EV cost today divided by km charged. Created only with an EV charger. |
-| EV Draining Battery | `ev_draining_battery` | - | - | none | no | yes | yes while the charger is charging, drawing power, and the battery discharges over 200 W. Created only with an EV charger. EV charger needed. Diagnostic category. |
-| EV Mode Decision | `ev_protection_reason` | - | - | none | no | yes | Reason for the latest EV charge mode decision. Created only with an EV charger. EV charger needed. Diagnostic category. |
-| EV Charging Source | `ev_charging_source` | - | - | none | no | yes | Not charging, Solar, Grid, Battery or Mixed. Created only with an EV charger. EV charger needed. |
-| EV Solar Surplus | `ev_solar_surplus_available` | - | - | none | no | yes | Available when net solar surplus is 1380 W or more. Created only with an EV charger. EV charger needed. |
+| State | `ev_charger_state` | - | - | none | no | yes | disconnected, connected, charging, paused, boosting, completed or unknown. Charging and boosting need the charger to be drawing power. Created only with an EV charger. EV charger needed. |
+| Charging Power | `ev_power` | W | power | measurement | no | yes | EV charger power. Created only with an EV charger. EV charger needed. |
+| Session Energy | `ev_session_energy` | kWh | energy | total_increasing | no | yes | Energy of the current session, as reported by the charger. Created only with an EV charger. EV charger needed. |
+| Session Cost | `ev_session_cost` | currency | monetary | none | no | yes | Cost of the current charging session, or of the last one while the car is unplugged. A session runs from plug-in to unplug and keeps counting across midnight. Each step is priced as EV Charging Cost Today prices it, so solar that reached the car costs nothing. Attributes: `session_energy_kwh`, `started`, `ended` (empty while charging), `recent_sessions` (the last 10 finished sessions, newest first) and `recent_table` (the same as a markdown table). Created only with an EV charger. EV charger needed. |
+| km Charged Today | `ev_km_charged_today` | km | - | total | day | no | EV energy today divided by car efficiency. Empty with no EV energy. Created only with an EV charger. |
+| Cost per km Today | `ev_cost_per_km_today` | currency | - | measurement | no | no | EV cost today divided by km charged. Created only with an EV charger. |
+| Draining Battery | `ev_draining_battery` | - | - | none | no | yes | yes while the charger is charging, drawing power, and the battery discharges over 200 W. Created only with an EV charger. EV charger needed. Diagnostic category. |
+| Mode Decision | `ev_protection_reason` | - | - | none | no | yes | Reason for the latest EV charge mode decision. Created only with an EV charger. EV charger needed. Diagnostic category. |
+| Charging Source | `ev_charging_source` | - | - | none | no | yes | Not charging, Solar, Grid, Battery or Mixed. Created only with an EV charger. EV charger needed. |
+| Solar Surplus | `ev_solar_surplus_available` | - | - | none | no | yes | Available when net solar surplus is 1380 W or more. Created only with an EV charger. EV charger needed. |
 
 ## Solar forecast
 
@@ -225,7 +225,7 @@ Yesterday's totals, copied from today's accumulator at midnight. They have no st
 | Import cost yesterday | `import_cost_yesterday` | currency | - | none | no | yes | - |
 | Import at cheap rate yesterday | `import_kwh_cheap_yesterday` | kWh | energy | none | no | yes | - |
 | Import at base rate yesterday | `import_kwh_peak_yesterday` | kWh | energy | none | no | yes | - |
-| Immersion solar savings yesterday | `immersion_savings_yesterday` | currency | - | none | no | yes | Created only with an immersion switch. |
+| Solar savings yesterday | `immersion_savings_yesterday` | currency | - | none | no | yes | Created only with an immersion switch. |
 | Self-sufficiency yesterday | `self_sufficiency_yesterday` | % | - | measurement | no | yes | - |
 | Solar share yesterday | `solar_share_yesterday` | % | - | measurement | no | yes | - |
 
@@ -243,7 +243,7 @@ Resets at midnight on Monday. Reports `last_reset` as the start of the week.
 | Export earnings this week | `export_earnings_this_week` | currency | - | total | week | yes | - |
 | Import at cheap rate this week | `import_kwh_cheap_this_week` | kWh | energy | total | week | yes | - |
 | Import at base rate this week | `import_kwh_peak_this_week` | kWh | energy | total | week | yes | - |
-| Immersion solar savings this week | `immersion_savings_this_week` | currency | - | total | week | yes | Created only with an immersion switch. |
+| Solar savings this week | `immersion_savings_this_week` | currency | - | total | week | yes | Created only with an immersion switch. |
 | Self-sufficiency this week | `self_sufficiency_this_week` | % | - | measurement | no | yes | - |
 | Solar share this week | `solar_share_this_week` | % | - | measurement | no | yes | - |
 | Cheap rate import fraction this week | `cheap_import_fraction_this_week` | % | - | measurement | no | no | - |
@@ -262,7 +262,7 @@ Resets at midnight on the bill start day chosen at setup. Reports `last_reset` a
 | Export earnings this month | `export_earnings_this_month` | currency | - | total | month | yes | - |
 | Import at cheap rate this month | `import_kwh_cheap_this_month` | kWh | energy | total | month | yes | - |
 | Import at base rate this month | `import_kwh_peak_this_month` | kWh | energy | total | month | yes | - |
-| Immersion solar savings this month | `immersion_savings_this_month` | currency | - | total | month | yes | Created only with an immersion switch. |
+| Solar savings this month | `immersion_savings_this_month` | currency | - | total | month | yes | Created only with an immersion switch. |
 | Self-sufficiency this month | `self_sufficiency_this_month` | % | - | measurement | no | yes | - |
 | Solar share this month | `solar_share_this_month` | % | - | measurement | no | yes | - |
 | Cheap rate import fraction this month | `cheap_import_fraction_this_month` | % | - | measurement | no | no | - |
@@ -309,7 +309,7 @@ The state is a one-line summary. The `html` attribute holds a styled report for 
 
 ## Renamed sensors
 
-The base rate sensors were renamed because they measure the base rate, the rate that applies while no timed rate period is active. They are not a peak band, and no peak band is configured. The two overnight sensors were renamed because night survival read like an alarm: they tell whether the battery lasts the night. The sunrise estimate was renamed because it leaves tonight's planned charge out, and a second sensor now gives the figure with the charge. The immersion savings sensors were renamed because they count diverted solar energy only, not what the heater draws from the grid, which the Immersion Cost sensors show. In every group the key and the unique ID did not change, so history, statistics and automations carry on. An install made before a rename keeps its old entity IDs, which still contain `peak`, `night_survival`, `immersion_savings` or the plain `estimated_soc_at_sunrise`. A new install builds entity IDs from the new names.
+The base rate sensors were renamed because they measure the base rate, the rate that applies while no timed rate period is active. They are not a peak band, and no peak band is configured. The two overnight sensors were renamed because night survival read like an alarm: they tell whether the battery lasts the night. The sunrise estimate was renamed because it leaves tonight's planned charge out, and a second sensor now gives the figure with the charge. The immersion savings sensors were renamed because they count diverted solar energy only, not what the heater draws from the grid, which the Immersion Cost sensors show. They sit on the Immersion device, so their full names still start with Immersion. In every group the key and the unique ID did not change, so history, statistics and automations carry on. An install made before a rename keeps its old entity IDs, which still contain `peak`, `night_survival`, `immersion_savings` or the plain `estimated_soc_at_sunrise`. A new install builds entity IDs from the new names.
 
 | Key | Previous name | Name now |
 |---|---|---|
@@ -322,9 +322,9 @@ The base rate sensors were renamed because they measure the base rate, the rate 
 | `night_survival_reason` | Battery Night Survival Status | Battery Overnight Outlook |
 | `night_survival_confidence` | Night Survival Confidence | Battery Overnight Confidence |
 | `estimated_soc_at_sunrise` | Estimated SoC at Sunrise | Estimated SoC at Sunrise Without a Charge |
-| `immersion_savings_yesterday` | Immersion savings yesterday | Immersion solar savings yesterday |
-| `immersion_savings_this_week` | Immersion savings this week | Immersion solar savings this week |
-| `immersion_savings_this_month` | Immersion savings this month | Immersion solar savings this month |
+| `immersion_savings_yesterday` | Immersion savings yesterday | Solar savings yesterday |
+| `immersion_savings_this_week` | Immersion savings this week | Solar savings this week |
+| `immersion_savings_this_month` | Immersion savings this month | Solar savings this month |
 
 ## Removed sensors
 

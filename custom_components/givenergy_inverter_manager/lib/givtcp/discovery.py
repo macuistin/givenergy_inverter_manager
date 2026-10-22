@@ -51,6 +51,7 @@ ENTITY_SUFFIXES: dict[str, str] = {
     "charge_start_time": "_charge_start_time_slot_1",
     "charge_end_time": "_charge_end_time_slot_1",
     "battery_capacity_kwh": "_battery_capacity_kwh",
+    "inverter_max_output": "_invertor_max_inv_rate",  # watts
 }
 
 ENTITY_DOMAINS: dict[str, str] = {
@@ -65,6 +66,7 @@ ENTITY_DOMAINS: dict[str, str] = {
     "charge_start_time": "select",
     "charge_end_time": "select",
     "battery_capacity_kwh": "sensor",
+    "inverter_max_output": "sensor",
     "inverter_temp": "sensor",
 }
 
@@ -79,6 +81,7 @@ class GivTCPInverter:
     entities: dict[str, str] = field(default_factory=dict)
     missing_entities: list[str] = field(default_factory=list)
     battery_capacity_kwh: float | None = None  # read from sensor state at discovery time
+    inverter_max_output_kw: float | None = None  # the max inverter rate sensor, in kW
     kind: SystemKind = SystemKind.UNKNOWN
     invertor_type: str | None = None  # GivTCP's own word for the model, as published
     givtcp_version: str | None = None
@@ -136,6 +139,30 @@ def _usable(state: Any) -> str | None:
     """The state text, or None when it is missing, unavailable or empty."""
     text = str(getattr(state, "state", "") or "").strip()
     return None if text.lower() in ("unavailable", "unknown", "") else text
+
+
+def _positive(state: Any) -> float | None:
+    """The state as a number above zero, None when it is missing, unusable or not positive."""
+    text = _usable(state) if state is not None else None
+    if text is None:
+        return None
+    with contextlib.suppress(ValueError, TypeError):
+        value = float(text)
+        return value if value > 0 else None
+    return None
+
+
+def limit_sensors(prefix: str, all_states: dict[str, Any]) -> dict[str, str]:
+    """The capacity and maximum output sensors of the device *prefix* that read a number now.
+
+    Keyed as ENTITY_SUFFIXES is. A sensor that is missing or reads nothing is left out.
+    """
+    found: dict[str, str] = {}
+    for key in ("battery_capacity_kwh", "inverter_max_output"):
+        entity_id = f"{ENTITY_DOMAINS[key]}.{prefix}{ENTITY_SUFFIXES[key]}"
+        if _positive(all_states.get(entity_id)) is not None:
+            found[key] = entity_id
+    return found
 
 
 def _candidate_prefixes(all_states: dict[str, Any]) -> list[str]:
@@ -243,11 +270,12 @@ def _build_inverter(prefix: str, prefixes: list[str], all_states: dict[str, Any]
         else:
             inverter.missing_entities.append(candidate)
 
-    # ── Battery capacity value from the sensor state ─────────────────────────
-    cap_state = all_states.get(inverter.entities.get("battery_capacity_kwh", ""))
-    if cap_state is not None and (text := _usable(cap_state)) is not None:
-        with contextlib.suppress(ValueError, TypeError):
-            inverter.battery_capacity_kwh = float(text)
+    # ── Battery capacity and inverter output from the sensor states ──────────
+    inverter.battery_capacity_kwh = _positive(
+        all_states.get(inverter.entities.get("battery_capacity_kwh", ""))
+    )
+    watts = _positive(all_states.get(inverter.entities.get("inverter_max_output", "")))
+    inverter.inverter_max_output_kw = watts / 1000 if watts is not None else None
 
     # ── What kind of device it is ────────────────────────────────────────────
     inverter.invertor_type = _usable(all_states.get(f"sensor.{prefix}{TYPE_SUFFIX}"))

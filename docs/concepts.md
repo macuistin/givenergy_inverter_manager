@@ -307,7 +307,7 @@ Solar power is smoothed with an average of the last smoothed value and the new r
 
 The integration writes to your real immersion switch. After each automatic on or off it waits 10 minutes before the next automatic change. It turns off at once when the water is at or above the target.
 
-When **Auto Immersion Divert** is off, the rule above is bypassed. The decision becomes off with the reason `Manual override`, and the managed switch asks for the real switch to be off. The minimum temperature rule does not run either.
+When **Immersion Auto Divert** is off, the rule above is bypassed. The decision becomes off with the reason `Manual override`, and the managed switch asks for the real switch to be off. The minimum temperature rule does not run either.
 
 Turning the managed switch on yourself starts a run to target. So does turning your real switch on from outside, once the integration has switched it at least once. The heater stays on until the water reaches the target. With no temperature reading, either because no sensor is set or because it is unavailable, the run lasts 5 minutes and then automatic control resumes. Turn it on again to extend it. Turning it off, here or outside, holds off automatic control for 10 minutes.
 
@@ -315,7 +315,7 @@ Turning the managed switch on yourself starts a run to target. So does turning y
 
 By default the immersion runs only on solar surplus, plus the minimum temperature rule. **Immersion Scheduled Heating** adds two kinds of grid heating. It is a switch, off by default, and it keeps its state across a restart. It is created while an immersion switch and a water temperature sensor are both set. Nothing here runs without a temperature sensor, because without one the integration cannot know when the water reached its target. Surplus diversion carries on as before.
 
-The scheduled rules sit after the temperature rules and before the surplus rules. The minimum temperature and target temperature rules above still come first, so the water is never heated above the target and never left below the minimum. **Auto Immersion Divert** off still stops everything.
+The scheduled rules sit after the temperature rules and before the surplus rules. The minimum temperature and target temperature rules above still come first, so the water is never heated above the target and never left below the minimum. **Immersion Auto Divert** off still stops everything.
 
 **Cheapest window.** The window is the cheapest timed rate period, the one the battery charge starts in, for example 02:00 to 04:00. It counts only when its rate is below the base rate. While it is open the heater runs until the water reaches the target, then stops. The battery level and the solar sensors do not matter. At the window start the water must be at least the **Immersion Restart Gap** below the target, so warm water from the day before is left alone (with 55 °C and 5 °C, a start needs water below 50 °C). When the window ends the heater stops, with the water below target or not. It never runs on into a dearer band.
 

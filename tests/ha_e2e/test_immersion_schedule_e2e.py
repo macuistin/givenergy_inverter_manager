@@ -38,8 +38,8 @@ from custom_components.givenergy_inverter_manager.const import (
     DOMAIN,
 )
 
-WATER_SENSOR = "sensor.givenergy_inverter_manager_immersion_water_temperature"
-RUN_LIMIT_SENSOR = "sensor.givenergy_inverter_manager_immersion_run_limit"
+WATER_SENSOR = "sensor.immersion_water_temperature"
+RUN_LIMIT_SENSOR = "sensor.immersion_run_limit"
 COLD = 46.0  # below the restart threshold of 50, above the minimum of 45
 TARGET_REACHED = 55.5
 
@@ -313,7 +313,7 @@ class TestReadyTimes:
         water(hass, 46.0)
         freezer.move_to("2026-12-15 12:00:00+00:00")
         await cycle(hass, loaded_entry)
-        state = hass.states.get("sensor.givenergy_inverter_manager_immersion_water_temperature")
+        state = hass.states.get("sensor.immersion_water_temperature")
         assert state.attributes["ready_by"] == "19:00"
         assert state.attributes["expected_ready"] is True
         assert state.attributes["heating_rate_source"] == "assumed"
@@ -512,7 +512,7 @@ class TestTheLongestRun:
         water(hass, 46.0)
         freezer.move_to("2026-12-15 12:00:00+00:00")
         await cycle(hass, loaded_entry)
-        state = hass.states.get("sensor.givenergy_inverter_manager_immersion_water_temperature")
+        state = hass.states.get("sensor.immersion_water_temperature")
         assert state.attributes["expected_ready"] is False
 
     async def test_saving_the_limit_in_the_options_keeps_it_and_does_not_reload(

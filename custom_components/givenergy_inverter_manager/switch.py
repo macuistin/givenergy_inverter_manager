@@ -4,7 +4,7 @@ switch.py — Switch platform for GivEnergy Inverter Manager.
 Provides five switches, three of them only with an immersion switch, and the two switch
 controls of controls.py (dry run and verbose logging):
 
-  Auto Immersion Divert (GivEnergyAutoImmersionSwitch)
+  Immersion Auto Divert (GivEnergyAutoImmersionSwitch)
     Created only while an immersion switch is configured. Master on/off for the
     automatic immersion divert logic. When off, the coordinator's override_immersion
     is set to False and the immersion will not be turned on automatically regardless
@@ -47,7 +47,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from .const import DOMAIN
 from .controls import control_switches
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
-from .core.devices import Device
+from .core.devices import Device, DeviceGroup
 from .entity import GivEnergyEntity
 from .logging import get_logger
 from .optional_devices import async_add_entities_per_device, present_devices
@@ -114,7 +114,7 @@ class GivEnergyAutoImmersionSwitch(
     _attr_translation_key = "auto_immersion"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
-        super().__init__(coordinator)
+        super().__init__(coordinator, DeviceGroup.IMMERSION)
         self._auto_immersion_enabled: bool = True  # instance variable — not shared across entities
         self._attr_unique_id = f"{coordinator.entry.entry_id}_auto_immersion"
 
@@ -151,7 +151,7 @@ class GivEnergyImmersionControlSwitch(GivEnergyEntity, SwitchEntity):
     _attr_translation_key = "immersion_managed"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
-        super().__init__(coordinator)
+        super().__init__(coordinator, DeviceGroup.IMMERSION)
         self._attr_unique_id = _managed_switch_unique_id(coordinator.entry)
 
     @property
@@ -181,7 +181,7 @@ class GivEnergyImmersionScheduleSwitch(GivEnergyEntity, RestoreEntity, SwitchEnt
     _attr_translation_key = "immersion_schedule"
 
     def __init__(self, coordinator: GivEnergyCoordinator) -> None:
-        super().__init__(coordinator)
+        super().__init__(coordinator, DeviceGroup.IMMERSION)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_immersion_schedule"
 
     async def async_added_to_hass(self) -> None:

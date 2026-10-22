@@ -12,7 +12,7 @@
         },
         "data_description": {
           "battery_capacity_kwh": "Usable capacity of all battery modules in kWh. GivTCP did not report it.",
-          "inverter_max_output_kw": "Maximum AC output of the inverter in kW, for example 5 for a 5 kW inverter. GivTCP does not report it.",
+          "inverter_max_output_kw": "Maximum AC output of the inverter in kW, for example 5 for a 5 kW inverter. GivTCP did not report it.",
           "discovered_inverter": "Which GivTCP inverter to manage. All the others are ignored.",
           "pages": "The inverter is always set up. Tick what else to set up now. A tariff is needed for costs and the overnight plan. Anything you skip can be set up later from Configure."
         }
@@ -439,14 +439,18 @@
         "title": "Battery",
         "description": "{warnings}Battery and inverter limits. The charge target and the seasons are under Charge planning.",
         "data": {
-          "battery_capacity_kwh": "Battery capacity (kWh)",
-          "inverter_max_output_kw": "Inverter maximum output (kW)",
+          "battery_capacity_entity": "Battery capacity sensor",
+          "battery_capacity_kwh": "Battery capacity if no sensor (kWh)",
+          "inverter_max_output_entity": "Inverter maximum output sensor",
+          "inverter_max_output_kw": "Inverter maximum output if no sensor (kW)",
           "battery_cost_eur": "Battery cost",
           "battery_throughput_budget_kwh": "Daily throughput budget (kWh)"
         },
         "data_description": {
-          "battery_capacity_kwh": "Usable capacity of all battery modules in kWh.",
-          "inverter_max_output_kw": "Maximum AC output of the inverter in kW, for example 5 for a 5 kW inverter. GivTCP does not report it.",
+          "battery_capacity_entity": "A sensor that reports the battery capacity. Setup picks the GivTCP one. Clear it to use the typed value.",
+          "battery_capacity_kwh": "Usable capacity of all battery modules in kWh. Used only while the sensor reads nothing, or when no sensor is set.",
+          "inverter_max_output_entity": "A sensor that reports the inverter maximum output in W or kW. Setup picks the GivTCP one. Clear it to use the typed value.",
+          "inverter_max_output_kw": "Maximum AC output of the inverter in kW, for example 5 for a 5 kW inverter. Used only while the sensor reads nothing, or when no sensor is set.",
           "battery_cost_eur": "What the battery cost to install, in your currency. It is used to work out the wear cost of each kWh. Enter 0 to turn the check off.",
           "battery_throughput_budget_kwh": "An optional daily limit on energy charged plus discharged. Enter 0 for no limit."
         }
@@ -608,10 +612,10 @@
   "entity": {
     "number": {
       "surplus_divert_soc_pct": {
-        "name": "Immersion divert minimum SoC"
+        "name": "Divert minimum SoC"
       },
       "surplus_divert_min_power_w": {
-        "name": "Immersion divert minimum surplus"
+        "name": "Divert minimum surplus"
       },
       "cheap_rate_floor_soc": {
         "name": "Cheap rate floor SoC"
@@ -626,13 +630,13 @@
         "name": "Overnight Charge Target Override"
       },
       "immersion_target_temp": {
-        "name": "Immersion Target Temperature"
+        "name": "Target Temperature"
       },
       "immersion_min_temp": {
-        "name": "Immersion Minimum Temperature"
+        "name": "Minimum Temperature"
       },
       "immersion_hysteresis": {
-        "name": "Immersion Restart Gap"
+        "name": "Restart Gap"
       }
     },
     "sensor": {
@@ -709,10 +713,10 @@
         "name": "Grid Export Today"
       },
       "zappi_today": {
-        "name": "EV Charging Today"
+        "name": "Charging Today"
       },
       "immersion_today": {
-        "name": "Immersion Heater Today"
+        "name": "Heater Today"
       },
       "import_cost_today": {
         "name": "Import Cost Today"
@@ -727,7 +731,7 @@
         "name": "Net Saving Today (inc. battery wear)"
       },
       "zappi_cost_today": {
-        "name": "EV Charging Cost Today"
+        "name": "Charging Cost Today"
       },
       "house_cost_today": {
         "name": "House Cost Today"
@@ -802,13 +806,13 @@
         "name": "Immersion Divert Reason"
       },
       "immersion_water_temperature": {
-        "name": "Immersion Water Temperature"
+        "name": "Water Temperature"
       },
       "water_heating_cheapest_source": {
         "name": "Water Heating Cheapest Source"
       },
       "immersion_run_limit": {
-        "name": "Immersion Run Limit",
+        "name": "Run Limit",
         "state": {
           "off": "Off",
           "idle": "Not reached",
@@ -845,31 +849,31 @@
         "name": "Inverter Clipping"
       },
       "ev_charger_state": {
-        "name": "EV Charger State"
+        "name": "State"
       },
       "ev_power": {
-        "name": "EV Charging Power"
+        "name": "Charging Power"
       },
       "ev_session_energy": {
-        "name": "EV Session Energy"
+        "name": "Session Energy"
       },
       "ev_session_cost": {
-        "name": "EV Session Cost"
+        "name": "Session Cost"
       },
       "ev_km_charged_today": {
-        "name": "EV km Charged Today"
+        "name": "km Charged Today"
       },
       "ev_cost_per_km_today": {
-        "name": "EV Cost per km Today"
+        "name": "Cost per km Today"
       },
       "ev_draining_battery": {
-        "name": "EV Draining Battery"
+        "name": "Draining Battery"
       },
       "ev_protection_reason": {
-        "name": "EV Mode Decision"
+        "name": "Mode Decision"
       },
       "immersion_cost_today": {
-        "name": "Immersion Cost Today"
+        "name": "Cost Today"
       },
       "dry_run_active": {
         "name": "Dry Run Mode Active"
@@ -915,10 +919,10 @@
         "name": "Average Import Rate This Month"
       },
       "immersion_savings_today": {
-        "name": "Immersion solar savings"
+        "name": "Solar savings"
       },
       "immersion_solar_kwh_today": {
-        "name": "Immersion solar diverted"
+        "name": "Solar diverted"
       },
       "battery_throughput_kwh_today": {
         "name": "Battery throughput"
@@ -963,7 +967,7 @@
         "name": "Import at base rate yesterday"
       },
       "immersion_savings_yesterday": {
-        "name": "Immersion solar savings yesterday"
+        "name": "Solar savings yesterday"
       },
       "self_sufficiency_yesterday": {
         "name": "Self-sufficiency yesterday"
@@ -993,7 +997,7 @@
         "name": "Import at base rate this week"
       },
       "immersion_savings_this_week": {
-        "name": "Immersion solar savings this week"
+        "name": "Solar savings this week"
       },
       "self_sufficiency_this_week": {
         "name": "Self-sufficiency this week"
@@ -1029,10 +1033,10 @@
         "name": "Export — trailing 12 months"
       },
       "ev_charging_source": {
-        "name": "EV Charging Source"
+        "name": "Charging Source"
       },
       "ev_solar_surplus_available": {
-        "name": "EV Solar Surplus"
+        "name": "Solar Surplus"
       },
       "solar_this_year": {
         "name": "Solar generated this year"
@@ -1056,7 +1060,7 @@
         "name": "Import at base rate this month"
       },
       "immersion_savings_this_month": {
-        "name": "Immersion solar savings this month"
+        "name": "Solar savings this month"
       },
       "self_sufficiency_this_month": {
         "name": "Self-sufficiency this month"
@@ -1131,7 +1135,7 @@
         "name": "Battery Power"
       },
       "immersion_power": {
-        "name": "Immersion Heater Power"
+        "name": "Heater Power"
       },
       "cheap_rate_floor_status": {
         "name": "Cheap Rate Floor"
@@ -1177,13 +1181,13 @@
         "name": "Enable Charge Target Override"
       },
       "auto_immersion": {
-        "name": "Auto Immersion Divert"
+        "name": "Auto Divert"
       },
       "immersion_managed": {
-        "name": "Immersion Heater (Managed)"
+        "name": "Heater (Managed)"
       },
       "immersion_schedule": {
-        "name": "Immersion Scheduled Heating"
+        "name": "Scheduled Heating"
       }
     }
   },

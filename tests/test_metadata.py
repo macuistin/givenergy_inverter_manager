@@ -118,12 +118,13 @@ def test_check_names_are_stable():
     """Check names appear in the PR check list, so renaming a job is a deliberate change."""
     jobs = _workflow()["jobs"]
 
-    assert set(jobs) == {"lint", "tests-python", "tests-beta", "e2e", "e2e-beta"}
+    assert set(jobs) == {"lint", "tests-python", "tests-beta", "e2e", "e2e-beta", "coverage"}
     assert "name" not in jobs["lint"]
     assert jobs["tests-python"]["name"] == "Tests (Home Assistant ${{ matrix.home-assistant }})"
     assert jobs["tests-beta"]["name"] == "Tests (Home Assistant beta, not blocking)"
     assert jobs["e2e"]["name"] == "Home Assistant end-to-end (${{ matrix.home-assistant }})"
     assert jobs["e2e-beta"]["name"] == "Home Assistant end-to-end (beta, not blocking)"
+    assert jobs["coverage"]["name"] == "Coverage (every module above 95%)"
     assert "name" not in _workflow("hassfest.yml")["jobs"]["validate"]
     assert _workflow("hacs.yml")["jobs"]["hacs"]["name"] == "HACS Action"
     assert _workflow("codeql.yml")["jobs"]["analyze"]["name"] == "Analyze (${{ matrix.language }})"

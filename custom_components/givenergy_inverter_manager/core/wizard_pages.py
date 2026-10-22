@@ -26,6 +26,7 @@ from ..const import (
     CONF_ALT_HEAT_ENABLED,
     CONF_ALT_HEAT_LABEL,
     CONF_BATTERY_CAPACITY,
+    CONF_BATTERY_CAPACITY_ENTITY,
     CONF_BATTERY_COST,
     CONF_BATTERY_MIN_SOC,
     CONF_BATTERY_POWER,
@@ -49,6 +50,7 @@ from ..const import (
     CONF_IMMERSION_TEMP_SENSOR,
     CONF_IMMERSION_WATTAGE,
     CONF_INVERTER_MAX_OUTPUT,
+    CONF_INVERTER_MAX_OUTPUT_ENTITY,
     CONF_OVERNIGHT_CHARGE_TARGET,
     CONF_SOLAR_POWER,
     DEFAULT_ALT_HEAT_UNIT,
@@ -143,6 +145,11 @@ def clean_battery(values: Mapping[str, Any]) -> dict[str, Any]:
     for key in (CONF_BATTERY_CAPACITY, CONF_INVERTER_MAX_OUTPUT, CONF_BATTERY_COST):
         if key in values:
             cleaned[key] = float(values[key])
+    if CONF_BATTERY_CAPACITY in values or CONF_INVERTER_MAX_OUTPUT in values:
+        # The form sends the numbers always. A cleared sensor field is left out of the
+        # submission, so it is stored as empty here.
+        for key in (CONF_BATTERY_CAPACITY_ENTITY, CONF_INVERTER_MAX_OUTPUT_ENTITY):
+            cleaned[key] = _entity(values, key)
     if CONF_BATTERY_THROUGHPUT_BUDGET in values:
         cleaned[CONF_BATTERY_THROUGHPUT_BUDGET] = float(values[CONF_BATTERY_THROUGHPUT_BUDGET])
     return cleaned

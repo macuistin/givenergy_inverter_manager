@@ -48,7 +48,7 @@ from .const import (
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
 from .coordinator import GivEnergyConfigEntry, GivEnergyCoordinator
-from .core.devices import Device
+from .core.devices import Device, group_of
 from .entity import GivEnergyEntity
 from .logging import get_logger
 
@@ -135,8 +135,14 @@ class ControlEntity(GivEnergyEntity):
 
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator: GivEnergyCoordinator, key: str, default: Any) -> None:
-        super().__init__(coordinator)
+    def __init__(
+        self,
+        coordinator: GivEnergyCoordinator,
+        key: str,
+        default: Any,
+        requires: Device | None = None,
+    ) -> None:
+        super().__init__(coordinator, group_of(requires))
         self._option_key = key
         self._default = default
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{key}"
@@ -156,7 +162,7 @@ class ControlNumber(ControlEntity, NumberEntity):
     """A number control. Its range and unit come from its NumberSpec."""
 
     def __init__(self, coordinator: GivEnergyCoordinator, spec: NumberSpec) -> None:
-        super().__init__(coordinator, spec.key, spec.default)
+        super().__init__(coordinator, spec.key, spec.default, spec.requires)
         self._spec = spec
         self._attr_native_min_value = spec.low
         self._attr_native_max_value = spec.high

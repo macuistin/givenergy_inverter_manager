@@ -148,7 +148,7 @@ class TestWhatNeedsWhat:
             switch.GivEnergyImmersionScheduleSwitch._attr_translation_key
             == od.IMMERSION_SCHEDULE.key
         )
-        coordinator = SimpleNamespace(entry=SimpleNamespace(entry_id="entry"))
+        coordinator = SimpleNamespace(entry=SimpleNamespace(entry_id="entry"), hass=MagicMock())
         for cls, device_entity in (
             (number.ImmersionTargetTempNumber, od.IMMERSION_TARGET),
             (number.ImmersionMinTempNumber, od.IMMERSION_MINIMUM),

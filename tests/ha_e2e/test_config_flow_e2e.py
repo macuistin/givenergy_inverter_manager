@@ -106,7 +106,7 @@ async def test_the_battery_capacity_field_appears_only_when_givtcp_did_not_repor
 async def test_the_reported_battery_capacity_is_stored(hass, hass_in_scenario, service_calls):
     hass.states.async_set(CAPACITY, 13.5, {"unit_of_measurement": "kWh"})
     result = await start(hass)
-    _, confirm = await run_pages(hass, result, [])
+    _, confirm = await run_pages(hass, result, [], inverter_max_output_kw=5.0)
     entry = await finish(hass, confirm)
     try:
         assert entry.data[CONF_BATTERY_CAPACITY] == 13.5
@@ -251,3 +251,24 @@ async def test_nothing_is_stored_until_the_confirm_step(hass, hass_in_scenario, 
     manager(hass).async_abort(result["flow_id"])
     await hass.async_block_till_done()
     assert not hass.config_entries.async_entries(DOMAIN)
+
+
+async def test_setup_reads_capacity_and_output_from_the_givtcp_sensors(
+    hass, hass_in_scenario, service_calls
+):
+    hass.states.async_set(CAPACITY, 19.05, {"unit_of_measurement": "kWh"})
+    rate = CAPACITY.replace("battery_capacity_kwh", "invertor_max_inv_rate")
+    hass.states.async_set(rate, 3600, {"unit_of_measurement": "W"})
+    result = await start(hass)
+    assert "battery_capacity_kwh" not in field_names(result)
+    assert "inverter_max_output_kw" not in field_names(result)
+
+    _, confirm = await run_pages(hass, result, [])
+    entry = await finish(hass, confirm)
+    try:
+        assert entry.data["battery_capacity_entity"] == CAPACITY
+        assert entry.data["inverter_max_output_entity"] == rate
+        assert entry.data[CONF_BATTERY_CAPACITY] == 19.05
+        assert entry.data["inverter_max_output_kw"] == 3.6
+    finally:
+        await unload(hass, entry)

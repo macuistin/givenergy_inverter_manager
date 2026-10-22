@@ -2,7 +2,7 @@
 
 Example automations that use GivEnergy Inverter Manager entities and actions.
 
-Entity IDs are built by Home Assistant from the device name and the entity name, so the examples use the default English names, such as `sensor.givenergy_inverter_manager_recommended_overnight_charge_target`. Check each ID in **Settings → Entities** before you use an example. The generated [dashboard](dashboard.md) also uses your real IDs.
+Entity IDs are built by Home Assistant from the device name and the entity name, so the examples use the default English names, such as `sensor.givenergy_inverter_manager_recommended_overnight_charge_target`. The EV charger and immersion entities sit on their own devices, so their IDs start with `ev_charger` or `immersion`. An install that was set up before that keeps the IDs it already had. Check each ID in **Settings → Entities** before you use an example. The generated [dashboard](dashboard.md) also uses your real IDs.
 
 ---
 
@@ -194,7 +194,7 @@ The integration switches a Zappi to Eco+ by itself. For a charger it cannot cont
 alias: EV charger on solar surplus
 trigger:
   - platform: state
-    entity_id: sensor.givenergy_inverter_manager_ev_solar_surplus
+    entity_id: sensor.ev_charger_solar_surplus
     to: Available
     for:
       minutes: 5
@@ -202,7 +202,7 @@ condition:
   - condition: not
     conditions:
       - condition: state
-        entity_id: sensor.givenergy_inverter_manager_ev_charger_state
+        entity_id: sensor.ev_charger_state
         state: disconnected
 action:
   - service: switch.turn_on

@@ -361,7 +361,7 @@ Read **Immersion Divert Reason**. It gives the exact block.
 | Reason starts with | Fix |
 |---|---|
 | `No immersion switch configured` | No immersion switch entity is set, so there is nothing to turn on |
-| `Manual override` | **Auto Immersion Divert** is off. Turn it on |
+| `Manual override` | **Immersion Auto Divert** is off. Turn it on |
 | `Water already at` | The water is at the target. Wait for it to cool by the restart gap |
 | `Battery SoC ... below threshold` | The divert threshold (default 80%) is set at setup only |
 | `Not enough spare solar` | Spare solar is below the minimum (default 500 W). It says how far short: either the house is using more than the panels make, or some watts are spare but fewer than needed. Cloud, or a large house load. A heater that is already on stays on until the house uses more than the minimum beyond what the panels make |
@@ -405,7 +405,7 @@ Accrued Bill This Period is built from the month totals, which start again on th
 | EV sensors | Unavailable until an EV charger is discovered. Discovery retries about every 5 minutes, until the charger's power, session and charge mode entities are all found |
 | Inverter Temperature and its status | GivTCP has no `sensor.givtcp_<serial>_invertor_temperature` entity (GivTCP spells it "invertor") and none is stored in the entry. The integration looks for that entity from the inverter serial on every cycle, so it picks the sensor up once GivTCP creates it. The status shows Unknown until then |
 | Solar forecast today (provider), Solar vs provider forecast and the carbon sensors | No provider forecast was seen before midnight (a new install has none until its first midnight, and a forecast sensor that was unavailable then leaves the day without one), or no carbon intensity sensor is set |
-| Minutes Remaining in Rate Period | You are on the base rate |
+| Minutes Remaining in Rate Period | The tariff has no timed rate period |
 | Battery Years Remaining | Fewer than 7 days of cycle data |
 | Battery Cycle Cost per kWh, Throughput Budget sensors | Battery cost or budget is 0 |
 | Average Import Rate sensors | Nothing imported yet in that period |

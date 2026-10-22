@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from ..const import (
+    CONF_BATTERY_CAPACITY_ENTITY,
     CONF_BATTERY_POWER,
     CONF_BATTERY_SOC,
     CONF_CHARGE_END_TIME_ENTITY,
@@ -21,13 +22,14 @@ from ..const import (
     CONF_ENABLE_CHARGE_TARGET,
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
+    CONF_INVERTER_MAX_OUTPUT_ENTITY,
     CONF_INVERTER_SERIAL,
     CONF_INVERTER_TEMP_ENTITY,
     CONF_SOLAR_POWER,
     CONF_TARGET_SOC_ENTITY,
 )
 from ..core.wizard_pages import WIRING_REQUIRED
-from ..inverter.givtcp.discovery import GIVTCP_PREFIX, GivTCPInverter
+from ..inverter.givtcp.discovery import GIVTCP_PREFIX, GivTCPInverter, device_prefix, limit_sensors
 
 # discover_givtcp_inverters() entity keys to the config keys they are stored under.
 DISCOVERY_TO_CONF: dict[str, str] = {
@@ -67,6 +69,33 @@ def wiring_from(inverter: GivTCPInverter) -> dict[str, str]:
         for found, conf in DISCOVERY_TO_CONF.items()
         if found in inverter.entities
     }
+
+
+def limit_sources_from(inverter: GivTCPInverter) -> dict[str, str]:
+    """The sensors capacity and output are read from, for each one that reads a usable number.
+
+    A sensor that is missing or reads nothing is left out, so the typed value stands for it.
+    """
+    sources: dict[str, str] = {}
+    if inverter.battery_capacity_kwh is not None:
+        sources[CONF_BATTERY_CAPACITY_ENTITY] = inverter.entities["battery_capacity_kwh"]
+    if inverter.inverter_max_output_kw is not None:
+        sources[CONF_INVERTER_MAX_OUTPUT_ENTITY] = inverter.entities["inverter_max_output"]
+    return sources
+
+
+def limit_sources_for(cfg: Mapping[str, Any], states: Mapping[str, Any]) -> dict[str, str]:
+    """The limit sensors of an existing entry's inverter that read a number now.
+
+    The entry keeps the prefix GivTCP gave its entities, so it is read from the wiring.
+    """
+    prefix = device_prefix(cfg)
+    found = limit_sensors(prefix, dict(states)) if prefix else {}
+    conf = {
+        "battery_capacity_kwh": CONF_BATTERY_CAPACITY_ENTITY,
+        "inverter_max_output": CONF_INVERTER_MAX_OUTPUT_ENTITY,
+    }
+    return {conf[key]: entity_id for key, entity_id in found.items()}
 
 
 def serial_in_entity_id(entity_id: str) -> str | None:

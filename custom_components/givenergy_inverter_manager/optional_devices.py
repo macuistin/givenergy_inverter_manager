@@ -19,13 +19,14 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .config_helpers import effective_config
 from .const import CONF_SURPLUS_DIVERT_MIN_W, CONF_SURPLUS_DIVERT_SOC, DOMAIN
-from .core.devices import Device, installed_devices
+from .core.devices import Device, DeviceGroup, group_present, installed_devices
 from .discovery import discover_ev_chargers
 from .logging import get_logger
 from .sensor_descriptions import SENSOR_DESCRIPTIONS
@@ -53,34 +54,34 @@ class DeviceEntity:
 
 
 AUTO_IMMERSION = DeviceEntity(
-    "switch", "auto_immersion", Device.IMMERSION_SWITCH, "Auto Immersion Divert"
+    "switch", "auto_immersion", Device.IMMERSION_SWITCH, "Auto Divert"
 )
 IMMERSION_MANAGED = DeviceEntity(
-    "switch", "immersion_managed", Device.IMMERSION_SWITCH, "Immersion Heater (Managed)"
+    "switch", "immersion_managed", Device.IMMERSION_SWITCH, "Heater (Managed)"
 )
 IMMERSION_SCHEDULE = DeviceEntity(
     "switch",
     "immersion_schedule",
     Device.IMMERSION_THERMOSTAT,
-    "Immersion Scheduled Heating",
+    "Scheduled Heating",
 )
 IMMERSION_TARGET = DeviceEntity(
-    "number", "immersion_target_temp", Device.IMMERSION_THERMOSTAT, "Immersion Target Temperature"
+    "number", "immersion_target_temp", Device.IMMERSION_THERMOSTAT, "Target Temperature"
 )
 IMMERSION_MINIMUM = DeviceEntity(
-    "number", "immersion_min_temp", Device.IMMERSION_THERMOSTAT, "Immersion Minimum Temperature"
+    "number", "immersion_min_temp", Device.IMMERSION_THERMOSTAT, "Minimum Temperature"
 )
 IMMERSION_RESTART_GAP = DeviceEntity(
-    "number", "immersion_hysteresis", Device.IMMERSION_THERMOSTAT, "Immersion Restart Gap"
+    "number", "immersion_hysteresis", Device.IMMERSION_THERMOSTAT, "Restart Gap"
 )
 DIVERT_MIN_SOC = DeviceEntity(
-    "number", CONF_SURPLUS_DIVERT_SOC, Device.IMMERSION_SWITCH, "Immersion divert minimum SoC"
+    "number", CONF_SURPLUS_DIVERT_SOC, Device.IMMERSION_SWITCH, "Divert minimum SoC"
 )
 DIVERT_MIN_SURPLUS = DeviceEntity(
     "number",
     CONF_SURPLUS_DIVERT_MIN_W,
     Device.IMMERSION_SWITCH,
-    "Immersion divert minimum surplus",
+    "Divert minimum surplus",
 )
 DEVICE_ENTITIES: tuple[DeviceEntity, ...] = (
     AUTO_IMMERSION,
@@ -148,12 +149,86 @@ def _charger_may_exist(hass: HomeAssistant) -> bool:
     return bool(discover_ev_chargers({s.entity_id: s for s in hass.states.async_all()}))
 
 
+def _present_or_expected(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> frozenset[Device]:
+    """The devices present, and the EV charger too while one may still be discovered."""
+    present = present_devices(entry)
+    if Device.EV_CHARGER not in present and _charger_may_exist(hass):
+        return present | {Device.EV_CHARGER}
+    return present
+
+
+def _group_of_device(entry: GivEnergyConfigEntry, device: dr.DeviceEntry) -> DeviceGroup | None:
+    """The group a registry device stands for, or None when it is not one of this entry's."""
+    for group in DeviceGroup:
+        suffix = "" if group is DeviceGroup.MAIN else f"_{group.value}"
+        if (DOMAIN, f"{entry.entry_id}{suffix}") in device.identifiers:
+            return group
+    return None
+
+
+@callback
+def can_remove_device(entry: GivEnergyConfigEntry, device: dr.DeviceEntry) -> bool:
+    """True when the user may delete this device: its hardware is gone, or it is not ours.
+
+    The main device and a device whose hardware is still set stay. Deleting one would only
+    make the next update create it again.
+    """
+    group = _group_of_device(entry, device)
+    if group is None:
+        return True
+    return not group_present(group, present_devices(entry))
+
+
+@callback
+def remove_stale_devices(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Remove the devices of hardware that is no longer set, once their entities are gone."""
+    present = _present_or_expected(hass, entry)
+    registry = dr.async_get(hass)
+    for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
+        group = _group_of_device(entry, device)
+        if group is None or group_present(group, present):
+            continue
+        registry.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
+        _LOG.info("Removed the %s device, its hardware is no longer present", group.value)
+
+
+@callback
+def async_inherit_main_area(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
+    """Put a device created later in the area of the main device.
+
+    Only a new device is placed, so an area the user later changes or clears is left alone.
+    """
+
+    @callback
+    def _created(event: Event) -> None:
+        if event.data["action"] != "create":
+            return
+        registry = dr.async_get(hass)
+        device = registry.async_get(event.data["device_id"])
+        if device is None or device.id not in {
+            d.id for d in dr.async_entries_for_config_entry(registry, entry.entry_id)
+        }:
+            return
+        if _group_of_device(entry, device) in (None, DeviceGroup.MAIN) or device.area_id:
+            return
+        main = next(
+            (
+                d
+                for d in dr.async_entries_for_config_entry(registry, entry.entry_id)
+                if _group_of_device(entry, d) is DeviceGroup.MAIN
+            ),
+            None,
+        )
+        if main is not None and main.area_id:
+            registry.async_update_device(device.id, area_id=main.area_id)
+
+    entry.async_on_unload(hass.bus.async_listen(dr.EVENT_DEVICE_REGISTRY_UPDATED, _created))
+
+
 @callback
 def remove_orphaned_entities(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> None:
     """Delete the registry entries of entities whose device is no longer present."""
-    present = present_devices(entry)
-    if Device.EV_CHARGER not in present and _charger_may_exist(hass):
-        present = present | {Device.EV_CHARGER}
+    present = _present_or_expected(hass, entry)
     registry = er.async_get(hass)
     for platform, key, device in _device_entities():
         if device in present:

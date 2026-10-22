@@ -22,8 +22,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
-from ..const import NAME
-from ..core.devices import Device
+from ..core.devices import Device, DeviceGroup, group_name, group_of
 from ..optional_devices import DEVICE_ENTITIES
 from ..sensor_descriptions import SENSOR_DESCRIPTIONS
 from .registry import Registry
@@ -56,14 +55,14 @@ _SENSOR_NAMES = _read_sensor_names()
 
 
 @cache
-def _entity_names() -> dict[str, tuple[str, str]]:
-    """Unique ID suffix -> (domain, name) for every entity that needs a device."""
+def _entity_names() -> dict[str, tuple[str, str, DeviceGroup]]:
+    """Unique ID suffix -> (domain, name, device group) for every entity that needs a device."""
     names = {
-        d.key: ("sensor", _SENSOR_NAMES[d.translation_key or d.key])
+        d.key: ("sensor", _SENSOR_NAMES[d.translation_key or d.key], group_of(d.requires))
         for d in SENSOR_DESCRIPTIONS
         if d.requires is not None
     }
-    names.update({e.key: (e.platform, e.name) for e in DEVICE_ENTITIES})
+    names.update({e.key: (e.platform, e.name, group_of(e.requires)) for e in DEVICE_ENTITIES})
     return names
 
 
@@ -72,8 +71,8 @@ def expected_entity_id(suffix: str) -> str | None:
     found = _entity_names().get(suffix)
     if found is None:
         return None
-    domain, name = found
-    return f"{domain}.{_slug(NAME)}_{_slug(name)}"
+    domain, name, group = found
+    return f"{domain}.{_slug(group_name(group))}_{_slug(name)}"
 
 
 def _state_condition(entity: str, **test: str) -> dict[str, Any]:

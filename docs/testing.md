@@ -26,6 +26,18 @@ Home Assistant 2026.5 and newer need Python 3.14.2 or newer, and so does the cod
 
 `tests/test_dashboard_strategy.py` runs the strategy JavaScript under `node` when `node` is installed, and skips those tests otherwise.
 
+## Coverage
+
+Every module of the integration needs more than 95% line coverage over both suites together. Run each suite with its own data file, then check the combination:
+
+```bash
+COVERAGE_FILE=coverage-unit python -m pytest tests -q --cov
+COVERAGE_FILE=coverage-e2e .venv-e2e/bin/python -m pytest tests/ha_e2e -q --cov
+python scripts/check_coverage.py coverage-unit coverage-e2e
+```
+
+The `coverage` job in CI does the same and fails when a module is at or below 95%. The config flow files stay at 100% in the end-to-end suite.
+
 ## Real Home Assistant suite
 
 Use a separate virtualenv. The plugin pins `homeassistant`, `pytest` and `pytest-asyncio`, and Home Assistant 2026.3 and later need Python 3.14.2 or newer.

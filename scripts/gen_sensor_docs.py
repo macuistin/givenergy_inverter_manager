@@ -346,7 +346,8 @@ DESCRIPTIONS: dict[str, str] = {
     "is_on_cheapest_rate": "yes when the current rate is the cheapest and a timed period exists.",
     "is_on_base_rate": "yes when no timed period is active.",
     "minutes_remaining_in_period": (
-        "Minutes until the active timed period ends. Empty on the base rate."
+        "Minutes until the current rate period ends. On the base rate, minutes until the next "
+        "timed period starts."
     ),
     "rate_savings_vs_daytime": "Base rate minus current rate, floored at 0.",
     "avg_import_rate_today": "Import cost divided by imported kWh. Empty when nothing imported.",
@@ -487,7 +488,8 @@ DESCRIPTIONS: dict[str, str] = {
     "overnight_charge_target": (
         "Tonight's target after overrides and the configured cap. Holds its value until the "
         "calculated target moves 5 points or more, and for an hour after it last changed. A move "
-        "of 15 points or more shows at once."
+        "of 15 points or more shows at once. On a skipped night it shows the minimum SoC that is "
+        "written to the inverter."
     ),
     "overnight_charge_reason": (
         "Why that target was chosen. Changes only when the target does, and never says skipping "
@@ -736,17 +738,17 @@ RENAMED_SENSORS: tuple[tuple[str, str, str], ...] = (
     (
         "immersion_savings_yesterday",
         "Immersion savings yesterday",
-        "Immersion solar savings yesterday",
+        "Solar savings yesterday",
     ),
     (
         "immersion_savings_this_week",
         "Immersion savings this week",
-        "Immersion solar savings this week",
+        "Solar savings this week",
     ),
     (
         "immersion_savings_this_month",
         "Immersion savings this month",
-        "Immersion solar savings this month",
+        "Solar savings this month",
     ),
 )
 RENAMED_NOTE = (
@@ -757,7 +759,8 @@ RENAMED_NOTE = (
     "because it leaves tonight's planned charge out, and a second sensor now gives the "
     "figure with the charge. The immersion savings sensors were renamed because they count "
     "diverted solar energy only, not what the heater draws from the grid, which the "
-    "Immersion Cost sensors show. In every group the key and the unique ID did not change, so "
+    "Immersion Cost sensors show. They sit on the Immersion device, so their full names still "
+    "start with Immersion. In every group the key and the unique ID did not change, so "
     "history, statistics and automations carry on. An install made before a rename keeps its "
     "old entity IDs, which still contain `peak`, `night_survival`, `immersion_savings` or the "
     "plain `estimated_soc_at_sunrise`. A new install builds entity IDs from the new names."

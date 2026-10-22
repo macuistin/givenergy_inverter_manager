@@ -166,6 +166,7 @@ _coord.UpdateFailed = _UpdateFailed
 
 # --- helpers.device_registry (DeviceInfo is a TypedDict, so a dict stands in) ---
 sys.modules["homeassistant.helpers.device_registry"].DeviceInfo = dict
+sys.modules["homeassistant.helpers.device_registry"].DeviceEntry = object
 
 # --- helpers.restore_state ---
 sys.modules["homeassistant.helpers.restore_state"].RestoreEntity = type("RestoreEntity", (), {})

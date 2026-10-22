@@ -135,8 +135,8 @@ class TestMinutesRemainingRegression:
     def test_window_crossing_midnight(self):
         assert _minutes_left(_tariff(), _local(2026, 6, 15, 23, 30)) == 510.0
 
-    def test_base_rate_has_no_countdown(self):
-        assert _minutes_left(_tariff(), _local(2026, 6, 15, 14, 0)) is None
+    def test_base_rate_counts_down_to_the_next_period(self):
+        assert _minutes_left(_tariff(), _local(2026, 6, 15, 14, 0)) == 540.0
 
 
 # ── next_cheap_rate ───────────────────────────────────────────────────────────

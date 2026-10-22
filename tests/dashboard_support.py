@@ -34,6 +34,13 @@ ENTRY_ID = "test_entry_123"
 ADMIN_ID = "a0b1c2d3e4f5061728394a5b6c7d8e9f"
 _SCRIPT = ROOT / "scripts" / "gen_sensor_docs.py"
 _DEVICE_SLUG = "givenergy_inverter_manager"
+# The device slug that starts the entity ID of an entity that needs this optional device.
+_DEVICE_SLUGS = {
+    Device.EV_CHARGER: "ev_charger",
+    Device.IMMERSION_SWITCH: "immersion",
+    Device.IMMERSION_SENSOR: "immersion",
+    Device.IMMERSION_THERMOSTAT: "immersion",
+}
 
 
 def _switch_and_number_names() -> dict[str, tuple[str, str]]:
@@ -80,11 +87,27 @@ def _sensors() -> list[dict]:
     return module.load_sensors()
 
 
+def _device_needed(key: str) -> Device | None:
+    from custom_components.givenergy_inverter_manager.optional_devices import DEVICE_ENTITIES
+
+    return next((e.requires for e in DEVICE_ENTITIES if e.key == key), None)
+
+
 def default_entity_ids() -> dict[str, str]:
     """Return {unique id suffix: entity id} as Home Assistant would name them."""
-    ids = {s["key"]: f"sensor.{_DEVICE_SLUG}_{_slug(s['name'])}" for s in _sensors()}
+    from custom_components.givenergy_inverter_manager.sensor_descriptions import (
+        SENSOR_DESCRIPTIONS,
+    )
+
+    needs = {d.key: d.requires for d in SENSOR_DESCRIPTIONS}
+    ids = {
+        s[
+            "key"
+        ]: f"sensor.{_DEVICE_SLUGS.get(needs.get(s['key']), _DEVICE_SLUG)}_{_slug(s['name'])}"
+        for s in _sensors()
+    }
     for key, (domain, name) in _OTHER_ENTITIES.items():
-        ids[key] = f"{domain}.{_DEVICE_SLUG}_{_slug(name)}"
+        ids[key] = f"{domain}.{_DEVICE_SLUGS.get(_device_needed(key), _DEVICE_SLUG)}_{_slug(name)}"
     return ids
 
 
