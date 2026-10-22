@@ -51,6 +51,8 @@ async def test_a_device_in_use_cannot_be_deleted_and_one_without_hardware_can(ha
     data.pop(CONF_IMMERSION_SWITCH)
     data.pop(CONF_IMMERSION_TEMP_SENSOR)
     hass.config_entries.async_update_entry(loaded_entry, data=data)
+    # The update listener reloads the entry. Wait for it, so runtime_data is back.
+    await hass.async_block_till_done()
 
     assert await async_remove_config_entry_device(hass, loaded_entry, devices["immersion"]) is True
     assert await async_remove_config_entry_device(hass, loaded_entry, devices["main"]) is False
