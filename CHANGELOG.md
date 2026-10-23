@@ -2,6 +2,17 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Changed**
+- The overnight plan now shows only from an hour before solar is expected to end until the charge window has closed. Through the day, **Tonight's Charge Plan** says `Tonight's plan will be ready around 17:00`, and after the night's charge it says `Overnight charge complete` with the battery level. The dashboard's Tonight line and section follow. Before, a "tonight" figure was shown all day from the charge level at that moment, which could read "Skip charge" in the morning and flip in the evening as the battery ran down. The charge itself is worked out and written as before. See [When the overnight plan is shown](docs/concepts.md#when-the-overnight-plan-is-shown).
+
+**Removed**
+- Outside that time **Recommended Overnight Charge Target**, **Overnight Charge Reason**, **Estimated Overnight Charge Cost**, **Overnight Charge Window**, **Estimated SoC at Sunrise Without a Charge**, **Estimated SoC at Sunrise With the Planned Charge**, **Battery Overnight Outlook** and **Battery Overnight Confidence** (and its attributes) read unknown.
+
+**Upgrading**
+- An automation or template that reads one of those sensors by day gets unknown. Guard it with `has_value()`, or read it from the evening on.
+
 ## v0.21.0
 
 This release puts the EV charger and immersion on their own devices, keeps the overnight plan readable after the charge, and reads the battery capacity and maximum output from GivTCP. Entity IDs, history and settings carry over on upgrade.

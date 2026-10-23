@@ -26,6 +26,7 @@ from custom_components.givenergy_inverter_manager.core.engine import (
     build_tariff,
     estimate_avg_daily_kwh,
 )
+from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.discovery import (
     ZAPPI_ECO_PLUS_MODE,
@@ -1100,6 +1101,7 @@ class TestReportGenerators:
         from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
 
         data, _ = _run()
+        data.overnight_phase = OvernightPhase.ACTIVE
         # Populate today accumulator with realistic values
         data.today.solar_kwh = 12.5
         data.today.import_kwh = 3.2

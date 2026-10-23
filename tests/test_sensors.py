@@ -21,6 +21,7 @@ from homeassistant.const import UnitOfEnergy, UnitOfPower
 
 from custom_components.givenergy_inverter_manager.const import DEFAULT_CURRENCY_SYMBOL
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
 from custom_components.givenergy_inverter_manager.sensor import (
     SENSOR_DESCRIPTIONS,
     GivEnergyManagerSensor,
@@ -659,6 +660,7 @@ class TestStatusSensors:
     @staticmethod
     def _night(reason="ok", survive=True, sunrise_soc=50.0, min_soc=10):
         d = MagicMock()
+        d.overnight_phase = OvernightPhase.ACTIVE
         d.survival_reason = reason
         d.will_survive_night = survive
         d.estimated_soc_at_sunrise = sunrise_soc

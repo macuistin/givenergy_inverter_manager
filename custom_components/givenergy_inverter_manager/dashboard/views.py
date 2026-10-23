@@ -1004,7 +1004,12 @@ class Builder:
         return []
 
     def _tonight(self) -> dict | None:
-        """Whether tonight charges and why, the charge's cost, and the battery as bars."""
+        """Whether tonight charges and why, the charge's cost, and the battery as bars.
+
+        The plan cards show while the recommended target has a value. It reads unknown through
+        the day and after the night's charge, and a line from the plan sensor says where things
+        stand then. The settings in force show whatever the time.
+        """
         target = self.entity("overnight_charge_target")
         headline = (
             markdown_card(tonight_headline_template(target, self.entity("charge_plan")))
@@ -1020,24 +1025,28 @@ class Builder:
             if reason
             else None
         )
+        plan_cards = [
+            headline,
+            *self._night_survival(),
+            glance_card(
+                [
+                    entity_row(self.entity("overnight_charge_cost"), "Charge cost"),
+                    entity_row(self.entity("estimated_soc_at_sunrise"), "Sunrise if no charge"),
+                ]
+            ),
+            bar_tile(self.entity("battery_soc"), "Battery now", BATTERY),
+            bar_tile(self.entity("estimated_soc_at_sunrise_with_charge"), "At sunrise", BATTERY),
+            why,
+        ]
+        status = self.entity("charge_plan")
+        if target and status:
+            known = [{"condition": "state", "entity": target, "state_not": "unknown"}]
+            unknown = [{"condition": "state", "entity": target, "state": "unknown"}]
+            plan_cards = [with_visibility(card, known) for card in plan_cards]
+            plan_cards.append(with_visibility(markdown_card(state_ref(status)), unknown))
         return group(
             heading_card("Tonight", "mdi:weather-night"),
-            [
-                headline,
-                *self._night_survival(),
-                glance_card(
-                    [
-                        entity_row(self.entity("overnight_charge_cost"), "Charge cost"),
-                        entity_row(self.entity("estimated_soc_at_sunrise"), "Sunrise if no charge"),
-                    ]
-                ),
-                bar_tile(self.entity("battery_soc"), "Battery now", BATTERY),
-                bar_tile(
-                    self.entity("estimated_soc_at_sunrise_with_charge"), "At sunrise", BATTERY
-                ),
-                why,
-                *self._in_force(),
-            ],
+            [*plan_cards, *self._in_force()],
         )
 
     def _battery_history(self) -> dict | None:

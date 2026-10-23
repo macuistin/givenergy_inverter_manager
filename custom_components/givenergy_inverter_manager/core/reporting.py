@@ -24,6 +24,7 @@ from html import escape
 from typing import TYPE_CHECKING, Any
 
 from ..const import CONF_CURRENCY, CURRENCIES, DEFAULT_CURRENCY, DEFAULT_CURRENCY_SYMBOL
+from .overnight_phase import PLAN_DONE_WORDS, PLAN_WAITING_WORDS, OvernightPhase
 from .tariff import (
     TariffChange,
     TariffConfig,
@@ -249,10 +250,28 @@ def _plan_rows(cd: "ChargeDecision", sym: str, window_text: str | None = None) -
     ]
 
 
+def plan_status_text(data: "CoordinatorData") -> str | None:
+    """Where the overnight plan stands in words, None while the plan itself is shown.
+
+    Through the day the plan says when it will be ready. Once the night's charge window has
+    closed it says the charge is done, with the battery level it left.
+    """
+    if data.overnight_phase is OvernightPhase.WAITING:
+        return f"{PLAN_WAITING_WORDS} around {data.overnight_plan_ready_at}"
+    if data.overnight_phase is OvernightPhase.DONE:
+        return (
+            f"{PLAN_DONE_WORDS} · battery at {data.battery_soc:.0f}%. "
+            f"{PLAN_WAITING_WORDS} around {data.overnight_plan_ready_at}"
+        )
+    return None
+
+
 def build_charge_plan_html(data: "CoordinatorData") -> str:
     """
     Inline-styled HTML card showing tonight's charge decision and reasoning.
     """
+    if (status := plan_status_text(data)) is not None:
+        return _table([_section("🔋 Tonight's Charge Plan"), _row("", status)])
     cd = data.charge_decision
     if cd is None:
         return _table(_no_decision_rows())
@@ -267,6 +286,8 @@ PLAN_CHARGE_WORDS = "Target"
 
 def build_charge_plan_state(data: "CoordinatorData") -> str:
     """Short sensor state string (at most 255 chars)."""
+    if (status := plan_status_text(data)) is not None:
+        return fit_state(status).state
     cd = data.charge_decision
     sym = data.currency_symbol
     if cd is None:

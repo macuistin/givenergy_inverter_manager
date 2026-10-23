@@ -19,7 +19,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 from collections.abc import AsyncGenerator, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -169,6 +169,16 @@ CHEAP_NIGHT = Scenario(
     battery_w=0.0,
     grid_w=-600.0,
     load_w=600.0,
+)
+# June evening, 21:00 in Dublin: no solar, the battery running the house. The overnight plan is
+# shown from an hour before solar is expected to end (19:00 here), so its sensors have values.
+EVENING = replace(
+    MIDDAY,
+    name="evening_no_solar",
+    frozen_utc="2026-06-15 20:00:00+00:00",
+    solar_w=0.0,
+    battery_w=1300.0,
+    grid_w=0.0,
 )
 
 

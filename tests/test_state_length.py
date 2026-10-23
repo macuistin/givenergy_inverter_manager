@@ -28,6 +28,7 @@ from custom_components.givenergy_inverter_manager.const import (
 )
 from custom_components.givenergy_inverter_manager.core.battery import BatteryStats
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
 from custom_components.givenergy_inverter_manager.core.reporting import (
     build_charge_plan_html,
     build_charge_plan_state,
@@ -176,12 +177,23 @@ def _saturated() -> CoordinatorData:
     return data
 
 
+def _built_with_the_plan_shown(case) -> CoordinatorData:
+    """The case's snapshot with the overnight plan shown, whatever time of day the case is at.
+
+    The overnight sensors read unknown outside the evening and the night. Their texts are the
+    long ones, so the audit builds them as they are when shown.
+    """
+    kwargs = {name: snap.decode(value) for name, value in case["in"].items()}
+    data, _ = build_coordinator_data(**kwargs)
+    data.overnight_phase = OvernightPhase.ACTIVE
+    return data
+
+
 class TestEverySensorOfTheGoldenSnapshots:
     def test_no_case_publishes_a_state_over_the_limit(self):
         failures = []
         for number, case in enumerate(_GOLDEN):
-            kwargs = {name: snap.decode(value) for name, value in case["in"].items()}
-            data, _ = build_coordinator_data(**kwargs)
+            data = _built_with_the_plan_shown(case)
             failures += [f"case {number}: {problem}" for problem in _problems(data)]
 
         assert failures == []
@@ -190,8 +202,7 @@ class TestEverySensorOfTheGoldenSnapshots:
         """The audit is only worth anything while the golden data holds a long text."""
         longest = 0
         for case in _GOLDEN:
-            kwargs = {name: snap.decode(value) for name, value in case["in"].items()}
-            data, _ = build_coordinator_data(**kwargs)
+            data = _built_with_the_plan_shown(case)
             longest = max(longest, max(len(text) for _, text, _, _ in _published_texts(data)))
 
         assert longest > STATE_MAX_LENGTH

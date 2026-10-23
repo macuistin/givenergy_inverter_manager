@@ -21,6 +21,7 @@ from custom_components.givenergy_inverter_manager.core.battery import BatterySta
 from custom_components.givenergy_inverter_manager.core.charge_window import ChargeWindow
 from custom_components.givenergy_inverter_manager.core.devices import Device
 from custom_components.givenergy_inverter_manager.core.engine import CoordinatorData
+from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
 from custom_components.givenergy_inverter_manager.core.reporting import (
     PLAN_CHARGE_WORDS,
     PLAN_SKIP_WORDS,
@@ -231,6 +232,23 @@ class TestTheTonightLine:
         state = build_charge_plan_state(data)
         assert _tonight(state).endswith("**Tonight:** no plan yet")
         assert "mdi:battery-clock" in _tonight(state)
+
+    def test_through_the_day_it_says_when_the_plan_will_be_ready(self):
+        data = _plan_data(skip=False)
+        data.overnight_phase = OvernightPhase.WAITING
+        data.overnight_plan_ready_at = "17:00"
+        text = _tonight(build_charge_plan_state(data))
+        assert text.endswith("**Tonight:** the plan will be ready around 17:00")
+        assert "mdi:battery-clock" in text
+
+    def test_after_the_night_it_says_the_charge_is_complete(self):
+        data = _plan_data(skip=False)
+        data.overnight_phase = OvernightPhase.DONE
+        data.overnight_plan_ready_at = "17:00"
+        data.battery_soc = 100.0
+        text = _tonight(build_charge_plan_state(data))
+        assert text.startswith('<ha-icon icon="mdi:battery-check"></ha-icon> **Overnight charge')
+        assert text.endswith("Tonight's plan will be ready around 17:00")
 
     @pytest.mark.parametrize("state", ["unknown", "unavailable", ""])
     def test_an_unknown_state_says_no_plan_yet(self, state):

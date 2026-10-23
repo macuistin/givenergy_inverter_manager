@@ -6,6 +6,7 @@ coordinator carries the settled solar state between cycles, so the status does n
 
 from __future__ import annotations
 
+import copy
 from dataclasses import replace
 from datetime import timedelta
 
@@ -16,6 +17,7 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN, SOLAR_NOISE_FLOOR_W
+from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
 from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.sensor_values import night_survival_confidence
 
@@ -73,10 +75,12 @@ async def _flicker(hass, entry, freezer, *, remember: bool) -> list[tuple[str, s
         freezer.tick(CYCLE)
         await entry.runtime_data.async_refresh()
         await hass.async_block_till_done()
+        data = copy.copy(entry.runtime_data.data)
+        data.overnight_phase = OvernightPhase.ACTIVE  # the sensors read unknown at 08:00
         shown.append(
             (
-                "shortfall" if "shortfall" in _sensor_state(hass, entry, "night_survival_reason") else "last",
-                night_survival_confidence(entry.runtime_data.data),
+                "shortfall" if "shortfall" in data.survival_reason else "last",
+                night_survival_confidence(data),
             )
         )
     return shown

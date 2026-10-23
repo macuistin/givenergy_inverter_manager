@@ -11,6 +11,7 @@ import logging
 from dataclasses import replace
 
 import pytest
+from conftest import CHEAP_NIGHT, EVENING
 from homeassistant.const import MAX_LENGTH_STATE_STATE, STATE_UNKNOWN
 from homeassistant.helpers import entity_registry as er
 
@@ -29,6 +30,12 @@ LONG_REASON = (
     "Not skipping: Battery may run low. Estimated shortfall: 1.0kWh before solar starts. "
     "Per-slot load profile used."
 )
+
+
+@pytest.fixture(params=[EVENING, CHEAP_NIGHT], ids=lambda s: s.name)
+def scenario(request):
+    """The overnight sensors read unknown by day, so these run in the evening and at night."""
+    return request.param
 
 
 @pytest.fixture(autouse=True)

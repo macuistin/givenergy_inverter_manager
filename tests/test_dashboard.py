@@ -781,7 +781,7 @@ class TestLongTextStates:
     def test_tonight_leads_with_the_charge_then_night_survival_then_folds_the_reason(self):
         tonight = self._tonight()
         markdown = [c for c in tonight if c["type"] == "markdown"]
-        assert len(markdown) == 3
+        assert len(markdown) == 4  # the last is the line shown while there is no plan
         assert tonight[0]["heading"] == "Tonight"
         assert tonight[1:3] == markdown[:2]
         assert eid("overnight_charge_target") in markdown[0]["content"]
@@ -796,6 +796,17 @@ class TestLongTextStates:
             "night_survival_reason",
         ):
             assert eid(key) in night, key
+
+    def test_the_plan_cards_show_only_while_the_target_has_a_value(self):
+        tonight = self._tonight()
+        target = eid("overnight_charge_target")
+        known = {"condition": "state", "entity": target, "state_not": "unknown"}
+        unknown = {"condition": "state", "entity": target, "state": "unknown"}
+        planned = [c for c in tonight[1:] if known in c.get("visibility", [])]
+        waiting = [c for c in tonight[1:] if unknown in c.get("visibility", [])]
+        assert len(planned) >= 5
+        assert len(waiting) == 1
+        assert eid("charge_plan") in waiting[0]["content"]
 
     def test_markdown_cards_are_valid_jinja(self):
         checklist = {

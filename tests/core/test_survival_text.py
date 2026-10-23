@@ -21,6 +21,7 @@ from custom_components.givenergy_inverter_manager.core.battery import (
     SurvivalReport,
     survival_attributes,
 )
+from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
 from tests.core.test_sunrise_charge_engine import EVENING, _data
 
 SHORTFALL = "Battery may run low. Estimated shortfall: 1.8kWh before solar starts."
@@ -222,6 +223,7 @@ class TestWithTheEngine:
 
     def test_a_window_that_is_over_quotes_the_one_figure(self):
         data = _data(datetime(2026, 6, 15, 5, 0), 85.0)
+        data.overnight_phase = OvernightPhase.ACTIVE  # at 05:00 the plan is done, so force it shown
         assert not data.sunrise_with_charge.charge_counts
         assert "tonight's charge" not in self._attrs_of(data)["summary"]
 

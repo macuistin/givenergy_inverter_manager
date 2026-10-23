@@ -130,6 +130,9 @@ SOLAR_NOISE_FLOOR_W = 10.0  # W — sensor readings below this are treated as ze
 # evening. Night survival and the charge skip check read the settled state.
 SOLAR_DAY_DEBOUNCE_MINUTES = 5
 
+# The overnight plan shows from this long before solar is expected to end (core/overnight_phase.py).
+OVERNIGHT_PLAN_LEAD_MINUTES = 60
+
 # ── Battery health parameters ─────────────────────────────────────────────────
 BATTERY_RATED_CYCLES = 6000  # typical LFP rated cycle life (manufacturer spec)
 NIGHT_SURVIVAL_WARNING_MARGIN_PCT = 5.0  # warn within this many SoC points of min SoC

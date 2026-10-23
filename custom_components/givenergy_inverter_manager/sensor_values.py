@@ -25,6 +25,7 @@ from .core.alt_heat_trigger import AltHeatTrigger
 from .core.battery import SurvivalReport, survival_attributes
 from .core.engine import CoordinatorData
 from .core.ev_session import EVSession, EVSessionLog, recent_table
+from .core.overnight_phase import OvernightPhase
 from .core.repair_summary import repairs_summary
 from .core.setup_progress import setup_state
 from .core.tariff import EnergyAccumulator
@@ -379,13 +380,23 @@ def cheap_import_percentage(accumulator: EnergyAccumulator) -> float | None:
 # ── Overnight charge and night survival ──────────────────────────────────────
 
 
+def _plan_shown(data: CoordinatorData) -> bool:
+    """True from an hour before solar ends until the night's charge window has closed.
+
+    The sensors that give a view of the night read unknown at other times. Through the day a
+    "tonight" figure is only a guess from the battery level now, and in the morning the plan
+    is done. The Tonight's Charge Plan sensor says in words where things stand then.
+    """
+    return data.overnight_phase is OvernightPhase.ACTIVE
+
+
 def overnight_charge_target(data: CoordinatorData) -> int | None:
     """Return the published recommended target, None before the first decision.
 
     A skipped night shows the level the skip writes to the inverter, the minimum SoC.
     """
     decision = data.published_charge_decision
-    if decision is None:
+    if decision is None or not _plan_shown(data):
         return None
     if decision.skip_charge:
         return data.battery_min_soc
@@ -395,14 +406,14 @@ def overnight_charge_target(data: CoordinatorData) -> int | None:
 def overnight_charge_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """Whether the published target is a charge goal or the level held on a skipped night."""
     decision = data.published_charge_decision
-    if decision is None:
+    if decision is None or not _plan_shown(data):
         return None
     return {"plan": "skip" if decision.skip_charge else "charge"}
 
 
 def overnight_charge_reason(data: CoordinatorData) -> str | None:
     """Return why the published target was recommended, None before the first decision."""
-    if data.published_charge_decision:
+    if data.published_charge_decision and _plan_shown(data):
         reason = data.published_charge_decision.reason
         return f"{data.charge_replan_note} {reason}" if data.charge_replan_note else reason
     return None
@@ -426,7 +437,7 @@ def forecast_accuracy_attributes(data: CoordinatorData) -> dict[str, Any] | None
 
 def overnight_charge_cost(data: CoordinatorData) -> float | None:
     """Return the cost of tonight's planned charge, None before the first decision."""
-    if data.published_charge_decision:
+    if data.published_charge_decision and _plan_shown(data):
         return round(data.published_charge_decision.cost_to_charge, 3)
     return None
 
@@ -460,13 +471,15 @@ def tomorrow_outlook_attributes(data: CoordinatorData) -> dict[str, Any] | None:
 
 def overnight_charge_window(data: CoordinatorData) -> str | None:
     """Return the charge window to write, for example "02:00 to 06:30", None before a decision."""
+    if not _plan_shown(data):
+        return None
     return data.published_charge_window.text if data.published_charge_window else None
 
 
 def overnight_charge_window_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """Return what the window is sized for, None when there is no window."""
     window = data.published_charge_window
-    if window is None:
+    if window is None or not _plan_shown(data):
         return None
     finish = window.finish_time
     return {
@@ -483,13 +496,23 @@ def night_survival_confidence(data: CoordinatorData) -> str | None:
 
     Warning means the battery lasts but ends within the warning margin of the minimum SoC.
     """
-    if not data.survival_reason:
+    if not data.survival_reason or not _plan_shown(data):
         return None
     if not data.will_survive_night:
         return NIGHT_CRITICAL
     if data.estimated_soc_at_sunrise < data.battery_min_soc + NIGHT_SURVIVAL_WARNING_MARGIN_PCT:
         return NIGHT_WARNING
     return NIGHT_SAFE
+
+
+def estimated_soc_at_sunrise(data: CoordinatorData) -> float | None:
+    """The SoC at sunrise without a charge, None while the plan is not shown."""
+    return round(data.estimated_soc_at_sunrise, 1) if _plan_shown(data) else None
+
+
+def night_survival_reason(data: CoordinatorData) -> str | None:
+    """The words behind the night outlook, None while the plan is not shown."""
+    return data.survival_reason if _plan_shown(data) else None
 
 
 def _planned_charge_soc(data: CoordinatorData) -> float | None:
@@ -506,7 +529,7 @@ def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     The level is judged without a charge. The words also give the figure with tonight's
     planned charge while one counts.
     """
-    if not data.survival_reason:
+    if not data.survival_reason or not _plan_shown(data):
         return None
     return survival_attributes(
         SurvivalReport(
@@ -524,7 +547,9 @@ def night_survival_attributes(data: CoordinatorData) -> dict[str, Any] | None:
 def sunrise_with_charge_soc(data: CoordinatorData) -> float | None:
     """Return the SoC at sunrise with tonight's planned charge, None before the first cycle."""
     projection = data.sunrise_with_charge
-    return None if projection is None else round(projection.soc, 1)
+    if projection is None or not _plan_shown(data):
+        return None
+    return round(projection.soc, 1)
 
 
 def sunrise_with_charge_attributes(data: CoordinatorData) -> dict[str, Any] | None:
@@ -533,7 +558,7 @@ def sunrise_with_charge_attributes(data: CoordinatorData) -> dict[str, Any] | No
     soc_at_charge_start and charge_window are None on a night with no charge in the figure.
     """
     projection = data.sunrise_with_charge
-    if projection is None:
+    if projection is None or not _plan_shown(data):
         return None
     return {
         "soc_at_charge_start": _round_or_none(projection.soc_at_charge_start, 1),
