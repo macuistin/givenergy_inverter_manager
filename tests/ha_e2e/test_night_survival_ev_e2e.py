@@ -18,11 +18,11 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
 
-# 01:10 local in June. The house draws 800 W and the car 7.2 kW, all imported on the cheap rate.
+# 00:10 local in June. The house draws 800 W and the car 7.2 kW, all imported on the cheap rate.
 EV_JUNE_NIGHT = replace(
     CHEAP_NIGHT,
     name="ev_june_night",
-    frozen_utc="2026-06-15 00:10:00+00:00",
+    frozen_utc="2026-06-14 23:10:00+00:00",
     battery_soc=80.0,
     grid_w=-8000.0,
     load_w=8000.0,

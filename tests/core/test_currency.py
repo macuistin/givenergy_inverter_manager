@@ -3,6 +3,7 @@
 import pytest
 
 from custom_components.givenergy_inverter_manager.core import reporting
+from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
 from tests.conftest import _nightboost_cfg, _raw, _run
 from tests.core.flat_rules import should_divert_to_immersion, suggest_appliance_run
 
@@ -117,6 +118,7 @@ class TestReportsUseTheConfiguredSymbol:
     @staticmethod
     def _data(symbol):
         data, _ = _run()
+        data.overnight_phase = OvernightPhase.ACTIVE
         data.currency_symbol = symbol
         data.today.import_kwh = 3.0
         data.today.export_earnings = 1.2

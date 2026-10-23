@@ -59,6 +59,13 @@ engine never does. The tables are pinned in tests/core/test_bill_audit_tables.py
 The cheap_run_remaining_minutes leaf was added for the Cheap from tile: 49 of the 255 cases gained
 it, and the fresh snapshot gained it as None. Nothing else moved.
 
+The overnight_phase and overnight_plan_ready_at leaves were added when the overnight plan started
+to show only from an hour before solar ends until the charge window closes. The fresh snapshot gained
+them as "active" and "". All 255 cases gained overnight_plan_ready_at, and 151 gained an
+overnight_phase other than "active", the cases that run outside the evening and the night. No other
+leaf moved, and golden_reporting.json moved only for those 151 cases, whose plan report now says
+where things stand. The phases are pinned in test_overnight_phase.py.
+
 33 of the 255 cases were regenerated when the EV charger's energy left the average daily load
 (night survival and the charge target no longer read a car's draw as house load). The
 leaves that moved are survival_reason (all 33), estimated_soc_at_sunrise (16), will_survive_night

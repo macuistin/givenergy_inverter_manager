@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from custom_components.givenergy_inverter_manager.const import CONF_CHARGE_REPLAN, CONF_DRY_RUN
+from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
 from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
 from custom_components.givenergy_inverter_manager.sensor_values import overnight_charge_reason
 from tests.fakes.fake_inverter import FakeInverter
@@ -116,6 +117,7 @@ class TestTheLateCheck:
 
     async def test_the_sensor_leads_with_the_note_and_keeps_the_plan_reason(self):
         data = MagicMock()
+        data.overnight_phase = OvernightPhase.ACTIVE
         data.published_charge_decision = _decision()
         data.charge_replan_note = "Re-planned at 03:00: the forecast fell by 20%."
         assert overnight_charge_reason(data) == (

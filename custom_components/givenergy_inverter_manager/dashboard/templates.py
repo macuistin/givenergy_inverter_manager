@@ -15,6 +15,7 @@ from ..const import (
     DEFAULT_ALT_HEAT_LABEL,
     DEFAULT_CURRENCY,
 )
+from ..core.overnight_phase import PLAN_DONE_WORDS, PLAN_WAITING_WORDS
 from ..core.reporting import PLAN_CHARGE_WORDS, PLAN_SKIP_WORDS
 from ..core.tariff import TariffChange, TariffConfig, build_tariff
 from .cards import state_ref
@@ -258,6 +259,12 @@ def tonight_line_template(plan: str) -> str:
         + f"{{% elif plan.startswith('{PLAN_CHARGE_WORDS}') %}}"
         + '<ha-icon icon="mdi:battery-charging-high"></ha-icon> **Tonight:** will charge to '
         + "{{ plan.split(' ')[1] }}"
+        + f"{{% elif plan.startswith('{PLAN_DONE_WORDS}') %}}"
+        + '<ha-icon icon="mdi:battery-check"></ha-icon> **Overnight charge complete.** '
+        + "Tonight's plan will be ready around {{ plan.split(' ')[-1] }}"
+        + f'{{% elif plan.startswith("{PLAN_WAITING_WORDS}") %}}'
+        + '<ha-icon icon="mdi:battery-clock"></ha-icon> '
+        + "**Tonight:** the plan will be ready around {{ plan.split(' ')[-1] }}"
         + '{% else %}<ha-icon icon="mdi:battery-clock"></ha-icon> '
         + "**Tonight:** no plan yet{% endif %}"
     )
@@ -330,10 +337,12 @@ def tomorrow_story_template(forecast: str, target: str | None, sunrise: str | No
     )
     if target and sunrise:
         text += (
+            f"{{% if has_value('{target}') and has_value('{sunrise}') %}}"
             f" {{% set plan = state_attr('{target}', 'plan') %}}"
             "{{ 'No charge is planned tonight' if plan == 'skip' else "
             f"'Tonight charges to ' ~ states('{target}') ~ '%' }}}}, so the battery should start "
             f"the day at about {{{{ states('{sunrise}') | float(0) | round(0) | int }}}}%."
+            "{% endif %}"
         )
     return text
 

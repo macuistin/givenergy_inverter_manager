@@ -489,26 +489,28 @@ DESCRIPTIONS: dict[str, str] = {
         "Tonight's target after overrides and the configured cap. Holds its value until the "
         "calculated target moves 5 points or more, and for an hour after it last changed. A move "
         "of 15 points or more shows at once. On a skipped night it shows the minimum SoC that is "
-        "written to the inverter."
+        "written to the inverter. Reads unknown outside the evening and night (see When the "
+        "overnight plan is shown)."
     ),
     "overnight_charge_reason": (
         "Why that target was chosen. Changes only when the target does, and never says skipping "
         "while a charge is running. Attributes report the "
         "forecast accuracy correction: `accuracy_status` (for example `Waiting for data: 3 of 5 "
         "days`), `accuracy_applied`, `accuracy_measured_factor`, `accuracy_applied_factor`, "
-        "`accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`."
+        "`accuracy_usable_days`, `accuracy_days_needed` and `accuracy_days_stored`. Reads "
+        "unknown outside the evening and night."
     ),
     "overnight_charge_window": (
         "The charge window written to slot 1, sized to the plan. The end holds until the plan "
         "moves it 15 minutes or more and the shown end has stood for an hour, or 45 minutes or "
         "more at once. Attributes: `window_start`, `window_end`, `window_extended`, "
-        "`expected_kwh` and `expected_finish`."
+        "`expected_kwh` and `expected_finish`. Reads unknown outside the evening and night."
     ),
     "overnight_charge_cost": (
         "kWh from the SoC up to the target that is written, after the cap or a manual "
         "override, times the cheapest rate, before discount and VAT. When the charge window "
         "is longer than the cheapest period, the energy after it is priced at the rate in "
-        "force then. Zero on a skipped night."
+        "force then. Zero on a skipped night. Reads unknown outside the evening and night."
     ),
     "tomorrow_outlook": (
         "What the solar day the charge plan is for should cost: grid import plus tonight's "
@@ -531,7 +533,7 @@ DESCRIPTIONS: dict[str, str] = {
         "the hours, the flat load. While solar is generating it covers the night from the time "
         "solar is expected to stop (from the forecast's shape, or 20:00) from the current SoC. "
         "See Estimated SoC at Sunrise With the Planned Charge for the same night with the "
-        "charge in it."
+        "charge in it. Reads unknown outside the evening and night."
     ),
     "estimated_soc_at_sunrise_with_charge": (
         "Projected SoC at the next 08:00 with tonight's planned charge in it: the battery runs "
@@ -545,11 +547,13 @@ DESCRIPTIONS: dict[str, str] = {
         "profile. `basis` says which. Attributes: `soc_at_charge_start` (the SoC when the window "
         "opens), "
         "`charge_added_pct` (points the window adds), `charge_window` (for example `02:00 to "
-        "04:35`) and `basis` (in words, what the figure assumes)."
+        "04:35`) and `basis` (in words, what the figure assumes). Reads unknown outside the "
+        "evening and night."
     ),
     "night_survival_reason": (
         "Whether the battery should last until 08:00, with any shortfall. "
-        "The charge plan does not skip a night this sensor calls Critical."
+        "The charge plan does not skip a night this sensor calls Critical. Reads unknown "
+        "outside the evening and night."
     ),
     "night_survival_confidence": (
         "Safe, Warning (within 5 points of minimum SoC) or Critical, judged without a "
@@ -557,7 +561,7 @@ DESCRIPTIONS: dict[str, str] = {
         "in words for the dashboard, for example Lasts the night, with the charge expected at "
         "sunrise. While tonight's planned charge counts, `summary` and `explanation` also "
         "give the figure with it and say whether it covers a Warning or Critical night. The "
-        "level does not change."
+        "level does not change. Reads unknown outside the evening and night."
     ),
     "cheap_rate_floor_status": "State of the cheap rate floor top-up, or Inactive.",
     "immersion_divert_reason": "Why the immersion is on or off.",
@@ -668,7 +672,11 @@ DESCRIPTIONS: dict[str, str] = {
     "carbon_intensity": "Value of the carbon intensity entity you set.",
     "carbon_intensity_status": "Low (under 200), Medium (under 400) or High, in g CO2/kWh.",
     "today_summary": "Solar, import cost, immersion savings and self-sufficiency for today.",
-    "charge_plan": "Tonight's target, the percentage to add and the cost, or Skip charge.",
+    "charge_plan": (
+        "Tonight's target, the percentage to add and the cost, or Skip charge. Through the day "
+        "it says when the plan will be ready, and after the night's charge that the charge is "
+        "complete (see When the overnight plan is shown)."
+    ),
     "tariff_in_use": "The rates in force today in one line. The html attribute holds the tables.",
     "week_summary": "Solar, import cost and self-sufficiency for this week.",
     "dry_run_active": (

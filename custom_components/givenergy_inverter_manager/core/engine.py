@@ -120,6 +120,14 @@ from .controller_conflict import ConflictStatus
 from .counter_guard import screen
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
+from .overnight_phase import (
+    OvernightPhase,
+    OvernightTimes,
+    clock_text,
+    overnight_phase,
+    plan_ready_minute,
+    window_end_minute,
+)
 from .planned_heating import PlanQuery, describe_planned_heating
 from .repair_summary import RepairIssue
 from .rules import (
@@ -326,6 +334,10 @@ class CoordinatorData:
     # charge_decision and charge_window.
     published_charge_decision: ChargeDecision | None = None
     published_charge_window: ChargeWindow | None = None
+    # Whether the overnight plan is shown now, and when it starts to show. See
+    # core/overnight_phase.py. The sensors for the plan read these, the charge write does not.
+    overnight_phase: OvernightPhase = OvernightPhase.ACTIVE
+    overnight_plan_ready_at: str = ""
     should_divert_immersion: bool = False
     divert_reason: str = ""
     # True while the cheapest rate window is open, the user opted in and the heater is wanted.
@@ -1515,6 +1527,17 @@ def _set_overnight_charge(
     )
 
 
+def _set_overnight_phase(data: CoordinatorData, cycle: _Cycle) -> None:
+    """Say whether the overnight plan is worth showing now, and when it will be."""
+    times = OvernightTimes(
+        cycle.solar_end_minute,
+        window_end_minute(data.published_charge_window),
+        cycle.night_solar_w < SOLAR_NOISE_FLOOR_W,
+    )
+    data.overnight_phase = overnight_phase(minute_of_day(cycle.now), times)
+    data.overnight_plan_ready_at = clock_text(plan_ready_minute(cycle.solar_end_minute))
+
+
 def _charge_need(decision: ChargeDecision, cycle: _Cycle) -> ChargeNeed:
     # A skipped night charges nothing, so the window stays the cheapest period.
     target = decision.current_soc if decision.skip_charge else decision.target_soc
@@ -1951,6 +1974,7 @@ def build_coordinator_data(
     )
 
     _set_decisions(data, cycle, avg_daily_kwh, previous.held_charge)
+    _set_overnight_phase(data, cycle)
     _set_immersion_decision(data, cycle, previous.held_scheduled_run)
     _set_water_heating_advice(data, cycle, previous.held_triggers)
     _set_alt_heat_schedule(data, cycle, accumulators.heat_log)

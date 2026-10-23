@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from conftest import FORECAST, FORECAST_P10, MIDDAY, TARGET_SOC
+from conftest import EVENING, FORECAST, FORECAST_P10, TARGET_SOC
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import async_mock_service
 
@@ -17,12 +17,12 @@ from custom_components.givenergy_inverter_manager.const import (
 
 FIRST_FORECAST_KWH = 13.0
 JITTERED_FORECAST_KWH = 13.2
-LOWER_FORECAST_KWH = 14.5
+LOWER_FORECAST_KWH = 6.0  # low enough to move the evening target by 5 points or more
 
 
 @pytest.fixture
 def scenario():
-    return MIDDAY
+    return EVENING
 
 
 def _entity_id(hass, entry, key: str) -> str:

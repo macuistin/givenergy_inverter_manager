@@ -1070,3 +1070,76 @@ class TestSavingAttributes:
 
         description = next(d for d in SENSOR_DESCRIPTIONS if d.key == key)
         assert description.attrs_fn is values.saving_attributes
+
+
+class TestTheOvernightSensorsOutsideTheEvening:
+    """The overnight values read unknown through the day and after the night's charge."""
+
+    @staticmethod
+    def _data(phase):
+        from datetime import time
+        from types import SimpleNamespace
+
+        from custom_components.givenergy_inverter_manager.core.charge_window import ChargeWindow
+        from custom_components.givenergy_inverter_manager.core.rules import ChargeDecision
+
+        decision = ChargeDecision(
+            target_soc=80,
+            skip_charge=False,
+            reason="Moderate forecast.",
+            forecast_kwh=12.0,
+            current_soc=40.0,
+            battery_capacity=19.0,
+            car_plugged_in=False,
+            cost_to_charge=1.5,
+        )
+        return make_data(
+            overnight_phase=phase,
+            published_charge_decision=decision,
+            published_charge_window=ChargeWindow(time(2, 0), time(4, 0), False, 5.0, None),
+            survival_reason="Battery should last until solar.",
+            will_survive_night=True,
+            estimated_soc_at_sunrise=62.0,
+            battery_min_soc=20,
+            battery_soc=95.0,
+            sunrise_with_charge=SimpleNamespace(
+                soc=80.0,
+                charge_counts=True,
+                soc_at_charge_start=40.0,
+                charge_added_pct=40.0,
+                charge_window="02:00 to 04:00",
+                basis="Per-slot load.",
+            ),
+        )
+
+    READERS = [
+        "overnight_charge_target",
+        "overnight_charge_attributes",
+        "overnight_charge_reason",
+        "overnight_charge_cost",
+        "overnight_charge_window",
+        "overnight_charge_window_attributes",
+        "night_survival_confidence",
+        "night_survival_attributes",
+        "estimated_soc_at_sunrise",
+        "night_survival_reason",
+        "sunrise_with_charge_soc",
+        "sunrise_with_charge_attributes",
+    ]
+
+    @pytest.mark.parametrize("reader", READERS)
+    def test_they_have_a_value_while_the_plan_is_shown(self, reader):
+        from custom_components.givenergy_inverter_manager.core.overnight_phase import (
+            OvernightPhase,
+        )
+
+        assert getattr(values, reader)(self._data(OvernightPhase.ACTIVE)) is not None
+
+    @pytest.mark.parametrize("reader", READERS)
+    @pytest.mark.parametrize("phase_name", ["WAITING", "DONE"])
+    def test_they_read_unknown_the_rest_of_the_time(self, reader, phase_name):
+        from custom_components.givenergy_inverter_manager.core.overnight_phase import (
+            OvernightPhase,
+        )
+
+        assert getattr(values, reader)(self._data(OvernightPhase[phase_name])) is None

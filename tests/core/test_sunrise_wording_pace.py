@@ -24,11 +24,13 @@ import pytest
 from custom_components.givenergy_inverter_manager import sensor_values as sv
 from custom_components.givenergy_inverter_manager.const import SOLAR_DAY_DEBOUNCE_MINUTES
 from custom_components.givenergy_inverter_manager.core.battery_pause import PauseWindow
+from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
 from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from tests.conftest import _nightboost_cfg, _raw, _run
 
+ACTIVE = OvernightPhase.ACTIVE
 PAUSE = PauseWindow(time(23, 0), time(8, 0))
 CAPACITY_KWH = 19.0
 START = datetime(2026, 10, 16, 12, 0)
@@ -81,6 +83,11 @@ def _replay(evening: Evening):
         now += STEP
 
 
+def _shown_cycles(evening: Evening):
+    """The cycles in which the overnight sensors publish, from dusk or an hour before it ends."""
+    return ((now, data) for now, data in _replay(evening) if data.overnight_phase is ACTIVE)
+
+
 def _figure(pattern: re.Pattern[str], text: str) -> int:
     match = pattern.search(text)
     assert match, text
@@ -96,7 +103,7 @@ SAFE_EVENINGS = [
 class TestTheWordsQuoteThePublishedFigure:
     @pytest.mark.parametrize("evening", SAFE_EVENINGS)
     def test_the_explanation_quotes_the_sensor_every_cycle(self, evening):
-        for now, data in _replay(evening):
+        for now, data in _shown_cycles(evening):
             attrs = sv.night_survival_attributes(data)
             quoted = _figure(EXPLANATION_FIGURE, attrs["explanation"])
             assert quoted == round(data.estimated_soc_at_sunrise), now

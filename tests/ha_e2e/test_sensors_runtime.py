@@ -26,6 +26,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_IMMERSION_SWITCH,
     DOMAIN,
 )
+from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
 from custom_components.givenergy_inverter_manager.sensor import (
     SENSOR_DESCRIPTIONS,
     reset_period_of,
@@ -307,6 +308,9 @@ async def test_night_survival_confidence_explains_its_level(hass, loaded_entry):
 
     state = hass.states.get(entity_id)
     assert state is not None
+    if loaded_entry.runtime_data.data.overnight_phase is not OvernightPhase.ACTIVE:
+        assert state.state == "unknown"  # the plan is not shown yet, see core/overnight_phase.py
+        return
     assert state.state in ("Safe", "Warning", "Critical")
     outlooks = {"Safe": "Lasts the night", "Warning": "Only just lasts the night", "Critical": "May run low"}
     assert state.attributes["outlook"] == outlooks[state.state]

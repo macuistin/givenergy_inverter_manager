@@ -177,6 +177,18 @@ The calculated figure steps when the day's energy total resets at midnight, when
 
 It reads the next 08:00 on the clock, so it stays steady through the day and does not step at midnight. A window that is running starts from the current SoC. A battery already at the target when the window opens adds nothing. With no charge rate known, the battery is assumed to reach the target. On a skipped night, with no timed charge window, or once the window is over, it equals the figure without a charge. The two figures use different loads on purpose. The figure without a charge, which night survival judges, spreads the daily average evenly over the hours. The figure with the charge uses the learned per-slot load profile that the charge plan simulation uses, scaled to the same daily average, so a quiet night reads as quiet. Until there is a usable profile (a new install, or too little history) it falls back to the flat average. The `basis` attribute ends with the load it used. Its attributes show what it is made of: `soc_at_charge_start`, `charge_added_pct`, `charge_window` and `basis`. It does not feed Battery Overnight Outlook or the level of Battery Overnight Confidence, and no decision reads it. The words of Battery Overnight Confidence (`summary` and `explanation`) quote it while a planned charge counts.
 
+### When the overnight plan is shown
+
+The overnight plan is worked out all day, because the write at the start of the cheap window needs the latest figures. It is only worth reading when it is near. Through the day the battery will still change a lot before the cheap rate starts, so a "tonight" figure then is a guess from the charge level now. In the morning the plan has been carried out.
+
+The plan is shown from an hour before solar is expected to end until the charge window has closed. Solar is expected to end at the end of the last half hour of today's forecast shape, and the plan appears at once if solar settles at nothing in the afternoon before that. Outside that time:
+
+- **Tonight's Charge Plan** says where things stand, in words. Through the day it reads `Tonight's plan will be ready around 17:00`, with the real time. After the window closes and until solar usually starts, it reads `Overnight charge complete · battery at 100%. Tonight's plan will be ready around 17:00`.
+- **Recommended Overnight Charge Target**, **Overnight Charge Reason**, **Estimated Overnight Charge Cost**, **Overnight Charge Window**, **Estimated SoC at Sunrise Without a Charge**, **Estimated SoC at Sunrise With the Planned Charge**, **Battery Overnight Outlook** and **Battery Overnight Confidence** read unknown.
+- The dashboard's Tonight line and section follow: the plan cards give way to one line from Tonight's Charge Plan.
+
+This changes only what the sensors show. The charge target and window are worked out and written to the inverter exactly as before, and **Tomorrow Outlook** is not affected.
+
 ### Why the battery never sells stored charge back to the grid
 
 The integration does not discharge the battery to the grid, and does not advise it either (see the

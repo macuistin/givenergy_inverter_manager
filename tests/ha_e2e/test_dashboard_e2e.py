@@ -18,6 +18,11 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
+from custom_components.givenergy_inverter_manager.core.overnight_phase import (
+    PLAN_DONE_WORDS,
+    PLAN_WAITING_WORDS,
+    OvernightPhase,
+)
 from custom_components.givenergy_inverter_manager.core.reporting import (
     PLAN_CHARGE_WORDS,
     PLAN_SKIP_WORDS,
@@ -397,6 +402,7 @@ def _tonight_line(text: str) -> str:
 def _plan_state(loaded_entry, *, skip: bool) -> str:
     """What Tonight's Charge Plan reads for a skipped or a charging night of this install."""
     data = copy.copy(loaded_entry.runtime_data.data)
+    data.overnight_phase = OvernightPhase.ACTIVE  # the plan is shown, whatever time the case is at
     data.charge_decision = replace(data.charge_decision, skip_charge=skip)
     return build_charge_plan_state(data)
 
@@ -417,10 +423,12 @@ async def test_the_tonight_line_reads_the_state_the_sensor_really_has(hass, load
     text = await _generate(hass)
     plan = default_entity_ids()["charge_plan"]
     state = hass.states.get(plan).state
-    assert state.startswith((PLAN_SKIP_WORDS, PLAN_CHARGE_WORDS))
+    assert state.startswith((PLAN_SKIP_WORDS, PLAN_CHARGE_WORDS, PLAN_WAITING_WORDS, PLAN_DONE_WORDS))
     rendered = _render(hass, _tonight_line(text))
     assert ("won't charge" in rendered) == state.startswith(PLAN_SKIP_WORDS)
     assert ("will charge to" in rendered) == state.startswith(PLAN_CHARGE_WORDS)
+    assert ("the plan will be ready around" in rendered) == state.startswith(PLAN_WAITING_WORDS)
+    assert ("Overnight charge complete" in rendered) == state.startswith(PLAN_DONE_WORDS)
 
 
 async def test_the_sentences_wait_quietly_while_the_sensors_are_unavailable(hass, loaded_entry):
