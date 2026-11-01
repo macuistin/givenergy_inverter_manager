@@ -43,6 +43,8 @@ class ImmersionEntities:
     target: str | None
     minimum: str | None
     heater: str | None
+    # A second thermometer lower in the cylinder, drawn next to the first. Never a decision input.
+    lower_sensor: str | None = None
 
 
 def builtin_immersion_chart(ent: ImmersionEntities) -> dict | None:
@@ -53,6 +55,7 @@ def builtin_immersion_chart(ent: ImmersionEntities) -> dict | None:
     card = entity_list_card(
         [
             entity_row(ent.temp_sensor, "Water"),
+            entity_row(ent.lower_sensor, "Water, lower"),
             entity_row(ent.target, "Target"),
             entity_row(ent.minimum, "Minimum"),
             entity_row(ent.heater, "Heater power"),
@@ -102,7 +105,8 @@ def _apex_axes(ent: ImmersionEntities) -> list[dict]:
     """One axis for each kind of series drawn. The heater's is fixed and hidden."""
     temperature = {"id": _TEMP_AXIS, "decimals": 0}
     heater = {"id": _HEATER_AXIS, "min": 0, "max": 1, "decimals": 0, "show": False}
-    return [*([temperature] if ent.temp_sensor else []), *([heater] if ent.heater else [])]
+    has_temperature = bool(ent.temp_sensor or ent.lower_sensor)
+    return [*([temperature] if has_temperature else []), *([heater] if ent.heater else [])]
 
 
 def apex_immersion_chart(ent: ImmersionEntities) -> dict | None:
@@ -115,6 +119,7 @@ def apex_immersion_chart(ent: ImmersionEntities) -> dict | None:
     series = present(
         [
             _apex_series(ent.temp_sensor, "Water", "#03a9f4", 2),
+            _apex_series(ent.lower_sensor, "Water, lower", "#4dd0e1", 2),
             _apex_series(ent.target, "Target", "#f44336", 1),
             _apex_series(ent.minimum, "Minimum", orange, 1),
             _apex_heater_series(ent.heater),

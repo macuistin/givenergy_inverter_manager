@@ -77,6 +77,7 @@ from .const import (
     CONF_FORECAST_ENTITY_D2,
     CONF_FORECAST_ENTITY_P10,
     CONF_IMMERSION_HYSTERESIS,
+    CONF_IMMERSION_LOWER_TEMP_SENSOR,
     CONF_IMMERSION_MAX_RUN_MINUTES,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_READY_TIMES,
@@ -1310,6 +1311,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             raw.immersion_temp = self._read_optional_float(temp_eid)
             if raw.immersion_temp is None:
                 unavailable.append("immersion_temp")
+        # Read for the graphs only, so an unreadable lower thermometer marks nothing unavailable.
+        raw.immersion_lower_temp = self._read_optional_float(
+            cfg.get(CONF_IMMERSION_LOWER_TEMP_SENSOR)
+        )
 
     def _read_alt_heat(self, cfg: dict, raw: RawSensorValues) -> None:
         """Set the cost of a kWh of heat from the alternative, and its label.

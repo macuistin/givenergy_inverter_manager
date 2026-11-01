@@ -39,6 +39,7 @@ _DEVICE_SLUGS = {
     Device.EV_CHARGER: "ev_charger",
     Device.IMMERSION_SWITCH: "immersion",
     Device.IMMERSION_SENSOR: "immersion",
+    Device.IMMERSION_LOWER_SENSOR: "immersion",
     Device.IMMERSION_THERMOSTAT: "immersion",
 }
 

@@ -26,6 +26,7 @@ from ..const import (
     CONF_FORECAST_ENTITY,
     CONF_FORECAST_ENTITY_D2,
     CONF_FORECAST_ENTITY_P10,
+    CONF_IMMERSION_LOWER_TEMP_SENSOR,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
 )
@@ -185,7 +186,10 @@ class WizardPages:
             if names
             else "No switch with immersion in its name was found."
         )
-        report = self._sensor_report(ctx, (CONF_IMMERSION_SWITCH, CONF_IMMERSION_TEMP_SENSOR))
+        report = self._sensor_report(
+            ctx,
+            (CONF_IMMERSION_SWITCH, CONF_IMMERSION_TEMP_SENSOR, CONF_IMMERSION_LOWER_TEMP_SENSOR),
+        )
         return PageView(
             "hot_water",
             hot_water_schema(ctx),

@@ -181,6 +181,7 @@
         "data": {
           "immersion_switch_entity": "Immersion switch",
           "immersion_temp_sensor_entity": "Hot water temperature sensor (optional)",
+          "immersion_lower_temp_sensor_entity": "Lower hot water temperature sensor (optional)",
           "immersion_wattage_w": "Immersion element power (W)",
           "immersion_max_run_minutes": "Longest immersion run (minutes)",
           "immersion_run_limit_warning": "Warn when the longest run is reached",
@@ -189,6 +190,7 @@
         "data_description": {
           "immersion_switch_entity": "The switch that turns your immersion heater on and off. Leave it empty if you have none. Changing it reloads the integration.",
           "immersion_temp_sensor_entity": "A sensor reading the temperature of the hot water cylinder. Ready-by times and the temperature controls need it. Changing it reloads the integration.",
+          "immersion_lower_temp_sensor_entity": "A second sensor lower down the cylinder. It is only shown in the graphs, next to the first one, and is not used to decide anything. Changing it reloads the integration.",
           "immersion_wattage_w": "The power of the heating element in watts. It is on the element or in the heater's manual.",
           "immersion_max_run_minutes": "The longest a scheduled run of the immersion lasts, in minutes. A run stops after this long even if the water has not reached its target, and the plan is sized to it. 0 turns the limit off. Solar surplus heating is not limited.",
           "immersion_run_limit_warning": "Show a banner on Home energy while a scheduled run has been stopped by the longest immersion run, and report it in the Immersion Run Limit sensor. Turn it off if you do not want the warning.",
@@ -495,6 +497,7 @@
         "data": {
           "immersion_switch_entity": "Immersion switch",
           "immersion_temp_sensor_entity": "Hot water temperature sensor (optional)",
+          "immersion_lower_temp_sensor_entity": "Lower hot water temperature sensor (optional)",
           "immersion_wattage_w": "Immersion element power (W)",
           "immersion_max_run_minutes": "Longest immersion run (minutes)",
           "immersion_run_limit_warning": "Warn when the longest run is reached",
@@ -503,6 +506,7 @@
         "data_description": {
           "immersion_switch_entity": "The switch that turns your immersion heater on and off. Leave it empty if you have none. Changing it reloads the integration.",
           "immersion_temp_sensor_entity": "A sensor reading the temperature of the hot water cylinder. Ready-by times and the temperature controls need it. Changing it reloads the integration.",
+          "immersion_lower_temp_sensor_entity": "A second sensor lower down the cylinder. It is only shown in the graphs, next to the first one, and is not used to decide anything. Changing it reloads the integration.",
           "immersion_wattage_w": "The power of the heating element in watts. It is on the element or in the heater's manual.",
           "immersion_max_run_minutes": "The longest a scheduled run of the immersion lasts, in minutes. A run stops after this long even if the water has not reached its target, and the plan is sized to it. 0 turns the limit off. Solar surplus heating is not limited.",
           "immersion_run_limit_warning": "Show a banner on Home energy while a scheduled run has been stopped by the longest immersion run, and report it in the Immersion Run Limit sensor. Turn it off if you do not want the warning.",
@@ -807,6 +811,9 @@
       },
       "immersion_water_temperature": {
         "name": "Water Temperature"
+      },
+      "immersion_lower_water_temperature": {
+        "name": "Lower Water Temperature"
       },
       "water_heating_cheapest_source": {
         "name": "Water Heating Cheapest Source"

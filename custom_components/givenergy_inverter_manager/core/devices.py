@@ -16,6 +16,7 @@ from ..const import (
     CONF_ALT_HEAT_COST,
     CONF_ALT_HEAT_COST_ENTITY,
     CONF_ALT_HEAT_ENABLED,
+    CONF_IMMERSION_LOWER_TEMP_SENSOR,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
     NAME,
@@ -28,6 +29,8 @@ class Device(StrEnum):
     EV_CHARGER = "ev_charger"
     IMMERSION_SWITCH = "immersion_switch"
     IMMERSION_SENSOR = "immersion_sensor"
+    # A second thermometer, lower in the cylinder. Shown in the graphs, never used to decide.
+    IMMERSION_LOWER_SENSOR = "immersion_lower_sensor"
     # The switch and the sensor together. Target, minimum and restart gap only act then.
     IMMERSION_THERMOSTAT = "immersion_thermostat"
     # Alternative water heating switched on with a cost, and the immersion switch. The advice
@@ -47,6 +50,7 @@ _GROUPS = {
     Device.EV_CHARGER: DeviceGroup.EV_CHARGER,
     Device.IMMERSION_SWITCH: DeviceGroup.IMMERSION,
     Device.IMMERSION_SENSOR: DeviceGroup.IMMERSION,
+    Device.IMMERSION_LOWER_SENSOR: DeviceGroup.IMMERSION,
     Device.IMMERSION_THERMOSTAT: DeviceGroup.IMMERSION,
 }
 
@@ -66,7 +70,12 @@ def group_name(group: DeviceGroup) -> str:
 _HARDWARE = {
     DeviceGroup.EV_CHARGER: frozenset({Device.EV_CHARGER}),
     DeviceGroup.IMMERSION: frozenset(
-        {Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR, Device.IMMERSION_THERMOSTAT}
+        {
+            Device.IMMERSION_SWITCH,
+            Device.IMMERSION_SENSOR,
+            Device.IMMERSION_LOWER_SENSOR,
+            Device.IMMERSION_THERMOSTAT,
+        }
     ),
 }
 
@@ -119,6 +128,7 @@ def installed_devices(
         Device.EV_CHARGER: ev_charger_found,
         Device.IMMERSION_SWITCH: switch,
         Device.IMMERSION_SENSOR: sensor,
+        Device.IMMERSION_LOWER_SENSOR: bool(config.get(CONF_IMMERSION_LOWER_TEMP_SENSOR)),
         Device.IMMERSION_THERMOSTAT: switch and sensor,
         Device.ALTERNATIVE_HEAT: switch and alt_heat_configured(config),
     }

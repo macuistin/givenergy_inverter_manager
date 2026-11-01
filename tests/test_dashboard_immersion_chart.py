@@ -180,3 +180,27 @@ def test_with_apexcharts_card_a_switch_alone_gets_no_chart():
     shown = seen_for(resources=[_APEX_URL], switch=True, sensor=False)
     cards = [c for c in view_cards(_immersion(shown)) if c["type"] == "custom:apexcharts-card"]
     assert cards == []
+
+
+class TestTheLowerThermometer:
+    """A second thermometer is drawn next to the first. It is never needed for the chart."""
+
+    def _plotted_names(self, **kw) -> list[str]:
+        (chart,) = _charts(seen_for(sensor=True, **kw))
+        return [row["name"] for row in chart["entities"]]
+
+    def test_it_is_drawn_next_to_the_water_temperature(self):
+        assert self._plotted_names(lower=True)[:2] == ["Water", "Water, lower"]
+        config = seen_for(sensor=True, lower=True)
+        assert IDS["immersion_lower_water_temperature"] in _plotted(config)
+
+    def test_without_it_the_chart_is_as_before(self):
+        assert "Water, lower" not in self._plotted_names()
+        assert IDS["immersion_lower_water_temperature"] not in _plotted(seen_for(sensor=True))
+
+    def test_with_the_switch_it_sits_among_the_temperatures_before_the_heater(self):
+        names = self._plotted_names(switch=True, lower=True)
+        assert names == ["Water", "Water, lower", "Target", "Minimum", "Heater power"]
+
+    def test_it_alone_draws_no_chart(self):
+        assert _charts(seen_for(lower=True)) == []

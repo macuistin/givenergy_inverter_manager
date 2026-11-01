@@ -908,6 +908,20 @@
    },
    {
     "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_lower_temp_sensor_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
      "number": {
       "min": 500.0,
       "max": 6000.0,
@@ -1069,6 +1083,20 @@
      }
     },
     "name": "immersion_temp_sensor_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_lower_temp_sensor_entity",
     "required": false,
     "optional": true
    },
@@ -2071,6 +2099,20 @@
    },
    {
     "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_lower_temp_sensor_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
      "number": {
       "min": 500.0,
       "max": 6000.0,
@@ -2232,6 +2274,20 @@
      }
     },
     "name": "immersion_temp_sensor_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_lower_temp_sensor_entity",
     "required": false,
     "optional": true
    },
@@ -3242,6 +3298,20 @@
    },
    {
     "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_lower_temp_sensor_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
      "number": {
       "min": 500.0,
       "max": 6000.0,
@@ -3403,6 +3473,20 @@
      }
     },
     "name": "immersion_temp_sensor_entity",
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_lower_temp_sensor_entity",
     "required": false,
     "optional": true
    },
@@ -4736,7 +4820,7 @@
    "progress": "",
    "warnings": "",
    "candidates": "Switches that look like an immersion heater: switch.immersion_heater.",
-   "check": "- switch.immersion_heater reads off.\n- sensor.hot_water_cylinder_temperature reads 48.2 °C."
+   "check": "- switch.immersion_heater reads off.\n- sensor.hot_water_cylinder_temperature reads 48.2 °C.\n- sensor.hot_water_cylinder_lower_temperature reads 31.4 °C."
   },
   "fields": [
    {
@@ -4769,6 +4853,23 @@
     "name": "immersion_temp_sensor_entity",
     "description": {
      "suggested_value": "sensor.hot_water_cylinder_temperature"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_lower_temp_sensor_entity",
+    "description": {
+     "suggested_value": "sensor.hot_water_cylinder_lower_temperature"
     },
     "required": false,
     "optional": true
@@ -5694,7 +5795,7 @@
    "progress": "",
    "warnings": "",
    "candidates": "Switches that look like an immersion heater: switch.immersion_heater.",
-   "check": "- switch.immersion_heater reads off.\n- sensor.hot_water_cylinder_temperature reads 48.2 °C."
+   "check": "- switch.immersion_heater reads off.\n- sensor.hot_water_cylinder_temperature reads 48.2 °C.\n- sensor.hot_water_cylinder_lower_temperature reads 31.4 °C."
   },
   "fields": [
    {
@@ -5727,6 +5828,23 @@
     "name": "immersion_temp_sensor_entity",
     "description": {
      "suggested_value": "sensor.hot_water_cylinder_temperature"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_lower_temp_sensor_entity",
+    "description": {
+     "suggested_value": "sensor.hot_water_cylinder_lower_temperature"
     },
     "required": false,
     "optional": true
@@ -6649,7 +6767,7 @@
    "progress": "",
    "warnings": "",
    "candidates": "Switches that look like an immersion heater: switch.immersion_heater.",
-   "check": "- switch.immersion_heater reads off.\n- sensor.hot_water_cylinder_temperature reads 48.2 °C."
+   "check": "- switch.immersion_heater reads off.\n- sensor.hot_water_cylinder_temperature reads 48.2 °C.\n- sensor.hot_water_cylinder_lower_temperature reads 31.4 °C."
   },
   "fields": [
    {
@@ -6682,6 +6800,23 @@
     "name": "immersion_temp_sensor_entity",
     "description": {
      "suggested_value": "sensor.hot_water_cylinder_temperature"
+    },
+    "required": false,
+    "optional": true
+   },
+   {
+    "selector": {
+     "entity": {
+      "domain": [
+       "sensor"
+      ],
+      "multiple": false,
+      "reorder": false
+     }
+    },
+    "name": "immersion_lower_temp_sensor_entity",
+    "description": {
+     "suggested_value": "sensor.hot_water_cylinder_lower_temperature"
     },
     "required": false,
     "optional": true

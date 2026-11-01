@@ -4,6 +4,9 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+**Added**
+- An optional **Lower hot water temperature sensor** under **Configure → Immersion heater**, for a second thermometer lower in the cylinder. It adds a **Lower Water Temperature** sensor on the Immersion device and a second line, **Water, lower**, in the water temperature chart, so the graphs show both. It is for the graphs only: no decision, ready-by plan or control reads it, and an unreadable lower sensor changes nothing. Needs the main hot water temperature sensor too. A stored dashboard shows the second line after you press **Submit** on the out-of-date repair.
+
 **Changed**
 - The overnight plan now shows only from an hour before solar is expected to end until the charge window has closed. Through the day, **Tonight's Charge Plan** says `Tonight's plan will be ready around 17:00`, and after the night's charge it says `Overnight charge complete` with the battery level. The dashboard's Tonight line and section follow. Before, a "tonight" figure was shown all day from the charge level at that moment, which could read "Skip charge" in the morning and flip in the evening as the battery ran down. The charge itself is worked out and written as before. See [When the overnight plan is shown](docs/concepts.md#when-the-overnight-plan-is-shown).
 

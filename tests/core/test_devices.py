@@ -8,6 +8,7 @@ from custom_components.givenergy_inverter_manager.const import (
     CONF_ALT_HEAT_COST,
     CONF_ALT_HEAT_COST_ENTITY,
     CONF_ALT_HEAT_ENABLED,
+    CONF_IMMERSION_LOWER_TEMP_SENSOR,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
 )
@@ -20,6 +21,7 @@ from custom_components.givenergy_inverter_manager.core.devices import (
 
 SWITCH = {CONF_IMMERSION_SWITCH: "switch.heater"}
 SENSOR = {CONF_IMMERSION_TEMP_SENSOR: "sensor.cylinder"}
+LOWER = {CONF_IMMERSION_LOWER_TEMP_SENSOR: "sensor.cylinder_low"}
 ON = {CONF_ALT_HEAT_ENABLED: True}
 COST = {CONF_ALT_HEAT_COST: 0.95}
 COST_SENSOR = {CONF_ALT_HEAT_COST_ENTITY: "sensor.heat_cost"}
@@ -41,6 +43,15 @@ def test_a_sensor_alone_is_only_the_sensor():
     assert installed_devices(SENSOR, ev_charger_found=False) == {Device.IMMERSION_SENSOR}
 
 
+def test_a_lower_sensor_alone_is_only_the_lower_sensor():
+    assert installed_devices(LOWER, ev_charger_found=False) == {Device.IMMERSION_LOWER_SENSOR}
+
+
+def test_the_lower_sensor_is_no_part_of_the_thermostat():
+    present = installed_devices({**SWITCH, **LOWER}, ev_charger_found=False)
+    assert present == {Device.IMMERSION_SWITCH, Device.IMMERSION_LOWER_SENSOR}
+
+
 def test_the_thermostat_needs_the_switch_and_the_sensor():
     both = installed_devices({**SWITCH, **SENSOR}, ev_charger_found=False)
     assert both == {Device.IMMERSION_SWITCH, Device.IMMERSION_SENSOR, Device.IMMERSION_THERMOSTAT}
@@ -53,7 +64,9 @@ def test_an_unset_entity_is_not_a_device(empty):
 
 
 def test_the_devices_do_not_depend_on_each_other_apart_from_the_thermostat():
-    everything = installed_devices({**SWITCH, **SENSOR, **ON, **COST}, ev_charger_found=True)
+    everything = installed_devices(
+        {**SWITCH, **SENSOR, **LOWER, **ON, **COST}, ev_charger_found=True
+    )
     assert everything == frozenset(Device)
 
 

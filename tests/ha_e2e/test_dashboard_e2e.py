@@ -154,6 +154,7 @@ async def test_the_heater_is_a_row_of_the_water_temperature_chart(hass, loaded_e
         _registered_id(registry, entry_id, key)
         for key in (
             "immersion_water_temperature",
+            "immersion_lower_water_temperature",
             "immersion_target_temp",
             "immersion_min_temp",
             "immersion_power",

@@ -150,6 +150,7 @@
       "battery_power": {"default": "mdi:battery-charging"},
       "immersion_power": {"default": "mdi:water-boiler"},
       "immersion_water_temperature": {"default": "mdi:thermometer-water"},
+      "immersion_lower_water_temperature": {"default": "mdi:thermometer-water"},
       "water_heating_cheapest_source": {"default": "mdi:fire-circle"},
       "immersion_run_limit": {"default": "mdi:timer-alert-outline"},
       "water_heating_ready_by_trigger": {"default": "mdi:water-boiler-alert"},
