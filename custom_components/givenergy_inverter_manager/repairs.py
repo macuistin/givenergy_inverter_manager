@@ -65,6 +65,14 @@ Issues raised:
     never changes. Not fixable: the setting is in GivTCP. An upgrade of GivTCP can reset it. The
     decision lives in core/real_time_control.py. It clears when the switch reads on.
 
+  immersion_temperature_not_reporting
+    A hot water temperature sensor has read unavailable or unknown for about five minutes. The
+    water temperature, the ready-by plan and the temperature controls need it, and the lower
+    sensor is missing from the graphs. Not fixable: the cause is in the sensor's own
+    integration or the device. It names each sensor that is silent and clears when every one
+    reads again, and when the integration unloads. The decision lives in
+    core/temperature_feed.py.
+
   charge_blocked_by_pause
     GivTCP's battery pause mode is PauseCharge or PauseBoth and its window covers part of
     tonight's planned charge window, with the charge not skipped. The charge is written and read
@@ -132,6 +140,7 @@ ISSUE_SYSTEM_LOOKS_DIFFERENT = "system_looks_different"
 ISSUE_GIVTCP_RESETS_IDS = "givtcp_resets_entity_ids"
 ISSUE_REAL_TIME_CONTROL_OFF = "givtcp_real_time_control_off"
 ISSUE_CHARGE_BLOCKED_BY_PAUSE = "charge_blocked_by_pause"
+ISSUE_IMMERSION_TEMPERATURE_NOT_REPORTING = "immersion_temperature_not_reporting"
 ISSUE_DASHBOARD_OUT_OF_DATE = "dashboard_out_of_date"
 
 TROUBLESHOOTING_URL = (
@@ -153,6 +162,9 @@ LEARN_MORE_URLS: dict[str, str] = {
     ISSUE_GIVTCP_RESETS_IDS: f"{TROUBLESHOOTING_URL}#upgrading-givtcp",
     ISSUE_REAL_TIME_CONTROL_OFF: f"{TROUBLESHOOTING_URL}#real-time-control-is-off",
     ISSUE_CHARGE_BLOCKED_BY_PAUSE: f"{TROUBLESHOOTING_URL}#the-battery-pause-stops-the-charge",
+    ISSUE_IMMERSION_TEMPERATURE_NOT_REPORTING: (
+        f"{TROUBLESHOOTING_URL}#the-hot-water-temperature-sensor-is-not-reporting"
+    ),
     ISSUE_DASHBOARD_OUT_OF_DATE: f"{TROUBLESHOOTING_URL}#the-stored-dashboard-is-out-of-date",
 }
 
@@ -403,6 +415,25 @@ def async_create_real_time_control_issue(hass: HomeAssistant) -> None:
 def async_delete_real_time_control_issue(hass: HomeAssistant) -> None:
     """Clear the repair once Real Time Control is on."""
     async_delete_issue(hass, DOMAIN, ISSUE_REAL_TIME_CONTROL_OFF)
+
+
+def async_create_immersion_temperature_issue(hass: HomeAssistant, sensors: str) -> None:
+    """Surface a repair issue naming each hot water temperature sensor that reads nothing."""
+    async_create_issue(
+        hass,
+        DOMAIN,
+        ISSUE_IMMERSION_TEMPERATURE_NOT_REPORTING,
+        is_fixable=False,
+        learn_more_url=LEARN_MORE_URLS[ISSUE_IMMERSION_TEMPERATURE_NOT_REPORTING],
+        severity=IssueSeverity.WARNING,
+        translation_key=ISSUE_IMMERSION_TEMPERATURE_NOT_REPORTING,
+        translation_placeholders={"sensors": sensors},
+    )
+
+
+def async_delete_immersion_temperature_issue(hass: HomeAssistant) -> None:
+    """Clear the repair once every hot water temperature sensor reads again, or on unload."""
+    async_delete_issue(hass, DOMAIN, ISSUE_IMMERSION_TEMPERATURE_NOT_REPORTING)
 
 
 def async_create_charge_blocked_by_pause_issue(

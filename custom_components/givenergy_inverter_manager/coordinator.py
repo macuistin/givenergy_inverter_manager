@@ -186,6 +186,7 @@ from .core.tariff import (
     stale_tariff_age_days,
     tariff_in_force,
 )
+from .core.temperature_feed import next_counts, silent_sensors
 from .core.timeutil import elapsed_seconds
 from .core.window_guard import GuardInputs, GuardState, decide_repair, parse_clock
 from .core.window_settle import SETTLE_MAX_TRIES, SettleInputs, needs_settling
@@ -214,6 +215,7 @@ from .repairs import (
     async_create_feed_frozen_issue,
     async_create_givtcp_missing_issue,
     async_create_givtcp_resets_ids_issue,
+    async_create_immersion_temperature_issue,
     async_create_min_soc_issue,
     async_create_not_answering_issue,
     async_create_other_charge_slots_issue,
@@ -226,6 +228,7 @@ from .repairs import (
     async_delete_feed_frozen_issue,
     async_delete_givtcp_missing_issue,
     async_delete_givtcp_resets_ids_issue,
+    async_delete_immersion_temperature_issue,
     async_delete_min_soc_issue,
     async_delete_not_answering_issue,
     async_delete_other_charge_slots_issue,
@@ -366,6 +369,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._ev_power_warned: set[str] = set()
         self._version_seen: str | None = None
         self._rtc_off_cycles = 0
+        # Cycles each hot water temperature sensor has read nothing in a row, for the repair.
+        self._silent_temperature_cycles: dict[str, int] = {}
+        self.entry.async_on_unload(lambda: async_delete_immersion_temperature_issue(self.hass))
         self._charge_pause_cycles = 0
 
     def _init_cycle_state(self) -> None:
@@ -1692,6 +1698,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._check_wired_entities()
         self._check_system()
         self._check_real_time_control()
+        self._check_temperature_sensors(cfg)
 
     def _check_wired_entities(self) -> None:
         """Raise one repair naming wired GivTCP entities that have gone, after a few minutes.
@@ -1723,6 +1730,29 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             async_create_real_time_control_issue(self.hass)
         elif step.clear_issue:
             async_delete_real_time_control_issue(self.hass)
+
+    def _check_temperature_sensors(self, cfg: dict) -> None:
+        """Raise one repair naming each hot water temperature sensor that has read nothing.
+
+        A sensor counts as silent after a few minutes of unavailable, unknown or missing, which
+        the engine already reads as no temperature. The repair clears when all read again, and
+        a sensor taken out of the options is dropped from the count.
+        """
+        configured = [
+            entity
+            for entity in (
+                cfg.get(CONF_IMMERSION_TEMP_SENSOR),
+                cfg.get(CONF_IMMERSION_LOWER_TEMP_SENSOR),
+            )
+            if entity
+        ]
+        readable = {entity: self._read_optional_float(entity) is not None for entity in configured}
+        self._silent_temperature_cycles = next_counts(self._silent_temperature_cycles, readable)
+        silent = silent_sensors(self._silent_temperature_cycles)
+        if silent:
+            async_create_immersion_temperature_issue(self.hass, ", ".join(silent))
+        else:
+            async_delete_immersion_temperature_issue(self.hass)
 
     def _check_charge_pause(self, data: CoordinatorData, raw: RawSensorValues) -> None:
         """Raise one repair while a charge-stopping pause covers tonight's planned charge.

@@ -372,6 +372,16 @@ Read **Immersion Divert Reason**. It gives the exact block.
 
 If the reason says to heat but the heater stays off, check that an immersion switch entity was set at setup, and that the 10-minute hold after the last switch has passed. In dry run the real switch is never touched.
 
+## The hot water temperature sensor is not reporting
+
+The repair **The hot water temperature sensor is not reporting** appears when a hot water temperature sensor, the main one or the lower one, has read unavailable or unknown for ten cycles in a row, about five minutes. The repair names each sensor that is silent. While it lasts the integration cannot read the water temperature: the ready-by plan and the temperature controls wait for it, and a thermometer missing from the graphs leaves a gap. The heater is not switched on or off because of it.
+
+1. Check the thermometer has power and is on the network.
+2. Open **Settings → Devices & services** and check the integration that provides it is loaded. A cloud account may need to sign in again.
+3. Open the sensor in **Developer Tools → States** to see what it reads.
+
+The repair clears by itself once every sensor reads a number. A sensor you take out of the options is no longer counted. A short outage, such as a restart, raises nothing.
+
 ## There is no Water Heating Cheapest Source sensor
 
 The sensor exists only while alternative water heating is on, has a cost, and an immersion switch is set. Check the three under **Configure**:
