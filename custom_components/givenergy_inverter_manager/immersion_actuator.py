@@ -95,10 +95,26 @@ class ImmersionActuator:
         if self._ports.is_dry_run():
             self._record_dry_run(service, "manual press")
             return
+        previous = (self.last_commanded_on, self.cooldown_until)
         if service == "turn_off":
             self._start_cooldown(self._ports.now())
         self.last_commanded_on = service == "turn_on"
-        await self._ports.send(service, switch)
+        try:
+            await self._ports.send(service, switch)
+        except Exception:
+            self.last_commanded_on, self.cooldown_until = previous
+            raise
+
+    def command_failed(self, service: str) -> None:
+        """Forget an automatic command the switch rejected or could not take.
+
+        The switch still reads as it did before, so keeping the command as the last one
+        sent would make the next cycle read that unchanged state as someone switching it
+        by hand, and hold automatic control off. The cooldown stays, so a failing switch
+        is retried no faster than once per cooldown.
+        """
+        if self.last_commanded_on == (service == "turn_on"):
+            self.last_commanded_on = None
 
     # ── Steps of the update cycle ─────────────────────────────────────────────
 

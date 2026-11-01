@@ -108,3 +108,38 @@ async def test_a_success_between_two_failures_keeps_the_repair_down(coord):
     await _send(coord, raises=True)
 
     assert _raised() == []
+
+
+async def test_a_rejected_command_is_not_read_as_a_manual_switch_off(coord):
+    """The plug stays off after a rejected turn-on. That is not someone switching it off."""
+    from datetime import timedelta
+
+    actuator = coord.immersion
+    actuator.last_commanded_on = True
+    actuator.cooldown_until = None
+    _reject(coord)
+
+    await _send(coord, "turn_on", raises=True)
+
+    assert actuator.last_commanded_on is None
+    seen = actuator._observe(SWITCH, coord._now() + timedelta(hours=1))
+    assert not actuator._toggled_externally(seen)
+
+
+async def test_an_unavailable_switch_is_not_read_as_a_manual_switch_off(coord):
+    coord.set_state(SWITCH, "unavailable")
+    coord.immersion.last_commanded_on = True
+    _ignore_the_call(coord)
+
+    await _send(coord, "turn_on")
+
+    assert coord.immersion.last_commanded_on is None
+
+
+async def test_a_command_that_went_through_stays_the_last_command(coord):
+    coord.immersion.last_commanded_on = True
+    _ignore_the_call(coord)
+
+    await _send(coord, "turn_on")
+
+    assert coord.immersion.last_commanded_on is True

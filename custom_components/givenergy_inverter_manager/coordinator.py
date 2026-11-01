@@ -577,8 +577,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         try:
             await self._call_service("switch", service, {"entity_id": entity_id})
         except HomeAssistantError as err:
+            self.immersion.command_failed(service)
             self._note_immersion_command(entity_id, str(err))
             raise
+        if unavailable:
+            self.immersion.command_failed(service)
         self._note_immersion_command(entity_id, unavailable)
 
     def _note_immersion_command(self, entity_id: str, failure: str | None) -> None:
