@@ -48,6 +48,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_point_in_time, async_track_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -178,6 +179,7 @@ from .core.setup_progress import SetupFacts, setup_items
 from .core.solar_day import HeldSolarDay
 from .core.solar_shape import solar_shape_from_periods
 from .core.sunrise_hold import HeldSunrise
+from .core.switch_commands import CommandHealth, after_failure, after_success
 from .core.system_types import SystemIdentity, identity_of, select_controller, what_changed
 from .core.tariff import (
     build_tariff,
@@ -213,6 +215,7 @@ from .repairs import (
     async_create_feed_frozen_issue,
     async_create_givtcp_missing_issue,
     async_create_givtcp_resets_ids_issue,
+    async_create_immersion_switch_issue,
     async_create_min_soc_issue,
     async_create_not_answering_issue,
     async_create_other_charge_slots_issue,
@@ -225,6 +228,7 @@ from .repairs import (
     async_delete_feed_frozen_issue,
     async_delete_givtcp_missing_issue,
     async_delete_givtcp_resets_ids_issue,
+    async_delete_immersion_switch_issue,
     async_delete_min_soc_issue,
     async_delete_not_answering_issue,
     async_delete_other_charge_slots_issue,
@@ -365,6 +369,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._ev_power_warned: set[str] = set()
         self._version_seen: str | None = None
         self._rtc_off_cycles = 0
+        # Commands to the immersion switch that failed in a row, for the repair.
+        self._immersion_commands = CommandHealth()
+        self.entry.async_on_unload(lambda: async_delete_immersion_switch_issue(self.hass))
         self._charge_pause_cycles = 0
 
     def _init_cycle_state(self) -> None:
@@ -555,7 +562,37 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         )
 
     def _send_switch_in_background(self, service: str, entity_id: str) -> None:
-        self._create_task(self._call_service("switch", service, {"entity_id": entity_id}))
+        self._create_task(self._send_immersion_command(service, entity_id))
+
+    async def _send_immersion_command(self, service: str, entity_id: str) -> None:
+        """Send a switch command, and raise a repair when the switch keeps not taking them.
+
+        A rejected call raises and is logged by the background runner as before. A switch that
+        reads unavailable does not raise, because Home Assistant only logs it, so it counts
+        here as a command that did not go through.
+        """
+        state = self._get_state(entity_id)
+        reachable = state is not None and state.state != "unavailable"
+        unavailable = None if reachable else "the switch is unavailable"
+        try:
+            await self._call_service("switch", service, {"entity_id": entity_id})
+        except HomeAssistantError as err:
+            self._note_immersion_command(entity_id, str(err))
+            raise
+        self._note_immersion_command(entity_id, unavailable)
+
+    def _note_immersion_command(self, entity_id: str, failure: str | None) -> None:
+        """Count a command that failed, or reset the count when one went through."""
+        step = (
+            after_success(self._immersion_commands)
+            if failure is None
+            else after_failure(self._immersion_commands, failure)
+        )
+        self._immersion_commands = step.health
+        if step.raise_issue:
+            async_create_immersion_switch_issue(self.hass, entity_id, step.health.reason)
+        elif step.clear_issue:
+            async_delete_immersion_switch_issue(self.hass)
 
     @staticmethod
     def _now() -> datetime:
