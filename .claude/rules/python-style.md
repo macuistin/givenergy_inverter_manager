@@ -30,3 +30,13 @@ offender carries an inline `# noqa: <rule>`, and the change that fixes the funct
 - Where a validator already guarantees a key (a service schema, a form), index it directly
   (`data["key"]`) so a broken contract fails loudly. Do not add `.get` and silent defaults.
 - Do not log secrets or tokens.
+
+## Typing
+
+- CI runs `mypy --follow-imports=silent custom_components/givenergy_inverter_manager packages/givtcp_mock/src`
+  with `strict = true`. New code is strictly typed: annotate every function, give every generic its
+  parameters, and import `const` names that exist in its `__all__`.
+- A new name in a `const.py` re-export needs an entry in `__all__`. `tests/test_const_exports.py`
+  fails until it has one.
+- `pyproject.toml` lists the modules still under `ignore_errors` while the strict typing series
+  is open. Never add a module to that list. Remove a module from it when you fix its errors.
