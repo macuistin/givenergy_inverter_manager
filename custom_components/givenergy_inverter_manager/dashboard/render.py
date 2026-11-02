@@ -7,12 +7,17 @@ dashboard opens, through build_dashboard.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .hacs import async_lovelace_resource_urls
 from .registry import HostFacts, async_admin_user_ids
 from .views import TAB_VIEWS, Builder
+
+if TYPE_CHECKING:
+    from homeassistant.helpers import entity_registry as er
 
 # The first release whose history and statistics graphs draw a series in its own colour.
 _SERIES_COLOURS_FROM = (2026, 6)
@@ -22,8 +27,8 @@ def build_dashboard(
     hass: HomeAssistant,
     entry: ConfigEntry,
     facts: HostFacts,
-    registry=None,
-) -> dict:
+    registry: er.EntityRegistry | None = None,
+) -> dict[str, Any]:
     """Return the dashboard as a dict, for the Lovelace strategy.
 
     *facts* is what Home Assistant says about the Lovelace resources and whether the viewer is
@@ -57,8 +62,8 @@ def _generate(
     hass: HomeAssistant,
     entry: ConfigEntry,
     facts: HostFacts,
-    registry=None,
-) -> dict:
+    registry: er.EntityRegistry | None = None,
+) -> dict[str, Any]:
     """Build the Lovelace configuration as a dict.
 
     Uses actual entity IDs from the entity registry so names customised in the HA

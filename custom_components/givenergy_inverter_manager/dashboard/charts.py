@@ -8,6 +8,7 @@ The power flow card needs power-flow-card-plus and has an entities card as its f
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from .cards import (
     FULL,
@@ -47,7 +48,7 @@ class ImmersionEntities:
     lower_sensor: str | None = None
 
 
-def builtin_immersion_chart(ent: ImmersionEntities) -> dict | None:
+def builtin_immersion_chart(ent: ImmersionEntities) -> dict[str, Any] | None:
     """A built-in history graph of the temperatures, and the heater's power when it is known.
 
     It draws the heater as a line of watts, not as a shaded band.
@@ -70,7 +71,7 @@ def builtin_immersion_chart(ent: ImmersionEntities) -> dict | None:
     return graph_card(card, _ROWS_WITH_HEATER if ent.heater else _ROWS_TEMPERATURE)
 
 
-def _apex_series(entity: str | None, name: str, color: str, width: int) -> dict | None:
+def _apex_series(entity: str | None, name: str, color: str, width: int) -> dict[str, Any] | None:
     if not entity:
         return None
     return {
@@ -83,7 +84,7 @@ def _apex_series(entity: str | None, name: str, color: str, width: int) -> dict 
     }
 
 
-def _apex_heater_series(entity: str | None) -> dict | None:
+def _apex_heater_series(entity: str | None) -> dict[str, Any] | None:
     """The heater as a pale band that is there while it is on and gone while it is off."""
     if not entity:
         return None
@@ -101,7 +102,7 @@ def _apex_heater_series(entity: str | None) -> dict | None:
     }
 
 
-def _apex_axes(ent: ImmersionEntities) -> list[dict]:
+def _apex_axes(ent: ImmersionEntities) -> list[dict[str, Any]]:
     """One axis for each kind of series drawn. The heater's is fixed and hidden."""
     temperature = {"id": _TEMP_AXIS, "decimals": 0}
     heater = {"id": _HEATER_AXIS, "min": 0, "max": 1, "decimals": 0, "show": False}
@@ -109,7 +110,7 @@ def _apex_axes(ent: ImmersionEntities) -> list[dict]:
     return [*([temperature] if has_temperature else []), *([heater] if ent.heater else [])]
 
 
-def apex_immersion_chart(ent: ImmersionEntities) -> dict | None:
+def apex_immersion_chart(ent: ImmersionEntities) -> dict[str, Any] | None:
     """12 hours of the water temperature with the heater shaded while it is on.
 
     Without a temperature sensor it holds the heater band only.
@@ -141,7 +142,7 @@ def apex_immersion_chart(ent: ImmersionEntities) -> dict | None:
 # ── Content helpers ──────────────────────────────────────────────────────────
 
 
-def flow_card(flow: dict) -> dict:
+def flow_card(flow: dict[str, Any]) -> dict[str, Any]:
     """The power-flow-card-plus card for these flow entities."""
     return {
         "type": POWER_FLOW_CARD.card_type,
@@ -163,7 +164,7 @@ def flow_card(flow: dict) -> dict:
     }
 
 
-def flow_fallback(flow: dict) -> dict | None:
+def flow_fallback(flow: dict[str, Any]) -> dict[str, Any] | None:
     """An entities card with the power flow values, for when power-flow-card-plus is missing."""
     battery = flow.get("battery", {})
     rows = [
@@ -185,10 +186,10 @@ _FORECAST_POINTS = (
 )
 
 
-def apex_solar_forecast_chart(forecast: str) -> dict:
+def apex_solar_forecast_chart(forecast: str) -> dict[str, Any]:
     """Tomorrow's solar through the day: the typical forecast as an area, a dull day as a line."""
 
-    def series(name: str, key: str, color: str, kind: str) -> dict:
+    def series(name: str, key: str, color: str, kind: str) -> dict[str, Any]:
         return {
             "entity": forecast,
             "name": name,
@@ -225,7 +226,7 @@ class TodayChartEntities:
     hours: tuple[int, int]
 
 
-def _forecast_line(entity: TodayChartEntities, name: str, key: str, **style) -> dict:
+def _forecast_line(entity: TodayChartEntities, name: str, key: str, **style: Any) -> dict[str, Any]:
     return {
         "entity": entity.forecast,
         "name": name,
@@ -237,7 +238,7 @@ def _forecast_line(entity: TodayChartEntities, name: str, key: str, **style) -> 
     }
 
 
-def apex_solar_today_chart(ent: TodayChartEntities) -> dict:
+def apex_solar_today_chart(ent: TodayChartEntities) -> dict[str, Any]:
     """Today's solar as predicted and as produced, over the producing hours.
 
     The forecast is a dashed line with the low and high estimates either side. The solar power

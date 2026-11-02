@@ -64,17 +64,4 @@ warn_unused_configs = true
 no_implicit_optional = true
 ignore_missing_imports = true
 
-# Modules not yet strictly typed. Each pull request in the strict typing series removes
-# some of these, and the last one removes the table. Never add a module to it.
-[[tool.mypy.overrides]]
-module = [
-    "givenergy_inverter_manager.dashboard.cards",
-    "givenergy_inverter_manager.dashboard.charts",
-    "givenergy_inverter_manager.dashboard.devices",
-    "givenergy_inverter_manager.dashboard.registry",
-    "givenergy_inverter_manager.dashboard.render",
-    "givenergy_inverter_manager.dashboard.templates",
-    "givenergy_inverter_manager.dashboard.views",
-]
-ignore_errors = true
 
