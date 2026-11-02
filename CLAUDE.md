@@ -9,9 +9,9 @@ lines (a test enforces it) and put detail in a rule file, not here.
 A Home Assistant custom integration, distributed through HACS. It reads and writes a GivEnergy
 inverter through an inverter backend, and GivTCP is the only backend today. It plans the overnight
 charge, diverts solar surplus to an immersion heater and an EV charger, and tracks cost across
-tariff periods. It targets the Silver tier of the Home Assistant quality scale.
+tariff periods. It declares the Platinum tier of the Home Assistant quality scale.
 `custom_components/givenergy_inverter_manager/quality_scale.yaml` lists which rules are done,
-exempt or todo. Do not claim a tier the file does not support.
+exempt or todo. Do not claim a tier the file does not support (a test checks the manifest).
 
 ## Layout
 

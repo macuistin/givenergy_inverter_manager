@@ -72,9 +72,9 @@ rules:
   # ── Platinum ─────────────────────────────────────────────────────────────────
   async-dependency:
     status: exempt
-    comment: No external library dependencies
+    comment: There is no library in requirements, because the inverter is reached through GivTCP's Home Assistant entities and services. Ends if lib/givtcp is published as a package or opens its own connection, and that client must then stay async.
   inject-websession:
     status: exempt
-    comment: No HTTP requests made
-  strict-typing: todo          # mypy is configured in pyproject.toml but not run in CI, the HA layer is relaxed per module, and there is no py.typed
+    comment: The integration makes no outbound HTTP request. The only aiohttp use serves the dashboard script to the browser (strategy.py). Ends if lib/givtcp or any other client opens its own HTTP connection, which must then use the websession Home Assistant provides.
+  strict-typing: done          # CI runs mypy strict over the whole integration and packages/givtcp_mock/src with no module exempt, and py.typed ships in the integration folder
   

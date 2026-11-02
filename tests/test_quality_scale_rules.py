@@ -7,6 +7,8 @@ yaml never claims more than it checked.
 
 from __future__ import annotations
 
+import json
+
 import yaml
 
 from tests.helpers import PKG
@@ -60,3 +62,17 @@ def test_every_exemption_gives_a_reason():
     for name, rule in _rules().items():
         if rule["status"] == "exempt":
             assert rule.get("comment", "").strip(), f"{name} is exempt without a reason"
+
+
+def test_the_declared_tier_has_no_todo_rule():
+    declared = json.loads((PKG / "manifest.json").read_text()).get("quality_scale")
+    if declared is None:
+        return
+    tiers = {"bronze": BRONZE, "silver": SILVER, "gold": GOLD, "platinum": PLATINUM}
+    claimed = []
+    for tier, names in tiers.items():
+        claimed += names
+        if tier == declared:
+            break
+    rules = _rules()
+    assert not [r for r in claimed if rules[r]["status"] == "todo"]
