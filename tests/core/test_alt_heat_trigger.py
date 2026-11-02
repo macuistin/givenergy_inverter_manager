@@ -250,6 +250,14 @@ class TestTheLowWaterHold:
     def test_it_ends_when_the_water_reaches_the_target(self):
         assert low_water(at(13, 0), 55.0, self.FIRED, ready=()).state == STATE_IDLE
 
+    def test_it_ends_once_the_water_has_recovered_above_the_boundary(self):
+        # Boundary 50. A draw dropped the water to 48, it recovered to 53.8, short of the target.
+        assert low_water(at(21, 9), 48.0, ready=()).state == STATE_START_NOW
+        assert low_water(at(21, 30), 53.8, self.FIRED, ready=()).state == STATE_IDLE
+
+    def test_it_still_holds_just_inside_the_release_point(self):
+        assert low_water(at(21, 30), 52.9, self.FIRED, ready=()).state == STATE_START_NOW
+
     def test_it_ends_when_the_alternative_stops_being_cheaper(self):
         assert low_water(at(13, 0), 52.0, self.FIRED, alt=0.35, ready=()).state == STATE_IDLE
 

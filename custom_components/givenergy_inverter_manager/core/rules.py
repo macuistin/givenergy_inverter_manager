@@ -289,12 +289,14 @@ def _slot_net_pct(day: _SimulatedDay, slot: int, weight: float, slot_load_kwh: f
     return net_kwh / day.battery_capacity_kwh * 100
 
 
-def _simulate_min_soc(start_soc_pct: float, day: _SimulatedDay) -> float:
-    """Simulate one day starting from start_soc_pct. Return the minimum SoC reached."""
+def _simulate_min_soc(start_soc_pct: float, day: _SimulatedDay, from_slot: int = 0) -> float:
+    """Simulate one day from start_soc_pct at from_slot. Return the minimum SoC reached."""
     soc_pct = start_soc_pct
     min_reached = start_soc_pct
     slots = enumerate(zip(day.solar_weights, day.slot_loads_kwh, strict=True))
     for slot, (weight, slot_load_kwh) in slots:
+        if slot < from_slot:
+            continue
         net_pct = _slot_net_pct(day, slot, weight, slot_load_kwh)
         soc_pct = max(0.0, min(100.0, soc_pct + net_pct))
         min_reached = min(min_reached, soc_pct)
@@ -616,14 +618,29 @@ def _is_skip_candidate(tonight: _Tonight) -> bool:
     )
 
 
+def _day_holds_without_charge(tonight: _Tonight, soc_at_sunrise: float) -> bool:
+    """True when the simulated day never takes the battery below the minimum SoC with no charge.
+
+    The configured minimum is the floor here, not the raised seasonal one, which is a margin
+    for planning a charge and not a level the battery must hold on a night with none.
+
+    It runs the same day the charge target is searched over, from the first slot with solar
+    and the level the battery will have then. The hours before it are already in that level,
+    so counting them again would charge the night's load twice.
+    """
+    day = _day_to_simulate(tonight.inputs, tonight.forecast_kwh, tonight.solar_shape)
+    first_solar = next((i for i, w in enumerate(day.solar_weights) if w > 0), 0)
+    return _simulate_min_soc(soc_at_sunrise, day, first_solar) >= tonight.inputs.min_soc
+
+
 def _try_skip(tonight: _Tonight, dt: datetime) -> _SkipCheck:
-    """Skip only if the battery also lasts until solar starts, as the survival sensor judges it."""
+    """Skip only if the battery lasts until solar starts and the simulated day then holds."""
     if not _is_skip_candidate(tonight):
         return _SkipCheck(skips=False)
     inputs = tonight.inputs
     clock = NightClock(minute_of_day(dt), inputs.solar_power_w, inputs.solar_end_minute)
     paused = paused_night(inputs.battery_pause, clock)
-    survives, _, survival_note = estimate_will_survive_night(
+    survives, soc_at_sunrise, survival_note = estimate_will_survive_night(
         NightEstimateInputs(
             current_soc=inputs.current_soc,
             battery_capacity_kwh=inputs.battery_capacity_kwh,
@@ -634,9 +651,15 @@ def _try_skip(tonight: _Tonight, dt: datetime) -> _SkipCheck:
         )
     )
     pause = paused.window if paused else None
-    if survives:
-        return _SkipCheck(skips=True, pause=pause)
-    return _SkipCheck(skips=False, blocked_note=f" Not skipping: {survival_note}", pause=pause)
+    if not survives:
+        return _SkipCheck(skips=False, blocked_note=f" Not skipping: {survival_note}", pause=pause)
+    if not _day_holds_without_charge(tonight, soc_at_sunrise):
+        note = (
+            f" Not skipping: with no charge the battery would be {soc_at_sunrise:.0f}% at "
+            "sunrise and the simulated day takes it below the minimum SoC."
+        )
+        return _SkipCheck(skips=False, blocked_note=note, pause=pause)
+    return _SkipCheck(skips=True, pause=pause)
 
 
 def _skip_plan(tonight: _Tonight, pause: PauseWindow | None = None) -> _ChargePlan:
@@ -752,7 +775,9 @@ def calculate_overnight_charge_target(
       CHARGE_STRONG_BUFFER         — SoC buffer added to skip_charge target
       CHARGE_EV_SOC_BONUS          — extra % added to target when EV is connected
 
-    Skipping also needs the battery to last until solar starts. That check uses the
+    Skipping also needs the simulated day, run from the SoC expected at sunrise with no
+    charge, to stay at or above the minimum SoC, and the battery to last until solar
+    starts. That check uses the
     same window, inputs and minimum SoC as the night survival sensor (hours_until_solar
     and estimate_will_survive_night), so the plan never skips a charge the survival
     sensor calls Critical. inputs.solar_power_w tells it whether the sun is still up, and

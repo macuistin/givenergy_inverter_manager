@@ -19,7 +19,9 @@ automation. See docs/automations.md.
 
 A trigger that has fired holds start_now until the water reaches the target. Water that hovers
 at the threshold would otherwise flip the state on every reading. The hold ends at once if the
-alternative stops being the cheaper heat, and the ready-by hold ends with its ready time.
+alternative stops being the cheaper heat, and the ready-by hold ends with its ready time. The low
+water hold also ends once the water has recovered to ALT_HEAT_LOW_WATER_RELEASE_C above the lower
+boundary, so a brief draw does not keep the banner up until the water is hot again.
 
 Pure Python, no Home Assistant imports.
 """
@@ -29,7 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from ..const import ALT_HEAT_TRIGGER_MARGIN_C
+from ..const import ALT_HEAT_LOW_WATER_RELEASE_C, ALT_HEAT_TRIGGER_MARGIN_C
 from .alt_heat_advice import AdviceInputs, WaterHeatingAdvice
 from .alt_heat_start import (
     StartQuery,
@@ -102,7 +104,7 @@ def low_water_trigger(
 
     Solar surplus that is heating the water needs no other heat, so it leaves this idle. Once
     start_now, it holds until the water reaches the target, so long as the alternative is still
-    cheaper.
+    cheaper or the water has recovered well above the lower boundary.
     """
     water = inputs.water
     if advice is None or water is None or inputs.solar_surplus:
@@ -114,7 +116,10 @@ def low_water_trigger(
     )
     if minutes is not None:
         return AltHeatTrigger(STATE_START_NOW, minutes, None, None, advice.alt_saving_per_kwh)
-    return previous if _holds(previous, water) and previous is not None else AltHeatTrigger()
+    recovered = water.temp > water.keep_warm_below + ALT_HEAT_LOW_WATER_RELEASE_C
+    if previous is not None and _holds(previous, water) and not recovered:
+        return previous
+    return AltHeatTrigger()
 
 
 def _start_query(inputs: AdviceInputs, *, holding: bool) -> StartQuery:

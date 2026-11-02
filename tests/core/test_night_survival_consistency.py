@@ -54,12 +54,12 @@ def _plan_and_survival(*, now, soc, capacity, avg_daily, forecast, solar_w):
 
 class TestLiveCase:
     def test_midday_good_forecast_skips_and_survives(self):
-        """Oct 5, 11:12, SoC 89%, 19.05 kWh, 9 kWh used so far, 6.5 kWh forecast."""
+        """Oct 5, 11:12, SoC 89%, 19.05 kWh, 5 kWh used so far, 6.5 kWh forecast."""
         data = _plan_and_survival(
             now=datetime(2026, 10, 5, 11, 12),
             soc=89.0,
             capacity=19.05,
-            avg_daily=9.0 * 1440 / (11 * 60 + 12),
+            avg_daily=5.0 * 1440 / (11 * 60 + 12),
             forecast=6.5,
             solar_w=3000.0,
         )

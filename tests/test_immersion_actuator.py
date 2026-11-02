@@ -390,3 +390,23 @@ async def test_the_coordinator_exposes_the_override_through_the_actuator():
     assert coord.immersion.override is False
     coord.immersion.override = True
     assert coord.override_immersion is True
+
+
+class TestRejectedCommand:
+    async def test_a_rejected_manual_off_keeps_the_earlier_state(self, actuator, world):
+        async def rejected(service, entity_id):
+            raise RuntimeError("rejected")
+
+        actuator._ports = actuator._ports.__class__(**{**actuator._ports.__dict__, "send": rejected})
+        actuator.last_commanded_on = True
+
+        with pytest.raises(RuntimeError):
+            await actuator.manual_off()
+
+        assert actuator.last_commanded_on is True
+        assert actuator.cooldown_until is None
+
+    def test_a_failed_command_for_another_service_changes_nothing(self, actuator):
+        actuator.last_commanded_on = False
+        actuator.command_failed("turn_on")
+        assert actuator.last_commanded_on is False
