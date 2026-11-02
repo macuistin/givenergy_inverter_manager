@@ -68,12 +68,19 @@ def _friendly_name(state: Any) -> str:
     return str(attributes.get("friendly_name") or "")
 
 
-def discover_immersion_switch_candidates(all_states: Mapping[str, Any]) -> tuple[str, ...]:
-    """Switches with "immersion" in the entity id or the friendly name, sorted, at most five."""
+def discover_immersion_switch_candidates(
+    all_states: Mapping[str, Any], own_entity_ids: frozenset[str] = frozenset()
+) -> tuple[str, ...]:
+    """Switches with "immersion" in the entity id or the friendly name, sorted, at most five.
+
+    `own_entity_ids` are the entities this integration owns. Its own immersion switches match the
+    word too, but are not the heater, so the caller passes them in (found by platform, not name).
+    """
     found = sorted(
         entity_id
         for entity_id, state in all_states.items()
         if entity_id.startswith("switch.")
+        and entity_id not in own_entity_ids
         and _IMMERSION_WORD in f"{entity_id} {_friendly_name(state)}".lower()
     )
     return tuple(found[:MAX_IMMERSION_CANDIDATES])

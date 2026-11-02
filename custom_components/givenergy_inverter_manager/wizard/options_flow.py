@@ -71,7 +71,7 @@ from ..core.wizard_tariff import (
     validate_tariff,
 )
 from .detect import detect
-from .flow_base import PageView, WizardPages, states_by_id
+from .flow_base import PageView, WizardPages, own_entity_ids, states_by_id
 from .schemas import (
     CANCEL_SCHEDULED,
     CHANGE_DATE,
@@ -113,7 +113,7 @@ class OptionsSteps(WizardPages):
 
     def _ctx(self) -> PageContext:
         if self._detected is None:
-            self._detected = detect(states_by_id(self.hass))
+            self._detected = detect(states_by_id(self.hass), own_entity_ids(self.hass))
         # The season months a user never set are shown at their latitude defaults, so saving the
         # page unchanged stores nothing for them.
         current = tariff_in_force(

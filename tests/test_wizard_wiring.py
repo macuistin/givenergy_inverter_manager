@@ -136,3 +136,28 @@ def test_the_best_inverter_prefers_one_with_every_required_sensor():
     assert best_inverter(detect({})) is None
     assert best_inverter(SimpleNamespace(inverters=(partial, complete))) is complete
     assert best_inverter(SimpleNamespace(inverters=(partial,))) is partial
+
+
+def test_detect_leaves_out_the_integrations_own_immersion_switches():
+    own = "switch.givenergy_inverter_manager_auto_immersion_divert"
+    states = _states("switch.immersion_heater", own)
+
+    found = detect(states, frozenset({own}))
+
+    assert found.immersion_candidates == ("switch.immersion_heater",)
+
+
+def test_own_entities_are_found_by_platform_not_by_name():
+    from unittest.mock import MagicMock, patch
+
+    from custom_components.givenergy_inverter_manager.const import DOMAIN
+    from custom_components.givenergy_inverter_manager.wizard import flow_base
+
+    registry = MagicMock()
+    registry.entities.values.return_value = [
+        SimpleNamespace(entity_id="switch.renamed_by_the_user", platform=DOMAIN),
+        SimpleNamespace(entity_id="switch.immersion_heater", platform="tuya"),
+    ]
+
+    with patch.object(flow_base.er, "async_get", return_value=registry):
+        assert flow_base.own_entity_ids(object()) == frozenset({"switch.renamed_by_the_user"})

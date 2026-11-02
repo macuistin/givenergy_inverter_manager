@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Fixes**
+- The list of switches that look like an immersion heater, on the hot water page of the setup and options wizards, no longer includes this integration's own switches (such as **Auto Immersion Divert**). Before, they were offered as the heater because their names contain "immersion". They are found by the integration that registered them, not by name.
+
 ## v0.22.0
 
 This release adds two repairs and an optional lower hot water temperature sensor, shows the overnight plan only in the evening, and declares the Platinum tier of the Home Assistant quality scale, with strict typing across the whole integration.
