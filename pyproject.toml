@@ -68,7 +68,6 @@ ignore_missing_imports = true
 # some of these, and the last one removes the table. Never add a module to it.
 [[tool.mypy.overrides]]
 module = [
-    "givenergy_inverter_manager.coordinator",
     "givenergy_inverter_manager.dashboard.cards",
     "givenergy_inverter_manager.dashboard.charts",
     "givenergy_inverter_manager.dashboard.devices",
