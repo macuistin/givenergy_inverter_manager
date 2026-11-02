@@ -7,11 +7,15 @@ Also reads what the dashboard needs to know about the config entry and the exter
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from ..const import DOMAIN
+
+if TYPE_CHECKING:
+    from homeassistant.helpers import entity_registry as er
 
 
 @dataclass(frozen=True)
@@ -43,7 +47,7 @@ class Registry:
     generator leaves such rows out.
     """
 
-    def __init__(self, registry, entry_id: str) -> None:
+    def __init__(self, registry: er.EntityRegistry, entry_id: str) -> None:
         self._reg = registry
         self._entry_id = entry_id
 
@@ -84,7 +88,7 @@ def external_ev_power(hass: HomeAssistant) -> str | None:
     return None
 
 
-def entry_config(entry: ConfigEntry) -> dict:
+def entry_config(entry: ConfigEntry) -> dict[str, Any]:
     """Return the config entry's data with options layered over it."""
     return {**entry.data, **entry.options}
 

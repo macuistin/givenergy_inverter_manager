@@ -38,6 +38,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from itertools import groupby
+from typing import Any
 
 from ..const import (
     ALT_HEAT_SCHEDULE_MAX_WINDOWS,
@@ -114,7 +115,7 @@ class ImmersionHeatLog:
         oldest = (today - timedelta(days=ALT_HEAT_SCHEDULE_RECORD_DAYS)).isoformat()
         return [d for d in self.days if oldest <= d.date < today.isoformat()]
 
-    def to_storage(self) -> list[dict]:
+    def to_storage(self) -> list[dict[str, Any]]:
         return [
             {
                 "date": day.date,

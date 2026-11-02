@@ -64,7 +64,7 @@ async def async_setup_entry(
     async_add_entities([GivEnergyChargeTargetOverride(coordinator), *control_numbers(coordinator)])
 
     def _numbers_of(device: Device) -> list[NumberEntity]:
-        numbers: list[NumberEntity] = control_numbers(coordinator, device)
+        numbers: list[NumberEntity] = [*control_numbers(coordinator, device)]
         if device is Device.IMMERSION_THERMOSTAT:
             numbers += [
                 ImmersionTargetTempNumber(coordinator),

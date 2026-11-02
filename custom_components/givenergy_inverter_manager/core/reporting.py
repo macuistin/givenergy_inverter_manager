@@ -351,9 +351,9 @@ def _grid(headers: list[str], rows: list[list[str]]) -> str:
 
 def _rate_rows(tariff: TariffConfig, symbol: str) -> list[list[str]]:
     billed = (1 - tariff.discount_rate / 100) * (1 + tariff.vat_rate / 100)
-    rows = [[escape(tariff.base_rate_name), "all other times", tariff.base_rate]]
+    rows = [(escape(tariff.base_rate_name), "all other times", tariff.base_rate)]
     rows += [
-        [escape(p.name), f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate] for p in tariff.rate_periods
+        (escape(p.name), f"{p.start:%H:%M} to {p.end:%H:%M}", p.rate) for p in tariff.rate_periods
     ]
     return [[n, w, f"{symbol}{r:.4f}", f"{symbol}{r * billed:.4f}"] for n, w, r in rows]
 

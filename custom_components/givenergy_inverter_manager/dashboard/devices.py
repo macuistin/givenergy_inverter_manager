@@ -80,7 +80,9 @@ def _state_condition(entity: str, **test: str) -> dict[str, Any]:
     return {"condition": "state", "entity": entity, **test}
 
 
-def with_visibility(card: dict | None, conditions: list[dict]) -> dict | None:
+def with_visibility(
+    card: dict[str, Any] | None, conditions: list[dict[str, Any]]
+) -> dict[str, Any] | None:
     """The card shown only while every condition holds, and any it already has. None stays None."""
     if card is None:
         return None
@@ -114,40 +116,40 @@ class Devices:
             raise LookupError(f"no entity ID for the {device.value} sentinel")
         return found
 
-    def visible_with(self, *devices: Device) -> list[dict]:
+    def visible_with(self, *devices: Device) -> list[dict[str, Any]]:
         """Conditions that hold while every one of these devices is present."""
         return [
             _state_condition(self.sentinel(device), state_not=_UNAVAILABLE) for device in devices
         ]
 
-    def visible_without(self, *devices: Device) -> list[dict]:
+    def visible_without(self, *devices: Device) -> list[dict[str, Any]]:
         """Conditions that hold while none of these devices is present."""
         return [_state_condition(self.sentinel(device), state=_UNAVAILABLE) for device in devices]
 
-    def visible_while_on(self, entity: str) -> list[dict]:
-        """A condition that holds while this switch is on."""
-        return [_state_condition(entity, state="on")]
+    def visible_while_on(self, entity: str | None) -> list[dict[str, Any]]:
+        """A condition that holds while this switch is on. None when it has no switch."""
+        return [_state_condition(entity, state="on")] if entity else []
 
-    def visible_while_off(self, entity: str) -> list[dict]:
+    def visible_while_off(self, entity: str) -> list[dict[str, Any]]:
         """A condition that holds while this switch is not on, and while it does not exist."""
         return [_state_condition(entity, state_not="on")]
 
-    def visible_with_any(self, *devices: Device) -> list[dict]:
+    def visible_with_any(self, *devices: Device) -> list[dict[str, Any]]:
         """One condition that holds while at least one of these devices is present."""
         present = [
             _state_condition(self.sentinel(device), state_not=_UNAVAILABLE) for device in devices
         ]
         return [{"condition": "or", "conditions": present}]
 
-    def show_with(self, card: dict | None, *devices: Device) -> dict | None:
+    def show_with(self, card: dict[str, Any] | None, *devices: Device) -> dict[str, Any] | None:
         """The card, shown while every one of these devices is present."""
         return with_visibility(card, self.visible_with(*devices))
 
     def variants(
         self,
         devices: tuple[Device, ...],
-        build: Callable[[frozenset[Device]], dict | None],
-    ) -> list[dict]:
+        build: Callable[[frozenset[Device]], dict[str, Any] | None],
+    ) -> list[dict[str, Any]]:
         """One card for each combination of these devices being present or not.
 
         A card that lists entities cannot hide one row, so each combination gets the card

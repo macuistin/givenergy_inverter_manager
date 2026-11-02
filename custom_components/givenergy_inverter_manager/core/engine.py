@@ -84,6 +84,7 @@ from ..const import (
     THROUGHPUT_BUDGET_STATUS_OVER,
 )
 from ..lib.ev import EVCharger, EVChargerState, EVSessionLog, EVSessionStep, track_session
+from ..lib.heating import WaterReading
 from ..lib.heating.solar import SolarOutlook
 from ..lib.tariff import stored_energy_change
 from ..logging import get_logger
@@ -94,7 +95,6 @@ from .alt_heat_schedule import (
     ScheduleQuery,
     suggest_alt_heat_schedule,
 )
-from .alt_heat_start import WaterReading
 from .alt_heat_trigger import AltHeatTrigger, HeldTriggers, low_water_trigger, ready_by_trigger
 from .battery import (
     BatteryStats,
@@ -452,7 +452,7 @@ class CoordinatorData:
     # The measured accuracy correction and its usable days, None before the first cycle.
     forecast_accuracy: ForecastAccuracy | None = None
     register_write_count: int = 0
-    register_write_log: list[dict] = field(default_factory=list)  # oldest first
+    register_write_log: list[dict[str, Any]] = field(default_factory=list)  # oldest first
     # Whether something else is changing the charge target, read from the write log.
     charge_target_conflict: ConflictStatus = field(default_factory=ConflictStatus)
     carbon_intensity_gco2: float | None = None
@@ -1538,10 +1538,10 @@ def _set_overnight_charge(
     fresh = _overnight_charge_decision(cycle, avg_daily_kwh)
     max_target = int(cycle.cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
     reading = HoldReading(cycle.now, _charge_running(data, cycle.raw, held, cycle.now), max_target)
-    held.settle(fresh, reading)
+    published = held.settle(fresh, reading)
     data.charge_decision = _written_decision(fresh, cycle, max_target)
     data.solar_shape_used = SHAPE_REASON in fresh.reason
-    data.published_charge_decision = _written_decision(held.decision, cycle, max_target)
+    data.published_charge_decision = _written_decision(published, cycle, max_target)
     data.charge_window = _plan_charge_window(data, cycle)
     held.settle_window(data.charge_window, reading)
     data.published_charge_window = held.window

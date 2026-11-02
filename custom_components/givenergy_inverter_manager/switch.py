@@ -265,14 +265,14 @@ class GivEnergyChargeTargetOverrideSwitch(
     def is_on(self) -> bool:
         return self.coordinator.override_charge_enabled
 
-    async def async_turn_on(self, **kwargs) -> None:
+    async def async_turn_on(self, **kwargs: Any) -> None:
         """Activate the override. The coordinator applies the number's current value."""
         self.coordinator.override_charge_enabled = True
         _LOG.info("Charge target override enabled")
         self.async_write_ha_state()
         await self.coordinator.async_request_refresh()
 
-    async def async_turn_off(self, **kwargs) -> None:
+    async def async_turn_off(self, **kwargs: Any) -> None:
         """Deactivate override — coordinator returns to automatic calculation."""
         self.coordinator.override_charge_enabled = False
         _LOG.info("Charge target override disabled — returning to auto mode")

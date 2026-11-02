@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.alt_heat_schedule import ImmersionHeatLog
@@ -41,6 +41,9 @@ from .core.write_log import restore_entries
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.storage import Store
+
+    from .core.battery import BatteryStats
 
 _LOG = logging.getLogger(__name__)
 _STORAGE_KEY = "givenergy_inverter_manager.energy"
@@ -70,13 +73,13 @@ _SAVE_DELAY_SECONDS = 15
 # ── Serialisation helpers ─────────────────────────────────────────────────────
 
 
-def _optional_acc_fields(acc: EnergyAccumulator) -> dict:
+def _optional_acc_fields(acc: EnergyAccumulator) -> dict[str, Any]:
     """The fields stored only once they hold something, so an unused install stores nothing new.
 
     Like the immersion heat log, they are read with a default, so they need no storage
     version: a payload saved before they existed loads with no bookmark and nothing priced.
     """
-    fields: dict = {}
+    fields: dict[str, Any] = {}
     if acc.soc_at_start_pct is not None:
         fields["soc_at_start_pct"] = acc.soc_at_start_pct
     for key in ("grid_to_battery_cost", "grid_to_battery_priced_kwh"):
@@ -85,12 +88,12 @@ def _optional_acc_fields(acc: EnergyAccumulator) -> dict:
     return fields
 
 
-def _acc_to_dict(acc: EnergyAccumulator) -> dict:
+def _acc_to_dict(acc: EnergyAccumulator) -> dict[str, Any]:
     """Serialise an EnergyAccumulator to a JSON-safe dict."""
     return {**_core_acc_fields(acc), **_optional_acc_fields(acc)}
 
 
-def _core_acc_fields(acc: EnergyAccumulator) -> dict:
+def _core_acc_fields(acc: EnergyAccumulator) -> dict[str, Any]:
     return {
         "import_kwh": acc.import_kwh,
         "export_kwh": acc.export_kwh,
@@ -121,7 +124,7 @@ def _core_acc_fields(acc: EnergyAccumulator) -> dict:
     }
 
 
-def _dict_to_acc(d: dict) -> EnergyAccumulator:
+def _dict_to_acc(d: dict[str, Any]) -> EnergyAccumulator:
     """Deserialise a dict back into an EnergyAccumulator."""
     acc = EnergyAccumulator()
     for key, value in d.items():
@@ -155,7 +158,7 @@ def _stored_date(iso: str) -> date | None:
         return datetime.fromisoformat(iso).date()
     except (TypeError, ValueError):
         return None
-def _as_count(value) -> int:
+def _as_count(value: Any) -> int:
     """Return value as a non-negative int, or 0 if it is not a number."""
     try:
         return max(0, int(value))
@@ -163,7 +166,7 @@ def _as_count(value) -> int:
         return 0
 
 
-def migrate_storage(old_version: int, data: dict) -> dict:
+def migrate_storage(old_version: int, data: dict[str, Any]) -> dict[str, Any]:
     """Bring a stored payload up to the current storage version.
 
     Version 1 -> 2 converts the battery cycle figures from the old both-directions
@@ -189,12 +192,12 @@ def migrate_storage(old_version: int, data: dict) -> dict:
     return migrated
 
 
-def _with_grid_to_battery(stored: dict) -> dict:
+def _with_grid_to_battery(stored: dict[str, Any]) -> dict[str, Any]:
     """A copy of one stored period with a grid-to-battery figure, 0 unless it already has one."""
     return {"grid_to_battery_kwh": 0.0, **stored}
 
 
-def _add_grid_to_battery(payload: dict) -> None:
+def _add_grid_to_battery(payload: dict[str, Any]) -> None:
     """Give every stored period, and every monthly snapshot, a grid-to-battery figure of 0.
 
     A figure already there is kept, so running the step twice changes nothing. The nested
@@ -216,7 +219,7 @@ def _forecast_accuracy_pct(forecast_kwh: float, actual_kwh: float) -> float:
     return round(actual_kwh / forecast_kwh * 100, 1)
 
 
-def _rebuild_forecast_accuracy(payload: dict) -> None:
+def _rebuild_forecast_accuracy(payload: dict[str, Any]) -> None:
     """Replace the stored accuracy figures with ones measured against the raw forecast.
 
     forecast_ratio_history holds the raw forecast and the actual solar of each completed day.
@@ -236,12 +239,22 @@ def _rebuild_forecast_accuracy(payload: dict) -> None:
     payload["yesterday_forecast_accuracy_pct"] = history[-1] if history else 0.0
 
 
-def _create_store(hass: HomeAssistant):
+def _create_store(hass: HomeAssistant) -> Store[dict[str, Any]]:
     """Build the HA Store with a version migration hook."""
     from homeassistant.helpers.storage import Store  # lazy — not available in test env
 
-    class _AccumulationStorage(Store):
-        async def _async_migrate_func(self, old_major_version, old_minor_version, old_data):
+    # Real Home Assistant's Store is generic. The unit tests stub it with a plain class.
+    if TYPE_CHECKING:
+
+        class _Base(Store[dict[str, Any]]): ...
+
+    else:
+        _Base = Store  # noqa: N806 - an alias for the class above
+
+    class _AccumulationStorage(_Base):
+        async def _async_migrate_func(
+            self, old_major_version: int, old_minor_version: int, old_data: dict[str, Any]
+        ) -> dict[str, Any]:
             return migrate_storage(old_major_version, old_data)
 
     return _AccumulationStorage(hass, _STORAGE_VERSION, _STORAGE_KEY)
@@ -271,9 +284,9 @@ class AccumulationState:
     battery_tracking_start_cycles: float = 0.0
     register_write_count: int = 0  # lifetime GivTCP register writes made by this integration
     # Newest-last log of recent writes and outside changes, see core/write_log.py.
-    register_write_log: list = field(default_factory=list)
+    register_write_log: list[dict[str, Any]] = field(default_factory=list)
     yesterday_forecast_accuracy_pct: float = 0.0
-    forecast_accuracy_history: list = field(default_factory=list)  # last 7 days
+    forecast_accuracy_history: list[Any] = field(default_factory=list)  # last 7 days
 
     # Raw P50 forecast (before P10 blend or seasonal fallback) used for the forecast accuracy
     # and its correction. pending is the latest value seen today; at midnight it becomes
@@ -286,30 +299,30 @@ class AccumulationState:
     today_raw_forecast_p10_kwh: float = 0.0
     # The 48 half-hour weights of the forecast above, remembered on the same path. Empty when the
     # forecast provider gave none.
-    pending_raw_forecast_shape: list = field(default_factory=list)
-    today_raw_forecast_shape: list = field(default_factory=list)
+    pending_raw_forecast_shape: list[Any] = field(default_factory=list)
+    today_raw_forecast_shape: list[Any] = field(default_factory=list)
     # What the integration last saw of the system it manages (core/system_types.py): kind,
     # managed inverter, battery modules and the entities it reads. Empty until the first look.
-    system_identity: dict = field(default_factory=dict)
+    system_identity: dict[str, Any] = field(default_factory=dict)
     # The unique id and platform of each configured GivTCP entity, learned while its entity id
     # still matched, so it can be found again under a new id (core/entity_refs.py).
-    entity_refs: dict = field(default_factory=dict)
+    entity_refs: dict[str, Any] = field(default_factory=dict)
     today_clipping: bool = False
-    forecast_ratio_history: list = field(default_factory=list)
+    forecast_ratio_history: list[Any] = field(default_factory=list)
 
     # Per-slot (30 min) baseline house load. History entries are
     # {"date", "slots", "coverage"}, oldest first, capped at _SLOT_HISTORY_DAYS.
-    slot_load_today: list = field(default_factory=lambda: [0.0] * _SLOTS_PER_DAY)
-    slot_hours_today: list = field(default_factory=lambda: [0.0] * _SLOTS_PER_DAY)
+    slot_load_today: list[Any] = field(default_factory=lambda: [0.0] * _SLOTS_PER_DAY)
+    slot_hours_today: list[Any] = field(default_factory=lambda: [0.0] * _SLOTS_PER_DAY)
     slot_load_date: str = ""
-    slot_load_history: list = field(default_factory=list)
+    slot_load_history: list[Any] = field(default_factory=list)
 
     # Heating rates (degrees per hour) of the last few immersion runs, oldest first. The
     # ready-by plan reads their median. See core/immersion_rate.py.
-    immersion_heating_rates: list = field(default_factory=list)
+    immersion_heating_rates: list[Any] = field(default_factory=list)
     # The same, kept by local day for the last 7 days, oldest first: {"date", "total", "runs"},
     # the sum of the runs' rates and how many there were. The plan reads the average of the days.
-    immersion_rate_days: list = field(default_factory=list)
+    immersion_rate_days: list[dict[str, Any]] = field(default_factory=list)
 
     # The immersion's grid heating by local hour for the last 14 complete days and today, with
     # what it cost. Filled only while alternative heating has a cost. See core/alt_heat_schedule.py.
@@ -321,16 +334,16 @@ class AccumulationState:
 
     # Rolling 12-month export snapshots — one entry per completed billing month,
     # oldest first, capped at 12. Populated at each monthly reset before clearing.
-    monthly_export_snapshots: list = field(default_factory=list)
+    monthly_export_snapshots: list[float] = field(default_factory=list)
 
     # Rolling 12-month snapshots — one dict per completed billing month (oldest first).
     # Each entry is the full _acc_to_dict() output of state.month at reset.
-    monthly_snapshots: list = field(default_factory=list)
+    monthly_snapshots: list[dict[str, Any]] = field(default_factory=list)
 
     # One row per finished day of the current bill period, oldest first. At the end of the period
     # the rows go into that period's snapshot under "days" and this list starts again. See
     # core/bill_days.py.
-    bill_days: list = field(default_factory=list)
+    bill_days: list[dict[str, Any]] = field(default_factory=list)
 
     # Reset timestamps (ISO strings for JSON serialisation)
     week_start_iso: str = ""
@@ -458,13 +471,13 @@ class AccumulationStore:
         return list(self.state.monthly_export_snapshots)
 
     @property
-    def monthly_snapshots(self) -> list[dict]:
+    def monthly_snapshots(self) -> list[dict[str, Any]]:
         """Snapshots of completed billing months, oldest first (max 12)."""
         return list(self.state.monthly_snapshots)
 
     def _trailing_12m(self, field: str) -> float:
         """Sum a numeric field across the last 12 monthly snapshots."""
-        return round(sum(s.get(field, 0.0) for s in self.state.monthly_snapshots), 3)
+        return round(sum(float(s.get(field, 0.0)) for s in self.state.monthly_snapshots), 3)
 
     @property
     def trailing_12m_solar_kwh(self) -> float:
@@ -533,7 +546,7 @@ class AccumulationStore:
 
     # ── Event handlers ────────────────────────────────────────────────────────
 
-    def on_midnight(self, now: datetime, tariff: dict | None = None) -> None:
+    def on_midnight(self, now: datetime, tariff: dict[str, Any] | None = None) -> None:
         """
         Handle midnight reset.
 
@@ -565,7 +578,7 @@ class AccumulationStore:
         if today_date.month == 1 and today_date.day == 1:
             self._reset_year(now)
 
-    def _record_bill_day(self, day: date, tariff: dict | None) -> None:
+    def _record_bill_day(self, day: date, tariff: dict[str, Any] | None) -> None:
         """Add the finished day to the bill period. A day with nothing recorded is left out.
 
         With no tariff given (a midnight replayed after a restart) the row takes the one in
@@ -691,7 +704,7 @@ class AccumulationStore:
             changed = True
         return changed
 
-    def restore_battery_stats(self, stats) -> None:
+    def restore_battery_stats(self, stats: BatteryStats) -> None:
         """Restore BatteryStats from persisted state after an HA restart."""
         if self.state.battery_cycles > 0:
             stats.total_cycles = self.state.battery_cycles
@@ -707,7 +720,7 @@ class AccumulationStore:
             except ValueError:
                 pass
 
-    def save_battery_stats(self, stats) -> None:
+    def save_battery_stats(self, stats: BatteryStats) -> None:
         """Persist BatteryStats so it survives HA restarts."""
         self.state.battery_cycles = stats.total_cycles
         self.state.last_full_charge_date = (
@@ -747,7 +760,7 @@ class AccumulationStore:
         if p10_kwh is not None and p10_kwh > 0:
             self.state.pending_raw_forecast_p10_kwh = p10_kwh
 
-    def seed_forecast_history(self, records: list[dict]) -> None:
+    def seed_forecast_history(self, records: list[dict[str, Any]]) -> None:
         """Fill an empty forecast history with days rebuilt from the recorder.
 
         Does nothing once the history holds a day, so a night recorded in the meantime is
@@ -764,7 +777,7 @@ class AccumulationStore:
         return self.state.immersion_heating_rates
 
     @property
-    def immersion_rate_days(self) -> list[dict]:
+    def immersion_rate_days(self) -> list[dict[str, Any]]:
         return self.state.immersion_rate_days
 
     @property
@@ -839,7 +852,7 @@ class AccumulationStore:
 # ── Serialisation (module-level for testability) ──────────────────────────────
 
 
-def _serialize(state: AccumulationState) -> dict:
+def _serialize(state: AccumulationState) -> dict[str, Any]:
     payload = _serialize_state(state)
     if state.immersion_heat_log.days:
         payload[_HEAT_LOG_KEY] = state.immersion_heat_log.to_storage()
@@ -848,7 +861,7 @@ def _serialize(state: AccumulationState) -> dict:
     return payload
 
 
-def _serialize_state(state: AccumulationState) -> dict:
+def _serialize_state(state: AccumulationState) -> dict[str, Any]:
     return {
         "version": _STORAGE_VERSION,
         "today": _acc_to_dict(state.today),
@@ -892,7 +905,7 @@ def _serialize_state(state: AccumulationState) -> dict:
     }
 
 
-def _restore_accumulators(state: AccumulationState, data: dict) -> None:
+def _restore_accumulators(state: AccumulationState, data: dict[str, Any]) -> None:
     state.today = _dict_to_acc(data.get("today", {}))
     state.week = _dict_to_acc(data.get("week", {}))
     state.month = _dict_to_acc(data.get("month", {}))
@@ -900,7 +913,7 @@ def _restore_accumulators(state: AccumulationState, data: dict) -> None:
     state.yesterday = _dict_to_acc(data.get("yesterday", {}))
 
 
-def _restore_battery_and_forecast(state: AccumulationState, data: dict) -> None:
+def _restore_battery_and_forecast(state: AccumulationState, data: dict[str, Any]) -> None:
     state.counters = CounterMemory(float(data.get("ac_charge_counter_kwh", 0.0)))
     state.today_forecast_kwh = float(data.get("today_forecast_kwh", 0.0))
     state.battery_cycles = float(data.get("battery_cycles", 0.0))
@@ -928,7 +941,7 @@ def _restore_battery_and_forecast(state: AccumulationState, data: dict) -> None:
     ]
 
 
-def _restore_slot_load(state: AccumulationState, data: dict) -> None:
+def _restore_slot_load(state: AccumulationState, data: dict[str, Any]) -> None:
     state.slot_load_history = [
         dict(e) for e in data.get("slot_load_history", []) if isinstance(e, dict)
     ]
@@ -939,14 +952,14 @@ def _restore_slot_load(state: AccumulationState, data: dict) -> None:
             setattr(state, key, [float(v) for v in values])
 
 
-def _restore_immersion_rates(state: AccumulationState, data: dict) -> None:
+def _restore_immersion_rates(state: AccumulationState, data: dict[str, Any]) -> None:
     rates = data.get("immersion_heating_rates", [])
     state.immersion_heating_rates = [
         float(r) for r in rates if isinstance(r, (int, float)) and r > 0
     ]
 
 
-def _restore_immersion_rate_days(state: AccumulationState, data: dict) -> None:
+def _restore_immersion_rate_days(state: AccumulationState, data: dict[str, Any]) -> None:
     days = data.get("immersion_rate_days")
     state.immersion_rate_days = [
         {"date": str(d["date"]), "total": float(d["total"]), "runs": int(d["runs"])}
@@ -955,15 +968,15 @@ def _restore_immersion_rate_days(state: AccumulationState, data: dict) -> None:
     ]
 
 
-def _restore_heat_log(state: AccumulationState, data: dict) -> None:
+def _restore_heat_log(state: AccumulationState, data: dict[str, Any]) -> None:
     state.immersion_heat_log = ImmersionHeatLog.from_storage(data.get(_HEAT_LOG_KEY))
 
 
-def _restore_ev_sessions(state: AccumulationState, data: dict) -> None:
+def _restore_ev_sessions(state: AccumulationState, data: dict[str, Any]) -> None:
     state.ev_sessions = EVSessionLog.from_storage(data.get(_EV_SESSIONS_KEY))
 
 
-def _restore_period_history(state: AccumulationState, data: dict) -> None:
+def _restore_period_history(state: AccumulationState, data: dict[str, Any]) -> None:
     state.week_start_iso = data.get("week_start_iso", "")
     state.month_start_iso = data.get("month_start_iso", "")
     state.year_start_iso = data.get("year_start_iso", "")
@@ -980,7 +993,7 @@ def _restore_period_history(state: AccumulationState, data: dict) -> None:
     ]
 
 
-def _deserialize(data: dict) -> AccumulationState:
+def _deserialize(data: dict[str, Any]) -> AccumulationState:
     state = AccumulationState()
     _restore_accumulators(state, data)
     _restore_battery_and_forecast(state, data)

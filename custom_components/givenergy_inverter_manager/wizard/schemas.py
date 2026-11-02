@@ -82,6 +82,7 @@ from .selectors import (
     currency_code,
     currency_selector,
     entity_selector,
+    ha_schema,
     months_selector,
     number_selector,
     price_selector,
@@ -194,7 +195,9 @@ def tariff_schema(ctx: PageContext) -> vol.Schema:
                     CONF_EXPORT_RATE, currency
                 ),
                 vol.Required("rate_count", default="0"): rate_count_selector(),
-                vol.Optional(BILL_SECTION): section(bill_schema(ctx), {"collapsed": True}),
+                vol.Optional(BILL_SECTION): section(
+                    ha_schema(bill_schema(ctx)), {"collapsed": True}
+                ),
             }
         )
     saved = str(rate_count(ctx.current.get(CONF_RATE_PERIODS)))
@@ -216,13 +219,15 @@ def _rate_row_section(row: dict[str, Any], currency: str) -> object:
     saved = row["rate"]
     rate_key = vol.Required("rate", default=saved) if saved is not None else vol.Required("rate")
     return section(
-        vol.Schema(
-            {
-                vol.Required("name", default=row["name"]): selector.TextSelector(),
-                rate_key: price_selector(CONF_BASE_RATE, currency),
-                vol.Required("start", default=row["start"]): selector.TimeSelector(),
-                vol.Required("end", default=row["end"]): selector.TimeSelector(),
-            }
+        ha_schema(
+            vol.Schema(
+                {
+                    vol.Required("name", default=row["name"]): selector.TextSelector(),
+                    rate_key: price_selector(CONF_BASE_RATE, currency),
+                    vol.Required("start", default=row["start"]): selector.TimeSelector(),
+                    vol.Required("end", default=row["end"]): selector.TimeSelector(),
+                }
+            )
         ),
         {"collapsed": False},
     )
@@ -244,7 +249,7 @@ def rates_schema(ctx: PageContext, count: int, country: str | None) -> vol.Schem
 
 def schedule_schema(ctx: PageContext) -> vol.Schema:
     """The date a dated rate change starts, and a way to cancel the ones scheduled."""
-    fields: dict = {vol.Optional(CHANGE_DATE): selector.DateSelector()}
+    fields: dict[Any, Any] = {vol.Optional(CHANGE_DATE): selector.DateSelector()}
     if scheduled_tariff_changes(dict(ctx.current), ctx.today):
         fields[vol.Optional(CANCEL_SCHEDULED, default=False)] = selector.BooleanSelector()
     return vol.Schema(fields)
@@ -381,7 +386,7 @@ def hot_water_schema(ctx: PageContext) -> vol.Schema:
                 selector.TextSelectorConfig(multiple=True)
             ),
             vol.Optional(ALT_HEAT_SECTION): section(
-                alt_heat_schema(ctx), {"collapsed": not enabled}
+                ha_schema(alt_heat_schema(ctx)), {"collapsed": not enabled}
             ),
         }
     )

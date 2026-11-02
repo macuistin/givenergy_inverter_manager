@@ -88,7 +88,8 @@ def tariff_in_effect(days: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None
     """The tariff of the newest row that records one, or None when no row does."""
     for row in reversed(days):
         if isinstance(row.get("tariff"), dict):
-            return row["tariff"]
+            tariff: dict[str, Any] = row["tariff"]
+            return tariff
     return None
 
 

@@ -274,7 +274,7 @@ def same_value(left: Any, right: Any) -> bool:
     """True when two config values are the same setting."""
     if is_unset(left) and is_unset(right):
         return True
-    return left == right
+    return bool(left == right)
 
 
 def changed_values(

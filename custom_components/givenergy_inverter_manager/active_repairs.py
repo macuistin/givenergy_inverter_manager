@@ -10,6 +10,7 @@ core/repair_summary.py.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from typing import Any
 
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
@@ -45,12 +46,14 @@ async def async_active_repairs(hass: HomeAssistant) -> tuple[RepairIssue, ...]:
 
 
 @callback
-def _is_ours(event_data: Mapping) -> bool:
+def _is_ours(event_data: Mapping[str, Any]) -> bool:
     return event_data.get("domain") == DOMAIN
 
 
 @callback
-def async_listen_repairs(hass: HomeAssistant, on_change: Callable[[Event], None]) -> CALLBACK_TYPE:
+def async_listen_repairs(
+    hass: HomeAssistant, on_change: Callable[[Event[ir.EventIssueRegistryUpdatedData]], None]
+) -> CALLBACK_TYPE:
     """Call the @callback on_change whenever an issue of this integration changes."""
     return hass.bus.async_listen(
         ir.EVENT_REPAIRS_ISSUE_REGISTRY_UPDATED, on_change, event_filter=_is_ours

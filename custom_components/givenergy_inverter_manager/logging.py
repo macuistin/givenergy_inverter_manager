@@ -38,7 +38,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .const import (
     CONF_BASE_RATE,
@@ -84,10 +84,10 @@ class GivLogger:
     # Returns the merged cfg dict (entry.data | entry.options).
     # NOTE: class-level means a second coordinator (e.g. during reload)
     # will overwrite this — acceptable for a single-entry integration.
-    _cfg_fn: Callable[[], dict] | None = None
+    _cfg_fn: Callable[[], dict[str, Any]] | None = None
 
     @classmethod
-    def register(cls, cfg_fn: Callable[[], dict]) -> None:
+    def register(cls, cfg_fn: Callable[[], dict[str, Any]]) -> None:
         """
         Register the config accessor.
 
@@ -112,24 +112,24 @@ class GivLogger:
 
     # ── Standard levels (direct pass-through) ────────────────────────────────
 
-    def debug(self, msg: str, *args: object, **kwargs: object) -> None:
+    def debug(self, msg: str, *args: object, **kwargs: Any) -> None:
         self._logger.debug(msg, *args, **kwargs)
 
-    def info(self, msg: str, *args: object, **kwargs: object) -> None:
+    def info(self, msg: str, *args: object, **kwargs: Any) -> None:
         self._logger.info(msg, *args, **kwargs)
 
-    def warning(self, msg: str, *args: object, **kwargs: object) -> None:
+    def warning(self, msg: str, *args: object, **kwargs: Any) -> None:
         self._logger.warning(msg, *args, **kwargs)
 
-    def error(self, msg: str, *args: object, **kwargs: object) -> None:
+    def error(self, msg: str, *args: object, **kwargs: Any) -> None:
         self._logger.error(msg, *args, **kwargs)
 
-    def exception(self, msg: str, *args: object, **kwargs: object) -> None:
+    def exception(self, msg: str, *args: object, **kwargs: Any) -> None:
         self._logger.exception(msg, *args, **kwargs)
 
     # ── Verbose level ─────────────────────────────────────────────────────────
 
-    def verbose(self, msg: str, *args: object, **kwargs: object) -> None:
+    def verbose(self, msg: str, *args: object, **kwargs: Any) -> None:
         """
         Emit msg at DEBUG level, but only when CONF_VERBOSE_LOGGING is True.
 
@@ -203,7 +203,7 @@ _CONTROL_ENTITIES = (
 )
 
 
-def log_startup(log: GivLogger, cfg: dict) -> None:
+def log_startup(log: GivLogger, cfg: dict[str, Any]) -> None:
     """
     Log all configured entity IDs at startup.
 
@@ -225,11 +225,13 @@ def log_startup(log: GivLogger, cfg: dict) -> None:
     )
 
 
-def _entity_lines(cfg: dict, entities: tuple, missing: str) -> list[str]:
+def _entity_lines(
+    cfg: dict[str, Any], entities: tuple[tuple[str, str], ...], missing: str
+) -> list[str]:
     return [f"    {label:<14} {cfg.get(key) or missing}" for label, key in entities]
 
 
-def _tariff_lines(cfg: dict) -> list[str]:
+def _tariff_lines(cfg: dict[str, Any]) -> list[str]:
     base_rate = cfg.get(CONF_BASE_RATE, DEFAULT_BASE_RATE)
     base_name = cfg.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)
     lines = [f"    base_rate      {base_name!r} = {base_rate:.4f} €/kWh"]

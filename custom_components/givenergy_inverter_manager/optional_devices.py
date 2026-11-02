@@ -15,7 +15,7 @@ behind as "no longer provided".
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -105,7 +105,7 @@ def present_devices(entry: GivEnergyConfigEntry) -> frozenset[Device]:
 def async_add_entities_per_device(
     entry: GivEnergyConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    build: Callable[[Device], list[Entity]],
+    build: Callable[[Device], Sequence[Entity]],
 ) -> None:
     """Add the entities of each device present now, and of each device that appears later.
 
@@ -157,7 +157,9 @@ def _present_or_expected(hass: HomeAssistant, entry: GivEnergyConfigEntry) -> fr
     return present
 
 
-def _group_of_device(entry: GivEnergyConfigEntry, device: dr.DeviceEntry) -> DeviceGroup | None:
+def _group_of_device(
+    entry: GivEnergyConfigEntry, device: dr.DeviceEntry | dr.ChildDeviceEntry
+) -> DeviceGroup | None:
     """The group a registry device stands for, or None when it is not one of this entry's."""
     for group in DeviceGroup:
         suffix = "" if group is DeviceGroup.MAIN else f"_{group.value}"
@@ -200,7 +202,7 @@ def async_inherit_main_area(hass: HomeAssistant, entry: GivEnergyConfigEntry) ->
     """
 
     @callback
-    def _created(event: Event) -> None:
+    def _created(event: Event[dr.EventDeviceRegistryUpdatedData]) -> None:
         if event.data["action"] != "create":
             return
         registry = dr.async_get(hass)

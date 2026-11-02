@@ -31,7 +31,7 @@ from .const import (
 )
 from .repairs import ClearOutcome
 from .services import async_update_stored_dashboard, loaded_entries
-from .wizard.selectors import battery_cost_selector
+from .wizard.selectors import battery_cost_selector, ha_schema
 
 
 class ClearOtherChargeSlotsFlow(ConfirmRepairFlow):
@@ -127,7 +127,7 @@ class SetBatteryCostFlow(RepairsFlow):
             errors["base"] = "cost_required"
         currency = effective_config(entry).get(CONF_CURRENCY, DEFAULT_CURRENCY)
         schema = vol.Schema({vol.Required(CONF_BATTERY_COST): battery_cost_selector(currency)})
-        return self.async_show_form(step_id="confirm", data_schema=schema, errors=errors)
+        return self.async_show_form(step_id="confirm", data_schema=ha_schema(schema), errors=errors)
 
     def _save_cost(self, entry: ConfigEntry, cost: float) -> None:
         """Add the cost to the saved options and leave every other option as it is.

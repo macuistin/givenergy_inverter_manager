@@ -11,9 +11,9 @@ offer the same update later. Nothing is written to a dashboard without one of th
 from __future__ import annotations
 
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Coroutine, Mapping
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
@@ -32,6 +32,7 @@ from .const import (
     SERVICE_YEAR_ON_YEAR,
 )
 from .controls import async_set_option
+from .core.engine import CoordinatorData
 from .core.rules import ApplianceRequest, RateContext, SiteReadings, suggest_appliance_run
 from .core.stored_dashboard import (
     DashboardFacts,
@@ -40,10 +41,16 @@ from .core.stored_dashboard import (
     choose_url_path,
     ensure_writable,
 )
-from .core.tariff import BillBreakdown, TariffConfig, build_tariff
+from .core.tariff import BillBreakdown, EnergyAccumulator, TariffConfig, build_tariff
 from .dashboard import async_host_facts, build_dashboard
 from .logging import get_logger
 from .repairs import async_delete_dashboard_out_of_date_issue
+
+if TYPE_CHECKING:
+    from .coordinator import GivEnergyCoordinator
+
+# A service handler returns its response data, or None when the action has no response.
+_Handler = Callable[[ServiceCall], Coroutine[Any, Any, dict[str, Any] | None]]
 
 _LOG = get_logger(__name__)
 
@@ -81,7 +88,9 @@ def primary_entry(hass: HomeAssistant) -> ConfigEntry:
     return require_loaded_entries(hass)[0]
 
 
-def _notification(hass: HomeAssistant, title: str, message: str, notification_id: str):
+def _notification(
+    hass: HomeAssistant, title: str, message: str, notification_id: str
+) -> Coroutine[Any, Any, Any]:
     """Return the awaitable that creates a persistent notification, without waiting on it."""
     return hass.services.async_call(
         "persistent_notification",
@@ -114,7 +123,7 @@ async def _write_config_file(hass: HomeAssistant, filename: str, content: str) -
 
 
 def _appliance_arguments(
-    coordinator, service_data
+    coordinator: GivEnergyCoordinator, service_data: Mapping[str, Any]
 ) -> tuple[SiteReadings, ApplianceRequest, RateContext]:
     """Return the three arguments of suggest_appliance_run for the live readings."""
     data = coordinator.data
@@ -138,7 +147,7 @@ def _appliance_arguments(
     )
 
 
-def _make_suggest_appliance_handler(hass: HomeAssistant):
+def _make_suggest_appliance_handler(hass: HomeAssistant) -> _Handler:
     """Return the suggest_appliance_run service handler bound to *hass*."""
 
     async def handle(call: ServiceCall) -> None:
@@ -165,7 +174,7 @@ def _make_suggest_appliance_handler(hass: HomeAssistant):
 # ── get_roi_summary ──────────────────────────────────────────────────────────
 
 
-def _flows(acc) -> dict:
+def _flows(acc: EnergyAccumulator) -> dict[str, Any]:
     """Return the solar, export and import energy of one period."""
     return {
         "solar_kwh": round(acc.solar_kwh, 3),
@@ -174,7 +183,7 @@ def _flows(acc) -> dict:
     }
 
 
-def _money(acc) -> dict:
+def _money(acc: EnergyAccumulator) -> dict[str, Any]:
     """Return the import cost, export earnings and net position of one period."""
     return {
         "import_cost": round(acc.total_import_cost, 4),
@@ -183,7 +192,7 @@ def _money(acc) -> dict:
     }
 
 
-def _today_summary(d) -> dict:
+def _today_summary(d: CoordinatorData) -> dict[str, Any]:
     """Return today's flows and money, with the self-consumption saving."""
     today = d.today
     self_consumed_kwh = max(0.0, today.solar_kwh - today.export_kwh)
@@ -202,7 +211,7 @@ def _today_summary(d) -> dict:
     }
 
 
-def _roi_summary(d) -> dict:
+def _roi_summary(d: CoordinatorData) -> dict[str, Any]:
     """Return ROI metrics for today, week, month and year, and battery health."""
     return {
         "today": _today_summary(d),
@@ -217,10 +226,10 @@ def _roi_summary(d) -> dict:
     }
 
 
-def _make_roi_summary_handler(hass: HomeAssistant):
+def _make_roi_summary_handler(hass: HomeAssistant) -> _Handler:
     """Return the get_roi_summary service handler bound to *hass*."""
 
-    async def handle(call: ServiceCall) -> dict:
+    async def handle(call: ServiceCall) -> dict[str, Any]:
         """Return ROI metrics for today/week/month/year and battery health."""
         coordinator = primary_entry(hass).runtime_data
         if coordinator.data is None:
@@ -233,7 +242,7 @@ def _make_roi_summary_handler(hass: HomeAssistant):
 # ── compare_tariff ───────────────────────────────────────────────────────────
 
 
-def _bill_side(bill: BillBreakdown, tariff: TariffConfig) -> dict:
+def _bill_side(bill: BillBreakdown, tariff: TariffConfig) -> dict[str, Any]:
     """Return one side of a tariff comparison from a bill breakdown."""
     import_cost = (bill.energy - bill.supplier_saving) * (1 + tariff.vat_rate / 100)
     before_export = bill.before_vat + bill.vat
@@ -256,9 +265,9 @@ def _bill_side(bill: BillBreakdown, tariff: TariffConfig) -> dict:
     }
 
 
-def _alternative_tariff(tariff: TariffConfig, data) -> TariffConfig:
+def _alternative_tariff(tariff: TariffConfig, data: Mapping[str, Any]) -> TariffConfig:
     """Return the configured tariff with the service call's flat-rate overrides applied."""
-    overrides = {
+    overrides: dict[str, Any] = {
         "standing_charge": float(data.get("standing_charge", 0.0)),
         "export_rate": float(data.get("export_rate", 0.0)),
     }
@@ -268,7 +277,9 @@ def _alternative_tariff(tariff: TariffConfig, data) -> TariffConfig:
     return replace(tariff, **overrides)
 
 
-def _month_bills(d, tariff: TariffConfig, alt_tariff: TariffConfig, alt_rate: float):
+def _month_bills(
+    d: CoordinatorData, tariff: TariffConfig, alt_tariff: TariffConfig, alt_rate: float
+) -> tuple[BillBreakdown, BillBreakdown]:
     """Return this period's bill on the configured tariff and on the flat-rate alternative."""
     days = d.days_in_period
     period_days = days + d.days_remaining
@@ -287,7 +298,9 @@ def _month_bills(d, tariff: TariffConfig, alt_tariff: TariffConfig, alt_rate: fl
     return current, alternative
 
 
-def _compare_tariff_for_entry(coordinator, data) -> dict:
+def _compare_tariff_for_entry(
+    coordinator: GivEnergyCoordinator, data: Mapping[str, Any]
+) -> dict[str, Any]:
     """Compare one entry's bill period so far with a flat-rate alternative.
 
     Both sides go through TariffConfig.calculate_bill, so energy, supplier saving,
@@ -321,10 +334,10 @@ def _compare_tariff_for_entry(coordinator, data) -> dict:
     }
 
 
-def _make_compare_tariff_handler(hass: HomeAssistant):
+def _make_compare_tariff_handler(hass: HomeAssistant) -> _Handler:
     """Return the compare_tariff service handler bound to *hass*."""
 
-    async def handle(call: ServiceCall) -> dict:
+    async def handle(call: ServiceCall) -> dict[str, Any]:
         """Compare the current bill period against a flat-rate alternative tariff.
 
         Service data fields:
@@ -360,7 +373,7 @@ _MONTHS_NEEDED = 12
 _COMPARED_KEYS = ("solar_kwh", "import_kwh", "export_kwh", "import_cost", "export_earnings")
 
 
-def _current_month(d) -> dict:
+def _current_month(d: CoordinatorData) -> dict[str, Any]:
     """Return this billing month's totals."""
     return {
         "solar_kwh": round(d.month.solar_kwh, 3),
@@ -372,7 +385,7 @@ def _current_month(d) -> dict:
     }
 
 
-def _same_month_last_year(snapshot: dict) -> dict:
+def _same_month_last_year(snapshot: dict[str, Any]) -> dict[str, Any]:
     """Return the totals of the snapshot taken twelve billing months ago."""
     return {
         "solar_kwh": round(float(snapshot.get("solar_kwh", 0.0)), 3),
@@ -389,22 +402,22 @@ def _same_month_last_year(snapshot: dict) -> dict:
     }
 
 
-def _delta(current: dict, snapshot: dict, key: str) -> float:
+def _delta(current: dict[str, Any], snapshot: dict[str, Any], key: str) -> float:
     """Return how much *key* changed since the snapshot."""
     curr_val = current.get(key, 0.0) or 0.0
     prev_val = float(snapshot.get(key, 0.0) or 0.0)
     return round(curr_val - prev_val, 4)
 
 
-def _delta_pct(current: dict, snapshot: dict, key: str) -> float | None:
+def _delta_pct(current: dict[str, Any], snapshot: dict[str, Any], key: str) -> float | None:
     """Return the percentage change of *key* since the snapshot, or None from a zero base."""
     prev_val = float(snapshot.get(key, 0.0) or 0.0)
     if prev_val == 0:
         return None
-    return round((current.get(key, 0.0) - prev_val) / prev_val * 100, 1)
+    return round((float(current.get(key, 0.0)) - prev_val) / prev_val * 100, 1)
 
 
-def _not_enough_history(available: int, current: dict) -> dict:
+def _not_enough_history(available: int, current: dict[str, Any]) -> dict[str, Any]:
     """Return the response while fewer than twelve billing months are stored."""
     return {
         "snapshots_available": available,
@@ -419,7 +432,7 @@ def _not_enough_history(available: int, current: dict) -> dict:
     }
 
 
-def _year_on_year(d, snapshots: list[dict]) -> dict:
+def _year_on_year(d: CoordinatorData, snapshots: list[dict[str, Any]]) -> dict[str, Any]:
     """Compare this billing month with the same month one year ago."""
     current = _current_month(d)
     if len(snapshots) < _MONTHS_NEEDED:
@@ -435,15 +448,15 @@ def _year_on_year(d, snapshots: list[dict]) -> dict:
     }
 
 
-def _make_year_on_year_handler(hass: HomeAssistant):
+def _make_year_on_year_handler(hass: HomeAssistant) -> _Handler:
     """Return the year_on_year_summary service handler bound to *hass*."""
 
-    async def handle(call: ServiceCall) -> dict:
+    async def handle(call: ServiceCall) -> dict[str, Any]:
         """Compare current billing month against the same month one year ago."""
         coordinator = primary_entry(hass).runtime_data
         if coordinator.data is None:
             return {}
-        snapshots: list[dict] = getattr(coordinator._acc, "monthly_snapshots", [])
+        snapshots: list[dict[str, Any]] = getattr(coordinator._acc, "monthly_snapshots", [])
         return _year_on_year(coordinator.data, snapshots)
 
     return handle
@@ -457,7 +470,7 @@ _CSV_HEADER = (
 )
 
 
-def _acc_to_csv_row(period: str, acc) -> str:
+def _acc_to_csv_row(period: str, acc: EnergyAccumulator) -> str:
     """Format one EnergyAccumulator as a CSV row."""
     import_cost = getattr(acc, "total_import_cost", 0.0)
     export_earn = getattr(acc, "export_earnings", 0.0)
@@ -476,7 +489,7 @@ def _acc_to_csv_row(period: str, acc) -> str:
     )
 
 
-def _snapshot_to_csv_row(index: int, snap: dict) -> str:
+def _snapshot_to_csv_row(index: int, snap: dict[str, Any]) -> str:
     """Format one monthly snapshot dict as a CSV row."""
     import_cost = sum((snap.get("import_cost_by_period") or {}).values())
     export_earn = snap.get("export_earnings", 0.0)
@@ -497,7 +510,7 @@ def _snapshot_to_csv_row(index: int, snap: dict) -> str:
     )
 
 
-def _export_rows(d, snapshots: list[dict]) -> list[str]:
+def _export_rows(d: CoordinatorData, snapshots: list[dict[str, Any]]) -> list[str]:
     """Return the CSV header, the five period rows, then one row per stored month."""
     rows = [
         _CSV_HEADER,
@@ -520,16 +533,16 @@ def _export_message(file_path: str, n_rows: int, n_snapshots: int) -> str:
     )
 
 
-def _make_export_handler(hass: HomeAssistant):
+def _make_export_handler(hass: HomeAssistant) -> _Handler:
     """Return the export_energy_data service handler bound to *hass*."""
 
-    async def handle(call: ServiceCall) -> dict:
+    async def handle(call: ServiceCall) -> dict[str, Any]:
         """Export energy history to /config/givenergy_energy_export.csv."""
         coordinator = primary_entry(hass).runtime_data
         if coordinator.data is None:
             return {"file": None, "rows_written": 0, "header": _CSV_HEADER, "rows": []}
 
-        snapshots: list[dict] = getattr(coordinator._acc, "monthly_snapshots", [])
+        snapshots: list[dict[str, Any]] = getattr(coordinator._acc, "monthly_snapshots", [])
         rows = _export_rows(coordinator.data, snapshots)
         file_path = await _write_config_file(hass, _EXPORT_FILENAME, "\n".join(rows) + "\n")
 
@@ -564,10 +577,10 @@ async def _caller_is_admin(hass: HomeAssistant, call: ServiceCall) -> bool:
     return bool(user and user.is_admin)
 
 
-def _make_dashboard_yaml_handler(hass: HomeAssistant):
+def _make_dashboard_yaml_handler(hass: HomeAssistant) -> _Handler:
     """Return the get_dashboard_yaml service handler bound to *hass*."""
 
-    async def handle(call: ServiceCall) -> dict:
+    async def handle(call: ServiceCall) -> dict[str, Any]:
         """Return the dashboard the strategy builds, as YAML text.
 
         The file is written only when the call asks for it with write_file.
@@ -576,7 +589,7 @@ def _make_dashboard_yaml_handler(hass: HomeAssistant):
         facts = await async_host_facts(hass, is_admin=await _caller_is_admin(hass, call))
         config = build_dashboard(hass, entry, facts)
         text = yaml.safe_dump(config, sort_keys=False, allow_unicode=True)
-        response: dict = {"yaml": text, "views": len(config.get("views", []))}
+        response: dict[str, Any] = {"yaml": text, "views": len(config.get("views", []))}
         if call.data.get("write_file"):
             response["file"] = await _write_config_file(hass, DASHBOARD_FILENAME, text)
         return response
@@ -602,7 +615,7 @@ def lovelace_is_loaded(hass: HomeAssistant) -> bool:
     return hass.data.get(LOVELACE_DATA) is not None
 
 
-def _find_dashboard(hass: HomeAssistant, url_path: str) -> Any | None:
+def _find_dashboard(hass: HomeAssistant, url_path: str) -> Any:
     """The Lovelace dashboard at *url_path*, looked up the way the frontend does."""
     dashboards = _lovelace_dashboards(hass)
     if url_path == _DEFAULT_DASHBOARD:
@@ -610,12 +623,13 @@ def _find_dashboard(hass: HomeAssistant, url_path: str) -> Any | None:
     return dashboards.get(url_path)
 
 
-async def _saved_config(dashboard: Any) -> dict | None:
+async def _saved_config(dashboard: Any) -> dict[str, Any] | None:
     """The dashboard's saved configuration, or None while it has none."""
     from homeassistant.components.lovelace.const import ConfigNotFound  # noqa: PLC0415
 
     try:
-        return await dashboard.async_load(False)
+        saved: dict[str, Any] | None = await dashboard.async_load(False)
+        return saved
     except ConfigNotFound:
         return None
 
@@ -632,7 +646,7 @@ async def async_dashboard_facts(hass: HomeAssistant, url_path: str) -> Dashboard
     return DashboardFacts(exists=True, storage_mode=True, config=await _saved_config(dashboard))
 
 
-async def async_admin_dashboard(hass: HomeAssistant, entry: ConfigEntry) -> dict:
+async def async_admin_dashboard(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
     """The dashboard get_dashboard_yaml returns to an administrator, as storage would hold it."""
     facts = await async_host_facts(hass, is_admin=True)
     return as_stored(build_dashboard(hass, entry, facts))
@@ -651,7 +665,9 @@ def _refused(err: DashboardRefused) -> ServiceValidationError:
     )
 
 
-async def _writable_target(hass: HomeAssistant, entry: ConfigEntry, url_path: str | None):
+async def _writable_target(
+    hass: HomeAssistant, entry: ConfigEntry, url_path: str | None
+) -> tuple[str, DashboardFacts]:
     """The URL path to write and what it holds now, or a translated refusal."""
     try:
         target = choose_url_path(url_path, stored_dashboard_url_path(entry))
@@ -662,7 +678,7 @@ async def _writable_target(hass: HomeAssistant, entry: ConfigEntry, url_path: st
     return target, facts
 
 
-async def _back_up(hass: HomeAssistant, config: Mapping | None) -> str | None:
+async def _back_up(hass: HomeAssistant, config: Mapping[str, Any] | None) -> str | None:
     """Write the config being replaced to the backup file and return its path."""
     if config is None:
         return None
@@ -680,7 +696,9 @@ def forget_stored_dashboard(hass: HomeAssistant, entry: ConfigEntry) -> None:
     async_set_option(hass, entry, CONF_STORED_DASHBOARD_URL_PATH, "")
 
 
-async def async_update_stored_dashboard(hass: HomeAssistant, url_path: str | None) -> dict:
+async def async_update_stored_dashboard(
+    hass: HomeAssistant, url_path: str | None
+) -> dict[str, Any]:
     """Write the generated dashboard into a storage dashboard, and keep that one current.
 
     The dashboard is the one *url_path* names, else the one written last time. Its current
@@ -697,10 +715,10 @@ async def async_update_stored_dashboard(hass: HomeAssistant, url_path: str | Non
     return {"url_path": target, "views": len(config["views"]), "backup_file": backup}
 
 
-def _make_update_dashboard_handler(hass: HomeAssistant):
+def _make_update_dashboard_handler(hass: HomeAssistant) -> _Handler:
     """Return the update_dashboard service handler bound to *hass*."""
 
-    async def handle(call: ServiceCall) -> dict:
+    async def handle(call: ServiceCall) -> dict[str, Any]:
         """Write the generated dashboard into the storage dashboard the call names."""
         require_loaded_entries(hass)
         if not await _caller_is_admin(hass, call):
@@ -721,7 +739,7 @@ class _ServiceSpec:
     """One service action: its name, handler factory and response support."""
 
     name: str
-    make_handler: Callable[[HomeAssistant], Callable]
+    make_handler: Callable[[HomeAssistant], _Handler]
     response: SupportsResponse | None = None
 
 
@@ -740,8 +758,13 @@ _SERVICES = (
 
 def _register(hass: HomeAssistant, spec: _ServiceSpec) -> None:
     """Register one service action."""
-    options = {} if spec.response is None else {"supports_response": spec.response}
-    hass.services.async_register(DOMAIN, spec.name, spec.make_handler(hass), **options)
+    handler = spec.make_handler(hass)
+    if spec.response is None:
+        hass.services.async_register(DOMAIN, spec.name, handler)
+    else:
+        hass.services.async_register(
+            DOMAIN, spec.name, handler, supports_response=spec.response
+        )
     _LOG.debug("Registered service %s.%s", DOMAIN, spec.name)
 
 

@@ -41,7 +41,7 @@ WHOLE_WIDTH = {"column_span": MAX_COLUMNS}
 # ── Card primitives ──────────────────────────────────────────────────────────
 
 
-def apex_config(height: int = 180) -> dict:
+def apex_config(height: int = 180) -> dict[str, Any]:
     """The apexcharts options shared by the charts.
 
     It sets no stroke. A global stroke curve or width overrides the per-series ones, so each
@@ -55,18 +55,18 @@ def apex_config(height: int = 180) -> dict:
     }
 
 
-def present(items: list) -> list:
+def present(items: list[Any]) -> list[Any]:
     return [item for item in items if item is not None]
 
 
-def entity_row(entity: str | None, name: str, **extra) -> dict | None:
+def entity_row(entity: str | None, name: str, **extra: Any) -> dict[str, Any] | None:
     """An entities-card row, or None when the entity is unusable."""
     if not entity:
         return None
     return {"entity": entity, "name": name, **extra}
 
 
-def navigate_action(path: str) -> dict:
+def navigate_action(path: str) -> dict[str, Any]:
     """A tap action that opens another view of the same dashboard.
 
     The path is relative, so it works whatever URL the dashboard is served from.
@@ -111,19 +111,19 @@ def tile_card(  # noqa: PLR0913
     columns: int | str = 6,
     color: str | None = None,
     icon: str | None = None,
-    features: list | None = None,
+    features: list[Any] | None = None,
     inline: bool = False,
-    nav: dict | None = None,
+    nav: dict[str, Any] | None = None,
     rows: int | None = None,
     state_content: list[str] | None = None,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """A tile card, or None when the entity is unusable.
 
     Every tile is horizontal. Six columns of the 12 column section grid give two to a row.
     """
     if not entity:
         return None
-    card: dict = {"type": "tile", "entity": entity, "name": name}
+    card: dict[str, Any] = {"type": "tile", "entity": entity, "name": name}
     card.update(_given({"icon": icon, "color": color, "state_content": state_content}))
     if features:
         card["features"] = features
@@ -132,7 +132,7 @@ def tile_card(  # noqa: PLR0913
     if nav:
         card["tap_action"] = nav
         card["icon_tap_action"] = nav
-    grid: dict = {"columns": columns}
+    grid: dict[str, Any] = {"columns": columns}
     if rows:
         grid["rows"] = rows
     card["grid_options"] = grid
@@ -148,9 +148,9 @@ def figure_tile(  # noqa: PLR0913
     name: str,
     icon: str,
     color: str,
-    nav: dict | None = None,
-    features: list | None = None,
-) -> dict | None:
+    nav: dict[str, Any] | None = None,
+    features: list[Any] | None = None,
+) -> dict[str, Any] | None:
     """A coloured tile that shows one figure and opens a view when tapped.
 
     Its icon never toggles the entity, so a switch can be shown without being switched by a
@@ -158,7 +158,13 @@ def figure_tile(  # noqa: PLR0913
     """
     if not entity:
         return None
-    card: dict = {"type": "tile", "entity": entity, "name": name, "icon": icon, "color": color}
+    card: dict[str, Any] = {
+        "type": "tile",
+        "entity": entity,
+        "name": name,
+        "icon": icon,
+        "color": color,
+    }
     if features:
         card["features"] = features
     if nav:
@@ -167,7 +173,7 @@ def figure_tile(  # noqa: PLR0913
     return card
 
 
-def tile_grid(tiles: list, columns: int = 2) -> dict | None:
+def tile_grid(tiles: list[Any], columns: int = 2) -> dict[str, Any] | None:
     """The tiles in a grid card that keeps them *columns* to a row on every screen width."""
     tiles = present(tiles)
     if not tiles:
@@ -193,11 +199,11 @@ def readonly_tile(entity: str | None, name: str, color: str) -> dict[str, Any] |
 def heading_card(
     text: str,
     icon: str | None = None,
-    nav: dict | None = None,
-    badges: list | None = None,
-) -> dict:
+    nav: dict[str, Any] | None = None,
+    badges: list[Any] | None = None,
+) -> dict[str, Any]:
     """A section heading. With nav it shows a chevron and opens the view."""
-    card: dict = {"type": "heading", "heading": text, "heading_style": "title"}
+    card: dict[str, Any] = {"type": "heading", "heading": text, "heading_style": "title"}
     if icon:
         card["icon"] = icon
     if badges:
@@ -207,18 +213,18 @@ def heading_card(
     return card
 
 
-def subheading_card(text: str, icon: str | None = None) -> dict:
+def subheading_card(text: str, icon: str | None = None) -> dict[str, Any]:
     """A heading one step down, for a question under a section."""
     return {**heading_card(text, icon), "heading_style": "subtitle"}
 
 
-def heading_block(heading: dict, cards: list) -> list:
+def heading_block(heading: dict[str, Any] | None, cards: list[Any]) -> list[Any]:
     """A heading and its cards. Empty when there are no cards, so no lone heading is left."""
     cards = present(cards)
-    return [heading, *cards] if cards else []
+    return [heading, *cards] if heading is not None and cards else []
 
 
-def grid_section(*blocks: list, **extra) -> dict | None:
+def grid_section(*blocks: list[Any], **extra: Any) -> dict[str, Any] | None:
     """A section of the sections view. None when it would hold no cards."""
     cards = [card for block in blocks for card in block]
     if not cards:
@@ -226,12 +232,12 @@ def grid_section(*blocks: list, **extra) -> dict | None:
     return {"type": "grid", **extra, "cards": cards}
 
 
-def group(heading: dict, cards: list, **extra) -> dict | None:
+def group(heading: dict[str, Any], cards: list[Any], **extra: Any) -> dict[str, Any] | None:
     """A section that holds one heading and its cards."""
     return grid_section(heading_block(heading, cards), **extra)
 
 
-def markdown_card(content: str) -> dict:
+def markdown_card(content: str) -> dict[str, Any]:
     return {"type": "markdown", "content": content, "grid_options": {"columns": FULL}}
 
 
@@ -247,12 +253,16 @@ def state_ref(entity: str, full_text_attribute: str | None = None) -> str:
     return f"{{{{ state_attr('{entity}', '{full_text_attribute}') or states('{entity}') }}}}"
 
 
-def state_markdown(entity: str | None, full_text_attribute: str | None = None) -> dict | None:
+def state_markdown(
+    entity: str | None, full_text_attribute: str | None = None
+) -> dict[str, Any] | None:
     """A markdown card that prints an entity's state, for sensors whose state is a sentence."""
     return markdown_card(state_ref(entity, full_text_attribute)) if entity else None
 
 
-def view_config(title: str, icon: str, path: str, sections: list, **extra) -> dict:
+def view_config(
+    title: str, icon: str, path: str, sections: list[Any], **extra: Any
+) -> dict[str, Any]:
     return {
         "title": title,
         "icon": icon,
@@ -267,12 +277,14 @@ def view_config(title: str, icon: str, path: str, sections: list, **extra) -> di
     }
 
 
-def graph_card(card: dict, rows: int = 4) -> dict:
+def graph_card(card: dict[str, Any], rows: int = 4) -> dict[str, Any]:
     """Give a built-in graph the full width and a fixed height."""
     return {**card, "grid_options": {"columns": FULL, "rows": rows}}
 
 
-def statistics_graph(rows: list, period: str, days: int, height: int = 4) -> dict | None:
+def statistics_graph(
+    rows: list[Any], period: str, days: int, height: int = 4
+) -> dict[str, Any] | None:
     """Bars of the change in each period, for sensors that reset every day.
 
     A history graph of such a sensor draws a sawtooth that falls to zero at midnight.
@@ -290,7 +302,7 @@ def statistics_graph(rows: list, period: str, days: int, height: int = 4) -> dic
     return graph_card(card, height) if card else None
 
 
-def stacked_hourly_graph(rows: list, height: int) -> dict | None:
+def stacked_hourly_graph(rows: list[Any], height: int) -> dict[str, Any] | None:
     """Stacked bars of the energy each hour over the last day, one colour per row."""
     card = entity_list_card(
         rows,
@@ -303,7 +315,7 @@ def stacked_hourly_graph(rows: list, height: int) -> dict | None:
     return graph_card(card, height) if card else None
 
 
-def logbook_card(entities: list[str | None], hours: int) -> dict | None:
+def logbook_card(entities: list[str | None], hours: int) -> dict[str, Any] | None:
     """What changed these entities lately, newest first. None when none of them exists."""
     present_ids = [entity for entity in entities if entity]
     if not present_ids:
@@ -316,7 +328,7 @@ def logbook_card(entities: list[str | None], hours: int) -> dict | None:
     }
 
 
-def entity_list_card(rows: list, head: dict, **tail) -> dict | None:
+def entity_list_card(rows: list[Any], head: dict[str, Any], **tail: Any) -> dict[str, Any] | None:
     """A card built from rows. None when no row points at an entity."""
     rows = present(rows)
     if not any("entity" in r for r in rows):
@@ -366,10 +378,10 @@ def entity_badge(  # noqa: PLR0913
     icon: str,
     *,
     color: str | None = None,
-    nav: dict | None = None,
+    nav: dict[str, Any] | None = None,
     state_content: list[str] | None = None,
-    visibility: list[dict] | None = None,
-) -> dict | None:
+    visibility: list[dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
     """A small chip in a heading that shows an entity's state. None without the entity."""
     if not entity:
         return None
@@ -388,7 +400,7 @@ def entity_badge(  # noqa: PLR0913
     return badge
 
 
-def glance_card(rows: list) -> dict | None:
+def glance_card(rows: list[Any]) -> dict[str, Any] | None:
     """Up to five figures in one row, a name over each value, with no icons.
 
     The rows are entity rows. None when no row has an entity.
@@ -406,13 +418,13 @@ def glance_card(rows: list) -> dict | None:
     }
 
 
-def distribution_card(rows: list) -> dict | None:
+def distribution_card(rows: list[Any]) -> dict[str, Any] | None:
     """One bar split into the share of each row, with its value under it. None without rows."""
     card = entity_list_card(rows, {"type": "distribution"})
     return {**card, "grid_options": {"columns": FULL}} if card else None
 
 
-def switch_tile(entity: str | None, name: str, color: str) -> dict | None:
+def switch_tile(entity: str | None, name: str, color: str) -> dict[str, Any] | None:
     """A switch two to a row, turned on or off by tapping it."""
     card = tile_card(entity, name, color=color)
     if card is None:
@@ -421,17 +433,19 @@ def switch_tile(entity: str | None, name: str, color: str) -> dict | None:
     return {**card, "tap_action": toggle, "icon_tap_action": toggle}
 
 
-def stepper_row(entity: str | None, name: str, color: str) -> dict | None:
+def stepper_row(entity: str | None, name: str, color: str) -> dict[str, Any] | None:
     """A number with − and + buttons beside its name, the full width of the section."""
     return tile_card(entity, name, columns=FULL, color=color, features=[STEPPER], inline=True)
 
 
-def bar_tile(entity: str | None, name: str, color: str) -> dict | None:
+def bar_tile(entity: str | None, name: str, color: str) -> dict[str, Any] | None:
     """A percentage as a bar beside its name, the full width of the section."""
     return tile_card(entity, name, columns=FULL, color=color, features=[BAR], inline=True)
 
 
-def day_bars(rows: list, days: int, height: int = 3, title: str | None = None) -> dict | None:
+def day_bars(
+    rows: list[Any], days: int, height: int = 3, title: str | None = None
+) -> dict[str, Any] | None:
     """Bars of each day for one or two series, with no legend.
 
     One series needs no legend, and the frontend would name it "Energy (change)". A chart that
@@ -444,7 +458,7 @@ def day_bars(rows: list, days: int, height: int = 3, title: str | None = None) -
     return {**card, "title": title} if title else card
 
 
-def stacked_daily_graph(rows: list, days: int, height: int) -> dict | None:
+def stacked_daily_graph(rows: list[Any], days: int, height: int) -> dict[str, Any] | None:
     """Stacked bars of each day, one colour per row, for parts that add up to a whole."""
     card = entity_list_card(
         rows,
@@ -457,13 +471,13 @@ def stacked_daily_graph(rows: list, days: int, height: int) -> dict | None:
     return graph_card(card, height) if card else None
 
 
-def history_graph(rows: list, hours: int, height: int) -> dict | None:
+def history_graph(rows: list[Any], hours: int, height: int) -> dict[str, Any] | None:
     """A line of each row over the last hours, for values that do not reset at midnight."""
     card = entity_list_card(rows, {"type": "history-graph"}, hours_to_show=hours)
     return graph_card(card, height) if card else None
 
 
-def weather_card(entity: str | None) -> dict | None:
+def weather_card(entity: str | None) -> dict[str, Any] | None:
     """The daily forecast for the next few days. None without a weather entity."""
     if not entity:
         return None
@@ -477,7 +491,7 @@ def weather_card(entity: str | None) -> dict | None:
     }
 
 
-def styled(card: dict | None, css: str, *, inner: bool = False) -> dict | None:
+def styled(card: dict[str, Any] | None, css: str, *, inner: bool = False) -> dict[str, Any] | None:
     """The card with card-mod styling. inner styles the markdown inside a markdown card."""
     if card is None:
         return None

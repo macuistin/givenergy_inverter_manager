@@ -108,7 +108,8 @@ def missing_wiring(values: Mapping[str, Any]) -> dict[str, str]:
 def unavailable_wiring(values: Mapping[str, Any], states: Mapping[str, Any]) -> dict[str, str]:
     """A form error when a required entity does not exist or reads unavailable."""
     for key in WIRING_REQUIRED:
-        state = states.get(values.get(key))
+        entity_id = values.get(key)
+        state = states.get(entity_id) if isinstance(entity_id, str) else None
         if state is None or state.state in ("unavailable", "unknown"):
             return {"base": "missing_entities"}
     return {}

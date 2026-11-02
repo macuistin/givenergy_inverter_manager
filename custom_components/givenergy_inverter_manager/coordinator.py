@@ -39,11 +39,11 @@ from __future__ import annotations
 
 import dataclasses
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Coroutine, Mapping
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 from datetime import time as dtime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
@@ -173,7 +173,7 @@ from .core.replan import (
     replan_note,
 )
 from .core.reporting import build_tariff_html, build_tariff_state
-from .core.rules import monthly_solar_fractions
+from .core.rules import ChargeDecision, monthly_solar_fractions
 from .core.scheduled_run import HeldScheduledRun
 from .core.seasons import season_rules
 from .core.setup_progress import SetupFacts, setup_items
@@ -183,6 +183,8 @@ from .core.sunrise_hold import HeldSunrise
 from .core.switch_commands import CommandHealth, after_failure, after_success
 from .core.system_types import SystemIdentity, identity_of, select_controller, what_changed
 from .core.tariff import (
+    RatePeriod,
+    TariffConfig,
     build_tariff,
     last_tariff_review,
     stale_tariff_age_days,
@@ -190,7 +192,13 @@ from .core.tariff import (
 )
 from .core.temperature_feed import next_counts, silent_sensors
 from .core.timeutil import elapsed_seconds
-from .core.window_guard import GuardInputs, GuardState, decide_repair, parse_clock
+from .core.window_guard import (
+    GuardInputs,
+    GuardState,
+    WindowRepair,
+    decide_repair,
+    parse_clock,
+)
 from .core.window_settle import SETTLE_MAX_TRIES, SettleInputs, needs_settling
 from .core.write_log import REPLAN_REASON, RETRY_REASON, SETTLE_REASON, WINDOW_REPAIR_REASON
 from .discovery import (
@@ -243,6 +251,10 @@ from .repairs import (
 from .unconfirmed_write_repair import UnconfirmedWriteRepair
 from .write_audit import WriteAudit
 
+if TYPE_CHECKING:
+    from homeassistant.core import State
+    from homeassistant.helpers import issue_registry as ir
+
 _LOG = get_logger(__name__)
 
 # A wired entity must be missing this many cycles in a row (five minutes) before the repair.
@@ -275,11 +287,11 @@ def _non_negative_float(value: object) -> float | None:
     return number if number >= 0 else None
 
 
-def _minutes_into_day(moment) -> int:
+def _minutes_into_day(moment: datetime | dtime) -> int:
     return moment.hour * 60 + moment.minute
 
 
-def _cheapest_is_ahead(now: datetime, period, cheapest) -> bool:
+def _cheapest_is_ahead(now: datetime, period: RatePeriod, cheapest: RatePeriod) -> bool:
     """True while the cheapest period starts later than now within the current period."""
     start = _minutes_into_day(period.start)
     cheapest_in = (_minutes_into_day(cheapest.start) - start) % _MINUTES_PER_DAY
@@ -287,7 +299,9 @@ def _cheapest_is_ahead(now: datetime, period, cheapest) -> bool:
     return cheapest_in > now_in
 
 
-def _cheapest_rate_text(now: datetime, soc: float, period, cheapest) -> str:
+def _cheapest_rate_text(
+    now: datetime, soc: float, period: RatePeriod, cheapest: RatePeriod
+) -> str:
     """Where the battery waits for the cheapest rate, or that it has already gone by."""
     window = f"{cheapest.name} {cheapest.start.strftime('%H:%M')}–{cheapest.end.strftime('%H:%M')}"
     if _cheapest_is_ahead(now, period, cheapest):
@@ -303,7 +317,7 @@ _IMMERSION_TEMP_ATTRS: dict[str, str] = {
 }
 
 
-def _cheapest_period(tariff):
+def _cheapest_period(tariff: TariffConfig) -> RatePeriod:
     """The timed rate period with the lowest rate."""
     return min(tariff.rate_periods, key=lambda p: p.rate)
 
@@ -434,7 +448,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.override_charge_value: int = DEFAULT_OVERNIGHT_CHARGE_TARGET
         self.override_skip_charge: bool = False
 
-    def _init_immersion(self, cfg: Mapping) -> None:
+    def _init_immersion(self, cfg: Mapping[str, Any]) -> None:
         """Temperature controls (set by number entities, read in _collect_raw) and the actuator."""
         self.immersion_target_temp: float = float(
             cfg.get(CONF_IMMERSION_TARGET_TEMP, DEFAULT_IMMERSION_TARGET_TEMP)
@@ -472,7 +486,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._held_charge.release()
             await self.async_request_refresh()
 
-    def _copy_immersion_temps(self, cfg: Mapping) -> None:
+    def _copy_immersion_temps(self, cfg: Mapping[str, Any]) -> None:
         """Set the three cached immersion temperatures from *cfg*, keeping those it lacks."""
         for key, attr in _IMMERSION_TEMP_ATTRS.items():
             if cfg.get(key) is not None:
@@ -618,15 +632,15 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     # All Home Assistant access goes through these three methods.
     # Override them in a subclass to test the coordinator without HA.
 
-    def _get_state(self, entity_id: str):
+    def _get_state(self, entity_id: str) -> State | None:
         """Return the HA state object for entity_id, or None."""
         return self.hass.states.get(entity_id)
 
-    def _get_optional_state(self, entity_id: str | None):
+    def _get_optional_state(self, entity_id: str | None) -> State | None:
         """Like _get_state, but an unconfigured entity id gives None."""
         return self._get_state(entity_id) if entity_id else None
 
-    def _registry_entry(self, entity_id: str):
+    def _registry_entry(self, entity_id: str) -> er.RegistryEntry | None:
         """The entity registry entry for entity_id, or None."""
         return er.async_get(self.hass).async_get(entity_id)
 
@@ -634,11 +648,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """The current entity id of the entity with this unique id, or None."""
         return er.async_get(self.hass).async_get_entity_id(domain, platform, unique_id)
 
-    def _get_all_states(self) -> dict:
+    def _get_all_states(self) -> dict[str, Any]:
         """Return a dict of all current HA entity states keyed by entity_id."""
         return {s.entity_id: s for s in self.hass.states.async_all()}
 
-    async def _call_service(self, domain: str, service: str, data: dict) -> None:
+    async def _call_service(self, domain: str, service: str, data: dict[str, Any]) -> None:
         """Call an HA service and wait for it to finish."""
         await self.hass.services.async_call(domain, service, data, blocking=True)
 
@@ -648,7 +662,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Run the @callback *action* at *when*. Returns the function that cancels it."""
         return async_track_point_in_time(self.hass, action, when)
 
-    def _create_task(self, coro) -> None:
+    def _create_task(self, coro: Coroutine[Any, Any, Any]) -> None:
         """Schedule a fire-and-forget coroutine as a task owned by the config entry.
 
         Home Assistant tracks the task on the entry and waits for it on unload
@@ -657,7 +671,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """
         self.entry.async_create_task(self.hass, self._run_background(coro))
 
-    async def _run_background(self, coro) -> None:
+    async def _run_background(self, coro: Coroutine[Any, Any, Any]) -> None:
         """Await a fire-and-forget coroutine, logging any failure at warning level."""
         try:
             await coro
@@ -911,7 +925,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._cancel_charge_retry()
             self._run_charge_write(Attempt(window))
 
-    def _write_minimum_target(self, cfg: dict, decision, attempt: Attempt | None = None) -> None:
+    def _write_minimum_target(
+        self, cfg: dict[str, Any], decision: ChargeDecision, attempt: Attempt | None = None
+    ) -> None:
         """Write the minimum SoC as the target on a night the charge is skipped.
 
         If the old target (for example 80%) stays in GivTCP, the inverter holds the
@@ -945,7 +961,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
         )
 
-    def _write_overnight_target(self, cfg: dict, decision, attempt: Attempt | None = None) -> None:
+    def _write_overnight_target(
+        self, cfg: dict[str, Any], decision: ChargeDecision, attempt: Attempt | None = None
+    ) -> None:
         """Write the calculated charge target and the planned charge window to GivTCP."""
         tariff = build_tariff(cfg)
         if not tariff.rate_periods:
@@ -981,7 +999,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
         )
 
-    def _planned_window_period(self, tariff):
+    def _planned_window_period(self, tariff: TariffConfig) -> RatePeriod:
         """The cheapest period with its end moved to the planned window end.
 
         The window comes from the same cycle as the charge decision, so it matches the
@@ -994,7 +1012,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         return replace(cheap, end=window.end)
 
     async def _async_charge_write(
-        self, cfg: dict, planned: PlannedWrite, attempt: Attempt
+        self, cfg: dict[str, Any], planned: PlannedWrite, attempt: Attempt
     ) -> None:
         """Send the plan. When the inverter does not take it, schedule the next attempt."""
         if await self._async_apply_charge_target(cfg, planned.target, planned.period):
@@ -1004,7 +1022,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         self._schedule_charge_retry(attempt, "the inverter did not take it")
 
-    def _plan_basis(self, decision) -> PlanBasis:
+    def _plan_basis(self, decision: ChargeDecision) -> PlanBasis:
         """The figures a charge write rests on, for a later check to compare with.
 
         The plan reads the day-after forecast from the tomorrow sensor until sunrise and from
@@ -1108,7 +1126,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._replan_pending = True
         self._create_task(self._async_settle_write(cfg, night, planned, planned_target))
 
-    async def _async_settle_write(self, cfg: dict, night, planned, target: int) -> None:
+    async def _async_settle_write(
+        self, cfg: dict[str, Any], night: NightState, planned: RatePeriod, target: int
+    ) -> None:
         """Send the plan's window and target. One success ends the settling for the night."""
         try:
             taken = await self._async_apply_charge_target(cfg, target, planned)
@@ -1167,7 +1187,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._audit.note(entity, repair.note, WINDOW_REPAIR_REASON)
         self._create_task(self._async_repair_window(cfg, repair))
 
-    async def _async_repair_window(self, cfg: dict, repair) -> None:
+    async def _async_repair_window(self, cfg: dict[str, Any], repair: WindowRepair) -> None:
         """Send the window start and end. The target and the switches are left alone."""
         try:
             taken = await self._backend.apply_charge_window(cfg, repair.start, repair.end)
@@ -1176,7 +1196,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if not taken:
             _LOG.warning("The inverter did not take the repaired charge window")
 
-    def _replan(self, cfg: dict, step: ReplanStep) -> None:
+    def _replan(self, cfg: dict[str, Any], step: ReplanStep) -> None:
         night, result = step.night, step.result
         if self.is_dry_run:
             action = (
@@ -1199,7 +1219,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._replan_pending = True
         self._create_task(self._async_replan_write(cfg, step))
 
-    async def _async_replan_write(self, cfg: dict, step: ReplanStep) -> None:
+    async def _async_replan_write(self, cfg: dict[str, Any], step: ReplanStep) -> None:
         """Send the new target into the window as written. The writer skips what is unchanged."""
         night, result = step.night, step.result
         try:
@@ -1213,7 +1233,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._replan_note = replan_note(step.at, result.reason)
         self._held_charge.release()
 
-    async def _async_apply_charge_target(self, cfg: dict, target_soc: int, cheap_period) -> bool:
+    async def _async_apply_charge_target(
+        self, cfg: dict[str, Any], target_soc: int, cheap_period: RatePeriod
+    ) -> bool:
         """Hand the backend a plan for the target and the window of cheap_period.
 
         Runs as an async task so the backend can await each write. True when every setting
@@ -1224,7 +1246,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    def _effective_cfg(self) -> dict:
+    def _effective_cfg(self) -> dict[str, Any]:
         """Merge options over data so tariff edits take immediate effect.
 
         On a test instance dry run is forced on, whatever the saved option says. Every reader
@@ -1239,7 +1261,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             cfg[CONF_DRY_RUN] = True
         return self._with_current_entities(tariff_in_force(cfg, self._now().date()))
 
-    def _with_current_entities(self, cfg: dict) -> dict:
+    def _with_current_entities(self, cfg: dict[str, Any]) -> dict[str, Any]:
         """Point every wired GivTCP entity at the id it has now, learning ids as they match.
 
         GivTCP 3.6 and 3.6.1 reset entity ids to their defaults, so a stored id can stop matching
@@ -1275,14 +1297,14 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     def _entity_id_for(self, domain: str, platform: str, unique_id: str) -> str | None:
         return self._registry_entity_id(domain, platform, unique_id)
 
-    def _configured_bill_start_day(self, cfg: dict | None = None) -> int:
+    def _configured_bill_start_day(self, cfg: dict[str, Any] | None = None) -> int:
         """Return the bill start day from the effective config (options over data)."""
         from .const import CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY
 
         cfg = cfg if cfg is not None else self._effective_cfg()
         return int(cfg.get(CONF_BILL_START_DAY, DEFAULT_BILL_START_DAY))
 
-    def _collect_raw(self, cfg: dict) -> RawSensorValues:
+    def _collect_raw(self, cfg: dict[str, Any]) -> RawSensorValues:
         """Read all sensor entity states and return as a plain-Python struct."""
         raw = RawSensorValues()
         values = self._backend.read(cfg)
@@ -1311,7 +1333,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._smoothed_solar_w = 0.5 * self._smoothed_solar_w + 0.5 * raw.solar_power_w
         raw.smoothed_solar_power_w = self._smoothed_solar_w
 
-    def _read_system_limits(self, cfg: dict, raw: RawSensorValues) -> None:
+    def _read_system_limits(self, cfg: dict[str, Any], raw: RawSensorValues) -> None:
         """Battery capacity and inverter output: the chosen sensor, else the typed value."""
         typed_output = float(cfg.get(CONF_INVERTER_MAX_OUTPUT, DEFAULT_INVERTER_MAX_OUTPUT))
         typed_capacity = float(cfg.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY))
@@ -1328,7 +1350,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         return state.state, state.attributes.get("unit_of_measurement")
 
     def _read_immersion_inputs(
-        self, cfg: dict, raw: RawSensorValues, unavailable: list[str]
+        self, cfg: dict[str, Any], raw: RawSensorValues, unavailable: list[str]
     ) -> None:
         raw.immersion_wattage_w = float(cfg.get(CONF_IMMERSION_WATTAGE, DEFAULT_IMMERSION_WATTAGE))
         raw.immersion_switch_configured = bool(cfg.get(CONF_IMMERSION_SWITCH))
@@ -1362,7 +1384,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             cfg.get(CONF_IMMERSION_LOWER_TEMP_SENSOR)
         )
 
-    def _read_alt_heat(self, cfg: dict, raw: RawSensorValues) -> None:
+    def _read_alt_heat(self, cfg: dict[str, Any], raw: RawSensorValues) -> None:
         """Set the cost of a kWh of heat from the alternative, and its label.
 
         The cost is None, and so is the advice, when the setting is off, there is no immersion
@@ -1380,7 +1402,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             unit = cfg.get(CONF_ALT_HEAT_COST_UNIT, DEFAULT_ALT_HEAT_UNIT)
             raw.alt_heat_cost_per_kwh = heat_cost_per_kwh(unit, cost)
 
-    def _read_forecasts(self, cfg: dict, raw: RawSensorValues) -> None:
+    def _read_forecasts(self, cfg: dict[str, Any], raw: RawSensorValues) -> None:
         raw.forecast_kwh_tomorrow = self._read_forecast_kwh(cfg.get(CONF_FORECAST_ENTITY))
         raw.forecast_kwh_p10 = self._read_p10_forecast(cfg)
         raw.forecast_kwh_d2 = self._read_forecast_kwh(cfg.get(CONF_FORECAST_ENTITY_D2))
@@ -1403,7 +1425,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 return shape
         return None
 
-    def _read_p10_forecast(self, cfg: dict) -> float | None:
+    def _read_p10_forecast(self, cfg: dict[str, Any]) -> float | None:
         """The pessimistic forecast: the configured P10 sensor, else the forecast sensor's own.
 
         Solcast puts the P10 total in an attribute of its forecast sensors, so it needs no
@@ -1517,7 +1539,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     # ── Main update cycle ─────────────────────────────────────────────────────
 
-    async def _maybe_apply_cheap_rate_floor(self, now: datetime, raw, cfg: dict) -> str:
+    async def _maybe_apply_cheap_rate_floor(
+        self, now: datetime, raw: RawSensorValues, cfg: dict[str, Any]
+    ) -> str:
         """During cheap rate hours, top up battery if it drops below the floor.
 
         Optimises for the cheapest available window (e.g. Nightboost over Night):
@@ -1532,9 +1556,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if check.top_up_to is None:
             return check.status
         _LOG.info("Cheap rate floor: %s", check.status)
-        return await self._top_up_to_floor(cfg, check)
+        return await self._top_up_to_floor(cfg, check, check.top_up_to)
 
-    def _check_cheap_rate_floor(self, now: datetime, raw, cfg: dict) -> _FloorCheck:
+    def _check_cheap_rate_floor(
+        self, now: datetime, raw: RawSensorValues, cfg: dict[str, Any]
+    ) -> _FloorCheck:
         """Decide whether the battery needs a top-up now, and what to tell the sensor."""
         floor_soc = int(cfg.get(CONF_CHEAP_RATE_FLOOR_SOC, DEFAULT_CHEAP_RATE_FLOOR_SOC))
         if floor_soc <= 0:
@@ -1557,7 +1583,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return _FloorCheck("")
         return self._floor_top_up_check(raw.battery_soc, period, effective_floor)
 
-    def _floor_top_up_check(self, soc: float, period, effective_floor: int) -> _FloorCheck:
+    def _floor_top_up_check(
+        self, soc: float, period: RatePeriod, effective_floor: int
+    ) -> _FloorCheck:
         if self._floor_top_up_applied:
             return _FloorCheck(
                 f"Floor already applied this window — battery at {soc:.0f}%, "
@@ -1566,7 +1594,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         status = f"Battery at {soc:.0f}% during {period.name} — topping up to {effective_floor}%"
         return _FloorCheck(status, top_up_to=effective_floor)
 
-    async def _top_up_to_floor(self, cfg: dict, check: _FloorCheck) -> str:
+    async def _top_up_to_floor(self, cfg: dict[str, Any], check: _FloorCheck, target: int) -> str:
         """Write the floor target, or report why it was not written."""
         target_entity = cfg.get(CONF_TARGET_SOC_ENTITY)
         if not target_entity:
@@ -1575,12 +1603,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self.is_dry_run:
             _LOG.info("DRY RUN: %s", check.status)
             return f"DRY RUN: {check.status}"
-        if not (await self._backend.apply_floor_target(cfg, check.top_up_to)).ok:
+        if not (await self._backend.apply_floor_target(cfg, target)).ok:
             return f"Error writing floor — {check.status}"
         self._floor_top_up_applied = True
         return check.status
 
-    def _check_config_repair_issues(self, cfg: dict) -> None:
+    def _check_config_repair_issues(self, cfg: dict[str, Any]) -> None:
         """Raise or clear repair issues for misconfigured values that won't self-heal."""
         min_soc = int(cfg.get(CONF_BATTERY_MIN_SOC, DEFAULT_BATTERY_MIN_SOC))
         if min_soc > MIN_SOC_HIGH_THRESHOLD:
@@ -1591,7 +1619,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._check_battery_cost(cfg)
         self._check_tariff_review(cfg)
 
-    def _check_battery_cost(self, cfg: dict) -> None:
+    def _check_battery_cost(self, cfg: dict[str, Any]) -> None:
         """Ask for the battery cost while it is 0 after the integration has run a while."""
         cost = float(cfg.get(CONF_BATTERY_COST, DEFAULT_BATTERY_COST))
         if battery_cost_prompt_due(cost, self._battery_stats, self._now().date()):
@@ -1771,7 +1799,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         elif step.clear_issue:
             async_delete_real_time_control_issue(self.hass)
 
-    def _check_temperature_sensors(self, cfg: dict) -> None:
+    def _check_temperature_sensors(self, cfg: dict[str, Any]) -> None:
         """Raise one repair naming each hot water temperature sensor that has read nothing.
 
         A sensor counts as silent after a few minutes of unavailable, unknown or missing, which
@@ -1886,12 +1914,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self._store_identity(found)
         async_delete_system_different_issue(self.hass)
 
-    def _apply_cached_rates(self, cfg: dict) -> None:
+    def _apply_cached_rates(self, cfg: dict[str, Any]) -> None:
         """Copy the two config values the coordinator keeps outside the snapshot."""
         self._acc.update_bill_start_day(self._configured_bill_start_day(cfg))
         self.export_rate = float(cfg.get(CONF_EXPORT_RATE, 0.0))
 
-    def _require_inverter_publishing(self, cfg: dict) -> None:
+    def _require_inverter_publishing(self, cfg: dict[str, Any]) -> None:
         """Fail the cycle unless the inverter integration is giving live numbers.
 
         A silent feed marks the integration unavailable only when both the solar and battery
@@ -1920,12 +1948,12 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
         self._note_givtcp_publishing()
 
-    def _note_givtcp_frozen(self, newest: datetime) -> None:
+    def _note_givtcp_frozen(self, newest: datetime | None) -> None:
         """Say once that the feed is frozen, raise the repair, and stop the gap from counting."""
         if self._givtcp_frozen:
             return
         self._givtcp_frozen = True
-        since = dt_util.as_local(newest).strftime("%d %b %H:%M")
+        since = dt_util.as_local(newest).strftime("%d %b %H:%M") if newest else "an unknown time"
         _LOG.warning(
             "GivTCP data is frozen, not unavailable: nothing has been reported since %s and the "
             "entities still hold their last values. Planning and charge writes are paused until "
@@ -1986,7 +2014,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if self._missing_ref_cycles < MISSING_ENTITY_CYCLES:
             async_delete_givtcp_missing_issue(self.hass)
 
-    def _read_inputs(self, cfg: dict, now: datetime) -> RawSensorValues:
+    def _read_inputs(self, cfg: dict[str, Any], now: datetime) -> RawSensorValues:
         """Refresh discovery, read every input and note outages and the baseline load."""
         self._maybe_rediscover_ev()
         self._maybe_rediscover_battery_cycles()
@@ -2022,7 +2050,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         baseline_w = max(0.0, raw.house_load_w - immersion_w - raw.ev_power_w)
         self._acc.record_slot_load(now, slot, (baseline_w / 1000) * elapsed_h, elapsed_h)
 
-    def _attach_bill_audit(self, data: CoordinatorData, cfg: dict, now: datetime) -> None:
+    def _attach_bill_audit(self, data: CoordinatorData, cfg: dict[str, Any], now: datetime) -> None:
         """Build the audit of this bill period and of the one before it."""
         state = self._acc.state
         tariff = build_tariff(tariff_in_force(cfg, now.date()))
@@ -2121,7 +2149,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._ev_base_rate = WatchState()
 
     @callback
-    def _on_repairs_changed(self, _event: Event) -> None:
+    def _on_repairs_changed(self, _event: Event[ir.EventIssueRegistryUpdatedData]) -> None:
         """An issue of this integration was raised, changed or deleted: refresh the count."""
         self._create_task(self._async_refresh_repairs())
 
@@ -2133,7 +2161,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.async_update_listeners()
 
     def _attach_setup_progress(
-        self, data: CoordinatorData, raw: RawSensorValues, cfg: dict
+        self, data: CoordinatorData, raw: RawSensorValues, cfg: dict[str, Any]
     ) -> None:
         """Work out the setup checklist from the saved config and this cycle's readings."""
         data.setup_items = setup_items(

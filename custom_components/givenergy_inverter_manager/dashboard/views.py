@@ -191,7 +191,7 @@ _SYSTEM_HELP = (
 )
 
 
-def _help(lines: tuple[tuple[str, str], ...]) -> dict:
+def _help(lines: tuple[tuple[str, str], ...]) -> dict[str, Any]:
     """What a group of settings does, folded away until tapped."""
     body = "\n".join(f"- **{name}**: {text}" for name, text in lines)
     return markdown_card(f"<details><summary>What these do</summary>\n\n{body}\n</details>")
@@ -218,7 +218,7 @@ def _dry_run_exit(dry_run_active: str) -> str:
     )
 
 
-def _has_inverter_temp(hass: HomeAssistant, cfg: dict) -> bool:
+def _has_inverter_temp(hass: HomeAssistant, cfg: dict[str, Any]) -> bool:
     """True when an inverter temperature entity is chosen or GivTCP publishes one."""
     if cfg.get(CONF_INVERTER_TEMP_ENTITY):
         return True
@@ -299,7 +299,7 @@ class Builder:
         hass: HomeAssistant,
         entry: ConfigEntry,
         facts: HostFacts,
-        registry,
+        registry: er.EntityRegistry | None,
     ) -> None:
         self.cards = HacsCards(facts.resources)
         # Settings is built for an administrator and left out for anyone else.
@@ -361,29 +361,31 @@ class Builder:
         integration_power = self.ev("ev_power")
         return self.external_ev or integration_power
 
-    def tile(self, suffix: str, name: str, **style) -> dict | None:
+    def tile(self, suffix: str, name: str, **style: Any) -> dict[str, Any] | None:
         """A tile for the entity with this unique ID suffix."""
         return tile_card(self.entity(suffix), name, **style)
 
-    def row(self, entity: str | None, name: str, colour: str | None = None) -> dict | None:
+    def row(
+        self, entity: str | None, name: str, colour: str | None = None
+    ) -> dict[str, Any] | None:
         """An entity row, in its colour on a release whose charts draw one."""
         if colour and self.series_colours:
             return entity_row(entity, name, color=colour)
         return entity_row(entity, name)
 
-    def table(self, card: dict | None, *, total: bool = False) -> dict | None:
+    def table(self, card: dict[str, Any] | None, *, total: bool = False) -> dict[str, Any] | None:
         """A markdown card holding a table, styled by card-mod when it is installed."""
         if card is None or not self.cards.installed(CARD_MOD):
             return card
         return styled(card, TABLE_CSS + (TOTAL_CSS if total else ""), inner=True)
 
-    def chart_title(self, card: dict | None) -> dict | None:
+    def chart_title(self, card: dict[str, Any] | None) -> dict[str, Any] | None:
         """A chart's own title in small grey type, when card-mod is installed."""
         if card is None or not card.get("title") or not self.cards.installed(CARD_MOD):
             return card
         return styled(card, CHART_TITLE_CSS)
 
-    def attribute_card(self, entity: str | None, attribute: str) -> dict | None:
+    def attribute_card(self, entity: str | None, attribute: str) -> dict[str, Any] | None:
         """A markdown card that prints one attribute. None while the entity is missing."""
         if not entity:
             return None
@@ -391,7 +393,7 @@ class Builder:
 
     # -- navigation --
 
-    def build_subviews(self) -> list[dict]:
+    def build_subviews(self) -> list[dict[str, Any]]:
         """Build every sub-view and note which of them hold cards. Call before the tabs."""
         views = [spec.build(self) for spec in SUBVIEWS]
         self._subview_paths = {view["path"] for view in views if view["sections"]}
@@ -403,7 +405,7 @@ class Builder:
             raise RuntimeError("build the sub-views before the tabs that link to them")
         return path in self._subview_paths
 
-    def go(self, path: str) -> dict | None:
+    def go(self, path: str) -> dict[str, Any] | None:
         """A tap action to the view at path, or None when that sub-view is empty.
 
         A tab is always linked, though a tab with nothing to show is left out of the dashboard.
@@ -427,11 +429,11 @@ class Builder:
 
     # -- Home energy: the power flow --
 
-    def _solar_node(self) -> dict | None:
+    def _solar_node(self) -> dict[str, Any] | None:
         solar_power = self.entity("solar_power")
         if not solar_power:
             return None
-        node: dict = {
+        node: dict[str, Any] = {
             "entity": solar_power,
             "color_icon": False,
             "color_value": False,
@@ -444,23 +446,23 @@ class Builder:
             }
         return node
 
-    def _battery_node(self) -> dict | None:
+    def _battery_node(self) -> dict[str, Any] | None:
         battery_power = self.entity("battery_power")
         if not battery_power:
             return None
         # The manager's Battery Power is positive while charging. The card reads a
         # positive value as discharging unless it is told to invert it.
-        node: dict = {"entity": battery_power, "invert_state": True}
+        node: dict[str, Any] = {"entity": battery_power, "invert_state": True}
         if battery_soc := self.entity("battery_soc"):
             node["state_of_charge"] = battery_soc
             node["show_state_of_charge"] = True
         return node
 
-    def _grid_node(self) -> dict | None:
+    def _grid_node(self) -> dict[str, Any] | None:
         grid_power = self.entity("grid_power")
         if not grid_power:
             return None
-        node: dict = {
+        node: dict[str, Any] = {
             "entity": grid_power,
             "use_metadata": False,
             "invert_state": False,
@@ -477,13 +479,13 @@ class Builder:
             }
         return node
 
-    def _home_node(self) -> dict | None:
+    def _home_node(self) -> dict[str, Any] | None:
         house_load = self.entity("house_load")
         if not house_load:
             return None
         return {"entity": house_load, "subtract_individual": False, "hide": False}
 
-    def _individual_nodes(self, shown: frozenset[Device]) -> list:
+    def _individual_nodes(self, shown: frozenset[Device]) -> list[Any]:
         """The devices drawn beside the home node: those of *shown* that exist."""
         car = entity_row(
             self.ev_power() if Device.EV_CHARGER in shown else None,
@@ -501,19 +503,19 @@ class Builder:
         )
         return present([car, heater])
 
-    def _flow_entities(self, shown: frozenset[Device]) -> dict:
+    def _flow_entities(self, shown: frozenset[Device]) -> dict[str, Any]:
         nodes = {
             "solar": self._solar_node(),
             "battery": self._battery_node(),
             "grid": self._grid_node(),
             "home": self._home_node(),
         }
-        out = {name: node for name, node in nodes.items() if node}
+        out: dict[str, Any] = {name: node for name, node in nodes.items() if node}
         if individual := self._individual_nodes(shown):
             out["individual"] = individual
         return out
 
-    def _flow_card(self, shown: frozenset[Device]) -> dict | None:
+    def _flow_card(self, shown: frozenset[Device]) -> dict[str, Any] | None:
         """The power flow card with the devices of *shown* drawn beside the home node."""
         flow = self._flow_entities(shown)
         if not flow:
@@ -521,7 +523,7 @@ class Builder:
         card = flow_card(flow) if self.cards.installed(POWER_FLOW_CARD) else flow_fallback(flow)
         return {**card, "grid_options": {"columns": FULL}} if card else None
 
-    def _flow(self) -> dict | None:
+    def _flow(self) -> dict[str, Any] | None:
         """The power flow, two columns wide, under a heading that carries the day's figures.
 
         The heading holds the Settings button and the day's solar, import cost and
@@ -541,7 +543,7 @@ class Builder:
 
     # -- Home energy: tonight, and where the day's energy came from --
 
-    def _today_badges(self) -> list[dict]:
+    def _today_badges(self) -> list[dict[str, Any]]:
         return present(
             [
                 entity_badge(self.entity("solar_today"), "mdi:solar-power", color="orange"),
@@ -552,12 +554,12 @@ class Builder:
             ]
         )
 
-    def _tonight_line(self) -> dict | None:
+    def _tonight_line(self) -> dict[str, Any] | None:
         """Whether the battery charges tonight, in one line with an icon. None without the plan."""
         plan = self.entity("charge_plan")
         return markdown_card(tonight_line_template(plan)) if plan else None
 
-    def _sources_bar(self) -> dict | None:
+    def _sources_bar(self) -> dict[str, Any] | None:
         """The day's energy split by where it came from: the sun, the battery or the grid."""
         return distribution_card(
             [
@@ -567,7 +569,7 @@ class Builder:
             ]
         )
 
-    def _tonight_and_sources(self) -> dict | None:
+    def _tonight_and_sources(self) -> dict[str, Any] | None:
         """Under the power flow: whether tonight charges, then where the day's energy came from."""
         line = self._tonight_line()
         sources = heading_block(
@@ -578,7 +580,7 @@ class Builder:
 
     # -- Home energy: the devices --
 
-    def _water_tiles(self, shown: frozenset[Device]) -> dict | None:
+    def _water_tiles(self, shown: frozenset[Device]) -> dict[str, Any] | None:
         """The hot water figures for the devices of *shown*, each opening the Hot water view.
 
         The heater is shown as on or off, read from the managed switch, which is on while the
@@ -622,7 +624,7 @@ class Builder:
             ]
         )
 
-    def _charger_tiles(self) -> dict | None:
+    def _charger_tiles(self) -> dict[str, Any] | None:
         """The EV charger figures, each opening the EV charger view."""
         nav = self.go(SUB_EV)
         return tile_grid(
@@ -634,7 +636,7 @@ class Builder:
             ]
         )
 
-    def _device_sections(self) -> list:
+    def _device_sections(self) -> list[Any]:
         """A section for the hot water and one for the EV charger, each with its figures.
 
         They are two sections so a wide screen puts them side by side. A phone has one column
@@ -663,7 +665,7 @@ class Builder:
             ),
         ]
 
-    def _repairs_section(self) -> dict | None:
+    def _repairs_section(self) -> dict[str, Any] | None:
         """This integration's open repairs, shown only while there is one, to administrators.
 
         Home Assistant's own repairs card lists every repair in Home Assistant and has no
@@ -683,7 +685,7 @@ class Builder:
             **WHOLE_WIDTH,
         )
 
-    def _dry_run_section(self) -> dict | None:
+    def _dry_run_section(self) -> dict[str, Any] | None:
         """A banner, shown only while Dry Run Mode Active is true."""
         dry_run_active = self.entity("dry_run_active")
         if not dry_run_active:
@@ -703,7 +705,7 @@ class Builder:
             **WHOLE_WIDTH,
         )
 
-    def _charge_conflict_section(self) -> dict | None:
+    def _charge_conflict_section(self) -> dict[str, Any] | None:
         """A banner, shown only while Charge Target Conflict says suspected.
 
         It names no product, because a change made in the GivEnergy app looks the same as
@@ -727,7 +729,7 @@ class Builder:
             **WHOLE_WIDTH,
         )
 
-    def _alt_heat_section(self) -> dict | None:
+    def _alt_heat_section(self) -> dict[str, Any] | None:
         """A banner, shown while either alternative heating trigger says start_now.
 
         Both triggers are ordinary state conditions joined by an or, so it works on the Home
@@ -753,7 +755,7 @@ class Builder:
             **WHOLE_WIDTH,
         )
 
-    def _run_limit_section(self) -> dict | None:
+    def _run_limit_section(self) -> dict[str, Any] | None:
         """A banner, shown while Immersion Run Limit says reached.
 
         The sensor reports off when the longest run is 0 or the warning is turned off, so the
@@ -772,7 +774,7 @@ class Builder:
             **WHOLE_WIDTH,
         )
 
-    def _setup_checklist(self) -> dict | None:
+    def _setup_checklist(self) -> dict[str, Any] | None:
         """What is left to set up, shown while Setup Progress says incomplete.
 
         The state condition is a classic one, so it works on the Home Assistant floor. There is
@@ -788,7 +790,7 @@ class Builder:
             **WHOLE_WIDTH,
         )
 
-    def now_sections(self) -> list:
+    def now_sections(self) -> list[Any]:
         """The banners while they apply, the power flow, tonight, and the device boxes.
 
         On a laptop the device boxes sit beside the power flow, and beside each other on a
@@ -822,7 +824,7 @@ class Builder:
             self.immersion("immersion_cost_today") if immersion else None,
         )
 
-    def _today_story(self) -> dict | None:
+    def _today_story(self) -> dict[str, Any] | None:
         solar = self.entity("solar_today")
         if not solar:
             return None
@@ -836,7 +838,7 @@ class Builder:
         )
         return markdown_card(today_story_template(totals, self.symbol))
 
-    def _last_day_by_hour(self) -> dict | None:
+    def _last_day_by_hour(self) -> dict[str, Any] | None:
         """Where each hour's energy came from over the last day, as stacked bars.
 
         The three sources stack to what the house and the battery took in that hour.
@@ -850,7 +852,7 @@ class Builder:
             _CHART_ROWS,
         )
 
-    def _today_story_section(self) -> dict | None:
+    def _today_story_section(self) -> dict[str, Any] | None:
         return grid_section(
             heading_block(heading_card("Today", "mdi:calendar-today"), [self._today_story()]),
             heading_block(
@@ -860,7 +862,7 @@ class Builder:
             **WIDE,
         )
 
-    def _predicted_and_produced(self) -> dict | None:
+    def _predicted_and_produced(self) -> dict[str, Any] | None:
         """Today's solar as the forecast expected it and as it came, over the producing hours."""
         solar_power = self.entity("solar_power")
         if not (
@@ -878,7 +880,7 @@ class Builder:
             **WIDE,
         )
 
-    def _cost_split(self, shown: frozenset[Device]) -> dict | None:
+    def _cost_split(self, shown: frozenset[Device]) -> dict[str, Any] | None:
         cost = self._cost_entities(shown)
         return distribution_card(
             [
@@ -888,7 +890,7 @@ class Builder:
             ]
         )
 
-    def _today_split(self) -> dict | None:
+    def _today_split(self) -> dict[str, Any] | None:
         """Where the energy came from and what it cost, as split bars, then the day in figures."""
         sources = self._sources_bar()
         costs = self.devices.variants(
@@ -915,7 +917,7 @@ class Builder:
             heading_block(subheading_card("Solar", "mdi:solar-power"), shares),
         )
 
-    def _solar_week(self) -> dict | None:
+    def _solar_week(self) -> dict[str, Any] | None:
         """What was generated on each of the last 7 days, and the forecast in figures."""
         week = day_bars([self.row(self.entity("solar_today"), "Solar", SOLAR_HEX)], _WEEK)
         forecast = (
@@ -935,7 +937,7 @@ class Builder:
             heading_block(subheading_card("Forecast", "mdi:weather-partly-cloudy"), [forecast]),
         )
 
-    def today_sections(self) -> list:
+    def today_sections(self) -> list[Any]:
         """Sub-view: the day, predicted and produced, where it came from, the solar week."""
         return [
             self._today_story_section(),
@@ -946,14 +948,14 @@ class Builder:
 
     # -- Tonight --
 
-    def _while_on(self, switch_suffix: str, tile: dict | None) -> dict | None:
+    def _while_on(self, switch_suffix: str, tile: dict[str, Any] | None) -> dict[str, Any] | None:
         """A tile shown only while this switch is on, so a setting shows only while in force."""
         switch = self.entity(switch_suffix)
         if switch is None:
             return None
         return with_visibility(tile, self.devices.visible_while_on(switch))
 
-    def _in_force(self) -> list:
+    def _in_force(self) -> list[Any]:
         """The settings that change tonight, each shown only while it does.
 
         Everyone can read them here. Administrators change them in Settings.
@@ -991,7 +993,7 @@ class Builder:
             else None,
         ]
 
-    def _night_survival(self) -> list:
+    def _night_survival(self) -> list[Any]:
         """The overnight outlook in bold, then why, in words.
 
         The confidence sensor carries the level. Its explanation attribute is used when
@@ -1009,7 +1011,7 @@ class Builder:
             return [markdown_card(state_ref(status, ATTR_FULL_TEXT))]
         return []
 
-    def _tonight(self) -> dict | None:
+    def _tonight(self) -> dict[str, Any] | None:
         """Whether tonight charges and why, the charge's cost, and the battery as bars.
 
         The plan cards show while the recommended target has a value. It reads unknown through
@@ -1055,7 +1057,7 @@ class Builder:
             [*plan_cards, *self._in_force()],
         )
 
-    def _battery_history(self) -> dict | None:
+    def _battery_history(self) -> dict[str, Any] | None:
         return group(
             heading_card("Battery, last day and a half", "mdi:chart-line"),
             [
@@ -1068,12 +1070,12 @@ class Builder:
             **WIDE,
         )
 
-    def _weather(self) -> dict | None:
+    def _weather(self) -> dict[str, Any] | None:
         return group(
             heading_card("Next few days", "mdi:weather-partly-cloudy"), [weather_card(self.weather)]
         )
 
-    def _health(self) -> dict | None:
+    def _health(self) -> dict[str, Any] | None:
         """The battery's wear and the inverter's temperature, in a row of figures."""
         return group(
             heading_card("Battery health", "mdi:battery-heart-variant"),
@@ -1090,13 +1092,13 @@ class Builder:
             ],
         )
 
-    def plan_sections(self) -> list:
+    def plan_sections(self) -> list[Any]:
         """Sub-view: tonight's charge, the battery's last day and a half, the weather, health."""
         return [self._tonight(), self._battery_history(), self._weather(), self._health()]
 
     # -- Tomorrow --
 
-    def _tomorrow(self) -> dict | None:
+    def _tomorrow(self) -> dict[str, Any] | None:
         """Tomorrow's solar in a sentence and through the day, and the battery at dawn."""
         if not self.forecast:
             return None
@@ -1129,7 +1131,7 @@ class Builder:
             **WIDE,
         )
 
-    def _tomorrow_cost(self) -> dict | None:
+    def _tomorrow_cost(self) -> dict[str, Any] | None:
         outlook = self.entity("tomorrow_outlook")
         return grid_section(
             heading_block(
@@ -1142,13 +1144,13 @@ class Builder:
             ),
         )
 
-    def tomorrow_sections(self) -> list:
+    def tomorrow_sections(self) -> list[Any]:
         """Sub-view: tomorrow's solar, the battery at dawn, the expected cost and the weather."""
         return [self._tomorrow(), self._tomorrow_cost()]
 
     # -- Bill & tariff --
 
-    def _paid_and_would_have(self) -> dict | None:
+    def _paid_and_would_have(self) -> dict[str, Any] | None:
         """What each day cost, beside what it would have cost with no solar or battery."""
         return day_bars(
             [
@@ -1159,7 +1161,7 @@ class Builder:
             4,
         )
 
-    def _cost_by_use(self, shown: frozenset[Device]) -> dict | None:
+    def _cost_by_use(self, shown: frozenset[Device]) -> dict[str, Any] | None:
         """The import cost of each day as stacked bars, split by what used it."""
         cost = self._cost_entities(shown)
         return stacked_daily_graph(
@@ -1172,7 +1174,7 @@ class Builder:
             4,
         )
 
-    def _bill_period(self) -> dict | None:
+    def _bill_period(self) -> dict[str, Any] | None:
         """The saving in a sentence, the period in two rows of figures, and the cost by day."""
         paid = self.entity("accrued_bill")
         without = self.entity("bill_without_solar")
@@ -1216,7 +1218,7 @@ class Builder:
             **WIDE,
         )
 
-    def _tariff(self) -> dict | None:
+    def _tariff(self) -> dict[str, Any] | None:
         """When each rate applies, as a strip of the last day, then the rates themselves."""
         period = self.entity("current_rate_period")
         strip = history_graph([entity_row(period, "Rate")], 24, 1) if period else None
@@ -1239,14 +1241,14 @@ class Builder:
             self._scheduled_changes(today),
         )
 
-    def _scheduled_changes(self, today: date) -> list:
+    def _scheduled_changes(self, today: date) -> list[Any]:
         """The rate changes that have not started, under the rates. Empty when none."""
         changes = scheduled_tariff_changes(self.cfg, today)
         text = tariff_changes_table(changes, self.cfg, last_tariff_review(self.cfg))
         heading = subheading_card("Scheduled rate changes", "mdi:calendar-clock")
         return heading_block(heading, [self.table(markdown_card(text)) if text else None])
 
-    def _bill_tables(self) -> list:
+    def _bill_tables(self) -> list[Any]:
         """The bill line by line, each day, and the last bill, each a small table of its own."""
         audit = self.entity("bill_audit")
         previous = self.entity("previous_bill_audit")
@@ -1265,7 +1267,7 @@ class Builder:
             ),
         ]
 
-    def bill_sections(self) -> list:
+    def bill_sections(self) -> list[Any]:
         """Sub-view: the bill period and its charts, the tariff, then the bill's tables.
 
         On a laptop the tariff sits beside the period and the three tables fill the row below.
@@ -1275,7 +1277,7 @@ class Builder:
 
     # -- Hot water --
 
-    def _immersion_chart(self, entities: ImmersionEntities) -> dict | None:
+    def _immersion_chart(self, entities: ImmersionEntities) -> dict[str, Any] | None:
         """The immersion chart. apexcharts-card draws the heater as a band behind the water
         temperature, in one chart, when it is installed. Otherwise a history graph draws the
         temperatures and the heater's power as two charts in one card."""
@@ -1283,7 +1285,7 @@ class Builder:
             return apex_immersion_chart(entities)
         return builtin_immersion_chart(entities)
 
-    def _temperature_card(self, shown: frozenset[Device]) -> dict | None:
+    def _temperature_card(self, shown: frozenset[Device]) -> dict[str, Any] | None:
         """The water temperature chart.
 
         With the thermostat (the switch and the sensor together) it adds the target and minimum
@@ -1299,22 +1301,25 @@ class Builder:
         )
         return self._immersion_chart(entities)
 
-    def _water_story(self, shown: frozenset[Device]) -> dict:
+    def _water_story(self, shown: frozenset[Device]) -> dict[str, Any] | None:
         """The water in a sentence. The target, the heater and why only with the thermostat.
 
         A sensor with no switch has no heater and no target, so its sentence gives the
         temperature alone.
         """
+        water = self.water_sensor("immersion_water_temperature")
+        if water is None:
+            return None
         both = Device.IMMERSION_THERMOSTAT in shown
         story = WaterNow(
-            self.water_sensor("immersion_water_temperature"),
+            water,
             self.thermostat("immersion_target_temp") if both else None,
             self.immersion("immersion_power") if both else None,
             self.entity("immersion_divert_reason") if both else None,
         )
         return markdown_card(water_story_template(story))
 
-    def _water_now(self) -> dict | None:
+    def _water_now(self) -> dict[str, Any] | None:
         """The water in a sentence, the heater's day in figures, and the temperature chart."""
         stories = self.devices.variants((Device.IMMERSION_THERMOSTAT,), self._water_story)
         # Without a sensor there is no sentence on the water, so why the heater is on or off
@@ -1349,14 +1354,14 @@ class Builder:
             **WIDE,
         )
 
-    def _water_plan(self) -> dict | None:
+    def _water_plan(self) -> dict[str, Any] | None:
         """The planned heating for the next ready time, the cheapest source, and the settings."""
         water = self.water_sensor("immersion_water_temperature")
         source = self.alt_heat_advice("water_heating_cheapest_source")
         schedule = self.devices.visible_while_on(self.thermostat("immersion_schedule"))
         # The sensor holds the planned heating only while scheduled heating is on.
         plan = with_visibility(
-            markdown_card(plan_text_template(water)),
+            markdown_card(plan_text_template(water)) if water else None,
             [
                 *self.devices.visible_with(Device.IMMERSION_THERMOSTAT, Device.IMMERSION_SENSOR),
                 *schedule,
@@ -1395,7 +1400,7 @@ class Builder:
             **self._when(Device.IMMERSION_SWITCH),
         )
 
-    def _trigger_tiles(self) -> dict | None:
+    def _trigger_tiles(self) -> dict[str, Any] | None:
         """The two alternative heating triggers, each a tile that shows idle or start_now."""
         return tile_grid(
             [
@@ -1404,7 +1409,7 @@ class Builder:
             ]
         )
 
-    def _water_settings(self, shown: frozenset[Device]) -> dict | None:
+    def _water_settings(self, shown: frozenset[Device]) -> dict[str, Any] | None:
         """The heater's settings in force. Scheduled heating and the temperatures need the
         thermostat (the switch and the sensor together)."""
         both = Device.IMMERSION_THERMOSTAT in shown
@@ -1417,7 +1422,7 @@ class Builder:
             ]
         )
 
-    def _week_pair(self, energy: dict | None, cost: str | None) -> dict | None:
+    def _week_pair(self, energy: dict[str, Any] | None, cost: str | None) -> dict[str, Any] | None:
         """The last 7 days of energy and of cost, side by side on a laptop.
 
         The energy row carries its name and the device's colour, so the bars match the device.
@@ -1433,7 +1438,7 @@ class Builder:
             chart["grid_options"] = {"columns": 12, "rows": _SMALL_CHART_ROWS}
         return group(heading_card(f"Last {_WEEK} days", "mdi:calendar-week"), charts, **WIDE)
 
-    def immersion_sections(self) -> list:
+    def immersion_sections(self) -> list[Any]:
         """Sub-view: the water now, the plan, and the last week of heating and its cost."""
         week = self._week_pair(
             self.row(self.immersion("immersion_today"), "Heated", WATER_HEX),
@@ -1447,7 +1452,7 @@ class Builder:
 
     # -- EV charger --
 
-    def _charger_now(self) -> dict | None:
+    def _charger_now(self) -> dict[str, Any] | None:
         """The charger in a sentence, this charge and today in figures, the last day's power."""
         story = ev_story_template(
             ChargerNow(
@@ -1479,14 +1484,14 @@ class Builder:
             **WIDE,
         )
 
-    def _recent_charges(self) -> dict | None:
+    def _recent_charges(self) -> dict[str, Any] | None:
         return group(
             heading_card("Recent charges", "mdi:receipt-text-outline"),
             [self.table(self.attribute_card(self.ev("ev_session_cost"), "recent_table"))],
             **self._when(Device.EV_CHARGER),
         )
 
-    def ev_sections(self) -> list:
+    def ev_sections(self) -> list[Any]:
         """Sub-view: the charger now, the last week of charging and its cost, recent charges."""
         week = self._week_pair(
             self.row(self.ev("zappi_today"), "Charged", BATTERY_HEX), self.ev("zappi_cost_today")
@@ -1499,11 +1504,11 @@ class Builder:
 
     # -- Settings --
 
-    def _when(self, *devices: Device) -> dict[str, list[dict]]:
+    def _when(self, *devices: Device) -> dict[str, list[dict[str, Any]]]:
         """The section option that shows a section while these devices are present."""
         return {"visibility": self.devices.visible_with(*devices)}
 
-    def _when_any(self, *devices: Device) -> dict[str, list[dict]]:
+    def _when_any(self, *devices: Device) -> dict[str, list[dict[str, Any]]]:
         """The section option that shows a section while any of these devices is present."""
         return {"visibility": self.devices.visible_with_any(*devices)}
 
@@ -1546,10 +1551,10 @@ class Builder:
         )
         return [*own, *heater, *thermostat]
 
-    def _recent_changes_card(self, shown: frozenset[Device]) -> dict | None:
+    def _recent_changes_card(self, shown: frozenset[Device]) -> dict[str, Any] | None:
         return logbook_card(self._settings_entities(shown), _LOGBOOK_HOURS)
 
-    def _charge_controls(self) -> dict | None:
+    def _charge_controls(self) -> dict[str, Any] | None:
         return group(
             heading_card("Tonight's charge", "mdi:battery-clock"),
             [
@@ -1562,7 +1567,7 @@ class Builder:
             ],
         )
 
-    def _planning_controls(self) -> dict | None:
+    def _planning_controls(self) -> dict[str, Any] | None:
         replan = tile_card(
             self.entity("charge_replan"), "Re-plan overnight", columns=FULL, color=BATTERY
         )
@@ -1581,7 +1586,7 @@ class Builder:
             ],
         )
 
-    def _water_controls(self) -> dict | None:
+    def _water_controls(self) -> dict[str, Any] | None:
         show = self.devices.show_with
         thermostat = Device.IMMERSION_THERMOSTAT
         return group(
@@ -1615,12 +1620,12 @@ class Builder:
         )
 
     @staticmethod
-    def _water_help(shown: frozenset[Device]) -> dict:
+    def _water_help(shown: frozenset[Device]) -> dict[str, Any]:
         """What the heater's settings do. The restart drop only with the thermostat."""
         restart = (_RESTART_DROP_HELP,) if Device.IMMERSION_THERMOSTAT in shown else ()
         return _help((_HEAT_NOW_HELP, *restart, _DIVERT_HELP))
 
-    def _system_controls(self) -> dict | None:
+    def _system_controls(self) -> dict[str, Any] | None:
         return group(
             heading_card("System", "mdi:cog-outline"),
             [
@@ -1630,7 +1635,7 @@ class Builder:
             ],
         )
 
-    def _recent_changes(self) -> dict | None:
+    def _recent_changes(self) -> dict[str, Any] | None:
         """What changed a setting in the last day.
 
         The list names the heater's settings only while the heater is there, so it is built
@@ -1668,11 +1673,11 @@ class ViewSpec:
     title: str
     icon: str
     path: str
-    sections: Callable[[Builder], list]
+    sections: Callable[[Builder], list[Any]]
     back: str | None = None
     admin_only: bool = False
 
-    def build(self, builder: Builder) -> dict:
+    def build(self, builder: Builder) -> dict[str, Any]:
         extra = {} if self.back is None else {"subview": True, "back_path": self.back}
         if self.admin_only:
             extra["visible"] = builder.admin_view_users()

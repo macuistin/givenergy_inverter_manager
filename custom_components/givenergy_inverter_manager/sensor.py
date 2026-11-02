@@ -200,13 +200,13 @@ class GivEnergyManagerSensor(GivEnergyEntity, SensorEntity):
             return None
 
     @property
-    def extra_state_attributes(self) -> dict | None:
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return the html attribute of report sensors and any attributes that explain the state."""
         description = self.entity_description
         data = self.coordinator.data
         if data is None:
             return None
-        attrs: dict = {}
+        attrs: dict[str, Any] = {}
         if description.html_fn is not None:
             attrs["html"] = description.html_fn(data)
         if description.attrs_fn is not None:

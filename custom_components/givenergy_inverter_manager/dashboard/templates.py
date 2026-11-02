@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 from ..const import (
     ALT_HEAT_SCHEDULE_MIN_DAYS,
@@ -162,12 +163,12 @@ def alt_heat_banner_template(ready_by: str, low_water: str) -> str:
     )
 
 
-def currency_symbol(cfg: dict) -> str:
+def currency_symbol(cfg: dict[str, Any]) -> str:
     """The symbol of the configured currency, such as € or £."""
     return CURRENCIES.get(cfg.get(CONF_CURRENCY, DEFAULT_CURRENCY), "€")
 
 
-def tariff_table(tariff: TariffConfig, cfg: dict) -> str:
+def tariff_table(tariff: TariffConfig, cfg: dict[str, Any]) -> str:
     """Markdown table of the rates the integration prices energy with."""
     symbol = currency_symbol(cfg)
     billed = (1 - tariff.discount_rate / 100) * (1 + tariff.vat_rate / 100)
@@ -196,7 +197,7 @@ def _day(day: date) -> str:
     return f"{day.day} {day:%b %Y}"
 
 
-def _change_row(change: TariffChange, cfg: dict) -> str:
+def _change_row(change: TariffChange, cfg: dict[str, Any]) -> str:
     """One row: the date, then the base rate, the timed rates and the export rate from it."""
     symbol = currency_symbol(cfg)
     rates = build_tariff({**cfg, **change.rates})
@@ -211,7 +212,7 @@ def _change_row(change: TariffChange, cfg: dict) -> str:
 
 
 def tariff_changes_table(
-    changes: list[TariffChange], cfg: dict, reviewed: date | None
+    changes: list[TariffChange], cfg: dict[str, Any], reviewed: date | None
 ) -> str | None:
     """Markdown table of the rate changes that have not started, with the last review date.
 

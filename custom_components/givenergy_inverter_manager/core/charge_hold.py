@@ -65,8 +65,8 @@ class HeldCharge:
     # True once a charge has run under the held decision, so it is not replaced by a skip.
     charged: bool = False
 
-    def settle(self, fresh: ChargeDecision, reading: HoldReading) -> None:
-        """Publish the fresh decision or keep the held one, and note when it changed."""
+    def settle(self, fresh: ChargeDecision, reading: HoldReading) -> ChargeDecision:
+        """Publish the fresh decision or keep the held one, note when it changed, return it."""
         published = next_held_recommendation(self, fresh, reading)
         if published is not self.decision:
             self.published_at = reading.now
@@ -74,6 +74,7 @@ class HeldCharge:
         self.decision = published
         if reading.charge_running and not published.skip_charge:
             self.charged = True
+        return published
 
     def settle_window(self, fresh: ChargeWindow | None, reading: HoldReading) -> None:
         """Publish the planned window or keep the held one, and note when it changed."""
