@@ -1490,10 +1490,30 @@ def _written_decision(decision: ChargeDecision, cycle: _Cycle, max_target: int) 
     return replace(written, cost_to_charge=cost)
 
 
-def _charge_running(data: CoordinatorData, raw: RawSensorValues) -> bool:
-    """True while the battery is taking power from the grid inside the cheap rate run."""
+def _in_planned_window(held: HeldCharge, now: datetime) -> bool:
+    """True when the clock is inside the charge window published last cycle."""
+    window = held.window
+    if window is None:
+        return False
+    minute = minute_of_day(now)
+    start = window.start.hour * 60 + window.start.minute
+    end = window.end.hour * 60 + window.end.minute
+    if start <= end:
+        return start <= minute < end
+    return minute >= start or minute < end
+
+
+def _charge_running(
+    data: CoordinatorData, raw: RawSensorValues, held: HeldCharge, now: datetime
+) -> bool:
+    """True while the battery is taking power from the grid in the cheap run or the window.
+
+    A charge that runs on past the cheap rate, because the plan widened the window, is still
+    the night's charge, so the window counts as well as the cheap run.
+    """
+    in_charge_time = data.cheap_run_remaining_minutes is not None or _in_planned_window(held, now)
     return (
-        data.cheap_run_remaining_minutes is not None
+        in_charge_time
         and raw.battery_power_w > POWER_DIRECTION_BAND_W
         and raw.grid_power_w > POWER_DIRECTION_BAND_W
     )
@@ -1513,7 +1533,7 @@ def _set_overnight_charge(
     """
     fresh = _overnight_charge_decision(cycle, avg_daily_kwh)
     max_target = int(cycle.cfg.get(CONF_OVERNIGHT_CHARGE_TARGET, DEFAULT_OVERNIGHT_CHARGE_TARGET))
-    reading = HoldReading(cycle.now, _charge_running(data, cycle.raw), max_target)
+    reading = HoldReading(cycle.now, _charge_running(data, cycle.raw, held, cycle.now), max_target)
     held.settle(fresh, reading)
     data.charge_decision = _written_decision(fresh, cycle, max_target)
     data.solar_shape_used = SHAPE_REASON in fresh.reason

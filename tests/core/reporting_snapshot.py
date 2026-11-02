@@ -23,7 +23,7 @@ def render_all(case: dict) -> dict[str, str]:
     """Run the engine for a golden engine case and render every report, with and without a plan."""
     data, _ = build_coordinator_data(**{k: snap.decode(v) for k, v in case["in"].items()})
     out = {name: getattr(reporting, name)(data) for name in _REPORTS}
-    data.charge_decision = None
+    data.charge_decision = data.published_charge_decision = None
     out["plan_html_without_decision"] = reporting.build_charge_plan_html(data)
     out["plan_state_without_decision"] = reporting.build_charge_plan_state(data)
     return out
@@ -49,4 +49,5 @@ def render_handmade(spec: dict) -> dict[str, str]:
     for period in ("today", "week", "yesterday"):
         setattr(data, period, EnergyAccumulator(**spec[period]))
     data.charge_decision = ChargeDecision(**spec["decision"]) if spec["decision"] else None
+    data.published_charge_decision = data.charge_decision
     return {name: getattr(reporting, name)(data) for name in _REPORTS}

@@ -250,6 +250,15 @@ def _plan_rows(cd: "ChargeDecision", sym: str, window_text: str | None = None) -
     ]
 
 
+def shown_charge_decision(data: "CoordinatorData") -> "ChargeDecision | None":
+    """The decision the plan text shows: the held one, as the sensors publish it.
+
+    The fresh decision can read Skip while a charge is running, because the charge itself lifts
+    the SoC. The fresh one is only used before a held one exists.
+    """
+    return data.published_charge_decision or data.charge_decision
+
+
 def plan_status_text(data: "CoordinatorData") -> str | None:
     """Where the overnight plan stands in words, None while the plan itself is shown.
 
@@ -272,7 +281,7 @@ def build_charge_plan_html(data: "CoordinatorData") -> str:
     """
     if (status := plan_status_text(data)) is not None:
         return _table([_section("🔋 Tonight's Charge Plan"), _row("", status)])
-    cd = data.charge_decision
+    cd = shown_charge_decision(data)
     if cd is None:
         return _table(_no_decision_rows())
     window = data.published_charge_window
@@ -288,7 +297,7 @@ def build_charge_plan_state(data: "CoordinatorData") -> str:
     """Short sensor state string (at most 255 chars)."""
     if (status := plan_status_text(data)) is not None:
         return fit_state(status).state
-    cd = data.charge_decision
+    cd = shown_charge_decision(data)
     sym = data.currency_symbol
     if cd is None:
         return "No charge decision yet"

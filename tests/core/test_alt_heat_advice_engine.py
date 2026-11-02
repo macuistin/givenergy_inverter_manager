@@ -239,13 +239,13 @@ class TestTheTriggersHoldBetweenCycles:
         )[0]
         return data.water_heating_low_trigger.state
 
-    def test_a_low_water_trigger_that_fired_holds_as_the_water_warms_until_the_target(self):
+    def test_a_low_water_trigger_that_fired_holds_as_the_water_warms_until_it_recovers(self):
         held = HeldTriggers()
         assert [self._cycle(held, t) for t in (51.0, 51.4, 52.5, 54.0, 55.0)] == [
             "start_now",
             "start_now",
             "start_now",
-            "start_now",
+            "idle",
             "idle",
         ]
 

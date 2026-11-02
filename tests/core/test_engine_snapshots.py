@@ -73,6 +73,11 @@ leaves that moved are survival_reason (all 33), estimated_soc_at_sunrise (16), w
 today's accumulator. The new behaviour is pinned in test_night_survival_ev_load.py and the
 published estimate in test_sunrise_estimate_continuity.py.
 
+2 of the 255 cases were regenerated when a skip began to need the simulated day to hold with no
+charge. Only charge_decision, published_charge_decision, sunrise_with_charge (both) and
+tomorrow_outlook (1) moved. Each planned a skip on a heavy load and now plans a charge. The new
+behaviour is pinned in test_skip_simulation.py.
+
 The forecast_accuracy leaf was added for the accuracy diagnostics on the charge reason sensor. The
 fresh snapshot gained it as None. No case moved, because none passes a forecast accuracy.
 

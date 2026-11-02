@@ -56,6 +56,7 @@ from custom_components.givenergy_inverter_manager.core.immersion_rate import (
 from custom_components.givenergy_inverter_manager.core.scheduled_run import HeldScheduledRun
 from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
+from custom_components.givenergy_inverter_manager.core.switch_commands import CommandHealth
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.core.window_guard import GuardState
 from custom_components.givenergy_inverter_manager.immersion_actuator import ImmersionActuator
@@ -158,6 +159,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._held_solar = HeldSolarDay()
         self._held_triggers = HeldTriggers()
         self._held_scheduled_run = HeldScheduledRun()
+        self._immersion_commands = CommandHealth()
         self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""
         self._unsub_charge_target = None
