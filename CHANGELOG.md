@@ -2,7 +2,9 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.22.0
+
+This release adds two repairs and an optional lower hot water temperature sensor, shows the overnight plan only in the evening, and declares the Platinum tier of the Home Assistant quality scale.
 
 **Added**
 - A repair, **The hot water temperature sensor is not reporting**, appears when a hot water temperature sensor, the main one or the lower one, reads unavailable or unknown for about five minutes. It names the sensor and clears when every one reads again. Before, a thermometer that dropped out stopped the ready-by plan and the temperature controls with nothing on screen to say why. See [The hot water temperature sensor is not reporting](docs/troubleshooting.md#the-hot-water-temperature-sensor-is-not-reporting).
