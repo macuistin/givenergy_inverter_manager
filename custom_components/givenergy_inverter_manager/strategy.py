@@ -37,6 +37,7 @@ It has the same address as the page import, so the browser loads it once.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import HomeAssistant
 
@@ -44,6 +45,10 @@ from .const import DOMAIN, INTEGRATION_VERSION
 from .dashboard import async_host_facts, build_dashboard
 from .logging import get_logger
 from .services import loaded_entries
+
+if TYPE_CHECKING:
+    from homeassistant.components.websocket_api.connection import ActiveConnection
+    from homeassistant.helpers.http import HomeAssistantView
 
 _LOG = get_logger(__name__)
 
@@ -58,7 +63,9 @@ _LOVELACE_KEY = "lovelace"
 RESOURCE_TYPE = "module"
 
 
-async def async_dashboard_for_websocket(hass: HomeAssistant, *, is_admin: bool) -> dict | None:
+async def async_dashboard_for_websocket(
+    hass: HomeAssistant, *, is_admin: bool
+) -> dict[str, Any] | None:
     """Return the dashboard dict for the first loaded config entry, or None if none is loaded.
 
     *is_admin* is whether the connection's user is an administrator. Only then does the
@@ -87,16 +94,26 @@ async def async_register_strategy(hass: HomeAssistant) -> None:
 def _register_websocket_command(hass: HomeAssistant) -> None:
     import voluptuous as vol  # noqa: PLC0415
     from homeassistant.components import websocket_api  # noqa: PLC0415
+    from homeassistant.components.websocket_api.const import ERR_NOT_FOUND  # noqa: PLC0415
+    from homeassistant.components.websocket_api.decorators import (  # noqa: PLC0415
+        async_response,
+        websocket_command,
+    )
 
-    @websocket_api.websocket_command({vol.Required("type"): WS_TYPE})
-    @websocket_api.async_response
-    async def ws_dashboard(hass, connection, msg):
+    # Home Assistant's newer releases name their own schema marker, and accept voluptuous's.
+    schema: dict[Any, Any] = {vol.Required("type"): WS_TYPE}
+
+    @websocket_command(schema)
+    @async_response
+    async def ws_dashboard(
+        hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+    ) -> None:
         # The authenticated user decides who sees Settings. The schema accepts no other field,
         # so there is nothing in the message a client could use to ask for it.
         config = await async_dashboard_for_websocket(hass, is_admin=connection.user.is_admin)
         if config is None:
             connection.send_error(
-                msg["id"], websocket_api.ERR_NOT_FOUND, "GivEnergy Inverter Manager is not set up"
+                msg["id"], ERR_NOT_FOUND, "GivEnergy Inverter Manager is not set up"
             )
             return
         connection.send_result(msg["id"], config)
@@ -113,7 +130,7 @@ def strategy_module_url(hass: HomeAssistant) -> str:
     return f"{STRATEGY_URL_PATH}?v={INTEGRATION_VERSION}"
 
 
-def _lovelace_resources(hass: HomeAssistant):
+def _lovelace_resources(hass: HomeAssistant) -> Any:
     """The Lovelace resource collection when it holds stored resources, else None.
 
     In YAML mode the user owns the resource list, so nothing is written to it.
@@ -128,7 +145,7 @@ def _lovelace_resources(hass: HomeAssistant):
     return resources
 
 
-def _own_resources(resources) -> list[dict]:
+def _own_resources(resources: Any) -> list[dict[str, Any]]:
     """The resources that point at this integration's script, whatever their version."""
     return [
         item
@@ -176,10 +193,15 @@ async def async_remove_resource(hass: HomeAssistant) -> None:
         _LOG.warning("Could not remove the dashboard strategy script from the resources: %s", err)
 
 
-def _strategy_file_view():
+def _strategy_file_view() -> HomeAssistantView:
     """The view that serves the script. It is built here so this module imports without one."""
     from aiohttp import web  # noqa: PLC0415
-    from homeassistant.components.http import HomeAssistantView  # noqa: PLC0415
+    try:
+        from homeassistant.helpers.http import HomeAssistantView  # noqa: PLC0415
+    except ImportError:  # releases before the view moved to helpers
+        from homeassistant.components.http import (  # type: ignore[attr-defined]  # noqa: PLC0415
+            HomeAssistantView,
+        )
 
     class StrategyFileView(HomeAssistantView):
         """The dashboard script. The browser asks the server whether its copy is current."""

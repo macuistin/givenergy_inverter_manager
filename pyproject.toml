@@ -76,8 +76,6 @@ module = [
     "givenergy_inverter_manager.dashboard.render",
     "givenergy_inverter_manager.dashboard.templates",
     "givenergy_inverter_manager.dashboard.views",
-    "givenergy_inverter_manager.services",
-    "givenergy_inverter_manager.strategy",
 ]
 ignore_errors = true
 
