@@ -425,6 +425,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._replan_pending: bool = False
         self._window_guard = GuardState()
         self._ev_charger: EVCharger | None = None
+        # The grid mode was set by a cheaper rate period, so the end of that period undoes it.
+        self._ev_cheap_rate_charging = False
         self._ev_base_rate = WatchState()
         self._givtcp_was_unavailable: bool = False
         self._silent_cycles = 0
@@ -1512,6 +1514,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if target_mode is None or charger is None or not charger.charge_mode_entity:
             return
         current = (charger.charge_mode or "").strip()
+        if not self.is_dry_run:
+            self._ev_cheap_rate_charging = target_mode == charger.cheap_rate_mode()
         if current == target_mode:
             return
         if self.is_dry_run:
@@ -1689,6 +1693,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 cfg=cfg,
                 now=now,
                 ev_charger=self._ev_charger,
+                ev_cheap_rate_charging=self._ev_cheap_rate_charging,
                 overrides=ManualOverrides(
                     charge_target=self.override_charge_target,
                     immersion=self.override_immersion,

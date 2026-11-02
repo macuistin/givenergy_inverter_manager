@@ -1294,6 +1294,8 @@ def decide_ev_charger_action(
     charger: EVCharger,
     battery_soc: float,
     solar_surplus_w: float,
+    on_cheap_rate: bool = False,
+    cheap_rate_charging: bool = False,
 ) -> tuple[str | None, str]:
     """
     Decide what mode the EV charger should be in.
@@ -1302,13 +1304,32 @@ def decide_ev_charger_action(
 
     Rules (in priority order):
       1. No plugged-in vehicle → no change
-      2. Surplus below EV_CHARGER_MIN_POWER_W (the charger cannot start) → no change
-      3. A charger with a surplus-only mode (Eco+ on a Zappi, Solar on a GivEnergy charger)
+      2. A cheaper-than-base rate period is running and the charger has a grid mode (Fast on a
+         Zappi) → switch to it, so a car that takes hours to fill charges at the cheap rate
+      3. The cheaper period has ended and rule 2 put the charger in its grid mode → back to the
+         surplus-only mode, or no change when the charger offers none
+      4. Surplus below EV_CHARGER_MIN_POWER_W (the charger cannot start) → no change
+      5. A charger with a surplus-only mode (Eco+ on a Zappi, Solar on a GivEnergy charger)
          that is not already in it → switch to that mode, never to a stop, pause, fast or grid mode
-      4. Otherwise → no change
+      6. Otherwise → no change
+
+    *cheap_rate_charging* says the grid mode was set by rule 2, so a charger the owner put in
+    that mode by hand is left alone when the cheap period ends.
     """
     if not charger.is_plugged_in:
         return None, "EV not connected"
+
+    grid_mode = charger.cheap_rate_mode()
+    if on_cheap_rate and grid_mode is not None:
+        if (charger.charge_mode or "").strip().lower() == grid_mode.lower():
+            return None, f"Cheaper rate running, already charging in {grid_mode}"
+        return grid_mode, f"Cheaper rate running — switching to {grid_mode} to charge the car"
+    if cheap_rate_charging and not on_cheap_rate and grid_mode is not None:
+        if (charger.charge_mode or "").strip().lower() == grid_mode.lower():
+            back = charger.surplus_mode()
+            if back is not None:
+                return back, f"Cheaper rate over — back to {back}"
+            return None, f"Cheaper rate over, but {charger.display_name} offers no surplus-only mode"
 
     # Minimum power guard: OCPP chargers will not start below 6A (1,380W at 230V).
     # Sending an Eco+ command when surplus is below this threshold wastes a register

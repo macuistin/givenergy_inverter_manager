@@ -6,7 +6,8 @@ rate is worth an alert. It needs no Home Assistant objects.
 
 ## Public names
 
-- `model`: `EVCharger`, `EVChargerBrand`, `EVChargerState`, `pick_surplus_mode`, `SURPLUS_MODE_DEFAULTS`
+- `model`: `EVCharger`, `EVChargerBrand`, `EVChargerState`, `pick_surplus_mode`, `SURPLUS_MODE_DEFAULTS`,
+  `pick_cheap_rate_mode`, `CHEAP_RATE_MODE_DEFAULTS`
 - `discover`: `discover_ev_chargers` (Zappi, Wallbox, OCPP, Ohme, Easee, GivEnergy charger)
 - `state`: `update_charger_state`
 - `session`: `EVSession`, `EVSessionLog`, `EVSessionStep`, `track_session`, `recent_table`
