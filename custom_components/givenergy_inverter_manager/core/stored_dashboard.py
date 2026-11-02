@@ -84,7 +84,8 @@ def as_stored(config: Mapping[str, Any]) -> dict[str, Any]:
     Tuples become lists and keys become strings, so a config compared before and after a
     restart reads the same.
     """
-    return json.loads(json.dumps(config, default=str))
+    stored: dict[str, Any] = json.loads(json.dumps(config, default=str))
+    return stored
 
 
 def configs_match(stored: Mapping[str, Any] | None, generated: Mapping[str, Any]) -> bool:

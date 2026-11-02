@@ -7,6 +7,8 @@ entities to the same device. Unique ids and entity ids stay with each platform.
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -36,7 +38,7 @@ def async_register_main_device(hass: HomeAssistant, entry: GivEnergyConfigEntry)
     )
 
 
-def _parent_link(hass: HomeAssistant, entry_id: str) -> dict[str, object]:
+def _parent_link(hass: HomeAssistant, entry_id: str) -> dict[str, Any]:
     """The link from a group device to the main device, in the form this Home Assistant takes.
 
     Newer releases take the id of the parent device. Older ones take its identifiers.
@@ -57,13 +59,14 @@ def device_info(coordinator: GivEnergyCoordinator, group: DeviceGroup) -> Device
     entry_id = coordinator.entry.entry_id
     if group is DeviceGroup.MAIN:
         return _main_device_info(entry_id)
-    return DeviceInfo(
+    info = DeviceInfo(
         identifiers={(DOMAIN, f"{entry_id}_{group.value}")},
         name=group_name(group),
         manufacturer=DEVICE_MANUFACTURER,
         model=group_name(group),
-        **_parent_link(coordinator.hass, entry_id),
     )
+    info.update(cast("DeviceInfo", _parent_link(coordinator.hass, entry_id)))
+    return info
 
 
 class GivEnergyEntity(CoordinatorEntity[GivEnergyCoordinator]):

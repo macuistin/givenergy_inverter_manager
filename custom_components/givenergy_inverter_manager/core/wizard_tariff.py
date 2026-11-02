@@ -104,7 +104,10 @@ def rate_note(*offered: float | None) -> str:
 
 
 def default_rate_rows(
-    count: int, saved: list[dict], window: tuple[str, str], night_rate: float | None = None
+    count: int,
+    saved: list[dict[str, Any]],
+    window: tuple[str, str],
+    night_rate: float | None = None,
 ) -> list[dict[str, Any]]:
     """The rows to show: the saved ones first, then new ones with a name and a window.
 
@@ -159,7 +162,7 @@ def rows_from_sections(user_input: Mapping[str, Any], count: int) -> list[dict[s
     return rows
 
 
-def rate_period_errors(periods: list[dict], base_rate_name: str = "") -> dict[str, str]:
+def rate_period_errors(periods: list[dict[str, Any]], base_rate_name: str = "") -> dict[str, str]:
     """Form errors for rate periods that cannot work, or an empty dict."""
     if len(periods) > MAX_RATE_PERIODS:
         return {"base": "too_many_periods"}
@@ -185,12 +188,12 @@ def validate_tariff(values: Mapping[str, Any]) -> Validation:
     return Validation()
 
 
-def validate_rates(rows: list[dict], base_rate_name: str) -> Validation:
+def validate_rates(rows: list[dict[str, Any]], base_rate_name: str) -> Validation:
     """Zero-length rows, a blank or repeated name, or too many rows."""
     return Validation(errors=rate_period_errors(rows, base_rate_name))
 
 
-def validate_bill(values: Mapping[str, Any], periods: list[dict]) -> Validation:
+def validate_bill(values: Mapping[str, Any], periods: list[dict[str, Any]]) -> Validation:
     """The base rate name has to be filled in and differ from every timed rate name."""
     name = str(values.get(CONF_BASE_RATE_NAME, DEFAULT_BASE_RATE_NAME)).strip()
     if not name:
@@ -265,7 +268,7 @@ def ordinal(day: int) -> str:
     return f"{day}{suffix}"
 
 
-def periods_text(periods: list[dict]) -> str:
+def periods_text(periods: list[dict[str, Any]]) -> str:
     """The timed rates as one line, such as Night 0.1644 (23:00 to 08:00)."""
     return ", ".join(
         f"{p['name']} {float(p['rate']):.4f} ({p['start']} to {p['end']})" for p in periods

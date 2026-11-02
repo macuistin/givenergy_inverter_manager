@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import partial
 from typing import Any
 
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.event import async_track_time_interval
@@ -133,13 +134,13 @@ def async_watch_stored_dashboard(hass: HomeAssistant, entry: GivEnergyConfigEntr
     watch = _RegistryWatch(hass, entry)
 
     @callback
-    def _on_registry_change(_event) -> None:
+    def _on_registry_change(_event: Event[er.EventEntityRegistryUpdatedData]) -> None:
         debouncer.async_schedule_call()
 
-    async def _on_options_change(hass: HomeAssistant, _entry) -> None:
+    async def _on_options_change(hass: HomeAssistant, _entry: ConfigEntry) -> None:
         await _async_safe_check(hass, entry)
 
-    async def _hourly(_now) -> None:
+    async def _hourly(_now: datetime) -> None:
         await _async_safe_check(hass, entry)
 
     async def _started(hass: HomeAssistant) -> None:

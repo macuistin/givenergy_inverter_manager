@@ -42,6 +42,8 @@ def resets_entity_ids(text: str | None) -> bool:
         return False
     first = parse_version(FIRST_AFFECTED_VERSION)
     fixed = parse_version(FIXED_IN_VERSION)
+    if first is None or fixed is None:
+        return False
     width = max(len(version), len(first), len(fixed))
     number = _padded(version, width)
     return _padded(first, width) <= number < _padded(fixed, width)

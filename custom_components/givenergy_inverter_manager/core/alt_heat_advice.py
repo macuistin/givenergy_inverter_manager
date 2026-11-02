@@ -41,11 +41,11 @@ from ..const import (
     DEFAULT_ALT_HEAT_LABEL,
     DEFAULT_CURRENCY_SYMBOL,
 )
+from ..lib.heating import WaterReading
 from .alt_heat_label import LabelForms, clean_label, label_forms
 from .alt_heat_start import (
     AltHeatStart,
     StartQuery,
-    WaterReading,
     keep_warm_minutes,
     suggest_alt_heat_start,
 )
@@ -319,8 +319,8 @@ def _ready_prefix(ready_at: datetime, now: datetime) -> str:
     return f"For tomorrow's {ready_at:%H:%M} ready time"
 
 
-def _start_sentence(picture: _Picture, start: AltHeatStart) -> str:
-    """The start for the ready time. start.start_by is set."""
+def _start_sentence(picture: _Picture, start: AltHeatStart, start_by: datetime) -> str:
+    """The start for the ready time, which has a start_by."""
     now = picture.inputs.now
     saving = _money(picture.symbol, start.saving_per_kwh)
     run = f"(about {start.run_minutes} minutes)"
@@ -331,7 +331,7 @@ def _start_sentence(picture: _Picture, start: AltHeatStart) -> str:
             f"immersion has to start, so the immersion will also run. "
             f"Saves up to {saving} per kWh of heat."
         )
-    when = _on_the_day(start.start_by, now)
+    when = _on_the_day(start_by, now)
     return (
         f"{_ready_prefix(start.ready_at, now)}: turn the {picture.inside_name} water heating "
         f"on at {when} {run}. The immersion will only top up. "
@@ -356,7 +356,7 @@ def _suggestion(picture: _Picture) -> str:
     """The sentence. The ready-by start comes first, then the keep-warm run."""
     start = picture.start
     if start is not None and start.start_by is not None:
-        return _start_sentence(picture, start)
+        return _start_sentence(picture, start, start.start_by)
     if picture.keep_warm is not None:
         return picture.keep_warm
     if picture.ready_without_heating is not None:

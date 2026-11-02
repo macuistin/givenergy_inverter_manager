@@ -32,10 +32,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from ..const import ALT_HEAT_LOW_WATER_RELEASE_C, ALT_HEAT_TRIGGER_MARGIN_C
+from ..lib.heating import WaterReading
 from .alt_heat_advice import AdviceInputs, WaterHeatingAdvice
 from .alt_heat_start import (
     StartQuery,
-    WaterReading,
     low_water_minutes,
     suggest_alt_heat_start,
 )
@@ -84,7 +84,7 @@ def ready_by_trigger(
     if inputs.water is None or not inputs.scheduled_heating or ready is None:
         return AltHeatTrigger()
     holding = _holds_for(previous, inputs.water, ready)
-    start = suggest_alt_heat_start(_start_query(inputs, holding=holding), ready)
+    start = suggest_alt_heat_start(_start_query(inputs, inputs.water, holding=holding), ready)
     if start is None or start.start_by is None:
         return AltHeatTrigger()
     start_by = start.start_by
@@ -122,12 +122,12 @@ def low_water_trigger(
     return AltHeatTrigger()
 
 
-def _start_query(inputs: AdviceInputs, *, holding: bool) -> StartQuery:
+def _start_query(inputs: AdviceInputs, water: WaterReading, *, holding: bool) -> StartQuery:
     solar = inputs.tariff.export_rate if inputs.solar_surplus else None
     return StartQuery(
         inputs.tariff,
         inputs.now,
-        inputs.water,
+        water,
         inputs.alt_cost_per_kwh,
         solar,
         lift_below_target_c=ALT_HEAT_TRIGGER_MARGIN_C,

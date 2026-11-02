@@ -100,8 +100,9 @@ def suggest_alt_heat_start(query: StartQuery, ready_at: datetime) -> AltHeatStar
     needed = query.water.hours_to_target
     placed = place_hours(query.tariff, query.now, ready_at, needed)
     grid = query.tariff.effective_import_rate(placed.average_rate)
-    by_solar = query.solar_cost is not None and query.solar_cost < grid
-    electric = query.solar_cost if by_solar else grid
+    solar = query.solar_cost
+    by_solar = solar is not None and solar < grid
+    electric = solar if solar is not None and by_solar else grid
     saving = electric - query.alt_cost_per_kwh
     run_minutes = _whole_minutes(needed)
     if saving <= 0:

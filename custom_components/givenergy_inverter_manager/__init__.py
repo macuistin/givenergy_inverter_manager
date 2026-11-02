@@ -16,6 +16,8 @@ Also handles:
 from __future__ import annotations
 
 import copy
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -70,7 +72,9 @@ _RETIRED_SENSOR_KEYS: tuple[str, ...] = (
 # dashboard strategy replaced.
 _RETIRED_BUTTON_KEYS: tuple[str, ...] = ("refresh_dashboard",)
 
-def _make_update_listener(entry: GivEnergyConfigEntry):
+def _make_update_listener(
+    entry: GivEnergyConfigEntry,
+) -> Callable[[HomeAssistant, GivEnergyConfigEntry], Coroutine[Any, Any, None]]:
     """Build the update listener for *entry*.
 
     The listener keeps the merged config of the last save it saw. A change that needs a

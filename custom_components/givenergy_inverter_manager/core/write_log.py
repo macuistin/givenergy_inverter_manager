@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
+from typing import Any
 
 from ..lib.givtcp.values import WriteRecord
 
@@ -69,12 +70,14 @@ def is_retry_note(entry: Mapping[str, object]) -> bool:
     return entry.get("reason") == RETRY_REASON
 
 
-def append_bounded(entries: list[dict], entry: WriteLogEntry, limit: int) -> list[dict]:
+def append_bounded(
+    entries: list[dict[str, Any]], entry: WriteLogEntry, limit: int
+) -> list[dict[str, Any]]:
     """Return the entries with the new one last, keeping only the newest `limit`."""
     return [*entries, entry.as_dict()][-limit:]
 
 
-def restore_entries(stored: object, limit: int) -> list[dict]:
+def restore_entries(stored: object, limit: int) -> list[dict[str, Any]]:
     """Rebuild the log from stored data. Anything that is not a log entry is dropped."""
     if not isinstance(stored, list):
         return []
@@ -88,7 +91,7 @@ def _is_entry(candidate: object) -> bool:
     )
 
 
-def newest_first(entries: list[dict]) -> list[dict]:
+def newest_first(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The entries as the sensor attribute shows them, most recent first."""
     return [dict(e) for e in reversed(entries)]
 

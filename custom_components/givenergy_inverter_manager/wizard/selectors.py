@@ -9,8 +9,9 @@ their own ranges.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
+import voluptuous as vol
 from homeassistant.helpers import selector
 
 from ..const import (
@@ -100,6 +101,15 @@ def money_unit(code: object, per: str) -> str:
     return f"{currency_code(code)}/{per}"
 
 
+def ha_schema(schema: vol.Schema) -> Any:
+    """*schema* typed for Home Assistant, whose newer releases name another Schema class.
+
+    The minimum release in hacs.json builds forms with voluptuous, and later ones declare their
+    own Schema type. Both accept a voluptuous schema, so only the annotation differs.
+    """
+    return schema
+
+
 def number_selector(key: str, unit: str | None = None) -> selector.NumberSelector:
     """Number selector for *key*, using *unit* in place of the table unit when given."""
     bounds = NUMBER_BOUNDS[key]
@@ -108,7 +118,7 @@ def number_selector(key: str, unit: str | None = None) -> selector.NumberSelecto
         config["unit_of_measurement"] = unit or bounds.unit
     if bounds.mode:
         config["mode"] = bounds.mode
-    return selector.NumberSelector(selector.NumberSelectorConfig(**config))
+    return selector.NumberSelector(cast("selector.NumberSelectorConfig", config))
 
 
 def price_selector(key: str, currency: object) -> selector.NumberSelector:
@@ -196,4 +206,4 @@ def checklist_selector(
     }
     if translation_key:
         config["translation_key"] = translation_key
-    return selector.SelectSelector(selector.SelectSelectorConfig(**config))
+    return selector.SelectSelector(cast("selector.SelectSelectorConfig", config))

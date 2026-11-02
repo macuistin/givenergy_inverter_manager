@@ -17,6 +17,7 @@ not opened is never rewritten, and a value equal to what is already in force is 
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 from typing import Any
 
@@ -319,7 +320,9 @@ class OptionsSteps(WizardPages):
 
     # ── the other pages ───────────────────────────────────────────────────────
 
-    def _touch_tariff(self, clean: Any) -> Any:
+    def _touch_tariff(
+        self, clean: Callable[[dict[str, Any]], dict[str, Any]]
+    ) -> Callable[[dict[str, Any]], dict[str, Any]]:
         """*clean*, and note that the tariff was changed, so the save rebuilds it."""
 
         def store(flat: dict[str, Any]) -> dict[str, Any]:
