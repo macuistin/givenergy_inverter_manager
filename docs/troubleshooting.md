@@ -382,6 +382,18 @@ The repair **The hot water temperature sensor is not reporting** appears when a 
 
 The repair clears by itself once every sensor reads a number. A sensor you take out of the options is no longer counted. A short outage, such as a restart, raises nothing.
 
+## The immersion switch is not taking commands
+
+The repair **The immersion switch is not taking commands** appears when the manager has sent two commands in a row to the immersion switch and neither went through, or when the switch read unavailable at the time. The commands are sent at most once every 10 minutes, so the repair shows after about 10 minutes. While it lasts the heater cannot follow the plan, so the water may stay cold. **Immersion Divert Reason** can still say "heating regardless of surplus", because it shows what the manager wants, not what the switch did.
+
+The usual cause is the integration that owns the plug or relay. A cloud account, such as Tuya or Smart Life, can need to sign in again, and the switch then reads available but rejects every command. A plug that is off the network reads unavailable.
+
+1. Open **Settings → System → Logs** and search for the switch name. A line such as `The Tuya cloud rejected the command` names the cause.
+2. Open **Settings → Devices & services**, find the integration that owns the switch and sign in again if it asks you to.
+3. If the plug is unavailable, check it has power and is on the network.
+
+The repair clears by itself once a command goes through. After a failure the manager can wait up to 10 minutes before it sends the command again. Nothing is changed in the meantime.
+
 ## There is no Water Heating Cheapest Source sensor
 
 The sensor exists only while alternative water heating is on, has a cost, and an immersion switch is set. Check the three under **Configure**:

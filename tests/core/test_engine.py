@@ -1129,6 +1129,7 @@ class TestReportGenerators:
             car_plugged_in=False,
             cost_to_charge=0.83,
         )
+        data.published_charge_decision = data.charge_decision
         return data
 
     def test_today_summary_html_contains_key_values(self):
@@ -1178,6 +1179,7 @@ class TestReportGenerators:
             car_plugged_in=False,
             cost_to_charge=0.0,
         )
+        data.published_charge_decision = data.charge_decision
         html = build_charge_plan_html(data)
         assert "Skip" in html
 
@@ -1187,7 +1189,7 @@ class TestReportGenerators:
         )
 
         data = self._data()
-        data.charge_decision = None
+        data.charge_decision = data.published_charge_decision = None
         html = build_charge_plan_html(data)
         assert "No charge decision" in html
 
