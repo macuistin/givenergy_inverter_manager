@@ -159,6 +159,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._held_solar = HeldSolarDay()
         self._held_triggers = HeldTriggers()
         self._held_scheduled_run = HeldScheduledRun()
+        self._silent_temperature_cycles: dict[str, int] = {}
         self._immersion_commands = CommandHealth()
         self._solar_fractions = dict.fromkeys(range(1, 13), 0.5)  # flat for tests
         self._last_reset_time: str = ""

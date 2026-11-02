@@ -5,6 +5,8 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 ## Unreleased
 
 **Added**
+- A repair, **The hot water temperature sensor is not reporting**, appears when a hot water temperature sensor, the main one or the lower one, reads unavailable or unknown for about five minutes. It names the sensor and clears when every one reads again. Before, a thermometer that dropped out stopped the ready-by plan and the temperature controls with nothing on screen to say why. See [The hot water temperature sensor is not reporting](docs/troubleshooting.md#the-hot-water-temperature-sensor-is-not-reporting).
+- An optional **Lower hot water temperature sensor** under **Configure → Immersion heater**, for a second thermometer lower in the cylinder. It adds a **Lower Water Temperature** sensor on the Immersion device and a second line, **Water, lower**, in the water temperature chart, so the graphs show both. It is for the graphs only: no decision, ready-by plan or control reads it, and an unreadable lower sensor changes nothing. Needs the main hot water temperature sensor too. A stored dashboard shows the second line after you press **Submit** on the out-of-date repair.
 - A repair, **The immersion switch is not taking commands**, appears when two commands in a row to the immersion switch fail or find it unavailable, about 10 minutes of a heater that cannot follow the plan. Before, the failure showed only in the log, and the water could stay cold. A cloud plug whose account needs to sign in again, such as Tuya, is the usual cause. It clears when a command goes through. See [The immersion switch is not taking commands](docs/troubleshooting.md#the-immersion-switch-is-not-taking-commands).
 
 **Changed**

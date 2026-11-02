@@ -9,6 +9,7 @@ from homeassistant.helpers import device_registry as dr
 
 from custom_components.givenergy_inverter_manager import async_remove_config_entry_device
 from custom_components.givenergy_inverter_manager.const import (
+    CONF_IMMERSION_LOWER_TEMP_SENSOR,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
 )
@@ -33,6 +34,7 @@ async def test_the_immersion_device_goes_when_its_hardware_is_cleared(hass, load
     data = full_config_data()
     data.pop(CONF_IMMERSION_SWITCH)
     data.pop(CONF_IMMERSION_TEMP_SENSOR)
+    data.pop(CONF_IMMERSION_LOWER_TEMP_SENSOR)
 
     hass.config_entries.async_update_entry(loaded_entry, data=data)
     await hass.config_entries.async_reload(loaded_entry.entry_id)
@@ -50,6 +52,7 @@ async def test_a_device_in_use_cannot_be_deleted_and_one_without_hardware_can(ha
     data = full_config_data()
     data.pop(CONF_IMMERSION_SWITCH)
     data.pop(CONF_IMMERSION_TEMP_SENSOR)
+    data.pop(CONF_IMMERSION_LOWER_TEMP_SENSOR)
     hass.config_entries.async_update_entry(loaded_entry, data=data)
     # The update listener reloads the entry. Wait for it, so runtime_data is back.
     await hass.async_block_till_done()

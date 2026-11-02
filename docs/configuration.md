@@ -232,6 +232,7 @@ Do not use Solcast's **Use Forecast Field** select to reach the P10. It changes 
 |---|---|---|---|
 | Immersion switch | `immersion_switch_entity` | from setup, else none | a `switch` entity |
 | Hot water temperature sensor | `immersion_temp_sensor_entity` | from setup, else none | a `sensor` entity |
+| Lower hot water temperature sensor | `immersion_lower_temp_sensor_entity` | none | a `sensor` entity. A second thermometer lower in the cylinder, drawn next to the first in the water temperature chart. Nothing decides from it. Needs the hot water temperature sensor too |
 | Immersion element power | `immersion_wattage_w` | from setup, else 3000 | 500 to 6000 W |
 | Longest immersion run | `immersion_max_run_minutes` | 60 | 0 to 240 minutes in steps of 5. 0 turns the limit off |
 | Warn when the longest run is reached | `immersion_run_limit_warning` | on | on or off. Shows a banner on Home energy while a run was stopped by the longest run |

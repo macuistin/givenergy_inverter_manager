@@ -21,6 +21,7 @@ import yaml
 from custom_components.givenergy_inverter_manager.const import (
     CONF_ALT_HEAT_COST,
     CONF_ALT_HEAT_ENABLED,
+    CONF_IMMERSION_LOWER_TEMP_SENSOR,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
 )
@@ -139,12 +140,17 @@ def seen_text(config: dict, states: dict[str, str]) -> str:
 
 
 def install(
-    *, ev: bool = False, switch: bool = False, sensor: bool = False, oil: bool = False
+    *,
+    ev: bool = False,
+    switch: bool = False,
+    sensor: bool = False,
+    oil: bool = False,
+    lower: bool = False,
 ) -> tuple[dict, str | None]:
     """The config and discovered charger of an install with some of the optional devices.
 
     oil turns alternative heating on with a cost, which makes its advice a device only together
-    with the switch.
+    with the switch. lower adds the second, lower thermometer.
     """
     config = {
         k: v
@@ -155,6 +161,8 @@ def install(
         config[CONF_IMMERSION_SWITCH] = FULL_CONFIG[CONF_IMMERSION_SWITCH]
     if sensor:
         config[CONF_IMMERSION_TEMP_SENSOR] = FULL_CONFIG[CONF_IMMERSION_TEMP_SENSOR]
+    if lower:
+        config[CONF_IMMERSION_LOWER_TEMP_SENSOR] = "sensor.cylinder_lower_temperature"
     if oil:
         config[CONF_ALT_HEAT_ENABLED] = True
         config[CONF_ALT_HEAT_COST] = 0.95
@@ -162,18 +170,30 @@ def install(
 
 
 def generated_for(
-    *, ev: bool = False, switch: bool = False, sensor: bool = False, oil: bool = False, **kw
+    *,
+    ev: bool = False,
+    switch: bool = False,
+    sensor: bool = False,
+    oil: bool = False,
+    lower: bool = False,
+    **kw,
 ) -> dict:
     """The generated dashboard for an install with some of the optional devices."""
-    config, brand = install(ev=ev, switch=switch, sensor=sensor, oil=oil)
+    config, brand = install(ev=ev, switch=switch, sensor=sensor, oil=oil, lower=lower)
     return dashboard_dict(config, ev_brand=brand, **kw)
 
 
 def seen_for(
-    *, ev: bool = False, switch: bool = False, sensor: bool = False, oil: bool = False, **kw
+    *,
+    ev: bool = False,
+    switch: bool = False,
+    sensor: bool = False,
+    oil: bool = False,
+    lower: bool = False,
+    **kw,
 ) -> dict:
     """What that install's dashboard shows, with every hidden section and card removed."""
-    config, brand = install(ev=ev, switch=switch, sensor=sensor, oil=oil)
+    config, brand = install(ev=ev, switch=switch, sensor=sensor, oil=oil, lower=lower)
     generated = dashboard_dict(config, ev_brand=brand, **kw)
     return seen(generated, states_with(devices_of(config, brand)))
 

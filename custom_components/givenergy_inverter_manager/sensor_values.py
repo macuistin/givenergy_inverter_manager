@@ -238,6 +238,11 @@ def immersion_ready_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     }
 
 
+def immersion_lower_temperature(data: CoordinatorData) -> float | None:
+    """The lower thermometer in degrees, None while it reads nothing. For the graphs only."""
+    return None if data.immersion_lower_temp is None else round(data.immersion_lower_temp, 1)
+
+
 def immersion_water_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     """The ready-by attributes and the planned heating sentence, None while neither is set."""
     attributes = immersion_ready_attributes(data) or {}

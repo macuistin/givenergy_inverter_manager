@@ -28,6 +28,7 @@ from tests.helpers import PKG
 EV = Device.EV_CHARGER
 SWITCH = Device.IMMERSION_SWITCH
 SENSOR = Device.IMMERSION_SENSOR
+LOWER = Device.IMMERSION_LOWER_SENSOR
 THERMOSTAT = Device.IMMERSION_THERMOSTAT
 OIL = Device.ALTERNATIVE_HEAT
 
@@ -75,6 +76,9 @@ class TestWhatNeedsWhat:
 
     def test_the_water_temperature_follows_the_sensor(self):
         assert _needing(SENSOR) == {"immersion_water_temperature"}
+
+    def test_the_lower_water_temperature_follows_the_lower_sensor(self):
+        assert _needing(LOWER) == {"immersion_lower_water_temperature"}
 
     def test_the_temperature_controls_need_the_switch_and_the_sensor(self):
         assert _needing(THERMOSTAT) == {
@@ -259,6 +263,7 @@ class TestRemovingOrphans:
             _needing(EV)
             | _needing(SWITCH)
             | _needing(SENSOR)
+            | _needing(LOWER)
             | _needing(THERMOSTAT)
             | _needing(OIL)
         )

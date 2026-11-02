@@ -69,6 +69,7 @@ else:
         CONF_FORECAST_PROVIDER,
         CONF_GRID_POWER,
         CONF_HOUSE_LOAD,
+        CONF_IMMERSION_LOWER_TEMP_SENSOR,
         CONF_IMMERSION_MIN_TEMP,
         CONF_IMMERSION_SWITCH,
         CONF_IMMERSION_TARGET_TEMP,
@@ -112,6 +113,7 @@ CHARGE_END = f"select.{PREFIX}_charge_end_time_slot_1"
 
 IMMERSION_SWITCH = "switch.immersion_heater"
 IMMERSION_TEMP = "sensor.hot_water_cylinder_temperature"
+IMMERSION_LOWER_TEMP = "sensor.hot_water_cylinder_lower_temperature"
 FORECAST = "sensor.energy_production_tomorrow"
 FORECAST_P10 = "sensor.solcast_pv_forecast_forecast_tomorrow_10"
 FORECAST_D2 = "sensor.solcast_pv_forecast_forecast_day_3"
@@ -241,6 +243,7 @@ def full_config_data() -> dict[str, Any]:
         CONF_IMMERSION_SWITCH: IMMERSION_SWITCH,
         CONF_IMMERSION_WATTAGE: 3000,
         CONF_IMMERSION_TEMP_SENSOR: IMMERSION_TEMP,
+        CONF_IMMERSION_LOWER_TEMP_SENSOR: IMMERSION_LOWER_TEMP,
         CONF_IMMERSION_TARGET_TEMP: 55,
         CONF_IMMERSION_MIN_TEMP: 50,
         # EV
@@ -291,6 +294,7 @@ def set_givtcp_states(hass, scenario: Scenario) -> None:
     # Optional extras.
     s(IMMERSION_SWITCH, "off")
     s(IMMERSION_TEMP, 48.2, {"unit_of_measurement": "°C", "device_class": "temperature"})
+    s(IMMERSION_LOWER_TEMP, 31.4, {"unit_of_measurement": "°C", "device_class": "temperature"})
     s(FORECAST, 14.2, {"unit_of_measurement": "kWh", "device_class": "energy"})
     s(FORECAST_P10, 9.8, {"unit_of_measurement": "kWh", "device_class": "energy"})
     s(FORECAST_D2, 11.0, {"unit_of_measurement": "kWh", "device_class": "energy"})

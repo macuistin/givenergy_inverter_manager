@@ -101,6 +101,7 @@ from ..const import (
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
     CONF_IMMERSION_HYSTERESIS,
+    CONF_IMMERSION_LOWER_TEMP_SENSOR,
     CONF_IMMERSION_MAX_RUN_MINUTES,
     CONF_IMMERSION_MIN_TEMP,
     CONF_IMMERSION_READY_TIMES,
@@ -157,6 +158,7 @@ RELOAD_KEYS: frozenset[str] = frozenset(
         # The optional device set.
         CONF_IMMERSION_SWITCH,
         CONF_IMMERSION_TEMP_SENSOR,
+        CONF_IMMERSION_LOWER_TEMP_SENSOR,
         # Read once at setup (forecast history seeding, entity units).
         CONF_FORECAST_ENTITY,
         CONF_CURRENCY,

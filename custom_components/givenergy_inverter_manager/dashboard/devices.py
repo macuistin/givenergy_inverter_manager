@@ -32,6 +32,7 @@ SENTINELS: dict[Device, str] = {
     Device.EV_CHARGER: "ev_charger_state",
     Device.IMMERSION_SWITCH: "immersion_managed",
     Device.IMMERSION_SENSOR: "immersion_water_temperature",
+    Device.IMMERSION_LOWER_SENSOR: "immersion_lower_water_temperature",
     Device.IMMERSION_THERMOSTAT: "immersion_target_temp",
     Device.ALTERNATIVE_HEAT: "water_heating_cheapest_source",
 }

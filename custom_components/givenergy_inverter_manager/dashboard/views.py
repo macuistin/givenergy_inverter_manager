@@ -341,6 +341,12 @@ class Builder:
         """An entity of the immersion temperature sensor, expected while none is configured."""
         return self.devices.entity(Device.IMMERSION_SENSOR, suffix)
 
+    def lower_water_sensor(self) -> str | None:
+        """The lower thermometer, expected while none is configured."""
+        return self.devices.entity(
+            Device.IMMERSION_LOWER_SENSOR, "immersion_lower_water_temperature"
+        )
+
     def thermostat(self, suffix: str) -> str | None:
         """An immersion temperature control. Expected while the switch or sensor is missing."""
         return self.devices.entity(Device.IMMERSION_THERMOSTAT, suffix)
@@ -1281,7 +1287,7 @@ class Builder:
         """The water temperature chart.
 
         With the thermostat (the switch and the sensor together) it adds the target and minimum
-        lines, and the heater's power as a line.
+        lines, and the heater's power as a line. With the lower thermometer it draws that too.
         """
         both = Device.IMMERSION_THERMOSTAT in shown
         entities = ImmersionEntities(
@@ -1289,6 +1295,7 @@ class Builder:
             self.thermostat("immersion_target_temp") if both else None,
             self.thermostat("immersion_min_temp") if both else None,
             self.immersion("immersion_power") if both else None,
+            self.lower_water_sensor() if Device.IMMERSION_LOWER_SENSOR in shown else None,
         )
         return self._immersion_chart(entities)
 
@@ -1327,7 +1334,9 @@ class Builder:
                 entity_row(self.immersion("immersion_savings_today"), "Solar saved"),
             ]
         )
-        charts = self.devices.variants((Device.IMMERSION_THERMOSTAT,), self._temperature_card)
+        charts = self.devices.variants(
+            (Device.IMMERSION_THERMOSTAT, Device.IMMERSION_LOWER_SENSOR), self._temperature_card
+        )
         return group(
             heading_card("Hot water", "mdi:water-boiler"),
             [

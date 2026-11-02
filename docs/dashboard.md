@@ -133,6 +133,7 @@ What each device brings:
 | EV charger | Discovery finds a supported charger. This runs again every five minutes until one is found | Car charger on the flow card, the EV charger box and sub-view, the EV share of the cost charts |
 | Immersion switch | The switch is set under Configure, Immersion heater (or at setup) | Heater power, energy, cost and savings, the heater chart, the divert reason, the Use spare solar and Heat now settings, the immersion node on the flow card |
 | Immersion temperature sensor | The sensor is set under Configure, Immersion heater (or at setup) | The Water tile, the Hot water sentence and the water temperature chart |
+| Lower immersion temperature sensor | The sensor is set under Configure, Immersion heater, with the main sensor | A second line in the water temperature chart, labelled Water, lower |
 | Switch and sensor together | Both are set | The planned heating (while scheduled heating is on), Scheduled, Heat to and Never below in Settings in force, the Scheduled heat, Heat to, Never below and Restart drop controls, and the target and minimum lines on the chart |
 | Alternative water heating with the switch | Alternative water heating is on under Configure with a cost or a cost sensor set, and an immersion switch is set | The cheapest way to heat the water now and the schedule line, in the Plan section of the Hot water view |
 

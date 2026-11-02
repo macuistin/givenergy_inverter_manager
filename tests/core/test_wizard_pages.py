@@ -246,6 +246,7 @@ class TestHotWater:
             {
                 "immersion_switch_entity": "switch.heater",
                 "immersion_temp_sensor_entity": "sensor.cylinder",
+                "immersion_lower_temp_sensor_entity": "sensor.cylinder_low",
                 "immersion_wattage_w": 2800,
                 "immersion_ready_times": ["18:00", "07:00", "07:00:00"],
                 **self.ALT,
@@ -255,6 +256,7 @@ class TestHotWater:
         assert cleaned == {
             "immersion_switch_entity": "switch.heater",
             "immersion_temp_sensor_entity": "sensor.cylinder",
+            "immersion_lower_temp_sensor_entity": "sensor.cylinder_low",
             "immersion_wattage_w": 2800.0,
             "immersion_ready_times": ["07:00", "18:00"],
             "alt_heat_enabled": True,
@@ -269,6 +271,7 @@ class TestHotWater:
 
         assert cleaned["immersion_switch_entity"] == ""
         assert cleaned["immersion_temp_sensor_entity"] == ""
+        assert cleaned["immersion_lower_temp_sensor_entity"] == ""
         assert cleaned["immersion_ready_times"] == []
         assert cleaned["alt_heat_cost"] == ""
         assert cleaned["alt_heat_cost_entity"] == ""

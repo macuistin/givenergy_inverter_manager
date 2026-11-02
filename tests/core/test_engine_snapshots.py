@@ -59,6 +59,10 @@ engine never does. The tables are pinned in tests/core/test_bill_audit_tables.py
 The cheap_run_remaining_minutes leaf was added for the Cheap from tile: 49 of the 255 cases gained
 it, and the fresh snapshot gained it as None. Nothing else moved.
 
+The immersion_lower_temp leaf was added for the optional lower hot water thermometer. Only the
+fresh snapshot gained it (None), and none of the 255 cases moved, because no case sets the lower
+sensor and nothing decides from it. The reading is pinned in test_immersion_lower_temp.py.
+
 The overnight_phase and overnight_plan_ready_at leaves were added when the overnight plan started
 to show only from an hour before solar ends until the charge window closes. The fresh snapshot gained
 them as "active" and "". All 255 cases gained overnight_plan_ready_at, and 151 gained an

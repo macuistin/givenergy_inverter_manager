@@ -219,6 +219,8 @@ class RawSensorValues:
     immersion_switch_configured: bool = True
     immersion_wattage_w: float = 3000.0
     immersion_temp: float | None = None
+    # The lower thermometer. Only published for the graphs, no decision reads it.
+    immersion_lower_temp: float | None = None
     immersion_target_temp: float = 55.0
     immersion_min_temp: float = 50.0
     immersion_hysteresis_c: float = 5.0
@@ -302,6 +304,7 @@ class CoordinatorData:
     inverter_max_w: float = DEFAULT_INVERTER_MAX_OUTPUT * 1000
     battery_capacity_kwh: float = 0.0
     immersion_temp: float | None = None
+    immersion_lower_temp: float | None = None
     forecast_kwh_tomorrow: float | None = None
     trailing_12m_solar_kwh: float = 0.0
     trailing_12m_import_kwh: float = 0.0
@@ -1026,6 +1029,7 @@ def _apply_live_readings(data: CoordinatorData, raw: RawSensorValues) -> None:
     data.inverter_max_w = raw.inverter_max_w
     data.battery_capacity_kwh = raw.battery_capacity_kwh
     data.immersion_temp = raw.immersion_temp
+    data.immersion_lower_temp = raw.immersion_lower_temp
     data.immersion_configured = raw.immersion_switch_configured
     data.forecast_kwh_tomorrow = raw.forecast_kwh_tomorrow
 

@@ -125,6 +125,15 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         attrs_fn=values.immersion_water_attributes,
     ),
     GivEnergyManagerSensorDescription(
+        key="immersion_lower_water_temperature",
+        requires=Device.IMMERSION_LOWER_SENSOR,
+        translation_key="immersion_lower_water_temperature",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=values.immersion_lower_temperature,
+    ),
+    GivEnergyManagerSensorDescription(
         key="water_heating_cheapest_source",
         requires=Device.ALTERNATIVE_HEAT,
         translation_key="water_heating_cheapest_source",

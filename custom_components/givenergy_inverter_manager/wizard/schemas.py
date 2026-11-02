@@ -44,6 +44,7 @@ from ..const import (
     CONF_FORECAST_ENTITY,
     CONF_FORECAST_ENTITY_D2,
     CONF_FORECAST_ENTITY_P10,
+    CONF_IMMERSION_LOWER_TEMP_SENSOR,
     CONF_IMMERSION_MAX_RUN_MINUTES,
     CONF_IMMERSION_READY_TIMES,
     CONF_IMMERSION_RUN_LIMIT_WARNING,
@@ -361,6 +362,7 @@ def hot_water_schema(ctx: PageContext) -> vol.Schema:
         {
             optional_key(ctx, CONF_IMMERSION_SWITCH): entity_selector("switch"),
             optional_key(ctx, CONF_IMMERSION_TEMP_SENSOR): entity_selector(),
+            optional_key(ctx, CONF_IMMERSION_LOWER_TEMP_SENSOR): entity_selector(),
             vol.Optional(CONF_IMMERSION_WATTAGE, default=float(wattage)): number_selector(
                 CONF_IMMERSION_WATTAGE
             ),

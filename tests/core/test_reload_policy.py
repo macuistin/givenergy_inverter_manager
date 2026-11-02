@@ -42,6 +42,7 @@ KEY_TABLE: dict[str, tuple[object, object, Effect]] = {
     # The optional device set.
     "immersion_switch_entity": ("switch.a", "switch.b", RELOAD),
     "immersion_temp_sensor_entity": ("sensor.a", "sensor.b", RELOAD),
+    "immersion_lower_temp_sensor_entity": ("sensor.a", "sensor.b", RELOAD),
     # Read once at setup: forecast history seeding, the unit of every money sensor.
     "forecast_entity": ("sensor.a", "sensor.b", RELOAD),
     "currency": ("EUR", "GBP", RELOAD),

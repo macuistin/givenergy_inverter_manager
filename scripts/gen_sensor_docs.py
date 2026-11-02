@@ -230,6 +230,7 @@ KEY_GROUPS: dict[str, str] = {
         (
             "immersion_divert_reason",
             "immersion_water_temperature",
+            "immersion_lower_water_temperature",
             "water_heating_cheapest_source",
             "immersion_run_limit",
             "water_heating_ready_by_trigger",
@@ -572,6 +573,10 @@ DESCRIPTIONS: dict[str, str] = {
         "plans for the next ready time and the cheapest window. With ready times set it also "
         "has `ready_by`, `expected_ready`, `heating_rate_c_per_h` and `heating_rate_source`."
     ),
+    "immersion_lower_water_temperature": (
+        "Reading of the lower immersion temperature sensor you set, for the graphs. Nothing "
+        "decides from it. The Hot water chart draws it next to Water Temperature."
+    ),
     "immersion_run_limit": (
         "Whether a scheduled run of the immersion was stopped by the longest immersion run: "
         "`off`, `idle` or `reached`. `reached` lasts until scheduled heating stops wanting the "
@@ -714,6 +719,7 @@ REQUIRES_NOTES: dict[str, str] = {
     "EV_CHARGER": "Created only with an EV charger.",
     "IMMERSION_SWITCH": "Created only with an immersion switch.",
     "IMMERSION_SENSOR": "Created only with an immersion temperature sensor.",
+    "IMMERSION_LOWER_SENSOR": "Created only with a lower immersion temperature sensor.",
     "IMMERSION_THERMOSTAT": "Created only with an immersion switch and temperature sensor.",
     "ALTERNATIVE_HEAT": (
         "Created only with alternative water heating on, a cost set and an immersion switch."

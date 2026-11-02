@@ -388,6 +388,7 @@ class TestTheSwitchAndTheSensorComeAndGo:
         hass = hass_in_scenario
         data = full_config_data()
         data.pop("immersion_temp_sensor_entity")
+        data.pop("immersion_lower_temp_sensor_entity")
         entry = _entry({"oil_price_per_litre": 1.37}, data)
         await set_up(hass, entry)
         await refresh(hass, entry)

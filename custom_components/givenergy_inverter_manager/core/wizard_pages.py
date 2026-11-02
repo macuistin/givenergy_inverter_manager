@@ -43,6 +43,7 @@ from ..const import (
     CONF_FORECAST_ENTITY_P10,
     CONF_GRID_POWER,
     CONF_HOUSE_LOAD,
+    CONF_IMMERSION_LOWER_TEMP_SENSOR,
     CONF_IMMERSION_MAX_RUN_MINUTES,
     CONF_IMMERSION_READY_TIMES,
     CONF_IMMERSION_RUN_LIMIT_WARNING,
@@ -287,6 +288,13 @@ def _hot_water_warnings(values: Mapping[str, Any]) -> tuple[str, ...]:
             "Ready-by times need a hot water temperature sensor. Until one is set, no heating "
             "is planned for them."
         )
+    if _entity(values, CONF_IMMERSION_LOWER_TEMP_SENSOR) and not _entity(
+        values, CONF_IMMERSION_TEMP_SENSOR
+    ):
+        warnings.append(
+            "The lower hot water temperature sensor is only drawn next to the main one. "
+            "Set the hot water temperature sensor too."
+        )
     if len(ready) > EXPECTED_READY_TIMES:
         warnings.append(
             f"You entered {len(ready)} ready-by times. Up to {EXPECTED_READY_TIMES} a day is "
@@ -338,6 +346,7 @@ def clean_hot_water(values: Mapping[str, Any]) -> dict[str, Any]:
     cleaned: dict[str, Any] = {
         CONF_IMMERSION_SWITCH: _entity(values, CONF_IMMERSION_SWITCH),
         CONF_IMMERSION_TEMP_SENSOR: _entity(values, CONF_IMMERSION_TEMP_SENSOR),
+        CONF_IMMERSION_LOWER_TEMP_SENSOR: _entity(values, CONF_IMMERSION_LOWER_TEMP_SENSOR),
         CONF_IMMERSION_READY_TIMES: [f"{at:%H:%M}" for at in times],
     }
     if CONF_IMMERSION_WATTAGE in values:

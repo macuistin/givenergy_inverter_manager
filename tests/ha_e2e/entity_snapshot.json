@@ -850,6 +850,11 @@
   "name": "Heater Today"
  },
  {
+  "entity_id": "sensor.immersion_lower_water_temperature",
+  "key": "immersion_lower_water_temperature",
+  "name": "Lower Water Temperature"
+ },
+ {
   "entity_id": "sensor.immersion_run_limit",
   "key": "immersion_run_limit",
   "name": "Run Limit"
