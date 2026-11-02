@@ -136,6 +136,7 @@ TAB_TOMORROW = "tomorrow"
 TAB_BILL = "bill"
 SUB_IMMERSION = "immersion"
 SUB_EV = "ev-charger"
+CHARGE_NOW_NAME = "Charge now"
 SUB_SETTINGS = "settings"
 TABS = frozenset({TAB_NOW, TAB_TODAY, TAB_PLAN, TAB_TOMORROW, TAB_BILL})
 
@@ -188,6 +189,7 @@ _DIVERT_HELP = ("Min battery, Min spare solar", "spare solar goes to the water o
 _SYSTEM_HELP = (
     ("Dry run", "plan as normal but send nothing to the inverter, the immersion or the car."),
     ("Verbose logging", "write the integration's decisions to the Home Assistant log."),
+    (CHARGE_NOW_NAME, "charge the car from the grid at any rate until you turn this off or unplug it."),
 )
 
 
@@ -624,6 +626,21 @@ class Builder:
             ]
         )
 
+    def _charger_story(self) -> dict[str, Any] | None:
+        """The charger in a sentence with the reason it is not charging, for the main page."""
+        return markdown_card(
+            ev_story_template(
+                ChargerNow(
+                    self.ev_power(),
+                    self.ev("ev_charger_state"),
+                    self.ev("ev_charging_source"),
+                    self.ev("ev_solar_surplus_available"),
+                    self.ev("ev_protection_reason"),
+                    self.ev("ev_charge_now"),
+                )
+            )
+        )
+
     def _charger_tiles(self) -> dict[str, Any] | None:
         """The EV charger figures, each opening the EV charger view."""
         nav = self.go(SUB_EV)
@@ -661,7 +678,13 @@ class Builder:
         return [
             grid_section(heading_block(water, water_cards)),
             grid_section(
-                heading_block(ev, [devices.show_with(self._charger_tiles(), Device.EV_CHARGER)])
+                heading_block(
+                    ev,
+                    [
+                        devices.show_with(self._charger_story(), Device.EV_CHARGER),
+                        devices.show_with(self._charger_tiles(), Device.EV_CHARGER),
+                    ],
+                )
             ),
         ]
 
@@ -1461,6 +1484,7 @@ class Builder:
                 self.ev("ev_charging_source"),
                 self.ev("ev_solar_surplus_available"),
                 self.ev("ev_protection_reason"),
+                self.ev("ev_charge_now"),
             )
         )
         session_cost = self.ev("ev_session_cost")
@@ -1475,7 +1499,8 @@ class Builder:
         power = history_graph([entity_row(self.ev_power(), "Charge power")], 24, 4)
         return grid_section(
             heading_block(
-                heading_card("EV charger", "mdi:ev-station"), [markdown_card(story), figures]
+                heading_card("EV charger", "mdi:ev-station"),
+                [markdown_card(story), figures],
             ),
             heading_block(
                 subheading_card("Charge power, last 24 hours", "mdi:chart-line"), [power]
@@ -1549,7 +1574,8 @@ class Builder:
             if Device.IMMERSION_THERMOSTAT in shown
             else []
         )
-        return [*own, *heater, *thermostat]
+        car = [self.ev("ev_charge_now")] if Device.EV_CHARGER in shown else []
+        return [*own, *heater, *thermostat, *car]
 
     def _recent_changes_card(self, shown: frozenset[Device]) -> dict[str, Any] | None:
         return logbook_card(self._settings_entities(shown), _LOGBOOK_HOURS)
@@ -1631,6 +1657,9 @@ class Builder:
             [
                 switch_tile(self.entity("dry_run"), "Dry run", GRID),
                 switch_tile(self.entity("verbose_logging"), "Verbose logging", GRID),
+                self.devices.show_with(
+                    switch_tile(self.ev("ev_charge_now"), CHARGE_NOW_NAME, EV), Device.EV_CHARGER
+                ),
                 _help(_SYSTEM_HELP),
             ],
         )
@@ -1642,7 +1671,8 @@ class Builder:
         once for each combination of the switch and the thermostat.
         """
         cards = self.devices.variants(
-            (Device.IMMERSION_SWITCH, Device.IMMERSION_THERMOSTAT), self._recent_changes_card
+            (Device.IMMERSION_SWITCH, Device.IMMERSION_THERMOSTAT, Device.EV_CHARGER),
+            self._recent_changes_card
         )
         return group(heading_card("Recent changes", "mdi:history"), cards)
 

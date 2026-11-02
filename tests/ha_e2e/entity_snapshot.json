@@ -890,6 +890,11 @@
   "name": "Water Temperature"
  },
  {
+  "entity_id": "switch.ev_charger_charge_now",
+  "key": "ev_charge_now",
+  "name": "Charge Now"
+ },
+ {
   "entity_id": "switch.givenergy_inverter_manager_dry_run",
   "key": "dry_run",
   "name": "Dry run"

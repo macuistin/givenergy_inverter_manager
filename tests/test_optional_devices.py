@@ -55,6 +55,7 @@ class TestWhatNeedsWhat:
             "ev_solar_surplus_available",
             "zappi_today",
             "zappi_cost_today",
+            "ev_charge_now",
         }
 
     def test_the_immersion_switch_has_its_energy_money_and_controls(self):

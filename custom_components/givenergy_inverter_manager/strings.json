@@ -1184,6 +1184,9 @@
       "skip_charge_override": {
         "name": "Force Skip Overnight Charge"
       },
+      "ev_charge_now": {
+        "name": "Charge Now"
+      },
       "charge_target_override_enabled": {
         "name": "Enable Charge Target Override"
       },

@@ -5,7 +5,7 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 ## Unreleased
 
 **Added**
-- A Zappi with a car plugged in now charges in **Fast** during any rate period cheaper than the base rate, such as the Night and Nightboost bands, with or without solar surplus, and goes back to **Eco+** when that period ends. Before, the integration only ever switched to Eco+, so a car plugged in at night waited for the sun and a big battery could take days to fill. A Zappi left in Fast by hand is not touched when the period ends. Other chargers keep the surplus-only rule. See [Cheaper-rate charging](docs/concepts.md#ev-charger).
+- A Zappi with a car plugged in now charges in **Fast** during any rate period cheaper than the base rate, such as the Night and Nightboost bands, with or without solar surplus, and goes back to **Eco+** when that period ends. Before, the integration only ever switched to Eco+, so a car plugged in at night waited for the sun and a big battery could take days to fill. A Zappi left in Fast by hand is not touched when the period ends. Other chargers keep the surplus-only rule. A new **Charge Now** switch (Settings, EV charger only) does the same at any rate until you turn it off or unplug the car, and the main page now says why the car is not charging, with a hint to use it. See [Cheaper-rate charging](docs/concepts.md#ev-charger).
 
 ## v0.22.0
 

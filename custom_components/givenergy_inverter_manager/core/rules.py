@@ -1296,6 +1296,7 @@ def decide_ev_charger_action(
     solar_surplus_w: float,
     on_cheap_rate: bool = False,
     cheap_rate_charging: bool = False,
+    charge_now: bool = False,
 ) -> tuple[str | None, str]:
     """
     Decide what mode the EV charger should be in.
@@ -1313,6 +1314,9 @@ def decide_ev_charger_action(
          that is not already in it → switch to that mode, never to a stop, pause, fast or grid mode
       6. Otherwise → no change
 
+    *charge_now* is the owner's switch: it asks for the grid mode at any rate, as a cheaper
+    period does, and it ends when the car is unplugged or the switch is turned off.
+
     *cheap_rate_charging* says the grid mode was set by rule 2, so a charger the owner put in
     that mode by hand is left alone when the cheap period ends.
     """
@@ -1320,11 +1324,15 @@ def decide_ev_charger_action(
         return None, "EV not connected"
 
     grid_mode = charger.cheap_rate_mode()
-    if on_cheap_rate and grid_mode is not None:
+    wanted = on_cheap_rate or charge_now
+    if charge_now and grid_mode is None:
+        return None, f"Charge now needs a Fast mode, which {charger.display_name} does not offer"
+    if wanted and grid_mode is not None:
+        why = "Charge now is on" if charge_now else "Cheaper rate running"
         if (charger.charge_mode or "").strip().lower() == grid_mode.lower():
-            return None, f"Cheaper rate running, already charging in {grid_mode}"
-        return grid_mode, f"Cheaper rate running — switching to {grid_mode} to charge the car"
-    if cheap_rate_charging and not on_cheap_rate and grid_mode is not None:
+            return None, f"{why}, already charging in {grid_mode}"
+        return grid_mode, f"{why} — switching to {grid_mode} to charge the car"
+    if cheap_rate_charging and not wanted and grid_mode is not None:
         if (charger.charge_mode or "").strip().lower() == grid_mode.lower():
             back = charger.surplus_mode()
             if back is not None:

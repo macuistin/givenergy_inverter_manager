@@ -391,6 +391,7 @@ class ChargerNow:
     source: str | None
     surplus: str | None
     protection: str | None
+    charge_now: str | None = None
 
 
 def ev_story_template(ev: ChargerNow) -> str:
@@ -410,6 +411,12 @@ def ev_story_template(ev: ChargerNow) -> str:
             "\n\n<font color='#9e9e9e'>"
             f"{{{{ state_attr('{ev.protection}', 'full_text') or states('{ev.protection}') }}}}"
             "</font>"
+        )
+    if ev.charge_now:
+        text += (
+            f"{{% if is_state('{ev.charge_now}', 'off') and p <= {_FLOW_W} %}}"
+            "\n\nTo charge anyway, turn on **Charge now** in Settings."
+            "{% endif %}"
         )
     return text
 

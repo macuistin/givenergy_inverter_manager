@@ -85,3 +85,31 @@ class TestTheDecision:
 def test_the_cheaper_rate_wins_over_any_surplus(surplus):
     target, _ = decide_ev_charger_action(_zappi("Eco+"), 60.0, surplus, on_cheap_rate=True)
     assert target == "Fast"
+
+
+class TestChargeNow:
+    def test_it_selects_fast_at_the_base_rate_with_no_surplus(self):
+        target, reason = decide_ev_charger_action(_zappi("Eco+"), 60.0, 0.0, charge_now=True)
+        assert target == "Fast"
+        assert "Charge now" in reason
+
+    def test_already_in_fast_nothing_is_sent(self):
+        target, _ = decide_ev_charger_action(_zappi("Fast"), 60.0, 0.0, charge_now=True)
+        assert target is None
+
+    def test_turning_it_off_puts_a_charger_it_set_back_to_eco_plus(self):
+        target, _ = decide_ev_charger_action(
+            _zappi("Fast"), 60.0, 0.0, cheap_rate_charging=True, charge_now=False
+        )
+        assert target == "Eco+"
+
+    def test_without_a_fast_mode_it_says_so_and_changes_nothing(self):
+        charger = _zappi("Eco", options=("Eco", "Eco+", "Stopped"))
+        target, reason = decide_ev_charger_action(charger, 60.0, 3000.0, charge_now=True)
+        assert target is None and "Fast mode" in reason
+
+    def test_with_no_car_nothing_is_sent(self):
+        target, _ = decide_ev_charger_action(
+            _zappi("Eco+", plugged=False), 60.0, 0.0, charge_now=True
+        )
+        assert target is None

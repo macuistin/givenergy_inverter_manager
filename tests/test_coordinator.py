@@ -298,6 +298,7 @@ class FakeCoordinator(GivEnergyCoordinator):
         self._update_cycle: int = 0
         self._ev_charger = None
         self._ev_cheap_rate_charging = False
+        self.override_ev_charge_now = False
         self._ev_base_rate = WatchState()
         self.override_charge_enabled = False
         self.override_charge_value = 80

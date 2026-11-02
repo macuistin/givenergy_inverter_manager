@@ -126,6 +126,7 @@ class TestAdminsPresent:
                 "immersion_hysteresis",
                 "dry_run",
                 "verbose_logging",
+                "ev_charge_now",
                 "charge_replan",
                 "cheap_rate_floor_soc",
                 "skip_charge_soc_threshold_pct",

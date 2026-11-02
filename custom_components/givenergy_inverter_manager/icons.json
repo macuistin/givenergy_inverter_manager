@@ -178,6 +178,7 @@
       "verbose_logging": {"default": "mdi:text-box-search-outline"},
       "charge_replan": {"default": "mdi:battery-sync-outline"},
       "auto_immersion": {"default": "mdi:water-boiler-auto"},
+      "ev_charge_now": {"default": "mdi:ev-station"},
       "immersion_managed": {"default": "mdi:water-boiler"},
       "immersion_schedule": {"default": "mdi:water-boiler-auto"},
       "skip_charge_override": {"default": "mdi:battery-off"},

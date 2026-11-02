@@ -852,6 +852,7 @@ def _process_ev_charger(
         solar_surplus_w=solar_surplus_w,
         on_cheap_rate=cycle.current_period.rate < cycle.tariff.base_rate,
         cheap_rate_charging=cheap_rate_charging,
+        charge_now=cycle.overrides.ev_charge_now,
     )
     data.ev_protection_reason = reason
     data.ev_mode_change_requested = ev_target_mode is not None
@@ -930,6 +931,7 @@ class ManualOverrides:
     charge_target: int | None = None
     immersion: bool | None = None
     skip_charge: bool = False
+    ev_charge_now: bool = False
 
 
 @dataclass(frozen=True)

@@ -427,6 +427,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._ev_charger: EVCharger | None = None
         # The grid mode was set by a cheaper rate period, so the end of that period undoes it.
         self._ev_cheap_rate_charging = False
+        self.override_ev_charge_now: bool = False
         self._ev_base_rate = WatchState()
         self._givtcp_was_unavailable: bool = False
         self._silent_cycles = 0
@@ -1698,6 +1699,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                     charge_target=self.override_charge_target,
                     immersion=self.override_immersion,
                     skip_charge=self.override_skip_charge,
+                    ev_charge_now=self.override_ev_charge_now,
                 ),
             ),
             Accumulators(
@@ -2043,6 +2045,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Update the charger state now that battery_power_w is known."""
         if self._ev_charger is not None:
             update_charger_state(self._get_state, self._ev_charger, raw.battery_power_w)
+            if not self._ev_charger.is_plugged_in:
+                self.override_ev_charge_now = False
             self._copy_ev_state(raw)
 
     def _record_baseline_load(self, raw: RawSensorValues, now: datetime) -> None:
