@@ -597,8 +597,9 @@ DESCRIPTIONS: dict[str, str] = {
         "immersion tops it up. The boundary is the lower of the minimum temperature plus the "
         "restart gap, and the target less the restart gap, so raising the minimum temperature "
         "makes it fire sooner. It stays idle while solar surplus is heating the water. Once fired "
-        "it holds until the water is at the target, and ends at once if the alternative stops "
-        "being cheaper. It sends no alert and never switches anything. Attributes: `alt_label`, "
+        "it holds until the water is at the target or has recovered 3 °C above the lower "
+        "boundary, and ends at once if the alternative stops being cheaper. It sends no alert "
+        "and never switches anything. Attributes: `alt_label`, "
         "and while it is not idle `run_minutes` and `saving_per_kwh`."
     ),
     "water_heating_cheapest_source": (
