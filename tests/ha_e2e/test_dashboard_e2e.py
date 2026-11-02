@@ -404,6 +404,7 @@ def _plan_state(loaded_entry, *, skip: bool) -> str:
     data = copy.copy(loaded_entry.runtime_data.data)
     data.overnight_phase = OvernightPhase.ACTIVE  # the plan is shown, whatever time the case is at
     data.charge_decision = replace(data.charge_decision, skip_charge=skip)
+    data.published_charge_decision = data.charge_decision
     return build_charge_plan_state(data)
 
 

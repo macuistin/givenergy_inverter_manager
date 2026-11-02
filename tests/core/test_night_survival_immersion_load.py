@@ -67,7 +67,8 @@ class TestSurvivalIgnoresTheImmersionHeat:
 class TestChargeTargetIgnoresTheImmersionHeat:
     def test_the_heater_does_not_block_a_skip_the_battery_can_afford(self):
         """Skipping needs the survival check to pass, so it reads the same load."""
-        with_heat = _cycle(immersion_kwh=IMMERSION_KWH)
-        without_heat = _cycle(immersion_kwh=0.0)
+        light = 8.0  # a house whose day the simulation also sees through without a charge
+        with_heat = _cycle(immersion_kwh=IMMERSION_KWH, other_house_kwh=light)
+        without_heat = _cycle(immersion_kwh=0.0, other_house_kwh=light)
         assert without_heat.charge_decision.skip_charge is True
         assert with_heat.charge_decision.skip_charge is True
