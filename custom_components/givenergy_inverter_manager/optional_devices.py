@@ -84,8 +84,10 @@ DIVERT_MIN_SURPLUS = DeviceEntity(
     "Divert minimum surplus",
 )
 EV_CHARGE_NOW = DeviceEntity("switch", "ev_charge_now", Device.EV_CHARGER, "Charge Now")
+EV_PAUSE = DeviceEntity("switch", "ev_pause", Device.EV_CHARGER, "Pause Charging")
 DEVICE_ENTITIES: tuple[DeviceEntity, ...] = (
     EV_CHARGE_NOW,
+    EV_PAUSE,
     AUTO_IMMERSION,
     IMMERSION_MANAGED,
     IMMERSION_SCHEDULE,

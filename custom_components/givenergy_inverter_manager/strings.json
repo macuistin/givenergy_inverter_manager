@@ -1187,6 +1187,9 @@
       "ev_charge_now": {
         "name": "Charge Now"
       },
+      "ev_pause": {
+        "name": "Pause Charging"
+      },
       "charge_target_override_enabled": {
         "name": "Enable Charge Target Override"
       },

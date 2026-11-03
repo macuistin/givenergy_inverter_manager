@@ -66,10 +66,10 @@ class TestTheDecision:
 
     def test_when_the_cheaper_rate_ends_a_charger_this_rule_set_goes_back_to_eco_plus(self):
         target, reason = decide_ev_charger_action(
-            _zappi("Fast"), 60.0, 0.0, on_cheap_rate=False, cheap_rate_charging=True
+            _zappi("Fast"), 60.0, 0.0, on_cheap_rate=False, mode_held=True
         )
         assert target == "Eco+"
-        assert "over" in reason
+        assert "Back to" in reason
 
     def test_a_charger_the_owner_put_in_fast_by_hand_is_left_alone(self):
         target, _ = decide_ev_charger_action(_zappi("Fast"), 60.0, 0.0, on_cheap_rate=False)
@@ -99,7 +99,7 @@ class TestChargeNow:
 
     def test_turning_it_off_puts_a_charger_it_set_back_to_eco_plus(self):
         target, _ = decide_ev_charger_action(
-            _zappi("Fast"), 60.0, 0.0, cheap_rate_charging=True, charge_now=False
+            _zappi("Fast"), 60.0, 0.0, mode_held=True, charge_now=False
         )
         assert target == "Eco+"
 
@@ -113,3 +113,29 @@ class TestChargeNow:
             _zappi("Eco+", plugged=False), 60.0, 0.0, charge_now=True
         )
         assert target is None
+
+
+class TestPause:
+    def test_it_selects_stopped_at_any_rate(self):
+        target, reason = decide_ev_charger_action(
+            _zappi("Fast"), 60.0, 3000.0, on_cheap_rate=True, charge_now=True, pause=True
+        )
+        assert target == "Stopped"
+        assert "Paused" in reason
+
+    def test_already_stopped_nothing_is_sent(self):
+        target, _ = decide_ev_charger_action(_zappi("Stopped"), 60.0, 0.0, pause=True)
+        assert target is None
+
+    def test_turning_it_off_puts_a_charger_it_stopped_back_to_eco_plus(self):
+        target, _ = decide_ev_charger_action(_zappi("Stopped"), 60.0, 0.0, mode_held=True)
+        assert target == "Eco+"
+
+    def test_a_charger_the_owner_stopped_by_hand_is_left_alone(self):
+        target, _ = decide_ev_charger_action(_zappi("Stopped"), 60.0, 0.0)
+        assert target is None
+
+    def test_without_a_stopped_option_it_says_so(self):
+        charger = _zappi("Eco+", options=("Fast", "Eco", "Eco+"))
+        target, reason = decide_ev_charger_action(charger, 60.0, 0.0, pause=True)
+        assert target is None and "Stopped mode" in reason

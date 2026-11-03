@@ -27,6 +27,10 @@ controls of controls.py (dry run and verbose logging):
     Created only while an EV charger is found. When on, the charger is put in its grid mode
     (Fast on a Zappi) at any rate. It turns itself off when the car is unplugged.
 
+  EV Pause Charging (GivEnergyEVPauseSwitch)
+    Created only while an EV charger is found. When on, the charger is stopped (Stopped on a
+    Zappi) at any rate. It wins over Charge Now and turns itself off when the car is unplugged.
+
   Force Skip Overnight Charge (GivEnergySkipChargeOverrideSwitch)
     When on, overrides the overnight charge decision to skip charging
     regardless of what the forecast says. Useful for manually preventing
@@ -88,7 +92,7 @@ async def async_setup_entry(
         if device is Device.IMMERSION_THERMOSTAT:
             return [GivEnergyImmersionScheduleSwitch(coordinator)]
         if device is Device.EV_CHARGER:
-            return [GivEnergyEVChargeNowSwitch(coordinator)]
+            return [GivEnergyEVChargeNowSwitch(coordinator), GivEnergyEVPauseSwitch(coordinator)]
         return []
 
     if Device.IMMERSION_SWITCH not in present_devices(entry):
@@ -230,11 +234,40 @@ class GivEnergyEVChargeNowSwitch(GivEnergyEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         self.coordinator.override_ev_charge_now = True
+        self.coordinator.override_ev_pause = False
         self.async_write_ha_state()
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self.coordinator.override_ev_charge_now = False
+        self.async_write_ha_state()
+        await self.coordinator.async_request_refresh()
+
+
+class GivEnergyEVPauseSwitch(GivEnergyEntity, SwitchEntity):
+    """Switch to pause the car's charge until it is turned off or the car is unplugged.
+
+    Wins over Charge Now and the cheaper-rate charge. Held on the coordinator and not restored.
+    """
+
+    _attr_translation_key = "ev_pause"
+
+    def __init__(self, coordinator: GivEnergyCoordinator) -> None:
+        super().__init__(coordinator, DeviceGroup.EV_CHARGER)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_ev_pause"
+
+    @property
+    def is_on(self) -> bool:
+        return self.coordinator.override_ev_pause
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        self.coordinator.override_ev_pause = True
+        self.coordinator.override_ev_charge_now = False
+        self.async_write_ha_state()
+        await self.coordinator.async_request_refresh()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        self.coordinator.override_ev_pause = False
         self.async_write_ha_state()
         await self.coordinator.async_request_refresh()
 

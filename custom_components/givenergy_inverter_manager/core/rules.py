@@ -1295,8 +1295,9 @@ def decide_ev_charger_action(
     battery_soc: float,
     solar_surplus_w: float,
     on_cheap_rate: bool = False,
-    cheap_rate_charging: bool = False,
+    mode_held: bool = False,
     charge_now: bool = False,
+    pause: bool = False,
 ) -> tuple[str | None, str]:
     """
     Decide what mode the EV charger should be in.
@@ -1305,6 +1306,8 @@ def decide_ev_charger_action(
 
     Rules (in priority order):
       1. No plugged-in vehicle → no change
+      1b. The owner asked to pause and the charger has a stop mode (Stopped on a Zappi) → that
+         mode, whatever the rate or the surplus
       2. A cheaper-than-base rate period is running and the charger has a grid mode (Fast on a
          Zappi) → switch to it, so a car that takes hours to fill charges at the cheap rate
       3. The cheaper period has ended and rule 2 put the charger in its grid mode → back to the
@@ -1317,11 +1320,22 @@ def decide_ev_charger_action(
     *charge_now* is the owner's switch: it asks for the grid mode at any rate, as a cheaper
     period does, and it ends when the car is unplugged or the switch is turned off.
 
-    *cheap_rate_charging* says the grid mode was set by rule 2, so a charger the owner put in
-    that mode by hand is left alone when the cheap period ends.
+    *pause* is the owner's other switch. It wins over *charge_now* and a cheaper period.
+
+    *mode_held* says the grid or stop mode was set by this rule, so a charger the owner put in
+    that mode by hand is left alone when the reason for it ends.
     """
     if not charger.is_plugged_in:
         return None, "EV not connected"
+
+    current = (charger.charge_mode or "").strip().lower()
+    stop_mode = charger.stop_mode()
+    if pause:
+        if stop_mode is None:
+            return None, f"Pause needs a Stopped mode, which {charger.display_name} does not offer"
+        if current == stop_mode.lower():
+            return None, f"Paused by you, already {stop_mode}"
+        return stop_mode, f"Paused by you — switching to {stop_mode}"
 
     grid_mode = charger.cheap_rate_mode()
     wanted = on_cheap_rate or charge_now
@@ -1332,12 +1346,12 @@ def decide_ev_charger_action(
         if (charger.charge_mode or "").strip().lower() == grid_mode.lower():
             return None, f"{why}, already charging in {grid_mode}"
         return grid_mode, f"{why} — switching to {grid_mode} to charge the car"
-    if cheap_rate_charging and not wanted and grid_mode is not None:
-        if (charger.charge_mode or "").strip().lower() == grid_mode.lower():
-            back = charger.surplus_mode()
-            if back is not None:
-                return back, f"Cheaper rate over — back to {back}"
-            return None, f"Cheaper rate over, but {charger.display_name} offers no surplus-only mode"
+    ours = {m.lower() for m in (grid_mode, stop_mode) if m is not None}
+    if mode_held and not wanted and current in ours:
+        back = charger.surplus_mode()
+        if back is not None:
+            return back, f"Back to {back}"
+        return None, f"{charger.display_name} offers no surplus-only mode, so its mode is left"
 
     # Minimum power guard: OCPP chargers will not start below 6A (1,380W at 230V).
     # Sending an Eco+ command when surplus is below this threshold wastes a register

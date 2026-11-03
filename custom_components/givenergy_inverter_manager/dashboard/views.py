@@ -137,6 +137,7 @@ TAB_BILL = "bill"
 SUB_IMMERSION = "immersion"
 SUB_EV = "ev-charger"
 CHARGE_NOW_NAME = "Charge now"
+PAUSE_NAME = "Pause"
 SUB_SETTINGS = "settings"
 TABS = frozenset({TAB_NOW, TAB_TODAY, TAB_PLAN, TAB_TOMORROW, TAB_BILL})
 
@@ -190,6 +191,7 @@ _SYSTEM_HELP = (
     ("Dry run", "plan as normal but send nothing to the inverter, the immersion or the car."),
     ("Verbose logging", "write the integration's decisions to the Home Assistant log."),
     (CHARGE_NOW_NAME, "charge the car from the grid at any rate until you turn this off or unplug it."),
+    (PAUSE_NAME, "stop the charge, whatever the rate, until you turn this off or unplug the car."),
 )
 
 
@@ -641,6 +643,23 @@ class Builder:
             )
         )
 
+    def _charger_controls(self) -> list[dict[str, Any] | None]:
+        """Charge now and Pause, to administrators only and while a car is plugged in.
+
+        Tapping either changes the charger, so anyone else sees the state and the reason only.
+        """
+        state = self.ev("ev_charger_state")
+        if not self.admin_ids or not state:
+            return []
+        gate = [
+            admin_condition(self.admin_ids),
+            {"condition": "state", "entity": state, "state_not": ["disconnected", "unknown"]},
+        ]
+        return [
+            with_visibility(switch_tile(self.ev("ev_charge_now"), CHARGE_NOW_NAME, EV), gate),
+            with_visibility(switch_tile(self.ev("ev_pause"), PAUSE_NAME, EV), gate),
+        ]
+
     def _charger_tiles(self) -> dict[str, Any] | None:
         """The EV charger figures, each opening the EV charger view."""
         nav = self.go(SUB_EV)
@@ -682,6 +701,10 @@ class Builder:
                     ev,
                     [
                         devices.show_with(self._charger_story(), Device.EV_CHARGER),
+                        *(
+                            devices.show_with(tile, Device.EV_CHARGER)
+                            for tile in self._charger_controls()
+                        ),
                         devices.show_with(self._charger_tiles(), Device.EV_CHARGER),
                     ],
                 )
@@ -1574,7 +1597,9 @@ class Builder:
             if Device.IMMERSION_THERMOSTAT in shown
             else []
         )
-        car = [self.ev("ev_charge_now")] if Device.EV_CHARGER in shown else []
+        car = (
+            [self.ev("ev_charge_now"), self.ev("ev_pause")] if Device.EV_CHARGER in shown else []
+        )
         return [*own, *heater, *thermostat, *car]
 
     def _recent_changes_card(self, shown: frozenset[Device]) -> dict[str, Any] | None:
@@ -1659,6 +1684,9 @@ class Builder:
                 switch_tile(self.entity("verbose_logging"), "Verbose logging", GRID),
                 self.devices.show_with(
                     switch_tile(self.ev("ev_charge_now"), CHARGE_NOW_NAME, EV), Device.EV_CHARGER
+                ),
+                self.devices.show_with(
+                    switch_tile(self.ev("ev_pause"), PAUSE_NAME, EV), Device.EV_CHARGER
                 ),
                 _help(_SYSTEM_HELP),
             ],

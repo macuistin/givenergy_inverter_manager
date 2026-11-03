@@ -229,7 +229,7 @@ and test_dst_countdowns.py.
 3 of the 255 cases moved when a plugged-in Zappi started charging in Fast during a cheaper rate
 period. Only ev_protection_reason, ev_mode_change_requested and the returned EV mode moved, in the
 cases with a plugged-in Zappi in a Night or Nightboost period. The behaviour is pinned in
-tests/lib/ev/test_cheap_rate_charging.py.
+tests/lib/ev/test_mode_held.py.
 """
 
 from __future__ import annotations

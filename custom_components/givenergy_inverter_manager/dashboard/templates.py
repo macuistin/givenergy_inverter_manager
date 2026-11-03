@@ -415,7 +415,7 @@ def ev_story_template(ev: ChargerNow) -> str:
     if ev.charge_now:
         text += (
             f"{{% if is_state('{ev.charge_now}', 'off') and p <= {_FLOW_W} %}}"
-            "\n\nTo charge anyway, turn on **Charge now** in Settings."
+            "\n\nTo charge anyway, turn on **Charge now** below; **Pause** stops it."
             "{% endif %}"
         )
     return text

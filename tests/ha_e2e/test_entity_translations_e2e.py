@@ -16,7 +16,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.icon import async_get_icons
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
-from custom_components.givenergy_inverter_manager.optional_devices import EV_CHARGE_NOW
+from custom_components.givenergy_inverter_manager.optional_devices import EV_CHARGE_NOW, EV_PAUSE
 from tests.helpers import PKG
 
 
@@ -61,6 +61,6 @@ class TestEverySwitchAndNumber:
                 if e.domain == domain
             }
             # The loaded entry has no EV charger, so its switch is not registered.
-            registered |= {EV_CHARGE_NOW.key} if domain == "switch" else set()
+            registered |= {EV_CHARGE_NOW.key, EV_PAUSE.key} if domain == "switch" else set()
             assert set(strings[domain]) == registered, domain
             assert set(icons[domain]) == registered, domain

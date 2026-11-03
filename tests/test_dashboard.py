@@ -1587,6 +1587,7 @@ class TestResponsiveLayout:
         assert columns == {
             "Fixed target": 6,
             "Charge now": 6,
+            "Pause": 6,
             "Skip tonight": 6,
             "Charge to": "full",
             "Cheap rate floor": "full",

@@ -833,7 +833,7 @@ def _process_ev_charger(
     ev_charger: EVCharger,
     raw: RawSensorValues,
     cycle: _Cycle,
-    cheap_rate_charging: bool,
+    mode_held: bool,
 ) -> str | None:
     """Process EV charger state and return target mode."""
     data.ev_available = True
@@ -851,8 +851,9 @@ def _process_ev_charger(
         battery_soc=raw.battery_soc,
         solar_surplus_w=solar_surplus_w,
         on_cheap_rate=cycle.current_period.rate < cycle.tariff.base_rate,
-        cheap_rate_charging=cheap_rate_charging,
+        mode_held=mode_held,
         charge_now=cycle.overrides.ev_charge_now,
+        pause=cycle.overrides.ev_pause,
     )
     data.ev_protection_reason = reason
     data.ev_mode_change_requested = ev_target_mode is not None
@@ -932,6 +933,7 @@ class ManualOverrides:
     immersion: bool | None = None
     skip_charge: bool = False
     ev_charge_now: bool = False
+    ev_pause: bool = False
 
 
 @dataclass(frozen=True)
@@ -979,7 +981,7 @@ class CycleInputs:
     now: datetime | None = None
     ev_charger: EVCharger | None = None
     # True while the charger is in its grid mode because a cheaper rate period set it so.
-    ev_cheap_rate_charging: bool = False
+    ev_mode_held: bool = False
     overrides: ManualOverrides = field(default_factory=ManualOverrides)
 
 
@@ -2018,7 +2020,7 @@ def build_coordinator_data(
     if inputs.ev_charger is None:
         return data, None
     ev_target_mode = _process_ev_charger(
-        data, inputs.ev_charger, inputs.raw, cycle, inputs.ev_cheap_rate_charging
+        data, inputs.ev_charger, inputs.raw, cycle, inputs.ev_mode_held
     )
     step = _EVTotals.of(accumulators.today).step_since(ev_before, inputs.ev_charger.state, now)
     _track_ev_session(data, accumulators.ev_sessions, step)

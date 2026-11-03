@@ -127,6 +127,7 @@ class TestAdminsPresent:
                 "dry_run",
                 "verbose_logging",
                 "ev_charge_now",
+                "ev_pause",
                 "charge_replan",
                 "cheap_rate_floor_soc",
                 "skip_charge_soc_threshold_pct",
@@ -189,6 +190,13 @@ class TestAdminsAbsent:
             assert _without_settings_button(view) == _without_settings_button(bare)
 
 
+def _admin_control(card: dict) -> bool:
+    """Charge now or Pause: a switch tile only an administrator sees."""
+    return card["type"] == "tile" and any(
+        v.get("condition") == "user" for v in card.get("visibility", [])
+    )
+
+
 def _without_settings_button(view: dict) -> dict:
     """A copy of the view without the Settings button and the repairs.
 
@@ -198,6 +206,8 @@ def _without_settings_button(view: dict) -> dict:
     stripped["sections"] = [
         s for s in stripped["sections"] if s["cards"][0].get("heading") != "Needs your attention"
     ]
+    for section in stripped["sections"]:
+        section["cards"] = [c for c in section["cards"] if not _admin_control(c)]
     for card in (c for section in stripped["sections"] for c in section["cards"]):
         if "badges" in card:
             card["badges"] = [
@@ -242,7 +252,9 @@ class TestOnlyStateIsShownToEveryone:
         tiles = [
             c
             for c in view_cards(_view(dashboard_dict(), "power-flow"))
-            if c["type"] == "tile" and c["entity"].startswith("switch.")
+            if c["type"] == "tile"
+            and c["entity"].startswith("switch.")
+            and c["name"] not in {"Charge now", "Pause"}
         ]
         assert {t["name"] for t in tiles} == {"Heater"}
         assert not [t for t in tiles if _editable(t)]
@@ -250,6 +262,8 @@ class TestOnlyStateIsShownToEveryone:
 
 def _editable(card: dict) -> bool:
     """True for a card that lets a viewer change something."""
+    if any(v.get("condition") == "user" for v in card.get("visibility", [])):
+        return False  # shown to administrators only
     if card["type"] != "tile":
         return card["type"] in {"button", "light", "thermostat"}
     if {f["type"] for f in card.get("features", [])} & CONTROL_FEATURES:

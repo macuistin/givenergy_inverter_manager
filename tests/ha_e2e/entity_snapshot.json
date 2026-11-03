@@ -895,6 +895,11 @@
   "name": "Charge Now"
  },
  {
+  "entity_id": "switch.ev_charger_pause_charging",
+  "key": "ev_pause",
+  "name": "Pause Charging"
+ },
+ {
   "entity_id": "switch.givenergy_inverter_manager_dry_run",
   "key": "dry_run",
   "name": "Dry run"
