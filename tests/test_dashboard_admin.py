@@ -192,13 +192,6 @@ class TestAdminsAbsent:
             assert _without_settings_button(view) == _without_settings_button(bare)
 
 
-def _admin_control(card: dict) -> bool:
-    """Charge now or Pause: a switch tile only an administrator sees."""
-    return card["type"] == "tile" and any(
-        v.get("condition") == "user" for v in card.get("visibility", [])
-    )
-
-
 def _without_settings_button(view: dict) -> dict:
     """A copy of the view without the Settings button and the repairs.
 
@@ -208,8 +201,6 @@ def _without_settings_button(view: dict) -> dict:
     stripped["sections"] = [
         s for s in stripped["sections"] if s["cards"][0].get("heading") != "Needs your attention"
     ]
-    for section in stripped["sections"]:
-        section["cards"] = [c for c in section["cards"] if not _admin_control(c)]
     for card in (c for section in stripped["sections"] for c in section["cards"]):
         if "badges" in card:
             card["badges"] = [
@@ -222,12 +213,18 @@ def _without_settings_button(view: dict) -> dict:
     return stripped
 
 
+# Every user may start or pause the car's charge. Nothing else editable is shown to everyone.
+OPEN_TO_EVERYONE = {"Charge now", "Pause"}
+
+
 class TestOnlyStateIsShownToEveryone:
     @pytest.mark.parametrize("install", INSTALLS)
     def test_no_view_shown_to_everyone_holds_an_editable_control(self, install):
         dashboard = dashboard_dict(**INSTALLS[install])
         for view in _everyones_views(dashboard):
             for card in view_cards(view):
+                if card.get("name") in OPEN_TO_EVERYONE:
+                    continue
                 assert not _editable(card), (view["path"], card)
 
     @pytest.mark.parametrize("install", INSTALLS)
