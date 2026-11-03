@@ -395,17 +395,32 @@ class ChargerNow:
 
 
 def ev_story_template(ev: ChargerNow) -> str:
-    """Whether the car is charging, from what, and the battery protection's reason in grey."""
+    """Whether the car is charging, from what, and the battery protection's reason in grey.
+
+    A car that is not plugged in is called disconnected. Spare solar then reads as what the car
+    would have had, and there is no hint to charge or pause it.
+    """
     power = f"states('{ev.power}') | float(0)" if ev.power else "0"
     state = f"{{{{ states('{ev.state}') | lower }}}}" if ev.state else "idle"
     source = f" from {{{{ states('{ev.source}') | lower }}}}" if ev.source else ""
+    plugged = (
+        f"states('{ev.state}') | lower not in ['disconnected', 'unknown', 'unavailable']"
+        if ev.state
+        else "true"
+    )
     text = (
-        f"{{% set p = {power} %}}"
+        f"{{% set p = {power} %}}{{% set plugged = {plugged} %}}"
         f"{{% if p > {_FLOW_W} %}}**Charging at {{{{ (p / 1000) | round(1) }}}} kW**{source}."
+        "{% elif not plugged %}**Not charging.** The car is disconnected."
         f"{{% else %}}**Not charging.** The charger is {state}.{{% endif %}}"
     )
     if ev.surplus:
-        text += f" Spare solar: {{{{ states('{ev.surplus}') | lower }}}}."
+        text += (
+            f"{{% if plugged %}} Spare solar: {{{{ states('{ev.surplus}') | lower }}}}."
+            f"{{% elif is_state('{ev.surplus}', 'Available') %}} Spare solar is available and "
+            "would go to the car once it is plugged in."
+            "{% else %} There is no spare solar for it right now.{% endif %}"
+        )
     if ev.protection:
         text += (
             "\n\n<font color='#9e9e9e'>"
@@ -414,7 +429,7 @@ def ev_story_template(ev: ChargerNow) -> str:
         )
     if ev.charge_now:
         text += (
-            f"{{% if is_state('{ev.charge_now}', 'off') and p <= {_FLOW_W} %}}"
+            f"{{% if plugged and is_state('{ev.charge_now}', 'off') and p <= {_FLOW_W} %}}"
             "\n\nTo charge anyway, turn on **Charge now** below; **Pause** stops it."
             "{% endif %}"
         )

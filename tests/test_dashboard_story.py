@@ -379,6 +379,44 @@ class TestTheOtherSentences:
             "**Not charging.** The charger is waiting."
         )
 
+    @staticmethod
+    def _ev_text(ev, values):
+        """The sentence as the frontend renders it, with is_state reading the same values."""
+        from jinja2 import Environment
+
+        return Environment().from_string(ev_story_template(ev)).render(
+            states=values.get,
+            state_attr=lambda entity, name: None,
+            is_state=lambda entity, state: values.get(entity) == state,
+        )
+
+    def test_a_disconnected_car_is_called_disconnected_with_what_spare_solar_would_do(self):
+        ev = ChargerNow("s.power", "s.state", "s.source", "s.surplus", None, "s.now")
+        values = {
+            "s.power": "0",
+            "s.state": "disconnected",
+            "s.source": "Not charging",
+            "s.surplus": "Available",
+            "s.now": "off",
+        }
+        text = self._ev_text(ev, values)
+        assert text == (
+            "**Not charging.** The car is disconnected. Spare solar is available and would go to "
+            "the car once it is plugged in."
+        )
+        assert "Charge now" not in text
+        values["s.surplus"] = "Not available"
+        assert "no spare solar for it right now" in self._ev_text(ev, values)
+
+    def test_a_plugged_in_car_waiting_is_offered_charge_now(self):
+        ev = ChargerNow("s.power", "s.state", None, "s.surplus", None, "s.now")
+        values = {"s.power": "0", "s.state": "connected", "s.surplus": "Not available", "s.now": "off"}
+        text = self._ev_text(ev, values)
+        assert text.startswith("**Not charging.** The charger is connected. Spare solar: not available.")
+        assert "turn on **Charge now** below" in text
+        values["s.now"] = "on"
+        assert "Charge now" not in self._ev_text(ev, values)
+
     def test_the_bill_saving_is_what_solar_and_the_battery_took_off(self):
         text = _render(saved_template("s.paid", "s.without", "€"), {"s.paid": "40", "s.without": "65.5"}.get)
         assert text == (
