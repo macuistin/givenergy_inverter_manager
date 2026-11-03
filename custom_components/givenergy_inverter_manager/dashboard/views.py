@@ -1540,7 +1540,7 @@ class Builder:
         return grid_section(
             heading_block(
                 heading_card("EV charger", "mdi:ev-station"),
-                [plan_card, markdown_card(story), figures],
+                [plan_card, markdown_card(story), *self._charger_controls(), figures],
             ),
             heading_block(
                 subheading_card("Charge power, last 24 hours", "mdi:chart-line"), [power]

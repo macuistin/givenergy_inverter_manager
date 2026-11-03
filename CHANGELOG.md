@@ -2,6 +2,11 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+**Changed**
+- The EV charger text now says **The car is disconnected** when no car is plugged in, and says whether spare solar is available and would go to the car once it is. Before, it read "The charger is disconnected" and told you to turn on Charge now. The **Charge now** and **Pause** buttons also show on the EV charger page, for administrators, and only while a car is plugged in.
+
 ## v0.23.0
 
 This release adds cheaper-rate charging for a plugged-in Zappi, new charge controls and a charging plan on the EV charger page. Nothing needs changing on upgrade. Charge hours before and after start at 0, so the car charges only in the cheaper rate periods until you set them.
