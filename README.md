@@ -2,13 +2,13 @@
 
 [![GitHub Release](https://img.shields.io/github/release/macuistin/givenergy_inverter_manager.svg?style=for-the-badge)](https://github.com/macuistin/givenergy_inverter_manager/releases)
 [![GitHub Activity](https://img.shields.io/github/commit-activity/y/macuistin/givenergy_inverter_manager.svg?style=for-the-badge)](https://github.com/macuistin/givenergy_inverter_manager/commits/main)
-[![License](https://img.shields.io/github/license/macuistin/givenergy_inverter_manager.svg?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://github.com/macuistin/givenergy_inverter_manager/blob/main/LICENSE)
 [![hacs](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
 [![Tests](https://img.shields.io/github/actions/workflow/status/macuistin/givenergy_inverter_manager/tests.yml?style=for-the-badge&label=Tests)](https://github.com/macuistin/givenergy_inverter_manager/actions/workflows/tests.yml)
 
 A Home Assistant integration for GivEnergy inverters. It sets the overnight charge target, diverts spare solar to an immersion heater, and tracks energy costs across your tariff periods. It reads and writes Home Assistant entities published by GivTCP over MQTT. No cloud account is needed.
 
-Works with a flat rate, a day and night rate, or up to five timed rates, from any supplier. It does not support dynamic or half-hourly tariffs. The bill estimate assumes monthly bill periods, one supplier discount, one VAT rate and one flat levy per period. Tested on real hardware on one GivEnergy GIV-HY-5.0 (a single-phase hybrid) with the Electric Ireland Nightboost tariff. Other GivTCP system types are recognised and tested against entity lists only. See [Which serial do I use?](docs/quick-start.md#which-serial-do-i-use). Current version: 0.22.0.
+Works with a flat rate, a day and night rate, or up to five timed rates, from any supplier. It does not support dynamic or half-hourly tariffs. The bill estimate assumes monthly bill periods, one supplier discount, one VAT rate and one flat levy per period. Tested on real hardware on one GivEnergy GIV-HY-5.0 (a single-phase hybrid) with the Electric Ireland Nightboost tariff. Other GivTCP system types are recognised and tested against entity lists only. See [Which serial do I use?](docs/quick-start.md#which-serial-do-i-use). Current version: 0.22.1.
 
 ![The Home energy page of the dashboard: the live power flow, what the house runs on now, today so far and buttons for the detail pages.](https://raw.githubusercontent.com/macuistin/givenergy_inverter_manager/main/docs/images/dashboard-home-energy.png)
 

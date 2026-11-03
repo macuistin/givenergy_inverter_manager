@@ -21,13 +21,16 @@ from ..discovery import (
 from ..inverter.givtcp.discovery import discover_givtcp_inverters
 
 
-def detect(states: Mapping[str, Any]) -> Detected:
-    """Everything the wizards look for, from the states of the whole system."""
+def detect(states: Mapping[str, Any], own_entity_ids: frozenset[str] = frozenset()) -> Detected:
+    """Everything the wizards look for, from the states of the whole system.
+
+    `own_entity_ids` are this integration's own entities, which are never immersion candidates.
+    """
     return Detected(
         inverters=tuple(discover_givtcp_inverters(dict(states))),
         ev_chargers=tuple(discover_ev_chargers(dict(states))),
         forecast=discover_forecast_sensors(states),
-        immersion_candidates=discover_immersion_switch_candidates(states),
+        immersion_candidates=discover_immersion_switch_candidates(states, own_entity_ids),
     )
 
 

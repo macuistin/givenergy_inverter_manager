@@ -7,6 +7,13 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 **Added**
 - A Zappi with a car plugged in now charges in **Fast** during any rate period cheaper than the base rate, such as the Night and Nightboost bands, with or without solar surplus, and goes back to **Eco+** when that period ends. Before, the integration only ever switched to Eco+, so a car plugged in at night waited for the sun and a big battery could take days to fill. A Zappi left in Fast by hand is not touched when the period ends. Other chargers keep the surplus-only rule. New **Charge Now** and **Pause Charging** switches (EV charger only) charge at any rate or stop the charge until you turn them off or unplug the car. Administrators can tap them on the main page while a car is plugged in, and in Settings. The main page now also says why the car is not charging. See [Cheaper-rate charging](docs/concepts.md#ev-charger).
 
+## v0.22.1
+
+This is a fix release. If you set up the immersion heater before, check on **Configure → Immersion heater** that the switch is your heater and not one of this integration's own switches.
+
+**Fixes**
+- The list of switches that look like an immersion heater, on the hot water page of the setup and options wizards, no longer includes this integration's own switches (such as **Auto Immersion Divert**). Before, they were offered as the heater because their names contain "immersion". They are found by the integration that registered them, not by name.
+
 ## v0.22.0
 
 This release adds two repairs and an optional lower hot water temperature sensor, shows the overnight plan only in the evening, and declares the Platinum tier of the Home Assistant quality scale, with strict typing across the whole integration.

@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import voluptuous as vol
+from homeassistant.helpers import entity_registry as er
 
 from ..const import (
     CONF_CARBON_INTENSITY_ENTITY,
@@ -29,6 +30,7 @@ from ..const import (
     CONF_IMMERSION_LOWER_TEMP_SENSOR,
     CONF_IMMERSION_SWITCH,
     CONF_IMMERSION_TEMP_SENSOR,
+    DOMAIN,
 )
 from ..core.wizard_model import Detected, PageContext, Validation
 from ..core.wizard_pages import (
@@ -198,6 +200,14 @@ class WizardPages:
             {"candidates": candidates, "check": report},
             self._is_last_form(),
         )
+
+
+def own_entity_ids(hass: Any) -> frozenset[str]:
+    """Entity ids registered by this integration, found by platform and not by name."""
+    registry = er.async_get(hass)
+    return frozenset(
+        entry.entity_id for entry in registry.entities.values() if entry.platform == DOMAIN
+    )
 
 
 def states_by_id(hass: Any) -> Mapping[str, Any]:
