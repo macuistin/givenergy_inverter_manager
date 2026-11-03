@@ -2,7 +2,7 @@
 
 [![GitHub Release](https://img.shields.io/github/release/macuistin/givenergy_inverter_manager.svg?style=for-the-badge)](https://github.com/macuistin/givenergy_inverter_manager/releases)
 [![GitHub Activity](https://img.shields.io/github/commit-activity/y/macuistin/givenergy_inverter_manager.svg?style=for-the-badge)](https://github.com/macuistin/givenergy_inverter_manager/commits/main)
-[![License](https://img.shields.io/github/license/macuistin/givenergy_inverter_manager.svg?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://github.com/macuistin/givenergy_inverter_manager/blob/main/LICENSE)
 [![hacs](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
 [![Tests](https://img.shields.io/github/actions/workflow/status/macuistin/givenergy_inverter_manager/tests.yml?style=for-the-badge&label=Tests)](https://github.com/macuistin/givenergy_inverter_manager/actions/workflows/tests.yml)
 
