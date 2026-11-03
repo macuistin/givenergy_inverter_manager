@@ -90,6 +90,14 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         available_fn=lambda d: d.ev_available,
     ),
     GivEnergyManagerSensorDescription(
+        key="ev_charging_window",
+        requires=Device.EV_CHARGER,
+        translation_key="ev_charging_window",
+        icon="mdi:clock-outline",
+        value_fn=lambda d: d.ev_charging_window,
+        available_fn=lambda d: d.ev_available,
+    ),
+    GivEnergyManagerSensorDescription(
         key="ev_charging_plan",
         requires=Device.EV_CHARGER,
         translation_key="ev_charging_plan",

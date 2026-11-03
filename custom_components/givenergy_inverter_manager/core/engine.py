@@ -117,6 +117,7 @@ from .charge_window import (
     ChargeNeed,
     ChargeWindow,
     cheap_run_remaining_minutes,
+    ev_charge_window,
     in_extended_cheap_window,
     plan_charge_window,
     window_charge_cost,
@@ -425,6 +426,7 @@ class CoordinatorData:
     ev_mode_change_requested: bool = False
     ev_protection_reason: str = ""
     ev_charging_plan: str = ""
+    ev_charging_window: str = ""
     ev_available: bool = False
     # False when the install has no immersion switch, so reports leave out its saving.
     immersion_configured: bool = True
@@ -882,6 +884,15 @@ def _ev_next_start(data: CoordinatorData, cycle: _Cycle) -> str | None:
     return clock_text(hours * 60 + minutes - before * 60)
 
 
+def _ev_window(ev_charger: EVCharger, cycle: _Cycle) -> str:
+    """The hours the car may charge from the grid, for the EV page."""
+    before, after = _ev_hours(cycle)
+    window = ev_charge_window(cycle.tariff, cycle.now, before, after)
+    if window is None or ev_charger.cheap_rate_mode() is None:
+        return "Solar surplus only"
+    return f"{window[0].strftime('%H:%M')} to {window[1].strftime('%H:%M')}"
+
+
 def _ev_plan(data: CoordinatorData, ev_charger: EVCharger, cycle: _Cycle) -> str:
     """The car's charging plan as a sentence (core/ev_plan.py)."""
     upcoming = _upcoming_cheap_period(data, cycle)
@@ -938,6 +949,7 @@ def _process_ev_charger(
     data.ev_protection_reason = reason
     data.ev_mode_change_requested = ev_target_mode is not None
     data.ev_charging_plan = _ev_plan(data, ev_charger, cycle)
+    data.ev_charging_window = _ev_window(ev_charger, cycle)
 
     data.ev_charging_source = _ev_charging_source(
         ev_charger.power_w, raw.grid_power_w, raw.battery_power_w

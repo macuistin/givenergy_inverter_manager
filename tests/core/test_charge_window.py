@@ -15,6 +15,7 @@ from custom_components.givenergy_inverter_manager.core.charge_window import (
     ChargeNeed,
     cheap_run_minutes,
     cheap_run_remaining_minutes,
+    ev_charge_window,
     in_extended_cheap_window,
     plan_charge_window,
     window_charge_cost,
@@ -334,3 +335,22 @@ class TestTheExtendedCheapWindow:
         tariff = build_tariff({})
         assert in_extended_cheap_window(tariff, self._at(9, 59), 0, 2)
         assert not in_extended_cheap_window(tariff, self._at(10), 0, 2)
+
+
+class TestTheEVChargeWindow:
+    """The window the car may charge from the grid, as clock times."""
+
+    def _at(self, hour: int):
+        return datetime(2026, 11, 3, hour, 0, tzinfo=ZoneInfo("UTC"))
+
+    def test_it_is_the_cheap_run_with_no_extra_hours(self):
+        window = ev_charge_window(build_tariff({}), self._at(12), 0, 0)
+        assert window == (time(23, 0), time(8, 0))
+
+    def test_the_hours_before_and_after_widen_it(self):
+        window = ev_charge_window(build_tariff({}), self._at(12), 2, 1.5)
+        assert window == (time(21, 0), time(9, 30))
+
+    def test_the_overlapping_nightboost_is_joined_to_the_night(self):
+        window = ev_charge_window(build_tariff({}), self._at(3), 1, 0)
+        assert window == (time(22, 0), time(8, 0))

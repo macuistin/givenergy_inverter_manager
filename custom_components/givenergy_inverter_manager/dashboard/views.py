@@ -1528,7 +1528,15 @@ class Builder:
         )
         power = history_graph([entity_row(self.ev_power(), "Charge power")], 24, 4)
         plan = self.ev("ev_charging_plan")
-        plan_card = markdown_card(f"**Plan:** {{{{ states('{plan}') }}}}") if plan else None
+        window = self.ev("ev_charging_window")
+        plan_card = (
+            markdown_card(
+                (f"### Charging window: {{{{ states('{window}') }}}}\n\n" if window else "")
+                + f"{{{{ states('{plan}') }}}}"
+            )
+            if plan
+            else None
+        )
         return grid_section(
             heading_block(
                 heading_card("EV charger", "mdi:ev-station"),

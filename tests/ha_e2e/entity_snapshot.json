@@ -90,6 +90,11 @@
   "name": "Charging Today"
  },
  {
+  "entity_id": "sensor.ev_charger_charging_window",
+  "key": "ev_charging_window",
+  "name": "Charging Window"
+ },
+ {
   "entity_id": "sensor.ev_charger_cost_per_km_today",
   "key": "ev_cost_per_km_today",
   "name": "Cost per km Today"

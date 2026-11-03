@@ -888,6 +888,9 @@
       "ev_charging_plan": {
         "name": "Charging Plan"
       },
+      "ev_charging_window": {
+        "name": "Charging Window"
+      },
       "immersion_cost_today": {
         "name": "Cost Today"
       },

@@ -249,6 +249,7 @@ KEY_GROUPS: dict[str, str] = {
             "ev_draining_battery",
             "ev_protection_reason",
             "ev_charging_plan",
+            "ev_charging_window",
             "ev_charging_source",
             "ev_solar_surplus_available",
         ),
@@ -657,6 +658,7 @@ DESCRIPTIONS: dict[str, str] = {
         "yes while the charger is charging, drawing power, and the battery discharges over 200 W."
     ),
     "ev_protection_reason": "Reason for the latest EV charge mode decision.",
+    "ev_charging_window": "The hours the car may charge from the grid, with your extra hours.",
     "ev_charging_plan": "What the car will do and when, such as the cheaper rate it charges at.",
     "ev_charging_source": "Not charging, Solar, Grid, Battery or Mixed.",
     "ev_solar_surplus_available": "Available when net solar surplus is 1380 W or more.",
