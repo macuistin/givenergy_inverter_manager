@@ -172,6 +172,8 @@ are the guide to the rest and may change between releases:
 - `pause`, `pause_modes`: the battery pause window and GivTCP's pause mode text
 - `freshness`: `newest_report`, `frozen_age_s`
 - `windows`: which end of a window to write first
+- `version`: `parse_version` and `resets_entity_ids`, for the GivTCP releases that reset entity ids
+- `real_time_control`: `next_step`, which counts cycles with GivTCP's Real Time Control switch off
 - `defaults`: the write limits and `GIVTCP_FROZEN_AFTER_S`
 - `keys`: the names of the settings the adapter reads
 

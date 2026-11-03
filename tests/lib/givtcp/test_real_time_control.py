@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.real_time_control import (
+from custom_components.givenergy_inverter_manager.lib.givtcp.real_time_control import (
     OFF_CYCLES,
     next_step,
 )

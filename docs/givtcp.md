@@ -15,7 +15,7 @@ It is checked against the GivTCP 3.6.4 source and its own test results (October 
 
 - The integration is tested on GivTCP 3.6.3. It needs **3.6.2 or later** when GivTCP is a 3.6 release.
 - GivTCP 3.6 and 3.6.1 delete and recreate an entity when its discovery settings change, so Home Assistant gives it the default entity id again. The repair **This GivTCP release resets entity ids** appears on those two. Releases before 3.6 do not do this and raise nothing.
-- Read the version from `sensor.<prefix>_givtcp_version`. A version that cannot be read raises nothing. The rule is in `core/givtcp_version.py`.
+- Read the version from `sensor.<prefix>_givtcp_version`. A version that cannot be read raises nothing. The rule is in `lib/givtcp/version.py`.
 - When GivTCP releases, read its release notes for entities the integration uses (the table below) and run the fixtures. See [How to check a change](#how-to-check-a-change).
 
 ## Finding the inverter and its entities
@@ -163,5 +163,5 @@ Changes that would help us, none sent:
 | Classifying the system and choosing the controller | `lib/givtcp/system.py`, `core/system_text.py` |
 | Reading | `lib/givtcp/reader.py` |
 | Writing, the order and the read-back | `lib/givtcp/writer.py`, `lib/givtcp/sequence.py`, `lib/givtcp/adapter.py` |
-| Version and Real Time Control repairs | `core/givtcp_version.py`, `core/real_time_control.py`, `repairs.py` |
+| Version and Real Time Control repairs | `lib/givtcp/version.py`, `lib/givtcp/real_time_control.py`, `repairs.py` |
 | Test fixtures | `packages/givtcp_mock/src/givtcp_mock/systems/` |
