@@ -2,7 +2,9 @@
 
 What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v0.23.0
+
+This release adds cheaper-rate charging for a plugged-in Zappi, new charge controls and a charging plan on the EV charger page. Nothing needs changing on upgrade. Charge hours before and after start at 0, so the car charges only in the cheaper rate periods until you set them.
 
 **Added**
 - A Zappi with a car plugged in now charges in **Fast** during any rate period cheaper than the base rate, such as the Night and Nightboost bands, with or without solar surplus, and goes back to **Eco+** when that period ends. Before, the integration only ever switched to Eco+, so a car plugged in at night waited for the sun and a big battery could take days to fill. A Zappi left in Fast by hand is not touched when the period ends. Other chargers keep the surplus-only rule. New **Charge Now** and **Pause Charging** switches (EV charger only) charge at any rate or stop the charge until you turn them off or unplug the car. Administrators can tap them on the main page while a car is plugged in, and in Settings. The main page now also says why the car is not charging. Two new settings, **Charge hours before** and **Charge hours after** (EV charger only, in Settings, 0 to 6 hours, 0 by default), let the car charge outside the cheap rate hours. The EV charger page now starts with the **Charging window** (a new sensor, for example `21:00 to 09:30`) and the car's **Charging Plan**, a new sensor that says when the car will charge and at what rate. See [Cheaper-rate charging](docs/concepts.md#ev-charger).
