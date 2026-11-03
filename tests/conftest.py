@@ -66,6 +66,7 @@ _const.Platform = MagicMock()
 _const.PERCENTAGE = "%"
 _const.STATE_ON = "on"
 _const.UnitOfPower = MagicMock()
+_const.UnitOfTime = MagicMock()
 _const.UnitOfEnergy = MagicMock()
 _const.UnitOfTemperature = MagicMock()
 _const.EntityCategory = MagicMock()

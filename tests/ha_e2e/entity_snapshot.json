@@ -10,6 +10,16 @@
   "name": "Cheapest Rate Active"
  },
  {
+  "entity_id": "number.ev_charger_charge_hours_after_cheap_rate",
+  "key": "ev_hours_after_cheap",
+  "name": "Charge Hours After Cheap Rate"
+ },
+ {
+  "entity_id": "number.ev_charger_charge_hours_before_cheap_rate",
+  "key": "ev_hours_before_cheap",
+  "name": "Charge Hours Before Cheap Rate"
+ },
+ {
   "entity_id": "number.givenergy_inverter_manager_cheap_rate_floor_soc",
   "key": "cheap_rate_floor_soc",
   "name": "Cheap rate floor SoC"
@@ -60,6 +70,11 @@
   "name": "Charging Cost Today"
  },
  {
+  "entity_id": "sensor.ev_charger_charging_plan",
+  "key": "ev_charging_plan",
+  "name": "Charging Plan"
+ },
+ {
   "entity_id": "sensor.ev_charger_charging_power",
   "key": "ev_power",
   "name": "Charging Power"
@@ -73,6 +88,11 @@
   "entity_id": "sensor.ev_charger_charging_today",
   "key": "zappi_today",
   "name": "Charging Today"
+ },
+ {
+  "entity_id": "sensor.ev_charger_charging_window",
+  "key": "ev_charging_window",
+  "name": "Charging Window"
  },
  {
   "entity_id": "sensor.ev_charger_cost_per_km_today",
@@ -888,6 +908,16 @@
   "entity_id": "sensor.immersion_water_temperature",
   "key": "immersion_water_temperature",
   "name": "Water Temperature"
+ },
+ {
+  "entity_id": "switch.ev_charger_charge_now",
+  "key": "ev_charge_now",
+  "name": "Charge Now"
+ },
+ {
+  "entity_id": "switch.ev_charger_pause_charging",
+  "key": "ev_pause",
+  "name": "Pause Charging"
  },
  {
   "entity_id": "switch.givenergy_inverter_manager_dry_run",

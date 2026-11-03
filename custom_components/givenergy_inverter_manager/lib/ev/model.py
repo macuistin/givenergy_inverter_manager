@@ -117,6 +117,20 @@ SURPLUS_MODE_DEFAULTS: dict[EVChargerBrand, str] = {
     EVChargerBrand.GIVENERGY: "Solar",
 }
 
+# The brands whose charge mode select has an option that charges from the grid at full speed, and
+# the option to use when the select does not say what it offers. It is only ever chosen in a
+# cheaper-than-base rate period (core/rules.py), and left again when that period ends.
+CHEAP_RATE_MODE_DEFAULTS: dict[EVChargerBrand, str] = {
+    EVChargerBrand.ZAPPI: "Fast",
+}
+
+# The brands whose charge mode select has an option that stops the charge, and the option to use
+# when the select does not say what it offers. It is only ever chosen when the owner asks to
+# pause, and left again when they turn the pause off.
+STOP_MODE_DEFAULTS: dict[EVChargerBrand, str] = {
+    EVChargerBrand.ZAPPI: "Stopped",
+}
+
 # A mode with any of these words in it is never selected, whatever else it says: it stops, pauses
 # or forces a charge, or draws from the grid.
 FORBIDDEN_MODE_WORDS = ("stop", "off", "pause", "fast", "boost", "grid", "max", "hybrid")
@@ -138,6 +152,17 @@ def pick_surplus_mode(options: Sequence[str]) -> str | None:
         if lowered in SURPLUS_MODE_NAMES:
             return str(option)
     return None
+
+def pick_cheap_rate_mode(brand: EVChargerBrand, options: Sequence[str]) -> str | None:
+    """The option that charges from the grid at full speed, or None when the select offers none."""
+    wanted = CHEAP_RATE_MODE_DEFAULTS.get(brand)
+    if wanted is None:
+        return None
+    for option in options:
+        if str(option).strip().lower() == wanted.lower():
+            return str(option)
+    return None
+
 
 # Mode to use when we want to absorb genuine solar surplus (no battery draw)
 ZAPPI_ECO_PLUS_MODE = "Eco+"
@@ -233,6 +258,30 @@ class EVCharger:
         if self.charge_mode_options:
             return pick_surplus_mode(self.charge_mode_options)
         return SURPLUS_MODE_DEFAULTS.get(self.brand)
+
+    def stop_mode(self) -> str | None:
+        """The mode that stops the charge, None when the select offers none."""
+        wanted = STOP_MODE_DEFAULTS.get(self.brand)
+        if wanted is None or self.charge_mode_entity is None:
+            return None
+        if self.charge_mode_options:
+            for option in self.charge_mode_options:
+                if str(option).strip().lower() == wanted.lower():
+                    return str(option)
+            return None
+        return wanted
+
+    def cheap_rate_mode(self) -> str | None:
+        """The mode that charges from the grid at full speed, None when the select offers none.
+
+        From the options the select reports. Before they are read, it is the brand's own name
+        for it.
+        """
+        if self.charge_mode_entity is None:
+            return None
+        if self.charge_mode_options:
+            return pick_cheap_rate_mode(self.brand, self.charge_mode_options)
+        return CHEAP_RATE_MODE_DEFAULTS.get(self.brand)
 
 
 # Status entities already warned about. Discovery repeats every 5 minutes while the

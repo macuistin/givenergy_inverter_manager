@@ -15,6 +15,8 @@ from custom_components.givenergy_inverter_manager.core.charge_window import (
     ChargeNeed,
     cheap_run_minutes,
     cheap_run_remaining_minutes,
+    ev_charge_window,
+    in_extended_cheap_window,
     plan_charge_window,
     window_charge_cost,
 )
@@ -311,3 +313,44 @@ class TestWhatTheWindowCosts:
 
     def test_nothing_to_charge_costs_nothing(self):
         assert self._cost(_need(soc=80, target=80)) == 0.0
+
+
+class TestTheExtendedCheapWindow:
+    """The owner's hours before and after the cheaper-than-base periods."""
+
+    def _at(self, hour: int, minute: int = 0):
+        return datetime(2026, 11, 3, hour, minute, tzinfo=ZoneInfo("UTC"))
+
+    def test_with_no_extra_hours_it_is_the_cheap_period(self):
+        tariff = build_tariff({})
+        assert in_extended_cheap_window(tariff, self._at(23, 30), 0, 0)
+        assert not in_extended_cheap_window(tariff, self._at(20), 0, 0)
+
+    def test_hours_before_open_the_window_early(self):
+        tariff = build_tariff({})
+        assert in_extended_cheap_window(tariff, self._at(21), 2, 0)
+        assert not in_extended_cheap_window(tariff, self._at(20, 59), 2, 0)
+
+    def test_hours_after_keep_it_open_late(self):
+        tariff = build_tariff({})
+        assert in_extended_cheap_window(tariff, self._at(9, 59), 0, 2)
+        assert not in_extended_cheap_window(tariff, self._at(10), 0, 2)
+
+
+class TestTheEVChargeWindow:
+    """The window the car may charge from the grid, as clock times."""
+
+    def _at(self, hour: int):
+        return datetime(2026, 11, 3, hour, 0, tzinfo=ZoneInfo("UTC"))
+
+    def test_it_is_the_cheap_run_with_no_extra_hours(self):
+        window = ev_charge_window(build_tariff({}), self._at(12), 0, 0)
+        assert window == (time(23, 0), time(8, 0))
+
+    def test_the_hours_before_and_after_widen_it(self):
+        window = ev_charge_window(build_tariff({}), self._at(12), 2, 1.5)
+        assert window == (time(21, 0), time(9, 30))
+
+    def test_the_overlapping_nightboost_is_joined_to_the_night(self):
+        window = ev_charge_window(build_tariff({}), self._at(3), 1, 0)
+        assert window == (time(22, 0), time(8, 0))

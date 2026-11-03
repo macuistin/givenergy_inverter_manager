@@ -630,6 +630,12 @@
       "forecast_conservatism": {
         "name": "Forecast conservatism"
       },
+      "ev_hours_before_cheap": {
+        "name": "Charge Hours Before Cheap Rate"
+      },
+      "ev_hours_after_cheap": {
+        "name": "Charge Hours After Cheap Rate"
+      },
       "charge_target_override": {
         "name": "Overnight Charge Target Override"
       },
@@ -878,6 +884,12 @@
       },
       "ev_protection_reason": {
         "name": "Mode Decision"
+      },
+      "ev_charging_plan": {
+        "name": "Charging Plan"
+      },
+      "ev_charging_window": {
+        "name": "Charging Window"
       },
       "immersion_cost_today": {
         "name": "Cost Today"
@@ -1183,6 +1195,12 @@
       },
       "skip_charge_override": {
         "name": "Force Skip Overnight Charge"
+      },
+      "ev_charge_now": {
+        "name": "Charge Now"
+      },
+      "ev_pause": {
+        "name": "Pause Charging"
       },
       "charge_target_override_enabled": {
         "name": "Enable Charge Target Override"

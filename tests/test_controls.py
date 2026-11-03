@@ -26,6 +26,8 @@ BRIEF_NUMBERS = {
     "cheap_rate_floor_soc": (40, 0, 80, 5),
     "skip_charge_soc_threshold_pct": (75, 20, 100, 1),
     "forecast_conservatism": (0.35, 0.0, 1.0, 0.05),
+    "ev_hours_before_cheap": (0.0, 0.0, 6.0, 0.5),
+    "ev_hours_after_cheap": (0.0, 0.0, 6.0, 0.5),
 }
 BRIEF_SWITCHES = ("dry_run", "verbose_logging", "charge_replan")
 
@@ -83,6 +85,7 @@ class TestTheTableMatchesTheBrief:
             *controls.control_switches(coordinator),
             *controls.control_numbers(coordinator),
             *controls.control_numbers(coordinator, Device.IMMERSION_SWITCH),
+            *controls.control_numbers(coordinator, Device.EV_CHARGER),
         ]
         assert sorted(e._attr_unique_id for e in everything) == sorted(
             f"entry_{key}" for key in (*BRIEF_SWITCHES, *BRIEF_NUMBERS)
@@ -96,8 +99,10 @@ class TestTheTableMatchesTheBrief:
     def test_only_the_two_divert_thresholds_need_the_immersion_switch(self):
         always = {s.key for s in controls.NUMBER_SPECS if s.requires is None}
         divert = {s.key for s in controls.NUMBER_SPECS if s.requires is Device.IMMERSION_SWITCH}
+        ev = {s.key for s in controls.NUMBER_SPECS if s.requires is Device.EV_CHARGER}
         assert divert == {"surplus_divert_soc_pct", "surplus_divert_min_power_w"}
-        assert always == set(BRIEF_NUMBERS) - divert
+        assert ev == {"ev_hours_before_cheap", "ev_hours_after_cheap"}
+        assert always == set(BRIEF_NUMBERS) - divert - ev
 
     def test_the_numbers_a_device_does_not_need_are_built_without_one(self):
         keys = {e._option_key for e in controls.control_numbers(_coordinator())}

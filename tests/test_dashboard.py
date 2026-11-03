@@ -1486,6 +1486,8 @@ class TestSectionsLayout:
             eid("immersion_hysteresis"),
             eid("surplus_divert_soc_pct"),
             eid("surplus_divert_min_power_w"),
+            eid("ev_hours_before_cheap"),
+            eid("ev_hours_after_cheap"),
             eid("cheap_rate_floor_soc"),
             eid("skip_charge_soc_threshold_pct"),
             eid("forecast_conservatism"),
@@ -1586,6 +1588,10 @@ class TestResponsiveLayout:
         }
         assert columns == {
             "Fixed target": 6,
+            "Charge now": 6,
+            "Pause": 6,
+            "Charge hours before": "full",
+            "Charge hours after": "full",
             "Skip tonight": 6,
             "Charge to": "full",
             "Cheap rate floor": "full",
@@ -1622,7 +1628,7 @@ class TestResponsiveLayout:
             for c in view_cards(settings)
             if c["type"] == "tile" and c.get("features", [{}])[0].get("type") == "numeric-input"
         }
-        assert len(widths) == 9
+        assert len(widths) == 11
         assert set(widths.values()) == {"full"}
 
 

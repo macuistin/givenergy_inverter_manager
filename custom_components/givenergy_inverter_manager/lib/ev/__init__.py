@@ -17,6 +17,7 @@ from .discover import (
 )
 from .model import (
     ACTIVE_STATES,
+    CHEAP_RATE_MODE_DEFAULTS,
     FORBIDDEN_MODE_WORDS,
     SURPLUS_MODE_DEFAULTS,
     SURPLUS_MODE_NAMES,
@@ -25,6 +26,7 @@ from .model import (
     EVCharger,
     EVChargerBrand,
     EVChargerState,
+    pick_cheap_rate_mode,
     pick_surplus_mode,
 )
 from .session import (
@@ -44,6 +46,7 @@ __all__ = [
     "ACTIVE_STATES",
     "AlertAction",
     "BaseRateReading",
+    "CHEAP_RATE_MODE_DEFAULTS",
     "EVCharger",
     "EVChargerBrand",
     "EVChargerState",
@@ -63,6 +66,7 @@ __all__ = [
     "ZAPPI_ECO_PLUS_MODE",
     "ZAPPI_SOLAR_ONLY_MODE",
     "discover_ev_chargers",
+    "pick_cheap_rate_mode",
     "pick_surplus_mode",
     "recent_table",
     "track_session",

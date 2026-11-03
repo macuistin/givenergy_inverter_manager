@@ -225,6 +225,11 @@ The sensor states are pinned in test_immersion_max_run_engine.py.
 next timed period on the base rate. Only minutes_remaining_in_period moved, from None to the minutes
 until the next period starts. The new behaviour is pinned in test_engine.py (TestPeriodTimeSensors)
 and test_dst_countdowns.py.
+
+3 of the 255 cases moved when a plugged-in Zappi started charging in Fast during a cheaper rate
+period. Only ev_protection_reason, ev_mode_change_requested and the returned EV mode moved, in the
+cases with a plugged-in Zappi in a Night or Nightboost period. The behaviour is pinned in
+tests/lib/ev/test_mode_held.py.
 """
 
 from __future__ import annotations

@@ -16,7 +16,13 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.icon import async_get_icons
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN
+from custom_components.givenergy_inverter_manager.core.devices import Device
+from custom_components.givenergy_inverter_manager.optional_devices import (
+    DEVICE_ENTITIES,
+)
 from tests.helpers import PKG
+
+EV_ENTITIES = [e for e in DEVICE_ENTITIES if e.requires is Device.EV_CHARGER]
 
 
 @pytest.fixture
@@ -59,5 +65,7 @@ class TestEverySwitchAndNumber:
                 for e in er.async_entries_for_config_entry(registry, loaded_entry.entry_id)
                 if e.domain == domain
             }
+            # The loaded entry has no EV charger, so its switch is not registered.
+            registered |= {e.key for e in EV_ENTITIES if e.platform == domain}
             assert set(strings[domain]) == registered, domain
             assert set(icons[domain]) == registered, domain

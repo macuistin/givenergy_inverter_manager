@@ -150,6 +150,66 @@ def cheap_run_remaining_minutes(tariff: TariffConfig, now: datetime) -> float | 
     return round(elapsed_seconds(now, end) / 60, 1)
 
 
+def in_extended_cheap_window(
+    tariff: TariffConfig, now: datetime, hours_before: float, hours_after: float
+) -> bool:
+    """True inside a cheaper-than-base period, or in the hours the owner added around one.
+
+    *hours_before* come before each such period starts and *hours_after* after it ends. A tariff
+    with no period below the base rate has none, so the answer is always False.
+    """
+    minute = _minute_of_day(now.time())
+    before, after = round(hours_before * 60), round(hours_after * 60)
+    for period in _cheaper_than_base(tariff):
+        total = min(before + _span(period) + after, _MINUTES_PER_DAY)
+        if (minute - (_minute_of_day(period.start) - before)) % _MINUTES_PER_DAY < total:
+            return True
+    return False
+
+
+def _join_once(runs: list[tuple[int, int]]) -> list[tuple[int, int]] | None:
+    """The runs with one overlapping pair joined, None when no two overlap."""
+    for i, (start, length) in enumerate(runs):
+        for j, (other, other_length) in enumerate(runs):
+            gap = _minutes_from(start, other)
+            if i != j and gap <= length:
+                joined = (start, min(max(length, gap + other_length), _MAX_WINDOW_MINUTES))
+                return [r for k, r in enumerate(runs) if k not in (i, j)] + [joined]
+    return None
+
+
+def _merge_runs(runs: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Runs of (start minute, length) with any that overlap or touch joined into one."""
+    merged = list(runs)
+    while (joined := _join_once(merged)) is not None:
+        merged = joined
+    return merged
+
+
+def ev_charge_window(
+    tariff: TariffConfig, now: datetime, hours_before: float, hours_after: float
+) -> tuple[time, time] | None:
+    """The window the car may charge from the grid: the one holding *now*, else the next.
+
+    It is the cheaper-than-base periods widened by the owner's hours before and after, with any
+    that overlap joined. None when the tariff has no period below the base rate.
+    """
+    before, after = round(hours_before * 60), round(hours_after * 60)
+    runs = [
+        ((_minute_of_day(p.start) - before) % _MINUTES_PER_DAY, before + _span(p) + after)
+        for p in _cheaper_than_base(tariff)
+    ]
+    if not runs:
+        return None
+    minute = _minute_of_day(now.time())
+    merged = _merge_runs([(s, min(n, _MAX_WINDOW_MINUTES)) for s, n in runs])
+    current = [r for r in merged if _minutes_from(r[0], minute) < r[1]]
+    start, length = current[0] if current else min(
+        merged, key=lambda r: _minutes_from(minute, r[0])
+    )
+    return _time_of(start), _time_of(start + length)
+
+
 def _minutes_needed(need: ChargeNeed) -> int:
     """Window minutes the plan needs, with the safety margin, rounded up to a whole step."""
     hours = need.deficit_kwh / need.charge_power_kw

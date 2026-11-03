@@ -339,6 +339,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     # True while the test instance marker file exists. async_detect_test_instance reads the
     # file once at setup and caches the answer here.
     test_instance: bool = False
+    # The owner's Charge Now and Pause switches, and whether this integration put the charger in
+    # its grid or stop mode. None of them survives a restart.
+    override_ev_charge_now: bool = False
+    override_ev_pause: bool = False
+    _ev_mode_held: bool = False
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         super().__init__(
@@ -425,6 +430,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._replan_pending: bool = False
         self._window_guard = GuardState()
         self._ev_charger: EVCharger | None = None
+        # The grid mode was set by a cheaper rate period, so the end of that period undoes it.
         self._ev_base_rate = WatchState()
         self._givtcp_was_unavailable: bool = False
         self._silent_cycles = 0
@@ -1512,6 +1518,8 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if target_mode is None or charger is None or not charger.charge_mode_entity:
             return
         current = (charger.charge_mode or "").strip()
+        if not self.is_dry_run:
+            self._ev_mode_held = target_mode in (charger.cheap_rate_mode(), charger.stop_mode())
         if current == target_mode:
             return
         if self.is_dry_run:
@@ -1689,10 +1697,13 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 cfg=cfg,
                 now=now,
                 ev_charger=self._ev_charger,
+                ev_mode_held=self._ev_mode_held,
                 overrides=ManualOverrides(
                     charge_target=self.override_charge_target,
                     immersion=self.override_immersion,
                     skip_charge=self.override_skip_charge,
+                    ev_charge_now=self.override_ev_charge_now,
+                    ev_pause=self.override_ev_pause,
                 ),
             ),
             Accumulators(
@@ -2038,6 +2049,9 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Update the charger state now that battery_power_w is known."""
         if self._ev_charger is not None:
             update_charger_state(self._get_state, self._ev_charger, raw.battery_power_w)
+            if not self._ev_charger.is_plugged_in:
+                self.override_ev_charge_now = False
+                self.override_ev_pause = False
             self._copy_ev_state(raw)
 
     def _record_baseline_load(self, raw: RawSensorValues, now: datetime) -> None:

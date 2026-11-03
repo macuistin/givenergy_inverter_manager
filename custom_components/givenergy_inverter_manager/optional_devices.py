@@ -25,7 +25,13 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .config_helpers import effective_config
-from .const import CONF_SURPLUS_DIVERT_MIN_W, CONF_SURPLUS_DIVERT_SOC, DOMAIN
+from .const import (
+    CONF_EV_HOURS_AFTER_CHEAP,
+    CONF_EV_HOURS_BEFORE_CHEAP,
+    CONF_SURPLUS_DIVERT_MIN_W,
+    CONF_SURPLUS_DIVERT_SOC,
+    DOMAIN,
+)
 from .core.devices import Device, DeviceGroup, group_present, installed_devices
 from .discovery import discover_ev_chargers
 from .logging import get_logger
@@ -83,7 +89,19 @@ DIVERT_MIN_SURPLUS = DeviceEntity(
     Device.IMMERSION_SWITCH,
     "Divert minimum surplus",
 )
+EV_HOURS_BEFORE = DeviceEntity(
+    "number", CONF_EV_HOURS_BEFORE_CHEAP, Device.EV_CHARGER, "Charge Hours Before Cheap Rate"
+)
+EV_HOURS_AFTER = DeviceEntity(
+    "number", CONF_EV_HOURS_AFTER_CHEAP, Device.EV_CHARGER, "Charge Hours After Cheap Rate"
+)
+EV_CHARGE_NOW = DeviceEntity("switch", "ev_charge_now", Device.EV_CHARGER, "Charge Now")
+EV_PAUSE = DeviceEntity("switch", "ev_pause", Device.EV_CHARGER, "Pause Charging")
 DEVICE_ENTITIES: tuple[DeviceEntity, ...] = (
+    EV_CHARGE_NOW,
+    EV_PAUSE,
+    EV_HOURS_BEFORE,
+    EV_HOURS_AFTER,
     AUTO_IMMERSION,
     IMMERSION_MANAGED,
     IMMERSION_SCHEDULE,

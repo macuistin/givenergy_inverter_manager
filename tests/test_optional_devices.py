@@ -51,10 +51,16 @@ class TestWhatNeedsWhat:
             "ev_cost_per_km_today",
             "ev_draining_battery",
             "ev_protection_reason",
+            "ev_charging_plan",
+            "ev_charging_window",
             "ev_charging_source",
             "ev_solar_surplus_available",
             "zappi_today",
             "zappi_cost_today",
+            "ev_charge_now",
+            "ev_hours_before_cheap",
+            "ev_hours_after_cheap",
+            "ev_pause",
         }
 
     def test_the_immersion_switch_has_its_energy_money_and_controls(self):

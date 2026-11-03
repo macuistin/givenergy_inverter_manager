@@ -7,7 +7,8 @@ always stored under, so no data moves and an install keeps the value it had:
 
   switches  dry_run, verbose_logging, charge_replan
   numbers   surplus_divert_soc_pct, surplus_divert_min_power_w, cheap_rate_floor_soc,
-            skip_charge_soc_threshold_pct, forecast_conservatism
+            skip_charge_soc_threshold_pct, forecast_conservatism,
+            ev_hours_before_cheap, ev_hours_after_cheap
 
 The unique id is "{entry_id}_{key}" and the translation key is the option key. A control shows
 the value in force (saved options over setup data, else the default), so a change made anywhere
@@ -23,7 +24,7 @@ from typing import Any
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfPower
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfPower, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
 
@@ -32,6 +33,8 @@ from .const import (
     CONF_CHARGE_REPLAN,
     CONF_CHEAP_RATE_FLOOR_SOC,
     CONF_DRY_RUN,
+    CONF_EV_HOURS_AFTER_CHEAP,
+    CONF_EV_HOURS_BEFORE_CHEAP,
     CONF_FORECAST_CONSERVATISM,
     CONF_SKIP_CHARGE_SOC_THRESHOLD,
     CONF_SURPLUS_DIVERT_MIN_W,
@@ -40,6 +43,8 @@ from .const import (
     DEFAULT_CHARGE_REPLAN,
     DEFAULT_CHEAP_RATE_FLOOR_SOC,
     DEFAULT_DRY_RUN,
+    DEFAULT_EV_HOURS_AFTER_CHEAP,
+    DEFAULT_EV_HOURS_BEFORE_CHEAP,
     DEFAULT_FORECAST_CONSERVATISM,
     DEFAULT_SKIP_CHARGE_SOC_THRESHOLD,
     DEFAULT_VERBOSE_LOGGING,
@@ -126,6 +131,28 @@ NUMBER_SPECS: tuple[NumberSpec, ...] = (
     ),
     NumberSpec(
         CONF_FORECAST_CONSERVATISM, DEFAULT_FORECAST_CONSERVATISM, 0.0, 1.0, 0.05, decimals=2
+    ),
+    NumberSpec(
+        CONF_EV_HOURS_BEFORE_CHEAP,
+        DEFAULT_EV_HOURS_BEFORE_CHEAP,
+        0.0,
+        6.0,
+        0.5,
+        UnitOfTime.HOURS,
+        mode=NumberMode.SLIDER,
+        decimals=1,
+        requires=Device.EV_CHARGER,
+    ),
+    NumberSpec(
+        CONF_EV_HOURS_AFTER_CHEAP,
+        DEFAULT_EV_HOURS_AFTER_CHEAP,
+        0.0,
+        6.0,
+        0.5,
+        UnitOfTime.HOURS,
+        mode=NumberMode.SLIDER,
+        decimals=1,
+        requires=Device.EV_CHARGER,
     ),
 )
 
