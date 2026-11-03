@@ -4,6 +4,10 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 
 ## Unreleased
 
+## v0.22.1
+
+This is a fix release. If you set up the immersion heater before, check on **Configure → Immersion heater** that the switch is your heater and not one of this integration's own switches.
+
 **Fixes**
 - The list of switches that look like an immersion heater, on the hot water page of the setup and options wizards, no longer includes this integration's own switches (such as **Auto Immersion Divert**). Before, they were offered as the heater because their names contain "immersion". They are found by the integration that registered them, not by name.
 
