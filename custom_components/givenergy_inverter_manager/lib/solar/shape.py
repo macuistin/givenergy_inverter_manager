@@ -1,5 +1,5 @@
 """
-solar_shape.py: the hour-by-hour shape of a solar forecast, as 48 half-hour weights.
+shape.py: the hour-by-hour shape of a solar forecast, as 48 half-hour weights.
 
 The overnight charge simulation spreads the forecast total over the day. By default it uses a
 bell curve centred on 13:00. Solcast publishes its own forecast per period (`detailedForecast`

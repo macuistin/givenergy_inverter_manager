@@ -15,7 +15,7 @@ from custom_components.givenergy_inverter_manager.accumulation import (
     _deserialize,
     _serialize,
 )
-from custom_components.givenergy_inverter_manager.core.solar_shape import SLOTS
+from custom_components.givenergy_inverter_manager.lib.solar.shape import SLOTS
 from tests.test_coordinator import FakeCoordinator, _cfg, _default_states
 
 FIXTURE = json.loads(

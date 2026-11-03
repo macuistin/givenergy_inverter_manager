@@ -22,12 +22,12 @@ from custom_components.givenergy_inverter_manager.core.engine import (
     ForecastContext,
     PreviousCycle,
 )
-from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.tariff import (
     CounterMemory,
     EnergyAccumulator,
     build_tariff,
 )
+from custom_components.givenergy_inverter_manager.lib.solar.day import HeldSolarDay
 from tests.conftest import _nightboost_cfg, _raw
 
 CAPACITY_KWH = 19.0

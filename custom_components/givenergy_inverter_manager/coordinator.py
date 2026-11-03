@@ -174,8 +174,6 @@ from .core.rules import ChargeDecision, monthly_solar_fractions
 from .core.scheduled_run import HeldScheduledRun
 from .core.seasons import season_rules
 from .core.setup_progress import SetupFacts, setup_items
-from .core.solar_day import HeldSolarDay
-from .core.solar_shape import solar_shape_from_periods
 from .core.sunrise_hold import HeldSunrise
 from .core.switch_commands import CommandHealth, after_failure, after_success
 from .core.system_types import SystemIdentity, identity_of, select_controller, what_changed
@@ -215,6 +213,8 @@ from .inverter.givtcp.discovery import (
 )
 from .lib.givtcp.real_time_control import next_step as next_real_time_control_step
 from .lib.givtcp.version import FIXED_IN_VERSION, resets_entity_ids
+from .lib.solar.day import HeldSolarDay
+from .lib.solar.shape import solar_shape_from_periods
 from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,

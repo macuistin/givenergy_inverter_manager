@@ -15,14 +15,14 @@ from custom_components.givenergy_inverter_manager.const import (
     SOLAR_NOISE_FLOOR_W,
 )
 from custom_components.givenergy_inverter_manager.core.battery import NightClock, hours_until_solar
-from custom_components.givenergy_inverter_manager.core.solar_day import (
+from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
+from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+from custom_components.givenergy_inverter_manager.lib.solar.day import (
     HeldSolarDay,
     SolarReading,
     settled_solar_w,
 )
-from custom_components.givenergy_inverter_manager.core.solar_shape import DEFAULT_SOLAR_END_MINUTE
-from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
-from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+from custom_components.givenergy_inverter_manager.lib.solar.shape import DEFAULT_SOLAR_END_MINUTE
 from custom_components.givenergy_inverter_manager.sensor_values import night_survival_confidence
 from tests.conftest import _nightboost_cfg, _raw, _run
 

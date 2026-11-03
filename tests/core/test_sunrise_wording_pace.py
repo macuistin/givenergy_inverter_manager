@@ -25,9 +25,9 @@ from custom_components.givenergy_inverter_manager import sensor_values as sv
 from custom_components.givenergy_inverter_manager.const import SOLAR_DAY_DEBOUNCE_MINUTES
 from custom_components.givenergy_inverter_manager.core.battery_pause import PauseWindow
 from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
-from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+from custom_components.givenergy_inverter_manager.lib.solar.day import HeldSolarDay
 from tests.conftest import _nightboost_cfg, _raw, _run
 
 ACTIVE = OvernightPhase.ACTIVE

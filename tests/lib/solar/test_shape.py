@@ -5,21 +5,21 @@ from __future__ import annotations
 import json
 import math
 from datetime import datetime, timedelta
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.solar_shape import (
+from custom_components.givenergy_inverter_manager.lib.solar.shape import (
     SLOTS,
     producing_hours,
     solar_shape_from_periods,
     valid_shape,
 )
+from tests.helpers import ROOT
 
 DUBLIN = ZoneInfo("Europe/Dublin")
 FIXTURE = json.loads(
-    (Path(__file__).parents[1] / "fixtures" / "forecast" / "solcast_tomorrow.json").read_text()
+    (ROOT / "tests" / "fixtures" / "forecast" / "solcast_tomorrow.json").read_text()
 )
 HALF_HOURLY = FIXTURE["attributes"]["detailedForecast"]
 HOURLY = FIXTURE["attributes"]["detailedHourly"]

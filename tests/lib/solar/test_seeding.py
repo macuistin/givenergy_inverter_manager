@@ -7,14 +7,14 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.forecast_seeding import (
+from custom_components.givenergy_inverter_manager.core.rules import forecast_accuracy
+from custom_components.givenergy_inverter_manager.lib.solar.seeding import (
     Reading,
     RecordedReadings,
     local_midnight,
     query_start,
     seed_forecast_records,
 )
-from custom_components.givenergy_inverter_manager.core.rules import forecast_accuracy
 
 DUBLIN = ZoneInfo("Europe/Dublin")
 TODAY = date(2026, 6, 15)  # a Monday, local clock one hour ahead of UTC (summer time)

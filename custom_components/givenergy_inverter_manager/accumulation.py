@@ -34,9 +34,9 @@ from .core.rules import (
     forecast_accuracy,
     forecast_correction_factor,
 )
-from .core.solar_shape import valid_shape
 from .core.tariff import CounterMemory, EnergyAccumulator
 from .core.write_log import restore_entries
+from .lib.solar.shape import valid_shape
 from .lib.tariff.bill_days import day_row, tariff_in_effect, with_day
 
 if TYPE_CHECKING:

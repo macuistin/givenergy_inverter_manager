@@ -23,10 +23,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from ..lib.solar.defaults import SOLAR_STALE_AFTER_S as STALE_AFTER_S
 from .timeutil import elapsed_seconds
-
-# A gap this long means a restart or an outage. The held value is stale, so start again.
-STALE_AFTER_S = 3600.0
 
 
 @dataclass

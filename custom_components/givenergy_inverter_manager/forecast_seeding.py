@@ -14,7 +14,7 @@ from datetime import datetime
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from .core.forecast_seeding import (
+from .lib.solar.seeding import (
     Reading,
     RecordedReadings,
     query_start,

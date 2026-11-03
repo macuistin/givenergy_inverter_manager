@@ -30,7 +30,7 @@ paths:
   `sensor_values.py` (pure) and test it in `tests/test_sensor_values.py`.
 - A rule that depends on the season, the solar shape or a counter takes it as an input. The winter
   and shoulder months are settings (`season_rules` in `core/seasons.py`, defaults from the
-  latitude), the forecast shape comes from `core/solar_shape.py`, and a counter is screened by
+  latitude), the forecast shape comes from `lib/solar/shape.py`, and a counter is screened by
   `core/counter_guard.py`. Never hard-code months or trust a counter in a new rule.
 - Decision text (`reason` strings) is output. Changing a reason changes the golden files below.
 
