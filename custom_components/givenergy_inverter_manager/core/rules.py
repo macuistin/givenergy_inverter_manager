@@ -1290,6 +1290,10 @@ def suggest_appliance_run(
 # ── EV charger decisions ──────────────────────────────────────────────────────
 
 
+# The mode to set, or None for no change, and the reason.
+ModeChoice = tuple[str | None, str]
+
+
 @dataclass(frozen=True)
 class EVRequest:
     """What asks the charger for a mode besides the solar surplus.
@@ -1307,7 +1311,7 @@ class EVRequest:
     mode_held: bool = False
 
 
-def _pause_choice(charger: EVCharger, current: str) -> Verdict:
+def _pause_choice(charger: EVCharger, current: str) -> ModeChoice:
     stop_mode = charger.stop_mode()
     if stop_mode is None:
         return None, f"Pause needs a Stopped mode, which {charger.display_name} does not offer"
@@ -1316,7 +1320,7 @@ def _pause_choice(charger: EVCharger, current: str) -> Verdict:
     return stop_mode, f"Paused by you — switching to {stop_mode}"
 
 
-def _owner_choice(charger: EVCharger, request: EVRequest) -> Verdict | None:
+def _owner_choice(charger: EVCharger, request: EVRequest) -> ModeChoice | None:
     """The mode the owner's switches or a cheaper rate ask for, None when none does."""
     current = (charger.charge_mode or "").strip().lower()
     if request.pause:
