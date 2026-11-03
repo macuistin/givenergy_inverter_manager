@@ -512,10 +512,12 @@ The Self-sufficiency sensors for today, yesterday, this week and this month show
 | Attribute | Meaning |
 |---|---|
 | `house_load_kwh` | Everything the house used, EV and immersion included. |
-| `from_grid_kwh` | Import that went to the house, not into the battery. |
+| `from_grid_kwh` | Import that went to the house, not into the battery. It is already import minus `grid_to_battery_kwh`, so do not subtract `grid_to_battery_kwh` from it again. |
 | `grid_to_battery_kwh` | Import that went into the battery. |
 | `from_solar_and_battery_kwh` | Load not drawn from the grid: `house_load_kwh` minus `from_grid_kwh`. |
 | `basis` | `ac_charge_counter` when the AC charge counter was used. `import_only` when it is missing, so all import counts as grid. |
+
+To check the percentage by hand, use `1 - from_grid_kwh / house_load_kwh`.
 
 Example from a real day: 12.1 kWh imported, 7.5 kWh of it into the battery, and an 11.3 kWh load. The grid supplied the house with 4.6 kWh, so self-sufficiency reads 59%. Counting all the import as grid read 0%.
 
