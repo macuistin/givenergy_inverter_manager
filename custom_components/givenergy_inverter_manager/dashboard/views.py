@@ -190,7 +190,10 @@ _DIVERT_HELP = ("Min battery, Min spare solar", "spare solar goes to the water o
 _SYSTEM_HELP = (
     ("Dry run", "plan as normal but send nothing to the inverter, the immersion or the car."),
     ("Verbose logging", "write the integration's decisions to the Home Assistant log."),
-    (CHARGE_NOW_NAME, "charge the car from the grid at any rate until you turn this off or unplug it."),
+    (
+        CHARGE_NOW_NAME,
+        "charge the car from the grid at any rate until you turn this off or unplug it.",
+    ),
     (PAUSE_NAME, "stop the charge, whatever the rate, until you turn this off or unplug the car."),
 )
 

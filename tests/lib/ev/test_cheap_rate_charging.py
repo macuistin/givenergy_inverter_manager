@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.rules import decide_ev_charger_action
+from custom_components.givenergy_inverter_manager.core.rules import (
+    EVRequest,
+)
+from custom_components.givenergy_inverter_manager.core.rules import (
+    decide_ev_charger_action as _decide,
+)
 from custom_components.givenergy_inverter_manager.lib.ev import (
     CHEAP_RATE_MODE_DEFAULTS,
     EVCharger,
@@ -14,6 +19,10 @@ from custom_components.givenergy_inverter_manager.lib.ev import (
 )
 
 OPTIONS = ("Fast", "Eco", "Eco+", "Stopped")
+
+
+def decide_ev_charger_action(charger, soc, surplus, **request):
+    return _decide(charger, soc, surplus, EVRequest(**request))
 
 
 def _zappi(mode: str, *, plugged: bool = True, options=OPTIONS) -> EVCharger:

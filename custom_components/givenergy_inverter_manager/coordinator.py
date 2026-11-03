@@ -339,6 +339,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     # True while the test instance marker file exists. async_detect_test_instance reads the
     # file once at setup and caches the answer here.
     test_instance: bool = False
+    # The owner's Charge Now and Pause switches, and whether this integration put the charger in
+    # its grid or stop mode. None of them survives a restart.
+    override_ev_charge_now: bool = False
+    override_ev_pause: bool = False
+    _ev_mode_held: bool = False
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         super().__init__(
@@ -426,9 +431,6 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._window_guard = GuardState()
         self._ev_charger: EVCharger | None = None
         # The grid mode was set by a cheaper rate period, so the end of that period undoes it.
-        self._ev_mode_held = False
-        self.override_ev_charge_now: bool = False
-        self.override_ev_pause: bool = False
         self._ev_base_rate = WatchState()
         self._givtcp_was_unavailable: bool = False
         self._silent_cycles = 0

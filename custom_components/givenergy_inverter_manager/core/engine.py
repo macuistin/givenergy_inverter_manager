@@ -136,6 +136,7 @@ from .rules import (
     ChargeInputs,
     CheapWindow,
     DivertPolicy,
+    EVRequest,
     ForecastAccuracy,
     ImmersionInputs,
     ImmersionRun,
@@ -831,9 +832,8 @@ def _ev_charging_source(ev_w: float, grid_w: float, batt_w: float) -> str:
 def _process_ev_charger(
     data: CoordinatorData,
     ev_charger: EVCharger,
-    raw: RawSensorValues,
     cycle: _Cycle,
-    mode_held: bool,
+    mode_held: bool,  # noqa: FBT001
 ) -> str | None:
     """Process EV charger state and return target mode."""
     data.ev_available = True
@@ -846,14 +846,17 @@ def _process_ev_charger(
 
     solar_surplus_w = data.net_solar_surplus_w
 
+    raw = cycle.raw
     ev_target_mode, reason = decide_ev_charger_action(
         charger=ev_charger,
         battery_soc=raw.battery_soc,
         solar_surplus_w=solar_surplus_w,
-        on_cheap_rate=cycle.current_period.rate < cycle.tariff.base_rate,
-        mode_held=mode_held,
-        charge_now=cycle.overrides.ev_charge_now,
-        pause=cycle.overrides.ev_pause,
+        request=EVRequest(
+            on_cheap_rate=cycle.current_period.rate < cycle.tariff.base_rate,
+            charge_now=cycle.overrides.ev_charge_now,
+            pause=cycle.overrides.ev_pause,
+            mode_held=mode_held,
+        ),
     )
     data.ev_protection_reason = reason
     data.ev_mode_change_requested = ev_target_mode is not None
@@ -2020,7 +2023,7 @@ def build_coordinator_data(
     if inputs.ev_charger is None:
         return data, None
     ev_target_mode = _process_ev_charger(
-        data, inputs.ev_charger, inputs.raw, cycle, inputs.ev_mode_held
+        data, inputs.ev_charger, cycle, inputs.ev_mode_held
     )
     step = _EVTotals.of(accumulators.today).step_since(ev_before, inputs.ev_charger.state, now)
     _track_ev_session(data, accumulators.ev_sessions, step)
