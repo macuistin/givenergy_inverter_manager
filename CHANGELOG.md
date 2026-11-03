@@ -5,7 +5,8 @@ What each release changed, newest first. Planned work is in [ROADMAP.md](ROADMAP
 ## Unreleased
 
 **Changed**
-- The EV charger text now says **The car is disconnected** when no car is plugged in, and says whether spare solar is available and would go to the car once it is. Before, it read "The charger is disconnected" and told you to turn on Charge now. The **Charge now** and **Pause** buttons also show on the EV charger page, for administrators, and only while a car is plugged in.
+- The EV charger text now says **The car is disconnected** when no car is plugged in, and says whether spare solar is available and would go to the car once it is. Before, it read "The charger is disconnected" and told you to turn on Charge now. The **Charge now** and **Pause** buttons also show on the EV charger page, and only while a car is plugged in.
+- Every user who can open the dashboard can now tap **Charge now** and **Pause** on the main page and the EV charger page, not only administrators. Before, only administrators saw them. The charge hours settings stay in Settings, for administrators. Press **Submit** on the out-of-date repair to update a stored dashboard.
 
 ## v0.23.0
 

@@ -651,15 +651,11 @@ class Builder:
         )
 
     def _charger_controls(self) -> list[dict[str, Any] | None]:
-        """Charge now and Pause, to administrators only and while a car is plugged in.
-
-        Tapping either changes the charger, so anyone else sees the state and the reason only.
-        """
+        """Charge now and Pause, to every user and only while a car is plugged in."""
         state = self.ev("ev_charger_state")
-        if not self.admin_ids or not state:
+        if not state:
             return []
         gate = [
-            admin_condition(self.admin_ids),
             {"condition": "state", "entity": state, "state_not": ["disconnected", "unknown"]},
         ]
         return [
