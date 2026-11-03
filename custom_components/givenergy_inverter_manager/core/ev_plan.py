@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .overnight_phase import clock_text
-
 
 @dataclass(frozen=True)
 class EVPlanFacts:
@@ -24,8 +22,9 @@ class EVPlanFacts:
     rate_name: str
     rate: float
     currency_symbol: str
-    minute_of_day: float
-    cheap_run_remaining_minutes: float | None
+    in_extra_hours: bool
+    charge_until: str | None
+    next_charge_start: str | None
     next_cheap_start: str | None
     next_cheap_name: str
     next_cheap_rate: float
@@ -55,18 +54,37 @@ def ev_plan_text(facts: EVPlanFacts) -> str:
         )
     if facts.on_cheap_rate:
         return _cheap_now_text(facts)
+    if facts.in_extra_hours:
+        return _extra_hours_text(facts)
     return _waiting_text(facts)
 
 
 def _cheap_now_text(facts: EVPlanFacts) -> str:
     price = _price(facts.currency_symbol, facts.rate)
-    until = ""
-    if facts.cheap_run_remaining_minutes is not None:
-        end = clock_text(facts.minute_of_day + facts.cheap_run_remaining_minutes)
-        until = f" until {end}"
+    until = f" until {facts.charge_until}" if facts.charge_until else ""
     return (
         f"Charging at the {facts.rate_name} rate ({price}){until}. "
         "After that it charges from solar surplus only."
+    )
+
+
+def _extra_hours_text(facts: EVPlanFacts) -> str:
+    price = _price(facts.currency_symbol, facts.rate)
+    return (
+        f"Charging in the extra hours you allowed around the cheap rate, at the "
+        f"{facts.rate_name} rate ({price}). After them it charges from solar surplus only."
+    )
+
+
+def _when(facts: EVPlanFacts) -> str:
+    """When the grid charge starts and the cheaper rate it is named for."""
+    price = _price(facts.currency_symbol, facts.next_cheap_rate)
+    rate = f"the {facts.next_cheap_name} rate ({price})"
+    if facts.next_charge_start == facts.next_cheap_start:
+        return f"It will charge from {facts.next_cheap_start} at {rate}"
+    return (
+        f"It will charge from {facts.next_charge_start}, with {rate} "
+        f"from {facts.next_cheap_start}"
     )
 
 
@@ -74,18 +92,10 @@ def _waiting_text(facts: EVPlanFacts) -> str:
     solar = f"or from solar surplus of {facts.surplus_min_w} W or more"
     if facts.next_cheap_start is None:
         return f"Waiting for solar surplus of {facts.surplus_min_w} W or more."
-    price = _price(facts.currency_symbol, facts.next_cheap_rate)
-    return (
-        f"Plugged in. It will charge from {facts.next_cheap_start} at the "
-        f"{facts.next_cheap_name} rate ({price}), {solar}."
-    )
+    return f"Plugged in. {_when(facts)}, {solar}."
 
 
 def _unplugged_text(facts: EVPlanFacts) -> str:
     if not facts.can_charge_from_grid or facts.next_cheap_start is None:
         return "Plug the car in and it charges from solar surplus."
-    price = _price(facts.currency_symbol, facts.next_cheap_rate)
-    return (
-        f"Plug the car in. It will charge from {facts.next_cheap_start} at the "
-        f"{facts.next_cheap_name} rate ({price}), or from solar surplus."
-    )
+    return f"Plug the car in. {_when(facts)}, or from solar surplus."

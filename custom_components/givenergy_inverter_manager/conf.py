@@ -141,5 +141,8 @@ CONF_BATTERY_THROUGHPUT_BUDGET = "battery_throughput_budget_kwh"
 # it to the saved options. The defaults are the ones defined above and below.
 CONF_SURPLUS_DIVERT_SOC = "surplus_divert_soc_pct"
 CONF_SURPLUS_DIVERT_MIN_W = "surplus_divert_min_power_w"
+# Hours the car may charge before and after the cheaper-rate hours (core/charge_window.py).
+CONF_EV_HOURS_BEFORE_CHEAP = "ev_hours_before_cheap"
+CONF_EV_HOURS_AFTER_CHEAP = "ev_hours_after_cheap"
 # Cheap rate floor — top up during cheap window if battery drops below this
 CONF_CHEAP_RATE_FLOOR_SOC = "cheap_rate_floor_soc"

@@ -57,6 +57,8 @@ class TestWhatNeedsWhat:
             "zappi_today",
             "zappi_cost_today",
             "ev_charge_now",
+            "ev_hours_before_cheap",
+            "ev_hours_after_cheap",
             "ev_pause",
         }
 

@@ -17,8 +17,9 @@ BASE = EVPlanFacts(
     rate_name="Day",
     rate=0.365,
     currency_symbol="€",
-    minute_of_day=12 * 60,
-    cheap_run_remaining_minutes=None,
+    in_extra_hours=False,
+    charge_until=None,
+    next_charge_start="23:00",
     next_cheap_start="23:00",
     next_cheap_name="Night",
     next_cheap_rate=0.18,
@@ -37,8 +38,7 @@ def test_by_day_it_names_the_next_cheaper_rate_and_the_solar_option():
 
 
 def test_in_a_cheaper_rate_it_says_when_that_ends():
-    text = _plan(on_cheap_rate=True, rate_name="Night", rate=0.18, minute_of_day=23 * 60 + 30,
-                 cheap_run_remaining_minutes=450)
+    text = _plan(on_cheap_rate=True, rate_name="Night", rate=0.18, charge_until="07:00")
     assert text.startswith("Charging at the Night rate (€0.18/kWh) until 07:00")
 
 
@@ -68,3 +68,12 @@ def test_a_charger_with_no_grid_mode_is_solar_only(plugged_in):
 def test_with_no_cheaper_rate_in_the_tariff_it_waits_for_solar():
     assert _plan(next_cheap_start=None).startswith("Waiting for solar surplus of 1380 W")
     assert _plan(plugged_in=False, next_cheap_start=None) == "Plug the car in and it charges from solar surplus."
+
+
+def test_an_earlier_start_names_both_times():
+    text = _plan(next_charge_start="21:00")
+    assert "from 21:00, with the Night rate (€0.18/kWh) from 23:00" in text
+
+
+def test_the_extra_hours_are_named():
+    assert "extra hours you allowed" in _plan(in_extra_hours=True)

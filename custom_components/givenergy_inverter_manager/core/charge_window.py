@@ -150,6 +150,23 @@ def cheap_run_remaining_minutes(tariff: TariffConfig, now: datetime) -> float | 
     return round(elapsed_seconds(now, end) / 60, 1)
 
 
+def in_extended_cheap_window(
+    tariff: TariffConfig, now: datetime, hours_before: float, hours_after: float
+) -> bool:
+    """True inside a cheaper-than-base period, or in the hours the owner added around one.
+
+    *hours_before* come before each such period starts and *hours_after* after it ends. A tariff
+    with no period below the base rate has none, so the answer is always False.
+    """
+    minute = _minute_of_day(now.time())
+    before, after = round(hours_before * 60), round(hours_after * 60)
+    for period in _cheaper_than_base(tariff):
+        total = min(before + _span(period) + after, _MINUTES_PER_DAY)
+        if (minute - (_minute_of_day(period.start) - before)) % _MINUTES_PER_DAY < total:
+            return True
+    return False
+
+
 def _minutes_needed(need: ChargeNeed) -> int:
     """Window minutes the plan needs, with the safety margin, rounded up to a whole step."""
     hours = need.deficit_kwh / need.charge_power_kw

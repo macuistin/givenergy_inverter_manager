@@ -195,6 +195,10 @@ _SYSTEM_HELP = (
         "charge the car from the grid at any rate until you turn this off or unplug it.",
     ),
     (PAUSE_NAME, "stop the charge, whatever the rate, until you turn this off or unplug the car."),
+    (
+        "Charge hours before, Charge hours after",
+        "hours either side of the cheaper rate when the car may still charge from the grid.",
+    ),
 )
 
 
@@ -1603,7 +1607,14 @@ class Builder:
             else []
         )
         car = (
-            [self.ev("ev_charge_now"), self.ev("ev_pause")] if Device.EV_CHARGER in shown else []
+            [
+                self.ev("ev_charge_now"),
+                self.ev("ev_pause"),
+                self.ev("ev_hours_before_cheap"),
+                self.ev("ev_hours_after_cheap"),
+            ]
+            if Device.EV_CHARGER in shown
+            else []
         )
         return [*own, *heater, *thermostat, *car]
 
@@ -1692,6 +1703,14 @@ class Builder:
                 ),
                 self.devices.show_with(
                     switch_tile(self.ev("ev_pause"), PAUSE_NAME, EV), Device.EV_CHARGER
+                ),
+                self.devices.show_with(
+                    stepper_row(self.ev("ev_hours_before_cheap"), "Charge hours before", EV),
+                    Device.EV_CHARGER,
+                ),
+                self.devices.show_with(
+                    stepper_row(self.ev("ev_hours_after_cheap"), "Charge hours after", EV),
+                    Device.EV_CHARGER,
                 ),
                 _help(_SYSTEM_HELP),
             ],

@@ -128,6 +128,8 @@ class TestAdminsPresent:
                 "verbose_logging",
                 "ev_charge_now",
                 "ev_pause",
+                "ev_hours_before_cheap",
+                "ev_hours_after_cheap",
                 "charge_replan",
                 "cheap_rate_floor_soc",
                 "skip_charge_soc_threshold_pct",

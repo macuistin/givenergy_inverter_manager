@@ -45,6 +45,8 @@ from ..const import (
     CONF_CAR_EFFICIENCY_KWH_PER_100KM,
     CONF_CURRENCY,
     CONF_DRY_RUN,
+    CONF_EV_HOURS_AFTER_CHEAP,
+    CONF_EV_HOURS_BEFORE_CHEAP,
     CONF_FORECAST_CONSERVATISM,
     CONF_FORECAST_ENTITY_D2,
     CONF_OVERNIGHT_CHARGE_TARGET,
@@ -60,6 +62,8 @@ from ..const import (
     DEFAULT_CURRENCY,
     DEFAULT_CURRENCY_SYMBOL,
     DEFAULT_DRY_RUN,
+    DEFAULT_EV_HOURS_AFTER_CHEAP,
+    DEFAULT_EV_HOURS_BEFORE_CHEAP,
     DEFAULT_FORECAST_CONSERVATISM,
     DEFAULT_INVERTER_MAX_OUTPUT,
     DEFAULT_OVERNIGHT_CHARGE_TARGET,
@@ -113,6 +117,7 @@ from .charge_window import (
     ChargeNeed,
     ChargeWindow,
     cheap_run_remaining_minutes,
+    in_extended_cheap_window,
     plan_charge_window,
     window_charge_cost,
 )
@@ -844,6 +849,39 @@ def _upcoming_cheap_period(data: CoordinatorData, cycle: _Cycle) -> RatePeriod |
     )
 
 
+def _ev_hours(cycle: _Cycle) -> tuple[float, float]:
+    """The hours the owner allows the car to charge before and after the cheaper rate hours."""
+    return (
+        float(cycle.cfg.get(CONF_EV_HOURS_BEFORE_CHEAP, DEFAULT_EV_HOURS_BEFORE_CHEAP)),
+        float(cycle.cfg.get(CONF_EV_HOURS_AFTER_CHEAP, DEFAULT_EV_HOURS_AFTER_CHEAP)),
+    )
+
+
+def _in_ev_charge_hours(cycle: _Cycle) -> bool:
+    """True in a cheaper rate period or in the extra hours the owner allowed around one."""
+    before, after = _ev_hours(cycle)
+    return in_extended_cheap_window(cycle.tariff, cycle.now, before, after)
+
+
+def _ev_charge_until(data: CoordinatorData, cycle: _Cycle) -> str | None:
+    """The clock time the car's grid charge ends in a cheaper period, with the hours after it."""
+    remaining = data.cheap_run_remaining_minutes
+    if remaining is None:
+        return None
+    _, after = _ev_hours(cycle)
+    return clock_text(minute_of_day(cycle.now) + remaining + after * 60)
+
+
+def _ev_next_start(data: CoordinatorData, cycle: _Cycle) -> str | None:
+    """When the car's grid charge next starts: the next cheaper period less the hours before."""
+    start = data.next_cheap_rate_start
+    if start is None:
+        return None
+    before, _ = _ev_hours(cycle)
+    hours, minutes = (int(part) for part in start.split(":"))
+    return clock_text(hours * 60 + minutes - before * 60)
+
+
 def _ev_plan(data: CoordinatorData, ev_charger: EVCharger, cycle: _Cycle) -> str:
     """The car's charging plan as a sentence (core/ev_plan.py)."""
     upcoming = _upcoming_cheap_period(data, cycle)
@@ -857,8 +895,9 @@ def _ev_plan(data: CoordinatorData, ev_charger: EVCharger, cycle: _Cycle) -> str
             rate_name=cycle.current_period.name,
             rate=cycle.current_period.rate,
             currency_symbol=data.currency_symbol,
-            minute_of_day=minute_of_day(cycle.now),
-            cheap_run_remaining_minutes=data.cheap_run_remaining_minutes,
+            in_extra_hours=_in_ev_charge_hours(cycle),
+            charge_until=_ev_charge_until(data, cycle),
+            next_charge_start=_ev_next_start(data, cycle),
             next_cheap_start=data.next_cheap_rate_start,
             next_cheap_name=upcoming.name if upcoming else "",
             next_cheap_rate=upcoming.rate if upcoming else 0.0,
@@ -890,7 +929,7 @@ def _process_ev_charger(
         battery_soc=raw.battery_soc,
         solar_surplus_w=solar_surplus_w,
         request=EVRequest(
-            on_cheap_rate=cycle.current_period.rate < cycle.tariff.base_rate,
+            on_cheap_rate=_in_ev_charge_hours(cycle),
             charge_now=cycle.overrides.ev_charge_now,
             pause=cycle.overrides.ev_pause,
             mode_held=mode_held,
