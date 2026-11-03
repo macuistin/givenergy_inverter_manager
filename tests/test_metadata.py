@@ -492,3 +492,11 @@ def test_workflow_actions_are_pinned_to_a_major_version_tag_like_the_others():
                 action = step.get("uses", "")
                 if action.startswith("actions/"):
                     assert re.fullmatch(r"actions/[\w-]+@v[0-9]+", action), (path.name, action)
+
+
+def test_repository_root_brand_images_match_the_integration_ones():
+    """HACS reads `brand/icon.png` from the repository root, Home Assistant from the integration."""
+    root_brand = ROOT / "brand"
+    for image in sorted((PKG / "brand").glob("*.png")):
+        assert (root_brand / image.name).read_bytes() == image.read_bytes(), image.name
+    assert (root_brand / "icon.png").is_file()
