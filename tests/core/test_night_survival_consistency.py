@@ -8,7 +8,7 @@ import pytest
 from custom_components.givenergy_inverter_manager.accumulation import EnergyAccumulator
 from custom_components.givenergy_inverter_manager.const import SOLAR_NOISE_FLOOR_W
 from custom_components.givenergy_inverter_manager.core.battery import NightClock, hours_until_solar
-from custom_components.givenergy_inverter_manager.core.solar_shape import DEFAULT_SOLAR_END_MINUTE
+from custom_components.givenergy_inverter_manager.lib.solar.shape import DEFAULT_SOLAR_END_MINUTE
 from tests.conftest import _nightboost_cfg, _raw, _run
 from tests.core.flat_rules import calculate_overnight_charge_target
 

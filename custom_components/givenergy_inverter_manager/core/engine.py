@@ -90,6 +90,8 @@ from ..const import (
 from ..lib.ev import EVCharger, EVChargerState, EVSessionLog, EVSessionStep, track_session
 from ..lib.heating import WaterReading
 from ..lib.heating.solar import SolarOutlook
+from ..lib.solar.day import HeldSolarDay, SolarReading, settled_solar_w
+from ..lib.solar.shape import solar_end_minute, valid_shape
 from ..lib.tariff import stored_energy_change
 from ..logging import get_logger
 from .alt_heat_advice import AdviceInputs, WaterHeatingAdvice, advise_water_heating
@@ -163,8 +165,6 @@ from .rules import (
 from .scheduled_run import HeldScheduledRun, RunStep, advance, warning_state
 from .seasons import NORTHERN_SEASONS, SeasonRules
 from .setup_progress import SetupItem
-from .solar_day import HeldSolarDay, SolarReading, settled_solar_w
-from .solar_shape import solar_end_minute, valid_shape
 from .sunrise_charge import (
     LOAD_NOTE_FLAT,
     LOAD_NOTE_PER_SLOT,

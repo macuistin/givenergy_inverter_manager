@@ -18,13 +18,13 @@ from custom_components.givenergy_inverter_manager.accumulation import (
     AccumulationStore,
 )
 from custom_components.givenergy_inverter_manager.const import CONF_FORECAST_ENTITY
-from custom_components.givenergy_inverter_manager.core.forecast_seeding import (
-    Reading,
-    query_start,
-)
 from custom_components.givenergy_inverter_manager.forecast_seeding import (
     async_recorded_readings,
     async_seed_forecast_accuracy,
+)
+from custom_components.givenergy_inverter_manager.lib.solar.seeding import (
+    Reading,
+    query_start,
 )
 from tests.test_coordinator import FakeCoordinator, _cfg, _MemoryStore
 

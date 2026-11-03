@@ -22,7 +22,7 @@ from custom_components.givenergy_inverter_manager.core.rules import (
     usable_solar_shape,
 )
 from custom_components.givenergy_inverter_manager.core.seasons import SeasonRules
-from custom_components.givenergy_inverter_manager.core.solar_shape import valid_shape
+from custom_components.givenergy_inverter_manager.lib.solar.shape import valid_shape
 
 # A June night, outside the winter and shoulder months.
 NIGHT = datetime(2031, 6, 15, 23, 30)

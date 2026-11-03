@@ -57,13 +57,13 @@ Issues raised:
     whose discovery config changed, so Home Assistant gave it the default entity id again and it
     lost its name and area. 3.6.2 fixed it, and earlier releases never did it. Not fixable: the
     cause is in GivTCP. A version that cannot be read raises nothing. The rule lives in
-    core/givtcp_version.py. It clears when GivTCP reports 3.6.2 or newer.
+    lib/givtcp/version.py. It clears when GivTCP reports 3.6.2 or newer.
 
   givtcp_real_time_control_off
     GivTCP's Real Time Control switch reads off for a few cycles in a row. GivTCP then accepts a
     write from Home Assistant and does not send it to the inverter, so a charge window or target
     never changes. Not fixable: the setting is in GivTCP. An upgrade of GivTCP can reset it. The
-    decision lives in core/real_time_control.py. It clears when the switch reads on.
+    decision lives in lib/givtcp/real_time_control.py. It clears when the switch reads on.
 
   immersion_temperature_not_reporting
     A hot water temperature sensor has read unavailable or unknown for about five minutes. The

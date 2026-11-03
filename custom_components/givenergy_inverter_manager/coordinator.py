@@ -130,7 +130,6 @@ from .core.bill_audit import (
     previous_period_summary,
     running_period,
 )
-from .core.bill_days import tariff_snapshot
 from .core.charge_hold import HeldCharge
 from .core.charge_pause import charge_is_blocked
 from .core.charge_pause import next_step as next_charge_pause_step
@@ -155,12 +154,10 @@ from .core.engine import (
 from .core.entity_refs import Registry, resolve
 from .core.ev_base_rate import AlertAction, BaseRateReading, WatchState, watch_step
 from .core.ev_session import EVSession
-from .core.givtcp_version import FIXED_IN_VERSION, resets_entity_ids
 from .core.immersion_rate import RunTracker, resolve_rate
 from .core.immersion_ready import parse_ready_times
 from .core.inverter_values import ChargePlan, FeedState, InverterValues
 from .core.limits import capacity_kwh, inverter_output_kw
-from .core.real_time_control import next_step as next_real_time_control_step
 from .core.reload_policy import IMMERSION_TEMP_KEYS, TARIFF_TRIGGER_KEYS
 from .core.replan import (
     NightState,
@@ -177,8 +174,6 @@ from .core.rules import ChargeDecision, monthly_solar_fractions
 from .core.scheduled_run import HeldScheduledRun
 from .core.seasons import season_rules
 from .core.setup_progress import SetupFacts, setup_items
-from .core.solar_day import HeldSolarDay
-from .core.solar_shape import solar_shape_from_periods
 from .core.sunrise_hold import HeldSunrise
 from .core.switch_commands import CommandHealth, after_failure, after_success
 from .core.system_types import SystemIdentity, identity_of, select_controller, what_changed
@@ -190,6 +185,7 @@ from .core.tariff import (
     stale_tariff_age_days,
     tariff_in_force,
 )
+from .core.tariff_snapshot import tariff_snapshot
 from .core.temperature_feed import next_counts, silent_sensors
 from .core.timeutil import elapsed_seconds
 from .core.window_guard import (
@@ -215,6 +211,10 @@ from .inverter.givtcp.discovery import (
     device_prefix,
     discover_givtcp_inverters,
 )
+from .lib.givtcp.real_time_control import next_step as next_real_time_control_step
+from .lib.givtcp.version import FIXED_IN_VERSION, resets_entity_ids
+from .lib.solar.day import HeldSolarDay
+from .lib.solar.shape import solar_shape_from_periods
 from .logging import CycleSnapshot, GivLogger, get_logger, log_cycle
 from .repairs import (
     MIN_SOC_HIGH_THRESHOLD,
@@ -282,7 +282,7 @@ def _non_negative_float(value: object) -> float | None:
     """A number of zero or more from a state attribute, else None."""
     try:
         number = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     return number if number >= 0 else None
 
@@ -299,9 +299,7 @@ def _cheapest_is_ahead(now: datetime, period: RatePeriod, cheapest: RatePeriod) 
     return cheapest_in > now_in
 
 
-def _cheapest_rate_text(
-    now: datetime, soc: float, period: RatePeriod, cheapest: RatePeriod
-) -> str:
+def _cheapest_rate_text(now: datetime, soc: float, period: RatePeriod, cheapest: RatePeriod) -> str:
     """Where the battery waits for the cheapest rate, or that it has already gone by."""
     window = f"{cheapest.name} {cheapest.start.strftime('%H:%M')}–{cheapest.end.strftime('%H:%M')}"
     if _cheapest_is_ahead(now, period, cheapest):
@@ -699,7 +697,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return None
         try:
             return float(state.state)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
 
     def _read_bool(self, entity_id: str | None, on_state: str = "on") -> bool:
@@ -883,7 +881,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         try:
             cheap = self._planned_window_period(tariff)
             return latest_write_window(cheap.start, cheap.end, self._now())
-        except (AttributeError, TypeError, ValueError):
+        except AttributeError, TypeError, ValueError:
             return None
 
     def _schedule_charge_retry(self, attempt: Attempt, why: str) -> None:
@@ -1321,9 +1319,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._read_alt_heat(cfg, raw)
         raw.unavailable_inputs = tuple(unavailable)
         self._read_forecasts(cfg, raw)
-        raw.carbon_intensity_gco2 = self._read_optional_float(
-            cfg.get(CONF_CARBON_INTENSITY_ENTITY)
-        )
+        raw.carbon_intensity_gco2 = self._read_optional_float(cfg.get(CONF_CARBON_INTENSITY_ENTITY))
         self._copy_ev_state(raw)
         return raw
 

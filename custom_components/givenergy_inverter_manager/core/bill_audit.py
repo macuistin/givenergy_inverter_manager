@@ -25,7 +25,7 @@ from datetime import date
 from html import escape
 from typing import Any
 
-from .bill_days import day_row, tariff_changes, tariff_in_effect
+from ..lib.tariff.bill_days import day_row, tariff_changes, tariff_in_effect
 from .reporting import _S, _TD, _TD_RIGHT, _TH
 from .tariff import BillBreakdown, EnergyAccumulator, TariffConfig, build_tariff
 from .text_state import fit_state

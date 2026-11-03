@@ -18,7 +18,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.givenergy_inverter_manager.const import DOMAIN, SOLAR_NOISE_FLOOR_W
 from custom_components.givenergy_inverter_manager.core.overnight_phase import OvernightPhase
-from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
+from custom_components.givenergy_inverter_manager.lib.solar.day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.sensor_values import night_survival_confidence
 
 # 08:00 local on an October morning (UTC+1 until the clocks change). The battery lasts the night

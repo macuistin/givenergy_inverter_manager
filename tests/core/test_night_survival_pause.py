@@ -27,8 +27,8 @@ from custom_components.givenergy_inverter_manager.core.battery import (
     survival_attributes,
 )
 from custom_components.givenergy_inverter_manager.core.battery_pause import PauseWindow
-from custom_components.givenergy_inverter_manager.core.solar_shape import DEFAULT_SOLAR_END_MINUTE
 from custom_components.givenergy_inverter_manager.core.text_state import fit_state
+from custom_components.givenergy_inverter_manager.lib.solar.shape import DEFAULT_SOLAR_END_MINUTE
 
 NIGHT = PauseWindow(time(23, 0), time(8, 0))
 CAPACITY_KWH = 10.0

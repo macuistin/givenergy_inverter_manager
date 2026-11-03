@@ -12,7 +12,6 @@ from datetime import datetime, timedelta
 import pytest
 
 from custom_components.givenergy_inverter_manager.core.charge_hold import HeldCharge
-from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_charge import (
     BASIS_ABOVE_TARGET,
     BASIS_NOT_BEFORE_SUNRISE,
@@ -25,6 +24,7 @@ from custom_components.givenergy_inverter_manager.core.sunrise_charge import (
 )
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+from custom_components.givenergy_inverter_manager.lib.solar.day import HeldSolarDay
 from tests.conftest import _nightboost_cfg, _raw, _run
 
 CAPACITY_KWH = 9.5

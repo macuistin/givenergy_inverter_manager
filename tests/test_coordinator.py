@@ -54,7 +54,6 @@ from custom_components.givenergy_inverter_manager.core.immersion_rate import (
     keep_day_rate,
 )
 from custom_components.givenergy_inverter_manager.core.scheduled_run import HeldScheduledRun
-from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.switch_commands import CommandHealth
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
@@ -66,6 +65,7 @@ from custom_components.givenergy_inverter_manager.lib.givtcp.writer import (
     GivTCPWriter,
     SwitchState,
 )
+from custom_components.givenergy_inverter_manager.lib.solar.day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.unconfirmed_write_repair import (
     UnconfirmedWriteRepair,
 )

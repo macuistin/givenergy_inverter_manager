@@ -50,6 +50,7 @@ from ..const import (
     SURPLUS_DIVERT_SOC_THRESHOLD,
 )
 from ..lib.ev import SURPLUS_MODE_DEFAULTS, EVCharger
+from ..lib.solar.shape import DEFAULT_SOLAR_END_MINUTE, DEFAULT_SOLAR_SHAPE, valid_shape
 from .battery import (
     NightClock,
     NightEstimateInputs,
@@ -61,7 +62,6 @@ from .battery import (
 from .battery_pause import PauseWindow, with_note
 from .immersion_ready import ReadyPlan
 from .seasons import NORTHERN_SEASONS, SeasonRules
-from .solar_shape import DEFAULT_SOLAR_END_MINUTE, DEFAULT_SOLAR_SHAPE, valid_shape
 
 # ── Seasonal solar fractions ──────────────────────────────────────────────────
 

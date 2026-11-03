@@ -25,13 +25,13 @@ from custom_components.givenergy_inverter_manager.core.battery import (
     night_window,
 )
 from custom_components.givenergy_inverter_manager.core.battery_pause import PauseWindow
-from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
-from custom_components.givenergy_inverter_manager.core.solar_shape import (
+from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+from custom_components.givenergy_inverter_manager.lib.solar.day import HeldSolarDay
+from custom_components.givenergy_inverter_manager.lib.solar.shape import (
     DEFAULT_SOLAR_END_MINUTE,
     SLOTS,
     solar_end_minute,
 )
-from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from tests.conftest import _nightboost_cfg, _raw, _run
 
 PAUSE = PauseWindow(time(23, 0), time(8, 0))

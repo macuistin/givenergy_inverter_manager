@@ -29,7 +29,6 @@ from ..const import (
     IMMERSION_SWITCH_COOLDOWN_MINUTES,
 )
 from ..core.devices import Device
-from ..core.solar_shape import producing_hours
 from ..core.tariff import (
     build_tariff,
     last_tariff_review,
@@ -38,6 +37,7 @@ from ..core.tariff import (
 )
 from ..discovery.forecast import todays_forecast_sensor
 from ..inverter.givtcp.discovery import device_prefix, temperature_entity_ids_for
+from ..lib.solar.shape import producing_hours
 from .cards import (
     BATTERY,
     BATTERY_HEX,

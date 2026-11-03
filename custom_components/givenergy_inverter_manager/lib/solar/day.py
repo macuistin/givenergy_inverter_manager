@@ -1,5 +1,5 @@
 """
-solar_day.py — Settle whether the solar day has started.
+day.py — Settle whether the solar day has started.
 
 The night window depends on whether solar is generating (see hours_until_solar): about 8 hours
 while it is, the whole run to tomorrow's sunrise while it is not. At dawn and dusk the reading
@@ -17,9 +17,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..const import SOLAR_DAY_DEBOUNCE_MINUTES, SOLAR_NOISE_FLOOR_W
-from .sunrise_hold import STALE_AFTER_S
-from .timeutil import elapsed_seconds
+from ..timeutil import elapsed_seconds
+from .defaults import (
+    SOLAR_DAY_DEBOUNCE_MINUTES,
+    SOLAR_NOISE_FLOOR_W,
+    SOLAR_STALE_AFTER_S,
+)
 
 
 @dataclass
@@ -44,7 +47,7 @@ def _is_stale(held: HeldSolarDay, reading: SolarReading) -> bool:
     if held.generating is None or held.seen_at is None:
         return True
     elapsed_s = elapsed_seconds(held.seen_at, reading.now)
-    return elapsed_s <= 0 or elapsed_s > STALE_AFTER_S
+    return elapsed_s <= 0 or elapsed_s > SOLAR_STALE_AFTER_S
 
 
 def _debounced(held: HeldSolarDay, reading: SolarReading) -> bool:

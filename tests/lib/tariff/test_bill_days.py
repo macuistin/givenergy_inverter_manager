@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from datetime import date
 
-from custom_components.givenergy_inverter_manager.core.bill_days import (
+from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+from custom_components.givenergy_inverter_manager.core.tariff_snapshot import tariff_snapshot
+from custom_components.givenergy_inverter_manager.lib.tariff.bill_days import (
     day_row,
     tariff_changes,
     tariff_for_day,
     tariff_in_effect,
-    tariff_snapshot,
     with_day,
 )
-from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
 from tests.conftest import _nightboost_cfg
 
 OLD = tariff_snapshot(_nightboost_cfg())

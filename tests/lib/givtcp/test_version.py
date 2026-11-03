@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from custom_components.givenergy_inverter_manager.core.givtcp_version import (
+from custom_components.givenergy_inverter_manager.lib.givtcp.version import (
     FIRST_AFFECTED_VERSION,
     FIXED_IN_VERSION,
     parse_version,

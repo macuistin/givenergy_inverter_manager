@@ -10,8 +10,8 @@ from custom_components.givenergy_inverter_manager.accumulation import (
     _deserialize,
     _serialize,
 )
-from custom_components.givenergy_inverter_manager.core.bill_days import tariff_snapshot
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
+from custom_components.givenergy_inverter_manager.core.tariff_snapshot import tariff_snapshot
 from tests.conftest import _nightboost_cfg
 
 BILL_DAY = 16

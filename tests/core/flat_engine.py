@@ -26,10 +26,10 @@ from custom_components.givenergy_inverter_manager.core.engine import (
     RawSensorValues,
 )
 from custom_components.givenergy_inverter_manager.core.scheduled_run import HeldScheduledRun
-from custom_components.givenergy_inverter_manager.core.solar_day import HeldSolarDay
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator, TariffConfig
 from custom_components.givenergy_inverter_manager.discovery import EVCharger
+from custom_components.givenergy_inverter_manager.lib.solar.day import HeldSolarDay
 
 
 def build_coordinator_data(
