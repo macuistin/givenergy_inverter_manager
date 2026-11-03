@@ -17,11 +17,11 @@ from custom_components.givenergy_inverter_manager.core.bill_audit import (
     running_period,
     summary_table,
 )
-from custom_components.givenergy_inverter_manager.core.bill_days import tariff_snapshot
 from custom_components.givenergy_inverter_manager.core.tariff import (
     EnergyAccumulator,
     build_tariff,
 )
+from custom_components.givenergy_inverter_manager.core.tariff_snapshot import tariff_snapshot
 
 MINUS = "‑"
 # Round numbers so every figure below can be worked out by hand: 10% discount, 10% VAT, a

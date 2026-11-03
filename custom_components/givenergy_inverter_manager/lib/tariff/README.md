@@ -19,5 +19,6 @@ The standard library and `lib/timeutil`.
 ## Not here
 
 Reading the saved options by `CONF_` key (`core/tariff.py`: `build_tariff`, the dated rate
-changes and the option saves) and the stored bill rows (`core/bill_days.py`) stay in the
-integration, because they name the integration's own keys.
+changes and the option saves) and the tariff snapshot (`core/tariff_snapshot.py`) stay in the
+integration, because they name the integration's own keys. The stored bill rows themselves
+(`bill_days`: `day_row`, `with_day`, `tariff_in_effect`, `tariff_changes`) are here.

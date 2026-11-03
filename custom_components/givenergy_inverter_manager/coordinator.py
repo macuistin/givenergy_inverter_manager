@@ -130,7 +130,6 @@ from .core.bill_audit import (
     previous_period_summary,
     running_period,
 )
-from .core.bill_days import tariff_snapshot
 from .core.charge_hold import HeldCharge
 from .core.charge_pause import charge_is_blocked
 from .core.charge_pause import next_step as next_charge_pause_step
@@ -188,6 +187,7 @@ from .core.tariff import (
     stale_tariff_age_days,
     tariff_in_force,
 )
+from .core.tariff_snapshot import tariff_snapshot
 from .core.temperature_feed import next_counts, silent_sensors
 from .core.timeutil import elapsed_seconds
 from .core.window_guard import (

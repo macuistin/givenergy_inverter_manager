@@ -25,7 +25,6 @@ from typing import TYPE_CHECKING, Any
 
 from .const import REGISTER_WRITE_LOG_MAX_ENTRIES
 from .core.alt_heat_schedule import ImmersionHeatLog
-from .core.bill_days import day_row, tariff_in_effect, with_day
 from .core.entity_refs import clean_remembered
 from .core.ev_session import EVSessionLog
 from .core.immersion_rate import keep_day_rate
@@ -38,6 +37,7 @@ from .core.rules import (
 from .core.solar_shape import valid_shape
 from .core.tariff import CounterMemory, EnergyAccumulator
 from .core.write_log import restore_entries
+from .lib.tariff.bill_days import day_row, tariff_in_effect, with_day
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -342,7 +342,7 @@ class AccumulationState:
 
     # One row per finished day of the current bill period, oldest first. At the end of the period
     # the rows go into that period's snapshot under "days" and this list starts again. See
-    # core/bill_days.py.
+    # lib/tariff/bill_days.py.
     bill_days: list[dict[str, Any]] = field(default_factory=list)
 
     # Reset timestamps (ISO strings for JSON serialisation)
@@ -550,9 +550,9 @@ class AccumulationStore:
         """
         Handle midnight reset.
 
-        *tariff* is the tariff snapshot (core/bill_days.py) in force on the day that ended. A row
-        for that day goes into the bill period before anything is reset, so a day that ends on
-        the bill day is billed in the period it belongs to.
+        *tariff* is the tariff snapshot (core/tariff_snapshot.py) in force on the day that ended. A
+        row for that day goes into the bill period before anything is reset, so a day that ends
+        on the bill day is billed in the period it belongs to.
 
         Order of operations:
           0. Add the finished day to the bill period
