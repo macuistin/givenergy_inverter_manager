@@ -20,7 +20,7 @@ from homeassistant.helpers import selector
 
 from ..core.wizard_pages import WIRING_REQUIRED, missing_wiring, unavailable_wiring
 from .detect import detect
-from .flow_base import bullet_lines, states_by_id
+from .flow_base import bullet_lines, own_entity_ids, states_by_id
 from .selectors import entity_selector
 from .wiring import (
     WIRING_KEYS,
@@ -49,7 +49,7 @@ class ReconfigureSteps:
 
     def _found_for(self, entry: Any) -> Any:
         """The discovered inverter with this entry's serial, when it has all its sensors."""
-        detected = detect(states_by_id(self.hass))
+        detected = detect(states_by_id(self.hass), own_entity_ids(self.hass))
         serial = str(entry.unique_id or "").lower()
         for inverter in detected.inverters:
             if inverter.is_fully_configured and inverter.serial.lower() == serial:

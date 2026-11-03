@@ -52,7 +52,7 @@ from ..core.wizard_tariff import (
 )
 from ..inverter.givtcp import read_rate_defaults
 from .detect import best_inverter, detect, selection_of
-from .flow_base import PageView, WizardPages, ordered, states_by_id
+from .flow_base import PageView, WizardPages, ordered, own_entity_ids, states_by_id
 from .schemas import (
     SETUP_BILL_DEFAULTS,
     rates_schema,
@@ -88,7 +88,7 @@ class SetupSteps(WizardPages):
 
     def _detected_now(self) -> Detected:
         if self._detected is None:
-            self._detected = detect(states_by_id(self.hass))
+            self._detected = detect(states_by_id(self.hass), own_entity_ids(self.hass))
         return self._detected
 
     def _ctx(self) -> PageContext:

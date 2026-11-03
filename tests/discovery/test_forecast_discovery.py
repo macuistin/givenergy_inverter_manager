@@ -93,3 +93,15 @@ def test_a_renamed_pair_keeps_its_prefix():
 def test_a_sensor_that_is_not_for_tomorrow_has_no_today_sensor():
     assert todays_forecast_sensor(SOLCAST_DAY_3) is None
     assert todays_forecast_sensor(None) is None
+
+
+def test_own_switches_are_never_immersion_candidates():
+    own = frozenset(
+        {
+            "switch.givenergy_inverter_manager_auto_immersion_divert",
+            "switch.service_givenergy_inverter_manager_immersion_scheduled_heating",
+        }
+    )
+    states = _states("switch.immersion_heater", *own)
+
+    assert discover_immersion_switch_candidates(states, own) == ("switch.immersion_heater",)
