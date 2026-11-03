@@ -118,6 +118,7 @@ from .charge_window import (
 )
 from .controller_conflict import ConflictStatus
 from .counter_guard import screen
+from .ev_plan import EVPlanFacts, ev_plan_text
 from .immersion_ready import ReadyInputs, ReadyPlan, plan_ready
 from .immersion_window import open_cheapest_window
 from .overnight_phase import (
@@ -418,6 +419,7 @@ class CoordinatorData:
     ev_draining_battery: bool = False
     ev_mode_change_requested: bool = False
     ev_protection_reason: str = ""
+    ev_charging_plan: str = ""
     ev_available: bool = False
     # False when the install has no immersion switch, so reports leave out its saving.
     immersion_configured: bool = True
@@ -829,6 +831,42 @@ def _ev_charging_source(ev_w: float, grid_w: float, batt_w: float) -> str:
     return "Mixed"
 
 
+def _upcoming_cheap_period(data: CoordinatorData, cycle: _Cycle) -> RatePeriod | None:
+    """The cheaper-than-base period that starts at the next cheap rate start, if there is one."""
+    return next(
+        (
+            p
+            for p in cycle.tariff.rate_periods
+            if p.rate < cycle.tariff.base_rate
+            and p.start.strftime("%H:%M") == data.next_cheap_rate_start
+        ),
+        None,
+    )
+
+
+def _ev_plan(data: CoordinatorData, ev_charger: EVCharger, cycle: _Cycle) -> str:
+    """The car's charging plan as a sentence (core/ev_plan.py)."""
+    upcoming = _upcoming_cheap_period(data, cycle)
+    return ev_plan_text(
+        EVPlanFacts(
+            plugged_in=ev_charger.is_plugged_in,
+            can_charge_from_grid=ev_charger.cheap_rate_mode() is not None,
+            charge_now=cycle.overrides.ev_charge_now,
+            pause=cycle.overrides.ev_pause,
+            on_cheap_rate=cycle.current_period.rate < cycle.tariff.base_rate,
+            rate_name=cycle.current_period.name,
+            rate=cycle.current_period.rate,
+            currency_symbol=data.currency_symbol,
+            minute_of_day=minute_of_day(cycle.now),
+            cheap_run_remaining_minutes=data.cheap_run_remaining_minutes,
+            next_cheap_start=data.next_cheap_rate_start,
+            next_cheap_name=upcoming.name if upcoming else "",
+            next_cheap_rate=upcoming.rate if upcoming else 0.0,
+            surplus_min_w=EV_CHARGER_MIN_POWER_W,
+        )
+    )
+
+
 def _process_ev_charger(
     data: CoordinatorData,
     ev_charger: EVCharger,
@@ -860,6 +898,7 @@ def _process_ev_charger(
     )
     data.ev_protection_reason = reason
     data.ev_mode_change_requested = ev_target_mode is not None
+    data.ev_charging_plan = _ev_plan(data, ev_charger, cycle)
 
     data.ev_charging_source = _ev_charging_source(
         ev_charger.power_w, raw.grid_power_w, raw.battery_power_w

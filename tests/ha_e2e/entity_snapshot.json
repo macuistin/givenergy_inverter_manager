@@ -60,6 +60,11 @@
   "name": "Charging Cost Today"
  },
  {
+  "entity_id": "sensor.ev_charger_charging_plan",
+  "key": "ev_charging_plan",
+  "name": "Charging Plan"
+ },
+ {
   "entity_id": "sensor.ev_charger_charging_power",
   "key": "ev_power",
   "name": "Charging Power"

@@ -2,7 +2,7 @@
 
 # Sensors
 
-The integration creates 167 sensors. 116 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
+The integration creates 168 sensors. 117 are enabled by default and 51 are disabled. Enable a disabled sensor in **Settings > Devices & Services > GivEnergy Inverter Manager > entities**.
 
 This page is generated from the code. Run `python scripts/gen_sensor_docs.py` after changing `sensor.py`. For switches and numbers, see [Entities](entities.md).
 
@@ -190,6 +190,7 @@ These sensors exist only while a supported charger is discovered, and appear whe
 | Cost per km Today | `ev_cost_per_km_today` | currency | - | measurement | no | no | EV cost today divided by km charged. Created only with an EV charger. |
 | Draining Battery | `ev_draining_battery` | - | - | none | no | yes | yes while the charger is charging, drawing power, and the battery discharges over 200 W. Created only with an EV charger. EV charger needed. Diagnostic category. |
 | Mode Decision | `ev_protection_reason` | - | - | none | no | yes | Reason for the latest EV charge mode decision. Created only with an EV charger. EV charger needed. Diagnostic category. |
+| Charging Plan | `ev_charging_plan` | - | - | none | no | yes | What the car will do and when, such as the cheaper rate it charges at. Created only with an EV charger. EV charger needed. |
 | Charging Source | `ev_charging_source` | - | - | none | no | yes | Not charging, Solar, Grid, Battery or Mixed. Created only with an EV charger. EV charger needed. |
 | Solar Surplus | `ev_solar_surplus_available` | - | - | none | no | yes | Available when net solar surplus is 1380 W or more. Created only with an EV charger. EV charger needed. |
 

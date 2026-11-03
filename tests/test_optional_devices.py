@@ -51,6 +51,7 @@ class TestWhatNeedsWhat:
             "ev_cost_per_km_today",
             "ev_draining_battery",
             "ev_protection_reason",
+            "ev_charging_plan",
             "ev_charging_source",
             "ev_solar_surplus_available",
             "zappi_today",
