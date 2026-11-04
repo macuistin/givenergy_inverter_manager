@@ -165,6 +165,7 @@ from .rules import (
 from .scheduled_run import HeldScheduledRun, RunStep, advance, warning_state
 from .seasons import NORTHERN_SEASONS, SeasonRules
 from .setup_progress import SetupItem
+from .slot_sampler import SlotSampler
 from .sunrise_charge import (
     LOAD_NOTE_FLAT,
     LOAD_NOTE_PER_SLOT,
@@ -1011,6 +1012,7 @@ class Accumulators:
     counters: CounterMemory = field(default_factory=CounterMemory)
     heat_log: ImmersionHeatLog | None = None
     ev_sessions: EVSessionLog | None = None
+    slot_sampler: SlotSampler | None = None
 
     def rolling(self) -> tuple[EnergyAccumulator, ...]:
         """The accumulators that integrate live power, today's first. Yesterday is a record."""
@@ -1899,6 +1901,8 @@ def _accumulate_energy_today(
     )
     _bookmark_start_of_day_soc(accumulators.today, cycle.raw)
     data.grid_to_battery_counter_available = cycle.raw.ac_charge_energy_today_kwh is not None
+    if accumulators.slot_sampler is not None:
+        accumulators.slot_sampler.sample(screened, last_update_time, cycle.now)
     data.today = accumulators.today
 
 

@@ -6,7 +6,9 @@ elapsed time, so a spring-forward day has 46 and a fall-back day has 50 (never a
 Two kinds of energy are kept apart. Flows are the supply side at the grid and the inverter
 (FLOWS). Loads are the consumers, by name: the house, the EV and the immersion are always
 there and another can be added by name. Every figure is a reading, never derived from the
-others, so a drift in one source shows up instead of being absorbed by another.
+others, so a drift in one source shows up instead of being absorbed by another. The loads
+overlap: "house" is the whole-house load as the inverter reports it, which includes the EV and
+the immersion, and those are recorded on their own as well.
 
 Each slot also keeps the seconds actually observed, so a slot with no data can be told from a
 slot that used nothing, and the battery state of charge at the end of the slot.
@@ -38,6 +40,8 @@ class SlotEnergy:
 
     flows: kWh by name, names from FLOWS only (a typo is refused, not stored).
     loads: kWh by name. Any lowercase name is allowed, so a new consumer needs no schema change.
+    "house" is the whole-house load and includes the "ev" and "immersion" loads, so loads do not
+    add up to a total.
     Both are readings from the inverter or the device, never worked out from each other.
     """
 
@@ -86,7 +90,8 @@ class StoredSlotDay(TypedDict):
     start: str  # that day's local midnight with its UTC offset. A different offset is skipped.
     slots: int  # 48, or 46 and 50 on a clock-change day. Every list below has this length.
     flows_wh: dict[str, list[int]]  # name from FLOWS -> Wh in each slot
-    loads_wh: dict[str, list[int]]  # load name -> Wh in each slot, house/ev/immersion always
+    # load name -> Wh per slot. house is the whole-house load and includes ev and immersion.
+    loads_wh: dict[str, list[int]]
     soc_pct: list[float | None]  # battery state of charge at the end of each slot, null if unseen
     seconds: list[int]  # seconds of the slot actually observed, 0 to 1800
 

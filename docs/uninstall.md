@@ -30,10 +30,11 @@ Deleting the integration does not remove these. Delete them yourself if you want
 | Dashboard file from versions before 0.18 | `givenergy_dashboard.yaml` in the config folder, if it is still there |
 | Energy export | `givenergy_energy_export.csv` in the config folder, if you ran `export_energy_data` |
 | Accumulated energy and battery statistics | `.storage/givenergy_inverter_manager.energy` in the config folder |
+| Half-hourly energy history | `.storage/givenergy_inverter_manager.energy_slots` in the config folder |
 | The GivEnergy dashboard you added | **Settings → Dashboards** |
 | The `lovelace:` block for YAML mode of an earlier version | `configuration.yaml`, if you added it |
 | Automations and cards that use the entities | Your own automations and dashboards |
 
 Home Assistant keeps the long-term statistics of removed entities in its database. Clear them in **Developer Tools → Statistics** if you want them gone.
 
-Keep `.storage/givenergy_inverter_manager.energy` if you may add the integration again. It is read when the integration starts, so your totals, yesterday figures, monthly snapshots and battery cycle count come back.
+Keep `.storage/givenergy_inverter_manager.energy` if you may add the integration again. It is read when the integration starts, so your totals, yesterday figures, monthly snapshots and battery cycle count come back. Keep `.storage/givenergy_inverter_manager.energy_slots` as well to keep the half-hourly history.
