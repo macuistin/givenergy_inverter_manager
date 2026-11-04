@@ -10,16 +10,23 @@ read option keys.
 - `RatePeriod`, `TariffConfig`: the tariff, built from typed fields
 - `EnergyAccumulator`, `CounterMemory`: running totals for a billing period
 - `BillBreakdown`, `money`: a bill rounded to cents, halves upward (`Decimal`, `ROUND_HALF_UP`)
-- `SlotDay`, `SlotHistory`, `SERIES`: energy in half-hour slots, a local day at a time, kept for
+- `SlotDay`, `SlotEnergy`, `SlotHistory`, `FLOWS`, `DEFAULT_LOADS`: energy in half-hour slots, a local day at a time, kept for
   about 400 days (see below)
 - `StoredEnergy`, `stored_energy_change`, `value_per_stored_kwh`: the value of stored energy
 
 ## Half-hourly slots
 
-`SlotDay` holds one local day: kWh per slot for each series in `SERIES` (grid import and export,
-house, EV, immersion, solar, grid-to-battery) and the seconds actually observed in each slot.
-Slots are counted in real elapsed time from local midnight, so a day has 46, 48 or 50 of them
-across a clock change. Observed seconds tell a slot with no data from one that used nothing.
+`SlotDay` holds one local day. Supply flows (`FLOWS`: import, export, solar, battery charge,
+battery discharge, grid-to-battery) are kept apart from loads by name (house, EV and immersion
+are always there, and another can be added by name). Every figure is a reading and none is
+derived from the others, so drift in one source shows rather than being absorbed. Each slot
+also holds the seconds actually observed, which tells a slot with no data from one that used
+nothing, and the battery state of charge at its end. Slots are counted in real elapsed time from
+local midnight, so a day has 46, 48 or 50 of them across a clock change.
+
+Stored form (`SlotDay.to_storage`): `version`, `date`, `start` (midnight with its UTC offset),
+`slots`, `flows_wh` and `loads_wh` (whole watt-hours per slot), `soc_pct`, `seconds`. A day saved
+under another time zone or version is skipped, not converted.
 
 `SlotHistory.record` spreads an interval over the slots it touches by time, splits it at
 midnight, ignores an interval over 30 minutes (a gap) and drops days past the retention.

@@ -5,16 +5,18 @@ from .billing import BillBreakdown, money
 from .config import TariffConfig, cheapest_period
 from .periods import RatePeriod
 from .slot_history import SlotHistory
-from .slots import SERIES, SlotDay
+from .slots import DEFAULT_LOADS, FLOWS, SlotDay, SlotEnergy
 from .stored_energy import StoredEnergy, stored_energy_change, value_per_stored_kwh
 
 __all__ = [
     "BillBreakdown",
     "CounterMemory",
     "EnergyAccumulator",
-    "SERIES",
+    "DEFAULT_LOADS",
+    "FLOWS",
     "RatePeriod",
     "SlotDay",
+    "SlotEnergy",
     "SlotHistory",
     "StoredEnergy",
     "TariffConfig",

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from datetime import date, datetime, timedelta, tzinfo
 from typing import Any
 
 from ..timeutil import elapsed_seconds
 from .defaults import SLOT_MAX_INTERVAL_SECONDS, SLOT_RETENTION_DAYS
-from .slots import SlotDay
+from .slots import SlotDay, SlotEnergy
 
 
 class SlotHistory:
@@ -21,8 +20,8 @@ class SlotHistory:
         # Stored days that could not be read the last time the history was restored.
         self.skipped = 0
 
-    def record(self, kwh: Mapping[str, float], start: datetime, end: datetime) -> bool:
-        """Book *kwh* used between start and end. False when the interval is a gap or empty.
+    def record(self, energy: SlotEnergy, start: datetime, end: datetime) -> bool:
+        """Book *energy* used between start and end. False when the interval is a gap or empty.
 
         An interval that crosses midnight is split between the two days by time. Nothing is
         booked for a gap, and the slots it spans keep their old observed seconds, so coverage
@@ -36,10 +35,14 @@ class SlotHistory:
             day = self._day_for(cursor.astimezone(self._tz).date())
             piece_end = min(end, day.end)
             share = elapsed_seconds(cursor, piece_end) / total
-            day.add({name: value * share for name, value in kwh.items()}, cursor, piece_end)
+            day.add(energy.scaled(share), cursor, piece_end)
             cursor = piece_end
         self._prune(end.astimezone(self._tz).date())
         return True
+
+    def record_soc(self, moment: datetime, percent: float) -> None:
+        """Note the battery state of charge in the slot holding *moment*."""
+        self._day_for(moment.astimezone(self._tz).date()).set_soc(moment, percent)
 
     def get(self, day: date) -> SlotDay | None:
         return self._days.get(day)
