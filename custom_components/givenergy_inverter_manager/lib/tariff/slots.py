@@ -19,7 +19,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, tzinfo
-from typing import Any
+from typing import Any, TypedDict
 
 from ..timeutil import elapsed_seconds
 from .defaults import SLOT_SECONDS
@@ -34,7 +34,12 @@ _LOAD_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 
 @dataclass(frozen=True)
 class SlotEnergy:
-    """Energy in kWh over one interval: supply flows and named loads."""
+    """Energy in kWh over one interval, as it is handed to SlotDay.add.
+
+    flows: kWh by name, names from FLOWS only (a typo is refused, not stored).
+    loads: kWh by name. Any lowercase name is allowed, so a new consumer needs no schema change.
+    Both are readings from the inverter or the device, never worked out from each other.
+    """
 
     flows: Mapping[str, float] = field(default_factory=dict)
     loads: Mapping[str, float] = field(default_factory=dict)
@@ -69,16 +74,37 @@ def _slots_in_day(day: date, tz: tzinfo) -> int:
     return round(elapsed_seconds(start, end) / SLOT_SECONDS)
 
 
+class StoredSlotDay(TypedDict):
+    """The saved form of one SlotDay, as written to storage and read back.
+
+    The only definition of the stored shape. Change it only with a new `version`, and give
+    from_storage a way to read the old one. Watt-hours are whole numbers to keep a year small.
+    """
+
+    version: int  # STORAGE_VERSION when written. An unknown version is skipped on load.
+    date: str  # local calendar day, ISO 8601, e.g. "2026-06-01"
+    start: str  # that day's local midnight with its UTC offset. A different offset is skipped.
+    slots: int  # 48, or 46 and 50 on a clock-change day. Every list below has this length.
+    flows_wh: dict[str, list[int]]  # name from FLOWS -> Wh in each slot
+    loads_wh: dict[str, list[int]]  # load name -> Wh in each slot, house/ev/immersion always
+    soc_pct: list[float | None]  # battery state of charge at the end of each slot, null if unseen
+    seconds: list[int]  # seconds of the slot actually observed, 0 to 1800
+
+
 @dataclass
 class SlotDay:
-    """Energy in each slot of one local day."""
+    """Energy in each slot of one local day, in memory.
 
-    day: date
-    tz: tzinfo
-    flows: dict[str, list[float]] = field(default_factory=dict)
-    loads: dict[str, list[float]] = field(default_factory=dict)
-    seconds: list[float] = field(default_factory=list)
-    soc_pct: list[float | None] = field(default_factory=list)
+    Slot i is the i-th half hour of real elapsed time since local midnight. Every list below has
+    one entry per slot. StoredSlotDay is the saved form of this class.
+    """
+
+    day: date  # the local calendar day
+    tz: tzinfo  # the zone whose midnight starts and ends the day
+    flows: dict[str, list[float]] = field(default_factory=dict)  # FLOWS name -> kWh per slot
+    loads: dict[str, list[float]] = field(default_factory=dict)  # load name -> kWh per slot
+    seconds: list[float] = field(default_factory=list)  # observed time per slot, 0 to 1800
+    soc_pct: list[float | None] = field(default_factory=list)  # end-of-slot charge, None unseen
 
     def __post_init__(self) -> None:
         count = _slots_in_day(self.day, self.tz)
@@ -148,7 +174,7 @@ class SlotDay:
     def _offset(self, moment: datetime) -> float:
         return elapsed_seconds(self.start, moment)
 
-    def to_storage(self) -> dict[str, Any]:
+    def to_storage(self) -> StoredSlotDay:
         """JSON-safe form: whole watt-hours and whole seconds, to keep a year small."""
         return {
             "version": STORAGE_VERSION,
@@ -162,7 +188,7 @@ class SlotDay:
         }
 
     @classmethod
-    def from_storage(cls, data: Mapping[str, Any], tz: tzinfo) -> SlotDay:
+    def from_storage(cls, data: Mapping[str, Any], tz: tzinfo) -> SlotDay:  # data: untrusted
         """Rebuild a day. Raises ValueError for anything that does not fit this day's slots.
 
         A day saved under another time zone or format version is refused, not converted.

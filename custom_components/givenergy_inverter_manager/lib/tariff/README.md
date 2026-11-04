@@ -24,7 +24,8 @@ also holds the seconds actually observed, which tells a slot with no data from o
 nothing, and the battery state of charge at its end. Slots are counted in real elapsed time from
 local midnight, so a day has 46, 48 or 50 of them across a clock change.
 
-Stored form (`SlotDay.to_storage`): `version`, `date`, `start` (midnight with its UTC offset),
+Stored form (`StoredSlotDay`, a `TypedDict` in `slots.py` that defines it and says what each field means;
+written by `SlotDay.to_storage`): `version`, `date`, `start` (midnight with its UTC offset),
 `slots`, `flows_wh` and `loads_wh` (whole watt-hours per slot), `soc_pct`, `seconds`. A day saved
 under another time zone or version is skipped, not converted.
 

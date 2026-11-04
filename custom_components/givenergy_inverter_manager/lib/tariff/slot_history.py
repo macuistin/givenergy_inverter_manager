@@ -7,7 +7,7 @@ from typing import Any
 
 from ..timeutil import elapsed_seconds
 from .defaults import SLOT_MAX_INTERVAL_SECONDS, SLOT_RETENTION_DAYS
-from .slots import SlotDay, SlotEnergy
+from .slots import SlotDay, SlotEnergy, StoredSlotDay
 
 
 class SlotHistory:
@@ -51,7 +51,7 @@ class SlotHistory:
         """The days recorded from *first* to *last* inclusive, oldest first."""
         return [self._days[d] for d in sorted(self._days) if first <= d <= last]
 
-    def to_storage(self) -> list[dict[str, Any]]:
+    def to_storage(self) -> list[StoredSlotDay]:
         return [self._days[d].to_storage() for d in sorted(self._days)]
 
     def restore(self, stored: list[Any]) -> None:
