@@ -177,3 +177,49 @@ def test_history_restores_what_it_stored_and_counts_what_it_skips() -> None:
     again.restore(stored)
     assert again.skipped == 2
     assert again.get(date(2026, 6, 1)).total("import") == pytest.approx(0.5)  # type: ignore[union-attr]
+
+
+def test_the_inverters_day_total_sits_beside_the_slots_and_the_gap_is_shown():
+    day = SlotDay(date(2026, 6, 1), LONDON)
+    day.add(_imp(1.0), _at(day.day, 9, 0), _at(day.day, 9, 20))
+    assert day.gap_kwh("import") is None  # no counter yet
+
+    day.note_counters({"import": 1.3})
+    assert day.gap_kwh("import") == pytest.approx(0.3)
+    day.note_counters({"import": 1.5})  # a later reading replaces the earlier one
+    assert day.gap_kwh("import") == pytest.approx(0.5)
+    assert day.gap_kwh("export") is None
+
+
+@pytest.mark.parametrize("readings", [{"nope": float("nan")}, {"import": -1.0}, {"Bad Name": 1.0}])
+def test_bad_day_totals_are_refused(readings):
+    day = SlotDay(date(2026, 6, 1), LONDON)
+    with pytest.raises(ValueError):
+        day.note_counters(readings)
+    assert day.counters_kwh == {}
+
+
+def test_the_day_totals_round_trip_and_an_older_day_without_them_still_loads():
+    day = SlotDay(date(2026, 6, 1), LONDON)
+    day.note_counters({"import": 12.3456, "house": 20.0})
+    stored = day.to_storage()
+    assert stored["counters_wh"] == {"import": 12346, "house": 20000}
+    assert SlotDay.from_storage(stored, LONDON).counters_kwh["import"] == pytest.approx(12.346)
+
+    del stored["counters_wh"]
+    assert SlotDay.from_storage(stored, LONDON).counters_kwh == {}
+
+
+def test_the_summary_lists_the_newest_days_with_the_gap_per_series():
+    history = SlotHistory(LONDON)
+    for offset in range(3):
+        start = _at(date(2026, 6, 1) + timedelta(days=offset), 10)
+        history.record(SlotEnergy(flows={"import": 0.5}), start, start + timedelta(minutes=5))
+    history.note_counters(date(2026, 6, 3), {"import": 0.75})
+
+    rows = history.summary(days=2)
+    assert [r["date"] for r in rows] == ["2026-06-03", "2026-06-02"]
+    assert rows[0]["series"]["import"] == {"slots_kwh": 0.5, "inverter_kwh": 0.75, "gap_kwh": 0.25}
+    assert rows[1]["series"]["import"]["inverter_kwh"] is None
+    assert rows[1]["coverage"] > 0
+    assert "export" not in rows[0]["series"]  # nothing recorded and no counter

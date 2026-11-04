@@ -129,3 +129,11 @@ async def test_an_explicit_save_writes_the_payload():
     await store.async_load()
     await store.async_save()
     assert fake.saves == [{"version": 1, "days": []}]
+
+
+async def test_the_inverters_day_totals_are_kept_with_the_day():
+    store, _ = _store()
+    await store.async_load()
+    store.note_counters(NOON.date(), {"import": 4.2})
+    store.note_counters(NOON.date(), {})
+    assert store.history.get(NOON.date()).counters_kwh == {"import": 4.2}

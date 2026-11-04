@@ -49,6 +49,7 @@ async def test_the_history_is_saved_and_has_the_stored_shape(
     assert day["date"] == _today(hass).isoformat()
     assert set(day) == {
         "version", "date", "start", "slots", "flows_wh", "loads_wh", "soc_pct", "seconds",
+        "counters_wh",
     }  # fmt: skip
     assert set(day["loads_wh"]) >= {"house", "ev", "immersion"}
 

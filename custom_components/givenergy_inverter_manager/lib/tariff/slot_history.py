@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date, datetime, timedelta, tzinfo
 from typing import Any
 
@@ -44,12 +45,25 @@ class SlotHistory:
         """Note the battery state of charge in the slot holding *moment*."""
         self._day_for(moment.astimezone(self._tz).date()).set_soc(moment, percent)
 
+    def note_counters(self, day: date, readings: Mapping[str, float]) -> None:
+        """Keep the inverter's day totals for *day* as last read."""
+        self._day_for(day).note_counters(readings)
+
     def get(self, day: date) -> SlotDay | None:
         return self._days.get(day)
 
     def between(self, first: date, last: date) -> list[SlotDay]:
         """The days recorded from *first* to *last* inclusive, oldest first."""
         return [self._days[d] for d in sorted(self._days) if first <= d <= last]
+
+    def summary(self, days: int = 7) -> list[dict[str, Any]]:
+        """The newest days, newest first, for diagnostics.
+
+        Each row has the day's coverage and, for each series that has data or an inverter
+        total, the slots' total, the inverter's own day total and the gap between them (kWh).
+        """
+        newest = sorted(self._days, reverse=True)[:days]
+        return [_day_summary(self._days[d]) for d in newest]
 
     def to_storage(self) -> list[StoredSlotDay]:
         return [self._days[d].to_storage() for d in sorted(self._days)]
@@ -75,3 +89,22 @@ class SlotHistory:
         oldest = today - timedelta(days=self._retention - 1)
         for day in [d for d in self._days if d < oldest]:
             del self._days[day]
+
+
+def _series_summary(day: SlotDay, name: str) -> dict[str, float | None]:
+    counter = day.counters_kwh.get(name)
+    gap = day.gap_kwh(name)
+    return {
+        "slots_kwh": round(day.total(name), 3),
+        "inverter_kwh": None if counter is None else round(counter, 3),
+        "gap_kwh": None if gap is None else round(gap, 3),
+    }
+
+
+def _day_summary(day: SlotDay) -> dict[str, Any]:
+    names = [n for n in (*day.flows, *day.loads) if day.total(n) or n in day.counters_kwh]
+    return {
+        "date": day.day.isoformat(),
+        "coverage": round(day.coverage, 3),
+        "series": {n: _series_summary(day, n) for n in names},
+    }

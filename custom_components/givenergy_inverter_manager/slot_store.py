@@ -11,7 +11,8 @@ nothing is written before the saved history has been read.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, tzinfo
+from collections.abc import Mapping
+from datetime import date, datetime, tzinfo
 from typing import TYPE_CHECKING, Any
 
 from .lib.tariff.defaults import SLOT_SECONDS
@@ -72,6 +73,11 @@ class SlotStore:
     def _slot_of(self, moment: datetime) -> tuple[object, int]:
         since_midnight = elapsed_seconds(local_midnight(moment.date(), self._tz), moment)
         return moment.date(), int(since_midnight // SLOT_SECONDS)
+
+    def note_counters(self, day: date, readings: Mapping[str, float]) -> None:
+        """Keep the inverter's day totals beside the slots, so a drift can be seen."""
+        if readings:
+            self.history.note_counters(day, readings)
 
     def record_soc(self, moment: datetime, percent: float) -> None:
         """Note the battery charge. A reading outside 0 to 100 is not a charge and is ignored."""

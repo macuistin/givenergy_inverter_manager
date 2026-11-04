@@ -113,9 +113,13 @@ class _FakeSlots:
     def __init__(self):
         self.recorded = []
         self.soc = []
+        self.counters = []
 
     def record(self, energy, start, end):
         self.recorded.append((energy, start, end))
+
+    def note_counters(self, day, readings):
+        self.counters.append((day, dict(readings)))
 
     def record_soc(self, moment, percent):
         self.soc.append((moment, percent))
@@ -886,6 +890,15 @@ class TestUpdateCycle:
         assert 20 < (end - start).total_seconds() < 40
         assert set(energy.flows) >= {"import", "export", "solar", "battery_charge"}
         assert set(energy.loads) >= {"house", "ev", "immersion"}
+
+    @pytest.mark.asyncio
+    async def test_the_inverters_day_totals_are_noted_beside_the_slots(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        await coord.run_cycle()
+        day, readings = coord._slots.counters[-1]
+        assert day == coord._now().date()
+        assert isinstance(readings, dict)
 
     @pytest.mark.asyncio
     async def test_the_battery_charge_is_noted_each_cycle_unless_unavailable(self):

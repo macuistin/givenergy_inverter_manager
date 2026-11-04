@@ -574,6 +574,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     def override_immersion(self, value: bool | None) -> None:
         self.immersion.override = value
 
+    def slot_summary(self) -> list[dict[str, Any]]:
+        """The last week of the half-hourly history, for diagnostics."""
+        return self._slots.history.summary()
+
     @property
     def is_dry_run(self) -> bool:
         """True when dry-run mode is active — no commands sent to GivTCP or chargers."""
@@ -2113,6 +2117,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         sample = self._slot_sampler.latest
         if sample is not None and sample.end == now:
             self._slots.record(sample.energy, sample.start, now)
+        self._slots.note_counters(now.date(), self._slot_sampler.counters)
         if "battery_soc" not in raw.unavailable_inputs:
             self._slots.record_soc(now, raw.battery_soc)
 

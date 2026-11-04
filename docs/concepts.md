@@ -538,4 +538,6 @@ Each slot holds, in watt-hours:
 
 Every figure is a reading, not worked out from the others. Where the inverter keeps a daily energy counter, the rise in the counter is used. Where it does not, or the counter could not be trusted for that update, the power is added up over the time that passed. The EV charger and the immersion heater always use power.
 
+Beside the slots, each day keeps the inverter's own total for the day, for every series that has a counter, as last read. The slots are never scaled to match it. The difference is the **gap**: a positive gap means the slots hold less than the inverter counted, for example because Home Assistant was stopped. The last seven days, with each day's coverage, slot total, inverter total and gap, are in the downloaded diagnostics under `energy_history`.
+
 A gap of more than 30 minutes, such as Home Assistant being stopped, is left empty and counted as unobserved. The record holds no tariff or price, so any tariff can be applied to it later. It starts empty when you upgrade and holds no earlier days.

@@ -58,6 +58,10 @@ async def async_get_config_entry_diagnostics(
         },
     }
 
+    # The last week of the half-hourly history: how much was observed, and for each series what
+    # the slots hold against the inverter's own day total.
+    result["energy_history"] = coordinator.slot_summary()
+
     if coordinator.data is not None:
         result["current_data"] = {
             "battery_soc": coordinator.data.battery_soc,

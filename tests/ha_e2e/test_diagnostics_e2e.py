@@ -35,5 +35,6 @@ async def test_downloaded_diagnostics_hide_the_serial(
     assert diagnostics["config"]["base_rate"] == 0.3334
     assert diagnostics["coordinator"]["last_update_success"] is True
     assert "current_data" in diagnostics
+    assert isinstance(diagnostics["energy_history"], list)
 
     await hass.config_entries.async_unload(config_entry.entry_id)

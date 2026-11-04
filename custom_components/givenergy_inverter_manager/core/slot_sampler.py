@@ -74,6 +74,9 @@ class SlotSampler:
         # The latest cycle's sample. None when it has no interval (the first cycle after a
         # start, or a clock that did not move forward).
         self.latest: SlotSample | None = None
+        # The counters read and trusted this cycle, in kWh by series name: the inverter's own
+        # totals for the day so far.
+        self.counters: dict[str, float] = {}
 
     def sample(self, raw: RawSensorValues, start: datetime | None, end: datetime) -> None:
         """Work out the energy used between *start* and *end* and keep it in `latest`.
@@ -81,6 +84,7 @@ class SlotSampler:
         *raw* has had untrustworthy counters left out (None). The counters are always noted, so
         the first cycle after a restart gives a later cycle its starting point.
         """
+        self.counters = {}
         rises = {**self._rises(raw, _FLOW_COUNTERS, end), **self._rises(raw, _LOAD_COUNTERS, end)}
         self.latest = None
         if start is None or (hours := elapsed_seconds(start, end) / 3600) <= 0:
@@ -101,6 +105,7 @@ class SlotSampler:
             if current is None:
                 self._last.pop(name, None)  # no rise across a hole in the readings
                 continue
+            self.counters[name] = float(current)
             previous = self._last.get(name)
             if previous is not None and previous[0] == end.date() and current >= previous[1]:
                 rises[name] = float(current) - previous[1]

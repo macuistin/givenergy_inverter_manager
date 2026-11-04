@@ -118,3 +118,12 @@ def test_a_negative_power_is_never_booked():
     assert energy.flows["solar"] == 0.0
     assert energy.loads["house"] == 0.0 and energy.loads["ev"] == 0.0
     energy.check()  # nothing the store would refuse
+
+
+def test_the_trusted_counters_are_exposed_as_the_inverters_day_totals():
+    sampler = SlotSampler()
+    sampler.sample(_raw(import_energy_today_kwh=5.0, load_energy_today_kwh=9.5), None, T0)
+    assert sampler.counters == {"import": 5.0, "house": 9.5}
+
+    sampler.sample(_raw(import_energy_today_kwh=None, load_energy_today_kwh=9.6), T0, T1)
+    assert sampler.counters == {"house": 9.6}  # a counter left out by the guard is not a total
