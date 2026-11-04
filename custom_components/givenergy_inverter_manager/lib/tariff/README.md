@@ -10,7 +10,21 @@ read option keys.
 - `RatePeriod`, `TariffConfig`: the tariff, built from typed fields
 - `EnergyAccumulator`, `CounterMemory`: running totals for a billing period
 - `BillBreakdown`, `money`: a bill rounded to cents, halves upward (`Decimal`, `ROUND_HALF_UP`)
+- `SlotDay`, `SlotHistory`, `SERIES`: energy in half-hour slots, a local day at a time, kept for
+  about 400 days (see below)
 - `StoredEnergy`, `stored_energy_change`, `value_per_stored_kwh`: the value of stored energy
+
+## Half-hourly slots
+
+`SlotDay` holds one local day: kWh per slot for each series in `SERIES` (grid import and export,
+house, EV, immersion, solar, grid-to-battery) and the seconds actually observed in each slot.
+Slots are counted in real elapsed time from local midnight, so a day has 46, 48 or 50 of them
+across a clock change. Observed seconds tell a slot with no data from one that used nothing.
+
+`SlotHistory.record` spreads an interval over the slots it touches by time, splits it at
+midnight, ignores an interval over 30 minutes (a gap) and drops days past the retention.
+`to_storage` writes whole watt-hours and seconds, and `restore` skips and counts unreadable days.
+The data does not depend on any tariff, so it can be priced under any of them later.
 
 ## Allowed dependencies
 
