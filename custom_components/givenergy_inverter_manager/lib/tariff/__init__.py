@@ -1,6 +1,7 @@
 """Tariff model, energy and cost accumulation, and bill maths. No knowledge of Home Assistant."""
 
 from .accumulator import CounterMemory, EnergyAccumulator
+from .bands import band_at, no_holidays
 from .billing import BillBreakdown, money
 from .config import TariffConfig, cheapest_period
 from .definition import SCHEMA_VERSION, DefinitionError, TariffDefinition
@@ -14,6 +15,8 @@ from .stored_energy import StoredEnergy, stored_energy_change, value_per_stored_
 
 __all__ = [
     "SCHEMA_VERSION",
+    "band_at",
+    "no_holidays",
     "BillInputs",
     "CheckFailed",
     "Line",
