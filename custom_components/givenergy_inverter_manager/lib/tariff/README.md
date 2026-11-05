@@ -48,6 +48,26 @@ bill does, and reproduces a real bill exactly. `Rounding.TOTAL` adds the bands a
 which is what the cost sensors add up, and can be a cent out. `tests/lib/tariff/test_reprice.py`
 has a worked bill as a test case.
 
+## Definitions
+
+A tariff and its bill can be written as one JSON document, which is data and not code.
+`load_definition(text)` or `parse_definition(mapping)` returns a frozen `TariffDefinition`, or
+raises `DefinitionError` with the path of the field that is wrong, such as
+`bill.total.of.charges.mode`. The types are in `definition.py` and the reader in
+`definition_parse.py`. The document holds the provider, country and optional region, the dates it
+applies (`effective_from` included, `effective_to` excluded), the prices, the customer's own
+inputs, the bill as a tree and worked bills it must reproduce (`checks`).
+
+- Money is a decimal string. A JSON number with a decimal point, `NaN` and `Infinity` are refused.
+- The bill is a tree of a closed set of node kinds: `energy_by_band`, `export_credit`, `per_day`,
+  `per_period`, `adjust`, `tax` and `sum`. Nesting sets the order and the tax base. A `sum` holds
+  its children by name, so no list position matters. An unknown kind or field is refused.
+- A zone has a unique priority, and the applicable zone of highest priority wins.
+- `complete` is allowed only with at least one entry in `checks`.
+- There is no checksum in the document. It belongs to the index entry for the file.
+
+Nothing here prices a bill yet. `tests/lib/tariff/test_definition.py` holds a worked document.
+
 ## Allowed dependencies
 
 The standard library and `lib/timeutil`.
