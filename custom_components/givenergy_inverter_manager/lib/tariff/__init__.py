@@ -3,6 +3,8 @@
 from .accumulator import CounterMemory, EnergyAccumulator
 from .billing import BillBreakdown, money
 from .config import TariffConfig, cheapest_period
+from .definition import SCHEMA_VERSION, DefinitionError, TariffDefinition
+from .definition_parse import load_definition, parse_definition
 from .periods import RatePeriod
 from .reprice import BillPeriod, Repriced, Rounding, import_by_band, reprice
 from .slot_history import SlotHistory
@@ -10,7 +12,12 @@ from .slots import DEFAULT_LOADS, FLOWS, SlotDay, SlotEnergy, StoredSlotDay
 from .stored_energy import StoredEnergy, stored_energy_change, value_per_stored_kwh
 
 __all__ = [
+    "SCHEMA_VERSION",
     "BillPeriod",
+    "DefinitionError",
+    "TariffDefinition",
+    "load_definition",
+    "parse_definition",
     "Repriced",
     "Rounding",
     "import_by_band",
