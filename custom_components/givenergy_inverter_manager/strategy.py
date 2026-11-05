@@ -199,7 +199,7 @@ def _strategy_file_view() -> HomeAssistantView:
     try:
         from homeassistant.helpers.http import HomeAssistantView  # noqa: PLC0415
     except ImportError:  # releases before the view moved to helpers
-        from homeassistant.components.http import (  # type: ignore[attr-defined]  # noqa: PLC0415
+        from homeassistant.components.http import (  # type: ignore[attr-defined, unused-ignore]  # noqa: PLC0415
             HomeAssistantView,
         )
 
