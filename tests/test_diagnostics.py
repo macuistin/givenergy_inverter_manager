@@ -20,6 +20,7 @@ def _make_entry(data=None, options=None, data_is_none=False):
     coordinator.update_cycle = 42
     coordinator.solar_fractions = {6: 1.0, 12: 0.5}
     coordinator.ev_charger_brand = "zappi"
+    coordinator.slot_summary.return_value = [{"date": "2026-06-01", "coverage": 0.5, "series": {}}]
     if data_is_none:
         coordinator.data = None
     else:
@@ -37,6 +38,15 @@ def _make_entry(data=None, options=None, data_is_none=False):
 
 
 class TestDiagnostics:
+    def test_carries_the_energy_history_summary(self):
+        from custom_components.givenergy_inverter_manager.diagnostics import (
+            async_get_config_entry_diagnostics,
+        )
+
+        result = asyncio.run(async_get_config_entry_diagnostics(MagicMock(), _make_entry()))
+
+        assert result["energy_history"] == [{"date": "2026-06-01", "coverage": 0.5, "series": {}}]
+
     def test_returns_config_section(self):
         from custom_components.givenergy_inverter_manager.diagnostics import (
             async_get_config_entry_diagnostics,

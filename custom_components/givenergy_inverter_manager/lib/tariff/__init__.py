@@ -4,11 +4,17 @@ from .accumulator import CounterMemory, EnergyAccumulator
 from .billing import BillBreakdown, money
 from .config import TariffConfig, cheapest_period
 from .periods import RatePeriod
+from .reprice import BillPeriod, Repriced, Rounding, import_by_band, reprice
 from .slot_history import SlotHistory
 from .slots import DEFAULT_LOADS, FLOWS, SlotDay, SlotEnergy, StoredSlotDay
 from .stored_energy import StoredEnergy, stored_energy_change, value_per_stored_kwh
 
 __all__ = [
+    "BillPeriod",
+    "Repriced",
+    "Rounding",
+    "import_by_band",
+    "reprice",
     "BillBreakdown",
     "CounterMemory",
     "EnergyAccumulator",

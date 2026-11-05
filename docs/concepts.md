@@ -20,6 +20,7 @@ inverter --> GivTCP --> MQTT --> Home Assistant entities (sensor.givtcp_<serial>
 - Decisions live in `core/` and do not import Home Assistant. The coordinator reads entities, passes plain numbers to the engine, and applies the result.
 - Writes go out as ordinary Home Assistant service calls: `switch.turn_on`, `select.select_option` and `number.set_value`.
 - Accumulated energy is saved with Home Assistant storage in `.storage/givenergy_inverter_manager.energy`.
+- A half-hourly record of the energy is kept in `.storage/givenergy_inverter_manager.energy_slots`. See [Half-hourly energy history](#half-hourly-energy-history).
 
 ## The 30-second cycle
 
@@ -524,3 +525,19 @@ Example from a real day: 12.1 kWh imported, 7.5 kWh of it into the battery, and 
 ### Dry run
 
 Dry run is the **Dry run** switch. A new install starts with it on, and a `.givenergy_test_instance` file in the configuration folder forces it on (see [Configuration](configuration.md#dry-run)). With dry run on, all decisions and sensors update. No charge target, floor, EV mode or immersion command is sent. The Last Skipped Action sensor shows the latest charge target, EV mode or automatic immersion command held back. The cheap rate floor reports through the Cheap Rate Floor sensor. The log carries a `DRY RUN` line for each one. A press of the managed immersion switch is recorded the same way and also leaves the real switch alone.
+
+## Half-hourly energy history
+
+The integration records the energy used in every half hour of each day, for about 400 days, in `.storage/givenergy_inverter_manager.energy_slots`. A day starts and ends at local midnight and has 48 slots, or 46 or 50 on the days the clocks change.
+
+Each slot holds, in watt-hours:
+
+- Grid import and export, solar, battery charge and discharge, and the grid energy stored in the battery.
+- The house load, the EV charger and the immersion heater. The house load is the figure the inverter reports, so it includes the other two.
+- The battery charge at the end of the slot, and how many seconds of the slot were observed.
+
+Every figure is a reading, not worked out from the others. Where the inverter keeps a daily energy counter, the rise in the counter is used. Where it does not, or the counter could not be trusted for that update, the power is added up over the time that passed. The EV charger and the immersion heater always use power.
+
+Beside the slots, each day keeps the inverter's own total for the day, for every series that has a counter, as last read. The slots are never scaled to match it. The difference is the **gap**: a positive gap means the slots hold less than the inverter counted, for example because Home Assistant was stopped. The last seven days, with each day's coverage, slot total, inverter total and gap, are in the downloaded diagnostics under `energy_history`.
+
+A gap of more than 30 minutes, such as Home Assistant being stopped, is left empty and counted as unobserved. The record holds no tariff or price, so any tariff can be applied to it later. It starts empty when you upgrade and holds no earlier days.

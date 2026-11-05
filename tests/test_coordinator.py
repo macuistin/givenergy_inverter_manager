@@ -54,6 +54,7 @@ from custom_components.givenergy_inverter_manager.core.immersion_rate import (
     keep_day_rate,
 )
 from custom_components.givenergy_inverter_manager.core.scheduled_run import HeldScheduledRun
+from custom_components.givenergy_inverter_manager.core.slot_sampler import SlotSampler
 from custom_components.givenergy_inverter_manager.core.sunrise_hold import HeldSunrise
 from custom_components.givenergy_inverter_manager.core.switch_commands import CommandHealth
 from custom_components.givenergy_inverter_manager.core.tariff import EnergyAccumulator
@@ -104,6 +105,33 @@ def _no_write_retry_sleep(monkeypatch):
     re-import the package, so patching it by module path can miss.
     """
     monkeypatch.setitem(GivTCPWriter.write_verified.__globals__, "GIVTCP_WRITE_RETRY_SLEEP_S", 0)
+
+
+class _FakeSlots:
+    """Stands in for SlotStore: keeps what the coordinator records into the slot history."""
+
+    def __init__(self):
+        self.recorded = []
+        self.soc = []
+        self.counters = []
+
+    def record(self, energy, start, end):
+        self.recorded.append((energy, start, end))
+
+    def note_counters(self, day, readings):
+        self.counters.append((day, dict(readings)))
+
+    def record_soc(self, moment, percent):
+        self.soc.append((moment, percent))
+
+    def schedule_save(self):
+        pass
+
+    async def async_save(self):
+        pass
+
+    async def async_load(self):
+        pass
 
 
 class FakeCoordinator(GivEnergyCoordinator):
@@ -292,6 +320,8 @@ class FakeCoordinator(GivEnergyCoordinator):
                 pass
 
         self._acc = _FakeAccStore()
+        self._slot_sampler = SlotSampler()
+        self._slots = _FakeSlots()
         self._audit = WriteAudit(self._acc, now=lambda: self._now())
         self._last_soc: float | None = None
         self._last_update: datetime | None = None
@@ -846,6 +876,42 @@ class TestUpdateCycle:
         await coord.run_cycle()
         await coord.run_cycle()
         assert coord._update_cycle == 2
+
+    @pytest.mark.asyncio
+    async def test_a_cycle_with_an_interval_is_booked_into_the_slot_history(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        await coord.run_cycle()
+        assert coord._slots.recorded == []  # the first cycle has no interval yet
+
+        coord._last_update = datetime.now(timezone.utc) - timedelta(seconds=30)
+        await coord.run_cycle()
+        energy, start, end = coord._slots.recorded[0]
+        assert 20 < (end - start).total_seconds() < 40
+        assert set(energy.flows) >= {"import", "export", "solar", "battery_charge"}
+        assert set(energy.loads) >= {"house", "ev", "immersion"}
+
+    @pytest.mark.asyncio
+    async def test_the_inverters_day_totals_are_noted_beside_the_slots(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        await coord.run_cycle()
+        day, readings = coord._slots.counters[-1]
+        assert day == coord._now().date()
+        assert isinstance(readings, dict)
+
+    @pytest.mark.asyncio
+    async def test_the_battery_charge_is_noted_each_cycle_unless_unavailable(self):
+        coord = FakeCoordinator(cfg=_cfg())
+        coord.set_states(_default_states())
+        coord.set_state("sensor.battery_soc", "64")
+        await coord.run_cycle()
+        assert coord._slots.soc[-1][1] == pytest.approx(64.0)
+
+        coord.set_state("sensor.battery_soc", "unavailable")
+        before = len(coord._slots.soc)
+        await coord.run_cycle()
+        assert len(coord._slots.soc) == before
 
     @pytest.mark.asyncio
     async def test_energy_accumulates_across_cycles(self):

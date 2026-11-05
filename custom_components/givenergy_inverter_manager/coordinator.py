@@ -174,6 +174,7 @@ from .core.rules import ChargeDecision, monthly_solar_fractions
 from .core.scheduled_run import HeldScheduledRun
 from .core.seasons import season_rules
 from .core.setup_progress import SetupFacts, setup_items
+from .core.slot_sampler import SlotSampler
 from .core.sunrise_hold import HeldSunrise
 from .core.switch_commands import CommandHealth, after_failure, after_success
 from .core.system_types import SystemIdentity, identity_of, select_controller, what_changed
@@ -248,6 +249,7 @@ from .repairs import (
     async_delete_system_different_issue,
     async_delete_tariff_review_issue,
 )
+from .slot_store import SlotStore
 from .unconfirmed_write_repair import UnconfirmedWriteRepair
 from .write_audit import WriteAudit
 
@@ -356,6 +358,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # read the current CONF_VERBOSE_LOGGING flag without a restart.
         GivLogger.register(self._effective_cfg)
         self._init_cycle_state()
+        self._init_slot_history()
         self._init_system_watch()
         self._init_manual_overrides()
         self._init_immersion(entry.data)
@@ -397,6 +400,11 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._immersion_commands = CommandHealth()
         self.entry.async_on_unload(lambda: async_delete_immersion_switch_issue(self.hass))
         self._charge_pause_cycles = 0
+
+    def _init_slot_history(self) -> None:
+        """The half-hourly energy history, and the reader that feeds it each cycle."""
+        self._slots = SlotStore(self.hass, dt_util.get_default_time_zone())
+        self._slot_sampler = SlotSampler()
 
     def _init_cycle_state(self) -> None:
         """State threaded across update cycles."""
@@ -565,6 +573,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     @override_immersion.setter
     def override_immersion(self, value: bool | None) -> None:
         self.immersion.override = value
+
+    def slot_summary(self) -> list[dict[str, Any]]:
+        """The last week of the half-hourly history, for diagnostics."""
+        return self._slots.history.summary()
 
     @property
     def is_dry_run(self) -> bool:
@@ -768,6 +780,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
     async def async_restore_state(self) -> None:
         """Load stored accumulators and apply any resets missed while HA was down."""
         await self._acc.async_load()
+        await self._slots.async_load()
         self._acc.restore_battery_stats(self._battery_stats)
         self._backend.write_count = self._acc.state.register_write_count
         now = dt_util.as_local(datetime.now(timezone.utc))
@@ -803,6 +816,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Write the accumulators and battery statistics to storage now."""
         self._acc.save_battery_stats(self._battery_stats)
         await self._acc.async_save()
+        await self._slots.async_save()
 
     @callback
     def _queue_final_write(self, _event: Event) -> None:
@@ -814,6 +828,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """
         self._acc.save_battery_stats(self._battery_stats)
         self._acc.schedule_save()
+        self._slots.schedule_save()
 
     # ── Time-triggered callbacks ──────────────────────────────────────────────
 
@@ -1712,6 +1727,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 counters=self._acc.counters,
                 heat_log=self._acc.immersion_heat_log,
                 ev_sessions=self._acc.ev_sessions,
+                slot_sampler=self._slot_sampler,
             ),
             PreviousCycle(
                 battery_stats=self._battery_stats,
@@ -1738,6 +1754,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             ),
         )
         self._save_when_ev_session_changed(ev_session_before)
+        self._record_slots(raw, now)
         self._attach_stored_totals(data)
         data.tariff_report_state = build_tariff_state(cfg, now.date())
         data.tariff_report_html = build_tariff_html(cfg, now.date())
@@ -2094,6 +2111,15 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Queue a save when a charging session started or ended, so a crash cannot lose it."""
         if self._acc.ev_sessions.current is not before:
             self._acc.schedule_save()
+
+    def _record_slots(self, raw: RawSensorValues, now: datetime) -> None:
+        """Add this cycle's energy and the battery charge to the half-hourly history."""
+        sample = self._slot_sampler.latest
+        if sample is not None and sample.end == now:
+            self._slots.record(sample.energy, sample.start, now)
+        self._slots.note_counters(now.date(), self._slot_sampler.counters)
+        if "battery_soc" not in raw.unavailable_inputs:
+            self._slots.record_soc(now, raw.battery_soc)
 
     def _attach_stored_totals(self, data: CoordinatorData) -> None:
         """Copy the period start times, write count and trailing totals onto the snapshot."""

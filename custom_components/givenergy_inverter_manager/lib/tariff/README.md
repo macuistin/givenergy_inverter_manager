@@ -10,6 +10,7 @@ read option keys.
 - `RatePeriod`, `TariffConfig`: the tariff, built from typed fields
 - `EnergyAccumulator`, `CounterMemory`: running totals for a billing period
 - `BillBreakdown`, `money`: a bill rounded to cents, halves upward (`Decimal`, `ROUND_HALF_UP`)
+- `reprice`, `import_by_band`, `BillPeriod`, `Rounding`, `Repriced`: price slots under a tariff (see below)
 - `SlotDay`, `SlotEnergy`, `SlotHistory`, `FLOWS`, `DEFAULT_LOADS`: energy in half-hour slots, a local day at a time, kept for
   about 400 days (see below)
 - `StoredEnergy`, `stored_energy_change`, `value_per_stored_kwh`: the value of stored energy
@@ -33,6 +34,19 @@ under another time zone or version is skipped, not converted.
 midnight, ignores an interval over 30 minutes (a gap) and drops days past the retention.
 `to_storage` writes whole watt-hours and seconds, and `restore` skips and counts unreadable days.
 The data does not depend on any tariff, so it can be priced under any of them later.
+
+## Repricing
+
+`reprice(days, tariff, BillPeriod(days, period_days), rounding)` prices the slots of a bill period
+under a `TariffConfig` and returns the kWh in each rate band, the energy cost, the export credit
+and the bill line by line. The slots hold no price, so the same days can be priced under any
+tariff. Import is priced at the rate in force when each slot starts, so a rate window that starts
+inside a half hour is priced as if it began at the slot start.
+
+`Rounding.PER_BAND` rounds each band's cost to the cent before the rest of the bill, as a supplier
+bill does, and reproduces a real bill exactly. `Rounding.TOTAL` adds the bands and rounds once,
+which is what the cost sensors add up, and can be a cent out. `tests/lib/tariff/test_reprice.py`
+has a worked bill as a test case.
 
 ## Allowed dependencies
 
