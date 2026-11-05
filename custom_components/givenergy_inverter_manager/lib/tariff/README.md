@@ -66,7 +66,12 @@ inputs, the bill as a tree and worked bills it must reproduce (`checks`).
 - `complete` is allowed only with at least one entry in `checks`.
 - There is no checksum in the document. It belongs to the index entry for the file.
 
-Nothing here prices a bill yet. `tests/lib/tariff/test_definition.py` holds a worked document.
+`price_bill(definition, BillInputs(days, period_days, import_kwh_by_band, export_kwh))` prices a
+bill in `Decimal` and returns the tree with an amount on every node (`Line`), so each tax base can
+be checked. A credit is a negative amount. Each node rounds to the currency's smallest unit, halves
+upward, unless it says `round: none`. `verify_checks(definition)` prices each worked bill in the
+document and raises `CheckFailed` if one gives another total. The engine reads band totals, not
+slots. `tests/lib/tariff/test_engine.py` reproduces a worked October bill (187.35).
 
 ## Allowed dependencies
 
