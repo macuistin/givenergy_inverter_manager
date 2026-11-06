@@ -18,6 +18,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.solar_power_w, 1),
+        attrs_fn=values.inverter_source_attributes("solar_power"),
     ),
     GivEnergyManagerSensorDescription(
         key="battery_soc",
@@ -26,6 +27,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.battery_soc, 1),
+        attrs_fn=values.inverter_source_attributes("battery_soc"),
     ),
     GivEnergyManagerSensorDescription(
         key="battery_power",
@@ -34,6 +36,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.battery_power_w, 1),
+        attrs_fn=values.inverter_source_attributes("battery_power"),
     ),
     GivEnergyManagerSensorDescription(
         key="immersion_power",
@@ -51,6 +54,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.grid_power_w, 1),
+        attrs_fn=values.inverter_source_attributes("grid_power"),
     ),
     GivEnergyManagerSensorDescription(
         key="house_load",
@@ -59,6 +63,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: round(d.house_load_w, 1),
+        attrs_fn=values.inverter_source_attributes("house_load"),
     ),
     GivEnergyManagerSensorDescription(
         key="rest_of_house_load",

@@ -1581,7 +1581,7 @@ class TestDryRunLastSkippedSurvivesCycles:
     async def test_ev_skip_survives_a_cycle(self):
         coord = FakeCoordinator(cfg=_cfg(**{CONF_DRY_RUN: True}))
         coord.set_states(_default_states())
-        coord._ev_charger = TestApplyEvAction()._charger(mode="Fast")
+        coord._ev_charger = TestApplyEvAction()._charger(mode="Eco+")
         await coord.run_cycle()
 
         coord._apply_ev_action("Stopped")
@@ -1595,7 +1595,7 @@ class TestDryRunLastSkippedSurvivesCycles:
     async def test_newest_skip_replaces_the_previous_one(self):
         coord = FakeCoordinator(cfg=_cfg(**{CONF_DRY_RUN: True}))
         coord.set_states(_default_states())
-        coord._ev_charger = TestApplyEvAction()._charger(mode="Fast")
+        coord._ev_charger = TestApplyEvAction()._charger(mode="Eco+")
         await coord.run_cycle()
 
         coord._apply_ev_action("Stopped")

@@ -26,7 +26,7 @@ CAR_W = 3000.0
 BASE_LOAD_W = 600.0
 EMA_ALPHA = 0.5
 ARRIVAL_MODE = "Stopped"
-MAX_REQUESTS_PER_DAY = 1
+MAX_REQUESTS_PER_DAY = 2  # Eco+ once the sun is up, Stopped once the car is unplugged
 MAX_SIGNAL_TRANSITIONS_PER_DAY = 2
 
 
@@ -143,23 +143,25 @@ class TestModeRequests:
             requests = [r for r in records if r["day"] == day and r["target"] is not None]
             assert len(requests) <= MAX_REQUESTS_PER_DAY
 
-    def test_only_ever_requests_eco_plus(self, fixture, request):
+    def test_only_ever_requests_eco_plus_or_stopped(self, fixture, request):
         records = request.getfixturevalue(fixture)
-        assert {r["target"] for r in records if r["target"]} <= {ZAPPI_ECO_PLUS_MODE}
+        assert {r["target"] for r in records if r["target"]} <= {ZAPPI_ECO_PLUS_MODE, "Stopped"}
 
-    def test_never_requests_while_unplugged(self, fixture, request):
+    def test_only_requests_stopped_while_unplugged(self, fixture, request):
         records = request.getfixturevalue(fixture)
-        assert not [r for r in records if r["target"] and not r["plugged"]]
+        unplugged = {r["target"] for r in records if r["target"] and not r["plugged"]}
+        assert unplugged == {"Stopped"}
+        assert all(r["target"] != "Stopped" for r in records if r["plugged"])
 
     def test_requests_only_with_enough_surplus(self, fixture, request):
         records = request.getfixturevalue(fixture)
         for r in records:
-            if r["target"]:
+            if r["target"] == ZAPPI_ECO_PLUS_MODE:
                 assert r["surplus"] >= EV_CHARGER_MIN_POWER_W
 
     def test_sunny_days_request_overcast_day_does_not(self, fixture, request):
         records = request.getfixturevalue(fixture)
-        requested = {r["day"] for r in records if r["target"]}
+        requested = {r["day"] for r in records if r["target"] == ZAPPI_ECO_PLUS_MODE}
         assert requested == {0, 1}
 
 
