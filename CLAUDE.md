@@ -113,7 +113,7 @@ Read the file that matches the code you are changing.
 | `.claude/rules/home-assistant.md` | Entities, state limits, config and options flows, reloads, repairs, services |
 | `.claude/rules/core-purity.md` | `core/` limits, golden files, how and when to change them |
 | `.claude/rules/tests.md` | Test layout, what each suite proves, rules for new and changed tests |
-| `.claude/rules/safety.md` | Dry run, no forced export, optional devices |
+| `.claude/rules/safety.md`, `.claude/rules/shadow-tariffs.md` | Dry run, no forced export, optional devices. Shadow tariffs re-price only and never write |
 | `.claude/rules/quality-scale.md` | The quality scale file, its test, and how exemptions are judged |
 | `.claude/rules/dashboard.md` | The stored dashboard and the strategy, who sees Settings, HACS cards and the golden file |
 | `.claude/rules/dashboard-changes.md` | Adding or moving a card, chart or section: layout, apexcharts limits, the steps |
