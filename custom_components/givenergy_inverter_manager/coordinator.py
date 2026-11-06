@@ -219,6 +219,7 @@ from .inverter.givtcp.discovery import (
     discover_givtcp_inverters,
     temperature_entity_ids_for,
 )
+from .lib.ev import read_car
 from .lib.givtcp.keys import (
     KEY_BATTERY_POWER,
     KEY_BATTERY_SOC,
@@ -226,7 +227,6 @@ from .lib.givtcp.keys import (
     KEY_HOUSE_LOAD,
     KEY_SOLAR_POWER,
 )
-from .lib.ev import read_car
 from .lib.givtcp.real_time_control import next_step as next_real_time_control_step
 from .lib.givtcp.version import FIXED_IN_VERSION, resets_entity_ids
 from .lib.solar.day import HeldSolarDay
