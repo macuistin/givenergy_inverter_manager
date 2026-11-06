@@ -216,6 +216,13 @@ from .inverter.givtcp.discovery import (
     device_prefix,
     discover_givtcp_inverters,
 )
+from .lib.givtcp.keys import (
+    KEY_BATTERY_POWER,
+    KEY_BATTERY_SOC,
+    KEY_GRID_POWER,
+    KEY_HOUSE_LOAD,
+    KEY_SOLAR_POWER,
+)
 from .lib.givtcp.real_time_control import next_step as next_real_time_control_step
 from .lib.givtcp.version import FIXED_IN_VERSION, resets_entity_ids
 from .lib.solar.day import HeldSolarDay
@@ -2261,7 +2268,24 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             if source
         )
         data.immersion_sources = tuple(describe(water, now))
+        data.inverter_sources = self._inverter_sources(cfg, now)
         data.immersion_status, data.immersion_status_cause = source_status(water, now)
+
+    def _inverter_sources(self, cfg: dict[str, Any], now: datetime) -> dict[str, dict[str, Any]]:
+        """The GivTCP entity behind each live inverter reading, for the sensor's attributes."""
+        wanted = {
+            "solar_power": KEY_SOLAR_POWER,
+            "battery_soc": KEY_BATTERY_SOC,
+            "battery_power": KEY_BATTERY_POWER,
+            "grid_power": KEY_GRID_POWER,
+            "house_load": KEY_HOUSE_LOAD,
+        }
+        rows: dict[str, dict[str, Any]] = {}
+        for sensor_key, cfg_key in wanted.items():
+            source = self._source("inverter reading", cfg.get(cfg_key))
+            if source is not None:
+                rows[sensor_key] = describe((source,), now)[0]
+        return rows
 
     def _attach_setup_progress(
         self, data: CoordinatorData, raw: RawSensorValues, cfg: dict[str, Any]

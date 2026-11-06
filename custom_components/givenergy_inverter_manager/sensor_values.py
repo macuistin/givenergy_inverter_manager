@@ -9,6 +9,7 @@ table and references these functions by name.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
@@ -241,6 +242,16 @@ def immersion_ready_attributes(data: CoordinatorData) -> dict[str, Any] | None:
 def immersion_lower_temperature(data: CoordinatorData) -> float | None:
     """The lower thermometer in degrees, None while it reads nothing. For the graphs only."""
     return None if data.immersion_lower_temp is None else round(data.immersion_lower_temp, 1)
+
+
+def inverter_source_attributes(key: str) -> Callable[[CoordinatorData], dict[str, Any] | None]:
+    """The attributes for a live inverter reading: the GivTCP entity it comes from."""
+
+    def attrs(data: CoordinatorData) -> dict[str, Any] | None:
+        row = data.inverter_sources.get(key)
+        return {"sources": [row]} if row else None
+
+    return attrs
 
 
 def ev_state_attributes(data: CoordinatorData) -> dict[str, Any] | None:

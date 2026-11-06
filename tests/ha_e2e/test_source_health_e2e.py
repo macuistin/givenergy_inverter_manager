@@ -27,3 +27,14 @@ async def test_the_hot_water_status_is_ok_then_error_when_a_source_goes_unavaila
     status = _state(hass, sensor_entries, loaded_entry, "immersion_status")
     assert status.state == "error"
     assert IMMERSION_TEMP in status.attributes["cause"]
+
+
+async def test_a_live_inverter_sensor_names_the_givtcp_entity_it_reads(
+    hass, loaded_entry, sensor_entries
+):
+    await loaded_entry.runtime_data.async_refresh()
+    for key in ("solar_power", "battery_soc", "battery_power", "grid_power", "house_load"):
+        sensor = _state(hass, sensor_entries, loaded_entry, key)
+        (source,) = sensor.attributes["sources"]
+        assert source["entity_id"].startswith("sensor.")
+        assert source["last_reported"] is not None
