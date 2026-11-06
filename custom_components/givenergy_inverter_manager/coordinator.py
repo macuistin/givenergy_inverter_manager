@@ -2043,7 +2043,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._maybe_rediscover_ev()
         self._maybe_rediscover_battery_cycles()
         raw = self._collect_raw(cfg)
-        self._refresh_ev_charger(raw)
+        self._refresh_ev_charger(raw, now)
         self.immersion.release_if_at_target(raw.immersion_temp)
         self._learn_heating_rate(raw, now)
         self._track_input_outage(raw, now)
@@ -2058,10 +2058,10 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             _LOG.info("Immersion run warmed the water at %.1f°C an hour", rate)
             self._acc.record_immersion_rate(rate, now.date())
 
-    def _refresh_ev_charger(self, raw: RawSensorValues) -> None:
+    def _refresh_ev_charger(self, raw: RawSensorValues, now: datetime) -> None:
         """Update the charger state now that battery_power_w is known."""
         if self._ev_charger is not None:
-            update_charger_state(self._get_state, self._ev_charger, raw.battery_power_w)
+            update_charger_state(self._get_state, self._ev_charger, raw.battery_power_w, now)
             if not self._ev_charger.is_plugged_in:
                 self.override_ev_charge_now = False
                 self.override_ev_pause = False

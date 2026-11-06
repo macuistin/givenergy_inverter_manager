@@ -11,4 +11,8 @@ EV_CHARGER_MIN_POWER_W = 1380
 # "EV is charging at the base rate" is raised. Five minutes (ten cycles) skips a charger that
 # starts, pauses and restarts, and a short grid spike while solar diverts.
 EV_BASE_RATE_ALERT_DELAY_S = 300
+# How long the charger's status sensor may go without a report before the charger is called
+# offline. Home Assistant sets last_reported on every poll, even when the value is the same, so a
+# charger that lost power stops reporting although the sensor keeps its last value.
+EV_OFFLINE_AFTER_S = 900
 EV_RECENT_SESSIONS_MAX = 10  # finished EV charging sessions kept for the recent charges table

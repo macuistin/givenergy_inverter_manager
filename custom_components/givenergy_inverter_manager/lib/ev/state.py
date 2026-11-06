@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
+from ..timeutil import elapsed_seconds
+from .defaults import EV_OFFLINE_AFTER_S
 from .model import ACTIVE_STATES, EVCharger, EVChargerState
 
 
@@ -16,16 +19,29 @@ def _options_of(state: object) -> tuple[str, ...] | None:
     return tuple(str(option) for option in options)
 
 
-def _is_unavailable(get_state: Callable[[str], Any], entity_id: str | None) -> bool:
-    """True when the entity exists and Home Assistant calls it unavailable."""
+def _is_offline(
+    get_state: Callable[[str], Any], entity_id: str | None, now: datetime | None
+) -> bool:
+    """True when the entity is unavailable, or has not reported for EV_OFFLINE_AFTER_S.
+
+    A state with no report time, or no `now`, is never called stale.
+    """
     state = get_state(entity_id) if entity_id else None
-    return state is not None and state.state == "unavailable"
+    if state is None:
+        return False
+    if state.state == "unavailable":
+        return True
+    reported = getattr(state, "last_reported", None)
+    if now is None or not isinstance(reported, datetime):
+        return False
+    return elapsed_seconds(reported, now) > EV_OFFLINE_AFTER_S
 
 
 def update_charger_state(  # noqa: C901
     get_state: Callable[[str], Any],
     charger: EVCharger,
     battery_power_w: float,
+    now: datetime | None = None,
 ) -> EVCharger:
     """
     Refresh a charger's runtime state from current HA entity values.
@@ -53,16 +69,16 @@ def update_charger_state(  # noqa: C901
             return 0.0
         try:
             return float(raw)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return 0.0
 
     raw = _read_state(charger.status_entity)
-    if raw is not None:
-        charger.state = charger.normalise_state(raw)
-    elif _is_unavailable(get_state, charger.status_entity):
+    if _is_offline(get_state, charger.status_entity, now):
         # Without this the last state would stay, so a charger that lost its power would
         # keep reading as disconnected.
         charger.state = EVChargerState.OFFLINE
+    elif raw is not None:
+        charger.state = charger.normalise_state(raw)
 
     charger.power_w = _read_float(charger.power_entity)
     charger.session_kwh = _read_float(charger.session_energy_entity)

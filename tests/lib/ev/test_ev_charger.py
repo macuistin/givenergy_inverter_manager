@@ -264,6 +264,21 @@ class TestUpdateChargerState:
         assert ch.state == EVChargerState.OFFLINE
         assert not ch.is_plugged_in
 
+    def test_a_status_entity_that_stopped_reporting_reads_as_offline(self):
+        from datetime import UTC, datetime, timedelta
+
+        now = datetime(2026, 11, 6, 8, 0, tzinfo=UTC)
+        ch = _make_zappi("99")
+        entity = "sensor.myenergi_zappi_99_plug_status"
+        stale = _FakeState(entity, "EV Disconnected")
+        stale.last_reported = now - timedelta(minutes=30)
+        update_charger_state({entity: stale}.get, ch, battery_power_w=0, now=now)
+        assert ch.state == EVChargerState.OFFLINE
+        fresh = _FakeState(entity, "EV Disconnected")
+        fresh.last_reported = now - timedelta(minutes=2)
+        update_charger_state({entity: fresh}.get, ch, battery_power_w=0, now=now)
+        assert ch.state == EVChargerState.DISCONNECTED
+
     def test_a_missing_status_entity_keeps_the_last_state(self):
         ch = _make_zappi("99")
         ch.state = EVChargerState.CONNECTED
