@@ -230,6 +230,11 @@ and test_dst_countdowns.py.
 period. Only ev_protection_reason, ev_mode_change_requested and the returned EV mode moved, in the
 cases with a plugged-in Zappi in a Night or Nightboost period. The behaviour is pinned in
 tests/lib/ev/test_mode_held.py.
+
+5 of the 255 cases moved when the EV charger started going to Stopped outside the charge hours
+and whenever no car is plugged in. Only ev_protection_reason, ev_mode_change_requested and the
+returned EV mode moved, in the cases with a Zappi left in Fast with no surplus, and one with the
+car unplugged. The behaviour is pinned in tests/lib/ev/test_cheap_rate_charging.py.
 """
 
 from __future__ import annotations

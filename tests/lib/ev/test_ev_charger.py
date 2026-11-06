@@ -373,13 +373,19 @@ class TestDecideEVChargerAction:
         )
         assert target is None
 
-    def test_no_action_when_not_plugged_in(self):
+    def test_unplugged_charger_is_stopped(self):
         ch = self._zappi(mode="Fast", state=EVChargerState.DISCONNECTED)
         target, reason = decide_ev_charger_action(
             ch,
             battery_soc=10.0,
             solar_surplus_w=0,
         )
+        assert target == "Stopped"
+        assert "not connected" in reason.lower()
+
+    def test_no_action_when_not_plugged_in_and_already_stopped(self):
+        ch = self._zappi(mode="Stopped", state=EVChargerState.DISCONNECTED)
+        target, reason = decide_ev_charger_action(ch, battery_soc=10.0, solar_surplus_w=0)
         assert target is None
         assert "not connected" in reason.lower()
 
