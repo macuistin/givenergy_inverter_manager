@@ -53,12 +53,12 @@ from .definition import (
     Zone,
 )
 
-_SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _NODE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 _DECIMAL = re.compile(r"^-?(0|[1-9][0-9]*)(\.[0-9]+)?$")
 _DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 _HOURS = re.compile(r"^([01][0-9]|2[0-3]):([0-5][0-9])-([01][0-9]|2[0-3]):([0-5][0-9])$")
-_COUNTRY = re.compile(r"^[A-Z]{2}$")
+COUNTRY = re.compile(r"^[A-Z]{2}$")
 _REGION = re.compile(r"^[A-Z]{2}-[A-Z0-9]{1,3}$")
 _CURRENCY = re.compile(r"^[A-Z]{3}$")
 
@@ -75,18 +75,25 @@ _MINOR_UNIT_PLACES = {
 }
 
 
-def load_definition(text: str) -> TariffDefinition:
-    """Parse JSON text into a definition. Raises DefinitionError for anything not valid."""
+def load_json(text: str) -> Any:
+    """Decode JSON text, refusing a number with a decimal point, NaN and Infinity.
+
+    Raises DefinitionError. Shared by every reader of the tariff documents.
+    """
     try:
-        data = json.loads(text, parse_float=_refuse_float, parse_constant=_refuse_constant)
+        return json.loads(text, parse_float=_refuse_float, parse_constant=_refuse_constant)
     except json.JSONDecodeError as err:
         raise DefinitionError("", f"not valid JSON ({err.msg} at position {err.pos})") from err
-    return parse_definition(data)
+
+
+def load_definition(text: str) -> TariffDefinition:
+    """Parse JSON text into a definition. Raises DefinitionError for anything not valid."""
+    return parse_definition(load_json(text))
 
 
 def parse_definition(data: object) -> TariffDefinition:
     """Validate a decoded document and return it as a TariffDefinition."""
-    doc = _Fields(data, "")
+    doc = Fields(data, "")
     doc.only(
         required=(
             "schema", "id", "revision", "supersedes", "name", "service", "customer_class",
@@ -129,7 +136,7 @@ def _refuse_constant(text: str) -> Any:
     raise DefinitionError("", f"{text} is not allowed")
 
 
-class _Fields:
+class Fields:
     """One JSON object and the path to it, with typed reads that refuse the wrong type."""
 
     def __init__(self, data: object, path: str) -> None:
@@ -156,8 +163,8 @@ class _Fields:
     def has(self, key: str) -> bool:
         return key in self._data
 
-    def child(self, key: str) -> _Fields:
-        return _Fields(self._data[key], self.at(key))
+    def child(self, key: str) -> Fields:
+        return Fields(self._data[key], self.at(key))
 
     def items(self) -> Iterable[tuple[str, Any]]:
         return self._data.items()
@@ -238,15 +245,15 @@ def _zone(name: str, path: str) -> ZoneInfo:
         raise DefinitionError(path, f"{name!r} is not a time zone") from err
 
 
-def _identity(doc: _Fields) -> dict[str, Any]:
+def _identity(doc: Fields) -> dict[str, Any]:
     """The fields that say what the tariff is, who sells it and when it applies."""
     revision = doc.whole("revision", 1, 1_000_000)
     effective_from, effective_to = doc.day("effective_from"), doc.optional_day("effective_to")
     if effective_to is not None and effective_to <= effective_from:
         raise DefinitionError("effective_to", "must be after effective_from")
-    country = doc.match("country", _COUNTRY, "a two letter ISO 3166-1 code such as IE")
+    country = doc.match("country", COUNTRY, "a two letter ISO 3166-1 code such as IE")
     return {
-        "id": doc.match("id", _SLUG, "lowercase letters, digits and hyphens"),
+        "id": doc.match("id", SLUG, "lowercase letters, digits and hyphens"),
         "revision": revision,
         "supersedes": _supersedes(doc, revision),
         "name": doc.text("name"),
@@ -263,7 +270,7 @@ def _identity(doc: _Fields) -> dict[str, Any]:
     }
 
 
-def _supersedes(doc: _Fields, revision: int) -> int | None:
+def _supersedes(doc: Fields, revision: int) -> int | None:
     if doc.raw("supersedes") is None:
         return None
     earlier = doc.whole("supersedes", 1, 1_000_000)
@@ -272,14 +279,14 @@ def _supersedes(doc: _Fields, revision: int) -> int | None:
     return earlier
 
 
-def _provider(fields: _Fields) -> Provider:
+def _provider(fields: Fields) -> Provider:
     fields.only(required=("id", "name"))
     return Provider(
-        fields.match("id", _SLUG, "lowercase letters, digits and hyphens"), fields.text("name")
+        fields.match("id", SLUG, "lowercase letters, digits and hyphens"), fields.text("name")
     )
 
 
-def _region(doc: _Fields, country: str) -> str | None:
+def _region(doc: Fields, country: str) -> str | None:
     if doc.raw("region") is None:
         return None
     region = doc.match("region", _REGION, "an ISO 3166-2 code such as GB-SCT")
@@ -288,14 +295,14 @@ def _region(doc: _Fields, country: str) -> str | None:
     return region
 
 
-def _source_url(doc: _Fields) -> str | None:
+def _source_url(doc: Fields) -> str | None:
     url = doc.optional_text("source_url")
     if url is not None and not url.startswith(("https://", "http://")):
         raise DefinitionError("source_url", "must start with https:// or http://")
     return url
 
 
-def _inputs(fields: _Fields) -> dict[str, InputSpec]:
+def _inputs(fields: Fields) -> dict[str, InputSpec]:
     specs: dict[str, InputSpec] = {}
     for name, _ in fields.items():
         if not _NODE_NAME.match(name):
@@ -304,7 +311,7 @@ def _inputs(fields: _Fields) -> dict[str, InputSpec]:
     return specs
 
 
-def _input_spec(fields: _Fields) -> InputSpec:
+def _input_spec(fields: Fields) -> InputSpec:
     fields.only(required=("type", "min", "max", "default"))
     fields.choice("type", ("integer",))
     low = fields.whole("min", -1_000_000, 1_000_000)
@@ -314,7 +321,7 @@ def _input_spec(fields: _Fields) -> InputSpec:
     return InputSpec(low, high, fields.whole("default", low, high))
 
 
-def _prices(doc: _Fields) -> tuple[ImportPrices, ExportPrices]:
+def _prices(doc: Fields) -> tuple[ImportPrices, ExportPrices]:
     imported = doc.child("import")
     imported.only(required=("base", "zones"))
     zones = tuple(_zone_of(item) for item in _zone_fields(imported))
@@ -328,25 +335,25 @@ def _prices(doc: _Fields) -> tuple[ImportPrices, ExportPrices]:
     return ImportPrices(base, zones), ExportPrices(_band(exported.child("base")))
 
 
-def _zone_fields(imported: _Fields) -> list[_Fields]:
+def _zone_fields(imported: Fields) -> list[Fields]:
     return [
-        _Fields(item, f"{imported.at('zones')}[{index}]")
+        Fields(item, f"{imported.at('zones')}[{index}]")
         for index, item in enumerate(imported.sequence("zones"))
     ]
 
 
-def _unique(zones: tuple[Zone, ...], imported: _Fields, attribute: str) -> None:
+def _unique(zones: tuple[Zone, ...], imported: Fields, attribute: str) -> None:
     seen = [getattr(zone, attribute) for zone in zones]
     if len(set(seen)) != len(seen):
         raise DefinitionError(imported.at("zones"), f"each zone needs its own {attribute}")
 
 
-def _band(fields: _Fields) -> Band:
+def _band(fields: Fields) -> Band:
     fields.only(required=("name", "price"))
     return Band(fields.text("name"), fields.money("price"))
 
 
-def _zone_of(fields: _Fields) -> Zone:
+def _zone_of(fields: Fields) -> Zone:
     fields.only(
         required=("name", "priority", "price", "hours"), optional=("days", "months", "holidays")
     )
@@ -369,7 +376,7 @@ def _zone_of(fields: _Fields) -> Zone:
     )
 
 
-def _days(fields: _Fields) -> frozenset[int]:
+def _days(fields: Fields) -> frozenset[int]:
     if not fields.has("days"):
         return frozenset()
     names = fields.sequence("days")
@@ -379,7 +386,7 @@ def _days(fields: _Fields) -> frozenset[int]:
     return frozenset(_WEEKDAYS.index(n) for n in names)
 
 
-def _months(fields: _Fields) -> frozenset[int]:
+def _months(fields: Fields) -> frozenset[int]:
     if not fields.has("months"):
         return frozenset()
     path = fields.at("months")
@@ -389,17 +396,17 @@ def _months(fields: _Fields) -> frozenset[int]:
     return frozenset(months)
 
 
-def _holidays(fields: _Fields) -> bool:
+def _holidays(fields: Fields) -> bool:
     return fields.has("holidays") and fields.choice("holidays", ("weekend", "normal")) == "weekend"
 
 
-def _bill(fields: _Fields, inputs: Mapping[str, InputSpec]) -> tuple[PeriodRule, Node]:
+def _bill(fields: Fields, inputs: Mapping[str, InputSpec]) -> tuple[PeriodRule, Node]:
     fields.only(required=("period", "total"))
     period = _period(fields.child("period"), inputs)
     return period, _node(fields.child("total"), 1)
 
 
-def _period(fields: _Fields, inputs: Mapping[str, InputSpec]) -> PeriodRule:
+def _period(fields: Fields, inputs: Mapping[str, InputSpec]) -> PeriodRule:
     fields.only(required=("rule", "start_day"))
     rule = fields.choice("rule", _PERIOD_RULES)
     path = fields.at("start_day")
@@ -409,7 +416,7 @@ def _period(fields: _Fields, inputs: Mapping[str, InputSpec]) -> PeriodRule:
     return PeriodRule(rule, StartDay(_whole(value, path, *_START_DAYS), None))
 
 
-def _start_day_input(fields: _Fields, inputs: Mapping[str, InputSpec]) -> StartDay:
+def _start_day_input(fields: Fields, inputs: Mapping[str, InputSpec]) -> StartDay:
     fields.only(required=("input",))
     name = fields.text("input")
     spec = inputs.get(name)
@@ -424,13 +431,13 @@ def _start_day_input(fields: _Fields, inputs: Mapping[str, InputSpec]) -> StartD
 # The bill tree. Each parser reads one node kind and refuses any field it does not own.
 
 
-def _rounding(fields: _Fields) -> NodeRounding:
+def _rounding(fields: Fields) -> NodeRounding:
     if not fields.has("round"):
         return NodeRounding.MINOR_UNIT
     return NodeRounding(fields.choice("round", [m.value for m in NodeRounding]))
 
 
-def _node(fields: _Fields, depth: int) -> Node:
+def _node(fields: Fields, depth: int) -> Node:
     if depth > MAX_TARIFF_TREE_DEPTH:
         raise DefinitionError(fields.path, f"is nested deeper than {MAX_TARIFF_TREE_DEPTH}")
     if not fields.has("kind"):
@@ -442,7 +449,7 @@ def _node(fields: _Fields, depth: int) -> Node:
     return parser(fields, depth)
 
 
-def _energy_by_band(fields: _Fields, depth: int) -> Node:
+def _energy_by_band(fields: Fields, depth: int) -> Node:
     fields.only(required=("kind",), optional=("round_bands", "round"))
     round_bands = fields.raw("round_bands") if fields.has("round_bands") else False
     if not isinstance(round_bands, bool):
@@ -450,22 +457,22 @@ def _energy_by_band(fields: _Fields, depth: int) -> Node:
     return EnergyByBand(round_bands, _rounding(fields))
 
 
-def _export_credit(fields: _Fields, depth: int) -> Node:
+def _export_credit(fields: Fields, depth: int) -> Node:
     fields.only(required=("kind",), optional=("round",))
     return ExportCredit(_rounding(fields))
 
 
-def _per_day(fields: _Fields, depth: int) -> Node:
+def _per_day(fields: Fields, depth: int) -> Node:
     fields.only(required=("kind", "amount"), optional=("round",))
     return PerDay(fields.money("amount"), _rounding(fields))
 
 
-def _per_period(fields: _Fields, depth: int) -> Node:
+def _per_period(fields: Fields, depth: int) -> Node:
     fields.only(required=("kind", "amount", "share"), optional=("round",))
     return PerPeriod(fields.money("amount"), fields.choice("share", _SHARES), _rounding(fields))
 
 
-def _adjust(fields: _Fields, depth: int) -> Node:
+def _adjust(fields: Fields, depth: int) -> Node:
     fields.only(required=("kind", "name", "percent", "of"), optional=("round",))
     percent = fields.signed("percent")
     if percent <= -100:
@@ -474,7 +481,7 @@ def _adjust(fields: _Fields, depth: int) -> Node:
     return Adjust(fields.text("name"), percent, child, _rounding(fields))
 
 
-def _tax(fields: _Fields, depth: int) -> Node:
+def _tax(fields: Fields, depth: int) -> Node:
     fields.only(required=("kind", "name", "percent", "mode", "of"), optional=("round",))
     percent = fields.money("percent")
     mode = TaxMode(fields.choice("mode", [m.value for m in TaxMode]))
@@ -482,7 +489,7 @@ def _tax(fields: _Fields, depth: int) -> Node:
     return Tax(fields.text("name"), percent, mode, child, _rounding(fields))
 
 
-def _sum(fields: _Fields, depth: int) -> Node:
+def _sum(fields: Fields, depth: int) -> Node:
     fields.only(required=("kind", "of"), optional=("round",))
     children = fields.child("of")
     nodes: dict[str, Node] = {}
@@ -495,7 +502,7 @@ def _sum(fields: _Fields, depth: int) -> Node:
     return Sum(nodes, _rounding(fields))
 
 
-_NODE_PARSERS: dict[str, Callable[[_Fields, int], Node]] = {
+_NODE_PARSERS: dict[str, Callable[[Fields, int], Node]] = {
     "energy_by_band": _energy_by_band,
     "export_credit": _export_credit,
     "per_day": _per_day,
@@ -506,20 +513,20 @@ _NODE_PARSERS: dict[str, Callable[[_Fields, int], Node]] = {
 }
 
 
-def _checks(doc: _Fields, import_prices: ImportPrices) -> dict[str, Check]:
+def _checks(doc: Fields, import_prices: ImportPrices) -> dict[str, Check]:
     if not doc.has("checks"):
         return {}
     bands = {import_prices.base.name, *(zone.name for zone in import_prices.zones)}
     fields = doc.child("checks")
     checks: dict[str, Check] = {}
     for name, _ in fields.items():
-        if not _SLUG.match(name):
+        if not SLUG.match(name):
             raise DefinitionError(fields.at(name), "is not a valid name")
         checks[name] = _check(fields.child(name), bands)
     return checks
 
 
-def _check(fields: _Fields, bands: Collection[str]) -> Check:
+def _check(fields: Fields, bands: Collection[str]) -> Check:
     fields.only(required=("period_days", "import_kwh_by_band", "export_kwh", "expected_total"))
     by_band = fields.child("import_kwh_by_band")
     kwh: dict[str, Decimal] = {}

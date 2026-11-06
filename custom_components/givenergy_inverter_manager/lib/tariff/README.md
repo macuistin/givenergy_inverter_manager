@@ -84,6 +84,22 @@ checks across bill lengths and tariff shapes. A bill start day after the 28th is
 a monthly period can name days 1 to 28 only. The options hold no ISO currency code, country or
 time zone, so the caller supplies them.
 
+## Index and sources
+
+`build_index(files, generated)` makes the tariff index from definition files (path to text). The
+index is grouped by country, then provider, then tariff, and each revision has its dates, path and
+a checksum over the file's canonical form (keys sorted, no spaces). The build refuses a file that
+is not at `country/provider/tariff/revision.json`, revisions of one tariff whose dates overlap, and
+a `supersedes` naming a revision that is not there. `latest` is the revision in force on the day the
+index was generated, and is null while all revisions are still to come.
+
+`parse_index(text)` reads an index back. `find_tariff` and `revision_in_force(tariff, day)` choose
+the revision that prices a day (the end date is excluded). A `TariffSource` hands over the index and
+the files. `load_revision(source, entry)` checks a file against its entry's checksum
+(`ChecksumMismatch`), parses it, and refuses one whose revision or dates disagree with the entry.
+An entry with no checksum, as a local definition has, is parsed but not checksummed. The library
+reads no disk or network; the source does.
+
 ## Allowed dependencies
 
 The standard library and `lib/timeutil`.

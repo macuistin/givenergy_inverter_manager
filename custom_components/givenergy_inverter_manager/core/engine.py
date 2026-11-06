@@ -437,6 +437,15 @@ class CoordinatorData:
     ev_sessions: EVSessionLog | None = None
     # This integration's open repair issues. The coordinator sets them, from the issue registry.
     active_repairs: tuple[RepairIssue, ...] = ()
+    # The entities the EV charger and the hot water are based on, with their state and when they
+    # last reported, for attributes. The coordinator sets them (core/source_health.py).
+    ev_sources: tuple[dict[str, Any], ...] = ()
+    immersion_sources: tuple[dict[str, Any], ...] = ()
+    # The GivTCP entity each live inverter reading comes from, by sensor key (solar_power, ...).
+    inverter_sources: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # ok, or error when a hot water source is missing, unavailable or silent, with the cause.
+    immersion_status: str = "ok"
+    immersion_status_cause: str = ""
     dry_run: bool = False
     # True while the test instance marker file exists. Set by the coordinator, which owns the file.
     test_instance: bool = False

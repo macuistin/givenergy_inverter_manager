@@ -382,6 +382,18 @@ def water_story_template(water: WaterNow) -> str:
     return text
 
 
+OFFLINE_SENTENCE = (
+    "**Charger not responding.** It may have no power or have lost its connection. "
+    "Check its supply and its network."
+)
+# card-mod template: a red card while the charger state sensor reads offline.
+OFFLINE_CARD_CSS = (
+    "ha-card {{% if is_state('{entity}', 'offline') %}}"
+    "background: var(--error-color); --primary-text-color: white; color: white;"
+    "{{% endif %}} }}"
+)
+
+
 @dataclass(frozen=True)
 class ChargerNow:
     """The sensors the EV charger sentence reads."""
@@ -408,15 +420,18 @@ def ev_story_template(ev: ChargerNow) -> str:
         if ev.state
         else "true"
     )
+    offline = f"states('{ev.state}') | lower == 'offline'" if ev.state else "false"
     text = (
-        f"{{% set p = {power} %}}{{% set plugged = {plugged} %}}"
-        f"{{% if p > {_FLOW_W} %}}**Charging at {{{{ (p / 1000) | round(1) }}}} kW**{source}."
+        f"{{% set p = {power} %}}{{% set plugged = {plugged} %}}{{% set offline = {offline} %}}"
+        f"{{% if offline %}}{OFFLINE_SENTENCE}"
+        f"{{% elif p > {_FLOW_W} %}}**Charging at {{{{ (p / 1000) | round(1) }}}} kW**{source}."
         "{% elif not plugged %}**Not charging.** The car is disconnected."
         f"{{% else %}}**Not charging.** The charger is {state}.{{% endif %}}"
     )
     if ev.surplus:
         text += (
-            f"{{% if plugged %}} Spare solar: {{{{ states('{ev.surplus}') | lower }}}}."
+            "{% if offline %}"
+            f"{{% elif plugged %}} Spare solar: {{{{ states('{ev.surplus}') | lower }}}}."
             f"{{% elif is_state('{ev.surplus}', 'Available') %}} Spare solar is available and "
             "would go to the car once it is plugged in."
             "{% else %} There is no spare solar for it right now.{% endif %}"
@@ -429,7 +444,8 @@ def ev_story_template(ev: ChargerNow) -> str:
         )
     if ev.charge_now:
         text += (
-            f"{{% if plugged and is_state('{ev.charge_now}', 'off') and p <= {_FLOW_W} %}}"
+            f"{{% if plugged and not offline and is_state('{ev.charge_now}', 'off')"
+            f" and p <= {_FLOW_W} %}}"
             "\n\nTo charge anyway, turn on **Charge now** below; **Pause** stops it."
             "{% endif %}"
         )
