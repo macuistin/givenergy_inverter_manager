@@ -169,6 +169,18 @@ You can also set **Battery cost** under **Configure**, on the Battery page.
 
 The repair appears once. If you do not want wear counted, select **Ignore** and it stays out of the way. It is raised again only if the cost is set and then set back to 0.
 
+## The EV charger is not responding
+
+The repair **The EV charger is not responding** appears when the charger's status sensor has been unavailable for about 5 minutes, or has not reported for 30 minutes. While it lasts the EV charger State sensor reads `offline` and, with the card-mod card installed, the charger box on the main page is red. No charge can start, whatever the plan says.
+
+The usual cause is no power, for example a breaker tripped or an isolator switched off at the fuse panel, or a lost network connection.
+
+1. Check the charger's supply at the fuse panel.
+2. Check the charger shows as connected in its own app.
+3. Open **Settings → Devices & services**, find the integration that provides the charger and reload it if it asks.
+
+The repair clears by itself when the charger reports again. The integration does not change anything in the meantime.
+
 ## EV is charging at the base rate
 
 The repair **EV is charging at the base rate** appears when the car draws from the grid in the base-rate band and your tariff has a cheaper band. The same session in the cheaper band costs less. The repair names the power, the base rate and when the next cheaper band starts, for example `about 7.2 kW at the Day rate, a cheaper band starts at 23:00`.
@@ -410,7 +422,7 @@ Saving reloads the integration once, when the sensor appears or goes. The sensor
 
 ## The Zappi changed to Eco+
 
-With a Zappi that has a charge mode entity, a car plugged in and net solar surplus of at least 1380 W, the integration selects Eco+. It never selects Stopped. The only way to stop it is dry run. See [Concepts](concepts.md#ev-charger).
+With a Zappi that has a charge mode entity, a car plugged in and net solar surplus of at least 1380 W, the integration selects Eco+. It selects Stopped only when no car is plugged in, when you press Pause, or when it takes the charger out of Fast with too little surplus to charge. See [Concepts](concepts.md#ev-charger).
 
 ## Totals are lower after a crash
 

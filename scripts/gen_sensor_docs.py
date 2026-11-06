@@ -234,6 +234,7 @@ KEY_GROUPS: dict[str, str] = {
     **dict.fromkeys(
         (
             "immersion_divert_reason",
+            "immersion_status",
             "immersion_water_temperature",
             "immersion_lower_water_temperature",
             "water_heating_cheapest_source",
@@ -582,6 +583,13 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "cheap_rate_floor_status": "State of the cheap rate floor top-up, or Inactive.",
     "immersion_divert_reason": "Why the immersion is on or off.",
+    "immersion_status": (
+        "ok, or error when the heater switch or a temperature sensor you set is missing or "
+        "unavailable, or a temperature sensor has not reported for an hour. The `cause` "
+        "attribute says which, and `sources` lists each entity with its state, when it last "
+        "reported and how many minutes ago. Needs the immersion switch. The red Hot water tile "
+        "on the main page shows while it reads error."
+    ),
     "immersion_water_temperature": (
         "Reading of the immersion temperature sensor you set. Also lets a stored dashboard "
         "show the water temperature as soon as a sensor is set. With Immersion Scheduled "
@@ -653,7 +661,10 @@ DESCRIPTIONS: dict[str, str] = {
         "Unavailable while the cost cannot be read."
     ),
     "ev_charger_state": (
-        "disconnected, connected, charging, paused, boosting, completed or unknown. "
+        "disconnected, connected, charging, paused, boosting, completed, unknown or offline "
+        "(the charger is unavailable). The `sources` attribute lists the status, power and session "
+        "energy entities it reads, with their state, when each last reported and how many "
+        "minutes ago. "
         "Charging and boosting need the charger to be drawing power."
     ),
     "car_plug_status": (

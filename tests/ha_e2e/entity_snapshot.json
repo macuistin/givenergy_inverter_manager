@@ -890,6 +890,11 @@
   "name": "Heater Today"
  },
  {
+  "entity_id": "sensor.immersion_hot_water_status",
+  "key": "immersion_status",
+  "name": "Hot Water Status"
+ },
+ {
   "entity_id": "sensor.immersion_lower_water_temperature",
   "key": "immersion_lower_water_temperature",
   "name": "Lower Water Temperature"

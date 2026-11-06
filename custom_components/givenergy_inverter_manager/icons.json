@@ -66,6 +66,7 @@
       "car_charging_power": {"default": "mdi:car-electric"},
       "car_at_home": {"default": "mdi:home-map-marker"},
       "ev_charger_state": {"default": "mdi:ev-station"},
+      "immersion_status": {"default": "mdi:water-boiler-alert"},
       "ev_power": {"default": "mdi:lightning-bolt"},
       "ev_session_energy": {"default": "mdi:battery-charging-outline"},
       "ev_session_cost": {"default": "mdi:car-electric"},
