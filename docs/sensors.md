@@ -182,7 +182,7 @@ These sensors exist only while a supported charger is discovered, and appear whe
 
 | Sensor | Key | Unit | Device class | State class | Last reset | Enabled | What it reports |
 |---|---|---|---|---|---|---|---|
-| State | `ev_charger_state` | - | - | none | no | yes | disconnected, connected, charging, paused, boosting, completed or unknown. Charging and boosting need the charger to be drawing power. Created only with an EV charger. EV charger needed. |
+| State | `ev_charger_state` | - | - | none | no | yes | disconnected, connected, charging, paused, boosting, completed, unknown or offline (the charger is unavailable). Charging and boosting need the charger to be drawing power. Created only with an EV charger. EV charger needed. |
 | Charging Power | `ev_power` | W | power | measurement | no | yes | EV charger power. Created only with an EV charger. EV charger needed. |
 | Session Energy | `ev_session_energy` | kWh | energy | total_increasing | no | yes | Energy of the current session, as reported by the charger. Created only with an EV charger. EV charger needed. |
 | Session Cost | `ev_session_cost` | currency | monetary | none | no | yes | Cost of the current charging session, or of the last one while the car is unplugged. A session runs from plug-in to unplug and keeps counting across midnight. Each step is priced as EV Charging Cost Today prices it, so solar that reached the car costs nothing. Attributes: `session_energy_kwh`, `started`, `ended` (empty while charging), `recent_sessions` (the last 10 finished sessions, newest first) and `recent_table` (the same as a markdown table). Created only with an EV charger. EV charger needed. |
