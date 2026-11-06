@@ -30,6 +30,8 @@ class EVChargerState(StrEnum):
     BOOSTING = "boosting"
     COMPLETED = "completed"
     UNKNOWN = "unknown"
+    # The status entity is unavailable: no power, or the link to the charger is down.
+    OFFLINE = "offline"
 
 
 ACTIVE_STATES = (EVChargerState.CHARGING, EVChargerState.BOOSTING)
@@ -219,7 +221,11 @@ class EVCharger:
 
     @property
     def is_plugged_in(self) -> bool:
-        return self.state not in (EVChargerState.DISCONNECTED, EVChargerState.UNKNOWN)
+        return self.state not in (
+            EVChargerState.DISCONNECTED,
+            EVChargerState.UNKNOWN,
+            EVChargerState.OFFLINE,
+        )
 
     @property
     def is_fully_discovered(self) -> bool:

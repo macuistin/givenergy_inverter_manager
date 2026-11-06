@@ -18,6 +18,7 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         requires=Device.EV_CHARGER,
         translation_key="ev_charger_state",
         value_fn=lambda d: d.ev_charger_state.value if d.ev_charger_state else None,
+        attrs_fn=values.ev_state_attributes,
         available_fn=lambda d: d.ev_available,
     ),
     GivEnergyManagerSensorDescription(
@@ -129,6 +130,16 @@ DESCRIPTIONS: tuple[GivEnergyManagerSensorDescription, ...] = (
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: round(d.today.immersion_cost, 4),
+    ),
+    GivEnergyManagerSensorDescription(
+        key="immersion_status",
+        requires=Device.IMMERSION_SWITCH,
+        translation_key="immersion_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=["ok", "error"],
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: d.immersion_status,
+        attrs_fn=values.immersion_status_attributes,
     ),
     GivEnergyManagerSensorDescription(
         key="immersion_water_temperature",
