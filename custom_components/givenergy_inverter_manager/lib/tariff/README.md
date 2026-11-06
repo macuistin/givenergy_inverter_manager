@@ -76,6 +76,14 @@ each slot takes the band in force at its start on the definition's clock, the zo
 priority winning (`band_at` gives one moment's band). A zone past midnight belongs to the day it
 began. Whether a date is a public holiday is passed in, because the package has no calendar. `tests/lib/tariff/test_engine.py` reproduces a worked October bill (187.35).
 
+`definition_from_config(config, Locale(currency, country, timezone_name, effective_from))` writes
+a `TariffConfig`, the tariff as the options hold it, as a definition and reads it back through
+`parse_definition`. The cheapest-wins rule becomes priorities, the dearest timed rate lowest. It
+prices the same bill as `TariffConfig.calculate_bill`, which `tests/lib/tariff/test_compile.py`
+checks across bill lengths and tariff shapes. A bill start day after the 28th is refused, because
+a monthly period can name days 1 to 28 only. The options hold no ISO currency code, country or
+time zone, so the caller supplies them.
+
 ## Allowed dependencies
 
 The standard library and `lib/timeutil`.
