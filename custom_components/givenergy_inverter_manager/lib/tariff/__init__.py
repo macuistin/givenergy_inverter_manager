@@ -3,6 +3,7 @@
 from .accumulator import CounterMemory, EnergyAccumulator
 from .bands import band_at, no_holidays
 from .billing import BillBreakdown, money
+from .compile import Locale, definition_from_config
 from .config import TariffConfig, cheapest_period
 from .definition import SCHEMA_VERSION, DefinitionError, TariffDefinition
 from .definition_parse import load_definition, parse_definition
@@ -15,6 +16,8 @@ from .stored_energy import StoredEnergy, stored_energy_change, value_per_stored_
 
 __all__ = [
     "SCHEMA_VERSION",
+    "Locale",
+    "definition_from_config",
     "band_at",
     "no_holidays",
     "BillInputs",
