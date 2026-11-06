@@ -276,7 +276,7 @@ The advice needs the setting on, a cost or a cost sensor, and an immersion switc
 
 The page says which charger was found. The charger is found automatically and there is nothing to choose. Car efficiency converts the energy delivered to the car into kilometres.
 
-The car is optional. Pick the entities your car's own integration provides, and leave out any it does not have:
+The car is optional. Pick the entities your car's own integration provides, and leave out any it does not have: When no car is saved yet, the page suggests the entities of a device that has a device tracker, a battery sensor in percent and a plug sensor. It suggests nothing if more than one device fits, and every suggestion can be changed or cleared.
 
 | Field | Key | Notes |
 |---|---|---|

@@ -13,6 +13,7 @@ defaults, because a placeholder rate is not a real one.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
@@ -400,32 +401,37 @@ def hot_water_schema(ctx: PageContext) -> vol.Schema:
     )
 
 
-def _car_key(car: dict[str, Any], key: str) -> vol.Optional:
-    """Optional key of the car form that suggests the saved value and has no default."""
-    if car.get(key):
-        return vol.Optional(key, description={"suggested_value": car[key]})
+def _car_key(
+    car: dict[str, Any], key: str, found: Mapping[str, str] | None = None
+) -> vol.Optional:
+    """Optional key of the car form that suggests the saved value, else a found one."""
+    value = car.get(key) or (found or {}).get(key)
+    if value:
+        return vol.Optional(key, description={"suggested_value": value})
     return vol.Optional(key)
 
 
-def ev_schema(ctx: PageContext) -> vol.Schema:
+def ev_schema(ctx: PageContext, found: Mapping[str, str] | None = None) -> vol.Schema:
     """The car efficiency and the first car. The charger itself is found automatically.
 
     The car's entities are picked by the user, because car makers name theirs too differently to
-    find by name.
+    find by name. `found` holds the entities of a device that looks like a car. They are only
+    suggested for a car with nothing saved yet, and the user can change them.
     """
     efficiency = ctx.current.get(
         CONF_CAR_EFFICIENCY_KWH_PER_100KM, DEFAULT_CAR_EFFICIENCY_KWH_PER_100KM
     )
     car = first_car(ctx.current)
+    found = None if any(car.values()) else found
     return vol.Schema(
         {
             vol.Optional(
                 CONF_CAR_EFFICIENCY_KWH_PER_100KM, default=float(efficiency)
             ): number_selector(CONF_CAR_EFFICIENCY_KWH_PER_100KM),
             _car_key(car, CAR_KEY_NAME): selector.TextSelector(),
-            _car_key(car, CAR_KEY_BATTERY_ENTITY): entity_selector(["sensor", "number"]),
-            _car_key(car, CAR_KEY_PLUG_ENTITY): entity_selector(["binary_sensor", "sensor"]),
-            _car_key(car, CAR_KEY_TRACKER_ENTITY): entity_selector("device_tracker"),
+            _car_key(car, CAR_KEY_BATTERY_ENTITY, found): entity_selector(["sensor", "number"]),
+            _car_key(car, CAR_KEY_PLUG_ENTITY, found): entity_selector(["binary_sensor", "sensor"]),
+            _car_key(car, CAR_KEY_TRACKER_ENTITY, found): entity_selector("device_tracker"),
             _car_key(car, CAR_KEY_BATTERY_KWH): number_selector(CAR_KEY_BATTERY_KWH),
         }
     )

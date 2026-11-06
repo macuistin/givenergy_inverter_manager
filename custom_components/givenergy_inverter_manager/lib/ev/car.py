@@ -198,3 +198,58 @@ def read_car(
         battery_pct=level,
         age_s=max(ages) if ages else None,
     )
+
+
+@dataclass(frozen=True)
+class EntityFacts:
+    """What the entity registry says about one entity, for finding a car's entities."""
+
+    entity_id: str
+    device_id: str | None
+    device_class: str | None
+    unit: str | None = None
+
+
+def suggest_car_entities(entities: list[EntityFacts]) -> dict[str, str]:
+    """The entities of the one device that looks like a car, or nothing when unsure.
+
+    A device is a car when it has a device tracker, a battery level sensor in percent and a
+    binary sensor of device class plug. A phone has the first two but no plug sensor. When more
+    than one device qualifies nothing is suggested, because a wrong guess is worse than none.
+    """
+    by_device: dict[str, list[EntityFacts]] = {}
+    for entity in entities:
+        if entity.device_id:
+            by_device.setdefault(entity.device_id, []).append(entity)
+    found: list[dict[str, str]] = []
+    for members in by_device.values():
+        tracker = _first(members, "device_tracker", None)
+        plug = _first(members, "binary_sensor", "plug")
+        battery = next(
+            (
+                m.entity_id
+                for m in members
+                if m.entity_id.startswith("sensor.")
+                and m.device_class == "battery"
+                and m.unit == "%"
+            ),
+            None,
+        )
+        if tracker and plug and battery:
+            found.append(
+                {
+                    CAR_KEY_TRACKER_ENTITY: tracker,
+                    CAR_KEY_PLUG_ENTITY: plug,
+                    CAR_KEY_BATTERY_ENTITY: battery,
+                }
+            )
+    return found[0] if len(found) == 1 else {}
+
+
+def _first(members: list[EntityFacts], domain: str, device_class: str | None) -> str | None:
+    for member in members:
+        if member.entity_id.startswith(f"{domain}.") and (
+            device_class is None or member.device_class == device_class
+        ):
+            return member.entity_id
+    return None
