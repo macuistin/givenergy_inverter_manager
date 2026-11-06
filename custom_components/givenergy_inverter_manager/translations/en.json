@@ -815,6 +815,13 @@
       "immersion_divert_reason": {
         "name": "Immersion Divert Reason"
       },
+      "immersion_status": {
+        "name": "Hot Water Status",
+        "state": {
+          "ok": "OK",
+          "error": "Error"
+        }
+      },
       "immersion_water_temperature": {
         "name": "Water Temperature"
       },

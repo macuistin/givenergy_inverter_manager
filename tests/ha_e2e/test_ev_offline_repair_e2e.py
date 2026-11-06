@@ -35,3 +35,15 @@ async def test_an_unavailable_charger_raises_one_error_repair_and_clears(
     hass.states.async_set(STATUS, ZAPPI_STATES[STATUS])
     await coordinator.async_refresh()
     assert _issue(hass) is None
+
+
+async def test_the_charger_state_lists_its_source_entities_with_their_report_times(
+    hass, loaded_entry_with_charger, sensor_entries
+):
+    await loaded_entry_with_charger.runtime_data.async_refresh()
+    entity = next(
+        e for e in sensor_entries(hass, loaded_entry_with_charger) if e.unique_id.endswith("_ev_charger_state")
+    )
+    sources = {row["role"]: row for row in hass.states.get(entity.entity_id).attributes["sources"]}
+    assert sources["status"]["entity_id"] == STATUS
+    assert sources["status"]["last_reported"] is not None

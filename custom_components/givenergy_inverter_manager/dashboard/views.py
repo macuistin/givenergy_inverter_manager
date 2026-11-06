@@ -595,15 +595,23 @@ class Builder:
     def _water_tiles(self, shown: frozenset[Device]) -> dict[str, Any] | None:
         """The hot water figures for the devices of *shown*, each opening the Hot water view.
 
-        The heater is shown as on or off, read from the managed switch, which is on while the
-        integration has the heater on. Its entity ID is known before the switch exists, so the
-        tile appears when a switch is added later with no new dashboard.
+        A red tile shows first, only while the Hot water Status sensor reads error, with the
+        cause in that sensor's attributes. The heater is shown as on or off, read from the
+        managed switch, which is on while the integration has the heater on. Its entity ID is
+        known before the switch exists, so the tile appears when a switch is added later with no
+        new dashboard.
         """
         sensor = Device.IMMERSION_SENSOR in shown
         heater = Device.IMMERSION_SWITCH in shown
         nav = self.go(SUB_IMMERSION)
+        status = self.immersion("immersion_status") if heater else None
+        error = with_visibility(
+            figure_tile(status, "Hot water", "mdi:water-boiler-alert", "red", nav),
+            [{"condition": "state", "entity": status, "state": "error"}],
+        )
         return tile_grid(
             [
+                error if status else None,
                 figure_tile(
                     self.water_sensor("immersion_water_temperature") if sensor else None,
                     "Water",

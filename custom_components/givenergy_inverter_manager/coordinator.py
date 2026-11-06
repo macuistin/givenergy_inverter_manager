@@ -176,6 +176,8 @@ from .core.scheduled_run import HeldScheduledRun
 from .core.seasons import season_rules
 from .core.setup_progress import SetupFacts, setup_items
 from .core.slot_sampler import SlotSampler
+from .core.source_health import Source, describe
+from .core.source_health import status as source_status
 from .core.sunrise_hold import HeldSunrise
 from .core.switch_commands import CommandHealth, after_failure, after_success
 from .core.system_types import SystemIdentity, identity_of, select_controller, what_changed
@@ -1782,6 +1784,7 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self._apply_decisions(data, ev_target_mode, now)
         self._attach_setup_progress(data, raw, cfg)
         data.active_repairs = await async_active_repairs(self.hass)
+        self._attach_source_health(data, cfg, now)
         return data
 
     def _begin_cycle(self) -> None:
@@ -2214,6 +2217,51 @@ class GivEnergyCoordinator(DataUpdateCoordinator[CoordinatorData]):
             return
         self.data.active_repairs = await async_active_repairs(self.hass)
         self.async_update_listeners()
+
+    def _source(
+        self, role: str, entity_id: str | None, *, can_be_stale: bool = True
+    ) -> Source | None:
+        """What an entity another device is based on is doing, None when none is configured."""
+        if not entity_id:
+            return None
+        state = self._get_state(entity_id)
+        reported = getattr(state, "last_reported", None)
+        return Source(
+            role,
+            entity_id,
+            state.state if state is not None else None,
+            reported if isinstance(reported, datetime) else None,
+            can_be_stale,
+        )
+
+    def _attach_source_health(
+        self, data: CoordinatorData, cfg: dict[str, Any], now: datetime
+    ) -> None:
+        """Put the EV charger's and the hot water's source entities on the data for attributes.
+
+        The hot water is in error when a source is missing or unavailable, or a temperature
+        sensor has not reported for an hour. A switch reports only on change, so it is never
+        stale.
+        """
+        charger = self._ev_charger
+        if charger is not None:
+            ev = (
+                self._source("status", charger.status_entity),
+                self._source("power", charger.power_entity),
+                self._source("session energy", charger.session_energy_entity),
+            )
+            data.ev_sources = tuple(describe(tuple(s for s in ev if s), now))
+        water = tuple(
+            source
+            for source in (
+                self._source("heater switch", cfg.get(CONF_IMMERSION_SWITCH), can_be_stale=False),
+                self._source("water temperature", cfg.get(CONF_IMMERSION_TEMP_SENSOR)),
+                self._source("lower water temperature", cfg.get(CONF_IMMERSION_LOWER_TEMP_SENSOR)),
+            )
+            if source
+        )
+        data.immersion_sources = tuple(describe(water, now))
+        data.immersion_status, data.immersion_status_cause = source_status(water, now)
 
     def _attach_setup_progress(
         self, data: CoordinatorData, raw: RawSensorValues, cfg: dict[str, Any]
