@@ -639,7 +639,8 @@ DESCRIPTIONS: dict[str, str] = {
         "Unavailable while the cost cannot be read."
     ),
     "ev_charger_state": (
-        "disconnected, connected, charging, paused, boosting, completed, unknown or offline (the charger is unavailable). "
+        "disconnected, connected, charging, paused, boosting, completed, unknown or offline "
+        "(the charger is unavailable). "
         "Charging and boosting need the charger to be drawing power."
     ),
     "ev_power": "EV charger power.",
