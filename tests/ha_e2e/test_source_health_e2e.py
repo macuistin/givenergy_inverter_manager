@@ -38,3 +38,21 @@ async def test_a_live_inverter_sensor_names_the_givtcp_entity_it_reads(
         (source,) = sensor.attributes["sources"]
         assert source["entity_id"].startswith("sensor.")
         assert source["last_reported"] is not None
+
+
+async def test_the_other_proxy_sensors_name_the_entity_they_read(hass, loaded_entry, sensor_entries):
+    from conftest import CARBON, IMMERSION_LOWER_TEMP, INV_TEMP
+
+    await loaded_entry.runtime_data.async_refresh()
+    expected = {
+        "inverter_temperature": INV_TEMP,
+        "immersion_water_temperature": IMMERSION_TEMP,
+        "immersion_lower_water_temperature": IMMERSION_LOWER_TEMP,
+    }
+    for key, entity_id in expected.items():
+        (source,) = _state(hass, sensor_entries, loaded_entry, key).attributes["sources"]
+        assert source["entity_id"] == entity_id
+        assert source["last_reported"] is not None
+    # Carbon intensity is off by default, so its sensor has no state to read here.
+    row = loaded_entry.runtime_data.data.inverter_sources["carbon_intensity"]
+    assert row["entity_id"] == CARBON

@@ -272,6 +272,9 @@ def immersion_water_attributes(data: CoordinatorData) -> dict[str, Any] | None:
     attributes = immersion_ready_attributes(data) or {}
     if data.immersion_planned_heating is not None:
         attributes = {**attributes, "planned_heating": data.immersion_planned_heating}
+    row = data.inverter_sources.get("immersion_water_temperature")
+    if row:
+        attributes = {**attributes, "sources": [row]}
     return attributes or None
 
 
